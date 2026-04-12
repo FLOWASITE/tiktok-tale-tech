@@ -1,36 +1,71 @@
 
 
-# Hoàn thiện chế độ xem "Theo kênh"
+# Cải thiện UI chế độ "Theo kênh" cho Social
 
-## Vấn đề hiện tại
-
-Chế độ xem đã hoạt động cơ bản nhưng còn thiếu một số chi tiết:
-
-1. **Dùng `paginatedContents` thay vì `filteredContents`**: Channel view nhóm theo kênh nên cần dùng toàn bộ danh sách đã lọc, không phải danh sách đã phân trang — nếu không sẽ thiếu bài ở các kênh
-2. **Loading skeleton không hỗ trợ channel mode**: Khi loading, channel view hiện skeleton của list view thay vì skeleton phù hợp
-3. **Thiếu `onScheduleComplete`**: Grid view truyền callback này cho card nhưng ChannelGroupView thì không
-4. **Thiếu thông tin trạng thái theo kênh**: Mỗi section kênh chỉ hiện badge tổng số bài — nên thêm mini-stats (đã đăng / chờ duyệt / nháp) để quản lý dễ hơn
-5. **Ẩn pagination khi ở channel mode**: Pagination control không cần thiết khi xem theo kênh
-6. **Thêm separator + collapsible**: Cho phép thu gọn từng section kênh để dễ dàng điều hướng khi có nhiều kênh
+## Tổng quan
+Nâng cấp giao diện Channel Group View với 3 cải thiện: header kênh có màu brand, thông tin tài khoản đã kết nối, và nút hành động nhanh theo kênh.
 
 ## Thay đổi
 
-### 1. `src/pages/MultiChannel.tsx`
-- Truyền `filteredContents` thay vì `paginatedContents` cho `ChannelGroupView`
-- Ẩn phần pagination khi `viewMode === 'channel'`
-- Thêm loading skeleton cho channel mode
-- Truyền thêm `onScheduleComplete` prop
+### 1. `src/components/multichannel/ChannelGroupView.tsx` — Redesign toàn bộ
 
-### 2. `src/components/multichannel/ChannelGroupView.tsx`
-- Nhận thêm prop `onScheduleComplete`
-- Thêm mini-stats cho mỗi channel section: badges hiển thị số bài draft / approved / published
-- Thêm collapsible toggle cho mỗi section kênh (dùng `Collapsible` từ radix)
-- Thêm separator giữa các section
-- Truyền `onScheduleComplete` xuống `MultiChannelCard`
+**Header kênh nổi bật hơn:**
+- Áp dụng màu brand từ `channelColors.ts` cho mỗi section header (background gradient nhẹ + left border đậm)
+- Icon kênh lớn hơn (size `lg`) với background brand color
+- Label kênh đậm hơn, font size lớn hơn
 
-### Files
+**Thông tin kết nối social:**
+- Nhận thêm prop `socialConnections` từ hook `useSocialConnections`
+- Hiển thị avatar + username tài khoản đã kết nối bên cạnh tên kênh
+- Badge "Đã kết nối" (xanh) hoặc "Chưa kết nối" (cam) 
+
+**Nút hành động nhanh:**
+- Thêm nút "Đăng tất cả" (cho bài approved chưa đăng) ở góc phải header mỗi kênh
+- Nút "Lên lịch" cho bulk schedule theo kênh
+- Các nút chỉ hiện khi có bài eligible (approved + chưa published)
+
+### 2. `src/pages/MultiChannel.tsx` — Truyền thêm data
+
+- Gọi `useSocialConnections` để lấy danh sách kết nối
+- Truyền `socialConnections` xuống `ChannelGroupView`
+- Cần lấy `brandTemplateId` từ content hoặc filter hiện tại
+
+### 3. `src/components/multichannel/ChannelGroupView.tsx` — Layout chi tiết
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ 🔵 Facebook  @MyPage • Đã kết nối    [Đăng tất cả] │
+│  3 bài  |  1 đã đăng  |  1 duyệt  |  1 nháp        │
+├─────────────────────────────────────────────────────┤
+│ [Card] [Card] [Card]                                │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ ⬛ X (Twitter)  @handle • Đã kết nối  [Đăng tất cả] │
+│  2 bài  |  2 đã đăng                                │
+├─────────────────────────────────────────────────────┤
+│ [Card] [Card]                                       │
+└─────────────────────────────────────────────────────┘
+```
+
+## Technical Details
+
 | File | Thay đổi |
 |------|----------|
-| `src/pages/MultiChannel.tsx` | Truyền `filteredContents`, ẩn pagination, loading skeleton channel |
-| `src/components/multichannel/ChannelGroupView.tsx` | Mini-stats, collapsible sections, onScheduleComplete |
+| `src/components/multichannel/ChannelGroupView.tsx` | Redesign header với brand colors, connection info, action buttons |
+| `src/pages/MultiChannel.tsx` | Gọi `useSocialConnections`, truyền connections xuống |
+| `src/utils/channelColors.ts` | Đã có sẵn, dùng trực tiếp |
+
+**Props mới cho ChannelGroupView:**
+- `socialConnections?: SocialConnection[]` — danh sách kết nối social active
+
+**Mapping kênh → connection:**
+- Map `Channel` type sang `SocialPlatform` (twitter↔twitter, facebook↔facebook...)
+- Tìm connection có `is_active === true` matching platform
+- Hiển thị `platform_avatar_url` + `platform_username`
+
+**Nút "Đăng tất cả":**
+- Filter items có `status === 'approved'` và channel chưa published trong `channel_statuses`
+- Gọi publish tuần tự hoặc song song cho từng bài eligible
+- Disable nút khi không có connection hoặc không có bài eligible
 
