@@ -361,7 +361,7 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
 // ─── Branch Timeline ───
 function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
   flowPrefix: string;
-  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean; hasExamples?: boolean; hasBullets?: boolean; hasChannels?: boolean }[];
+  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean; hasExamples?: boolean; hasBullets?: boolean; hasChannels?: boolean; hasCriteria?: boolean }[];
   icons: React.ElementType[];
   stepImages: Record<number, { images: string[]; alt: string } | undefined>;
   activeIndex: number;
@@ -396,6 +396,7 @@ function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
               hasExamples={step.hasExamples}
               hasBullets={step.hasBullets}
               hasChannels={step.hasChannels}
+              hasCriteria={step.hasCriteria}
               icon={icons[index]}
             />
           );
