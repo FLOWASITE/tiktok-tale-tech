@@ -56,6 +56,7 @@ export default function MultiChannel() {
     saveChannelImage,
     deleteChannelImage,
     expandChannels,
+    refetch,
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
@@ -77,8 +78,12 @@ export default function MultiChannel() {
   const contentIds = useMemo(() => contents.map(c => c.id), [contents]);
   const { data: geoScoresMap } = useGEOContentScores(contentIds);
   
-  const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const selectedContent = useMemo(() => 
+    selectedContentId ? contents.find(c => c.id === selectedContentId) || null : null,
+    [selectedContentId, contents]
+  );
 
   // Handle prefill from Topics Hub - redirect to create page
   useEffect(() => {
@@ -94,7 +99,7 @@ export default function MultiChannel() {
     if (prefillData?.viewContentId && !loading) {
       const contentToView = contents.find(c => c.id === prefillData.viewContentId);
       if (contentToView) {
-        setSelectedContent(contentToView);
+        setSelectedContentId(contentToView.id);
         setViewerOpen(true);
         if (prefillData.autoOpenImageGen) {
           setAutoOpenImageGen(true);
@@ -228,7 +233,7 @@ export default function MultiChannel() {
   };
 
   const handleView = (content: MultiChannelContent) => {
-    setSelectedContent(content);
+    setSelectedContentId(content.id);
     setViewerOpen(true);
   };
 
@@ -238,15 +243,11 @@ export default function MultiChannel() {
   };
 
   const handleRegenerate = async (contentId: string, channel: Channel) => {
-    const updated = await regenerateChannel(contentId, channel);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await regenerateChannel(contentId, channel);
   };
 
   const handleUpdateContent = async (contentId: string, channel: Channel, newContent: string) => {
-    const updated = await updateChannelContent(contentId, channel, newContent);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await updateChannelContent(contentId, channel, newContent);
   };
 
   const handleAIEdit = async (contentId: string, channel: Channel, instruction: string, currentContent: string) => {
@@ -254,21 +255,15 @@ export default function MultiChannel() {
   };
 
   const handleUpdateTitleTopic = async (contentId: string, title: string, topic: string) => {
-    const updated = await updateTitleTopic(contentId, title, topic);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await updateTitleTopic(contentId, title, topic);
   };
 
   const handleUpdateChannelStatus = async (contentId: string, channel: Channel, status: ContentStatus) => {
-    const updated = await updateChannelStatus(contentId, channel, status);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await updateChannelStatus(contentId, channel, status);
   };
 
   const handleExpandChannels = async (contentId: string, newChannels: Channel[]) => {
-    const updated = await expandChannels(contentId, newChannels);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await expandChannels(contentId, newChannels);
   };
 
   const handleDelete = async (id: string) => {
@@ -562,7 +557,8 @@ export default function MultiChannel() {
         onDeleteChannelImage={deleteChannelImage}
         onUpdateChannelStatus={handleUpdateChannelStatus}
         onExpandChannels={handleExpandChannels}
-        onContentUpdated={(updated) => setSelectedContent(updated)}
+        onContentUpdated={(updated) => setSelectedContentId(updated.id)}
+        onPublishSuccess={refetch}
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
         expandingChannels={expandingChannels}
@@ -590,7 +586,7 @@ export default function MultiChannel() {
           contentId={newlyCreatedContent.id}
           onAssign={() => setShowAssignmentDialog(true)}
           onSkip={() => {
-            setSelectedContent(newlyCreatedContent);
+            setSelectedContentId(newlyCreatedContent.id);
             setViewerOpen(true);
           }}
         />

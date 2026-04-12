@@ -294,7 +294,7 @@ export default function ContentCalendar() {
   const [statusFilter, setStatusFilter] = useState<PublishStatus | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
   const [draggedSchedule, setDraggedSchedule] = useState<ScheduleWithContent | null>(null);
-  const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [showMiniCalendar, setShowMiniCalendar] = useState(true);
@@ -331,6 +331,7 @@ export default function ContentCalendar() {
     updateTitleTopic,
     updateChannelStatus,
     expandChannels,
+    refetch: refetchContents,
   } = useMultiChannelContents();
   
   // Campaign milestones integration
@@ -348,6 +349,12 @@ export default function ContentCalendar() {
     deleteNote,
   } = useCalendarNotes();
   
+  // Derive selectedContent from fresh contents array
+  const selectedContent = useMemo(() => 
+    selectedContentId ? contents.find(c => c.id === selectedContentId) || null : null,
+    [selectedContentId, contents]
+  );
+
   // Combine all milestones for calendar display
   const allMilestones = useMemo(() => {
     return [...upcomingMilestones, ...todayMilestones, ...overdueMilestones];
@@ -629,7 +636,7 @@ export default function ContentCalendar() {
   const handleScheduleClick = async (schedule: ScheduleWithContent) => {
     const content = contents.find(c => c.id === schedule.content_id);
     if (content) {
-      setSelectedContent(content);
+      setSelectedContentId(content.id);
       setViewerOpen(true);
     }
   };
@@ -638,15 +645,13 @@ export default function ContentCalendar() {
     const result = await generateContent(formData);
     if (result) {
       setFormOpen(false);
-      setSelectedContent(result);
+      setSelectedContentId(result.id);
       setViewerOpen(true);
     }
   };
 
   const handleExpandChannels = async (contentId: string, newChannels: Channel[]) => {
-    const updated = await expandChannels(contentId, newChannels);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await expandChannels(contentId, newChannels);
   };
 
   // Handle scheduling a topic from Topics Hub
@@ -895,7 +900,7 @@ export default function ContentCalendar() {
               onViewContent={(contentId) => {
                 const content = contents.find(c => c.id === contentId);
                 if (content) {
-                  setSelectedContent(content);
+                  setSelectedContentId(content.id);
                   setViewerOpen(true);
                 }
               }}
@@ -1150,7 +1155,8 @@ export default function ContentCalendar() {
         onUpdateTitleTopic={updateTitleTopic}
         onUpdateChannelStatus={updateChannelStatus}
         onExpandChannels={handleExpandChannels}
-        onContentUpdated={(updated) => setSelectedContent(updated)}
+        onContentUpdated={(updated) => setSelectedContentId(updated.id)}
+        onPublishSuccess={refetchContents}
         expandingChannels={expandingChannels}
       />
 
