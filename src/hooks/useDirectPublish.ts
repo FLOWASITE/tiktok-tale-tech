@@ -186,6 +186,7 @@ export function useDirectPublish() {
         slug: options.blogData?.slug,
         category: options.blogData?.category,
         tags: options.blogData?.tags,
+        cover_image: options.mediaUrls?.[0] || null,
         mediaUrls: options.mediaUrls,
         status: 'published',
         is_public: !!options.isPublic,
