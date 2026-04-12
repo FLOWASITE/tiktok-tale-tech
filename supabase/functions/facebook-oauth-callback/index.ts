@@ -1,8 +1,9 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decrypt as decryptGCM, encrypt as encryptGCM } from "../_shared/crypto.ts";
-import { decrypt as decryptGCM, encrypt as encryptGCM } from "../_shared/crypto.ts";
-import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
+import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
