@@ -1,35 +1,71 @@
 
 
-# Fix: Bảng Markdown không render đúng trên Blog
+# Làm lại UI trang /blog
 
-## Nguyên nhân
+## Phân tích hiện tại
 
-`ReactMarkdown` mặc định chỉ hỗ trợ Markdown cơ bản. Bảng (table), strikethrough, autolink... thuộc **GFM (GitHub Flavored Markdown)** và cần plugin `remark-gfm`. Hiện tại project chưa cài plugin này, nên bảng hiển thị dạng text thô `| ... | ... |`.
+Trang `/blog` hiện có layout cơ bản với featured post + grid 3 cột. Tuy nhiên thiếu sự tinh tế theo design system "Soft Luxury" của project và có một số vấn đề:
+- Hero section quá lớn, gradient màu rực rỡ không phù hợp soft luxury
+- Featured post card chưa tinh tế
+- Grid cards thiếu chiều sâu
+- Footer đơn giản, không dùng chung component
+- Thiếu category filter/tabs
+- CTA section gradient quá sặc sỡ
 
-## Giải pháp
+## Thiết kế mới
 
-### 1. Cài đặt `remark-gfm`
+### Layout tổng quan
 
-```bash
-npm install remark-gfm
+```text
+┌─────────────────────────────────────┐
+│  LandingNav                         │
+├─────────────────────────────────────┤
+│  Breadcrumb                         │
+├─────────────────────────────────────┤
+│  Hero: Minimal title + subtitle     │
+│  Category filter tabs               │
+├─────────────────────────────────────┤
+│  Featured Post (full-width card)    │
+│  ┌──────────┬──────────────────┐    │
+│  │  Image   │  Title, excerpt  │    │
+│  │          │  metadata, CTA   │    │
+│  └──────────┴──────────────────┘    │
+├─────────────────────────────────────┤
+│  Grid 3 cols (post cards)           │
+│  ┌────┐ ┌────┐ ┌────┐              │
+│  │    │ │    │ │    │              │
+│  └────┘ └────┘ └────┘              │
+├─────────────────────────────────────┤
+│  Pagination                         │
+├─────────────────────────────────────┤
+│  CTA: Monochrome, subtle           │
+├─────────────────────────────────────┤
+│  Footer                             │
+└─────────────────────────────────────┘
 ```
 
-### 2. Sửa `DynamicBlogPost.tsx`
+### Thay đổi chi tiết
 
-- Import `remarkGfm` và truyền vào `ReactMarkdown` qua prop `remarkPlugins={[remarkGfm]}`
-- Thêm custom component cho `table`, `thead`, `tbody`, `tr`, `th`, `td` để styling đẹp (border, padding, striped rows)
+1. **Hero section** — Thu gọn, loại bỏ gradient rực rỡ. Tiêu đề đơn giản, monochromatic. Thêm category filter tabs (All, Product, Strategy, AI, Guide).
 
-### 3. Thêm table styles vào `src/index.css`
+2. **Featured post** — Giữ layout 2 cột nhưng tinh chỉnh: border mỏng hơn, shadow subtle, hover effect nhẹ nhàng hơn. Loại bỏ gradient overlay trên ảnh.
 
-Thêm CSS cho `.blog-prose table` với:
-- Border và border-collapse
-- Header có background highlight
-- Alternating row colors
-- Responsive overflow-x scroll trên mobile
+3. **Post cards** — Thiết kế lại với: ảnh cover có aspect-ratio 16/9, hover lift effect nhẹ, category tag nhỏ phía trên title, metadata dùng separator dot thay vì icon.
+
+4. **CTA section** — Chuyển sang monochromatic: background `bg-muted/30`, border subtle, không dùng gradient nhiều màu.
+
+5. **Category filtering** — Thêm tabs/pills filter theo category, filter client-side từ danh sách posts đã fetch.
+
+6. **Search** — Thêm ô search đơn giản filter theo title.
+
+## Technical details
+
+- Thêm state `selectedCategory` và `searchQuery` để filter posts
+- Category list được extract tự động từ posts data
+- Filter áp dụng trước pagination
+- Giữ nguyên data fetching logic (DB + static fallback)
 
 ## Files thay đổi
 
-- **Install**: `remark-gfm`
-- **Edit**: `src/landing/components/DynamicBlogPost.tsx` — thêm remarkGfm plugin + table components
-- **Edit**: `src/index.css` — thêm table styles cho `.blog-prose`
+- **Edit**: `src/landing/pages/Blog.tsx` — Làm lại toàn bộ UI: hero, cards, filter, CTA
 
