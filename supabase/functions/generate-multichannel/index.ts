@@ -3650,7 +3650,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     // Build tool parameters based on selected channels
     const channelProperties: Record<string, object> = {};
 const channelDescriptions: Record<string, string> = {
-      website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA mềm. Markdown format.",
+      website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections với bullet points (- item) và numbered lists (1. item) để dễ đọc, blockquote cho trích dẫn quan trọng, **bold** cho keyword, conclusion với CTA mềm. BẮT BUỘC dùng bullet list hoặc numbered list trong ít nhất 2 section. Markdown format.",
       facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
       instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
       twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -3831,7 +3831,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     const buildToolsForChannels = (channels: string[]) => {
       const channelProps: Record<string, object> = {};
       const channelDescs: Record<string, string> = {
-        website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA mềm. Markdown format.",
+        website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections với bullet points (- item) và numbered lists (1. item) để dễ đọc, blockquote cho trích dẫn quan trọng, **bold** cho keyword, conclusion với CTA mềm. BẮT BUỘC dùng bullet list hoặc numbered list trong ít nhất 2 section. Markdown format.",
         facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
         instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
         twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
