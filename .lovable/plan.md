@@ -1,93 +1,54 @@
 
 
-# Tích hợp Blog với hệ thống Flowa — Dynamic Blog Publishing
+# Thêm hỗ trợ Blogger, Wix, Shopify Blog
 
 ## Tổng quan
+Mở rộng hệ thống kết nối website hiện tại (đang chỉ hỗ trợ WordPress, Custom API, Webhook, Manual) để thêm 3 nền tảng blog phổ biến: **Blogger (Google)**, **Wix**, và **Shopify Blog**.
 
-Hiện tại blog đang dùng các component React tĩnh (BlogPostFlowa.tsx, BlogPostMultiChannel.tsx...). Để Flowa có thể tự động đăng bài blog, cần chuyển sang mô hình **dynamic blog** lưu trữ trong database, kết nối với pipeline content của Flowa.
-
-## Kiến trúc
-
-```text
-Flowa AI Agent Pipeline
-  → generate-multichannel (website_content + website_seo_data)
-  → publish-website / publish-blog (mới)
-  → blog_posts table (mới)
-  → Landing Blog UI (đọc từ DB)
-```
+## Kiến trúc hiện tại
+- UI: `BrandViewConnectionsTab.tsx` có dropdown `integrationType` với 4 options
+- Backend: `connect-website` edge function lưu connection, `publish-website` edge function xử lý publish theo `integrationType`
+- Tất cả dùng chung platform `website` trong `social_connections` table
 
 ## Thay đổi
 
-### 1. Tạo bảng `blog_posts` (Migration)
+### 1. UI — Thêm 3 options vào dropdown integrationType
+Thêm `blogger`, `wix`, `shopify_blog` vào select dropdown. Mỗi nền tảng có form fields riêng:
 
-Lưu trữ bài viết blog với đầy đủ metadata:
+- **Blogger**: Blog URL + API Key (Google API Key với Blogger API v3 enabled)
+- **Wix**: Site URL + API Key (Wix REST API key)
+- **Shopify Blog**: Store URL (mystore.myshopify.com) + Admin API Access Token
 
-| Column | Type | Mô tả |
-|--------|------|-------|
-| id | uuid | PK |
-| slug | text | URL slug, unique |
-| title | text | Tiêu đề bài viết |
-| excerpt | text | Mô tả ngắn |
-| content | text | Nội dung HTML/Markdown |
-| cover_image | text | URL ảnh bìa |
-| category | text | Danh mục (Product, Strategy, AI...) |
-| tags | text[] | Tags |
-| author_name | text | Tên tác giả |
-| author_avatar | text | Avatar tác giả |
-| read_time | text | Thời gian đọc |
-| status | text | draft / published / archived |
-| seo_title | text | SEO meta title |
-| seo_description | text | SEO meta description |
-| organization_id | uuid | FK → organizations |
-| content_id | uuid | FK → multi_channel_contents (liên kết với content Flowa) |
-| published_at | timestamptz | Ngày xuất bản |
-| created_at / updated_at | timestamptz | Timestamps |
+### 2. Edge Function `connect-website` — Thêm validation cho 3 nền tảng
+- **Blogger**: Test `GET https://www.googleapis.com/blogger/v3/blogs/byurl?url={blogUrl}&key={apiKey}`
+- **Wix**: Test `GET https://www.wixapis.com/blog/v3/posts?paging.limit=1` với Authorization header
+- **Shopify Blog**: Test `GET https://{store}/admin/api/2024-01/blogs.json` với X-Shopify-Access-Token header
 
-RLS: Bài `published` → public read. Insert/Update → org member.
+### 3. Edge Function `publish-website` — Thêm 3 publish handlers
 
-### 2. Seed dữ liệu từ blog tĩnh hiện tại
+- **Blogger**: `POST https://www.googleapis.com/blogger/v3/blogs/{blogId}/posts` — cần OAuth hoặc API key. Sẽ dùng OAuth2 service account hoặc API key approach.
+- **Wix**: `POST https://www.wixapis.com/blog/v3/draft-posts` → sau đó publish draft
+- **Shopify Blog**: `POST https://{store}/admin/api/2024-01/blogs/{blogId}/articles.json` với access token
 
-Chuyển 4 bài blog hiện tại thành records trong `blog_posts` table để giữ nguyên nội dung.
+### 4. UI form fields cho từng nền tảng
 
-### 3. Cập nhật Blog List (`Blog.tsx`)
+```text
+Blogger:
+  - Blog URL (bắt buộc)
+  - Google API Key (bắt buộc)
 
-- Fetch danh sách bài từ `blog_posts` table thay vì hardcode
-- Query: `select * from blog_posts where status = 'published' order by published_at desc`
-- Giữ nguyên UI hiện tại (featured post, grid, pagination)
+Wix:
+  - Site URL (bắt buộc)
+  - API Key (bắt buộc)
 
-### 4. Tạo Dynamic Blog Post Renderer
-
-- Thay thế switch/case routing bằng fetch content từ DB theo slug
-- Render HTML/Markdown content dynamically
-- Giữ nguyên các component hỗ trợ: ReadingProgress, SocialShare, BlogReactions, BlogComments, RelatedPosts, TOC
-- Parse headings từ content để tự động tạo Table of Contents
-- Fallback: Nếu slug khớp với 4 bài tĩnh cũ → vẫn render component tĩnh (backward compatibility)
-
-### 5. Edge Function `publish-blog`
-
-Tạo function mới hoặc mở rộng `publish-website` để hỗ trợ đăng bài trực tiếp vào `blog_posts` table:
-
-- Input: title, content, excerpt, slug, cover_image, category, tags, seo_data, content_id
-- Logic: Insert/upsert vào `blog_posts` với status `draft` hoặc `published`
-- Tích hợp vào `channel-publisher` gateway (thêm action `blog`)
-
-### 6. Cập nhật Channel Publisher
-
-Thêm `blog: 'publish-blog'` vào `PLATFORM_FUNCTION_MAP` trong `channel-publisher/index.ts`.
+Shopify Blog:
+  - Store URL (bắt buộc, vd: mystore.myshopify.com)
+  - Admin API Access Token (bắt buộc)
+```
 
 ## Files thay đổi
-
-- **Migration**: Tạo bảng `blog_posts` + RLS policies
-- **New**: `supabase/functions/publish-blog/index.ts`
-- **Edit**: `supabase/functions/channel-publisher/index.ts` — thêm route blog
-- **Edit**: `src/landing/pages/Blog.tsx` — fetch từ DB
-- **Edit**: `src/landing/pages/BlogPost.tsx` — dynamic renderer + fallback static
-- **New**: `src/landing/components/DynamicBlogPost.tsx` — component render bài viết dynamic
-- **Edit**: `src/components/blog/index.ts` — cập nhật blogPostsData source
-
-## Lưu ý
-
-- 4 bài blog tĩnh hiện tại vẫn hoạt động qua fallback
-- Bài mới từ Flowa sẽ tự động hiển thị trên blog sau khi publish
-- SEO metadata được quản lý trong DB, SEOHead component render dynamic
+- **Edit**: `src/components/brand/BrandViewConnectionsTab.tsx` — thêm 3 options + conditional form fields
+- **Edit**: `supabase/functions/connect-website/index.ts` — thêm validation logic cho 3 nền tảng
+- **Edit**: `supabase/functions/publish-website/index.ts` — thêm 3 publish handlers
+- **Edit**: `supabase/functions/test-website-credentials/index.ts` — thêm test logic cho 3 nền tảng
 
