@@ -10,6 +10,7 @@ import {
   CTASection,
   FooterSection,
 } from "@/landing/components";
+import { SocialProofBar } from "@/landing/components/SocialProofBar";
 import { ScrollProgress } from "@/landing/components/ScrollProgress";
 import { BackToTop } from "@/landing/components/BackToTop";
 import { SalesChatWidget } from "@/landing/components/SalesChatWidget";
@@ -19,8 +20,8 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="Flowa - Nền Tảng AI Tạo Content Đa Kênh | Tự Động Hóa Marketing"
-        description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán với AI."
+        title="Flowa — AI Marketing Agent | Tự Động Hóa Content Marketing"
+        description="Flowa là AI Marketing Agent tự nghiên cứu thị trường, lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài tự động."
         canonicalPath="/"
       />
       <LandingSEOSchemas />
@@ -28,6 +29,7 @@ export default function Landing() {
       <LandingNav />
       <main>
         <HeroSection />
+        <SocialProofBar />
         <WorkflowSection />
         <IndustryMemorySection />
         <SocialProofSection />

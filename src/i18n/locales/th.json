@@ -7,27 +7,42 @@
     "pricing": "ราคา",
     "faq": "คำถามที่พบบ่อย",
     "login": "เข้าสู่ระบบ",
-    "startFree": "เริ่มต้นฟรี"
+    "startFree": "เริ่มต้นฟรี",
+    "campaign": "แคมเปญ",
+    "blog": "บล็อก"
   },
   "hero": {
     "badge": "นักการตลาด 10,000+ คนใช้งาน",
-    "problem": "เหนื่อยกับการสร้างคอนเทนต์ด้วยตัวเอง?",
-    "titleLine1": "สร้างคอนเทนต์ 1 สัปดาห์",
-    "titleLine2": "ภายใน 1 ชั่วโมง",
-    "description": "Flowa ใช้ AI เข้าใจเสียงของแบรนด์คุณ สร้างคอนเทนต์หลายช่องทางโดยอัตโนมัติ ช่วยคุณประหยัดเวลาหลายชั่วโมงทุกสัปดาห์",
+    "problem": "AI Marketing Agent — ไม่ใช่เครื่องมือเขียน AI",
+    "titleLine1": "ทีมคอนเทนต์ของคุณ",
+    "titleLine2": "ขับเคลื่อนด้วย AI Agent",
+    "description": "Flowa วิจัยตลาด วางแผนแคมเปญรายเดือน สร้างคอนเทนต์สำหรับ 12 ช่องทาง ให้คะแนนคุณภาพ และเผยแพร่ — โดยไม่ต้องเขียนเอง",
     "benefits": {
-      "brand": "รักษาเสียงแบรนด์ที่สม่ำเสมอ",
-      "time": "ประหยัดเวลา 10+ ชั่วโมง/สัปดาห์",
-      "channels": "เผยแพร่หลายช่องทางในครั้งเดียว"
+      "setup": "ตั้งค่า 5 นาที",
+      "noCard": "ไม่ต้องใช้บัตรเครดิต",
+      "multiLang": "รองรับ VI · TH · EN"
     },
     "cta": {
       "primary": "เริ่มต้นฟรี",
-      "secondary": "ดูวิดีโอสาธิต"
+      "secondary": "ดูวิดีโอสาธิต",
+      "startFree": "ทดลองใช้ฟรี",
+      "watchHow": "ดูวิธีการทำงาน"
     },
     "stats": {
       "users": "ผู้ใช้งาน",
       "timeSaved": "ประหยัดเวลา",
       "satisfaction": "พึงพอใจ"
+    },
+    "tag": "AI Marketing Agent — ไม่ใช่เครื่องมือเขียน AI",
+    "descPlain": "Flowa วิจัยตลาด วางแผนแคมเปญรายเดือน สร้างคอนเทนต์สำหรับ 12 ช่องทาง ให้คะแนนคุณภาพ และเผยแพร่ — โดยไม่ต้องเขียนเอง",
+    "pipelineNote": "ไปป์ไลน์ทั้งหมดทำงานใน ~10 นาที ไม่ต้องดูแล",
+    "pipeline": {
+      "research": "วิจัย",
+      "strategy": "กลยุทธ์",
+      "create": "สร้าง",
+      "review": "ตรวจสอบ",
+      "approve": "อนุมัติ",
+      "publish": "เผยแพร่"
     }
   },
   "workflow": {
@@ -50,10 +65,26 @@
         "title": "เลือกประเภทคอนเทนต์",
         "description": "จากหัวข้อเดียว สร้างคอนเทนต์สำหรับหลายรูปแบบและแพลตฟอร์ม",
         "types": {
-          "multiChannel": { "name": "หลายช่องทาง", "highlight": "5+ platforms", "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo" },
-          "videoScript": { "name": "สคริปต์วิดีโอ", "highlight": "15 รูปแบบ", "subtitle": "Voice-over + คำแนะนำการแสดง" },
-          "carousel": { "name": "Carousel", "highlight": "5-10 slides", "subtitle": "Image prompts พร้อมใช้" },
-          "adCopy": { "name": "Ad Copy", "highlight": "A/B testing", "subtitle": "Facebook, Google, TikTok Ads" }
+          "multiChannel": {
+            "name": "หลายช่องทาง",
+            "highlight": "5+ platforms",
+            "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
+          },
+          "videoScript": {
+            "name": "สคริปต์วิดีโอ",
+            "highlight": "15 รูปแบบ",
+            "subtitle": "Voice-over + คำแนะนำการแสดง"
+          },
+          "carousel": {
+            "name": "Carousel",
+            "highlight": "5-10 slides",
+            "subtitle": "Image prompts พร้อมใช้"
+          },
+          "adCopy": {
+            "name": "Ad Copy",
+            "highlight": "A/B testing",
+            "subtitle": "Facebook, Google, TikTok Ads"
+          }
         }
       },
       "step4": {
@@ -121,7 +152,8 @@
         "value": "98%",
         "label": "พึงพอใจ"
       }
-    }
+    },
+    "heroBar": "ใช้งานโดยทีมการตลาดในเวียดนามและไทย"
   },
   "testimonials": {
     "badge": "รีวิวจากลูกค้า",
@@ -277,19 +309,38 @@
     "sections": {
       "product": {
         "title": "ผลิตภัณฑ์",
-        "links": ["คุณสมบัติ", "ราคา", "ตัวอย่างการใช้งาน", "อัปเดต"]
+        "links": [
+          "คุณสมบัติ",
+          "ราคา",
+          "ตัวอย่างการใช้งาน",
+          "อัปเดต"
+        ]
       },
       "company": {
         "title": "บริษัท",
-        "links": ["เกี่ยวกับเรา", "บล็อก", "ร่วมงานกับเรา", "ติดต่อ"]
+        "links": [
+          "เกี่ยวกับเรา",
+          "บล็อก",
+          "ร่วมงานกับเรา",
+          "ติดต่อ"
+        ]
       },
       "resources": {
         "title": "ทรัพยากร",
-        "links": ["คู่มือ", "เว็บบินาร์", "ชุมชน", "การสนับสนุน"]
+        "links": [
+          "คู่มือ",
+          "เว็บบินาร์",
+          "ชุมชน",
+          "การสนับสนุน"
+        ]
       },
       "legal": {
         "title": "กฎหมาย",
-        "links": ["นโยบายความเป็นส่วนตัว", "เงื่อนไขการใช้งาน", "คุกกี้"]
+        "links": [
+          "นโยบายความเป็นส่วนตัว",
+          "เงื่อนไขการใช้งาน",
+          "คุกกี้"
+        ]
       }
     },
     "copyright": "© 2024 Flowa. สงวนลิขสิทธิ์.",
