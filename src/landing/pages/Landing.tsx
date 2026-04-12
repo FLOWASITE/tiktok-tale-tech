@@ -11,6 +11,7 @@ import {
   FooterSection,
 } from "@/landing/components";
 import { SocialProofBar } from "@/landing/components/SocialProofBar";
+import { ProblemSection } from "@/landing/components/ProblemSection";
 import { ScrollProgress } from "@/landing/components/ScrollProgress";
 import { BackToTop } from "@/landing/components/BackToTop";
 import { SalesChatWidget } from "@/landing/components/SalesChatWidget";
@@ -30,6 +31,7 @@ export default function Landing() {
       <main>
         <HeroSection />
         <SocialProofBar />
+        <ProblemSection />
         <WorkflowSection />
         <IndustryMemorySection />
         <SocialProofSection />
