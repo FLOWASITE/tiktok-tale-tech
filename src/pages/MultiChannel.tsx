@@ -7,6 +7,7 @@ import { MultiChannelListView } from '@/components/MultiChannelListView';
 import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
 import { MultiChannelHeroSection } from '@/components/multichannel/MultiChannelHeroSection';
+import { ChannelGroupView } from '@/components/multichannel/ChannelGroupView';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
@@ -39,7 +40,7 @@ export default function MultiChannel() {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillData = location.state as LocationState | null;
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'channel'>('grid');
   const { 
     contents, 
     loading, 
@@ -424,6 +425,18 @@ export default function MultiChannel() {
               </Button>
             )}
           </div>
+        ) : viewMode === 'channel' ? (
+          <ChannelGroupView
+            contents={paginatedContents}
+            onView={handleView}
+            onDelete={handleDelete}
+            selectedIds={selectedIds}
+            toggleSelection={toggleSelection}
+            creatorProfiles={creatorProfiles}
+            isLoadingProfiles={isLoadingProfiles}
+            brandLogoMap={brandLogoMap}
+            geoScoresMap={geoScoresMap}
+          />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {paginatedContents.map((content, index) => (

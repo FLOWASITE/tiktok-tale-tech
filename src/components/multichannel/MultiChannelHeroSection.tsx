@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   List,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -18,8 +19,8 @@ import { cn } from '@/lib/utils';
 
 interface MultiChannelHeroSectionProps {
   contents: MultiChannelContent[];
-  viewMode: 'grid' | 'list';
-  onViewModeChange: (mode: 'grid' | 'list') => void;
+  viewMode: 'grid' | 'list' | 'channel';
+  onViewModeChange: (mode: 'grid' | 'list' | 'channel') => void;
   onAddNew: () => void;
   onRefresh?: () => void;
   isLoading?: boolean;
@@ -128,7 +129,7 @@ export function MultiChannelHeroSection({
             <ToggleGroup 
               type="single" 
               value={viewMode} 
-              onValueChange={(v) => v && onViewModeChange(v as 'grid' | 'list')} 
+              onValueChange={(v) => v && onViewModeChange(v as 'grid' | 'list' | 'channel')} 
               className="bg-background/60 backdrop-blur-sm border border-border/50 rounded-lg p-0.5"
             >
               <ToggleGroupItem 
@@ -144,6 +145,13 @@ export function MultiChannelHeroSection({
                 className="h-8 w-8 p-0 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
               >
                 <List className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="channel" 
+                aria-label="Channel view" 
+                className="h-8 w-8 p-0 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                <Share2 className="h-4 w-4" />
               </ToggleGroupItem>
             </ToggleGroup>
 
