@@ -1,39 +1,50 @@
 
 
-# Nâng cấp Toggle "Tạo nhanh" & "AI Agent" — Premium Style
+# Nâng cấp Y-Fork Connector — Thẩm mỹ hơn
 
-## Thay đổi
+## Vấn đề
+SVG Y-fork hiện tại là 2 đường thẳng gãy góc (L60→L30, L60→L90), trông cứng nhắc và thô. Kích thước nhỏ (120x48), dashed line mỏng.
 
-### Toggle buttons hiện tại
-- Dùng emoji text đơn giản: `⚡ Tạo nhanh` và `🤖 AI Agent`
-- Style pill button cơ bản
+## Giải pháp — Curved bezier + gradient + glow
 
-### Toggle buttons mới — Premium
-- Thay emoji bằng **Lucide icons** (`Zap` và `Bot`) render trong circle nhỏ có gradient background
-- Thêm **subtitle nhỏ** dưới label chính (Quick: "Nội dung đa kênh", Agent: "Chiến dịch tự động")
-- Active state: gradient background thay vì solid `bg-primary`, icon glow nhẹ
-- Inactive state: border subtle, icon muted
-- Toggle container: thêm border + shadow nhẹ thay vì chỉ `bg-muted`
-- Kích thước lớn hơn, padding thoáng hơn
-
-### Kết quả visual
+### Visual mới
 ```text
-┌──────────────────────────────────────────────┐
-│  [🔥 Tạo nhanh        ]  [ 🤖 AI Agent       ] │
-│  [ Nội dung đa kênh   ]  [ Chiến dịch tự động ] │
-└──────────────────────────────────────────────┘
+         │
+         │  (gradient dọc, fade từ primary → secondary)
+         │
+         ╲              ╱
+          ╲            ╱
+           ╲          ╱
+            •        •   ← 2 chấm tròn nhỏ ở đầu nhánh
 ```
 
-- Active tab: bg gradient primary, white text, icon trong circle sáng, shadow
-- Inactive tab: transparent, muted text, icon mờ
+### Thay đổi cụ thể
+1. **Bezier curves** thay vì đường gãy góc — dùng `C` (cubic bezier) để tạo đường cong mượt
+2. **Gradient stroke** — `linearGradient` từ primary sang primary/40 theo chiều dọc
+3. **Stroke rộng hơn** (3px) + solid thay vì dashed → thanh lịch hơn
+4. **Dot endpoints** — 2 circle nhỏ (r=4) ở cuối mỗi nhánh, màu primary, có glow nhẹ
+5. **Kích thước lớn hơn** — 160x56 để nhánh cong thoáng hơn, không bị gấp gáp
+6. **Opacity animation** — fade in nhẹ thay vì chỉ pathLength
 
-## i18n updates
-- Thêm `toggleQuickSub` và `toggleAgentSub` cho subtitle
-- Bỏ emoji khỏi `toggleQuick` / `toggleAgent` (icon render riêng)
+### SVG mới (concept)
+```svg
+<svg width="160" height="56" viewBox="0 0 160 56">
+  <defs>
+    <linearGradient id="forkGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="primary" />
+      <stop offset="100%" stop-color="primary/40" />
+    </linearGradient>
+  </defs>
+  <!-- Nhánh trái: curve mượt -->
+  <path d="M80 0 C80 24, 40 32, 40 52" stroke="url(#forkGrad)" />
+  <!-- Nhánh phải: curve mượt -->
+  <path d="M80 0 C80 24, 120 32, 120 52" stroke="url(#forkGrad)" />
+  <!-- Dot endpoints -->
+  <circle cx="40" cy="52" r="4" fill="primary" />
+  <circle cx="120" cy="52" r="4" fill="primary" />
+</svg>
+```
 
-## Files thay đổi
-- `src/landing/components/WorkflowSection.tsx` — nâng cấp toggle UI
-- `src/i18n/locales/vi.json` — sửa toggle labels, thêm subtitles
-- `src/i18n/locales/en.json` — tương tự
-- `src/i18n/locales/th.json` — tương tự
+## File thay đổi
+- **Edit**: `src/landing/components/WorkflowSection.tsx` — chỉ thay block Y-Fork SVG (lines 336-362)
 
