@@ -62,8 +62,10 @@
       "description": "Thiết lập Brand Template: logo, màu sắc, tone of voice, formality level, từ ngữ ưu tiên/cấm dùng, và compliance rules theo ngành.",
       "feature": "AI học và giữ giọng điệu nhất quán trên mọi content"
     },
-    "toggleQuick": "⚡ Tạo nhanh",
-    "toggleAgent": "🤖 AI Agent",
+    "toggleQuick": "Tạo nhanh",
+    "toggleQuickSub": "Nội dung đa kênh",
+    "toggleAgent": "AI Agent",
+    "toggleAgentSub": "Chiến dịch tự động",
     "quickFlow": {
       "label": "Nội dung đa kênh",
       "steps": {

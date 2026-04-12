@@ -55,8 +55,10 @@
       "description": "ตั้งค่า Brand Template: โลโก้ สี tone of voice ระดับความเป็นทางการ คำที่ใช้/ห้ามใช้ และ compliance rules ตามอุตสาหกรรม",
       "feature": "AI เรียนรู้และรักษาเสียงแบรนด์ที่สม่ำเสมอ"
     },
-    "toggleQuick": "⚡ สร้างด่วน",
-    "toggleAgent": "🤖 AI Agent",
+    "toggleQuick": "สร้างด่วน",
+    "toggleQuickSub": "เนื้อหาหลายช่องทาง",
+    "toggleAgent": "AI Agent",
+    "toggleAgentSub": "แคมเปญอัตโนมัติ",
     "quickFlow": {
       "label": "คอนเทนต์หลายช่องทาง",
       "steps": {

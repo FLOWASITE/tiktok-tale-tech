@@ -62,8 +62,10 @@
       "description": "Configure Brand Template: logo, colors, tone of voice, formality level, preferred/forbidden words, and industry compliance rules.",
       "feature": "AI learns and maintains consistent voice across all content"
     },
-    "toggleQuick": "⚡ Quick Create",
-    "toggleAgent": "🤖 AI Agent",
+    "toggleQuick": "Quick Create",
+    "toggleQuickSub": "Multi-channel Content",
+    "toggleAgent": "AI Agent",
+    "toggleAgentSub": "Automated Campaign",
     "quickFlow": {
       "label": "Multi-channel Content",
       "steps": {
