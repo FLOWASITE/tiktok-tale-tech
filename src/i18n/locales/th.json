@@ -150,18 +150,37 @@
           "title": "ประเมินตัวเอง — แก้ไขเอง",
           "tag": "AGENT ทำ",
           "description": "ก่อนที่คุณจะเห็นผลลัพธ์ Agent ให้คะแนนตาม 8 เกณฑ์:",
-          "bullets": [
-            "Hook Strength · Brand Voice · Compliance · Channel Fit",
-            "Content Structure · Engagement · CTA Quality · Readability"
-          ],
-          "note": "รวม 100 คะแนน คะแนน < 75 → Agent แก้ไขและให้คะแนนใหม่ ยังไม่ผ่าน → ส่งให้คุณรีวิวพร้อมหมายเหตุ"
+          "note": "รวม 100 คะแนน คะแนน < 75 → Agent แก้ไขและให้คะแนนใหม่ ยังไม่ผ่าน → ส่งให้คุณรีวิวพร้อมหมายเหตุ",
+          "criteria": [
+            "Hook Strength",
+            "Brand Voice",
+            "Compliance",
+            "Channel Fit",
+            "Content Structure",
+            "Engagement",
+            "CTA Quality",
+            "Readability"
+          ]
         },
         "step5": {
           "title": "อนุมัติ & เผยแพร่",
           "tag": "อัตโนมัติหรือคุณรีวิว",
           "description": "ผ่านมาตรฐานคุณภาพ + ไม่ละเมิด compliance → จัดตารางอัตโนมัติ คุณสามารถเปิด Smart Auto-Approve หรือรีวิวด้วยตนเอง",
           "feature": "Smart Auto-Approve",
-          "channels": ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"]
+          "channels": [
+            "Facebook",
+            "Instagram",
+            "TikTok",
+            "LinkedIn",
+            "X/Twitter",
+            "Zalo OA",
+            "Email",
+            "YouTube",
+            "Telegram",
+            "Google Maps",
+            "Website",
+            "Blog"
+          ]
         }
       }
     },

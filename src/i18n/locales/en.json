@@ -157,18 +157,37 @@
           "title": "Self-evaluate — self-correct",
           "tag": "AGENT DOES",
           "description": "Before you see the output, Agent has scored across 8 criteria:",
-          "bullets": [
-            "Hook Strength · Brand Voice · Compliance · Channel Fit",
-            "Content Structure · Engagement · CTA Quality · Readability"
-          ],
-          "note": "Total 100 points. Score < 75 → Agent self-corrects and re-scores. Still not passing → sent to you with specific notes."
+          "note": "Total 100 points. Score < 75 → Agent self-corrects and re-scores. Still not passing → sent to you with specific notes.",
+          "criteria": [
+            "Hook Strength",
+            "Brand Voice",
+            "Compliance",
+            "Channel Fit",
+            "Content Structure",
+            "Engagement",
+            "CTA Quality",
+            "Readability"
+          ]
         },
         "step5": {
           "title": "Approve & publish",
           "tag": "AUTO OR YOU REVIEW",
           "description": "Meets quality standards + no compliance violations → auto-scheduled. You can enable Smart Auto-Approve or review manually.",
           "feature": "Smart Auto-Approve",
-          "channels": ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"]
+          "channels": [
+            "Facebook",
+            "Instagram",
+            "TikTok",
+            "LinkedIn",
+            "X/Twitter",
+            "Zalo OA",
+            "Email",
+            "YouTube",
+            "Telegram",
+            "Google Maps",
+            "Website",
+            "Blog"
+          ]
         }
       }
     },

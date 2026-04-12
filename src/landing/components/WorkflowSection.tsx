@@ -434,7 +434,7 @@ export function WorkflowSection() {
     { key: "step1", hasExamples: true },
     { key: "step2", hasBullets: true },
     { key: "step3", hasBullets: true },
-    { key: "step4", hasBullets: true },
+    { key: "step4", hasCriteria: true },
     { key: "step5", hasFeature: true, hasChannels: true },
   ];
 
