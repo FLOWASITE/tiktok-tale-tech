@@ -41,6 +41,7 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
       organization_id,
       content_id,
       status = 'draft',
+      is_public = false,
     } = body;
 
     if (!title || !content) {
@@ -59,6 +60,24 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
+    // Determine if user can set is_public
+    let finalIsPublic = false;
+    if (is_public) {
+      // Check if user has admin role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      if (roleData) {
+        finalIsPublic = true;
+      } else {
+        console.log('[publish-blog] User attempted is_public but lacks admin role');
+      }
+    }
+
     const postData: Record<string, unknown> = {
       title,
       content,
@@ -74,6 +93,7 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
       organization_id: organization_id || null,
       content_id: content_id || null,
       status,
+      is_public: finalIsPublic,
       published_at: status === 'published' ? new Date().toISOString() : null,
     };
 
