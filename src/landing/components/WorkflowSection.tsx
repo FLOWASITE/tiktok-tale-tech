@@ -1,8 +1,12 @@
-import { motion, useScroll, useTransform, useInView } from "framer-motion";
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Layers, Clapperboard, GalleryHorizontalEnd, Megaphone, Check } from "lucide-react";
+import {
+  Layers, Clapperboard, GalleryHorizontalEnd, Megaphone, Check,
+  Search, Target, PenTool, ShieldCheck, Send, Zap, Bot,
+  MessageSquare, Image as ImageIcon, CalendarCheck
+} from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState, useRef } from "react";
 import workflowBrandImg from "@/assets/workflow/workflow-brand.png";
@@ -18,24 +22,24 @@ const contentTypes = [
   { key: "adCopy", icon: Megaphone },
 ];
 
-const step1Images = [workflowBrandImg];
-const step2Images = [workflowTopicImg, workflowTopic2Img];
-const step4Images = [workflowAiContentImg];
-const step5Images = [workflowPublishImg];
+// Icons for each flow's steps
+const quickFlowIcons = [MessageSquare, Layers, PenTool, ImageIcon, CalendarCheck];
+const agentFlowIcons = [Search, Target, PenTool, ShieldCheck, Send];
 
-// Animated step number with scroll-aware states
+type FlowMode = "quick" | "agent";
+
+// ─── Step Number ───
 function StepNumber({ num, isActive, isCompleted }: { num: number; isActive: boolean; isCompleted: boolean }) {
   return (
     <div className="relative flex flex-col items-center shrink-0">
       <motion.div
-        className="relative w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center z-10"
+        className="relative w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center z-10"
         animate={{
           scale: isActive ? 1.1 : 1,
           backgroundColor: isActive || isCompleted ? "hsl(var(--primary))" : "hsl(var(--muted))",
         }}
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
-        {/* Pulse ring for active */}
         {isActive && (
           <motion.div
             className="absolute inset-0 rounded-full border-2 border-primary"
@@ -43,21 +47,13 @@ function StepNumber({ num, isActive, isCompleted }: { num: number; isActive: boo
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
           />
         )}
-        {/* Shadow glow for active */}
-        {isActive && (
-          <div className="absolute inset-0 rounded-full shadow-lg shadow-primary/30" />
-        )}
-        
+        {isActive && <div className="absolute inset-0 rounded-full shadow-lg shadow-primary/30" />}
         {isCompleted ? (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          >
-            <Check className="w-6 h-6 text-primary-foreground" strokeWidth={3} />
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
+            <Check className="w-5 h-5 text-primary-foreground" strokeWidth={3} />
           </motion.div>
         ) : (
-          <span className={`text-xl md:text-2xl font-bold ${isActive || isCompleted ? "text-primary-foreground" : "text-muted-foreground"}`}>
+          <span className={`text-lg md:text-xl font-bold ${isActive || isCompleted ? "text-primary-foreground" : "text-muted-foreground"}`}>
             {num}
           </span>
         )}
@@ -66,91 +62,7 @@ function StepNumber({ num, isActive, isCompleted }: { num: number; isActive: boo
   );
 }
 
-interface StepCardProps {
-  step: { num: number; key: string; hasFeature?: boolean; hasContentTypes?: boolean };
-  index: number;
-  images?: string[];
-  altPrefix?: string;
-  isActive: boolean;
-  isCompleted: boolean;
-}
-
-function StepCard({ step, index, images, altPrefix, isActive, isCompleted }: StepCardProps) {
-  const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, x: index % 2 === 0 ? -40 : 40 }}
-      animate={isInView ? { opacity: 1, x: 0 } : {}}
-      transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-      className="flex gap-5 md:gap-6 items-start"
-    >
-      <StepNumber num={step.num} isActive={isActive} isCompleted={isCompleted} />
-      <div className="flex-1">
-        {/* Premium card wrapper */}
-        <motion.div
-          className="relative bg-card rounded-2xl overflow-hidden"
-          style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)" }}
-          whileHover={{ y: -4, boxShadow: "0 4px 12px rgba(0,0,0,0.06), 0 12px 28px rgba(0,0,0,0.06)" }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* Top accent line */}
-          <div className="h-0.5 bg-primary w-full" />
-          
-          <div className="p-5 md:p-6">
-            <h3 className="text-xl font-semibold text-foreground mb-2">
-              {t(`workflow.steps.${step.key}.title`)}
-            </h3>
-            <p className="text-muted-foreground mb-2">
-              {t(`workflow.steps.${step.key}.description`)}
-            </p>
-            {step.hasFeature && (
-              <span className="inline-block text-sm text-primary font-medium">
-                → {t(`workflow.steps.${step.key}.feature`)}
-              </span>
-            )}
-
-            {/* Content Types for Step 3 */}
-            {step.hasContentTypes && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                {contentTypes.map((type) => (
-                  <motion.div
-                    key={type.key}
-                    className="flex flex-col items-center gap-1 px-3 py-4 rounded-xl border border-border/30 bg-background/60 backdrop-blur-sm text-center"
-                    whileHover={{ y: -3, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <motion.div whileHover={{ rotate: 5, scale: 1.1 }} transition={{ duration: 0.2 }}>
-                      <type.icon className="w-5 h-5 text-primary mb-1" />
-                    </motion.div>
-                    <span className="text-sm font-medium text-foreground">
-                      {t(`workflow.steps.step3.types.${type.key}.name`)}
-                    </span>
-                    <span className="text-xs font-medium text-primary">
-                      {t(`workflow.steps.step3.types.${type.key}.highlight`)}
-                    </span>
-                    <span className="text-xs text-muted-foreground leading-tight">
-                      {t(`workflow.steps.step3.types.${type.key}.subtitle`)}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Image carousel */}
-            {images && images.length > 0 && (
-              <ImageCarousel images={images} altPrefix={altPrefix || ""} />
-            )}
-          </div>
-        </motion.div>
-      </div>
-    </motion.div>
-  );
-}
-
+// ─── Image Carousel ───
 function ImageCarousel({ images, altPrefix }: { images: string[]; altPrefix: string }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -165,38 +77,19 @@ function ImageCarousel({ images, altPrefix }: { images: string[]; altPrefix: str
     onSelect();
     emblaApi.on("select", onSelect);
     const autoplay = setInterval(() => emblaApi.scrollNext(), 5000);
-    return () => {
-      emblaApi.off("select", onSelect);
-      clearInterval(autoplay);
-    };
+    return () => { emblaApi.off("select", onSelect); clearInterval(autoplay); };
   }, [emblaApi, onSelect]);
 
-  const scrollTo = useCallback((index: number) => {
-    emblaApi?.scrollTo(index);
-  }, [emblaApi]);
+  const scrollTo = useCallback((index: number) => emblaApi?.scrollTo(index), [emblaApi]);
 
   return (
-    <motion.div
-      className="mt-4"
-      initial={{ opacity: 0, scale: 0.95 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-    >
+    <motion.div className="mt-4" initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.2 }}>
       <div className="overflow-hidden rounded-2xl" ref={emblaRef}>
         <div className="flex">
           {images.map((img, idx) => (
             <div key={idx} className="flex-[0_0_100%] min-w-0">
-              <motion.div
-                className="relative aspect-video overflow-hidden rounded-2xl shadow-lg border border-border/20"
-                whileHover={{ boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}
-                transition={{ duration: 0.3 }}
-              >
-                <img
-                  src={img}
-                  alt={`${altPrefix} ${idx + 1}`}
-                  className="absolute inset-0 w-full h-full object-cover object-top"
-                />
+              <motion.div className="relative aspect-video overflow-hidden rounded-2xl shadow-lg border border-border/20" whileHover={{ boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }} transition={{ duration: 0.3 }}>
+                <img src={img} alt={`${altPrefix} ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover object-top" />
               </motion.div>
             </div>
           ))}
@@ -205,16 +98,9 @@ function ImageCarousel({ images, altPrefix }: { images: string[]; altPrefix: str
       {images.length > 1 && (
         <div className="flex justify-center gap-1.5 mt-3">
           {images.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => scrollTo(idx)}
-              className="h-2 rounded-full transition-all duration-300"
-              style={{
-                width: idx === selectedIndex ? "24px" : "8px",
-                backgroundColor: idx === selectedIndex ? "hsl(var(--primary))" : "hsl(var(--border))",
-              }}
-              aria-label={`Go to slide ${idx + 1}`}
-            />
+            <button key={idx} onClick={() => scrollTo(idx)} className="h-2 rounded-full transition-all duration-300"
+              style={{ width: idx === selectedIndex ? "24px" : "8px", backgroundColor: idx === selectedIndex ? "hsl(var(--primary))" : "hsl(var(--border))" }}
+              aria-label={`Go to slide ${idx + 1}`} />
           ))}
         </div>
       )}
@@ -222,62 +108,181 @@ function ImageCarousel({ images, altPrefix }: { images: string[]; altPrefix: str
   );
 }
 
+// ─── Step Card ───
+interface FlowStepCardProps {
+  stepNum: number;
+  stepKey: string;
+  flowPrefix: string;
+  index: number;
+  isActive: boolean;
+  isCompleted: boolean;
+  images?: string[];
+  altPrefix?: string;
+  hasContentTypes?: boolean;
+  hasFeature?: boolean;
+  icon: React.ElementType;
+}
+
+function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, icon: Icon }: FlowStepCardProps) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+      animate={isInView ? { opacity: 1, x: 0 } : {}}
+      transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+      className="flex gap-4 md:gap-5 items-start"
+    >
+      <StepNumber num={stepNum} isActive={isActive} isCompleted={isCompleted} />
+      <div className="flex-1">
+        <motion.div
+          className="relative bg-card rounded-2xl overflow-hidden"
+          style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)" }}
+          whileHover={{ y: -4, boxShadow: "0 4px 12px rgba(0,0,0,0.06), 0 12px 28px rgba(0,0,0,0.06)" }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="h-0.5 bg-primary w-full" />
+          <div className="p-5 md:p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="w-5 h-5 text-primary shrink-0" />
+              <h3 className="text-lg font-semibold text-foreground">
+                {t(`workflow.${flowPrefix}.steps.${stepKey}.title`)}
+              </h3>
+            </div>
+            <p className="text-muted-foreground text-sm mb-2">
+              {t(`workflow.${flowPrefix}.steps.${stepKey}.description`)}
+            </p>
+            {hasFeature && (
+              <span className="inline-block text-sm text-primary font-medium">
+                → {t(`workflow.${flowPrefix}.steps.${stepKey}.feature`)}
+              </span>
+            )}
+
+            {/* Content type cards for quick flow step2 */}
+            {hasContentTypes && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                {contentTypes.map((type) => (
+                  <motion.div key={type.key}
+                    className="flex flex-col items-center gap-1 px-3 py-3 rounded-xl border border-border/30 bg-background/60 backdrop-blur-sm text-center"
+                    whileHover={{ y: -3, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <motion.div whileHover={{ rotate: 5, scale: 1.1 }} transition={{ duration: 0.2 }}>
+                      <type.icon className="w-5 h-5 text-primary mb-1" />
+                    </motion.div>
+                    <span className="text-sm font-medium text-foreground">{t(`workflow.quickFlow.steps.step2.types.${type.key}.name`)}</span>
+                    <span className="text-xs font-medium text-primary">{t(`workflow.quickFlow.steps.step2.types.${type.key}.highlight`)}</span>
+                    <span className="text-xs text-muted-foreground leading-tight">{t(`workflow.quickFlow.steps.step2.types.${type.key}.subtitle`)}</span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {images && images.length > 0 && <ImageCarousel images={images} altPrefix={altPrefix || ""} />}
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Branch Timeline ───
+function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
+  flowPrefix: string;
+  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean }[];
+  icons: React.ElementType[];
+  stepImages: Record<number, { images: string[]; alt: string } | undefined>;
+  activeIndex: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start center", "end center"] });
+  const scaleY = useTransform(scrollYProgress, [0, 1], [0, 1]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Timeline line */}
+      <div className="absolute left-[1.5rem] md:left-[1.75rem] top-0 bottom-0 w-0.5 bg-border/30 hidden md:block">
+        <motion.div className="w-full bg-primary origin-top" style={{ scaleY, height: "100%" }} />
+      </div>
+
+      <div className="space-y-6">
+        {steps.map((step, index) => {
+          const imgData = stepImages[index];
+          return (
+            <FlowStepCard
+              key={step.key}
+              stepNum={index + 1}
+              stepKey={step.key}
+              flowPrefix={flowPrefix}
+              index={index}
+              isActive={index === activeIndex}
+              isCompleted={index < activeIndex}
+              images={imgData?.images}
+              altPrefix={imgData?.alt}
+              hasContentTypes={step.hasContentTypes}
+              hasFeature={step.hasFeature}
+              icon={icons[index]}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Section ───
 export function WorkflowSection() {
   const { t } = useTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start center", "end center"],
-  });
-  const scaleY = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const [mode, setMode] = useState<FlowMode>("quick");
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start center", "end center"] });
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  // Track which step is active based on scroll
   useEffect(() => {
     return scrollYProgress.on("change", (v) => {
-      const idx = Math.floor(v * 6);
-      setActiveIndex(Math.min(idx, 5));
+      // Brand setup takes ~15% of scroll, remaining 85% for 5 steps
+      if (v < 0.15) { setActiveIndex(-1); return; }
+      const idx = Math.floor((v - 0.15) / 0.17);
+      setActiveIndex(Math.min(idx, 4));
     });
   }, [scrollYProgress]);
 
-  const steps = [
-    { num: 1, key: "step1", hasFeature: true },
-    { num: 2, key: "step2", hasFeature: true },
-    { num: 3, key: "step3", hasContentTypes: true },
-    { num: 4, key: "step4" },
-    { num: 5, key: "step5", hasFeature: true },
-    { num: 6, key: "step6", hasFeature: true },
+  const quickSteps = [
+    { key: "step1", hasFeature: true },
+    { key: "step2", hasContentTypes: true },
+    { key: "step3" },
+    { key: "step4", hasFeature: true },
+    { key: "step5", hasFeature: true },
   ];
 
-  const stepImages: Record<number, { images: string[]; alt: string } | undefined> = {
-    1: { images: step1Images, alt: "Brand Setup Screenshot" },
-    2: { images: step2Images, alt: "Topic Suggestion Screenshot" },
-    4: { images: step4Images, alt: "AI Content Generation Screenshot" },
-    6: { images: step5Images, alt: "Publishing Screenshot" },
+  const agentSteps = [
+    { key: "step1" },
+    { key: "step2" },
+    { key: "step3" },
+    { key: "step4" },
+    { key: "step5", hasFeature: true },
+  ];
+
+  const quickStepImages: Record<number, { images: string[]; alt: string } | undefined> = {
+    0: { images: [workflowTopicImg, workflowTopic2Img], alt: "Topic" },
+    2: { images: [workflowAiContentImg], alt: "AI Content" },
+    4: { images: [workflowPublishImg], alt: "Publish" },
   };
 
+  const agentStepImages: Record<number, { images: string[]; alt: string } | undefined> = {};
+
   return (
-    <section id="workflow" className="py-24 bg-background relative overflow-hidden">
-      {/* Subtle dot grid background */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: "radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-      {/* Ambient radial gradient */}
+    <section id="workflow" className="py-24 bg-background relative overflow-hidden" ref={sectionRef}>
+      {/* Dot grid bg */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(var(--primary)/0.03),transparent_70%)]" />
 
       <div className="container mx-auto px-4 max-w-4xl relative z-10">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} className="text-center mb-12">
           <span className="inline-block px-4 py-1.5 text-sm font-medium text-primary border border-primary/20 rounded-full mb-6">
             {t("workflow.badge")}
           </span>
@@ -290,42 +295,160 @@ export function WorkflowSection() {
           </p>
         </motion.div>
 
-        {/* Steps with animated timeline */}
-        <div ref={containerRef} className="relative">
-          {/* Animated timeline line (left side, aligned with step numbers) */}
-          <div className="absolute left-[1.75rem] md:left-[2rem] top-0 bottom-0 w-0.5 bg-border/30 hidden md:block">
-            <motion.div
-              className="w-full bg-primary origin-top"
-              style={{ scaleY, height: "100%" }}
-            />
-          </div>
-
-          <div className="space-y-8">
-            {steps.map((step, index) => {
-              const imgData = stepImages[step.num];
-              return (
-                <StepCard
-                  key={step.key}
-                  step={step}
-                  index={index}
-                  images={imgData?.images}
-                  altPrefix={imgData?.alt}
-                  isActive={index === activeIndex}
-                  isCompleted={index < activeIndex}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* CTA */}
+        {/* ─── Brand Setup Card (shared start) ─── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="text-center mt-12"
+          transition={{ duration: 0.5 }}
+          className="mb-8"
         >
+          <div className="flex gap-4 md:gap-5 items-start">
+            <div className="relative flex flex-col items-center shrink-0">
+              <motion.div
+                className="relative w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center z-10 bg-primary"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <div className="absolute inset-0 rounded-full shadow-lg shadow-primary/30" />
+                <span className="text-xl md:text-2xl font-bold text-primary-foreground">0</span>
+              </motion.div>
+            </div>
+            <div className="flex-1">
+              <motion.div
+                className="relative bg-card rounded-2xl overflow-hidden"
+                style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.04)" }}
+                whileHover={{ y: -4, boxShadow: "0 4px 12px rgba(0,0,0,0.06), 0 12px 28px rgba(0,0,0,0.06)" }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="h-1 bg-gradient-to-r from-primary to-primary/60 w-full" />
+                <div className="p-5 md:p-6">
+                  <h3 className="text-xl font-semibold text-foreground mb-2">{t("workflow.brandSetup.title")}</h3>
+                  <p className="text-muted-foreground mb-2">{t("workflow.brandSetup.description")}</p>
+                  <span className="inline-block text-sm text-primary font-medium">→ {t("workflow.brandSetup.feature")}</span>
+                  <ImageCarousel images={[workflowBrandImg]} altPrefix="Brand Setup" />
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ─── Y-Fork SVG Connector ─── */}
+        <div className="flex justify-center my-4">
+          <svg width="120" height="48" viewBox="0 0 120 48" fill="none" className="text-primary">
+            <motion.path
+              d="M60 0 L60 20 L30 44"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeDasharray="6 4"
+              fill="none"
+              initial={{ pathLength: 0 }}
+              whileInView={{ pathLength: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+            />
+            <motion.path
+              d="M60 0 L60 20 L90 44"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeDasharray="6 4"
+              fill="none"
+              initial={{ pathLength: 0 }}
+              whileInView={{ pathLength: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            />
+          </svg>
+        </div>
+
+        {/* ─── Toggle Switch ─── */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="flex justify-center mb-10"
+        >
+          <div className="inline-flex bg-muted rounded-full p-1 gap-1">
+            <button
+              onClick={() => setMode("quick")}
+              className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
+                mode === "quick"
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t("workflow.toggleQuick")}
+            </button>
+            <button
+              onClick={() => setMode("agent")}
+              className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
+                mode === "agent"
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t("workflow.toggleAgent")}
+            </button>
+          </div>
+        </motion.div>
+
+        {/* ─── Branch Label ─── */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-center gap-2 mb-6"
+          >
+            {mode === "quick" ? <Zap className="w-5 h-5 text-primary" /> : <Bot className="w-5 h-5 text-primary" />}
+            <span className="text-lg font-semibold text-foreground">
+              {t(`workflow.${mode === "quick" ? "quickFlow" : "agentFlow"}.label`)}
+            </span>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* ─── Flow Steps ─── */}
+        <AnimatePresence mode="wait">
+          {mode === "quick" ? (
+            <motion.div
+              key="quick"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.35 }}
+            >
+              <BranchTimeline
+                flowPrefix="quickFlow"
+                steps={quickSteps}
+                icons={quickFlowIcons}
+                stepImages={quickStepImages}
+                activeIndex={activeIndex}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="agent"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.35 }}
+            >
+              <BranchTimeline
+                flowPrefix="agentFlow"
+                steps={agentSteps}
+                icons={agentFlowIcons}
+                stepImages={agentStepImages}
+                activeIndex={activeIndex}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* CTA */}
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: 0.3 }} className="text-center mt-12">
           <Button asChild size="lg" className="px-8">
             <Link to="/register">{t("workflow.cta")}</Link>
           </Button>
