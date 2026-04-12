@@ -1,50 +1,47 @@
 
 
-# Nâng cấp Y-Fork Connector — Thẩm mỹ hơn
+# Hoàn thiện nội dung AI Agent Flow — "5 bước, bạn chỉ làm bước 1"
 
-## Vấn đề
-SVG Y-fork hiện tại là 2 đường thẳng gãy góc (L60→L30, L60→L90), trông cứng nhắc và thô. Kích thước nhỏ (120x48), dashed line mỏng.
+## Thay đổi
 
-## Giải pháp — Curved bezier + gradient + glow
+### 1. Cập nhật Agent Flow header & subtitle
+Thay label hiện tại "AI Agent Campaign" bằng: **"5 bước — bạn chỉ làm bước 1"** và thêm subtitle mô tả.
 
-### Visual mới
-```text
-         │
-         │  (gradient dọc, fade từ primary → secondary)
-         │
-         ╲              ╱
-          ╲            ╱
-           ╲          ╱
-            •        •   ← 2 chấm tròn nhỏ ở đầu nhánh
-```
+### 2. Overhaul nội dung 5 bước Agent (vi/en/th)
 
-### Thay đổi cụ thể
-1. **Bezier curves** thay vì đường gãy góc — dùng `C` (cubic bezier) để tạo đường cong mượt
-2. **Gradient stroke** — `linearGradient` từ primary sang primary/40 theo chiều dọc
-3. **Stroke rộng hơn** (3px) + solid thay vì dashed → thanh lịch hơn
-4. **Dot endpoints** — 2 circle nhỏ (r=4) ở cuối mỗi nhánh, màu primary, có glow nhẹ
-5. **Kích thước lớn hơn** — 160x56 để nhánh cong thoáng hơn, không bị gấp gáp
-6. **Opacity animation** — fade in nhẹ thay vì chỉ pathLength
+Hiện tại các bước agent rất ngắn, thiếu chi tiết. Sẽ thay toàn bộ bằng nội dung marketing đầy đủ theo yêu cầu:
 
-### SVG mới (concept)
-```svg
-<svg width="160" height="56" viewBox="0 0 160 56">
-  <defs>
-    <linearGradient id="forkGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="primary" />
-      <stop offset="100%" stop-color="primary/40" />
-    </linearGradient>
-  </defs>
-  <!-- Nhánh trái: curve mượt -->
-  <path d="M80 0 C80 24, 40 32, 40 52" stroke="url(#forkGrad)" />
-  <!-- Nhánh phải: curve mượt -->
-  <path d="M80 0 C80 24, 120 32, 120 52" stroke="url(#forkGrad)" />
-  <!-- Dot endpoints -->
-  <circle cx="40" cy="52" r="4" fill="primary" />
-  <circle cx="120" cy="52" r="4" fill="primary" />
-</svg>
-```
+| Step | Title (VI) | Tag | Nội dung chính |
+|------|-----------|-----|----------------|
+| 1 | Bạn đặt mục tiêu | BẠN LÀM | 3 ví dụ câu lệnh tự nhiên + note "Không cần brief template" |
+| 2 | Agent nghiên cứu & lên chiến lược | AGENT LÀM | 4 bullet: xu hướng, đối thủ, recall bài cũ, phân bổ journey |
+| 3 | Tạo nội dung — đã tối ưu cho từng kênh | AGENT LÀM | FB storytelling, TikTok hook 3s, LinkedIn thought leadership + note "tái cấu trúc hoàn toàn" |
+| 4 | Tự đánh giá — tự sửa | AGENT LÀM | 8 tiêu chí, tổng 100 điểm, logic < 75 tự sửa |
+| 5 | Duyệt & đăng bài | TỰ ĐỘNG/BẠN DUYỆT | Smart Auto-Approve, 12 kênh hỗ trợ |
 
-## File thay đổi
-- **Edit**: `src/landing/components/WorkflowSection.tsx` — chỉ thay block Y-Fork SVG (lines 336-362)
+### 3. Thay đổi code WorkflowSection.tsx
+
+- Thêm **tag badge** (BẠN LÀM / AGENT LÀM / TỰ ĐỘNG) cho mỗi step card agent flow
+- Thêm **examples list** cho step 1 (3 ví dụ câu lệnh)
+- Thêm **bullet list** cho step 2, 3, 4 (hiển thị các items chi tiết)
+- Thêm **channel badges** cho step 5 (12 kênh)
+- Thêm **note text** nhỏ italic cho step 1 và step 3
+- Cập nhật `agentSteps` config để enable các feature mới (`hasExamples`, `hasBullets`, `hasTag`, `hasChannels`)
+- Mở rộng `FlowStepCard` để render các element mới khi `flowPrefix === "agentFlow"`
+
+### 4. i18n keys mới (agentFlow)
+
+Mỗi step sẽ có thêm:
+- `tag`: "BẠN LÀM" / "AGENT LÀM" / "TỰ ĐỘNG HOẶC BẠN DUYỆT"
+- `subtitle`: mô tả phụ ngắn
+- `examples[]`: mảng ví dụ (step 1)
+- `bullets[]`: mảng bullet points (step 2, 3, 4)
+- `note`: ghi chú nhỏ (step 1, 3, 4)
+- `channels[]`: danh sách kênh (step 5)
+
+## Files thay đổi
+- **Edit**: `src/landing/components/WorkflowSection.tsx` — mở rộng FlowStepCard, thêm agent-specific rendering
+- **Edit**: `src/i18n/locales/vi.json` — overhaul agentFlow content
+- **Edit**: `src/i18n/locales/en.json` — tương tự EN
+- **Edit**: `src/i18n/locales/th.json` — tương tự TH
 
