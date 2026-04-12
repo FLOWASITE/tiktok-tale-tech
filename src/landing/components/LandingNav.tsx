@@ -17,7 +17,7 @@ export function LandingNav() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
 
-      const sections = ["workflow", "industry-memory", "social-proof", "pricing", "faq"];
+      const sections = ["workflow", "campaign", "industry-memory", "pricing"];
       for (const section of sections) {
         const element = document.getElementById(section);
         if (element) {
@@ -34,13 +34,18 @@ export function LandingNav() {
   }, []);
 
   const navLinks = [
+    { name: t('nav.features'), href: "#workflow" },
     { name: t('nav.howItWorks'), href: "#workflow" },
-    { name: t('nav.industryMemory'), href: "#industry-memory" },
-    { name: t('nav.testimonials'), href: "#social-proof" },
+    { name: t('nav.campaign', 'Campaign'), href: "#campaign" },
     { name: t('nav.pricing'), href: "#pricing" },
+    { name: t('nav.blog', 'Blog'), href: "/blog" },
   ];
 
   const scrollToSection = (href: string) => {
+    if (href.startsWith("/")) {
+      window.location.href = href;
+      return;
+    }
     const element = document.querySelector(href);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
@@ -60,7 +65,7 @@ export function LandingNav() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <a href="/" className="flex items-center gap-2.5">
+            <a href="/" className="flex items-center gap-2.5" title="Flowa — AI Marketing Agent">
               <img 
                 src={logo} 
                 alt="Flowa Logo" 
