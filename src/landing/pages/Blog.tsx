@@ -73,6 +73,7 @@ const Blog = () => {
         .from('blog_posts')
         .select('id, slug, title, excerpt, cover_image, author_name, published_at, read_time, category')
         .eq('status', 'published')
+        .eq('is_public', true)
         .order('published_at', { ascending: false });
       if (error) throw error;
       return data;

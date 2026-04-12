@@ -2683,6 +2683,7 @@ export type Database = {
           created_at: string
           excerpt: string | null
           id: string
+          is_public: boolean
           organization_id: string | null
           published_at: string | null
           read_time: string | null
@@ -2704,6 +2705,7 @@ export type Database = {
           created_at?: string
           excerpt?: string | null
           id?: string
+          is_public?: boolean
           organization_id?: string | null
           published_at?: string | null
           read_time?: string | null
@@ -2725,6 +2727,7 @@ export type Database = {
           created_at?: string
           excerpt?: string | null
           id?: string
+          is_public?: boolean
           organization_id?: string | null
           published_at?: string | null
           read_time?: string | null
