@@ -5,8 +5,11 @@ import { Link } from "react-router-dom";
 import {
   Layers, Clapperboard, GalleryHorizontalEnd, Megaphone, Check,
   Search, Target, PenTool, ShieldCheck, Send, Zap, Bot,
-  MessageSquare, Image as ImageIcon, CalendarCheck
+  MessageSquare, Image as ImageIcon, CalendarCheck,
+  TrendingUp, Eye, Brain, Route, BookOpen, Timer, Award, CheckCircle2
 } from "lucide-react";
+import { ChannelIcon } from "@/components/ui/channel-icon";
+import { LinhAvatar } from "@/landing/components/LinhAvatar";
 import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useState, useRef } from "react";
 import workflowBrandImg from "@/assets/workflow/workflow-brand.png";
