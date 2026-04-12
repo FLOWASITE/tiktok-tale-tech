@@ -68,14 +68,14 @@ const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_description: 'Nhiều xuống dòng, KHÔNG chèn hashtag trong body',
   },
   twitter: {
-    min_length: 0, max_length: 280, length_unit: 'chars',
+    min_length: 150, max_length: 350, length_unit: 'words',
     hook_required: true, hook_style: 'quan điểm ngay câu đầu',
     bullet_allowed: false, cta_policy: 'none',
     emoji_allowed: false, emoji_limit: 0,
-    hashtag_limit: 1, hashtag_position: 'end',
+    hashtag_limit: 2, hashtag_position: 'end',
     line_break_style: 'minimal', link_position: 'allowed',
     tone_adjustment: 'concise', format_type: 'thread',
-    format_description: 'Thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số 1/, 2/...',
+    format_description: 'Thread 5-7 tweets đánh số (1/, 2/...), mỗi tweet ≤280 ký tự, KHÔNG emoji, hashtag cuối thread',
   },
   google_maps: {
     min_length: 80, max_length: 150, length_unit: 'words',
