@@ -250,7 +250,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   };
 
   const handleWebsiteSubmit = async () => {
-    if (!websiteForm.websiteUrl) {
+    if (websiteForm.integrationType !== 'flowa_blog' && !websiteForm.websiteUrl) {
       toast.error('Vui lòng nhập URL website');
       return;
     }
@@ -258,7 +258,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     try {
       const body: Record<string, unknown> = {
         brandTemplateId: template.id,
-        websiteUrl: websiteForm.websiteUrl,
+        websiteUrl: websiteForm.integrationType === 'flowa_blog' ? 'https://flowa.vn/blog' : websiteForm.websiteUrl,
         integrationType: websiteForm.integrationType,
       };
       if (websiteForm.integrationType === 'wordpress' && websiteForm.username && websiteForm.appPassword) {
@@ -692,6 +692,15 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 <option value="manual">Thủ công</option>
               </select>
             </div>
+
+            {websiteForm.integrationType === 'flowa_blog' && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Kết nối trực tiếp với blog Flowa (flowa.vn/blog). Bài viết sẽ được đăng công khai trên trang blog chính thức. Chỉ admin mới có thể sử dụng tùy chọn này.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {websiteForm.integrationType === 'wordpress' && (
               <>
