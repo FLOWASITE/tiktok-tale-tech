@@ -636,7 +636,7 @@ export default function ContentCalendar() {
   const handleScheduleClick = async (schedule: ScheduleWithContent) => {
     const content = contents.find(c => c.id === schedule.content_id);
     if (content) {
-      setSelectedContent(content);
+      setSelectedContentId(content.id);
       setViewerOpen(true);
     }
   };
@@ -645,15 +645,13 @@ export default function ContentCalendar() {
     const result = await generateContent(formData);
     if (result) {
       setFormOpen(false);
-      setSelectedContent(result);
+      setSelectedContentId(result.id);
       setViewerOpen(true);
     }
   };
 
   const handleExpandChannels = async (contentId: string, newChannels: Channel[]) => {
-    const updated = await expandChannels(contentId, newChannels);
-    if (updated) setSelectedContent(updated);
-    return updated;
+    return await expandChannels(contentId, newChannels);
   };
 
   // Handle scheduling a topic from Topics Hub
