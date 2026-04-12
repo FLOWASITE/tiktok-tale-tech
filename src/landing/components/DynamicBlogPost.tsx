@@ -204,8 +204,8 @@ const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
           <SocialShare title={post.title} />
         </div>
 
-        <BlogReactions />
-        <BlogComments />
+        <BlogReactions postSlug={post.slug} />
+        <BlogComments postSlug={post.slug} />
 
         <RelatedPosts
           currentSlug={post.slug}
