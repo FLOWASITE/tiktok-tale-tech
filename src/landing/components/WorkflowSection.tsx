@@ -120,10 +120,147 @@ interface FlowStepCardProps {
   altPrefix?: string;
   hasContentTypes?: boolean;
   hasFeature?: boolean;
+  hasExamples?: boolean;
+  hasBullets?: boolean;
+  hasChannels?: boolean;
   icon: React.ElementType;
 }
 
-function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, icon: Icon }: FlowStepCardProps) {
+function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, hasExamples, hasBullets, hasChannels, icon: Icon }: FlowStepCardProps) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const isAgent = flowPrefix === "agentFlow";
+
+  const tag = isAgent ? t(`workflow.${flowPrefix}.steps.${stepKey}.tag`, { defaultValue: "" }) : "";
+
+  const getTagStyle = (tagText: string) => {
+    if (tagText.includes("BẠN") || tagText.includes("YOU") || tagText.includes("คุณทำ"))
+      return "bg-primary/10 text-primary border-primary/20";
+    if (tagText.includes("TỰ ĐỘNG") || tagText.includes("AUTO") || tagText.includes("อัตโนมัติ"))
+      return "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400";
+    return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400";
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+      animate={isInView ? { opacity: 1, x: 0 } : {}}
+      transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+      className="flex gap-4 md:gap-5 items-start"
+    >
+      <StepNumber num={stepNum} isActive={isActive} isCompleted={isCompleted} />
+      <div className="flex-1">
+        <motion.div
+          className="relative bg-card rounded-2xl overflow-hidden"
+          style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)" }}
+          whileHover={{ y: -4, boxShadow: "0 4px 12px rgba(0,0,0,0.06), 0 12px 28px rgba(0,0,0,0.06)" }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="h-0.5 bg-primary w-full" />
+          <div className="p-5 md:p-6">
+            {isAgent && tag && (
+              <span className={`inline-block text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border mb-3 ${getTagStyle(tag)}`}>
+                {tag}
+              </span>
+            )}
+
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="w-5 h-5 text-primary shrink-0" />
+              <h3 className="text-lg font-semibold text-foreground">
+                {t(`workflow.${flowPrefix}.steps.${stepKey}.title`)}
+              </h3>
+            </div>
+            <p className="text-muted-foreground text-sm mb-2">
+              {t(`workflow.${flowPrefix}.steps.${stepKey}.description`)}
+            </p>
+
+            {hasExamples && (
+              <div className="space-y-2 mt-3">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.examples`, { returnObjects: true }) as string[]).map((ex, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.1 * i, duration: 0.3 }}
+                    className="flex items-start gap-2 text-sm bg-muted/50 rounded-xl px-4 py-3 border border-border/30"
+                  >
+                    <span className="text-primary font-mono text-xs mt-0.5 shrink-0">"</span>
+                    <span className="text-foreground/80 italic">{ex}</span>
+                    <span className="text-primary font-mono text-xs mt-0.5 shrink-0">"</span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {hasBullets && (
+              <ul className="mt-3 space-y-1.5">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.bullets`, { returnObjects: true }) as string[]).map((bullet, i) => (
+                  <motion.li
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.08 * i, duration: 0.25 }}
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                    <span>{bullet}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            )}
+
+            {isAgent && t(`workflow.${flowPrefix}.steps.${stepKey}.note`, { defaultValue: "" }) && (
+              <p className="mt-3 text-xs italic text-muted-foreground/70 border-l-2 border-primary/20 pl-3">
+                {t(`workflow.${flowPrefix}.steps.${stepKey}.note`)}
+              </p>
+            )}
+
+            {hasChannels && (
+              <div className="flex flex-wrap gap-1.5 mt-4">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.channels`, { returnObjects: true }) as string[]).map((ch) => (
+                  <span key={ch} className="inline-flex items-center px-2.5 py-1 text-[11px] font-medium rounded-full bg-primary/5 text-primary border border-primary/10">
+                    {ch}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {hasFeature && (
+              <span className="inline-block text-sm text-primary font-medium mt-2">
+                → {t(`workflow.${flowPrefix}.steps.${stepKey}.feature`)}
+              </span>
+            )}
+
+            {hasContentTypes && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                {contentTypes.map((type) => (
+                  <motion.div key={type.key}
+                    className="flex flex-col items-center gap-1 px-3 py-3 rounded-xl border border-border/30 bg-background/60 backdrop-blur-sm text-center"
+                    whileHover={{ y: -3, boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <motion.div whileHover={{ rotate: 5, scale: 1.1 }} transition={{ duration: 0.2 }}>
+                      <type.icon className="w-5 h-5 text-primary mb-1" />
+                    </motion.div>
+                    <span className="text-sm font-medium text-foreground">{t(`workflow.quickFlow.steps.step2.types.${type.key}.name`)}</span>
+                    <span className="text-xs font-medium text-primary">{t(`workflow.quickFlow.steps.step2.types.${type.key}.highlight`)}</span>
+                    <span className="text-xs text-muted-foreground leading-tight">{t(`workflow.quickFlow.steps.step2.types.${type.key}.subtitle`)}</span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {images && images.length > 0 && <ImageCarousel images={images} altPrefix={altPrefix || ""} />}
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
