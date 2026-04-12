@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   List,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
