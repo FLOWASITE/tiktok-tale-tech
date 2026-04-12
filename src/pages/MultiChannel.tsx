@@ -135,7 +135,23 @@ export default function MultiChannel() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
 
-  // Pagination state
+  // Social connections for channel view
+  const activeBrandTemplateId = useMemo(() => {
+    if (brandFilter !== 'all') return brandFilter;
+    const brandCounts: Record<string, number> = {};
+    for (const c of contents) {
+      if (c.brand_template_id) {
+        brandCounts[c.brand_template_id] = (brandCounts[c.brand_template_id] || 0) + 1;
+      }
+    }
+    const sorted = Object.entries(brandCounts).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0];
+  }, [brandFilter, contents]);
+
+  const { connections: socialConnections } = useSocialConnections({
+    brandTemplateId: activeBrandTemplateId,
+  });
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
