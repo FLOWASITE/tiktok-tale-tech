@@ -99,7 +99,7 @@ const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {
   zalo_oa: 2000,
 };
 
-type DialogState = 'confirm' | 'success';
+type DialogState = 'confirm' | 'success' | 'blog';
 
 export function DirectPublishButton({
   content,
@@ -119,7 +119,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToZaloOA, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -133,6 +133,9 @@ export function DirectPublishButton({
   const [publishedResult, setPublishedResult] = useState<{ postId?: string; postUrl?: string } | null>(null);
   const [zaloTitle, setZaloTitle] = useState('');
   const [zaloDescription, setZaloDescription] = useState('');
+  const [blogTitle, setBlogTitle] = useState('');
+  const [blogExcerpt, setBlogExcerpt] = useState('');
+  const [blogIsPublic, setBlogIsPublic] = useState(false);
 
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
@@ -157,6 +160,8 @@ export function DirectPublishButton({
     const firstLine = meaningfulLines[0] || '';
     setZaloTitle(firstLine.substring(0, 100));
     setZaloDescription(meaningfulLines.slice(0, 3).join(' ').substring(0, 200));
+    setBlogTitle(firstLine.substring(0, 200));
+    setBlogExcerpt(meaningfulLines.slice(1, 4).join(' ').substring(0, 300));
   }, [content]);
 
   const zaloCoverUrl = useMemo(() => mediaUrls?.[0] || null, [mediaUrls]);
