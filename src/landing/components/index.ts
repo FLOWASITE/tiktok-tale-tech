@@ -14,4 +14,3 @@ export { PublicPageLayout } from "./PublicPageLayout";
 export { SalesChatWidget } from "./SalesChatWidget";
 export { LanguageSwitcher } from "./LanguageSwitcher";
 export { LinhAvatar } from "./LinhAvatar";
-export { ProblemSection } from "./ProblemSection";
