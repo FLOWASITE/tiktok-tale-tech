@@ -1,49 +1,59 @@
 
 
-# Nâng cấp Pipeline Diagram — Premium Interactive
+# Nâng cấp WorkflowSection — Premium Interactive Timeline
 
 ## Hiện trạng
-Pipeline hiện tại khá cơ bản: 6 icon boxes vuông (`rounded-xl`) nối bằng đường thẳng + mũi tên tĩnh. Không có animation chạy qua pipeline, không có hiệu ứng "đang hoạt động".
+Timeline dọc cơ bản: số trong vòng tròn gradient, đường nối tĩnh, text + carousel ảnh. Không có animation khi scroll, cards phẳng, không có hiệu ứng tương tác đặc biệt.
 
 ## Thiết kế mới
 
-### 1. Sequential "Running" Animation
-- Khi pipeline xuất hiện, mỗi step sẽ lần lượt "sáng lên" (highlight) từ Research → Publish như thể Agent đang chạy thật
-- Mỗi step highlight trong ~800ms rồi chuyển sang step tiếp theo, step trước trở lại trạng thái "completed" (check icon nhỏ)
-- Step cuối (Publish) giữ highlight vĩnh viễn với primary color + subtle pulse
+### 1. Card-based Layout thay vì text thuần
+- Mỗi step được wrap trong card trắng premium (giống Problem Section): `bg-card`, multi-layer shadow, `rounded-2xl`
+- Top accent line 2px `bg-primary` trên mỗi card
+- Hover: card lift `translateY(-4px)` + shadow tăng
 
-### 2. Animated Connector Lines
-- Thay đường thẳng tĩnh bằng **dashed line animated** — các dash di chuyển từ trái sang phải liên tục (CSS animation `stroke-dashoffset`)
-- Khi step được highlight, connector tới step đó sẽ chuyển từ `border-color` sang `primary` color, tạo hiệu ứng "dòng chảy"
+### 2. Animated Timeline Line
+- Thay đường nối tĩnh bằng **animated progress line** — fill dần từ trên xuống khi user scroll qua section
+- Sử dụng Framer Motion `useScroll` + `useTransform` để sync với scroll position
+- Step numbers sáng lên (scale + glow) khi scroll tới vị trí tương ứng
 
-### 3. Icon Container Upgrade
-- Hình tròn thay vì vuông (`rounded-full` thay `rounded-xl`) — phù hợp hơn cho pipeline flow
-- Active step: scale lên 1.1 + ring glow primary + icon animate nhẹ
-- Completed step: background nhẹ + subtle checkmark overlay
-- Pending step: bg-muted như hiện tại
+### 3. Scroll-triggered Step Animation
+- Mỗi step fade-in + slide từ trái/phải xen kẽ (odd: từ trái, even: từ phải) thay vì tất cả từ dưới lên
+- Stagger delay tăng dần tạo hiệu ứng "revealing"
+- Image carousel có scale-in effect riêng
 
-### 4. Progress Trail Effect
-- Một thanh progress mỏng (2px) chạy dưới toàn bộ pipeline, fill dần từ trái sang phải đồng bộ với sequential animation
-- Tạo cảm giác "pipeline đang thực thi"
+### 4. Step Number Upgrade
+- Thêm ring pulse animation khi step đang active (trong viewport)
+- Completed steps (đã scroll qua): checkmark overlay nhỏ giống Pipeline
+- Active step: ring glow primary animated
 
-### 5. Hover Interaction
-- Hover vào mỗi step: hiện tooltip nhỏ mô tả ngắn (ví dụ: "Nghiên cứu thị trường & đối thủ")
-- Scale nhẹ icon container
+### 5. Content Type Cards (Step 3) Premium
+- Cards content type chuyển sang style glassmorphism nhẹ: `backdrop-blur`, border gradient
+- Hover: individual card lift + icon animate
+- Thêm subtle gradient background cho grid area
 
-### 6. Pipeline Note nâng cấp
-- Thêm animated dot (giống "live" indicator) trước text "Toàn bộ pipeline chạy trong ~10 phút"
-- Text fade-in sau khi sequential animation hoàn tất
+### 6. Section Background
+- Subtle dot grid pattern (giống Problem Section) opacity rất nhẹ
+- Ambient radial gradient nhẹ ở giữa section
+
+### 7. Image Carousel Upgrade
+- Border radius lớn hơn (`rounded-2xl`)
+- Thêm subtle glow shadow dưới ảnh khi hover
+- Dots indicator: animated width transition (active dot rộng hơn thay vì chỉ đổi màu)
 
 ## Kỹ thuật
-- Sử dụng Framer Motion cho sequential highlight (staggered `animate` với `useEffect` timer)
-- CSS `@keyframes` cho dashed line animation (stroke-dashoffset)
-- Giữ nguyên responsive: mobile vẫn wrap, ẩn connectors trên mobile
+- Framer Motion `useScroll`, `useTransform` cho scroll-driven timeline
+- `useInView` cho từng step để trigger animations
+- CSS `@keyframes` cho ring pulse
+- Giữ nguyên Embla Carousel cho image slides
 
 ## File thay đổi
-- **Edit**: `src/landing/components/HeroSection.tsx` — pipeline section
+- **Edit**: `src/landing/components/WorkflowSection.tsx`
 
 ## Giữ nguyên
 - Content text, i18n keys
-- Design system colors (primary, muted, border)
-- Phần Hero phía trên pipeline (tag, headline, CTAs, micro stats)
+- 6 steps data structure
+- Image imports và carousel logic
+- Responsive breakpoints
+- Design system colors
 
