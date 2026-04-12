@@ -189,8 +189,7 @@ function ProblemCard({ card, index }: { card: typeof cards[0]; index: number }) 
     >
       {/* Top accent gradient line */}
       <div
-        className="absolute top-0 left-0 right-0 h-[2px] opacity-40 transition-opacity duration-300 group-hover:opacity-70"
-        style={{ background: "linear-gradient(90deg, #f87171, #fb923c)" }}
+        className="absolute top-0 left-0 right-0 h-[2px] opacity-40 transition-opacity duration-300 group-hover:opacity-70 bg-primary"
       />
 
       {/* Ambient glow — subtle */}
