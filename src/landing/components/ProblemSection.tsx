@@ -177,20 +177,27 @@ function ProblemCard({ card, index }: { card: typeof cards[0]; index: number }) 
       initial={{ opacity: 0, y: 24 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.6, delay: index * 0.15, ease: [0.4, 0, 0.2, 1] }}
-      className="relative overflow-hidden rounded-[20px] border border-red-100/60 bg-red-50/20 backdrop-blur-sm p-8 sm:p-9 transition-all duration-350 hover:-translate-y-1 group"
+      className="relative overflow-hidden rounded-[20px] border border-border/40 bg-card backdrop-blur-sm p-8 sm:p-9 transition-all duration-350 group"
       style={{
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.04)",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03)",
       }}
       whileHover={{
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 12px 40px rgba(248,113,113,0.08), 0 4px 12px rgba(0,0,0,0.06)",
-        borderColor: "rgba(248,113,113,0.25)",
+        y: -6,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04)",
+        borderColor: "rgba(248,113,113,0.2)",
       }}
     >
-      {/* Ambient glow */}
+      {/* Top accent gradient line */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px] opacity-40 transition-opacity duration-300 group-hover:opacity-70"
+        style={{ background: "linear-gradient(90deg, #f87171, #fb923c)" }}
+      />
+
+      {/* Ambient glow — subtle */}
       <motion.div
         className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none"
         style={{
-          background: "radial-gradient(circle, rgba(248,113,113,0.07) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(248,113,113,0.03) 0%, transparent 70%)",
         }}
         animate={{ opacity: [0.5, 1, 0.5] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
@@ -199,13 +206,13 @@ function ProblemCard({ card, index }: { card: typeof cards[0]; index: number }) 
       {/* Card number */}
       <span
         className="absolute top-5 right-6 text-[11px] font-bold tracking-wider pointer-events-none select-none"
-        style={{ color: "rgba(248,113,113,0.12)" }}
+        style={{ color: "rgba(248,113,113,0.1)" }}
       >
         {cardNumber}
       </span>
 
       {/* Icon */}
-      <div className="w-[52px] h-[52px] rounded-[14px] bg-red-100/50 border border-red-200/40 flex items-center justify-center mb-6 text-red-400/70 transition-all duration-300 group-hover:bg-red-100/70 group-hover:border-red-200/60 group-hover:scale-105">
+      <div className="w-[52px] h-[52px] rounded-[14px] bg-gradient-to-br from-red-50 to-orange-50 border border-red-100/30 flex items-center justify-center mb-6 text-red-400/70 transition-all duration-300 group-hover:border-red-200/50 group-hover:scale-105">
         <card.icon />
       </div>
 
@@ -229,7 +236,7 @@ function ProblemCard({ card, index }: { card: typeof cards[0]; index: number }) 
       </h3>
 
       {/* Desc */}
-      <p className="text-sm font-normal text-muted-foreground/60 " style={{ lineHeight: 1.75 }}>
+      <p className="text-sm font-normal text-muted-foreground/60" style={{ lineHeight: 1.75 }}>
         {t(card.descKey, card.descFallback)}
       </p>
 
@@ -286,8 +293,8 @@ export function ProblemSection() {
         className="absolute inset-0 pointer-events-none"
         style={{
           background: [
-            "radial-gradient(ellipse 60% 40% at 30% 30%, rgba(248,113,113,0.05) 0%, transparent 60%)",
-            "radial-gradient(ellipse 50% 50% at 70% 70%, rgba(251,146,60,0.035) 0%, transparent 60%)",
+            "radial-gradient(ellipse 60% 40% at 30% 30%, rgba(248,113,113,0.025) 0%, transparent 60%)",
+            "radial-gradient(ellipse 50% 50% at 70% 70%, rgba(251,146,60,0.018) 0%, transparent 60%)",
           ].join(", "),
         }}
       />
