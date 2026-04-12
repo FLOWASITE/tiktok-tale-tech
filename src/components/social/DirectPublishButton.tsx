@@ -54,6 +54,7 @@ interface DirectPublishButtonProps {
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  channelStatus?: string;
   onPublishSuccess?: () => void;
 }
 
@@ -114,6 +115,7 @@ export function DirectPublishButton({
   variant = 'outline',
   size = 'sm',
   className,
+  channelStatus,
   onPublishSuccess,
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
