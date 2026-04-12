@@ -349,6 +349,12 @@ export default function ContentCalendar() {
     deleteNote,
   } = useCalendarNotes();
   
+  // Derive selectedContent from fresh contents array
+  const selectedContent = useMemo(() => 
+    selectedContentId ? contents.find(c => c.id === selectedContentId) || null : null,
+    [selectedContentId, contents]
+  );
+
   // Combine all milestones for calendar display
   const allMilestones = useMemo(() => {
     return [...upcomingMilestones, ...todayMilestones, ...overdueMilestones];
