@@ -7,22 +7,24 @@
     "pricing": "Bảng giá",
     "faq": "FAQ",
     "login": "Đăng nhập",
-    "startFree": "Bắt đầu miễn phí"
+    "startFree": "Bắt đầu miễn phí",
+    "campaign": "Campaign",
+    "blog": "Blog"
   },
   "hero": {
     "badge": "500+ Marketer đang dùng",
-    "problem": "Mệt mỏi với việc tạo content thủ công?",
-    "titleLine1": "Tạo 1 Tuần Content",
-    "titleLine2": "Chỉ Trong 1 Giờ",
-    "description": "Flowa là nền tảng AI đầu tiên tại Việt Nam với <strong>Industry Compliance</strong> tích hợp — giúp bạn tạo content đa kênh <strong>tuân thủ pháp luật ngành</strong>, giữ brand voice nhất quán.",
-    "descPlain": "Flowa là nền tảng AI đầu tiên tại Việt Nam với Industry Compliance tích hợp — giúp bạn tạo content đa kênh tuân thủ pháp luật ngành, giữ brand voice nhất quán trong 10 phút.",
+    "problem": "AI Marketing Agent — Không phải AI Writing Tool",
+    "titleLine1": "Đội ngũ content của bạn",
+    "titleLine2": "chạy bằng AI Agent",
+    "description": "Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng, tạo nội dung cho 12 kênh, tự chấm điểm chất lượng, và đăng bài — không cần bạn ngồi viết từng bài.",
+    "descPlain": "Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng, tạo nội dung cho 12 kênh, tự chấm điểm chất lượng, và đăng bài — không cần bạn ngồi viết từng bài.",
     "benefits": {
+      "setup": "Setup 5 phút",
       "noCard": "Không cần thẻ tín dụng",
-      "freeTrial": "Dùng thử miễn phí 14 ngày",
-      "cancelAnytime": "Hủy bất cứ lúc nào"
+      "multiLang": "Hỗ trợ VI · TH · EN"
     },
     "cta": {
-      "startFree": "Bắt đầu miễn phí ngay",
+      "startFree": "Dùng thử miễn phí",
       "watchHow": "Xem cách hoạt động"
     },
     "stats": {
@@ -38,6 +40,16 @@
       "performance": "Hiệu suất",
       "calendar": "Content Calendar",
       "aiGeneration": "AI Generation"
+    },
+    "tag": "AI Marketing Agent — Không phải AI Writing Tool",
+    "pipelineNote": "Toàn bộ pipeline chạy trong ~10 phút, không cần can thiệp",
+    "pipeline": {
+      "research": "Research",
+      "strategy": "Strategy",
+      "create": "Create",
+      "review": "Review",
+      "approve": "Approve",
+      "publish": "Publish"
     }
   },
   "workflow": {
@@ -60,10 +72,26 @@
         "title": "Chọn loại Content",
         "description": "Từ một chủ đề duy nhất, tạo content cho nhiều định dạng và nền tảng.",
         "types": {
-          "multiChannel": { "name": "Đa kênh", "highlight": "5+ platforms", "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo" },
-          "videoScript": { "name": "Video Script", "highlight": "15 thể loại", "subtitle": "Voice-over + chỉ dẫn diễn xuất" },
-          "carousel": { "name": "Carousel", "highlight": "5-10 slides", "subtitle": "Image prompts AI-ready" },
-          "adCopy": { "name": "Ad Copy", "highlight": "A/B testing", "subtitle": "Facebook, Google, TikTok Ads" }
+          "multiChannel": {
+            "name": "Đa kênh",
+            "highlight": "5+ platforms",
+            "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
+          },
+          "videoScript": {
+            "name": "Video Script",
+            "highlight": "15 thể loại",
+            "subtitle": "Voice-over + chỉ dẫn diễn xuất"
+          },
+          "carousel": {
+            "name": "Carousel",
+            "highlight": "5-10 slides",
+            "subtitle": "Image prompts AI-ready"
+          },
+          "adCopy": {
+            "name": "Ad Copy",
+            "highlight": "A/B testing",
+            "subtitle": "Facebook, Google, TikTok Ads"
+          }
         }
       },
       "step4": {
@@ -240,7 +268,8 @@
       "reviewsDesc": "Từ 200+ đánh giá",
       "uptime": "Thời gian hoạt động",
       "uptimeDesc": "Hệ thống ổn định cấp doanh nghiệp"
-    }
+    },
+    "heroBar": "Được sử dụng bởi các Marketing Team tại Việt Nam & Thái Lan"
   },
   "testimonials": {
     "badge": "Khách hàng nói gì",
@@ -425,19 +454,39 @@
     "sections": {
       "product": {
         "title": "Sản phẩm",
-        "links": ["Tính năng", "Bảng giá", "Integrations", "API"]
+        "links": [
+          "Tính năng",
+          "Bảng giá",
+          "Integrations",
+          "API"
+        ]
       },
       "company": {
         "title": "Công ty",
-        "links": ["Về chúng tôi", "Blog", "Tuyển dụng", "Liên hệ"]
+        "links": [
+          "Về chúng tôi",
+          "Blog",
+          "Tuyển dụng",
+          "Liên hệ"
+        ]
       },
       "resources": {
         "title": "Tài nguyên",
-        "links": ["Documentation", "Help Center", "Case Studies", "Templates"]
+        "links": [
+          "Documentation",
+          "Help Center",
+          "Case Studies",
+          "Templates"
+        ]
       },
       "legal": {
         "title": "Pháp lý",
-        "links": ["Điều khoản", "Bảo mật", "Cookies", "GDPR"]
+        "links": [
+          "Điều khoản",
+          "Bảo mật",
+          "Cookies",
+          "GDPR"
+        ]
       }
     },
     "copyright": "© {{year}} Flowa. All rights reserved.",
