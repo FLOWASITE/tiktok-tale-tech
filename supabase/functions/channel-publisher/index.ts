@@ -1,16 +1,9 @@
-import { withPerf } from "../_shared/middleware/perf.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-/**
- * Consolidated channel publisher — single entry point for all social publishing.
- * Routes to the appropriate platform-specific function via internal fetch.
- *
- * Body: { action: 'zalo' | 'facebook' | 'instagram' | ..., ...publishPayload }
- */
 
 const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   zalo: 'publish-zalo',
@@ -23,6 +16,20 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   website: 'publish-website',
   blog: 'publish-blog',
   'flowa_blog': 'publish-blog',
+};
+
+// Map action back to the channel key used in selected_channels / channel_statuses
+const ACTION_TO_CHANNEL: Record<string, string> = {
+  zalo: 'zalo_oa',
+  facebook: 'facebook',
+  instagram: 'instagram',
+  linkedin: 'linkedin',
+  twitter: 'twitter',
+  threads: 'threads',
+  'google-business': 'google_maps',
+  website: 'website',
+  blog: 'website',
+  'flowa_blog': 'website',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
@@ -47,7 +54,6 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
     const functionName = PLATFORM_FUNCTION_MAP[action];
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
-    // Forward the original Authorization header so per-user context is preserved
     const authHeader = req.headers.get('Authorization');
     const apiKey = req.headers.get('apikey') || Deno.env.get('SUPABASE_ANON_KEY') || '';
 
@@ -70,6 +76,49 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
 
     // Stream the response back transparently
     const responseBody = await response.text();
+
+    // === Centralized status update after successful publish ===
+    const contentId = payload.contentId || payload.content_id;
+    if (response.ok && contentId) {
+      try {
+        let parsedResponse: Record<string, unknown> | null = null;
+        try { parsedResponse = JSON.parse(responseBody); } catch { /* not JSON */ }
+        
+        const isSuccess = parsedResponse?.success === true;
+        if (isSuccess) {
+          const channelKey = ACTION_TO_CHANNEL[action] || action;
+          const supabase = getServiceClient();
+
+          const { data: contentData } = await supabase
+            .from('multi_channel_contents')
+            .select('selected_channels, channel_statuses, status')
+            .eq('id', contentId)
+            .single();
+
+          if (contentData) {
+            const selectedChannels: string[] = contentData.selected_channels || [];
+            const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
+            channelStatuses[channelKey] = 'published';
+
+            const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
+            const newStatus = allPublished ? 'published' : 'partially_published';
+
+            const { error: updateError } = await supabase
+              .from('multi_channel_contents')
+              .update({ status: newStatus, channel_statuses: channelStatuses })
+              .eq('id', contentId);
+
+            if (updateError) {
+              console.error('[channel-publisher] Failed to update content status:', updateError.message);
+            } else {
+              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${channelKey}=published)`);
+            }
+          }
+        }
+      } catch (statusErr) {
+        console.error('[channel-publisher] Status update error (non-fatal):', statusErr);
+      }
+    }
 
     return new Response(responseBody, {
       status: response.status,

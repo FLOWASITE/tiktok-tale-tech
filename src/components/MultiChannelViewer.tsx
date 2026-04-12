@@ -1409,12 +1409,17 @@ export function MultiChannelViewer({
                           contentId={content.id}
                           channel={channel}
                           brandTemplateId={content.brand_template_id || undefined}
+                          channelStatus={(content.channel_statuses as Record<string, string>)?.[channel] || 'draft'}
                           mediaUrls={(() => {
                             const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
                             return imgUrl ? [imgUrl] : undefined;
                           })()}
                           variant="default"
                           size="sm"
+                          onPublishSuccess={() => {
+                            queryClient.invalidateQueries({ queryKey: ['multi-channel-contents'] });
+                            queryClient.invalidateQueries({ queryKey: ['multi-channel-content', content.id] });
+                          }}
                         />
                       </div>
                     )}
