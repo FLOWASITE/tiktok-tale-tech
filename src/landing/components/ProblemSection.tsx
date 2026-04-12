@@ -211,19 +211,15 @@ function ProblemCard({ card, index }: { card: typeof cards[0]; index: number }) 
       </span>
 
       {/* Icon */}
-      <div className="w-[52px] h-[52px] rounded-[14px] bg-gradient-to-br from-red-50 to-orange-50 border border-red-100/30 flex items-center justify-center mb-6 text-red-400/70 transition-all duration-300 group-hover:border-red-200/50 group-hover:scale-105">
+      <div className="w-[52px] h-[52px] rounded-[14px] bg-primary/5 border border-primary/10 flex items-center justify-center mb-6 text-primary/60 transition-all duration-300 group-hover:border-primary/20 group-hover:scale-105">
         <card.icon />
       </div>
 
       {/* Stat */}
       <div
-        className="text-4xl sm:text-[36px] font-extrabold leading-none mb-1.5"
+        className="text-4xl sm:text-[36px] font-extrabold leading-none mb-1.5 text-primary"
         style={{
-          background: "linear-gradient(135deg, #f87171, #fb923c)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
           letterSpacing: "-0.03em",
-          textShadow: "0 2px 12px rgba(248,113,113,0.15)",
         }}
       >
         {count}{card.statSuffix}
