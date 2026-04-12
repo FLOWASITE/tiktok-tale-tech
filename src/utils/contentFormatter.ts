@@ -72,6 +72,37 @@ export function htmlToMarkdown(html: string): string {
 }
 
 /**
+ * Strips SEO metadata lines that AI sometimes embeds directly in content body.
+ * Removes lines like "**SEO Title:** ...", "Meta Description: ...", etc.
+ */
+export function stripSeoMetadata(content: string): string {
+  if (!content) return '';
+  
+  const seoPatterns = [
+    // English patterns
+    /^(?:\*\*|#{1,3}\s*)?SEO\s*Title\s*[:：]\s*\**.*\**\s*$/gim,
+    /^(?:\*\*|#{1,3}\s*)?Meta\s*Description\s*[:：]\s*\**.*\**\s*$/gim,
+    /^(?:\*\*|#{1,3}\s*)?Focus\s*Keyword[s]?\s*[:：]\s*\**.*\**\s*$/gim,
+    /^(?:\*\*|#{1,3}\s*)?Slug\s*[:：]\s*\**.*\**\s*$/gim,
+    // Vietnamese patterns
+    /^(?:\*\*|#{1,3}\s*)?Tiêu\s*đề\s*SEO\s*[:：]\s*\**.*\**\s*$/gim,
+    /^(?:\*\*|#{1,3}\s*)?Mô\s*tả\s*Meta\s*[:：]\s*\**.*\**\s*$/gim,
+    /^(?:\*\*|#{1,3}\s*)?Từ\s*khóa\s*chính\s*[:：]\s*\**.*\**\s*$/gim,
+    /^(?:\*\*|#{1,3}\s*)?Đường\s*dẫn\s*[:：]\s*\**.*\**\s*$/gim,
+  ];
+  
+  let cleaned = content;
+  for (const pattern of seoPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  
+  // Clean up extra blank lines left behind
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim();
+  
+  return cleaned;
+}
+
+/**
  * Ensures content is in Markdown format (auto-converts HTML if detected)
  */
 export function ensureMarkdownFormat(content: string): string {

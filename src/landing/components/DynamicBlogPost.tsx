@@ -15,7 +15,7 @@ import {
   BlogBreadcrumb,
   blogPostsData,
 } from '@/components/blog';
-import { ensureMarkdownFormat } from '@/utils/contentFormatter';
+import { ensureMarkdownFormat, stripSeoMetadata } from '@/utils/contentFormatter';
 
 interface BlogPostData {
   id: string;
@@ -40,7 +40,7 @@ interface DynamicBlogPostProps {
 
 const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
   const articleRef = useRef<HTMLElement>(null);
-  const markdownContent = ensureMarkdownFormat(post.content || '');
+  const markdownContent = stripSeoMetadata(ensureMarkdownFormat(post.content || ''));
 
   // Extract headings for TOC
   const headings = markdownContent

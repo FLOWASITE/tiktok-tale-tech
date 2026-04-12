@@ -39,6 +39,7 @@ import {
   Link as LinkIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { stripSeoMetadata } from '@/utils/contentFormatter';
 import { useNavigate } from 'react-router-dom';
 
 interface DirectPublishButtonProps {
@@ -176,7 +177,7 @@ export function DirectPublishButton({
         const result = await publishToBlog({
           connectionId: connection?.id || 'direct-blog',
           contentId,
-          content: editableContent,
+          content: stripSeoMetadata(editableContent),
           mediaUrls,
           isPublic: blogIsPublic,
           blogData: {
