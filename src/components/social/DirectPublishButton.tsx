@@ -309,7 +309,7 @@ export function DirectPublishButton({
 
   if (!platform) return null;
 
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa', 'website'].includes(platform);
 
   if (!isSupported) {
     return (
@@ -328,6 +328,7 @@ export function DirectPublishButton({
           size={size}
           disabled={disabled || isPublishing || !content || isZaloMissingCover}
           onClick={handleClick}
+          title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
           title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
           className={cn(
             variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
