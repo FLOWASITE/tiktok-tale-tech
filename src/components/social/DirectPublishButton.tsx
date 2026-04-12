@@ -168,7 +168,33 @@ export function DirectPublishButton({
   const isZaloMissingCover = platform === 'zalo_oa' && !zaloCoverUrl;
 
   const handlePublish = async () => {
-    if (!connection || !platform) return;
+    if (!platform) return;
+
+    // Website/Blog: doesn't need a social connection
+    if (platform === 'website') {
+      try {
+        const result = await publishToBlog({
+          connectionId: connection?.id || 'direct-blog',
+          contentId,
+          content: editableContent,
+          mediaUrls,
+          isPublic: blogIsPublic,
+          blogData: {
+            title: blogTitle || 'Bài viết mới',
+            excerpt: blogExcerpt || undefined,
+            isPublic: blogIsPublic,
+          },
+        });
+        setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
+        setDialogState('success');
+        onPublishSuccess?.();
+      } catch (error) {
+        // Error handled by publishToBlog toast
+      }
+      return;
+    }
+
+    if (!connection) return;
 
     try {
       const publishOptions: PublishOptions = {
@@ -202,7 +228,6 @@ export function DirectPublishButton({
           return;
       }
 
-      // Show success state
       setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
       setDialogState('success');
       onPublishSuccess?.();
