@@ -1,34 +1,36 @@
 
 
-# Bổ sung chế độ xem "Theo kênh" trong trang Nội dung đa kênh
+# Hoàn thiện chế độ xem "Theo kênh"
 
-## Mô tả
-Thêm nút thứ 3 vào toggle group (Grid | List | **Theo kênh**) — khi chọn, hiển thị nội dung được nhóm theo từng kênh social (Facebook, X, Instagram, LinkedIn...), mỗi kênh là một section riêng với icon + label + danh sách bài viết thuộc kênh đó.
+## Vấn đề hiện tại
+
+Chế độ xem đã hoạt động cơ bản nhưng còn thiếu một số chi tiết:
+
+1. **Dùng `paginatedContents` thay vì `filteredContents`**: Channel view nhóm theo kênh nên cần dùng toàn bộ danh sách đã lọc, không phải danh sách đã phân trang — nếu không sẽ thiếu bài ở các kênh
+2. **Loading skeleton không hỗ trợ channel mode**: Khi loading, channel view hiện skeleton của list view thay vì skeleton phù hợp
+3. **Thiếu `onScheduleComplete`**: Grid view truyền callback này cho card nhưng ChannelGroupView thì không
+4. **Thiếu thông tin trạng thái theo kênh**: Mỗi section kênh chỉ hiện badge tổng số bài — nên thêm mini-stats (đã đăng / chờ duyệt / nháp) để quản lý dễ hơn
+5. **Ẩn pagination khi ở channel mode**: Pagination control không cần thiết khi xem theo kênh
+6. **Thêm separator + collapsible**: Cho phép thu gọn từng section kênh để dễ dàng điều hướng khi có nhiều kênh
 
 ## Thay đổi
 
-### 1. `src/components/multichannel/MultiChannelHeroSection.tsx`
-- Mở rộng `viewMode` type từ `'grid' | 'list'` → `'grid' | 'list' | 'channel'`
-- Thêm ToggleGroupItem thứ 3 với icon `Users` (hoặc `Share2`) và value `'channel'`
+### 1. `src/pages/MultiChannel.tsx`
+- Truyền `filteredContents` thay vì `paginatedContents` cho `ChannelGroupView`
+- Ẩn phần pagination khi `viewMode === 'channel'`
+- Thêm loading skeleton cho channel mode
+- Truyền thêm `onScheduleComplete` prop
 
-### 2. `src/components/multichannel/ChannelGroupView.tsx` (file mới)
-- Component nhận `contents: MultiChannelContent[]` + callbacks (onView, onDelete...)
-- Group contents theo `selected_channels`: mỗi content xuất hiện ở các kênh mà nó target
-- Render mỗi kênh như một section:
-  - Header: `ChannelIcon` + label + badge số lượng bài
-  - Grid cards (reuse `MultiChannelCard`) bên dưới
-- Kênh nào không có bài thì ẩn
-- Sắp xếp kênh theo số lượng bài giảm dần
-
-### 3. `src/pages/MultiChannel.tsx`
-- Đổi type `viewMode` state → `'grid' | 'list' | 'channel'`
-- Thêm block render `ChannelGroupView` khi `viewMode === 'channel'`
-- Truyền cùng props (onView, onDelete, selectedIds, toggleSelection...)
+### 2. `src/components/multichannel/ChannelGroupView.tsx`
+- Nhận thêm prop `onScheduleComplete`
+- Thêm mini-stats cho mỗi channel section: badges hiển thị số bài draft / approved / published
+- Thêm collapsible toggle cho mỗi section kênh (dùng `Collapsible` từ radix)
+- Thêm separator giữa các section
+- Truyền `onScheduleComplete` xuống `MultiChannelCard`
 
 ### Files
 | File | Thay đổi |
 |------|----------|
-| `src/components/multichannel/MultiChannelHeroSection.tsx` | Thêm toggle item "channel" |
-| `src/components/multichannel/ChannelGroupView.tsx` | **Mới** — view nhóm theo kênh |
-| `src/pages/MultiChannel.tsx` | Wire viewMode 'channel' vào render |
+| `src/pages/MultiChannel.tsx` | Truyền `filteredContents`, ẩn pagination, loading skeleton channel |
+| `src/components/multichannel/ChannelGroupView.tsx` | Mini-stats, collapsible sections, onScheduleComplete |
 
