@@ -125,6 +125,25 @@ export function DirectPublishButton({
   const { publishToTwitter, publishToFacebook, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
+  // Query existing blog post for this content to auto-fill backlink
+  const { data: blogBacklink } = useQuery({
+    queryKey: ['blog-backlink', contentId],
+    queryFn: async () => {
+      if (!contentId) return null;
+      const { data } = await supabase
+        .from('blog_posts')
+        .select('slug, is_public, status')
+        .eq('content_id', contentId)
+        .eq('status', 'published')
+        .maybeSingle();
+      if (!data?.slug) return null;
+      const baseUrl = data.is_public ? 'https://flowa.vn' : 'https://app.flowa.one';
+      return `${baseUrl}/blog/${data.slug}`;
+    },
+    enabled: !!contentId && channel !== 'website',
+    staleTime: 30_000,
+  });
+
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     platform: SocialPlatform | null;
