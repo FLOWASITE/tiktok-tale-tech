@@ -344,7 +344,7 @@ export function DirectPublishButton({
           ) : (
             <Icon className="h-4 w-4 mr-1" />
           )}
-          {!isPublishing && (connection ? 'Đăng ngay' : 'Kết nối để đăng')}
+          {!isPublishing && (platform === 'website' ? 'Đăng Blog' : connection ? 'Đăng ngay' : 'Kết nối để đăng')}
         </Button>
 
         {connection && contentId && (
