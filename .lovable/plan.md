@@ -1,28 +1,15 @@
 
 
-# Fix: Bài blog không hiển thị sau khi đăng thành công
+# Fix: Loại bỏ "SEO Title" và "Meta Description" khỏi nội dung blog
 
-## Nguyên nhân gốc
+## Nguyên nhân
 
-Hai vấn đề khiến bài viết không xuất hiện trên `/blog`:
+AI model đôi khi nhúng các dòng như `**SEO Title:** ...` và `**Meta Description:** ...` trực tiếp vào phần nội dung bài viết (field `content` trong JSON response). Khi bài được đăng lên blog, những dòng này hiển thị như nội dung bình thường vì chúng nằm trong Markdown content.
 
-1. **`status` luôn là `'draft'`**: Edge function `publish-blog` mặc định `status = 'draft'`, nhưng frontend không gửi `status: 'published'` khi người dùng nhấn đăng bài.
-
-2. **`is_public` luôn là `false`**: Frontend gửi `action: 'blog'` thay vì `'flowa_blog'` khi `blogIsPublic = true`, nên `channel-publisher` không inject `is_public: true`. Đồng thời, frontend cũng không truyền `is_public` trực tiếp trong body.
-
-**Kết quả**: Bài viết được lưu với `status = 'draft'` + `is_public = false`, trong khi trang `/blog` chỉ hiển thị bài có `status = 'published'` AND `is_public = true`.
+Mặc dù `website_content` DB column chỉ lưu phần `content` (đã tách khỏi SEO metadata object), AI vẫn đôi khi viết lại metadata trong chính body text.
 
 ## Giải pháp
 
-### 1. Sửa `useDirectPublish.ts` — Gửi `status: 'published'`
+### 1. Thêm hàm `stripSeoMetadata` vào `src/utils/contentFormatter.ts`
 
-Thêm `status: 'published'` vào body khi gọi `channel-publisher`, vì người dùng nhấn "Đăng" có nghĩa là muốn xuất bản, không phải lưu nháp.
-
-### 2. Sửa `useDirectPublish.ts` — Truyền `is_public` trong body
-
-Đảm bảo khi `isPublic = true`, giá trị `is_public: true` được gửi trực tiếp trong body (ngoài việc chọn đúng action `flowa_blog`).
-
-## Files thay đổi
-
-- **Edit**: `src/hooks/useDirectPublish.ts` — thêm `status: 'published'` và `is_public: options.isPublic` vào body của `publishToBlog`
-
+Hàm này sẽ loại bỏ các dòng metadata phổ biến m
