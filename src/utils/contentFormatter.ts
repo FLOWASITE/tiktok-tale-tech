@@ -79,7 +79,11 @@ export function stripSeoMetadata(content: string): string {
   if (!content) return '';
   
   const seoPatterns = [
-    // English patterns
+    // "# SEO Title" heading followed by value on next line
+    /^#{1,3}\s*SEO\s*Title\s*\n.*\n?/gim,
+    // "# Meta Description" heading followed by value on next line
+    /^#{1,3}\s*Meta\s*Description\s*\n.*\n?/gim,
+    // Inline patterns with colon: "**SEO Title:** value" or "## SEO Title: value"
     /^(?:\*\*|#{1,3}\s*)?SEO\s*Title\s*[:：]\s*\**.*\**\s*$/gim,
     /^(?:\*\*|#{1,3}\s*)?Meta\s*Description\s*[:：]\s*\**.*\**\s*$/gim,
     /^(?:\*\*|#{1,3}\s*)?Focus\s*Keyword[s]?\s*[:：]\s*\**.*\**\s*$/gim,
@@ -89,6 +93,9 @@ export function stripSeoMetadata(content: string): string {
     /^(?:\*\*|#{1,3}\s*)?Mô\s*tả\s*Meta\s*[:：]\s*\**.*\**\s*$/gim,
     /^(?:\*\*|#{1,3}\s*)?Từ\s*khóa\s*chính\s*[:：]\s*\**.*\**\s*$/gim,
     /^(?:\*\*|#{1,3}\s*)?Đường\s*dẫn\s*[:：]\s*\**.*\**\s*$/gim,
+    // Standalone label-only lines (no colon)
+    /^#{1,3}\s*SEO\s*Title\s*$/gim,
+    /^#{1,3}\s*Meta\s*Description\s*$/gim,
   ];
   
   let cleaned = content;
