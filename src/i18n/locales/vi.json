@@ -54,59 +54,90 @@
   },
   "workflow": {
     "badge": "Cách Flowa hoạt động",
-    "title": "Từ Brand đến Content",
-    "titleHighlight": "trong 6 bước",
-    "subtitle": "Tiết kiệm 80% thời gian, AI lo tất cả",
-    "steps": {
-      "step1": {
-        "title": "Khai báo Brand",
-        "description": "Thiết lập Brand Template: logo, màu sắc, tone of voice, formality level, từ ngữ ưu tiên/cấm dùng, và compliance rules theo ngành.",
-        "feature": "AI học và giữ giọng điệu nhất quán trên mọi content"
-      },
-      "step2": {
-        "title": "AI gợi ý Chủ đề",
-        "description": "AI phân tích xu hướng real-time từ TikTok, Facebook, kết hợp lịch sự kiện ngành và Customer Persona để đề xuất chủ đề phù hợp.",
-        "feature": "Trending topics + Customer Journey targeting"
-      },
-      "step3": {
-        "title": "Chọn loại Content",
-        "description": "Từ một chủ đề duy nhất, tạo content cho nhiều định dạng và nền tảng.",
-        "types": {
-          "multiChannel": {
-            "name": "Đa kênh",
-            "highlight": "5+ platforms",
-            "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
-          },
-          "videoScript": {
-            "name": "Video Script",
-            "highlight": "15 thể loại",
-            "subtitle": "Voice-over + chỉ dẫn diễn xuất"
-          },
-          "carousel": {
-            "name": "Carousel",
-            "highlight": "5-10 slides",
-            "subtitle": "Image prompts AI-ready"
-          },
-          "adCopy": {
-            "name": "Ad Copy",
-            "highlight": "A/B testing",
-            "subtitle": "Facebook, Google, TikTok Ads"
+    "title": "Hai cách tạo content",
+    "titleHighlight": "từ Brand đến Publish",
+    "subtitle": "Tạo nhanh nội dung đa kênh hoặc để AI Agent tự động hoá toàn bộ chiến dịch — tất cả đều bắt đầu từ Brand của bạn.",
+    "brandSetup": {
+      "title": "Khai báo Brand",
+      "description": "Thiết lập Brand Template: logo, màu sắc, tone of voice, formality level, từ ngữ ưu tiên/cấm dùng, và compliance rules theo ngành.",
+      "feature": "AI học và giữ giọng điệu nhất quán trên mọi content"
+    },
+    "toggleQuick": "⚡ Tạo nhanh",
+    "toggleAgent": "🤖 AI Agent",
+    "quickFlow": {
+      "label": "Nội dung đa kênh",
+      "steps": {
+        "step1": {
+          "title": "Chọn chủ đề",
+          "description": "AI phân tích xu hướng real-time từ TikTok, Facebook, kết hợp lịch sự kiện ngành và Customer Persona để đề xuất chủ đề phù hợp.",
+          "feature": "Trending topics + Customer Journey targeting"
+        },
+        "step2": {
+          "title": "Chọn loại Content",
+          "description": "Từ một chủ đề duy nhất, tạo content cho nhiều định dạng và nền tảng.",
+          "types": {
+            "multiChannel": {
+              "name": "Đa kênh",
+              "highlight": "5+ platforms",
+              "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
+            },
+            "videoScript": {
+              "name": "Video Script",
+              "highlight": "15 thể loại",
+              "subtitle": "Voice-over + chỉ dẫn diễn xuất"
+            },
+            "carousel": {
+              "name": "Carousel",
+              "highlight": "5-10 slides",
+              "subtitle": "Image prompts AI-ready"
+            },
+            "adCopy": {
+              "name": "Ad Copy",
+              "highlight": "A/B testing",
+              "subtitle": "Facebook, Google, TikTok Ads"
+            }
           }
+        },
+        "step3": {
+          "title": "AI tạo nội dung",
+          "description": "AI tự đánh giá và cải thiện output qua Self-Critique, tuân thủ brand voice và compliance rules. Học từ feedback để ngày càng chính xác."
+        },
+        "step4": {
+          "title": "Tạo ảnh AI đa kênh",
+          "description": "AI tự động tạo ảnh tối ưu cho từng kênh — TikTok 9:16, Instagram 4:5, Facebook 16:9.",
+          "feature": "Auto logo overlay + 5 kiểu layout thông minh"
+        },
+        "step5": {
+          "title": "Duyệt & Xuất bản",
+          "description": "Review, chỉnh sửa inline, phân công team, lên lịch xuất bản tự động.",
+          "feature": "Content Calendar + Team Collaboration"
         }
-      },
-      "step4": {
-        "title": "AI tạo nội dung",
-        "description": "AI tự đánh giá và cải thiện output qua Self-Critique, tuân thủ brand voice và compliance rules. Học từ feedback để ngày càng chính xác."
-      },
-      "step5": {
-        "title": "Tạo ảnh AI đa kênh",
-        "description": "AI tự động tạo ảnh tối ưu cho từng kênh — TikTok 9:16, Instagram 4:5, Facebook 16:9. 3 chế độ: Để AI lo, Giữ Brand, hoặc Toàn quyền kiểm soát.",
-        "feature": "Auto logo overlay + 5 kiểu layout thông minh"
-      },
-      "step6": {
-        "title": "Phê duyệt & Lên lịch",
-        "description": "Review, chỉnh sửa inline, phân công team, lên lịch xuất bản tự động. Quản lý theo Campaign với timeline và KPI tracking.",
-        "feature": "Content Calendar + Team Collaboration"
+      }
+    },
+    "agentFlow": {
+      "label": "AI Agent Campaign",
+      "steps": {
+        "step1": {
+          "title": "Nghiên cứu",
+          "description": "AI phân tích thị trường, đối thủ, xu hướng ngành để xác định cơ hội content."
+        },
+        "step2": {
+          "title": "Lên chiến lược",
+          "description": "Lập content plan chi tiết, phân bổ kênh, lịch đăng phù hợp với mục tiêu campaign."
+        },
+        "step3": {
+          "title": "Sáng tạo nội dung",
+          "description": "Tự động tạo content đa kênh theo plan, tuân thủ brand voice và compliance rules."
+        },
+        "step4": {
+          "title": "Rà soát & Chấm điểm",
+          "description": "Self-critique, compliance check, đánh giá chất lượng và tối ưu nội dung tự động."
+        },
+        "step5": {
+          "title": "Phê duyệt & Xuất bản",
+          "description": "Duyệt nội dung, lên lịch và publish tự động lên các kênh đã chọn.",
+          "feature": "Auto-publish + Performance tracking"
+        }
       }
     },
     "cta": "Bắt đầu miễn phí"
