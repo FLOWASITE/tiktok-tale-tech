@@ -21,6 +21,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   threads: 'publish-threads',
   'google-business': 'publish-google-business',
   website: 'publish-website',
+  blog: 'publish-blog',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {

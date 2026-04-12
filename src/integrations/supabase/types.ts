@@ -2672,6 +2672,80 @@ export type Database = {
         }
         Relationships: []
       }
+      blog_posts: {
+        Row: {
+          author_avatar: string | null
+          author_name: string | null
+          category: string | null
+          content: string | null
+          content_id: string | null
+          cover_image: string | null
+          created_at: string
+          excerpt: string | null
+          id: string
+          organization_id: string | null
+          published_at: string | null
+          read_time: string | null
+          seo_description: string | null
+          seo_title: string | null
+          slug: string
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_name?: string | null
+          category?: string | null
+          content?: string | null
+          content_id?: string | null
+          cover_image?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          organization_id?: string | null
+          published_at?: string | null
+          read_time?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug: string
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_avatar?: string | null
+          author_name?: string | null
+          category?: string | null
+          content?: string | null
+          content_id?: string | null
+          cover_image?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          organization_id?: string | null
+          published_at?: string | null
+          read_time?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_reactions: {
         Row: {
           created_at: string
