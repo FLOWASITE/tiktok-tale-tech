@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Helmet } from 'react-helmet-async';
 import { Clock, User, Calendar, ArrowLeft, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -191,6 +192,7 @@ const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
           {/* Content */}
           <div className="blog-prose">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children, ...props }) => (
                   <h1 id={toHeadingId(String(children))} {...props}>{children}</h1>
@@ -211,6 +213,23 @@ const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
                     <img src={src} alt={alt || ''} className="w-full rounded-xl shadow-md" loading="lazy" {...props} />
                     {alt && <figcaption className="text-center text-sm text-muted-foreground mt-3 italic">{alt}</figcaption>}
                   </figure>
+                ),
+                table: ({ children, ...props }) => (
+                  <div className="overflow-x-auto my-8 rounded-lg border border-border">
+                    <table className="w-full border-collapse" {...props}>{children}</table>
+                  </div>
+                ),
+                thead: ({ children, ...props }) => (
+                  <thead className="bg-muted/60" {...props}>{children}</thead>
+                ),
+                tr: ({ children, ...props }) => (
+                  <tr className="even:bg-muted/20" {...props}>{children}</tr>
+                ),
+                th: ({ children, ...props }) => (
+                  <th className="text-left font-semibold py-3 px-4 border-b border-border text-foreground text-sm" {...props}>{children}</th>
+                ),
+                td: ({ children, ...props }) => (
+                  <td className="py-3 px-4 border-b border-border/50 text-muted-foreground text-sm" {...props}>{children}</td>
                 ),
               }}
             >
