@@ -261,15 +261,11 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
     </motion.div>
   );
 }
-  const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-50px" });
-
 
 // ─── Branch Timeline ───
 function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
   flowPrefix: string;
-  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean }[];
+  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean; hasExamples?: boolean; hasBullets?: boolean; hasChannels?: boolean }[];
   icons: React.ElementType[];
   stepImages: Record<number, { images: string[]; alt: string } | undefined>;
   activeIndex: number;
