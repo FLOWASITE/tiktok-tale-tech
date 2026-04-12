@@ -329,7 +329,6 @@ export function DirectPublishButton({
           disabled={disabled || isPublishing || !content || isZaloMissingCover}
           onClick={handleClick}
           title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
-          title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
           className={cn(
             variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
             className
