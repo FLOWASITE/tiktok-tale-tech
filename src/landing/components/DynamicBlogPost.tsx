@@ -238,6 +238,16 @@ const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
                 td: ({ children, ...props }) => (
                   <td className="py-3 px-4 border-b border-border/50 text-muted-foreground text-sm" {...props}>{children}</td>
                 ),
+                li: ({ children, node, ...props }) => {
+                  const isTaskItem = node?.properties?.className && 
+                    Array.isArray(node.properties.className) && 
+                    (node.properties.className as string[]).includes('task-list-item');
+                  return (
+                    <li className={isTaskItem ? 'flex items-start gap-2' : undefined} {...props}>
+                      {children}
+                    </li>
+                  );
+                },
               }}
             >
               {markdownContent}

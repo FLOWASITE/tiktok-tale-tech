@@ -1728,39 +1728,118 @@ All colors MUST be HSL.
     @apply mb-0;
   }
 
+  /* === Unordered list === */
   .blog-prose ul {
-    @apply my-5 pl-0 space-y-2.5 list-none;
+    @apply my-5 pl-0 space-y-2 list-none;
   }
 
   .blog-prose ul li {
-    @apply relative pl-6 text-muted-foreground;
+    @apply relative pl-7 text-muted-foreground transition-colors duration-150;
     font-size: 1.0625rem;
     line-height: 1.8;
+  }
+
+  .blog-prose ul li:hover {
+    color: hsl(var(--foreground));
   }
 
   .blog-prose ul li::before {
     content: '';
     @apply absolute left-0 top-[0.65em] w-2 h-2 rounded-full;
-    background: hsl(var(--primary) / 0.6);
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    box-shadow: 0 0 4px hsl(var(--primary) / 0.3);
   }
 
+  /* Nested level 2 — dash */
+  .blog-prose ul ul {
+    @apply mt-1.5 mb-0 space-y-1.5;
+  }
+
+  .blog-prose ul ul li::before {
+    content: '—';
+    @apply w-auto h-auto rounded-none bg-transparent text-xs font-medium text-muted-foreground/60;
+    box-shadow: none;
+    top: 0.35em;
+  }
+
+  /* Nested level 3 — outline dot */
+  .blog-prose ul ul ul li::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full bg-transparent;
+    border: 1.5px solid hsl(var(--muted-foreground) / 0.4);
+    box-shadow: none;
+    top: 0.7em;
+  }
+
+  /* === Ordered list === */
   .blog-prose ol {
-    @apply my-5 pl-6 space-y-2.5;
+    @apply my-5 pl-0 space-y-2;
     counter-reset: list-counter;
     list-style: none;
   }
 
   .blog-prose ol li {
-    @apply relative text-muted-foreground;
+    @apply relative text-muted-foreground transition-colors duration-150;
     font-size: 1.0625rem;
     line-height: 1.8;
     counter-increment: list-counter;
-    padding-left: 0.5rem;
+    padding-left: 2.25rem;
+  }
+
+  .blog-prose ol li:hover {
+    color: hsl(var(--foreground));
   }
 
   .blog-prose ol li::before {
-    content: counter(list-counter) '.';
-    @apply absolute -left-5 font-semibold text-primary;
+    content: counter(list-counter);
+    @apply absolute left-0 top-[0.35em] flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  /* Nested ordered — lowercase letter */
+  .blog-prose ol ol {
+    @apply mt-1.5 mb-0 space-y-1.5;
+    counter-reset: nested-counter;
+    list-style: none;
+  }
+
+  .blog-prose ol ol li {
+    counter-increment: nested-counter;
+    padding-left: 2rem;
+  }
+
+  .blog-prose ol ol li::before {
+    content: counter(nested-counter, lower-alpha) '.';
+    @apply w-auto h-auto rounded-none bg-transparent text-sm font-semibold;
+    color: hsl(var(--primary) / 0.7);
+  }
+
+  /* === GFM Checklist / Task list === */
+  .blog-prose li:has(> input[type="checkbox"]) {
+    list-style-type: none;
+    padding-left: 0.25rem;
+  }
+
+  .blog-prose li:has(> input[type="checkbox"])::before {
+    display: none;
+  }
+
+  .blog-prose li > input[type="checkbox"] {
+    @apply appearance-none w-4 h-4 rounded border-2 mr-2 align-middle cursor-default relative;
+    border-color: hsl(var(--muted-foreground) / 0.4);
+    top: -1px;
+  }
+
+  .blog-prose li > input[type="checkbox"]:checked {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary));
+  }
+
+  .blog-prose li > input[type="checkbox"]:checked::after {
+    content: '✓';
+    @apply absolute inset-0 flex items-center justify-center text-[10px] font-bold;
+    color: hsl(var(--primary-foreground));
   }
 
   .blog-prose code:not(pre code) {
