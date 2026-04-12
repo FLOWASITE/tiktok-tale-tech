@@ -22,6 +22,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   'google-business': 'publish-google-business',
   website: 'publish-website',
   blog: 'publish-blog',
+  'flowa_blog': 'publish-blog',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
@@ -52,6 +53,11 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
 
     console.log(`[channel-publisher] routing action="${action}" → ${functionName}`);
 
+    // For flowa_blog, inject is_public = true into payload
+    const finalPayload = action === 'flowa_blog' 
+      ? { ...payload, is_public: true } 
+      : payload;
+
     const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
       method: 'POST',
       headers: {
@@ -59,7 +65,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         ...(authHeader ? { Authorization: authHeader } : {}),
         apikey: apiKey,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(finalPayload),
     });
 
     // Stream the response back transparently
