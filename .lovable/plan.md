@@ -1,30 +1,49 @@
 
 
-# Redesign Problem Cards: White + Premium
+# Nâng cấp Pipeline Diagram — Premium Interactive
 
-## Mục tiêu
-Chuyển cards từ tông đỏ-cam (bg-red-50, border-red-100) sang nền trắng sạch, hài hòa với tổng thể website, nhưng vẫn đặc biệt và premium.
+## Hiện trạng
+Pipeline hiện tại khá cơ bản: 6 icon boxes vuông (`rounded-xl`) nối bằng đường thẳng + mũi tên tĩnh. Không có animation chạy qua pipeline, không có hiệu ứng "đang hoạt động".
 
-## Thay đổi trong `ProblemSection.tsx`
+## Thiết kế mới
 
-### Card background & border
-- **Nền**: `bg-white` (hoặc `bg-card`) thay vì `bg-red-50/20`
-- **Border**: `border-border/40` mặc định, hover chuyển sang `rgba(248,113,113,0.2)` — chỉ hint đỏ khi tương tác
-- **Box-shadow**: Thêm subtle multi-layer shadow kiểu Apple: `0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03)` — tạo depth mà không cần màu
+### 1. Sequential "Running" Animation
+- Khi pipeline xuất hiện, mỗi step sẽ lần lượt "sáng lên" (highlight) từ Research → Publish như thể Agent đang chạy thật
+- Mỗi step highlight trong ~800ms rồi chuyển sang step tiếp theo, step trước trở lại trạng thái "completed" (check icon nhỏ)
+- Step cuối (Publish) giữ highlight vĩnh viễn với primary color + subtle pulse
 
-### Điểm đặc biệt để card nổi bật
-- **Top accent line**: Mỗi card có một thanh gradient mỏng 2px ở cạnh trên (`linear-gradient(90deg, #f87171, #fb923c)`), opacity 40% → 70% on hover — tạo "chấm phá" tinh tế
-- **Icon container**: Chuyển từ `bg-red-100/50` → `bg-gradient-to-br from-red-50 to-orange-50` với border nhẹ hơn — vẫn giữ hint đỏ nhưng trên nền trắng sẽ đẹp hơn
-- **Ambient glow**: Giảm opacity đáng kể (từ 0.07 → 0.03) để không tạo vệt cam trên nền trắng
-- **Hover state**: Card lift cao hơn (`translateY(-6px)`) + shadow lớn hơn + top accent line sáng lên — tạo cảm giác interactive premium
+### 2. Animated Connector Lines
+- Thay đường thẳng tĩnh bằng **dashed line animated** — các dash di chuyển từ trái sang phải liên tục (CSS animation `stroke-dashoffset`)
+- Khi step được highlight, connector tới step đó sẽ chuyển từ `border-color` sang `primary` color, tạo hiệu ứng "dòng chảy"
 
-### Background section
-- Giảm opacity ambient radial gradients (0.05 → 0.025) vì cards trắng sẽ tự tạo contrast
-- Grid pattern giữ nguyên nhưng giảm opacity thêm
+### 3. Icon Container Upgrade
+- Hình tròn thay vì vuông (`rounded-full` thay `rounded-xl`) — phù hợp hơn cho pipeline flow
+- Active step: scale lên 1.1 + ring glow primary + icon animate nhẹ
+- Completed step: background nhẹ + subtle checkmark overlay
+- Pending step: bg-muted như hiện tại
 
-## Kết quả mong đợi
-Cards trắng sạch, hòa hợp với website, nhưng có top accent line gradient đỏ-cam + shadow depth + hover effects làm chúng trông premium và đặc biệt hơn các card thông thường.
+### 4. Progress Trail Effect
+- Một thanh progress mỏng (2px) chạy dưới toàn bộ pipeline, fill dần từ trái sang phải đồng bộ với sequential animation
+- Tạo cảm giác "pipeline đang thực thi"
+
+### 5. Hover Interaction
+- Hover vào mỗi step: hiện tooltip nhỏ mô tả ngắn (ví dụ: "Nghiên cứu thị trường & đối thủ")
+- Scale nhẹ icon container
+
+### 6. Pipeline Note nâng cấp
+- Thêm animated dot (giống "live" indicator) trước text "Toàn bộ pipeline chạy trong ~10 phút"
+- Text fade-in sau khi sequential animation hoàn tất
+
+## Kỹ thuật
+- Sử dụng Framer Motion cho sequential highlight (staggered `animate` với `useEffect` timer)
+- CSS `@keyframes` cho dashed line animation (stroke-dashoffset)
+- Giữ nguyên responsive: mobile vẫn wrap, ẩn connectors trên mobile
 
 ## File thay đổi
-- `src/landing/components/ProblemSection.tsx` — chỉnh card styles + section background
+- **Edit**: `src/landing/components/HeroSection.tsx` — pipeline section
+
+## Giữ nguyên
+- Content text, i18n keys
+- Design system colors (primary, muted, border)
+- Phần Hero phía trên pipeline (tag, headline, CTAs, micro stats)
 
