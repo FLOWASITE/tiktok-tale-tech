@@ -57,7 +57,7 @@ export const CHANNEL_LENGTH_CONFIGS: Record<string, ChannelLengthConfig> = {
   website: { min_length: 800, max_length: 2000, length_unit: 'words', word_budget: 920, tolerance_percent: 5 },
   facebook: { min_length: 250, max_length: 500, length_unit: 'words', word_budget: 350, tolerance_percent: 10 },
   instagram: { min_length: 50, max_length: 150, length_unit: 'words', word_budget: 70, tolerance_percent: 15 },
-  twitter: { min_length: 0, max_length: 280, length_unit: 'chars', word_budget: 250, tolerance_percent: 0 },
+  twitter: { min_length: 150, max_length: 350, length_unit: 'words', word_budget: 250, tolerance_percent: 10 },
   google_maps: { min_length: 80, max_length: 150, length_unit: 'words', word_budget: 100, tolerance_percent: 10 },
   linkedin: { min_length: 300, max_length: 600, length_unit: 'words', word_budget: 400, tolerance_percent: 10 },
   email: { min_length: 250, max_length: 500, length_unit: 'words', word_budget: 350, tolerance_percent: 10 },

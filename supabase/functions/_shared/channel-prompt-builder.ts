@@ -78,10 +78,10 @@ const CHANNEL_CONSTRAINTS: Record<string, {
   },
   twitter: {
     maxChars: 280,
-    hashtagRange: [1, 3],
-    emojiLevel: 'minimal',
-    format: 'Single concise tweet with optional hashtags',
-    platform: 'Twitter/X',
+    hashtagRange: [1, 2],
+    emojiLevel: 'none',
+    format: 'Thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số 1/, 2/...',
+    platform: 'X',
   },
   threads: {
     maxChars: 500,

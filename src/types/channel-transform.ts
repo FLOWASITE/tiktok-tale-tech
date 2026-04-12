@@ -133,10 +133,10 @@ export const CHANNEL_TRANSFORM_SUMMARY: Record<string, {
     colorClass: 'bg-rose-500/10 text-rose-600',
   },
   twitter: {
-    extractionLabel: 'Tối giản',
-    extractionRange: '5-10%',
-    focusLabel: 'Hook + Insights',
-    colorClass: 'bg-rose-500/10 text-rose-600',
+    extractionLabel: 'Cô đọng',
+    extractionRange: '15-25%',
+    focusLabel: 'Hook + Thread',
+    colorClass: 'bg-amber-500/10 text-amber-600',
   },
   tiktok: {
     extractionLabel: 'Tối giản',
@@ -183,7 +183,7 @@ export function estimateChannelWordCount(
     threads: [0.08, 0.15],
     zalo_oa: [0.08, 0.15],
     instagram: [0.05, 0.12],
-    twitter: [0.03, 0.08],
+    twitter: [0.10, 0.25],
     tiktok: [0.05, 0.10],
     google_maps: [0.08, 0.12],
   };

@@ -73,9 +73,9 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
     bufferMultiplier: 1.4,
   },
   twitter: {
-    minTokens: 150,
-    maxTokens: 400,
-    bufferMultiplier: 1.3, // Thread format
+    minTokens: 400,
+    maxTokens: 1200,
+    bufferMultiplier: 1.3, // Thread format 5-7 tweets
   },
   
   // Special channels

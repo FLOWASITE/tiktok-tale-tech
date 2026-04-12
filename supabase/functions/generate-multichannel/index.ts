@@ -794,12 +794,12 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Hook emoji sáng tạo, nhiều xuống dòng, emoji điểm nhấn đa dạng theo nội dung, hashtag cuối bài, CTA nhẹ',
   },
   twitter: {
-    min_length: 0, max_length: 280, length_unit: 'chars',
+    min_length: 150, max_length: 350, length_unit: 'words',
     hook_required: true, hook_style: 'Quan điểm sắc nét',
     bullet_allowed: false, cta_policy: 'none',
-    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 1, hashtag_position: 'end',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 2, hashtag_position: 'end',
     line_break_style: 'minimal', link_position: 'allowed',
-    format_description: 'Thread (1/, 2/...), 280 ký tự/tweet, KHÔNG emoji, 5-7 tweets, CTA cuối',
+    format_description: 'Thread 5-7 tweets đánh số (1/, 2/...), mỗi tweet ≤280 ký tự, KHÔNG emoji, hashtag cuối thread',
   },
   google_maps: {
     min_length: 80, max_length: 150, length_unit: 'words',
