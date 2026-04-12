@@ -1,6 +1,7 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { createHmac, createDecipheriv } from "node:crypto";
+import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { buildOAuth1Header } from "../_shared/oauth1a.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,11 +18,8 @@ function decrypt(encryptedText: string, key: string): string {
     const textParts = encryptedText.split(':');
     const iv = Buffer.from(textParts.shift()!, 'hex');
     const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    // Create key from string (must be 32 bytes for aes-256-cbc)
     const keyBuffer = Buffer.alloc(32);
     Buffer.from(key).copy(keyBuffer);
-    
     const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
     let decrypted = decipher.update(encryptedData);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
@@ -61,69 +59,6 @@ async function getGlobalPlatformCredentials(
   }
 }
 
-// Generate OAuth signature for Twitter API
-function generateOAuthSignature(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumerSecret: string,
-  tokenSecret: string
-): string {
-  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
-    Object.entries(params)
-      .sort()
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&")
-  )}`;
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-  const hmacSha1 = createHmac("sha1", signingKey);
-  const signature = hmacSha1.update(signatureBaseString).digest("base64");
-  return signature;
-}
-
-// Generate OAuth header for Twitter API
-function generateOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): string {
-  const oauthParams = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: Math.random().toString(36).substring(2),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
-    oauth_version: "1.0",
-  };
-
-  const signature = generateOAuthSignature(
-    method,
-    url,
-    oauthParams,
-    consumerSecret,
-    accessTokenSecret
-  );
-
-  const signedOAuthParams = {
-    ...oauthParams,
-    oauth_signature: signature,
-  };
-
-  const entries = Object.entries(signedOAuthParams).sort((a, b) =>
-    a[0].localeCompare(b[0])
-  );
-
-  return (
-    "OAuth " +
-    entries
-      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
-      .join(", ")
-  );
-}
-
 // Get current user from Twitter API (OAuth 1.0a)
 async function getTwitterUser(
   consumerKey: string,
@@ -131,9 +66,21 @@ async function getTwitterUser(
   accessToken: string,
   accessTokenSecret: string
 ): Promise<{ id: string; name: string; username: string; profile_image_url?: string }> {
-  const url = "https://api.x.com/2/users/me?user.fields=profile_image_url";
-  const oauthHeader = generateOAuthHeader("GET", url.split('?')[0], consumerKey, consumerSecret, accessToken, accessTokenSecret);
-  const response = await fetch(url, { headers: { Authorization: oauthHeader } });
+  const baseUrl = "https://api.x.com/2/users/me";
+  const queryParams = { "user.fields": "profile_image_url" };
+  const fullUrl = `${baseUrl}?user.fields=profile_image_url`;
+
+  const oauthHeader = buildOAuth1Header(
+    "GET",
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret,
+    queryParams
+  );
+
+  const response = await fetch(fullUrl, { headers: { Authorization: oauthHeader } });
   const responseText = await response.text();
   if (!response.ok) throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
   return JSON.parse(responseText).data;
