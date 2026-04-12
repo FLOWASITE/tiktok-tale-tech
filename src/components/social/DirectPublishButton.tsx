@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import {
@@ -122,6 +124,25 @@ export function DirectPublishButton({
   });
   const { publishToTwitter, publishToFacebook, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
+
+  // Query existing blog post for this content to auto-fill backlink
+  const { data: blogBacklink } = useQuery({
+    queryKey: ['blog-backlink', contentId],
+    queryFn: async () => {
+      if (!contentId) return null;
+      const { data } = await supabase
+        .from('blog_posts')
+        .select('slug, is_public, status')
+        .eq('content_id', contentId)
+        .eq('status', 'published')
+        .maybeSingle();
+      if (!data?.slug) return null;
+      const baseUrl = data.is_public ? 'https://flowa.vn' : 'https://app.flowa.one';
+      return `${baseUrl}/blog/${data.slug}`;
+    },
+    enabled: !!contentId && channel !== 'website',
+    staleTime: 30_000,
+  });
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -261,7 +282,7 @@ export function DirectPublishButton({
     }
 
     setEditableContent(content);
-    setLinkUrl('');
+    setLinkUrl(blogBacklink || '');
     setPublishedResult(null);
     setDialogState('confirm');
     setConfirmDialog({ open: true, platform });
@@ -607,6 +628,12 @@ export function DirectPublishButton({
                       type="url"
                       className="text-sm"
                     />
+                    {blogBacklink && linkUrl === blogBacklink && (
+                      <p className="text-xs text-primary flex items-center gap-1">
+                        <LinkIcon className="h-3 w-3" />
+                        🔗 Backlink blog đã được thêm tự động
+                      </p>
+                    )}
                   </div>
                 )}
 
