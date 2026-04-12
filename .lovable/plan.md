@@ -1,59 +1,39 @@
 
 
-# Xác định Brand nào được tích hợp với /blog của Flowa
+# Thêm nút "Đăng lên Blog Flowa" từ giao diện nội dung
 
-## Vấn đề hiện tại
+## Vấn đề
 
-- Trang `/blog` fetch **tất cả** bài từ `blog_posts` có `status = 'published'`, không lọc theo brand hay organization
-- `publish-blog` edge function chấp nhận mọi request có auth, lưu `organization_id` nhưng không kiểm tra quyền đăng lên blog Flowa
-- Không có cơ chế phân biệt: bài nào là blog **chính thức** của Flowa vs bài nội bộ của user
+Khi bạn tạo content cho kênh **website**, nút "Đăng ngay" (`DirectPublishButton`) không hoạt động vì frontend chỉ hỗ trợ publish cho Twitter, Facebook, Zalo OA. Kênh `website` rơi vào `default` case và bị bỏ qua.
 
-## Giải pháp: Thêm cột `is_public` + lọc theo organization
+Backend (`channel-publisher` → `publish-blog`) đã sẵn sàng, nhưng frontend chưa kết nối.
 
-### 1. Migration — Thêm cột `is_public` vào `blog_posts`
+## Giải pháp
 
-```sql
-ALTER TABLE blog_posts ADD COLUMN is_public boolean NOT NULL DEFAULT false;
-```
+### 1. Thêm `publishToBlog` vào `useDirectPublish` hook
 
-- `is_public = true` → Hiển thị trên `/blog` landing page (blog chính thức Flowa)
-- `is_public = false` → Blog nội bộ, chỉ hiển thị trong dashboard của org đó
+Trong `src/hooks/useDirectPublish.ts`, thêm action mapping cho website:
+- `website` → action `blog` (blog nội bộ) hoặc `flowa_blog` (blog công khai)
+- Truyền thêm fields: `title`, `excerpt`, `slug`, `category`, `tags` từ content metadata
 
-### 2. Cập nhật Blog.tsx — Chỉ fetch bài `is_public = true`
+### 2. Cập nhật `DirectPublishButton` — xử lý website channel
 
-Thêm filter `.eq('is_public', true)` vào query fetch blog list, đảm bảo chỉ bài được duyệt mới lên trang landing.
+Trong `src/components/social/DirectPublishButton.tsx`:
+- Thêm case `website` vào switch statement trong `handlePublish`
+- Hiển thị dialog cho phép chọn: **Blog nội bộ** vs **Blog Flowa (công khai)**
+- Thêm form fields: tiêu đề bài, excerpt, category — pre-fill từ content
+- Gọi `channel-publisher` với action `blog` hoặc `flowa_blog`
 
-### 3. Cập nhật publish-blog — Cho phép set `is_public`
+### 3. UI publish dialog cho website channel
 
-Thêm field `is_public` vào body input. Mặc định `false`. Chỉ admin Flowa (kiểm tra qua `has_role(user.id, 'admin')`) mới được set `is_public = true`.
+Khi nhấn "Đăng ngay" trên kênh website, dialog hiển thị:
+- **Tiêu đề bài viết** (auto-fill từ dòng đầu content)
+- **Excerpt** (auto-fill từ 2-3 dòng đầu)
+- **Chọn đích**: Blog nội bộ / Blog Flowa (flowa.vn/blog) — option Blog Flowa chỉ hiện nếu user là admin
+- Nút **Đăng bài**
 
-### 4. UI trong BrandViewConnectionsTab — Thêm option "Đăng lên Blog Flowa"
+### Files thay đổi
 
-Trong phần kết nối Website/Blog, thêm option mới `flowa_blog` vào dropdown `integrationType`:
-- Label: "Blog Flowa (flowa.vn/blog)"
-- Không cần nhập URL/API key — kết nối trực tiếp qua database
-- Khi chọn option này, hệ thống tự động route publish qua `publish-blog` với `is_public = true` (nếu user là admin)
-
-### 5. Luồng hoạt động
-
-```text
-Brand A (admin) chọn kênh "Blog Flowa"
-  → Agent tạo content → channel-publisher → publish-blog
-  → is_public = true (vì admin)
-  → Hiển thị trên /blog landing
-
-Brand B (user thường) chọn kênh "Blog"  
-  → Agent tạo content → channel-publisher → publish-blog
-  → is_public = false (mặc định)
-  → Chỉ hiển thị trong dashboard
-```
-
-## Files thay đổi
-
-- **Migration**: Thêm cột `is_public` vào `blog_posts`
-- **Edit**: `src/landing/pages/Blog.tsx` — thêm filter `is_public = true`
-- **Edit**: `src/landing/pages/BlogPost.tsx` — thêm filter `is_public = true` khi fetch single post
-- **Edit**: `supabase/functions/publish-blog/index.ts` — xử lý `is_public`, kiểm tra admin role
-- **Edit**: `src/components/brand/BrandViewConnectionsTab.tsx` — thêm option `flowa_blog`
-- **Edit**: `supabase/functions/channel-publisher/index.ts` — phân biệt `blog` vs `flowa_blog`
+- **Edit**: `src/hooks/useDirectPublish.ts` — thêm publishToBlog method + mapping
+- **Edit**: `src/components/social/DirectPublishButton.tsx` — thêm website case + blog publish dialog
 
