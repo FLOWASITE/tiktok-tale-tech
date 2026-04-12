@@ -1,45 +1,35 @@
 
 
-# Nâng cấp Format bài viết Blog
+# Fix: Bảng Markdown không render đúng trên Blog
 
-## Vấn đề hiện tại
+## Nguyên nhân
 
-Bài viết đã render đúng Markdown nhưng thiếu các yếu tố visual để trông chuyên nghiệp:
-- Headings không có khoảng cách và style nổi bật
-- Không có highlight cho blockquote, code blocks
-- Bullet list thiếu spacing
-- Thiếu divider giữa các section
-- TOC sidebar quá đơn giản
-- Header bài viết thiếu author avatar và visual hierarchy
+`ReactMarkdown` mặc định chỉ hỗ trợ Markdown cơ bản. Bảng (table), strikethrough, autolink... thuộc **GFM (GitHub Flavored Markdown)** và cần plugin `remark-gfm`. Hiện tại project chưa cài plugin này, nên bảng hiển thị dạng text thô `| ... | ... |`.
 
 ## Giải pháp
 
-### 1. Thêm custom prose styles vào `src/index.css`
+### 1. Cài đặt `remark-gfm`
 
-Thêm Tailwind `@layer` cho typography plugin với custom styles:
-- Headings có gradient accent border-left hoặc underline
-- Blockquote có background và left-border màu primary
-- Lists có spacing tốt hơn, custom bullet color
-- Links có underline và hover effect
-- Paragraphs có line-height thoáng hơn (1.8)
-- Code inline có background highlight
-- HR có gradient style
+```bash
+npm install remark-gfm
+```
 
-### 2. Cải thiện `DynamicBlogPost.tsx`
+### 2. Sửa `DynamicBlogPost.tsx`
 
-- **Header**: Thêm author avatar placeholder, separator đẹp hơn giữa metadata
-- **ReactMarkdown components**: Custom render cho blockquote, links, images (rounded + shadow), code blocks (syntax highlight background)
-- **TOC sidebar**: Thêm left border indicator, active state highlight, smooth scroll
-- **Section dividers**: Thêm gradient divider giữa content và tags/comments
-- **Reading time + date**: Badge style thay vì plain text
+- Import `remarkGfm` và truyền vào `ReactMarkdown` qua prop `remarkPlugins={[remarkGfm]}`
+- Thêm custom component cho `table`, `thead`, `tbody`, `tr`, `th`, `td` để styling đẹp (border, padding, striped rows)
 
-### 3. Responsive improvements
+### 3. Thêm table styles vào `src/index.css`
 
-- Mobile: TOC chuyển thành collapsible section trên đầu bài
-- Tăng font-size cho mobile reading
+Thêm CSS cho `.blog-prose table` với:
+- Border và border-collapse
+- Header có background highlight
+- Alternating row colors
+- Responsive overflow-x scroll trên mobile
 
 ## Files thay đổi
 
-- **Edit**: `src/index.css` — thêm custom prose/typography styles
-- **Edit**: `src/landing/components/DynamicBlogPost.tsx` — nâng cấp layout, custom components, TOC styling
+- **Install**: `remark-gfm`
+- **Edit**: `src/landing/components/DynamicBlogPost.tsx` — thêm remarkGfm plugin + table components
+- **Edit**: `src/index.css` — thêm table styles cho `.blog-prose`
 
