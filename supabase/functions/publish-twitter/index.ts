@@ -118,13 +118,130 @@ async function getGlobalPlatformCredentials(
   }
 }
 
+// ==================== MEDIA UPLOAD ====================
+
+/**
+ * Chunk-safe base64 encoding for large binary data.
+ * Avoids stack overflow from btoa(String.fromCharCode(...bigArray)).
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK = 8192;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const chunk = bytes.subarray(i, i + CHUNK);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Upload a single image to Twitter via v1.1 media/upload (simple upload).
+ * Max 5MB per image. Returns media_id_string.
+ */
+async function uploadMediaToTwitter(
+  imageUrl: string,
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string,
+): Promise<string> {
+  console.log(`[media] Fetching image: ${imageUrl.substring(0, 80)}...`);
+
+  const imgResp = await fetch(imageUrl);
+  if (!imgResp.ok) {
+    throw new Error(`Failed to fetch image: ${imgResp.status} ${imgResp.statusText}`);
+  }
+
+  const imgBuffer = await imgResp.arrayBuffer();
+  const imgSizeMB = imgBuffer.byteLength / (1024 * 1024);
+  console.log(`[media] Image size: ${imgSizeMB.toFixed(2)} MB`);
+
+  if (imgSizeMB > 5) {
+    throw new Error(`Image too large (${imgSizeMB.toFixed(1)} MB). X allows max 5 MB per image.`);
+  }
+
+  const base64Data = arrayBufferToBase64(imgBuffer);
+
+  const uploadUrl = 'https://upload.twitter.com/1.1/media/upload.json';
+
+  // For media upload, OAuth signature must NOT include body params (multipart)
+  const oauthHeader = buildOAuth1Header(
+    'POST',
+    uploadUrl,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret,
+    // No extra params — multipart body is excluded from signature
+  );
+
+  // Build form body
+  const boundary = '----TwitterMediaBoundary' + crypto.randomUUID().replace(/-/g, '');
+  const formBody = [
+    `--${boundary}`,
+    'Content-Disposition: form-data; name="media_data"',
+    '',
+    base64Data,
+    `--${boundary}--`,
+  ].join('\r\n');
+
+  const response = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: oauthHeader,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    },
+    body: formBody,
+  });
+
+  const responseText = await response.text();
+  console.log(`[media] Upload response: ${response.status}`);
+
+  if (!response.ok) {
+    throw new Error(`Media upload failed: ${response.status} - ${responseText}`);
+  }
+
+  const result = JSON.parse(responseText);
+  const mediaId = result.media_id_string;
+  console.log(`[media] Uploaded media_id: ${mediaId}`);
+  return mediaId;
+}
+
+// ==================== THREAD SUPPORT ====================
+
+/**
+ * Split content into individual tweets for thread posting.
+ * Detects patterns like "1/", "2/", "3/" at start of lines.
+ */
+function splitThreadContent(content: string): string[] {
+  // Try to split by numbered pattern: "1/ ...", "2/ ...", etc.
+  const threadPattern = /(?:^|\n)\s*(\d+)\s*[/\.]\s*/;
+
+  if (threadPattern.test(content)) {
+    // Split by the pattern, keeping content
+    const parts = content.split(/(?:^|\n)\s*\d+\s*[/\.]\s*/).filter(p => p.trim().length > 0);
+    if (parts.length >= 2) {
+      // Re-add numbering prefix for clarity
+      return parts.map((part, i) => `${i + 1}/ ${part.trim()}`);
+    }
+  }
+
+  // No thread pattern detected — return as single tweet
+  return [content.trim()];
+}
+
+// ==================== POST TWEET V2 ====================
+
 // Post tweet using Twitter API v2 with OAuth 1.0a
 async function postTweetV2(
   tweetText: string,
   consumerKey: string,
   consumerSecret: string,
   accessToken: string,
-  accessTokenSecret: string
+  accessTokenSecret: string,
+  mediaIds?: string[],
+  replyToTweetId?: string,
 ): Promise<{ id: string; text: string }> {
   const url = "https://api.x.com/2/tweets";
 
@@ -137,7 +254,15 @@ async function postTweetV2(
     accessTokenSecret,
   );
 
-  console.log("Posting tweet via OAuth 1.0a (v2)...");
+  const body: Record<string, unknown> = { text: tweetText };
+  if (mediaIds && mediaIds.length > 0) {
+    body.media = { media_ids: mediaIds };
+  }
+  if (replyToTweetId) {
+    body.reply = { in_reply_to_tweet_id: replyToTweetId };
+  }
+
+  console.log("Posting tweet via OAuth 1.0a (v2)...", replyToTweetId ? `reply_to=${replyToTweetId}` : '');
 
   const response = await fetch(url, {
     method: "POST",
@@ -145,7 +270,7 @@ async function postTweetV2(
       Authorization: oauthHeader,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text: tweetText }),
+    body: JSON.stringify(body),
   });
 
   const responseText = await response.text();
@@ -170,13 +295,15 @@ async function postTweetV2(
   return result.data;
 }
 
-// Post tweet with retry for transient 503 errors (v2 only - Free tier doesn't support v1.1 statuses/update)
+// Post tweet with retry for transient 503 errors
 async function postTweet(
   tweetText: string,
   consumerKey: string,
   consumerSecret: string,
   accessToken: string,
-  accessTokenSecret: string
+  accessTokenSecret: string,
+  mediaIds?: string[],
+  replyToTweetId?: string,
 ): Promise<{ id: string; text: string }> {
   const maxRetries = 2;
   let lastError: Error | null = null;
@@ -188,14 +315,12 @@ async function postTweet(
         console.log(`Retry attempt ${attempt}/${maxRetries} after ${delay}ms...`);
         await new Promise(r => setTimeout(r, delay));
       }
-      return await postTweetV2(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret);
+      return await postTweetV2(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret, mediaIds, replyToTweetId);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const statusCode = extractTwitterStatusCode(lastError.message);
 
-      // Only retry on transient 503 errors
       if (statusCode !== 503 || attempt >= maxRetries) {
-        // Provide helpful error for common issues
         if (statusCode === 503) {
           throw new Error(
             'Twitter API error: 503 - X API trả về 503. Nguyên nhân phổ biến: App chưa được gắn vào Project trên developer.x.com. ' +
@@ -216,6 +341,7 @@ async function postTweet(
   throw lastError!;
 }
 
+// ==================== MAIN HANDLER ====================
 
 Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
   if (req.method === 'OPTIONS') {
@@ -226,13 +352,16 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
     const supabase = getServiceClient();
 
     const body: PublishRequest = await req.json();
-    const { connectionId, contentId, content, scheduleId } = body;
+    const { connectionId, contentId, content, mediaUrls, scheduleId } = body;
 
     if (!connectionId || !content) {
       throw new Error('connectionId and content are required');
     }
 
     console.log(`Publishing to Twitter for connection ${connectionId}`);
+    if (mediaUrls?.length) {
+      console.log(`[media] ${mediaUrls.length} image(s) to upload`);
+    }
 
     // Get connection details
     const { data: connection, error: connError } = await supabase
@@ -253,9 +382,6 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
     const isOAuth1 = !connection.metadata?.oauth2_pkce || connection.metadata?.oauth_version === '1.0a';
 
     // === DETAILED TOKEN DIAGNOSTICS ===
-    const now = new Date();
-    const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
-    
     console.log('[TOKEN DIAG]', JSON.stringify({
       connectionId,
       isOAuth1,
@@ -276,7 +402,7 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
         platform: 'twitter',
         channel: 'twitter',
         status: 'processing',
-        request_payload: { text: content.substring(0, 100) + '...' },
+        request_payload: { text: content.substring(0, 100) + '...', hasMedia: !!(mediaUrls?.length) },
       })
       .select()
       .single();
@@ -286,17 +412,10 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
     }
 
     try {
-      if (content.length > 280) {
-        throw new Error('Nội dung vượt quá 280 ký tự. Vui lòng rút gọn trước khi đăng.');
-      }
-      const tweetContent = content;
-      let tweetResult;
-
-      // Always use OAuth 1.0a
+      // === RESOLVE CREDENTIALS ===
       const accessToken = connection.access_token;
       const accessTokenSecret = connection.refresh_token; // stored in refresh_token field
 
-      // Prioritize environment secrets (must match keys used during OAuth flow)
       const envConsumerKey = Deno.env.get('TWITTER_CONSUMER_KEY')?.trim();
       const envConsumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET')?.trim();
 
@@ -309,7 +428,6 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
         consumerSecret = envConsumerSecret;
         credentialSource = 'environment';
       } else {
-        // Fallback: brand-specific or global-admin
         consumerKey = connection.consumer_key;
         consumerSecret = connection.consumer_secret;
         credentialSource = 'brand-specific';
@@ -332,8 +450,72 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
       let activeConsumerKey = consumerKey;
       let activeConsumerSecret = consumerSecret;
 
+      // === UPLOAD MEDIA (if any) ===
+      let uploadedMediaIds: string[] = [];
+      if (mediaUrls && mediaUrls.length > 0) {
+        const maxImages = Math.min(mediaUrls.length, 4); // X allows max 4 images per tweet
+        console.log(`[media] Uploading ${maxImages} image(s)...`);
+
+        for (let i = 0; i < maxImages; i++) {
+          try {
+            const mediaId = await uploadMediaToTwitter(
+              mediaUrls[i],
+              activeConsumerKey,
+              activeConsumerSecret,
+              accessToken,
+              accessTokenSecret,
+            );
+            uploadedMediaIds.push(mediaId);
+          } catch (mediaErr) {
+            console.error(`[media] Failed to upload image ${i + 1}:`, mediaErr);
+            // Continue with remaining images — don't fail the entire publish
+          }
+        }
+        console.log(`[media] Successfully uploaded ${uploadedMediaIds.length}/${maxImages} image(s)`);
+      }
+
+      // === SPLIT INTO THREAD OR SINGLE TWEET ===
+      const tweets = splitThreadContent(content);
+      console.log(`[thread] Content split into ${tweets.length} tweet(s)`);
+
+      let firstTweetResult: { id: string; text: string } | null = null;
+
+      const publishWithCredentials = async (ck: string, cs: string) => {
+        if (tweets.length === 1) {
+          // Single tweet — attach all media
+          firstTweetResult = await postTweet(
+            tweets[0], ck, cs, accessToken, accessTokenSecret,
+            uploadedMediaIds.length > 0 ? uploadedMediaIds : undefined,
+          );
+        } else {
+          // Thread — attach media to first tweet only
+          let previousTweetId: string | undefined;
+
+          for (let i = 0; i < tweets.length; i++) {
+            const isFirst = i === 0;
+            const tweetMediaIds = isFirst && uploadedMediaIds.length > 0 ? uploadedMediaIds : undefined;
+
+            const result = await postTweet(
+              tweets[i], ck, cs, accessToken, accessTokenSecret,
+              tweetMediaIds,
+              previousTweetId,
+            );
+
+            if (isFirst) {
+              firstTweetResult = result;
+            }
+            previousTweetId = result.id;
+
+            // Small delay between thread tweets to avoid rate limiting
+            if (i < tweets.length - 1) {
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        }
+      };
+
       try {
-        tweetResult = await postTweet(tweetContent, activeConsumerKey, activeConsumerSecret, accessToken, accessTokenSecret);
+        await publishWithCredentials(activeConsumerKey, activeConsumerSecret);
       } catch (postError) {
         const canRetryWithEnvironment =
           credentialSource === 'global-admin' &&
@@ -351,17 +533,18 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
         activeConsumerKey = envConsumerKey;
         activeConsumerSecret = envConsumerSecret;
 
-        tweetResult = await postTweet(tweetContent, activeConsumerKey, activeConsumerSecret, accessToken, accessTokenSecret);
+        await publishWithCredentials(activeConsumerKey, activeConsumerSecret);
       }
 
-      console.log('Tweet posted successfully:', tweetResult);
+      const tweetResult = firstTweetResult!;
+      console.log('Tweet posted successfully:', tweetResult, tweets.length > 1 ? `(thread: ${tweets.length} tweets)` : '');
 
       if (attempt) {
         await supabase.from('publish_attempts').update({
           status: 'success',
           external_post_id: tweetResult.id,
           external_post_url: `https://twitter.com/i/web/status/${tweetResult.id}`,
-          response_payload: tweetResult,
+          response_payload: { ...tweetResult, thread_count: tweets.length },
           completed_at: new Date().toISOString(),
         }).eq('id', attempt.id);
       }
@@ -382,13 +565,23 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
         organization_id: connection.organization_id,
         channel: 'twitter',
         action: 'published',
-        details: { tweet_id: tweetResult.id, tweet_url: `https://twitter.com/i/web/status/${tweetResult.id}` },
+        details: {
+          tweet_id: tweetResult.id,
+          tweet_url: `https://twitter.com/i/web/status/${tweetResult.id}`,
+          thread_count: tweets.length,
+          media_count: uploadedMediaIds.length,
+        },
       });
 
       return new Response(
         JSON.stringify({
           success: true,
-          data: { tweetId: tweetResult.id, tweetUrl: `https://twitter.com/i/web/status/${tweetResult.id}` },
+          data: {
+            tweetId: tweetResult.id,
+            tweetUrl: `https://twitter.com/i/web/status/${tweetResult.id}`,
+            threadCount: tweets.length,
+            mediaCount: uploadedMediaIds.length,
+          },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
