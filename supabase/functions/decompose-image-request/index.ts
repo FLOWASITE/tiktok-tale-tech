@@ -398,7 +398,35 @@ Secondary color: ${secondaryColor}`;
       });
     }
 
-    const parsed = JSON.parse(toolCall.function.arguments);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(toolCall.function.arguments);
+    } catch (parseErr) {
+      // Attempt to salvage truncated JSON from LLM output
+      console.warn('[decompose-image-request] JSON parse failed, attempting recovery. Raw length:', toolCall.function.arguments.length);
+      try {
+        let raw = toolCall.function.arguments;
+        // Strip markdown fences if present
+        raw = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        // Remove trailing commas before } or ]
+        raw = raw.replace(/,\s*([}\]])/g, '$1');
+        // Try closing unclosed braces/brackets
+        let opens = 0, closes = 0;
+        for (const ch of raw) { if (ch === '{') opens++; if (ch === '}') closes++; }
+        if (opens > closes) raw += '}'.repeat(opens - closes);
+        let openB = 0, closeB = 0;
+        for (const ch of raw) { if (ch === '[') openB++; if (ch === ']') closeB++; }
+        if (openB > closeB) raw += ']'.repeat(openB - closeB);
+        parsed = JSON.parse(raw);
+        console.log('[decompose-image-request] JSON recovery succeeded');
+      } catch (recoveryErr) {
+        console.error('[decompose-image-request] JSON recovery also failed:', (recoveryErr as Error).message);
+        return new Response(JSON.stringify({ error: "AI returned malformed data, please retry" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Validate and fix overlay fields
     const validatedOverlay = validateOverlay(parsed.overlayConfig || {}, primaryColor);
