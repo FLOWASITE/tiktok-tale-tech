@@ -1,26 +1,28 @@
 
 
-# Fix: Thêm 'website' vào check constraint của social_connections
+# Fix: Bài blog không hiển thị sau khi đăng thành công
 
-## Nguyên nhân lỗi
+## Nguyên nhân gốc
 
-Bảng `social_connections` có check constraint chỉ cho phép các platform: twitter, facebook, instagram, linkedin, tiktok, threads, youtube, zalo_oa, google_business. **Không có 'website'**, nên insert bị reject.
+Hai vấn đề khiến bài viết không xuất hiện trên `/blog`:
+
+1. **`status` luôn là `'draft'`**: Edge function `publish-blog` mặc định `status = 'draft'`, nhưng frontend không gửi `status: 'published'` khi người dùng nhấn đăng bài.
+
+2. **`is_public` luôn là `false`**: Frontend gửi `action: 'blog'` thay vì `'flowa_blog'` khi `blogIsPublic = true`, nên `channel-publisher` không inject `is_public: true`. Đồng thời, frontend cũng không truyền `is_public` trực tiếp trong body.
+
+**Kết quả**: Bài viết được lưu với `status = 'draft'` + `is_public = false`, trong khi trang `/blog` chỉ hiển thị bài có `status = 'published'` AND `is_public = true`.
 
 ## Giải pháp
 
-### 1. Migration — Cập nhật check constraint
+### 1. Sửa `useDirectPublish.ts` — Gửi `status: 'published'`
 
-```sql
-ALTER TABLE social_connections DROP CONSTRAINT social_connections_platform_check;
-ALTER TABLE social_connections ADD CONSTRAINT social_connections_platform_check 
-  CHECK (platform = ANY (ARRAY['twitter','facebook','instagram','linkedin','tiktok','threads','youtube','zalo_oa','google_business','website']));
-```
+Thêm `status: 'published'` vào body khi gọi `channel-publisher`, vì người dùng nhấn "Đăng" có nghĩa là muốn xuất bản, không phải lưu nháp.
 
-### 2. Fix connect-website — Xử lý flowa_blog
+### 2. Sửa `useDirectPublish.ts` — Truyền `is_public` trong body
 
-Trong `connect-website/index.ts`, khi `integrationType === 'flowa_blog'`, field `access_token` đang set `'manual'` nhưng có thể cần đảm bảo không bị null constraint. Kiểm tra và đảm bảo data hợp lệ.
+Đảm bảo khi `isPublic = true`, giá trị `is_public: true` được gửi trực tiếp trong body (ngoài việc chọn đúng action `flowa_blog`).
 
 ## Files thay đổi
-- **Migration**: Cập nhật check constraint thêm `'website'`
-- Không cần sửa code — logic đã đúng, chỉ thiếu constraint value
+
+- **Edit**: `src/hooks/useDirectPublish.ts` — thêm `status: 'published'` và `is_public: options.isPublic` vào body của `publishToBlog`
 
