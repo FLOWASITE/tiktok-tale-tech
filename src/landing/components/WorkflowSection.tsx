@@ -111,6 +111,31 @@ function ImageCarousel({ images, altPrefix }: { images: string[]; altPrefix: str
   );
 }
 
+// Bullet icon mapping for agent steps
+const bulletIconMap: Record<string, React.ElementType[]> = {
+  step2: [TrendingUp, Eye, Brain, Route],
+  step3: [BookOpen, Timer, Award],
+};
+
+// Criteria icons
+const criteriaIcons = [Target, MessageSquare, ShieldCheck, Layers, PenTool, TrendingUp, Send, BookOpen];
+
+// Channel key mapping for ChannelIcon component
+const channelKeyMap: Record<string, string> = {
+  "Facebook": "facebook",
+  "Instagram": "instagram",
+  "TikTok": "tiktok",
+  "LinkedIn": "linkedin",
+  "X/Twitter": "twitter",
+  "Zalo OA": "zalo_oa",
+  "Email": "email",
+  "YouTube": "youtube",
+  "Telegram": "telegram",
+  "Google Maps": "google_maps",
+  "Website": "website",
+  "Blog": "website",
+};
+
 // ─── Step Card ───
 interface FlowStepCardProps {
   stepNum: number;
@@ -126,10 +151,11 @@ interface FlowStepCardProps {
   hasExamples?: boolean;
   hasBullets?: boolean;
   hasChannels?: boolean;
+  hasCriteria?: boolean;
   icon: React.ElementType;
 }
 
-function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, hasExamples, hasBullets, hasChannels, icon: Icon }: FlowStepCardProps) {
+function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, hasExamples, hasBullets, hasChannels, hasCriteria, icon: Icon }: FlowStepCardProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -144,6 +170,8 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
       return "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400";
     return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400";
   };
+
+  const bIcons = bulletIconMap[stepKey] || [];
 
   return (
     <motion.div
@@ -179,41 +207,94 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
               {t(`workflow.${flowPrefix}.steps.${stepKey}.description`)}
             </p>
 
+            {/* Step 1: Chat bubble examples */}
             {hasExamples && (
-              <div className="space-y-2 mt-3">
+              <div className="space-y-2.5 mt-3">
                 {(t(`workflow.${flowPrefix}.steps.${stepKey}.examples`, { returnObjects: true }) as string[]).map((ex, i) => (
                   <motion.div
                     key={i}
-                    initial={{ opacity: 0, x: -10 }}
-                    whileInView={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, y: 8 }}
+                    whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: 0.1 * i, duration: 0.3 }}
-                    className="flex items-start gap-2 text-sm bg-muted/50 rounded-xl px-4 py-3 border border-border/30"
+                    transition={{ delay: 0.12 * i, duration: 0.3 }}
+                    className="flex items-start gap-2.5"
                   >
-                    <span className="text-primary font-mono text-xs mt-0.5 shrink-0">"</span>
-                    <span className="text-foreground/80 italic">{ex}</span>
-                    <span className="text-primary font-mono text-xs mt-0.5 shrink-0">"</span>
+                    <div className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                      <MessageSquare className="w-3 h-3 text-primary" />
+                    </div>
+                    <div className="flex-1 text-sm bg-primary/5 rounded-2xl rounded-tl-md px-4 py-2.5 border border-primary/10 text-foreground/80 italic">
+                      {ex}
+                    </div>
                   </motion.div>
                 ))}
               </div>
             )}
 
-            {hasBullets && (
-              <ul className="mt-3 space-y-1.5">
-                {(t(`workflow.${flowPrefix}.steps.${stepKey}.bullets`, { returnObjects: true }) as string[]).map((bullet, i) => (
-                  <motion.li
-                    key={i}
-                    initial={{ opacity: 0, x: -8 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.08 * i, duration: 0.25 }}
-                    className="flex items-start gap-2 text-sm text-muted-foreground"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                    <span>{bullet}</span>
-                  </motion.li>
-                ))}
+            {/* Step 2 & 3: Bullets with icons */}
+            {hasBullets && !hasCriteria && (
+              <ul className="mt-3 space-y-2">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.bullets`, { returnObjects: true }) as string[]).map((bullet, i) => {
+                  const BIcon = bIcons[i] || CheckCircle2;
+                  return (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -8 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.08 * i, duration: 0.25 }}
+                      className="flex items-start gap-2.5 text-sm text-muted-foreground"
+                    >
+                      <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <BIcon className="w-3 h-3 text-primary" />
+                      </div>
+                      <span>{bullet}</span>
+                    </motion.li>
+                  );
+                })}
               </ul>
+            )}
+
+            {/* Step 4: Criteria grid */}
+            {hasCriteria && (
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {(t(`workflow.${flowPrefix}.steps.${stepKey}.criteria`, { returnObjects: true }) as string[]).map((item, i) => {
+                    const CIcon = criteriaIcons[i] || CheckCircle2;
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.06 * i, duration: 0.2 }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10"
+                      >
+                        <CIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span className="text-xs font-medium text-foreground/80 truncate">{item}</span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                {/* Score bar */}
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="text-muted-foreground font-medium">Quality Score</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">85/100</span>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-400"
+                        initial={{ width: 0 }}
+                        whileInView={{ width: "85%" }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
+                      />
+                    </div>
+                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                </div>
+              </div>
             )}
 
             {isAgent && t(`workflow.${flowPrefix}.steps.${stepKey}.note`, { defaultValue: "" }) && (
@@ -222,13 +303,25 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
               </p>
             )}
 
+            {/* Step 5: Real channel icons */}
             {hasChannels && (
-              <div className="flex flex-wrap gap-1.5 mt-4">
-                {(t(`workflow.${flowPrefix}.steps.${stepKey}.channels`, { returnObjects: true }) as string[]).map((ch) => (
-                  <span key={ch} className="inline-flex items-center px-2.5 py-1 text-[11px] font-medium rounded-full bg-primary/5 text-primary border border-primary/10">
-                    {ch}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 mt-4">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.channels`, { returnObjects: true }) as string[]).map((ch) => {
+                  const chKey = channelKeyMap[ch] || "website";
+                  return (
+                    <motion.div
+                      key={ch}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: Math.random() * 0.3, duration: 0.2 }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-lg bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <ChannelIcon channel={chKey as any} size={14} />
+                      <span className="text-foreground/70">{ch}</span>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
 
