@@ -83,6 +83,7 @@ const statusConfig: Record<ContentStatus, { color: string; glow: string; indicat
   draft: { color: 'bg-muted text-muted-foreground border-muted-foreground/30', glow: '', indicator: 'bg-muted-foreground' },
   review: { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', glow: 'hover:shadow-yellow-500/20', indicator: 'bg-yellow-400' },
   approved: { color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', glow: 'hover:shadow-blue-500/20', indicator: 'bg-blue-400' },
+  partially_published: { color: 'bg-teal-500/20 text-teal-400 border-teal-500/30', glow: 'hover:shadow-teal-500/20', indicator: 'bg-teal-400' },
   published: { color: 'bg-green-500/20 text-green-400 border-green-500/30', glow: 'hover:shadow-green-500/20', indicator: 'bg-green-400' },
 };
 
@@ -90,6 +91,7 @@ const statusDotColors: Record<ContentStatus, string> = {
   draft: 'bg-muted-foreground',
   review: 'bg-yellow-400',
   approved: 'bg-blue-400',
+  partially_published: 'bg-teal-400',
   published: 'bg-green-400',
 };
 

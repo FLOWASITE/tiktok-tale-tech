@@ -59,6 +59,7 @@ const statusColors: Record<ContentStatus | 'all', string> = {
   draft: 'bg-muted/50 text-muted-foreground hover:bg-muted/80 data-[active=true]:bg-muted data-[active=true]:text-foreground data-[active=true]:ring-1 data-[active=true]:ring-border',
   review: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20 data-[active=true]:bg-yellow-500/20 data-[active=true]:ring-1 data-[active=true]:ring-yellow-500/50',
   approved: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 data-[active=true]:bg-blue-500/20 data-[active=true]:ring-1 data-[active=true]:ring-blue-500/50',
+  partially_published: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 data-[active=true]:bg-teal-500/20 data-[active=true]:ring-1 data-[active=true]:ring-teal-500/50',
   published: 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 data-[active=true]:bg-green-500/20 data-[active=true]:ring-1 data-[active=true]:ring-green-500/50',
 };
 
