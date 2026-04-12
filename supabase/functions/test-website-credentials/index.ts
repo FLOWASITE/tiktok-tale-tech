@@ -122,74 +122,77 @@ Deno.serve(withPerf({ functionName: 'test-website-credentials' }, async (req) =>
       throw new Error('API URL phải sử dụng http hoặc https');
     }
 
-    // Check if it's a WordPress site by trying to access REST API
-    const isWordPress = apiUrl.includes('/wp-json') || !apiUrl.includes('/api');
-    let testUrl = apiUrl;
-    
-    if (isWordPress && !apiUrl.includes('/wp-json')) {
-      // Try WordPress REST API discovery
-      testUrl = `${parsedUrl.origin}/wp-json`;
-    }
-
-    console.log(`Testing connection to: ${testUrl}`);
-
-    // Try to connect to the API
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-      'User-Agent': 'FLOWA-ContentHub/1.0',
-    };
-
-    if (apiKey) {
-      // Try different auth methods
-      if (apiKey.includes(':')) {
-        // WordPress Application Password format: username:password
-        headers['Authorization'] = `Basic ${btoa(apiKey)}`;
-      } else {
-        // Bearer token or API key
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      }
-    }
-
-    const response = await fetch(testUrl, {
-      method: 'GET',
-      headers,
-    });
-
-    console.log(`API response status: ${response.status}`);
-
-    if (!response.ok && response.status !== 401) {
-      // 401 is expected if auth is required but we want to verify the endpoint exists
-      if (response.status === 404) {
-        throw new Error('API endpoint không tồn tại (404)');
-      }
-      if (response.status >= 500) {
-        throw new Error(`Server error (${response.status})`);
-      }
-    }
-
+    // Detect platform type from the stored platform or URL patterns
     let apiType = 'Generic API';
     let details: Record<string, any> = {};
 
-    try {
+    // Try platform-specific tests first
+    if (platform === 'blogger' || apiUrl.includes('googleapis.com/blogger')) {
+      console.log('Testing Blogger API...');
+      const bloggerTestUrl = `https://www.googleapis.com/blogger/v3/blogs/byurl?url=${encodeURIComponent(apiUrl)}&key=${apiKey || ''}`;
+      const response = await fetch(bloggerTestUrl);
       const data = await response.json();
-      
-      // Check if it's WordPress
-      if (data.name && data.namespaces && data.routes) {
-        apiType = 'WordPress REST API';
-        details = {
-          siteName: data.name,
-          url: data.url,
-          namespaces: data.namespaces?.slice(0, 5),
-        };
-      } else if (data.version || data.api_version) {
-        apiType = 'Custom API';
-        details = {
-          version: data.version || data.api_version,
-        };
+      if (data.error) throw new Error(`Blogger API error: ${data.error.message}`);
+      apiType = 'Blogger API v3';
+      details = { blogName: data.name, blogId: data.id, url: data.url };
+    } else if (platform === 'wix' || apiUrl.includes('wixapis.com')) {
+      console.log('Testing Wix API...');
+      const response = await fetch('https://www.wixapis.com/blog/v3/posts?paging.limit=1', {
+        headers: { 'Authorization': apiKey || '' },
+      });
+      if (!response.ok && response.status !== 403) {
+        const errorText = await response.text();
+        throw new Error(`Wix API error: ${response.status} - ${errorText}`);
       }
-    } catch {
-      // Not JSON response, but endpoint is reachable
-      apiType = 'Web Endpoint';
+      apiType = 'Wix Blog API';
+      details = { url: apiUrl, hasAuth: !!apiKey };
+    } else if (platform === 'shopify_blog' || apiUrl.includes('myshopify.com')) {
+      console.log('Testing Shopify Blog API...');
+      const storeUrl = apiUrl.replace(/\/$/, '').replace(/^https?:\/\//, '');
+      const response = await fetch(`https://${storeUrl}/admin/api/2024-01/blogs.json`, {
+        headers: { 'X-Shopify-Access-Token': apiKey || '' },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Shopify API error: ${response.status} - ${errorText}`);
+      }
+      const data = await response.json();
+      apiType = 'Shopify Blog API';
+      details = { blogCount: data.blogs?.length || 0, url: apiUrl };
+    } else {
+      // Default: WordPress or generic API test
+      const isWordPress = apiUrl.includes('/wp-json') || !apiUrl.includes('/api');
+      let testUrl = apiUrl;
+      if (isWordPress && !apiUrl.includes('/wp-json')) {
+        testUrl = `${parsedUrl.origin}/wp-json`;
+      }
+
+      console.log(`Testing connection to: ${testUrl}`);
+      const headers: Record<string, string> = { 'Accept': 'application/json', 'User-Agent': 'FLOWA-ContentHub/1.0' };
+      if (apiKey) {
+        headers['Authorization'] = apiKey.includes(':') ? `Basic ${btoa(apiKey)}` : `Bearer ${apiKey}`;
+      }
+
+      const response = await fetch(testUrl, { method: 'GET', headers });
+      console.log(`API response status: ${response.status}`);
+
+      if (!response.ok && response.status !== 401) {
+        if (response.status === 404) throw new Error('API endpoint không tồn tại (404)');
+        if (response.status >= 500) throw new Error(`Server error (${response.status})`);
+      }
+
+      try {
+        const data = await response.json();
+        if (data.name && data.namespaces && data.routes) {
+          apiType = 'WordPress REST API';
+          details = { siteName: data.name, url: data.url, namespaces: data.namespaces?.slice(0, 5) };
+        } else if (data.version || data.api_version) {
+          apiType = 'Custom API';
+          details = { version: data.version || data.api_version };
+        }
+      } catch {
+        apiType = 'Web Endpoint';
+      }
     }
 
     console.log(`Website/API credentials validated: ${apiType}`);

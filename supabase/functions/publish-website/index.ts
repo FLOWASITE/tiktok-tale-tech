@@ -195,73 +195,123 @@ Deno.serve(withPerf({ functionName: 'publish-website' }, async (req) => {
         }
       }
 
+    } else if (integrationType === 'blogger') {
+      // Blogger API v3
+      const bloggerApiKey = decrypt(connection.access_token, encryptionKey);
+      const blogUrl = connection.metadata?.website_url;
+
+      // Get blog ID first
+      const blogInfoUrl = `https://www.googleapis.com/blogger/v3/blogs/byurl?url=${encodeURIComponent(blogUrl)}&key=${bloggerApiKey}`;
+      const blogInfoResp = await fetch(blogInfoUrl);
+      const blogInfo = await blogInfoResp.json();
+      if (!blogInfo.id) throw new Error('Could not find Blogger blog ID');
+
+      const postUrl = `https://www.googleapis.com/blogger/v3/blogs/${blogInfo.id}/posts?key=${bloggerApiKey}`;
+      const response = await fetch(postUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'blogger#post',
+          title,
+          content,
+          labels: tags || [],
+        }),
+      });
+      result = await response.json();
+      if (result.error) throw new Error(`Blogger error: ${result.error.message}`);
+
+    } else if (integrationType === 'wix') {
+      // Wix Blog API
+      const wixApiKey = decrypt(connection.access_token, encryptionKey);
+
+      // Create draft post
+      const draftResp = await fetch('https://www.wixapis.com/blog/v3/draft-posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': wixApiKey,
+        },
+        body: JSON.stringify({
+          draftPost: {
+            title,
+            richContent: { nodes: [{ type: 'PARAGRAPH', nodes: [{ type: 'TEXT', textData: { text: content } }] }] },
+            excerpt: excerpt || '',
+            tags: tags?.map(t => ({ label: t })) || [],
+          },
+        }),
+      });
+      const draftResult = await draftResp.json();
+
+      if (status === 'publish' && draftResult.draftPost?.id) {
+        // Publish the draft
+        const publishResp = await fetch(`https://www.wixapis.com/blog/v3/draft-posts/${draftResult.draftPost.id}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': wixApiKey },
+        });
+        result = await publishResp.json();
+      } else {
+        result = draftResult;
+      }
+
+    } else if (integrationType === 'shopify_blog') {
+      // Shopify Blog API
+      const shopifyToken = decrypt(connection.access_token, encryptionKey);
+      const storeUrl = connection.metadata?.website_url?.replace(/\/$/, '').replace(/^https?:\/\//, '');
+
+      // Get first blog ID
+      const blogsResp = await fetch(`https://${storeUrl}/admin/api/2024-01/blogs.json`, {
+        headers: { 'X-Shopify-Access-Token': shopifyToken },
+      });
+      const blogsData = await blogsResp.json();
+      const blogId = blogsData.blogs?.[0]?.id;
+      if (!blogId) throw new Error('No blog found on Shopify store');
+
+      const articleResp = await fetch(`https://${storeUrl}/admin/api/2024-01/blogs/${blogId}/articles.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': shopifyToken },
+        body: JSON.stringify({
+          article: {
+            title,
+            body_html: content,
+            summary_html: excerpt || '',
+            tags: tags?.join(', ') || '',
+            published: status === 'publish',
+            image: featuredImageUrl ? { src: featuredImageUrl } : undefined,
+            metafields: seoData ? [
+              { namespace: 'global', key: 'title_tag', value: seoData.metaTitle || title, type: 'single_line_text_field' },
+              { namespace: 'global', key: 'description_tag', value: seoData.metaDescription || excerpt || '', type: 'single_line_text_field' },
+            ] : undefined,
+          },
+        }),
+      });
+      result = await articleResp.json();
+      if (result.errors) throw new Error(`Shopify error: ${JSON.stringify(result.errors)}`);
+
     } else if (integrationType === 'custom_api') {
-      // Custom API endpoint
       const apiEndpoint = connection.metadata?.api_endpoint;
       const apiKey = decrypt(connection.access_token, encryptionKey);
-      
-      if (!apiEndpoint) {
-        throw new Error('API endpoint not configured');
-      }
+      if (!apiEndpoint) throw new Error('API endpoint not configured');
 
       const response = await fetch(apiEndpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': apiKey ? `Bearer ${apiKey}` : '',
-          'X-API-Key': apiKey || '',
-        },
-        body: JSON.stringify({
-          title,
-          content,
-          excerpt,
-          slug,
-          featured_image: featuredImageUrl,
-          categories,
-          tags,
-          status,
-          seo: seoData,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': apiKey ? `Bearer ${apiKey}` : '', 'X-API-Key': apiKey || '' },
+        body: JSON.stringify({ title, content, excerpt, slug, featured_image: featuredImageUrl, categories, tags, status, seo: seoData }),
       });
-
       result = await response.json();
 
     } else if (integrationType === 'webhook') {
-      // Webhook notification
       const webhookUrl = connection.metadata?.webhook_url;
-      
-      if (!webhookUrl) {
-        throw new Error('Webhook URL not configured');
-      }
+      if (!webhookUrl) throw new Error('Webhook URL not configured');
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          event: 'content_ready',
-          title,
-          content,
-          excerpt,
-          slug,
-          featured_image: featuredImageUrl,
-          categories,
-          tags,
-          seo: seoData,
-          timestamp: new Date().toISOString(),
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'content_ready', title, content, excerpt, slug, featured_image: featuredImageUrl, categories, tags, seo: seoData, timestamp: new Date().toISOString() }),
       });
-
       result = { success: response.ok, status: response.status };
 
     } else {
-      // Manual - just return success (content is ready for manual copy)
-      result = { 
-        success: true, 
-        message: 'Content ready for manual publishing',
-        data: { title, content, excerpt, slug }
-      };
+      result = { success: true, message: 'Content ready for manual publishing', data: { title, content, excerpt, slug } };
     }
 
     console.log('Website publish result:', result);
