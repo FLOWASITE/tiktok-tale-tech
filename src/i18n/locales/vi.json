@@ -157,18 +157,37 @@
           "title": "Tự đánh giá — tự sửa",
           "tag": "AGENT LÀM",
           "description": "Trước khi bạn thấy output, Agent đã tự chấm điểm 8 tiêu chí:",
-          "bullets": [
-            "Hook Strength · Brand Voice · Compliance · Channel Fit",
-            "Content Structure · Engagement · CTA Quality · Readability"
-          ],
-          "note": "Tổng 100 điểm. Score < 75 → Agent tự sửa rồi chấm lại. Vẫn chưa đạt → gửi cho bạn review kèm ghi chú cụ thể."
+          "note": "Tổng 100 điểm. Score < 75 → Agent tự sửa rồi chấm lại. Vẫn chưa đạt → gửi cho bạn review kèm ghi chú cụ thể.",
+          "criteria": [
+            "Hook Strength",
+            "Brand Voice",
+            "Compliance",
+            "Channel Fit",
+            "Content Structure",
+            "Engagement",
+            "CTA Quality",
+            "Readability"
+          ]
         },
         "step5": {
           "title": "Duyệt & đăng bài",
           "tag": "TỰ ĐỘNG HOẶC BẠN DUYỆT",
           "description": "Đạt chuẩn chất lượng + không vi phạm compliance → tự động xếp vào lịch đăng. Bạn có thể bật Smart Auto-Approve hoặc duyệt thủ công.",
           "feature": "Smart Auto-Approve",
-          "channels": ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"]
+          "channels": [
+            "Facebook",
+            "Instagram",
+            "TikTok",
+            "LinkedIn",
+            "X/Twitter",
+            "Zalo OA",
+            "Email",
+            "YouTube",
+            "Telegram",
+            "Google Maps",
+            "Website",
+            "Blog"
+          ]
         }
       }
     },
