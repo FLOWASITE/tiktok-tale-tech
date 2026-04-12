@@ -526,12 +526,19 @@ export function WorkflowSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="flex items-center gap-2 mb-6"
+            className="mb-6"
           >
-            {mode === "quick" ? <Zap className="w-5 h-5 text-primary" /> : <Bot className="w-5 h-5 text-primary" />}
-            <span className="text-lg font-semibold text-foreground">
-              {t(`workflow.${mode === "quick" ? "quickFlow" : "agentFlow"}.label`)}
-            </span>
+            <div className="flex items-center gap-2">
+              {mode === "quick" ? <Zap className="w-5 h-5 text-primary" /> : <Bot className="w-5 h-5 text-primary" />}
+              <span className="text-lg font-semibold text-foreground">
+                {t(`workflow.${mode === "quick" ? "quickFlow" : "agentFlow"}.label`)}
+              </span>
+            </div>
+            {mode === "agent" && (
+              <p className="text-sm text-muted-foreground mt-1 ml-7">
+                {t("workflow.agentFlow.subtitle")}
+              </p>
+            )}
           </motion.div>
         </AnimatePresence>
 
