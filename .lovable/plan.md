@@ -1,36 +1,51 @@
 
 
-# Phase 2: Navbar Redesign
+# Phase 3: Hero Section Rewrite
 
-## Thay đổi trong `src/landing/components/LandingNav.tsx`
+## Overview
+Rewrite hoàn toàn HeroSection theo brief — chuyên nghiệp, dark theme, 2 cột layout, pipeline visualization với pulse animation.
 
-### 1. Logo
-- Bỏ import logo image, thay bằng text "Flowa" với gradient dot sau chữ "a"
-- Dot: `w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500`
+## Thay đổi trong `src/landing/components/HeroSection.tsx`
 
-### 2. Menu items (updated)
-- "Tính năng" → `#features`
-- "Cách hoạt động" → `#workflow`
-- "Campaign" → `#campaign`
-- "Pricing" → `#pricing`
-- "Blog" → `/blog` (link)
-- Style: `text-sm text-gray-400 hover:text-white transition`
+### Layout tổng quan
+- 2 cột trên desktop (text 55% / visual 45%), stack trên mobile
+- Dark theme: nền `bg-[#09090b]`, text trắng/gray
+- Bỏ toàn bộ code cũ (stats counter, dashboard preview, industry badges)
 
-### 3. Scroll detection sections
-- Update sections array to match new section IDs: `features`, `workflow`, `campaign`, `pricing`
+### Cột trái — Text content
+1. **Badge tag**: `"🤖 AI Marketing Agent — Không phải AI Writing Tool"` — border indigo-500/30, bg-indigo-500/10, rounded-full, px-3 py-1
+2. **Headline** (text-5xl md:text-6xl font-bold):
+   - "Đội ngũ content của bạn —"
+   - "chạy bằng AI Agent" (gradient text indigo→violet)
+3. **Sub-headline** (text-xl text-gray-400, max-w-lg):
+   - "Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng..."
+4. **2 CTA buttons** (flex row, gap-4, mt-8):
+   - Primary: "Dùng thử miễn phí →" — bg-gradient indigo→violet, rounded-full, py-3 px-8
+   - Secondary: "Xem cách hoạt động" — border white/20, bg-transparent, rounded-full
+5. **3 micro-stats** (flex row, gap-8, mt-6, text-sm text-gray-500):
+   - "⚡ Setup 5 phút" · "🔒 Không cần thẻ tín dụng" · "🌏 Hỗ trợ VI · TH · EN"
 
-### 4. Header styling
-- When scrolled: `bg-[#09090b]/80 backdrop-blur-xl border-b border-white/10`
-- When not scrolled: `bg-transparent`
+### Cột phải — Pipeline Visual
+- Card lớn: rounded-2xl, border white/10, bg-white/5, backdrop-blur, p-6
+- **Pipeline diagram**: 6 nodes ngang với connector lines
+  - 🔍 Research → 🎯 Strategy → ✍️ Create → 🔄 Review → ✅ Approve → 🚀 Publish
+  - Mỗi node: circle icon + label dưới
+  - Animated pulse dot chạy từ trái sang phải (lặp lại)
+  - Node "Create" có glow effect (active state)
+  - Nodes đã xong hiện checkmark xanh lá
+- **Dòng caption dưới pipeline**: "Toàn bộ pipeline chạy trong ~10 phút, không cần can thiệp" — text-xs text-gray-500, text-center
 
-### 5. CTA buttons
-- "Đăng nhập": text link style, `text-gray-400 hover:text-white`
-- "Bắt đầu miễn phí": `bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full px-5 py-2 text-white text-sm font-semibold`
+### Animations
+- Framer Motion stagger: badge → headline → sub → CTAs → stats → visual
+- Pipeline pulse: CSS animation hoặc Framer Motion `animate` loop cho dot di chuyển qua nodes
+- Active node glow: `box-shadow: 0 0 20px rgba(99, 102, 241, 0.4)`
 
-### 6. Mobile menu
-- Update background to dark theme: `bg-[#09090b] border-b border-white/10`
-- Same menu items and CTA styling
+## Technical details
+- Hardcode tiếng Việt (không dùng i18n keys cho copy mới)
+- Giữ `getAuthUrl('register')` cho CTA primary
+- Secondary CTA scroll đến `#workflow`
+- Responsive: stack thành 1 cột trên mobile, pipeline nodes thu nhỏ hoặc wrap 2 hàng
 
 ## File thay đổi
-- **Edit**: `src/landing/components/LandingNav.tsx` (single file)
+- **Edit**: `src/landing/components/HeroSection.tsx` (single file, full rewrite)
 
