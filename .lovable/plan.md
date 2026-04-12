@@ -1,51 +1,42 @@
 
 
-# Phase 3: Hero Section Rewrite
+# Hoàn thiện Templates USP theo Ngành Hàng
 
-## Overview
-Rewrite hoàn toàn HeroSection theo brief — chuyên nghiệp, dark theme, 2 cột layout, pipeline visualization với pulse animation.
+## Issues hiện tại
 
-## Thay đổi trong `src/landing/components/HeroSection.tsx`
+1. **Thiếu category "Khác"**: `other` chưa có templates
+2. **Visibility hạn chế**: Templates chỉ hiện khi USP list rỗng (dòng 543)
+3. **Không thể re-show**: Sau khi thêm USP, templates biến mất vĩnh viễn
+4. **UX chưa tốt**: Không có nút refresh hoặc thêm tất cả templates
 
-### Layout tổng quan
-- 2 cột trên desktop (text 55% / visual 45%), stack trên mobile
-- Dark theme: nền `bg-[#09090b]`, text trắng/gray
-- Bỏ toàn bộ code cũ (stats counter, dashboard preview, industry badges)
+## Thay đổi
 
-### Cột trái — Text content
-1. **Badge tag**: `"🤖 AI Marketing Agent — Không phải AI Writing Tool"` — border indigo-500/30, bg-indigo-500/10, rounded-full, px-3 py-1
-2. **Headline** (text-5xl md:text-6xl font-bold):
-   - "Đội ngũ content của bạn —"
-   - "chạy bằng AI Agent" (gradient text indigo→violet)
-3. **Sub-headline** (text-xl text-gray-400, max-w-lg):
-   - "Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng..."
-4. **2 CTA buttons** (flex row, gap-4, mt-8):
-   - Primary: "Dùng thử miễn phí →" — bg-gradient indigo→violet, rounded-full, py-3 px-8
-   - Secondary: "Xem cách hoạt động" — border white/20, bg-transparent, rounded-full
-5. **3 micro-stats** (flex row, gap-8, mt-6, text-sm text-gray-500):
-   - "⚡ Setup 5 phút" · "🔒 Không cần thẻ tín dụng" · "🌏 Hỗ trợ VI · TH · EN"
+### 1. Thêm templates cho category "Khác"
+**File**: `src/components/brand/ProductCatalogEditor.tsx`
+- Thêm `other: ['Uy tín 10+ năm', 'Giá cạnh tranh', 'Hỗ trợ tận tâm', 'Giải pháp tùy chỉnh']` vào `CATEGORY_USP_TEMPLATES`
 
-### Cột phải — Pipeline Visual
-- Card lớn: rounded-2xl, border white/10, bg-white/5, backdrop-blur, p-6
-- **Pipeline diagram**: 6 nodes ngang với connector lines
-  - 🔍 Research → 🎯 Strategy → ✍️ Create → 🔄 Review → ✅ Approve → 🚀 Publish
-  - Mỗi node: circle icon + label dưới
-  - Animated pulse dot chạy từ trái sang phải (lặp lại)
-  - Node "Create" có glow effect (active state)
-  - Nodes đã xong hiện checkmark xanh lá
-- **Dòng caption dưới pipeline**: "Toàn bộ pipeline chạy trong ~10 phút, không cần can thiệp" — text-xs text-gray-500, text-center
+### 2. Cải thiện visibility logic
+**File**: `src/components/brand/ProductCatalogEditor.tsx`
+- Thay đổi condition: templates luôn hiển thị khi có category được chọn
+- Chỉ filter ra những template chưa được thêm (không ẩn toàn bộ section)
+- Thêm collapse/expand để tiết kiệm không gian
 
-### Animations
-- Framer Motion stagger: badge → headline → sub → CTAs → stats → visual
-- Pipeline pulse: CSS animation hoặc Framer Motion `animate` loop cho dot di chuyển qua nodes
-- Active node glow: `box-shadow: 0 0 20px rgba(99, 102, 241, 0.4)`
+### 3. Thêm "Thêm tất cả" button
+**File**: `src/components/brand/ProductCatalogEditor.tsx`
+- Nút nhỏ "Thêm tất cả" ở góc templates section
+- Click để thêm tất cả templates chưa có vào USP list
 
-## Technical details
-- Hardcode tiếng Việt (không dùng i18n keys cho copy mới)
-- Giữ `getAuthUrl('register')` cho CTA primary
-- Secondary CTA scroll đến `#workflow`
-- Responsive: stack thành 1 cột trên mobile, pipeline nodes thu nhỏ hoặc wrap 2 hàng
+### 4. Phân biệt visual rõ hơn
+**File**: `src/components/brand/ProductCatalogEditor.tsx`
+- AI suggestions: border-primary/20, Sparkles icon
+- Category templates: border-amber/20, Lightbulb icon
+- Rõ ràng hơn cho marketer phân biệt nguồn gợi ý
 
-## File thay đổi
-- **Edit**: `src/landing/components/HeroSection.tsx` (single file, full rewrite)
+## Files thay đổi
+- **Edit**: `src/components/brand/ProductCatalogEditor.tsx` (templates logic + UI)
+
+## Không thay đổi
+- AI suggest USP logic
+- Quality scoring
+- Database schema
 
