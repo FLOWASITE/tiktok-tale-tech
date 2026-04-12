@@ -30,6 +30,7 @@ const BlogPost = () => {
         .select('*')
         .eq('slug', slug!)
         .eq('status', 'published')
+        .eq('is_public', true)
         .single();
       if (error) throw error;
       return data;

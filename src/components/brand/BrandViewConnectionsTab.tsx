@@ -176,7 +176,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
   const [websiteForm, setWebsiteForm] = useState({
     websiteUrl: '',
-    integrationType: 'wordpress' as 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'custom_api' | 'webhook' | 'manual',
+    integrationType: 'wordpress' as 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'flowa_blog' | 'custom_api' | 'webhook' | 'manual',
     username: '',
     appPassword: '',
     apiKey: '',
@@ -682,6 +682,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 value={websiteForm.integrationType}
                 onChange={(e) => setWebsiteForm(prev => ({ ...prev, integrationType: e.target.value as typeof websiteForm.integrationType }))}
               >
+                <option value="flowa_blog">Blog Flowa (flowa.vn/blog)</option>
                 <option value="wordpress">WordPress (REST API)</option>
                 <option value="blogger">Blogger (Google)</option>
                 <option value="wix">Wix Blog</option>
