@@ -117,28 +117,58 @@
       }
     },
     "agentFlow": {
-      "label": "AI Agent Campaign",
+      "label": "5 bước — bạn chỉ làm bước 1",
+      "subtitle": "Phần còn lại, Agent tự xử lý trong pipeline tự động.",
       "steps": {
         "step1": {
-          "title": "Nghiên cứu",
-          "description": "AI phân tích thị trường, đối thủ, xu hướng ngành để xác định cơ hội content."
+          "title": "Bạn đặt mục tiêu",
+          "tag": "BẠN LÀM",
+          "description": "Gõ tự nhiên như đang nhắn tin cho đồng nghiệp.",
+          "examples": [
+            "Lên content plan tháng 8, tập trung skincare mùa hè, 20 bài cho FB + IG + TikTok",
+            "Viết bài case study về khách hàng tiết kiệm thuế 42 triệu",
+            "Chiến dịch ra mắt sản phẩm mới — từ teaser đến conversion, 2 tuần, 5 kênh"
+          ],
+          "note": "Không cần brief template. Không cần format đặc biệt. Agent tự hiểu."
         },
         "step2": {
-          "title": "Lên chiến lược",
-          "description": "Lập content plan chi tiết, phân bổ kênh, lịch đăng phù hợp với mục tiêu campaign."
+          "title": "Agent nghiên cứu & lên chiến lược",
+          "tag": "AGENT LÀM",
+          "description": "Agent tự động thực hiện song song:",
+          "bullets": [
+            "Phân tích xu hướng ngành real-time",
+            "Scan nội dung đối thủ",
+            "Recall bài cũ đã hoạt động tốt",
+            "Chọn chủ đề & phân bổ theo customer journey"
+          ]
         },
         "step3": {
-          "title": "Sáng tạo nội dung",
-          "description": "Tự động tạo content đa kênh theo plan, tuân thủ brand voice và compliance rules."
+          "title": "Tạo nội dung — đã tối ưu cho từng kênh",
+          "tag": "AGENT LÀM",
+          "description": "Tạo bài gốc chất lượng cao → tự động biến thể cho từng kênh.",
+          "bullets": [
+            "Facebook nhận bài dài storytelling",
+            "TikTok nhận hook 3 giây + script ngắn",
+            "LinkedIn nhận thought leadership"
+          ],
+          "note": "Không phải copy-paste rồi cắt ngắn. Mỗi kênh được tái cấu trúc hoàn toàn."
         },
         "step4": {
-          "title": "Rà soát & Chấm điểm",
-          "description": "Self-critique, compliance check, đánh giá chất lượng và tối ưu nội dung tự động."
+          "title": "Tự đánh giá — tự sửa",
+          "tag": "AGENT LÀM",
+          "description": "Trước khi bạn thấy output, Agent đã tự chấm điểm 8 tiêu chí:",
+          "bullets": [
+            "Hook Strength · Brand Voice · Compliance · Channel Fit",
+            "Content Structure · Engagement · CTA Quality · Readability"
+          ],
+          "note": "Tổng 100 điểm. Score < 75 → Agent tự sửa rồi chấm lại. Vẫn chưa đạt → gửi cho bạn review kèm ghi chú cụ thể."
         },
         "step5": {
-          "title": "Phê duyệt & Xuất bản",
-          "description": "Duyệt nội dung, lên lịch và publish tự động lên các kênh đã chọn.",
-          "feature": "Auto-publish + Performance tracking"
+          "title": "Duyệt & đăng bài",
+          "tag": "TỰ ĐỘNG HOẶC BẠN DUYỆT",
+          "description": "Đạt chuẩn chất lượng + không vi phạm compliance → tự động xếp vào lịch đăng. Bạn có thể bật Smart Auto-Approve hoặc duyệt thủ công.",
+          "feature": "Smart Auto-Approve",
+          "channels": ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"]
         }
       }
     },
