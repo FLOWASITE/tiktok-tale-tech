@@ -117,28 +117,58 @@
       }
     },
     "agentFlow": {
-      "label": "AI Agent Campaign",
+      "label": "5 steps — you only do step 1",
+      "subtitle": "The rest is handled automatically by the Agent pipeline.",
       "steps": {
         "step1": {
-          "title": "Research",
-          "description": "AI analyzes market, competitors, and industry trends to identify content opportunities."
+          "title": "You set the goal",
+          "tag": "YOU DO",
+          "description": "Type naturally, like messaging a colleague.",
+          "examples": [
+            "Plan August content, focus on summer skincare, 20 posts for FB + IG + TikTok",
+            "Write a case study about a client saving $1,800 in taxes",
+            "New product launch campaign — from teaser to conversion, 2 weeks, 5 channels"
+          ],
+          "note": "No brief template needed. No special format. The Agent understands."
         },
         "step2": {
-          "title": "Strategy",
-          "description": "Build detailed content plan, allocate channels, and schedule posts aligned with campaign goals."
+          "title": "Agent researches & strategizes",
+          "tag": "AGENT DOES",
+          "description": "The Agent automatically runs in parallel:",
+          "bullets": [
+            "Real-time industry trend analysis",
+            "Competitor content scanning",
+            "Recall past high-performing posts",
+            "Topic selection & customer journey mapping"
+          ]
         },
         "step3": {
-          "title": "Create Content",
-          "description": "Automatically create multi-channel content following the plan, brand voice and compliance rules."
+          "title": "Create content — optimized per channel",
+          "tag": "AGENT DOES",
+          "description": "Creates high-quality original → auto-adapts for each channel.",
+          "bullets": [
+            "Facebook gets long-form storytelling",
+            "TikTok gets 3-second hook + short script",
+            "LinkedIn gets thought leadership"
+          ],
+          "note": "Not copy-paste then trim. Each channel is fully restructured."
         },
         "step4": {
-          "title": "Review & Score",
-          "description": "Self-critique, compliance check, quality scoring and automatic content optimization."
+          "title": "Self-evaluate — self-correct",
+          "tag": "AGENT DOES",
+          "description": "Before you see the output, Agent has scored across 8 criteria:",
+          "bullets": [
+            "Hook Strength · Brand Voice · Compliance · Channel Fit",
+            "Content Structure · Engagement · CTA Quality · Readability"
+          ],
+          "note": "Total 100 points. Score < 75 → Agent self-corrects and re-scores. Still not passing → sent to you with specific notes."
         },
         "step5": {
-          "title": "Approve & Publish",
-          "description": "Approve content, schedule and auto-publish to selected channels.",
-          "feature": "Auto-publish + Performance tracking"
+          "title": "Approve & publish",
+          "tag": "AUTO OR YOU REVIEW",
+          "description": "Meets quality standards + no compliance violations → auto-scheduled. You can enable Smart Auto-Approve or review manually.",
+          "feature": "Smart Auto-Approve",
+          "channels": ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"]
         }
       }
     },

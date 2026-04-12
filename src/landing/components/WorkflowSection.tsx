@@ -120,13 +120,27 @@ interface FlowStepCardProps {
   altPrefix?: string;
   hasContentTypes?: boolean;
   hasFeature?: boolean;
+  hasExamples?: boolean;
+  hasBullets?: boolean;
+  hasChannels?: boolean;
   icon: React.ElementType;
 }
 
-function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, icon: Icon }: FlowStepCardProps) {
+function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isCompleted, images, altPrefix, hasContentTypes, hasFeature, hasExamples, hasBullets, hasChannels, icon: Icon }: FlowStepCardProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
+  const isAgent = flowPrefix === "agentFlow";
+
+  const tag = isAgent ? t(`workflow.${flowPrefix}.steps.${stepKey}.tag`, { defaultValue: "" }) : "";
+
+  const getTagStyle = (tagText: string) => {
+    if (tagText.includes("BẠN") || tagText.includes("YOU") || tagText.includes("คุณทำ"))
+      return "bg-primary/10 text-primary border-primary/20";
+    if (tagText.includes("TỰ ĐỘNG") || tagText.includes("AUTO") || tagText.includes("อัตโนมัติ"))
+      return "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400";
+    return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400";
+  };
 
   return (
     <motion.div
@@ -146,6 +160,12 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
         >
           <div className="h-0.5 bg-primary w-full" />
           <div className="p-5 md:p-6">
+            {isAgent && tag && (
+              <span className={`inline-block text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border mb-3 ${getTagStyle(tag)}`}>
+                {tag}
+              </span>
+            )}
+
             <div className="flex items-center gap-2 mb-2">
               <Icon className="w-5 h-5 text-primary shrink-0" />
               <h3 className="text-lg font-semibold text-foreground">
@@ -155,13 +175,66 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
             <p className="text-muted-foreground text-sm mb-2">
               {t(`workflow.${flowPrefix}.steps.${stepKey}.description`)}
             </p>
+
+            {hasExamples && (
+              <div className="space-y-2 mt-3">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.examples`, { returnObjects: true }) as string[]).map((ex, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.1 * i, duration: 0.3 }}
+                    className="flex items-start gap-2 text-sm bg-muted/50 rounded-xl px-4 py-3 border border-border/30"
+                  >
+                    <span className="text-primary font-mono text-xs mt-0.5 shrink-0">"</span>
+                    <span className="text-foreground/80 italic">{ex}</span>
+                    <span className="text-primary font-mono text-xs mt-0.5 shrink-0">"</span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {hasBullets && (
+              <ul className="mt-3 space-y-1.5">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.bullets`, { returnObjects: true }) as string[]).map((bullet, i) => (
+                  <motion.li
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.08 * i, duration: 0.25 }}
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                    <span>{bullet}</span>
+                  </motion.li>
+                ))}
+              </ul>
+            )}
+
+            {isAgent && t(`workflow.${flowPrefix}.steps.${stepKey}.note`, { defaultValue: "" }) && (
+              <p className="mt-3 text-xs italic text-muted-foreground/70 border-l-2 border-primary/20 pl-3">
+                {t(`workflow.${flowPrefix}.steps.${stepKey}.note`)}
+              </p>
+            )}
+
+            {hasChannels && (
+              <div className="flex flex-wrap gap-1.5 mt-4">
+                {(t(`workflow.${flowPrefix}.steps.${stepKey}.channels`, { returnObjects: true }) as string[]).map((ch) => (
+                  <span key={ch} className="inline-flex items-center px-2.5 py-1 text-[11px] font-medium rounded-full bg-primary/5 text-primary border border-primary/10">
+                    {ch}
+                  </span>
+                ))}
+              </div>
+            )}
+
             {hasFeature && (
-              <span className="inline-block text-sm text-primary font-medium">
+              <span className="inline-block text-sm text-primary font-medium mt-2">
                 → {t(`workflow.${flowPrefix}.steps.${stepKey}.feature`)}
               </span>
             )}
 
-            {/* Content type cards for quick flow step2 */}
             {hasContentTypes && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
                 {contentTypes.map((type) => (
@@ -192,7 +265,7 @@ function FlowStepCard({ stepNum, stepKey, flowPrefix, index, isActive, isComplet
 // ─── Branch Timeline ───
 function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
   flowPrefix: string;
-  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean }[];
+  steps: { key: string; hasFeature?: boolean; hasContentTypes?: boolean; hasExamples?: boolean; hasBullets?: boolean; hasChannels?: boolean }[];
   icons: React.ElementType[];
   stepImages: Record<number, { images: string[]; alt: string } | undefined>;
   activeIndex: number;
@@ -224,6 +297,9 @@ function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
               altPrefix={imgData?.alt}
               hasContentTypes={step.hasContentTypes}
               hasFeature={step.hasFeature}
+              hasExamples={step.hasExamples}
+              hasBullets={step.hasBullets}
+              hasChannels={step.hasChannels}
               icon={icons[index]}
             />
           );
@@ -259,11 +335,11 @@ export function WorkflowSection() {
   ];
 
   const agentSteps = [
-    { key: "step1" },
-    { key: "step2" },
-    { key: "step3" },
-    { key: "step4" },
-    { key: "step5", hasFeature: true },
+    { key: "step1", hasExamples: true },
+    { key: "step2", hasBullets: true },
+    { key: "step3", hasBullets: true },
+    { key: "step4", hasBullets: true },
+    { key: "step5", hasFeature: true, hasChannels: true },
   ];
 
   const quickStepImages: Record<number, { images: string[]; alt: string } | undefined> = {
@@ -450,12 +526,19 @@ export function WorkflowSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="flex items-center gap-2 mb-6"
+            className="mb-6"
           >
-            {mode === "quick" ? <Zap className="w-5 h-5 text-primary" /> : <Bot className="w-5 h-5 text-primary" />}
-            <span className="text-lg font-semibold text-foreground">
-              {t(`workflow.${mode === "quick" ? "quickFlow" : "agentFlow"}.label`)}
-            </span>
+            <div className="flex items-center gap-2">
+              {mode === "quick" ? <Zap className="w-5 h-5 text-primary" /> : <Bot className="w-5 h-5 text-primary" />}
+              <span className="text-lg font-semibold text-foreground">
+                {t(`workflow.${mode === "quick" ? "quickFlow" : "agentFlow"}.label`)}
+              </span>
+            </div>
+            {mode === "agent" && (
+              <p className="text-sm text-muted-foreground mt-1 ml-7">
+                {t("workflow.agentFlow.subtitle")}
+              </p>
+            )}
           </motion.div>
         </AnimatePresence>
 

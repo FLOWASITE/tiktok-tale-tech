@@ -110,28 +110,58 @@
       }
     },
     "agentFlow": {
-      "label": "AI Agent Campaign",
+      "label": "5 ขั้นตอน — คุณทำแค่ขั้นตอนที่ 1",
+      "subtitle": "ส่วนที่เหลือ Agent จัดการอัตโนมัติใน pipeline",
       "steps": {
         "step1": {
-          "title": "วิจัย",
-          "description": "AI วิเคราะห์ตลาด คู่แข่ง และเทรนด์อุตสาหกรรมเพื่อระบุโอกาสคอนเทนต์"
+          "title": "คุณตั้งเป้าหมาย",
+          "tag": "คุณทำ",
+          "description": "พิมพ์ตามธรรมชาติ เหมือนส่งข้อความถึงเพื่อนร่วมงาน",
+          "examples": [
+            "วางแผนคอนเทนต์เดือน ส.ค. โฟกัส skincare หน้าร้อน 20 โพสต์สำหรับ FB + IG + TikTok",
+            "เขียน case study เกี่ยวกับลูกค้าประหยัดภาษี 42,000 บาท",
+            "แคมเปญเปิดตัวสินค้าใหม่ — จาก teaser ถึง conversion 2 สัปดาห์ 5 ช่องทาง"
+          ],
+          "note": "ไม่ต้องใช้ brief template ไม่ต้องใช้ format พิเศษ Agent เข้าใจเอง"
         },
         "step2": {
-          "title": "วางกลยุทธ์",
-          "description": "สร้างแผนคอนเทนต์โดยละเอียด จัดสรรช่องทาง และกำหนดการโพสต์ตามเป้าหมายแคมเปญ"
+          "title": "Agent วิจัยและวางกลยุทธ์",
+          "tag": "AGENT ทำ",
+          "description": "Agent ทำงานอัตโนมัติแบบขนาน:",
+          "bullets": [
+            "วิเคราะห์เทรนด์อุตสาหกรรมแบบ real-time",
+            "สแกนคอนเทนต์คู่แข่ง",
+            "เรียกคืนโพสต์เก่าที่มีผลงานดี",
+            "เลือกหัวข้อและจัดสรรตาม customer journey"
+          ]
         },
         "step3": {
-          "title": "สร้างคอนเทนต์",
-          "description": "สร้างคอนเทนต์หลายช่องทางอัตโนมัติตามแผน ปฏิบัติตาม brand voice และ compliance rules"
+          "title": "สร้างคอนเทนต์ — ปรับแต่งตามช่องทาง",
+          "tag": "AGENT ทำ",
+          "description": "สร้างต้นฉบับคุณภาพสูง → ปรับอัตโนมัติสำหรับแต่ละช่องทาง",
+          "bullets": [
+            "Facebook ได้บทความยาวแบบ storytelling",
+            "TikTok ได้ hook 3 วินาที + สคริปต์สั้น",
+            "LinkedIn ได้ thought leadership"
+          ],
+          "note": "ไม่ใช่ copy-paste แล้วตัดสั้น แต่ละช่องทางถูกปรับโครงสร้างใหม่ทั้งหมด"
         },
         "step4": {
-          "title": "ตรวจสอบ & ให้คะแนน",
-          "description": "Self-critique, compliance check, ให้คะแนนคุณภาพและปรับปรุงคอนเทนต์อัตโนมัติ"
+          "title": "ประเมินตัวเอง — แก้ไขเอง",
+          "tag": "AGENT ทำ",
+          "description": "ก่อนที่คุณจะเห็นผลลัพธ์ Agent ให้คะแนนตาม 8 เกณฑ์:",
+          "bullets": [
+            "Hook Strength · Brand Voice · Compliance · Channel Fit",
+            "Content Structure · Engagement · CTA Quality · Readability"
+          ],
+          "note": "รวม 100 คะแนน คะแนน < 75 → Agent แก้ไขและให้คะแนนใหม่ ยังไม่ผ่าน → ส่งให้คุณรีวิวพร้อมหมายเหตุ"
         },
         "step5": {
           "title": "อนุมัติ & เผยแพร่",
-          "description": "อนุมัติคอนเทนต์ ตั้งเวลาและเผยแพร่อัตโนมัติไปยังช่องทางที่เลือก",
-          "feature": "Auto-publish + Performance tracking"
+          "tag": "อัตโนมัติหรือคุณรีวิว",
+          "description": "ผ่านมาตรฐานคุณภาพ + ไม่ละเมิด compliance → จัดตารางอัตโนมัติ คุณสามารถเปิด Smart Auto-Approve หรือรีวิวด้วยตนเอง",
+          "feature": "Smart Auto-Approve",
+          "channels": ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"]
         }
       }
     },
