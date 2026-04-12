@@ -334,32 +334,72 @@ export function WorkflowSection() {
         </motion.div>
 
         {/* ─── Y-Fork SVG Connector ─── */}
-        <div className="flex justify-center my-4">
-          <svg width="120" height="48" viewBox="0 0 120 48" fill="none" className="text-primary">
+        <motion.div
+          className="flex justify-center my-6"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
+          <svg width="160" height="56" viewBox="0 0 160 56" fill="none">
+            <defs>
+              <linearGradient id="forkGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="1" />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
+              </linearGradient>
+              <filter id="forkGlow">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            {/* Nhánh trái — bezier curve */}
             <motion.path
-              d="M60 0 L60 20 L30 44"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeDasharray="6 4"
+              d="M80 0 C80 24, 44 32, 44 52"
+              stroke="url(#forkGrad)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
               fill="none"
               initial={{ pathLength: 0 }}
               whileInView={{ pathLength: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             />
+            {/* Nhánh phải — bezier curve */}
             <motion.path
-              d="M60 0 L60 20 L90 44"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeDasharray="6 4"
+              d="M80 0 C80 24, 116 32, 116 52"
+              stroke="url(#forkGrad)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
               fill="none"
               initial={{ pathLength: 0 }}
               whileInView={{ pathLength: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+              transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
+            />
+            {/* Dot endpoints with glow */}
+            <motion.circle
+              cx="44" cy="52" r="4"
+              fill="hsl(var(--primary))"
+              filter="url(#forkGlow)"
+              initial={{ scale: 0, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: 0.7 }}
+            />
+            <motion.circle
+              cx="116" cy="52" r="4"
+              fill="hsl(var(--primary))"
+              filter="url(#forkGlow)"
+              initial={{ scale: 0, opacity: 0 }}
+              whileInView={{ scale: 1, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.3, delay: 0.85 }}
             />
           </svg>
-        </div>
+        </motion.div>
 
         {/* ─── Toggle Switch ─── */}
         <motion.div
