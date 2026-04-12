@@ -99,7 +99,7 @@ const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {
   zalo_oa: 2000,
 };
 
-type DialogState = 'confirm' | 'success';
+type DialogState = 'confirm' | 'success' | 'blog';
 
 export function DirectPublishButton({
   content,
@@ -119,7 +119,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToZaloOA, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -133,6 +133,9 @@ export function DirectPublishButton({
   const [publishedResult, setPublishedResult] = useState<{ postId?: string; postUrl?: string } | null>(null);
   const [zaloTitle, setZaloTitle] = useState('');
   const [zaloDescription, setZaloDescription] = useState('');
+  const [blogTitle, setBlogTitle] = useState('');
+  const [blogExcerpt, setBlogExcerpt] = useState('');
+  const [blogIsPublic, setBlogIsPublic] = useState(false);
 
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
@@ -157,13 +160,41 @@ export function DirectPublishButton({
     const firstLine = meaningfulLines[0] || '';
     setZaloTitle(firstLine.substring(0, 100));
     setZaloDescription(meaningfulLines.slice(0, 3).join(' ').substring(0, 200));
+    setBlogTitle(firstLine.substring(0, 200));
+    setBlogExcerpt(meaningfulLines.slice(1, 4).join(' ').substring(0, 300));
   }, [content]);
 
   const zaloCoverUrl = useMemo(() => mediaUrls?.[0] || null, [mediaUrls]);
   const isZaloMissingCover = platform === 'zalo_oa' && !zaloCoverUrl;
 
   const handlePublish = async () => {
-    if (!connection || !platform) return;
+    if (!platform) return;
+
+    // Website/Blog: doesn't need a social connection
+    if (platform === 'website') {
+      try {
+        const result = await publishToBlog({
+          connectionId: connection?.id || 'direct-blog',
+          contentId,
+          content: editableContent,
+          mediaUrls,
+          isPublic: blogIsPublic,
+          blogData: {
+            title: blogTitle || 'Bài viết mới',
+            excerpt: blogExcerpt || undefined,
+            isPublic: blogIsPublic,
+          },
+        });
+        setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
+        setDialogState('success');
+        onPublishSuccess?.();
+      } catch (error) {
+        // Error handled by publishToBlog toast
+      }
+      return;
+    }
+
+    if (!connection) return;
 
     try {
       const publishOptions: PublishOptions = {
@@ -197,7 +228,6 @@ export function DirectPublishButton({
           return;
       }
 
-      // Show success state
       setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
       setDialogState('success');
       onPublishSuccess?.();
@@ -207,6 +237,15 @@ export function DirectPublishButton({
   };
 
   const handleClick = () => {
+    // Website/Blog: no social connection needed
+    if (platform === 'website') {
+      setEditableContent(content);
+      setPublishedResult(null);
+      setDialogState('blog');
+      setConfirmDialog({ open: true, platform });
+      return;
+    }
+
     if (!connection) {
       navigate('/settings?tab=social');
       return;
@@ -270,7 +309,7 @@ export function DirectPublishButton({
 
   if (!platform) return null;
 
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa', 'website'].includes(platform);
 
   if (!isSupported) {
     return (
@@ -305,7 +344,7 @@ export function DirectPublishButton({
           ) : (
             <Icon className="h-4 w-4 mr-1" />
           )}
-          {!isPublishing && (connection ? 'Đăng ngay' : 'Kết nối để đăng')}
+          {!isPublishing && (platform === 'website' ? 'Đăng Blog' : connection ? 'Đăng ngay' : 'Kết nối để đăng')}
         </Button>
 
         {connection && contentId && (
@@ -351,6 +390,106 @@ export function DirectPublishButton({
                 </Button>
               </div>
             </div>
+          ) : dialogState === 'blog' ? (
+            /* ===== BLOG PUBLISH STATE ===== */
+            <>
+              <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center gap-3 bg-primary/5">
+                <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary text-primary-foreground">
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <DialogTitle className="text-sm sm:text-base font-semibold">
+                    Đăng lên Blog
+                  </DialogTitle>
+                  <DialogDescription className="text-xs mt-0.5">
+                    Đăng bài viết lên blog Flowa
+                  </DialogDescription>
+                </div>
+              </div>
+
+              <div className="px-4 sm:px-6 pb-2 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Tiêu đề bài viết</Label>
+                  <Input
+                    value={blogTitle}
+                    onChange={(e) => setBlogTitle(e.target.value)}
+                    placeholder="Nhập tiêu đề..."
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Mô tả ngắn (excerpt)</Label>
+                  <Textarea
+                    value={blogExcerpt}
+                    onChange={(e) => setBlogExcerpt(e.target.value)}
+                    placeholder="Mô tả ngắn cho bài viết..."
+                    rows={2}
+                    className="resize-none text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Nội dung</Label>
+                  <Textarea
+                    value={editableContent}
+                    onChange={(e) => setEditableContent(e.target.value)}
+                    rows={6}
+                    className="resize-none text-sm leading-relaxed max-h-[200px]"
+                    placeholder="Nhập nội dung..."
+                  />
+                </div>
+
+                <div className="rounded-lg border border-border p-3 bg-muted/20 space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Đích đăng</Label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="blogTarget"
+                        checked={!blogIsPublic}
+                        onChange={() => setBlogIsPublic(false)}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">Blog nội bộ (chỉ hiển thị trong dashboard)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="blogTarget"
+                        checked={blogIsPublic}
+                        onChange={() => setBlogIsPublic(true)}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">Blog Flowa (flowa.vn/blog) — công khai</span>
+                    </label>
+                  </div>
+                  {blogIsPublic && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Chỉ admin mới có quyền đăng bài công khai. Nếu bạn không phải admin, bài sẽ được lưu nội bộ.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={handleCloseDialog} className="sm:flex-1">
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handlePublish}
+                  disabled={isPublishing || !editableContent.trim() || !blogTitle.trim()}
+                  className="sm:flex-1 font-semibold"
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  {isPublishing ? 'Đang đăng...' : 'Đăng bài'}
+                </Button>
+              </div>
+            </>
           ) : (
             /* ===== CONFIRM STATE ===== */
             <>

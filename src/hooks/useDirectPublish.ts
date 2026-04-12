@@ -23,6 +23,14 @@ export interface PublishOptions {
     description: string;
     coverUrl?: string;
   };
+  blogData?: {
+    title: string;
+    excerpt?: string;
+    slug?: string;
+    category?: string;
+    tags?: string[];
+    isPublic?: boolean;
+  };
 }
 
 export function useDirectPublish() {
@@ -165,11 +173,63 @@ export function useDirectPublish() {
     });
   };
 
+  const publishToBlog = async (options: PublishOptions & { isPublic?: boolean }) => {
+    const action = options.isPublic ? 'flowa_blog' : 'blog';
+    // For blog, we go directly through channel-publisher with the right action
+    const response = await supabase.functions.invoke('channel-publisher', {
+      body: {
+        action,
+        connectionId: options.connectionId,
+        contentId: options.contentId,
+        content: options.content,
+        title: options.blogData?.title || 'Bài viết mới',
+        excerpt: options.blogData?.excerpt,
+        slug: options.blogData?.slug,
+        category: options.blogData?.category,
+        tags: options.blogData?.tags,
+        mediaUrls: options.mediaUrls,
+      },
+    });
+
+    if (response.error) {
+      const maybeContext = (response.error as { context?: Response } | null)?.context;
+      let errorMessage = response.error.message || 'Failed to publish blog';
+      if (maybeContext instanceof Response) {
+        try {
+          const payload = await maybeContext.clone().json();
+          if (payload?.error) errorMessage = String(payload.error);
+        } catch { /* keep fallback */ }
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.error || 'Failed to publish blog');
+    }
+
+    const resultData = response.data.data || response.data;
+
+    toast({
+      title: 'Đăng blog thành công! 🎉',
+      description: options.isPublic 
+        ? 'Bài viết đã xuất hiện trên flowa.vn/blog'
+        : 'Bài viết đã được lưu vào blog nội bộ',
+    });
+
+    return {
+      success: true,
+      platform: 'website' as SocialPlatform,
+      postId: resultData.postId || resultData.id,
+      postUrl: resultData.postUrl || (resultData.slug ? `/blog/${resultData.slug}` : undefined),
+    };
+  };
+
   return {
     publishToTwitter,
     publishToFacebook,
     publishToInstagram,
     publishToZaloOA,
+    publishToBlog,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
     publishError: publishMutation.error,
