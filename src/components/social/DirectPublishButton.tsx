@@ -282,7 +282,7 @@ export function DirectPublishButton({
     }
 
     setEditableContent(content);
-    setLinkUrl('');
+    setLinkUrl(blogBacklink || '');
     setPublishedResult(null);
     setDialogState('confirm');
     setConfirmDialog({ open: true, platform });
