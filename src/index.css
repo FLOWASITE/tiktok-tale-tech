@@ -1686,3 +1686,123 @@ All colors MUST be HSL.
     animation: connection-pulse 1.5s ease-in-out infinite;
   }
 }
+
+/* ===== Blog Post Typography ===== */
+@layer components {
+  .blog-prose {
+    @apply text-foreground leading-relaxed;
+  }
+
+  .blog-prose h1 {
+    @apply text-3xl md:text-4xl font-bold mt-12 mb-6 tracking-tight text-foreground;
+  }
+
+  .blog-prose h2 {
+    @apply text-2xl md:text-3xl font-bold mt-10 mb-5 pb-3 border-b border-border/60 text-foreground;
+  }
+
+  .blog-prose h3 {
+    @apply text-xl md:text-2xl font-semibold mt-8 mb-4 text-foreground;
+    padding-left: 1rem;
+    border-left: 3px solid hsl(var(--primary) / 0.4);
+  }
+
+  .blog-prose p {
+    @apply mb-5 leading-[1.85] text-muted-foreground;
+    font-size: 1.0625rem;
+  }
+
+  .blog-prose a {
+    @apply text-primary font-medium underline decoration-primary/30 underline-offset-4 transition-colors hover:decoration-primary/80;
+  }
+
+  .blog-prose strong {
+    @apply font-semibold text-foreground;
+  }
+
+  .blog-prose blockquote {
+    @apply my-6 py-4 px-6 rounded-xl border-l-4 border-primary/50 bg-muted/40 italic text-muted-foreground;
+  }
+
+  .blog-prose blockquote p {
+    @apply mb-0;
+  }
+
+  .blog-prose ul {
+    @apply my-5 pl-0 space-y-2.5 list-none;
+  }
+
+  .blog-prose ul li {
+    @apply relative pl-6 text-muted-foreground;
+    font-size: 1.0625rem;
+    line-height: 1.8;
+  }
+
+  .blog-prose ul li::before {
+    content: '';
+    @apply absolute left-0 top-[0.65em] w-2 h-2 rounded-full;
+    background: hsl(var(--primary) / 0.6);
+  }
+
+  .blog-prose ol {
+    @apply my-5 pl-6 space-y-2.5;
+    counter-reset: list-counter;
+    list-style: none;
+  }
+
+  .blog-prose ol li {
+    @apply relative text-muted-foreground;
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    counter-increment: list-counter;
+    padding-left: 0.5rem;
+  }
+
+  .blog-prose ol li::before {
+    content: counter(list-counter) '.';
+    @apply absolute -left-5 font-semibold text-primary;
+  }
+
+  .blog-prose code:not(pre code) {
+    @apply px-1.5 py-0.5 rounded-md bg-muted text-sm font-mono text-foreground;
+  }
+
+  .blog-prose pre {
+    @apply my-6 rounded-xl overflow-hidden;
+  }
+
+  .blog-prose img {
+    @apply my-8 rounded-xl shadow-lg mx-auto;
+  }
+
+  .blog-prose hr {
+    @apply my-10 border-none h-px;
+    background: linear-gradient(90deg, transparent, hsl(var(--border)) 20%, hsl(var(--border)) 80%, transparent);
+  }
+
+  .blog-prose table {
+    @apply my-6 w-full text-sm;
+  }
+
+  .blog-prose th {
+    @apply text-left font-semibold py-3 px-4 bg-muted/50 border-b border-border text-foreground;
+  }
+
+  .blog-prose td {
+    @apply py-3 px-4 border-b border-border/50 text-muted-foreground;
+  }
+
+  /* TOC styles */
+  .blog-toc-link {
+    @apply block text-sm py-1.5 text-muted-foreground/70 hover:text-primary transition-colors relative;
+  }
+
+  .blog-toc-link::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-0 bg-primary rounded-full transition-all duration-200;
+  }
+
+  .blog-toc-link:hover::before {
+    @apply h-4;
+  }
+}
