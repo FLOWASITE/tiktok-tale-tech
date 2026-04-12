@@ -1,42 +1,54 @@
 
 
-# Hoàn thiện Templates USP theo Ngành Hàng
+# Nâng cao thẩm mỹ cho Problem Section
 
-## Issues hiện tại
-
-1. **Thiếu category "Khác"**: `other` chưa có templates
-2. **Visibility hạn chế**: Templates chỉ hiện khi USP list rỗng (dòng 543)
-3. **Không thể re-show**: Sau khi thêm USP, templates biến mất vĩnh viễn
-4. **UX chưa tốt**: Không có nút refresh hoặc thêm tất cả templates
+## Vấn đề hiện tại
+Section đã có cấu trúc tốt nhưng thiếu chiều sâu thị giác. Trên nền Light theme, các card trông phẳng và ambient background quá nhẹ, không tạo được cảm giác "nặng nề, mệt mỏi" như mục tiêu emotional design.
 
 ## Thay đổi
 
-### 1. Thêm templates cho category "Khác"
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- Thêm `other: ['Uy tín 10+ năm', 'Giá cạnh tranh', 'Hỗ trợ tận tâm', 'Giải pháp tùy chỉnh']` vào `CATEGORY_USP_TEMPLATES`
+### 1. Background layer phong phú hơn
+- Thêm noise texture overlay (SVG filter, opacity 2%) tạo chiều sâu
+- Thêm grid pattern rất nhẹ (giống GradientMesh đang dùng ở Hero)
+- Tăng nhẹ opacity radial gradient ambient (0.035 → 0.05) để tách biệt section rõ hơn
+- Thêm top/bottom subtle divider line (border-t/border-b `border-red-100/20`)
 
-### 2. Cải thiện visibility logic
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- Thay đổi condition: templates luôn hiển thị khi có category được chọn
-- Chỉ filter ra những template chưa được thêm (không ẩn toàn bộ section)
-- Thêm collapse/expand để tiết kiệm không gian
+### 2. Card redesign - Glassmorphism + depth
+- Thêm `backdrop-blur-sm` cho cards
+- Thêm inner glow effect (box-shadow inset nhẹ)
+- Icon container: thêm subtle animation (pulse nhẹ khi hover)
+- Hover: thêm glow shadow đỏ trầm muted (`0 8px 32px rgba(248,113,113,0.08)`)
+- Bottom insight: thêm arrow icon animated (slide-right nhẹ khi hover)
+- Thêm card number/index nhỏ góc trên-phải (01, 02, 03, 04) với opacity thấp
 
-### 3. Thêm "Thêm tất cả" button
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- Nút nhỏ "Thêm tất cả" ở góc templates section
-- Click để thêm tất cả templates chưa có vào USP list
+### 3. Decorative elements
+- Thêm floating dots/particles rất nhẹ (3-5 dots, red muted, animation chậm)
+- Thêm decorative dashed connecting lines giữa heading và cards grid
+- Thêm subtle "crack" pattern giữa 2 hàng cards (tạo cảm giác "vỡ/rạn")
 
-### 4. Phân biệt visual rõ hơn
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- AI suggestions: border-primary/20, Sparkles icon
-- Category templates: border-amber/20, Lightbulb icon
-- Rõ ràng hơn cho marketer phân biệt nguồn gợi ý
+### 4. Typography refinement
+- Stat number: thêm text-shadow nhẹ cho depth
+- Title: letter-spacing tighter (-0.02em)
+- Description: tăng line-height lên 1.75 cho dễ đọc hơn
+- Tag "VẤN ĐỀ": thêm subtle pulse animation
 
-## Files thay đổi
-- **Edit**: `src/components/brand/ProductCatalogEditor.tsx` (templates logic + UI)
+### 5. Transition statement nâng cấp
+- Thêm animated particles converging vào "Agent vận hành"
+- Gradient line: từ thin → thicker với glow effect
+- Thêm subtle arrow/chevron pointing down trước transition
 
-## Không thay đổi
-- AI suggest USP logic
-- Quality scoring
-- Database schema
+### 6. Animation polish
+- Cards: stagger delay tăng lên (0, 150ms, 300ms, 450ms) cho dramatic hơn
+- Stat counter: thêm slight overshoot effect (count lên qua target rồi settle)
+- Ambient glow trên mỗi card: animate opacity pulse chậm
+
+## File thay đổi
+- **Edit**: `src/landing/components/ProblemSection.tsx` (toàn bộ changes)
+
+## Giữ nguyên
+- Content text, translation keys
+- Color palette (red muted #f87171, amber #fb923c, indigo bridge)
+- Grid layout 2x2
+- Responsive breakpoints
+- Existing design system (font, theme, Tailwind classes)
 
