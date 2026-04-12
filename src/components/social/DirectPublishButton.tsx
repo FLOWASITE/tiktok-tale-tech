@@ -151,13 +151,15 @@ export function DirectPublishButton({
 
   // Sync editableContent when content prop changes
   useEffect(() => {
-    setEditableContent(content);
-    // Auto-extract title and description for Zalo — skip channel-name headers
+    const cleanedContent = stripSeoMetadata(content);
+    setEditableContent(cleanedContent);
+    // Auto-extract title and description — skip channel-name headers and SEO metadata
     const CHANNEL_HEADER_RE = /^(📱\s*)?ZALO[_\s]?OA$/i;
-    const lines = content.split('\n').filter(l => l.trim());
+    const SEO_LABEL_RE = /^(SEO\s*Title|Meta\s*Description|Focus\s*Keyword|Slug|Tiêu\s*đề\s*SEO|Mô\s*tả\s*Meta|Từ\s*khóa\s*chính|Đường\s*dẫn)$/i;
+    const lines = cleanedContent.split('\n').filter(l => l.trim());
     const meaningfulLines = lines
       .map(l => l.replace(/^#+\s*/, '').replace(/[*_~`]/g, '').trim())
-      .filter(l => l && !CHANNEL_HEADER_RE.test(l));
+      .filter(l => l && !CHANNEL_HEADER_RE.test(l) && !SEO_LABEL_RE.test(l));
     const firstLine = meaningfulLines[0] || '';
     setZaloTitle(firstLine.substring(0, 100));
     setZaloDescription(meaningfulLines.slice(0, 3).join(' ').substring(0, 200));
