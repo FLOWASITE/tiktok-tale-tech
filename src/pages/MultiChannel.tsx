@@ -425,6 +425,18 @@ export default function MultiChannel() {
               </Button>
             )}
           </div>
+        ) : viewMode === 'channel' ? (
+          <ChannelGroupView
+            contents={paginatedContents}
+            onView={handleView}
+            onDelete={handleDelete}
+            selectedIds={selectedIds}
+            toggleSelection={toggleSelection}
+            creatorProfiles={creatorProfiles}
+            isLoadingProfiles={isLoadingProfiles}
+            brandLogoMap={brandLogoMap}
+            geoScoresMap={geoScoresMap}
+          />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {paginatedContents.map((content, index) => (
