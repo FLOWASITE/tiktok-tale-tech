@@ -29,7 +29,6 @@ import { cn } from '@/lib/utils';
 import { ChatConversation } from '@/hooks/useChatConversations';
 import { isToday, isYesterday, isThisWeek } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPlanBadge } from '@/lib/plan-badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ConversationHistorySidebarProps {
