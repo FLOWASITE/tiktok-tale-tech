@@ -206,11 +206,12 @@ Deno.serve(withPerf({ functionName: 'facebook-oauth-callback' }, async (req) => 
     // Encrypt page access token using modern GCM
     const encryptedToken = await encryptGCM(pageAccessToken);
 
-    // Check for existing connection
+    // Check for existing connection with same Page ID
     let query = supabase
       .from('social_connections')
       .select('id')
-      .eq('platform', 'facebook');
+      .eq('platform', 'facebook')
+      .eq('platform_user_id', pageId);
 
     if (brandTemplateId) {
       query = query.eq('brand_template_id', brandTemplateId);

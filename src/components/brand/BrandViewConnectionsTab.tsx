@@ -639,7 +639,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </CardHeader>
         <CardContent className="space-y-3">
           {(Object.keys(PLATFORM_CONFIG) as SocialPlatform[]).map(platform =>
-            platform === ('website' as SocialPlatform) ? renderWebsitePlatform() : renderConnection(platform)
+            platform === ('website' as SocialPlatform) ? renderWebsitePlatform() :
+            platform === 'facebook' ? renderFacebookPlatform() :
+            renderConnection(platform)
           )}
         </CardContent>
       </Card>
