@@ -237,7 +237,7 @@ export function ChannelGroupView({
             </div>
 
             {/* Cards Grid */}
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {items.map((content, index) => (
                 <div key={content.id} className="relative">
                   <div className="absolute top-2 left-2 z-20">
@@ -247,8 +247,9 @@ export function ChannelGroupView({
                       className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
                     />
                   </div>
-                  <MultiChannelCard
+                  <SocialPostCard
                     content={content}
+                    activeChannel={channel}
                     onView={onView}
                     onDelete={onDelete}
                     onScheduleComplete={onScheduleComplete}
