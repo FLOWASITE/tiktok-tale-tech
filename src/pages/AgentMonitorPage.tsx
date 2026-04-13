@@ -3,10 +3,12 @@ import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { PipelineStatsCards } from '@/components/agents/PipelineStatsCards';
 import { PipelineMonitorTable } from '@/components/agents/PipelineMonitorTable';
+import { ApproveWithScheduleDialog } from '@/components/agents/ApproveWithScheduleDialog';
 import { Activity, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { AgentPipeline } from '@/types/agent';
 
 type StatusFilter = 'all' | 'running' | 'completed' | 'flagged';
 
@@ -15,11 +17,11 @@ export default function AgentMonitorPage() {
   const { approvals, updateApproval } = useAgentApprovals();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [approveTarget, setApproveTarget] = useState<AgentPipeline | null>(null);
 
   const filteredPipelines = useMemo(() => {
     let result = pipelines;
 
-    // Status filter
     if (statusFilter === 'running') {
       result = result.filter(p => !p.completed_at && !p.is_flagged);
     } else if (statusFilter === 'completed') {
@@ -28,7 +30,6 @@ export default function AgentMonitorPage() {
       result = result.filter(p => p.is_flagged);
     }
 
-    // Search filter
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(p =>
@@ -40,13 +41,24 @@ export default function AgentMonitorPage() {
     return result;
   }, [pipelines, statusFilter, search]);
 
-  const handleApprove = (pipelineId: string) => {
-    const approval = approvals.find(a => a.pipeline_id === pipelineId && a.status === 'pending');
+  const handleApproveClick = (pipelineId: string) => {
+    const pipeline = pipelines.find(p => p.id === pipelineId);
+    if (!pipeline) return;
+    setApproveTarget(pipeline);
+  };
+
+  const handleApproveConfirm = (scheduledAt: string | null) => {
+    if (!approveTarget) return;
+    const approval = approvals.find(a => a.pipeline_id === approveTarget.id && a.status === 'pending');
     if (!approval) {
       toast.error('Không tìm thấy yêu cầu duyệt cho pipeline này');
+      setApproveTarget(null);
       return;
     }
-    updateApproval.mutate({ id: approval.id, status: 'approved' });
+    updateApproval.mutate(
+      { id: approval.id, status: 'approved', scheduled_publish_at: scheduledAt },
+      { onSettled: () => setApproveTarget(null) }
+    );
   };
 
   return (
@@ -61,7 +73,6 @@ export default function AgentMonitorPage() {
 
       <PipelineStatsCards pipelines={pipelines} />
 
-      {/* Filter bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -95,7 +106,15 @@ export default function AgentMonitorPage() {
         pipelines={filteredPipelines}
         isLoading={isLoading}
         retryPipeline={retryPipeline}
-        onApprove={handleApprove}
+        onApprove={handleApproveClick}
+      />
+
+      <ApproveWithScheduleDialog
+        open={!!approveTarget}
+        onClose={() => setApproveTarget(null)}
+        pipeline={approveTarget}
+        onConfirm={handleApproveConfirm}
+        isLoading={updateApproval.isPending}
       />
     </div>
   );

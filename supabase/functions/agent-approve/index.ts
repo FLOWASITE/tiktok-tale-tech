@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    let { approval_id, action, notes, reviewer_id } = body;
+    let { approval_id, action, notes, reviewer_id, scheduled_publish_at } = body;
     const pipeline_id = body.pipeline_id;
     if (!action) throw new Error("action required");
 
