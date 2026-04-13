@@ -712,7 +712,162 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription className="space-y-2">
-                    <p className="font-medium">Hướng dẫn cài đặt (4 bước):</p>
+                    <p className="font-medium">Hướng dẫn cài đặt (3 bước đơn giản):</p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Nhập hoặc tạo mật khẩu bảo mật bên dưới</li>
+                      <li>Tải file <strong>api_flowa.php</strong> → upload lên thư mục gốc website (ngang hàng với <code>mainfile.php</code>)</li>
+                      <li>Nhập đường dẫn website bên dưới rồi bấm <strong>Kết nối</strong></li>
+                    </ol>
+                    <p className="text-xs text-muted-foreground mt-1">💡 Mật khẩu sẽ được tự động nhúng vào file, bạn không cần mở file ra sửa gì!</p>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label htmlFor="nvApiKey">Mật khẩu bảo mật (API Key) *</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="nvApiKey"
+                        type={showSecrets.apiKey ? 'text' : 'password'}
+                        placeholder="Nhập mật khẩu hoặc bấm Tạo ngẫu nhiên"
+                        value={websiteForm.apiKey}
+                        onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                        className="pr-10"
+                      />
+                      <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
+                        {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                        const key = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                          .map(b => chars[b % chars.length]).join('');
+                        setWebsiteForm(prev => ({ ...prev, apiKey: key }));
+                        toast.success('Đã tạo mật khẩu ngẫu nhiên!');
+                      }}
+                    >
+                      🔄 Tạo ngẫu nhiên
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={!websiteForm.apiKey}
+                  onClick={() => {
+                    const apiKeyValue = websiteForm.apiKey;
+                    const phpCode = `<?php
+// =========================================================
+// CẤU HÌNH BẢO MẬT (Đã được tạo tự động bởi Flowa App)
+$my_api_key = "${apiKeyValue}";
+// =========================================================
+
+define('NV_SYSTEM', true);
+require_once 'mainfile.php';
+
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { http_response_code(200); exit(0); }
+
+if ($_SERVER['REQUEST_METHOD'] == 'GET') {
+    echo json_encode(["status" => "ok", "message" => "NukeViet API endpoint is ready", "version" => "1.0"]);
+    exit(0);
+}
+
+$data = json_decode(file_get_contents("php://input"), true);
+
+if (!isset($data['api_key']) || $data['api_key'] !== $my_api_key) {
+    http_response_code(401);
+    die(json_encode(["status" => "error", "message" => "Sai mật khẩu bảo mật (API Key)!"]));
+}
+
+// Test connection mode
+if (isset($data['action']) && $data['action'] === 'test') {
+    echo json_encode(["status" => "ok", "message" => "Kết nối thành công!", "cms" => "NukeViet"]);
+    exit(0);
+}
+
+$title = isset($data['title']) ? nv_htmlspecialchars(strip_tags($data['title'])) : '';
+$content = isset($data['content']) ? $data['content'] : '';
+$catid = isset($data['catid']) ? intval($data['catid']) : 1;
+
+if (empty($title) || empty($content)) {
+    die(json_encode(["status" => "error", "message" => "Tiêu đề và nội dung không được để trống!"]));
+}
+
+$alias = change_alias($title);
+$addtime = NV_CURRENTTIME;
+$module_name = 'news';
+$table_prefix = NV_PREFIXLANG . "_" . $module_name;
+
+try {
+    $sql_rows = "INSERT INTO " . $table_prefix . "_rows 
+        (catid, listcatid, topicid, admin_id, author, sourceid, addtime, edittime, publtime, title, alias, hometext, status, hitstotal, hitscm) 
+        VALUES (:catid, :listcatid, 0, 1, 'Flowa App', 0, :addtime, :addtime, :addtime, :title, :alias, '', 1, 0, 0)";
+    
+    $sth = $db->prepare($sql_rows);
+    $sth->bindParam(':catid', $catid, PDO::PARAM_INT);
+    $sth->bindValue(':listcatid', $catid . ',', PDO::PARAM_STR);
+    $sth->bindParam(':addtime', $addtime, PDO::PARAM_INT);
+    $sth->bindParam(':title', $title, PDO::PARAM_STR);
+    $sth->bindParam(':alias', $alias, PDO::PARAM_STR);
+    $sth->execute();
+    
+    $new_post_id = $db->lastInsertId();
+
+    if ($new_post_id) {
+        $sql_body = "INSERT INTO " . $table_prefix . "_bodytext (id, bodyhtml) VALUES (:id, :bodyhtml)";
+        $sth_body = $db->prepare($sql_body);
+        $sth_body->bindParam(':id', $new_post_id, PDO::PARAM_INT);
+        $sth_body->bindParam(':bodyhtml', $content, PDO::PARAM_STR);
+        $sth_body->execute();
+
+        echo json_encode(["status" => "success", "message" => "Đăng bài thành công!", "post_id" => $new_post_id]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "Không thể tạo bài viết."]);
+    }
+} catch (PDOException $e) {
+    echo json_encode(["status" => "error", "message" => "Lỗi CSDL: " . $e->getMessage()]);
+}
+?>`;
+                    const blob = new Blob([phpCode], { type: 'application/x-php' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'api_flowa.php';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success('Đã tải file api_flowa.php (đã nhúng mật khẩu)');
+                  }}
+                >
+                  📥 Tải file api_flowa.php
+                </Button>
+                {!websiteForm.apiKey && (
+                  <p className="text-xs text-muted-foreground">⚠️ Vui lòng nhập hoặc tạo mật khẩu trước khi tải file</p>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="nvEndpoint">API Endpoint *</Label>
+                  <Input
+                    id="nvEndpoint"
+                    type="url"
+                    placeholder="https://ten-mien.com/api_flowa.php"
+                    value={websiteForm.apiEndpoint}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiEndpoint: e.target.value }))}
+                  />
+                </div>
+              </>
+            )
                     <ol className="list-decimal list-inside space-y-1 text-xs">
                       <li>Tải file <strong>api_flowa.php</strong> bên dưới</li>
                       <li>Upload file lên thư mục gốc website (ngang hàng với <code>mainfile.php</code>)</li>
