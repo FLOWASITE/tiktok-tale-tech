@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    let { approval_id, action, notes, reviewer_id } = body;
+    let { approval_id, action, notes, reviewer_id, scheduled_publish_at } = body;
     const pipeline_id = body.pipeline_id;
     if (!action) throw new Error("action required");
 
@@ -68,22 +68,36 @@ Deno.serve(async (req) => {
           pipelineState.stages.publish = { ...(pipelineState.stages.publish || {}), status: "in_progress", started_at: now };
         }
 
-        await supabase.from("agent_pipelines").update({
+        const pipelineUpdate: any = {
           current_stage: "publish",
           pipeline_state: pipelineState,
           stage_started_at: now,
-        } as any).eq("id", pipeline.id);
+        };
+        // Update scheduled_publish_at if provided
+        if (scheduled_publish_at !== undefined) {
+          pipelineUpdate.scheduled_publish_at = scheduled_publish_at;
+        }
+
+        await supabase.from("agent_pipelines").update(pipelineUpdate).eq("id", pipeline.id);
+
+        const isFutureSchedule = scheduled_publish_at && new Date(scheduled_publish_at) > new Date();
+
+        const logMessage = isFutureSchedule
+          ? `Content approved, scheduled for ${scheduled_publish_at}`
+          : notes || "Content approved, advancing to publish";
 
         await supabase.from("agent_pipeline_logs").insert({
           pipeline_id: pipeline.id,
           agent_name: "orchestrator",
           action: "approval_granted",
           input_summary: `Approved by: ${reviewer_id || "system"}`,
-          output_summary: notes || "Content approved, advancing to publish",
+          output_summary: logMessage,
         } as any);
 
-        // Fire publish stage
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "publish");
+        // Only fire publish stage immediately if not scheduled for future
+        if (!isFutureSchedule) {
+          fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "publish");
+        }
       }
 
       return json({ success: true, status: "approved", next_stage: "publish" });

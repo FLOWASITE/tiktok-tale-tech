@@ -49,7 +49,7 @@ export function useAgentApprovals() {
   const pendingCount = (query.data || []).filter(a => a.status === 'pending').length;
 
   const updateApproval = useMutation({
-    mutationFn: async ({ id, status, notes }: { id: string; status: AgentApprovalStatus; notes?: string }) => {
+    mutationFn: async ({ id, status, notes, scheduled_publish_at }: { id: string; status: AgentApprovalStatus; notes?: string; scheduled_publish_at?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       // Call agent-approve edge function to properly advance pipeline
       const { data, error } = await supabase.functions.invoke('agent-approve', {
@@ -58,6 +58,7 @@ export function useAgentApprovals() {
           action: status === 'approved' ? 'approve' : 'reject',
           notes: notes || null,
           reviewer_id: user?.id,
+          scheduled_publish_at: scheduled_publish_at !== undefined ? scheduled_publish_at : undefined,
         },
       });
       if (error) throw error;
