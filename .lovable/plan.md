@@ -1,38 +1,45 @@
 
 
-# Chat Agent → Dùng trực tiếp 5 Agent Pipeline
+# Đồng bộ Chat Agent với 5-Agent Pipeline — Fix tận gốc
 
 ## Vấn đề
-`AgentPipelineBar.tsx` và `AgentAttributionBar.tsx` vẫn dùng hệ thống 9 agent cũ (orchestrator, research, brand_memory, compliance, strategy, content, visual, reviewer, governor). Cần thay thế hoàn toàn bằng 5 agent của Pipeline: **Strategy, Creator, Quality, Approval, Publisher**.
 
-## Thay đổi
+Screenshot cho thấy chat vẫn hiển thị 6 agent riêng lẻ (Điều phối, Nghiên cứu, Chiến lược, Nội dung, Kiểm duyệt, Kiểm soát chất lượng) thay vì 5 agent Pipeline. Nguyên nhân: `AgentPipelineBar` và `AgentAttributionBar` đã được cập nhật nhưng dữ liệu đầu vào (progress steps) vẫn tạo ra từng node riêng lẻ.
 
-### 1. `AgentPipelineBar.tsx` — Thay AGENT_CONFIG
+### Điểm chưa nhất quán
 
-Xóa 9 agent cũ, thay bằng 5 agent Pipeline với icon + naming thống nhất từ `AgentDirectoryPage`:
+| Vị trí | Vấn đề |
+|--------|--------|
+| `useChatStreaming.ts` dòng 343-353 | `nodeLabels` map vẫn tạo step riêng cho từng node cũ (orchestrator, research, brand_memory...) |
+| `ChatThinkingIndicator.tsx` dòng 68-80 | `getAgentIcon` map icon theo agent ID cũ |
+| `AgentTimeline.tsx` | Grouping parallel/sequential theo node cũ (research, brand_memory, compliance) |
+
+## Kế hoạch sửa
+
+### 1. `useChatStreaming.ts` — Gom plan steps thành 5 agent
+
+Thay `nodeLabels` map 9 node → dùng mapping giống `AgentPipelineBar`:
 
 ```text
-Strategy  (Lightbulb)  → matchIds: orchestrator, research, brand_memory, strategy
-Creator   (PenTool)    → matchIds: content, image, visual
-Quality   (ShieldCheck)→ matchIds: compliance, reviewer, governor, quality
-Approval  (CheckCircle2)→ matchIds: approval
-Publisher (Send)       → matchIds: publisher, publish
+Backend gửi: orchestrator, research, brand_memory, strategy, content, image, reviewer, governor, compliance
+→ UI gom thành: Strategy, Creator, Quality, Approval, Publisher
 ```
 
-Logic `getStepForAgent` giữ nguyên — backend vẫn gửi node IDs cũ, nhưng UI gom nhóm hiển thị 5 pill thay vì 9. Khi agent active, sub-label hiển thị node con đang chạy.
+Logic: khi nhận `graph_plan`, duyệt qua các step, xác định thuộc nhóm nào, chỉ tạo 1 `ProgressStep` cho mỗi nhóm (nếu chưa có). Khi nhận `node_start`/`node_end`, cập nhật step của nhóm tương ứng và set `subLabel` là tên node con đang chạy.
 
-### 2. `AgentAttributionBar.tsx` — Thay AGENT_CONFIG
+### 2. `ChatThinkingIndicator.tsx` — Cập nhật `getAgentIcon`
 
-Thay 6 agent config cũ (research-agent, strategy-agent, content-agent, reviewer-agent, image-agent, brand-memory-agent) bằng 5 agent Pipeline với icon/color matching.
+Thay icon map cũ bằng 5 icon Pipeline: Lightbulb (Strategy), PenTool (Creator), ShieldCheck (Quality), CheckCircle2 (Approval), Send (Publisher).
 
-### 3. `AgentSessionSummary.tsx` — Không cần sửa
+### 3. `AgentTimeline.tsx` — Cập nhật grouping
 
-Component này render generic từ `steps[]`, không hardcode agent names.
+Thay `PARALLEL_AGENTS` và `PHASE_ZERO_AGENTS` bằng logic nhóm 5 agent. Timeline hiển thị 5 hàng thay vì 6-9 hàng riêng lẻ.
 
-### Files
+## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/topic/chatbot/AgentPipelineBar.tsx` | Thay AGENT_CONFIG 9→5, cập nhật imports |
-| `src/components/topic/chatbot/AgentAttributionBar.tsx` | Thay AGENT_CONFIG 6→5, cập nhật imports |
+| `src/hooks/useChatStreaming.ts` | Gom `nodeLabels` + plan step creation thành 5 nhóm; cập nhật `node_start`/`node_end` handlers |
+| `src/components/topic/chatbot/ChatThinkingIndicator.tsx` | Cập nhật `getAgentIcon` map |
+| `src/components/topic/chatbot/AgentTimeline.tsx` | Cập nhật grouping logic |
 
