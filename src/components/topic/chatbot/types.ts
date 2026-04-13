@@ -120,6 +120,8 @@ export interface TopicAIChatbotProps {
   initialPrompt?: string;
   /** Desktop layout mode — removes Card wrapper, uses larger sizing */
   desktopLayout?: boolean;
+  /** Whether the sidebar is collapsed */
+  sidebarCollapsed?: boolean;
   /** Shared conversation state from parent (FlowaChatPage) */
   conversationState?: ConversationState;
 }

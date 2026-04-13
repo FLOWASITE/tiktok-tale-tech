@@ -46,6 +46,7 @@ interface ChatHeaderProps {
   onDeleteConversation: (id: string) => void;
   onArchiveConversation: (id: string) => void;
   desktopLayout?: boolean;
+  sidebarCollapsed?: boolean;
   onToggleShortcutsHint?: () => void;
 }
 
@@ -76,6 +77,7 @@ export function ChatHeader({
   onDeleteConversation,
   onArchiveConversation,
   desktopLayout = false,
+  sidebarCollapsed = false,
   onToggleShortcutsHint,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
@@ -83,8 +85,9 @@ export function ChatHeader({
   
   return (
     <div className={cn(
-      "flex-shrink-0 border-b bg-background/80 backdrop-blur-sm",
-      desktopLayout ? "py-3 px-6" : "py-1.5 sm:py-2.5 px-2 sm:px-4"
+      "flex-shrink-0 border-b bg-background/80 backdrop-blur-sm transition-[padding] duration-300",
+      desktopLayout ? "py-3 px-6" : "py-1.5 sm:py-2.5 px-2 sm:px-4",
+      desktopLayout && sidebarCollapsed && "pl-14"
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">

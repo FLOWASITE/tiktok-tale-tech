@@ -59,6 +59,7 @@ export function TopicAIChatbot({
   onReady,
   initialPrompt,
   desktopLayout = false,
+  sidebarCollapsed = false,
   conversationState,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
@@ -364,6 +365,7 @@ export function TopicAIChatbot({
               onDeleteConversation={deleteConversation}
               onArchiveConversation={archiveConversation}
               desktopLayout={desktopLayout}
+              sidebarCollapsed={sidebarCollapsed}
               onToggleShortcutsHint={() => inputHook.setShowShortcutsHint(!inputHook.showShortcutsHint)}
             />
           )}
