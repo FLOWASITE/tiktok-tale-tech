@@ -52,7 +52,7 @@ export default function FlowaChatPage() {
       {/* Desktop: collapsible history sidebar */}
       {!isMobile && (
         <aside className={cn(
-          "shrink-0 border-r border-border/50 bg-sidebar hidden lg:block transition-all duration-300 overflow-hidden",
+          "shrink-0 border-r border-border/40 bg-muted/20 hidden lg:block transition-all duration-300 overflow-hidden",
           sidebarOpen ? "w-[260px]" : "w-0 border-r-0"
         )}>
           <ConversationHistorySidebar

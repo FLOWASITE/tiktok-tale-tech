@@ -185,7 +185,7 @@ export function ConversationHistorySidebar({
 
   return (
     <div className={cn(
-      "flex flex-col h-full bg-sidebar",
+      "flex flex-col h-full bg-muted/20",
       className
     )}>
       {/* Header */}
