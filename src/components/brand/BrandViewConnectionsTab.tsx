@@ -506,7 +506,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   };
 
   // Render multiple Facebook connections
-  const [showInactiveFb, setShowInactiveFb] = useState(false);
 
   const renderFacebookPlatform = () => {
     const config = PLATFORM_CONFIG['facebook'];
