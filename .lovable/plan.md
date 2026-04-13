@@ -1,30 +1,38 @@
 
 
-# Fix: Nút duyệt Pipeline Monitor không hoạt động
+# Thêm chọn lịch đăng khi nhấn nút Duyệt
 
-## Nguyên nhân
+## Mô tả
+Khi nhấn nút "Duyệt" trên Pipeline Monitor, thay vì duyệt ngay, hiện dialog cho phép chọn ngày giờ đăng bài. Nếu pipeline đã có `scheduled_publish_at` từ Campaign Plan, hiển thị sẵn. User có thể giữ nguyên, thay đổi, hoặc chọn "Đăng ngay".
 
-`AgentMonitorPage.handleApprove` gửi `{ pipeline_id }` đến edge function `agent-approve`, nhưng edge function yêu cầu `{ approval_id }`. Vì `approval_id` là `undefined`, edge function trả lỗi "approval_id and action required".
+## Thay đổi
 
-Kanban hoạt động đúng vì nó truyền `approval.id` (ID của bản ghi approval), không phải pipeline ID.
+### 1. `src/components/agents/ApproveWithScheduleDialog.tsx` (mới)
+- Dialog chứa DatePicker + TimePicker cho ngày giờ đăng
+- Nếu pipeline có `scheduled_publish_at`, pre-fill vào form
+- 2 nút: "Duyệt & Lên lịch" và "Duyệt & Đăng ngay"
+- Props: `open`, `onClose`, `pipeline` (để lấy scheduled_publish_at, content_title), `onConfirm(scheduledAt: string | null)`
 
-## Giải pháp
+### 2. `src/pages/AgentMonitorPage.tsx`
+- Thêm state `approveDialog` lưu pipeline đang chọn
+- Khi click nút Duyệt → mở dialog thay vì duyệt trực tiếp
+- `handleApprove` nhận thêm `scheduledAt` parameter
+- Truyền `scheduled_publish_at` vào edge function
 
-Cần tìm `approval_id` tương ứng với pipeline trước khi gọi edge function.
+### 3. `src/hooks/useAgentApprovals.ts`
+- Thêm `scheduled_publish_at` vào mutation params
+- Gửi kèm trong body khi gọi `agent-approve`
 
-### 1. `src/pages/AgentMonitorPage.tsx`
-- Import và sử dụng `useAgentApprovals` hook để lấy danh sách approvals
-- Trong `handleApprove`, tra cứu approval record có `pipeline_id` khớp và `status === 'pending'`
-- Gửi đúng `approval_id` thay vì `pipeline_id` đến edge function
-- Nếu không tìm thấy approval record, hiện toast lỗi rõ ràng
-
-### 2. Fallback: Cập nhật edge function `agent-approve`
-- Thêm logic: nếu không có `approval_id` nhưng có `pipeline_id`, tự động tìm approval record pending tương ứng
-- Đảm bảo backward-compatible với cả Kanban và Monitor
+### 4. `supabase/functions/agent-approve/index.ts`
+- Nhận thêm `scheduled_publish_at` từ body
+- Khi approve: cập nhật `agent_pipelines.scheduled_publish_at` với giá trị mới (nếu có)
+- Nếu `scheduled_publish_at` trong tương lai → pipeline chờ cron trigger, không publish ngay
 
 ### Files
 | File | Thay đổi |
 |------|----------|
-| `src/pages/AgentMonitorPage.tsx` | Dùng `useAgentApprovals` để tra cứu approval_id đúng |
-| `supabase/functions/agent-approve/index.ts` | Fallback: tìm approval từ pipeline_id nếu không có approval_id |
+| `src/components/agents/ApproveWithScheduleDialog.tsx` | Tạo mới - dialog chọn lịch đăng |
+| `src/pages/AgentMonitorPage.tsx` | Mở dialog thay vì duyệt trực tiếp |
+| `src/hooks/useAgentApprovals.ts` | Thêm `scheduled_publish_at` vào mutation |
+| `supabase/functions/agent-approve/index.ts` | Cập nhật scheduled_publish_at khi approve |
 
