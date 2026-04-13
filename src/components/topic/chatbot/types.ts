@@ -162,6 +162,23 @@ export interface ContextSources {
   industryPack: number;
 }
 
+// Shared conversation state passed from parent
+export interface ConversationState {
+  conversations: import('@/hooks/useChatConversations').ChatConversation[];
+  currentConversation: import('@/hooks/useChatConversations').ChatConversation | null;
+  conversationMessages: import('@/hooks/useChatConversations').ChatConversationMessage[];
+  isLoading: boolean;
+  isSaving: boolean;
+  loadConversation: (id: string) => Promise<void>;
+  createConversation: (contentGoal?: string) => Promise<import('@/hooks/useChatConversations').ChatConversation | null>;
+  addMessageToDB: (role: 'user' | 'assistant', content: string, metadata?: Record<string, any>) => Promise<import('@/hooks/useChatConversations').ChatConversationMessage | null>;
+  deleteConversation: (id: string) => Promise<boolean>;
+  archiveConversation: (id: string) => Promise<void>;
+  clearCurrentConversation: () => void;
+  summarizeConversation: (id: string, force?: boolean) => Promise<any>;
+  loadConversations: () => Promise<void>;
+}
+
 // Dynamic width type
 export type DynamicWidth = 'compact' | 'normal' | 'wide' | 'full';
 

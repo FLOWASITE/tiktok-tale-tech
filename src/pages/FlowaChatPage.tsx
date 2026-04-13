@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatConversations } from '@/hooks/useChatConversations';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { ConversationHistorySidebar } from '@/components/topic/chatbot/ConversationHistorySidebar';
-import { cn } from '@/lib/utils';
+import type { ConversationState } from '@/components/topic/chatbot/types';
 
 export default function FlowaChatPage() {
   const navigate = useNavigate();
@@ -14,14 +15,48 @@ export default function FlowaChatPage() {
   const { currentOrganization } = useOrganizationContext();
   const defaultBrand = templates?.find(t => t.is_default) || templates?.[0];
 
+  // Single shared instance of useChatConversations
+  const chatConv = useChatConversations({
+    brandTemplateId: defaultBrand?.id,
+    organizationId: currentOrganization?.id,
+    autoLoad: true,
+  });
+
+  // Build ConversationState to pass to chatbot
+  const conversationState: ConversationState = useMemo(() => ({
+    conversations: chatConv.conversations,
+    currentConversation: chatConv.currentConversation,
+    conversationMessages: chatConv.messages,
+    isLoading: chatConv.isLoading,
+    isSaving: chatConv.isSaving,
+    loadConversation: chatConv.loadConversation,
+    createConversation: chatConv.createConversation,
+    addMessageToDB: chatConv.addMessage,
+    deleteConversation: chatConv.deleteConversation,
+    archiveConversation: chatConv.archiveConversation,
+    clearCurrentConversation: chatConv.clearCurrentConversation,
+    summarizeConversation: chatConv.summarizeConversation,
+    loadConversations: chatConv.loadConversations,
+  }), [chatConv]);
+
+  const handleNewConversation = () => {
+    chatConv.clearCurrentConversation();
+  };
+
   return (
     <div className="h-[calc(100vh-3.5rem)] w-full flex">
       {/* Desktop: persistent history sidebar */}
       {!isMobile && (
         <aside className="w-[280px] shrink-0 border-r bg-muted/30 hidden lg:block">
-          <DesktopHistorySidebar
-            brandTemplateId={defaultBrand?.id}
-            organizationId={currentOrganization?.id}
+          <ConversationHistorySidebar
+            conversations={chatConv.conversations}
+            currentConversationId={chatConv.currentConversation?.id}
+            isLoading={chatConv.isLoading}
+            onSelectConversation={chatConv.loadConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={chatConv.deleteConversation}
+            onArchiveConversation={chatConv.archiveConversation}
+            className="h-full"
           />
         </aside>
       )}
@@ -34,44 +69,9 @@ export default function FlowaChatPage() {
           isExpanded
           className="h-full"
           desktopLayout={!isMobile}
+          conversationState={conversationState}
         />
       </div>
     </div>
-  );
-}
-
-/** Thin wrapper so sidebar loads its own conversations */
-function DesktopHistorySidebar({
-  brandTemplateId,
-  organizationId,
-}: {
-  brandTemplateId?: string;
-  organizationId?: string;
-}) {
-  const {
-    conversations,
-    currentConversation,
-    isLoading,
-    loadConversation,
-    deleteConversation,
-    archiveConversation,
-  } = useChatConversations({
-    brandTemplateId,
-    organizationId,
-    autoLoad: true,
-  });
-
-  return (
-    <ConversationHistorySidebar
-      conversations={conversations}
-      currentConversationId={currentConversation?.id}
-      isLoading={isLoading}
-      onSelectConversation={loadConversation}
-      onNewConversation={() => {/* handled by chatbot reset */}}
-      onDeleteConversation={deleteConversation}
-      onArchiveConversation={archiveConversation}
-      onClose={() => {}}
-      className="h-full"
-    />
   );
 }
