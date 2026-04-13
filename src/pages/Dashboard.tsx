@@ -18,7 +18,8 @@ import {
   TodayFocus,
   ActiveCampaignsWidget,
   CampaignMilestoneReminder,
-  UsageQuotaWidget
+  UsageQuotaWidget,
+  NewUserWelcome
 } from '@/components/dashboard';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
@@ -94,6 +95,7 @@ function DashboardContent() {
   }, [multiChannelContents]);
 
   const loading = scriptsLoading || carouselsLoading || multiChannelLoading || brandsLoading;
+  const isNewUser = !loading && brands.length === 0;
 
   const stats = useMemo(() => ({
     scripts: scripts.length,
@@ -249,143 +251,150 @@ function DashboardContent() {
           />
         </div>
 
-        {/* Stats */}
-        <div data-coachmark="stats">
-          <DashboardStats stats={stats} loading={loading} />
-        </div>
+        {isNewUser ? (
+          /* New User Welcome */
+          <NewUserWelcome />
+        ) : (
+          <>
+            {/* Stats */}
+            <div data-coachmark="stats">
+              <DashboardStats stats={stats} loading={loading} />
+            </div>
 
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
-          {/* Large card - Quick Actions (spans 5 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-5"
-            data-coachmark="quick-actions"
-          >
-            <QuickActionGrid />
-          </motion.div>
+            {/* Bento Grid Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
+              {/* Large card - Quick Actions (spans 5 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="lg:col-span-5"
+                data-coachmark="quick-actions"
+              >
+                <QuickActionGrid />
+              </motion.div>
 
-          {/* Medium card - Topics (spans 4 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lg:col-span-4"
-            data-coachmark="topics"
-          >
-            <TopicQuickAccess />
-          </motion.div>
+              {/* Medium card - Topics (spans 4 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="lg:col-span-4"
+                data-coachmark="topics"
+              >
+                <TopicQuickAccess />
+              </motion.div>
 
-          {/* Small card - Today Focus (spans 3 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="lg:col-span-3"
-          >
-            <TodayFocus scheduledCount={todayScheduleCount} pendingReviewCount={pendingReviewCount} todayMilestones={todayMilestones} />
-          </motion.div>
+              {/* Small card - Today Focus (spans 3 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="lg:col-span-3"
+              >
+                <TodayFocus scheduledCount={todayScheduleCount} pendingReviewCount={pendingReviewCount} todayMilestones={todayMilestones} />
+              </motion.div>
 
-          {/* AI Insights (spans 4 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="lg:col-span-4"
-            data-coachmark="brand-tip"
-          >
-            <AIInsightsCard />
-          </motion.div>
+              {/* AI Insights (spans 4 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="lg:col-span-4"
+                data-coachmark="brand-tip"
+              >
+                <AIInsightsCard />
+              </motion.div>
 
-          {/* Today Schedules (spans 4 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="lg:col-span-4"
-            data-coachmark="schedules"
-          >
-            <TodaySchedules />
-          </motion.div>
+              {/* Today Schedules (spans 4 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="lg:col-span-4"
+                data-coachmark="schedules"
+              >
+                <TodaySchedules />
+              </motion.div>
 
-          {/* Usage Quota Widget (spans 4 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="lg:col-span-4"
-          >
-            <UsageQuotaWidget />
-          </motion.div>
+              {/* Usage Quota Widget (spans 4 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="lg:col-span-4"
+              >
+                <UsageQuotaWidget />
+              </motion.div>
 
-          {/* Performance Reminder (spans 4 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.75 }}
-            className="lg:col-span-4"
-          >
-            <PerformanceReminderWidget />
-          </motion.div>
+              {/* Performance Reminder (spans 4 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.75 }}
+                className="lg:col-span-4"
+              >
+                <PerformanceReminderWidget />
+              </motion.div>
 
-          {/* Active Campaigns Widget (spans 6 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.75 }}
-            className="lg:col-span-6"
-          >
-            <ActiveCampaignsWidget campaigns={activeCampaigns} isLoading={campaignsLoading} />
-          </motion.div>
+              {/* Active Campaigns Widget (spans 6 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.75 }}
+                className="lg:col-span-6"
+              >
+                <ActiveCampaignsWidget campaigns={activeCampaigns} isLoading={campaignsLoading} />
+              </motion.div>
 
-          {/* Campaign Milestone Reminder (spans 6 cols on lg) */}
-          {(upcomingMilestones.length > 0 || overdueMilestones.length > 0) && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.78 }}
-              className="lg:col-span-6"
-            >
-              <CampaignMilestoneReminder 
-                milestones={upcomingMilestones} 
-                overdueMilestones={overdueMilestones}
-                isLoading={campaignsLoading} 
-              />
-            </motion.div>
-          )}
+              {/* Campaign Milestone Reminder (spans 6 cols on lg) */}
+              {(upcomingMilestones.length > 0 || overdueMilestones.length > 0) && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.78 }}
+                  className="lg:col-span-6"
+                >
+                  <CampaignMilestoneReminder 
+                    milestones={upcomingMilestones} 
+                    overdueMilestones={overdueMilestones}
+                    isLoading={campaignsLoading} 
+                  />
+                </motion.div>
+              )}
 
-          {/* My Assignments (spans 6 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="lg:col-span-6"
-          >
-            <MyAssignments />
-          </motion.div>
+              {/* My Assignments (spans 6 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="lg:col-span-6"
+              >
+                <MyAssignments />
+              </motion.div>
 
-          {/* Activity Timeline (spans 6 cols on lg) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="lg:col-span-6"
-          >
-            <ActivityTimeline activities={recentActivities} loading={loading} />
-          </motion.div>
+              {/* Activity Timeline (spans 6 cols on lg) */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 }}
+                className="lg:col-span-6"
+              >
+                <ActivityTimeline activities={recentActivities} loading={loading} />
+              </motion.div>
 
-          {/* Pending Reviews - Full width */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1 }}
-            className="lg:col-span-12"
-          >
-            <PendingReviews />
-          </motion.div>
-        </div>
+              {/* Pending Reviews - Full width */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+                className="lg:col-span-12"
+              >
+                <PendingReviews />
+              </motion.div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
