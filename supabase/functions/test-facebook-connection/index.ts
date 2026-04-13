@@ -195,6 +195,7 @@ Deno.serve(withPerf({ functionName: 'test-facebook-connection' }, async (req) =>
       .from('social_connections')
       .update({
         is_active: true,
+        last_verified_at: now.toISOString(),
         platform_username: pageData.name,
         metadata: {
           ...connection.metadata,
