@@ -549,7 +549,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                 ...prev,
                 currentExecutingTool: null,
                 progressSteps: prev.progressSteps.map(step =>
-                  step.id === nodeName
+                  step.id === groupId
                     ? { ...step, status: 'error' as const }
                     : step
                 ),
