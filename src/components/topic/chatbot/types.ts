@@ -118,6 +118,8 @@ export interface TopicAIChatbotProps {
   onReady?: (handle: TopicAIChatbotHandle) => void;
   /** Auto-send this prompt when chatbot mounts (used by intent detection) */
   initialPrompt?: string;
+  /** Desktop layout mode — removes Card wrapper, uses larger sizing */
+  desktopLayout?: boolean;
 }
 
 // Agent turn events for multi-turn agentic loop
