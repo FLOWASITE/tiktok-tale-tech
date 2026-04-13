@@ -1,69 +1,52 @@
 
 
-## Tối ưu tốc độ "Ý tưởng chủ đề" (Topic Suggestions)
+## Perplexity trong hệ thống và giải pháp thay thế
 
-### Phân tích nguyên nhân chậm
+### Perplexity đang làm gì?
 
-Luồng hiện tại của edge function `topic-ai` (action: `suggest`) chạy **tuần tự**:
+Perplexity được dùng ở **2 chỗ** với mục đích duy nhất: **tìm kiếm web real-time có citations** (điều mà LLM thông thường không làm được).
 
-```text
-Cache check (DB) → Learning context (DB) → Perplexity x2 (3-8s mỗi call) → AI LLM (5-15s) → Parse + Cache save
-```
+**1. Topic Suggestions** (`topic-utils.ts`)
+- `searchIndustryData()`: Tìm thống kê ngành, case studies, xu hướng thị trường VN mới nhất
+- `searchAudienceQuestions()`: Tìm câu hỏi thực tế của khách hàng trên forums, cộng đồng
+- Kết quả được đưa vào prompt AI để sinh topic suggestions chất lượng hơn
 
-Tổng thời gian: **10-25 giây** khi cache miss. User chỉ thấy skeleton chờ toàn bộ hoàn tất.
+**2. GEO Brand Scanning** (`geo-scan-brand/index.ts`)
+- Quét brand visibility trên Perplexity AI (1 trong 3 engines: ChatGPT, Gemini, Perplexity)
+- Đo lường xem AI có đề cập thương hiệu không khi user hỏi câu liên quan
 
-### Giải pháp: 3 tầng tối ưu
+### Hiện trạng
+- Perplexity: **hết quota** (401 insufficient_quota)
+- Khi không có Perplexity key, hệ thống đã **tự skip** web search → topic suggestions vẫn hoạt động nhưng thiếu dữ liệu real-time
 
-**1. Backend — Song song hóa tối đa trong edge function**
-- Chạy `fetchTopicBrandContext`, `fetchLearningContext`, và `checkTopicCache` song song bằng `Promise.all` thay vì tuần tự
-- File: `supabase/functions/topic-ai/index.ts` (line ~140-220)
+### Giải pháp thay thế
 
-**2. Backend — Thêm timeout cho Perplexity calls**
-- Thêm `AbortController` với timeout 5 giây cho mỗi Perplexity API call
-- Nếu timeout → bỏ qua data đó, vẫn sinh suggestions từ brand context + AI
-- File: `supabase/functions/_shared/topic-utils.ts` (searchIndustryData, searchAudienceQuestions)
+Thay Perplexity bằng **OpenRouter + model có web search** (đã có API key hoạt động):
 
-**3. Frontend — Loading UX cải thiện**
-- Thay skeleton nhàm chán bằng animated loading state có text mô tả giai đoạn ("Đang phân tích brand...", "Đang tìm xu hướng...", "Đang tạo ý tưởng...")
-- Hiển thị thời gian ước tính (~10-15s)
-- File: `src/components/topic/TopicDiscoveryPanel.tsx` (renderTopicGrid)
+- OpenRouter cung cấp các model Perplexity (perplexity/sonar) qua API tương thích OpenAI
+- Chi phí thấp hơn, dùng chung key OpenRouter đã có
+- Giữ nguyên logic: tìm industry data + audience questions, trả về JSON + citations
 
-### Chi tiết kỹ thuật
+**Thay đổi cụ thể:**
 
-**Edge function parallelization:**
-```text
-// Trước (tuần tự ~3s)
-brandContext = await fetchTopicBrandContext(...)
-cache = await checkTopicCache(...)
-learningContext = await fetchLearningContext(...)
+1. **`supabase/functions/_shared/topic-utils.ts`**
+   - Thay `fetch('https://api.perplexity.ai/...')` bằng `fetch('https://openrouter.ai/api/v1/chat/completions')` với model `perplexity/sonar`
+   - Dùng `OPENROUTER_API_KEY` (user's key, đã có) thay vì `PERPLEXITY_API_KEY`
+   - Giữ nguyên prompt, timeout, parse logic
 
-// Sau (song song ~1s)
-[brandContext, cache, learningContext] = await Promise.all([
-  fetchTopicBrandContext(...),
-  checkTopicCache(...),  
-  fetchLearningContext(...)
-])
-```
+2. **`supabase/functions/geo-scan-brand/index.ts`**
+   - Engine "perplexity" chuyển sang dùng OpenRouter + `perplexity/sonar` thay vì gọi trực tiếp Perplexity API
+   - Fallback: nếu OpenRouter cũng fail → simulate như các engine khác
 
-**Perplexity timeout:**
-```text
-const controller = new AbortController();
-setTimeout(() => controller.abort(), 5000);
-fetch(url, { signal: controller.signal })
-```
-
-**Loading UX phases:**
-- 0-3s: "🔍 Đang phân tích thương hiệu..."
-- 3-8s: "📊 Đang tìm xu hướng ngành..."
-- 8s+: "✨ Đang tạo ý tưởng..."
+3. **`supabase/functions/_shared/topic-utils.ts`** — `shouldSkipWebSearch()`
+   - Kiểm tra `OPENROUTER_API_KEY` thay vì `PERPLEXITY_API_KEY`
 
 ### File cần sửa
-- `supabase/functions/topic-ai/index.ts` — parallelization trong handleSuggest
-- `supabase/functions/_shared/topic-utils.ts` — thêm timeout cho Perplexity calls
-- `src/components/topic/TopicDiscoveryPanel.tsx` — loading UX
+- `supabase/functions/_shared/topic-utils.ts` — đổi 2 hàm search sang OpenRouter
+- `supabase/functions/geo-scan-brand/index.ts` — đổi engine perplexity sang OpenRouter
 
-### Kết quả mong đợi
-- Giảm thời gian từ ~15-25s xuống ~10-15s (cache miss)
-- User không cảm thấy bị "treo" nhờ loading phases
-- Perplexity timeout không block toàn bộ flow
+### Kết quả
+- Web search hoạt động trở lại không cần thêm API key mới
+- Topic suggestions có dữ liệu real-time từ web
+- GEO scan engine Perplexity dùng model thật thay vì simulate
 
