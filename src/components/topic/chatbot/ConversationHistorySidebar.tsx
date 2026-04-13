@@ -190,19 +190,15 @@ export function ConversationHistorySidebar({
           <TooltipContent side="right" className="text-xs">Đóng sidebar</TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={onNewConversation}
-            >
-              <SquarePen className="w-5 h-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="text-xs">Đoạn chat mới</TooltipContent>
-        </Tooltip>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-3 gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          onClick={onNewConversation}
+        >
+          <SquarePen className="w-4 h-4" />
+          <span>Đoạn chat mới</span>
+        </Button>
       </div>
 
       {/* Search */}

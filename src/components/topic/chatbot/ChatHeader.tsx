@@ -135,19 +135,18 @@ export function ChatHeader({
           </Tooltip>
 
           {/* New conversation */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onNewConversation}
-                className={cn(desktopLayout ? "h-9 w-9" : "h-6 w-6 sm:h-7 sm:w-7")}
-              >
-                <SquarePen className={cn(desktopLayout ? "w-[18px] h-[18px]" : "w-3 h-3 sm:w-3.5 sm:h-3.5")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">Cuộc hội thoại mới</TooltipContent>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onNewConversation}
+            className={cn(
+              "gap-1.5 text-muted-foreground hover:text-foreground",
+              desktopLayout ? "h-9 px-3 text-sm" : "h-7 px-2 text-xs"
+            )}
+          >
+            <SquarePen className={cn(desktopLayout ? "w-4 h-4" : "w-3.5 h-3.5")} />
+            <span>Đoạn chat mới</span>
+          </Button>
 
           {/* History - only on mobile (desktop has persistent sidebar) */}
           {!desktopLayout && (
