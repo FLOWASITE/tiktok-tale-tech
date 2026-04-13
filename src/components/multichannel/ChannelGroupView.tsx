@@ -271,33 +271,76 @@ export function ChannelGroupView({
                     </>
                   )}
                 </div>
+              </div>
+            </div>
 
-            {/* Cards Grid */}
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              {items.map((content, index) => (
-                <div key={content.id} className="relative">
-                  <div className="absolute top-2 left-2 z-20">
-                    <Checkbox
-                      checked={selectedIds.has(content.id)}
-                      onCheckedChange={() => toggleSelection(content.id)}
-                      className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
+            {/* Cards Grid — with sort/group */}
+            {sortBy === 'month_group' ? (
+              <div className="space-y-6">
+                {groupByMonth(items).map((group) => (
+                  <div key={group.key}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                        {group.label} ({group.items.length} bài)
+                      </span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                      {group.items.map((content, index) => (
+                        <div key={content.id} className="relative">
+                          <div className="absolute top-2 left-2 z-20">
+                            <Checkbox
+                              checked={selectedIds.has(content.id)}
+                              onCheckedChange={() => toggleSelection(content.id)}
+                              className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
+                            />
+                          </div>
+                          <SocialPostCard
+                            content={content}
+                            activeChannel={channel}
+                            onView={onView}
+                            onDelete={onDelete}
+                            onScheduleComplete={onScheduleComplete}
+                            creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
+                            isLoadingProfile={isLoadingProfiles}
+                            index={index}
+                            brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
+                            geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {sortItems(items, sortBy).map((content, index) => (
+                  <div key={content.id} className="relative">
+                    <div className="absolute top-2 left-2 z-20">
+                      <Checkbox
+                        checked={selectedIds.has(content.id)}
+                        onCheckedChange={() => toggleSelection(content.id)}
+                        className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
+                      />
+                    </div>
+                    <SocialPostCard
+                      content={content}
+                      activeChannel={channel}
+                      onView={onView}
+                      onDelete={onDelete}
+                      onScheduleComplete={onScheduleComplete}
+                      creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
+                      isLoadingProfile={isLoadingProfiles}
+                      index={index}
+                      brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
+                      geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
                     />
                   </div>
-                  <SocialPostCard
-                    content={content}
-                    activeChannel={channel}
-                    onView={onView}
-                    onDelete={onDelete}
-                    onScheduleComplete={onScheduleComplete}
-                    creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
-                    isLoadingProfile={isLoadingProfiles}
-                    index={index}
-                    brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
-                    geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
-                  />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         );
       })}
