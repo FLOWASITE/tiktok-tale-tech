@@ -171,13 +171,13 @@ export function ChatInputArea({
               placeholder={isRecording ? t('chatbot.input.listening') : t('chatbot.input.placeholder')}
               className={cn(
                 "resize-none transition-all duration-200",
-                "focus:border-primary/40 focus:ring-2 focus:ring-primary/10",
+                "focus:border-border focus:ring-1 focus:ring-border",
                 "placeholder:text-muted-foreground/60",
                 input.length > maxChars * 0.95 && "border-destructive focus-visible:ring-destructive",
                 isRecording && "border-primary/50 bg-primary/5",
                 desktopLayout
-                  ? "min-h-[48px] max-h-[160px] text-sm py-3 px-4 pr-16 rounded-2xl border-2"
-                  : "min-h-[40px] max-h-[120px] text-xs sm:text-sm py-2.5 px-3 pr-14 rounded-xl border-2"
+                  ? "min-h-[48px] max-h-[160px] text-sm py-3 px-4 pr-16 rounded-2xl border"
+                  : "min-h-[40px] max-h-[120px] text-xs sm:text-sm py-2.5 px-3 pr-14 rounded-xl border"
               )}
               disabled={isLoading}
               style={{ height: `${defaultHeight}px` }}
@@ -247,8 +247,7 @@ export function ChatInputArea({
                   size="icon"
                   className={cn(
                     "shrink-0 transition-all duration-200",
-                    "bg-gradient-to-br from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90",
-                    "shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30",
+                    "bg-primary text-primary-foreground hover:bg-primary/90",
                     "hover:scale-105 active:scale-95",
                     "send-btn-ripple",
                     !input.trim() && "opacity-50 shadow-none hover:scale-100",
@@ -274,8 +273,7 @@ export function ChatInputArea({
                     size="icon"
                     className={cn(
                       "shrink-0 transition-all duration-200",
-                      "bg-gradient-to-br from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90",
-                      "shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30",
+                      "bg-primary text-primary-foreground hover:bg-primary/90",
                       "hover:scale-105 active:scale-95",
                       "send-btn-ripple",
                       !input.trim() && "opacity-50 shadow-none hover:scale-100",

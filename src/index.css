@@ -280,12 +280,9 @@ All colors MUST be HSL.
       inset 0 1px 1px hsl(var(--foreground) / 0.05);
   }
 
-  /* Chat input focus glow */
+  /* Chat input focus glow — subtle */
   .chat-input-glow:focus-within {
-    box-shadow: 
-      0 0 0 2px hsl(var(--primary) / 0.1),
-      0 0 20px -4px hsl(var(--primary) / 0.2);
-    border-color: hsl(var(--primary) / 0.5);
+    box-shadow: 0 0 0 1px hsl(var(--border));
   }
 
   /* Typing cursor animation */
