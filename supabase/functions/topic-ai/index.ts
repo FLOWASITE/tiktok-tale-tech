@@ -213,6 +213,7 @@ async function handleSuggest(
       suggestions: cachedResult,
       source: 'cache'
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
 
   // Phase 3: Smart parallel calls - determine if web search should be skipped
   const industryToSearch = brandContext?.industry?.[0] || params.industry || '';
