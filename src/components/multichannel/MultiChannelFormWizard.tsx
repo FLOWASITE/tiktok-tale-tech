@@ -98,6 +98,7 @@ import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { CompactChannelGrid } from '@/components/multichannel/CompactChannelGrid';
+import { UnconnectedChannelsBanner } from '@/components/multichannel/UnconnectedChannelsBanner';
 import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
@@ -1844,6 +1845,12 @@ export function MultiChannelFormWizard({
                   disabled={isGenerating}
                 />
               </div>
+
+              {/* Banner nhắc nhở kết nối */}
+              <UnconnectedChannelsBanner
+                selectedChannels={formData.channels}
+                brandTemplateId={brandTemplateId}
+              />
 
               {/* Gradient divider */}
               <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
