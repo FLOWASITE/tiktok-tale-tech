@@ -998,15 +998,6 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Coding', 'Reasoning', 'Chi phí thấp'],
     provider: 'openrouter',
   },
-  'perplexity/sonar-pro': {
-    shortName: 'Sonar Pro (OR)',
-    description: 'Perplexity search qua OpenRouter',
-    speed: 'medium',
-    quality: 'premium',
-    cost: 'medium',
-    bestFor: ['Web search', 'Research'],
-    provider: 'openrouter',
-  },
   'anthropic/claude-opus-4.5': {
     shortName: 'Claude Opus 4.5',
     description: 'Opus flagship, phân tích sâu',
