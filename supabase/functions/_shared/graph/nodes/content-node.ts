@@ -12,6 +12,7 @@ import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildContentSystemPrompt } from "../../agents/content-agent.ts";
 import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
 import { formatRetrievedContext } from "../blackboard-retriever.ts";
+import { getOffTopicResponse } from "../orchestrator.ts";
 
 const CONTENT_TOOLS = ['generate_script', 'generate_carousel', 'generate_multichannel', 'save_topic'];
 
@@ -45,6 +46,17 @@ function extractTopicFromPlan(contentPlan: any): string | undefined {
 export function createContentNode(ctx: ContentNodeContext) {
   return async function contentNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ContentNode] Starting');
+
+    // ─── Off-topic fast exit: return canned response, no LLM call ───
+    if (state.orchestratorPlan?.reasoning === 'off_topic' || 
+        state.orchestratorPlan?.reasoning?.includes('off_topic') ||
+        state.metadata?.isOffTopic) {
+      console.log('[ContentNode] Off-topic detected — returning canned response');
+      return {
+        generatedContent: getOffTopicResponse(),
+        metadata: { actualTokensUsed_content: 0, contentOffTopic: true },
+      };
+    }
 
     const PROMPT_VERSION = 'v3';
     const cacheKey = await generateCacheKey(

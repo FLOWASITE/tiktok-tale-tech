@@ -97,6 +97,70 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
   ],
 };
 
+// ---- Off-Topic Detection ----
+
+const OFF_TOPIC_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  // Math / calculations
+  { pattern: /^[\d\s+\-*/=().^%]+$/, label: 'math_expression' },
+  { pattern: /tính|calculate|solve|phương trình|equation/i, label: 'math_question' },
+  // Coding / programming
+  { pattern: /code|coding|lập trình|programming|javascript|python|html|css|sql|api|function|class|variable/i, label: 'coding' },
+  { pattern: /debug|compile|deploy|server|database|backend|frontend/i, label: 'tech_ops' },
+  // Translation (non-marketing)
+  { pattern: /^(dịch|translate)\s+(sang|to)\s+(tiếng|language)/i, label: 'translation' },
+  // Personal / off-topic questions
+  { pattern: /thời tiết|weather|nhiệt độ|temperature/i, label: 'weather' },
+  { pattern: /nấu ăn|recipe|cooking|món ăn|công thức/i, label: 'cooking' },
+  { pattern: /^(tại sao|why|vì sao|sao lại|hả|huh|gì vậy|what)\s*\??$/i, label: 'vague_question' },
+  { pattern: /^[a-zA-ZÀ-ỹ\s]{1,4}\??$/i, label: 'too_short' },
+  // Medical / health advice
+  { pattern: /triệu chứng|symptom|bệnh|disease|thuốc|medicine|chẩn đoán|diagnose/i, label: 'medical' },
+  // Legal advice (not marketing compliance)
+  { pattern: /luật sư|lawyer|kiện|lawsuit|hợp đồng thuê|rental contract/i, label: 'legal' },
+  // Games / entertainment
+  { pattern: /game|trò chơi|chơi game|minecraft|fortnite|valorant/i, label: 'gaming' },
+  // Homework
+  { pattern: /bài tập|homework|assignment|đề thi|exam|kiểm tra/i, label: 'homework' },
+];
+
+const OFF_TOPIC_RESPONSE = `Mình là Flowa AI — chuyên hỗ trợ về content marketing và chiến lược nội dung. 🎯
+
+Mình có thể giúp bạn:
+• Gợi ý chủ đề content
+• Lập kế hoạch nội dung
+• Viết bài cho các kênh social media
+• Phân tích xu hướng và đối thủ
+
+Hãy hỏi mình về marketing nhé! 💡`;
+
+/**
+ * Check if a message is clearly off-topic (not related to marketing/content/branding).
+ * Only called when matchIntent returns null (no marketing intent detected).
+ */
+export function isOffTopic(message: string): { offTopic: boolean; reason?: string } {
+  const trimmed = message.trim();
+  
+  // Very short messages with no marketing context
+  if (trimmed.length < 5) {
+    return { offTopic: true, reason: 'too_short' };
+  }
+  
+  // Check against off-topic patterns
+  for (const { pattern, label } of OFF_TOPIC_PATTERNS) {
+    pattern.lastIndex = 0;
+    if (pattern.test(trimmed)) {
+      return { offTopic: true, reason: label };
+    }
+  }
+  
+  return { offTopic: false };
+}
+
+/** Get the canned off-topic response */
+export function getOffTopicResponse(): string {
+  return OFF_TOPIC_RESPONSE;
+}
+
 // ---- Ambiguity Detection ----
 
 interface AmbiguityCheck {
@@ -483,6 +547,19 @@ function matchIntent(message: string): FastPathResult | null {
     };
   }
 
+  // No marketing intent matched — check if off-topic
+  const offTopicCheck = isOffTopic(message);
+  if (offTopicCheck.offTopic) {
+    console.log(`[Orchestrator] Off-topic detected: ${offTopicCheck.reason}`);
+    return {
+      intent: 'off_topic',
+      confidence: 0.95,
+      matchedPatterns: [offTopicCheck.reason || 'off_topic'],
+      allScores: { off_topic: 1 },
+      ambiguityFlag: false,
+    };
+  }
+
   return null;
 }
 
@@ -505,6 +582,8 @@ function intentToTemplate(intent: string, message: string): string {
       return 'chat';
     case 'conversational':
       return 'chat';
+    case 'off_topic':
+      return 'off_topic';
     default:
       return 'chat';
   }
@@ -590,6 +669,7 @@ Intent Classification Guidelines:
 - IMPORTANT: Extract the topic from the message if present, even if embedded in a longer sentence
 - CRITICAL: If the user does NOT provide a specific topic (e.g., "Tạo nội dung FB", "Viết 1 bài cho Instagram"), you MUST include the "research" node FIRST to discover a suitable topic. NEVER skip research when there is no explicit topic.
 - Platform abbreviations count as channels, NOT topics: FB=Facebook, IG=Instagram, TT=TikTok, YT=YouTube
+- OFF-TOPIC: If user message is clearly NOT related to marketing, content creation, branding, social media, or advertising (e.g., math, coding, weather, cooking, personal questions, vague meaningless messages), return a minimal plan with only the "content" node and set reasoning to "off_topic". The content node will return a scope redirect message.
 
 You MUST call the create_graph_plan tool with your plan.`;
 
