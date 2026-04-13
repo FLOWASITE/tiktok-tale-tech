@@ -144,6 +144,7 @@ function getUnusedPillar(
   const recentTopicsLower = recentTopics.map(t => t.toLowerCase()).join(' ');
   
   for (const pillar of pillars) {
+    if (!pillar.name) continue;
     if (!recentTopicsLower.includes(pillar.name.toLowerCase())) {
       return pillar.name;
     }
