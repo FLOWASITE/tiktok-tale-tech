@@ -674,7 +674,15 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 type="url"
                 placeholder="https://yourwebsite.com"
                 value={websiteForm.websiteUrl}
-                onChange={(e) => setWebsiteForm(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                onChange={(e) => {
+                  const url = e.target.value;
+                  const updates: Partial<typeof websiteForm> = { websiteUrl: url };
+                  if (websiteForm.integrationType === 'nukeviet' && url.trim()) {
+                    const base = url.trim().endsWith('/') ? url.trim().slice(0, -1) : url.trim();
+                    updates.apiEndpoint = `${base}/api_flowa.php`;
+                  }
+                  setWebsiteForm(prev => ({ ...prev, ...updates }));
+                }}
               />
             </div>
 
@@ -684,7 +692,15 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 id="integrationType"
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 value={websiteForm.integrationType}
-                onChange={(e) => setWebsiteForm(prev => ({ ...prev, integrationType: e.target.value as typeof websiteForm.integrationType }))}
+                onChange={(e) => {
+                  const type = e.target.value as typeof websiteForm.integrationType;
+                  const updates: Partial<typeof websiteForm> = { integrationType: type };
+                  if (type === 'nukeviet' && websiteForm.websiteUrl.trim()) {
+                    const base = websiteForm.websiteUrl.trim().endsWith('/') ? websiteForm.websiteUrl.trim().slice(0, -1) : websiteForm.websiteUrl.trim();
+                    updates.apiEndpoint = `${base}/api_flowa.php`;
+                  }
+                  setWebsiteForm(prev => ({ ...prev, ...updates }));
+                }}
               >
                 <option value="flowa_blog">Blog Flowa (flowa.vn/blog)</option>
                 <option value="wordpress">WordPress (REST API)</option>
@@ -857,7 +873,8 @@ try {
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="nvEndpoint">API Endpoint *</Label>
+                  <Label htmlFor="nvEndpoint">Đường dẫn file trên website <span className="text-destructive">*</span></Label>
+                  <p className="text-xs text-muted-foreground">Tự động tạo từ URL website. Chỉ sửa nếu bạn đặt file ở vị trí khác.</p>
                   <Input
                     id="nvEndpoint"
                     type="url"
