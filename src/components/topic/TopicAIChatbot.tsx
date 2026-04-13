@@ -105,7 +105,13 @@ export function TopicAIChatbot({
     
     onMessageCreate: (msg) => messagesHook.setMessages(prev => [...prev, msg]),
     onMessageUpdate: messagesHook.updateMessage,
-    onComplete: () => playReceive(),
+    onComplete: (assistantContent?: string) => {
+      playReceive();
+      // Persist assistant message to DB
+      if (convState && currentConversation && assistantContent) {
+        convState.addMessageToDB('assistant', assistantContent);
+      }
+    },
   });
   
   // Persist pipeline steps so bar remains visible after streaming ends
