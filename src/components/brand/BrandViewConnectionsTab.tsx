@@ -158,6 +158,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     isDisconnecting,
     isDeleting,
     getConnectionForPlatform,
+    getConnectionsForPlatform,
     refetch,
   } = useSocialConnections({ brandTemplateId: template.id });
 
