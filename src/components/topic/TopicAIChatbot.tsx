@@ -95,6 +95,9 @@ export function TopicAIChatbot({
   // Auto-save learnings
   const { autoExtractOnIdle } = useAutoSaveLearnings();
   
+  // Track whether we need to persist the next assistant message
+  const pendingAssistantPersist = useRef(false);
+  
   // Streaming hook - force web search in embedded mode for real-time brainstorming
   const streamingHook = useChatStreaming({
     brandTemplateId,
@@ -105,14 +108,26 @@ export function TopicAIChatbot({
     
     onMessageCreate: (msg) => messagesHook.setMessages(prev => [...prev, msg]),
     onMessageUpdate: messagesHook.updateMessage,
-    onComplete: (assistantContent?: string) => {
+    onComplete: () => {
       playReceive();
-      // Persist assistant message to DB
-      if (convState && currentConversation && assistantContent) {
-        convState.addMessageToDB('assistant', assistantContent);
-      }
+      pendingAssistantPersist.current = true;
     },
   });
+  
+  // Persist assistant response to DB after streaming completes
+  useEffect(() => {
+    if (pendingAssistantPersist.current && !streamingHook.isLoading && convState && currentConversation) {
+      pendingAssistantPersist.current = false;
+      const lastMsg = messagesHook.messages[messagesHook.messages.length - 1];
+      if (lastMsg?.role === 'assistant' && lastMsg.content) {
+        convState.addMessageToDB('assistant', lastMsg.content, {
+          contextBadges: lastMsg.contextBadges,
+          suggestedFollowUps: lastMsg.suggestedFollowUps,
+          reviewScores: lastMsg.reviewScores,
+        });
+      }
+    }
+  }, [streamingHook.isLoading, messagesHook.messages, convState, currentConversation]);
   
   // Persist pipeline steps so bar remains visible after streaming ends
   const [lastPipelineSteps, setLastPipelineSteps] = useState<ProgressStep[]>([]);
