@@ -1,40 +1,31 @@
 
 
-## Căn thẳng hàng "Đoạn chat mới" và "Tìm kiếm đoạn chat"
+## Sửa chữ tràn khỏi ô chat
 
-### Vấn đề
-- Header dùng `flex justify-between` → nút "Đoạn chat mới" nằm bên phải, nút collapse bên trái
-- Search input bên dưới chiếm full width trong `px-3`
-- Hai phần tử không thẳng hàng trái-phải vì header có 2 item chia 2 bên
+### Nguyên nhân
+Trong `ChatMessageBubble.tsx` (line 156-157), container bubble có `max-w-[90%]` nhưng thiếu `overflow-hidden` và `break-words`. Khi nội dung chứa chuỗi dài không có dấu cách (như JSON, URL), text sẽ tràn ra ngoài khung.
 
 ### Giải pháp
 
-**`src/components/topic/chatbot/ConversationHistorySidebar.tsx`**
+**`src/components/topic/chatbot/ChatMessageBubble.tsx`** — Line 156-157:
 
-Đổi layout header: đưa nút collapse và nút "Đoạn chat mới" ra 2 dòng riêng hoặc cùng hàng nhưng nút "Đoạn chat mới" chiếm full width giống search input.
+Thêm `overflow-hidden break-words` vào class của div bubble:
 
-Cụ thể:
-- Tách nút collapse thành một hàng riêng (hoặc absolute position)
-- Nút "Đoạn chat mới" đổi thành full-width button với `w-full justify-start` trong container `px-3`
-- Search input giữ nguyên `px-3`
-- Cả hai sẽ có cùng padding trái-phải → thẳng hàng hoàn toàn
+```tsx
+// Trước
+'relative group/message rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm transition-all duration-200',
 
-```text
-┌─────────────────────────┐
-│ [≡]              [collapse] │  ← header row nhỏ
-│ [🖊 Đoạn chat mới       ] │  ← full-width, px-3
-│ [🔍 Tìm kiếm đoạn chat..] │  ← full-width, px-3
-│                             │
-│ Hôm nay                    │
-│  Cuộc hội thoại 1          │
-│  Cuộc hội thoại 2          │
-└─────────────────────────┘
+// Sau
+'relative group/message rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm transition-all duration-200 overflow-hidden break-words',
 ```
 
-### Chi tiết kỹ thuật
-- Header (line 192): giữ lại chỉ nút collapse, bỏ nút "Đoạn chat mới" ra khỏi hàng này
-- Thêm một div mới ngay dưới header chứa nút "Đoạn chat mới" với `px-3 w-full`
-- Nút "Đoạn chat mới": `variant="ghost"`, `w-full justify-start`, cùng style text-[13px]
-- Search div (line 219): giữ nguyên `px-3`
-- Kết quả: cả 2 cùng `px-3` và `w-full` → thẳng hàng trái-phải
+Đồng thời thêm `overflow-x-auto` hoặc `overflow-wrap: anywhere` vào div markdown content (line 213) để đảm bảo code blocks và JSON cũng không tràn:
+
+```tsx
+// Line 213 — thêm [overflow-wrap:anywhere]
+"text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2 [overflow-wrap:anywhere]"
+```
+
+### Kết quả
+Text dài (JSON, URL, code inline) sẽ tự động xuống dòng trong ô chat thay vì tràn ra ngoài.
 
