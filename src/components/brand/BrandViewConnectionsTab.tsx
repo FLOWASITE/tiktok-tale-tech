@@ -271,7 +271,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       if (error || !data?.success) throw new Error(data?.error || error?.message || 'Kết nối thất bại');
       toast.success('Đã kết nối Website thành công!');
       setWebsiteDialogOpen(false);
-      setWebsiteForm({ websiteUrl: '', integrationType: 'wordpress', username: '', appPassword: '', apiKey: '' });
+      setWebsiteForm({ websiteUrl: '', integrationType: 'wordpress', username: '', appPassword: '', apiKey: '', apiEndpoint: '' });
       refetch();
     } catch (err: unknown) {
       toast.error('Lỗi kết nối: ' + (err instanceof Error ? err.message : String(err)));
