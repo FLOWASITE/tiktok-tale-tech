@@ -119,8 +119,8 @@ export function ConversationHistorySidebar({
     setConversationToDelete(null);
   };
 
-  const planBadge = getPlanBadge(profile?.plan_type);
-  const userInitial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
+  const userName = user?.user_metadata?.full_name || user?.email || 'User';
+  const userInitial = userName.charAt(0).toUpperCase();
 
   const renderConversationItem = (conv: ChatConversation) => (
     <div
@@ -266,12 +266,9 @@ export function ConversationHistorySidebar({
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate">
-              {profile?.full_name || profile?.email || 'User'}
+              {userName}
             </div>
           </div>
-          <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 shrink-0", planBadge.className)}>
-            {planBadge.label}
-          </Badge>
         </div>
       </div>
 
