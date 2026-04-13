@@ -1,20 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
+import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { PipelineStatsCards } from '@/components/agents/PipelineStatsCards';
 import { PipelineMonitorTable } from '@/components/agents/PipelineMonitorTable';
 import { Activity, Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 
 type StatusFilter = 'all' | 'running' | 'completed' | 'flagged';
 
 export default function AgentMonitorPage() {
   const { pipelines, isLoading, retryPipeline } = useAgentPipelines();
-  const queryClient = useQueryClient();
+  const { approvals, updateApproval } = useAgentApprovals();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
@@ -42,17 +40,13 @@ export default function AgentMonitorPage() {
     return result;
   }, [pipelines, statusFilter, search]);
 
-  const handleApprove = async (pipelineId: string) => {
-    try {
-      const { error } = await supabase.functions.invoke('agent-approve', {
-        body: { pipeline_id: pipelineId, action: 'approve' },
-      });
-      if (error) throw error;
-      toast.success('Đã duyệt pipeline');
-      queryClient.invalidateQueries({ queryKey: ['agent-pipelines'] });
-    } catch (e: any) {
-      toast.error(`Duyệt thất bại: ${e.message}`);
+  const handleApprove = (pipelineId: string) => {
+    const approval = approvals.find(a => a.pipeline_id === pipelineId && a.status === 'pending');
+    if (!approval) {
+      toast.error('Không tìm thấy yêu cầu duyệt cho pipeline này');
+      return;
     }
+    updateApproval.mutate({ id: approval.id, status: 'approved' });
   };
 
   return (
