@@ -127,7 +127,7 @@ export function ChatMessageBubble({
     >
       {message.role === 'assistant' && (
         <div className="shrink-0 relative ai-avatar-pulse">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-primary/20">
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm">
             <Bot className="w-4 h-4 text-primary-foreground" />
           </div>
         </div>
@@ -156,7 +156,7 @@ export function ChatMessageBubble({
           <div className={cn(
             'relative group/message rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm transition-all duration-200',
             message.role === 'user' 
-              ? 'bg-gradient-to-br from-primary to-violet-600 text-primary-foreground ml-auto rounded-br-sm shadow-lg shadow-primary/20' 
+              ? 'bg-primary text-primary-foreground ml-auto rounded-br-sm shadow-sm' 
               : 'glass-chat-bubble rounded-bl-sm'
           )}>
             {message.content ? (
@@ -198,13 +198,13 @@ export function ChatMessageBubble({
                       {/* Streaming agent indicator */}
                       {streamingAgentName && isLoading && (
                         <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-border/20">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-pulse" />
                             {streamingAgentName} đang viết
                             <span className="inline-flex gap-0.5">
-                              <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                              <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
                             </span>
                           </span>
                         </div>
@@ -312,10 +312,10 @@ export function ChatMessageBubble({
                         className={cn(
                           'rounded-xl p-2.5 space-y-1.5 transition-all',
                           isUserSelected
-                            ? 'bg-gradient-to-r from-primary/10 to-violet-500/10 border border-primary/30 ring-1 ring-primary/20'
+                            ? 'bg-muted border border-foreground/20 ring-1 ring-foreground/10'
                             : isAiRecommended
-                            ? 'bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 border-dashed'
-                            : 'bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/15 hover:border-primary/25'
+                            ? 'bg-muted/50 border border-border border-dashed'
+                            : 'bg-muted/50 border border-border hover:border-foreground/20'
                         )}
                       >
                         {/* Topic name + score + category */}
@@ -391,7 +391,7 @@ export function ChatMessageBubble({
                               <Button
                                 size="sm"
                                 variant="secondary"
-                                className="h-6 text-[10px] gap-1 px-2 hover:bg-violet-600 hover:text-white"
+                                className="h-6 text-[10px] gap-1 px-2 hover:bg-foreground hover:text-background"
                                 onClick={() => onTopicAction(topicAsExtracted, 'script')}
                               >
                                 <Video className="w-2.5 h-2.5" />
@@ -400,7 +400,7 @@ export function ChatMessageBubble({
                               <Button
                                 size="sm"
                                 variant="secondary"
-                                className="h-6 text-[10px] gap-1 px-2 hover:bg-orange-500 hover:text-white"
+                                className="h-6 text-[10px] gap-1 px-2 hover:bg-foreground hover:text-background"
                                 onClick={() => onTopicAction(topicAsExtracted, 'carousel')}
                               >
                                 <Images className="w-2.5 h-2.5" />
@@ -460,7 +460,7 @@ export function ChatMessageBubble({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-1.5 text-[10px] gap-1 hover:bg-primary/10 hover:text-primary"
+                className="h-6 px-1.5 text-[10px] gap-1 hover:bg-muted hover:text-foreground"
                 onClick={() => onRegenerate(message)}
                 disabled={isRegenerating}
                 title="Tạo lại phản hồi"
@@ -495,16 +495,16 @@ export function ChatMessageBubble({
             {message.extractedTopics.map((topic, index) => (
               <div 
                 key={index}
-                className="p-2.5 rounded-xl bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 space-y-1.5 group"
+                className="p-2.5 rounded-xl bg-muted/50 border border-border space-y-1.5 group"
               >
                 <button
-                  className="font-medium text-xs text-left w-full hover:text-primary transition-colors flex items-center gap-1.5 group/title"
+                  className="font-medium text-xs text-left w-full hover:text-foreground transition-colors flex items-center gap-1.5 group/title"
                   onClick={() => onTopicRefinement(topic.topic)}
                   disabled={isLoading}
                   title="Click để xem chi tiết"
                 >
                   <span className="flex-1 line-clamp-2">{topic.topic}</span>
-                  <SearchIcon className="w-3 h-3 opacity-0 group-hover/title:opacity-100 transition-opacity text-primary shrink-0" />
+                  <SearchIcon className="w-3 h-3 opacity-0 group-hover/title:opacity-100 transition-opacity text-foreground shrink-0" />
                 </button>
                 {topic.reason && (
                   <p className="text-[10px] text-muted-foreground line-clamp-2">{topic.reason}</p>
@@ -524,7 +524,7 @@ export function ChatMessageBubble({
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-6 text-[10px] gap-1 px-2 hover:bg-primary hover:text-primary-foreground"
+                         className="h-6 text-[10px] gap-1 px-2 hover:bg-primary hover:text-primary-foreground"
                         onClick={() => onTopicAction(topic, 'multichannel')}
                       >
                         <MessageSquare className="w-2.5 h-2.5" />
@@ -533,7 +533,7 @@ export function ChatMessageBubble({
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-6 text-[10px] gap-1 px-2 hover:bg-violet-600 hover:text-white"
+                        className="h-6 text-[10px] gap-1 px-2 hover:bg-foreground hover:text-background"
                         onClick={() => onTopicAction(topic, 'script')}
                       >
                         <Video className="w-2.5 h-2.5" />
@@ -542,7 +542,7 @@ export function ChatMessageBubble({
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-6 text-[10px] gap-1 px-2 hover:bg-orange-500 hover:text-white"
+                        className="h-6 text-[10px] gap-1 px-2 hover:bg-foreground hover:text-background"
                         onClick={() => onTopicAction(topic, 'carousel')}
                       >
                         <Images className="w-2.5 h-2.5" />
@@ -610,7 +610,7 @@ export function ChatMessageBubble({
           {userProfile?.avatar_url ? (
             <AvatarImage src={userProfile.avatar_url} alt={userProfile.full_name || 'User'} />
           ) : null}
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+          <AvatarFallback className="bg-muted text-foreground text-xs">
             {userProfile?.full_name?.charAt(0)?.toUpperCase() || <User className="w-3.5 h-3.5" />}
           </AvatarFallback>
         </Avatar>
