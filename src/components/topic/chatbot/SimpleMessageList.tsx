@@ -165,7 +165,7 @@ export function SimpleMessageList({
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 scroll-smooth"
+      className="flex-1 overflow-y-auto px-2 sm:px-4 lg:px-6 py-3 lg:py-6 scroll-smooth"
       onScroll={onScroll}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -180,7 +180,7 @@ export function SimpleMessageList({
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-4 lg:space-y-6 max-w-3xl mx-auto">
         {messages.map((message, idx) => {
           const isLastAssistant = isLoading && message.role === 'assistant' && idx === messages.length - 1;
           // Find previous assistant message's review scores for delta tracking

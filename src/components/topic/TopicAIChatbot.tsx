@@ -9,6 +9,7 @@ import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Card } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -57,6 +58,7 @@ export function TopicAIChatbot({
   onTopicSelect,
   onReady,
   initialPrompt,
+  desktopLayout = false,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
@@ -268,19 +270,27 @@ export function TopicAIChatbot({
     full: 'w-full max-w-5xl',
   };
 
+  const Wrapper = desktopLayout ? 'div' : Card;
+  const wrapperClass = cn(
+    'relative flex flex-col h-full max-h-full flex-1 min-w-0 transition-all duration-300',
+    desktopLayout
+      ? 'bg-background'
+      : isMobileFullscreen
+        ? 'border-0 shadow-none rounded-none bg-background'
+        : 'border-2 border-primary/20',
+    artifactsHook.showArtifactsPanel && !desktopLayout && 'rounded-r-none border-r-0'
+  );
+
   return (
     <TooltipProvider>
       <div className={cn(
         'flex h-full max-h-full transition-all duration-300 ease-in-out',
-        !isMobileFullscreen && !artifactsHook.showArtifactsPanel && widthClasses[uiHook.dynamicWidth],
+        !isMobileFullscreen && !artifactsHook.showArtifactsPanel && !desktopLayout && widthClasses[uiHook.dynamicWidth],
+        desktopLayout && 'w-full',
         artifactsHook.showArtifactsPanel && 'w-full max-w-5xl',
         className
       )}>
-        <Card className={cn(
-          'relative flex flex-col h-full max-h-full flex-1 min-w-0 transition-all duration-300',
-          isMobileFullscreen ? 'border-0 shadow-none rounded-none bg-background' : 'border-2 border-primary/20',
-          artifactsHook.showArtifactsPanel && 'rounded-r-none border-r-0'
-        )}>
+        <Wrapper className={wrapperClass}>
           <ChatOnboarding
             show={uiHook.showOnboarding}
             step={uiHook.onboardingStep}
@@ -316,6 +326,7 @@ export function TopicAIChatbot({
               onNewConversation={handleReset}
               onDeleteConversation={deleteConversation}
               onArchiveConversation={archiveConversation}
+              desktopLayout={desktopLayout}
             />
           )}
           
@@ -392,13 +403,18 @@ export function TopicAIChatbot({
                 </Button>
               )}
               
-              <div className="flex-shrink-0 px-1.5 sm:px-3 py-1 sm:py-2 border-t bg-muted/30">
-                <QuickActionsPanel
-                  contentGoal={contentGoal}
-                  onAction={handleSend}
-                  isLoading={streamingHook.isLoading}
-                  variant="compact"
-                />
+              <div className={cn(
+                "flex-shrink-0 border-t bg-muted/30",
+                desktopLayout ? "px-6 py-2" : "px-1.5 sm:px-3 py-1 sm:py-2"
+              )}>
+                <div className={cn(desktopLayout && "max-w-3xl mx-auto")}>
+                  <QuickActionsPanel
+                    contentGoal={contentGoal}
+                    onAction={handleSend}
+                    isLoading={streamingHook.isLoading}
+                    variant="compact"
+                  />
+                </div>
               </div>
               
               <ChatInputArea
@@ -419,10 +435,11 @@ export function TopicAIChatbot({
                 textareaRef={inputHook.textareaRef}
                 supervisorEnabled={uiHook.supervisorEnabled}
                 smartSuggestions={smartSuggestions}
+                desktopLayout={desktopLayout}
               />
             </>
           )}
-        </Card>
+        </Wrapper>
         
         {artifactsHook.showArtifactsPanel && (
           <ArtifactsPanel
