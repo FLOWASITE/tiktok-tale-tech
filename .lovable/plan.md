@@ -1,25 +1,25 @@
 
 
-# Thêm dropdown nhảy nhanh đến tháng cụ thể
+# Di chuyển bộ lọc Chiến dịch vào panel lọc chung (icon Phễu)
 
 ## Mô tả
-Khi chế độ "Theo tháng" đang bật, thêm một dropdown thứ 2 liệt kê các tháng có bài (VD: "Tháng 4, 2026", "Tháng 3, 2026"). Khi chọn tháng, tự động cuộn đến nhóm tháng đó.
+Hiện tại `CampaignSelector` đang nằm riêng bên ngoài, cạnh thanh filter chính. Cần di chuyển nó vào bên trong panel lọc nâng cao (mở khi click icon Filter/Phễu).
 
 ## Thay đổi
 
-### `src/components/multichannel/ChannelGroupView.tsx`
+### 1. `src/components/MultiChannelFilters.tsx`
+- Thêm props: `campaignFilter`, `onCampaignFilterChange`, `campaigns` (danh sách chiến dịch)
+- Thêm Select dropdown "Chiến dịch" vào trong `CollapsibleContent`, cạnh Brand và Date Range
+- Cập nhật `activeFilterCount` trong parent để bao gồm campaign
 
-1. **Thêm dropdown chọn tháng** (chỉ hiện khi `sortBy === 'month_group'`):
-   - Đặt bên cạnh dropdown sort hiện tại
-   - Liệt kê các tháng có bài viết từ `groupByMonth(items)`
-   - Option đầu tiên: "Tất cả tháng" (mặc định)
+### 2. `src/pages/MultiChannel.tsx`
+- Xóa `<CampaignSelector>` riêng biệt (dòng 389-394)
+- Truyền `campaignFilter`, `onCampaignFilterChange` và danh sách campaigns vào `<MultiChannelFilters>`
+- Bỏ wrapper `flex-col lg:flex-row` vì không còn 2 phần tử cạnh nhau
 
-2. **Gắn `id` cho mỗi nhóm tháng**:
-   - Mỗi `<div>` nhóm tháng sẽ có `id={group.key}` (VD: `id="2026-03"`)
-
-3. **Scroll đến tháng khi chọn**:
-   - Khi user chọn tháng từ dropdown, gọi `document.getElementById(key)?.scrollIntoView({ behavior: 'smooth', block: 'start' })`
-   - Dùng state `selectedMonth` để track tháng đang chọn
-
-4. **Reset** `selectedMonth` khi chuyển tab kênh hoặc chuyển sort mode
+### Files
+| File | Thay đổi |
+|------|----------|
+| `src/components/MultiChannelFilters.tsx` | Thêm campaign selector vào panel lọc nâng cao |
+| `src/pages/MultiChannel.tsx` | Xóa CampaignSelector riêng, truyền props campaign vào MultiChannelFilters |
 
