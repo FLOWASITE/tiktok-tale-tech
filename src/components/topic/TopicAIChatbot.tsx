@@ -432,7 +432,7 @@ export function TopicAIChatbot({
               />
             </>
           )}
-        </Card>
+        </Wrapper>
         
         {artifactsHook.showArtifactsPanel && (
           <ArtifactsPanel
