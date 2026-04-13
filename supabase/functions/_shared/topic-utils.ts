@@ -165,9 +165,18 @@ export interface PerplexityTrendResult {
   citations: string[];
 }
 
-// ========== PERPLEXITY WEB SEARCH ==========
+// ========== WEB SEARCH (via OpenRouter + Perplexity Sonar) ==========
 
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+// Fallback: still check legacy Perplexity key
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+// Use OpenRouter if available, otherwise fall back to direct Perplexity
+const WEB_SEARCH_API_KEY = OPENROUTER_API_KEY || PERPLEXITY_API_KEY;
+const WEB_SEARCH_URL = OPENROUTER_API_KEY
+  ? 'https://openrouter.ai/api/v1/chat/completions'
+  : 'https://api.perplexity.ai/chat/completions';
+const WEB_SEARCH_MODEL = OPENROUTER_API_KEY ? 'perplexity/sonar' : 'sonar';
+const WEB_SEARCH_LABEL = OPENROUTER_API_KEY ? 'OpenRouter/Sonar' : 'Perplexity';
 
 // Threshold for learning context richness - if above this, skip web search
 const LEARNING_CONTEXT_THRESHOLD = 20;
@@ -205,8 +214,8 @@ export function shouldSkipWebSearch(options: {
     };
   }
 
-  // If no Perplexity API key, skip
-  if (!PERPLEXITY_API_KEY) {
+  // If no web search API key (neither OpenRouter nor Perplexity), skip
+  if (!WEB_SEARCH_API_KEY) {
     return {
       shouldSkipIndustrySearch: true,
       shouldSkipAudienceQA: true,
@@ -264,14 +273,14 @@ export function shouldSkipWebSearch(options: {
 }
 
 /**
- * Search for industry data using Perplexity API
+ * Search for industry data using OpenRouter (Perplexity Sonar) or direct Perplexity API
  */
 export async function searchIndustryData(
   industry: string, 
   brandName: string
 ): Promise<IndustryInsight | null> {
-  if (!PERPLEXITY_API_KEY) {
-    console.log('[Perplexity] API not configured, skipping industry data search');
+  if (!WEB_SEARCH_API_KEY) {
+    console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping industry data search`);
     return null;
   }
 
@@ -279,20 +288,26 @@ export async function searchIndustryData(
     const currentYear = new Date().getFullYear();
     const searchQuery = `${industry} Việt Nam ${currentYear}: thống kê ngành mới nhất, case studies thành công, insights marketing, báo cáo thị trường, xu hướng tiêu dùng, số liệu doanh thu, thị phần. Tập trung vào dữ liệu thực tế và số liệu cụ thể.`;
 
-    console.log('[Perplexity] Industry search:', searchQuery.substring(0, 80));
+    console.log(`[${WEB_SEARCH_LABEL}] Industry search:`, searchQuery.substring(0, 80));
 
     // 5-second timeout to prevent blocking the entire flow
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${WEB_SEARCH_API_KEY}`,
+      'Content-Type': 'application/json',
+    };
+    // OpenRouter requires HTTP-Referer for ranking
+    if (OPENROUTER_API_KEY) {
+      headers['HTTP-Referer'] = 'https://tiktok-tale-tech.lovable.app';
+    }
+
+    const response = await fetch(WEB_SEARCH_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'sonar',
+        model: WEB_SEARCH_MODEL,
         messages: [
           { 
             role: 'system', 
@@ -306,7 +321,7 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
           },
           { role: 'user', content: searchQuery }
         ],
-        search_recency_filter: 'month',
+        ...(OPENROUTER_API_KEY ? {} : { search_recency_filter: 'month' }),
       }),
       signal: controller.signal,
     });
@@ -315,7 +330,7 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Perplexity] API error:', response.status, errorText.substring(0, 200));
+      console.error(`[${WEB_SEARCH_LABEL}] API error:`, response.status, errorText.substring(0, 200));
       return null;
     }
 
@@ -323,7 +338,7 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
 
-    console.log('[Perplexity] Industry data received, citations:', citations.length);
+    console.log(`[${WEB_SEARCH_LABEL}] Industry data received, citations:`, citations.length);
 
     // Parse JSON from response
     const result: IndustryInsight = {
@@ -346,14 +361,14 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
         result.insights = lines.slice(0, 5);
       }
     } catch (parseError) {
-      console.error('[Perplexity] Failed to parse response:', parseError);
+      console.error(`[${WEB_SEARCH_LABEL}] Failed to parse response:`, parseError);
       const lines = content.split('\n').filter((line: string) => line.trim() && line.length > 20);
       result.insights = lines.slice(0, 5);
     }
 
     return result;
   } catch (error) {
-    console.error('[Perplexity] Search error:', error);
+    console.error(`[${WEB_SEARCH_LABEL}] Search error:`, error);
     return null;
   }
 }
