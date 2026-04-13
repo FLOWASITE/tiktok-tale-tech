@@ -1,35 +1,33 @@
 
 
-## Làm lại style Lịch sử Chat giống ChatGPT
+## Sửa lỗi Lịch sử Chat không hiện đoạn chat
 
-### Thay đổi theo ảnh tham khảo
+### Nguyên nhân gốc
 
-**1. `src/pages/FlowaChatPage.tsx` — Thêm toggle đóng/mở sidebar**
-- Thêm state `sidebarOpen` (default: true)
-- Khi đóng: sidebar width = 0, hiển thị nút mở lại (icon PanelLeft) ở góc trái chat area
-- Animation mượt với `transition-all duration-300`
+Có 3 vấn đề chính:
 
-**2. `src/components/topic/chatbot/ConversationHistorySidebar.tsx` — Redesign giống ChatGPT**
-- **Header**: Nút đóng sidebar (PanelLeftClose) + nút "Đoạn chat mới" (SquarePen icon) trên cùng một dòng, bỏ text "Lịch sử chat"
-- **Search**: Giữ thanh tìm kiếm "Tìm kiếm đoạn chat" bên dưới header
-- **Conversation items**: Đơn giản hóa — chỉ hiển thị title (1 dòng, truncate), bỏ icon MessageSquare, bỏ summary, bỏ timestamp/message count. Active item có background nhẹ
-- **Hover actions**: Menu 3 chấm chỉ hiện khi hover
-- **Date groups**: Giữ nhóm theo ngày nhưng style nhẹ hơn (text nhỏ, muted)
-- **Footer**: Hiển thị user info + plan badge ở cuối sidebar (giống ChatGPT)
-- Props mới: `onCollapse` callback
+1. **Title không đồng bộ lên sidebar**: Khi `addMessage` cập nhật title cục bộ cho `currentConversation`, nó **không cập nhật** title trong mảng `conversations` (sidebar đọc từ mảng này). Sidebar luôn hiện "Cuộc hội thoại mới".
 
-**3. `src/components/topic/chatbot/ChatHeader.tsx` — Thêm nút mở sidebar khi collapsed**
-- Khi sidebar đóng: hiển thị nút PanelLeft ở đầu header để mở lại
+2. **Title không lưu vào DB**: Title chỉ set local (`content.slice(0, 100)`) nhưng không gọi `updateConversation` để persist xuống database. Khi reload, title mất.
 
-### Style mục tiêu
-- Nền sidebar: `bg-sidebar` hoặc `bg-muted/30` 
-- Items: padding `py-2 px-3`, text `text-sm`, no border/shadow
-- Active: `bg-primary/10` subtle
-- Hover: `bg-muted/50`
-- Tổng thể: clean, minimal, monochromatic
+3. **Conversation có thể không hiện sau khi tạo**: Nếu `createConversation` thành công nhưng `addMessage` gọi trước khi `currentConversation` được set (do async timing), message không được lưu. Và sidebar cần được cập nhật title ngay khi user gửi tin nhắn đầu tiên.
+
+### Giải pháp
+
+**1. `src/hooks/useChatConversations.ts` — Đồng bộ title vào conversations list + persist**
+- Trong `addMessage`: khi set title local, cũng cập nhật trong mảng `conversations` (cho sidebar)
+- Sau khi set title lần đầu, gọi `updateConversation` API để persist title xuống DB
+- Đảm bảo `conversations` list luôn reflect title mới nhất
+
+**2. `src/components/topic/TopicAIChatbot.tsx` — Fix async timing**
+- Sau `createConversation`, đợi result rồi mới gọi `addMessageToDB` (đã đúng logic nhưng cần đảm bảo `currentConversation` đã set trước khi gọi)
+- Truyền `conversationId` trực tiếp vào `addMessageToDB` thay vì rely on `currentConversation` state
+
+**3. `src/hooks/useChatConversations.ts` — `addMessage` nhận `conversationId` parameter**
+- Thêm optional `conversationId` param để có thể gọi ngay sau `createConversation` mà không cần đợi state update
 
 ### File thay đổi
-1. `src/pages/FlowaChatPage.tsx` — Toggle sidebar state
-2. `src/components/topic/chatbot/ConversationHistorySidebar.tsx` — Redesign UI
-3. `src/components/topic/chatbot/ChatHeader.tsx` — Nút mở sidebar khi collapsed
+1. `src/hooks/useChatConversations.ts` — Fix title sync + persist + addMessage nhận conversationId
+2. `src/components/topic/TopicAIChatbot.tsx` — Truyền conversationId trực tiếp khi addMessage
+3. `src/components/topic/chatbot/types.ts` — Update addMessageToDB signature
 
