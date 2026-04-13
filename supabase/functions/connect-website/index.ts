@@ -152,11 +152,16 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
       }
     }
 
-    // Check for existing connection
+    // Extract domain early for existing connection check
+    const urlObjCheck = new URL(websiteUrl);
+    const domainCheck = urlObjCheck.hostname;
+
+    // Check for existing connection with same domain (allow multiple websites, only overwrite same domain)
     let query = supabase
       .from('social_connections')
       .select('id')
-      .eq('platform', 'website');
+      .eq('platform', 'website')
+      .eq('platform_user_id', domainCheck);
 
     if (brandTemplateId) {
       query = query.eq('brand_template_id', brandTemplateId);

@@ -158,6 +158,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     isDisconnecting,
     isDeleting,
     getConnectionForPlatform,
+    getConnectionsForPlatform,
     refetch,
   } = useSocialConnections({ brandTemplateId: template.id });
 
@@ -503,6 +504,119 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     );
   };
 
+  // Render multiple website connections
+  const renderWebsitePlatform = () => {
+    const config = PLATFORM_CONFIG['website' as SocialPlatform];
+    if (!config) return renderConnection('website' as SocialPlatform);
+    
+    const websiteConns = getConnectionsForPlatform('website' as SocialPlatform);
+
+    return (
+      <div key="website" className="space-y-2">
+        {/* Existing website connections */}
+        {websiteConns.map((connection) => {
+          const isTesting = testingConnection === connection.id;
+          const intType = (connection as any).metadata?.integration_type;
+          return (
+            <div
+              key={connection.id}
+              className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+                  {config.icon}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {connection.platform_display_name || connection.platform_username || config.name}
+                    </span>
+                    {intType && (
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {intType === 'nukeviet' ? 'NukeViet' : intType === 'wordpress' ? 'WordPress' : intType}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {connection.platform_username && (
+                      <span className="text-sm text-muted-foreground">
+                        {connection.platform_username}
+                      </span>
+                    )}
+                    {connection.is_active ? (
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Đã kết nối
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">
+                        Đã ngắt
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {connection.is_active && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleTestConnection(connection.id, 'website' as SocialPlatform)}
+                      disabled={isTesting}
+                    >
+                      {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                      {isTesting ? '' : 'Test'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnect(connection.id)}
+                      disabled={isDisconnecting}
+                    >
+                      <Unplug className="w-4 h-4 mr-1" />
+                      Ngắt
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDelete(connection.id)}
+                  disabled={isDeleting}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Always show "Add website" button */}
+        <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-border/50 bg-card/50 hover:border-border transition-colors">
+          <div className="flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+              {config.icon}
+            </div>
+            <div>
+              <span className="font-medium">Thêm Website</span>
+              <p className="text-sm text-muted-foreground">{config.description}</p>
+            </div>
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleConnect('website' as SocialPlatform)}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Kết nối
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -524,7 +638,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(Object.keys(PLATFORM_CONFIG) as SocialPlatform[]).map(renderConnection)}
+          {(Object.keys(PLATFORM_CONFIG) as SocialPlatform[]).map(platform =>
+            platform === ('website' as SocialPlatform) ? renderWebsitePlatform() : renderConnection(platform)
+          )}
         </CardContent>
       </Card>
 

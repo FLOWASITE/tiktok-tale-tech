@@ -202,6 +202,10 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
     return connections?.find(c => c.platform === platform && c.is_active);
   };
 
+  const getConnectionsForPlatform = (platform: SocialPlatform) => {
+    return connections?.filter(c => c.platform === platform) || [];
+  };
+
   return {
     connections: connections || [],
     isLoading,
@@ -214,5 +218,6 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
     deleteConnection: deleteConnectionMutation.mutateAsync,
     isDeleting: deleteConnectionMutation.isPending,
     getConnectionForPlatform,
+    getConnectionsForPlatform,
   };
 }
