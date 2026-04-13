@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
@@ -43,6 +43,8 @@ type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'u
 export default function BrandView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const {
     templates,
     loading,
@@ -188,7 +190,7 @@ export default function BrandView() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full h-auto flex-wrap justify-start gap-1 bg-muted/50 p-1 rounded-lg">
           <TabsTrigger value="overview" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <LayoutDashboard className="w-3.5 h-3.5" />
