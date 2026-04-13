@@ -32,7 +32,7 @@ import AdminCountries from "@/pages/AdminCountries";
 import AdminCategories from "@/pages/AdminCategories";
 import AdminEvents from "@/pages/AdminEvents";
 import AdminIndustryNews from "@/pages/AdminIndustryNews";
-import AdminKnowledgeGraph from "@/pages/AdminKnowledgeGraph";
+const AdminKnowledgeGraph = lazy(() => import("@/pages/AdminKnowledgeGraph"));
 import AdminOrganizations from "@/pages/AdminOrganizations";
 import OrganizationSettings from "@/pages/OrganizationSettings";
 import ContentCalendar from "@/pages/ContentCalendar";
