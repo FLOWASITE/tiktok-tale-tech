@@ -26,9 +26,9 @@ export function SmartInputSuggestions({ suggestions, onSelect, className }: Smar
           key={idx}
           className={cn(
             "shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-200",
-            "bg-muted text-muted-foreground",
-            "hover:bg-foreground/10 hover:text-foreground",
-            "border border-border hover:border-foreground/20",
+            "bg-gradient-to-r from-primary/10 to-violet-500/10 text-primary/80",
+            "hover:from-primary/20 hover:to-violet-500/20 hover:text-primary",
+            "border border-primary/15 hover:border-primary/30",
             "max-w-[180px] truncate"
           )}
           onClick={() => onSelect(suggestion)}

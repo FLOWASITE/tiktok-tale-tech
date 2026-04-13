@@ -87,7 +87,7 @@ export function MessageFeedback({
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-1.5 text-[10px] gap-1 ml-0.5 hover:bg-muted hover:text-foreground"
+          className="h-6 px-1.5 text-[10px] gap-1 ml-0.5 hover:bg-primary/10 hover:text-primary"
           onClick={onRegenerate}
           disabled={isRegenerating}
           title="Tạo lại phản hồi"

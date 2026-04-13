@@ -314,7 +314,7 @@ export function TopicAIChatbot({
       ? 'bg-background'
       : isMobileFullscreen
         ? 'border-0 shadow-none rounded-none bg-background'
-        : 'border-2 border-border',
+        : 'border-2 border-primary/20',
     artifactsHook.showArtifactsPanel && !desktopLayout && 'rounded-r-none border-r-0'
   );
 

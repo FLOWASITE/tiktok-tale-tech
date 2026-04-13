@@ -280,7 +280,7 @@ export function ConversationHistorySidebar({
       <div className="border-t border-border/50 p-2">
         <button className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent transition-colors">
           <Avatar className="h-8 w-8 ring-1 ring-border/50">
-            <AvatarFallback className="text-xs bg-muted text-foreground font-medium">
+            <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
               {userInitial}
             </AvatarFallback>
           </Avatar>
