@@ -4,11 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Target, Zap, CheckSquare, Award, Clock, TrendingUp, BarChart3, Filter,
-  AlertTriangle, ShieldCheck, Calendar, DollarSign,
+  AlertTriangle, ShieldCheck, Calendar, DollarSign, Layers, AlertCircle,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip as RechartsTooltip,
+  TooltipContent as RechartsTooltipContent,
+} from '@/components/ui/tooltip';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid,
@@ -16,7 +20,7 @@ import {
 import { AgentGoal, AgentPipeline, PIPELINE_STAGES } from '@/types/agent';
 import { CampaignContentPlan } from '@/types/agent';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
-import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay, differenceInDays, parseISO } from 'date-fns';
+import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay, differenceInDays, parseISO, isWithinInterval, areIntervalsOverlapping } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { cn } from '@/lib/utils';
