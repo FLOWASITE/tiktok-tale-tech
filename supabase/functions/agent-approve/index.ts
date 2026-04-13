@@ -68,11 +68,19 @@ Deno.serve(async (req) => {
           pipelineState.stages.publish = { ...(pipelineState.stages.publish || {}), status: "in_progress", started_at: now };
         }
 
-        await supabase.from("agent_pipelines").update({
+        const pipelineUpdate: any = {
           current_stage: "publish",
           pipeline_state: pipelineState,
           stage_started_at: now,
-        } as any).eq("id", pipeline.id);
+        };
+        // Update scheduled_publish_at if provided
+        if (scheduled_publish_at !== undefined) {
+          pipelineUpdate.scheduled_publish_at = scheduled_publish_at;
+        }
+
+        await supabase.from("agent_pipelines").update(pipelineUpdate).eq("id", pipeline.id);
+
+        const isFutureSchedule = scheduled_publish_at && new Date(scheduled_publish_at) > new Date();
 
         await supabase.from("agent_pipeline_logs").insert({
           pipeline_id: pipeline.id,
