@@ -1845,6 +1845,12 @@ export function MultiChannelFormWizard({
                 />
               </div>
 
+              {/* Banner nhắc nhở kết nối */}
+              <UnconnectedChannelsBanner
+                selectedChannels={formData.channels}
+                brandTemplateId={brandTemplateId}
+              />
+
               {/* Gradient divider */}
               <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
