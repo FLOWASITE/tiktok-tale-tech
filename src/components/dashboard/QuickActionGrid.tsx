@@ -64,6 +64,15 @@ const quickActions: QuickAction[] = [
     shortcutKey: 'b',
   },
   { 
+    titleKey: 'app.dashboard.connections',
+    descKey: 'app.dashboard.connectionsDesc',
+    icon: Globe,
+    href: '/connections',
+    gradient: 'from-green-500 to-emerald-600',
+    shortcut: '⌘K',
+    shortcutKey: 'k',
+  },
+  { 
     titleKey: 'app.dashboard.organization', 
     descKey: 'app.dashboard.organizationDesc',
     icon: Users,
