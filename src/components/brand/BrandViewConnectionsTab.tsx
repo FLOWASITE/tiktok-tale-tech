@@ -697,7 +697,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                   const type = e.target.value as typeof websiteForm.integrationType;
                   const updates: Partial<typeof websiteForm> = { integrationType: type };
                   if (type === 'nukeviet' && websiteForm.websiteUrl.trim()) {
-                    const base = websiteForm.websiteUrl.trim().endsWith('/') ? websiteForm.websiteUrl.trim().slice(0, -1) : websiteForm.websiteUrl.trim();
+                    let base = websiteForm.websiteUrl.trim().endsWith('/') ? websiteForm.websiteUrl.trim().slice(0, -1) : websiteForm.websiteUrl.trim();
+                    if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
                     updates.apiEndpoint = `${base}/api_flowa.php`;
                   }
                   setWebsiteForm(prev => ({ ...prev, ...updates }));
