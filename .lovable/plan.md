@@ -1,29 +1,28 @@
 
 
-## Hỗ trợ kết nối nhiều Website cho 1 Brand
+## Hỗ trợ kết nối nhiều Fanpage Facebook cho 1 Brand
 
 ### Hiện trạng
-- Edge function `connect-website/index.ts` (line 155-167): query `maybeSingle()` tìm connection theo `brand_template_id` + `platform = 'website'`. Nếu đã có → update, không tạo mới.
-- Frontend: nút "Kết nối" website luôn mở form tạo mới, nhưng backend ghi đè connection cũ.
-- Kết quả: mỗi brand chỉ có tối đa 1 website.
+- `facebook-oauth-callback/index.ts` (line 210-221): query `maybeSingle()` tìm connection theo `brand_template_id` + `platform = 'facebook'`. Nếu đã có → update, không tạo mới.
+- Kết quả: mỗi brand chỉ có tối đa 1 Fanpage Facebook.
 
 ### Thay đổi
 
-**1. Edge function `supabase/functions/connect-website/index.ts` (line 155-167)**
-- Thay đổi logic tìm existing connection: thêm điều kiện `integration_type` vào query, hoặc bỏ hẳn logic "tìm & ghi đè" → luôn insert mới.
-- Cụ thể: query existing connection thêm filter theo `platform_user_id` (domain) để chỉ ghi đè khi cùng domain, khác domain thì tạo mới.
+**1. Edge function `supabase/functions/facebook-oauth-callback/index.ts` (line 210-221)**
+- Thêm filter theo `platform_user_id` (Page ID) vào query tìm existing connection.
+- Cùng Page ID → ghi đè (cập nhật token). Khác Page ID → tạo mới.
 
 ```text
-Trước:  WHERE brand_template_id = X AND platform = 'website'  → 1 kết quả → ghi đè
-Sau:    WHERE brand_template_id = X AND platform = 'website' AND platform_user_id = domain → chỉ ghi đè cùng domain
+Trước:  WHERE brand_template_id = X AND platform = 'facebook'  → ghi đè
+Sau:    WHERE brand_template_id = X AND platform = 'facebook' AND platform_user_id = pageId → chỉ ghi đè cùng Page
 ```
 
 **2. Frontend `src/components/brand/BrandViewConnectionsTab.tsx`**
-- Hiện danh sách nhiều website connections (không chỉ 1).
-- Mỗi connection hiển thị riêng với domain, loại tích hợp (WordPress/NukeViet/...), nút test/xóa.
-- Nút "Thêm website" luôn hiển thị (không ẩn khi đã có 1 connection).
+- Áp dụng pattern tương tự website: hiển thị danh sách nhiều Facebook connections thay vì chỉ 1.
+- Mỗi connection hiển thị tên Page, avatar, nút test/xóa.
+- Nút "Kết nối thêm Fanpage" luôn hiển thị.
 
 ### Kết quả
-- 1 brand có thể kết nối nhiều website khác nhau (vd: 1 WordPress + 1 NukeViet).
-- Cùng domain thì ghi đè (cập nhật credentials), khác domain thì tạo mới.
+- 1 brand có thể kết nối nhiều Fanpage khác nhau.
+- Cùng Page thì ghi đè (cập nhật token), khác Page thì tạo mới.
 
