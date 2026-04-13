@@ -11,6 +11,82 @@ const corsHeaders = {
 const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
 
 const MAX_RETRIES = 3;
+const MAX_CONCURRENT_PIPELINES = 10;
+
+// ========== Phase 1a: Complexity Assessment ==========
+type ComplexityLevel = 'simple' | 'medium' | 'complex';
+function assessComplexity(pipeline: any): ComplexityLevel {
+  const pState = (pipeline.pipeline_state as any) || {};
+  const meta = pState.metadata || {};
+  const channels = meta.target_channels || [];
+  const contentType = pipeline.content_type || 'multichannel';
+  const hasBrand = !!meta.brand_template_id;
+  const hasCampaign = !!meta.campaign_context;
+
+  let score = 0;
+  // Channel count impact
+  if (channels.length >= 5) score += 3;
+  else if (channels.length >= 3) score += 2;
+  else score += 1;
+
+  // Content type impact
+  if (contentType === 'carousel') score += 2;
+  else if (contentType === 'video_script') score += 1;
+  else score += 1; // multichannel base
+
+  // Context richness
+  if (hasBrand) score += 1;
+  if (hasCampaign) score += 1;
+
+  if (score >= 6) return 'complex';
+  if (score >= 4) return 'medium';
+  return 'simple';
+}
+
+function getModelForComplexity(complexity: ComplexityLevel): string {
+  switch (complexity) {
+    case 'complex': return 'google/gemini-2.5-pro';
+    case 'medium': return 'google/gemini-2.5-flash';
+    case 'simple': return 'google/gemini-2.5-flash-lite';
+  }
+}
+
+// ========== Phase 1b: Priority stagger delays ==========
+function getPriorityDelay(priority: string): number {
+  switch (priority) {
+    case 'urgent': return 0;
+    case 'high': return 1000;
+    case 'normal': return 3000;
+    case 'low': return 8000;
+    default: return 3000;
+  }
+}
+
+// ========== Phase 2a: Error classification for recovery ==========
+function classifyRecoveryError(errorMessage: string): { type: string; strategy: 'retry' | 'backfill' | 'skip' } {
+  const msg = (errorMessage || '').toLowerCase();
+  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('deadline'))
+    return { type: 'timeout', strategy: 'retry' };
+  if (msg.includes('rate limit') || msg.includes('429') || msg.includes('too many'))
+    return { type: 'rate_limit', strategy: 'retry' };
+  if (msg.includes('not found') || msg.includes('null') || msg.includes('content_id'))
+    return { type: 'data_missing', strategy: 'backfill' };
+  if (msg.includes('auth') || msg.includes('token') || msg.includes('connection'))
+    return { type: 'publish_auth', strategy: 'skip' };
+  if (msg.includes('network') || msg.includes('fetch failed'))
+    return { type: 'network', strategy: 'retry' };
+  return { type: 'unknown', strategy: 'retry' };
+}
+
+// ========== Phase 2c: Stage time estimates (ms) ==========
+const STAGE_TIME_ESTIMATES: Record<string, number> = {
+  strategy: 30000,
+  create: 60000,
+  quality: 45000,
+  approval: 300000,
+  publish: 120000,
+  analyze: 10000,
+};
 
 /** Helper: call another edge function internally */
 async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: string, body: Record<string, unknown>) {

@@ -7638,6 +7638,71 @@ export type Database = {
         }
         Relationships: []
       }
+      orchestrator_daily_stats: {
+        Row: {
+          avg_duration_ms: number | null
+          avg_quality_score: number | null
+          completed: number
+          concurrent_peak: number
+          created_at: string
+          date: string
+          failed: number
+          fast_path_hit_rate: number | null
+          id: string
+          organization_id: string
+          recovery_count: number
+          stage_bottleneck: string | null
+          stage_durations: Json | null
+          top_failure_reason: string | null
+          total_pipelines: number
+          updated_at: string
+        }
+        Insert: {
+          avg_duration_ms?: number | null
+          avg_quality_score?: number | null
+          completed?: number
+          concurrent_peak?: number
+          created_at?: string
+          date: string
+          failed?: number
+          fast_path_hit_rate?: number | null
+          id?: string
+          organization_id: string
+          recovery_count?: number
+          stage_bottleneck?: string | null
+          stage_durations?: Json | null
+          top_failure_reason?: string | null
+          total_pipelines?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_duration_ms?: number | null
+          avg_quality_score?: number | null
+          completed?: number
+          concurrent_peak?: number
+          created_at?: string
+          date?: string
+          failed?: number
+          fast_path_hit_rate?: number | null
+          id?: string
+          organization_id?: string
+          recovery_count?: number
+          stage_bottleneck?: string | null
+          stage_durations?: Json | null
+          top_failure_reason?: string | null
+          total_pipelines?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orchestrator_daily_stats_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
