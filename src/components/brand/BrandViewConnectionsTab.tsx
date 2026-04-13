@@ -174,6 +174,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     accessTokenSecret: '',
   });
   const [oauthConnecting, setOauthConnecting] = useState<SocialPlatform | null>(null);
+  const [showInactiveFb, setShowInactiveFb] = useState(false);
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
   const [websiteForm, setWebsiteForm] = useState({
     websiteUrl: '',
