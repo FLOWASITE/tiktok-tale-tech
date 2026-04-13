@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Send, Calendar, ArrowDownUp } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { Send, Calendar, ArrowDownUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { MultiChannelContent, Channel } from '@/types/multichannel';
@@ -15,6 +15,8 @@ import { CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { SocialConnection, SocialPlatform } from '@/hooks/useSocialConnections';
 import { CHANNEL_COLORS } from '@/utils/channelColors';
 import { cn } from '@/lib/utils';
+
+const ITEMS_PER_PAGE = 12;
 
 type SortMode = 'newest' | 'oldest' | 'month_group';
 
@@ -110,6 +112,12 @@ export function ChannelGroupView({
 }: ChannelGroupViewProps) {
   const [sortBy, setSortBy] = useState<SortMode>('newest');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState<Record<string, number>>({});
+
+  const getPage = useCallback((channel: string) => currentPage[channel] || 1, [currentPage]);
+  const setPage = useCallback((channel: string, page: number) => {
+    setCurrentPage(prev => ({ ...prev, [channel]: page }));
+  }, []);
 
   const channelGroups = useMemo(() => {
     const groups: { channel: Channel; items: MultiChannelContent[] }[] = [];
@@ -247,7 +255,7 @@ export function ChannelGroupView({
 
                 {/* Right: sort + action buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Select value={sortBy} onValueChange={(v) => { setSortBy(v as SortMode); setSelectedMonth('all'); }}>
+                  <Select value={sortBy} onValueChange={(v) => { setSortBy(v as SortMode); setSelectedMonth('all'); setCurrentPage({}); }}>
                     <SelectTrigger className="h-7 w-auto min-w-[130px] text-xs gap-1.5 border-border">
                       <ArrowDownUp className="w-3 h-3 shrink-0" />
                       <SelectValue />
@@ -340,33 +348,76 @@ export function ChannelGroupView({
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                {sortItems(items, sortBy).map((content, index) => (
-                  <div key={content.id} className="relative">
-                    <div className="absolute top-2 left-2 z-20">
-                      <Checkbox
-                        checked={selectedIds.has(content.id)}
-                        onCheckedChange={() => toggleSelection(content.id)}
-                        className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
-                      />
-                    </div>
-                    <SocialPostCard
-                      content={content}
-                      activeChannel={channel}
-                      onView={onView}
-                      onDelete={onDelete}
-                      onScheduleComplete={onScheduleComplete}
-                      creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
-                      isLoadingProfile={isLoadingProfiles}
-                      index={index}
-                      brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
-                      geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
-                    />
+            ) : (() => {
+              const sorted = sortItems(items, sortBy);
+              const page = getPage(channel);
+              const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+              const paged = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+              return (
+                <>
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {paged.map((content, index) => (
+                      <div key={content.id} className="relative">
+                        <div className="absolute top-2 left-2 z-20">
+                          <Checkbox
+                            checked={selectedIds.has(content.id)}
+                            onCheckedChange={() => toggleSelection(content.id)}
+                            className="h-4 w-4 bg-background/90 backdrop-blur border-border shadow-sm"
+                          />
+                        </div>
+                        <SocialPostCard
+                          content={content}
+                          activeChannel={channel}
+                          onView={onView}
+                          onDelete={onDelete}
+                          onScheduleComplete={onScheduleComplete}
+                          creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
+                          isLoadingProfile={isLoadingProfiles}
+                          index={(page - 1) * ITEMS_PER_PAGE + index}
+                          brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
+                          geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-1 mt-6">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={page <= 1}
+                        onClick={() => setPage(channel, page - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                        <Button
+                          key={p}
+                          variant={p === page ? 'default' : 'outline'}
+                          size="icon"
+                          className="h-8 w-8 text-xs"
+                          onClick={() => setPage(channel, p)}
+                        >
+                          {p}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={page >= totalPages}
+                        onClick={() => setPage(channel, page + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </TabsContent>
         );
       })}
