@@ -657,7 +657,162 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
           </CardContent>
         </Card>
       )}
+
+      {/* Phase 4c: Multi-Campaign Timeline */}
+      {!isSpecific && <MultiCampaignTimeline goals={goals} pipelines={pipelines} campaigns={campaigns} />}
     </div>
+  );
+}
+
+// ========== Phase 4c: Multi-Campaign Timeline Component ==========
+function MultiCampaignTimeline({ goals, pipelines, campaigns }: { goals: AgentGoal[]; pipelines: AgentPipeline[]; campaigns: any[] }) {
+  const timelineData = useMemo(() => {
+    const activeCampaigns = campaigns.filter(c => ['active', 'planning'].includes(c.status));
+    if (activeCampaigns.length === 0) return { campaigns: [], conflicts: [], concurrentCount: 0 };
+
+    const now = new Date();
+    const campaignBars = activeCampaigns.map(campaign => {
+      const start = parseISO(campaign.start_date);
+      const end = parseISO(campaign.end_date);
+      const totalDays = differenceInDays(end, start) || 1;
+      const elapsed = differenceInDays(now, start);
+      const progressPct = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
+      const linkedGoal = goals.find(g => g.campaign_id === campaign.id);
+      const linkedPipelines = linkedGoal ? pipelines.filter(p => p.goal_id === linkedGoal.id) : [];
+      const running = linkedPipelines.filter(p => !p.completed_at && !p.is_flagged).length;
+      const completed = linkedPipelines.filter(p => p.completed_at).length;
+      const flagged = linkedPipelines.filter(p => p.is_flagged).length;
+
+      return {
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status,
+        start, end,
+        progressPct,
+        totalDays,
+        remaining: differenceInDays(end, now),
+        running, completed, flagged,
+        total: linkedPipelines.length,
+        channels: campaign.target_channels || [],
+      };
+    }).sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // Detect overlapping campaigns
+    const conflicts: { a: string; b: string }[] = [];
+    for (let i = 0; i < campaignBars.length; i++) {
+      for (let j = i + 1; j < campaignBars.length; j++) {
+        const a = campaignBars[i];
+        const b = campaignBars[j];
+        try {
+          if (areIntervalsOverlapping({ start: a.start, end: a.end }, { start: b.start, end: b.end })) {
+            conflicts.push({ a: a.id, b: b.id });
+          }
+        } catch { /* ignore invalid intervals */ }
+      }
+    }
+
+    // Count currently concurrent
+    const concurrent = campaignBars.filter(c => {
+      try {
+        return isWithinInterval(now, { start: c.start, end: c.end });
+      } catch { return false; }
+    }).length;
+
+    return { campaigns: campaignBars, conflicts, concurrentCount: concurrent };
+  }, [campaigns, goals, pipelines]);
+
+  if (timelineData.campaigns.length === 0) return null;
+
+  // Find timeline bounds
+  const minDate = timelineData.campaigns.reduce((min, c) => c.start < min ? c.start : min, timelineData.campaigns[0].start);
+  const maxDate = timelineData.campaigns.reduce((max, c) => c.end > max ? c.end : max, timelineData.campaigns[0].end);
+  const totalSpan = differenceInDays(maxDate, minDate) || 1;
+
+  const conflictIds = new Set(timelineData.conflicts.flatMap(c => [c.a, c.b]));
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 p-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Layers className="w-4 h-4 text-muted-foreground" />
+            Campaign Timeline
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {timelineData.concurrentCount > 1 && (
+              <Badge variant="secondary" className="text-[9px] h-5 px-2 gap-1">
+                <Zap className="w-3 h-3" />
+                {timelineData.concurrentCount} đang chạy đồng thời
+              </Badge>
+            )}
+            {timelineData.conflicts.length > 0 && (
+              <Badge variant="destructive" className="text-[9px] h-5 px-2 gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {timelineData.conflicts.length} xung đột
+              </Badge>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 space-y-3">
+        {/* Timeline header */}
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+          <span>{format(minDate, 'dd/MM/yyyy')}</span>
+          <span>{format(maxDate, 'dd/MM/yyyy')}</span>
+        </div>
+
+        {/* Campaign bars */}
+        <div className="space-y-2">
+          {timelineData.campaigns.map(campaign => {
+            const leftPct = (differenceInDays(campaign.start, minDate) / totalSpan) * 100;
+            const widthPct = Math.max(3, (differenceInDays(campaign.end, campaign.start) / totalSpan) * 100);
+            const isConflict = conflictIds.has(campaign.id);
+            const isActive = campaign.status === 'active';
+
+            return (
+              <div key={campaign.id} className="relative">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-medium truncate max-w-[200px]">{campaign.name}</span>
+                  <Badge variant={isActive ? 'default' : 'secondary'} className="text-[8px] h-3.5 px-1 capitalize">
+                    {isActive ? 'Active' : campaign.status}
+                  </Badge>
+                  {isConflict && (
+                    <AlertCircle className="w-3 h-3 text-destructive shrink-0" />
+                  )}
+                  <span className="text-[10px] text-muted-foreground ml-auto">
+                    {campaign.running > 0 && <span className="text-primary font-medium">{campaign.running} running</span>}
+                    {campaign.completed > 0 && <span className="ml-1">{campaign.completed} done</span>}
+                    {campaign.flagged > 0 && <span className="ml-1 text-destructive">{campaign.flagged} flagged</span>}
+                  </span>
+                </div>
+                <div className="h-6 rounded bg-muted/30 relative overflow-hidden">
+                  <div
+                    className={cn(
+                      "absolute top-0 h-full rounded transition-all",
+                      isConflict ? "bg-destructive/20 border border-destructive/40" : "bg-primary/15 border border-primary/30"
+                    )}
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                  >
+                    {/* Progress fill */}
+                    <div
+                      className={cn(
+                        "h-full rounded-l transition-all",
+                        isConflict ? "bg-destructive/30" : "bg-primary/40"
+                      )}
+                      style={{ width: `${campaign.progressPct}%` }}
+                    />
+                    {/* Label */}
+                    <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-foreground/70">
+                      {campaign.remaining > 0 ? `${campaign.remaining}d left` : 'Done'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
