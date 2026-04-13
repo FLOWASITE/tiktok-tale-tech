@@ -1,20 +1,27 @@
 
 
-# Thêm nút "Tạo cuộc hội thoại mới" ra ngoài Chat Header
+## Làm gọn ChatHeader - Giảm số lượng icon hiển thị
 
-## Vấn đề
-Nút tạo cuộc hội thoại mới (`+`) chỉ xuất hiện bên trong `ConversationHistorySidebar`. Người dùng phải mở sidebar lịch sử trước rồi mới bấm được — không trực quan.
+### Vấn đề
+Header đang có **9 icon liên tiếp** gây rối mắt: AI Pro Mode, New Chat, History, Search, Sound, Help, Artifacts, Refresh, và More menu. Cần giữ lại chỉ các icon thiết yếu.
 
-## Giải pháp
-Thêm một nút `+` (hoặc icon `SquarePen`) trực tiếp lên `ChatHeader`, cạnh nút History, để tạo cuộc hội thoại mới mà không cần mở sidebar.
+### Giải pháp
+Chỉ giữ **4 icon chính** trên header, ẩn các icon phụ vào dropdown menu:
 
-## Thay đổi
+| Giữ lại | Ẩn vào menu "More" |
+|---------|-------------------|
+| Brain (AI Pro Mode) | Search |
+| SquarePen (New chat) | Volume |
+| History | Help |
+| Artifacts | Refresh |
 
-### `src/components/topic/chatbot/ChatHeader.tsx`
-- Thêm một `Button` mới với icon `SquarePen` (hoặc `Plus`) ngay trước hoặc sau nút History
-- `onClick` gọi `onNewConversation` trực tiếp
-- Tooltip: "Cuộc hội thoại mới"
-- Kích thước nhất quán: `h-6 w-6 sm:h-7 sm:w-7`
+### Thay đổi
 
-Chỉ cần sửa 1 file duy nhất.
+**`src/components/topic/chatbot/ChatHeader.tsx`**
+- Xóa các button Search, Sound, Help, Refresh khỏi vị trí hiện tại
+- Thêm các chức năng này vào `DropdownMenuContent` (đã có trên mobile, mở rộng cho cả desktop)
+- Đổi tên menu thành "Tùy chọn" cho rõ nghĩa
+- Giữ nguyên 4 icon chính: Brain, SquarePen, History, Artifacts
+
+Kết quả: Header gọn gàng, chỉ còn ~4-5 icon thay vì 9 icon chen chúc.
 
