@@ -2,9 +2,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AgentPipeline, PIPELINE_STAGES, AgentPipelineStage } from '@/types/agent';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { RefreshCw, CheckCircle, Eye, Loader2 } from 'lucide-react';
+import { RefreshCw, CheckCircle, Eye, Loader2, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UseMutationResult } from '@tanstack/react-query';
 
@@ -18,6 +18,17 @@ interface PipelineMonitorTableProps {
 const STAGE_ORDER: AgentPipelineStage[] = [
   'strategy', 'create', 'quality', 'approval', 'publish', 'analyze'
 ];
+
+function isWaitingForSchedule(pipeline: AgentPipeline): boolean {
+  if (pipeline.current_stage !== 'publish') return false;
+  if (!pipeline.scheduled_publish_at) return false;
+  return new Date(pipeline.scheduled_publish_at) > new Date();
+}
+
+function formatScheduleTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return format(date, 'dd/MM HH:mm', { locale: vi });
+}
 
 function StageProgressBar({ pipeline }: { pipeline: AgentPipeline }) {
   const pState = (pipeline.pipeline_state as any) || { stages: {} };
@@ -35,6 +46,10 @@ function StageProgressBar({ pipeline }: { pipeline: AgentPipeline }) {
         else if (status === 'retrying') dotColor = 'bg-amber-500 animate-pulse';
         else if (status === 'in_progress') dotColor = 'bg-primary animate-pulse';
         else if (idx < currentIdx) dotColor = 'bg-emerald-500';
+        // Special: waiting for scheduled time
+        else if (stage === 'publish' && status === 'pending' && isWaitingForSchedule(pipeline)) {
+          dotColor = 'bg-amber-400';
+        }
 
         const stageLabel = PIPELINE_STAGES.find(s => s.id === stage)?.label || stage;
 
@@ -88,6 +103,7 @@ export function PipelineMonitorTable({ pipelines, isLoading, retryPipeline, onAp
             const pState = (pipeline.pipeline_state as any) || { stages: {} };
             const currentStageState = pState.stages?.[pipeline.current_stage];
             const hasError = pipeline.is_flagged || currentStageState?.status === 'failed';
+            const isWaitingPublish = isWaitingForSchedule(pipeline);
 
             return (
               <TableRow key={pipeline.id} className={hasError ? 'bg-destructive/5' : ''}>
@@ -100,9 +116,21 @@ export function PipelineMonitorTable({ pipelines, isLoading, retryPipeline, onAp
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={hasError ? 'destructive' : pipeline.current_stage === 'analyze' ? 'default' : 'secondary'} className="text-[11px]">
-                    {stageInfo?.label || pipeline.current_stage}
-                  </Badge>
+                  {isWaitingPublish ? (
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="outline" className="text-[11px] border-amber-500/50 text-amber-600 bg-amber-500/10">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Đã duyệt - Chờ đăng
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatScheduleTime(pipeline.scheduled_publish_at!)}
+                      </span>
+                    </div>
+                  ) : (
+                    <Badge variant={hasError ? 'destructive' : pipeline.current_stage === 'analyze' ? 'default' : 'secondary'} className="text-[11px]">
+                      {stageInfo?.label || pipeline.current_stage}
+                    </Badge>
+                  )}
                   {currentStageState?.last_error && (
                     <p className="text-[10px] text-destructive mt-1 truncate max-w-[150px]" title={currentStageState.last_error}>
                       {currentStageState.last_error}
