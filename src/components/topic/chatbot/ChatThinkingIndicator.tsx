@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield, ImageIcon, Crosshair } from 'lucide-react';
+import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield, ImageIcon, Crosshair, Lightbulb, PenTool, ShieldCheck, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ThinkingStatus = 
@@ -64,17 +64,14 @@ const STATUS_CONFIG: Record<ThinkingStatus, { message: string; icon: typeof Brai
   task_complete: { message: 'Đã hoàn thành!', icon: CheckCircle2 },
 };
 
-// Agent icon mapping
+// Agent icon mapping — 5-Agent Pipeline
 function getAgentIcon(agentId: string) {
   const map: Record<string, typeof Search> = {
-    'orchestrator': Crosshair,
-    'orchestrator-agent': Crosshair,
-    'research-agent': Search,
-    'strategy-agent': ClipboardList,
-    'content-agent': Pen,
-    'reviewer-agent': Shield,
-    'image-agent': ImageIcon,
-    'brand-memory-agent': Brain,
+    'strategy': Lightbulb,
+    'creator': PenTool,
+    'quality': ShieldCheck,
+    'approval': CheckCircle2,
+    'publisher': Send,
   };
   return map[agentId] || Brain;
 }
