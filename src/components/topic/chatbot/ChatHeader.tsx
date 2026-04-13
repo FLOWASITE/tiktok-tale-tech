@@ -5,7 +5,7 @@
 
 import {
   Bot, Search as SearchIcon, Volume2, VolumeX,
-  RefreshCw, HelpCircle, X, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal
+  RefreshCw, HelpCircle, X, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal, SquarePen
 } from 'lucide-react';
 import { CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,6 +116,21 @@ export function ChatHeader({
             <TooltipContent side="bottom" className="text-xs max-w-[180px]">
               {supervisorEnabled ? 'AI Pro Mode: Bật — nhiều chuyên gia phân tích' : 'AI Pro Mode: Tắt — phản hồi nhanh'}
             </TooltipContent>
+          </Tooltip>
+
+          {/* New conversation button - always visible */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNewConversation}
+                className="h-6 w-6 sm:h-7 sm:w-7"
+              >
+                <SquarePen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Cuộc hội thoại mới</TooltipContent>
           </Tooltip>
 
           {/* History sidebar toggle - always visible */}
