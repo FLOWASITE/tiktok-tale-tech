@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Sparkles, TrendingUp, Leaf, Columns, History, RefreshCw,
   Filter, Search, ChevronDown, Lightbulb, X, ArrowUpDown, Trophy,
-  Calendar, Zap, Target, BarChart3, Gift
+  Calendar, Zap, Target, BarChart3, Gift, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -211,13 +211,55 @@ export function TopicDiscoveryPanel({
     setMinScore(0);
   };
 
+  // Phased loading messages
+  const loadingPhaseRef = useRef(0);
+  const [loadingMessage, setLoadingMessage] = useState('');
+
+  useEffect(() => {
+    if (!isLoading) {
+      loadingPhaseRef.current = 0;
+      setLoadingMessage('');
+      return;
+    }
+
+    const phases = [
+      { delay: 0, msg: '🔍 Đang phân tích thương hiệu...' },
+      { delay: 3000, msg: '📊 Đang tìm xu hướng ngành...' },
+      { delay: 8000, msg: '✨ Đang tạo ý tưởng...' },
+      { delay: 15000, msg: '⏳ Sắp xong rồi...' },
+    ];
+
+    setLoadingMessage(phases[0].msg);
+    const timers = phases.slice(1).map(({ delay, msg }) =>
+      setTimeout(() => setLoadingMessage(msg), delay)
+    );
+
+    return () => timers.forEach(clearTimeout);
+  }, [isLoading]);
+
   const renderTopicGrid = (topics: EnhancedTopicSuggestion[]) => {
     if (isLoading) {
       return (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-[220px] rounded-lg" />
-          ))}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5 border border-primary/20 animate-fade-in">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{loadingMessage}</span>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">Ước tính ~10-15 giây</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-[220px] rounded-lg" />
+            ))}
+          </div>
         </div>
       );
     }
