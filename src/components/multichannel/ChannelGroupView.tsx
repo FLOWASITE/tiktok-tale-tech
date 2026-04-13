@@ -1,5 +1,7 @@
-import { useMemo } from 'react';
-import { Send, Calendar } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Send, Calendar, ArrowDownUp } from 'lucide-react';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { MultiChannelContent, Channel } from '@/types/multichannel';
 import { SocialPostCard } from '@/components/multichannel/SocialPostCard';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
@@ -8,10 +10,38 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { SocialConnection, SocialPlatform } from '@/hooks/useSocialConnections';
 import { CHANNEL_COLORS } from '@/utils/channelColors';
 import { cn } from '@/lib/utils';
+
+type SortMode = 'newest' | 'oldest' | 'month_group';
+
+function sortItems(items: MultiChannelContent[], mode: SortMode): MultiChannelContent[] {
+  const sorted = [...items].sort((a, b) => {
+    const da = new Date(a.created_at || 0).getTime();
+    const db = new Date(b.created_at || 0).getTime();
+    return mode === 'oldest' ? da - db : db - da;
+  });
+  return sorted;
+}
+
+function groupByMonth(items: MultiChannelContent[]): { label: string; key: string; items: MultiChannelContent[] }[] {
+  const sorted = sortItems(items, 'newest');
+  const map = new Map<string, MultiChannelContent[]>();
+  for (const item of sorted) {
+    const date = new Date(item.created_at || 0);
+    const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(item);
+  }
+  return Array.from(map.entries()).map(([key, items]) => {
+    const date = new Date(items[0].created_at || 0);
+    const label = format(date, "'Tháng' M, yyyy", { locale: vi });
+    return { label, key, items };
+  });
+}
 
 interface ChannelGroupViewProps {
   contents: MultiChannelContent[];
