@@ -199,25 +199,20 @@ async function handleSuggest(
   const categoryHash = categoryHint ? hashContextData({ cat: categoryHint }) : 'no-cat';
   const cacheKey = `topic-suggestions-v9:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
   
-  // Check cache first
-  let cacheHitTimestamp: number | undefined;
-  if (!forceRefresh) {
-    const cached = await checkTopicCache(supabase, cacheKey);
-    if (cached) {
-      console.log('[topic-ai:suggest] Cache hit');
-      cacheHitTimestamp = Date.now(); // Mark cache hit time for future optimization
-      return new Response(JSON.stringify({
-        suggestions: cached,
-        source: 'cache'
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-  }
+  // Parallel: Check cache + fetch learning context simultaneously
+  const [cachedResult, learningContext] = await Promise.all([
+    forceRefresh ? Promise.resolve(null) : checkTopicCache(supabase, cacheKey),
+    brandTemplateId ? fetchLearningContext(supabase, brandTemplateId, null) : Promise.resolve(null),
+  ]);
 
-  // Fetch learning context
-  let learningContext = null;
-  if (brandTemplateId) {
-    learningContext = await fetchLearningContext(supabase, brandTemplateId, null);
-  }
+  // Return early if cache hit
+  let cacheHitTimestamp: number | undefined;
+  if (cachedResult) {
+    console.log('[topic-ai:suggest] Cache hit');
+    return new Response(JSON.stringify({
+      suggestions: cachedResult,
+      source: 'cache'
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   // Phase 3: Smart parallel calls - determine if web search should be skipped
   const industryToSearch = brandContext?.industry?.[0] || params.industry || '';

@@ -281,6 +281,10 @@ export async function searchIndustryData(
 
     console.log('[Perplexity] Industry search:', searchQuery.substring(0, 80));
 
+    // 5-second timeout to prevent blocking the entire flow
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -304,7 +308,10 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
         ],
         search_recency_filter: 'month',
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -369,6 +376,10 @@ export async function searchAudienceQuestions(
 
     console.log('[Perplexity] Q&A mining:', searchQuery.substring(0, 80));
 
+    // 5-second timeout to prevent blocking the entire flow
+    const qaController = new AbortController();
+    const qaTimeoutId = setTimeout(() => qaController.abort(), 5000);
+
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -392,7 +403,10 @@ Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể 
         ],
         search_recency_filter: 'month',
       }),
+      signal: qaController.signal,
     });
+
+    clearTimeout(qaTimeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
