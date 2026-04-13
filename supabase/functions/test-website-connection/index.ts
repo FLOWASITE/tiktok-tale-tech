@@ -181,6 +181,31 @@ Deno.serve(withPerf({ functionName: 'test-website-connection' }, async (req) => 
         }
       }
 
+    } else if (integrationType === 'nukeviet') {
+      // Test NukeViet PHP bridge
+      const apiEndpoint = connection.metadata?.api_endpoint || `${websiteUrl?.replace(/\/$/, '')}/api_flowa.php`;
+      const apiKey = decrypt(connection.access_token, encryptionKey);
+
+      if (!apiEndpoint) {
+        testResult = { valid: false, message: 'API endpoint not configured', details: { error: 'missing_endpoint' } };
+      } else {
+        try {
+          const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: apiKey, action: 'test' }),
+          });
+          const data = await response.json();
+          testResult = {
+            valid: data.status === 'ok',
+            message: data.status === 'ok' ? 'NukeViet kết nối thành công' : `NukeViet error: ${data.message}`,
+            details: { cms: 'NukeViet', ...data },
+          };
+        } catch (fetchError: any) {
+          testResult = { valid: false, message: `Cannot reach NukeViet: ${fetchError.message}`, details: { error: fetchError.message } };
+        }
+      }
+
     } else {
       // Manual - always valid
       testResult = {

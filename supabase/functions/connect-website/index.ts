@@ -15,7 +15,7 @@ interface ConnectWebsiteRequest {
   apiEndpoint?: string;
   apiKey?: string;
   webhookUrl?: string;
-  integrationType: 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'custom_api' | 'webhook' | 'manual';
+  integrationType: 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'nukeviet' | 'custom_api' | 'webhook' | 'manual';
   wordpressConfig?: {
     username: string;
     applicationPassword: string;
@@ -116,6 +116,23 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
         console.log('Wix API test successful');
       } catch (fetchError: any) {
         throw new Error(`Could not connect to Wix: ${fetchError.message}`);
+      }
+    } else if (integrationType === 'nukeviet') {
+      // Test NukeViet API endpoint
+      const nvEndpoint = apiEndpoint || `${websiteUrl.replace(/\/$/, '')}/api_flowa.php`;
+      try {
+        const testResponse = await fetch(nvEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: apiKey, action: 'test' }),
+        });
+        const testData = await testResponse.json();
+        if (testData.status !== 'ok') {
+          throw new Error(`NukeViet API test failed: ${testData.message || 'Unknown error'}`);
+        }
+        console.log('NukeViet API test successful');
+      } catch (fetchError: any) {
+        throw new Error(`Could not connect to NukeViet: ${fetchError.message}`);
       }
     } else if (integrationType === 'shopify_blog' && apiKey) {
       try {
