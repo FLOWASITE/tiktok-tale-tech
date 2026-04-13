@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { 
-  MessageSquare, Plus, Trash2, Archive, Clock, 
-  Search, MoreHorizontal, X
+  Trash2, Archive, Search, MoreHorizontal, X, 
+  PanelLeftClose, SquarePen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,8 +27,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { ChatConversation } from '@/hooks/useChatConversations';
-import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { isToday, isYesterday, isThisWeek } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { getPlanBadge } from '@/lib/plan-badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ConversationHistorySidebarProps {
   conversations: ChatConversation[];
@@ -36,6 +40,7 @@ interface ConversationHistorySidebarProps {
   onNewConversation: () => void;
   onDeleteConversation: (conversationId: string) => void;
   onArchiveConversation: (conversationId: string) => void;
+  onCollapse?: () => void;
   onClose?: () => void;
   className?: string;
 }
@@ -79,12 +84,14 @@ export function ConversationHistorySidebar({
   onNewConversation,
   onDeleteConversation,
   onArchiveConversation,
+  onCollapse,
   onClose,
   className,
 }: ConversationHistorySidebarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const { profile } = useAuth();
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
@@ -100,15 +107,6 @@ export function ConversationHistorySidebar({
     [filteredConversations]
   );
 
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return '';
-    try {
-      return formatDistanceToNow(new Date(dateStr), { addSuffix: true, locale: vi });
-    } catch {
-      return '';
-    }
-  };
-
   const handleDeleteClick = (conversationId: string) => {
     setConversationToDelete(conversationId);
     setDeleteDialogOpen(true);
@@ -122,45 +120,29 @@ export function ConversationHistorySidebar({
     setConversationToDelete(null);
   };
 
+  const planBadge = getPlanBadge(profile?.plan_type);
+  const userInitial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
+
   const renderConversationItem = (conv: ChatConversation) => (
     <div
       key={conv.id}
       className={cn(
         "group relative rounded-lg transition-colors cursor-pointer",
         conv.id === currentConversationId
-          ? "bg-primary/10 border border-primary/20 shadow-sm"
+          ? "bg-primary/10"
           : "hover:bg-muted/50"
       )}
     >
       <button
-        className="w-full text-left p-2.5 pr-8"
+        className="w-full text-left py-2 px-3 pr-8"
         onClick={() => onSelectConversation(conv.id)}
       >
-        <div className="flex items-start gap-2">
-          <MessageSquare className={cn(
-            "w-3.5 h-3.5 mt-0.5 shrink-0",
-            conv.id === currentConversationId ? "text-primary" : "text-muted-foreground"
-          )} />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">
-              {conv.title || 'Cuộc hội thoại mới'}
-            </div>
-            {conv.summary && (
-              <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                {conv.summary}
-              </div>
-            )}
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              <span>{formatTime(conv.last_message_at || conv.created_at)}</span>
-              <span>•</span>
-              <span>{conv.message_count} tin nhắn</span>
-            </div>
-          </div>
-        </div>
+        <span className="text-sm truncate block">
+          {conv.title || 'Cuộc hội thoại mới'}
+        </span>
       </button>
 
-      {/* Actions dropdown */}
+      {/* Actions dropdown - visible on hover */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -190,59 +172,68 @@ export function ConversationHistorySidebar({
 
   return (
     <div className={cn(
-      "flex flex-col h-full bg-card border-r",
+      "flex flex-col h-full",
       className
     )}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-primary" />
-          <span className="font-medium text-sm">Lịch sử chat</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onNewConversation}
-            title="Cuộc hội thoại mới"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          {onClose && (
+      {/* Header: collapse + new chat */}
+      <div className="flex items-center justify-between p-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 md:hidden"
-              onClick={onClose}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={onCollapse || onClose}
             >
-              <X className="w-4 h-4" />
+              <PanelLeftClose className="w-5 h-5" />
             </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">Đóng sidebar</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={onNewConversation}
+            >
+              <SquarePen className="w-5 h-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">Đoạn chat mới</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Tìm kiếm đoạn chat..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-sm bg-muted/50 border-0 focus-visible:ring-1"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2"
+            >
+              <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Search */}
-      <div className="p-2 border-b">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Tìm kiếm..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Conversations List with Date Groups */}
+      {/* Conversations List */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-3">
+        <div className="px-2 pb-2 space-y-3">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="p-2 space-y-1.5">
+              <div key={i} className="px-3 py-2">
                 <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
               </div>
             ))
           ) : groupedConversations.length === 0 ? (
@@ -252,12 +243,12 @@ export function ConversationHistorySidebar({
           ) : (
             groupedConversations.map((group) => (
               <div key={group.label}>
-                <div className="px-2 py-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="px-3 py-1.5">
+                  <span className="text-[11px] font-medium text-muted-foreground">
                     {group.label}
                   </span>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {group.conversations.map(renderConversationItem)}
                 </div>
               </div>
@@ -266,7 +257,26 @@ export function ConversationHistorySidebar({
         </div>
       </ScrollArea>
 
-      {/* Delete confirmation dialog */}
+      {/* Footer: user info + plan */}
+      <div className="border-t p-3">
+        <div className="flex items-center gap-2.5">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+              {userInitial}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">
+              {profile?.full_name || profile?.email || 'User'}
+            </div>
+          </div>
+          <Badge variant="outline" className={cn("text-[10px] h-5 px-1.5 shrink-0", planBadge.className)}>
+            {planBadge.label}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Delete confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
