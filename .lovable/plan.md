@@ -1,25 +1,30 @@
 
 
-# Di chuyển bộ lọc Chiến dịch vào panel lọc chung (icon Phễu)
+# Fix: Nút duyệt Pipeline Monitor không hoạt động
 
-## Mô tả
-Hiện tại `CampaignSelector` đang nằm riêng bên ngoài, cạnh thanh filter chính. Cần di chuyển nó vào bên trong panel lọc nâng cao (mở khi click icon Filter/Phễu).
+## Nguyên nhân
 
-## Thay đổi
+`AgentMonitorPage.handleApprove` gửi `{ pipeline_id }` đến edge function `agent-approve`, nhưng edge function yêu cầu `{ approval_id }`. Vì `approval_id` là `undefined`, edge function trả lỗi "approval_id and action required".
 
-### 1. `src/components/MultiChannelFilters.tsx`
-- Thêm props: `campaignFilter`, `onCampaignFilterChange`, `campaigns` (danh sách chiến dịch)
-- Thêm Select dropdown "Chiến dịch" vào trong `CollapsibleContent`, cạnh Brand và Date Range
-- Cập nhật `activeFilterCount` trong parent để bao gồm campaign
+Kanban hoạt động đúng vì nó truyền `approval.id` (ID của bản ghi approval), không phải pipeline ID.
 
-### 2. `src/pages/MultiChannel.tsx`
-- Xóa `<CampaignSelector>` riêng biệt (dòng 389-394)
-- Truyền `campaignFilter`, `onCampaignFilterChange` và danh sách campaigns vào `<MultiChannelFilters>`
-- Bỏ wrapper `flex-col lg:flex-row` vì không còn 2 phần tử cạnh nhau
+## Giải pháp
+
+Cần tìm `approval_id` tương ứng với pipeline trước khi gọi edge function.
+
+### 1. `src/pages/AgentMonitorPage.tsx`
+- Import và sử dụng `useAgentApprovals` hook để lấy danh sách approvals
+- Trong `handleApprove`, tra cứu approval record có `pipeline_id` khớp và `status === 'pending'`
+- Gửi đúng `approval_id` thay vì `pipeline_id` đến edge function
+- Nếu không tìm thấy approval record, hiện toast lỗi rõ ràng
+
+### 2. Fallback: Cập nhật edge function `agent-approve`
+- Thêm logic: nếu không có `approval_id` nhưng có `pipeline_id`, tự động tìm approval record pending tương ứng
+- Đảm bảo backward-compatible với cả Kanban và Monitor
 
 ### Files
 | File | Thay đổi |
 |------|----------|
-| `src/components/MultiChannelFilters.tsx` | Thêm campaign selector vào panel lọc nâng cao |
-| `src/pages/MultiChannel.tsx` | Xóa CampaignSelector riêng, truyền props campaign vào MultiChannelFilters |
+| `src/pages/AgentMonitorPage.tsx` | Dùng `useAgentApprovals` để tra cứu approval_id đúng |
+| `supabase/functions/agent-approve/index.ts` | Fallback: tìm approval từ pipeline_id nếu không có approval_id |
 
