@@ -1,35 +1,33 @@
 
 
-## Thêm lối vào "Kết nối" dễ tiếp cận hơn
+## Fix: Hiển thị Facebook icon khi chưa có kết nối Fanpage
 
-### Hiện trạng
-Kết nối social chỉ truy cập được qua: Brand Card → click → tab Kết nối. Không có mục nào trên sidebar hay dashboard trỏ thẳng đến.
+### Vấn đề
+Hàm `renderFacebookPlatform()` (line 644-684) chỉ render:
+1. Active connections (nếu có)
+2. Inactive connections toggle
+3. Nút "Thêm Fanpage khác" (dashed, icon Plus, không có Facebook icon)
 
-### Thay đổi
+Khi chưa có kết nối nào → chỉ thấy nút dashed "Thêm Fanpage khác" mà không có icon Facebook, tên platform hay mô tả → user không nhận ra đây là Facebook.
 
-**1. Thêm mục "Kết nối kênh" vào sidebar — nhóm Settings**
-- File: `src/components/AppSidebar.tsx`
-- Thêm item mới vào `settingsItems` với icon `Globe` (hoặc `Link2`), URL `/connections`
-- Đặt ngay dưới "Quản lý Brand"
+### Giải pháp
+Sửa `renderFacebookPlatform()` trong `src/components/brand/BrandViewConnectionsTab.tsx`:
 
-**2. Tạo trang `/connections` — redirect thông minh**
-- File mới: `src/pages/Connections.tsx`
-- Logic: Lấy current brand từ `useCurrentBrand()` → redirect đến `/brands/{currentBrandId}?tab=connections`
-- Nếu chưa có brand → hiển thị thông báo + nút tạo brand
+- **Khi chưa có active connection nào**: Hiển thị một card chính giống các platform khác — có icon Facebook (bg xanh), tên "Facebook", mô tả "Đăng lên Page", và nút "Kết nối" (style primary).
+- **Khi đã có active connection**: Giữ nguyên danh sách + nút "Thêm Fanpage khác" dashed như hiện tại.
 
-**3. Đăng ký route mới**
-- File: `src/App.tsx` (hoặc file routing) — thêm route `/connections` → `Connections.tsx`
+### Thay đổi cụ thể
+Trong hàm `renderFacebookPlatform()` (~line 644), thêm điều kiện: nếu `activeConns.length === 0 && inactiveConns.length === 0` (hoặc chỉ có inactive), render card Facebook đầy đủ thay vì nút dashed.
 
-**4. Thêm Quick Action "Kết nối kênh" trên Dashboard**
-- File: `src/components/dashboard/QuickActionGrid.tsx`
-- Thêm 1 item mới vào `quickActions` với icon `Globe`, href `/connections`, gradient xanh lá
+```text
+// Pseudo-code
+if (activeConns.length === 0) {
+  // Render full Facebook card with icon + name + description + "Kết nối" button
+  // (same layout as renderConnection for other platforms)
+}
+// Then render inactive toggle + "Thêm Fanpage khác" as before
+```
 
-### Kết quả
-- User thấy "Kết nối kênh" ngay trên sidebar (luôn hiện)
-- Dashboard có quick action card dẫn thẳng đến kết nối
-- Mọi đường đều dẫn đến đúng tab Kết nối của brand hiện tại
-
-### File cần tạo/sửa
-- **Tạo**: `src/pages/Connections.tsx`
-- **Sửa**: `src/components/AppSidebar.tsx`, `src/components/dashboard/QuickActionGrid.tsx`, file routing
+### File cần sửa
+- `src/components/brand/BrandViewConnectionsTab.tsx` — hàm `renderFacebookPlatform()` (~line 644-684)
 
