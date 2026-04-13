@@ -867,7 +867,7 @@ try {
                   />
                 </div>
               </>
-            )
+            )}
 
             {websiteForm.integrationType === 'wordpress' && (
               <>
