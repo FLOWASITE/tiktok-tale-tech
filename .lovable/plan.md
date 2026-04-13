@@ -1,22 +1,27 @@
 
 
-## Chỉnh chu UI cho nhiều Fanpage Facebook
+## Chỉnh chu UI cho nhiều Website (tương tự Facebook)
 
-### Thay đổi trong `src/components/brand/BrandViewConnectionsTab.tsx`
+### Thay đổi trong `src/components/brand/BrandViewConnectionsTab.tsx` — hàm `renderWebsitePlatform()`
 
-**1. Thêm số thứ tự và nhóm visual cho các Fanpage**
-- Mỗi Fanpage active hiển thị label nhỏ "Fanpage 1", "Fanpage 2", "Fanpage 3"... phía trên hoặc bên cạnh tên Page
-- Giúp user phân biệt rõ khi có nhiều kết nối
+**1. Thêm số thứ tự khi có nhiều website**
+- Label "Website 1", "Website 2"... khi có ≥2 kết nối active
+- Dùng cùng style với Facebook: `text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded`
 
-**2. Cải thiện layout cho danh sách nhiều Fanpage**
-- Fanpage đầu tiên giữ border solid (chính), các Fanpage tiếp theo dùng border nhẹ hơn nhưng vẫn rõ ràng
-- Thêm divider hoặc khoảng cách hợp lý giữa các connection
-- Nút "Thêm Fanpage" chuyển sang style nhỏ gọn hơn (border dashed, text muted) để không lẫn với các connection đã có
+**2. Thêm thời gian kết nối (relative)**
+- Hiển thị `formatDistanceToNow(connected_at)` dưới mỗi connection
+- Cùng format "· X ngày trước" như Facebook
 
-**3. Hiển thị thông tin phụ hữu ích**
-- Thêm thời gian kết nối (connected_at) dạng relative ("2 ngày trước") dưới mỗi connection
-- Giúp phân biệt các Fanpage khi tên giống nhau
+**3. Badge "Đã xác thực" khi có `last_verified_at`**
+- Hiện tại website chỉ hiển thị "Đã kết nối" (xanh dương) hoặc "Đã ngắt" (đỏ)
+- Thêm logic: nếu `last_verified_at` có giá trị → hiển thị badge "Đã xác thực" (xanh lá) thay vì "Đã kết nối"
 
-### Kết quả
-Danh sách nhiều Fanpage Facebook trông gọn gàng, có thứ tự rõ ràng, dễ quản lý.
+**4. Avatar overlay cho website**
+- Nếu connection có `platform_avatar_url`, hiển thị avatar + icon Website nhỏ ở góc (giống Facebook)
+
+**5. Nút "Thêm Website" nhỏ gọn hơn**
+- Text muted, style dashed border (đã có sẵn phần nào), đảm bảo đồng nhất với nút "Thêm Fanpage khác" của Facebook
+
+### File cần sửa
+- `src/components/brand/BrandViewConnectionsTab.tsx` — chỉ hàm `renderWebsitePlatform()`
 
