@@ -287,6 +287,26 @@ Deno.serve(withPerf({ functionName: 'publish-website' }, async (req) => {
       result = await articleResp.json();
       if (result.errors) throw new Error(`Shopify error: ${JSON.stringify(result.errors)}`);
 
+    } else if (integrationType === 'nukeviet') {
+      // NukeViet CMS via PHP bridge
+      const apiEndpoint = connection.metadata?.api_endpoint || `${websiteUrl.replace(/\/$/, '')}/api_flowa.php`;
+      const apiKey = decrypt(connection.access_token, encryptionKey);
+
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: apiKey,
+          title,
+          content,
+          catid: categories?.[0] ? parseInt(categories[0]) : 1,
+        }),
+      });
+      result = await response.json();
+      if (result.status === 'error') {
+        throw new Error(`NukeViet error: ${result.message}`);
+      }
+
     } else if (integrationType === 'custom_api') {
       const apiEndpoint = connection.metadata?.api_endpoint;
       const apiKey = decrypt(connection.access_token, encryptionKey);
