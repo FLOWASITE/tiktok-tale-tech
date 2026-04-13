@@ -1,34 +1,29 @@
 
 
-## Auto-fill API Endpoint từ URL Website
+## Hỗ trợ kết nối nhiều Website cho 1 Brand
 
-### Vấn đề
-User đã nhập URL website ở trường "URL Website" (line 672-678), nhưng khi chọn NukeViet vẫn phải nhập lại đường dẫn ở trường "API Endpoint". Thừa thãi và dễ sai.
+### Hiện trạng
+- Edge function `connect-website/index.ts` (line 155-167): query `maybeSingle()` tìm connection theo `brand_template_id` + `platform = 'website'`. Nếu đã có → update, không tạo mới.
+- Frontend: nút "Kết nối" website luôn mở form tạo mới, nhưng backend ghi đè connection cũ.
+- Kết quả: mỗi brand chỉ có tối đa 1 website.
 
-### Giải pháp
-Khi user nhập URL website (ví dụ `https://abc.com`), tự động điền `apiEndpoint` = `https://abc.com/api_flowa.php`. Đồng thời đổi label cho dễ hiểu.
+### Thay đổi
 
-### Thay đổi — `src/components/brand/BrandViewConnectionsTab.tsx`
+**1. Edge function `supabase/functions/connect-website/index.ts` (line 155-167)**
+- Thay đổi logic tìm existing connection: thêm điều kiện `integration_type` vào query, hoặc bỏ hẳn logic "tìm & ghi đè" → luôn insert mới.
+- Cụ thể: query existing connection thêm filter theo `platform_user_id` (domain) để chỉ ghi đè khi cùng domain, khác domain thì tạo mới.
 
-**1. Auto-fill apiEndpoint khi websiteUrl thay đổi (line 677):**
-- Trong `onChange` của ô "URL Website", nếu `integrationType === 'nukeviet'`, tự ghép thêm `/api_flowa.php` vào cuối URL và set vào `apiEndpoint`
-- Xử lý trailing slash: `https://abc.com/` → `https://abc.com/api_flowa.php`
+```text
+Trước:  WHERE brand_template_id = X AND platform = 'website'  → 1 kết quả → ghi đè
+Sau:    WHERE brand_template_id = X AND platform = 'website' AND platform_user_id = domain → chỉ ghi đè cùng domain
+```
 
-**2. Cũng auto-fill khi chuyển sang NukeViet (line 687):**
-- Trong `onChange` của dropdown "Loại kết nối", nếu chọn `nukeviet` và `websiteUrl` đã có giá trị, tự động điền `apiEndpoint`
-
-**3. Đổi label và thêm mô tả (line 860-867):**
-- Label: **"Đường dẫn file trên website"** thay vì "API Endpoint"
-- Thêm dòng mô tả: *"Tự động tạo từ URL website. Chỉ sửa nếu bạn đặt file ở vị trí khác."*
-- Giữ ô input cho phép user sửa nếu cần
+**2. Frontend `src/components/brand/BrandViewConnectionsTab.tsx`**
+- Hiện danh sách nhiều website connections (không chỉ 1).
+- Mỗi connection hiển thị riêng với domain, loại tích hợp (WordPress/NukeViet/...), nút test/xóa.
+- Nút "Thêm website" luôn hiển thị (không ẩn khi đã có 1 connection).
 
 ### Kết quả
-```text
-URL Website *
-[https://abc.com]          ← user nhập
-
-Đường dẫn file trên website *
-Tự động tạo từ URL website. Chỉ sửa nếu bạn đặt file ở vị trí khác.
-[https://abc.com/api_flowa.php]   ← tự động điền
-```
+- 1 brand có thể kết nối nhiều website khác nhau (vd: 1 WordPress + 1 NukeViet).
+- Cùng domain thì ghi đè (cập nhật credentials), khác domain thì tạo mới.
 
