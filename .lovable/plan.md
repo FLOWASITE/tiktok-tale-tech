@@ -1,27 +1,35 @@
 
 
-## Fix: "Kết nối ngay" phải vào thẳng tab Kết nối
+## Thêm lối vào "Kết nối" dễ tiếp cận hơn
 
-### Vấn đề
-`BrandView.tsx` dùng `<Tabs defaultValue="overview">` cứng — không đọc query param `?tab=connections` từ URL → click "Kết nối ngay" trên BrandCard luôn mở tab Overview.
+### Hiện trạng
+Kết nối social chỉ truy cập được qua: Brand Card → click → tab Kết nối. Không có mục nào trên sidebar hay dashboard trỏ thẳng đến.
 
-### Giải pháp
-Sửa `src/pages/BrandView.tsx`:
+### Thay đổi
 
-1. Đọc `?tab` từ URL bằng `useSearchParams`
-2. Dùng `value` + `onValueChange` thay vì `defaultValue` để controlled tab
-3. Khi URL có `?tab=connections` → mở thẳng tab Kết nối
+**1. Thêm mục "Kết nối kênh" vào sidebar — nhóm Settings**
+- File: `src/components/AppSidebar.tsx`
+- Thêm item mới vào `settingsItems` với icon `Globe` (hoặc `Link2`), URL `/connections`
+- Đặt ngay dưới "Quản lý Brand"
 
-```text
-// Trước
-<Tabs defaultValue="overview">
+**2. Tạo trang `/connections` — redirect thông minh**
+- File mới: `src/pages/Connections.tsx`
+- Logic: Lấy current brand từ `useCurrentBrand()` → redirect đến `/brands/{currentBrandId}?tab=connections`
+- Nếu chưa có brand → hiển thị thông báo + nút tạo brand
 
-// Sau  
-const [searchParams] = useSearchParams();
-const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
-<Tabs value={activeTab} onValueChange={setActiveTab}>
-```
+**3. Đăng ký route mới**
+- File: `src/App.tsx` (hoặc file routing) — thêm route `/connections` → `Connections.tsx`
 
-### File cần sửa
-- `src/pages/BrandView.tsx` — import `useSearchParams`, thêm state `activeTab`, đổi `Tabs` sang controlled mode
+**4. Thêm Quick Action "Kết nối kênh" trên Dashboard**
+- File: `src/components/dashboard/QuickActionGrid.tsx`
+- Thêm 1 item mới vào `quickActions` với icon `Globe`, href `/connections`, gradient xanh lá
+
+### Kết quả
+- User thấy "Kết nối kênh" ngay trên sidebar (luôn hiện)
+- Dashboard có quick action card dẫn thẳng đến kết nối
+- Mọi đường đều dẫn đến đúng tab Kết nối của brand hiện tại
+
+### File cần tạo/sửa
+- **Tạo**: `src/pages/Connections.tsx`
+- **Sửa**: `src/components/AppSidebar.tsx`, `src/components/dashboard/QuickActionGrid.tsx`, file routing
 
