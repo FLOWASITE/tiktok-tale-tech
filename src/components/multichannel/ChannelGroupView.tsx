@@ -108,6 +108,8 @@ export function ChannelGroupView({
   onScheduleComplete,
   socialConnections,
 }: ChannelGroupViewProps) {
+  const [sortBy, setSortBy] = useState<SortMode>('newest');
+
   const channelGroups = useMemo(() => {
     const groups: { channel: Channel; items: MultiChannelContent[] }[] = [];
     for (const ch of ALL_CHANNELS) {
