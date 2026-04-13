@@ -56,6 +56,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
@@ -521,12 +523,17 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     const activeConns = fbConns.filter(c => c.is_active);
     const inactiveConns = fbConns.filter(c => !c.is_active);
 
-    const renderFbConnection = (connection: SocialConnection, isInactive = false) => {
+    const renderFbConnection = (connection: SocialConnection, isInactive = false, index?: number) => {
       const isTesting = testingConnection === connection.id;
+      const connectedTimeAgo = connection.connected_at
+        ? formatDistanceToNow(new Date(connection.connected_at), { addSuffix: true, locale: vi })
+        : null;
       return (
         <div
           key={connection.id}
-          className={`flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors ${isInactive ? 'opacity-50' : ''}`}
+          className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:border-border transition-colors ${
+            isInactive ? 'opacity-50 border-border/30' : index === 0 ? 'border-border' : 'border-border/50'
+          }`}
         >
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -553,11 +560,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             </div>
             <div>
               <div className="flex items-center gap-2">
+                {typeof index === 'number' && activeConns.length > 1 && (
+                  <span className="text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded">
+                    Fanpage {index + 1}
+                  </span>
+                )}
                 <span className="font-medium">
                   {connection.platform_display_name || connection.platform_username || config.name}
                 </span>
               </div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {connection.platform_username && (
                   <span className="text-sm text-muted-foreground">
                     {connection.platform_username}
@@ -583,6 +595,11 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     <Unplug className="w-3 h-3 mr-1" />
                     Đã ngắt
                   </Badge>
+                )}
+                {connectedTimeAgo && (
+                  <span className="text-xs text-muted-foreground">
+                    · {connectedTimeAgo}
+                  </span>
                 )}
               </div>
             </div>
@@ -626,7 +643,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
 
     return (
       <div key="facebook" className="space-y-2">
-        {activeConns.map((c) => renderFbConnection(c, false))}
+        {activeConns.map((c, i) => renderFbConnection(c, false, i))}
 
         {inactiveConns.length > 0 && (
           <>
@@ -641,19 +658,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           </>
         )}
 
-        {/* Always show "Add Fanpage" button */}
-        <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-border/50 bg-card/50 hover:border-border transition-colors">
-          <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
-              {config.icon}
+        {/* Add Fanpage button - subtle dashed style */}
+        <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-muted text-muted-foreground">
+              <Plus className="w-4 h-4" />
             </div>
-            <div>
-              <span className="font-medium">Thêm Fanpage</span>
-              <p className="text-sm text-muted-foreground">{config.description}</p>
-            </div>
+            <span className="text-sm text-muted-foreground">Thêm Fanpage khác</span>
           </div>
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             onClick={() => handleConnect('facebook')}
             disabled={oauthConnecting === 'facebook'}
