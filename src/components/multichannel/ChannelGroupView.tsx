@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Send, Calendar } from 'lucide-react';
 import { MultiChannelContent, Channel } from '@/types/multichannel';
-import { MultiChannelCard } from '@/components/MultiChannelCard';
+import { SocialPostCard } from '@/components/multichannel/SocialPostCard';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
