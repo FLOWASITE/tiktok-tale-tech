@@ -995,12 +995,16 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
   // Fetch agent model config for this stage
   const agentConfig = await getAgentModelConfig(supabase, orgId, stage);
-  const modelOverride = agentConfig?.model_override || undefined;
+  const fallbackModel = agentConfig?.fallback_model || undefined;
   const agentTemperature = agentConfig?.temperature || undefined;
   const agentMaxTokens = agentConfig?.max_tokens || undefined;
-  const fallbackModel = agentConfig?.fallback_model || undefined;
 
-  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
+  // Phase 1a: Dynamic model selection — use agent config override, or complexity-based model
+  const complexity = meta.complexity || assessComplexity(pipeline);
+  const dynamicModel = getModelForComplexity(complexity);
+  const modelOverride = agentConfig?.model_override || meta.suggested_model || dynamicModel;
+
+  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, complexity: ${complexity}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
 
   // Mark stage as in_progress
   if (pState.stages?.[stage]) {
