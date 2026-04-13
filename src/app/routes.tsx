@@ -15,6 +15,7 @@ import Brands from "@/pages/Brands";
 import BrandView from "@/pages/BrandView";
 import BrandCreate from "@/pages/BrandCreate";
 import MultiChannel from "@/pages/MultiChannel";
+import Connections from "@/pages/Connections";
 import Tasks from "@/pages/Tasks";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
