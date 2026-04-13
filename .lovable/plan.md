@@ -1,30 +1,32 @@
 
 
-## Loại bỏ màu đỏ/hồng lòe loẹt
-
-### Vấn đề
-Từ 3 ảnh user gửi:
-1. **Dropdown menu**: Item "Phím tắt" bị highlight màu hồng đỏ rực
-2. **Sidebar**: Nút "Đoạn chat mới" có background gradient hồng, search input viền hồng
-3. **Chat input**: Viền đôi màu hồng khi focus (từ `chat-input-glow` CSS class + `border-2` + `focus:ring-primary`)
+## Sửa triệt để màu hồng đỏ còn sót
 
 ### Nguyên nhân gốc
-Primary color là `340 82% 52%` (hồng đỏ TikTok). Nó bị dùng quá nhiều: gradient buttons, focus glow, border glow → tạo cảm giác "màu mè".
+Biến CSS `--accent` đang set bằng `340 82% 52%` (hồng đỏ TikTok) — giống hệt `--primary`. Mà tất cả dropdown menu items dùng `focus:bg-accent`, conversation items dùng `bg-accent`, search input dùng `focus-visible:bg-accent/50` → đều bị hồng.
 
-### Giải pháp: Giữ lại primary nhưng giảm intensity
+Ngoài ra `--ring` cũng là `340 82% 52%` → focus ring hồng.
 
-**1. `src/components/topic/chatbot/ConversationHistorySidebar.tsx`**
-- Nút "Đoạn chat mới": đổi thành style tối giản — `variant="outline"` hoặc ghost đơn giản, không gradient, không shadow
-- Search input: giữ nguyên (đã dùng `border-0`, `bg-transparent`)
+### Giải pháp
 
-**2. `src/components/topic/chatbot/ChatInputArea.tsx`**
-- Textarea: bỏ `border-2` → `border`, bỏ `focus:ring-2 focus:ring-primary/10` → dùng ring nhẹ hơn `focus:ring-1 focus:ring-border`
-- Bỏ class `chat-input-glow` khỏi wrapper div (loại bỏ double glow effect hồng)
-- Nút Send: bỏ gradient `from-primary to-violet-600`, đổi thành `bg-primary hover:bg-primary/90` đơn giản, bỏ `shadow-lg shadow-primary/25`
+**`src/index.css`** — Đổi 4 biến trong cả light và dark theme:
 
-**3. `src/index.css`**
-- Loại bỏ hoặc giảm `.chat-input-glow` — thay bằng subtle border thay vì glow hồng
+**Light mode:**
+- `--accent: 340 82% 52%` → `--accent: 240 4.8% 95.9%` (neutral gray, giống `--muted`)
+- `--accent-foreground: 0 0% 98%` → `--accent-foreground: 240 5.9% 10%` (dark text)
+- `--ring: 340 82% 52%` → `--ring: 240 5% 65%` (neutral ring)
+
+**Dark mode:**
+- `--accent: 340 82% 52%` → `--accent: 240 3.7% 15.9%` (neutral dark gray)
+- `--accent-foreground: 0 0% 98%` → `--accent-foreground: 0 0% 98%` (giữ nguyên)
+- `--ring: 340 82% 52%` → `--ring: 240 5% 34%`
+
+Cũng đổi `--sidebar-ring` từ hồng sang neutral trong cả 2 mode.
 
 ### Kết quả
-UI sạch sẽ, monochromatic theo phong cách Soft Luxury — không còn gradient hồng lòe loẹt ở input, button và focus states.
+- Dropdown menu hover/focus → xám nhẹ thay vì hồng đỏ
+- Sidebar conversation active → xám nhẹ
+- Search input focus → không viền hồng
+- Focus ring toàn app → neutral thay vì hồng
+- Primary color vẫn giữ nguyên cho các nút CTA chính đáng (Send button, etc.)
 
