@@ -180,7 +180,7 @@ export function SimpleMessageList({
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-4 lg:space-y-6 max-w-3xl mx-auto">
         {messages.map((message, idx) => {
           const isLastAssistant = isLoading && message.role === 'assistant' && idx === messages.length - 1;
           // Find previous assistant message's review scores for delta tracking
