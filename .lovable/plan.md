@@ -1,33 +1,69 @@
 
 
-## Fix: Hiển thị Facebook icon khi chưa có kết nối Fanpage
+## Tối ưu tốc độ "Ý tưởng chủ đề" (Topic Suggestions)
 
-### Vấn đề
-Hàm `renderFacebookPlatform()` (line 644-684) chỉ render:
-1. Active connections (nếu có)
-2. Inactive connections toggle
-3. Nút "Thêm Fanpage khác" (dashed, icon Plus, không có Facebook icon)
+### Phân tích nguyên nhân chậm
 
-Khi chưa có kết nối nào → chỉ thấy nút dashed "Thêm Fanpage khác" mà không có icon Facebook, tên platform hay mô tả → user không nhận ra đây là Facebook.
-
-### Giải pháp
-Sửa `renderFacebookPlatform()` trong `src/components/brand/BrandViewConnectionsTab.tsx`:
-
-- **Khi chưa có active connection nào**: Hiển thị một card chính giống các platform khác — có icon Facebook (bg xanh), tên "Facebook", mô tả "Đăng lên Page", và nút "Kết nối" (style primary).
-- **Khi đã có active connection**: Giữ nguyên danh sách + nút "Thêm Fanpage khác" dashed như hiện tại.
-
-### Thay đổi cụ thể
-Trong hàm `renderFacebookPlatform()` (~line 644), thêm điều kiện: nếu `activeConns.length === 0 && inactiveConns.length === 0` (hoặc chỉ có inactive), render card Facebook đầy đủ thay vì nút dashed.
+Luồng hiện tại của edge function `topic-ai` (action: `suggest`) chạy **tuần tự**:
 
 ```text
-// Pseudo-code
-if (activeConns.length === 0) {
-  // Render full Facebook card with icon + name + description + "Kết nối" button
-  // (same layout as renderConnection for other platforms)
-}
-// Then render inactive toggle + "Thêm Fanpage khác" as before
+Cache check (DB) → Learning context (DB) → Perplexity x2 (3-8s mỗi call) → AI LLM (5-15s) → Parse + Cache save
 ```
 
+Tổng thời gian: **10-25 giây** khi cache miss. User chỉ thấy skeleton chờ toàn bộ hoàn tất.
+
+### Giải pháp: 3 tầng tối ưu
+
+**1. Backend — Song song hóa tối đa trong edge function**
+- Chạy `fetchTopicBrandContext`, `fetchLearningContext`, và `checkTopicCache` song song bằng `Promise.all` thay vì tuần tự
+- File: `supabase/functions/topic-ai/index.ts` (line ~140-220)
+
+**2. Backend — Thêm timeout cho Perplexity calls**
+- Thêm `AbortController` với timeout 5 giây cho mỗi Perplexity API call
+- Nếu timeout → bỏ qua data đó, vẫn sinh suggestions từ brand context + AI
+- File: `supabase/functions/_shared/topic-utils.ts` (searchIndustryData, searchAudienceQuestions)
+
+**3. Frontend — Loading UX cải thiện**
+- Thay skeleton nhàm chán bằng animated loading state có text mô tả giai đoạn ("Đang phân tích brand...", "Đang tìm xu hướng...", "Đang tạo ý tưởng...")
+- Hiển thị thời gian ước tính (~10-15s)
+- File: `src/components/topic/TopicDiscoveryPanel.tsx` (renderTopicGrid)
+
+### Chi tiết kỹ thuật
+
+**Edge function parallelization:**
+```text
+// Trước (tuần tự ~3s)
+brandContext = await fetchTopicBrandContext(...)
+cache = await checkTopicCache(...)
+learningContext = await fetchLearningContext(...)
+
+// Sau (song song ~1s)
+[brandContext, cache, learningContext] = await Promise.all([
+  fetchTopicBrandContext(...),
+  checkTopicCache(...),  
+  fetchLearningContext(...)
+])
+```
+
+**Perplexity timeout:**
+```text
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 5000);
+fetch(url, { signal: controller.signal })
+```
+
+**Loading UX phases:**
+- 0-3s: "🔍 Đang phân tích thương hiệu..."
+- 3-8s: "📊 Đang tìm xu hướng ngành..."
+- 8s+: "✨ Đang tạo ý tưởng..."
+
 ### File cần sửa
-- `src/components/brand/BrandViewConnectionsTab.tsx` — hàm `renderFacebookPlatform()` (~line 644-684)
+- `supabase/functions/topic-ai/index.ts` — parallelization trong handleSuggest
+- `supabase/functions/_shared/topic-utils.ts` — thêm timeout cho Perplexity calls
+- `src/components/topic/TopicDiscoveryPanel.tsx` — loading UX
+
+### Kết quả mong đợi
+- Giảm thời gian từ ~15-25s xuống ~10-15s (cache miss)
+- User không cảm thấy bị "treo" nhờ loading phases
+- Perplexity timeout không block toàn bộ flow
 
