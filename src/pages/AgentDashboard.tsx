@@ -14,6 +14,7 @@ import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
 import { GoalWizard } from '@/components/agents/GoalWizard';
 import { AICampaignOverview } from '@/components/agents/AICampaignOverview';
+import { OrchestratorHealthPanel } from '@/components/agents/OrchestratorHealthPanel';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
@@ -233,7 +234,7 @@ export default function AgentDashboard() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="mt-4">
+          <TabsContent value="overview" className="mt-4 space-y-6">
             <AICampaignOverview
               goals={goals}
               pipelines={pipelines}
@@ -243,6 +244,7 @@ export default function AgentDashboard() {
                 setActiveTab('pipeline');
               }}
             />
+            <OrchestratorHealthPanel />
           </TabsContent>
 
           <TabsContent value="pipeline" className="mt-4">

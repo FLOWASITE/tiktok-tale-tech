@@ -307,8 +307,35 @@ Deno.serve(async (req) => {
         return json({ success: true, message: "No active goals", triggered: 0 });
       }
 
+      // Phase 1b: Sort goals by deadline proximity (nearest first)
+      const sortedGoals = [...activeGoals].sort((a, b) => {
+        const aEnd = a.campaign_end_date ? new Date(a.campaign_end_date).getTime() : Infinity;
+        const bEnd = b.campaign_end_date ? new Date(b.campaign_end_date).getTime() : Infinity;
+        return aEnd - bEnd;
+      });
+
       let triggered = 0;
-      for (const goal of activeGoals) {
+      for (const goal of sortedGoals) {
+        // Phase 4a: Quota check — max concurrent pipelines per org
+        const { count: orgRunningCount } = await supabase
+          .from("agent_pipelines")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", goal.organization_id)
+          .is("completed_at", null)
+          .eq("is_flagged", false);
+
+        if ((orgRunningCount || 0) >= MAX_CONCURRENT_PIPELINES) {
+          console.log(`[check_scheduled_goals] Org ${goal.organization_id} at quota (${orgRunningCount}/${MAX_CONCURRENT_PIPELINES}), skipping goal ${goal.id}`);
+          await supabase.from("agent_pipeline_logs").insert({
+            pipeline_id: null,
+            agent_name: "quota_manager",
+            action: "quota_exceeded",
+            input_summary: `Goal: ${goal.name}, org running: ${orgRunningCount}`,
+            output_summary: `Skipped: quota ${MAX_CONCURRENT_PIPELINES} reached`,
+          } as any);
+          continue;
+        }
+
         const { count } = await supabase
           .from("agent_pipelines")
           .select("id", { count: "exact", head: true })
@@ -362,7 +389,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ success: true, triggered, active_goals: activeGoals.length });
+      return json({ success: true, triggered, active_goals: sortedGoals.length });
     }
 
     // ========== ACTION: check_scheduled_publish ==========
@@ -421,6 +448,43 @@ Deno.serve(async (req) => {
         ? stuckPipelines.filter((p: any) => p.organization_id === organization_id)
         : stuckPipelines;
 
+      // Phase 2c: Early Warning — detect systemic stage failures
+      const stageFailCounts: Record<string, number> = {};
+      for (const p of filtered) {
+        stageFailCounts[p.current_stage] = (stageFailCounts[p.current_stage] || 0) + 1;
+      }
+      for (const [stageName, count] of Object.entries(stageFailCounts)) {
+        if (count >= 3) {
+          console.warn(`[early_warning] Stage "${stageName}" stuck ${count} times — systemic issue detected`);
+          // Create notification for org admins
+          const affectedOrgs = [...new Set(filtered.filter(p => p.current_stage === stageName).map(p => p.organization_id))];
+          for (const affectedOrgId of affectedOrgs) {
+            try {
+              const { data: admins } = await supabase
+                .from("organization_members")
+                .select("user_id")
+                .eq("organization_id", affectedOrgId)
+                .in("role", ["owner", "admin"])
+                .limit(3);
+              if (admins?.length) {
+                await supabase.from("notifications").insert(
+                  admins.map((a: any) => ({
+                    user_id: a.user_id,
+                    organization_id: affectedOrgId,
+                    type: "agent_system_warning",
+                    title: `⚠️ Stage "${stageName}" có vấn đề hệ thống`,
+                    message: `${count} pipeline đang bị kẹt tại giai đoạn "${stageName}". Hệ thống đang tự phục hồi.`,
+                    data: { stage: stageName, stuck_count: count },
+                  }))
+                );
+              }
+            } catch (e) {
+              console.warn(`[early_warning] Notification failed for org ${affectedOrgId}:`, e);
+            }
+          }
+        }
+      }
+
       const MAX_RETRY_LIMIT = 3;
       let recovered = 0;
       let flagged = 0;
@@ -429,13 +493,17 @@ Deno.serve(async (req) => {
         const stageState = pState.stages?.[p.current_stage];
         const retryCount = stageState?.retry_count || 0;
 
+        // Phase 2a: Classify error and choose recovery strategy
+        const lastError = stageState?.last_error || stageState?.error || '';
+        const errorClassification = classifyRecoveryError(lastError);
+
         // If exceeded max retry limit, flag the pipeline and skip
         if (retryCount >= MAX_RETRY_LIMIT) {
           await supabase
             .from("agent_pipelines")
             .update({
               is_flagged: true,
-              flag_reason: `Auto-flagged: exceeded max retry limit (${retryCount} retries at stage ${p.current_stage})`,
+              flag_reason: `Auto-flagged: exceeded max retry limit (${retryCount} retries at stage ${p.current_stage}). Error type: ${errorClassification.type}`,
             } as any)
             .eq("id", p.id);
 
@@ -443,52 +511,73 @@ Deno.serve(async (req) => {
             pipeline_id: p.id,
             agent_name: "recovery",
             action: "flag_max_retries",
-            input_summary: `Stage: ${p.current_stage}, retry_count: ${retryCount}`,
-            output_summary: `Flagged: exceeded max retry limit of ${MAX_RETRY_LIMIT}`,
+            input_summary: `Stage: ${p.current_stage}, retry_count: ${retryCount}, error_type: ${errorClassification.type}`,
+            output_summary: `Flagged: exceeded max retry limit of ${MAX_RETRY_LIMIT}. Strategy was: ${errorClassification.strategy}`,
           } as any);
 
           flagged++;
           continue;
         }
 
-        // Reset stage status to pending for re-execution
-        if (pState.stages?.[p.current_stage]) {
-          pState.stages[p.current_stage] = {
-            ...stageState,
-            status: "pending",
-            last_error: stageState?.last_error || null,
-            retry_count: retryCount + 1,
-            recovered_at: new Date().toISOString(),
-          };
-        }
+        // Apply strategy-specific recovery
+        let recoveryAction = "retry";
+        if (errorClassification.strategy === 'skip' && p.current_stage !== 'create') {
+          // Skip this stage (e.g., publish_auth errors on publish stage)
+          recoveryAction = "skip_stage";
+          const stageIdx = STAGE_ORDER.indexOf(p.current_stage);
+          if (stageIdx >= 0 && stageIdx < STAGE_ORDER.length - 1) {
+            const nextStage = STAGE_ORDER[stageIdx + 1];
+            pState.stages[p.current_stage] = { ...stageState, status: "skipped", skip_reason: errorClassification.type };
+            pState.stages[nextStage] = { ...(pState.stages[nextStage] || {}), status: "in_progress", started_at: new Date().toISOString() };
+            await supabase.from("agent_pipelines").update({
+              current_stage: nextStage,
+              pipeline_state: pState,
+              stage_started_at: new Date().toISOString(),
+            } as any).eq("id", p.id);
+            fireNextStage(supabaseUrl, supabaseKey, p.id, nextStage);
+          }
+        } else {
+          // Default: retry the stage
+          if (pState.stages?.[p.current_stage]) {
+            pState.stages[p.current_stage] = {
+              ...stageState,
+              status: "pending",
+              last_error: stageState?.last_error || null,
+              retry_count: retryCount + 1,
+              recovered_at: new Date().toISOString(),
+              recovery_strategy: errorClassification.strategy,
+              error_type: errorClassification.type,
+            };
+          }
 
-        const now = new Date().toISOString();
-        await supabase
-          .from("agent_pipelines")
-          .update({
-            pipeline_state: pState,
-            stage_started_at: now,
-          } as any)
-          .eq("id", p.id);
+          const now = new Date().toISOString();
+          await supabase
+            .from("agent_pipelines")
+            .update({
+              pipeline_state: pState,
+              stage_started_at: now,
+            } as any)
+            .eq("id", p.id);
+
+          // Staggered re-fire: 5s between each pipeline
+          const delay = recovered * 5000;
+          setTimeout(() => {
+            fireNextStage(supabaseUrl, supabaseKey, p.id, p.current_stage);
+          }, delay);
+        }
 
         await supabase.from("agent_pipeline_logs").insert({
           pipeline_id: p.id,
           agent_name: "recovery",
           action: "recover_stuck",
           input_summary: `Stage: ${p.current_stage}, stuck > 15min, retry ${retryCount + 1}/${MAX_RETRY_LIMIT}`,
-          output_summary: "Reset to pending, re-firing",
+          output_summary: `Recovery: ${recoveryAction}, error_type: ${errorClassification.type}, strategy: ${errorClassification.strategy}`,
         } as any);
-
-        // Staggered re-fire: 5s between each pipeline
-        const delay = recovered * 5000;
-        setTimeout(() => {
-          fireNextStage(supabaseUrl, supabaseKey, p.id, p.current_stage);
-        }, delay);
 
         recovered++;
       }
 
-      return json({ success: true, recovered, flagged, total_stuck: filtered.length });
+      return json({ success: true, recovered, flagged, total_stuck: filtered.length, stage_fail_counts: stageFailCounts });
     }
 
     // ========== ACTION: backfill_approvals ==========
@@ -636,15 +725,54 @@ Deno.serve(async (req) => {
       const pieces = plan.plan_data as any[];
       if (!pieces?.length) throw new Error("Plan has no content pieces");
 
+      // Phase 4a: Quota check before creating pipelines
+      const { count: orgRunning } = await supabase
+        .from("agent_pipelines")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", plan.organization_id)
+        .is("completed_at", null)
+        .eq("is_flagged", false);
+
+      const availableSlots = Math.max(0, MAX_CONCURRENT_PIPELINES - (orgRunning || 0));
+      const quotaLimited = pieces.length > availableSlots;
+
       let goalData: any = null;
       if (plan.goal_id) {
         const { data: g } = await supabase.from("agent_goals").select("*").eq("id", plan.goal_id).single();
         goalData = g;
       }
 
-      const pipelineIds: string[] = [];
+      // Phase 1b: Sort pieces by priority — urgent first, then by scheduled_date proximity
+      const sortedPieces = [...pieces].sort((a, b) => {
+        const priorityOrder: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+        const aPri = priorityOrder[a.priority || 'normal'] ?? 2;
+        const bPri = priorityOrder[b.priority || 'normal'] ?? 2;
+        if (aPri !== bPri) return aPri - bPri;
+        // Then by scheduled_date proximity
+        const aDate = a.scheduled_date ? new Date(a.scheduled_date).getTime() : Infinity;
+        const bDate = b.scheduled_date ? new Date(b.scheduled_date).getTime() : Infinity;
+        return aDate - bDate;
+      });
 
-      for (const piece of pieces) {
+      // Only create up to available slots if quota limited
+      const piecesToCreate = quotaLimited ? sortedPieces.slice(0, availableSlots) : sortedPieces;
+      const queuedPieces = quotaLimited ? sortedPieces.slice(availableSlots) : [];
+
+      if (quotaLimited) {
+        console.log(`[create_from_plan] Quota limited: ${pieces.length} pieces, ${availableSlots} slots available. Queuing ${queuedPieces.length} pieces.`);
+        await supabase.from("agent_pipeline_logs").insert({
+          pipeline_id: null,
+          agent_name: "quota_manager",
+          action: "quota_throttled",
+          input_summary: `Plan ${plan_id}: ${pieces.length} pieces, ${availableSlots} slots`,
+          output_summary: `Creating ${piecesToCreate.length}, queued ${queuedPieces.length}`,
+        } as any);
+      }
+
+      const pipelineIds: string[] = [];
+      const conflicts: any[] = [];
+
+      for (const piece of piecesToCreate) {
         const autonomyLevel = plan.approval_mode === "full_auto"
           ? "full_auto"
           : plan.approval_mode === "approve_each"
@@ -681,6 +809,46 @@ Deno.serve(async (req) => {
           pipelineState.stages.strategy = { status: "completed", completed_at: new Date().toISOString() } as any;
         }
 
+        // Phase 4b: Schedule Conflict Detection
+        let scheduledPublishAt = piece.scheduled_date ? `${piece.scheduled_date}T09:00:00Z` : null;
+        if (scheduledPublishAt && piece.target_channel) {
+          const targetCh = piece.target_channel.split(',').map((s: string) => s.trim()).filter(Boolean);
+          for (const ch of targetCh) {
+            const schedTime = new Date(scheduledPublishAt);
+            const windowStart = new Date(schedTime.getTime() - 2 * 60 * 60 * 1000).toISOString();
+            const windowEnd = new Date(schedTime.getTime() + 2 * 60 * 60 * 1000).toISOString();
+
+            const { data: conflicting } = await supabase
+              .from("content_schedules")
+              .select("id, scheduled_at, notes")
+              .eq("channel", ch === 'blog' ? 'website' : ch)
+              .eq("organization_id", plan.organization_id)
+              .gte("scheduled_at", windowStart)
+              .lte("scheduled_at", windowEnd)
+              .neq("publish_status", "cancelled")
+              .limit(3);
+
+            if (conflicting?.length) {
+              // Shift by +3 hours to avoid conflict
+              const shifted = new Date(schedTime.getTime() + 3 * 60 * 60 * 1000);
+              scheduledPublishAt = shifted.toISOString();
+              conflicts.push({
+                piece_number: piece.piece_number,
+                channel: ch,
+                original_time: piece.scheduled_date + "T09:00:00Z",
+                shifted_time: scheduledPublishAt,
+                conflicting_count: conflicting.length,
+              });
+              console.log(`[create_from_plan] Conflict on ${ch} at ${piece.scheduled_date}T09:00, shifted to ${scheduledPublishAt}`);
+            }
+          }
+        }
+
+        // Phase 1a: Assess complexity for dynamic model selection
+        const complexity = assessComplexity({ ...pipelineState, content_type: contentType, pipeline_state: pipelineState });
+        (pipelineState as any).metadata.complexity = complexity;
+        (pipelineState as any).metadata.suggested_model = getModelForComplexity(complexity);
+
         const { data: pipeline, error: pipeErr } = await supabase
           .from("agent_pipelines")
           .insert({
@@ -693,9 +861,9 @@ Deno.serve(async (req) => {
             content_type: contentType,
             current_stage: "create",
             pipeline_state: pipelineState,
-            priority: "normal",
+            priority: piece.priority || "normal",
             autonomy_level: autonomyLevel,
-            scheduled_publish_at: piece.scheduled_date ? `${piece.scheduled_date}T09:00:00Z` : null,
+            scheduled_publish_at: scheduledPublishAt,
             estimated_completion: new Date(Date.now() + ({ multichannel: 5, carousel: 8, video_script: 4 }[contentType] || 6) * 60 * 1000).toISOString(),
             stage_started_at: new Date().toISOString(),
           } as any)
@@ -719,7 +887,7 @@ Deno.serve(async (req) => {
                   content_id: null, // Will be updated after create stage
                   channel: ch,
                   organization_id: plan.organization_id,
-                  scheduled_at: `${piece.scheduled_date}T09:00:00Z`,
+                  scheduled_at: scheduledPublishAt || `${piece.scheduled_date}T09:00:00Z`,
                   timezone: "Asia/Ho_Chi_Minh",
                   publish_status: "scheduled",
                   notes: `Auto-created from campaign plan: ${piece.title}`,
@@ -754,13 +922,25 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       } as any).eq("id", plan_id);
 
-      // Start all pipelines with staggered fire-and-forget
+      // Phase 1b: Staggered fire based on priority
       for (const pid of pipelineIds) {
+        const matchPiece = piecesToCreate.find(p => p.pipeline_id === pid);
+        const priority = matchPiece?.priority || 'normal';
+        const delay = getPriorityDelay(priority);
+        if (delay > 0) {
+          await new Promise(r => setTimeout(r, delay));
+        }
         fireNextStage(supabaseUrl, supabaseKey, pid, "create");
-        await new Promise(r => setTimeout(r, 3000));
       }
 
-      return json({ success: true, pipeline_count: pipelineIds.length, pipeline_ids: pipelineIds });
+      return json({
+        success: true,
+        pipeline_count: pipelineIds.length,
+        pipeline_ids: pipelineIds,
+        queued_count: queuedPieces.length,
+        conflicts: conflicts.length > 0 ? conflicts : undefined,
+        quota_limited: quotaLimited,
+      });
     }
 
     return new Response(
@@ -815,12 +995,16 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
   // Fetch agent model config for this stage
   const agentConfig = await getAgentModelConfig(supabase, orgId, stage);
-  const modelOverride = agentConfig?.model_override || undefined;
+  const fallbackModel = agentConfig?.fallback_model || undefined;
   const agentTemperature = agentConfig?.temperature || undefined;
   const agentMaxTokens = agentConfig?.max_tokens || undefined;
-  const fallbackModel = agentConfig?.fallback_model || undefined;
 
-  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
+  // Phase 1a: Dynamic model selection — use agent config override, or complexity-based model
+  const complexity = meta.complexity || assessComplexity(pipeline);
+  const dynamicModel = getModelForComplexity(complexity);
+  const modelOverride = agentConfig?.model_override || meta.suggested_model || dynamicModel;
+
+  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, complexity: ${complexity}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
 
   // Mark stage as in_progress
   if (pState.stages?.[stage]) {
@@ -1756,6 +1940,20 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
   }
 
   const durationMs = Date.now() - startTime;
+
+  // Phase 2c: Early Warning — log if stage exceeded 80% of estimated time
+  const estimatedMs = STAGE_TIME_ESTIMATES[stage] || 60000;
+  if (durationMs > estimatedMs * 0.8 && result.status !== "failed") {
+    console.warn(`[early_warning] Stage "${stage}" took ${durationMs}ms (${Math.round(durationMs / estimatedMs * 100)}% of estimated ${estimatedMs}ms)`);
+    await supabase.from("agent_pipeline_logs").insert({
+      pipeline_id: pipeline.id,
+      agent_name: "early_warning",
+      action: "slow_stage",
+      input_summary: `Stage: ${stage}, duration: ${durationMs}ms, estimated: ${estimatedMs}ms`,
+      output_summary: `${Math.round(durationMs / estimatedMs * 100)}% of estimate — potential bottleneck`,
+      duration_ms: durationMs,
+    } as any);
+  }
 
   // Save stage output to pipeline_state
   if (pState.stages?.[stage] && result.status !== "failed") {
