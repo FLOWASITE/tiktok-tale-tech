@@ -154,7 +154,7 @@ export function ChatMessageBubble({
           </div>
         ) : (
           <div className={cn(
-            'relative group/message rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm transition-all duration-200',
+            'relative group/message rounded-2xl px-3.5 py-2.5 max-w-[90%] text-sm transition-all duration-200 overflow-hidden break-words',
             message.role === 'user' 
               ? 'bg-gradient-to-br from-primary to-violet-600 text-primary-foreground ml-auto rounded-br-sm shadow-lg shadow-primary/20' 
               : 'glass-chat-bubble rounded-bl-sm'
@@ -210,7 +210,7 @@ export function ChatMessageBubble({
                         </div>
                       )}
                       {/* Always show markdown content (AI analysis) */}
-                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
+                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2 [overflow-wrap:anywhere]">
                           {searchQuery && searchResults.includes(message.id) && highlightSearchTerm ? (
                             <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(cleanContent) }} />
                           ) : (
