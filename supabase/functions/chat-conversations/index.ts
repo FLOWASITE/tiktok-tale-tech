@@ -80,6 +80,8 @@ Deno.serve(withPerf({ functionName: 'chat-conversations' }, async (req) => {
       });
     }
 
+    const user = { id: claimsData.claims.sub as string };
+
     const body: ConversationRequest = await req.json();
     const { action } = body;
 
