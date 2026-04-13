@@ -712,26 +712,61 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription className="space-y-2">
-                    <p className="font-medium">Hướng dẫn cài đặt (4 bước):</p>
+                    <p className="font-medium">Hướng dẫn cài đặt (3 bước đơn giản):</p>
                     <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Tải file <strong>api_flowa.php</strong> bên dưới</li>
-                      <li>Upload file lên thư mục gốc website (ngang hàng với <code>mainfile.php</code>)</li>
-                      <li>Mở file, đổi dòng <code>$my_api_key</code> thành mật khẩu riêng của bạn</li>
-                      <li>Nhập thông tin vào 2 ô bên dưới rồi bấm Kết nối</li>
+                      <li>Nhập hoặc tạo mật khẩu bảo mật bên dưới</li>
+                      <li>Tải file <strong>api_flowa.php</strong> → upload lên thư mục gốc website (ngang hàng với <code>mainfile.php</code>)</li>
+                      <li>Nhập đường dẫn website bên dưới rồi bấm <strong>Kết nối</strong></li>
                     </ol>
+                    <p className="text-xs text-muted-foreground mt-1">💡 Mật khẩu sẽ được tự động nhúng vào file, bạn không cần mở file ra sửa gì!</p>
                   </AlertDescription>
                 </Alert>
+
+                <div className="space-y-2">
+                  <Label htmlFor="nvApiKey">Mật khẩu bảo mật (API Key) *</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="nvApiKey"
+                        type={showSecrets.apiKey ? 'text' : 'password'}
+                        placeholder="Nhập mật khẩu hoặc bấm Tạo ngẫu nhiên"
+                        value={websiteForm.apiKey}
+                        onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                        className="pr-10"
+                      />
+                      <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
+                        {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                        const key = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                          .map(b => chars[b % chars.length]).join('');
+                        setWebsiteForm(prev => ({ ...prev, apiKey: key }));
+                        toast.success('Đã tạo mật khẩu ngẫu nhiên!');
+                      }}
+                    >
+                      🔄 Tạo ngẫu nhiên
+                    </Button>
+                  </div>
+                </div>
+
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="w-full"
+                  disabled={!websiteForm.apiKey}
                   onClick={() => {
+                    const apiKeyValue = websiteForm.apiKey;
                     const phpCode = `<?php
 // =========================================================
-// CẤU HÌNH BẢO MẬT (Dành cho chủ website)
-// Hãy thay đổi dòng chữ bên trong dấu ngoặc kép thành mật khẩu của bạn
-$my_api_key = "THAY_MAT_KHAU_CUA_BAN_VAO_DAY";
+// CẤU HÌNH BẢO MẬT (Đã được tạo tự động bởi Flowa App)
+$my_api_key = "${apiKeyValue}";
 // =========================================================
 
 define('NV_SYSTEM', true);
@@ -812,11 +847,15 @@ try {
                     a.download = 'api_flowa.php';
                     a.click();
                     URL.revokeObjectURL(url);
-                    toast.success('Đã tải file api_flowa.php');
+                    toast.success('Đã tải file api_flowa.php (đã nhúng mật khẩu)');
                   }}
                 >
                   📥 Tải file api_flowa.php
                 </Button>
+                {!websiteForm.apiKey && (
+                  <p className="text-xs text-muted-foreground">⚠️ Vui lòng nhập hoặc tạo mật khẩu trước khi tải file</p>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="nvEndpoint">API Endpoint *</Label>
                   <Input
@@ -826,22 +865,6 @@ try {
                     value={websiteForm.apiEndpoint}
                     onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiEndpoint: e.target.value }))}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="nvApiKey">Mật khẩu bảo mật (API Key) *</Label>
-                  <div className="relative">
-                    <Input
-                      id="nvApiKey"
-                      type={showSecrets.apiKey ? 'text' : 'password'}
-                      placeholder="Nhập mật khẩu bạn đã đặt trong file PHP"
-                      value={websiteForm.apiKey}
-                      onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
-                      className="pr-10"
-                    />
-                    <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
-                      {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
                 </div>
               </>
             )}
