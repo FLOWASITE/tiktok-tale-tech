@@ -13,6 +13,7 @@ import {
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 
 interface QuickAction {
   titleKey: string;
@@ -104,6 +105,25 @@ interface QuickActionGridProps {
 export function QuickActionGrid({ className }: QuickActionGridProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { brands, loading: brandsLoading } = useCurrentBrand();
+  const hasBrands = brandsLoading || brands.length > 0;
+
+  // Inject "Create Brand" as first item when no brands exist
+  const displayActions = hasBrands
+    ? quickActions
+    : [
+        {
+          titleKey: 'app.dashboard.brandManagement',
+          descKey: 'app.dashboard.brandManagementDesc',
+          icon: Bookmark,
+          href: '/brands/new',
+          gradient: 'from-amber-500 to-orange-600',
+          shortcut: '⌘B',
+          shortcutKey: 'b',
+          badge: 'Bắt đầu tại đây',
+        },
+        ...quickActions.filter((a) => a.href !== '/brands'),
+      ];
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -139,7 +159,7 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
       </div>
 
       <div className="grid gap-2 sm:gap-3">
-        {quickActions.map((action) => {
+        {displayActions.map((action) => {
           const Icon = action.icon;
           return (
             <motion.div key={action.href} variants={itemVariants}>
