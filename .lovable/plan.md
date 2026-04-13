@@ -1,17 +1,22 @@
 
 
-## Fix: Test Facebook không cập nhật "Đã xác thực"
+## Chỉnh chu UI cho nhiều Fanpage Facebook
 
-### Nguyên nhân
-Edge function `test-facebook-connection/index.ts` khi test thành công chỉ update `is_active`, `platform_username`, và `metadata` — nhưng **không update `last_verified_at`**.
+### Thay đổi trong `src/components/brand/BrandViewConnectionsTab.tsx`
 
-Frontend (`BrandViewConnectionsTab.tsx`) kiểm tra `connection.last_verified_at` để hiển thị badge "Đã xác thực" (xanh lá) thay vì "Đã kết nối" (xanh dương). Vì `last_verified_at` luôn là `null` nên badge không bao giờ chuyển sang "Đã xác thực".
+**1. Thêm số thứ tự và nhóm visual cho các Fanpage**
+- Mỗi Fanpage active hiển thị label nhỏ "Fanpage 1", "Fanpage 2", "Fanpage 3"... phía trên hoặc bên cạnh tên Page
+- Giúp user phân biệt rõ khi có nhiều kết nối
 
-### Thay đổi
+**2. Cải thiện layout cho danh sách nhiều Fanpage**
+- Fanpage đầu tiên giữ border solid (chính), các Fanpage tiếp theo dùng border nhẹ hơn nhưng vẫn rõ ràng
+- Thêm divider hoặc khoảng cách hợp lý giữa các connection
+- Nút "Thêm Fanpage" chuyển sang style nhỏ gọn hơn (border dashed, text muted) để không lẫn với các connection đã có
 
-**File: `supabase/functions/test-facebook-connection/index.ts` (line ~171)**
+**3. Hiển thị thông tin phụ hữu ích**
+- Thêm thời gian kết nối (connected_at) dạng relative ("2 ngày trước") dưới mỗi connection
+- Giúp phân biệt các Fanpage khi tên giống nhau
 
-Thêm `last_verified_at: new Date().toISOString()` vào câu lệnh update khi test thành công (cùng chỗ đang update `is_active: true`).
-
-Một dòng duy nhất cần thêm, không thay đổi logic khác.
+### Kết quả
+Danh sách nhiều Fanpage Facebook trông gọn gàng, có thứ tự rõ ràng, dễ quản lý.
 
