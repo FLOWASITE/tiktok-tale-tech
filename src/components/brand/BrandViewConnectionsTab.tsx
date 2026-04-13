@@ -387,19 +387,26 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
       >
         <div className="flex items-center gap-4">
-          {/* Platform icon or user avatar */}
-          {connection?.platform_avatar_url ? (
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={connection.platform_avatar_url} alt={connection.platform_display_name || ''} />
-              <AvatarFallback className={config.color}>
+          {/* Platform icon with optional avatar overlay */}
+          <div className="relative">
+            {connection?.platform_avatar_url ? (
+              <>
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={connection.platform_avatar_url} alt={connection.platform_display_name || ''} />
+                  <AvatarFallback className={config.color}>
+                    {config.icon}
+                  </AvatarFallback>
+                </Avatar>
+                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${config.color} ring-2 ring-background`}>
+                  {React.cloneElement(config.icon as React.ReactElement, { className: 'w-3 h-3' })}
+                </div>
+              </>
+            ) : (
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
                 {config.icon}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
-              {config.icon}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium">
@@ -422,12 +429,12 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 {connection.is_active ? (
                   <>
                     {connection.last_verified_at ? (
-                      <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                      <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
                         <ShieldCheck className="w-3 h-3 mr-1" />
                         Đã xác thực
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Đã kết nối
                       </Badge>
@@ -435,7 +442,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     <TokenExpiryBadge expiresAt={connection.token_expires_at} />
                   </>
                 ) : (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">
+                    <Unplug className="w-3 h-3 mr-1" />
                     Đã ngắt
                   </Badge>
                 )}
@@ -521,21 +529,28 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           className={`flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors ${isInactive ? 'opacity-50' : ''}`}
         >
           <div className="flex items-center gap-4">
-            {connection.platform_avatar_url || (connection as any).metadata?.page_picture ? (
-              <Avatar className="w-10 h-10">
-                <AvatarImage
-                  src={connection.platform_avatar_url || (connection as any).metadata?.page_picture}
-                  alt={connection.platform_username || ''}
-                />
-                <AvatarFallback className={config.color}>
+            <div className="relative">
+              {connection.platform_avatar_url || (connection as any).metadata?.page_picture ? (
+                <>
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage
+                      src={connection.platform_avatar_url || (connection as any).metadata?.page_picture}
+                      alt={connection.platform_username || ''}
+                    />
+                    <AvatarFallback className={config.color}>
+                      {config.icon}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${config.color} ring-2 ring-background`}>
+                    <Facebook className="w-3 h-3" />
+                  </div>
+                </>
+              ) : (
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
                   {config.icon}
-                </AvatarFallback>
-              </Avatar>
-            ) : (
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
-                {config.icon}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium">
@@ -551,12 +566,12 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 {connection.is_active ? (
                   <>
                     {connection.last_verified_at ? (
-                      <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                      <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
                         <ShieldCheck className="w-3 h-3 mr-1" />
                         Đã xác thực
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Đã kết nối
                       </Badge>
@@ -564,7 +579,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     <TokenExpiryBadge expiresAt={connection.token_expires_at} />
                   </>
                 ) : (
-                  <Badge variant="destructive" className="text-xs">
+                  <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">
+                    <Unplug className="w-3 h-3 mr-1" />
                     Đã ngắt
                   </Badge>
                 )}
@@ -694,12 +710,13 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                       </span>
                     )}
                     {connection.is_active ? (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Đã kết nối
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">
+                        <Unplug className="w-3 h-3 mr-1" />
                         Đã ngắt
                       </Badge>
                     )}
