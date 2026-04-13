@@ -1,63 +1,58 @@
 
 
-## Thêm tích hợp NukeViet vào hệ thống kết nối Website
+## Cải thiện luồng NukeViet: Tự động chèn API Key vào file PHP
 
-### Tổng quan
-Thêm "NukeViet" như một loại kết nối website riêng biệt (bên cạnh WordPress, Blogger, Wix...), với giao diện thân thiện kèm hướng dẫn cài đặt file PHP cho người dùng không chuyên.
+### Vấn đề hiện tại
+Luồng hiện tại yêu cầu khách hàng tải file PHP → mở file → tìm dòng `$my_api_key` → sửa tay → lưu. Quá phức tạp cho người không chuyên.
 
-### Các thay đổi
+### Giải pháp
+Đảo ngược luồng: khách nhập API Key trước (hoặc bấm tạo ngẫu nhiên), rồi app tự chèn key vào file PHP trước khi tải xuống. Khách chỉ việc ném file lên hosting, không cần mở sửa gì.
 
-**1. Frontend — `src/components/brand/BrandViewConnectionsTab.tsx`**
-- Thêm `'nukeviet'` vào union type của `integrationType`
-- Thêm `<option value="nukeviet">NukeViet CMS</option>` vào dropdown (line 685-692)
-- Thêm section form riêng khi chọn NukeViet:
-  - Alert hướng dẫn 4 bước (tải file → upload hosting → đổi mật khẩu → nhập vào app)
-  - Link tải file `api_flowa.php` (từ Storage hoặc static URL)
-  - Input "API Endpoint" (placeholder: `https://ten-mien.com/api_flowa.php`)
-  - Input "API Key / Mật khẩu bảo mật" (password field)
+### Thay đổi — `src/components/brand/BrandViewConnectionsTab.tsx`
 
-**2. Edge Function — `supabase/functions/connect-website/index.ts`**
-- Thêm `'nukeviet'` vào union type `integrationType` (line 18)
-- Thêm validation case cho NukeViet: test POST đến endpoint với `api_key` để verify kết nối
+**1. Sắp xếp lại thứ tự UI trong section NukeViet (line 710-846):**
 
-**3. Edge Function — `supabase/functions/publish-website/index.ts`**
-- Thêm case `'nukeviet'` (sau line 300): gửi POST với body format `{ api_key, title, content, catid }` — đúng format mà file PHP NukeViet mong đợi
-
-**4. Edge Function — `supabase/functions/test-website-connection/index.ts`**
-- Thêm case `'nukeviet'`: test bằng GET/POST đến endpoint với api_key
-
-**5. Tạo file PHP tải về — `/mnt/documents/api_flowa.php`**
-- Generate file PHP sẵn sàng tải (đoạn code NukeViet user cung cấp, đã tối ưu)
-- Artifact để user download và gửi cho khách hàng
-
-### Chi tiết kỹ thuật
-
-Format gửi bài cho NukeViet endpoint:
-```json
-{
-  "api_key": "xxx",
-  "title": "Tiêu đề bài viết",
-  "content": "<p>Nội dung HTML</p>",
-  "catid": 1
-}
-```
-
-Giao diện form NukeViet sẽ hiển thị:
 ```text
 ┌─────────────────────────────────────┐
-│ 📋 Hướng dẫn cài đặt (4 bước)      │
-│ 1. Tải file api_flowa.php           │
-│ 2. Upload lên hosting               │
-│ 3. Đổi mật khẩu trong file          │
-│ 4. Nhập thông tin bên dưới          │
+│ 📋 Hướng dẫn (3 bước, không còn 4) │
+│ 1. Nhập hoặc tạo mật khẩu bảo mật │
+│ 2. Tải file → upload lên hosting   │
+│ 3. Nhập endpoint bên dưới, bấm KN  │
 ├─────────────────────────────────────┤
+│ Mật khẩu bảo mật (API Key) *       │
+│ [••••••••••••] [🔄 Tạo ngẫu nhiên] │
+│                                     │
 │ [📥 Tải file api_flowa.php]         │
+│ (disabled nếu chưa nhập API Key)   │
 │                                     │
 │ API Endpoint *                      │
 │ [https://domain.com/api_flowa.php]  │
-│                                     │
-│ Mật khẩu bảo mật (API Key) *       │
-│ [••••••••••••]                      │
 └─────────────────────────────────────┘
 ```
+
+**2. Thêm nút "Tạo ngẫu nhiên":**
+- Sinh chuỗi 16 ký tự alphanumeric ngẫu nhiên
+- Tự điền vào ô API Key
+
+**3. Cập nhật logic tải file:**
+- Nút tải file disabled khi ô API Key trống
+- Khi bấm tải, lấy giá trị `websiteForm.apiKey` chèn vào template PHP thay chỗ `"THAY_MAT_KHAU_CUA_BAN_VAO_DAY"`
+- Bỏ dòng comment "Hãy thay đổi dòng chữ..." vì không cần nữa
+
+**4. Cập nhật hướng dẫn từ 4 bước → 3 bước:**
+- Bỏ bước 3 cũ (mở file đổi mật khẩu)
+- Placeholder ô API Key: "Nhập mật khẩu hoặc bấm Tạo ngẫu nhiên"
+
+### Chi tiết kỹ thuật
+
+Hàm tạo key ngẫu nhiên:
+```typescript
+const generateRandomKey = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => chars[b % chars.length]).join('');
+};
+```
+
+Template PHP sẽ dùng `${websiteForm.apiKey}` thay vì hardcode placeholder.
 
