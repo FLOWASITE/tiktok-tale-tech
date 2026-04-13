@@ -1,43 +1,33 @@
 
-# Đổi UI Card cho chế độ xem "Theo kênh"
 
-## Vấn đề
-Khi xem theo kênh (ví dụ tab Facebook), `MultiChannelCard` vẫn hiển thị tất cả thông tin đa kênh (thanh tiến độ kênh, grid icon tất cả kênh, số kênh đã điền...) — thông tin này thừa và gây nhiễu vì user đã biết mình đang xem kênh nào.
+# Thêm Sort theo Năm/Tháng cho Channel Group View
 
-## Giải pháp
-Tạo component `SocialPostCard` mới — card đơn giản hơn, tập trung vào nội dung của **1 kênh cụ thể**, giống phong cách quản lý bài đăng social:
-
-```text
-┌──────────────────────────────────┐
-│ 📷 [Ảnh kênh rộng]              │  ← Thumbnail lớn chiếm full width
-├──────────────────────────────────┤
-│ Tiêu đề bài viết                │
-│ "Nội dung kênh cụ thể preview.."│  ← Text preview của kênh đang xem
-│                                  │
-│ [Đã duyệt] [Giáo dục]  ⭐ 85   │  ← Status + Goal + Score
-│                                  │
-│ 👤 Creator · Brand · 2 giờ trước│
-│ [Xem] [Lịch] [Xóa]             │
-└──────────────────────────────────┘
-```
+## Mô tả
+Thêm dropdown sắp xếp bài viết trong mỗi tab kênh theo năm/tháng (mới nhất, cũ nhất) và nhóm hiển thị theo tháng.
 
 ## Thay đổi
 
-### 1. `src/components/multichannel/SocialPostCard.tsx` — **Mới**
-- Props: nhận thêm `activeChannel: Channel` để biết đang xem kênh nào
-- Thumbnail: hiển thị ảnh của kênh đang xem (`channel_images[activeChannel]`), full width, aspect-ratio 16:9
-- Nội dung preview: hiển thị `{channel}_content` thay vì chỉ title — 2-3 dòng text
-- Bỏ hoàn toàn: grid icon kênh, thanh tiến độ kênh, số kênh đã điền
-- Giữ: status badge, goal badge, critique/GEO score, tags, creator, brand, actions
-- Trạng thái kênh: hiển thị `channel_statuses[activeChannel]` thay vì status tổng
+### `src/components/multichannel/ChannelGroupView.tsx`
 
-### 2. `src/components/multichannel/ChannelGroupView.tsx`
-- Import `SocialPostCard` thay vì `MultiChannelCard`
-- Truyền `activeChannel={channel}` cho mỗi card
-- Giữ nguyên grid layout nhưng có thể giảm columns (3-4 cột thay vì 5) vì card giờ cao hơn do có thumbnail lớn
+**Thêm state sort + UI control:**
+- Thêm state `sortBy` với các option: `newest` (mới nhất), `oldest` (cũ nhất), `month_group` (nhóm theo tháng)
+- Đặt Select dropdown sort ở góc phải header kênh (bên cạnh nút Đăng tất cả / Lên lịch)
+
+**Logic sort:**
+- `newest` / `oldest`: sort `items` theo `created_at`
+- `month_group`: nhóm items theo tháng/năm (ví dụ "Tháng 4, 2026", "Tháng 3, 2026"), hiển thị mỗi nhóm với tiêu đề tháng + grid cards bên dưới
+
+**Layout khi nhóm theo tháng:**
+```text
+── Tháng 4, 2026 (5 bài) ──────────
+[Card] [Card] [Card] [Card] [Card]
+
+── Tháng 3, 2026 (3 bài) ──────────
+[Card] [Card] [Card]
+```
 
 ### Files
 | File | Thay đổi |
 |------|----------|
-| `src/components/multichannel/SocialPostCard.tsx` | **Mới** — Card tối ưu cho view theo kênh |
-| `src/components/multichannel/ChannelGroupView.tsx` | Dùng SocialPostCard thay MultiChannelCard |
+| `src/components/multichannel/ChannelGroupView.tsx` | Thêm sort state, Select dropdown, logic sort/group theo tháng |
+
