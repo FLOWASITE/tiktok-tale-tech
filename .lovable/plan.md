@@ -1,58 +1,34 @@
 
 
-## Cải thiện luồng NukeViet: Tự động chèn API Key vào file PHP
+## Auto-fill API Endpoint từ URL Website
 
-### Vấn đề hiện tại
-Luồng hiện tại yêu cầu khách hàng tải file PHP → mở file → tìm dòng `$my_api_key` → sửa tay → lưu. Quá phức tạp cho người không chuyên.
+### Vấn đề
+User đã nhập URL website ở trường "URL Website" (line 672-678), nhưng khi chọn NukeViet vẫn phải nhập lại đường dẫn ở trường "API Endpoint". Thừa thãi và dễ sai.
 
 ### Giải pháp
-Đảo ngược luồng: khách nhập API Key trước (hoặc bấm tạo ngẫu nhiên), rồi app tự chèn key vào file PHP trước khi tải xuống. Khách chỉ việc ném file lên hosting, không cần mở sửa gì.
+Khi user nhập URL website (ví dụ `https://abc.com`), tự động điền `apiEndpoint` = `https://abc.com/api_flowa.php`. Đồng thời đổi label cho dễ hiểu.
 
 ### Thay đổi — `src/components/brand/BrandViewConnectionsTab.tsx`
 
-**1. Sắp xếp lại thứ tự UI trong section NukeViet (line 710-846):**
+**1. Auto-fill apiEndpoint khi websiteUrl thay đổi (line 677):**
+- Trong `onChange` của ô "URL Website", nếu `integrationType === 'nukeviet'`, tự ghép thêm `/api_flowa.php` vào cuối URL và set vào `apiEndpoint`
+- Xử lý trailing slash: `https://abc.com/` → `https://abc.com/api_flowa.php`
 
+**2. Cũng auto-fill khi chuyển sang NukeViet (line 687):**
+- Trong `onChange` của dropdown "Loại kết nối", nếu chọn `nukeviet` và `websiteUrl` đã có giá trị, tự động điền `apiEndpoint`
+
+**3. Đổi label và thêm mô tả (line 860-867):**
+- Label: **"Đường dẫn file trên website"** thay vì "API Endpoint"
+- Thêm dòng mô tả: *"Tự động tạo từ URL website. Chỉ sửa nếu bạn đặt file ở vị trí khác."*
+- Giữ ô input cho phép user sửa nếu cần
+
+### Kết quả
 ```text
-┌─────────────────────────────────────┐
-│ 📋 Hướng dẫn (3 bước, không còn 4) │
-│ 1. Nhập hoặc tạo mật khẩu bảo mật │
-│ 2. Tải file → upload lên hosting   │
-│ 3. Nhập endpoint bên dưới, bấm KN  │
-├─────────────────────────────────────┤
-│ Mật khẩu bảo mật (API Key) *       │
-│ [••••••••••••] [🔄 Tạo ngẫu nhiên] │
-│                                     │
-│ [📥 Tải file api_flowa.php]         │
-│ (disabled nếu chưa nhập API Key)   │
-│                                     │
-│ API Endpoint *                      │
-│ [https://domain.com/api_flowa.php]  │
-└─────────────────────────────────────┘
+URL Website *
+[https://abc.com]          ← user nhập
+
+Đường dẫn file trên website *
+Tự động tạo từ URL website. Chỉ sửa nếu bạn đặt file ở vị trí khác.
+[https://abc.com/api_flowa.php]   ← tự động điền
 ```
-
-**2. Thêm nút "Tạo ngẫu nhiên":**
-- Sinh chuỗi 16 ký tự alphanumeric ngẫu nhiên
-- Tự điền vào ô API Key
-
-**3. Cập nhật logic tải file:**
-- Nút tải file disabled khi ô API Key trống
-- Khi bấm tải, lấy giá trị `websiteForm.apiKey` chèn vào template PHP thay chỗ `"THAY_MAT_KHAU_CUA_BAN_VAO_DAY"`
-- Bỏ dòng comment "Hãy thay đổi dòng chữ..." vì không cần nữa
-
-**4. Cập nhật hướng dẫn từ 4 bước → 3 bước:**
-- Bỏ bước 3 cũ (mở file đổi mật khẩu)
-- Placeholder ô API Key: "Nhập mật khẩu hoặc bấm Tạo ngẫu nhiên"
-
-### Chi tiết kỹ thuật
-
-Hàm tạo key ngẫu nhiên:
-```typescript
-const generateRandomKey = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map(b => chars[b % chars.length]).join('');
-};
-```
-
-Template PHP sẽ dùng `${websiteForm.apiKey}` thay vì hardcode placeholder.
 
