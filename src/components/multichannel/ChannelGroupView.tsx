@@ -109,6 +109,7 @@ export function ChannelGroupView({
   socialConnections,
 }: ChannelGroupViewProps) {
   const [sortBy, setSortBy] = useState<SortMode>('newest');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   const channelGroups = useMemo(() => {
     const groups: { channel: Channel; items: MultiChannelContent[] }[] = [];
@@ -246,7 +247,7 @@ export function ChannelGroupView({
 
                 {/* Right: sort + action buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortMode)}>
+                  <Select value={sortBy} onValueChange={(v) => { setSortBy(v as SortMode); setSelectedMonth('all'); }}>
                     <SelectTrigger className="h-7 w-auto min-w-[130px] text-xs gap-1.5 border-border">
                       <ArrowDownUp className="w-3 h-3 shrink-0" />
                       <SelectValue />
@@ -257,6 +258,31 @@ export function ChannelGroupView({
                       <SelectItem value="month_group">Theo tháng</SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {sortBy === 'month_group' && (() => {
+                    const months = groupByMonth(items);
+                    return months.length > 1 ? (
+                      <Select value={selectedMonth} onValueChange={(key) => {
+                        setSelectedMonth(key);
+                        if (key !== 'all') {
+                          setTimeout(() => {
+                            document.getElementById(`month-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }, 50);
+                        }
+                      }}>
+                        <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs gap-1.5 border-border">
+                          <Calendar className="w-3 h-3 shrink-0" />
+                          <SelectValue placeholder="Chọn tháng" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả tháng</SelectItem>
+                          {months.map((g) => (
+                            <SelectItem key={g.key} value={g.key}>{g.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null;
+                  })()}
 
                   {eligibleCount > 0 && connection && (
                     <>
@@ -278,7 +304,7 @@ export function ChannelGroupView({
             {sortBy === 'month_group' ? (
               <div className="space-y-6">
                 {groupByMonth(items).map((group) => (
-                  <div key={group.key}>
+                  <div key={group.key} id={`month-${group.key}`} className="scroll-mt-20">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="h-px flex-1 bg-border" />
                       <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
