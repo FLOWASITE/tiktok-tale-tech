@@ -5,7 +5,7 @@
 
 import {
   Bot, Search as SearchIcon, Volume2, VolumeX,
-  RefreshCw, HelpCircle, X, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal, SquarePen
+  RefreshCw, HelpCircle, X, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal, SquarePen, Keyboard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +46,7 @@ interface ChatHeaderProps {
   onDeleteConversation: (id: string) => void;
   onArchiveConversation: (id: string) => void;
   desktopLayout?: boolean;
+  onToggleShortcutsHint?: () => void;
 }
 
 export function ChatHeader({
@@ -75,6 +76,7 @@ export function ChatHeader({
   onDeleteConversation,
   onArchiveConversation,
   desktopLayout = false,
+  onToggleShortcutsHint,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -133,20 +135,6 @@ export function ChatHeader({
               {supervisorEnabled ? 'AI Pro Mode: Bật — nhiều chuyên gia phân tích' : 'AI Pro Mode: Tắt — phản hồi nhanh'}
             </TooltipContent>
           </Tooltip>
-
-          {/* New conversation */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onNewConversation}
-            className={cn(
-              "gap-1.5 text-muted-foreground hover:text-foreground",
-              desktopLayout ? "h-9 px-3 text-sm" : "h-7 px-2 text-xs"
-            )}
-          >
-            <SquarePen className={cn(desktopLayout ? "w-4 h-4" : "w-3.5 h-3.5")} />
-            <span>Đoạn chat mới</span>
-          </Button>
 
           {/* History - only on mobile (desktop has persistent sidebar) */}
           {!desktopLayout && (
@@ -228,7 +216,18 @@ export function ChatHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {/* View toggle - moved from tabs */}
+              <DropdownMenuItem onClick={onNewConversation}>
+                <SquarePen className="w-4 h-4 mr-2" />
+                Đoạn chat mới
+              </DropdownMenuItem>
+              {onToggleShortcutsHint && (
+                <DropdownMenuItem onClick={onToggleShortcutsHint}>
+                  <Keyboard className="w-4 h-4 mr-2" />
+                  Phím tắt
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {/* View toggle */}
               <DropdownMenuItem onClick={() => onActiveViewChange(activeView === 'chat' ? 'discovery' : 'chat')}>
                 {activeView === 'chat' ? (
                   <><Brain className="w-4 h-4 mr-2" />Xem Insights</>
