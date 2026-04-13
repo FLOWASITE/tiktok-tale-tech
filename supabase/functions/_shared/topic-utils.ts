@@ -165,9 +165,18 @@ export interface PerplexityTrendResult {
   citations: string[];
 }
 
-// ========== PERPLEXITY WEB SEARCH ==========
+// ========== WEB SEARCH (via OpenRouter + Perplexity Sonar) ==========
 
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+// Fallback: still check legacy Perplexity key
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+// Use OpenRouter if available, otherwise fall back to direct Perplexity
+const WEB_SEARCH_API_KEY = OPENROUTER_API_KEY || PERPLEXITY_API_KEY;
+const WEB_SEARCH_URL = OPENROUTER_API_KEY
+  ? 'https://openrouter.ai/api/v1/chat/completions'
+  : 'https://api.perplexity.ai/chat/completions';
+const WEB_SEARCH_MODEL = OPENROUTER_API_KEY ? 'perplexity/sonar' : 'sonar';
+const WEB_SEARCH_LABEL = OPENROUTER_API_KEY ? 'OpenRouter/Sonar' : 'Perplexity';
 
 // Threshold for learning context richness - if above this, skip web search
 const LEARNING_CONTEXT_THRESHOLD = 20;
@@ -205,8 +214,8 @@ export function shouldSkipWebSearch(options: {
     };
   }
 
-  // If no Perplexity API key, skip
-  if (!PERPLEXITY_API_KEY) {
+  // If no web search API key (neither OpenRouter nor Perplexity), skip
+  if (!WEB_SEARCH_API_KEY) {
     return {
       shouldSkipIndustrySearch: true,
       shouldSkipAudienceQA: true,
@@ -264,14 +273,14 @@ export function shouldSkipWebSearch(options: {
 }
 
 /**
- * Search for industry data using Perplexity API
+ * Search for industry data using OpenRouter (Perplexity Sonar) or direct Perplexity API
  */
 export async function searchIndustryData(
   industry: string, 
   brandName: string
 ): Promise<IndustryInsight | null> {
-  if (!PERPLEXITY_API_KEY) {
-    console.log('[Perplexity] API not configured, skipping industry data search');
+  if (!WEB_SEARCH_API_KEY) {
+    console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping industry data search`);
     return null;
   }
 
@@ -279,20 +288,26 @@ export async function searchIndustryData(
     const currentYear = new Date().getFullYear();
     const searchQuery = `${industry} Việt Nam ${currentYear}: thống kê ngành mới nhất, case studies thành công, insights marketing, báo cáo thị trường, xu hướng tiêu dùng, số liệu doanh thu, thị phần. Tập trung vào dữ liệu thực tế và số liệu cụ thể.`;
 
-    console.log('[Perplexity] Industry search:', searchQuery.substring(0, 80));
+    console.log(`[${WEB_SEARCH_LABEL}] Industry search:`, searchQuery.substring(0, 80));
 
     // 5-second timeout to prevent blocking the entire flow
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${WEB_SEARCH_API_KEY}`,
+      'Content-Type': 'application/json',
+    };
+    // OpenRouter requires HTTP-Referer for ranking
+    if (OPENROUTER_API_KEY) {
+      headers['HTTP-Referer'] = 'https://tiktok-tale-tech.lovable.app';
+    }
+
+    const response = await fetch(WEB_SEARCH_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'sonar',
+        model: WEB_SEARCH_MODEL,
         messages: [
           { 
             role: 'system', 
@@ -306,7 +321,7 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
           },
           { role: 'user', content: searchQuery }
         ],
-        search_recency_filter: 'month',
+        ...(OPENROUTER_API_KEY ? {} : { search_recency_filter: 'month' }),
       }),
       signal: controller.signal,
     });
@@ -315,7 +330,7 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Perplexity] API error:', response.status, errorText.substring(0, 200));
+      console.error(`[${WEB_SEARCH_LABEL}] API error:`, response.status, errorText.substring(0, 200));
       return null;
     }
 
@@ -323,7 +338,7 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
 
-    console.log('[Perplexity] Industry data received, citations:', citations.length);
+    console.log(`[${WEB_SEARCH_LABEL}] Industry data received, citations:`, citations.length);
 
     // Parse JSON from response
     const result: IndustryInsight = {
@@ -346,27 +361,27 @@ Chỉ đưa thông tin thực tế, có nguồn đáng tin cậy. Mỗi mục 3-
         result.insights = lines.slice(0, 5);
       }
     } catch (parseError) {
-      console.error('[Perplexity] Failed to parse response:', parseError);
+      console.error(`[${WEB_SEARCH_LABEL}] Failed to parse response:`, parseError);
       const lines = content.split('\n').filter((line: string) => line.trim() && line.length > 20);
       result.insights = lines.slice(0, 5);
     }
 
     return result;
   } catch (error) {
-    console.error('[Perplexity] Search error:', error);
+    console.error(`[${WEB_SEARCH_LABEL}] Search error:`, error);
     return null;
   }
 }
 
 /**
- * Search for audience questions using Perplexity API
+ * Search for audience questions using OpenRouter (Perplexity Sonar) or direct Perplexity API
  */
 export async function searchAudienceQuestions(
   industry: string, 
   targetAudience?: string
 ): Promise<AudienceQAResult | null> {
-  if (!PERPLEXITY_API_KEY) {
-    console.log('[Perplexity] API not configured, skipping audience Q&A mining');
+  if (!WEB_SEARCH_API_KEY) {
+    console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping audience Q&A mining`);
     return null;
   }
 
@@ -374,20 +389,25 @@ export async function searchAudienceQuestions(
     const audienceContext = targetAudience || 'khách hàng';
     const searchQuery = `Câu hỏi phổ biến nhất của ${audienceContext} về ${industry} Việt Nam. Những thắc mắc, vấn đề, khó khăn thường gặp khi tìm hiểu hoặc sử dụng dịch vụ/sản phẩm ${industry}. Bao gồm: câu hỏi từ forums, cộng đồng, People Also Ask, FAQ thường gặp.`;
 
-    console.log('[Perplexity] Q&A mining:', searchQuery.substring(0, 80));
+    console.log(`[${WEB_SEARCH_LABEL}] Q&A mining:`, searchQuery.substring(0, 80));
 
     // 5-second timeout to prevent blocking the entire flow
     const qaController = new AbortController();
     const qaTimeoutId = setTimeout(() => qaController.abort(), 5000);
 
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${WEB_SEARCH_API_KEY}`,
+      'Content-Type': 'application/json',
+    };
+    if (OPENROUTER_API_KEY) {
+      headers['HTTP-Referer'] = 'https://tiktok-tale-tech.lovable.app';
+    }
+
+    const response = await fetch(WEB_SEARCH_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'sonar',
+        model: WEB_SEARCH_MODEL,
         messages: [
           { 
             role: 'system', 
@@ -401,7 +421,7 @@ Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể 
           },
           { role: 'user', content: searchQuery }
         ],
-        search_recency_filter: 'month',
+        ...(OPENROUTER_API_KEY ? {} : { search_recency_filter: 'month' }),
       }),
       signal: qaController.signal,
     });
@@ -410,7 +430,7 @@ Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Perplexity] Q&A API error:', response.status, errorText.substring(0, 200));
+      console.error(`[${WEB_SEARCH_LABEL}] Q&A API error:`, response.status, errorText.substring(0, 200));
       return null;
     }
 
@@ -418,7 +438,7 @@ Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể 
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
 
-    console.log('[Perplexity] Q&A received, citations:', citations.length);
+    console.log(`[${WEB_SEARCH_LABEL}] Q&A received, citations:`, citations.length);
 
     // Parse JSON from response
     const result: AudienceQAResult = {
@@ -435,33 +455,32 @@ Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể 
         result.sources = parsed.sources || citations.slice(0, 5);
         result.categories = parsed.categories || [];
       } else {
-        // Fallback: extract lines as questions
         const lines = content.split('\n').filter((line: string) => line.trim() && line.includes('?'));
         result.questions = lines.slice(0, 10).map((q: string) => q.replace(/^[\d\.\-\*]+\s*/, '').trim());
       }
     } catch (parseError) {
-      console.error('[Perplexity] Failed to parse Q&A response:', parseError);
+      console.error(`[${WEB_SEARCH_LABEL}] Failed to parse Q&A response:`, parseError);
       const lines = content.split('\n').filter((line: string) => line.trim() && line.includes('?'));
       result.questions = lines.slice(0, 10).map((q: string) => q.replace(/^[\d\.\-\*]+\s*/, '').trim());
     }
 
-    console.log('[Perplexity] Extracted', result.questions.length, 'audience questions');
+    console.log(`[${WEB_SEARCH_LABEL}] Extracted`, result.questions.length, 'audience questions');
     return result;
   } catch (error) {
-    console.error('[Perplexity] Audience Q&A mining error:', error);
+    console.error(`[${WEB_SEARCH_LABEL}] Audience Q&A mining error:`, error);
     return null;
   }
 }
 
 /**
- * Search for trending topics using Perplexity API
+ * Search for trending topics using OpenRouter (Perplexity Sonar) or direct Perplexity API
  */
 export async function searchTrendingTopics(
   industry: string, 
   brandName: string
 ): Promise<PerplexityTrendResult | null> {
-  if (!PERPLEXITY_API_KEY) {
-    console.log('[Perplexity] API not configured, skipping trending search');
+  if (!WEB_SEARCH_API_KEY) {
+    console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping trending search`);
     return null;
   }
 
@@ -474,17 +493,22 @@ Liệt kê:
 3. Xu hướng mới nổi trong ngành ${industry || 'marketing'}
 4. Tin tức nóng đang được bàn tán nhiều nhất`;
 
-    console.log('[Perplexity] Trending search:', searchQuery.substring(0, 150));
+    console.log(`[${WEB_SEARCH_LABEL}] Trending search:`, searchQuery.substring(0, 150));
     const startTime = Date.now();
 
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${WEB_SEARCH_API_KEY}`,
+      'Content-Type': 'application/json',
+    };
+    if (OPENROUTER_API_KEY) {
+      headers['HTTP-Referer'] = 'https://tiktok-tale-tech.lovable.app';
+    }
+
+    const response = await fetch(WEB_SEARCH_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'sonar',
+        model: WEB_SEARCH_MODEL,
         messages: [
           { 
             role: 'system', 
@@ -496,17 +520,17 @@ KHÔNG đưa ra lời khuyên, chỉ liệt kê xu hướng.`
           },
           { role: 'user', content: searchQuery }
         ],
-        search_recency_filter: 'week',
+        ...(OPENROUTER_API_KEY ? {} : { search_recency_filter: 'week' }),
         temperature: 0.3,
       }),
     });
 
     const duration = Date.now() - startTime;
-    console.log(`[Perplexity] Response in ${duration}ms, status: ${response.status}`);
+    console.log(`[${WEB_SEARCH_LABEL}] Response in ${duration}ms, status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Perplexity] API error:', response.status, errorText.substring(0, 200));
+      console.error(`[${WEB_SEARCH_LABEL}] API error:`, response.status, errorText.substring(0, 200));
       return null;
     }
 
@@ -514,7 +538,7 @@ KHÔNG đưa ra lời khuyên, chỉ liệt kê xu hướng.`
     const content = data.choices?.[0]?.message?.content || '';
     const citations = data.citations || [];
 
-    console.log('[Perplexity] Response length:', content.length, 'Citations:', citations.length);
+    console.log(`[${WEB_SEARCH_LABEL}] Response length:`, content.length, 'Citations:', citations.length);
 
     // Extract trends from response
     const lines = content.split('\n')
@@ -527,11 +551,11 @@ KHÔNG đưa ra lời khuyên, chỉ liệt kê xu hướng.`
       .filter((line: string) => line.length > 5 && line.length < 100);
 
     const trends = lines.slice(0, 10);
-    console.log('[Perplexity] Extracted trends:', trends.length);
+    console.log(`[${WEB_SEARCH_LABEL}] Extracted trends:`, trends.length);
 
     return { trends, citations };
   } catch (error) {
-    console.error('[Perplexity] Trending search error:', error);
+    console.error(`[${WEB_SEARCH_LABEL}] Trending search error:`, error);
     return null;
   }
 }
