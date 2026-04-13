@@ -100,9 +100,9 @@ serve(async (req) => {
         try {
           let result: any;
 
-          // === REAL PERPLEXITY API ===
-          if (engine === "perplexity" && perplexityApiKey) {
-            result = await scanWithPerplexity(perplexityApiKey, prompt.text, brandName, competitors, monitor);
+          // === REAL PERPLEXITY API (via OpenRouter or direct) ===
+          if (engine === "perplexity" && (openrouterApiKey || perplexityApiKey)) {
+            result = await scanWithPerplexity(openrouterApiKey || perplexityApiKey!, !!openrouterApiKey, prompt.text, brandName, competitors, monitor);
           } else {
             // === SIMULATED via Lovable AI Gateway ===
             result = await scanSimulated(lovableApiKey, engine, prompt.text, brandName, competitors, monitor);
@@ -196,18 +196,28 @@ serve(async (req) => {
   }
 });
 
-// ============ PERPLEXITY REAL API ============
+// ============ PERPLEXITY REAL API (via OpenRouter or direct) ============
 async function scanWithPerplexity(
-  apiKey: string, promptText: string, brandName: string, competitors: string[], monitor: any
+  apiKey: string, useOpenRouter: boolean, promptText: string, brandName: string, competitors: string[], monitor: any
 ): Promise<any> {
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+  const apiUrl = useOpenRouter
+    ? "https://openrouter.ai/api/v1/chat/completions"
+    : "https://api.perplexity.ai/chat/completions";
+  const model = useOpenRouter ? "perplexity/sonar" : "sonar";
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  if (useOpenRouter) {
+    headers["HTTP-Referer"] = "https://tiktok-tale-tech.lovable.app";
+  }
+
+  const response = await fetch(apiUrl, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
-      model: "sonar",
+      model,
       messages: [
         { role: "system", content: "Trả lời chi tiết và chính xác bằng tiếng Việt. Luôn cite sources." },
         { role: "user", content: promptText },
