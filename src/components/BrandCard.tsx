@@ -320,47 +320,42 @@ export function BrandCard({
               {brandCounts.industryMemoryName}
             </Badge>
           )}
+        </div>
+
+        {/* Social Connections - Separated Section */}
+        <div className="mt-2">
           {connectedPlatforms.length > 0 ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to={`/brands/${template.id}?tab=connections`}>
-                    <div className="flex items-center gap-1 cursor-pointer">
-                      {connectedPlatforms.slice(0, 4).map((platform) => (
-                        <ChannelIcon key={platform} channel={platform} size="sm" />
-                      ))}
-                      {connectedPlatforms.length > 4 && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-5">
-                          +{connectedPlatforms.length - 4}
-                        </Badge>
-                      )}
-                    </div>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{connectedPlatforms.length} kênh đã kết nối</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Link to={`/brands/${template.id}?tab=connections`} className="block">
+              <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+                <div className="flex items-center gap-1.5">
+                  {connectedPlatforms.slice(0, 5).map((platform) => (
+                    <ChannelIcon key={platform} channel={platform} size="sm" />
+                  ))}
+                  {connectedPlatforms.length > 5 && (
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      +{connectedPlatforms.length - 5}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  {connectedPlatforms.length} kênh
+                </span>
+              </div>
+            </Link>
           ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to={`/brands/${template.id}?tab=connections`}>
-                    <Badge 
-                      variant="outline" 
-                      className="text-[10px] gap-1 px-2 py-0.5 bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300 cursor-pointer hover:bg-amber-500/20"
-                    >
-                      <Link2Off className="w-3 h-3" />
-                      Chưa kết nối
-                    </Badge>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Kết nối mạng xã hội để đăng bài trực tiếp</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Link to={`/brands/${template.id}?tab=connections`} className="block">
+              <div className="flex items-center justify-between p-2 rounded-md bg-amber-500/5 border border-amber-500/20 hover:bg-amber-500/10 transition-colors cursor-pointer">
+                <div className="flex items-center gap-1.5">
+                  <Link2Off className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+                    Chưa kết nối kênh nào
+                  </span>
+                </div>
+                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  Kết nối ngay →
+                </span>
+              </div>
+            </Link>
           )}
         </div>
 
