@@ -598,6 +598,18 @@ function matchIntent(message: string): FastPathResult | null {
     };
   }
 
+  // No marketing intent + not clearly off-topic → check if nonsense/gibberish
+  if (looksLikeNonsense(message)) {
+    console.log(`[Orchestrator] Nonsense detected: "${message.slice(0, 50)}"`);
+    return {
+      intent: 'off_topic',
+      confidence: 0.85,
+      matchedPatterns: ['nonsense_heuristic'],
+      allScores: { off_topic: 1 },
+      ambiguityFlag: false,
+    };
+  }
+
   return null;
 }
 
