@@ -1,7 +1,7 @@
 // ============================================
 // AgentTimeline Component
 // Gantt-chart style visualization of agent execution
-// Supports parallel agent groups for accurate wall-clock representation
+// Uses 5-Agent Pipeline grouping
 // ============================================
 
 import { memo, useMemo } from 'react';
@@ -13,15 +13,14 @@ interface AgentTimelineProps {
   className?: string;
 }
 
-// Agents that run in parallel (first phase after orchestrator)
-const PARALLEL_AGENTS = new Set(['research', 'brand_memory', 'compliance']);
-// Orchestrator runs as Phase 0 (before everything)
-const PHASE_ZERO_AGENTS = new Set(['orchestrator']);
-
-function extractAgentKey(step: ProgressStep): string {
-  // step.id is like "research-agent", "brand_memory-agent", etc.
-  return step.id.replace(/-agent$/, '');
-}
+// Pipeline group ordering and display
+const GROUP_ORDER: Record<string, number> = {
+  'strategy': 0,
+  'creator': 1,
+  'quality': 2,
+  'approval': 3,
+  'publisher': 4,
+};
 
 export const AgentTimeline = memo(function AgentTimeline({ steps, className }: AgentTimelineProps) {
   const completedSteps = steps.filter(s => s.status === 'complete' && s.duration);
@@ -29,43 +28,18 @@ export const AgentTimeline = memo(function AgentTimeline({ steps, className }: A
   const timeline = useMemo(() => {
     if (completedSteps.length === 0) return null;
 
-    // Separate phase-0, parallel and sequential agents
-    const phase0Group: typeof completedSteps = [];
-    const parallelGroup: typeof completedSteps = [];
-    const sequentialGroup: typeof completedSteps = [];
+    // Sort by pipeline order
+    const sorted = [...completedSteps].sort((a, b) => {
+      const oa = GROUP_ORDER[a.id] ?? 99;
+      const ob = GROUP_ORDER[b.id] ?? 99;
+      return oa - ob;
+    });
 
-    for (const step of completedSteps) {
-      const key = extractAgentKey(step);
-      if (PHASE_ZERO_AGENTS.has(key)) {
-        phase0Group.push(step);
-      } else if (PARALLEL_AGENTS.has(key)) {
-        parallelGroup.push(step);
-      } else {
-        sequentialGroup.push(step);
-      }
-    }
-
+    // Sequential layout — each group starts after previous ends
     const entries: Array<ProgressStep & { startMs: number; durationMs: number }> = [];
+    let cumulativeStart = 0;
 
-    // Phase 0: Orchestrator starts at 0
-    let phase0EndMs = 0;
-    for (const step of phase0Group) {
-      const duration = step.duration || 0;
-      entries.push({ ...step, startMs: 0, durationMs: duration });
-      phase0EndMs = Math.max(phase0EndMs, duration);
-    }
-
-    // Parallel agents start after phase 0
-    let parallelEndMs = phase0EndMs;
-    for (const step of parallelGroup) {
-      const duration = step.duration || 0;
-      entries.push({ ...step, startMs: phase0EndMs, durationMs: duration });
-      parallelEndMs = Math.max(parallelEndMs, phase0EndMs + duration);
-    }
-
-    // Sequential agents start after the parallel group
-    let cumulativeStart = parallelEndMs;
-    for (const step of sequentialGroup) {
+    for (const step of sorted) {
       const duration = step.duration || 0;
       entries.push({ ...step, startMs: cumulativeStart, durationMs: duration });
       cumulativeStart += duration;
@@ -95,6 +69,7 @@ export const AgentTimeline = memo(function AgentTimeline({ steps, className }: A
         {entries.map(entry => {
           const leftPct = (entry.startMs / totalMs) * 100;
           const widthPct = Math.max((entry.durationMs / totalMs) * 100, 3);
+          // Strip emoji prefix from label
           const label = entry.label.replace(/^[^\s]+\s/, '');
 
           return (

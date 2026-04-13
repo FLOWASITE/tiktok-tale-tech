@@ -340,58 +340,103 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
 
             // ---- Graph Engine events ----
             if (parsed.type === 'graph_plan' && parsed.data?.steps) {
-              const nodeLabels: Record<string, string> = {
-                'orchestrator': '🎯 Điều phối',
-                'research': '🔍 Nghiên cứu',
-                'brand_memory': '🧠 Brand Memory',
-                'strategy': '📋 Chiến lược',
-                'content': '✍️ Nội dung',
-                'reviewer': '✅ Kiểm duyệt',
-                'image': '🎨 Hình ảnh',
-                'governor': '⚖️ Kiểm soát chất lượng',
-                'compliance': '🛡️ Tuân thủ quy định',
+              // 5-Agent Pipeline grouping: map backend nodes → 5 pipeline agents
+              const NODE_TO_GROUP: Record<string, string> = {
+                'orchestrator': 'strategy',
+                'research': 'strategy',
+                'brand_memory': 'strategy',
+                'strategy': 'strategy',
+                'content': 'creator',
+                'image': 'creator',
+                'visual': 'creator',
+                'compliance': 'quality',
+                'reviewer': 'quality',
+                'governor': 'quality',
+                'quality': 'quality',
+                'approval': 'approval',
+                'publisher': 'publisher',
+                'publish': 'publisher',
               };
-              const planSteps: ProgressStep[] = [];
+              const GROUP_META: Record<string, { label: string; order: number }> = {
+                'strategy': { label: '💡 Chiến lược', order: 0 },
+                'creator': { label: '✍️ Sáng tạo', order: 1 },
+                'quality': { label: '🛡️ Chất lượng', order: 2 },
+                'approval': { label: '✅ Phê duyệt', order: 3 },
+                'publisher': { label: '📤 Xuất bản', order: 4 },
+              };
+
+              // Collect all unique nodes from plan
+              const allNodes = new Set<string>();
               for (const step of parsed.data.steps) {
-                const isOrchestrator = step.node === 'orchestrator';
-                planSteps.push({
-                  id: step.node,
-                  label: nodeLabels[step.node] || step.node,
-                  status: isOrchestrator ? 'complete' : 'pending',
-                  duration: isOrchestrator ? parsed.data.orchestratorDurationMs : undefined,
-                });
-                // Include parallel nodes
-                if (step.parallelWith) {
-                  for (const pNode of step.parallelWith) {
-                    if (!planSteps.some(s => s.id === pNode)) {
-                      planSteps.push({
-                        id: pNode,
-                        label: nodeLabels[pNode] || pNode,
-                        status: 'pending',
-                      });
-                    }
-                  }
-                }
+                allNodes.add(step.node);
+                if (step.parallelWith) step.parallelWith.forEach((n: string) => allNodes.add(n));
               }
+
+              // Group nodes and create one step per group
+              const groupsSeen = new Set<string>();
+              const planSteps: ProgressStep[] = [];
+              // Track which backend nodes belong to each group for later lookup
+              const groupNodeMap: Record<string, string[]> = {};
+
+              for (const node of allNodes) {
+                const group = NODE_TO_GROUP[node] || 'strategy';
+                if (!groupNodeMap[group]) groupNodeMap[group] = [];
+                groupNodeMap[group].push(node);
+                if (groupsSeen.has(group)) continue;
+                groupsSeen.add(group);
+                const meta = GROUP_META[group] || { label: group, order: 99 };
+                const isFirstGroup = group === 'strategy';
+                planSteps.push({
+                  id: group,
+                  label: meta.label,
+                  status: isFirstGroup && parsed.data.orchestratorDurationMs ? 'active' : 'pending',
+                  duration: isFirstGroup ? parsed.data.orchestratorDurationMs : undefined,
+                });
+              }
+
+              // Sort by pipeline order
+              planSteps.sort((a, b) => {
+                const oa = GROUP_META[a.id]?.order ?? 99;
+                const ob = GROUP_META[b.id]?.order ?? 99;
+                return oa - ob;
+              });
+
               isGraphEngineMode = true;
+              // Store group→nodes mapping for node_start/end/progress lookups
+              (window as any).__agentGroupNodeMap = groupNodeMap;
+              (window as any).__agentNodeToGroup = NODE_TO_GROUP;
               setState(prev => ({ ...prev, progressSteps: planSteps }));
               continue;
             }
 
             if (parsed.type === 'node_start' && parsed.data?.node) {
               const nodeName = parsed.data.node;
+              const nodeToGroup = (window as any).__agentNodeToGroup || {};
+              const groupId = nodeToGroup[nodeName] || nodeName;
+              const NODE_SUB_LABELS: Record<string, string> = {
+                'orchestrator': 'Đang điều phối...',
+                'research': 'Đang nghiên cứu...',
+                'brand_memory': 'Đang tải Brand Memory...',
+                'strategy': 'Đang lập chiến lược...',
+                'content': 'Đang tạo nội dung...',
+                'image': 'Đang tạo hình ảnh...',
+                'visual': 'Đang xử lý visual...',
+                'compliance': 'Đang kiểm tra tuân thủ...',
+                'reviewer': 'Đang kiểm duyệt...',
+                'governor': 'Đang kiểm soát chất lượng...',
+              };
               setState(prev => ({
                 ...prev,
                 thinkingStatus: 'executing_tools',
-                currentExecutingTool: nodeName,
+                currentExecutingTool: groupId,
                 progressSteps: prev.progressSteps.map(step =>
-                  step.id === nodeName
-                    ? { ...step, status: 'active' as const, startTime: Date.now(), subLabel: undefined, progress: undefined }
+                  step.id === groupId
+                    ? { ...step, status: 'active' as const, startTime: step.startTime || Date.now(), subLabel: NODE_SUB_LABELS[nodeName] || `Đang xử lý ${nodeName}...`, progress: undefined }
                     : step
                 ),
               }));
 
-              // Fallback timer for content node — animate progress if no backend events arrive
+              // Fallback timer for creator group (content node)
               if (nodeName === 'content') {
                 if (contentFallbackRef.current) clearInterval(contentFallbackRef.current);
                 const contentStartTime = Date.now();
@@ -404,13 +449,12 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   else if (elapsed < 25) { subLabel = 'Đang hoàn thiện...'; progress = 80; }
                   else { subLabel = 'Sắp xong...'; progress = 92; }
                   setState(prev => {
-                    const step = prev.progressSteps.find(s => s.id === 'content');
-                    // Only set fallback if no backend progress was received (subLabel still matches fallback pattern)
+                    const step = prev.progressSteps.find(s => s.id === 'creator');
                     if (step?.status !== 'active') return prev;
                     return {
                       ...prev,
                       progressSteps: prev.progressSteps.map(s =>
-                        s.id === 'content' && s.status === 'active'
+                        s.id === 'creator' && s.status === 'active'
                           ? { ...s, subLabel, progress }
                           : s
                       ),
@@ -421,13 +465,15 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               continue;
             }
 
-            // Handle node_progress for sub-step updates (content node)
+            // Handle node_progress for sub-step updates
             if (parsed.type === 'node_progress' && parsed.data?.node) {
               const { node, subStep, label, progress } = parsed.data;
+              const nodeToGroup = (window as any).__agentNodeToGroup || {};
+              const groupId = nodeToGroup[node] || node;
               setState(prev => ({
                 ...prev,
                 progressSteps: prev.progressSteps.map(step =>
-                  step.id === node && step.status === 'active'
+                  step.id === groupId && step.status === 'active'
                     ? { ...step, subLabel: label, progress }
                     : step
                 ),
@@ -438,21 +484,42 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (parsed.type === 'node_complete' && parsed.data?.node) {
               const nodeName = parsed.data.node;
               const durationMs = parsed.data.durationMs;
+              const nodeToGroup = (window as any).__agentNodeToGroup || {};
+              const groupNodeMap = (window as any).__agentGroupNodeMap || {};
+              const groupId = nodeToGroup[nodeName] || nodeName;
               // Clear content fallback timer
               if (nodeName === 'content' && contentFallbackRef.current) {
                 clearInterval(contentFallbackRef.current);
                 contentFallbackRef.current = null;
               }
-              setState(prev => ({
-                ...prev,
-                currentExecutingTool: null,
-                thinkingStatus: 'generating',
-                progressSteps: prev.progressSteps.map(step =>
-                  step.id === nodeName
-                    ? { ...step, status: 'complete' as const, duration: durationMs || (Date.now() - (step.startTime || Date.now())), subLabel: undefined, progress: undefined }
-                    : step
-                ),
-              }));
+              // Check if ALL nodes in this group are now complete
+              const groupNodes = groupNodeMap[groupId] || [nodeName];
+              setState(prev => {
+                // Check completed nodes in this group: a node is complete if it's not in progressSteps (old system) or tracked via contributions
+                const completedNodesInGroup = groupNodes.filter((n: string) =>
+                  n === nodeName || pendingAgentContributions.some(c => c.agentName === n)
+                );
+                const allGroupDone = completedNodesInGroup.length >= groupNodes.length;
+                const step = prev.progressSteps.find(s => s.id === groupId);
+                const accumulatedDuration = (step?.duration || 0) + (durationMs || 0);
+
+                return {
+                  ...prev,
+                  currentExecutingTool: allGroupDone ? null : groupId,
+                  thinkingStatus: allGroupDone ? 'generating' : prev.thinkingStatus,
+                  progressSteps: prev.progressSteps.map(s =>
+                    s.id === groupId
+                      ? {
+                          ...s,
+                          status: allGroupDone ? 'complete' as const : 'active' as const,
+                          duration: allGroupDone ? accumulatedDuration : s.duration,
+                          subLabel: allGroupDone ? undefined : s.subLabel,
+                          progress: allGroupDone ? undefined : s.progress,
+                        }
+                      : s
+                  ),
+                };
+              });
               // Track as agent contribution
               pendingAgentContributions.push({
                 agentName: nodeName,
@@ -474,13 +541,15 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
 
             if (parsed.type === 'node_error' && parsed.data?.node) {
               const nodeName = parsed.data.node;
+              const nodeToGroup = (window as any).__agentNodeToGroup || {};
+              const groupId = nodeToGroup[nodeName] || nodeName;
               const isCritical = parsed.data.critical === true ||
                 ['content', 'reviewer'].includes(nodeName);
               setState(prev => ({
                 ...prev,
                 currentExecutingTool: null,
                 progressSteps: prev.progressSteps.map(step =>
-                  step.id === nodeName
+                  step.id === groupId
                     ? { ...step, status: 'error' as const }
                     : step
                 ),
