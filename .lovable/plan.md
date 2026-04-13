@@ -1,53 +1,74 @@
 
 
-## Focus trải nghiệm "Tạo Brand" cho user mới lần đầu sử dụng
+## Làm lại UI Flowa Team Chat trên Desktop
 
 ### Vấn đề hiện tại
-Khi user mới đăng nhập lần đầu, họ vào Dashboard (`/`) - thấy một dashboard trống rỗng với nhiều widget không có dữ liệu. Không có hướng dẫn rõ ràng rằng bước đầu tiên quan trọng nhất là **Tạo Brand**.
+Chat UI hiện tại có phong cách "chatbot widget" — nhỏ, chật, icon rất bé (3-3.5px), padding hẹp, wrap trong Card với border. Trên desktop 2071px, giao diện trông lạc lõng và không tận dụng không gian.
 
-### Giải pháp
-Thêm logic phát hiện user mới (chưa có brand nào) và hiển thị **màn hình onboarding tạo Brand** thay vì dashboard trống.
+### Thiết kế mới — Modern AI Chat (kiểu ChatGPT/Claude)
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Desktop Layout                                           │
+├────────────┬─────────────────────────────────────────────┤
+│            │  ┌─ Header (slim, clean) ──────────────┐   │
+│ History    │  │ Flowa Mind    [Pro] [New] [⋯]       │   │
+│ Sidebar    │  └─────────────────────────────────────────┘│
+│ (280px)    │                                             │
+│            │  ┌─ Messages (centered, max-w-3xl) ────┐   │
+│ [+ New]    │  │                                      │   │
+│ Today      │  │  Welcome message                     │   │
+│  ├ Conv 1  │  │  User bubble (right-aligned)         │   │
+│  ├ Conv 2  │  │  AI response (left, spacious)        │   │
+│ Yesterday  │  │                                      │   │
+│  ├ Conv 3  │  └──────────────────────────────────────┘   │
+│            │                                             │
+│            │  ┌─ Input (centered, max-w-3xl) ────────┐  │
+│            │  │ [textarea]              [Mic] [Send]  │  │
+│            │  └──────────────────────────────────────────┘│
+└────────────┴─────────────────────────────────────────────┘
+```
 
 ### Thay đổi cụ thể
 
-**1. `src/pages/Dashboard.tsx` - Thêm "Empty State" cho user chưa có brand**
-- Kiểm tra `brands.length === 0` sau khi load xong
-- Khi chưa có brand: hiển thị một card CTA lớn, nổi bật ở trung tâm dashboard thay vì các widget rỗng
-- Card bao gồm: icon thương hiệu, tiêu đề "Bắt đầu với Brand đầu tiên", mô tả ngắn, nút "Tạo Brand ngay" → navigate đến `/brands/new`
-- Ẩn các widget phụ (stats, timeline, schedules...) khi chưa có brand để tránh giao diện rối
+**1. `src/pages/FlowaChatPage.tsx` — Layout 2 cột cho desktop**
+- Desktop: History Sidebar (280px, luôn hiển thị) + Chat area
+- Mobile: giữ nguyên layout hiện tại (Sheet-based history)
+- Sidebar sử dụng `ConversationHistorySidebar` component hiện có, nhưng render trực tiếp thay vì trong Sheet
 
-**2. `src/components/dashboard/QuickActionGrid.tsx` (hoặc tương tự) - Highlight CTA tạo brand**
-- Khi `brands.length === 0`: đổi quick action "Tạo Brand" thành nút primary nổi bật nhất, có badge "Bắt đầu tại đây"
+**2. `src/components/topic/chatbot/ChatHeader.tsx` — Thiết kế lại header**
+- Bỏ CardHeader, dùng div với border-b đơn giản
+- Icon lớn hơn (w-4 h-4 → w-5 h-5), button lớn hơn (h-8 w-8)
+- Bỏ gradient background, dùng background trong suốt
+- Bỏ view tabs (Chat/Insights) — chuyển Insights vào dropdown
+- Font size lớn hơn cho title (text-base)
+- Loại bỏ History button trên desktop (vì sidebar luôn hiện)
 
-**3. `src/pages/Auth.tsx` - Redirect user mới đến `/brands/new`**
-- Sau đăng ký thành công (lần đầu login), redirect thẳng đến `/brands/new` thay vì `/`
-- Phát hiện bằng cách kiểm tra user metadata hoặc brands count = 0
+**3. `src/components/topic/chatbot/ChatInputArea.tsx` — Input area hiện đại**
+- Bỏ toolbar phía trên (markdown preview, shortcuts buttons) — chuyển vào dropdown
+- Input textarea lớn hơn: min-h-[48px], font sm → base, padding rộng hơn
+- Send button lớn hơn: h-10 w-10 → h-11 w-11
+- Rounded-2xl thay vì rounded-xl
+- Bỏ border-t cứng, dùng shadow-up subtle
 
-### Luồng trải nghiệm mới
+**4. `src/components/topic/TopicAIChatbot.tsx` — Bỏ Card wrapper trên desktop**
+- Desktop: Bỏ Card component, render trực tiếp với flex layout
+- Bỏ border-2 border-primary/20
+- Messages area căn giữa với max-w-3xl và padding thoải mái
 
-```text
-User mới đăng ký/đăng nhập
-  ↓
-Dashboard load → brands.length === 0?
-  ↓ YES
-Hiển thị Welcome CTA Card:
-┌─────────────────────────────────┐
-│  🎨 Chào mừng đến Flowa!       │
-│                                 │
-│  Bước đầu tiên: Tạo Brand      │
-│  Template để AI hiểu thương     │
-│  hiệu của bạn.                 │
-│                                 │
-│  [✨ Tạo Brand ngay]            │
-│                                 │
-│  Hoặc khám phá: Xem demo       │
-└─────────────────────────────────┘
-  ↓ Click "Tạo Brand ngay"
-/brands/new (Quick Start dialog mở tự động)
-```
+**5. `src/components/topic/chatbot/SimpleMessageList.tsx` — Spacing thoáng hơn**
+- Tăng gap giữa messages: pt-4 → pt-6
+- Padding ngang rộng hơn: px-4 → px-6
 
-### File cần thay đổi
-- `src/pages/Dashboard.tsx` - Thêm empty state component khi chưa có brand
-- Tạo `src/components/dashboard/NewUserWelcome.tsx` - Component welcome card cho user mới
-- `src/pages/Auth.tsx` - Optional: redirect user mới thẳng đến brand creation
+### Nguyên tắc thiết kế
+- Tuân thủ Soft Luxury: monochromatic, backdrop-blur, rounded-2xl
+- Desktop-first: tận dụng không gian rộng
+- Mobile không bị ảnh hưởng: dùng responsive breakpoints (lg:)
+
+### File thay đổi
+1. `src/pages/FlowaChatPage.tsx` — Layout 2 cột
+2. `src/components/topic/chatbot/ChatHeader.tsx` — Header mới
+3. `src/components/topic/chatbot/ChatInputArea.tsx` — Input mới
+4. `src/components/topic/TopicAIChatbot.tsx` — Bỏ Card wrapper desktop
+5. `src/components/topic/chatbot/SimpleMessageList.tsx` — Spacing
 
