@@ -109,6 +109,7 @@ export function ChannelGroupView({
   socialConnections,
 }: ChannelGroupViewProps) {
   const [sortBy, setSortBy] = useState<SortMode>('newest');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   const channelGroups = useMemo(() => {
     const groups: { channel: Channel; items: MultiChannelContent[] }[] = [];
