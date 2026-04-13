@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ChannelIcon } from '@/components/ui/channel-icon';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useSocialConnections, SocialPlatform, SocialConnection } from '@/hooks/useSocialConnections';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -643,7 +644,59 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
 
     return (
       <div key="facebook" className="space-y-2">
-        {activeConns.map((c, i) => renderFbConnection(c, false, i))}
+        {activeConns.length === 0 ? (
+          /* Zero-state: Full Facebook branded card */
+          <div className="flex items-center justify-between p-4 rounded-lg border border-border hover:border-primary/30 transition-colors bg-card">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#1877F2]/10">
+                <ChannelIcon channel="facebook" className="text-[#1877F2]" size={22} />
+              </div>
+              <div>
+                <div className="font-medium text-sm">Facebook</div>
+                <div className="text-xs text-muted-foreground">Đăng bài lên Fanpage của bạn</div>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => handleConnect('facebook')}
+              disabled={oauthConnecting === 'facebook'}
+            >
+              {oauthConnecting === 'facebook' ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-1" />
+              )}
+              {oauthConnecting === 'facebook' ? 'Đang kết nối...' : 'Kết nối'}
+            </Button>
+          </div>
+        ) : (
+          <>
+            {activeConns.map((c, i) => renderFbConnection(c, false, i))}
+
+            {/* Add more Fanpage button - subtle dashed style */}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-md flex items-center justify-center bg-muted text-muted-foreground">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <span className="text-sm text-muted-foreground">Thêm Fanpage khác</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleConnect('facebook')}
+                disabled={oauthConnecting === 'facebook'}
+              >
+                {oauthConnecting === 'facebook' ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-1" />
+                )}
+                {oauthConnecting === 'facebook' ? 'Đang kết nối...' : 'Kết nối'}
+              </Button>
+            </div>
+          </>
+        )}
 
         {inactiveConns.length > 0 && (
           <>
@@ -657,29 +710,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             {showInactiveFb && inactiveConns.map((c) => renderFbConnection(c, true))}
           </>
         )}
-
-        {/* Add Fanpage button - subtle dashed style */}
-        <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-muted text-muted-foreground">
-              <Plus className="w-4 h-4" />
-            </div>
-            <span className="text-sm text-muted-foreground">Thêm Fanpage khác</span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleConnect('facebook')}
-            disabled={oauthConnecting === 'facebook'}
-          >
-            {oauthConnecting === 'facebook' ? (
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4 mr-1" />
-            )}
-            {oauthConnecting === 'facebook' ? 'Đang kết nối...' : 'Kết nối'}
-          </Button>
-        </div>
       </div>
     );
   };
