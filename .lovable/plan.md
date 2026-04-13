@@ -1,20 +1,29 @@
 
 
-## Giải thích vấn đề
+## Chỉnh chu UI Kết nối mạng xã hội
 
-Fanpage "Flowa – Auto AI Content. All Socials" hiển thị ở brand "Thuế Hộ" vì **đây là kết nối cũ** (từ 18/03) được tạo trước khi hệ thống hỗ trợ multi-fanpage. Kết nối này đã bị ngắt (`is_active = false`) nhưng vẫn còn trong database gắn với brand "Thuế Hộ".
+### Vấn đề hiện tại (từ screenshot)
 
-- Brand "Flowa" có kết nối **active** đến Fanpage này (mới, 13/04)
-- Brand "Thuế Hộ" có kết nối **inactive** (cũ, 18/03) — đây là dữ liệu dư thừa
+1. **Avatar thay thế hoàn toàn icon platform**: Khi Fanpage có avatar, icon Facebook (màu xanh) biến mất, thay bằng ảnh avatar → mất nhận diện kênh.
+2. **Badge không đồng nhất**: "Đã xác thực" (xanh lá), "Đã kết nối" (xám), "Đã ngắt" (đỏ/xám) có style khác nhau, không thống nhất.
 
-**Giải pháp nhanh:** Bấm icon thùng rác (🗑️) bên cạnh kết nối "Flowa – Auto AI Content" ở brand Thuế Hộ để xóa nó.
+### Thay đổi
 
-### Cải thiện code để tránh nhầm lẫn
+**1. Avatar + Platform icon overlay** (`BrandViewConnectionsTab.tsx`)
+- Giữ avatar của tài khoản đã kết nối nhưng thêm icon platform nhỏ ở góc dưới-phải (overlay badge).
+- Áp dụng cho cả `renderConnection`, `renderFbConnection`, và `renderWebsitePlatform`.
 
-**1. `src/components/brand/BrandViewConnectionsTab.tsx`**
-- Trong `renderFacebookPlatform()`: tách rõ danh sách Active và Inactive
-- Connections inactive hiển thị mờ hơn, với label rõ ràng "Đã ngắt" và nút xóa nổi bật
-- Ẩn connections inactive theo mặc định, chỉ hiện khi user bấm "Hiện kết nối đã ngắt"
+```text
+Trước:  [Avatar ảnh page]  hoặc  [Icon Facebook]
+Sau:    [Avatar ảnh page + icon FB nhỏ ở góc]  hoặc  [Icon Facebook] (khi chưa kết nối)
+```
 
-**2. Không cần thay đổi backend** — logic đã đúng, đây là dữ liệu cũ từ trước khi fix.
+**2. Thống nhất Badge status**
+- "Đã xác thực" → Badge xanh lá nhẹ với icon ShieldCheck (giữ nguyên)
+- "Đã kết nối" → Badge xanh dương nhẹ với icon CheckCircle2 (thay vì secondary xám)
+- "Đã ngắt" → Badge đỏ nhạt với icon Unplug (thống nhất style)
+- Tất cả badge dùng cùng pattern: `bg-{color}-500/10 text-{color}-600 border-{color}-500/20`
+
+### File cần sửa
+- `src/components/brand/BrandViewConnectionsTab.tsx` — cả 3 render functions
 
