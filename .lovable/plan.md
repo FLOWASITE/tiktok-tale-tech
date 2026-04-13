@@ -1,24 +1,30 @@
 
 
-## Chuyển 2 nút vào menu dấu 3 chấm
+## Loại bỏ màu đỏ/hồng lòe loẹt
 
-### Phân tích
-Từ ảnh và code hiện tại:
-1. **Nút "Đoạn chat mới"**: Hiện đang là Button riêng trong ChatHeader
-2. **Nút keyboard shortcuts**: Có state `showShortcutsHint` trong useChatInput nhưng chưa có UI để toggle (có thể đây là nút thứ 2 trong ảnh)
+### Vấn đề
+Từ 3 ảnh user gửi:
+1. **Dropdown menu**: Item "Phím tắt" bị highlight màu hồng đỏ rực
+2. **Sidebar**: Nút "Đoạn chat mới" có background gradient hồng, search input viền hồng
+3. **Chat input**: Viền đôi màu hồng khi focus (từ `chat-input-glow` CSS class + `border-2` + `focus:ring-primary`)
 
-### Giải pháp
+### Nguyên nhân gốc
+Primary color là `340 82% 52%` (hồng đỏ TikTok). Nó bị dùng quá nhiều: gradient buttons, focus glow, border glow → tạo cảm giác "màu mè".
 
-**1. `src/components/topic/chatbot/ChatHeader.tsx`**
-- Xóa Button "Đoạn chat mới" khỏi header (lines 138-149)
-- Thêm 2 item vào DropdownMenu:
-  - "Đoạn chat mới" với icon SquarePen
-  - "Phím tắt" với icon Keyboard (toggle `onToggleShortcutsHint`)
-- Thêm prop `onToggleShortcutsHint?: () => void` vào ChatHeaderProps
+### Giải pháp: Giữ lại primary nhưng giảm intensity
 
-**2. `src/components/topic/TopicAIChatbot.tsx`**
-- Truyền `onToggleShortcutsHint: () => inputHook.setShowShortcutsHint(!inputHook.showShortcutsHint)` vào ChatHeader
+**1. `src/components/topic/chatbot/ConversationHistorySidebar.tsx`**
+- Nút "Đoạn chat mới": đổi thành style tối giản — `variant="outline"` hoặc ghost đơn giản, không gradient, không shadow
+- Search input: giữ nguyên (đã dùng `border-0`, `bg-transparent`)
+
+**2. `src/components/topic/chatbot/ChatInputArea.tsx`**
+- Textarea: bỏ `border-2` → `border`, bỏ `focus:ring-2 focus:ring-primary/10` → dùng ring nhẹ hơn `focus:ring-1 focus:ring-border`
+- Bỏ class `chat-input-glow` khỏi wrapper div (loại bỏ double glow effect hồng)
+- Nút Send: bỏ gradient `from-primary to-violet-600`, đổi thành `bg-primary hover:bg-primary/90` đơn giản, bỏ `shadow-lg shadow-primary/25`
+
+**3. `src/index.css`**
+- Loại bỏ hoặc giảm `.chat-input-glow` — thay bằng subtle border thay vì glow hồng
 
 ### Kết quả
-Header gọn hơn — chỉ còn các icon chính (Brain, History, Artifacts, Menu). Các tính năng phụ (Tạo chat mới, Phím tắt) vào trong menu dấu 3 chấm.
+UI sạch sẽ, monochromatic theo phong cách Soft Luxury — không còn gradient hồng lòe loẹt ở input, button và focus states.
 
