@@ -326,6 +326,7 @@ export function TopicAIChatbot({
               onNewConversation={handleReset}
               onDeleteConversation={deleteConversation}
               onArchiveConversation={archiveConversation}
+              desktopLayout={desktopLayout}
             />
           )}
           
