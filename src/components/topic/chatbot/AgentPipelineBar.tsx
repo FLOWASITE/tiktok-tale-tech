@@ -1,10 +1,11 @@
 // ============================================
 // AgentPipelineBar Component
 // Persistent horizontal pipeline showing agent execution status
+// Aligned with 5-agent Pipeline: Strategy, Creator, Quality, Approval, Publisher
 // ============================================
 
 import { memo } from 'react';
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2, Brain, AlertCircle, Shield, Gauge, Crosshair } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, CheckCircle2, Send, Check, Loader2, AlertCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ProgressStep } from './ChatThinkingIndicator';
@@ -15,31 +16,60 @@ interface AgentPipelineBarProps {
 }
 
 const AGENT_CONFIG = [
-  { key: 'orchestrator', matchIds: ['orchestrator', 'orchestrator-agent'], label: 'Orchestrator', icon: Crosshair, viLabel: 'Điều phối' },
-  { key: 'research', matchIds: ['research', 'research-agent'], label: 'Research', icon: Search, viLabel: 'Nghiên cứu' },
-  { key: 'brand_memory', matchIds: ['brand_memory', 'brand-memory-agent'], label: 'Brand Memory', icon: Brain, viLabel: 'Thương hiệu' },
-  { key: 'compliance', matchIds: ['compliance', 'compliance-agent'], label: 'Compliance', icon: Shield, viLabel: 'Tuân thủ' },
-  { key: 'strategy', matchIds: ['strategy', 'strategy-agent'], label: 'Strategy', icon: ClipboardList, viLabel: 'Chiến lược' },
-  { key: 'content', matchIds: ['content', 'content-agent'], label: 'Content', icon: PenTool, viLabel: 'Nội dung' },
-  { key: 'visual', matchIds: ['visual', 'image', 'image-agent'], label: 'Visual', icon: Image, viLabel: 'Hình ảnh' },
-  { key: 'reviewer', matchIds: ['reviewer', 'reviewer-agent'], label: 'Reviewer', icon: ShieldCheck, viLabel: 'Kiểm duyệt' },
-  { key: 'governor', matchIds: ['governor', 'governor-agent'], label: 'Governor', icon: Gauge, viLabel: 'Kiểm soát' },
+  { key: 'strategy', matchIds: ['orchestrator', 'orchestrator-agent', 'research', 'research-agent', 'brand_memory', 'brand-memory-agent', 'strategy', 'strategy-agent'], label: 'Strategy', icon: Lightbulb, viLabel: 'Chiến lược' },
+  { key: 'creator', matchIds: ['content', 'content-agent', 'image', 'image-agent', 'visual'], label: 'Creator', icon: PenTool, viLabel: 'Sáng tạo' },
+  { key: 'quality', matchIds: ['compliance', 'compliance-agent', 'reviewer', 'reviewer-agent', 'governor', 'governor-agent', 'quality', 'quality-agent'], label: 'Quality', icon: ShieldCheck, viLabel: 'Chất lượng' },
+  { key: 'approval', matchIds: ['approval', 'approval-agent'], label: 'Approval', icon: CheckCircle2, viLabel: 'Duyệt' },
+  { key: 'publisher', matchIds: ['publisher', 'publish', 'publisher-agent', 'publish-agent'], label: 'Publisher', icon: Send, viLabel: 'Đăng bài' },
 ] as const;
 
-function getStepForAgent(steps: ProgressStep[], agent: typeof AGENT_CONFIG[number]): ProgressStep | undefined {
-  // Match by step.id first (e.g. 'research-agent'), then fallback to label includes
-  return steps.find(s => 
-    agent.matchIds.some(id => s.id === id) || 
-    s.label.toLowerCase().includes(agent.key) ||
+// Sub-node display names for active sub-label
+const SUB_NODE_LABELS: Record<string, string> = {
+  'orchestrator': 'Điều phối',
+  'research': 'Nghiên cứu',
+  'brand_memory': 'Thương hiệu',
+  'strategy': 'Lên chiến lược',
+  'content': 'Viết nội dung',
+  'image': 'Tạo hình ảnh',
+  'visual': 'Tạo hình ảnh',
+  'compliance': 'Tuân thủ',
+  'reviewer': 'Kiểm duyệt',
+  'governor': 'Kiểm soát',
+  'quality': 'Kiểm tra',
+  'approval': 'Chờ duyệt',
+  'publisher': 'Đăng bài',
+};
+
+function getStepsForAgent(steps: ProgressStep[], agent: typeof AGENT_CONFIG[number]): ProgressStep[] {
+  return steps.filter(s =>
+    agent.matchIds.some(id => s.id === id) ||
     s.id.toLowerCase().includes(agent.key)
   );
+}
+
+function getGroupStatus(matchedSteps: ProgressStep[]): { status: ProgressStep['status']; activeStep?: ProgressStep; totalDuration?: number } {
+  if (matchedSteps.length === 0) return { status: 'pending' };
+  
+  const activeStep = matchedSteps.find(s => s.status === 'active');
+  if (activeStep) return { status: 'active', activeStep };
+  
+  const errorStep = matchedSteps.find(s => s.status === 'error');
+  if (errorStep) return { status: 'error', activeStep: errorStep };
+  
+  const allComplete = matchedSteps.every(s => s.status === 'complete');
+  if (allComplete && matchedSteps.length > 0) {
+    const totalDuration = matchedSteps.reduce((sum, s) => sum + (s.duration || 0), 0);
+    return { status: 'complete', totalDuration };
+  }
+  
+  return { status: 'pending' };
 }
 
 export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, className }: AgentPipelineBarProps) {
   if (!steps || steps.length === 0) return null;
 
-  // Only show agents that are present in the steps (graph engine sends only relevant nodes)
-  const activeAgents = AGENT_CONFIG.filter(agent => getStepForAgent(steps, agent));
+  const activeAgents = AGENT_CONFIG.filter(agent => getStepsForAgent(steps, agent).length > 0);
+  
   return (
     <div className={cn(
       "flex-shrink-0 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5 px-2 sm:px-4 py-2",
@@ -48,17 +78,16 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
       {/* Desktop: full pills */}
       <div className="hidden sm:flex items-center gap-1.5 justify-center">
         {activeAgents.map((agent, idx) => {
-          const step = getStepForAgent(steps, agent);
-          const status = step?.status || 'pending';
+          const matched = getStepsForAgent(steps, agent);
+          const { status, activeStep, totalDuration } = getGroupStatus(matched);
           const Icon = agent.icon;
+          const subLabel = activeStep ? (SUB_NODE_LABELS[activeStep.id] || activeStep.subLabel) : undefined;
 
           return (
             <div key={agent.key} className="flex items-center gap-1.5">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={cn(
-                    "flex flex-col items-center transition-all duration-300 cursor-default",
-                  )}>
+                  <div className="flex flex-col items-center transition-all duration-300 cursor-default">
                     <div className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium",
                       status === 'pending' && "bg-muted/50 text-muted-foreground/50",
@@ -76,22 +105,22 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                         <Icon className="w-3 h-3" />
                       )}
                       <span className="hidden lg:inline">{agent.viLabel}</span>
-                      {status === 'complete' && step?.duration && (
-                        <span className="text-[9px] text-muted-foreground/60">{(step.duration / 1000).toFixed(1)}s</span>
+                      {status === 'complete' && totalDuration && totalDuration > 0 && (
+                        <span className="text-[9px] text-muted-foreground/60">{(totalDuration / 1000).toFixed(1)}s</span>
                       )}
                     </div>
-                    {/* Sub-label for active steps with progress info */}
-                    {status === 'active' && step?.subLabel && (
+                    {/* Sub-label showing active sub-node */}
+                    {status === 'active' && subLabel && (
                       <span className="hidden lg:block text-[9px] text-primary/70 mt-0.5 max-w-[140px] truncate animate-fade-in">
-                        {step.subLabel}
+                        {subLabel}
                       </span>
                     )}
-                    {/* Mini progress bar for active content step */}
-                    {status === 'active' && step?.progress != null && step.progress > 0 && (
+                    {/* Mini progress bar for active step */}
+                    {status === 'active' && activeStep?.progress != null && activeStep.progress > 0 && (
                       <div className="hidden lg:block w-full max-w-[80px] h-0.5 bg-muted/40 rounded-full mt-0.5 overflow-hidden">
                         <div
                           className="h-full bg-primary/60 rounded-full transition-all duration-700 ease-out"
-                          style={{ width: `${step.progress}%` }}
+                          style={{ width: `${activeStep.progress}%` }}
                         />
                       </div>
                     )}
@@ -99,14 +128,14 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs max-w-[200px]">
                   <p className="font-medium">{agent.label} Agent</p>
-                  {status === 'active' && step?.subLabel && (
-                    <p className="text-primary mt-0.5">{step.subLabel}</p>
+                  {status === 'active' && subLabel && (
+                    <p className="text-primary mt-0.5">{subLabel}</p>
                   )}
-                  {status === 'active' && !step?.subLabel && (
+                  {status === 'active' && !subLabel && (
                     <p className="text-muted-foreground mt-0.5">Đang xử lý...</p>
                   )}
-                  {status === 'complete' && step?.duration && (
-                    <p className="text-muted-foreground mt-0.5">Hoàn thành trong {(step.duration / 1000).toFixed(1)}s</p>
+                  {status === 'complete' && totalDuration && totalDuration > 0 && (
+                    <p className="text-muted-foreground mt-0.5">Hoàn thành trong {(totalDuration / 1000).toFixed(1)}s</p>
                   )}
                   {status === 'pending' && <p className="text-muted-foreground mt-0.5">Chờ xử lý</p>}
                 </TooltipContent>
@@ -127,8 +156,8 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
       <div className="sm:hidden flex items-center gap-2">
         <div className="flex items-center gap-1">
           {activeAgents.map((agent) => {
-            const step = getStepForAgent(steps, agent);
-            const status = step?.status || 'pending';
+            const matched = getStepsForAgent(steps, agent);
+            const { status } = getGroupStatus(matched);
             const Icon = agent.icon;
             return (
               <div
@@ -156,7 +185,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
           <div
             className="h-full bg-gradient-to-r from-primary to-violet-500 rounded-full transition-all duration-500"
             style={{
-              width: `${(steps.filter(s => s.status === 'complete').length / Math.max(activeAgents.length, 1)) * 100}%`
+              width: `${(activeAgents.filter(a => getGroupStatus(getStepsForAgent(steps, a)).status === 'complete').length / Math.max(activeAgents.length, 1)) * 100}%`
             }}
           />
         </div>
