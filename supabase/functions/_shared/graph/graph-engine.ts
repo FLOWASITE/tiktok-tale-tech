@@ -494,6 +494,12 @@ function canAfford(state: GraphState, estimatedTokens: number): boolean {
  * Pre-built graph plans for common workflows (fast-path, no LLM orchestrator needed)
  */
 export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
+  off_topic: {
+    steps: [{ node: 'content' }],
+    skipNodes: ['research', 'strategy', 'reviewer', 'image', 'brand_memory', 'compliance', 'governor'],
+    reasoning: 'Off-topic message — return canned marketing scope response (no LLM call)',
+    fastPath: true,
+  },
   chat: {
     steps: [{ node: 'content' }],
     skipNodes: ['research', 'strategy', 'reviewer', 'image'],
