@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ChannelIcon } from '@/components/ui/channel-icon';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useSocialConnections, SocialPlatform, SocialConnection } from '@/hooks/useSocialConnections';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
