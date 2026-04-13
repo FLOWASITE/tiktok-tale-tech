@@ -98,6 +98,7 @@ import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { CompactChannelGrid } from '@/components/multichannel/CompactChannelGrid';
+import { UnconnectedChannelsBanner } from '@/components/multichannel/UnconnectedChannelsBanner';
 import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
