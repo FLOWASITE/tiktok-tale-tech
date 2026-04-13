@@ -215,62 +215,19 @@ export function ConversationHistorySidebar({
         </Button>
       </div>
 
-      {/* Navigation items (ChatGPT-style) */}
-      <div className="px-2 py-2 space-y-0.5">
-        <button
-          onClick={onNewConversation}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] text-foreground/80 hover:bg-accent hover:text-foreground transition-colors"
-        >
-          <Search className="w-4 h-4 text-muted-foreground" />
-          <span>Tìm kiếm đoạn chat</span>
-        </button>
-      </div>
-
-      {/* Search (appears when typing) */}
-      {searchQuery && (
-        <div className="px-3 pb-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-sm bg-accent/50 border-0 focus-visible:ring-1 rounded-lg"
-              autoFocus
-            />
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2"
-            >
-              <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Inline search trigger */}
-      <div className="px-3 pb-1">
-        <div 
-          className="relative cursor-text"
-          onClick={() => {
-            const input = document.getElementById('sidebar-search-input');
-            input?.focus();
-          }}
-        >
+      {/* Search */}
+      <div className="px-2 pb-1">
+        <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input
-            id="sidebar-search-input"
             placeholder="Tìm kiếm đoạn chat..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-[13px] bg-transparent border-0 text-muted-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:bg-accent/50 rounded-lg transition-colors"
+            className="h-9 pl-8 text-[13px] bg-transparent border-0 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:bg-accent/50 rounded-lg transition-colors"
           />
           {searchQuery && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSearchQuery('');
-              }}
+              onClick={() => setSearchQuery('')}
               className="absolute right-2 top-1/2 -translate-y-1/2"
             >
               <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
