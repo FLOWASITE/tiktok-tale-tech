@@ -1,33 +1,65 @@
 
 
-## Sửa lỗi Lịch sử Chat không hiện đoạn chat
+## Thêm bộ lọc Intent — Chỉ trả lời về Marketing/Content
 
-### Nguyên nhân gốc
+### Vấn đề
+Chatbot hiện trả lời mọi câu hỏi, kể cả "Tại sao" hay bất kỳ tin nhắn không liên quan. Khi `matchIntent` trả về `null`, request rơi vào LLM planning, và LLM trả lời như assistant tổng quát.
 
-Có 3 vấn đề chính:
+### Giải pháp: 2 lớp lọc
 
-1. **Title không đồng bộ lên sidebar**: Khi `addMessage` cập nhật title cục bộ cho `currentConversation`, nó **không cập nhật** title trong mảng `conversations` (sidebar đọc từ mảng này). Sidebar luôn hiện "Cuộc hội thoại mới".
+**Lớp 1 — Heuristic off-topic detection (nhanh, không tốn token)**
 
-2. **Title không lưu vào DB**: Title chỉ set local (`content.slice(0, 100)`) nhưng không gọi `updateConversation` để persist xuống database. Khi reload, title mất.
+Thêm hàm `isOffTopic(message)` trong `orchestrator.ts`:
+- Tin nhắn quá ngắn (< 5 ký tự, không phải follow-up) + không match bất kỳ intent nào → off-topic
+- Match các pattern off-topic rõ ràng: hỏi toán, code, dịch thuật không liên quan marketing, câu hỏi cá nhân, v.v.
+- Nếu off-topic → trả về template plan "off_topic" mới, skip toàn bộ graph engine
 
-3. **Conversation có thể không hiện sau khi tạo**: Nếu `createConversation` thành công nhưng `addMessage` gọi trước khi `currentConversation` được set (do async timing), message không được lưu. Và sidebar cần được cập nhật title ngay khi user gửi tin nhắn đầu tiên.
+**Lớp 2 — System prompt guardrail (cho LLM fallback)**
 
-### Giải pháp
-
-**1. `src/hooks/useChatConversations.ts` — Đồng bộ title vào conversations list + persist**
-- Trong `addMessage`: khi set title local, cũng cập nhật trong mảng `conversations` (cho sidebar)
-- Sau khi set title lần đầu, gọi `updateConversation` API để persist title xuống DB
-- Đảm bảo `conversations` list luôn reflect title mới nhất
-
-**2. `src/components/topic/TopicAIChatbot.tsx` — Fix async timing**
-- Sau `createConversation`, đợi result rồi mới gọi `addMessageToDB` (đã đúng logic nhưng cần đảm bảo `currentConversation` đã set trước khi gọi)
-- Truyền `conversationId` trực tiếp vào `addMessageToDB` thay vì rely on `currentConversation` state
-
-**3. `src/hooks/useChatConversations.ts` — `addMessage` nhận `conversationId` parameter**
-- Thêm optional `conversationId` param để có thể gọi ngay sau `createConversation` mà không cần đợi state update
+Cập nhật system prompt trong `prompt-registry.ts` và `ORCHESTRATOR_SYSTEM_PROMPT` để thêm:
+- Quy tắc rõ ràng: chỉ trả lời về content marketing, social media, branding, thương hiệu
+- Khi nhận câu hỏi không liên quan → trả lời lịch sự redirect về đúng chức năng
 
 ### File thay đổi
-1. `src/hooks/useChatConversations.ts` — Fix title sync + persist + addMessage nhận conversationId
-2. `src/components/topic/TopicAIChatbot.tsx` — Truyền conversationId trực tiếp khi addMessage
-3. `src/components/topic/chatbot/types.ts` — Update addMessageToDB signature
+
+**1. `supabase/functions/_shared/graph/orchestrator.ts`**
+- Thêm `OFF_TOPIC_PATTERNS` regex array cho các câu hỏi rõ ràng ngoài phạm vi
+- Thêm hàm `isOffTopic(message)` kiểm tra: (a) không match intent nào + quá ngắn/vô nghĩa, (b) match off-topic patterns
+- Trong `matchIntent`: nếu không match gì → gọi `isOffTopic` → trả về intent `off_topic`
+- Thêm template plan `off_topic` trong `intentToTemplate`
+
+**2. `supabase/functions/_shared/graph/graph-engine.ts`**
+- Thêm template plan `off_topic` → chỉ chạy node `content` với flag `isOffTopic: true`
+- Khi `isOffTopic`, content node trả response cố định thay vì gọi LLM
+
+**3. `supabase/functions/_shared/prompt-registry.ts`**
+- Cập nhật system prompt `chat-topics` thêm boundary rõ ràng:
+  ```
+  PHẠM VI: Chỉ hỗ trợ về content marketing, social media, branding, chiến lược nội dung.
+  Nếu câu hỏi ngoài phạm vi → từ chối lịch sự và gợi ý hỏi về marketing.
+  ```
+
+**4. `supabase/functions/_shared/graph/orchestrator.ts` — ORCHESTRATOR_SYSTEM_PROMPT**
+- Thêm rule: "If user message is clearly off-topic (not related to marketing, content, branding), return a minimal plan with content node only and set reasoning to 'off_topic'."
+
+### Off-topic response mẫu
+```
+Mình là Flowa AI — chuyên hỗ trợ về content marketing và chiến lược nội dung. 🎯
+
+Mình có thể giúp bạn:
+• Gợi ý chủ đề content
+• Lập kế hoạch nội dung
+• Viết bài cho các kênh social media
+• Phân tích xu hướng và đối thủ
+
+Hãy hỏi mình về marketing nhé! 💡
+```
+
+### Logic flow
+```text
+User message → matchIntent()
+  ├─ match found → fast-path (existing)
+  ├─ no match + isOffTopic() = true → return canned response (no LLM call)
+  └─ no match + isOffTopic() = false → LLM planning (existing, with guardrail prompt)
+```
 
