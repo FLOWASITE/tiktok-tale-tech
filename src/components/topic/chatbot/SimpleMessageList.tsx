@@ -165,7 +165,7 @@ export function SimpleMessageList({
   return (
     <div
       ref={scrollContainerRef}
-      className="flex-1 overflow-y-auto px-2 sm:px-4 py-3 scroll-smooth"
+      className="flex-1 overflow-y-auto px-2 sm:px-4 lg:px-6 py-3 lg:py-6 scroll-smooth"
       onScroll={onScroll}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
