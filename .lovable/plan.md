@@ -1,29 +1,17 @@
 
 
-## Chỉnh chu UI Kết nối mạng xã hội
+## Fix: Test Facebook không cập nhật "Đã xác thực"
 
-### Vấn đề hiện tại (từ screenshot)
+### Nguyên nhân
+Edge function `test-facebook-connection/index.ts` khi test thành công chỉ update `is_active`, `platform_username`, và `metadata` — nhưng **không update `last_verified_at`**.
 
-1. **Avatar thay thế hoàn toàn icon platform**: Khi Fanpage có avatar, icon Facebook (màu xanh) biến mất, thay bằng ảnh avatar → mất nhận diện kênh.
-2. **Badge không đồng nhất**: "Đã xác thực" (xanh lá), "Đã kết nối" (xám), "Đã ngắt" (đỏ/xám) có style khác nhau, không thống nhất.
+Frontend (`BrandViewConnectionsTab.tsx`) kiểm tra `connection.last_verified_at` để hiển thị badge "Đã xác thực" (xanh lá) thay vì "Đã kết nối" (xanh dương). Vì `last_verified_at` luôn là `null` nên badge không bao giờ chuyển sang "Đã xác thực".
 
 ### Thay đổi
 
-**1. Avatar + Platform icon overlay** (`BrandViewConnectionsTab.tsx`)
-- Giữ avatar của tài khoản đã kết nối nhưng thêm icon platform nhỏ ở góc dưới-phải (overlay badge).
-- Áp dụng cho cả `renderConnection`, `renderFbConnection`, và `renderWebsitePlatform`.
+**File: `supabase/functions/test-facebook-connection/index.ts` (line ~171)**
 
-```text
-Trước:  [Avatar ảnh page]  hoặc  [Icon Facebook]
-Sau:    [Avatar ảnh page + icon FB nhỏ ở góc]  hoặc  [Icon Facebook] (khi chưa kết nối)
-```
+Thêm `last_verified_at: new Date().toISOString()` vào câu lệnh update khi test thành công (cùng chỗ đang update `is_active: true`).
 
-**2. Thống nhất Badge status**
-- "Đã xác thực" → Badge xanh lá nhẹ với icon ShieldCheck (giữ nguyên)
-- "Đã kết nối" → Badge xanh dương nhẹ với icon CheckCircle2 (thay vì secondary xám)
-- "Đã ngắt" → Badge đỏ nhạt với icon Unplug (thống nhất style)
-- Tất cả badge dùng cùng pattern: `bg-{color}-500/10 text-{color}-600 border-{color}-500/20`
-
-### File cần sửa
-- `src/components/brand/BrandViewConnectionsTab.tsx` — cả 3 render functions
+Một dòng duy nhất cần thêm, không thay đổi logic khác.
 
