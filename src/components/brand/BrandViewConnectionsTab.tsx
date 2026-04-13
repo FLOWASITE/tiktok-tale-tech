@@ -868,9 +868,8 @@ try {
                 </div>
               </>
             )
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Tải file <strong>api_flowa.php</strong> bên dưới</li>
-                      <li>Upload file lên thư mục gốc website (ngang hàng với <code>mainfile.php</code>)</li>
+
+
                       <li>Mở file, đổi dòng <code>$my_api_key</code> thành mật khẩu riêng của bạn</li>
                       <li>Nhập thông tin vào 2 ô bên dưới rồi bấm Kết nối</li>
                     </ol>
