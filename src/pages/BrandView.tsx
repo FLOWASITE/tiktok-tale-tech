@@ -190,7 +190,7 @@ export default function BrandView() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full h-auto flex-wrap justify-start gap-1 bg-muted/50 p-1 rounded-lg">
           <TabsTrigger value="overview" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <LayoutDashboard className="w-3.5 h-3.5" />
