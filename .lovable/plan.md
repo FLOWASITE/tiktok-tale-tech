@@ -1,52 +1,27 @@
 
 
-## Perplexity trong hệ thống và giải pháp thay thế
+## Cập nhật cài đặt Model AI cho OpenRouter trong AI Management
 
-### Perplexity đang làm gì?
+### Vấn đề hiện tại
+- `MODELS_BY_TYPE.search` chỉ có `sonar-pro` và `sonar` (model Perplexity trực tiếp cũ)
+- `MODEL_INFO` ghi nhận provider là `'lovable'` cho các model search, trong khi thực tế đã chuyển sang OpenRouter
+- `AI_FUNCTIONS` vẫn ghi `currentModel: 'sonar'` cho các function search, cần đổi thành `perplexity/sonar`
+- Thiếu model info cho các OpenRouter model phổ biến (Claude, Grok, DeepSeek, etc.)
 
-Perplexity được dùng ở **2 chỗ** với mục đích duy nhất: **tìm kiếm web real-time có citations** (điều mà LLM thông thường không làm được).
+### Thay đổi
 
-**1. Topic Suggestions** (`topic-utils.ts`)
-- `searchIndustryData()`: Tìm thống kê ngành, case studies, xu hướng thị trường VN mới nhất
-- `searchAudienceQuestions()`: Tìm câu hỏi thực tế của khách hàng trên forums, cộng đồng
-- Kết quả được đưa vào prompt AI để sinh topic suggestions chất lượng hơn
+**File: `src/hooks/useAIConfig.ts`**
 
-**2. GEO Brand Scanning** (`geo-scan-brand/index.ts`)
-- Quét brand visibility trên Perplexity AI (1 trong 3 engines: ChatGPT, Gemini, Perplexity)
-- Đo lường xem AI có đề cập thương hiệu không khi user hỏi câu liên quan
+1. Cập nhật `MODELS_BY_TYPE.search` — thêm `perplexity/sonar-pro` và `perplexity/sonar` (qua OpenRouter), giữ lại model cũ cho backward compatibility
 
-### Hiện trạng
-- Perplexity: **hết quota** (401 insufficient_quota)
-- Khi không có Perplexity key, hệ thống đã **tự skip** web search → topic suggestions vẫn hoạt động nhưng thiếu dữ liệu real-time
+2. Cập nhật `MODEL_INFO` — đổi provider của `sonar-pro`/`sonar` sang `'openrouter'`, thêm entries mới cho `perplexity/sonar-pro` và `perplexity/sonar`
 
-### Giải pháp thay thế
+3. Cập nhật `AI_FUNCTIONS` — đổi `currentModel` của các function search từ `'sonar'`/`'sonar-pro'` sang `'perplexity/sonar'`/`'perplexity/sonar-pro'`
 
-Thay Perplexity bằng **OpenRouter + model có web search** (đã có API key hoạt động):
-
-- OpenRouter cung cấp các model Perplexity (perplexity/sonar) qua API tương thích OpenAI
-- Chi phí thấp hơn, dùng chung key OpenRouter đã có
-- Giữ nguyên logic: tìm industry data + audience questions, trả về JSON + citations
-
-**Thay đổi cụ thể:**
-
-1. **`supabase/functions/_shared/topic-utils.ts`**
-   - Thay `fetch('https://api.perplexity.ai/...')` bằng `fetch('https://openrouter.ai/api/v1/chat/completions')` với model `perplexity/sonar`
-   - Dùng `OPENROUTER_API_KEY` (user's key, đã có) thay vì `PERPLEXITY_API_KEY`
-   - Giữ nguyên prompt, timeout, parse logic
-
-2. **`supabase/functions/geo-scan-brand/index.ts`**
-   - Engine "perplexity" chuyển sang dùng OpenRouter + `perplexity/sonar` thay vì gọi trực tiếp Perplexity API
-   - Fallback: nếu OpenRouter cũng fail → simulate như các engine khác
-
-3. **`supabase/functions/_shared/topic-utils.ts`** — `shouldSkipWebSearch()`
-   - Kiểm tra `OPENROUTER_API_KEY` thay vì `PERPLEXITY_API_KEY`
-
-### File cần sửa
-- `supabase/functions/_shared/topic-utils.ts` — đổi 2 hàm search sang OpenRouter
-- `supabase/functions/geo-scan-brand/index.ts` — đổi engine perplexity sang OpenRouter
+4. Thêm `MODEL_INFO` cho các OpenRouter text model chưa có info (Claude 4.6, Grok 4.20, DeepSeek V3.2, MiniMax M2.5, etc.) để hiển thị đẹp trên UI
 
 ### Kết quả
-- Web search hoạt động trở lại không cần thêm API key mới
-- Topic suggestions có dữ liệu real-time từ web
-- GEO scan engine Perplexity dùng model thật thay vì simulate
+- Admin có thể chọn model OpenRouter (bao gồm Perplexity Sonar) cho các function search trong AI Management UI
+- Hiển thị đúng provider indicator (OpenRouter) thay vì Lovable
+- Tất cả model OpenRouter text đã có trong danh sách đều hiển thị info đầy đủ
 
