@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/collapsible';
 import { ContentGoal, Channel, ContentStatus, CONTENT_GOALS, CHANNELS, CONTENT_STATUSES } from '@/types/multichannel';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useCampaigns } from '@/hooks/useCampaigns';
+import { Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface DateRange {
@@ -44,6 +46,8 @@ interface MultiChannelFiltersProps {
   onStatusFilterChange: (status: ContentStatus | 'all') => void;
   brandFilter: string | 'all';
   onBrandFilterChange: (brandId: string | 'all') => void;
+  campaignFilter?: string;
+  onCampaignFilterChange: (value: string | undefined) => void;
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   tagFilter: string;
@@ -74,6 +78,8 @@ export function MultiChannelFilters({
   onStatusFilterChange,
   brandFilter,
   onBrandFilterChange,
+  campaignFilter,
+  onCampaignFilterChange,
   dateRange,
   onDateRangeChange,
   tagFilter,
@@ -86,6 +92,7 @@ export function MultiChannelFilters({
   const [isExpanded, setIsExpanded] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const { campaigns } = useCampaigns();
 
   const formatDateRange = () => {
     if (!dateRange.from && !dateRange.to) return 'Chọn ngày';
@@ -323,6 +330,36 @@ export function MultiChannelFilters({
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {/* Campaign */}
+              <Select
+                value={campaignFilter || '_none_'}
+                onValueChange={(v) => onCampaignFilterChange(v === '_none_' ? undefined : v)}
+              >
+                <SelectTrigger className="w-[140px] h-8 text-xs bg-background/50 border-border/40">
+                  <SelectValue placeholder="Chiến dịch">
+                    {campaignFilter ? (
+                      <div className="flex items-center gap-1 truncate">
+                        <Target className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{campaigns?.find(c => c.id === campaignFilter)?.name || 'Chiến dịch'}</span>
+                      </div>
+                    ) : (
+                      'Tất cả chiến dịch'
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">Tất cả chiến dịch</SelectItem>
+                  {campaigns?.map((campaign) => (
+                    <SelectItem key={campaign.id} value={campaign.id}>
+                      <div className="flex items-center gap-1.5">
+                        <Target className="h-3 w-3 text-primary shrink-0" />
+                        <span className="truncate">{campaign.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               {/* Tags */}
               {availableTags.length > 0 && (

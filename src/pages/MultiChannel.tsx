@@ -21,7 +21,7 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
-import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+
 import { useGEOContentScores } from '@/hooks/useGEOContentScore';
 import { useSocialConnections } from '@/hooks/useSocialConnections';
 
@@ -363,36 +363,28 @@ export default function MultiChannel() {
         />
 
         {/* Filters */}
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="flex-1">
-            <MultiChannelFilters
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              goalFilter={goalFilter}
-              onGoalFilterChange={setGoalFilter}
-              channelFilter={channelFilter}
-              onChannelFilterChange={setChannelFilter}
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              brandFilter={brandFilter}
-              onBrandFilterChange={setBrandFilter}
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              tagFilter={tagFilter}
-              onTagFilterChange={setTagFilter}
-              brandTemplates={brandTemplates}
-              availableTags={availableTags}
-              onClearFilters={clearFilters}
-              activeFilterCount={activeFilterCount}
-            />
-          </div>
-          <CampaignSelector
-            value={campaignFilter}
-            onValueChange={setCampaignFilter}
-            placeholder="Lọc theo chiến dịch"
-            className="w-full lg:w-56"
-          />
-        </div>
+        <MultiChannelFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          goalFilter={goalFilter}
+          onGoalFilterChange={setGoalFilter}
+          channelFilter={channelFilter}
+          onChannelFilterChange={setChannelFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          brandFilter={brandFilter}
+          onBrandFilterChange={setBrandFilter}
+          campaignFilter={campaignFilter}
+          onCampaignFilterChange={setCampaignFilter}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          tagFilter={tagFilter}
+          onTagFilterChange={setTagFilter}
+          brandTemplates={brandTemplates}
+          availableTags={availableTags}
+          onClearFilters={clearFilters}
+          activeFilterCount={activeFilterCount}
+        />
 
         {/* Bulk Actions Bar */}
         <BulkActionsBar
