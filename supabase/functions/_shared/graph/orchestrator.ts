@@ -140,6 +140,38 @@ Mình có thể giúp bạn:
 Hãy hỏi mình về marketing nhé! 💡`;
 
 /**
+ * Check if a message looks like nonsense / gibberish.
+ * Uses word-level heuristic: if no recognizable Vietnamese/English marketing words found → nonsense.
+ */
+function looksLikeNonsense(message: string): boolean {
+  const trimmed = message.trim();
+  // Single word with no vowels (likely keyboard smash)
+  if (/^\S+$/.test(trimmed) && !/[aeiouàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(trimmed)) {
+    return true;
+  }
+  
+  const words = trimmed.split(/\s+/).filter(w => w.length > 1);
+  if (words.length === 0) return true;
+  
+  // Check if any word is a recognizable word (marketing, common Vietnamese/English)
+  const MEANINGFUL_WORD = /^(tạo|viết|bài|nội dung|content|post|marketing|brand|thương hiệu|kênh|channel|quảng cáo|ad|ads|chiến dịch|campaign|đăng|publish|lịch|calendar|kế hoạch|plan|phân tích|analyze|nghiên cứu|research|xu hướng|trend|đối thủ|competitor|khách hàng|customer|sản phẩm|product|email|social|media|facebook|instagram|tiktok|youtube|linkedin|twitter|blog|website|seo|hook|caption|script|carousel|video|ảnh|image|design|thiết kế|headline|tiêu đề|cta|persona|target|mục tiêu|ngành|industry|chủ đề|topic|ý tưởng|idea|gợi ý|suggest|giúp|help|hướng dẫn|guide|xin chào|hello|hi|hey|chào|cảm ơn|thanks|bạn|tôi|mình|của|và|cho|với|từ|đến|là|có|không|được|này|đó|thế|nào|sao|gì|nên|cần|muốn|hãy|xin|vui lòng|please|the|and|for|with|from|this|that|how|what|why|can|want|need|about|make|write|create|find|search|give|show|tell|more|new|best|top|good|great)$/i;
+  
+  const meaningfulCount = words.filter(w => MEANINGFUL_WORD.test(w)).length;
+  
+  // If no meaningful words found and message is short → nonsense
+  if (meaningfulCount === 0 && words.length <= 5) {
+    return true;
+  }
+  
+  // If very low ratio of meaningful words → likely nonsense
+  if (words.length > 2 && meaningfulCount / words.length < 0.15) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Check if a message is clearly off-topic (not related to marketing/content/branding).
  * Only called when matchIntent returns null (no marketing intent detected).
  */
