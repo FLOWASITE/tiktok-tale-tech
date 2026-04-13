@@ -5,7 +5,8 @@ import {
   Lightbulb, 
   Calendar, 
   Bookmark, 
-  Layers 
+  Layers,
+  Globe 
 } from 'lucide-react';
 import { CoachmarkStep } from './types';
 
@@ -66,6 +67,19 @@ export const DASHBOARD_STEPS: CoachmarkStep[] = [
     action: {
       label: 'Tạo Brand ngay',
       href: '/brands',
+    },
+  },
+  {
+    id: 'connections',
+    target: '[data-coachmark="connections-action"]',
+    title: '🔗 Kết nối kênh mạng xã hội',
+    description: 'Liên kết Facebook, Instagram, TikTok... để đăng bài trực tiếp từ Flowa. Kết nối càng sớm, trải nghiệm càng mượt!',
+    icon: Globe,
+    placement: 'right',
+    spotlightPadding: 8,
+    action: {
+      label: 'Kết nối ngay',
+      href: '/connections',
     },
   },
   {
