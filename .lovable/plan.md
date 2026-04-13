@@ -1,27 +1,50 @@
 
 
-## Chỉnh chu UI cho nhiều Website (tương tự Facebook)
+## Banner nhắc nhở kết nối social khi tạo nội dung
 
-### Thay đổi trong `src/components/brand/BrandViewConnectionsTab.tsx` — hàm `renderWebsitePlatform()`
+### Vấn đề
+User chọn kênh xuất bản (Facebook, Instagram...) ở Step 4 nhưng không biết brand chưa kết nối kênh đó → tạo xong nội dung mới phát hiện không đăng được.
 
-**1. Thêm số thứ tự khi có nhiều website**
-- Label "Website 1", "Website 2"... khi có ≥2 kết nối active
-- Dùng cùng style với Facebook: `text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded`
+### Giải pháp
+Thêm banner cảnh báo ngay dưới phần "Kênh xuất bản" (CompactChannelGrid) trong Step 4 khi có kênh được chọn mà brand chưa kết nối.
 
-**2. Thêm thời gian kết nối (relative)**
-- Hiển thị `formatDistanceToNow(connected_at)` dưới mỗi connection
-- Cùng format "· X ngày trước" như Facebook
+### Thay đổi
 
-**3. Badge "Đã xác thực" khi có `last_verified_at`**
-- Hiện tại website chỉ hiển thị "Đã kết nối" (xanh dương) hoặc "Đã ngắt" (đỏ)
-- Thêm logic: nếu `last_verified_at` có giá trị → hiển thị badge "Đã xác thực" (xanh lá) thay vì "Đã kết nối"
+**1. Tạo component mới: `src/components/multichannel/UnconnectedChannelsBanner.tsx`**
+- Nhận props: `selectedChannels`, `brandTemplateId`
+- Dùng `useSocialConnections({ brandTemplateId })` để lấy danh sách kết nối
+- So sánh kênh đã chọn vs kênh đã kết nối → lọc ra kênh chưa kết nối
+- Nếu không có kênh nào chưa kết nối → render null
+- UI: Banner nhỏ màu amber/warning với icon AlertTriangle, liệt kê tên kênh chưa kết nối, kèm nút "Kết nối ngay" dẫn đến trang Brand → tab Kết nối
 
-**4. Avatar overlay cho website**
-- Nếu connection có `platform_avatar_url`, hiển thị avatar + icon Website nhỏ ở góc (giống Facebook)
+```text
+┌─ ⚠️ ─────────────────────────────────────────┐
+│  2 kênh chưa kết nối: Facebook, Instagram    │
+│  Bạn cần kết nối để đăng bài tự động         │
+│                          [Kết nối ngay →]     │
+└───────────────────────────────────────────────┘
+```
 
-**5. Nút "Thêm Website" nhỏ gọn hơn**
-- Text muted, style dashed border (đã có sẵn phần nào), đảm bảo đồng nhất với nút "Thêm Fanpage khác" của Facebook
+**2. Sửa `src/components/multichannel/MultiChannelFormWizard.tsx`**
+- Import `UnconnectedChannelsBanner`
+- Chèn ngay sau `CompactChannelGrid` (line ~1846), trước gradient divider
+- Truyền `selectedChannels={formData.channels}` và `brandTemplateId`
 
-### File cần sửa
-- `src/components/brand/BrandViewConnectionsTab.tsx` — chỉ hàm `renderWebsitePlatform()`
+### Mapping kênh
+Một số kênh trong form dùng tên khác với platform trong `social_connections`:
+- `facebook` → `facebook`
+- `instagram` → `instagram`
+- `tiktok` → `tiktok`
+- `linkedin` → `linkedin`
+- `threads` → `threads`
+- `youtube` → `youtube`
+- `twitter`/`x` → `twitter`
+- `website`/`blog` → `website`
+- `zalo` → `zalo_oa`
+
+Banner sẽ chỉ cảnh báo cho các kênh có thể publish trực tiếp (không bao gồm `email`, `newsletter`...).
+
+### File cần tạo/sửa
+- **Tạo**: `src/components/multichannel/UnconnectedChannelsBanner.tsx`
+- **Sửa**: `src/components/multichannel/MultiChannelFormWizard.tsx` (thêm import + 1 dòng JSX)
 
