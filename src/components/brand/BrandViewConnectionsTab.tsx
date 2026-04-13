@@ -523,12 +523,17 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     const activeConns = fbConns.filter(c => c.is_active);
     const inactiveConns = fbConns.filter(c => !c.is_active);
 
-    const renderFbConnection = (connection: SocialConnection, isInactive = false) => {
+    const renderFbConnection = (connection: SocialConnection, isInactive = false, index?: number) => {
       const isTesting = testingConnection === connection.id;
+      const connectedTimeAgo = connection.connected_at
+        ? formatDistanceToNow(new Date(connection.connected_at), { addSuffix: true, locale: vi })
+        : null;
       return (
         <div
           key={connection.id}
-          className={`flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors ${isInactive ? 'opacity-50' : ''}`}
+          className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:border-border transition-colors ${
+            isInactive ? 'opacity-50 border-border/30' : index === 0 ? 'border-border' : 'border-border/50'
+          }`}
         >
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -555,11 +560,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             </div>
             <div>
               <div className="flex items-center gap-2">
+                {typeof index === 'number' && activeConns.length > 1 && (
+                  <span className="text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded">
+                    Fanpage {index + 1}
+                  </span>
+                )}
                 <span className="font-medium">
                   {connection.platform_display_name || connection.platform_username || config.name}
                 </span>
               </div>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {connection.platform_username && (
                   <span className="text-sm text-muted-foreground">
                     {connection.platform_username}
@@ -585,6 +595,11 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     <Unplug className="w-3 h-3 mr-1" />
                     Đã ngắt
                   </Badge>
+                )}
+                {connectedTimeAgo && (
+                  <span className="text-xs text-muted-foreground">
+                    · {connectedTimeAgo}
+                  </span>
                 )}
               </div>
             </div>
