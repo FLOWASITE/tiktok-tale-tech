@@ -704,7 +704,13 @@ export async function runOrchestrator(
   // Store reasoning in state
   state.orchestratorPlan = plan;
   state.orchestratorReasoning = plan.reasoning;
-  state.userIntent = plan.fastPath ? 'fast_path' : 'llm_planned';
+  state.userIntent = plan.reasoning?.toLowerCase().includes('off-topic') || plan.reasoning?.toLowerCase().includes('off_topic')
+    ? 'off_topic'
+    : (plan.fastPath ? 'fast_path' : 'llm_planned');
+  state.metadata = {
+    ...state.metadata,
+    isOffTopic: state.userIntent === 'off_topic',
+  };
 
   // Sprint 6E: Reserve 25% token budget for revision loop when governor is in plan
   const hasGovernor = plan.steps.some(s => s.node === 'governor');

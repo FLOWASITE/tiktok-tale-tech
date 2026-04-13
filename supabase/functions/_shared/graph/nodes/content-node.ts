@@ -47,14 +47,19 @@ export function createContentNode(ctx: ContentNodeContext) {
   return async function contentNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ContentNode] Starting');
 
-    // ─── Off-topic fast exit: return canned response, no LLM call ───
-    if (state.orchestratorPlan?.reasoning === 'off_topic' || 
-        state.orchestratorPlan?.reasoning?.includes('off_topic') ||
-        state.metadata?.isOffTopic) {
-      console.log('[ContentNode] Off-topic detected — returning canned response');
+    // ─── Off-topic / nonsense fast exit: return canned response, no LLM/tool call ───
+    const offTopicReasoning = state.orchestratorPlan?.reasoning?.toLowerCase() || '';
+    const isOffTopic = state.userIntent === 'off_topic'
+      || offTopicReasoning.includes('off-topic')
+      || offTopicReasoning.includes('off_topic')
+      || state.metadata?.isOffTopic
+      || state.metadata?.contentOffTopic;
+
+    if (isOffTopic) {
+      console.log('[ContentNode] Off-topic/nonsense detected — returning canned response');
       return {
         generatedContent: getOffTopicResponse(),
-        metadata: { actualTokensUsed_content: 0, contentOffTopic: true },
+        metadata: { actualTokensUsed_content: 0, contentOffTopic: true, isOffTopic: true },
       };
     }
 
