@@ -59,6 +59,7 @@ export function TopicAIChatbot({
   onReady,
   initialPrompt,
   desktopLayout = false,
+  conversationState,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
@@ -66,7 +67,11 @@ export function TopicAIChatbot({
   const { profile } = useProfile();
   
   // === CUSTOM HOOKS ===
-  const messagesHook = useChatMessages({ brandTemplateId });
+  const messagesHook = useChatMessages({ 
+    brandTemplateId,
+    conversationMessages: conversationState?.conversationMessages,
+    currentConversationId: conversationState?.currentConversation?.id,
+  });
   const uiHook = useChatUI({ messages: messagesHook.messages, onReset: messagesHook.resetMessages });
   const artifactsHook = useChatArtifacts({
     brandTemplateId,
@@ -78,19 +83,14 @@ export function TopicAIChatbot({
   // Sound effects
   const { playSend, playReceive } = useSoundEffects(uiHook.soundEnabled);
   
-  // Conversation persistence
-  const {
-    conversations,
-    currentConversation,
-    isLoading: isLoadingConversations,
-    loadConversation,
-    deleteConversation,
-    archiveConversation,
-  } = useChatConversations({
-    brandTemplateId,
-    organizationId: currentOrganization?.id,
-    autoLoad: true,
-  });
+  // Use conversation state from props (shared) or create local fallback
+  const convState = conversationState;
+  const conversations = convState?.conversations || [];
+  const currentConversation = convState?.currentConversation || null;
+  const isLoadingConversations = convState?.isLoading || false;
+  const loadConversation = convState?.loadConversation || (async () => {});
+  const deleteConversation = convState?.deleteConversation || (async () => false);
+  const archiveConversation = convState?.archiveConversation || (async () => {});
   
   // Auto-save learnings
   const { autoExtractOnIdle } = useAutoSaveLearnings();
