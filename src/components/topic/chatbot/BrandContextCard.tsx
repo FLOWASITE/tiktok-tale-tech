@@ -32,15 +32,15 @@ export const BrandContextCard = forwardRef<HTMLDivElement, BrandContextCardProps
         ref={ref}
         className={cn(
           'p-4 rounded-2xl welcome-gradient-border relative overflow-hidden',
-          'bg-gradient-to-br from-primary/5 via-violet-500/5 to-fuchsia-500/5',
-          'shadow-lg shadow-primary/5',
+          'bg-muted/30',
+          'shadow-sm',
           className
         )}
       >
-        {/* Subtle animated glow */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-2xl animate-pulse" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-violet-500/20 to-transparent rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
+        {/* Subtle background */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-muted-foreground/10 to-transparent rounded-full blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-muted-foreground/10 to-transparent rounded-full blur-2xl" />
         </div>
         
         <div className="relative flex items-start gap-3.5">
@@ -53,8 +53,8 @@ export const BrandContextCard = forwardRef<HTMLDivElement, BrandContextCardProps
                 className="w-12 h-12 rounded-xl object-cover shadow-lg ring-2 ring-background"
               />
             ) : (
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center shadow-md">
-                <Building2 className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shadow-sm">
+                <Building2 className="w-6 h-6 text-muted-foreground" />
               </div>
             )}
           </div>
@@ -89,7 +89,7 @@ export const BrandContextCard = forwardRef<HTMLDivElement, BrandContextCardProps
             <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
               {pillars && pillars.length > 0 && (
                 <span className="flex items-center gap-1.5 font-medium">
-                  <Layers className="w-3 h-3 text-primary/70" />
+                  <Layers className="w-3 h-3 text-muted-foreground" />
                   {pillars.length} pillars
                 </span>
               )}
@@ -117,7 +117,7 @@ export const BrandContextCard = forwardRef<HTMLDivElement, BrandContextCardProps
                   key={i}
                   className={cn(
                     'px-2.5 py-1 text-[10px] font-semibold rounded-lg',
-                    'bg-primary/10 text-primary border border-primary/20',
+                    'bg-muted text-foreground border border-border',
                     'context-badge-shimmer'
                   )}
                 >

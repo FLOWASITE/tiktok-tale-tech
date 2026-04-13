@@ -72,7 +72,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
   
   return (
     <div className={cn(
-      "flex-shrink-0 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5 px-2 sm:px-4 py-2",
+      "flex-shrink-0 border-b bg-muted/30 px-2 sm:px-4 py-2",
       className
     )}>
       {/* Desktop: full pills */}
@@ -91,8 +91,8 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                     <div className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium",
                       status === 'pending' && "bg-muted/50 text-muted-foreground/50",
-                      status === 'active' && "bg-gradient-to-r from-primary/20 to-violet-500/20 text-primary ring-2 ring-primary/30 animate-pulse",
-                      status === 'complete' && "bg-gradient-to-r from-primary/10 to-violet-500/10 text-primary/80",
+                      status === 'active' && "bg-foreground/10 text-foreground ring-2 ring-foreground/20 animate-pulse",
+                      status === 'complete' && "bg-muted text-foreground/80",
                       status === 'error' && "bg-destructive/10 text-destructive ring-1 ring-destructive/30",
                     )}>
                       {status === 'complete' ? (
@@ -111,7 +111,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                     </div>
                     {/* Sub-label showing active sub-node */}
                     {status === 'active' && subLabel && (
-                      <span className="hidden lg:block text-[9px] text-primary/70 mt-0.5 max-w-[140px] truncate animate-fade-in">
+                      <span className="hidden lg:block text-[9px] text-muted-foreground mt-0.5 max-w-[140px] truncate animate-fade-in">
                         {subLabel}
                       </span>
                     )}
@@ -119,7 +119,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                     {status === 'active' && activeStep?.progress != null && activeStep.progress > 0 && (
                       <div className="hidden lg:block w-full max-w-[80px] h-0.5 bg-muted/40 rounded-full mt-0.5 overflow-hidden">
                         <div
-                          className="h-full bg-primary/60 rounded-full transition-all duration-700 ease-out"
+                          className="h-full bg-foreground/40 rounded-full transition-all duration-700 ease-out"
                           style={{ width: `${activeStep.progress}%` }}
                         />
                       </div>
@@ -165,8 +165,8 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                 className={cn(
                   "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
                   status === 'pending' && "bg-muted/50 text-muted-foreground/40",
-                  status === 'active' && "bg-primary/20 text-primary ring-1 ring-primary/40 animate-pulse",
-                  status === 'complete' && "bg-primary/10 text-emerald-500",
+                  status === 'active' && "bg-foreground/15 text-foreground ring-1 ring-foreground/30 animate-pulse",
+                  status === 'complete' && "bg-muted text-emerald-500",
                   status === 'error' && "bg-destructive/10 text-destructive",
                 )}
               >
@@ -183,7 +183,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
         </div>
         <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-primary to-violet-500 rounded-full transition-all duration-500"
+            className="h-full bg-foreground/60 rounded-full transition-all duration-500"
             style={{
               width: `${(activeAgents.filter(a => getGroupStatus(getStepsForAgent(steps, a)).status === 'complete').length / Math.max(activeAgents.length, 1)) * 100}%`
             }}

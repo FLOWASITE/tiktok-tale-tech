@@ -88,8 +88,8 @@ export function PersonalizedWelcome({
             className="flex items-start gap-3.5"
           >
             <div className="shrink-0 relative ai-avatar-pulse">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 flex items-center justify-center shadow-xl shadow-primary/25">
-                <Bot className="w-5 h-5 text-white" />
+              <div className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center shadow-sm">
+                <Bot className="w-5 h-5 text-primary-foreground" />
               </div>
             </div>
             <div className="space-y-1.5 pt-0.5">
