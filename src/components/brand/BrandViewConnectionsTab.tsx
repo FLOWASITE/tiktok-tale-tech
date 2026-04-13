@@ -264,6 +264,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       };
       if (websiteForm.integrationType === 'wordpress' && websiteForm.username && websiteForm.appPassword) {
         body.wordpressConfig = { username: websiteForm.username, applicationPassword: websiteForm.appPassword };
+      } else if (websiteForm.integrationType === 'nukeviet') {
+        body.apiKey = websiteForm.apiKey;
+        body.apiEndpoint = websiteForm.apiEndpoint;
       } else if (['blogger', 'wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
         body.apiKey = websiteForm.apiKey;
       }
