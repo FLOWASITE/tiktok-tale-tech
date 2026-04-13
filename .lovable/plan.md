@@ -1,33 +1,25 @@
 
 
-# Thêm Sort theo Năm/Tháng cho Channel Group View
+# Thêm dropdown nhảy nhanh đến tháng cụ thể
 
 ## Mô tả
-Thêm dropdown sắp xếp bài viết trong mỗi tab kênh theo năm/tháng (mới nhất, cũ nhất) và nhóm hiển thị theo tháng.
+Khi chế độ "Theo tháng" đang bật, thêm một dropdown thứ 2 liệt kê các tháng có bài (VD: "Tháng 4, 2026", "Tháng 3, 2026"). Khi chọn tháng, tự động cuộn đến nhóm tháng đó.
 
 ## Thay đổi
 
 ### `src/components/multichannel/ChannelGroupView.tsx`
 
-**Thêm state sort + UI control:**
-- Thêm state `sortBy` với các option: `newest` (mới nhất), `oldest` (cũ nhất), `month_group` (nhóm theo tháng)
-- Đặt Select dropdown sort ở góc phải header kênh (bên cạnh nút Đăng tất cả / Lên lịch)
+1. **Thêm dropdown chọn tháng** (chỉ hiện khi `sortBy === 'month_group'`):
+   - Đặt bên cạnh dropdown sort hiện tại
+   - Liệt kê các tháng có bài viết từ `groupByMonth(items)`
+   - Option đầu tiên: "Tất cả tháng" (mặc định)
 
-**Logic sort:**
-- `newest` / `oldest`: sort `items` theo `created_at`
-- `month_group`: nhóm items theo tháng/năm (ví dụ "Tháng 4, 2026", "Tháng 3, 2026"), hiển thị mỗi nhóm với tiêu đề tháng + grid cards bên dưới
+2. **Gắn `id` cho mỗi nhóm tháng**:
+   - Mỗi `<div>` nhóm tháng sẽ có `id={group.key}` (VD: `id="2026-03"`)
 
-**Layout khi nhóm theo tháng:**
-```text
-── Tháng 4, 2026 (5 bài) ──────────
-[Card] [Card] [Card] [Card] [Card]
+3. **Scroll đến tháng khi chọn**:
+   - Khi user chọn tháng từ dropdown, gọi `document.getElementById(key)?.scrollIntoView({ behavior: 'smooth', block: 'start' })`
+   - Dùng state `selectedMonth` để track tháng đang chọn
 
-── Tháng 3, 2026 (3 bài) ──────────
-[Card] [Card] [Card]
-```
-
-### Files
-| File | Thay đổi |
-|------|----------|
-| `src/components/multichannel/ChannelGroupView.tsx` | Thêm sort state, Select dropdown, logic sort/group theo tháng |
+4. **Reset** `selectedMonth` khi chuyển tab kênh hoặc chuyển sort mode
 
