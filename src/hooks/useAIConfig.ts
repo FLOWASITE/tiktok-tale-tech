@@ -76,7 +76,7 @@ export const AI_FUNCTIONS = [
   { name: 'geo-generate-schema', description: 'Tạo JSON-LD schema markup', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'clarify-campaign-intent', description: 'Làm rõ ý định chiến dịch', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-3-flash-preview' },
   { name: 'validate-seamless-consistency', description: 'Kiểm tra tính nhất quán nội dung', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'geo-scan-brand', description: 'Quét thương hiệu trên AI Search', category: 'analysis', type: 'search' as AIFunctionType, currentModel: 'sonar' },
+  { name: 'geo-scan-brand', description: 'Quét thương hiệu trên AI Search', category: 'analysis', type: 'search' as AIFunctionType, currentModel: 'perplexity/sonar' },
   { name: 'geo-generate-prompts', description: 'Tạo prompts cho GEO monitoring', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'geo-track-competitors', description: 'Theo dõi đối thủ cạnh tranh', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'kpi-ai', description: 'AI phân tích và gợi ý KPI', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
@@ -109,9 +109,9 @@ export const AI_FUNCTIONS = [
   { name: 'generate-scene-thumbnail', description: 'Tạo thumbnail cho scene', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
   
   // Research & Search Functions
-  { name: 'firecrawl-trends', description: 'Crawl và phân tích trends', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar-pro' },
-  { name: 'semantic-search', description: 'Tìm kiếm ngữ nghĩa', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar', tags: ['knowledge-graph', 'embedding'] as AIFunctionTag[] },
-  { name: 'help-article-search', description: 'Tìm kiếm bài viết hỗ trợ', category: 'research', type: 'search' as AIFunctionType, currentModel: 'sonar', tags: ['embedding'] as AIFunctionTag[] },
+  { name: 'firecrawl-trends', description: 'Crawl và phân tích trends', category: 'research', type: 'search' as AIFunctionType, currentModel: 'perplexity/sonar-pro' },
+  { name: 'semantic-search', description: 'Tìm kiếm ngữ nghĩa', category: 'research', type: 'search' as AIFunctionType, currentModel: 'perplexity/sonar', tags: ['knowledge-graph', 'embedding'] as AIFunctionTag[] },
+  { name: 'help-article-search', description: 'Tìm kiếm bài viết hỗ trợ', category: 'research', type: 'search' as AIFunctionType, currentModel: 'perplexity/sonar', tags: ['embedding'] as AIFunctionTag[] },
   { name: 'generate-embedding', description: 'Tạo embeddings cho semantic search', category: 'research', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['embedding'] as AIFunctionTag[] },
   
   // Knowledge Graph & Regulations
@@ -222,6 +222,9 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'google/gemini-2.5-flash-image',
   ],
   search: [
+    'perplexity/sonar-pro',
+    'perplexity/sonar',
+    // Legacy (backward compatibility)
     'sonar-pro',
     'sonar',
   ],
@@ -319,24 +322,44 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Khối lượng lớn', 'Tác vụ đơn giản'],
     provider: 'lovable',
   },
-  // Perplexity Search
-  'sonar-pro': {
+  // Perplexity Search (via OpenRouter)
+  'perplexity/sonar-pro': {
     shortName: 'Sonar Pro',
-    description: 'Web search chuyên sâu',
+    description: 'Web search chuyên sâu (OpenRouter)',
     speed: 'medium',
     quality: 'premium',
     cost: 'medium',
     bestFor: ['Research', 'Trending topics'],
-    provider: 'lovable',
+    provider: 'openrouter',
+    isRecommended: true,
   },
-  'sonar': {
+  'perplexity/sonar': {
     shortName: 'Sonar',
-    description: 'Web search nhanh',
+    description: 'Web search nhanh (OpenRouter)',
     speed: 'fast',
     quality: 'high',
     cost: 'low',
     bestFor: ['Quick search', 'Topic ideas'],
-    provider: 'lovable',
+    provider: 'openrouter',
+  },
+  // Legacy Perplexity (backward compatibility)
+  'sonar-pro': {
+    shortName: 'Sonar Pro (Legacy)',
+    description: 'Web search chuyên sâu (Perplexity trực tiếp)',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Research', 'Trending topics'],
+    provider: 'openrouter',
+  },
+  'sonar': {
+    shortName: 'Sonar (Legacy)',
+    description: 'Web search nhanh (Perplexity trực tiếp)',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Quick search', 'Topic ideas'],
+    provider: 'openrouter',
   },
   // Image generation - Lovable AI
   'gemini-2.0-flash-exp-image-generation': {
@@ -973,15 +996,6 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     quality: 'high',
     cost: 'low',
     bestFor: ['Coding', 'Reasoning', 'Chi phí thấp'],
-    provider: 'openrouter',
-  },
-  'perplexity/sonar-pro': {
-    shortName: 'Sonar Pro (OR)',
-    description: 'Perplexity search qua OpenRouter',
-    speed: 'medium',
-    quality: 'premium',
-    cost: 'medium',
-    bestFor: ['Web search', 'Research'],
     provider: 'openrouter',
   },
   'anthropic/claude-opus-4.5': {
