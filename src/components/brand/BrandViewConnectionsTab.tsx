@@ -690,24 +690,54 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     if (!config) return renderConnection('website' as SocialPlatform);
     
     const websiteConns = getConnectionsForPlatform('website' as SocialPlatform);
+    const activeWebsiteConns = websiteConns.filter(c => c.is_active);
 
     return (
       <div key="website" className="space-y-2">
         {/* Existing website connections */}
-        {websiteConns.map((connection) => {
+        {websiteConns.map((connection, index) => {
           const isTesting = testingConnection === connection.id;
           const intType = (connection as any).metadata?.integration_type;
+          const connectedTimeAgo = connection.connected_at
+            ? formatDistanceToNow(new Date(connection.connected_at), { addSuffix: true, locale: vi })
+            : null;
           return (
             <div
               key={connection.id}
-              className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
+              className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:border-border transition-colors ${
+                index === 0 ? 'border-border' : 'border-border/50'
+              }`}
             >
               <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
-                  {config.icon}
+                <div className="relative">
+                  {connection.platform_avatar_url ? (
+                    <>
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage
+                          src={connection.platform_avatar_url}
+                          alt={connection.platform_username || ''}
+                        />
+                        <AvatarFallback className={config.color}>
+                          {config.icon}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${config.color} ring-2 ring-background`}>
+                        <Globe className="w-3 h-3" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+                      {config.icon}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
+                    {activeWebsiteConns.length > 1 && (
+                      <span className="text-xs text-muted-foreground font-medium bg-muted px-1.5 py-0.5 rounded">
+                        Website {index + 1}
+                      </span>
+                    )}
                     <span className="font-medium">
                       {connection.platform_display_name || connection.platform_username || config.name}
                     </span>
@@ -717,22 +747,36 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {connection.platform_username && (
                       <span className="text-sm text-muted-foreground">
                         {connection.platform_username}
                       </span>
                     )}
                     {connection.is_active ? (
-                      <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Đã kết nối
-                      </Badge>
+                      <>
+                        {connection.last_verified_at ? (
+                          <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Đã xác thực
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Đã kết nối
+                          </Badge>
+                        )}
+                      </>
                     ) : (
                       <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">
                         <Unplug className="w-3 h-3 mr-1" />
                         Đã ngắt
                       </Badge>
+                    )}
+                    {connectedTimeAgo && (
+                      <span className="text-xs text-muted-foreground">
+                        · {connectedTimeAgo}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -775,20 +819,25 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         })}
 
         {/* Always show "Add website" button */}
-        <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-border/50 bg-card/50 hover:border-border transition-colors">
+        <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-border/50 bg-card/50 hover:border-border/70 transition-colors">
           <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color} opacity-60`}>
               {config.icon}
             </div>
             <div>
-              <span className="font-medium">Thêm Website</span>
-              <p className="text-sm text-muted-foreground">{config.description}</p>
+              <span className="font-medium text-muted-foreground">
+                {websiteConns.length > 0 ? 'Thêm Website khác' : 'Thêm Website'}
+              </span>
+              {websiteConns.length === 0 && (
+                <p className="text-sm text-muted-foreground">{config.description}</p>
+              )}
             </div>
           </div>
           <Button
-            variant="default"
+            variant={websiteConns.length > 0 ? 'outline' : 'default'}
             size="sm"
             onClick={() => handleConnect('website' as SocialPlatform)}
+            className={websiteConns.length > 0 ? 'text-muted-foreground' : ''}
           >
             <Plus className="w-4 h-4 mr-1" />
             Kết nối
