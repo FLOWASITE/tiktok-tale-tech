@@ -63,9 +63,19 @@ Deno.serve(async (req) => {
       // Advance pipeline: approval → publish
       if (pipeline && pipeline.current_stage === "approval") {
         const pipelineState = pipeline.pipeline_state || { stages: {} };
+        const meta = pipelineState.metadata || {};
         if (pipelineState.stages) {
           pipelineState.stages.approval = { ...pipelineState.stages.approval, status: "completed", completed_at: now };
           pipelineState.stages.publish = { ...(pipelineState.stages.publish || {}), status: "in_progress", started_at: now };
+        }
+
+        const effectiveSchedule = scheduled_publish_at || pipeline.scheduled_publish_at;
+        const isFutureSchedule = effectiveSchedule && new Date(effectiveSchedule) > new Date();
+
+        // For future schedules, set publish stage to "pending" so recovery doesn't re-fire
+        if (isFutureSchedule && pipelineState.stages) {
+          pipelineState.stages.publish.status = "pending";
+          pipelineState.stages.publish.waiting_for = "scheduled_time";
         }
 
         const pipelineUpdate: any = {
@@ -73,17 +83,50 @@ Deno.serve(async (req) => {
           pipeline_state: pipelineState,
           stage_started_at: now,
         };
-        // Update scheduled_publish_at if provided
         if (scheduled_publish_at !== undefined) {
           pipelineUpdate.scheduled_publish_at = scheduled_publish_at;
         }
 
         await supabase.from("agent_pipelines").update(pipelineUpdate).eq("id", pipeline.id);
 
-        const isFutureSchedule = scheduled_publish_at && new Date(scheduled_publish_at) > new Date();
+        // === Create content_schedules for Calendar when future-scheduled ===
+        if (isFutureSchedule && pipeline.content_id) {
+          const existingScheduleIds = (meta.schedule_ids || {}) as Record<string, string>;
+          if (Object.keys(existingScheduleIds).length === 0) {
+            const targetChannels = (meta.target_channels || []) as string[];
+            const scheduleIds: Record<string, string> = {};
+            for (const ch of targetChannels) {
+              try {
+                const { data: schedule } = await supabase
+                  .from("content_schedules")
+                  .insert({
+                    content_id: pipeline.content_id,
+                    channel: ch,
+                    organization_id: pipeline.organization_id,
+                    scheduled_at: effectiveSchedule,
+                    timezone: "Asia/Ho_Chi_Minh",
+                    publish_status: "scheduled",
+                    notes: `Approved & scheduled: ${pipeline.content_title}`,
+                    created_by: reviewer_id || null,
+                  } as any)
+                  .select("id")
+                  .single();
+                if (schedule) scheduleIds[ch] = schedule.id;
+              } catch (e) {
+                console.warn(`[agent-approve] Failed to create schedule for ${ch}:`, e);
+              }
+            }
+            if (Object.keys(scheduleIds).length > 0) {
+              pipelineState.metadata = { ...meta, schedule_ids: scheduleIds };
+              await supabase.from("agent_pipelines")
+                .update({ pipeline_state: pipelineState } as any)
+                .eq("id", pipeline.id);
+            }
+          }
+        }
 
         const logMessage = isFutureSchedule
-          ? `Content approved, scheduled for ${scheduled_publish_at}`
+          ? `Content approved, scheduled for ${effectiveSchedule}`
           : notes || "Content approved, advancing to publish";
 
         await supabase.from("agent_pipeline_logs").insert({
