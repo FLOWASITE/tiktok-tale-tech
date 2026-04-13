@@ -504,6 +504,137 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     );
   };
 
+  // Render multiple Facebook connections
+  const renderFacebookPlatform = () => {
+    const config = PLATFORM_CONFIG['facebook'];
+    const fbConns = getConnectionsForPlatform('facebook');
+
+    return (
+      <div key="facebook" className="space-y-2">
+        {fbConns.map((connection) => {
+          const isTesting = testingConnection === connection.id;
+          return (
+            <div
+              key={connection.id}
+              className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                {connection.platform_avatar_url || (connection as any).metadata?.page_picture ? (
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage
+                      src={connection.platform_avatar_url || (connection as any).metadata?.page_picture}
+                      alt={connection.platform_username || ''}
+                    />
+                    <AvatarFallback className={config.color}>
+                      {config.icon}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+                    {config.icon}
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {connection.platform_display_name || connection.platform_username || config.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {connection.platform_username && (
+                      <span className="text-sm text-muted-foreground">
+                        {connection.platform_username}
+                      </span>
+                    )}
+                    {connection.is_active ? (
+                      <>
+                        {connection.last_verified_at ? (
+                          <Badge variant="default" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            Đã xác thực
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Đã kết nối
+                          </Badge>
+                        )}
+                        <TokenExpiryBadge expiresAt={connection.token_expires_at} />
+                      </>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">
+                        Đã ngắt
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {connection.is_active && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleTestConnection(connection.id, 'facebook')}
+                      disabled={isTesting}
+                    >
+                      {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                      {isTesting ? '' : 'Test'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDisconnect(connection.id)}
+                      disabled={isDisconnecting}
+                    >
+                      <Unplug className="w-4 h-4 mr-1" />
+                      Ngắt
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDelete(connection.id)}
+                  disabled={isDeleting}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Always show "Add Fanpage" button */}
+        <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-border/50 bg-card/50 hover:border-border transition-colors">
+          <div className="flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
+              {config.icon}
+            </div>
+            <div>
+              <span className="font-medium">Thêm Fanpage</span>
+              <p className="text-sm text-muted-foreground">{config.description}</p>
+            </div>
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleConnect('facebook')}
+            disabled={oauthConnecting === 'facebook'}
+          >
+            {oauthConnecting === 'facebook' ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4 mr-1" />
+            )}
+            {oauthConnecting === 'facebook' ? 'Đang kết nối...' : 'Kết nối'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // Render multiple website connections
   const renderWebsitePlatform = () => {
     const config = PLATFORM_CONFIG['website' as SocialPlatform];
