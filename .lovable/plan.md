@@ -1,41 +1,43 @@
 
+# Đổi UI Card cho chế độ xem "Theo kênh"
 
-# Chuyển Channel Group View sang giao diện Tabs
+## Vấn đề
+Khi xem theo kênh (ví dụ tab Facebook), `MultiChannelCard` vẫn hiển thị tất cả thông tin đa kênh (thanh tiến độ kênh, grid icon tất cả kênh, số kênh đã điền...) — thông tin này thừa và gây nhiễu vì user đã biết mình đang xem kênh nào.
 
-## Mô tả
-Thay thế layout collapsible sections hiện tại bằng Tabs — mỗi tab là một kênh social. Người dùng click vào tab Facebook/X/Instagram... để xem ngay nội dung của kênh đó mà không cần cuộn.
-
-## Layout mới
+## Giải pháp
+Tạo component `SocialPostCard` mới — card đơn giản hơn, tập trung vào nội dung của **1 kênh cụ thể**, giống phong cách quản lý bài đăng social:
 
 ```text
-┌──────────────────────────────────────────────────┐
-│ [🔵 Facebook (3)] [⬛ X (2)] [📷 Instagram (1)] │  ← Tab bar cuộn ngang
-├──────────────────────────────────────────────────┤
-│ @MyPage • Đã kết nối        [Đăng tất cả] [Lịch]│  ← Header kênh đang chọn
-│ 1 đã đăng | 1 duyệt | 1 nháp                    │
-├──────────────────────────────────────────────────┤
-│ [Card] [Card] [Card]                             │  ← Grid bài của kênh
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────┐
+│ 📷 [Ảnh kênh rộng]              │  ← Thumbnail lớn chiếm full width
+├──────────────────────────────────┤
+│ Tiêu đề bài viết                │
+│ "Nội dung kênh cụ thể preview.."│  ← Text preview của kênh đang xem
+│                                  │
+│ [Đã duyệt] [Giáo dục]  ⭐ 85   │  ← Status + Goal + Score
+│                                  │
+│ 👤 Creator · Brand · 2 giờ trước│
+│ [Xem] [Lịch] [Xóa]             │
+└──────────────────────────────────┘
 ```
 
 ## Thay đổi
 
-### `src/components/multichannel/ChannelGroupView.tsx`
-- Thay `Collapsible` + scroll bằng `Tabs` / `TabsList` / `TabsTrigger` / `TabsContent` (đã có sẵn trong project)
-- TabsList cuộn ngang, mỗi TabsTrigger chứa `ChannelIcon` + label + badge count
-- Áp dụng brand color cho trigger đang active
-- TabsContent chứa: connection info + action buttons + grid cards (giữ nguyên logic hiện tại)
-- Default tab = kênh có nhiều bài nhất
-- Bỏ `Collapsible`, `Separator`, `ChevronDown` imports
-- Giữ nguyên tất cả props, logic `getConnection`, `getStatusCounts`, `getEligibleCount`
+### 1. `src/components/multichannel/SocialPostCard.tsx` — **Mới**
+- Props: nhận thêm `activeChannel: Channel` để biết đang xem kênh nào
+- Thumbnail: hiển thị ảnh của kênh đang xem (`channel_images[activeChannel]`), full width, aspect-ratio 16:9
+- Nội dung preview: hiển thị `{channel}_content` thay vì chỉ title — 2-3 dòng text
+- Bỏ hoàn toàn: grid icon kênh, thanh tiến độ kênh, số kênh đã điền
+- Giữ: status badge, goal badge, critique/GEO score, tags, creator, brand, actions
+- Trạng thái kênh: hiển thị `channel_statuses[activeChannel]` thay vì status tổng
 
-### Không cần sửa file khác
-`MultiChannel.tsx` và `MultiChannelHeroSection.tsx` không thay đổi — chỉ thay layout bên trong component.
+### 2. `src/components/multichannel/ChannelGroupView.tsx`
+- Import `SocialPostCard` thay vì `MultiChannelCard`
+- Truyền `activeChannel={channel}` cho mỗi card
+- Giữ nguyên grid layout nhưng có thể giảm columns (3-4 cột thay vì 5) vì card giờ cao hơn do có thumbnail lớn
 
-## Chi tiết kỹ thuật
-
-- Dùng `Tabs` từ `@/components/ui/tabs` (Radix-based, đã có)
-- TabsList: `overflow-x-auto flex-wrap` cho responsive, mỗi trigger có `ChannelIcon size="sm"` + label + count badge
-- Active tab styling: dùng `data-[state=active]` kết hợp brand color từ `CHANNEL_COLORS`
-- Default value: `channelGroups[0].channel` (kênh nhiều bài nhất do đã sort)
-
+### Files
+| File | Thay đổi |
+|------|----------|
+| `src/components/multichannel/SocialPostCard.tsx` | **Mới** — Card tối ưu cho view theo kênh |
+| `src/components/multichannel/ChannelGroupView.tsx` | Dùng SocialPostCard thay MultiChannelCard |
