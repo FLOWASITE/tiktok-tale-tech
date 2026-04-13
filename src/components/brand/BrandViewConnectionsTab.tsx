@@ -643,7 +643,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
 
     return (
       <div key="facebook" className="space-y-2">
-        {activeConns.map((c) => renderFbConnection(c, false))}
+        {activeConns.map((c, i) => renderFbConnection(c, false, i))}
 
         {inactiveConns.length > 0 && (
           <>
@@ -658,19 +658,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           </>
         )}
 
-        {/* Always show "Add Fanpage" button */}
-        <div className="flex items-center justify-between p-4 rounded-lg border border-dashed border-border/50 bg-card/50 hover:border-border transition-colors">
-          <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.color}`}>
-              {config.icon}
+        {/* Add Fanpage button - subtle dashed style */}
+        <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-muted text-muted-foreground">
+              <Plus className="w-4 h-4" />
             </div>
-            <div>
-              <span className="font-medium">Thêm Fanpage</span>
-              <p className="text-sm text-muted-foreground">{config.description}</p>
-            </div>
+            <span className="text-sm text-muted-foreground">Thêm Fanpage khác</span>
           </div>
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             onClick={() => handleConnect('facebook')}
             disabled={oauthConnecting === 'facebook'}
