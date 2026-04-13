@@ -244,29 +244,33 @@ export function ChannelGroupView({
                   </div>
                 </div>
 
-                {/* Right: action buttons */}
-                {eligibleCount > 0 && connection && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs gap-1.5"
-                    >
-                      <Send className="w-3 h-3" />
-                      Đăng tất cả ({eligibleCount})
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs gap-1.5"
-                    >
-                      <Calendar className="w-3 h-3" />
-                      Lên lịch
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+                {/* Right: sort + action buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortMode)}>
+                    <SelectTrigger className="h-7 w-auto min-w-[130px] text-xs gap-1.5 border-border">
+                      <ArrowDownUp className="w-3 h-3 shrink-0" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Mới nhất</SelectItem>
+                      <SelectItem value="oldest">Cũ nhất</SelectItem>
+                      <SelectItem value="month_group">Theo tháng</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {eligibleCount > 0 && connection && (
+                    <>
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5">
+                        <Send className="w-3 h-3" />
+                        Đăng tất cả ({eligibleCount})
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5">
+                        <Calendar className="w-3 h-3" />
+                        Lên lịch
+                      </Button>
+                    </>
+                  )}
+                </div>
 
             {/* Cards Grid */}
             <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
