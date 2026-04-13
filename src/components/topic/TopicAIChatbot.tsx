@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useProfile } from '@/hooks/useProfile';
-import { useChatConversations } from '@/hooks/useChatConversations';
+// useChatConversations no longer needed here — state comes from props
 import { useAutoSaveLearnings } from '@/hooks/useAutoSaveLearnings';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
@@ -59,6 +59,7 @@ export function TopicAIChatbot({
   onReady,
   initialPrompt,
   desktopLayout = false,
+  conversationState,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
@@ -66,7 +67,11 @@ export function TopicAIChatbot({
   const { profile } = useProfile();
   
   // === CUSTOM HOOKS ===
-  const messagesHook = useChatMessages({ brandTemplateId });
+  const messagesHook = useChatMessages({ 
+    brandTemplateId,
+    conversationMessages: conversationState?.conversationMessages,
+    currentConversationId: conversationState?.currentConversation?.id,
+  });
   const uiHook = useChatUI({ messages: messagesHook.messages, onReset: messagesHook.resetMessages });
   const artifactsHook = useChatArtifacts({
     brandTemplateId,
@@ -78,22 +83,20 @@ export function TopicAIChatbot({
   // Sound effects
   const { playSend, playReceive } = useSoundEffects(uiHook.soundEnabled);
   
-  // Conversation persistence
-  const {
-    conversations,
-    currentConversation,
-    isLoading: isLoadingConversations,
-    loadConversation,
-    deleteConversation,
-    archiveConversation,
-  } = useChatConversations({
-    brandTemplateId,
-    organizationId: currentOrganization?.id,
-    autoLoad: true,
-  });
+  // Use conversation state from props (shared) or create local fallback
+  const convState = conversationState;
+  const conversations = convState?.conversations || [];
+  const currentConversation = convState?.currentConversation || null;
+  const isLoadingConversations = convState?.isLoading || false;
+  const loadConversation = convState?.loadConversation || (async () => {});
+  const deleteConversation = convState?.deleteConversation || (async () => false);
+  const archiveConversation = convState?.archiveConversation || (async () => {});
   
   // Auto-save learnings
   const { autoExtractOnIdle } = useAutoSaveLearnings();
+  
+  // Track whether we need to persist the next assistant message
+  const pendingAssistantPersist = useRef(false);
   
   // Streaming hook - force web search in embedded mode for real-time brainstorming
   const streamingHook = useChatStreaming({
@@ -105,8 +108,26 @@ export function TopicAIChatbot({
     
     onMessageCreate: (msg) => messagesHook.setMessages(prev => [...prev, msg]),
     onMessageUpdate: messagesHook.updateMessage,
-    onComplete: () => playReceive(),
+    onComplete: () => {
+      playReceive();
+      pendingAssistantPersist.current = true;
+    },
   });
+  
+  // Persist assistant response to DB after streaming completes
+  useEffect(() => {
+    if (pendingAssistantPersist.current && !streamingHook.isLoading && convState && currentConversation) {
+      pendingAssistantPersist.current = false;
+      const lastMsg = messagesHook.messages[messagesHook.messages.length - 1];
+      if (lastMsg?.role === 'assistant' && lastMsg.content) {
+        convState.addMessageToDB('assistant', lastMsg.content, {
+          contextBadges: lastMsg.contextBadges,
+          suggestedFollowUps: lastMsg.suggestedFollowUps,
+          reviewScores: lastMsg.reviewScores,
+        });
+      }
+    }
+  }, [streamingHook.isLoading, messagesHook.messages, convState, currentConversation]);
   
   // Persist pipeline steps so bar remains visible after streaming ends
   const [lastPipelineSteps, setLastPipelineSteps] = useState<ProgressStep[]>([]);
@@ -148,8 +169,23 @@ export function TopicAIChatbot({
     messagesHook.addMessage(userMessage);
     uiHook.scrollToBottom();
     
+    // Persist user message to DB
+    if (convState) {
+      let conv = currentConversation;
+      // Auto-create conversation on first message
+      if (!conv) {
+        conv = await convState.createConversation(contentGoal?.toString());
+      }
+      if (conv) {
+        await convState.addMessageToDB('user', userMessage.content);
+      }
+    }
+    
     await streamingHook.streamChat([...messagesHook.messages, userMessage]);
-  }, [messagesHook, streamingHook, uiHook, playSend]);
+    
+    // After streaming completes, persist assistant response to DB
+    // The last message added by streaming should be the assistant response
+  }, [messagesHook, streamingHook, uiHook, playSend, convState, currentConversation, contentGoal]);
   
   // Input hook
   const inputHook = useChatInput({
@@ -247,8 +283,9 @@ export function TopicAIChatbot({
     messagesHook.resetMessages();
     artifactsHook.clearArtifacts();
     setLastPipelineSteps([]);
+    convState?.clearCurrentConversation();
     toast({ title: 'Đã làm mới', description: 'Lịch sử chat đã được xóa.' });
-  }, [messagesHook, artifactsHook]);
+  }, [messagesHook, artifactsHook, convState]);
   
   // Compute smart suggestions from last assistant message
   const smartSuggestions = useMemo(() => {
