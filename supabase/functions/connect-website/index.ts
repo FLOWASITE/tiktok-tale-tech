@@ -119,7 +119,10 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
       }
     } else if (integrationType === 'nukeviet') {
       // Test NukeViet API endpoint
-      const nvEndpoint = apiEndpoint || `${websiteUrl.replace(/\/$/, '')}/api_flowa.php`;
+      let nvEndpoint = apiEndpoint || `${websiteUrl.replace(/\/$/, '')}/api_flowa.php`;
+      if (!/^https?:\/\//i.test(nvEndpoint)) {
+        nvEndpoint = `https://${nvEndpoint}`;
+      }
       try {
         const testResponse = await fetch(nvEndpoint, {
           method: 'POST',

@@ -678,7 +678,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                   const url = e.target.value;
                   const updates: Partial<typeof websiteForm> = { websiteUrl: url };
                   if (websiteForm.integrationType === 'nukeviet' && url.trim()) {
-                    const base = url.trim().endsWith('/') ? url.trim().slice(0, -1) : url.trim();
+                    let base = url.trim().endsWith('/') ? url.trim().slice(0, -1) : url.trim();
+                    if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
                     updates.apiEndpoint = `${base}/api_flowa.php`;
                   }
                   setWebsiteForm(prev => ({ ...prev, ...updates }));
@@ -696,7 +697,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                   const type = e.target.value as typeof websiteForm.integrationType;
                   const updates: Partial<typeof websiteForm> = { integrationType: type };
                   if (type === 'nukeviet' && websiteForm.websiteUrl.trim()) {
-                    const base = websiteForm.websiteUrl.trim().endsWith('/') ? websiteForm.websiteUrl.trim().slice(0, -1) : websiteForm.websiteUrl.trim();
+                    let base = websiteForm.websiteUrl.trim().endsWith('/') ? websiteForm.websiteUrl.trim().slice(0, -1) : websiteForm.websiteUrl.trim();
+                    if (!/^https?:\/\//i.test(base)) base = `https://${base}`;
                     updates.apiEndpoint = `${base}/api_flowa.php`;
                   }
                   setWebsiteForm(prev => ({ ...prev, ...updates }));
