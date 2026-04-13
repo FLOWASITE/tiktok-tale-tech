@@ -61,26 +61,30 @@ Deno.serve(withPerf({ functionName: 'chat-conversations' }, async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Create client with user's auth token
+    // Create client with user's auth token for RLS-scoped queries
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: {
         headers: { Authorization: authHeader }
       }
     });
 
-    // Validate JWT using getClaims (local validation, no network call)
+    // Validate JWT using service role client (bypasses session lookup)
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims?.sub) {
-      console.error('Auth error:', claimsError);
+    const { data: { user: authUser }, error: authError } = await serviceClient.auth.getUser(token);
+    if (authError || !authUser) {
+      console.error('Auth error:', authError);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const user = { id: claimsData.claims.sub as string };
+    const user = { id: authUser.id };
 
     const body: ConversationRequest = await req.json();
     const { action } = body;

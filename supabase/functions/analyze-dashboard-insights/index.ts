@@ -400,21 +400,18 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
       auth: { persistSession: false },
     });
 
-    // Validate JWT using getClaims (works even when session is expired in DB)
-    // Important: pass Authorization header so auth-js can resolve claims reliably.
-    const anonClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
+    // Validate JWT using service role getUser (bypasses session lookup)
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey!, {
       auth: { persistSession: false },
     });
 
     const token = authHeader.replace("Bearer ", "").trim();
+    const { data: { user: authUser }, error: authError } = await serviceClient.auth.getUser(token);
 
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-
-    if (claimsError || !claimsData?.claims) {
-      console.error("[analyze-dashboard-insights] Auth error:", claimsError);
+    if (authError || !authUser) {
+      console.error("[analyze-dashboard-insights] Auth error:", authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized", details: claimsError?.message || "Invalid token" }),
+        JSON.stringify({ error: "Unauthorized", details: authError?.message || "Invalid token" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -422,7 +419,7 @@ Deno.serve(withPerf({ functionName: 'analyze-dashboard-insights', slowThresholdM
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = authUser.id;
 
     // Get organization - try membership first, fallback to content tables
     let organizationId: string | null = null;
