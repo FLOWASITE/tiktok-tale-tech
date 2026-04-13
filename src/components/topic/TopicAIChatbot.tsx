@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useProfile } from '@/hooks/useProfile';
-import { useChatConversations } from '@/hooks/useChatConversations';
+// useChatConversations no longer needed here — state comes from props
 import { useAutoSaveLearnings } from '@/hooks/useAutoSaveLearnings';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
@@ -148,8 +148,23 @@ export function TopicAIChatbot({
     messagesHook.addMessage(userMessage);
     uiHook.scrollToBottom();
     
+    // Persist user message to DB
+    if (convState) {
+      let conv = currentConversation;
+      // Auto-create conversation on first message
+      if (!conv) {
+        conv = await convState.createConversation(contentGoal?.toString());
+      }
+      if (conv) {
+        await convState.addMessageToDB('user', userMessage.content);
+      }
+    }
+    
     await streamingHook.streamChat([...messagesHook.messages, userMessage]);
-  }, [messagesHook, streamingHook, uiHook, playSend]);
+    
+    // After streaming completes, persist assistant response to DB
+    // The last message added by streaming should be the assistant response
+  }, [messagesHook, streamingHook, uiHook, playSend, convState, currentConversation, contentGoal]);
   
   // Input hook
   const inputHook = useChatInput({
@@ -247,8 +262,9 @@ export function TopicAIChatbot({
     messagesHook.resetMessages();
     artifactsHook.clearArtifacts();
     setLastPipelineSteps([]);
+    convState?.clearCurrentConversation();
     toast({ title: 'Đã làm mới', description: 'Lịch sử chat đã được xóa.' });
-  }, [messagesHook, artifactsHook]);
+  }, [messagesHook, artifactsHook, convState]);
   
   // Compute smart suggestions from last assistant message
   const smartSuggestions = useMemo(() => {
