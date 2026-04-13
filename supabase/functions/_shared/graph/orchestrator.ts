@@ -121,6 +121,12 @@ const OFF_TOPIC_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /game|trò chơi|chơi game|minecraft|fortnite|valorant/i, label: 'gaming' },
   // Homework
   { pattern: /bài tập|homework|assignment|đề thi|exam|kiểm tra/i, label: 'homework' },
+  // Gibberish / nonsense
+  { pattern: /^(.)\1{3,}$/i, label: 'gibberish_repeat' },
+  { pattern: /^[^a-zA-ZÀ-ỹ0-9\s]{3,}$/, label: 'symbols_only' },
+  { pattern: /^[bcdfghjklmnpqrstvwxz]{4,}$/i, label: 'consonant_spam' },
+  { pattern: /^([a-z])\1{2,}/i, label: 'char_repeat' },
+  { pattern: /^[a-z]{1,3}\s+[a-z]{1,3}\s+[a-z]{1,3}$/i, label: 'random_short_words' },
 ];
 
 const OFF_TOPIC_RESPONSE = `Mình là Flowa AI — chuyên hỗ trợ về content marketing và chiến lược nội dung. 🎯
