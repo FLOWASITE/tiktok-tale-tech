@@ -189,7 +189,7 @@ export function ConversationHistorySidebar({
       className
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-1">
+      <div className="flex items-center justify-end px-3 pt-3 pb-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -203,11 +203,14 @@ export function ConversationHistorySidebar({
           </TooltipTrigger>
           <TooltipContent side="right" className="text-xs">Đóng sidebar</TooltipContent>
         </Tooltip>
+      </div>
 
+      {/* New Chat Button */}
+      <div className="px-3 pb-1">
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-3 gap-2 rounded-lg text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent"
+          className="w-full h-9 justify-start gap-2 rounded-lg text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent"
           onClick={onNewConversation}
         >
           <SquarePen className="w-4 h-4" />
