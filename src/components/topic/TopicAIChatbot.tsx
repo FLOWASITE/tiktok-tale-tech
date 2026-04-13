@@ -59,6 +59,7 @@ export function TopicAIChatbot({
   onReady,
   initialPrompt,
   desktopLayout = false,
+  sidebarCollapsed = false,
   conversationState,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
