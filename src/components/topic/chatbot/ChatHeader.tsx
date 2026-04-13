@@ -169,62 +169,14 @@ export function ChatHeader({
             </SheetContent>
           </Sheet>
           
-          {/* Desktop-only buttons */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onSearchToggle}
-                className={cn("h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex", isSearchOpen && "bg-primary/10")}
-              >
-                <SearchIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.searchInChat')}</TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onSoundToggle}
-                className="h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex"
-              >
-                {soundEnabled ? (
-                  <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                ) : (
-                  <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {soundEnabled ? t('chatbot.header.soundOn') : t('chatbot.header.soundOff')}
-            </TooltipContent>
-          </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onShowOnboarding}
-                className="h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex"
-              >
-                <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.guide')}</TooltipContent>
-          </Tooltip>
-          
+          {/* Artifacts panel toggle - always visible */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onArtifactsPanelToggle}
-                className={cn("h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex", showArtifactsPanel && "bg-primary/10")}
+                className={cn("h-6 w-6 sm:h-7 sm:w-7 relative", showArtifactsPanel && "bg-primary/10")}
               >
                 {showArtifactsPanel ? (
                   <PanelRightClose className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -242,30 +194,16 @@ export function ChatHeader({
               {showArtifactsPanel ? t('chatbot.header.closePanel') : t('chatbot.header.viewTopics', { count: artifactsCount })}
             </TooltipContent>
           </Tooltip>
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onReset}
-                className="h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex"
-              >
-                <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.refreshChat')}</TooltipContent>
-          </Tooltip>
 
-          {/* Mobile overflow menu */}
+          {/* More menu - all screen sizes */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 sm:hidden"
+                className="h-6 w-6 sm:h-7 sm:w-7"
               >
-                <MoreHorizontal className="w-3.5 h-3.5" />
+                <MoreHorizontal className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
@@ -280,10 +218,6 @@ export function ChatHeader({
               <DropdownMenuItem onClick={onShowOnboarding}>
                 <HelpCircle className="w-3.5 h-3.5 mr-2" />
                 Hướng dẫn
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onArtifactsPanelToggle}>
-                <PanelRightOpen className="w-3.5 h-3.5 mr-2" />
-                Topics {artifactsCount > 0 && `(${artifactsCount})`}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onReset}>
                 <RefreshCw className="w-3.5 h-3.5 mr-2" />
