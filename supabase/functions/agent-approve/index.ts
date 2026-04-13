@@ -22,8 +22,24 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { approval_id, action, notes, reviewer_id } = await req.json();
-    if (!approval_id || !action) throw new Error("approval_id and action required");
+    const body = await req.json();
+    let { approval_id, action, notes, reviewer_id } = body;
+    const pipeline_id = body.pipeline_id;
+    if (!action) throw new Error("action required");
+
+    // Fallback: resolve approval_id from pipeline_id if not provided
+    if (!approval_id && pipeline_id) {
+      const { data: found } = await supabase
+        .from("agent_approvals")
+        .select("id")
+        .eq("pipeline_id", pipeline_id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (found) approval_id = found.id;
+    }
+    if (!approval_id) throw new Error("approval_id required (or pipeline_id with a pending approval)");
 
     const { data: approval, error: fetchErr } = await supabase
       .from("agent_approvals")
