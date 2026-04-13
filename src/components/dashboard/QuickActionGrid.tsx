@@ -175,7 +175,11 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
             <motion.div key={action.href} variants={itemVariants}>
               <Link 
                 to={action.href}
-                data-coachmark={action.href === '/multichannel' ? 'multichannel-action' : undefined}
+                data-coachmark={
+                  action.href === '/multichannel' ? 'multichannel-action' : 
+                  action.href === '/connections' ? 'connections-action' : 
+                  undefined
+                }
               >
                 <Card className="gradient-card border-border/50 group overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5">
                   <CardContent className="p-3 sm:p-4 flex items-center gap-3">
