@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useSocialConnections, SocialPlatform, SocialConnection } from '@/hooks/useSocialConnections';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
