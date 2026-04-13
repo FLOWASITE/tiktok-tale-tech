@@ -1,31 +1,27 @@
 
 
-## Nâng cấp hiển thị kết nối social trên Brand Card
+## Fix: "Kết nối ngay" phải vào thẳng tab Kết nối
 
-### Hiện trạng
-Brand Card đã có hiển thị kết nối nhưng bị lẫn trong hàng badges nhỏ (personas, products, industry memory) → user khó nhận ra.
+### Vấn đề
+`BrandView.tsx` dùng `<Tabs defaultValue="overview">` cứng — không đọc query param `?tab=connections` từ URL → click "Kết nối ngay" trên BrandCard luôn mở tab Overview.
 
-### Thay đổi trong `src/components/BrandCard.tsx`
+### Giải pháp
+Sửa `src/pages/BrandView.tsx`:
 
-**Tách phần kết nối thành section riêng, nổi bật hơn:**
+1. Đọc `?tab` từ URL bằng `useSearchParams`
+2. Dùng `value` + `onValueChange` thay vì `defaultValue` để controlled tab
+3. Khi URL có `?tab=connections` → mở thẳng tab Kết nối
 
-1. **Tách ra khỏi hàng badges** — Di chuyển phần kết nối social ra khỏi `flex-wrap` chung với personas/products, đặt thành một row riêng phía dưới.
+```text
+// Trước
+<Tabs defaultValue="overview">
 
-2. **Khi chưa kết nối — CTA rõ ràng hơn:**
-   - Thay badge nhỏ "Chưa kết nối" bằng một mini-banner ngang full-width
-   - Background amber nhẹ, icon `Link2Off` + text "Chưa kết nối kênh nào" + nút "Kết nối ngay →"
-   - Click dẫn đến `/brands/{id}?tab=connections`
-
-3. **Khi đã kết nối — row riêng với icon lớn hơn:**
-   - Hiển thị các platform icons với size rõ hơn (không bị chen giữa badges khác)
-   - Thêm text nhỏ "{n} kênh" bên cạnh icons
-   - Vẫn click được để vào tab connections
-
-### Kết quả
-- User thấy ngay trạng thái kết nối trên mỗi brand card
-- CTA "Kết nối ngay" nổi bật khi chưa kết nối → thúc đẩy user hành động
-- Không thay đổi logic, chỉ cải thiện visual hierarchy
+// Sau  
+const [searchParams] = useSearchParams();
+const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+<Tabs value={activeTab} onValueChange={setActiveTab}>
+```
 
 ### File cần sửa
-- `src/components/BrandCard.tsx` — phần Quick Stats (line ~304-364)
+- `src/pages/BrandView.tsx` — import `useSearchParams`, thêm state `activeTab`, đổi `Tabs` sang controlled mode
 
