@@ -21,7 +21,7 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
-import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+
 import { useGEOContentScores } from '@/hooks/useGEOContentScore';
 import { useSocialConnections } from '@/hooks/useSocialConnections';
 
