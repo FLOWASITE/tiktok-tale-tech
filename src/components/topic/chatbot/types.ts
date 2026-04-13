@@ -173,7 +173,7 @@ export interface ConversationState {
   isSaving: boolean;
   loadConversation: (id: string) => Promise<void>;
   createConversation: (contentGoal?: string) => Promise<import('@/hooks/useChatConversations').ChatConversation | null>;
-  addMessageToDB: (role: 'user' | 'assistant', content: string, metadata?: Record<string, any>) => Promise<import('@/hooks/useChatConversations').ChatConversationMessage | null>;
+  addMessageToDB: (role: 'user' | 'assistant', content: string, metadata?: Record<string, any>, conversationId?: string) => Promise<import('@/hooks/useChatConversations').ChatConversationMessage | null>;
   deleteConversation: (id: string) => Promise<boolean>;
   archiveConversation: (id: string) => Promise<void>;
   clearCurrentConversation: () => void;

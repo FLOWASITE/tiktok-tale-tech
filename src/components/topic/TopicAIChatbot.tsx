@@ -177,7 +177,7 @@ export function TopicAIChatbot({
         conv = await convState.createConversation(contentGoal?.toString());
       }
       if (conv) {
-        await convState.addMessageToDB('user', userMessage.content);
+        await convState.addMessageToDB('user', userMessage.content, undefined, conv.id);
       }
     }
     

@@ -147,35 +147,56 @@ export function useChatConversations(options: UseChatConversationsOptions = {}) 
   const addMessage = useCallback(async (
     role: 'user' | 'assistant',
     content: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
+    conversationId?: string
   ): Promise<ChatConversationMessage | null> => {
-    if (!currentConversation) return null;
+    const targetId = conversationId || currentConversation?.id;
+    if (!targetId) return null;
 
     setIsSaving(true);
     try {
       const result = await apiRequest({
         action: 'add_message',
-        conversationId: currentConversation.id,
+        conversationId: targetId,
         message: { role, content, metadata },
       });
       
       const newMessage = result.message;
       setMessages(prev => [...prev, newMessage]);
       
-      // Update conversation metadata locally
-      setCurrentConversation(prev => prev ? {
+      // Determine new title (first user message becomes title)
+      const isFirstUserMessage = role === 'user';
+      const currentTitle = currentConversation?.title || conversations.find(c => c.id === targetId)?.title;
+      const newTitle = !currentTitle ? (isFirstUserMessage ? content.slice(0, 100) : null) : currentTitle;
+      
+      // Update currentConversation
+      setCurrentConversation(prev => prev && prev.id === targetId ? {
         ...prev,
         message_count: prev.message_count + 1,
         last_message_at: newMessage.created_at,
-        title: prev.title || (role === 'user' ? content.slice(0, 100) : prev.title),
-      } : null);
+        title: newTitle || prev.title,
+      } : prev);
       
-      // Update in conversations list
+      // Sync title + metadata into conversations list (sidebar reads this)
       setConversations(prev => prev.map(c => 
-        c.id === currentConversation.id 
-          ? { ...c, message_count: c.message_count + 1, last_message_at: newMessage.created_at }
+        c.id === targetId 
+          ? { 
+              ...c, 
+              message_count: c.message_count + 1, 
+              last_message_at: newMessage.created_at,
+              title: newTitle || c.title,
+            }
           : c
       ));
+      
+      // Persist title to DB if it was just set
+      if (newTitle && !currentTitle) {
+        apiRequest({
+          action: 'update',
+          conversationId: targetId,
+          title: newTitle,
+        }).catch(err => console.error('Failed to persist title:', err));
+      }
       
       return newMessage;
     } catch (error) {
@@ -184,7 +205,7 @@ export function useChatConversations(options: UseChatConversationsOptions = {}) 
     } finally {
       setIsSaving(false);
     }
-  }, [currentConversation, apiRequest]);
+  }, [currentConversation, conversations, apiRequest]);
 
   // Update conversation (title, archive)
   const updateConversation = useCallback(async (
