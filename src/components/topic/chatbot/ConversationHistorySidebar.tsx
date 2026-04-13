@@ -90,7 +90,7 @@ export function ConversationHistorySidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
-  const { profile } = useAuth();
+  const { user } = useAuth();
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
