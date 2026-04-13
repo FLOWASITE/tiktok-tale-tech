@@ -1941,6 +1941,20 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
 
   const durationMs = Date.now() - startTime;
 
+  // Phase 2c: Early Warning — log if stage exceeded 80% of estimated time
+  const estimatedMs = STAGE_TIME_ESTIMATES[stage] || 60000;
+  if (durationMs > estimatedMs * 0.8 && result.status !== "failed") {
+    console.warn(`[early_warning] Stage "${stage}" took ${durationMs}ms (${Math.round(durationMs / estimatedMs * 100)}% of estimated ${estimatedMs}ms)`);
+    await supabase.from("agent_pipeline_logs").insert({
+      pipeline_id: pipeline.id,
+      agent_name: "early_warning",
+      action: "slow_stage",
+      input_summary: `Stage: ${stage}, duration: ${durationMs}ms, estimated: ${estimatedMs}ms`,
+      output_summary: `${Math.round(durationMs / estimatedMs * 100)}% of estimate — potential bottleneck`,
+      duration_ms: durationMs,
+    } as any);
+  }
+
   // Save stage output to pipeline_state
   if (pState.stages?.[stage] && result.status !== "failed") {
     pState.stages[stage].output = result.output || null;
