@@ -2,10 +2,12 @@
 // useChatMessages Hook
 // Manages message state, localStorage persistence, CRUD operations
 // Includes personalized welcome message support
+// Syncs with DB conversation messages when provided
 // ============================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ChatMessage, ExtractedTopic } from '@/components/topic/chatbot/types';
+import type { ChatConversationMessage } from '@/hooks/useChatConversations';
 import { getStorageKey } from '@/components/topic/chatbot/constants';
 import { extractTopicsFromMessage } from '@/components/topic/chatbot/utils';
 import { usePersonalizedWelcome, type PersonalizedWelcomeData } from './usePersonalizedWelcome';
@@ -13,6 +15,10 @@ import { usePersonalizedWelcome, type PersonalizedWelcomeData } from './usePerso
 interface UseChatMessagesOptions {
   brandTemplateId?: string;
   autoLoad?: boolean;
+  /** DB conversation messages from shared ConversationState */
+  conversationMessages?: ChatConversationMessage[];
+  /** Current conversation ID — when it changes, sync messages from DB */
+  currentConversationId?: string;
 }
 
 interface UseChatMessagesReturn {
@@ -29,18 +35,83 @@ interface UseChatMessagesReturn {
   personalizedWelcome: PersonalizedWelcomeData;
 }
 
+/** Convert DB messages to ChatMessage format */
+function dbMessagesToChatMessages(dbMessages: ChatConversationMessage[]): ChatMessage[] {
+  return dbMessages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map(m => ({
+      id: m.id,
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+      timestamp: new Date(m.created_at),
+      conversationId: m.conversation_id,
+      ...(m.metadata?.extractedTopics && { extractedTopics: m.metadata.extractedTopics }),
+      ...(m.metadata?.contextBadges && { contextBadges: m.metadata.contextBadges }),
+      ...(m.metadata?.suggestedFollowUps && { suggestedFollowUps: m.metadata.suggestedFollowUps }),
+      ...(m.metadata?.reviewScores && { reviewScores: m.metadata.reviewScores }),
+      ...(m.metadata?.toolResults && { toolResults: m.metadata.toolResults }),
+    }));
+}
+
 export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMessagesReturn {
-  const { brandTemplateId, autoLoad = true } = options;
+  const { brandTemplateId, autoLoad = true, conversationMessages, currentConversationId } = options;
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
+  const prevConversationIdRef = useRef<string | undefined>(undefined);
   
   // Get personalized welcome data
   const personalizedWelcome = usePersonalizedWelcome({ brandTemplateId });
   
-  // Load messages from localStorage on mount
+  // Initialize with welcome message
+  const initializeWithWelcome = useCallback(() => {
+    setMessages([{
+      id: 'welcome',
+      role: 'assistant',
+      content: '__PERSONALIZED_WELCOME__',
+      timestamp: new Date(),
+    }]);
+  }, []);
+
+  // Sync with DB conversation messages when conversation changes
   useEffect(() => {
-    if (!autoLoad) return;
+    if (currentConversationId !== prevConversationIdRef.current) {
+      prevConversationIdRef.current = currentConversationId;
+      
+      if (!currentConversationId) {
+        // Cleared conversation — show welcome
+        initializeWithWelcome();
+        return;
+      }
+      
+      if (conversationMessages && conversationMessages.length > 0) {
+        const chatMsgs = dbMessagesToChatMessages(conversationMessages);
+        setMessages(chatMsgs.length > 0 ? chatMsgs : []);
+      }
+    }
+  }, [currentConversationId, conversationMessages, initializeWithWelcome]);
+
+  // When conversationMessages update for the SAME conversation (new messages added), sync
+  useEffect(() => {
+    if (currentConversationId && conversationMessages && conversationMessages.length > 0 
+        && currentConversationId === prevConversationIdRef.current) {
+      const chatMsgs = dbMessagesToChatMessages(conversationMessages);
+      if (chatMsgs.length > 0) {
+        // Only update if DB has more messages than local (avoid overwriting streaming state)
+        setMessages(prev => {
+          const localNonWelcome = prev.filter(m => m.id !== 'welcome');
+          if (chatMsgs.length > localNonWelcome.length) {
+            return chatMsgs;
+          }
+          return prev;
+        });
+      }
+    }
+  }, [conversationMessages, currentConversationId]);
+  
+  // Load messages from localStorage on mount (only if no DB conversation)
+  useEffect(() => {
+    if (!autoLoad || currentConversationId) return;
     
     const storageKey = getStorageKey(brandTemplateId);
     const savedMessages = localStorage.getItem(storageKey);
@@ -48,7 +119,6 @@ export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMe
     if (savedMessages) {
       try {
         const parsed = JSON.parse(savedMessages);
-        // Restore Date objects
         const restored = parsed.map((m: any) => ({
           ...m,
           timestamp: new Date(m.timestamp),
@@ -61,25 +131,13 @@ export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMe
     } else {
       initializeWithWelcome();
     }
-  }, [brandTemplateId, autoLoad]);
+  }, [brandTemplateId, autoLoad, currentConversationId]);
   
-  // Initialize with personalized welcome message
-  // Content is rendered via PersonalizedWelcome component, so we just set a marker
-  const initializeWithWelcome = useCallback(() => {
-    setMessages([{
-      id: 'welcome',
-      role: 'assistant',
-      content: '__PERSONALIZED_WELCOME__', // Marker for PersonalizedWelcome component
-      timestamp: new Date(),
-    }]);
-  }, []);
-  
-  // Save messages to localStorage whenever they change
+  // Save messages to localStorage whenever they change (only if no DB conversation)
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0 || currentConversationId) return;
     
     const storageKey = getStorageKey(brandTemplateId);
-    // Don't save if only welcome message
     if (messages.length === 1 && messages[0].id === 'welcome') return;
     
     try {
@@ -87,7 +145,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}): UseChatMe
     } catch (e) {
       console.error('Failed to save messages:', e);
     }
-  }, [messages, brandTemplateId]);
+  }, [messages, brandTemplateId, currentConversationId]);
   
   // Add a new message
   const addMessage = useCallback((message: ChatMessage) => {
