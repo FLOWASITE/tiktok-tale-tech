@@ -1,28 +1,20 @@
 
 
-## Hỗ trợ kết nối nhiều Fanpage Facebook cho 1 Brand
+## Giải thích vấn đề
 
-### Hiện trạng
-- `facebook-oauth-callback/index.ts` (line 210-221): query `maybeSingle()` tìm connection theo `brand_template_id` + `platform = 'facebook'`. Nếu đã có → update, không tạo mới.
-- Kết quả: mỗi brand chỉ có tối đa 1 Fanpage Facebook.
+Fanpage "Flowa – Auto AI Content. All Socials" hiển thị ở brand "Thuế Hộ" vì **đây là kết nối cũ** (từ 18/03) được tạo trước khi hệ thống hỗ trợ multi-fanpage. Kết nối này đã bị ngắt (`is_active = false`) nhưng vẫn còn trong database gắn với brand "Thuế Hộ".
 
-### Thay đổi
+- Brand "Flowa" có kết nối **active** đến Fanpage này (mới, 13/04)
+- Brand "Thuế Hộ" có kết nối **inactive** (cũ, 18/03) — đây là dữ liệu dư thừa
 
-**1. Edge function `supabase/functions/facebook-oauth-callback/index.ts` (line 210-221)**
-- Thêm filter theo `platform_user_id` (Page ID) vào query tìm existing connection.
-- Cùng Page ID → ghi đè (cập nhật token). Khác Page ID → tạo mới.
+**Giải pháp nhanh:** Bấm icon thùng rác (🗑️) bên cạnh kết nối "Flowa – Auto AI Content" ở brand Thuế Hộ để xóa nó.
 
-```text
-Trước:  WHERE brand_template_id = X AND platform = 'facebook'  → ghi đè
-Sau:    WHERE brand_template_id = X AND platform = 'facebook' AND platform_user_id = pageId → chỉ ghi đè cùng Page
-```
+### Cải thiện code để tránh nhầm lẫn
 
-**2. Frontend `src/components/brand/BrandViewConnectionsTab.tsx`**
-- Áp dụng pattern tương tự website: hiển thị danh sách nhiều Facebook connections thay vì chỉ 1.
-- Mỗi connection hiển thị tên Page, avatar, nút test/xóa.
-- Nút "Kết nối thêm Fanpage" luôn hiển thị.
+**1. `src/components/brand/BrandViewConnectionsTab.tsx`**
+- Trong `renderFacebookPlatform()`: tách rõ danh sách Active và Inactive
+- Connections inactive hiển thị mờ hơn, với label rõ ràng "Đã ngắt" và nút xóa nổi bật
+- Ẩn connections inactive theo mặc định, chỉ hiện khi user bấm "Hiện kết nối đã ngắt"
 
-### Kết quả
-- 1 brand có thể kết nối nhiều Fanpage khác nhau.
-- Cùng Page thì ghi đè (cập nhật token), khác Page thì tạo mới.
+**2. Không cần thay đổi backend** — logic đã đúng, đây là dữ liệu cũ từ trước khi fix.
 
