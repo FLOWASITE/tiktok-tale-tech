@@ -179,7 +179,7 @@ export function AppRoutes() {
       <Route path="/admin/versions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminIndustryVersions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/events" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEvents /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/industry-news" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminIndustryNews /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
-      <Route path="/admin/knowledge-graph" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminKnowledgeGraph /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/knowledge-graph" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminKnowledgeGraph /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/help-articles" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminHelpArticles /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/social-settings" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminSocialSettings /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/vouchers" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminVouchers /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
