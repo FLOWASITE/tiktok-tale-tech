@@ -1,27 +1,53 @@
 
 
-## Làm gọn ChatHeader - Giảm số lượng icon hiển thị
+## Focus trải nghiệm "Tạo Brand" cho user mới lần đầu sử dụng
 
-### Vấn đề
-Header đang có **9 icon liên tiếp** gây rối mắt: AI Pro Mode, New Chat, History, Search, Sound, Help, Artifacts, Refresh, và More menu. Cần giữ lại chỉ các icon thiết yếu.
+### Vấn đề hiện tại
+Khi user mới đăng nhập lần đầu, họ vào Dashboard (`/`) - thấy một dashboard trống rỗng với nhiều widget không có dữ liệu. Không có hướng dẫn rõ ràng rằng bước đầu tiên quan trọng nhất là **Tạo Brand**.
 
 ### Giải pháp
-Chỉ giữ **4 icon chính** trên header, ẩn các icon phụ vào dropdown menu:
+Thêm logic phát hiện user mới (chưa có brand nào) và hiển thị **màn hình onboarding tạo Brand** thay vì dashboard trống.
 
-| Giữ lại | Ẩn vào menu "More" |
-|---------|-------------------|
-| Brain (AI Pro Mode) | Search |
-| SquarePen (New chat) | Volume |
-| History | Help |
-| Artifacts | Refresh |
+### Thay đổi cụ thể
 
-### Thay đổi
+**1. `src/pages/Dashboard.tsx` - Thêm "Empty State" cho user chưa có brand**
+- Kiểm tra `brands.length === 0` sau khi load xong
+- Khi chưa có brand: hiển thị một card CTA lớn, nổi bật ở trung tâm dashboard thay vì các widget rỗng
+- Card bao gồm: icon thương hiệu, tiêu đề "Bắt đầu với Brand đầu tiên", mô tả ngắn, nút "Tạo Brand ngay" → navigate đến `/brands/new`
+- Ẩn các widget phụ (stats, timeline, schedules...) khi chưa có brand để tránh giao diện rối
 
-**`src/components/topic/chatbot/ChatHeader.tsx`**
-- Xóa các button Search, Sound, Help, Refresh khỏi vị trí hiện tại
-- Thêm các chức năng này vào `DropdownMenuContent` (đã có trên mobile, mở rộng cho cả desktop)
-- Đổi tên menu thành "Tùy chọn" cho rõ nghĩa
-- Giữ nguyên 4 icon chính: Brain, SquarePen, History, Artifacts
+**2. `src/components/dashboard/QuickActionGrid.tsx` (hoặc tương tự) - Highlight CTA tạo brand**
+- Khi `brands.length === 0`: đổi quick action "Tạo Brand" thành nút primary nổi bật nhất, có badge "Bắt đầu tại đây"
 
-Kết quả: Header gọn gàng, chỉ còn ~4-5 icon thay vì 9 icon chen chúc.
+**3. `src/pages/Auth.tsx` - Redirect user mới đến `/brands/new`**
+- Sau đăng ký thành công (lần đầu login), redirect thẳng đến `/brands/new` thay vì `/`
+- Phát hiện bằng cách kiểm tra user metadata hoặc brands count = 0
+
+### Luồng trải nghiệm mới
+
+```text
+User mới đăng ký/đăng nhập
+  ↓
+Dashboard load → brands.length === 0?
+  ↓ YES
+Hiển thị Welcome CTA Card:
+┌─────────────────────────────────┐
+│  🎨 Chào mừng đến Flowa!       │
+│                                 │
+│  Bước đầu tiên: Tạo Brand      │
+│  Template để AI hiểu thương     │
+│  hiệu của bạn.                 │
+│                                 │
+│  [✨ Tạo Brand ngay]            │
+│                                 │
+│  Hoặc khám phá: Xem demo       │
+└─────────────────────────────────┘
+  ↓ Click "Tạo Brand ngay"
+/brands/new (Quick Start dialog mở tự động)
+```
+
+### File cần thay đổi
+- `src/pages/Dashboard.tsx` - Thêm empty state component khi chưa có brand
+- Tạo `src/components/dashboard/NewUserWelcome.tsx` - Component welcome card cho user mới
+- `src/pages/Auth.tsx` - Optional: redirect user mới thẳng đến brand creation
 
