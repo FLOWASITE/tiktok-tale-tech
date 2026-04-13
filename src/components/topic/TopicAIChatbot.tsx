@@ -365,6 +365,7 @@ export function TopicAIChatbot({
               onDeleteConversation={deleteConversation}
               onArchiveConversation={archiveConversation}
               desktopLayout={desktopLayout}
+              sidebarCollapsed={sidebarCollapsed}
               onToggleShortcutsHint={() => inputHook.setShowShortcutsHint(!inputHook.showShortcutsHint)}
             />
           )}

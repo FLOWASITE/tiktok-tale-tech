@@ -96,6 +96,7 @@ export default function FlowaChatPage() {
           isExpanded
           className="h-full"
           desktopLayout={!isMobile}
+          sidebarCollapsed={!sidebarOpen}
           conversationState={conversationState}
         />
       </div>
