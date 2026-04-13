@@ -8,7 +8,8 @@ import {
   Bookmark, 
   Users,
   ArrowRight,
-  Keyboard
+  Keyboard,
+  Globe
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -62,6 +63,15 @@ const quickActions: QuickAction[] = [
     gradient: 'from-amber-500 to-orange-600',
     shortcut: '⌘B',
     shortcutKey: 'b',
+  },
+  { 
+    titleKey: 'app.dashboard.connections',
+    descKey: 'app.dashboard.connectionsDesc',
+    icon: Globe,
+    href: '/connections',
+    gradient: 'from-green-500 to-emerald-600',
+    shortcut: '⌘K',
+    shortcutKey: 'k',
   },
   { 
     titleKey: 'app.dashboard.organization', 

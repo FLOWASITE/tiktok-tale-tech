@@ -276,6 +276,7 @@ export function AppSidebar() {
   // Nhóm 4: Settings
   const settingsItems: MenuItem[] = [
     { title: 'Quản lý Brand', titleKey: 'app.sidebar.brandManagement', url: '/brands', icon: Bookmark },
+    { title: 'Kết nối kênh', titleKey: 'app.sidebar.connections', url: '/connections', icon: Globe },
   ];
 
   // Nhóm 5: Admin

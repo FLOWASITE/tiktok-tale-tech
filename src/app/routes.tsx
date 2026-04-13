@@ -15,6 +15,7 @@ import Brands from "@/pages/Brands";
 import BrandView from "@/pages/BrandView";
 import BrandCreate from "@/pages/BrandCreate";
 import MultiChannel from "@/pages/MultiChannel";
+import Connections from "@/pages/Connections";
 import Tasks from "@/pages/Tasks";
 import Auth from "@/pages/Auth";
 import ResetPassword from "@/pages/ResetPassword";
@@ -151,6 +152,7 @@ export function AppRoutes() {
       <Route path="/brands" element={<ProtectedRoute><AppLayout><Brands /></AppLayout></ProtectedRoute>} />
       <Route path="/brands/:id" element={<ProtectedRoute><AppLayout><BrandView /></AppLayout></ProtectedRoute>} />
       <Route path="/brands/new" element={<ProtectedRoute><BrandCreate /></ProtectedRoute>} />
+      <Route path="/connections" element={<ProtectedRoute><AppLayout><Connections /></AppLayout></ProtectedRoute>} />
       <Route path="/multichannel" element={<ProtectedRoute><AppLayout><MultiChannel /></AppLayout></ProtectedRoute>} />
       <Route path="/multichannel/new" element={<ProtectedRoute><MultiChannelCreate /></ProtectedRoute>} />
       <Route path="/campaigns" element={<ProtectedRoute><AppLayout><Campaigns /></AppLayout></ProtectedRoute>} />
