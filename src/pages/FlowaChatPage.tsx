@@ -70,21 +70,23 @@ export default function FlowaChatPage() {
       )}
 
       <div className="flex-1 min-w-0 relative">
-        {/* Sidebar open button when collapsed */}
+        {/* Sidebar open button when collapsed - inline in header row */}
         {!isMobile && !sidebarOpen && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(true)}
-                className="absolute left-3 top-3 z-10 h-9 w-9 text-muted-foreground hover:text-foreground"
-              >
-                <PanelLeft className="w-5 h-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">Mở lịch sử chat</TooltipContent>
-          </Tooltip>
+          <div className="absolute left-0 top-0 z-10 flex items-center h-[53px] pl-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSidebarOpen(true)}
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                >
+                  <PanelLeft className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">Mở lịch sử chat</TooltipContent>
+            </Tooltip>
+          </div>
         )}
 
         <TopicAIChatbot
