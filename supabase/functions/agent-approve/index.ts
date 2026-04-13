@@ -82,16 +82,22 @@ Deno.serve(async (req) => {
 
         const isFutureSchedule = scheduled_publish_at && new Date(scheduled_publish_at) > new Date();
 
+        const logMessage = isFutureSchedule
+          ? `Content approved, scheduled for ${scheduled_publish_at}`
+          : notes || "Content approved, advancing to publish";
+
         await supabase.from("agent_pipeline_logs").insert({
           pipeline_id: pipeline.id,
           agent_name: "orchestrator",
           action: "approval_granted",
           input_summary: `Approved by: ${reviewer_id || "system"}`,
-          output_summary: notes || "Content approved, advancing to publish",
+          output_summary: logMessage,
         } as any);
 
-        // Fire publish stage
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "publish");
+        // Only fire publish stage immediately if not scheduled for future
+        if (!isFutureSchedule) {
+          fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "publish");
+        }
       }
 
       return json({ success: true, status: "approved", next_stage: "publish" });
