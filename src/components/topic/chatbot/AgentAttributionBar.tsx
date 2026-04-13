@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Search, ClipboardList, Pen, Shield, ImageIcon, Brain } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, CheckCircle2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { AgentContribution } from './types';
 
@@ -11,50 +11,71 @@ interface AgentAttributionBarProps {
   className?: string;
 }
 
-const AGENT_CONFIG: Record<string, { icon: typeof Search; color: string; bgColor: string; label: string }> = {
-  'research-agent': { icon: Search, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10 border-blue-500/20', label: 'Research' },
-  'strategy-agent': { icon: ClipboardList, color: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-500/10 border-violet-500/20', label: 'Strategy' },
-  'content-agent': { icon: Pen, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border-amber-500/20', label: 'Content' },
-  'reviewer-agent': { icon: Shield, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10 border-emerald-500/20', label: 'Reviewer' },
-  'image-agent': { icon: ImageIcon, color: 'text-pink-600 dark:text-pink-400', bgColor: 'bg-pink-500/10 border-pink-500/20', label: 'Image' },
-  'brand-memory-agent': { icon: Brain, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-500/10 border-cyan-500/20', label: 'Memory' },
-};
+// 5 Pipeline agents with grouped matchIds
+const AGENT_GROUPS = [
+  { key: 'strategy', matchIds: ['orchestrator-agent', 'research-agent', 'brand-memory-agent', 'strategy-agent', 'orchestrator', 'research', 'brand_memory', 'strategy'], icon: Lightbulb, color: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-500/10 border-violet-500/20', label: 'Strategy' },
+  { key: 'creator', matchIds: ['content-agent', 'image-agent', 'content', 'image', 'visual'], icon: PenTool, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-500/10 border-blue-500/20', label: 'Creator' },
+  { key: 'quality', matchIds: ['compliance-agent', 'reviewer-agent', 'governor-agent', 'compliance', 'reviewer', 'governor', 'quality'], icon: ShieldCheck, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-500/10 border-cyan-500/20', label: 'Quality' },
+  { key: 'approval', matchIds: ['approval-agent', 'approval'], icon: CheckCircle2, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border-amber-500/20', label: 'Approval' },
+  { key: 'publisher', matchIds: ['publisher-agent', 'publish-agent', 'publisher', 'publish'], icon: Send, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10 border-emerald-500/20', label: 'Publisher' },
+] as const;
+
+function groupContributions(contributions: AgentContribution[]) {
+  const grouped: { group: typeof AGENT_GROUPS[number]; contributions: AgentContribution[]; totalDuration: number; summaries: string[] }[] = [];
+
+  for (const group of AGENT_GROUPS) {
+    const matched = contributions.filter(c =>
+      group.matchIds.some(id => c.agentName === id || c.agentName.includes(group.key))
+    );
+    if (matched.length > 0) {
+      grouped.push({
+        group,
+        contributions: matched,
+        totalDuration: matched.reduce((sum, c) => sum + (c.duration || 0), 0),
+        summaries: matched.map(c => c.summary).filter(Boolean) as string[],
+      });
+    }
+  }
+
+  return grouped;
+}
 
 export function AgentAttributionBar({ contributions, approved, className }: AgentAttributionBarProps) {
-  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   if (contributions.length === 0) return null;
 
+  const grouped = groupContributions(contributions);
+
   return (
     <div className={cn('space-y-1', className)}>
-      {/* Badge row - horizontal scroll on mobile */}
+      {/* Badge row */}
       <div className="flex gap-1 overflow-x-auto scrollbar-none pb-0.5">
-        {contributions.map((c, i) => {
-          const config = AGENT_CONFIG[c.agentName] || { icon: Search, color: 'text-muted-foreground', bgColor: 'bg-muted/50 border-border/50', label: c.agentName };
-          const Icon = config.icon;
-          const isReviewer = c.agentName === 'reviewer-agent';
+        {grouped.map((g) => {
+          const Icon = g.group.icon;
+          const isQuality = g.group.key === 'quality';
 
           return (
             <button
-              key={`${c.agentName}-${i}`}
-              onClick={() => setExpandedAgent(expandedAgent === c.agentName ? null : c.agentName)}
+              key={g.group.key}
+              onClick={() => setExpandedGroup(expandedGroup === g.group.key ? null : g.group.key)}
               className="shrink-0"
             >
               <Badge
                 variant="outline"
                 className={cn(
                   'gap-1 px-1.5 py-0.5 text-[10px] font-medium cursor-pointer transition-colors border',
-                  config.bgColor,
-                  config.color,
-                  isReviewer && approved === true && 'border-emerald-500/40 bg-emerald-500/15',
-                  isReviewer && approved === false && 'border-amber-500/40 bg-amber-500/15',
-                  expandedAgent === c.agentName && 'ring-1 ring-primary/30'
+                  g.group.bgColor,
+                  g.group.color,
+                  isQuality && approved === true && 'border-emerald-500/40 bg-emerald-500/15',
+                  isQuality && approved === false && 'border-amber-500/40 bg-amber-500/15',
+                  expandedGroup === g.group.key && 'ring-1 ring-primary/30'
                 )}
               >
                 <Icon className="w-2.5 h-2.5" />
-                <span>{config.label}</span>
-                {c.duration && (
-                  <span className="opacity-60">{(c.duration / 1000).toFixed(1)}s</span>
+                <span>{g.group.label}</span>
+                {g.totalDuration > 0 && (
+                  <span className="opacity-60">{(g.totalDuration / 1000).toFixed(1)}s</span>
                 )}
               </Badge>
             </button>
@@ -63,17 +84,19 @@ export function AgentAttributionBar({ contributions, approved, className }: Agen
       </div>
 
       {/* Expanded summary */}
-      {expandedAgent && (() => {
-        const c = contributions.find(c => c.agentName === expandedAgent);
-        if (!c?.summary) return null;
+      {expandedGroup && (() => {
+        const g = grouped.find(g => g.group.key === expandedGroup);
+        if (!g || g.summaries.length === 0) return null;
         return (
           <Collapsible open={true}>
             <CollapsibleContent className="animate-in slide-in-from-top-1 duration-200">
               <div className="text-[10px] text-muted-foreground bg-muted/30 rounded-lg px-2.5 py-1.5 border border-border/30">
                 <p className="font-medium text-foreground mb-0.5">
-                  {AGENT_CONFIG[expandedAgent]?.label || expandedAgent}:
+                  {g.group.label}:
                 </p>
-                <p className="line-clamp-3">{c.summary}</p>
+                {g.summaries.map((s, i) => (
+                  <p key={i} className="line-clamp-3">{s}</p>
+                ))}
               </div>
             </CollapsibleContent>
           </Collapsible>
