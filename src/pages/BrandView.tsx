@@ -43,6 +43,8 @@ type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'u
 export default function BrandView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const {
     templates,
     loading,
