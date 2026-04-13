@@ -868,9 +868,6 @@ try {
                 </div>
               </>
             )
-
-
-                      <li>Mở file, đổi dòng <code>$my_api_key</code> thành mật khẩu riêng của bạn</li>
                       <li>Nhập thông tin vào 2 ô bên dưới rồi bấm Kết nối</li>
                     </ol>
                   </AlertDescription>
