@@ -76,6 +76,7 @@ export function ChatHeader({
   onDeleteConversation,
   onArchiveConversation,
   desktopLayout = false,
+  onToggleShortcutsHint,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
