@@ -919,25 +919,71 @@ Follow the carousel style guidelines strictly.`;
       console.log('[generate-carousel] AI response from provider:', result.provider, 'model:', result.model, 
         'cost:', result.metrics ? `$${result.metrics.estimatedCostUsd.toFixed(6)}` : 'N/A');
 
+      // Robust JSON extraction helper
+      const safeParseJson = (raw: string): any => {
+        // Remove markdown fences
+        let cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        
+        // Find JSON boundaries
+        const jsonStart = cleaned.search(/[\{\[]/);
+        if (jsonStart === -1) throw new Error('No JSON found in response');
+        const openChar = cleaned[jsonStart];
+        const closeChar = openChar === '{' ? '}' : ']';
+        const jsonEnd = cleaned.lastIndexOf(closeChar);
+        if (jsonEnd === -1 || jsonEnd <= jsonStart) throw new Error('Incomplete JSON boundaries');
+        
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+        
+        // First attempt: direct parse
+        try { return JSON.parse(cleaned); } catch (_e) { /* continue */ }
+        
+        // Second attempt: fix common issues (trailing commas, control chars)
+        cleaned = cleaned
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/[\x00-\x1F\x7F]/g, ' ');
+        
+        try { return JSON.parse(cleaned); } catch (_e) { /* continue */ }
+        
+        // Third attempt: detect truncation and try to repair
+        const openBraces = (cleaned.match(/{/g) || []).length;
+        const closeBraces = (cleaned.match(/}/g) || []).length;
+        const openBrackets = (cleaned.match(/\[/g) || []).length;
+        const closeBrackets = (cleaned.match(/]/g) || []).length;
+        
+        if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
+          console.warn(`[generate-carousel] Truncated JSON detected: {=${openBraces}/${closeBraces} [=${openBrackets}/${closeBrackets}. Attempting repair...`);
+          // Remove any trailing incomplete key-value or object
+          cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, '');
+          // Close missing brackets/braces
+          for (let i = 0; i < openBrackets - closeBrackets; i++) cleaned += ']';
+          for (let i = 0; i < openBraces - closeBraces; i++) cleaned += '}';
+          // Fix trailing commas again after repair
+          cleaned = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        }
+        
+        return JSON.parse(cleaned);
+      };
+
       // Try tool_calls first (preferred)
       const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall?.function?.arguments) {
         console.log('[generate-carousel] Parsed via tool_calls');
-        return JSON.parse(toolCall.function.arguments);
+        return safeParseJson(toolCall.function.arguments);
       }
 
-      // Fallback: extract JSON from content text (Gemini sometimes returns content instead of tool_calls)
+      // Fallback: extract JSON from content text
       const contentText = result.data?.choices?.[0]?.message?.content;
       if (contentText && typeof contentText === 'string') {
         console.log('[generate-carousel] No tool_calls, attempting content text fallback parse');
-        // Try to find JSON in the content (may be wrapped in ```json ... ```)
-        const jsonMatch = contentText.match(/```json\s*([\s\S]*?)```/) || contentText.match(/(\{[\s\S]*\})/);
-        if (jsonMatch?.[1]) {
-          const parsed = JSON.parse(jsonMatch[1].trim());
+        try {
+          const parsed = safeParseJson(contentText);
           if (parsed && (parsed.slides || Array.isArray(parsed))) {
             console.log('[generate-carousel] Successfully parsed from content text fallback');
             return parsed;
           }
+        } catch (e) {
+          console.warn('[generate-carousel] Content text fallback parse failed:', e.message);
         }
       }
 
