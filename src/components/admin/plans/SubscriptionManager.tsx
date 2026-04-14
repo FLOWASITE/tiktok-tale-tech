@@ -215,7 +215,7 @@ export default function SubscriptionManager() {
                     <TableCell>
                       <Select
                         value={sub.plan_type}
-                        onValueChange={(val) => changePlanMutation.mutate({ subId: sub.id, planType: val })}
+                        onValueChange={(val) => changePlanMutation.mutate({ subId: sub.id, planType: val as "free" | "starter" | "pro" | "enterprise" })}
                       >
                         <SelectTrigger className="w-[120px] h-8 text-xs">
                           <SelectValue />
