@@ -120,7 +120,7 @@ export default function PaymentResult() {
     return bankCode ? (map[bankCode] || bankCode) : null;
   }, [bankCode]);
 
-  if (!responseCode) {
+  if (!responseCode && !isPayOS) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -128,7 +128,13 @@ export default function PaymentResult() {
     );
   }
 
-  const errorMessage = !isSuccess ? (VNPAY_ERRORS[responseCode] || "Giao dịch không thành công") : "";
+  const errorMessage = !isSuccess
+    ? (isPayOS
+      ? (payosCancel ? "Bạn đã hủy giao dịch" : "Giao dịch không thành công")
+      : (VNPAY_ERRORS[responseCode || ""] || "Giao dịch không thành công"))
+    : "";
+
+  const paymentProviderLabel = isPayOS ? "payOS" : "VNPay";
 
   const transactionDetails = [
     { label: "Mã giao dịch", value: txnRef, icon: Hash },
