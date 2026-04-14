@@ -550,7 +550,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     </AvatarFallback>
                   </Avatar>
                   <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ${config.color} ring-2 ring-background`}>
-                    <Facebook className="w-3 h-3" />
+                    {React.cloneElement(config.icon as React.ReactElement, { className: 'w-3 h-3' })}
                   </div>
                 </>
               ) : (
