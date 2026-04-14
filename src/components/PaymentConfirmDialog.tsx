@@ -91,6 +91,7 @@ export function PaymentConfirmDialog({
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [localVoucher, setLocalVoucher] = useState<VoucherInfo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("VNPAYQR");
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGateway>("payos");
 
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
