@@ -24,7 +24,8 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ 
   pendingCount = 0, 
   todayScheduleCount = 0,
-  onStartOnboarding 
+  onStartOnboarding,
+  activitySummary
 }: DashboardHeaderProps) {
   const { user } = useAuth();
   const { t } = useTranslation();
