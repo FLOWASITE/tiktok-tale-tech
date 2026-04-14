@@ -38,7 +38,12 @@ export interface PlanFeatureSummary {
   value: string;
 }
 
-const PAYMENT_METHODS = [
+const PAYMENT_GATEWAYS = [
+  { code: "vnpay" as PaymentGateway, label: "VNPay", desc: "QR, ATM, Ví, Thẻ quốc tế", icon: CreditCard },
+  { code: "payos" as PaymentGateway, label: "payOS", desc: "QR VietQR — tiền về ngay", icon: Zap },
+] as const;
+
+const VNPAY_METHODS = [
   { code: "VNPAYQR", label: "QR Code", desc: "Quét mã QR", icon: QrCode },
   { code: "VNBANK", label: "ATM nội địa", desc: "Internet Banking", icon: Landmark },
   { code: "VNPAYEWALLET", label: "Ví điện tử", desc: "VNPay, MoMo...", icon: Wallet },
