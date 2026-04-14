@@ -138,8 +138,9 @@ export default function PaymentResult() {
 
   const transactionDetails = [
     { label: "Mã giao dịch", value: txnRef, icon: Hash },
-    { label: "Mã VNPay", value: transactionNo, icon: Receipt },
-    { label: "Phương thức", value: bankCodeLabel, icon: CreditCard },
+    { label: isVNPay ? "Mã VNPay" : "Mã tham chiếu", value: transactionNo, icon: Receipt },
+    { label: "Phương thức", value: isPayOS ? "QR VietQR" : bankCodeLabel, icon: CreditCard },
+    { label: "Cổng thanh toán", value: paymentProviderLabel, icon: ShieldCheck },
     { label: "Thời gian", value: formattedDate, icon: Clock },
   ].filter((d) => d.value);
 
