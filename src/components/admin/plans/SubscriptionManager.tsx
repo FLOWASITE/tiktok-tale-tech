@@ -11,9 +11,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Download, Search, RefreshCw, Loader2, History, ArrowUpDown, Users, CheckCircle, XCircle, CreditCard, Ban, ChevronUp, ChevronDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Download, Search, RefreshCw, Loader2, History, ArrowUpDown, Users, CheckCircle, XCircle, CreditCard, Ban, ChevronUp, ChevronDown, Copy, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 
 interface SubRow {
   id: string;
@@ -56,6 +57,26 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 };
 
 const ITEMS_PER_PAGE = 20;
+
+function escapeCSVValue(value: string): string {
+  const str = String(value ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function getDaysRemaining(dateStr: string): number {
+  return differenceInDays(new Date(dateStr), new Date());
+}
+
+function getRowHighlight(sub: SubRow): string {
+  if (sub.status !== "active") return "";
+  const days = getDaysRemaining(sub.current_period_end);
+  if (days < 0) return "bg-destructive/8 dark:bg-destructive/15";
+  if (days <= 7) return "bg-yellow-50 dark:bg-yellow-900/15";
+  return "";
+}
 
 export default function SubscriptionManager() {
   const queryClient = useQueryClient();
@@ -178,6 +199,8 @@ export default function SubscriptionManager() {
     onError: (err) => toast.error("Lỗi: " + err.message),
   });
 
+  const isMutating = changePlanMutation.isPending || renewMutation.isPending || cancelMutation.isPending;
+
   // Confirm action handler
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
@@ -220,6 +243,11 @@ export default function SubscriptionManager() {
   const filtered = useMemo(() => {
     let result = allSubs.filter((s) => {
       if (filterPlan !== "all" && s.plan_type !== filterPlan) return false;
+      if (filterStatus === "expiring_soon") {
+        if (s.status !== "active") return false;
+        const days = getDaysRemaining(s.current_period_end);
+        return days >= 0 && days <= 7;
+      }
       if (filterStatus !== "all" && s.status !== filterStatus) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -249,7 +277,12 @@ export default function SubscriptionManager() {
     const active = allSubs.filter((s) => s.status === "active").length;
     const cancelledExpired = allSubs.filter((s) => s.status === "cancelled" || s.status === "expired").length;
     const paid = allSubs.filter((s) => s.plan_type !== "free").length;
-    return { total, active, cancelledExpired, paid, paidRatio: total > 0 ? ((paid / total) * 100).toFixed(1) : "0" };
+    const expiringSoon = allSubs.filter((s) => {
+      if (s.status !== "active") return false;
+      const days = getDaysRemaining(s.current_period_end);
+      return days >= 0 && days <= 7;
+    }).length;
+    return { total, active, cancelledExpired, paid, expiringSoon, paidRatio: total > 0 ? ((paid / total) * 100).toFixed(1) : "0" };
   }, [allSubs]);
 
   // Selection helpers
@@ -292,12 +325,12 @@ export default function SubscriptionManager() {
   const exportCSV = () => {
     const rows = filtered;
     const csv = [
-      ["Workspace", "Email", "Plan", "Status", "Period Start", "Period End", "Created At"].join(","),
+      ["Workspace", "Email", "Plan", "Status", "Period Start", "Period End", "Created At"].map(escapeCSVValue).join(","),
       ...rows.map((r) =>
-        [r.org_name, r.owner_email, r.plan_type, r.status, r.current_period_start, r.current_period_end, r.created_at].join(",")
+        [r.org_name, r.owner_email, r.plan_type, r.status, r.current_period_start, r.current_period_end, r.created_at].map(escapeCSVValue).join(",")
       ),
     ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -314,8 +347,14 @@ export default function SubscriptionManager() {
 
   const closePaymentDialog = () => {
     setPaymentDialogOpen(false);
-    setPaymentOrgId(null);
-    setPaymentOrgName("");
+    setTimeout(() => {
+      setPaymentOrgId(null);
+      setPaymentOrgName("");
+    }, 200);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success("Đã copy mã giao dịch"));
   };
 
   const paymentTotal = useMemo(() => {
@@ -326,375 +365,466 @@ export default function SubscriptionManager() {
   }, [paymentQuery.data]);
 
   const isLoading = subsQuery.isLoading;
+  const isRefetching = subsQuery.isRefetching;
+
+  const renderDaysRemaining = (sub: SubRow) => {
+    if (!sub.current_period_end) return null;
+    const days = getDaysRemaining(sub.current_period_end);
+    if (days < 0) {
+      return <span className="text-xs text-destructive font-medium">Đã hết hạn</span>;
+    }
+    if (days === 0) {
+      return <span className="text-xs text-destructive font-medium">Hết hạn hôm nay</span>;
+    }
+    if (days <= 7) {
+      return <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-0.5"><AlertTriangle className="h-3 w-3" /> còn {days} ngày</span>;
+    }
+    return <span className="text-xs text-muted-foreground">còn {days} ngày</span>;
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">Tổng cộng</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.active}</p>
-              <p className="text-xs text-muted-foreground">Đang hoạt động</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.cancelledExpired}</p>
-              <p className="text-xs text-muted-foreground">Đã hủy / Hết hạn</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.paidRatio}%</p>
-              <p className="text-xs text-muted-foreground">Tỷ lệ trả phí ({stats.paid})</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-4">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <Card className="border-border/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs text-muted-foreground">Tổng cộng</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.active}</p>
+                <p className="text-xs text-muted-foreground">Đang hoạt động</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.expiringSoon}</p>
+                <p className="text-xs text-muted-foreground">Sắp hết hạn</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.cancelledExpired}</p>
+                <p className="text-xs text-muted-foreground">Đã hủy / Hết hạn</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.paidRatio}%</p>
+                <p className="text-xs text-muted-foreground">Trả phí ({stats.paid})</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Main Table Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-            <CardTitle className="text-lg">Danh sách Subscriptions ({filtered.length})</CardTitle>
-            <Button variant="outline" size="sm" onClick={exportCSV}>
-              <Download className="h-4 w-4 mr-1" /> Export CSV
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Tìm workspace hoặc email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-8 h-9" />
+        {/* Main Table Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+              <CardTitle className="text-lg">Danh sách Subscriptions ({filtered.length})</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => subsQuery.refetch()}
+                  disabled={isRefetching}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${isRefetching ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportCSV}>
+                  <Download className="h-4 w-4 mr-1" /> Export CSV
+                </Button>
+              </div>
             </div>
-            <Select value={filterPlan} onValueChange={(v) => { setFilterPlan(v); setPage(1); }}>
-              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Gói" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả gói</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="starter">Starter</SelectItem>
-                <SelectItem value="pro">Pro</SelectItem>
-                <SelectItem value="enterprise">Enterprise</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1); }}>
-              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Tìm workspace hoặc email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-8 h-9" />
+              </div>
+              <Select value={filterPlan} onValueChange={(v) => { setFilterPlan(v); setPage(1); }}>
+                <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Gói" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả gói</SelectItem>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="starter">Starter</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1); }}>
+                <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="expiring_soon">
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                      Sắp hết hạn (≤7 ngày)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Bulk action toolbar */}
-          {someSelected && (
-            <div className="flex items-center gap-2 mt-2 p-2 bg-muted/50 rounded-lg border border-border/50">
-              <span className="text-sm font-medium">Đã chọn {selectedIds.size}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmAction({ type: "bulk_renew", count: selectedIds.size })}
-              >
-                <RefreshCw className="h-3.5 w-3.5 mr-1" /> Gia hạn tất cả
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                onClick={() => setConfirmAction({ type: "bulk_cancel", count: selectedIds.size })}
-              >
-                <Ban className="h-3.5 w-3.5 mr-1" /> Hủy tất cả
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                Bỏ chọn
-              </Button>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
+            {/* Bulk action toolbar */}
+            {someSelected && (
+              <div className="flex items-center gap-2 mt-2 p-2 bg-muted/50 rounded-lg border border-border/50">
+                <span className="text-sm font-medium">Đã chọn {selectedIds.size}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isMutating}
+                  onClick={() => setConfirmAction({ type: "bulk_renew", count: selectedIds.size })}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> Gia hạn tất cả
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isMutating}
+                  className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => setConfirmAction({ type: "bulk_cancel", count: selectedIds.size })}
+                >
+                  <Ban className="h-3.5 w-3.5 mr-1" /> Hủy tất cả
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                  Bỏ chọn
+                </Button>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]">
+                          <Checkbox checked={allPageSelected} onCheckedChange={toggleSelectAll} />
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("org_name")}>
+                          <div className="flex items-center">Workspace <SortIcon field="org_name" /></div>
+                        </TableHead>
+                        <TableHead className="hidden lg:table-cell">Email</TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("plan_type")}>
+                          <div className="flex items-center">Gói <SortIcon field="plan_type" /></div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+                          <div className="flex items-center">Trạng thái <SortIcon field="status" /></div>
+                        </TableHead>
+                        <TableHead className="hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort("created_at")}>
+                          <div className="flex items-center">Ngày tạo <SortIcon field="created_at" /></div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("current_period_end")}>
+                          <div className="flex items-center">Hết hạn <SortIcon field="current_period_end" /></div>
+                        </TableHead>
+                        <TableHead className="text-right">Hành động</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginated.map((sub) => {
+                        const rowHighlight = getRowHighlight(sub);
+                        const selectedHighlight = selectedIds.has(sub.id) ? "bg-primary/5" : "";
+                        return (
+                          <TableRow key={sub.id} className={`${rowHighlight} ${selectedHighlight}`.trim()}>
+                            <TableCell>
+                              <Checkbox checked={selectedIds.has(sub.id)} onCheckedChange={() => toggleSelect(sub.id)} />
+                            </TableCell>
+                            <TableCell className="font-medium max-w-[200px] truncate">{sub.org_name}</TableCell>
+                            <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[180px] truncate">
+                              {sub.owner_email}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={sub.plan_type}
+                                onValueChange={(val) => {
+                                  setPendingPlanChange({ subId: sub.id, planType: val });
+                                  setConfirmAction({
+                                    type: "change_plan",
+                                    subId: sub.id,
+                                    planType: val,
+                                    orgName: sub.org_name,
+                                    currentPlan: sub.plan_type,
+                                  });
+                                }}
+                              >
+                                <SelectTrigger className="w-[120px] h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="free">Free</SelectItem>
+                                  <SelectItem value="starter">Starter</SelectItem>
+                                  <SelectItem value="pro">Pro</SelectItem>
+                                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={STATUS_COLORS[sub.status] || ""}>{sub.status}</Badge>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                              {sub.created_at ? format(new Date(sub.created_at), "dd/MM/yyyy") : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-sm text-muted-foreground">
+                                  {sub.current_period_end ? format(new Date(sub.current_period_end), "dd/MM/yyyy") : "—"}
+                                </span>
+                                {renderDaysRemaining(sub)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={isMutating}
+                                    onClick={() => setConfirmAction({ type: "renew", subId: sub.id, orgName: sub.org_name })}
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Gia hạn 30 ngày</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openPaymentDialog(sub.organization_id, sub.org_name)}
+                                  >
+                                    <History className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Lịch sử thanh toán</TooltipContent>
+                              </Tooltip>
+                              {sub.status === "active" && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={isMutating}
+                                      className="text-destructive hover:text-destructive"
+                                      onClick={() => setConfirmAction({ type: "cancel", subId: sub.id, orgName: sub.org_name })}
+                                    >
+                                      ✕
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Hủy subscription</TooltipContent>
+                                </Tooltip>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {filtered.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                            Không tìm thấy subscription nào
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Hiển thị {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} / {filtered.length}
+                    </p>
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum: number;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (page <= 3) {
+                            pageNum = i + 1;
+                          } else if (page >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = page - 2 + i;
+                          }
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink
+                                isActive={pageNum === page}
+                                onClick={() => setPage(pageNum)}
+                                className="cursor-pointer"
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Payment History Dialog */}
+        <Dialog open={paymentDialogOpen} onOpenChange={(open) => { if (!open) closePaymentDialog(); }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Lịch sử thanh toán — {paymentOrgName}</DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[400px] overflow-y-auto">
+              {paymentQuery.isLoading ? (
+                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : paymentQuery.data && paymentQuery.data.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40px]">
-                        <Checkbox checked={allPageSelected} onCheckedChange={toggleSelectAll} />
-                      </TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("org_name")}>
-                        <div className="flex items-center">Workspace <SortIcon field="org_name" /></div>
-                      </TableHead>
-                      <TableHead className="hidden lg:table-cell">Email</TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("plan_type")}>
-                        <div className="flex items-center">Gói <SortIcon field="plan_type" /></div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
-                        <div className="flex items-center">Trạng thái <SortIcon field="status" /></div>
-                      </TableHead>
-                      <TableHead className="hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort("created_at")}>
-                        <div className="flex items-center">Ngày tạo <SortIcon field="created_at" /></div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={() => handleSort("current_period_end")}>
-                        <div className="flex items-center">Hết hạn <SortIcon field="current_period_end" /></div>
-                      </TableHead>
-                      <TableHead className="text-right">Hành động</TableHead>
+                      <TableHead>Ngày</TableHead>
+                      <TableHead>Gói</TableHead>
+                      <TableHead>Chu kỳ</TableHead>
+                      <TableHead>Mã GD</TableHead>
+                      <TableHead>Số tiền</TableHead>
+                      <TableHead>Trạng thái</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginated.map((sub) => (
-                      <TableRow key={sub.id} className={selectedIds.has(sub.id) ? "bg-primary/5" : ""}>
-                        <TableCell>
-                          <Checkbox checked={selectedIds.has(sub.id)} onCheckedChange={() => toggleSelect(sub.id)} />
-                        </TableCell>
-                        <TableCell className="font-medium max-w-[200px] truncate">{sub.org_name}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[180px] truncate">
-                          {sub.owner_email}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={sub.plan_type}
-                            onValueChange={(val) => {
-                              setPendingPlanChange({ subId: sub.id, planType: val });
-                              setConfirmAction({
-                                type: "change_plan",
-                                subId: sub.id,
-                                planType: val,
-                                orgName: sub.org_name,
-                                currentPlan: sub.plan_type,
-                              });
-                            }}
-                          >
-                            <SelectTrigger className="w-[120px] h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="free">Free</SelectItem>
-                              <SelectItem value="starter">Starter</SelectItem>
-                              <SelectItem value="pro">Pro</SelectItem>
-                              <SelectItem value="enterprise">Enterprise</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={STATUS_COLORS[sub.status] || ""}>{sub.status}</Badge>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                          {sub.created_at ? format(new Date(sub.created_at), "dd/MM/yyyy") : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {sub.current_period_end ? format(new Date(sub.current_period_end), "dd/MM/yyyy") : "—"}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmAction({ type: "renew", subId: sub.id, orgName: sub.org_name })}
-                            title="Gia hạn"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openPaymentDialog(sub.organization_id, sub.org_name)}
-                            title="Lịch sử thanh toán"
-                          >
-                            <History className="h-3.5 w-3.5" />
-                          </Button>
-                          {sub.status === "active" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setConfirmAction({ type: "cancel", subId: sub.id, orgName: sub.org_name })}
-                              title="Hủy"
-                            >
-                              ✕
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {filtered.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                          Không tìm thấy subscription nào
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {paymentQuery.data.map((p: any) => {
+                      const txnRef = p.vnpay_txn_ref || (p.metadata as any)?.vnpay_txn_ref || p.payment_reference || "—";
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="text-sm">{format(new Date(p.created_at), "dd/MM/yyyy")}</TableCell>
+                          <TableCell className="text-sm capitalize">{p.plan_type}</TableCell>
+                          <TableCell className="text-sm capitalize">{p.billing_cycle || "—"}</TableCell>
+                          <TableCell className="text-sm">
+                            {txnRef !== "—" ? (
+                              <button
+                                className="flex items-center gap-1 text-primary hover:underline font-mono text-xs"
+                                onClick={() => copyToClipboard(txnRef)}
+                                title="Click để copy"
+                              >
+                                {txnRef.length > 16 ? txnRef.slice(0, 16) + "…" : txnRef}
+                                <Copy className="h-3 w-3" />
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">{Number(p.amount).toLocaleString()}₫</TableCell>
+                          <TableCell>
+                            <Badge className={`text-xs ${PAYMENT_STATUS_COLORS[p.status] || ""}`}>
+                              {p.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Hiển thị {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} / {filtered.length}
-                  </p>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum: number;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (page <= 3) {
-                          pageNum = i + 1;
-                        } else if (page >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = page - 2 + i;
-                        }
-                        return (
-                          <PaginationItem key={pageNum}>
-                            <PaginationLink
-                              isActive={pageNum === page}
-                              onClick={() => setPage(pageNum)}
-                              className="cursor-pointer"
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                          className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Chưa có lịch sử thanh toán</p>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Payment History Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={(open) => { if (!open) closePaymentDialog(); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Lịch sử thanh toán — {paymentOrgName}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[400px] overflow-y-auto">
-            {paymentQuery.isLoading ? (
-              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-            ) : paymentQuery.data && paymentQuery.data.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ngày</TableHead>
-                    <TableHead>Gói</TableHead>
-                    <TableHead>Chu kỳ</TableHead>
-                    <TableHead>Số tiền</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paymentQuery.data.map((p: any) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="text-sm">{format(new Date(p.created_at), "dd/MM/yyyy")}</TableCell>
-                      <TableCell className="text-sm capitalize">{p.plan_type}</TableCell>
-                      <TableCell className="text-sm capitalize">{p.billing_cycle || "—"}</TableCell>
-                      <TableCell className="text-sm font-medium">{Number(p.amount).toLocaleString()}₫</TableCell>
-                      <TableCell>
-                        <Badge className={`text-xs ${PAYMENT_STATUS_COLORS[p.status] || ""}`}>
-                          {p.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Chưa có lịch sử thanh toán</p>
-            )}
-          </div>
-          {paymentTotal > 0 && (
-            <div className="flex justify-between items-center pt-3 border-t border-border/50">
-              <span className="text-sm text-muted-foreground">Tổng chi tiêu</span>
-              <span className="text-lg font-bold text-primary">{paymentTotal.toLocaleString()}₫</span>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            {paymentTotal > 0 && (
+              <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                <span className="text-sm text-muted-foreground">Tổng chi tiêu</span>
+                <span className="text-lg font-bold text-primary">{paymentTotal.toLocaleString()}₫</span>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
-      {/* Confirm Action Dialog */}
-      <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) { setConfirmAction(null); setPendingPlanChange(null); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction?.type === "change_plan" && "Xác nhận đổi gói"}
-              {confirmAction?.type === "renew" && "Xác nhận gia hạn"}
-              {confirmAction?.type === "cancel" && "Xác nhận hủy subscription"}
-              {confirmAction?.type === "bulk_renew" && "Xác nhận gia hạn hàng loạt"}
-              {confirmAction?.type === "bulk_cancel" && "Xác nhận hủy hàng loạt"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction?.type === "change_plan" && (
-                <>Đổi gói từ <strong className="capitalize">{confirmAction.currentPlan}</strong> → <strong className="capitalize">{confirmAction.planType}</strong> cho workspace <strong>{confirmAction.orgName}</strong>?</>
-              )}
-              {confirmAction?.type === "renew" && (
-                <>Gia hạn thêm 30 ngày cho workspace <strong>{confirmAction.orgName}</strong>?</>
-              )}
-              {confirmAction?.type === "cancel" && (
-                <>Bạn chắc chắn muốn hủy subscription của <strong>{confirmAction.orgName}</strong>? Hành động này không thể hoàn tác.</>
-              )}
-              {confirmAction?.type === "bulk_renew" && (
-                <>Gia hạn thêm 30 ngày cho <strong>{confirmAction.count}</strong> subscription đã chọn?</>
-              )}
-              {confirmAction?.type === "bulk_cancel" && (
-                <>Bạn chắc chắn muốn hủy <strong>{confirmAction.count}</strong> subscription đã chọn? Hành động này không thể hoàn tác.</>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmAction}
-              className={confirmAction?.type === "cancel" || confirmAction?.type === "bulk_cancel" ? "bg-destructive hover:bg-destructive/90" : ""}
-            >
-              Xác nhận
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {/* Confirm Action Dialog */}
+        <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) { setConfirmAction(null); setPendingPlanChange(null); } }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {confirmAction?.type === "change_plan" && "Xác nhận đổi gói"}
+                {confirmAction?.type === "renew" && "Xác nhận gia hạn"}
+                {confirmAction?.type === "cancel" && "Xác nhận hủy subscription"}
+                {confirmAction?.type === "bulk_renew" && "Xác nhận gia hạn hàng loạt"}
+                {confirmAction?.type === "bulk_cancel" && "Xác nhận hủy hàng loạt"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmAction?.type === "change_plan" && (
+                  <>Đổi gói từ <strong className="capitalize">{confirmAction.currentPlan}</strong> → <strong className="capitalize">{confirmAction.planType}</strong> cho workspace <strong>{confirmAction.orgName}</strong>?</>
+                )}
+                {confirmAction?.type === "renew" && (
+                  <>Gia hạn thêm 30 ngày cho workspace <strong>{confirmAction.orgName}</strong>?</>
+                )}
+                {confirmAction?.type === "cancel" && (
+                  <>Bạn chắc chắn muốn hủy subscription của <strong>{confirmAction.orgName}</strong>? Hành động này không thể hoàn tác.</>
+                )}
+                {confirmAction?.type === "bulk_renew" && (
+                  <>Gia hạn thêm 30 ngày cho <strong>{confirmAction.count}</strong> subscription đã chọn?</>
+                )}
+                {confirmAction?.type === "bulk_cancel" && (
+                  <>Bạn chắc chắn muốn hủy <strong>{confirmAction.count}</strong> subscription đã chọn? Hành động này không thể hoàn tác.</>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isMutating}>Hủy bỏ</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmAction}
+                disabled={isMutating}
+                className={confirmAction?.type === "cancel" || confirmAction?.type === "bulk_cancel" ? "bg-destructive hover:bg-destructive/90" : ""}
+              >
+                {isMutating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Xác nhận
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </TooltipProvider>
   );
 }
