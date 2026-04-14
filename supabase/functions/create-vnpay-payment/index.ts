@@ -81,7 +81,10 @@ Deno.Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) =
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const vnpTmnCode = Deno.env.get('VNPAY_TMN_CODE')!;
     const vnpHashSecret = Deno.env.get('VNPAY_HASH_SECRET')!;
-    const vnpUrl = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
+    const vnpEnv = Deno.env.get('VNPAY_ENV') || 'sandbox';
+    const vnpUrl = vnpEnv === 'production'
+      ? 'https://pay.vnpay.vn/vpcpay.html'
+      : 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
 
     // Auth check
     const authHeader = req.headers.get('Authorization');
@@ -289,6 +292,7 @@ Deno.Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) =
       payment_url: paymentUrl,
       txn_ref: txnRef,
       amount,
+      environment: vnpEnv,
       is_prorated: isProrated,
       ...(isProrated && {
         original_amount: fullPrice,
