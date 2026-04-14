@@ -35,11 +35,29 @@ import {
   COACHMARK_STORAGE_KEY 
 } from '@/components/onboarding';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { Separator } from '@/components/ui/separator';
+
+// Section divider component
+function DashboardSection({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      <div className="flex items-center gap-3 mb-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70 whitespace-nowrap">
+          {title}
+        </h2>
+        <Separator className="flex-1" />
+      </div>
+      {children}
+    </div>
+  );
+}
 
 // Inner component that uses the coachmark context
 function DashboardContent() {
   const { currentOrganization } = useOrganizationContext();
   const orgId = currentOrganization?.id;
+  const { t } = useTranslation();
   const { scripts, loading: scriptsLoading } = useScripts();
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
@@ -105,6 +123,20 @@ function DashboardContent() {
     aiImages: aiImageCount,
     aiVideos: 0,
   }), [scripts, carousels, multiChannelContents, brands, aiImageCount]);
+
+  // Activity summary for returning users
+  const activitySummary = useMemo(() => {
+    if (loading || isNewUser) return undefined;
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    const recentContents = multiChannelContents.filter(c => new Date(c.created_at) > yesterday).length;
+    const recentScripts = scripts.filter(s => new Date(s.created_at) > yesterday).length;
+    const total = recentContents + recentScripts;
+    
+    if (total === 0) return undefined;
+    return t('app.dashboardHeader.activitySummary', { count: total, defaultValue: `+${total} nội dung mới trong 24h qua` });
+  }, [loading, isNewUser, multiChannelContents, scripts, t]);
 
   // Fetch published channels mapping
   const { data: publishedChannelsMap } = useQuery({
@@ -183,7 +215,6 @@ function DashboardContent() {
       });
     });
 
-    // Sort by date descending and take top 10
     return activities
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
@@ -197,202 +228,195 @@ function DashboardContent() {
     const isNewUser = !completed && stats.scripts === 0 && stats.carousels === 0 && stats.multiChannel === 0;
     
     if (isNewUser && !isActive && !showWelcomeModal && !showCompletionModal) {
-      // Delay to let UI render
       const timer = setTimeout(() => startWithWelcome(), 800);
       return () => clearTimeout(timer);
     }
   }, [loading, stats, startWithWelcome, isActive, showWelcomeModal, showCompletionModal]);
 
+  const hasMilestones = upcomingMilestones.length > 0 || overdueMilestones.length > 0;
+
   return (
     <div className="relative min-h-screen">
-      {/* Welcome Modal */}
-      <WelcomeModal 
-        isOpen={showWelcomeModal} 
-        onStart={start} 
-        onSkip={skipWelcome} 
-      />
-
-      {/* Completion Modal */}
-      <CompletionModal 
-        isOpen={showCompletionModal} 
-        onClose={closeCompletionModal} 
-      />
-
-      {/* Coachmark Overlay */}
+      <WelcomeModal isOpen={showWelcomeModal} onStart={start} onSkip={skipWelcome} />
+      <CompletionModal isOpen={showCompletionModal} onClose={closeCompletionModal} />
       <CoachmarkOverlay />
 
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div 
-          animate={{ 
-            scale: [1, 1.1, 1],
-            opacity: [0.03, 0.06, 0.03],
-          }}
+          animate={{ scale: [1, 1.1, 1], opacity: [0.03, 0.06, 0.03] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary rounded-full blur-3xl" 
         />
         <motion.div 
-          animate={{ 
-            scale: [1, 1.15, 1],
-            opacity: [0.03, 0.05, 0.03],
-          }}
+          animate={{ scale: [1, 1.15, 1], opacity: [0.03, 0.05, 0.03] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
           className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-secondary rounded-full blur-3xl" 
         />
       </div>
 
-      <div className="px-3 xs:px-4 sm:container py-4 sm:py-6 lg:py-8 relative space-y-4 sm:space-y-6 lg:space-y-8">
+      <div className="px-3 xs:px-4 sm:container py-4 sm:py-6 lg:py-8 relative space-y-5 sm:space-y-6 lg:space-y-8">
         {/* Hero Header */}
-        <div data-coachmark="header">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          data-coachmark="header"
+        >
           <DashboardHeader 
             pendingCount={pendingReviewCount}
             todayScheduleCount={todayScheduleCount}
             onStartOnboarding={start}
+            activitySummary={activitySummary}
           />
-        </div>
+        </motion.div>
 
         {isNewUser ? (
-          /* New User Welcome */
           <NewUserWelcome />
         ) : (
           <>
-            {/* Stats */}
-            <div data-coachmark="stats">
-              <DashboardStats stats={stats} loading={loading} />
-            </div>
-
-            {/* Bento Grid Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
-              {/* Large card - Quick Actions (spans 5 cols on lg) */}
+            {/* Section 1: Tổng quan nhanh */}
+            <DashboardSection title={t('app.dashboard.sectionOverview', { defaultValue: 'Tổng quan nhanh' })}>
               <motion.div 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="lg:col-span-5"
-                data-coachmark="quick-actions"
+                transition={{ delay: 0.1 }}
+                data-coachmark="stats"
               >
-                <QuickActionGrid />
+                <DashboardStats stats={stats} loading={loading} />
               </motion.div>
+            </DashboardSection>
 
-              {/* Medium card - Topics (spans 4 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="lg:col-span-4"
-                data-coachmark="topics"
-              >
-                <TopicQuickAccess />
-              </motion.div>
-
-              {/* Small card - Today Focus (spans 3 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="lg:col-span-3"
-              >
-                <TodayFocus scheduledCount={todayScheduleCount} pendingReviewCount={pendingReviewCount} todayMilestones={todayMilestones} />
-              </motion.div>
-
-              {/* AI Insights (spans 4 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="lg:col-span-4"
-                data-coachmark="brand-tip"
-              >
-                <AIInsightsCard />
-              </motion.div>
-
-              {/* Today Schedules (spans 4 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="lg:col-span-4"
-                data-coachmark="schedules"
-              >
-                <TodaySchedules />
-              </motion.div>
-
-              {/* Usage Quota Widget (spans 4 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="lg:col-span-4"
-              >
-                <UsageQuotaWidget />
-              </motion.div>
-
-              {/* Performance Reminder (spans 4 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.75 }}
-                className="lg:col-span-4"
-              >
-                <PerformanceReminderWidget />
-              </motion.div>
-
-              {/* Active Campaigns Widget (spans 6 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.75 }}
-                className="lg:col-span-6"
-              >
-                <ActiveCampaignsWidget campaigns={activeCampaigns} isLoading={campaignsLoading} />
-              </motion.div>
-
-              {/* Campaign Milestone Reminder (spans 6 cols on lg) */}
-              {(upcomingMilestones.length > 0 || overdueMilestones.length > 0) && (
+            {/* Section 2: Hành động */}
+            <DashboardSection title={t('app.dashboard.sectionActions', { defaultValue: 'Hành động' })}>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
                 <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.78 }}
+                  transition={{ delay: 0.15 }}
+                  className="lg:col-span-7"
+                  data-coachmark="quick-actions"
+                >
+                  <QuickActionGrid />
+                </motion.div>
+
+                <div className="lg:col-span-5 flex flex-col gap-4 sm:gap-5 lg:gap-6">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    data-coachmark="brand-tip"
+                  >
+                    <AIInsightsCard />
+                  </motion.div>
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                  >
+                    <TodayFocus scheduledCount={todayScheduleCount} pendingReviewCount={pendingReviewCount} todayMilestones={todayMilestones} />
+                  </motion.div>
+                </div>
+              </div>
+            </DashboardSection>
+
+            {/* Section 3: Lịch & Chiến dịch */}
+            <DashboardSection title={t('app.dashboard.sectionSchedule', { defaultValue: 'Lịch & Chiến dịch' })}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="lg:col-span-4"
+                  data-coachmark="schedules"
+                >
+                  <TodaySchedules />
+                </motion.div>
+
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.33 }}
+                  className="lg:col-span-4"
+                  data-coachmark="topics"
+                >
+                  <TopicQuickAccess />
+                </motion.div>
+
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.36 }}
+                  className="lg:col-span-4"
+                >
+                  <UsageQuotaWidget />
+                </motion.div>
+
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.38 }}
                   className="lg:col-span-6"
                 >
-                  <CampaignMilestoneReminder 
-                    milestones={upcomingMilestones} 
-                    overdueMilestones={overdueMilestones}
-                    isLoading={campaignsLoading} 
-                  />
+                  <ActiveCampaignsWidget campaigns={activeCampaigns} isLoading={campaignsLoading} />
                 </motion.div>
-              )}
 
-              {/* My Assignments (spans 6 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                className="lg:col-span-6"
-              >
-                <MyAssignments />
-              </motion.div>
+                {hasMilestones && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="lg:col-span-6"
+                  >
+                    <CampaignMilestoneReminder 
+                      milestones={upcomingMilestones} 
+                      overdueMilestones={overdueMilestones}
+                      isLoading={campaignsLoading} 
+                    />
+                  </motion.div>
+                )}
+              </div>
+            </DashboardSection>
 
-              {/* Activity Timeline (spans 6 cols on lg) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 }}
-                className="lg:col-span-6"
-              >
-                <ActivityTimeline activities={recentActivities} loading={loading} />
-              </motion.div>
+            {/* Section 4: Hoạt động */}
+            <DashboardSection title={t('app.dashboard.sectionActivity', { defaultValue: 'Hoạt động' })}>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 lg:gap-6">
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.42 }}
+                  className="lg:col-span-4"
+                >
+                  <PerformanceReminderWidget />
+                </motion.div>
 
-              {/* Pending Reviews - Full width */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1 }}
-                className="lg:col-span-12"
-              >
-                <PendingReviews />
-              </motion.div>
-            </div>
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.44 }}
+                  className="lg:col-span-4"
+                >
+                  <MyAssignments />
+                </motion.div>
+
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.46 }}
+                  className="lg:col-span-4"
+                >
+                  <ActivityTimeline activities={recentActivities} loading={loading} />
+                </motion.div>
+
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.48 }}
+                  className="lg:col-span-12"
+                >
+                  <PendingReviews />
+                </motion.div>
+              </div>
+            </DashboardSection>
           </>
         )}
       </div>
