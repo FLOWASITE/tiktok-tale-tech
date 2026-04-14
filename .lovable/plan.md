@@ -1,23 +1,37 @@
 
 
-## Chuyển tab Workspace từ Users sang Quản lý gói
+## Thêm trang Xác nhận Thanh toán (Payment Confirmation)
 
-### Thay đổi
+### Hiện trạng
+Khi user click "Thanh toán qua VNPay" ở UpgradePlanDialog hoặc Pricing page → gọi edge function → redirect thẳng sang VNPay. User không có cơ hội xem lại thông tin trước khi thanh toán.
 
-Di chuyển tab "Quản lý Workspaces" từ trang AdminUsers sang trang AdminPlans, vì workspace gắn liền với subscription (mô hình organization-centric).
+### Cải tiến
+Thêm bước xác nhận trung gian hiển thị tóm tắt đơn hàng trước khi redirect sang VNPay.
+
+**Flow mới:**
+```text
+Chọn gói → Dialog xác nhận (review) → Click "Xác nhận & Thanh toán" → Redirect VNPay
+```
+
+### Nội dung trang xác nhận (Dialog/Sheet)
+
+Hiển thị trong một Dialog mới `PaymentConfirmDialog`:
+- **Workspace**: Tên workspace hiện tại
+- **Gói hiện tại → Gói mới**: Free → Pro
+- **Chu kỳ**: Hàng tháng / Hàng năm
+- **Giá gốc**: 549.000₫
+- **Prorate** (nếu có): Chỉ trả 320.000₫ cho 18 ngày còn lại
+- **Voucher** (nếu có): Mã SALE20 — Giảm 20% → hiển thị giá sau giảm
+- **Tổng thanh toán**: Số tiền cuối cùng (bold, lớn)
+- **Phương thức**: VNPay (ATM, QR, Ví điện tử)
+- Nút "Xác nhận & Thanh toán" + "Quay lại"
 
 ### Kỹ thuật
 
+**File mới:**
+- `src/components/PaymentConfirmDialog.tsx` — Dialog xác nhận với props: planType, billingCycle, price, prorateInfo, voucher, onConfirm, onCancel
+
 **File sửa:**
-
-**1. `src/pages/AdminUsers.tsx`**
-- Xóa import `AdminWorkspacesTab` (dòng 52)
-- Xóa import `Building2` (dòng 28)
-- Xóa TabsTrigger "Quản lý Workspaces" (dòng 390-393)
-- Xóa TabsContent "workspaces" (dòng 679-681)
-
-**2. `src/pages/AdminPlans.tsx`**
-- Import `AdminWorkspacesTab` và icon `Building2`
-- Thêm TabsTrigger "Workspaces" vào TabsList (sau Lịch sử thanh toán)
-- Thêm TabsContent render `<AdminWorkspacesTab />`
+- `src/components/UpgradePlanDialog.tsx` — Khi click "Thanh toán", thay vì gọi API ngay → mở `PaymentConfirmDialog` với thông tin đã tính. Chỉ gọi API khi user confirm.
+- `src/pages/Pricing.tsx` — Tương tự, thêm bước confirm trước khi redirect
 
