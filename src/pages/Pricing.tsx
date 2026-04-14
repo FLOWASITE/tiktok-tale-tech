@@ -140,12 +140,13 @@ export default function Pricing() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [confirmPlan, setConfirmPlan] = useState<{ planType: string; price: number } | null>(null);
 
   const currentPlan = subscription?.plan_type || "free";
   const isLoggedIn = !!user;
   const formatPrice = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
 
-  const handleSelectPlan = async (plan: typeof PLANS[0]) => {
+  const handleSelectPlan = (plan: typeof PLANS[0]) => {
     if (!isLoggedIn) {
       window.location.href = "/auth?mode=register";
       return;
@@ -159,12 +160,19 @@ export default function Pricing() {
       return;
     }
 
-    setLoadingPlan(plan.key);
+    const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    setConfirmPlan({ planType, price });
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!confirmPlan || !currentOrganization?.id) return;
+
+    setLoadingPlan(confirmPlan.planType);
     try {
       const { data, error } = await supabase.functions.invoke("create-vnpay-payment", {
         body: {
           organization_id: currentOrganization.id,
-          plan_type: planType,
+          plan_type: confirmPlan.planType,
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
         },
