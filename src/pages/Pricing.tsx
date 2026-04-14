@@ -484,6 +484,21 @@ export default function Pricing() {
       </section>
 
       <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+
+      {confirmPlan && (
+        <PaymentConfirmDialog
+          open={!!confirmPlan}
+          onOpenChange={(open) => { if (!open) setConfirmPlan(null); }}
+          workspaceName={currentOrganization?.name || "Workspace"}
+          currentPlan={currentPlan}
+          targetPlan={confirmPlan.planType}
+          billingCycle={isYearly ? "yearly" : "monthly"}
+          basePrice={confirmPlan.price}
+          finalPrice={confirmPlan.price}
+          isLoading={!!loadingPlan}
+          onConfirm={handleConfirmPayment}
+        />
+      )}
     </div>
   );
 }
