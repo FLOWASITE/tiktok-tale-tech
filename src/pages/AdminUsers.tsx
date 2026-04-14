@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import {
   Users,
-  Building2,
+  
   CreditCard,
   TrendingUp,
   Activity,
@@ -49,7 +49,7 @@ import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
 import { UserBulkActionsBar } from "@/components/admin/UserBulkActionsBar";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
-import { AdminWorkspacesTab } from "@/components/admin/AdminWorkspacesTab";
+
 import { ImportUsersDialog } from "@/components/admin/ImportUsersDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -387,10 +387,6 @@ export default function AdminUsers() {
             <UserCheck className="h-4 w-4" />
             Quản lý Users
           </TabsTrigger>
-          <TabsTrigger value="workspaces" className="gap-1.5">
-            <Building2 className="h-4 w-4" />
-            Quản lý Workspaces
-          </TabsTrigger>
           <TabsTrigger value="audit" className="gap-1.5">
             <ClipboardList className="h-4 w-4" />
             Audit Log
@@ -676,9 +672,6 @@ export default function AdminUsers() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="workspaces">
-          <AdminWorkspacesTab />
-        </TabsContent>
 
         <TabsContent value="audit">
           <Card>
