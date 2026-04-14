@@ -7798,12 +7798,13 @@ export type Database = {
           id: string
           metadata: Json | null
           organization_id: string
+          payment_provider: string
           plan_type: string
           status: string
           updated_at: string
           user_id: string
           vnpay_response: Json | null
-          vnpay_txn_ref: string
+          vnpay_txn_ref: string | null
         }
         Insert: {
           amount: number
@@ -7813,12 +7814,13 @@ export type Database = {
           id?: string
           metadata?: Json | null
           organization_id: string
+          payment_provider?: string
           plan_type: string
           status?: string
           updated_at?: string
           user_id: string
           vnpay_response?: Json | null
-          vnpay_txn_ref: string
+          vnpay_txn_ref?: string | null
         }
         Update: {
           amount?: number
@@ -7828,12 +7830,13 @@ export type Database = {
           id?: string
           metadata?: Json | null
           organization_id?: string
+          payment_provider?: string
           plan_type?: string
           status?: string
           updated_at?: string
           user_id?: string
           vnpay_response?: Json | null
-          vnpay_txn_ref?: string
+          vnpay_txn_ref?: string | null
         }
         Relationships: [
           {
