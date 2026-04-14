@@ -46,6 +46,7 @@ import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
 
 import { SchedulePanel } from '@/components/SchedulePanel';
 import { TeamWorkPanel } from '@/components/TeamWorkPanel';
+import { useContentSchedules } from '@/hooks/useContentSchedules';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
 import { ApprovalHistory } from '@/components/ApprovalHistory';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
