@@ -1,39 +1,43 @@
 
 
-## Hoàn thiện "Cấu hình gói" (PlanLimitsManager)
+## Hoàn thiện UI Cấu hình gói - Dễ sử dụng hơn
 
-Nâng cấp tab Cấu hình gói với giao diện chuyên nghiệp hơn, thêm tính năng quản lý features, và cải thiện trải nghiệm chỉnh sửa.
+Cải thiện trải nghiệm sử dụng trang Cấu hình gói với layout rõ ràng hơn, responsive tốt hơn trên mobile, và thao tác trực quan hơn.
 
 ### Cải tiến
 
-**1. Giao diện card nâng cấp**
-- Thêm icon cho từng trường (Package, FileText, Image, Layers, Palette, Bot, DollarSign)
-- Phân nhóm rõ ràng: "Hạn mức" (limits) và "Giá cước" (pricing) bằng separator
-- Hiển thị giá trị `-1` thành badge "Không giới hạn" thay vì số -1
-- Header card có gradient màu theo gói (xanh Starter, tím Pro, vàng Enterprise)
-- Hiển thị tổng doanh thu ước tính từ mỗi gói (workspace count x price)
+**1. Layout dạng bảng so sánh (Comparison Table)**
+- Chuyển từ card grid sang bảng ngang so sánh các gói cạnh nhau (desktop)
+- Mỗi hàng là 1 trường (Brands, Scripts, Giá...), mỗi cột là 1 gói
+- Dễ so sánh giá trị giữa các gói hơn card riêng lẻ
+- Mobile: giữ card layout hiện tại (responsive fallback)
 
-**2. Quản lý Features (CRUD)**
-- Thêm nút "+" để thêm feature mới (inline input)
-- Nút "x" trên mỗi badge feature để xóa
-- Lưu features cùng lúc với các thay đổi khác
+**2. Toggle chỉnh sửa (Edit Mode)**
+- Mặc định hiển thị dạng read-only (text/badge) cho gọn gàng
+- Nút "Chỉnh sửa" bật edit mode, lúc này mới hiện input fields
+- Giảm visual clutter khi chỉ cần xem thông tin
 
-**3. Cải thiện UX chỉnh sửa**
-- Nút "Hoàn tác" (Undo) để reset về giá trị gốc khi đang edit
-- Dialog xác nhận trước khi lưu, hiển thị diff (giá trị cũ → mới)
-- Highlight trường đã thay đổi bằng viền màu khác
+**3. Cải thiện hiển thị giá**
+- Format giá hiển thị dạng "199.000₫" thay vì input number thô
+- Hiển thị giá năm kèm "tiết kiệm X%" so với giá tháng x12
 
-**4. Tổng quan nhanh**
-- Row tổng hợp phía trên cards: tổng workspace active, tổng MRR ước tính
-- Tooltip trên mỗi trường giải thích ý nghĩa (ví dụ: "-1 = không giới hạn")
+**4. Feature badges cải tiến**
+- Hiển thị features dạng checklist (✓/✗) so sánh giữa các gói
+- Thêm feature chung cho tất cả gói hoặc từng gói riêng
+- Drag-drop sắp xếp thứ tự features
+
+**5. Summary cards nâng cấp**
+- Thêm card "Gói phổ biến nhất" (gói có nhiều workspace nhất)
+- Thêm card "ARPU" (Average Revenue Per User)
+- Mini sparkline cho trend MRR (nếu có data lịch sử)
 
 ### Kỹ thuật
 
 **File sửa:** `src/components/admin/plans/PlanLimitsManager.tsx`
-- Thêm state `featureEdits` để track thêm/xóa features
-- Thêm `AlertDialog` xác nhận trước save với diff view
-- Thêm inline input cho thêm feature mới
-- Phân chia numericFields thành 2 nhóm: `limitFields` và `priceFields`
-- Thêm logic hiển thị "Không giới hạn" khi value = -1
-- Highlight changed fields với `ring-2 ring-primary/50`
+- Thêm state `isEditMode` toggle giữa view/edit
+- Tạo component `ComparisonTable` cho desktop view
+- Tạo component `PlanCard` cho mobile view
+- Thêm logic tính % tiết kiệm giá năm
+- Format giá dạng readable trong view mode
+- Giữ nguyên logic save/undo/diff hiện tại
 
