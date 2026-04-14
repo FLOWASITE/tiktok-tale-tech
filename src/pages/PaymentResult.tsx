@@ -98,6 +98,16 @@ export default function PaymentResult() {
     return () => clearTimeout(timer);
   }, [isSuccess, countdown, navigate]);
 
+  const bankCodeLabel = useMemo(() => {
+    const map: Record<string, string> = {
+      VNPAYQR: "QR Code",
+      VNBANK: "ATM nội địa",
+      VNPAYEWALLET: "Ví điện tử",
+      INTCARD: "Thẻ quốc tế",
+    };
+    return bankCode ? (map[bankCode] || bankCode) : null;
+  }, [bankCode]);
+
   if (!responseCode) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -111,7 +121,7 @@ export default function PaymentResult() {
   const transactionDetails = [
     { label: "Mã giao dịch", value: txnRef, icon: Hash },
     { label: "Mã VNPay", value: transactionNo, icon: Receipt },
-    { label: "Ngân hàng", value: bankCode, icon: CreditCard },
+    { label: "Phương thức", value: bankCodeLabel, icon: CreditCard },
     { label: "Thời gian", value: formattedDate, icon: Clock },
   ].filter((d) => d.value);
 
