@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
 
 interface QuotaItem {
   key: string;

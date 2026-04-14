@@ -508,6 +508,42 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
+      {/* Upgrade CTA for free/starter */}
+      {(subscription?.plan_type === 'free' || subscription?.plan_type === 'starter') && (
+        <div className="px-3 pb-1">
+          {isCollapsed ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="w-full flex items-center justify-center p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
+                  >
+                    <Zap className="h-4 w-4 text-primary" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p className="text-xs">Nâng cấp gói</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-xs font-medium text-foreground">Nâng cấp để mở khóa thêm</p>
+              </div>
+              <button
+                onClick={() => navigate('/pricing')}
+                className="w-full text-xs font-medium bg-primary text-primary-foreground rounded-md py-1.5 hover:bg-primary/90 transition-colors"
+              >
+                Xem các gói
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Premium Footer */}
       <SidebarFooter className="p-3">
         <div className={cn(
