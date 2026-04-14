@@ -497,6 +497,22 @@ export default function Pricing() {
           finalPrice={confirmPlan.price}
           isLoading={!!loadingPlan}
           onConfirm={handleConfirmPayment}
+          planFeatures={(() => {
+            const plan = PLANS.find(p => (p as any).planType === confirmPlan.planType || p.key === confirmPlan.planType);
+            if (!plan) return undefined;
+            return [
+              { label: "Thương hiệu", value: plan.limits.brands },
+              { label: "Bài đa kênh/tháng", value: plan.limits.multichannel },
+              { label: "Ảnh AI/tháng", value: plan.limits.images },
+              { label: "Scripts/tháng", value: plan.limits.scripts },
+              { label: "Carousels/tháng", value: plan.limits.carousels },
+            ];
+          })()}
+          yearlyDiscount={isYearly ? (() => {
+            const plan = PLANS.find(p => (p as any).planType === confirmPlan.planType || p.key === confirmPlan.planType);
+            if (!plan) return undefined;
+            return Math.max(0, plan.monthlyPrice * 12 - plan.yearlyPrice);
+          })() : undefined}
         />
       )}
     </div>
