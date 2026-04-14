@@ -69,7 +69,8 @@ export default function PlanLimitsManager() {
 
   const saveMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<PlanLimit> }) => {
-      const { error } = await supabase.from("plan_limits").update(updates).eq("id", id);
+      const { plan_type, ...safeUpdates } = updates as any;
+      const { error } = await supabase.from("plan_limits").update(safeUpdates).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

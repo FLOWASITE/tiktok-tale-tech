@@ -75,7 +75,7 @@ export default function SubscriptionManager() {
   });
 
   const changePlanMutation = useMutation({
-    mutationFn: async ({ subId, planType }: { subId: string; planType: string }) => {
+    mutationFn: async ({ subId, planType }: { subId: string; planType: "free" | "starter" | "pro" | "enterprise" }) => {
       const periodEnd = new Date();
       periodEnd.setDate(periodEnd.getDate() + 30);
       const { error } = await supabase
