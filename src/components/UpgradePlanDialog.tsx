@@ -379,6 +379,15 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
           onConfirm={handleConfirmPayment}
           planFeatures={getPlanFeatures(confirmState.planType)}
           yearlyDiscount={getYearlyDiscount(confirmState.planType)}
+          applicablePlan={confirmState.planType}
+          onVoucherChange={(newVoucher, newPrice) => {
+            if (newVoucher) {
+              setAppliedVoucher({ ...newVoucher, applicable_plans: newVoucher.applicable_plans ?? null });
+            } else {
+              setAppliedVoucher(null);
+            }
+            setConfirmState(prev => prev ? { ...prev, finalPrice: newPrice } : null);
+          }}
         />
       )}
     </>

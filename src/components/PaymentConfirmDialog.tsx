@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown } from "lucide-react";
+import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const PLAN_NAMES: Record<string, string> = {
   free: "Miễn phí",
@@ -20,10 +24,11 @@ interface ProrateInfo {
   proratedPrice: number;
 }
 
-interface VoucherInfo {
+export interface VoucherInfo {
   code: string;
   discount_type: string;
   discount_value: number;
+  applicable_plans?: string[] | null;
 }
 
 export interface PlanFeatureSummary {
@@ -46,6 +51,8 @@ export interface PaymentConfirmDialogProps {
   onConfirm: () => void;
   yearlyDiscount?: number;
   planFeatures?: PlanFeatureSummary[];
+  onVoucherChange?: (voucher: VoucherInfo | null, newPrice: number) => void;
+  applicablePlan?: string;
 }
 
 export function PaymentConfirmDialog({
@@ -63,12 +70,101 @@ export function PaymentConfirmDialog({
   onConfirm,
   yearlyDiscount,
   planFeatures,
+  onVoucherChange,
+  applicablePlan,
 }: PaymentConfirmDialogProps) {
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [localVoucher, setLocalVoucher] = useState<VoucherInfo | null>(null);
+
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
+  // Use localVoucher if set, otherwise fall back to prop
+  const activeVoucher = localVoucher ?? voucher ?? null;
+
   const priceAfterProrate = prorateInfo ? prorateInfo.proratedPrice : basePrice;
-  const hasVoucherDiscount = voucher && finalPrice < priceAfterProrate;
+
+  // Recalculate final price based on active voucher
+  const calculateDiscountedPrice = (price: number, v: VoucherInfo | null) => {
+    if (!v) return price;
+    if (v.applicable_plans && v.applicable_plans.length > 0 && !v.applicable_plans.includes(applicablePlan || targetPlan)) {
+      return price;
+    }
+    if (v.discount_type === "percentage") {
+      return Math.max(1000, price - Math.ceil(price * Math.min(v.discount_value, 100) / 100));
+    }
+    return Math.max(1000, price - v.discount_value);
+  };
+
+  const displayFinalPrice = localVoucher
+    ? calculateDiscountedPrice(priceAfterProrate, localVoucher)
+    : finalPrice;
+
+  const hasVoucherDiscount = activeVoucher && displayFinalPrice < priceAfterProrate;
   const hasAnyDiscount = hasVoucherDiscount || !!prorateInfo;
+
+  const handleApplyVoucher = async () => {
+    const code = voucherInput.trim().toUpperCase();
+    if (!code) return;
+
+    setVoucherLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("vouchers")
+        .select("code, discount_type, discount_value, applicable_plans, is_active, max_uses, used_count, starts_at, expires_at")
+        .eq("code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error || !data) {
+        toast.error("Mã voucher không tồn tại hoặc không hợp lệ");
+        return;
+      }
+
+      const now = new Date();
+      if (data.starts_at && new Date(data.starts_at) > now) {
+        toast.error("Mã voucher chưa có hiệu lực");
+        return;
+      }
+      if (data.expires_at && new Date(data.expires_at) < now) {
+        toast.error("Mã voucher đã hết hạn");
+        return;
+      }
+      if (data.max_uses !== null && data.used_count >= data.max_uses) {
+        toast.error("Mã voucher đã hết lượt sử dụng");
+        return;
+      }
+
+      const planToCheck = applicablePlan || targetPlan;
+      if (data.applicable_plans && data.applicable_plans.length > 0 && !data.applicable_plans.includes(planToCheck)) {
+        toast.error("Mã voucher không áp dụng cho gói này");
+        return;
+      }
+
+      const newVoucher: VoucherInfo = {
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: data.discount_value,
+        applicable_plans: data.applicable_plans,
+      };
+      setLocalVoucher(newVoucher);
+
+      const newPrice = calculateDiscountedPrice(priceAfterProrate, newVoucher);
+      onVoucherChange?.(newVoucher, newPrice);
+
+      toast.success(`Áp dụng mã ${data.code} thành công!`);
+    } catch {
+      toast.error("Không thể kiểm tra mã voucher");
+    } finally {
+      setVoucherLoading(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setLocalVoucher(null);
+    setVoucherInput("");
+    onVoucherChange?.(null, priceAfterProrate);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -150,7 +246,7 @@ export function PaymentConfirmDialog({
                     </div>
                   )}
 
-                  {/* Voucher */}
+                  {/* Voucher display when applied */}
                   {hasVoucherDiscount && (
                     <div className="flex items-start justify-between text-sm">
                       <span className="text-muted-foreground flex items-center gap-1">
@@ -158,11 +254,11 @@ export function PaymentConfirmDialog({
                         Voucher
                       </span>
                       <div className="text-right">
-                        <Badge variant="secondary" className="font-mono text-xs">{voucher!.code}</Badge>
+                        <Badge variant="secondary" className="font-mono text-xs">{activeVoucher!.code}</Badge>
                         <p className="text-xs text-primary mt-0.5">
-                          {voucher!.discount_type === "percentage"
-                            ? `Giảm ${voucher!.discount_value}%`
-                            : `Giảm ${formatPrice(voucher!.discount_value)}₫`}
+                          {activeVoucher!.discount_type === "percentage"
+                            ? `Giảm ${activeVoucher!.discount_value}%`
+                            : `Giảm ${formatPrice(activeVoucher!.discount_value)}₫`}
                         </p>
                       </div>
                     </div>
@@ -174,9 +270,50 @@ export function PaymentConfirmDialog({
                   <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3 -mx-1">
                     <span className="font-semibold text-foreground">Tổng thanh toán</span>
                     <span className="text-2xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                      {formatPrice(finalPrice)}₫
+                      {formatPrice(displayFinalPrice)}₫
                     </span>
                   </div>
+                </div>
+
+                {/* Voucher input section */}
+                <div className="rounded-xl border border-border p-4 space-y-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Tag className="h-4 w-4 text-primary" />
+                    Mã voucher
+                  </div>
+                  {activeVoucher ? (
+                    <div className="flex items-center justify-between bg-primary/10 rounded-md px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="font-mono">{activeVoucher.code}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {activeVoucher.discount_type === "percentage"
+                            ? `Giảm ${activeVoucher.discount_value}%`
+                            : `Giảm ${formatPrice(activeVoucher.discount_value)}₫`}
+                        </span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={handleRemoveVoucher} className="h-7 w-7 p-0">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Nhập mã voucher"
+                        value={voucherInput}
+                        onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === "Enter" && handleApplyVoucher()}
+                        className="font-mono"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleApplyVoucher}
+                        disabled={!voucherInput.trim() || voucherLoading}
+                      >
+                        {voucherLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Áp dụng"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Plan features */}

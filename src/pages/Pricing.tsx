@@ -158,7 +158,7 @@ export default function Pricing() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const [confirmPlan, setConfirmPlan] = useState<{ planType: string; price: number } | null>(null);
+  const [confirmPlan, setConfirmPlan] = useState<{ planType: string; price: number; appliedVoucher: import("@/components/PaymentConfirmDialog").VoucherInfo | null } | null>(null);
 
   const currentPlan = subscription?.plan_type || "free";
   const isLoggedIn = !!user;
