@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Check, X, CreditCard, ArrowRight, Zap, HelpCircle, ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, X, CreditCard, ArrowRight, Zap, HelpCircle, ArrowLeft, Sparkles, ChevronDown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ const PLANS = [
     monthlyPrice: 0,
     yearlyPrice: 0,
     popular: false,
+    description: "Dùng thử các tính năng cơ bản",
     limits: {
       brands: "1",
       multichannel: "2",
@@ -40,6 +41,7 @@ const PLANS = [
     monthlyPrice: 299000,
     yearlyPrice: 2990000,
     popular: false,
+    description: "Cho cá nhân & freelancer",
     limits: {
       brands: "3",
       multichannel: "20",
@@ -59,6 +61,7 @@ const PLANS = [
     yearlyPrice: 5490000,
     popular: true,
     planType: "pro",
+    description: "Cho team marketing chuyên nghiệp",
     limits: {
       brands: "10",
       multichannel: "60",
@@ -77,6 +80,7 @@ const PLANS = [
     monthlyPrice: 1499000,
     yearlyPrice: 14990000,
     popular: false,
+    description: "Cho doanh nghiệp & agency",
     limits: {
       brands: "30",
       multichannel: "200",
@@ -130,6 +134,20 @@ const FAQ_ITEMS = [
     a: "Chúng tôi cung cấp hoàn tiền trong 7 ngày đầu nếu bạn chưa sử dụng quá 20% quota của gói.",
   },
 ];
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
+  }),
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
 
 export default function Pricing() {
   const { user } = useAuth();
@@ -204,7 +222,7 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero */}
-      <section className="pt-12 pb-8 lg:pt-20 lg:pb-12">
+      <section className="pt-10 pb-6 sm:pt-12 sm:pb-8 lg:pt-20 lg:pb-12">
         <div className="container mx-auto px-4 max-w-6xl">
           {isLoggedIn && (
             <Button
@@ -217,64 +235,92 @@ export default function Pricing() {
               Quay lại
             </Button>
           )}
-          <div className="text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Badge variant="outline" className="mb-4 px-3 py-1 text-sm">
-              <Zap className="w-3.5 h-3.5 mr-1.5" />
-              Bảng giá minh bạch
-            </Badge>
-            <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
-              Chọn gói phù hợp với{" "}
-              <span className="text-primary">nhu cầu của bạn</span>
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Bắt đầu miễn phí, nâng cấp khi cần. Thanh toán qua VNPay, không cần thẻ tín dụng.
-            </p>
 
-            {/* Billing toggle */}
-            <div className="flex items-center justify-center gap-3">
-              <span className={`text-sm font-medium ${!isYearly ? "text-foreground" : "text-muted-foreground"}`}>
-                Hàng tháng
-              </span>
-              <Switch checked={isYearly} onCheckedChange={setIsYearly} />
-              <span className={`text-sm font-medium ${isYearly ? "text-foreground" : "text-muted-foreground"}`}>
-                Hàng năm
-                <Badge variant="secondary" className="ml-2 text-xs text-primary">Tiết kiệm 17%</Badge>
-              </span>
-            </div>
-          </motion.div>
+          <div className="text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <Badge variant="outline" className="mb-4 px-3 py-1 text-sm gap-1.5">
+                <Zap className="w-3.5 h-3.5" />
+                Bảng giá minh bạch
+              </Badge>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 sm:mb-4 leading-tight">
+                Chọn gói phù hợp với{" "}
+                <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  nhu cầu của bạn
+                </span>
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 px-2">
+                Bắt đầu miễn phí, nâng cấp khi cần. Thanh toán qua VNPay, không cần thẻ tín dụng.
+              </p>
+
+              {/* Billing toggle */}
+              <motion.div
+                className="inline-flex items-center gap-3 rounded-full border border-border bg-card/80 backdrop-blur-sm px-5 py-2.5 shadow-sm"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+              >
+                <span className={`text-sm font-medium transition-colors ${!isYearly ? "text-foreground" : "text-muted-foreground"}`}>
+                  Hàng tháng
+                </span>
+                <Switch checked={isYearly} onCheckedChange={setIsYearly} />
+                <span className={`text-sm font-medium transition-colors ${isYearly ? "text-foreground" : "text-muted-foreground"}`}>
+                  Hàng năm
+                </span>
+                <AnimatePresence>
+                  {isYearly && (
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0.8, x: -8 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, x: -8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Badge variant="secondary" className="text-xs text-primary font-semibold">
+                        -17%
+                      </Badge>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-16">
+      <section className="pb-12 sm:pb-16">
         <div className="container mx-auto px-4 max-w-6xl">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+          >
             {PLANS.map((plan, index) => {
               const price = isYearly ? Math.round(plan.yearlyPrice / 12) : plan.monthlyPrice;
               const isCurrent = isCurrentPlan(plan);
               const isLoading = loadingPlan === plan.key;
+              const yearlySavings = plan.monthlyPrice * 12 - plan.yearlyPrice;
 
               return (
                 <motion.div
                   key={plan.key}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className={`relative rounded-2xl p-6 flex flex-col ${
+                  custom={index}
+                  variants={cardVariants}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                  className={`relative rounded-2xl p-5 sm:p-6 flex flex-col transition-shadow duration-300 ${
                     plan.popular
-                      ? "bg-card border-2 border-primary shadow-lg shadow-primary/10"
-                      : "bg-card border border-border"
+                      ? "bg-card border-2 border-primary shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/15"
+                      : "bg-card border border-border hover:shadow-md hover:border-border/80"
                   }`}
                 >
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-primary text-primary-foreground px-3 py-0.5 text-xs">
+                      <Badge className="bg-primary text-primary-foreground px-3 py-0.5 text-xs gap-1 shadow-sm">
+                        <Sparkles className="w-3 h-3" />
                         Phổ biến nhất
                       </Badge>
                     </div>
@@ -288,58 +334,73 @@ export default function Pricing() {
                     </div>
                   )}
 
-                  <div className="mb-4">
-                    <h3 className="text-xl font-bold text-foreground">{PLAN_NAMES[plan.key]}</h3>
+                  <div className="mb-1">
+                    <h3 className="text-lg sm:text-xl font-bold text-foreground">{PLAN_NAMES[plan.key]}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">{plan.description}</p>
                   </div>
 
-                  <div className="mb-5">
-                    {price > 0 ? (
-                      <>
-                        <span className="text-3xl font-extrabold text-foreground">{formatPrice(price)}</span>
-                        <span className="text-sm text-muted-foreground ml-1">₫/tháng</span>
-                        {isYearly && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatPrice(plan.yearlyPrice)}₫/năm
-                          </p>
+                  <div className="mb-5 mt-3">
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={isYearly ? "yearly" : "monthly"}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {price > 0 ? (
+                          <>
+                            <span className="text-2xl sm:text-3xl font-extrabold text-foreground tabular-nums">
+                              {formatPrice(price)}
+                            </span>
+                            <span className="text-sm text-muted-foreground ml-1">₫/tháng</span>
+                            {isYearly && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  {formatPrice(plan.yearlyPrice)}₫/năm
+                                </p>
+                                {yearlySavings > 0 && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-primary">
+                                    Tiết kiệm {formatPrice(yearlySavings)}₫
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-2xl sm:text-3xl font-extrabold text-foreground">0₫</span>
                         )}
-                      </>
-                    ) : (
-                      <span className="text-3xl font-extrabold text-foreground">0₫</span>
-                    )}
+                      </motion.div>
+                    </AnimatePresence>
                   </div>
+
+                  <Separator className="mb-4" />
 
                   {/* Key features */}
-                  <ul className="space-y-2.5 mb-6 flex-1">
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                      <span>{plan.limits.brands} thương hiệu</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                      <span>{plan.limits.multichannel} bài đa kênh/tháng</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                      <span>{plan.limits.images} ảnh AI/tháng</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                      <span>{plan.limits.scripts} kịch bản video</span>
-                    </li>
-                    {plan.limits.publishing && (
-                      <li className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-primary shrink-0" />
-                        <span>Đăng bài tự động</span>
-                      </li>
-                    )}
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                      <span>Hỗ trợ {plan.limits.support}</span>
-                    </li>
+                  <ul className="space-y-2 sm:space-y-2.5 mb-6 flex-1 text-sm">
+                    {[
+                      { text: `${plan.limits.brands} thương hiệu`, always: true },
+                      { text: `${plan.limits.multichannel} bài đa kênh/tháng`, always: true },
+                      { text: `${plan.limits.images} ảnh AI/tháng`, always: true },
+                      { text: `${plan.limits.scripts} kịch bản video`, always: true },
+                      { text: `${plan.limits.carousels} carousel/tháng`, always: Number(plan.limits.carousels) > 0 },
+                      { text: "Đăng bài tự động", always: plan.limits.publishing },
+                      { text: "Analytics & Insights", always: plan.limits.analytics },
+                      { text: `Hỗ trợ ${plan.limits.support}`, always: true },
+                    ]
+                      .filter((f) => f.always)
+                      .map((f) => (
+                        <li key={f.text} className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5 text-primary" />
+                          </div>
+                          <span className="text-muted-foreground">{f.text}</span>
+                        </li>
+                      ))}
                   </ul>
 
                   <Button
-                    className="w-full"
+                    className={`w-full ${plan.popular ? "shadow-sm" : ""}`}
                     variant={plan.popular ? "default" : "outline"}
                     disabled={isCurrent || isLoading}
                     onClick={() => handleSelectPlan(plan)}
@@ -357,64 +418,125 @@ export default function Pricing() {
                 </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Comparison Table */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-12 sm:py-16 bg-muted/30">
         <div className="container mx-auto px-4 max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-10"
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-8 sm:mb-10"
           >
-            <h2 className="text-3xl font-bold text-foreground mb-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 sm:mb-3">
               So sánh chi tiết <span className="text-primary">các gói</span>
             </h2>
-            <p className="text-muted-foreground">Tìm gói phù hợp nhất với quy mô của bạn</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Tìm gói phù hợp nhất với quy mô của bạn</p>
           </motion.div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
+          {/* Mobile comparison cards */}
+          <div className="block lg:hidden space-y-4">
+            {PLANS.filter(p => p.key !== "free").map((plan) => (
+              <motion.div
+                key={plan.key}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className={`rounded-xl border p-4 bg-card ${plan.popular ? "border-primary" : "border-border"}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className={`font-bold ${plan.popular ? "text-primary" : "text-foreground"}`}>
+                    {PLAN_NAMES[plan.key]}
+                  </h3>
+                  {plan.popular && <Badge className="text-xs bg-primary text-primary-foreground">Phổ biến</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {COMPARISON_ROWS.map((row) => {
+                    const value = plan.limits[row.key as keyof typeof plan.limits];
+                    return (
+                      <div key={row.key} className="flex items-center justify-between text-sm py-1.5">
+                        <span className="text-muted-foreground text-xs">{row.label}</span>
+                        <span className="font-medium text-foreground text-xs">
+                          {typeof value === "boolean" ? (
+                            value ? <Check className="w-4 h-4 text-primary" /> : <X className="w-4 h-4 text-muted-foreground/40" />
+                          ) : (
+                            value
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Desktop comparison table */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="hidden lg:block overflow-x-auto rounded-xl border border-border bg-card"
+          >
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-4 px-3 text-sm font-medium text-muted-foreground w-[200px]">
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="text-left py-4 px-5 text-sm font-medium text-muted-foreground w-[220px]">
                     Tính năng
                   </th>
                   {PLANS.map((plan) => (
-                    <th key={plan.key} className="text-center py-4 px-3">
+                    <th key={plan.key} className="text-center py-4 px-4">
                       <span className={`text-sm font-bold ${plan.popular ? "text-primary" : "text-foreground"}`}>
                         {PLAN_NAMES[plan.key]}
                       </span>
+                      {plan.popular && (
+                        <div className="mt-1">
+                          <Badge className="text-[10px] bg-primary/10 text-primary border-0 px-1.5 py-0">
+                            Phổ biến
+                          </Badge>
+                        </div>
+                      )}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {COMPARISON_ROWS.map((row) => (
-                  <tr key={row.key} className="border-b border-border/50">
-                    <td className="py-3.5 px-3 text-sm text-foreground">
+                {COMPARISON_ROWS.map((row, rowIndex) => (
+                  <motion.tr
+                    key={row.key}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: rowIndex * 0.03 }}
+                    className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="py-3.5 px-5 text-sm text-foreground">
                       <div className="flex items-center gap-1.5">
                         {row.label}
                         <Tooltip>
                           <TooltipTrigger>
-                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/60" />
                           </TooltipTrigger>
-                          <TooltipContent>{row.tooltip}</TooltipContent>
+                          <TooltipContent side="right">{row.tooltip}</TooltipContent>
                         </Tooltip>
                       </div>
                     </td>
                     {PLANS.map((plan) => {
                       const value = plan.limits[row.key as keyof typeof plan.limits];
                       return (
-                        <td key={plan.key} className="text-center py-3.5 px-3">
+                        <td key={plan.key} className={`text-center py-3.5 px-4 ${plan.popular ? "bg-primary/[0.02]" : ""}`}>
                           {typeof value === "boolean" ? (
                             value ? (
-                              <Check className="w-5 h-5 text-primary mx-auto" />
+                              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                                <Check className="w-3 h-3 text-primary" />
+                              </div>
                             ) : (
-                              <X className="w-5 h-5 text-muted-foreground/40 mx-auto" />
+                              <X className="w-4 h-4 text-muted-foreground/30 mx-auto" />
                             )
                           ) : (
                             <span className="text-sm font-medium text-foreground">{value}</span>
@@ -422,64 +544,99 @@ export default function Pricing() {
                         </td>
                       );
                     })}
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-16">
+      <section className="py-12 sm:py-16">
         <div className="container mx-auto px-4 max-w-3xl">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-10">
+          <motion.h2
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-8 sm:mb-10"
+          >
             Câu hỏi <span className="text-primary">thường gặp</span>
-          </h2>
+          </motion.h2>
           <div className="space-y-3">
             {FAQ_ITEMS.map((item, i) => (
-              <div
+              <motion.div
                 key={i}
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
                 className="rounded-xl border border-border bg-card overflow-hidden"
               >
                 <button
-                  className="w-full text-left px-5 py-4 flex items-center justify-between"
+                  className="w-full text-left px-5 py-4 flex items-center justify-between gap-3 hover:bg-muted/30 transition-colors"
                   onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
                 >
-                  <span className="font-medium text-foreground pr-4">{item.q}</span>
-                  <span className="text-muted-foreground shrink-0">
-                    {expandedFaq === i ? "−" : "+"}
-                  </span>
+                  <span className="font-medium text-foreground text-sm sm:text-base">{item.q}</span>
+                  <motion.span
+                    animate={{ rotate: expandedFaq === i ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="shrink-0"
+                  >
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </motion.span>
                 </button>
-                {expandedFaq === i && (
-                  <div className="px-5 pb-4 text-sm text-muted-foreground">
-                    {item.a}
-                  </div>
-                )}
-              </div>
+                <AnimatePresence>
+                  {expandedFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-4 text-sm text-muted-foreground">
+                        {item.a}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* Bottom CTA */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-12 sm:py-16 bg-muted/30">
         <div className="container mx-auto px-4 max-w-2xl text-center">
-          <h2 className="text-2xl font-bold text-foreground mb-3">
-            Sẵn sàng tăng tốc content marketing?
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Bắt đầu miễn phí ngay hôm nay, nâng cấp bất cứ lúc nào.
-          </p>
-          <Button size="lg" className="px-8" asChild={!isLoggedIn} onClick={isLoggedIn ? () => window.scrollTo({ top: 0, behavior: "smooth" }) : undefined}>
-            {isLoggedIn ? (
-              <>Xem bảng giá<ArrowRight className="ml-2 h-4 w-4" /></>
-            ) : (
-              <a href="/auth?mode=register">
-                Bắt đầu miễn phí<ArrowRight className="ml-2 h-4 w-4" />
-              </a>
-            )}
-          </Button>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
+              Sẵn sàng tăng tốc content marketing?
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6">
+              Bắt đầu miễn phí ngay hôm nay, nâng cấp bất cứ lúc nào.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button size="lg" className="px-8 w-full sm:w-auto" asChild={!isLoggedIn} onClick={isLoggedIn ? () => window.scrollTo({ top: 0, behavior: "smooth" }) : undefined}>
+                {isLoggedIn ? (
+                  <>Xem bảng giá<ArrowRight className="ml-2 h-4 w-4" /></>
+                ) : (
+                  <a href="/auth?mode=register">
+                    Bắt đầu miễn phí<ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                )}
+              </Button>
+            </div>
+            <div className="flex items-center justify-center gap-1.5 mt-4 text-xs text-muted-foreground">
+              <Shield className="w-3.5 h-3.5" />
+              <span>Thanh toán bảo mật qua VNPay</span>
+            </div>
+          </motion.div>
         </div>
       </section>
 
