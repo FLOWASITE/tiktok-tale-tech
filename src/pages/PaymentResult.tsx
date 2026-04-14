@@ -108,10 +108,20 @@ export default function PaymentResult() {
 
   const errorMessage = !isSuccess ? (VNPAY_ERRORS[responseCode] || "Giao dịch không thành công") : "";
 
+  const bankCodeLabel = useMemo(() => {
+    const map: Record<string, string> = {
+      VNPAYQR: "QR Code",
+      VNBANK: "ATM nội địa",
+      VNPAYEWALLET: "Ví điện tử",
+      INTCARD: "Thẻ quốc tế",
+    };
+    return bankCode ? (map[bankCode] || bankCode) : null;
+  }, [bankCode]);
+
   const transactionDetails = [
     { label: "Mã giao dịch", value: txnRef, icon: Hash },
     { label: "Mã VNPay", value: transactionNo, icon: Receipt },
-    { label: "Ngân hàng", value: bankCode, icon: CreditCard },
+    { label: "Phương thức", value: bankCodeLabel, icon: CreditCard },
     { label: "Thời gian", value: formattedDate, icon: Clock },
   ].filter((d) => d.value);
 

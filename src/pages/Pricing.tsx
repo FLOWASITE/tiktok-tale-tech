@@ -182,7 +182,7 @@ export default function Pricing() {
     setConfirmPlan({ planType, price, appliedVoucher: null });
   };
 
-  const handleConfirmPayment = async () => {
+  const handleConfirmPayment = async (bankCode?: string) => {
     if (!confirmPlan || !currentOrganization?.id) return;
 
     setLoadingPlan(confirmPlan.planType);
@@ -194,6 +194,7 @@ export default function Pricing() {
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
           voucher_code: confirmPlan.appliedVoucher?.code || undefined,
+          bank_code: bankCode || undefined,
         },
       });
       if (error) throw error;

@@ -154,7 +154,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
     return Math.max(0, plan.price_monthly * 12 - plan.price_yearly);
   };
 
-  const handleConfirmPayment = async () => {
+  const handleConfirmPayment = async (bankCode?: string) => {
     if (!confirmState || !currentOrganization?.id) return;
 
     setLoadingPlan(confirmState.planType);
@@ -166,6 +166,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
           voucher_code: appliedVoucher?.code || undefined,
+          bank_code: bankCode || undefined,
         },
       });
 

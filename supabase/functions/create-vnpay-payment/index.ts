@@ -105,7 +105,7 @@ Deno.Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) =
     const userId = claimsData.claims.sub as string;
 
     // Parse body
-    const { organization_id, plan_type, billing_cycle, return_url, voucher_code } = await req.json();
+    const { organization_id, plan_type, billing_cycle, return_url, voucher_code, bank_code } = await req.json();
 
     if (!organization_id || !plan_type || !['starter', 'pro', 'business', 'enterprise'].includes(plan_type)) {
       return new Response(JSON.stringify({ error: 'Invalid plan_type or missing organization_id' }), {
@@ -270,6 +270,11 @@ Deno.Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) =
       vnp_CreateDate: formatVNPayDate(now),
       vnp_ExpireDate: formatVNPayDate(new Date(now.getTime() + 15 * 60 * 1000)),
     };
+
+    // Add bank code if specified
+    if (bank_code && typeof bank_code === 'string' && ['VNPAYQR', 'VNBANK', 'VNPAYEWALLET', 'INTCARD'].includes(bank_code)) {
+      vnpParams['vnp_BankCode'] = bank_code;
+    }
 
     const sorted = sortObject(vnpParams);
     const signData = new URLSearchParams(sorted).toString();

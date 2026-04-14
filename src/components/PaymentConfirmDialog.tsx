@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X } from "lucide-react";
+import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X, QrCode, Landmark, Wallet, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,6 +36,13 @@ export interface PlanFeatureSummary {
   value: string;
 }
 
+const PAYMENT_METHODS = [
+  { code: "VNPAYQR", label: "QR Code", desc: "Quét mã QR", icon: QrCode },
+  { code: "VNBANK", label: "ATM nội địa", desc: "Internet Banking", icon: Landmark },
+  { code: "VNPAYEWALLET", label: "Ví điện tử", desc: "VNPay, MoMo...", icon: Wallet },
+  { code: "INTCARD", label: "Thẻ quốc tế", desc: "Visa/Master/JCB", icon: Globe },
+] as const;
+
 export interface PaymentConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,7 +55,7 @@ export interface PaymentConfirmDialogProps {
   voucher?: VoucherInfo | null;
   finalPrice: number;
   isLoading: boolean;
-  onConfirm: () => void;
+  onConfirm: (bankCode?: string) => void;
   yearlyDiscount?: number;
   planFeatures?: PlanFeatureSummary[];
   onVoucherChange?: (voucher: VoucherInfo | null, newPrice: number) => void;
@@ -76,6 +83,7 @@ export function PaymentConfirmDialog({
   const [voucherInput, setVoucherInput] = useState("");
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [localVoucher, setLocalVoucher] = useState<VoucherInfo | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState("VNPAYQR");
 
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
@@ -333,18 +341,46 @@ export function PaymentConfirmDialog({
                   </div>
                 )}
 
-                {/* Payment method */}
-                <div className="rounded-lg border border-border p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3">
-                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium text-foreground">VNPay</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">ATM nội địa, QR code, Ví điện tử</p>
+                {/* Payment method selector */}
+                <div className="rounded-xl border border-border p-3 sm:p-4 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium">
+                    <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                    Phương thức thanh toán
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PAYMENT_METHODS.map((method) => {
+                      const isSelected = paymentMethod === method.code;
+                      const Icon = method.icon;
+                      return (
+                        <button
+                          key={method.code}
+                          type="button"
+                          onClick={() => setPaymentMethod(method.code)}
+                          className={`relative flex flex-col items-center gap-1 rounded-lg border-2 p-2.5 sm:p-3 transition-all duration-200 text-center cursor-pointer ${
+                            isSelected
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border hover:border-primary/40 hover:bg-muted/30"
+                          }`}
+                        >
+                          <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                          <span className={`text-[11px] sm:text-xs font-medium leading-tight ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                            {method.label}
+                          </span>
+                          <span className="text-[9px] sm:text-[10px] text-muted-foreground/70 leading-tight">
+                            {method.desc}
+                          </span>
+                          {isSelected && (
+                            <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
               <DialogFooter className="flex-col gap-2 mt-3 sm:mt-4">
-                <Button onClick={onConfirm} disabled={isLoading} className="w-full sm:w-auto order-1 sm:order-2">
+                <Button onClick={() => onConfirm(paymentMethod)} disabled={isLoading} className="w-full sm:w-auto order-1 sm:order-2">
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
