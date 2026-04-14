@@ -209,6 +209,11 @@ export function UserAvatar() {
               </DropdownMenuItem>
             )}
 
+            <DropdownMenuItem onClick={() => navigate('/account')} className="gap-2 rounded-sm">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Quản lý tài khoản</span>
+            </DropdownMenuItem>
+
             {isAdmin && (
               <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="gap-2 rounded-sm">
                 <Shield className="h-4 w-4 text-destructive" />
