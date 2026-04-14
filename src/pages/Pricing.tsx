@@ -238,6 +238,7 @@ export default function Pricing() {
               </span>
             </div>
           </motion.div>
+          </div>
         </div>
       </section>
 
