@@ -46,6 +46,7 @@ export function TopicIdeaHub({
   onBrainstorm,
   onSave,
   onFeedback,
+  brandTemplateId,
   contentGoal,
   disabled = false,
   showEnhancedInfo = true,
@@ -158,6 +159,7 @@ export function TopicIdeaHub({
               showEnhancedInfo={showEnhancedInfo}
               showNavigateToTopics={showNavigateToTopics}
               contentGoal={contentGoal}
+              brandTemplateId={brandTemplateId}
             />
           </div>
         </CollapsibleContent>
