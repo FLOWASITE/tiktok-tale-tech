@@ -905,13 +905,13 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     
     suggestPrevParamsRef.current = paramsKey;
 
-    // Reduced debounce from 2000ms to 800ms for faster feedback
+    // Reduced debounce to 300ms — cache hits return instantly
     const timer = setTimeout(() => {
       fetchSuggestions().then(() => {
         suggestHasLoadedRef.current = true;
         setSuggestLoading(false);
       });
-    }, 800);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);

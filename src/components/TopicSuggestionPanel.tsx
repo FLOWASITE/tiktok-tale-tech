@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2, Search, BarChart3 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Tooltip,
@@ -199,11 +199,7 @@ export function TopicSuggestionPanel({
 
         <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
           {isLoading ? (
-            <div className="flex flex-wrap gap-1 xs:gap-1.5">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-6 xs:h-7 w-28 xs:w-36 rounded-full" />
-              ))}
-            </div>
+            <LoadingPhases />
           ) : (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5 xs:gap-2">

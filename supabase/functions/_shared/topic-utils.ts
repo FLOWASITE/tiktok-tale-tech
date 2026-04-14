@@ -290,9 +290,9 @@ export async function searchIndustryData(
 
     console.log(`[${WEB_SEARCH_LABEL}] Industry search:`, searchQuery.substring(0, 80));
 
-    // 5-second timeout to prevent blocking the entire flow
+    // 4-second timeout to prevent blocking the entire flow
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${WEB_SEARCH_API_KEY}`,
@@ -391,9 +391,9 @@ export async function searchAudienceQuestions(
 
     console.log(`[${WEB_SEARCH_LABEL}] Q&A mining:`, searchQuery.substring(0, 80));
 
-    // 5-second timeout to prevent blocking the entire flow
+    // 4-second timeout to prevent blocking the entire flow
     const qaController = new AbortController();
-    const qaTimeoutId = setTimeout(() => qaController.abort(), 5000);
+    const qaTimeoutId = setTimeout(() => qaController.abort(), 4000);
 
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${WEB_SEARCH_API_KEY}`,
