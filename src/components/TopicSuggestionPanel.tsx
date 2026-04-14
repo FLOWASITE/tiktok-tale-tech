@@ -237,22 +237,46 @@ export function TopicSuggestionPanel({
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-72 p-0">
-                <div className="p-2 border-b border-border/60">
+                <div className="p-2 border-b border-border/60 space-y-1.5">
                   <p className="text-xs font-medium">Chủ đề đã tạo trước đây</p>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryFilter('all')}
+                      className={cn(
+                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors",
+                        historyFilter === 'all' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
+                    >
+                      Tất cả
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryFilter('unused')}
+                      className={cn(
+                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors",
+                        historyFilter === 'unused' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
+                    >
+                      Chưa tạo nội dung
+                    </button>
+                  </div>
                 </div>
                 <div className="max-h-60 overflow-y-auto">
                   {historyLoading ? (
                     <div className="flex items-center justify-center py-6">
                       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                     </div>
-                  ) : topicHistory.length === 0 ? (
+                  ) : filteredHistory.length === 0 ? (
                     <div className="text-center py-6 px-3">
                       <History className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-xs text-muted-foreground">Chưa có chủ đề nào được tạo</p>
+                      <p className="text-xs text-muted-foreground">
+                        {historyFilter === 'unused' ? 'Không có chủ đề chưa được tạo nội dung' : 'Chưa có chủ đề nào được tạo'}
+                      </p>
                     </div>
                   ) : (
                     <div className="py-1">
-                      {topicHistory.slice(0, 15).map((item) => (
+                      {filteredHistory.map((item) => (
                         <button
                           key={item.id}
                           type="button"
