@@ -13,6 +13,7 @@ import { MobileSidebarTrigger } from '@/components/MobileSidebarTrigger';
 
 
 import { useAutoLanguage } from '@/hooks/useAutoLanguage';
+import { useQuotaWarning } from '@/hooks/useQuotaWarning';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   useAutoLanguage();
+  useQuotaWarning();
 
   return (
     <SidebarProvider defaultOpen={true}>

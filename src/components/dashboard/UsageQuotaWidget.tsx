@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
 
 interface QuotaItem {
   key: string;
@@ -35,6 +37,7 @@ export function UsageQuotaWidget() {
   const navigate = useNavigate();
   const { subscription, currentPlanLimits, usage, isLoading, currentPeriod } = useSubscription();
   const planBadge = getPlanBadge(subscription?.plan_type);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -88,12 +91,17 @@ export function UsageQuotaWidget() {
   });
 
   return (
+    <>
     <Card className="h-full">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             Hạn mức sử dụng
-            <Badge variant="outline" className={cn('text-[9px] px-1.5 py-0 border', planBadge.className)}>
+            <Badge
+              variant="outline"
+              className={cn('text-[9px] px-1.5 py-0 border cursor-pointer hover:opacity-80 transition-opacity', planBadge.className)}
+              onClick={() => setUpgradeOpen(true)}
+            >
               {planBadge.label}
             </Badge>
             {(() => {
@@ -196,5 +204,7 @@ export function UsageQuotaWidget() {
         </div>
       </CardContent>
     </Card>
+    <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+    </>
   );
 }
