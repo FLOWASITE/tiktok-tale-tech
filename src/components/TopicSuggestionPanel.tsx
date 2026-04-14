@@ -127,12 +127,21 @@ export function TopicSuggestionPanel({
   const [feedbackGiven, setFeedbackGiven] = useState<Set<string>>(new Set());
   const [savedTopics, setSavedTopics] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'unused'>('all');
   const navigate = useNavigate();
 
   const { history: topicHistory, isLoading: historyLoading } = useTopicHistory({
     brandTemplateId,
     enabled: true,
   });
+
+  const filteredHistory = useMemo(() => {
+    const sliced = topicHistory.slice(0, 15);
+    if (historyFilter === 'unused') {
+      return sliced.filter(item => !['created', 'published'].includes(item.usageStatus));
+    }
+    return sliced;
+  }, [topicHistory, historyFilter]);
 
   const sourceConfig = {
     ai: { icon: Sparkles, label: 'AI', className: 'bg-primary/10 text-primary border-primary/30' },
