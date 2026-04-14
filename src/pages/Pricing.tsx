@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
+import { PaymentConfirmDialog } from "@/components/PaymentConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
