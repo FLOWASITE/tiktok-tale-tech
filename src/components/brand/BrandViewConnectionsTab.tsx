@@ -676,8 +676,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             {/* Add more Fanpage button - subtle dashed style */}
             <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-md flex items-center justify-center bg-muted text-muted-foreground">
-                  <Plus className="w-4 h-4" />
+                <div className={`w-8 h-8 rounded-md flex items-center justify-center ${config.color}`}>
+                  {React.cloneElement(config.icon as React.ReactElement, { className: 'w-4 h-4' })}
                 </div>
                 <span className="text-sm text-muted-foreground">Thêm Fanpage khác</span>
               </div>
