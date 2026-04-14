@@ -1,30 +1,39 @@
 
 
-## Thêm nhập Voucher vào PaymentConfirmDialog
+## Thêm UI chọn phương thức thanh toán VNPay (QR Code / ATM / Ví điện tử)
 
-### Hiện trạng
-- Voucher chỉ nhập được ở `UpgradePlanDialog` trước khi mở confirm
-- `PaymentConfirmDialog` chỉ **hiển thị** voucher đã áp dụng, không cho nhập/thay đổi
-- `Pricing.tsx` không có voucher
+### Mô tả
+Thêm bước chọn phương thức thanh toán trong PaymentConfirmDialog. User chọn 1 trong 3 phương thức, hệ thống truyền `vnp_BankCode` tương ứng sang VNPay để redirect đúng luồng.
 
-### Cải tiến
-Thêm ô nhập voucher trực tiếp vào `PaymentConfirmDialog` để user có thể nhập/thay đổi mã ngay tại bước xác nhận.
+### Phương thức VNPay hỗ trợ
+| Phương thức | vnp_BankCode | Mô tả |
+|---|---|---|
+| QR Code | `VNPAYQR` | Quét mã QR bằng app ngân hàng |
+| ATM nội địa | `VNBANK` | Thẻ ATM/Internet Banking |
+| Ví điện tử | `VNPAYEWALLET` | Ví VNPay, MoMo qua VNPay |
+| Thẻ quốc tế | `INTCARD` | Visa/Mastercard/JCB |
 
 ### Kỹ thuật
 
-**`src/components/PaymentConfirmDialog.tsx`**
-- Thêm state `voucherInput`, `voucherLoading`, `localVoucher`
-- Thêm logic `handleApplyVoucher` (query bảng `vouchers`, validate ngày/lượt dùng/applicable_plans)
-- Thêm `handleRemoveVoucher`
-- Tự động tính lại `displayFinalPrice` khi voucher thay đổi
-- Thay section voucher tĩnh thành input field tương tự UpgradePlanDialog (nhập mã → áp dụng → hiển thị badge + nút xóa)
-- Thêm props: `onVoucherChange?: (voucher: VoucherInfo | null, newPrice: number) => void` để callback lên parent cập nhật state
-- Thêm prop `applicablePlan?: string` để validate voucher theo gói
+**1. `src/components/PaymentConfirmDialog.tsx`**
+- Thêm state `paymentMethod` (default: `VNPAYQR`)
+- Thêm section UI chọn phương thức: grid 2x2 với icon + label cho mỗi option (QR Code, ATM, Ví điện tử, Thẻ quốc tế)
+- Style: radio-card pattern (border highlight khi selected)
+- Thêm prop `onPaymentMethodChange?: (bankCode: string) => void` hoặc bổ sung `paymentMethod` vào `onConfirm`
+- Thay section "Payment method" tĩnh hiện tại bằng grid chọn interactive
 
-**`src/components/UpgradePlanDialog.tsx`**
-- Truyền `onVoucherChange` vào PaymentConfirmDialog để đồng bộ voucher khi user thay đổi ở confirm dialog
-- Cập nhật `finalPrice` và `appliedVoucher` khi nhận callback
+**2. `src/components/UpgradePlanDialog.tsx`**
+- Nhận `paymentMethod` từ PaymentConfirmDialog
+- Truyền `bank_code` vào body khi gọi `create-vnpay-payment`
 
-**`src/pages/Pricing.tsx`**
-- Thêm tương tự: truyền `onVoucherChange` để hỗ trợ voucher từ trang Pricing
+**3. `src/pages/Pricing.tsx`**
+- Tương tự: truyền `bank_code` vào edge function call
+
+**4. `supabase/functions/create-vnpay-payment/index.ts`**
+- Nhận thêm param `bank_code` từ body
+- Nếu có, thêm `vnp_BankCode` vào `vnpParams` trước khi ký hash
+- Nếu không có, bỏ qua (VNPay sẽ hiện tất cả phương thức)
+
+**5. `src/pages/PaymentResult.tsx`**
+- Hiển thị phương thức thanh toán đã dùng dựa trên `vnp_CardType` hoặc `vnp_BankCode` từ response
 
