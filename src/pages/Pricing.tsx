@@ -158,7 +158,7 @@ export default function Pricing() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const [confirmPlan, setConfirmPlan] = useState<{ planType: string; price: number } | null>(null);
+  const [confirmPlan, setConfirmPlan] = useState<{ planType: string; price: number; appliedVoucher: import("@/components/PaymentConfirmDialog").VoucherInfo | null } | null>(null);
 
   const currentPlan = subscription?.plan_type || "free";
   const isLoggedIn = !!user;
@@ -179,7 +179,7 @@ export default function Pricing() {
     }
 
     const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
-    setConfirmPlan({ planType, price });
+    setConfirmPlan({ planType, price, appliedVoucher: null });
   };
 
   const handleConfirmPayment = async () => {
@@ -193,6 +193,7 @@ export default function Pricing() {
           plan_type: confirmPlan.planType,
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
+          voucher_code: confirmPlan.appliedVoucher?.code || undefined,
         },
       });
       if (error) throw error;
@@ -651,9 +652,14 @@ export default function Pricing() {
           targetPlan={confirmPlan.planType}
           billingCycle={isYearly ? "yearly" : "monthly"}
           basePrice={confirmPlan.price}
+          voucher={confirmPlan.appliedVoucher}
           finalPrice={confirmPlan.price}
           isLoading={!!loadingPlan}
           onConfirm={handleConfirmPayment}
+          applicablePlan={confirmPlan.planType}
+          onVoucherChange={(newVoucher, newPrice) => {
+            setConfirmPlan(prev => prev ? { ...prev, appliedVoucher: newVoucher, price: prev.price } : null);
+          }}
           planFeatures={(() => {
             const plan = PLANS.find(p => (p as any).planType === confirmPlan.planType || p.key === confirmPlan.planType);
             if (!plan) return undefined;
