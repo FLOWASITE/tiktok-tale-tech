@@ -62,6 +62,7 @@ import GEODashboard from "@/pages/GEODashboard";
 import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
+import PaymentHistory from "@/pages/PaymentHistory";
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
 
