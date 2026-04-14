@@ -1,53 +1,44 @@
 
 
-## Thiết lập Cron Job tự động đăng bài theo lịch
+## Trang Admin Quản lý Gói (`/admin/plans`)
 
-### Nguyên nhân gốc
+Tạo trang admin tổng hợp quản lý gói cước với 3 tab chính: Cấu hình gói, Subscriptions, và Thống kê doanh thu.
 
-Action `check_scheduled_publish` trong `agent-pipeline` đã có logic đầy đủ:
-- Tìm pipelines ở stage `publish` với `scheduled_publish_at <= now()`
-- Gọi `fireNextStage` để trigger đăng bài
+### Tab 1: Cấu hình gói (CRUD `plan_limits`)
 
-Tuy nhiên **không có cron job nào** gọi action này. Extensions `pg_cron` + `pg_net` đã bật nhưng bảng `cron.job` trống.
+- Hiển thị 4 gói hiện tại (Free/Starter/Pro/Enterprise) dạng card grid
+- Mỗi card hiển thị: tên gói, giá tháng/năm, hạn mức (brands, scripts, carousels, multichannel, images, AI edits), features
+- Inline edit: click vào giá trị hạn mức hoặc giá để sửa trực tiếp
+- Nút "Lưu thay đổi" cập nhật `plan_limits` qua Supabase
+- Hiển thị badge số lượng workspace đang dùng gói đó (từ `subscriptions`)
 
-### Thay đổi
+### Tab 2: Quản lý Subscription
 
-**1. Tạo cron job gọi `check_scheduled_publish` mỗi 2 phút**
+- Bảng danh sách tất cả subscriptions kèm thông tin workspace (org name), plan, status, chu kỳ, ngày hết hạn
+- Bộ lọc: theo gói (Free/Starter/Pro/Enterprise), theo trạng thái (active/cancelled/expired)
+- Hành động từng dòng: đổi gói, gia hạn (reset period), hủy subscription
+- Xem lịch sử thanh toán (`payment_orders`) khi click vào workspace
+- Export CSV
 
-Dùng Supabase insert tool (không dùng migration vì chứa URL + anon key cụ thể):
+### Tab 3: Thống kê doanh thu
 
-```sql
-select cron.schedule(
-  'check-scheduled-publish',
-  '*/2 * * * *',
-  $$
-  select net.http_post(
-    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer <anon_key>"}'::jsonb,
-    body := '{"action": "check_scheduled_publish"}'::jsonb
-  ) as request_id;
-  $$
-);
-```
+- MRR (Monthly Recurring Revenue) tính từ số subscriptions * giá gói
+- Biểu đồ phân bổ gói (pie chart: bao nhiêu workspace ở mỗi gói)
+- Conversion rate: Free → Paid
+- Bảng top workspaces theo chi tiêu (từ `payment_orders`)
+- Churn rate cơ bản (số cancelled/total)
 
-**2. Tạo cron job gọi `recover_stuck` mỗi 5 phút** (bonus — phục hồi pipeline bị kẹt)
+### Kỹ thuật
 
-```sql
-select cron.schedule(
-  'recover-stuck-pipelines',
-  '*/5 * * * *',
-  $$
-  select net.http_post(
-    url := 'https://rllyipiyuptkibqinotz.supabase.co/functions/v1/agent-pipeline',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer <anon_key>"}'::jsonb,
-    body := '{"action": "recover_stuck"}'::jsonb
-  ) as request_id;
-  $$
-);
-```
+**Files mới:**
+- `src/pages/AdminPlans.tsx` — Trang chính với 3 tab (Tabs component)
+- `src/components/admin/plans/PlanLimitsManager.tsx` — Tab 1: CRUD plan_limits
+- `src/components/admin/plans/SubscriptionManager.tsx` — Tab 2: Bảng subscriptions + actions
+- `src/components/admin/plans/RevenueStats.tsx` — Tab 3: Thống kê doanh thu với recharts
 
-### Kết quả
-- Mỗi 2 phút, hệ thống tự kiểm tra và đăng bài đã đến giờ
-- Pipeline bị kẹt được tự phục hồi mỗi 5 phút
-- Bài viết lên lịch sẽ được đăng tự động đúng giờ (sai số tối đa ~2 phút)
+**Files sửa:**
+- `src/app/routes.tsx` — Thêm route `/admin/plans`
+- `src/components/AppSidebar.tsx` — Thêm menu item "Quản lý gói" với icon `CreditCard`
+
+**Không cần migration** — Dùng bảng hiện có (`plan_limits`, `subscriptions`, `payment_orders`). Cập nhật plan_limits dùng Supabase client trực tiếp (admin đã có quyền).
 
