@@ -1,43 +1,49 @@
 
 
-## Hoàn thiện UI Cấu hình gói - Dễ sử dụng hơn
+## Hoàn thiện UI Cấu hình gói - Bản nâng cấp cuối
 
-Cải thiện trải nghiệm sử dụng trang Cấu hình gói với layout rõ ràng hơn, responsive tốt hơn trên mobile, và thao tác trực quan hơn.
+Sau khi review kỹ code hiện tại, đây là những điểm còn thiếu cần bổ sung:
+
+### Vấn đề hiện tại
+
+1. **Không có "Lưu tất cả"** - Phải save từng gói riêng lẻ, bất tiện khi chỉnh nhiều gói cùng lúc
+2. **Thoát edit mode mất dữ liệu** - Nhấn "Xong" sẽ gọi `handleUndoAll()` xóa hết thay đổi chưa lưu mà không cảnh báo
+3. **Cột save hardcode 4 gói** - `grid-cols-[160px_repeat(4,1fr)]` sẽ vỡ nếu thêm/bớt gói
+4. **Mobile không có nút Undo** - Chỉ desktop mới thấy nút "Hoàn tác tất cả"
+5. **Không hiện badge thay đổi** - Header cột không cho biết gói nào đang có pending changes
+6. **Thiếu empty state** - Nếu chưa có plan nào, UI trống không hướng dẫn
+7. **Feature trùng lặp** - Có thể thêm feature đã tồn tại mà không kiểm tra
 
 ### Cải tiến
 
-**1. Layout dạng bảng so sánh (Comparison Table)**
-- Chuyển từ card grid sang bảng ngang so sánh các gói cạnh nhau (desktop)
-- Mỗi hàng là 1 trường (Brands, Scripts, Giá...), mỗi cột là 1 gói
-- Dễ so sánh giá trị giữa các gói hơn card riêng lẻ
-- Mobile: giữ card layout hiện tại (responsive fallback)
+**1. Nút "Lưu tất cả" (Bulk Save)**
+- Thêm nút "Lưu tất cả thay đổi" bên cạnh "Hoàn tác tất cả" trong toolbar
+- Gọi save tuần tự cho tất cả gói có changes, hiển thị progress
 
-**2. Toggle chỉnh sửa (Edit Mode)**
-- Mặc định hiển thị dạng read-only (text/badge) cho gọn gàng
-- Nút "Chỉnh sửa" bật edit mode, lúc này mới hiện input fields
-- Giảm visual clutter khi chỉ cần xem thông tin
+**2. Cảnh báo khi thoát edit mode**
+- Nếu có unsaved changes, hiện AlertDialog hỏi "Lưu trước khi thoát?" với 3 option: Lưu tất cả / Hủy thay đổi / Quay lại
 
-**3. Cải thiện hiển thị giá**
-- Format giá hiển thị dạng "199.000₫" thay vì input number thô
-- Hiển thị giá năm kèm "tiết kiệm X%" so với giá tháng x12
+**3. Badge "đã sửa" trên header cột**
+- Hiển thị dot nhỏ hoặc badge "Đã sửa" trên header cột của gói có pending changes
 
-**4. Feature badges cải tiến**
-- Hiển thị features dạng checklist (✓/✗) so sánh giữa các gói
-- Thêm feature chung cho tất cả gói hoặc từng gói riêng
-- Drag-drop sắp xếp thứ tự features
+**4. Mobile UX cải thiện**
+- Thêm floating action bar khi có changes (sticky bottom)
+- Nút Undo + Save all trên mobile
 
-**5. Summary cards nâng cấp**
-- Thêm card "Gói phổ biến nhất" (gói có nhiều workspace nhất)
-- Thêm card "ARPU" (Average Revenue Per User)
-- Mini sparkline cho trend MRR (nếu có data lịch sử)
+**5. Duplicate feature check**
+- Kiểm tra feature đã tồn tại trước khi thêm, hiện toast warning
+
+**6. Grid cols dynamic**
+- Dùng `gridTemplateColumns` inline thay vì hardcode 4
 
 ### Kỹ thuật
 
 **File sửa:** `src/components/admin/plans/PlanLimitsManager.tsx`
-- Thêm state `isEditMode` toggle giữa view/edit
-- Tạo component `ComparisonTable` cho desktop view
-- Tạo component `PlanCard` cho mobile view
-- Thêm logic tính % tiết kiệm giá năm
-- Format giá dạng readable trong view mode
-- Giữ nguyên logic save/undo/diff hiện tại
+- Thêm `handleSaveAll()` gọi `saveMutation.mutateAsync` tuần tự cho mỗi plan có changes
+- Sửa onClick "Xong" button: check `hasAnyChanges()` → hiện confirm dialog thay vì trực tiếp undo
+- Thêm `AlertDialog` cho exit-edit-mode confirmation
+- Header cột: thêm dot indicator `{hasChanges(plan.id) && <span className="h-2 w-2 rounded-full bg-primary" />}`
+- Sửa grid template dùng `style={{ gridTemplateColumns: \`160px repeat(${plans.length}, 1fr)\` }}`
+- Thêm check duplicate trong `handleAddFeature` và global add
+- Mobile: thêm sticky bottom bar khi `isEditMode && hasAnyChanges()`
 
