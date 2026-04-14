@@ -19,7 +19,7 @@ import {
 import {
   Save, Loader2, Undo2, Package, FileText, Image, Layers,
   Palette, Bot, DollarSign, Plus, X, Users, TrendingUp, Infinity,
-  Pencil, Eye, Crown, Check,
+  Pencil, Eye, Crown, Check, SaveAll, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -112,6 +112,8 @@ export default function PlanLimitsManager() {
   const [featureEdits, setFeatureEdits] = useState<Record<string, { added: string[]; removed: string[] }>>({});
   const [newFeatureInputs, setNewFeatureInputs] = useState<Record<string, string>>({});
   const [confirmPlan, setConfirmPlan] = useState<PlanLimit | null>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isSavingAll, setIsSavingAll] = useState(false);
 
   const plansQuery = useQuery({
     queryKey: ["admin_plan_limits"],
@@ -143,7 +145,6 @@ export default function PlanLimitsManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_plan_limits"] });
-      toast.success("Đã lưu thay đổi");
     },
     onError: (err) => toast.error("Lỗi: " + err.message),
   });
@@ -176,16 +177,48 @@ export default function PlanLimitsManager() {
   const hasChanges = (planId: string) =>
     (editData[planId] && Object.keys(editData[planId]).length > 0) || hasFeaturesChanged(planId);
 
+  const plans = plansQuery.data || [];
+
   const hasAnyChanges = () => plans.some((p) => hasChanges(p.id));
+
+  const isDuplicateFeature = (feature: string, planId?: string) => {
+    if (planId) {
+      return getEffectiveFeatures(plans.find((p) => p.id === planId)!).includes(feature);
+    }
+    return plans.every((p) => getEffectiveFeatures(p).includes(feature));
+  };
 
   const handleAddFeature = (planId: string) => {
     const val = (newFeatureInputs[planId] || "").trim();
     if (!val) return;
+    const plan = plans.find((p) => p.id === planId);
+    if (plan && getEffectiveFeatures(plan).includes(val)) {
+      toast.warning(`Feature "${val}" đã tồn tại trong gói này`);
+      return;
+    }
     setFeatureEdits((prev) => ({
       ...prev,
       [planId]: { added: [...(prev[planId]?.added || []), val], removed: prev[planId]?.removed || [] },
     }));
     setNewFeatureInputs((prev) => ({ ...prev, [planId]: "" }));
+  };
+
+  const handleAddGlobalFeature = (val: string) => {
+    if (!val.trim()) return;
+    const trimmed = val.trim();
+    if (plans.every((p) => getEffectiveFeatures(p).includes(trimmed))) {
+      toast.warning(`Feature "${trimmed}" đã tồn tại trong tất cả các gói`);
+      return;
+    }
+    plans.forEach((p) => {
+      if (!getEffectiveFeatures(p).includes(trimmed)) {
+        setFeatureEdits((prev) => ({
+          ...prev,
+          [p.id]: { added: [...(prev[p.id]?.added || []), trimmed], removed: prev[p.id]?.removed || [] },
+        }));
+      }
+    });
+    setNewFeatureInputs((prev) => ({ ...prev, _global: "" }));
   };
 
   const handleRemoveFeature = (planId: string, feature: string, plan: PlanLimit) => {
@@ -209,12 +242,52 @@ export default function PlanLimitsManager() {
     setNewFeatureInputs({});
   };
 
+  const handleExitEditMode = () => {
+    if (hasAnyChanges()) {
+      setShowExitConfirm(true);
+    } else {
+      setIsEditMode(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    const plansWithChanges = plans.filter((p) => hasChanges(p.id));
+    if (plansWithChanges.length === 0) return;
+
+    setIsSavingAll(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const plan of plansWithChanges) {
+      try {
+        const updates: any = { ...(editData[plan.id] || {}) };
+        if (hasFeaturesChanged(plan.id)) updates.features = getEffectiveFeatures(plan);
+        await saveMutation.mutateAsync({ id: plan.id, updates });
+        // Clear saved plan's edits
+        setEditData((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
+        setFeatureEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+
+    setIsSavingAll(false);
+    if (errorCount === 0) {
+      toast.success(`Đã lưu ${successCount} gói thành công`);
+    } else {
+      toast.error(`Lưu xong: ${successCount} thành công, ${errorCount} lỗi`);
+    }
+  };
+
   const handleConfirmSave = () => {
     if (!confirmPlan) return;
     const plan = confirmPlan;
     const updates: any = { ...(editData[plan.id] || {}) };
     if (hasFeaturesChanged(plan.id)) updates.features = getEffectiveFeatures(plan);
-    saveMutation.mutate({ id: plan.id, updates });
+    saveMutation.mutate({ id: plan.id, updates }, {
+      onSuccess: () => toast.success("Đã lưu thay đổi"),
+    });
     setEditData((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
     setFeatureEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
     setConfirmPlan(null);
@@ -249,7 +322,18 @@ export default function PlanLimitsManager() {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
-  const plans = plansQuery.data || [];
+  if (plans.length === 0) {
+    return (
+      <Card className="border border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <Package className="h-10 w-10 text-muted-foreground/50 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">Chưa có gói nào</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Tạo gói đầu tiên trong bảng plan_limits để bắt đầu cấu hình.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const subCounts = subCountsQuery.data || {};
   const totalWorkspaces = Object.values(subCounts).reduce((a, b) => a + b, 0);
   const totalMRR = plans.reduce((sum, p) => sum + (subCounts[p.plan_type] || 0) * p.price_monthly, 0);
@@ -258,8 +342,8 @@ export default function PlanLimitsManager() {
     (subCounts[p.plan_type] || 0) > (subCounts[best.plan_type] || 0) ? p : best, plans[0]);
   const arpu = totalWorkspaces > 0 ? totalMRR / totalWorkspaces : 0;
 
-  // Collect all unique features across plans
   const allFeatures = [...new Set(plans.flatMap((p) => getEffectiveFeatures(p)))];
+  const changedPlanCount = plans.filter((p) => hasChanges(p.id)).length;
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -305,18 +389,35 @@ export default function PlanLimitsManager() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-muted-foreground">So sánh các gói</h3>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            So sánh các gói
+            {isEditMode && changedPlanCount > 0 && (
+              <Badge variant="secondary" className="ml-2 text-[10px]">{changedPlanCount} gói đã sửa</Badge>
+            )}
+          </h3>
           <div className="flex items-center gap-2">
             {isEditMode && hasAnyChanges() && (
-              <Button variant="ghost" size="sm" onClick={handleUndoAll}>
-                <Undo2 className="h-4 w-4 mr-1" /> Hoàn tác tất cả
-              </Button>
+              <>
+                <Button variant="ghost" size="sm" onClick={handleUndoAll}>
+                  <Undo2 className="h-4 w-4 mr-1" /> Hoàn tác
+                </Button>
+                <Button size="sm" onClick={handleSaveAll} disabled={isSavingAll || saveMutation.isPending} className="gap-1">
+                  {isSavingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <SaveAll className="h-4 w-4" />}
+                  Lưu tất cả ({changedPlanCount})
+                </Button>
+              </>
             )}
             <Button
               variant={isEditMode ? "default" : "outline"}
               size="sm"
-              onClick={() => { setIsEditMode(!isEditMode); if (isEditMode) handleUndoAll(); }}
+              onClick={() => {
+                if (isEditMode) {
+                  handleExitEditMode();
+                } else {
+                  setIsEditMode(true);
+                }
+              }}
             >
               {isEditMode ? <><Eye className="h-4 w-4 mr-1" /> Xong</> : <><Pencil className="h-4 w-4 mr-1" /> Chỉnh sửa</>}
             </Button>
@@ -333,10 +434,16 @@ export default function PlanLimitsManager() {
                   {plans.map((plan) => {
                     const wsCount = subCounts[plan.plan_type] || 0;
                     const colors = PLAN_COLORS[plan.plan_type] || PLAN_COLORS.free;
+                    const changed = hasChanges(plan.id);
                     return (
                       <TableHead key={plan.id} className={`text-center bg-gradient-to-b ${colors.header}`}>
-                        <div className="flex flex-col items-center gap-1">
-                          <Badge className={`${colors.badge} capitalize font-semibold`}>{plan.plan_type}</Badge>
+                        <div className="flex flex-col items-center gap-1 relative">
+                          <div className="flex items-center gap-1.5">
+                            <Badge className={`${colors.badge} capitalize font-semibold`}>{plan.plan_type}</Badge>
+                            {changed && (
+                              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" title="Có thay đổi chưa lưu" />
+                            )}
+                          </div>
                           <span className="text-xs text-muted-foreground">{wsCount} ws</span>
                         </div>
                       </TableHead>
@@ -474,33 +581,13 @@ export default function PlanLimitsManager() {
                           value={newFeatureInputs["_global"] || ""}
                           onChange={(e) => setNewFeatureInputs((p) => ({ ...p, _global: e.target.value }))}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const val = (newFeatureInputs["_global"] || "").trim();
-                              if (!val) return;
-                              plans.forEach((p) => {
-                                setFeatureEdits((prev) => ({
-                                  ...prev,
-                                  [p.id]: { added: [...(prev[p.id]?.added || []), val], removed: prev[p.id]?.removed || [] },
-                                }));
-                              });
-                              setNewFeatureInputs((prev) => ({ ...prev, _global: "" }));
-                            }
+                            if (e.key === "Enter") handleAddGlobalFeature(newFeatureInputs["_global"] || "");
                           }}
                           className="h-7 text-xs"
                         />
                         <Button
                           variant="outline" size="icon" className="h-7 w-7 shrink-0"
-                          onClick={() => {
-                            const val = (newFeatureInputs["_global"] || "").trim();
-                            if (!val) return;
-                            plans.forEach((p) => {
-                              setFeatureEdits((prev) => ({
-                                ...prev,
-                                [p.id]: { added: [...(prev[p.id]?.added || []), val], removed: prev[p.id]?.removed || [] },
-                              }));
-                            });
-                            setNewFeatureInputs((prev) => ({ ...prev, _global: "" }));
-                          }}
+                          onClick={() => handleAddGlobalFeature(newFeatureInputs["_global"] || "")}
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </Button>
@@ -515,14 +602,14 @@ export default function PlanLimitsManager() {
             </Table>
           </Card>
 
-          {/* Save buttons per plan */}
+          {/* Save buttons per plan - dynamic grid */}
           {isEditMode && (
-            <div className="grid grid-cols-[160px_repeat(4,1fr)] gap-0 mt-2">
+            <div className="grid gap-0 mt-2" style={{ gridTemplateColumns: `160px repeat(${plans.length}, 1fr)` }}>
               <div />
               {plans.map((plan) => (
                 <div key={plan.id} className="flex justify-center">
                   {hasChanges(plan.id) && (
-                    <Button size="sm" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending} className="gap-1">
+                    <Button size="sm" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending || isSavingAll} className="gap-1">
                       <Save className="h-3.5 w-3.5" /> Lưu {plan.plan_type}
                     </Button>
                   )}
@@ -538,12 +625,16 @@ export default function PlanLimitsManager() {
             const wsCount = subCounts[plan.plan_type] || 0;
             const colors = PLAN_COLORS[plan.plan_type] || PLAN_COLORS.free;
             const savings = getSavingsPercent(plan);
+            const changed = hasChanges(plan.id);
 
             return (
               <Card key={plan.id} className={`border ${colors.border}`}>
                 <CardHeader className={`pb-3 rounded-t-lg bg-gradient-to-br ${colors.header}`}>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg capitalize">{plan.plan_type}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg capitalize">{plan.plan_type}</CardTitle>
+                      {changed && <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
+                    </div>
                     <Badge className={colors.badge}>{wsCount} ws</Badge>
                   </div>
                   <div className="flex items-baseline gap-2 mt-1">
@@ -560,7 +651,7 @@ export default function PlanLimitsManager() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hạn mức</p>
                   {limitFields.map((field) => {
                     const val = getVal(plan, field as keyof PlanLimit) as number;
-                    const changed = isFieldChanged(plan, field);
+                    const fieldChanged = isFieldChanged(plan, field);
                     return (
                       <div key={field} className="flex items-center justify-between">
                         <span className="text-sm flex items-center gap-1.5">{FIELD_ICONS[field]} {FIELD_LABELS[field]}</span>
@@ -568,7 +659,7 @@ export default function PlanLimitsManager() {
                           <Input
                             type="number" value={val}
                             onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                            className={`h-7 w-20 text-sm text-right ${changed ? "ring-2 ring-primary/50" : ""}`}
+                            className={`h-7 w-20 text-sm text-right ${fieldChanged ? "ring-2 ring-primary/50" : ""}`}
                           />
                         ) : val === -1 ? (
                           <Badge variant="secondary" className="text-xs gap-1"><Infinity className="h-3 w-3" /> ∞</Badge>
@@ -585,14 +676,14 @@ export default function PlanLimitsManager() {
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Giá cước</p>
                       {priceFields.map((field) => {
                         const val = getVal(plan, field as keyof PlanLimit) as number;
-                        const changed = isFieldChanged(plan, field);
+                        const fieldChanged = isFieldChanged(plan, field);
                         return (
                           <div key={field} className="flex items-center justify-between">
                             <span className="text-sm flex items-center gap-1.5">{FIELD_ICONS[field]} {FIELD_LABELS[field]}</span>
                             <Input
                               type="number" value={val}
                               onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                              className={`h-7 w-28 text-sm text-right ${changed ? "ring-2 ring-primary/50" : ""}`}
+                              className={`h-7 w-28 text-sm text-right ${fieldChanged ? "ring-2 ring-primary/50" : ""}`}
                             />
                           </div>
                         );
@@ -630,7 +721,7 @@ export default function PlanLimitsManager() {
                         </Button>
                       </div>
                       {hasChanges(plan.id) && (
-                        <Button size="sm" className="w-full mt-2" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending}>
+                        <Button size="sm" className="w-full mt-2" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending || isSavingAll}>
                           <Save className="h-4 w-4 mr-1" /> Lưu thay đổi
                         </Button>
                       )}
@@ -642,7 +733,20 @@ export default function PlanLimitsManager() {
           })}
         </div>
 
-        {/* Confirm dialog */}
+        {/* Mobile: Sticky bottom bar */}
+        {isEditMode && hasAnyChanges() && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-2 shadow-lg">
+            <Button variant="ghost" size="sm" onClick={handleUndoAll} className="gap-1">
+              <Undo2 className="h-4 w-4" /> Hoàn tác
+            </Button>
+            <Button size="sm" onClick={handleSaveAll} disabled={isSavingAll || saveMutation.isPending} className="gap-1">
+              {isSavingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <SaveAll className="h-4 w-4" />}
+              Lưu tất cả ({changedPlanCount})
+            </Button>
+          </div>
+        )}
+
+        {/* Confirm save single plan dialog */}
         <AlertDialog open={!!confirmPlan} onOpenChange={(open) => !open && setConfirmPlan(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -668,6 +772,45 @@ export default function PlanLimitsManager() {
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
                 Xác nhận lưu
               </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Exit edit mode confirmation */}
+        <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Có thay đổi chưa lưu
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn có {changedPlanCount} gói đang có thay đổi chưa lưu. Bạn muốn làm gì?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+              <AlertDialogCancel onClick={() => setShowExitConfirm(false)}>Quay lại chỉnh sửa</AlertDialogCancel>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  handleUndoAll();
+                  setIsEditMode(false);
+                  setShowExitConfirm(false);
+                }}
+              >
+                Hủy thay đổi
+              </Button>
+              <Button
+                onClick={async () => {
+                  await handleSaveAll();
+                  setIsEditMode(false);
+                  setShowExitConfirm(false);
+                }}
+                disabled={isSavingAll}
+              >
+                {isSavingAll ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <SaveAll className="h-4 w-4 mr-1" />}
+                Lưu tất cả & thoát
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
