@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import type { Channel } from "@/types/multichannel";
 import { WorkspaceUsageStats } from "@/components/WorkspaceUsageStats";
+import { PaymentHistorySection } from "@/pages/PaymentHistory";
 
 const CHANNEL_META: Record<Channel, { label: string; icon: React.ReactNode; color: string }> = {
   facebook: { label: "Facebook", icon: <Facebook className="w-3.5 h-3.5" />, color: "text-blue-600" },
@@ -569,6 +570,20 @@ export default function Account() {
               )}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Payment History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Lịch sử thanh toán
+          </CardTitle>
+          <CardDescription>Xem lại các giao dịch thanh toán của workspace</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PaymentHistorySection />
         </CardContent>
       </Card>
     </div>
