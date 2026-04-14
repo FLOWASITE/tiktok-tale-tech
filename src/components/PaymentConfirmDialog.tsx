@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X, QrCode, Landmark, Wallet, Globe } from "lucide-react";
+import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X, QrCode, Landmark, Wallet, Globe, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+export type PaymentGateway = "vnpay" | "payos";
 
 const PLAN_NAMES: Record<string, string> = {
   free: "Miễn phí",
