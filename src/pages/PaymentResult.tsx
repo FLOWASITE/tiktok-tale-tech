@@ -300,7 +300,7 @@ export default function PaymentResult() {
             {/* Security footer */}
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/60 pt-1">
               <ShieldCheck className="w-3 h-3" />
-              <span>Giao dịch bảo mật bởi VNPay</span>
+              <span>Giao dịch bảo mật bởi {paymentProviderLabel}</span>
             </div>
           </CardContent>
         </Card>
