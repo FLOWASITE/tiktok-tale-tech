@@ -1,44 +1,39 @@
 
 
-## Trang Admin Quản lý Gói (`/admin/plans`)
+## Hoàn thiện "Cấu hình gói" (PlanLimitsManager)
 
-Tạo trang admin tổng hợp quản lý gói cước với 3 tab chính: Cấu hình gói, Subscriptions, và Thống kê doanh thu.
+Nâng cấp tab Cấu hình gói với giao diện chuyên nghiệp hơn, thêm tính năng quản lý features, và cải thiện trải nghiệm chỉnh sửa.
 
-### Tab 1: Cấu hình gói (CRUD `plan_limits`)
+### Cải tiến
 
-- Hiển thị 4 gói hiện tại (Free/Starter/Pro/Enterprise) dạng card grid
-- Mỗi card hiển thị: tên gói, giá tháng/năm, hạn mức (brands, scripts, carousels, multichannel, images, AI edits), features
-- Inline edit: click vào giá trị hạn mức hoặc giá để sửa trực tiếp
-- Nút "Lưu thay đổi" cập nhật `plan_limits` qua Supabase
-- Hiển thị badge số lượng workspace đang dùng gói đó (từ `subscriptions`)
+**1. Giao diện card nâng cấp**
+- Thêm icon cho từng trường (Package, FileText, Image, Layers, Palette, Bot, DollarSign)
+- Phân nhóm rõ ràng: "Hạn mức" (limits) và "Giá cước" (pricing) bằng separator
+- Hiển thị giá trị `-1` thành badge "Không giới hạn" thay vì số -1
+- Header card có gradient màu theo gói (xanh Starter, tím Pro, vàng Enterprise)
+- Hiển thị tổng doanh thu ước tính từ mỗi gói (workspace count x price)
 
-### Tab 2: Quản lý Subscription
+**2. Quản lý Features (CRUD)**
+- Thêm nút "+" để thêm feature mới (inline input)
+- Nút "x" trên mỗi badge feature để xóa
+- Lưu features cùng lúc với các thay đổi khác
 
-- Bảng danh sách tất cả subscriptions kèm thông tin workspace (org name), plan, status, chu kỳ, ngày hết hạn
-- Bộ lọc: theo gói (Free/Starter/Pro/Enterprise), theo trạng thái (active/cancelled/expired)
-- Hành động từng dòng: đổi gói, gia hạn (reset period), hủy subscription
-- Xem lịch sử thanh toán (`payment_orders`) khi click vào workspace
-- Export CSV
+**3. Cải thiện UX chỉnh sửa**
+- Nút "Hoàn tác" (Undo) để reset về giá trị gốc khi đang edit
+- Dialog xác nhận trước khi lưu, hiển thị diff (giá trị cũ → mới)
+- Highlight trường đã thay đổi bằng viền màu khác
 
-### Tab 3: Thống kê doanh thu
-
-- MRR (Monthly Recurring Revenue) tính từ số subscriptions * giá gói
-- Biểu đồ phân bổ gói (pie chart: bao nhiêu workspace ở mỗi gói)
-- Conversion rate: Free → Paid
-- Bảng top workspaces theo chi tiêu (từ `payment_orders`)
-- Churn rate cơ bản (số cancelled/total)
+**4. Tổng quan nhanh**
+- Row tổng hợp phía trên cards: tổng workspace active, tổng MRR ước tính
+- Tooltip trên mỗi trường giải thích ý nghĩa (ví dụ: "-1 = không giới hạn")
 
 ### Kỹ thuật
 
-**Files mới:**
-- `src/pages/AdminPlans.tsx` — Trang chính với 3 tab (Tabs component)
-- `src/components/admin/plans/PlanLimitsManager.tsx` — Tab 1: CRUD plan_limits
-- `src/components/admin/plans/SubscriptionManager.tsx` — Tab 2: Bảng subscriptions + actions
-- `src/components/admin/plans/RevenueStats.tsx` — Tab 3: Thống kê doanh thu với recharts
-
-**Files sửa:**
-- `src/app/routes.tsx` — Thêm route `/admin/plans`
-- `src/components/AppSidebar.tsx` — Thêm menu item "Quản lý gói" với icon `CreditCard`
-
-**Không cần migration** — Dùng bảng hiện có (`plan_limits`, `subscriptions`, `payment_orders`). Cập nhật plan_limits dùng Supabase client trực tiếp (admin đã có quyền).
+**File sửa:** `src/components/admin/plans/PlanLimitsManager.tsx`
+- Thêm state `featureEdits` để track thêm/xóa features
+- Thêm `AlertDialog` xác nhận trước save với diff view
+- Thêm inline input cho thêm feature mới
+- Phân chia numericFields thành 2 nhóm: `limitFields` và `priceFields`
+- Thêm logic hiển thị "Không giới hạn" khi value = -1
+- Highlight changed fields với `ring-2 ring-primary/50`
 
