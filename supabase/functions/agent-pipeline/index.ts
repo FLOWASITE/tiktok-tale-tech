@@ -142,6 +142,135 @@ function resolveContentId(pipeline: any, pState: any): string | null {
     || null;
 }
 
+const DIRECT_SCHEDULE_CHANNEL_CONFIG: Record<string, {
+  action: string;
+  contentColumn: string;
+  connectionPlatform: string;
+}> = {
+  facebook: {
+    action: "facebook",
+    contentColumn: "facebook_content",
+    connectionPlatform: "facebook",
+  },
+};
+
+async function processDirectContentSchedule(
+  supabase: any,
+  supabaseUrl: string,
+  supabaseKey: string,
+  schedule: {
+    id: string;
+    content_id: string | null;
+    channel: string;
+    organization_id?: string | null;
+  },
+) {
+  const config = DIRECT_SCHEDULE_CHANNEL_CONFIG[schedule.channel];
+  if (!config) {
+    return { success: false, skipped: true, reason: `unsupported_channel:${schedule.channel}` };
+  }
+
+  if (!schedule.content_id) {
+    throw new Error("Schedule is missing content_id");
+  }
+
+  const { count: activePublishPipelines } = await supabase
+    .from("agent_pipelines")
+    .select("id", { count: "exact", head: true })
+    .eq("content_id", schedule.content_id)
+    .eq("current_stage", "publish")
+    .is("completed_at", null);
+
+  if ((activePublishPipelines || 0) > 0) {
+    return { success: false, skipped: true, reason: "handled_by_pipeline" };
+  }
+
+  const { data: claimedSchedule } = await supabase
+    .from("content_schedules")
+    .update({
+      publish_status: "publishing",
+      publish_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", schedule.id)
+    .eq("publish_status", "scheduled")
+    .select("id")
+    .maybeSingle();
+
+  if (!claimedSchedule) {
+    return { success: false, skipped: true, reason: "already_claimed" };
+  }
+
+  try {
+    const { data: content, error: contentError } = await supabase
+      .from("multi_channel_contents")
+      .select(`id, organization_id, brand_template_id, ${config.contentColumn}, channel_images, title`)
+      .eq("id", schedule.content_id)
+      .maybeSingle();
+
+    if (contentError || !content) {
+      throw new Error("Multi-channel content not found");
+    }
+
+    const contentText = String((content as any)[config.contentColumn] || "").trim();
+    if (!contentText) {
+      throw new Error(`Missing ${config.contentColumn}`);
+    }
+
+    let connectionQuery = supabase
+      .from("social_connections")
+      .select("id")
+      .eq("platform", config.connectionPlatform)
+      .eq("is_active", true);
+
+    if ((content as any).brand_template_id) {
+      connectionQuery = connectionQuery.eq("brand_template_id", (content as any).brand_template_id);
+    } else if ((content as any).organization_id || schedule.organization_id) {
+      connectionQuery = connectionQuery.eq("organization_id", (content as any).organization_id || schedule.organization_id);
+    }
+
+    const { data: connection, error: connectionError } = await connectionQuery
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (connectionError || !connection) {
+      throw new Error(`Active ${config.connectionPlatform} connection not found`);
+    }
+
+    const mediaUrl = (content as any).channel_images?.[schedule.channel]?.url;
+    const payload: Record<string, unknown> = {
+      action: config.action,
+      connectionId: (connection as any).id,
+      contentId: (content as any).id,
+      scheduleId: schedule.id,
+      content: contentText,
+    };
+
+    if (mediaUrl) {
+      payload.mediaUrls = [mediaUrl];
+    }
+
+    const publishResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", payload);
+    if (!publishResult?.success) {
+      throw new Error(publishResult?.error || "Publish failed");
+    }
+
+    return { success: true, skipped: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await supabase
+      .from("content_schedules")
+      .update({
+        publish_status: "failed",
+        publish_error: message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", schedule.id);
+    throw error;
+  }
+}
+
 /** Fetch agent model config from ai_agent_model_configs table */
 async function getAgentModelConfig(supabase: any, orgId: string, agentName: string) {
   try {
@@ -394,8 +523,9 @@ Deno.serve(async (req) => {
 
     // ========== ACTION: check_scheduled_publish ==========
     if (action === "check_scheduled_publish") {
-      // Find pipelines at publish stage: either scheduled_publish_at <= now OR scheduled_publish_at is null
       const now = new Date().toISOString();
+
+      // 1) Scheduled agent pipelines
       const { data: scheduledPipelines } = await supabase
         .from("agent_pipelines")
         .select("id")
@@ -411,17 +541,56 @@ Deno.serve(async (req) => {
         .is("completed_at", null);
 
       const allReady = [...(scheduledPipelines || []), ...(unscheduledPipelines || [])];
-      // Deduplicate
       const seen = new Set<string>();
-      const readyPipelines = allReady.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+      const readyPipelines = allReady.filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
 
       let triggered = 0;
       for (const p of readyPipelines) {
         fireNextStage(supabaseUrl, supabaseKey, p.id, "publish");
         triggered++;
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
       }
-      return json({ success: true, triggered });
+
+      // 2) Direct schedules created in Multi-channel viewer (no pipeline)
+      const { data: dueDirectSchedules } = await supabase
+        .from("content_schedules")
+        .select("id, content_id, channel, organization_id")
+        .eq("publish_status", "scheduled")
+        .eq("channel", "facebook")
+        .lte("scheduled_at", now)
+        .order("scheduled_at", { ascending: true })
+        .limit(20);
+
+      let directPublished = 0;
+      let directFailed = 0;
+      let directSkipped = 0;
+
+      for (const schedule of dueDirectSchedules || []) {
+        try {
+          const result = await processDirectContentSchedule(supabase, supabaseUrl, supabaseKey, schedule as any);
+          if (result?.skipped) {
+            directSkipped++;
+          } else if (result?.success) {
+            directPublished++;
+          }
+        } catch (error) {
+          directFailed++;
+          console.error(`[check_scheduled_publish] Direct schedule ${schedule.id} failed:`, error);
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      return json({
+        success: true,
+        triggered,
+        direct_published: directPublished,
+        direct_failed: directFailed,
+        direct_skipped: directSkipped,
+      });
     }
 
     // ========== ACTION: recover_stuck ==========
