@@ -2,7 +2,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2 } from "lucide-react";
+import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const PLAN_NAMES: Record<string, string> = {
   free: "Miễn phí",
@@ -25,6 +26,11 @@ interface VoucherInfo {
   discount_value: number;
 }
 
+export interface PlanFeatureSummary {
+  label: string;
+  value: string;
+}
+
 export interface PaymentConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +44,8 @@ export interface PaymentConfirmDialogProps {
   finalPrice: number;
   isLoading: boolean;
   onConfirm: () => void;
+  yearlyDiscount?: number;
+  planFeatures?: PlanFeatureSummary[];
 }
 
 export function PaymentConfirmDialog({
@@ -53,124 +61,182 @@ export function PaymentConfirmDialog({
   finalPrice,
   isLoading,
   onConfirm,
+  yearlyDiscount,
+  planFeatures,
 }: PaymentConfirmDialogProps) {
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
   const priceAfterProrate = prorateInfo ? prorateInfo.proratedPrice : basePrice;
   const hasVoucherDiscount = voucher && finalPrice < priceAfterProrate;
+  const hasAnyDiscount = hasVoucherDiscount || !!prorateInfo;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Xác nhận thanh toán
-          </DialogTitle>
-          <DialogDescription>
-            Vui lòng kiểm tra thông tin đơn hàng trước khi thanh toán.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-md p-0 overflow-hidden">
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="p-6"
+            >
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Xác nhận thanh toán
+                </DialogTitle>
+                <DialogDescription>
+                  Vui lòng kiểm tra thông tin đơn hàng trước khi thanh toán.
+                </DialogDescription>
+              </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Order details */}
-          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-            {/* Workspace */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Workspace</span>
-              <span className="font-medium text-foreground truncate max-w-[200px]">{workspaceName}</span>
-            </div>
+              <div className="space-y-4 mt-4">
+                {/* Order details */}
+                <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                  {/* Workspace */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Workspace</span>
+                    <span className="font-medium text-foreground truncate max-w-[200px]">{workspaceName}</span>
+                  </div>
 
-            {/* Plan change */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Gói</span>
-              <span className="flex items-center gap-1.5 font-medium">
-                <Badge variant="outline" className="text-xs">{PLAN_NAMES[currentPlan] || currentPlan}</Badge>
-                <ArrowRight className="h-3.5 w-3.5 text-primary" />
-                <Badge className="text-xs bg-primary text-primary-foreground">{PLAN_NAMES[targetPlan] || targetPlan}</Badge>
-              </span>
-            </div>
+                  {/* Plan change */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Gói</span>
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Badge variant="outline" className="text-xs">{PLAN_NAMES[currentPlan] || currentPlan}</Badge>
+                      <ArrowRight className="h-3.5 w-3.5 text-primary" />
+                      <Badge className="text-xs bg-primary text-primary-foreground">{PLAN_NAMES[targetPlan] || targetPlan}</Badge>
+                    </span>
+                  </div>
 
-            {/* Billing cycle */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Chu kỳ</span>
-              <span className="font-medium text-foreground">
-                {billingCycle === "yearly" ? "Hàng năm" : "Hàng tháng"}
-              </span>
-            </div>
+                  {/* Billing cycle */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Chu kỳ</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">
+                        {billingCycle === "yearly" ? "Hàng năm" : "Hàng tháng"}
+                      </span>
+                      {billingCycle === "yearly" && yearlyDiscount && yearlyDiscount > 0 && (
+                        <Badge variant="secondary" className="text-xs text-primary gap-1">
+                          <TrendingDown className="h-3 w-3" />
+                          Tiết kiệm {formatPrice(yearlyDiscount)}₫
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
 
-            <Separator />
+                  <Separator />
 
-            {/* Base price */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Giá gốc</span>
-              <span className="font-medium text-foreground">{formatPrice(basePrice)}₫</span>
-            </div>
+                  {/* Base price */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Giá gốc</span>
+                    <span className={`font-medium ${hasAnyDiscount ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {formatPrice(basePrice)}₫
+                    </span>
+                  </div>
 
-            {/* Prorate */}
-            {prorateInfo && (
-              <div className="flex items-start justify-between text-sm">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  Tính theo ngày
-                </span>
-                <div className="text-right">
-                  <span className="font-medium text-foreground">{formatPrice(prorateInfo.proratedPrice)}₫</span>
-                  <p className="text-xs text-muted-foreground">{prorateInfo.daysRemaining} ngày còn lại</p>
+                  {/* Prorate */}
+                  {prorateInfo && (
+                    <div className="flex items-start justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        Tính theo ngày
+                      </span>
+                      <div className="text-right">
+                        <span className="font-medium text-foreground">{formatPrice(prorateInfo.proratedPrice)}₫</span>
+                        <p className="text-xs text-muted-foreground">{prorateInfo.daysRemaining} ngày còn lại</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Voucher */}
+                  {hasVoucherDiscount && (
+                    <div className="flex items-start justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Tag className="h-3.5 w-3.5" />
+                        Voucher
+                      </span>
+                      <div className="text-right">
+                        <Badge variant="secondary" className="font-mono text-xs">{voucher!.code}</Badge>
+                        <p className="text-xs text-primary mt-0.5">
+                          {voucher!.discount_type === "percentage"
+                            ? `Giảm ${voucher!.discount_value}%`
+                            : `Giảm ${formatPrice(voucher!.discount_value)}₫`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Total */}
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3 -mx-1">
+                    <span className="font-semibold text-foreground">Tổng thanh toán</span>
+                    <span className="text-2xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                      {formatPrice(finalPrice)}₫
+                    </span>
+                  </div>
+                </div>
+
+                {/* Plan features */}
+                {planFeatures && planFeatures.length > 0 && (
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <p className="text-sm font-medium text-foreground flex items-center gap-1.5 mb-3">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Tính năng gói {PLAN_NAMES[targetPlan] || targetPlan}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {planFeatures.map((feat, i) => (
+                        <div key={i} className="flex items-center justify-between rounded-lg bg-background/60 px-3 py-2 text-sm">
+                          <span className="text-muted-foreground text-xs">{feat.label}</span>
+                          <span className="font-semibold text-foreground text-xs">{feat.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment method */}
+                <div className="rounded-lg border border-border p-3 flex items-center gap-3">
+                  <CreditCard className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">VNPay</p>
+                    <p className="text-xs text-muted-foreground">ATM nội địa, QR code, Ví điện tử</p>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Voucher */}
-            {hasVoucherDiscount && (
-              <div className="flex items-start justify-between text-sm">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Tag className="h-3.5 w-3.5" />
-                  Voucher
-                </span>
-                <div className="text-right">
-                  <Badge variant="secondary" className="font-mono text-xs">{voucher!.code}</Badge>
-                  <p className="text-xs text-primary mt-0.5">
-                    {voucher!.discount_type === "percentage"
-                      ? `Giảm ${voucher!.discount_value}%`
-                      : `Giảm ${formatPrice(voucher!.discount_value)}₫`}
-                  </p>
+              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-4">
+                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+                  Quay lại
+                </Button>
+                <Button onClick={onConfirm} disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Lock className="h-4 w-4 mr-2" />
+                  )}
+                  Xác nhận & Thanh toán
+                </Button>
+              </DialogFooter>
+
+              {/* Security & terms footer */}
+              <div className="mt-4 flex flex-col items-center gap-1.5">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Bảo mật bởi VNPay</span>
                 </div>
+                <p className="text-[11px] text-muted-foreground/70 text-center">
+                  Bằng việc thanh toán, bạn đồng ý với{" "}
+                  <a href="/terms" className="underline hover:text-foreground transition-colors">
+                    Điều khoản sử dụng
+                  </a>
+                </p>
               </div>
-            )}
-
-            <Separator />
-
-            {/* Total */}
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Tổng thanh toán</span>
-              <span className="text-2xl font-extrabold text-primary">{formatPrice(finalPrice)}₫</span>
-            </div>
-          </div>
-
-          {/* Payment method */}
-          <div className="rounded-lg border border-border p-3 flex items-center gap-3">
-            <CreditCard className="h-5 w-5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-foreground">VNPay</p>
-              <p className="text-xs text-muted-foreground">ATM nội địa, QR code, Ví điện tử</p>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Quay lại
-          </Button>
-          <Button onClick={onConfirm} disabled={isLoading}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <CreditCard className="h-4 w-4 mr-2" />
-            )}
-            Xác nhận & Thanh toán
-          </Button>
-        </DialogFooter>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </DialogContent>
     </Dialog>
   );
