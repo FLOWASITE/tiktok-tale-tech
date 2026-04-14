@@ -203,5 +203,7 @@ export function UsageQuotaWidget() {
         </div>
       </CardContent>
     </Card>
+    <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+    </>
   );
 }
