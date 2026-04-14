@@ -98,16 +98,6 @@ export default function PaymentResult() {
     return () => clearTimeout(timer);
   }, [isSuccess, countdown, navigate]);
 
-  if (!responseCode) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const errorMessage = !isSuccess ? (VNPAY_ERRORS[responseCode] || "Giao dịch không thành công") : "";
-
   const bankCodeLabel = useMemo(() => {
     const map: Record<string, string> = {
       VNPAYQR: "QR Code",
@@ -117,6 +107,16 @@ export default function PaymentResult() {
     };
     return bankCode ? (map[bankCode] || bankCode) : null;
   }, [bankCode]);
+
+  if (!responseCode) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const errorMessage = !isSuccess ? (VNPAY_ERRORS[responseCode] || "Giao dịch không thành công") : "";
 
   const transactionDetails = [
     { label: "Mã giao dịch", value: txnRef, icon: Hash },
