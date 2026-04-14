@@ -96,7 +96,11 @@ export function UsageQuotaWidget() {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             Hạn mức sử dụng
-            <Badge variant="outline" className={cn('text-[9px] px-1.5 py-0 border', planBadge.className)}>
+            <Badge
+              variant="outline"
+              className={cn('text-[9px] px-1.5 py-0 border cursor-pointer hover:opacity-80 transition-opacity', planBadge.className)}
+              onClick={() => setUpgradeOpen(true)}
+            >
               {planBadge.label}
             </Badge>
             {(() => {
