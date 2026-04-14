@@ -62,7 +62,7 @@ export interface PaymentConfirmDialogProps {
   voucher?: VoucherInfo | null;
   finalPrice: number;
   isLoading: boolean;
-  onConfirm: (bankCode?: string) => void;
+  onConfirm: (bankCode?: string, gateway?: PaymentGateway) => void;
   yearlyDiscount?: number;
   planFeatures?: PlanFeatureSummary[];
   onVoucherChange?: (voucher: VoucherInfo | null, newPrice: number) => void;
