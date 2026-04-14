@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useAIErrorHandler } from './useAIErrorHandler';
@@ -820,7 +821,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setSuggestErrorCode(null);
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: functionError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'suggest',
           contentGoal,
@@ -831,13 +832,11 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           forceRefresh: forceRefresh || !!categoryHint,
           categoryHint: categoryHint || undefined,
         },
+        timeoutMs: 90_000, // 90s to handle slow LLM generation
       });
 
       if (functionError) {
-        // Preserve context from FunctionsHttpError for structured error handling
-        const wrappedErr: any = new Error(functionError.message);
-        wrappedErr.context = (functionError as any).context;
-        throw wrappedErr;
+        throw functionError;
       }
 
       if (data?.suggestions && data.suggestions.length > 0) {

@@ -10,6 +10,7 @@ import { callAI as callAIProvider } from "../ai-provider.ts";
 import { getAIConfig } from "../ai-config.ts";
 
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -268,8 +269,11 @@ async function searchWithPerplexity(
   industry?: string,
   recency?: string
 ): Promise<WebSearchResponse> {
-  if (!PERPLEXITY_API_KEY) {
-    throw new Error('PERPLEXITY_API_KEY not configured');
+  // Prefer OpenRouter for Perplexity models (avoids direct quota issues)
+  const useOpenRouter = !!OPENROUTER_API_KEY;
+  
+  if (!useOpenRouter && !PERPLEXITY_API_KEY) {
+    throw new Error('Neither OPENROUTER_API_KEY nor PERPLEXITY_API_KEY configured');
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -287,28 +291,45 @@ async function searchWithPerplexity(
       break;
   }
 
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+  const apiUrl = useOpenRouter
+    ? 'https://openrouter.ai/api/v1/chat/completions'
+    : 'https://api.perplexity.ai/chat/completions';
+  const apiKey = useOpenRouter ? OPENROUTER_API_KEY : PERPLEXITY_API_KEY;
+  const model = useOpenRouter ? 'perplexity/sonar' : 'sonar';
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (useOpenRouter) {
+    headers['HTTP-Referer'] = 'https://flowa.vn';
+    headers['X-Title'] = 'Flowa Web Search';
+  }
+
+  const bodyPayload: Record<string, unknown> = {
+    model,
+    messages: [
+      { role: 'system', content: buildPerplexityPrompt(searchType, industry) },
+      { role: 'user', content: enhancedQuery }
+    ],
+    temperature: 0.3,
+  };
+  // search_recency_filter only works with direct Perplexity API
+  if (!useOpenRouter) {
+    bodyPayload.search_recency_filter = recency || 'week';
+  }
+
+  const response = await fetch(apiUrl, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'sonar',
-      messages: [
-        { role: 'system', content: buildPerplexityPrompt(searchType, industry) },
-        { role: 'user', content: enhancedQuery }
-      ],
-      search_recency_filter: recency || 'week',
-      temperature: 0.3,
-    }),
+    headers,
+    body: JSON.stringify(bodyPayload),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    const error = new Error(`Perplexity API error: ${response.status}`);
+    const error = new Error(`${useOpenRouter ? 'OpenRouter/Perplexity' : 'Perplexity'} API error: ${response.status}`);
     (error as any).statusCode = response.status;
-    console.error('[WebSearchFallback] Perplexity error:', response.status, errorText);
+    console.error(`[WebSearchFallback] ${useOpenRouter ? 'OpenRouter' : 'Perplexity'} error:`, response.status, errorText);
     throw error;
   }
 
@@ -326,7 +347,7 @@ async function searchWithPerplexity(
     results,
     citations,
     total_results: results.length,
-    message: `Tìm thấy ${results.length} kết quả từ Perplexity`,
+    message: `Tìm thấy ${results.length} kết quả từ ${useOpenRouter ? 'OpenRouter/Perplexity' : 'Perplexity'}`,
   };
 }
 
