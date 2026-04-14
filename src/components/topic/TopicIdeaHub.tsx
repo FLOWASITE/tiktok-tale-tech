@@ -46,6 +46,7 @@ export function TopicIdeaHub({
   onBrainstorm,
   onSave,
   onFeedback,
+  brandTemplateId,
   contentGoal,
   disabled = false,
   showEnhancedInfo = true,
