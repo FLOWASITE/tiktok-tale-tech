@@ -158,6 +158,7 @@ export function TopicIdeaHub({
               showEnhancedInfo={showEnhancedInfo}
               showNavigateToTopics={showNavigateToTopics}
               contentGoal={contentGoal}
+              brandTemplateId={brandTemplateId}
             />
           </div>
         </CollapsibleContent>
