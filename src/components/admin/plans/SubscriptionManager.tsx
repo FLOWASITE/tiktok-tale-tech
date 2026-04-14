@@ -4,57 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Download, Search, RefreshCw, Loader2, History, ArrowUpDown, Users, CheckCircle, XCircle, CreditCard, Ban, ChevronUp, ChevronDown, Copy, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Download, Search, RefreshCw, Loader2, Ban, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { format, differenceInDays } from "date-fns";
-
-interface SubRow {
-  id: string;
-  organization_id: string;
-  user_id: string | null;
-  plan_type: string;
-  status: string;
-  current_period_start: string;
-  current_period_end: string;
-  created_at: string;
-  org_name: string;
-  owner_email: string;
-}
-
-type SortField = "org_name" | "plan_type" | "status" | "current_period_end" | "created_at";
-type SortOrder = "asc" | "desc";
-
-interface ConfirmAction {
-  type: "change_plan" | "renew" | "cancel" | "bulk_renew" | "bulk_cancel";
-  subId?: string;
-  planType?: string;
-  orgName?: string;
-  currentPlan?: string;
-  count?: number;
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-  expired: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  trial: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-};
-
-const PAYMENT_STATUS_COLORS: Record<string, string> = {
-  success: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-};
+import { differenceInDays } from "date-fns";
+import type { SubRow, SortField, SortOrder, ConfirmAction } from "./subscription-types";
+import SubscriptionSummaryCards from "./SubscriptionSummaryCards";
+import SubscriptionTable from "./SubscriptionTable";
+import SubscriptionDetailDrawer from "./SubscriptionDetailDrawer";
+import PaymentHistoryDialog from "./PaymentHistoryDialog";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -70,30 +32,30 @@ function getDaysRemaining(dateStr: string): number {
   return differenceInDays(new Date(dateStr), new Date());
 }
 
-function getRowHighlight(sub: SubRow): string {
-  if (sub.status !== "active") return "";
-  const days = getDaysRemaining(sub.current_period_end);
-  if (days < 0) return "bg-destructive/8 dark:bg-destructive/15";
-  if (days <= 7) return "bg-yellow-50 dark:bg-yellow-900/15";
-  return "";
-}
-
 export default function SubscriptionManager() {
   const queryClient = useQueryClient();
   const [filterPlan, setFilterPlan] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [search, setSearch] = useState("");
-  const [paymentOrgId, setPaymentOrgId] = useState<string | null>(null);
-  const [paymentOrgName, setPaymentOrgName] = useState("");
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pendingPlanChange, setPendingPlanChange] = useState<{ subId: string; planType: string } | null>(null);
+  const [resetCycle, setResetCycle] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Fetch subscriptions with owner emails
+  // Detail drawer
+  const [detailSub, setDetailSub] = useState<SubRow | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  // Payment dialog
+  const [paymentOrgId, setPaymentOrgId] = useState<string | null>(null);
+  const [paymentOrgName, setPaymentOrgName] = useState("");
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+
+  // Fetch subscriptions
   const subsQuery = useQuery({
     queryKey: ["admin_subscriptions"],
     queryFn: async (): Promise<SubRow[]> => {
@@ -113,7 +75,6 @@ export default function SubscriptionManager() {
 
       const orgMap: Record<string, string> = {};
       orgsRes.data?.forEach((o: any) => { orgMap[o.id] = o.name; });
-
       const emailMap: Record<string, string> = {};
       profilesRes.data?.forEach((p: any) => { emailMap[p.id] = p.email; });
 
@@ -125,41 +86,20 @@ export default function SubscriptionManager() {
     },
   });
 
-  // Payment history
-  const paymentQuery = useQuery({
-    queryKey: ["admin_payments", paymentOrgId],
-    queryFn: async () => {
-      if (!paymentOrgId) return [];
-      const { data, error } = await supabase
-        .from("payment_orders")
-        .select("*")
-        .eq("organization_id", paymentOrgId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!paymentOrgId,
-  });
-
   // Mutations
   const changePlanMutation = useMutation({
-    mutationFn: async ({ subId, planType }: { subId: string; planType: string }) => {
-      const periodEnd = new Date();
-      periodEnd.setDate(periodEnd.getDate() + 30);
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({
-          plan_type: planType as any,
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-        })
-        .eq("id", subId);
+    mutationFn: async ({ subId, planType, shouldResetCycle }: { subId: string; planType: string; shouldResetCycle: boolean }) => {
+      const updateData: any = { plan_type: planType };
+      if (shouldResetCycle) {
+        const periodEnd = new Date();
+        periodEnd.setDate(periodEnd.getDate() + 30);
+        updateData.current_period_start = new Date().toISOString();
+        updateData.current_period_end = periodEnd.toISOString();
+      }
+      const { error } = await supabase.from("subscriptions").update(updateData).eq("id", subId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
-      toast.success("Đã đổi gói thành công");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] }); toast.success("Đã đổi gói thành công"); },
     onError: (err) => toast.error("Lỗi: " + err.message),
   });
 
@@ -167,49 +107,38 @@ export default function SubscriptionManager() {
     mutationFn: async (subId: string) => {
       const periodEnd = new Date();
       periodEnd.setDate(periodEnd.getDate() + 30);
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({
-          status: "active" as any,
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-        })
-        .eq("id", subId);
+      const { error } = await supabase.from("subscriptions").update({
+        status: "active" as any,
+        current_period_start: new Date().toISOString(),
+        current_period_end: periodEnd.toISOString(),
+      }).eq("id", subId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
-      toast.success("Đã gia hạn thành công");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] }); toast.success("Đã gia hạn thành công"); },
     onError: (err) => toast.error("Lỗi: " + err.message),
   });
 
   const cancelMutation = useMutation({
     mutationFn: async (subId: string) => {
-      const { error } = await supabase
-        .from("subscriptions")
-        .update({ status: "cancelled" as any, cancelled_at: new Date().toISOString() })
-        .eq("id", subId);
+      const { error } = await supabase.from("subscriptions").update({ status: "cancelled" as any, cancelled_at: new Date().toISOString() }).eq("id", subId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
-      toast.success("Đã hủy subscription");
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] }); toast.success("Đã hủy subscription"); },
     onError: (err) => toast.error("Lỗi: " + err.message),
   });
 
-  const isMutating = changePlanMutation.isPending || renewMutation.isPending || cancelMutation.isPending;
+  const isMutating = changePlanMutation.isPending || renewMutation.isPending || cancelMutation.isPending || !!bulkProgress;
 
-  // Confirm action handler
+  // Confirm handler
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
     try {
       switch (confirmAction.type) {
         case "change_plan":
           if (pendingPlanChange) {
-            await changePlanMutation.mutateAsync(pendingPlanChange as any);
+            await changePlanMutation.mutateAsync({ ...pendingPlanChange, shouldResetCycle: resetCycle });
             setPendingPlanChange(null);
+            setResetCycle(false);
           }
           break;
         case "renew":
@@ -218,26 +147,32 @@ export default function SubscriptionManager() {
         case "cancel":
           if (confirmAction.subId) await cancelMutation.mutateAsync(confirmAction.subId);
           break;
-        case "bulk_renew":
-          for (const id of selectedIds) {
-            await renewMutation.mutateAsync(id);
+        case "bulk_renew": {
+          const ids = Array.from(selectedIds);
+          for (let i = 0; i < ids.length; i++) {
+            setBulkProgress({ current: i + 1, total: ids.length });
+            await renewMutation.mutateAsync(ids[i]);
           }
+          setBulkProgress(null);
           setSelectedIds(new Set());
           break;
-        case "bulk_cancel":
-          for (const id of selectedIds) {
-            await cancelMutation.mutateAsync(id);
+        }
+        case "bulk_cancel": {
+          const ids = Array.from(selectedIds);
+          for (let i = 0; i < ids.length; i++) {
+            setBulkProgress({ current: i + 1, total: ids.length });
+            await cancelMutation.mutateAsync(ids[i]);
           }
+          setBulkProgress(null);
           setSelectedIds(new Set());
           break;
+        }
       }
-    } catch {
-      // errors handled by mutation callbacks
-    }
+    } catch { /* handled by mutation */ }
     setConfirmAction(null);
   };
 
-  // Sort & filter
+  // Filter & sort
   const allSubs = subsQuery.data || [];
 
   const filtered = useMemo(() => {
@@ -255,23 +190,16 @@ export default function SubscriptionManager() {
       }
       return true;
     });
-
     result.sort((a, b) => {
-      let cmp = 0;
-      const aVal = a[sortField] || "";
-      const bVal = b[sortField] || "";
-      cmp = String(aVal).localeCompare(String(bVal));
+      const cmp = String(a[sortField] || "").localeCompare(String(b[sortField] || ""));
       return sortOrder === "asc" ? cmp : -cmp;
     });
-
     return result;
   }, [allSubs, filterPlan, filterStatus, search, sortField, sortOrder]);
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  // Summary stats
   const stats = useMemo(() => {
     const total = allSubs.length;
     const active = allSubs.filter((s) => s.status === "active").length;
@@ -285,7 +213,6 @@ export default function SubscriptionManager() {
     return { total, active, cancelledExpired, paid, expiringSoon, paidRatio: total > 0 ? ((paid / total) * 100).toFixed(1) : "0" };
   }, [allSubs]);
 
-  // Selection helpers
   const allPageSelected = paginated.length > 0 && paginated.every((s) => selectedIds.has(s.id));
   const someSelected = selectedIds.size > 0;
 
@@ -294,7 +221,6 @@ export default function SubscriptionManager() {
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelectedIds(next);
   };
-
   const toggleSelectAll = () => {
     if (allPageSelected) {
       const next = new Set(selectedIds);
@@ -308,156 +234,40 @@ export default function SubscriptionManager() {
   };
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortOrder("asc");
-    }
+    if (sortField === field) setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortOrder("asc"); }
     setPage(1);
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
-    return sortOrder === "asc" ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />;
-  };
-
   const exportCSV = () => {
-    const rows = filtered;
     const csv = [
       ["Workspace", "Email", "Plan", "Status", "Period Start", "Period End", "Created At"].map(escapeCSVValue).join(","),
-      ...rows.map((r) =>
+      ...filtered.map((r) =>
         [r.org_name, r.owner_email, r.plan_type, r.status, r.current_period_start, r.current_period_end, r.created_at].map(escapeCSVValue).join(",")
       ),
     ].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "subscriptions.csv";
-    a.click();
+    a.href = url; a.download = "subscriptions.csv"; a.click();
     URL.revokeObjectURL(url);
   };
-
-  const openPaymentDialog = (orgId: string, orgName: string) => {
-    setPaymentOrgId(orgId);
-    setPaymentOrgName(orgName);
-    setPaymentDialogOpen(true);
-  };
-
-  const closePaymentDialog = () => {
-    setPaymentDialogOpen(false);
-    setTimeout(() => {
-      setPaymentOrgId(null);
-      setPaymentOrgName("");
-    }, 200);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => toast.success("Đã copy mã giao dịch"));
-  };
-
-  const paymentTotal = useMemo(() => {
-    if (!paymentQuery.data) return 0;
-    return paymentQuery.data
-      .filter((p: any) => p.status === "success" || p.status === "completed")
-      .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-  }, [paymentQuery.data]);
 
   const isLoading = subsQuery.isLoading;
   const isRefetching = subsQuery.isRefetching;
 
-  const renderDaysRemaining = (sub: SubRow) => {
-    if (!sub.current_period_end) return null;
-    const days = getDaysRemaining(sub.current_period_end);
-    if (days < 0) {
-      return <span className="text-xs text-destructive font-medium">Đã hết hạn</span>;
-    }
-    if (days === 0) {
-      return <span className="text-xs text-destructive font-medium">Hết hạn hôm nay</span>;
-    }
-    if (days <= 7) {
-      return <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-0.5"><AlertTriangle className="h-3 w-3" /> còn {days} ngày</span>;
-    }
-    return <span className="text-xs text-muted-foreground">còn {days} ngày</span>;
-  };
-
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <Card className="border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Tổng cộng</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.active}</p>
-                <p className="text-xs text-muted-foreground">Đang hoạt động</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.expiringSoon}</p>
-                <p className="text-xs text-muted-foreground">Sắp hết hạn</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.cancelledExpired}</p>
-                <p className="text-xs text-muted-foreground">Đã hủy / Hết hạn</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.paidRatio}%</p>
-                <p className="text-xs text-muted-foreground">Trả phí ({stats.paid})</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <SubscriptionSummaryCards stats={stats} activeFilter={filterStatus} onFilter={(s) => { setFilterStatus(s); setPage(1); }} />
 
-        {/* Main Table Card */}
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
               <CardTitle className="text-lg">Danh sách Subscriptions ({filtered.length})</CardTitle>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => subsQuery.refetch()}
-                  disabled={isRefetching}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${isRefetching ? "animate-spin" : ""}`} />
-                  Refresh
+                <Button variant="outline" size="sm" onClick={() => subsQuery.refetch()} disabled={isRefetching}>
+                  <RefreshCw className={`h-4 w-4 mr-1 ${isRefetching ? "animate-spin" : ""}`} /> Refresh
                 </Button>
                 <Button variant="outline" size="sm" onClick={exportCSV}>
                   <Download className="h-4 w-4 mr-1" /> Export CSV
@@ -485,41 +295,31 @@ export default function SubscriptionManager() {
                   <SelectItem value="all">Tất cả</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="expiring_soon">
-                    <span className="flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3 text-yellow-500" />
-                      Sắp hết hạn (≤7 ngày)
-                    </span>
+                    <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-yellow-500" /> Sắp hết hạn (≤7 ngày)</span>
                   </SelectItem>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                   <SelectItem value="expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Bulk action toolbar */}
             {someSelected && (
               <div className="flex items-center gap-2 mt-2 p-2 bg-muted/50 rounded-lg border border-border/50">
                 <span className="text-sm font-medium">Đã chọn {selectedIds.size}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isMutating}
+                <Button variant="outline" size="sm" disabled={isMutating}
                   onClick={() => setConfirmAction({ type: "bulk_renew", count: selectedIds.size })}
                 >
                   <RefreshCw className="h-3.5 w-3.5 mr-1" /> Gia hạn tất cả
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isMutating}
+                <Button variant="outline" size="sm" disabled={isMutating}
                   className="text-destructive border-destructive/30 hover:bg-destructive/10"
                   onClick={() => setConfirmAction({ type: "bulk_cancel", count: selectedIds.size })}
                 >
                   <Ban className="h-3.5 w-3.5 mr-1" /> Hủy tất cả
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                  Bỏ chọn
-                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Bỏ chọn</Button>
               </div>
             )}
           </CardHeader>
@@ -527,263 +327,44 @@ export default function SubscriptionManager() {
             {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40px]">
-                          <Checkbox checked={allPageSelected} onCheckedChange={toggleSelectAll} />
-                        </TableHead>
-                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("org_name")}>
-                          <div className="flex items-center">Workspace <SortIcon field="org_name" /></div>
-                        </TableHead>
-                        <TableHead className="hidden lg:table-cell">Email</TableHead>
-                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("plan_type")}>
-                          <div className="flex items-center">Gói <SortIcon field="plan_type" /></div>
-                        </TableHead>
-                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
-                          <div className="flex items-center">Trạng thái <SortIcon field="status" /></div>
-                        </TableHead>
-                        <TableHead className="hidden md:table-cell cursor-pointer select-none" onClick={() => handleSort("created_at")}>
-                          <div className="flex items-center">Ngày tạo <SortIcon field="created_at" /></div>
-                        </TableHead>
-                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("current_period_end")}>
-                          <div className="flex items-center">Hết hạn <SortIcon field="current_period_end" /></div>
-                        </TableHead>
-                        <TableHead className="text-right">Hành động</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginated.map((sub) => {
-                        const rowHighlight = getRowHighlight(sub);
-                        const selectedHighlight = selectedIds.has(sub.id) ? "bg-primary/5" : "";
-                        return (
-                          <TableRow key={sub.id} className={`${rowHighlight} ${selectedHighlight}`.trim()}>
-                            <TableCell>
-                              <Checkbox checked={selectedIds.has(sub.id)} onCheckedChange={() => toggleSelect(sub.id)} />
-                            </TableCell>
-                            <TableCell className="font-medium max-w-[200px] truncate">{sub.org_name}</TableCell>
-                            <TableCell className="hidden lg:table-cell text-sm text-muted-foreground max-w-[180px] truncate">
-                              {sub.owner_email}
-                            </TableCell>
-                            <TableCell>
-                              <Select
-                                value={sub.plan_type}
-                                onValueChange={(val) => {
-                                  setPendingPlanChange({ subId: sub.id, planType: val });
-                                  setConfirmAction({
-                                    type: "change_plan",
-                                    subId: sub.id,
-                                    planType: val,
-                                    orgName: sub.org_name,
-                                    currentPlan: sub.plan_type,
-                                  });
-                                }}
-                              >
-                                <SelectTrigger className="w-[120px] h-8 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="free">Free</SelectItem>
-                                  <SelectItem value="starter">Starter</SelectItem>
-                                  <SelectItem value="pro">Pro</SelectItem>
-                                  <SelectItem value="enterprise">Enterprise</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={STATUS_COLORS[sub.status] || ""}>{sub.status}</Badge>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                              {sub.created_at ? format(new Date(sub.created_at), "dd/MM/yyyy") : "—"}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-sm text-muted-foreground">
-                                  {sub.current_period_end ? format(new Date(sub.current_period_end), "dd/MM/yyyy") : "—"}
-                                </span>
-                                {renderDaysRemaining(sub)}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right space-x-1">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={isMutating}
-                                    onClick={() => setConfirmAction({ type: "renew", subId: sub.id, orgName: sub.org_name })}
-                                  >
-                                    <RefreshCw className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Gia hạn 30 ngày</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openPaymentDialog(sub.organization_id, sub.org_name)}
-                                  >
-                                    <History className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Lịch sử thanh toán</TooltipContent>
-                              </Tooltip>
-                              {sub.status === "active" && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      disabled={isMutating}
-                                      className="text-destructive hover:text-destructive"
-                                      onClick={() => setConfirmAction({ type: "cancel", subId: sub.id, orgName: sub.org_name })}
-                                    >
-                                      ✕
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Hủy subscription</TooltipContent>
-                                </Tooltip>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {filtered.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                            Không tìm thấy subscription nào
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Hiển thị {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} / {filtered.length}
-                    </p>
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            className={page <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                          />
-                        </PaginationItem>
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum: number;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (page <= 3) {
-                            pageNum = i + 1;
-                          } else if (page >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = page - 2 + i;
-                          }
-                          return (
-                            <PaginationItem key={pageNum}>
-                              <PaginationLink
-                                isActive={pageNum === page}
-                                onClick={() => setPage(pageNum)}
-                                className="cursor-pointer"
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        })}
-                        <PaginationItem>
-                          <PaginationNext
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            className={page >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </>
+              <SubscriptionTable
+                paginated={paginated}
+                filtered={filtered}
+                page={page}
+                totalPages={totalPages}
+                itemsPerPage={ITEMS_PER_PAGE}
+                sortField={sortField}
+                sortOrder={sortOrder}
+                selectedIds={selectedIds}
+                isMutating={isMutating}
+                allPageSelected={allPageSelected}
+                onSort={handleSort}
+                onPageChange={setPage}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                onConfirmAction={setConfirmAction}
+                onPlanChange={(subId, planType, orgName, currentPlan) => {
+                  setPendingPlanChange({ subId, planType });
+                  setConfirmAction({ type: "change_plan", subId, planType, orgName, currentPlan });
+                }}
+                onOpenPayment={(orgId, orgName) => { setPaymentOrgId(orgId); setPaymentOrgName(orgName); setPaymentDialogOpen(true); }}
+                onOpenDetail={(sub) => { setDetailSub(sub); setDetailOpen(true); }}
+              />
             )}
           </CardContent>
         </Card>
 
-        {/* Payment History Dialog */}
-        <Dialog open={paymentDialogOpen} onOpenChange={(open) => { if (!open) closePaymentDialog(); }}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Lịch sử thanh toán — {paymentOrgName}</DialogTitle>
-            </DialogHeader>
-            <div className="max-h-[400px] overflow-y-auto">
-              {paymentQuery.isLoading ? (
-                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-              ) : paymentQuery.data && paymentQuery.data.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ngày</TableHead>
-                      <TableHead>Gói</TableHead>
-                      <TableHead>Chu kỳ</TableHead>
-                      <TableHead>Mã GD</TableHead>
-                      <TableHead>Số tiền</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paymentQuery.data.map((p: any) => {
-                      const txnRef = p.vnpay_txn_ref || (p.metadata as any)?.vnpay_txn_ref || p.payment_reference || "—";
-                      return (
-                        <TableRow key={p.id}>
-                          <TableCell className="text-sm">{format(new Date(p.created_at), "dd/MM/yyyy")}</TableCell>
-                          <TableCell className="text-sm capitalize">{p.plan_type}</TableCell>
-                          <TableCell className="text-sm capitalize">{p.billing_cycle || "—"}</TableCell>
-                          <TableCell className="text-sm">
-                            {txnRef !== "—" ? (
-                              <button
-                                className="flex items-center gap-1 text-primary hover:underline font-mono text-xs"
-                                onClick={() => copyToClipboard(txnRef)}
-                                title="Click để copy"
-                              >
-                                {txnRef.length > 16 ? txnRef.slice(0, 16) + "…" : txnRef}
-                                <Copy className="h-3 w-3" />
-                              </button>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">{Number(p.amount).toLocaleString()}₫</TableCell>
-                          <TableCell>
-                            <Badge className={`text-xs ${PAYMENT_STATUS_COLORS[p.status] || ""}`}>
-                              {p.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">Chưa có lịch sử thanh toán</p>
-              )}
-            </div>
-            {paymentTotal > 0 && (
-              <div className="flex justify-between items-center pt-3 border-t border-border/50">
-                <span className="text-sm text-muted-foreground">Tổng chi tiêu</span>
-                <span className="text-lg font-bold text-primary">{paymentTotal.toLocaleString()}₫</span>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <PaymentHistoryDialog
+          orgId={paymentOrgId}
+          orgName={paymentOrgName}
+          open={paymentDialogOpen}
+          onClose={() => { setPaymentDialogOpen(false); setTimeout(() => { setPaymentOrgId(null); setPaymentOrgName(""); }, 200); }}
+        />
+
+        <SubscriptionDetailDrawer sub={detailSub} open={detailOpen} onClose={() => { setDetailOpen(false); setTimeout(() => setDetailSub(null), 200); }} />
 
         {/* Confirm Action Dialog */}
-        <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) { setConfirmAction(null); setPendingPlanChange(null); } }}>
+        <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open && !bulkProgress) { setConfirmAction(null); setPendingPlanChange(null); setResetCycle(false); } }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
@@ -793,22 +374,36 @@ export default function SubscriptionManager() {
                 {confirmAction?.type === "bulk_renew" && "Xác nhận gia hạn hàng loạt"}
                 {confirmAction?.type === "bulk_cancel" && "Xác nhận hủy hàng loạt"}
               </AlertDialogTitle>
-              <AlertDialogDescription>
-                {confirmAction?.type === "change_plan" && (
-                  <>Đổi gói từ <strong className="capitalize">{confirmAction.currentPlan}</strong> → <strong className="capitalize">{confirmAction.planType}</strong> cho workspace <strong>{confirmAction.orgName}</strong>?</>
-                )}
-                {confirmAction?.type === "renew" && (
-                  <>Gia hạn thêm 30 ngày cho workspace <strong>{confirmAction.orgName}</strong>?</>
-                )}
-                {confirmAction?.type === "cancel" && (
-                  <>Bạn chắc chắn muốn hủy subscription của <strong>{confirmAction.orgName}</strong>? Hành động này không thể hoàn tác.</>
-                )}
-                {confirmAction?.type === "bulk_renew" && (
-                  <>Gia hạn thêm 30 ngày cho <strong>{confirmAction.count}</strong> subscription đã chọn?</>
-                )}
-                {confirmAction?.type === "bulk_cancel" && (
-                  <>Bạn chắc chắn muốn hủy <strong>{confirmAction.count}</strong> subscription đã chọn? Hành động này không thể hoàn tác.</>
-                )}
+              <AlertDialogDescription asChild>
+                <div>
+                  {confirmAction?.type === "change_plan" && (
+                    <div className="space-y-3">
+                      <p>Đổi gói từ <strong className="capitalize">{confirmAction.currentPlan}</strong> → <strong className="capitalize">{confirmAction.planType}</strong> cho workspace <strong>{confirmAction.orgName}</strong>?</p>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox checked={resetCycle} onCheckedChange={(c) => setResetCycle(!!c)} />
+                        <span className="text-sm">Reset chu kỳ thanh toán (bắt đầu lại từ hôm nay)</span>
+                      </label>
+                    </div>
+                  )}
+                  {confirmAction?.type === "renew" && (
+                    <p>Gia hạn thêm 30 ngày cho workspace <strong>{confirmAction.orgName}</strong>?</p>
+                  )}
+                  {confirmAction?.type === "cancel" && (
+                    <p>Bạn chắc chắn muốn hủy subscription của <strong>{confirmAction.orgName}</strong>? Hành động này không thể hoàn tác.</p>
+                  )}
+                  {confirmAction?.type === "bulk_renew" && (
+                    <p>Gia hạn thêm 30 ngày cho <strong>{confirmAction.count}</strong> subscription đã chọn?</p>
+                  )}
+                  {confirmAction?.type === "bulk_cancel" && (
+                    <p>Bạn chắc chắn muốn hủy <strong>{confirmAction.count}</strong> subscription đã chọn? Hành động này không thể hoàn tác.</p>
+                  )}
+                  {bulkProgress && (
+                    <div className="mt-3 space-y-1">
+                      <p className="text-sm font-medium">Đang xử lý {bulkProgress.current}/{bulkProgress.total}...</p>
+                      <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="h-2" />
+                    </div>
+                  )}
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
