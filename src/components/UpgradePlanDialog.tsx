@@ -139,7 +139,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
     const plan = (planLimits || []).find(p => p.plan_type === planType);
     if (!plan) return undefined;
     return [
-      { label: "Thương hiệu", value: String(plan.max_brands ?? 0) },
+      { label: "Thương hiệu", value: String(plan.monthly_brands ?? 0) },
       { label: "Bài đa kênh/tháng", value: String(plan.monthly_multichannel ?? 0) },
       { label: "Ảnh AI/tháng", value: String(plan.monthly_images ?? 0) },
       { label: "Scripts/tháng", value: String(plan.monthly_scripts ?? 0) },
