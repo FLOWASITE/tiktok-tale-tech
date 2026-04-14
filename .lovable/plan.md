@@ -1,39 +1,31 @@
 
 
-## Thêm UI chọn phương thức thanh toán VNPay (QR Code / ATM / Ví điện tử)
+## Cập nhật edge function `create-vnpay-payment` hỗ trợ sandbox/production
 
-### Mô tả
-Thêm bước chọn phương thức thanh toán trong PaymentConfirmDialog. User chọn 1 trong 3 phương thức, hệ thống truyền `vnp_BankCode` tương ứng sang VNPay để redirect đúng luồng.
+### Thay đổi
 
-### Phương thức VNPay hỗ trợ
-| Phương thức | vnp_BankCode | Mô tả |
-|---|---|---|
-| QR Code | `VNPAYQR` | Quét mã QR bằng app ngân hàng |
-| ATM nội địa | `VNBANK` | Thẻ ATM/Internet Banking |
-| Ví điện tử | `VNPAYEWALLET` | Ví VNPay, MoMo qua VNPay |
-| Thẻ quốc tế | `INTCARD` | Visa/Mastercard/JCB |
+**`supabase/functions/create-vnpay-payment/index.ts`** (dòng 84)
 
-### Kỹ thuật
+Thay URL sandbox hardcode bằng logic chọn URL dựa trên `VNPAY_ENV`:
 
-**1. `src/components/PaymentConfirmDialog.tsx`**
-- Thêm state `paymentMethod` (default: `VNPAYQR`)
-- Thêm section UI chọn phương thức: grid 2x2 với icon + label cho mỗi option (QR Code, ATM, Ví điện tử, Thẻ quốc tế)
-- Style: radio-card pattern (border highlight khi selected)
-- Thêm prop `onPaymentMethodChange?: (bankCode: string) => void` hoặc bổ sung `paymentMethod` vào `onConfirm`
-- Thay section "Payment method" tĩnh hiện tại bằng grid chọn interactive
+```typescript
+// Trước (hardcode sandbox)
+const vnpUrl = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
 
-**2. `src/components/UpgradePlanDialog.tsx`**
-- Nhận `paymentMethod` từ PaymentConfirmDialog
-- Truyền `bank_code` vào body khi gọi `create-vnpay-payment`
+// Sau (dynamic)
+const vnpEnv = Deno.env.get('VNPAY_ENV') || 'sandbox';
+const vnpUrl = vnpEnv === 'production'
+  ? 'https://pay.vnpay.vn/vpcpay.html'
+  : 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
+```
 
-**3. `src/pages/Pricing.tsx`**
-- Tương tự: truyền `bank_code` vào edge function call
+Thêm `environment: vnpEnv` vào response JSON để frontend biết đang dùng môi trường nào (hữu ích cho debug/hiển thị badge).
 
-**4. `supabase/functions/create-vnpay-payment/index.ts`**
-- Nhận thêm param `bank_code` từ body
-- Nếu có, thêm `vnp_BankCode` vào `vnpParams` trước khi ký hash
-- Nếu không có, bỏ qua (VNPay sẽ hiện tất cả phương thức)
+**`supabase/functions/vnpay-callback/index.ts`**
 
-**5. `src/pages/PaymentResult.tsx`**
-- Hiển thị phương thức thanh toán đã dùng dựa trên `vnp_CardType` hoặc `vnp_BankCode` từ response
+Tương tự cập nhật nếu có hardcode URL sandbox (để đảm bảo đồng bộ).
+
+**Secret `VNPAY_ENV`**
+
+Thêm secret `VNPAY_ENV` với giá trị `sandbox` (mặc định). Khi go-live, đổi thành `production` cùng với `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` tương ứng production.
 
