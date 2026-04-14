@@ -38,7 +38,6 @@ export function UsageQuotaWidget() {
   const { subscription, currentPlanLimits, usage, isLoading, currentPeriod } = useSubscription();
   const planBadge = getPlanBadge(subscription?.plan_type);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const planBadge = getPlanBadge(subscription?.plan_type);
 
   if (isLoading) {
     return (
