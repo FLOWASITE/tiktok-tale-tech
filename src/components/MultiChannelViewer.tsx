@@ -1400,15 +1400,23 @@ export function MultiChannelViewer({
                     {/* Action Bar: Schedule + Post Now */}
                     {!isEditing && (
                       <div className="flex justify-end gap-2 px-3 py-1.5 border-b border-border/30">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => { setShowSchedule(true); setShowTeamPanel(false); }}
-                          className="gap-2"
-                        >
-                          <CalendarClock className="w-4 h-4" />
-                          Lên lịch đăng bài
-                        </Button>
+                        {(() => {
+                          const existingSchedule = getScheduleForChannel(channel);
+                          const isScheduled = !!existingSchedule;
+                          const scheduledDate = existingSchedule ? new Date(existingSchedule.scheduled_at) : null;
+                          const formattedDate = scheduledDate ? scheduledDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+                          return (
+                            <Button
+                              variant={isScheduled ? "secondary" : "outline"}
+                              size="sm"
+                              onClick={() => { setShowSchedule(true); setShowTeamPanel(false); }}
+                              className={cn("gap-2", isScheduled && "text-emerald-700 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:border-emerald-700 dark:bg-emerald-950 dark:hover:bg-emerald-900")}
+                            >
+                              <CalendarClock className="w-4 h-4" />
+                              {isScheduled ? `Đã lên lịch · ${formattedDate}` : 'Lên lịch đăng bài'}
+                            </Button>
+                          );
+                        })()}
                         <DirectPublishButton
                           content={channelContent || ''}
                           contentId={content.id}
