@@ -39,15 +39,27 @@ export default function PaymentResult() {
   const [countdown, setCountdown] = useState(10);
   const [showDetails, setShowDetails] = useState(false);
 
+  // Detect payment provider
   const responseCode = searchParams.get("vnp_ResponseCode");
-  const txnRef = searchParams.get("vnp_TxnRef");
-  const amount = searchParams.get("vnp_Amount");
+  const payosCancel = searchParams.get("payos_cancel");
+  const payosCode = searchParams.get("code");
+  const payosOrderCode = searchParams.get("orderCode");
+  const payosStatus = searchParams.get("status");
+
+  // Determine which provider was used
+  const isPayOS = !!payosOrderCode || !!payosCancel || !!payosCode;
+  const isVNPay = !!responseCode;
+
+  const txnRef = isVNPay ? searchParams.get("vnp_TxnRef") : payosOrderCode;
+  const amount = isVNPay ? searchParams.get("vnp_Amount") : searchParams.get("amount");
   const bankCode = searchParams.get("vnp_BankCode");
   const orderInfo = searchParams.get("vnp_OrderInfo");
   const payDate = searchParams.get("vnp_PayDate");
-  const transactionNo = searchParams.get("vnp_TransactionNo");
+  const transactionNo = isVNPay ? searchParams.get("vnp_TransactionNo") : searchParams.get("reference");
 
-  const isSuccess = responseCode === "00";
+  const isSuccess = isPayOS
+    ? (payosStatus === "PAID" || payosCode === "00") && !payosCancel
+    : responseCode === "00";
 
   const formattedAmount = amount
     ? new Intl.NumberFormat("vi-VN").format(parseInt(amount) / 100) + "₫"
