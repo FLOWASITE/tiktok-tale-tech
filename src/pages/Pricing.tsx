@@ -132,6 +132,7 @@ const FAQ_ITEMS = [
 
 export default function Pricing() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { subscription } = useSubscription();
   const { currentOrganization } = useOrganizationContext();
   const [isYearly, setIsYearly] = useState(false);
@@ -195,7 +196,19 @@ export default function Pricing() {
     <div className="min-h-screen bg-background">
       {/* Hero */}
       <section className="pt-12 pb-8 lg:pt-20 lg:pb-12">
-        <div className="container mx-auto px-4 max-w-6xl text-center">
+        <div className="container mx-auto px-4 max-w-6xl">
+          {isLoggedIn && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="gap-2 text-muted-foreground hover:text-foreground -ml-2 mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Quay lại
+            </Button>
+          )}
+          <div className="text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
