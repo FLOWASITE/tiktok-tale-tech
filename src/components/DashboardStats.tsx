@@ -118,7 +118,7 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i} className="gradient-card border-border/50">
             <CardContent className="p-4 sm:p-6">
@@ -136,7 +136,7 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
       {statsConfig.map((config, index) => {
         const Icon = config.icon;
         const value = stats[config.key];
@@ -150,8 +150,8 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.08 }}
           >
-            <Card className={`gradient-card border-border/50 card-animated group overflow-hidden h-full ${config.comingSoon ? 'opacity-75' : ''}`}>
-              <CardContent className="p-4 sm:p-6 relative h-full flex flex-col">
+            <Card className={`gradient-card border-border/50 card-animated group overflow-hidden h-full hover:scale-[1.02] hover:shadow-md transition-all duration-200 ${config.comingSoon ? 'opacity-75' : ''}`}>
+              <CardContent className="p-3 sm:p-4 lg:p-6 relative h-full flex flex-col">
                 <div className={`absolute top-0 right-0 w-20 sm:w-24 h-20 sm:h-24 ${config.bgGlow} rounded-full blur-2xl opacity-30 group-hover:opacity-60 transition-opacity`} />
                 
                 <div className="relative flex items-start justify-between mb-3 sm:mb-4">

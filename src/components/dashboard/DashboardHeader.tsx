@@ -18,12 +18,14 @@ interface DashboardHeaderProps {
   pendingCount?: number;
   todayScheduleCount?: number;
   onStartOnboarding?: () => void;
+  activitySummary?: string;
 }
 
 export function DashboardHeader({ 
   pendingCount = 0, 
   todayScheduleCount = 0,
-  onStartOnboarding 
+  onStartOnboarding,
+  activitySummary
 }: DashboardHeaderProps) {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -99,6 +101,16 @@ export function DashboardHeader({
               >
                 {t('app.dashboardHeader.overview')}
               </motion.p>
+              {activitySummary && (
+                <motion.p
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.35 }}
+                  className="text-xs text-primary font-medium mt-1"
+                >
+                  🔔 {activitySummary}
+                </motion.p>
+              )}
 
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
