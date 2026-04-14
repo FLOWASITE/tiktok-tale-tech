@@ -296,6 +296,7 @@ export function AppSidebar() {
     { title: 'Vouchers', titleKey: 'app.sidebar.adminVouchers', url: '/admin/vouchers', icon: Ticket },
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
     { title: 'Edge Functions', titleKey: 'app.sidebar.adminEdgeFunctions', url: '/admin/edge-functions', icon: Zap },
+    { title: 'Quản lý gói', titleKey: 'app.sidebar.adminPlans', url: '/admin/plans', icon: Package },
   ];
 
   const handleSwitchOrg = (orgId: string) => {
