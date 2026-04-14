@@ -457,7 +457,7 @@ export function PaymentConfirmDialog({
               <div className="mt-3 sm:mt-4 flex flex-col items-center gap-1">
                 <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
                   <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span>Bảo mật bởi VNPay</span>
+                  <span>Bảo mật bởi {selectedGateway === "payos" ? "payOS" : "VNPay"}</span>
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 text-center">
                   Bằng việc thanh toán, bạn đồng ý với{" "}
