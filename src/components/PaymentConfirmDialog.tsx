@@ -79,12 +79,9 @@ export function PaymentConfirmDialog({
 
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
-  // Use localVoucher if set, otherwise fall back to prop
   const activeVoucher = localVoucher ?? voucher ?? null;
-
   const priceAfterProrate = prorateInfo ? prorateInfo.proratedPrice : basePrice;
 
-  // Recalculate final price based on active voucher
   const calculateDiscountedPrice = (price: number, v: VoucherInfo | null) => {
     if (!v) return price;
     if (v.applicable_plans && v.applicable_plans.length > 0 && !v.applicable_plans.includes(applicablePlan || targetPlan)) {
@@ -168,55 +165,55 @@ export function PaymentConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 overflow-hidden">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         <AnimatePresence>
           {open && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="p-6"
+              className="p-4 sm:p-6"
             >
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
+                <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
                   Xác nhận thanh toán
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs sm:text-sm">
                   Vui lòng kiểm tra thông tin đơn hàng trước khi thanh toán.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 mt-4">
+              <div className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
                 {/* Order details */}
-                <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-4 space-y-2.5 sm:space-y-3">
                   {/* Workspace */}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Workspace</span>
-                    <span className="font-medium text-foreground truncate max-w-[200px]">{workspaceName}</span>
+                  <div className="flex items-center justify-between text-xs sm:text-sm gap-2">
+                    <span className="text-muted-foreground shrink-0">Workspace</span>
+                    <span className="font-medium text-foreground truncate max-w-[140px] sm:max-w-[200px]">{workspaceName}</span>
                   </div>
 
                   {/* Plan change */}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Gói</span>
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Badge variant="outline" className="text-xs">{PLAN_NAMES[currentPlan] || currentPlan}</Badge>
-                      <ArrowRight className="h-3.5 w-3.5 text-primary" />
-                      <Badge className="text-xs bg-primary text-primary-foreground">{PLAN_NAMES[targetPlan] || targetPlan}</Badge>
+                  <div className="flex items-center justify-between text-xs sm:text-sm gap-2">
+                    <span className="text-muted-foreground shrink-0">Gói</span>
+                    <span className="flex items-center gap-1 sm:gap-1.5 font-medium flex-wrap justify-end">
+                      <Badge variant="outline" className="text-[10px] sm:text-xs">{PLAN_NAMES[currentPlan] || currentPlan}</Badge>
+                      <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
+                      <Badge className="text-[10px] sm:text-xs bg-primary text-primary-foreground">{PLAN_NAMES[targetPlan] || targetPlan}</Badge>
                     </span>
                   </div>
 
                   {/* Billing cycle */}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Chu kỳ</span>
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between text-xs sm:text-sm gap-2">
+                    <span className="text-muted-foreground shrink-0">Chu kỳ</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
                       <span className="font-medium text-foreground">
                         {billingCycle === "yearly" ? "Hàng năm" : "Hàng tháng"}
                       </span>
                       {billingCycle === "yearly" && yearlyDiscount && yearlyDiscount > 0 && (
-                        <Badge variant="secondary" className="text-xs text-primary gap-1">
-                          <TrendingDown className="h-3 w-3" />
-                          Tiết kiệm {formatPrice(yearlyDiscount)}₫
+                        <Badge variant="secondary" className="text-[10px] sm:text-xs text-primary gap-0.5 sm:gap-1">
+                          <TrendingDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                          <span className="hidden xs:inline">Tiết kiệm </span>{formatPrice(yearlyDiscount)}₫
                         </Badge>
                       )}
                     </div>
@@ -225,7 +222,7 @@ export function PaymentConfirmDialog({
                   <Separator />
 
                   {/* Base price */}
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-muted-foreground">Giá gốc</span>
                     <span className={`font-medium ${hasAnyDiscount ? "line-through text-muted-foreground" : "text-foreground"}`}>
                       {formatPrice(basePrice)}₫
@@ -234,28 +231,29 @@ export function PaymentConfirmDialog({
 
                   {/* Prorate */}
                   {prorateInfo && (
-                    <div className="flex items-start justify-between text-sm">
+                    <div className="flex items-start justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        Tính theo ngày
+                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                        <span className="hidden sm:inline">Tính theo ngày</span>
+                        <span className="sm:hidden">Theo ngày</span>
                       </span>
                       <div className="text-right">
                         <span className="font-medium text-foreground">{formatPrice(prorateInfo.proratedPrice)}₫</span>
-                        <p className="text-xs text-muted-foreground">{prorateInfo.daysRemaining} ngày còn lại</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">{prorateInfo.daysRemaining} ngày còn lại</p>
                       </div>
                     </div>
                   )}
 
                   {/* Voucher display when applied */}
                   {hasVoucherDiscount && (
-                    <div className="flex items-start justify-between text-sm">
+                    <div className="flex items-start justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground flex items-center gap-1">
-                        <Tag className="h-3.5 w-3.5" />
+                        <Tag className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                         Voucher
                       </span>
                       <div className="text-right">
-                        <Badge variant="secondary" className="font-mono text-xs">{activeVoucher!.code}</Badge>
-                        <p className="text-xs text-primary mt-0.5">
+                        <Badge variant="secondary" className="font-mono text-[10px] sm:text-xs">{activeVoucher!.code}</Badge>
+                        <p className="text-[10px] sm:text-xs text-primary mt-0.5">
                           {activeVoucher!.discount_type === "percentage"
                             ? `Giảm ${activeVoucher!.discount_value}%`
                             : `Giảm ${formatPrice(activeVoucher!.discount_value)}₫`}
@@ -267,32 +265,32 @@ export function PaymentConfirmDialog({
                   <Separator />
 
                   {/* Total */}
-                  <div className="flex items-center justify-between rounded-lg bg-primary/5 p-3 -mx-1">
-                    <span className="font-semibold text-foreground">Tổng thanh toán</span>
-                    <span className="text-2xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 p-2.5 sm:p-3 -mx-1">
+                    <span className="font-semibold text-foreground text-sm sm:text-base">Tổng thanh toán</span>
+                    <span className="text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                       {formatPrice(displayFinalPrice)}₫
                     </span>
                   </div>
                 </div>
 
                 {/* Voucher input section */}
-                <div className="rounded-xl border border-border p-4 space-y-2">
-                  <div className="flex items-center gap-1.5 text-sm font-medium">
-                    <Tag className="h-4 w-4 text-primary" />
+                <div className="rounded-xl border border-border p-3 sm:p-4 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium">
+                    <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                     Mã voucher
                   </div>
                   {activeVoucher ? (
-                    <div className="flex items-center justify-between bg-primary/10 rounded-md px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="font-mono">{activeVoucher.code}</Badge>
-                        <span className="text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between bg-primary/10 rounded-md px-2.5 sm:px-3 py-2 gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <Badge variant="secondary" className="font-mono text-[10px] sm:text-xs shrink-0">{activeVoucher.code}</Badge>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground truncate">
                           {activeVoucher.discount_type === "percentage"
                             ? `Giảm ${activeVoucher.discount_value}%`
                             : `Giảm ${formatPrice(activeVoucher.discount_value)}₫`}
                         </span>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={handleRemoveVoucher} className="h-7 w-7 p-0">
-                        <X className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" onClick={handleRemoveVoucher} className="h-6 w-6 sm:h-7 sm:w-7 p-0 shrink-0">
+                        <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   ) : (
@@ -302,15 +300,16 @@ export function PaymentConfirmDialog({
                         value={voucherInput}
                         onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === "Enter" && handleApplyVoucher()}
-                        className="font-mono"
+                        className="font-mono text-xs sm:text-sm h-8 sm:h-10"
                       />
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={handleApplyVoucher}
                         disabled={!voucherInput.trim() || voucherLoading}
+                        className="h-8 sm:h-10 px-3 text-xs sm:text-sm shrink-0"
                       >
-                        {voucherLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Áp dụng"}
+                        {voucherLoading ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : "Áp dụng"}
                       </Button>
                     </div>
                   )}
@@ -318,16 +317,16 @@ export function PaymentConfirmDialog({
 
                 {/* Plan features */}
                 {planFeatures && planFeatures.length > 0 && (
-                  <div className="rounded-xl border border-border bg-muted/20 p-4">
-                    <p className="text-sm font-medium text-foreground flex items-center gap-1.5 mb-3">
-                      <Sparkles className="h-4 w-4 text-primary" />
+                  <div className="rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+                    <p className="text-xs sm:text-sm font-medium text-foreground flex items-center gap-1.5 mb-2 sm:mb-3">
+                      <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
                       Tính năng gói {PLAN_NAMES[targetPlan] || targetPlan}
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                       {planFeatures.map((feat, i) => (
-                        <div key={i} className="flex items-center justify-between rounded-lg bg-background/60 px-3 py-2 text-sm">
-                          <span className="text-muted-foreground text-xs">{feat.label}</span>
-                          <span className="font-semibold text-foreground text-xs">{feat.value}</span>
+                        <div key={i} className="flex items-center justify-between rounded-lg bg-background/60 px-2 sm:px-3 py-1.5 sm:py-2">
+                          <span className="text-muted-foreground text-[10px] sm:text-xs">{feat.label}</span>
+                          <span className="font-semibold text-foreground text-[10px] sm:text-xs">{feat.value}</span>
                         </div>
                       ))}
                     </div>
@@ -335,20 +334,17 @@ export function PaymentConfirmDialog({
                 )}
 
                 {/* Payment method */}
-                <div className="rounded-lg border border-border p-3 flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-muted-foreground shrink-0" />
+                <div className="rounded-lg border border-border p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3">
+                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">VNPay</p>
-                    <p className="text-xs text-muted-foreground">ATM nội địa, QR code, Ví điện tử</p>
+                    <p className="text-xs sm:text-sm font-medium text-foreground">VNPay</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">ATM nội địa, QR code, Ví điện tử</p>
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-4">
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                  Quay lại
-                </Button>
-                <Button onClick={onConfirm} disabled={isLoading}>
+              <DialogFooter className="flex-col gap-2 mt-3 sm:mt-4">
+                <Button onClick={onConfirm} disabled={isLoading} className="w-full sm:w-auto order-1 sm:order-2">
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
@@ -356,15 +352,18 @@ export function PaymentConfirmDialog({
                   )}
                   Xác nhận & Thanh toán
                 </Button>
+                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading} className="w-full sm:w-auto order-2 sm:order-1">
+                  Quay lại
+                </Button>
               </DialogFooter>
 
               {/* Security & terms footer */}
-              <div className="mt-4 flex flex-col items-center gap-1.5">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <ShieldCheck className="h-3.5 w-3.5" />
+              <div className="mt-3 sm:mt-4 flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
+                  <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span>Bảo mật bởi VNPay</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground/70 text-center">
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 text-center">
                   Bằng việc thanh toán, bạn đồng ý với{" "}
                   <a href="/terms" className="underline hover:text-foreground transition-colors">
                     Điều khoản sử dụng
