@@ -54,6 +54,42 @@ interface TopicSuggestionPanelProps {
   onSelectQuickStart?: (template: QuickStartTemplate) => void;
 }
 
+const LOADING_PHASES = [
+  { icon: Search, label: '🔍 Đang phân tích thương hiệu...', delay: 0 },
+  { icon: BarChart3, label: '📊 Đang tìm xu hướng ngành...', delay: 2000 },
+  { icon: Sparkles, label: '✨ Đang tạo ý tưởng...', delay: 5000 },
+];
+
+function LoadingPhases() {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const timer1 = setTimeout(() => setPhase(1), 2000);
+    const timer2 = setTimeout(() => setPhase(2), 5000);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-muted/30 border border-border/50 animate-fade-in">
+      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+      <span className="text-xs text-muted-foreground">
+        {LOADING_PHASES[phase].label}
+      </span>
+      <div className="flex gap-1 ml-auto">
+        {LOADING_PHASES.map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              "w-1.5 h-1.5 rounded-full transition-colors duration-300",
+              i <= phase ? "bg-primary" : "bg-border"
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const categoryIcons: Record<TopicCategory, React.ReactNode> = {
   evergreen: <Leaf className="w-2.5 h-2.5" />,
   trending: <TrendingUp className="w-2.5 h-2.5" />,
