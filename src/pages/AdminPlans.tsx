@@ -1,9 +1,10 @@
 import { useAdmin } from "@/hooks/useAdmin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, Users, TrendingUp } from "lucide-react";
+import { CreditCard, Users, TrendingUp, Receipt } from "lucide-react";
 import PlanLimitsManager from "@/components/admin/plans/PlanLimitsManager";
 import SubscriptionManager from "@/components/admin/plans/SubscriptionManager";
 import RevenueStats from "@/components/admin/plans/RevenueStats";
+import PaymentHistoryManager from "@/components/admin/plans/PaymentHistoryManager";
 
 export default function AdminPlans() {
   const { isAdmin, isCheckingAdmin } = useAdmin();
@@ -45,6 +46,10 @@ export default function AdminPlans() {
             <TrendingUp className="h-4 w-4" />
             Thống kê doanh thu
           </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-2">
+            <Receipt className="h-4 w-4" />
+            Lịch sử thanh toán
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="plans">
@@ -55,6 +60,9 @@ export default function AdminPlans() {
         </TabsContent>
         <TabsContent value="revenue">
           <RevenueStats />
+        </TabsContent>
+        <TabsContent value="payments">
+          <PaymentHistoryManager />
         </TabsContent>
       </Tabs>
     </div>
