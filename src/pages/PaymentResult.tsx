@@ -62,7 +62,7 @@ export default function PaymentResult() {
     : responseCode === "00";
 
   const formattedAmount = amount
-    ? new Intl.NumberFormat("vi-VN").format(parseInt(amount) / 100) + "₫"
+    ? new Intl.NumberFormat("vi-VN").format(isVNPay ? parseInt(amount) / 100 : parseInt(amount)) + "₫"
     : "";
 
   const formattedDate = useMemo(() => {
