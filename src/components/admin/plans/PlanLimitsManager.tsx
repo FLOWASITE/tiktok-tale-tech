@@ -14,8 +14,12 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
   Save, Loader2, Undo2, Package, FileText, Image, Layers,
   Palette, Bot, DollarSign, Plus, X, Users, TrendingUp, Infinity,
+  Pencil, Eye, Crown, Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,25 +39,31 @@ interface PlanLimit {
 
 const PLAN_ORDER = ["free", "starter", "pro", "enterprise"];
 
-const PLAN_GRADIENTS: Record<string, string> = {
-  free: "from-muted/50 to-muted/30",
-  starter: "from-blue-500/10 to-blue-600/5",
-  pro: "from-purple-500/10 to-purple-600/5",
-  enterprise: "from-amber-500/10 to-amber-600/5",
-};
-
-const PLAN_BORDER: Record<string, string> = {
-  free: "border-muted-foreground/20",
-  starter: "border-blue-500/30",
-  pro: "border-purple-500/30",
-  enterprise: "border-amber-500/30",
-};
-
-const PLAN_BADGE_COLORS: Record<string, string> = {
-  free: "bg-muted text-muted-foreground",
-  starter: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  pro: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  enterprise: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+const PLAN_COLORS: Record<string, { badge: string; header: string; border: string; dot: string }> = {
+  free: {
+    badge: "bg-muted text-muted-foreground",
+    header: "from-muted/50 to-muted/30",
+    border: "border-muted-foreground/20",
+    dot: "bg-muted-foreground",
+  },
+  starter: {
+    badge: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    header: "from-blue-500/10 to-blue-600/5",
+    border: "border-blue-500/30",
+    dot: "bg-blue-500",
+  },
+  pro: {
+    badge: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    header: "from-purple-500/10 to-purple-600/5",
+    border: "border-purple-500/30",
+    dot: "bg-purple-500",
+  },
+  enterprise: {
+    badge: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+    header: "from-amber-500/10 to-amber-600/5",
+    border: "border-amber-500/30",
+    dot: "bg-amber-500",
+  },
 };
 
 const FIELD_ICONS: Record<string, React.ReactNode> = {
@@ -71,11 +81,11 @@ const FIELD_LABELS: Record<string, string> = {
   monthly_brands: "Brands",
   monthly_scripts: "Scripts",
   monthly_carousels: "Carousels",
-  monthly_multichannel: "Nội dung đa kênh",
+  monthly_multichannel: "Đa kênh",
   monthly_images: "Ảnh AI",
   monthly_ai_edits: "AI Edits",
-  price_monthly: "Giá tháng (₫)",
-  price_yearly: "Giá năm (₫)",
+  price_monthly: "Giá tháng",
+  price_yearly: "Giá năm",
 };
 
 const FIELD_TOOLTIPS: Record<string, string> = {
@@ -92,10 +102,12 @@ const FIELD_TOOLTIPS: Record<string, string> = {
 const limitFields = ["monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits"];
 const priceFields = ["price_monthly", "price_yearly"];
 
-const formatVND = (v: number) => v.toLocaleString("vi-VN") + "₫";
+const formatVND = (v: number) => v === 0 ? "Miễn phí" : v.toLocaleString("vi-VN") + "₫";
+const formatLimit = (v: number) => v === -1 ? "∞" : String(v);
 
 export default function PlanLimitsManager() {
   const queryClient = useQueryClient();
+  const [isEditMode, setIsEditMode] = useState(false);
   const [editData, setEditData] = useState<Record<string, Partial<PlanLimit>>>({});
   const [featureEdits, setFeatureEdits] = useState<Record<string, { added: string[]; removed: string[] }>>({});
   const [newFeatureInputs, setNewFeatureInputs] = useState<Record<string, string>>({});
@@ -164,15 +176,14 @@ export default function PlanLimitsManager() {
   const hasChanges = (planId: string) =>
     (editData[planId] && Object.keys(editData[planId]).length > 0) || hasFeaturesChanged(planId);
 
+  const hasAnyChanges = () => plans.some((p) => hasChanges(p.id));
+
   const handleAddFeature = (planId: string) => {
     const val = (newFeatureInputs[planId] || "").trim();
     if (!val) return;
     setFeatureEdits((prev) => ({
       ...prev,
-      [planId]: {
-        added: [...(prev[planId]?.added || []), val],
-        removed: prev[planId]?.removed || [],
-      },
+      [planId]: { added: [...(prev[planId]?.added || []), val], removed: prev[planId]?.removed || [] },
     }));
     setNewFeatureInputs((prev) => ({ ...prev, [planId]: "" }));
   };
@@ -182,36 +193,30 @@ export default function PlanLimitsManager() {
     if (isOriginal) {
       setFeatureEdits((prev) => ({
         ...prev,
-        [planId]: {
-          added: prev[planId]?.added || [],
-          removed: [...(prev[planId]?.removed || []), feature],
-        },
+        [planId]: { added: prev[planId]?.added || [], removed: [...(prev[planId]?.removed || []), feature] },
       }));
     } else {
       setFeatureEdits((prev) => ({
         ...prev,
-        [planId]: {
-          added: (prev[planId]?.added || []).filter((f) => f !== feature),
-          removed: prev[planId]?.removed || [],
-        },
+        [planId]: { added: (prev[planId]?.added || []).filter((f) => f !== feature), removed: prev[planId]?.removed || [] },
       }));
     }
   };
 
-  const handleUndo = (planId: string) => {
-    setEditData((prev) => { const n = { ...prev }; delete n[planId]; return n; });
-    setFeatureEdits((prev) => { const n = { ...prev }; delete n[planId]; return n; });
+  const handleUndoAll = () => {
+    setEditData({});
+    setFeatureEdits({});
+    setNewFeatureInputs({});
   };
 
   const handleConfirmSave = () => {
     if (!confirmPlan) return;
     const plan = confirmPlan;
     const updates: any = { ...(editData[plan.id] || {}) };
-    if (hasFeaturesChanged(plan.id)) {
-      updates.features = getEffectiveFeatures(plan);
-    }
+    if (hasFeaturesChanged(plan.id)) updates.features = getEffectiveFeatures(plan);
     saveMutation.mutate({ id: plan.id, updates });
-    handleUndo(plan.id);
+    setEditData((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
+    setFeatureEdits((prev) => { const n = { ...prev }; delete n[plan.id]; return n; });
     setConfirmPlan(null);
   };
 
@@ -222,7 +227,7 @@ export default function PlanLimitsManager() {
       if (field === "features") continue;
       const oldVal = plan[field as keyof PlanLimit] as number;
       const label = FIELD_LABELS[field] || field;
-      const fmt = priceFields.includes(field) ? formatVND : (v: number) => v === -1 ? "∞" : String(v);
+      const fmt = priceFields.includes(field) ? formatVND : formatLimit;
       diffs.push({ label, old: fmt(oldVal), new: fmt(newVal as number) });
     }
     if (hasFeaturesChanged(plan.id)) {
@@ -231,6 +236,13 @@ export default function PlanLimitsManager() {
       if (fe.removed.length) diffs.push({ label: "Features xóa", old: fe.removed.join(", "), new: "—" });
     }
     return diffs;
+  };
+
+  const getSavingsPercent = (plan: PlanLimit) => {
+    const monthly = (getVal(plan, "price_monthly") as number) * 12;
+    const yearly = getVal(plan, "price_yearly") as number;
+    if (monthly <= 0 || yearly <= 0) return 0;
+    return Math.round(((monthly - yearly) / monthly) * 100);
   };
 
   if (plansQuery.isLoading) {
@@ -242,163 +254,387 @@ export default function PlanLimitsManager() {
   const totalWorkspaces = Object.values(subCounts).reduce((a, b) => a + b, 0);
   const totalMRR = plans.reduce((sum, p) => sum + (subCounts[p.plan_type] || 0) * p.price_monthly, 0);
 
-  const renderField = (plan: PlanLimit, field: string) => {
-    const val = getVal(plan, field as keyof PlanLimit) as number;
-    const changed = isFieldChanged(plan, field);
-    const isLimit = limitFields.includes(field);
+  const mostPopularPlan = plans.reduce((best, p) =>
+    (subCounts[p.plan_type] || 0) > (subCounts[best.plan_type] || 0) ? p : best, plans[0]);
+  const arpu = totalWorkspaces > 0 ? totalMRR / totalWorkspaces : 0;
 
-    if (isLimit && val === -1 && !changed) {
-      return (
-        <div className="flex items-center gap-1.5">
-          <Badge variant="secondary" className="gap-1 text-xs font-normal">
-            <Infinity className="h-3 w-3" /> Không giới hạn
-          </Badge>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleFieldChange(plan.id, field, "-1")}>
-            <FileText className="h-3 w-3 opacity-40" />
-          </Button>
-        </div>
-      );
-    }
-
-    return (
-      <Input
-        type="number"
-        value={val}
-        onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-        className={`h-8 text-sm ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
-      />
-    );
-  };
+  // Collect all unique features across plans
+  const allFeatures = [...new Set(plans.flatMap((p) => getEffectiveFeatures(p)))];
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="space-y-4">
-        {/* Summary row */}
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2.5">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Tổng workspace</p>
-              <p className="text-lg font-semibold">{totalWorkspaces}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2.5">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">MRR ước tính</p>
-              <p className="text-lg font-semibold">{formatVND(totalMRR)}</p>
-            </div>
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="border">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2"><Users className="h-4 w-4 text-primary" /></div>
+              <div>
+                <p className="text-xs text-muted-foreground">Tổng workspace</p>
+                <p className="text-lg font-bold">{totalWorkspaces}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2"><TrendingUp className="h-4 w-4 text-primary" /></div>
+              <div>
+                <p className="text-xs text-muted-foreground">MRR ước tính</p>
+                <p className="text-lg font-bold">{formatVND(totalMRR)}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2"><Crown className="h-4 w-4 text-primary" /></div>
+              <div>
+                <p className="text-xs text-muted-foreground">Gói phổ biến</p>
+                <p className="text-lg font-bold capitalize">{mostPopularPlan?.plan_type || "—"}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-primary/10 p-2"><DollarSign className="h-4 w-4 text-primary" /></div>
+              <div>
+                <p className="text-xs text-muted-foreground">ARPU</p>
+                <p className="text-lg font-bold">{formatVND(Math.round(arpu))}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-muted-foreground">So sánh các gói</h3>
+          <div className="flex items-center gap-2">
+            {isEditMode && hasAnyChanges() && (
+              <Button variant="ghost" size="sm" onClick={handleUndoAll}>
+                <Undo2 className="h-4 w-4 mr-1" /> Hoàn tác tất cả
+              </Button>
+            )}
+            <Button
+              variant={isEditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => { setIsEditMode(!isEditMode); if (isEditMode) handleUndoAll(); }}
+            >
+              {isEditMode ? <><Eye className="h-4 w-4 mr-1" /> Xong</> : <><Pencil className="h-4 w-4 mr-1" /> Chỉnh sửa</>}
+            </Button>
           </div>
         </div>
 
-        {/* Plan cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Desktop: Comparison Table */}
+        <div className="hidden md:block">
+          <Card className="border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[160px] bg-muted/30 font-semibold">Trường</TableHead>
+                  {plans.map((plan) => {
+                    const wsCount = subCounts[plan.plan_type] || 0;
+                    const colors = PLAN_COLORS[plan.plan_type] || PLAN_COLORS.free;
+                    return (
+                      <TableHead key={plan.id} className={`text-center bg-gradient-to-b ${colors.header}`}>
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge className={`${colors.badge} capitalize font-semibold`}>{plan.plan_type}</Badge>
+                          <span className="text-xs text-muted-foreground">{wsCount} ws</span>
+                        </div>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Limit fields */}
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={plans.length + 1} className="bg-muted/20 py-1.5 px-4">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hạn mức</span>
+                  </TableCell>
+                </TableRow>
+                {limitFields.map((field) => (
+                  <TableRow key={field}>
+                    <TableCell className="font-medium">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-2 text-sm cursor-help">
+                            {FIELD_ICONS[field]} {FIELD_LABELS[field]}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs max-w-48">{FIELD_TOOLTIPS[field]}</TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    {plans.map((plan) => {
+                      const val = getVal(plan, field as keyof PlanLimit) as number;
+                      const changed = isFieldChanged(plan, field);
+                      return (
+                        <TableCell key={plan.id} className="text-center">
+                          {isEditMode ? (
+                            <Input
+                              type="number"
+                              value={val}
+                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
+                              className={`h-8 text-sm text-center w-20 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
+                            />
+                          ) : val === -1 ? (
+                            <Badge variant="secondary" className="gap-1 text-xs"><Infinity className="h-3 w-3" /> ∞</Badge>
+                          ) : (
+                            <span className={`text-sm font-medium ${changed ? "text-primary" : ""}`}>{val}</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+
+                {/* Price fields */}
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={plans.length + 1} className="bg-muted/20 py-1.5 px-4">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Giá cước</span>
+                  </TableCell>
+                </TableRow>
+                {priceFields.map((field) => (
+                  <TableRow key={field}>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2 text-sm">
+                        {FIELD_ICONS[field]} {FIELD_LABELS[field]}
+                      </span>
+                    </TableCell>
+                    {plans.map((plan) => {
+                      const val = getVal(plan, field as keyof PlanLimit) as number;
+                      const changed = isFieldChanged(plan, field);
+                      const savings = field === "price_yearly" ? getSavingsPercent(plan) : 0;
+                      return (
+                        <TableCell key={plan.id} className="text-center">
+                          {isEditMode ? (
+                            <Input
+                              type="number"
+                              value={val}
+                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
+                              className={`h-8 text-sm text-center w-28 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className={`text-sm font-semibold ${changed ? "text-primary" : ""}`}>{formatVND(val)}</span>
+                              {field === "price_yearly" && savings > 0 && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Tiết kiệm {savings}%</Badge>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+
+                {/* Features checklist */}
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={plans.length + 1} className="bg-muted/20 py-1.5 px-4">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tính năng</span>
+                  </TableCell>
+                </TableRow>
+                {allFeatures.map((feature) => (
+                  <TableRow key={feature}>
+                    <TableCell className="text-sm">{feature}</TableCell>
+                    {plans.map((plan) => {
+                      const has = getEffectiveFeatures(plan).includes(feature);
+                      return (
+                        <TableCell key={plan.id} className="text-center">
+                          {isEditMode ? (
+                            <button
+                              onClick={() => {
+                                if (has) handleRemoveFeature(plan.id, feature, plan);
+                                else {
+                                  setFeatureEdits((prev) => ({
+                                    ...prev,
+                                    [plan.id]: {
+                                      added: [...(prev[plan.id]?.added || []), feature],
+                                      removed: (prev[plan.id]?.removed || []).filter((f) => f !== feature),
+                                    },
+                                  }));
+                                }
+                              }}
+                              className={`mx-auto flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${has ? "bg-primary/10 border-primary/30 text-primary" : "border-muted-foreground/20 text-muted-foreground/40 hover:border-primary/30"}`}
+                            >
+                              {has && <Check className="h-3.5 w-3.5" />}
+                            </button>
+                          ) : (
+                            has ? <Check className="h-4 w-4 text-primary mx-auto" /> : <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+                {isEditMode && (
+                  <TableRow>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="Feature mới..."
+                          value={newFeatureInputs["_global"] || ""}
+                          onChange={(e) => setNewFeatureInputs((p) => ({ ...p, _global: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const val = (newFeatureInputs["_global"] || "").trim();
+                              if (!val) return;
+                              plans.forEach((p) => {
+                                setFeatureEdits((prev) => ({
+                                  ...prev,
+                                  [p.id]: { added: [...(prev[p.id]?.added || []), val], removed: prev[p.id]?.removed || [] },
+                                }));
+                              });
+                              setNewFeatureInputs((prev) => ({ ...prev, _global: "" }));
+                            }
+                          }}
+                          className="h-7 text-xs"
+                        />
+                        <Button
+                          variant="outline" size="icon" className="h-7 w-7 shrink-0"
+                          onClick={() => {
+                            const val = (newFeatureInputs["_global"] || "").trim();
+                            if (!val) return;
+                            plans.forEach((p) => {
+                              setFeatureEdits((prev) => ({
+                                ...prev,
+                                [p.id]: { added: [...(prev[p.id]?.added || []), val], removed: prev[p.id]?.removed || [] },
+                              }));
+                            });
+                            setNewFeatureInputs((prev) => ({ ...prev, _global: "" }));
+                          }}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell colSpan={plans.length} className="text-xs text-muted-foreground text-center">
+                      Thêm cho tất cả gói. Bật/tắt từng gói ở cột tương ứng.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+
+          {/* Save buttons per plan */}
+          {isEditMode && (
+            <div className="grid grid-cols-[160px_repeat(4,1fr)] gap-0 mt-2">
+              <div />
+              {plans.map((plan) => (
+                <div key={plan.id} className="flex justify-center">
+                  {hasChanges(plan.id) && (
+                    <Button size="sm" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending} className="gap-1">
+                      <Save className="h-3.5 w-3.5" /> Lưu {plan.plan_type}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile: Card layout */}
+        <div className="md:hidden space-y-4">
           {plans.map((plan) => {
             const wsCount = subCounts[plan.plan_type] || 0;
-            const estRevenue = wsCount * plan.price_monthly;
+            const colors = PLAN_COLORS[plan.plan_type] || PLAN_COLORS.free;
+            const savings = getSavingsPercent(plan);
 
             return (
-              <Card key={plan.id} className={`relative border ${PLAN_BORDER[plan.plan_type] || ""}`}>
-                <CardHeader className={`pb-3 rounded-t-lg bg-gradient-to-br ${PLAN_GRADIENTS[plan.plan_type] || ""}`}>
+              <Card key={plan.id} className={`border ${colors.border}`}>
+                <CardHeader className={`pb-3 rounded-t-lg bg-gradient-to-br ${colors.header}`}>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg capitalize">{plan.plan_type}</CardTitle>
-                    <Badge variant="secondary" className={PLAN_BADGE_COLORS[plan.plan_type] || ""}>
-                      {wsCount} workspace
-                    </Badge>
+                    <Badge className={colors.badge}>{wsCount} ws</Badge>
                   </div>
-                  {plan.price_monthly > 0 && wsCount > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      ~{formatVND(estRevenue)}/tháng
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-xl font-bold">{formatVND(plan.price_monthly)}</span>
+                    <span className="text-xs text-muted-foreground">/tháng</span>
+                  </div>
+                  {savings > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Năm: {formatVND(plan.price_yearly)} <Badge variant="secondary" className="text-[10px] ml-1 px-1 py-0">-{savings}%</Badge>
                     </p>
                   )}
                 </CardHeader>
-
                 <CardContent className="space-y-3 pt-4">
-                  {/* Limits */}
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hạn mức</p>
-                  {limitFields.map((field) => (
-                    <div key={field} className="space-y-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <label className="text-xs text-muted-foreground flex items-center gap-1.5 cursor-help">
-                            {FIELD_ICONS[field]}
-                            {FIELD_LABELS[field]}
-                          </label>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-48">
-                          {FIELD_TOOLTIPS[field]}
-                        </TooltipContent>
-                      </Tooltip>
-                      {renderField(plan, field)}
-                    </div>
-                  ))}
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hạn mức</p>
+                  {limitFields.map((field) => {
+                    const val = getVal(plan, field as keyof PlanLimit) as number;
+                    const changed = isFieldChanged(plan, field);
+                    return (
+                      <div key={field} className="flex items-center justify-between">
+                        <span className="text-sm flex items-center gap-1.5">{FIELD_ICONS[field]} {FIELD_LABELS[field]}</span>
+                        {isEditMode ? (
+                          <Input
+                            type="number" value={val}
+                            onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
+                            className={`h-7 w-20 text-sm text-right ${changed ? "ring-2 ring-primary/50" : ""}`}
+                          />
+                        ) : val === -1 ? (
+                          <Badge variant="secondary" className="text-xs gap-1"><Infinity className="h-3 w-3" /> ∞</Badge>
+                        ) : (
+                          <span className="text-sm font-medium">{val}</span>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   <Separator />
+                  {isEditMode && (
+                    <>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Giá cước</p>
+                      {priceFields.map((field) => {
+                        const val = getVal(plan, field as keyof PlanLimit) as number;
+                        const changed = isFieldChanged(plan, field);
+                        return (
+                          <div key={field} className="flex items-center justify-between">
+                            <span className="text-sm flex items-center gap-1.5">{FIELD_ICONS[field]} {FIELD_LABELS[field]}</span>
+                            <Input
+                              type="number" value={val}
+                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
+                              className={`h-7 w-28 text-sm text-right ${changed ? "ring-2 ring-primary/50" : ""}`}
+                            />
+                          </div>
+                        );
+                      })}
+                      <Separator />
+                    </>
+                  )}
 
-                  {/* Pricing */}
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Giá cước</p>
-                  {priceFields.map((field) => (
-                    <div key={field} className="space-y-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <label className="text-xs text-muted-foreground flex items-center gap-1.5 cursor-help">
-                            {FIELD_ICONS[field]}
-                            {FIELD_LABELS[field]}
-                          </label>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-48">
-                          {FIELD_TOOLTIPS[field]}
-                        </TooltipContent>
-                      </Tooltip>
-                      <Input
-                        type="number"
-                        value={getVal(plan, field as keyof PlanLimit) as number}
-                        onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                        className={`h-8 text-sm ${isFieldChanged(plan, field) ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
-                      />
-                    </div>
-                  ))}
-
-                  <Separator />
-
-                  {/* Features */}
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Features</p>
-                  <div className="flex flex-wrap gap-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tính năng</p>
+                  <div className="space-y-1">
                     {getEffectiveFeatures(plan).map((f, i) => (
-                      <Badge key={i} variant="outline" className="text-xs gap-1 pr-1">
-                        {f}
-                        <button
-                          onClick={() => handleRemoveFeature(plan.id, f, plan)}
-                          className="ml-0.5 rounded-full hover:bg-destructive/20 p-0.5"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="flex-1">{f}</span>
+                        {isEditMode && (
+                          <button onClick={() => handleRemoveFeature(plan.id, f, plan)} className="p-0.5 rounded hover:bg-destructive/20">
+                            <X className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
-                  <div className="flex gap-1">
-                    <Input
-                      placeholder="Thêm feature..."
-                      value={newFeatureInputs[plan.id] || ""}
-                      onChange={(e) => setNewFeatureInputs((p) => ({ ...p, [plan.id]: e.target.value }))}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddFeature(plan.id)}
-                      className="h-7 text-xs"
-                    />
-                    <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleAddFeature(plan.id)}>
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-
-                  {/* Actions */}
-                  {hasChanges(plan.id) && (
-                    <div className="flex gap-2 mt-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleUndo(plan.id)}>
-                        <Undo2 className="h-4 w-4 mr-1" /> Hoàn tác
-                      </Button>
-                      <Button size="sm" className="flex-1" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending}>
-                        <Save className="h-4 w-4 mr-1" /> Lưu
-                      </Button>
-                    </div>
+                  {isEditMode && (
+                    <>
+                      <div className="flex gap-1">
+                        <Input
+                          placeholder="Thêm feature..."
+                          value={newFeatureInputs[plan.id] || ""}
+                          onChange={(e) => setNewFeatureInputs((p) => ({ ...p, [plan.id]: e.target.value }))}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddFeature(plan.id)}
+                          className="h-7 text-xs"
+                        />
+                        <Button variant="outline" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleAddFeature(plan.id)}>
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      {hasChanges(plan.id) && (
+                        <Button size="sm" className="w-full mt-2" onClick={() => setConfirmPlan(plan)} disabled={saveMutation.isPending}>
+                          <Save className="h-4 w-4 mr-1" /> Lưu thay đổi
+                        </Button>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
