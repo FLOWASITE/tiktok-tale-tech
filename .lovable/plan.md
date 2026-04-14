@@ -1,37 +1,46 @@
 
 
-## Thêm trang Xác nhận Thanh toán (Payment Confirmation)
-
-### Hiện trạng
-Khi user click "Thanh toán qua VNPay" ở UpgradePlanDialog hoặc Pricing page → gọi edge function → redirect thẳng sang VNPay. User không có cơ hội xem lại thông tin trước khi thanh toán.
+## Hoàn thiện PaymentConfirmDialog
 
 ### Cải tiến
-Thêm bước xác nhận trung gian hiển thị tóm tắt đơn hàng trước khi redirect sang VNPay.
 
-**Flow mới:**
-```text
-Chọn gói → Dialog xác nhận (review) → Click "Xác nhận & Thanh toán" → Redirect VNPay
-```
+**1. Thêm thông tin chi tiết gói mới**
+- Hiển thị danh sách tính năng chính của gói đang nâng cấp (quota: content, ảnh, scripts, carousels)
+- Giúp user biết mình sẽ nhận được gì
 
-### Nội dung trang xác nhận (Dialog/Sheet)
+**2. Cải thiện UI/UX**
+- Thêm hiệu ứng gradient/highlight cho tổng thanh toán
+- Thêm icon Lock/Shield nhỏ bên cạnh nút thanh toán để tạo cảm giác an toàn
+- Thêm dòng "Bảo mật bởi VNPay" với icon khóa ở footer
+- Thêm animation nhẹ khi dialog mở (scale-in)
 
-Hiển thị trong một Dialog mới `PaymentConfirmDialog`:
-- **Workspace**: Tên workspace hiện tại
-- **Gói hiện tại → Gói mới**: Free → Pro
-- **Chu kỳ**: Hàng tháng / Hàng năm
-- **Giá gốc**: 549.000₫
-- **Prorate** (nếu có): Chỉ trả 320.000₫ cho 18 ngày còn lại
-- **Voucher** (nếu có): Mã SALE20 — Giảm 20% → hiển thị giá sau giảm
-- **Tổng thanh toán**: Số tiền cuối cùng (bold, lớn)
-- **Phương thức**: VNPay (ATM, QR, Ví điện tử)
-- Nút "Xác nhận & Thanh toán" + "Quay lại"
+**3. Hiển thị tiết kiệm**
+- Khi chọn gói yearly, hiển thị số tiền tiết kiệm so với monthly (ví dụ: "Tiết kiệm 1.188.000₫/năm")
+- Khi có voucher hoặc prorate, hiển thị gạch ngang giá gốc
+
+**4. Thêm điều khoản**
+- Dòng text nhỏ: "Bằng việc thanh toán, bạn đồng ý với Điều khoản sử dụng"
+- Link đến terms of service
+
+**5. Props bổ sung**
+- Thêm prop `yearlyDiscount` (optional) để hiển thị mức tiết kiệm
+- Thêm prop `planFeatures` (optional) để hiển thị tóm tắt tính năng gói mới
 
 ### Kỹ thuật
 
-**File mới:**
-- `src/components/PaymentConfirmDialog.tsx` — Dialog xác nhận với props: planType, billingCycle, price, prorateInfo, voucher, onConfirm, onCancel
-
 **File sửa:**
-- `src/components/UpgradePlanDialog.tsx` — Khi click "Thanh toán", thay vì gọi API ngay → mở `PaymentConfirmDialog` với thông tin đã tính. Chỉ gọi API khi user confirm.
-- `src/pages/Pricing.tsx` — Tương tự, thêm bước confirm trước khi redirect
+
+**`src/components/PaymentConfirmDialog.tsx`**
+- Thêm interface `PlanFeatureSummary` với các trường quota
+- Thêm section "Tính năng gói mới" với grid hiển thị quota (brands, content, ảnh, scripts, carousels)
+- Thêm badge "Tiết kiệm X₫" khi yearly
+- Thêm gạch ngang giá gốc khi có discount
+- Thêm dòng bảo mật + điều khoản ở cuối
+- Thêm props: `yearlyDiscount?: number`, `planFeatures?: { label: string; value: string }[]`
+
+**`src/components/UpgradePlanDialog.tsx`**
+- Truyền thêm `planFeatures` và `yearlyDiscount` vào PaymentConfirmDialog khi mở confirm
+
+**`src/pages/Pricing.tsx`**
+- Tương tự, truyền thêm props mới vào PaymentConfirmDialog
 
