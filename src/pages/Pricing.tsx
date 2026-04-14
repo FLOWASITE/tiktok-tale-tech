@@ -179,7 +179,7 @@ export default function Pricing() {
     }
 
     const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
-    setConfirmPlan({ planType, price });
+    setConfirmPlan({ planType, price, appliedVoucher: null });
   };
 
   const handleConfirmPayment = async () => {
