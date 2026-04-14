@@ -572,6 +572,20 @@ export default function Account() {
           )}
         </CardContent>
       </Card>
+
+      {/* Payment History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Lịch sử thanh toán
+          </CardTitle>
+          <CardDescription>Xem lại các giao dịch thanh toán của workspace</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PaymentHistorySection />
+        </CardContent>
+      </Card>
     </div>
   );
 }

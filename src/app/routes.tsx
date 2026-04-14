@@ -167,7 +167,6 @@ export function AppRoutes() {
       
       <Route path="/agent-monitor" element={<ProtectedRoute><AppLayout><AgentMonitorPage /></AppLayout></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><AppLayout><Account /></AppLayout></ProtectedRoute>} />
-      <Route path="/payments" element={<ProtectedRoute><AppLayout><PaymentHistory /></AppLayout></ProtectedRoute>} />
 
       {/* Admin routes */}
       <Route path="/admin" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Admin /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
