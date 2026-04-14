@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
+import { PaymentConfirmDialog } from "@/components/PaymentConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -139,12 +140,13 @@ export default function Pricing() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [confirmPlan, setConfirmPlan] = useState<{ planType: string; price: number } | null>(null);
 
   const currentPlan = subscription?.plan_type || "free";
   const isLoggedIn = !!user;
   const formatPrice = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
 
-  const handleSelectPlan = async (plan: typeof PLANS[0]) => {
+  const handleSelectPlan = (plan: typeof PLANS[0]) => {
     if (!isLoggedIn) {
       window.location.href = "/auth?mode=register";
       return;
@@ -158,12 +160,19 @@ export default function Pricing() {
       return;
     }
 
-    setLoadingPlan(plan.key);
+    const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+    setConfirmPlan({ planType, price });
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!confirmPlan || !currentOrganization?.id) return;
+
+    setLoadingPlan(confirmPlan.planType);
     try {
       const { data, error } = await supabase.functions.invoke("create-vnpay-payment", {
         body: {
           organization_id: currentOrganization.id,
-          plan_type: planType,
+          plan_type: confirmPlan.planType,
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
         },
@@ -475,6 +484,21 @@ export default function Pricing() {
       </section>
 
       <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+
+      {confirmPlan && (
+        <PaymentConfirmDialog
+          open={!!confirmPlan}
+          onOpenChange={(open) => { if (!open) setConfirmPlan(null); }}
+          workspaceName={currentOrganization?.name || "Workspace"}
+          currentPlan={currentPlan}
+          targetPlan={confirmPlan.planType}
+          billingCycle={isYearly ? "yearly" : "monthly"}
+          basePrice={confirmPlan.price}
+          finalPrice={confirmPlan.price}
+          isLoading={!!loadingPlan}
+          onConfirm={handleConfirmPayment}
+        />
+      )}
     </div>
   );
 }

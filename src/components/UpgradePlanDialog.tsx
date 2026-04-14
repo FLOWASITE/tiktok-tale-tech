@@ -9,6 +9,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PaymentConfirmDialog } from "@/components/PaymentConfirmDialog";
 
 interface UpgradePlanDialogProps {
   open: boolean;
@@ -32,6 +33,13 @@ interface VoucherInfo {
   applicable_plans: string[] | null;
 }
 
+interface ConfirmState {
+  planType: string;
+  basePrice: number;
+  prorateInfo: { daysRemaining: number; daysInPeriod: number; proratedPrice: number } | null;
+  finalPrice: number;
+}
+
 export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps) {
   const { subscription, planLimits, currentPlanLimits, usage } = useSubscription();
   const { currentOrganization } = useOrganizationContext();
@@ -40,6 +48,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
   const [voucherInput, setVoucherInput] = useState("");
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherInfo | null>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const currentPlan = subscription?.plan_type || "free";
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
@@ -118,18 +127,23 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
     setVoucherInput("");
   };
 
-  const handleUpgrade = async (planType: string) => {
+  const handleSelectPlan = (planType: string, fullPrice: number, prorateInfo: ReturnType<typeof getProrateInfo>, finalPrice: number) => {
     if (!currentOrganization?.id) {
       toast.error("Vui lòng chọn workspace trước");
       return;
     }
+    setConfirmState({ planType, basePrice: fullPrice, prorateInfo, finalPrice });
+  };
 
-    setLoadingPlan(planType);
+  const handleConfirmPayment = async () => {
+    if (!confirmState || !currentOrganization?.id) return;
+
+    setLoadingPlan(confirmState.planType);
     try {
       const { data, error } = await supabase.functions.invoke("create-vnpay-payment", {
         body: {
           organization_id: currentOrganization.id,
-          plan_type: planType,
+          plan_type: confirmState.planType,
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
           voucher_code: appliedVoucher?.code || undefined,
@@ -155,182 +169,197 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Nâng cấp gói
-          </DialogTitle>
-          <DialogDescription>
-            Chọn gói phù hợp với nhu cầu của workspace. Thanh toán qua VNPay.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Nâng cấp gói
+            </DialogTitle>
+            <DialogDescription>
+              Chọn gói phù hợp với nhu cầu của workspace. Thanh toán qua VNPay.
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* Billing toggle */}
-        <div className="flex items-center justify-center gap-3 py-2">
-          <span className={`text-sm ${!isYearly ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-            Hàng tháng
-          </span>
-          <Switch checked={isYearly} onCheckedChange={setIsYearly} />
-          <span className={`text-sm ${isYearly ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-            Hàng năm
-            <span className="ml-1.5 text-xs text-primary font-semibold">-17%</span>
-          </span>
-        </div>
-
-        {/* Voucher input */}
-        <div className="rounded-lg border border-border p-3 space-y-2">
-          <div className="flex items-center gap-1.5 text-sm font-medium">
-            <Tag className="h-4 w-4 text-primary" />
-            Mã voucher
+          {/* Billing toggle */}
+          <div className="flex items-center justify-center gap-3 py-2">
+            <span className={`text-sm ${!isYearly ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              Hàng tháng
+            </span>
+            <Switch checked={isYearly} onCheckedChange={setIsYearly} />
+            <span className={`text-sm ${isYearly ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              Hàng năm
+              <span className="ml-1.5 text-xs text-primary font-semibold">-17%</span>
+            </span>
           </div>
-          {appliedVoucher ? (
-            <div className="flex items-center justify-between bg-primary/10 rounded-md px-3 py-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-mono">{appliedVoucher.code}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  {appliedVoucher.discount_type === 'percentage'
-                    ? `Giảm ${appliedVoucher.discount_value}%`
-                    : `Giảm ${formatPrice(appliedVoucher.discount_value)}₫`}
-                </span>
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleRemoveVoucher} className="h-7 w-7 p-0">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nhập mã voucher"
-                value={voucherInput}
-                onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
-                className="font-mono"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleApplyVoucher}
-                disabled={!voucherInput.trim() || voucherLoading}
-              >
-                {voucherLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Áp dụng"}
-              </Button>
-            </div>
-          )}
-        </div>
 
-        {/* Plan cards */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {upgradablePlans.map((plan) => {
-            const fullMonthlyPrice = isYearly ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
-            const fullPrice = isYearly ? plan.price_yearly : plan.price_monthly;
-            const prorateInfo = getProrateInfo(fullPrice);
-            const priceBeforeDiscount = prorateInfo ? prorateInfo.proratedPrice : fullPrice;
-            const finalPrice = getDiscountedPrice(priceBeforeDiscount, plan.plan_type);
-            const hasDiscount = appliedVoucher && finalPrice < priceBeforeDiscount;
-            const isLoading = loadingPlan === plan.plan_type;
-
-            return (
-              <div key={plan.plan_type} className="rounded-xl border border-border p-5 space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold">{PLAN_NAMES[plan.plan_type] || plan.plan_type}</h3>
-                  <div className="mt-1">
-                    <span className="text-2xl font-extrabold">{formatPrice(fullMonthlyPrice)}₫</span>
-                    <span className="text-sm text-muted-foreground">/tháng</span>
-                  </div>
-                  {isYearly && (
-                    <p className="text-xs text-muted-foreground">
-                      Thanh toán {formatPrice(plan.price_yearly)}₫/năm
-                    </p>
-                  )}
+          {/* Voucher input */}
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <Tag className="h-4 w-4 text-primary" />
+              Mã voucher
+            </div>
+            {appliedVoucher ? (
+              <div className="flex items-center justify-between bg-primary/10 rounded-md px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="font-mono">{appliedVoucher.code}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {appliedVoucher.discount_type === 'percentage'
+                      ? `Giảm ${appliedVoucher.discount_value}%`
+                      : `Giảm ${formatPrice(appliedVoucher.discount_value)}₫`}
+                  </span>
                 </div>
-
-                {/* Proration notice */}
-                {prorateInfo && (
-                  <div className="rounded-lg bg-accent/50 p-3 space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      Thanh toán theo ngày còn lại
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Chỉ <span className="font-semibold text-foreground">{formatPrice(prorateInfo.proratedPrice)}₫</span> cho {prorateInfo.daysRemaining} ngày còn lại
-                    </p>
-                  </div>
-                )}
-
-                {/* Voucher discount notice */}
-                {hasDiscount && (
-                  <div className="rounded-lg bg-primary/10 p-3 space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                      <Tag className="h-3.5 w-3.5" />
-                      Voucher {appliedVoucher.code}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      <span className="line-through">{formatPrice(priceBeforeDiscount)}₫</span>
-                      <span className="ml-1.5 font-semibold text-primary">{formatPrice(finalPrice)}₫</span>
-                    </p>
-                  </div>
-                )}
-
-                {/* Usage comparison */}
-                {usage && currentPlanLimits && (
-                  <div className="rounded-lg border border-border/50 p-2.5 space-y-1">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Hạn mức nâng lên</p>
-                    {[
-                      { label: 'Scripts', used: usage.scripts, oldLimit: currentPlanLimits.monthly_scripts, newLimit: plan.monthly_scripts },
-                      { label: 'Carousels', used: usage.carousels, oldLimit: currentPlanLimits.monthly_carousels, newLimit: plan.monthly_carousels },
-                      { label: 'Đa kênh', used: usage.multichannel, oldLimit: currentPlanLimits.monthly_multichannel, newLimit: plan.monthly_multichannel },
-                      { label: 'Ảnh AI', used: usage.images, oldLimit: currentPlanLimits.monthly_images, newLimit: plan.monthly_images },
-                    ].filter(i => i.newLimit !== i.oldLimit).slice(0, 3).map(item => (
-                      <div key={item.label} className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{item.label}</span>
-                        <span className="flex items-center gap-1 tabular-nums">
-                          <span className="text-muted-foreground">{item.used}/{item.oldLimit === -1 ? '∞' : item.oldLimit}</span>
-                          <ArrowRight className="h-3 w-3 text-primary" />
-                          <span className="font-medium text-foreground">{item.used}/{item.newLimit === -1 ? '∞' : item.newLimit}</span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <ul className="space-y-1.5 text-sm">
-                  {(plan.features || []).map((f: string) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  className="w-full"
-                  onClick={() => handleUpgrade(plan.plan_type)}
-                  disabled={!!loadingPlan}
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <CreditCard className="h-4 w-4 mr-2" />
-                  )}
-                  {hasDiscount
-                    ? `Thanh toán ${formatPrice(finalPrice)}₫`
-                    : prorateInfo
-                      ? `Thanh toán ${formatPrice(prorateInfo.proratedPrice)}₫`
-                      : "Thanh toán qua VNPay"}
+                <Button variant="ghost" size="sm" onClick={handleRemoveVoucher} className="h-7 w-7 p-0">
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
-            );
-          })}
-        </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nhập mã voucher"
+                  value={voucherInput}
+                  onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
+                  className="font-mono"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleApplyVoucher}
+                  disabled={!voucherInput.trim() || voucherLoading}
+                >
+                  {voucherLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Áp dụng"}
+                </Button>
+              </div>
+            )}
+          </div>
 
-        {upgradablePlans.length === 0 && (
-          <p className="text-center text-muted-foreground py-8">
-            Bạn đang sử dụng gói cao nhất. Liên hệ để tùy chỉnh gói Enterprise.
-          </p>
-        )}
-      </DialogContent>
-    </Dialog>
+          {/* Plan cards */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {upgradablePlans.map((plan) => {
+              const fullMonthlyPrice = isYearly ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
+              const fullPrice = isYearly ? plan.price_yearly : plan.price_monthly;
+              const prorateInfo = getProrateInfo(fullPrice);
+              const priceBeforeDiscount = prorateInfo ? prorateInfo.proratedPrice : fullPrice;
+              const finalPrice = getDiscountedPrice(priceBeforeDiscount, plan.plan_type);
+              const hasDiscount = appliedVoucher && finalPrice < priceBeforeDiscount;
+
+              return (
+                <div key={plan.plan_type} className="rounded-xl border border-border p-5 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-bold">{PLAN_NAMES[plan.plan_type] || plan.plan_type}</h3>
+                    <div className="mt-1">
+                      <span className="text-2xl font-extrabold">{formatPrice(fullMonthlyPrice)}₫</span>
+                      <span className="text-sm text-muted-foreground">/tháng</span>
+                    </div>
+                    {isYearly && (
+                      <p className="text-xs text-muted-foreground">
+                        Thanh toán {formatPrice(plan.price_yearly)}₫/năm
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Proration notice */}
+                  {prorateInfo && (
+                    <div className="rounded-lg bg-accent/50 p-3 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <Clock className="h-3.5 w-3.5" />
+                        Thanh toán theo ngày còn lại
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Chỉ <span className="font-semibold text-foreground">{formatPrice(prorateInfo.proratedPrice)}₫</span> cho {prorateInfo.daysRemaining} ngày còn lại
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Voucher discount notice */}
+                  {hasDiscount && (
+                    <div className="rounded-lg bg-primary/10 p-3 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                        <Tag className="h-3.5 w-3.5" />
+                        Voucher {appliedVoucher.code}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        <span className="line-through">{formatPrice(priceBeforeDiscount)}₫</span>
+                        <span className="ml-1.5 font-semibold text-primary">{formatPrice(finalPrice)}₫</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Usage comparison */}
+                  {usage && currentPlanLimits && (
+                    <div className="rounded-lg border border-border/50 p-2.5 space-y-1">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Hạn mức nâng lên</p>
+                      {[
+                        { label: 'Scripts', used: usage.scripts, oldLimit: currentPlanLimits.monthly_scripts, newLimit: plan.monthly_scripts },
+                        { label: 'Carousels', used: usage.carousels, oldLimit: currentPlanLimits.monthly_carousels, newLimit: plan.monthly_carousels },
+                        { label: 'Đa kênh', used: usage.multichannel, oldLimit: currentPlanLimits.monthly_multichannel, newLimit: plan.monthly_multichannel },
+                        { label: 'Ảnh AI', used: usage.images, oldLimit: currentPlanLimits.monthly_images, newLimit: plan.monthly_images },
+                      ].filter(i => i.newLimit !== i.oldLimit).slice(0, 3).map(item => (
+                        <div key={item.label} className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{item.label}</span>
+                          <span className="flex items-center gap-1 tabular-nums">
+                            <span className="text-muted-foreground">{item.used}/{item.oldLimit === -1 ? '∞' : item.oldLimit}</span>
+                            <ArrowRight className="h-3 w-3 text-primary" />
+                            <span className="font-medium text-foreground">{item.used}/{item.newLimit === -1 ? '∞' : item.newLimit}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <ul className="space-y-1.5 text-sm">
+                    {(plan.features || []).map((f: string) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    className="w-full"
+                    onClick={() => handleSelectPlan(plan.plan_type, fullPrice, prorateInfo, finalPrice)}
+                    disabled={!!loadingPlan}
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    {hasDiscount
+                      ? `Thanh toán ${formatPrice(finalPrice)}₫`
+                      : prorateInfo
+                        ? `Thanh toán ${formatPrice(prorateInfo.proratedPrice)}₫`
+                        : "Thanh toán qua VNPay"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          {upgradablePlans.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">
+              Bạn đang sử dụng gói cao nhất. Liên hệ để tùy chỉnh gói Enterprise.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment confirmation dialog */}
+      {confirmState && (
+        <PaymentConfirmDialog
+          open={!!confirmState}
+          onOpenChange={(open) => { if (!open) setConfirmState(null); }}
+          workspaceName={currentOrganization?.name || "Workspace"}
+          currentPlan={currentPlan}
+          targetPlan={confirmState.planType}
+          billingCycle={isYearly ? "yearly" : "monthly"}
+          basePrice={confirmState.basePrice}
+          prorateInfo={confirmState.prorateInfo}
+          voucher={appliedVoucher ? { code: appliedVoucher.code, discount_type: appliedVoucher.discount_type, discount_value: appliedVoucher.discount_value } : null}
+          finalPrice={confirmState.finalPrice}
+          isLoading={!!loadingPlan}
+          onConfirm={handleConfirmPayment}
+        />
+      )}
+    </>
   );
 }
