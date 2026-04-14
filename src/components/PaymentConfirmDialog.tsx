@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X, QrCode, Landmark, Wallet, Globe } from "lucide-react";
+import { CreditCard, ArrowRight, Clock, Tag, ShieldCheck, Loader2, Lock, Sparkles, TrendingDown, X, QrCode, Landmark, Wallet, Globe, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+export type PaymentGateway = "vnpay" | "payos";
 
 const PLAN_NAMES: Record<string, string> = {
   free: "Miễn phí",
@@ -36,7 +38,12 @@ export interface PlanFeatureSummary {
   value: string;
 }
 
-const PAYMENT_METHODS = [
+const PAYMENT_GATEWAYS = [
+  { code: "vnpay" as PaymentGateway, label: "VNPay", desc: "QR, ATM, Ví, Thẻ quốc tế", icon: CreditCard },
+  { code: "payos" as PaymentGateway, label: "payOS", desc: "QR VietQR — tiền về ngay", icon: Zap },
+] as const;
+
+const VNPAY_METHODS = [
   { code: "VNPAYQR", label: "QR Code", desc: "Quét mã QR", icon: QrCode },
   { code: "VNBANK", label: "ATM nội địa", desc: "Internet Banking", icon: Landmark },
   { code: "VNPAYEWALLET", label: "Ví điện tử", desc: "VNPay, MoMo...", icon: Wallet },
@@ -55,7 +62,7 @@ export interface PaymentConfirmDialogProps {
   voucher?: VoucherInfo | null;
   finalPrice: number;
   isLoading: boolean;
-  onConfirm: (bankCode?: string) => void;
+  onConfirm: (bankCode?: string, gateway?: PaymentGateway) => void;
   yearlyDiscount?: number;
   planFeatures?: PlanFeatureSummary[];
   onVoucherChange?: (voucher: VoucherInfo | null, newPrice: number) => void;
@@ -84,6 +91,7 @@ export function PaymentConfirmDialog({
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [localVoucher, setLocalVoucher] = useState<VoucherInfo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("VNPAYQR");
+  const [selectedGateway, setSelectedGateway] = useState<PaymentGateway>("payos");
 
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
@@ -341,21 +349,21 @@ export function PaymentConfirmDialog({
                   </div>
                 )}
 
-                {/* Payment method selector */}
+                {/* Payment gateway selector */}
                 <div className="rounded-xl border border-border p-3 sm:p-4 space-y-2">
                   <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium">
                     <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                    Phương thức thanh toán
+                    Cổng thanh toán
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {PAYMENT_METHODS.map((method) => {
-                      const isSelected = paymentMethod === method.code;
-                      const Icon = method.icon;
+                    {PAYMENT_GATEWAYS.map((gw) => {
+                      const isSelected = selectedGateway === gw.code;
+                      const Icon = gw.icon;
                       return (
                         <button
-                          key={method.code}
+                          key={gw.code}
                           type="button"
-                          onClick={() => setPaymentMethod(method.code)}
+                          onClick={() => setSelectedGateway(gw.code)}
                           className={`relative flex flex-col items-center gap-1 rounded-lg border-2 p-2.5 sm:p-3 transition-all duration-200 text-center cursor-pointer ${
                             isSelected
                               ? "border-primary bg-primary/5 shadow-sm"
@@ -364,10 +372,10 @@ export function PaymentConfirmDialog({
                         >
                           <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
                           <span className={`text-[11px] sm:text-xs font-medium leading-tight ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
-                            {method.label}
+                            {gw.label}
                           </span>
                           <span className="text-[9px] sm:text-[10px] text-muted-foreground/70 leading-tight">
-                            {method.desc}
+                            {gw.desc}
                           </span>
                           {isSelected && (
                             <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
@@ -377,10 +385,62 @@ export function PaymentConfirmDialog({
                     })}
                   </div>
                 </div>
+
+                {/* VNPay payment method selector (only when VNPay selected) */}
+                {selectedGateway === "vnpay" && (
+                  <div className="rounded-xl border border-border p-3 sm:p-4 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium">
+                      <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                      Phương thức VNPay
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {VNPAY_METHODS.map((method) => {
+                        const isSelected = paymentMethod === method.code;
+                        const Icon = method.icon;
+                        return (
+                          <button
+                            key={method.code}
+                            type="button"
+                            onClick={() => setPaymentMethod(method.code)}
+                            className={`relative flex flex-col items-center gap-1 rounded-lg border-2 p-2.5 sm:p-3 transition-all duration-200 text-center cursor-pointer ${
+                              isSelected
+                                ? "border-primary bg-primary/5 shadow-sm"
+                                : "border-border hover:border-primary/40 hover:bg-muted/30"
+                            }`}
+                          >
+                            <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                            <span className={`text-[11px] sm:text-xs font-medium leading-tight ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                              {method.label}
+                            </span>
+                            <span className="text-[9px] sm:text-[10px] text-muted-foreground/70 leading-tight">
+                              {method.desc}
+                            </span>
+                            {isSelected && (
+                              <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* payOS info */}
+                {selectedGateway === "payos" && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
+                    <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-foreground mb-1">
+                      <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                      Thanh toán QR VietQR
+                    </div>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">
+                      Quét mã QR bằng app ngân hàng. Tiền chuyển trực tiếp về tài khoản — không qua trung gian.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="flex-col gap-2 mt-3 sm:mt-4">
-                <Button onClick={() => onConfirm(paymentMethod)} disabled={isLoading} className="w-full sm:w-auto order-1 sm:order-2">
+                <Button onClick={() => onConfirm(selectedGateway === "vnpay" ? paymentMethod : undefined, selectedGateway)} disabled={isLoading} className="w-full sm:w-auto order-1 sm:order-2">
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
@@ -397,7 +457,7 @@ export function PaymentConfirmDialog({
               <div className="mt-3 sm:mt-4 flex flex-col items-center gap-1">
                 <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
                   <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span>Bảo mật bởi VNPay</span>
+                  <span>Bảo mật bởi {selectedGateway === "payos" ? "payOS" : "VNPay"}</span>
                 </div>
                 <p className="text-[10px] sm:text-[11px] text-muted-foreground/70 text-center">
                   Bằng việc thanh toán, bạn đồng ý với{" "}

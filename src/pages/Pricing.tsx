@@ -12,6 +12,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
 import { PaymentConfirmDialog } from "@/components/PaymentConfirmDialog";
+import type { PaymentGateway } from "@/components/PaymentConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -182,24 +183,29 @@ export default function Pricing() {
     setConfirmPlan({ planType, price, appliedVoucher: null });
   };
 
-  const handleConfirmPayment = async (bankCode?: string) => {
+  const handleConfirmPayment = async (bankCode?: string, gateway?: PaymentGateway) => {
     if (!confirmPlan || !currentOrganization?.id) return;
 
+    const selectedGateway = gateway || "vnpay";
     setLoadingPlan(confirmPlan.planType);
     try {
-      const { data, error } = await supabase.functions.invoke("create-vnpay-payment", {
-        body: {
-          organization_id: currentOrganization.id,
-          plan_type: confirmPlan.planType,
-          billing_cycle: isYearly ? "yearly" : "monthly",
-          return_url: `${window.location.origin}/payment/result`,
-          voucher_code: confirmPlan.appliedVoucher?.code || undefined,
-          bank_code: bankCode || undefined,
-        },
-      });
+      const functionName = selectedGateway === "payos" ? "create-payos-payment" : "create-vnpay-payment";
+      const bodyPayload: Record<string, unknown> = {
+        organization_id: currentOrganization.id,
+        plan_type: confirmPlan.planType,
+        billing_cycle: isYearly ? "yearly" : "monthly",
+        return_url: `${window.location.origin}/payment/result`,
+        voucher_code: confirmPlan.appliedVoucher?.code || undefined,
+      };
+      if (selectedGateway === "vnpay" && bankCode) {
+        bodyPayload.bank_code = bankCode;
+      }
+
+      const { data, error } = await supabase.functions.invoke(functionName, { body: bodyPayload });
       if (error) throw error;
-      if (data?.payment_url) {
-        window.location.href = data.payment_url;
+      const redirectUrl = data?.payment_url || data?.checkout_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
       }
     } catch (err: any) {
       toast.error("Không thể tạo thanh toán: " + (err.message || "Lỗi"));

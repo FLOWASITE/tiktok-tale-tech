@@ -39,18 +39,30 @@ export default function PaymentResult() {
   const [countdown, setCountdown] = useState(10);
   const [showDetails, setShowDetails] = useState(false);
 
+  // Detect payment provider
   const responseCode = searchParams.get("vnp_ResponseCode");
-  const txnRef = searchParams.get("vnp_TxnRef");
-  const amount = searchParams.get("vnp_Amount");
+  const payosCancel = searchParams.get("payos_cancel");
+  const payosCode = searchParams.get("code");
+  const payosOrderCode = searchParams.get("orderCode");
+  const payosStatus = searchParams.get("status");
+
+  // Determine which provider was used
+  const isPayOS = !!payosOrderCode || !!payosCancel || !!payosCode;
+  const isVNPay = !!responseCode;
+
+  const txnRef = isVNPay ? searchParams.get("vnp_TxnRef") : payosOrderCode;
+  const amount = isVNPay ? searchParams.get("vnp_Amount") : searchParams.get("amount");
   const bankCode = searchParams.get("vnp_BankCode");
   const orderInfo = searchParams.get("vnp_OrderInfo");
   const payDate = searchParams.get("vnp_PayDate");
-  const transactionNo = searchParams.get("vnp_TransactionNo");
+  const transactionNo = isVNPay ? searchParams.get("vnp_TransactionNo") : searchParams.get("reference");
 
-  const isSuccess = responseCode === "00";
+  const isSuccess = isPayOS
+    ? (payosStatus === "PAID" || payosCode === "00") && !payosCancel
+    : responseCode === "00";
 
   const formattedAmount = amount
-    ? new Intl.NumberFormat("vi-VN").format(parseInt(amount) / 100) + "₫"
+    ? new Intl.NumberFormat("vi-VN").format(isVNPay ? parseInt(amount) / 100 : parseInt(amount)) + "₫"
     : "";
 
   const formattedDate = useMemo(() => {
@@ -108,7 +120,7 @@ export default function PaymentResult() {
     return bankCode ? (map[bankCode] || bankCode) : null;
   }, [bankCode]);
 
-  if (!responseCode) {
+  if (!responseCode && !isPayOS) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -116,12 +128,19 @@ export default function PaymentResult() {
     );
   }
 
-  const errorMessage = !isSuccess ? (VNPAY_ERRORS[responseCode] || "Giao dịch không thành công") : "";
+  const errorMessage = !isSuccess
+    ? (isPayOS
+      ? (payosCancel ? "Bạn đã hủy giao dịch" : "Giao dịch không thành công")
+      : (VNPAY_ERRORS[responseCode || ""] || "Giao dịch không thành công"))
+    : "";
+
+  const paymentProviderLabel = isPayOS ? "payOS" : "VNPay";
 
   const transactionDetails = [
     { label: "Mã giao dịch", value: txnRef, icon: Hash },
-    { label: "Mã VNPay", value: transactionNo, icon: Receipt },
-    { label: "Phương thức", value: bankCodeLabel, icon: CreditCard },
+    { label: isVNPay ? "Mã VNPay" : "Mã tham chiếu", value: transactionNo, icon: Receipt },
+    { label: "Phương thức", value: isPayOS ? "QR VietQR" : bankCodeLabel, icon: CreditCard },
+    { label: "Cổng thanh toán", value: paymentProviderLabel, icon: ShieldCheck },
     { label: "Thời gian", value: formattedDate, icon: Clock },
   ].filter((d) => d.value);
 
@@ -281,7 +300,7 @@ export default function PaymentResult() {
             {/* Security footer */}
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/60 pt-1">
               <ShieldCheck className="w-3 h-3" />
-              <span>Giao dịch bảo mật bởi VNPay</span>
+              <span>Giao dịch bảo mật bởi {paymentProviderLabel}</span>
             </div>
           </CardContent>
         </Card>

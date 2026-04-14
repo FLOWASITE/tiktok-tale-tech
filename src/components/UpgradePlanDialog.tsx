@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Check, Loader2, CreditCard, Clock, ArrowRight, Tag, X } from "lucide-react";
+import type { PaymentGateway } from "@/components/PaymentConfirmDialog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,25 +155,30 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
     return Math.max(0, plan.price_monthly * 12 - plan.price_yearly);
   };
 
-  const handleConfirmPayment = async (bankCode?: string) => {
+  const handleConfirmPayment = async (bankCode?: string, gateway?: PaymentGateway) => {
     if (!confirmState || !currentOrganization?.id) return;
 
+    const selectedGateway = gateway || "vnpay";
     setLoadingPlan(confirmState.planType);
     try {
-      const { data, error } = await supabase.functions.invoke("create-vnpay-payment", {
-        body: {
-          organization_id: currentOrganization.id,
-          plan_type: confirmState.planType,
-          billing_cycle: isYearly ? "yearly" : "monthly",
-          return_url: `${window.location.origin}/payment/result`,
-          voucher_code: appliedVoucher?.code || undefined,
-          bank_code: bankCode || undefined,
-        },
-      });
+      const functionName = selectedGateway === "payos" ? "create-payos-payment" : "create-vnpay-payment";
+      const bodyPayload: Record<string, unknown> = {
+        organization_id: currentOrganization.id,
+        plan_type: confirmState.planType,
+        billing_cycle: isYearly ? "yearly" : "monthly",
+        return_url: `${window.location.origin}/payment/result`,
+        voucher_code: appliedVoucher?.code || undefined,
+      };
+      if (selectedGateway === "vnpay" && bankCode) {
+        bodyPayload.bank_code = bankCode;
+      }
+
+      const { data, error } = await supabase.functions.invoke(functionName, { body: bodyPayload });
 
       if (error) throw error;
-      if (data?.payment_url) {
-        window.location.href = data.payment_url;
+      const redirectUrl = data?.payment_url || data?.checkout_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
       } else {
         throw new Error("No payment URL returned");
       }
@@ -198,7 +204,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
               Nâng cấp gói
             </DialogTitle>
             <DialogDescription>
-              Chọn gói phù hợp với nhu cầu của workspace. Thanh toán qua VNPay.
+              Chọn gói phù hợp với nhu cầu của workspace.
             </DialogDescription>
           </DialogHeader>
 
