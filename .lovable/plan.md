@@ -1,67 +1,39 @@
 
 
-## Hoàn thiện Subscription Manager - Bản polish cuối
+## Hoàn thiện Quản lý Lịch sử Thanh toán
 
-### Vấn đề còn lại sau review
+### Hiện trạng
 
-1. **Component quá lớn (830 dòng)** - Khó maintain, nên tách thành sub-components
-2. **Không có subscription detail view** - Click vào row không hiện chi tiết đầy đủ (metadata, payment_provider, trial_end, cancelled_at)
-3. **Không ghi audit log** - Admin đổi gói/hủy/gia hạn không lưu lại ai làm, lúc nào
-4. **Bulk action chạy tuần tự không có progress** - Bulk 50 subscriptions không biết đang xử lý đến đâu
-5. **Đổi gói reset period** - `changePlanMutation` đang reset `current_period_start` về hôm nay, lẽ ra nên giữ nguyên period khi chỉ đổi gói (proration logic)
-6. **Không có trial/pending filter** - Thiếu 2 trạng thái trong filter
-7. **Payment dialog không phân biệt refund** - Số tiền âm (hoàn tiền) không được highlight
-8. **Summary cards không click-to-filter** - Click vào card "Sắp hết hạn" nên tự set filter
+Hiện tại lịch sử thanh toán chỉ được xem **theo từng workspace** qua `PaymentHistoryDialog` (mở từ bảng Subscription). Chưa có trang tổng hợp toàn bộ giao dịch.
 
 ### Cải tiến
 
-**1. Tách component**
-- `SubscriptionSummaryCards` - 5 cards, click để filter
-- `SubscriptionTable` - bảng + pagination
-- `SubscriptionDetailDrawer` - sheet/dialog hiện full detail khi click row
-- `PaymentHistoryDialog` - giữ nguyên, tách riêng file
+**1. Trang "Lịch sử thanh toán" toàn cục cho Admin**
+- Component mới `PaymentHistoryManager.tsx` hiển thị **tất cả** payment_orders across all organizations
+- Summary cards: Tổng giao dịch, Tổng doanh thu (success), Giao dịch thất bại, Tỷ lệ thành công
+- Bảng đầy đủ: Ngày, Workspace, Email, Gói, Chu kỳ, Mã GD (copy), Số tiền, Trạng thái
+- Filter: theo trạng thái (success/pending/failed), theo gói, theo date range (từ ngày - đến ngày)
+- Search: tìm theo workspace name, email, mã giao dịch
+- Sort: theo ngày, số tiền
+- Pagination: 20 items/page
+- Export CSV toàn bộ dữ liệu đã lọc
 
-**2. Click-to-filter trên summary cards**
-- Click card "Active" → set `filterStatus = "active"`
-- Click card "Sắp hết hạn" → set `filterStatus = "expiring_soon"`
-- Active card có ring highlight
+**2. Tích hợp vào Admin Plans tab**
+- Thêm tab/section "Lịch sử thanh toán" trong trang admin plans
+- Hoặc thêm như một sub-tab cùng cấp với Subscriptions và Revenue
 
-**3. Subscription Detail Drawer**
-- Click vào tên workspace → mở Sheet bên phải
-- Hiển thị: metadata, payment_provider, payment_reference, trial_end, cancelled_at, previous_plan_type
-- Timeline các thay đổi gần đây (từ payment_orders)
-
-**4. Bulk progress indicator**
-- Khi bulk action chạy, hiện progress bar "Đang xử lý 3/10..."
-- Không đóng dialog cho đến khi hoàn tất
-
-**5. Sửa đổi gói giữ nguyên period**
-- `changePlanMutation` chỉ update `plan_type`, không reset period dates
-- Thêm option "Reset chu kỳ" checkbox trong confirm dialog nếu admin muốn
-
-**6. Thêm filter trial + pending**
-- Bổ sung 2 SelectItem cho trial và pending
-
-**7. Payment refund highlight**
-- Amount < 0 hiện màu đỏ với prefix "Hoàn"
+**3. Cải thiện PaymentHistoryDialog hiện tại**
+- Thêm date range filter nhỏ gọn
+- Thêm nút export CSV cho từng workspace
 
 ### Kỹ thuật
 
-**Files mới:**
-- `src/components/admin/plans/SubscriptionSummaryCards.tsx`
-- `src/components/admin/plans/SubscriptionTable.tsx`  
-- `src/components/admin/plans/SubscriptionDetailDrawer.tsx`
-- `src/components/admin/plans/PaymentHistoryDialog.tsx`
+**File mới:**
+- `src/components/admin/plans/PaymentHistoryManager.tsx` — Component chính với summary cards, bảng, filters, pagination, export
 
-**File sửa:** `src/components/admin/plans/SubscriptionManager.tsx`
-- Giữ làm orchestrator: state, queries, mutations
-- Import và compose 4 sub-components
-- Giảm từ 830 dòng xuống ~200 dòng
+**File sửa:**
+- `src/components/admin/plans/PaymentHistoryDialog.tsx` — Thêm date filter + export CSV per-org
+- File chứa tab admin plans — Thêm tab/entry point cho PaymentHistoryManager
 
-**Logic changes:**
-- `changePlanMutation`: chỉ update `plan_type` (bỏ reset period)
-- Confirm dialog đổi gói: thêm checkbox "Reset chu kỳ thanh toán"
-- Summary cards nhận `onFilter` callback
-- Bulk action: thêm state `bulkProgress: { current: number; total: number } | null`
-- Filter status: thêm `trial`, `pending`
+**Query:** Fetch payment_orders join organizations (name) + profiles (email) tương tự pattern SubscriptionManager đang dùng
 
