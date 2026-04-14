@@ -169,13 +169,20 @@ Deno.serve(withPerf({ functionName: 'publish-facebook' }, async (req) => {
   try {
     const supabase = getServiceClient();
 
-    // Verify user authentication
+    // Verify user authentication (allow internal service-role calls from scheduled worker)
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Missing authorization header');
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) throw new Error('Unauthorized');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const isInternalCall = !!serviceRoleKey && token === serviceRoleKey;
+
+    if (!isInternalCall) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) throw new Error('Unauthorized');
+    } else {
+      console.log('publish-facebook: accepted internal service-role invocation');
+    }
 
     const body: PublishRequest = await req.json();
     const { connectionId, contentId, content, mediaUrls, linkUrl, scheduleTime, scheduleId } = body;
