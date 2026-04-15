@@ -292,6 +292,86 @@ export function CarouselViewer({
     enabled: !!(carousel?.brand_template_id || carousel?.brand_name),
   });
 
+  // Social connections for multi-channel publish
+  const { currentOrganization } = useOrganization();
+  const { connections: socialConnections } = useSocialConnections({
+    brandTemplateId: brandTemplate?.id || carousel?.brand_template_id || undefined,
+    organizationId: currentOrganization?.id,
+  });
+  const queryClient = useQueryClient();
+
+  // Publishing logs for this carousel — track per-channel status
+  const { data: publishingLogs } = useQuery({
+    queryKey: ['carousel-publishing-logs', carousel?.id],
+    queryFn: async () => {
+      if (!carousel?.id) return [];
+      const { data, error } = await supabase
+        .from('content_publishing_logs')
+        .select('*')
+        .eq('content_id', carousel.id)
+        .eq('action', 'published')
+        .order('performed_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!carousel?.id,
+  });
+
+  // Derive which channels have been published
+  const publishedChannels = useMemo(() => {
+    const channels = new Set<string>();
+    publishingLogs?.forEach((log: any) => {
+      if (log.channel) channels.add(log.channel);
+    });
+    return channels;
+  }, [publishingLogs]);
+
+  // Channels available for this carousel based on platform + active connections
+  const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
+    facebook: ['facebook', 'instagram'],
+    instagram: ['instagram', 'facebook'],
+    tiktok: ['tiktok', 'instagram', 'facebook'],
+    linkedin: ['linkedin', 'facebook'],
+  };
+
+  const availableChannels = useMemo(() => {
+    const platformChannels = CAROUSEL_PLATFORM_CHANNELS[carousel?.platform || 'facebook'] || ['facebook'];
+    const activeConnections = socialConnections?.filter(c => c.is_active) || [];
+    return platformChannels.filter(ch => 
+      activeConnections.some(conn => conn.platform === ch)
+    );
+  }, [carousel?.platform, socialConnections]);
+
+  // onPublishSuccess handler — update carousel status + refetch logs
+  const handlePublishSuccess = useCallback(async (channel: string) => {
+    if (!carousel) return;
+    
+    // Refetch publishing logs
+    queryClient.invalidateQueries({ queryKey: ['carousel-publishing-logs', carousel.id] });
+
+    // Calculate new status
+    const newPublished = new Set(publishedChannels);
+    newPublished.add(channel);
+    
+    const allChannelsPublished = availableChannels.length > 0 && 
+      availableChannels.every(ch => newPublished.has(ch));
+    const newStatus = allChannelsPublished ? 'published' : 'partially_published';
+
+    try {
+      const { error } = await supabase
+        .from('carousels')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', carousel.id);
+
+      if (error) throw error;
+
+      const updatedCarousel = { ...carousel, status: newStatus as CarouselStatus, updated_at: new Date().toISOString() };
+      onCarouselUpdate?.(updatedCarousel);
+    } catch (err) {
+      console.error('Failed to update carousel status after publish:', err);
+    }
+  }, [carousel, publishedChannels, availableChannels, queryClient, onCarouselUpdate]);
+
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
 
