@@ -1,10 +1,14 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X } from 'lucide-react';
+import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X, Pin, List, LayoutGrid, ArrowUpDown, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import {
   Tooltip,
