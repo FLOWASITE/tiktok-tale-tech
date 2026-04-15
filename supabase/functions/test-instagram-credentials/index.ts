@@ -1,5 +1,4 @@
-import { createDecipheriv } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential } from "../_shared/crypto.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
@@ -14,26 +13,6 @@ interface TestRequest {
   appSecret?: string;
 }
 
-// Decrypt encrypted credentials
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
 Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -42,7 +21,6 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
   try {
     const supabase = getServiceClient();
 
-    // Verify admin role
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -55,7 +33,6 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
       throw new Error('Unauthorized');
     }
 
-    // Check admin role
     const { data: roles } = await supabase
       .from('user_roles')
       .select('role')
@@ -76,7 +53,6 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
     let appId = rawAppId;
     let appSecret = rawAppSecret;
 
-    // If using stored credentials, fetch and decrypt them
     if (useStoredCredentials || (!appId && !appSecret)) {
       console.log('Fetching stored credentials for Instagram...');
       
@@ -95,9 +71,8 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
         throw new Error('App ID/Secret chưa được cấu hình');
       }
 
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      appId = decrypt(settings.consumer_key, encryptionKey);
-      appSecret = decrypt(settings.consumer_secret, encryptionKey);
+      appId = await decryptCredential(settings.consumer_key);
+      appSecret = await decryptCredential(settings.consumer_secret);
 
       if (!appId || !appSecret) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
@@ -110,12 +85,8 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
 
     console.log('Testing Instagram credentials...');
 
-    // Instagram uses the same Facebook Graph API for app verification
-    // Test by generating an App Access Token and verifying the app exists
     const appAccessToken = `${appId}|${appSecret}`;
     
-    // Verify the app credentials by calling the Facebook Graph API
-    // Instagram apps are still registered via Meta Developer Console
     const testResponse = await fetch(
       `https://graph.facebook.com/v24.0/${appId}?access_token=${appAccessToken}&fields=id,name`,
       { method: 'GET' }
@@ -128,7 +99,6 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
       try {
         const errorData = JSON.parse(responseText);
         if (errorData.error?.message) {
-          // Check for specific Instagram-related errors
           if (errorData.error.code === 190) {
             throw new Error('Instagram App ID hoặc App Secret không hợp lệ');
           }
