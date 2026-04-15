@@ -94,30 +94,66 @@ Deno.serve(withPerf({ functionName: 'verify-payos-order' }, async (req) => {
     const payosStatus = payosData.data.status;
 
     if (payosStatus === 'PAID') {
+      const orderMetadata = (order.metadata as Record<string, unknown>) || {};
+      const isAddon = orderMetadata.purchase_type === 'addon';
+
       // Update payment_orders
       await supabase
         .from('payment_orders')
         .update({ status: 'success', updated_at: new Date().toISOString() })
         .eq('id', order.id);
 
-      // Update subscription
-      const periodEnd = new Date();
-      periodEnd.setDate(periodEnd.getDate() + 30);
+      if (isAddon) {
+        // Insert addon purchase
+        const { data: currentSub } = await supabase
+          .from('subscriptions')
+          .select('current_period_end')
+          .eq('organization_id', order.organization_id)
+          .eq('status', 'active')
+          .maybeSingle();
 
-      await supabase
-        .from('subscriptions')
-        .update({
-          plan_type: order.plan_type,
-          status: 'active',
-          payment_provider: 'payos',
-          payment_reference: String(orderCode),
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-        })
-        .eq('organization_id', order.organization_id);
+        const now = new Date();
+        const expiresAt = currentSub?.current_period_end
+          ? new Date(currentSub.current_period_end)
+          : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        await supabase
+          .from('addon_purchases')
+          .insert({
+            organization_id: order.organization_id,
+            plan_type: order.plan_type,
+            billing_cycle: order.billing_cycle || 'monthly',
+            amount: order.amount,
+            status: 'active',
+            purchased_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            payment_order_id: order.id,
+            metadata: { payos_order_code: orderCode },
+          });
+
+        console.log(`Addon ${order.plan_type} verified as PAID via verify: org=${order.organization_id}`);
+      } else {
+        // Update subscription
+        const periodEnd = new Date();
+        periodEnd.setDate(periodEnd.getDate() + 30);
+
+        await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: order.plan_type,
+            status: 'active',
+            payment_provider: 'payos',
+            payment_reference: String(orderCode),
+            current_period_start: new Date().toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          })
+          .eq('organization_id', order.organization_id);
+
+        console.log(`Order ${orderCode} verified as PAID, subscription updated to ${order.plan_type}`);
+      }
 
       // Increment voucher usage if applicable
-      const voucherId = (order.metadata as Record<string, unknown>)?.voucher_id;
+      const voucherId = orderMetadata.voucher_id;
       if (voucherId) {
         const { data: voucher } = await supabase
           .from('vouchers')
@@ -132,8 +168,7 @@ Deno.serve(withPerf({ functionName: 'verify-payos-order' }, async (req) => {
         }
       }
 
-      console.log(`Order ${orderCode} verified as PAID, subscription updated to ${order.plan_type}`);
-      return new Response(JSON.stringify({ status: 'success', plan_type: order.plan_type }), {
+      return new Response(JSON.stringify({ status: 'success', plan_type: order.plan_type, is_addon: isAddon }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }

@@ -1204,6 +1204,66 @@ export type Database = {
           },
         ]
       }
+      addon_purchases: {
+        Row: {
+          amount: number
+          billing_cycle: string
+          created_at: string
+          expires_at: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          payment_order_id: string | null
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          purchased_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_cycle?: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          payment_order_id?: string | null
+          plan_type: Database["public"]["Enums"]["plan_type"]
+          purchased_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          payment_order_id?: string | null
+          plan_type?: Database["public"]["Enums"]["plan_type"]
+          purchased_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addon_purchases_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "addon_purchases_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_audit_logs: {
         Row: {
           action: string

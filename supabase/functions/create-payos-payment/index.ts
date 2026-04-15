@@ -97,13 +97,15 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
     const userId = claimsData.claims.sub as string;
 
     // Parse body
-    const { organization_id, plan_type, billing_cycle, return_url, voucher_code } = await req.json();
+    const { organization_id, plan_type, billing_cycle, return_url, voucher_code, purchase_type } = await req.json();
 
     if (!organization_id || !plan_type || !['starter', 'pro', 'business', 'enterprise'].includes(plan_type)) {
       return new Response(JSON.stringify({ error: 'Invalid plan_type or missing organization_id' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    const isAddon = purchase_type === 'addon';
 
     const cycle = billing_cycle === 'yearly' ? 'yearly' : 'monthly';
 
@@ -156,7 +158,8 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
     let daysRemaining = 0;
     let daysInPeriod = 0;
 
-    if (currentSub && currentSub.current_period_end) {
+    // Addon: no proration, use full price
+    if (!isAddon && currentSub && currentSub.current_period_end) {
       const now = new Date();
       const periodEnd = new Date(currentSub.current_period_end);
       const periodStart = new Date(currentSub.current_period_start);
@@ -210,6 +213,7 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
     // Save pending order
     const metadata: Record<string, unknown> = {
       payos_order_code: orderCode,
+      purchase_type: isAddon ? 'addon' : 'upgrade',
     };
     if (isProrated) {
       metadata.prorated = true;
@@ -251,7 +255,7 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
     const cancelUrl = clientReturnUrl + '?payos_cancel=1';
     const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
 
-    const description = `Nang cap ${plan_type} ${cycle}`.slice(0, 25);
+    const description = (isAddon ? `Mua them ${plan_type} ${cycle}` : `Nang cap ${plan_type} ${cycle}`).slice(0, 25);
 
     // Create checksum: amount + cancelUrl + description + orderCode + returnUrl
     const checksumData = `amount=${amount}&cancelUrl=${cancelUrl}&description=${description}&orderCode=${orderCode}&returnUrl=${clientReturnUrl}`;

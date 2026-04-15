@@ -45,6 +45,19 @@ export interface UsageStats {
   brands: number;
 }
 
+export interface AddonPurchase {
+  id: string;
+  organization_id: string;
+  plan_type: string;
+  billing_cycle: string;
+  amount: number;
+  status: string;
+  purchased_at: string;
+  expires_at: string;
+  payment_order_id: string | null;
+  metadata: Record<string, unknown>;
+}
+
 const EMPTY_USAGE: UsageStats = {
   scripts: 0, carousels: 0, multichannel: 0,
   multichannel_social_posts: 0, channel_breakdown: {},
@@ -82,6 +95,24 @@ export function useSubscription() {
     },
   });
 
+  // Query active addon purchases
+  const addonQuery = useQuery({
+    queryKey: ["addon_purchases", orgId],
+    queryFn: async (): Promise<AddonPurchase[]> => {
+      if (!orgId) return [];
+      const { data, error } = await supabase
+        .from("addon_purchases")
+        .select("*")
+        .eq("organization_id", orgId)
+        .eq("status", "active")
+        .gte("expires_at", new Date().toISOString())
+        .order("purchased_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as AddonPurchase[];
+    },
+    enabled: !!orgId,
+  });
+
   const usageQuery = useQuery({
     queryKey: ["usage_stats", orgId],
     queryFn: async (): Promise<UsageStats> => {
@@ -90,7 +121,6 @@ export function useSubscription() {
       const subscription = subscriptionQuery.data;
       if (!subscription) return EMPTY_USAGE;
 
-      // Auto-renew: if period expired, fallback to current month
       const now = new Date();
       const periodEndDate = new Date(subscription.current_period_end);
       let periodStart: string;
@@ -106,7 +136,6 @@ export function useSubscription() {
         periodEnd = subscription.current_period_end;
       }
 
-      // Query by organization_id instead of user_id
       const { data: orgContents } = await supabase
         .from("multi_channel_contents")
         .select("id")
@@ -184,9 +213,36 @@ export function useSubscription() {
     enabled: !!orgId && !!subscriptionQuery.data,
   });
 
-  const currentPlanLimits = planLimitsQuery.data?.find(
+  const basePlanLimits = planLimitsQuery.data?.find(
     (plan) => plan.plan_type === subscriptionQuery.data?.plan_type
   );
+
+  // Compute effective limits = base + addon totals
+  const currentPlanLimits = (() => {
+    if (!basePlanLimits) return undefined;
+    const addons = addonQuery.data || [];
+    if (addons.length === 0) return basePlanLimits;
+
+    let addonScripts = 0, addonCarousels = 0, addonMulti = 0, addonImages = 0, addonBrands = 0;
+    for (const addon of addons) {
+      const addonPlan = planLimitsQuery.data?.find(p => p.plan_type === addon.plan_type);
+      if (!addonPlan) continue;
+      addonScripts += addonPlan.monthly_scripts === -1 ? 0 : addonPlan.monthly_scripts;
+      addonCarousels += addonPlan.monthly_carousels === -1 ? 0 : addonPlan.monthly_carousels;
+      addonMulti += addonPlan.monthly_multichannel === -1 ? 0 : addonPlan.monthly_multichannel;
+      addonImages += addonPlan.monthly_images === -1 ? 0 : addonPlan.monthly_images;
+      addonBrands += addonPlan.monthly_brands === -1 ? 0 : addonPlan.monthly_brands;
+    }
+
+    return {
+      ...basePlanLimits,
+      monthly_scripts: basePlanLimits.monthly_scripts === -1 ? -1 : basePlanLimits.monthly_scripts + addonScripts,
+      monthly_carousels: basePlanLimits.monthly_carousels === -1 ? -1 : basePlanLimits.monthly_carousels + addonCarousels,
+      monthly_multichannel: basePlanLimits.monthly_multichannel === -1 ? -1 : basePlanLimits.monthly_multichannel + addonMulti,
+      monthly_images: basePlanLimits.monthly_images === -1 ? -1 : basePlanLimits.monthly_images + addonImages,
+      monthly_brands: basePlanLimits.monthly_brands === -1 ? -1 : basePlanLimits.monthly_brands + addonBrands,
+    };
+  })();
 
   type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown' | 'image_channel_breakdown'>;
 
@@ -247,6 +303,7 @@ export function useSubscription() {
     planLimits: planLimitsQuery.data,
     currentPlanLimits,
     usage: usageQuery.data,
+    activeAddons: addonQuery.data || [],
     currentPeriod: computeCurrentPeriod(),
     isLoading: subscriptionQuery.isLoading || planLimitsQuery.isLoading,
     isWithinLimits,
@@ -254,6 +311,7 @@ export function useSubscription() {
     refetch: () => {
       subscriptionQuery.refetch();
       usageQuery.refetch();
+      addonQuery.refetch();
     },
   };
 }

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle, Calendar, Sparkles } from 'lucide-react';
+import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle, Calendar, Sparkles, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPlanBadge } from '@/lib/plan-badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
+import { AddonPurchaseDialog } from '@/components/AddonPurchaseDialog';
 
 interface QuotaItem {
   key: string;
@@ -38,6 +39,7 @@ export function UsageQuotaWidget() {
   const { subscription, currentPlanLimits, usage, isLoading, currentPeriod } = useSubscription();
   const planBadge = getPlanBadge(subscription?.plan_type);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [addonOpen, setAddonOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -192,6 +194,15 @@ export function UsageQuotaWidget() {
             Xem chi tiết
             <ArrowUpRight className="h-3 w-3 ml-1" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setAddonOpen(true)}
+          >
+            <Package className="h-3 w-3 mr-1" />
+            Mua thêm
+          </Button>
           {hasWarning && (
             <Button
               size="sm"
@@ -205,6 +216,7 @@ export function UsageQuotaWidget() {
       </CardContent>
     </Card>
     <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+    <AddonPurchaseDialog open={addonOpen} onOpenChange={setAddonOpen} />
     </>
   );
 }
