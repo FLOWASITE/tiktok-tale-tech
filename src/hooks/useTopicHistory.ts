@@ -146,6 +146,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         performanceScore: item.performance_score,
         actualEngagement: item.actual_engagement as TopicHistoryItem['actualEngagement'],
         isFavorite: item.is_favorite,
+        isPinned: (item as any).is_pinned ?? false,
         feedback: item.feedback as FeedbackType | undefined,
         feedbackNote: item.feedback_note,
         createdAt: item.created_at,
@@ -214,6 +215,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         wasUsed: data.was_used,
         usageStatus: data.usage_status as UsageStatus,
         isFavorite: data.is_favorite,
+        isPinned: (data as any).is_pinned ?? false,
         createdAt: data.created_at,
       };
 
@@ -475,6 +477,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         wasUsed: item.was_used,
         usageStatus: item.usage_status as UsageStatus,
         isFavorite: item.is_favorite,
+        isPinned: (item as any).is_pinned ?? false,
         createdAt: item.created_at,
       }));
 
@@ -688,6 +691,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         wasUsed: true,
         usageStatus: 'selected',
         isFavorite: false,
+        isPinned: false,
         createdAt: newRow.created_at,
         usedAt: newRow.used_at,
       };
