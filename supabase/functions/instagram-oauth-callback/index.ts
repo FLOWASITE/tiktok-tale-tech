@@ -1,6 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
-import { createDecipheriv } from "node:crypto";
+import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 const corsHeaders = {
@@ -24,6 +24,23 @@ function decrypt(encryptedText: string, key: string): string {
     return decrypted.toString();
   } catch (error) {
     console.error('Decryption error:', error);
+    return '';
+  }
+}
+
+// Encrypt credentials
+function encrypt(text: string, key: string): string {
+  try {
+    const iv = randomBytes(16);
+    const keyBuffer = Buffer.alloc(32);
+    Buffer.from(key).copy(keyBuffer);
+    
+    const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch (error) {
+    console.error('Encryption error:', error);
     return '';
   }
 }
@@ -87,6 +104,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
       throw new Error('Failed to decrypt Instagram credentials');
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const redirectUri = `${supabaseUrl}/functions/v1/instagram-oauth-callback`;
 
     // Step 1: Exchange code for short-lived access token
@@ -169,13 +187,20 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
 
     const { data: existingConnection } = await query.maybeSingle();
 
+    // Encrypt the long-lived token before storing
+    const encryptedToken = encrypt(longLivedToken, encryptionKey);
+    if (!encryptedToken) {
+      throw new Error('Failed to encrypt access token');
+    }
+
     const connectionData = {
       organization_id: stateData.organizationId || null,
       brand_template_id: stateData.brandTemplateId || null,
       user_id: stateData.userId,
       platform: 'instagram',
       platform_username: userInfo.username,
-      access_token: longLivedToken,
+      platform_user_id: String(instagramUserId),
+      access_token: encryptedToken,
       refresh_token: null,
       token_expires_at: tokenExpiresAt,
       is_active: true,

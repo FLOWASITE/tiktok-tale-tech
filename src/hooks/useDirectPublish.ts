@@ -157,13 +157,11 @@ export function useDirectPublish() {
     });
   };
 
-  const publishToInstagram = async (_options: PublishOptions) => {
-    toast({
-      title: 'Chưa hỗ trợ',
-      description: 'Instagram sẽ được hỗ trợ trong phiên bản tiếp theo',
-      variant: 'destructive',
+  const publishToInstagram = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'instagram',
+      options,
     });
-    throw new Error('Instagram not yet supported');
   };
 
   const publishToZaloOA = async (options: PublishOptions) => {
