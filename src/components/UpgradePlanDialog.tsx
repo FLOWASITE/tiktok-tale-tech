@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Check, Loader2, CreditCard, Clock, ArrowRight, Tag, X } from "lucide-react";
+import { Check, Loader2, CreditCard, ArrowRight, Tag, X } from "lucide-react";
 import type { PaymentGateway } from "@/components/PaymentConfirmDialog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
