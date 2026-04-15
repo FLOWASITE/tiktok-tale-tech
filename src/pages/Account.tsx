@@ -414,8 +414,8 @@ export default function Account() {
                 <CreditCard className="h-4 w-4 mr-2" />
                 Nâng cấp gói
               </Button>
-              <Button className="flex-1" variant="outline" onClick={() => setAddonOpen(true)}>
-                <Zap className="h-4 w-4 mr-2" />
+              <Button className="flex-1" onClick={() => setAddonOpen(true)}>
+                <Package className="h-4 w-4 mr-2" />
                 Mua thêm
               </Button>
             </div>

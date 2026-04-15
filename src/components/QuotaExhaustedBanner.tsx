@@ -1,7 +1,8 @@
-import { AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
+import { AddonPurchaseDialog } from '@/components/AddonPurchaseDialog';
 
 const USAGE_LABELS: Record<string, string> = {
   scripts: 'Scripts',
@@ -18,6 +19,7 @@ interface QuotaExhaustedBannerProps {
 
 export function QuotaExhaustedBanner({ usageType, used, limit }: QuotaExhaustedBannerProps) {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [addonOpen, setAddonOpen] = useState(false);
 
   if (limit === -1 || used < limit) return null;
 
@@ -32,15 +34,22 @@ export function QuotaExhaustedBanner({ usageType, used, limit }: QuotaExhaustedB
             Đã hết {limit} lượt {label} tháng này
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Nâng cấp gói để tiếp tục tạo nội dung.
+            Mua thêm lượt hoặc nâng cấp gói để tiếp tục.
           </p>
         </div>
-        <Button size="sm" className="shrink-0 text-xs h-7" onClick={() => setUpgradeOpen(true)}>
-          Nâng cấp
-          <ArrowUpRight className="h-3 w-3 ml-1" />
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" className="text-xs h-7" onClick={() => setAddonOpen(true)}>
+            <Package className="h-3 w-3 mr-1" />
+            Mua thêm
+          </Button>
+          <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setUpgradeOpen(true)}>
+            Nâng cấp
+            <ArrowUpRight className="h-3 w-3 ml-1" />
+          </Button>
+        </div>
       </div>
       <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+      <AddonPurchaseDialog open={addonOpen} onOpenChange={setAddonOpen} />
     </>
   );
 }
