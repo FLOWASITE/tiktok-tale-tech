@@ -176,6 +176,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
       const { data, error } = await supabase.functions.invoke(functionName, { body: bodyPayload });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       const redirectUrl = data?.payment_url || data?.checkout_url;
       if (redirectUrl) {
         window.location.href = redirectUrl;

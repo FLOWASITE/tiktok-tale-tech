@@ -284,8 +284,9 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
       console.error('payOS error:', payosResult);
       return new Response(JSON.stringify({ 
         error: payosResult.desc || 'Không thể tạo link thanh toán payOS',
+        errorCode: 'GATEWAY_ERROR',
       }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
