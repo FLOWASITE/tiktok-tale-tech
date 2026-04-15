@@ -1,52 +1,29 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-
-import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential, encrypt as encryptGCM } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Decrypt encrypted credentials from social_platform_settings
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
+// Allowed origins for redirect (prevent open redirect)
+const ALLOWED_ORIGINS = [
+  'https://app.flowa.one',
+  'https://tiktok-tale-tech.lovable.app',
+  '.lovable.app',
+  'http://localhost:',
+];
 
-// Encrypt credentials
-function encrypt(text: string, key: string): string {
-  try {
-    const iv = randomBytes(16);
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-  } catch (error) {
-    console.error('Encryption error:', error);
-    return '';
-  }
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.some(allowed => {
+    if (allowed.startsWith('.')) return origin.includes(allowed);
+    if (allowed.endsWith(':')) return origin.startsWith(allowed);
+    return origin === allowed;
+  });
 }
 
 Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) => {
-  // Handle OPTIONS for CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -60,10 +37,26 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
 
     console.log('Instagram OAuth callback received');
 
+    // Decode state early to get frontendOrigin for error redirects
+    let stateData: {
+      brandTemplateId: string | null;
+      organizationId: string | null;
+      userId: string;
+      frontendOrigin?: string | null;
+    } = { brandTemplateId: null, organizationId: null, userId: '' };
+
+    try {
+      if (state) stateData = JSON.parse(atob(state));
+    } catch { /* ignore */ }
+
+    const frontendOrigin = stateData.frontendOrigin && isAllowedOrigin(stateData.frontendOrigin)
+      ? stateData.frontendOrigin
+      : (Deno.env.get('SITE_URL') || 'https://app.flowa.one');
+
     // Handle OAuth errors
     if (error) {
       console.error('Instagram OAuth error:', error, errorDescription);
-      const redirectUrl = new URL('/auth/instagram/callback', Deno.env.get('SITE_URL') || 'https://app.flowa.one');
+      const redirectUrl = new URL('/auth/instagram/callback', frontendOrigin);
       redirectUrl.searchParams.set('error', errorDescription || error);
       return Response.redirect(redirectUrl.toString(), 302);
     }
@@ -72,17 +65,12 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
       throw new Error('Missing code or state parameter');
     }
 
-    // Decode state
-    let stateData: { brandTemplateId: string | null; organizationId: string | null; userId: string };
-    try {
-      stateData = JSON.parse(atob(state));
-    } catch (e) {
+    if (!stateData.userId) {
       throw new Error('Invalid state parameter');
     }
 
     console.log('State data:', { brandTemplateId: stateData.brandTemplateId, organizationId: stateData.organizationId });
 
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = getServiceClient();
 
     // Get Instagram App credentials from admin settings
@@ -97,8 +85,9 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
       throw new Error('Instagram credentials not configured');
     }
 
-    const appId = decrypt(platformSettings.consumer_key, encryptionKey);
-    const appSecret = decrypt(platformSettings.consumer_secret, encryptionKey);
+    // Use shared crypto to decrypt
+    const appId = await decryptCredential(platformSettings.consumer_key);
+    const appSecret = await decryptCredential(platformSettings.consumer_secret);
 
     if (!appId || !appSecret) {
       throw new Error('Failed to decrypt Instagram credentials');
@@ -152,7 +141,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
     }
 
     const longLivedToken = longLivedData.access_token;
-    const expiresIn = longLivedData.expires_in; // in seconds
+    const expiresIn = longLivedData.expires_in;
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
     console.log('Got long-lived token, expires at:', tokenExpiresAt);
 
@@ -187,8 +176,8 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
 
     const { data: existingConnection } = await query.maybeSingle();
 
-    // Encrypt the long-lived token before storing
-    const encryptedToken = encrypt(longLivedToken, encryptionKey);
+    // Encrypt the long-lived token using shared GCM crypto
+    const encryptedToken = await encryptGCM(longLivedToken);
     if (!encryptedToken) {
       throw new Error('Failed to encrypt access token');
     }
@@ -206,7 +195,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
       is_active: true,
       connected_at: new Date().toISOString(),
       scopes: ['instagram_business_basic', 'instagram_business_content_publish'],
-      metadata: { 
+      metadata: {
         instagram_user_id: instagramUserId,
         account_type: userInfo.account_type,
         name: userInfo.name,
@@ -223,7 +212,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
         .eq('id', existingConnection.id)
         .select()
         .single();
-      
+
       if (updateError) throw updateError;
       connection = data;
     } else {
@@ -232,7 +221,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
         .insert(connectionData)
         .select()
         .single();
-      
+
       if (insertError) throw insertError;
       connection = data;
     }
@@ -240,8 +229,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
     console.log('Instagram connection saved:', connection.id);
 
     // Redirect to frontend callback page with success
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://app.flowa.one';
-    const redirectUrl = new URL('/auth/instagram/callback', siteUrl);
+    const redirectUrl = new URL('/auth/instagram/callback', frontendOrigin);
     redirectUrl.searchParams.set('success', 'true');
     redirectUrl.searchParams.set('username', userInfo.username);
     if (stateData.brandTemplateId) {
@@ -255,11 +243,23 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
 
   } catch (error: any) {
     console.error('Instagram OAuth callback error:', error);
-    
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://app.flowa.one';
-    const redirectUrl = new URL('/auth/instagram/callback', siteUrl);
+
+    // Try to get frontendOrigin from state for error redirect
+    let frontendOrigin = Deno.env.get('SITE_URL') || 'https://app.flowa.one';
+    try {
+      const url = new URL(req.url);
+      const state = url.searchParams.get('state');
+      if (state) {
+        const parsed = JSON.parse(atob(state));
+        if (parsed.frontendOrigin && isAllowedOrigin(parsed.frontendOrigin)) {
+          frontendOrigin = parsed.frontendOrigin;
+        }
+      }
+    } catch { /* ignore */ }
+
+    const redirectUrl = new URL('/auth/instagram/callback', frontendOrigin);
     redirectUrl.searchParams.set('error', error.message || 'OAuth failed');
-    
+
     return Response.redirect(redirectUrl.toString(), 302);
   }
 }));
