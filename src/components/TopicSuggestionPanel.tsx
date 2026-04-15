@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, BarChart3, History } from 'lucide-react';
+import { Loader2, Search, BarChart3, History, Star } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
@@ -143,6 +143,34 @@ export function TopicSuggestionPanel({
     return sliced;
   }, [topicHistory, historyFilter]);
 
+  const unusedCount = useMemo(() => {
+    return topicHistory.slice(0, 15).filter(item => !['created', 'published'].includes(item.usageStatus)).length;
+  }, [topicHistory]);
+
+  const allCount = Math.min(topicHistory.length, 15);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'published':
+        return { label: 'Đã đăng', className: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' };
+      case 'created':
+        return { label: 'Đã tạo', className: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' };
+      case 'selected':
+        return { label: 'Đã chọn', className: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' };
+      default:
+        return { label: 'Ý tưởng', className: 'bg-muted text-muted-foreground' };
+    }
+  };
+
+  const getCategoryIcon = (category?: string) => {
+    switch (category) {
+      case 'trending': return <TrendingUp className="w-3 h-3 text-orange-500" />;
+      case 'seasonal': return <Calendar className="w-3 h-3 text-purple-500" />;
+      case 'reactive': return <Zap className="w-3 h-3 text-red-500" />;
+      default: return <Leaf className="w-3 h-3 text-emerald-500" />;
+    }
+  };
+
   const sourceConfig = {
     ai: { icon: Sparkles, label: 'AI', className: 'bg-primary/10 text-primary border-primary/30' },
     cache: { icon: Database, label: 'Cached', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30' },
@@ -239,26 +267,28 @@ export function TopicSuggestionPanel({
               <PopoverContent align="end" className="w-72 p-0">
                 <div className="p-2 border-b border-border/60 space-y-1.5">
                   <p className="text-xs font-medium">Chủ đề đã tạo trước đây</p>
-                  <div className="flex gap-1">
+                   <div className="flex gap-1">
                     <button
                       type="button"
                       onClick={() => setHistoryFilter('all')}
                       className={cn(
-                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors",
+                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-1",
                         historyFilter === 'all' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
                       )}
                     >
                       Tất cả
+                      <span className="text-[9px] opacity-80">({allCount})</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setHistoryFilter('unused')}
                       className={cn(
-                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors",
+                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-1",
                         historyFilter === 'unused' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
                       )}
                     >
                       Chưa tạo nội dung
+                      <span className="text-[9px] opacity-80">({unusedCount})</span>
                     </button>
                   </div>
                 </div>
@@ -276,31 +306,69 @@ export function TopicSuggestionPanel({
                     </div>
                   ) : (
                     <div className="py-1">
-                      {filteredHistory.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors flex items-start gap-2"
-                          onClick={() => {
-                            onSelect(item.topic);
-                            setHistoryOpen(false);
-                          }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs truncate font-medium">{item.topic}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(item.createdAt).toLocaleDateString('vi-VN')}
-                              </span>
-                              {item.usageStatus === 'published' && (
-                                <Badge variant="secondary" className="text-[8px] h-3.5 px-1">Đã dùng</Badge>
-                              )}
+                      {filteredHistory.map((item) => {
+                        const statusBadge = getStatusBadge(item.usageStatus);
+                        const score = item.performanceScore;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors flex items-start gap-2"
+                            onClick={() => {
+                              onSelect(item.topic);
+                              setHistoryOpen(false);
+                            }}
+                          >
+                            {/* Category icon */}
+                            <span className="mt-0.5 shrink-0">
+                              {getCategoryIcon(item.category)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <p className="text-xs truncate font-medium flex-1">{item.topic}</p>
+                                {item.isFavorite && (
+                                  <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                                )}
+                                {score != null && score > 0 && (
+                                  <span className={cn(
+                                    "text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0",
+                                    score >= 75 ? 'bg-emerald-500/20 text-emerald-600' :
+                                    score >= 50 ? 'bg-amber-500/20 text-amber-600' :
+                                    'bg-muted text-muted-foreground'
+                                  )}>
+                                    {score}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                                </span>
+                                <Badge variant="secondary" className={cn("text-[8px] h-3.5 px-1 border-0", statusBadge.className)}>
+                                  {statusBadge.label}
+                                </Badge>
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
+                </div>
+                {/* Footer: link to Kho Ý Tưởng */}
+                <div className="border-t border-border/60 p-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistoryOpen(false);
+                      navigate('/topics');
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 text-[10px] font-medium text-primary hover:underline py-1"
+                  >
+                    <BookOpen className="w-3 h-3" />
+                    Xem tất cả trong Kho Ý Tưởng
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </button>
                 </div>
               </PopoverContent>
             </Popover>
