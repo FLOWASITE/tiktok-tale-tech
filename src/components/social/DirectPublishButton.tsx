@@ -124,7 +124,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
@@ -245,6 +245,9 @@ export function DirectPublishButton({
           break;
         case 'facebook':
           result = await publishToFacebook(publishOptions);
+          break;
+        case 'instagram':
+          result = await publishToInstagram(publishOptions);
           break;
         case 'zalo_oa':
           result = await publishToZaloOA(publishOptions);

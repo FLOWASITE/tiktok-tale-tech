@@ -89,6 +89,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           const channelKey = ACTION_TO_CHANNEL[action] || action;
           const supabase = getServiceClient();
 
+          // --- Update multi_channel_contents if applicable ---
           const { data: contentData } = await supabase
             .from('multi_channel_contents')
             .select('selected_channels, channel_statuses, status')
@@ -112,6 +113,28 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
               console.error('[channel-publisher] Failed to update content status:', updateError.message);
             } else {
               console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${channelKey}=published)`);
+            }
+          }
+
+          // --- Update carousels table if applicable ---
+          const { data: carouselData } = await supabase
+            .from('carousels')
+            .select('id, status')
+            .eq('id', contentId)
+            .single();
+
+          if (carouselData) {
+            // For carousels we simply mark as published (no selected_channels tracking)
+            const newCarouselStatus = 'published';
+            const { error: carouselUpdateError } = await supabase
+              .from('carousels')
+              .update({ status: newCarouselStatus, updated_at: new Date().toISOString() })
+              .eq('id', contentId);
+
+            if (carouselUpdateError) {
+              console.error('[channel-publisher] Failed to update carousel status:', carouselUpdateError.message);
+            } else {
+              console.log(`[channel-publisher] Updated carousels ${contentId} → ${newCarouselStatus} (${channelKey}=published)`);
             }
           }
         }
