@@ -358,6 +358,9 @@ export function CarouselViewer({
   const handlePublishSuccess = useCallback(async (channel: string) => {
     if (!carousel) return;
     
+    // Immediately update local state for instant UI feedback
+    setLocalPublishedChannels(prev => new Set([...Array.from(prev), channel]));
+    
     // Write a fallback publishing log entry so carousel-publishing-logs query picks it up
     try {
       await supabase.from('content_publishing_logs').insert({
