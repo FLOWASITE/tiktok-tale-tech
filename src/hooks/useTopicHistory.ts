@@ -38,6 +38,7 @@ export interface TopicHistoryItem {
     views?: number;
   };
   isFavorite: boolean;
+  isPinned: boolean;
   feedback?: FeedbackType;
   feedbackNote?: string;
   createdAt: string;
@@ -145,6 +146,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         performanceScore: item.performance_score,
         actualEngagement: item.actual_engagement as TopicHistoryItem['actualEngagement'],
         isFavorite: item.is_favorite,
+        isPinned: (item as any).is_pinned ?? false,
         feedback: item.feedback as FeedbackType | undefined,
         feedbackNote: item.feedback_note,
         createdAt: item.created_at,
@@ -213,6 +215,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         wasUsed: data.was_used,
         usageStatus: data.usage_status as UsageStatus,
         isFavorite: data.is_favorite,
+        isPinned: (data as any).is_pinned ?? false,
         createdAt: data.created_at,
       };
 
@@ -474,6 +477,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         wasUsed: item.was_used,
         usageStatus: item.usage_status as UsageStatus,
         isFavorite: item.is_favorite,
+        isPinned: (item as any).is_pinned ?? false,
         createdAt: item.created_at,
       }));
 
@@ -687,6 +691,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         wasUsed: true,
         usageStatus: 'selected',
         isFavorite: false,
+        isPinned: false,
         createdAt: newRow.created_at,
         usedAt: newRow.used_at,
       };
@@ -697,6 +702,71 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
       return null;
     }
   }, [user, currentOrganization?.id, brandTemplateId, contentGoal]);
+
+  // Pin/unpin topic
+  const pinTopic = useCallback(async (topicId: string) => {
+    const item = history.find(h => h.id === topicId);
+    if (!item) return;
+
+    const newValue = !item.isPinned;
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({ is_pinned: newValue } as any)
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(h =>
+        h.id === topicId ? { ...h, isPinned: newValue } : h
+      ));
+
+      toast.success(newValue ? 'Đã ghim chủ đề' : 'Đã bỏ ghim');
+    } catch (err) {
+      console.error('Error pinning topic:', err);
+      toast.error('Không thể cập nhật');
+    }
+  }, [history]);
+
+  // Bulk delete
+  const bulkDelete = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    try {
+      const { error: deleteError } = await supabase
+        .from('topic_history')
+        .delete()
+        .in('id', ids);
+
+      if (deleteError) throw deleteError;
+
+      setHistory(prev => prev.filter(h => !ids.includes(h.id)));
+      toast.success(`Đã xóa ${ids.length} chủ đề`);
+    } catch (err) {
+      console.error('Error bulk deleting:', err);
+      toast.error('Không thể xóa hàng loạt');
+    }
+  }, []);
+
+  // Bulk toggle favorite
+  const bulkToggleFavorite = useCallback(async (ids: string[], value: boolean) => {
+    if (ids.length === 0) return;
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({ is_favorite: value })
+        .in('id', ids);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(h =>
+        ids.includes(h.id) ? { ...h, isFavorite: value } : h
+      ));
+      toast.success(value ? `Đã thêm ${ids.length} chủ đề vào yêu thích` : `Đã bỏ yêu thích ${ids.length} chủ đề`);
+    } catch (err) {
+      console.error('Error bulk toggling favorite:', err);
+      toast.error('Không thể cập nhật hàng loạt');
+    }
+  }, []);
 
   return {
     history,
@@ -721,6 +791,9 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     deleteTopic,
     linkToCampaign,
     ensureSelectedTopic,
+    pinTopic,
+    bulkDelete,
+    bulkToggleFavorite,
     refresh: fetchHistory,
     getLearningContext,
   };

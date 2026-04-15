@@ -9579,6 +9579,7 @@ export type Database = {
           format: string
           id: string
           is_favorite: boolean | null
+          is_pinned: boolean | null
           organization_id: string | null
           performance_score: number | null
           pillar: string | null
@@ -9607,6 +9608,7 @@ export type Database = {
           format: string
           id?: string
           is_favorite?: boolean | null
+          is_pinned?: boolean | null
           organization_id?: string | null
           performance_score?: number | null
           pillar?: string | null
@@ -9635,6 +9637,7 @@ export type Database = {
           format?: string
           id?: string
           is_favorite?: boolean | null
+          is_pinned?: boolean | null
           organization_id?: string | null
           performance_score?: number | null
           pillar?: string | null
