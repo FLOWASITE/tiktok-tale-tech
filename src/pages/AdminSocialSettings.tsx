@@ -45,6 +45,28 @@ export default function AdminSocialSettings() {
   const [deletingPlatform, setDeletingPlatform] = useState<PlatformConfig | null>(null);
   const [testingPlatform, setTestingPlatform] = useState<SocialPlatform | null>(null);
 
+  const getTestErrorMessage = async (error: unknown, platform: SocialPlatform): Promise<string> => {
+    const maybeError = error as { message?: string; context?: Response } | null;
+
+    if (maybeError?.context instanceof Response) {
+      try {
+        const payload = await maybeError.context.clone().json();
+        const errorText = typeof payload?.error === 'string' ? payload.error : '';
+        const hintText = typeof payload?.hint === 'string' ? payload.hint : '';
+        const combined = [errorText, hintText].filter(Boolean).join(' — ');
+        if (combined) return combined;
+      } catch {
+        // Ignore parse failures and use the generic fallback below.
+      }
+    }
+
+    if (platform === 'instagram') {
+      return 'Hãy dùng Facebook App ID/App Secret từ Meta for Developers → Settings → Basic, không dùng Instagram App ID.';
+    }
+
+    return maybeError?.message || 'Không thể test credentials';
+  };
+
   const handleTestConnection = async (platform: SocialPlatform) => {
     const platformSettings = getSettingsForPlatform(platform);
     if (!platformSettings?.has_credentials) {
@@ -54,7 +76,6 @@ export default function AdminSocialSettings() {
 
     setTestingPlatform(platform);
     try {
-      // Call consolidated social-diagnostics function
       const platformMap: Record<string, string> = {
         twitter: 'twitter',
         facebook: 'facebook',
@@ -66,7 +87,7 @@ export default function AdminSocialSettings() {
         website: 'website',
       };
       const diagnosticPlatform = platformMap[platform] || platform;
-      
+
       const { data, error } = await supabase.functions.invoke('social-diagnostics', {
         body: {
           action: 'test-credentials',
@@ -82,9 +103,9 @@ export default function AdminSocialSettings() {
       } else {
         toast.error(data?.error || 'Test thất bại');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Test connection error:', error);
-      toast.error(error.message || 'Không thể test credentials');
+      toast.error(await getTestErrorMessage(error, platform));
     } finally {
       setTestingPlatform(null);
     }
@@ -231,7 +252,6 @@ export default function AdminSocialSettings() {
         })}
       </div>
 
-      {/* Info Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Cách hoạt động</CardTitle>
@@ -256,7 +276,6 @@ export default function AdminSocialSettings() {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
       {editingPlatform && (
         <SocialPlatformCredentialsDialog
           open={!!editingPlatform}
@@ -269,7 +288,6 @@ export default function AdminSocialSettings() {
         />
       )}
 
-      {/* Delete Confirmation */}
       <AlertDialog open={!!deletingPlatform} onOpenChange={(open) => !open && setDeletingPlatform(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
