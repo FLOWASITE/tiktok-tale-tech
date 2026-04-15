@@ -1374,20 +1374,52 @@ function buildSuggestPrompts(params: {
 
   // Build brand section
   let brandSection = '';
+  let mandatoryBrandSection = '';
   if (brandContext) {
     brandSection = buildBrandContextString(brandContext);
+    
+    // Extract brand signals for MANDATORY BRAND ALIGNMENT
+    const pillars = brandContext.contentPillars?.map(p => p.name).filter(Boolean) || [];
+    const products = brandContext.products?.map(p => p.name).filter(Boolean) || [];
+    const painPoints = brandContext.personas?.flatMap(p => p.pain_points || []).filter(Boolean).slice(0, 8) || [];
+    const desires = brandContext.personas?.flatMap(p => p.desires || []).filter(Boolean).slice(0, 5) || [];
+    const evergreenThemes = brandContext.evergreenThemes || [];
+    const uvp = brandContext.uniqueValueProposition || '';
+    
+    mandatoryBrandSection = `
+## 🔒 MANDATORY BRAND ALIGNMENT (ĐỌC TRƯỚC MỌI THỨ)
+Thương hiệu: "${brandContext.brandName}"
+${uvp ? `USP: "${uvp}"` : ''}
+${pillars.length ? `Content Pillars: ${pillars.join(', ')}` : ''}
+${products.length ? `Sản phẩm/dịch vụ: ${products.join(', ')}` : ''}
+${painPoints.length ? `Pain points khách hàng: ${painPoints.join('; ')}` : ''}
+${desires.length ? `Desires khách hàng: ${desires.join('; ')}` : ''}
+${evergreenThemes.length ? `Chủ đề evergreen: ${evergreenThemes.join(', ')}` : ''}
+
+### QUY TẮC KHÓA BRAND:
+- MỌI topic PHẢI liên quan TRỰC TIẾP đến sản phẩm/dịch vụ, chuyên môn hoặc content pillars của "${brandContext.brandName}"
+- CẤM topic chỉ "đúng ngành" nhưng KHÔNG gắn được với offerings cụ thể của Brand
+- CẤM topic trend chung chung nếu không nối được về sản phẩm/dịch vụ/góc chuyên môn của Brand
+- Mỗi topic PHẢI trả lời được: "Điều này giúp ${brandContext.brandName} bán/giáo dục/kết nối khách hàng thế nào?"
+
+### VÍ DỤ ĐÚNG/SAI:
+${products.length ? `✅ ĐÚNG: Topic liên quan "${products[0]}" — nối trực tiếp về sản phẩm Brand
+❌ SAI: Topic chung về ngành mà không nhắc đến sản phẩm/dịch vụ cụ thể của "${brandContext.brandName}"` : `✅ ĐÚNG: Topic xoay quanh content pillars: ${pillars.slice(0, 2).join(', ')}
+❌ SAI: Topic chung ngành mà không gắn với chuyên môn đặc thù của Brand`}
+`;
   }
 
   // Build industry data section
   let realDataSection = '';
   if (industryInsight) {
-    realDataSection = `\n## DỮ LIỆU THỰC TẾ TỪ WEB SEARCH (Perplexity):`;
+    realDataSection = `\n## DỮ LIỆU THỰC TẾ TỪ WEB SEARCH (CHỈ LÀ THAM KHẢO — KHÔNG override Brand rules):`;
     if (industryInsight.insights?.length) {
       realDataSection += `\n### Industry Insights:\n${industryInsight.insights.slice(0, 3).map((i: string) => `- ${i}`).join('\n')}`;
     }
     if (industryInsight.statistics?.length) {
       realDataSection += `\n### Thống kê số liệu:\n${industryInsight.statistics.slice(0, 3).map((s: string) => `- ${s}`).join('\n')}`;
     }
+    realDataSection += `\n→ Chỉ dùng dữ liệu web nếu nối được về sản phẩm/dịch vụ của Brand. KHÔNG tạo topic chỉ vì có data.`;
   }
 
   // Build audience Q&A section
@@ -1395,7 +1427,7 @@ function buildSuggestPrompts(params: {
   if (audienceQA?.questions?.length) {
     audienceQASection = `\n## CÂU HỎI THỰC TẾ TỪ KHÁCH HÀNG:\n${audienceQA.questions.slice(0, 8).map((q: string, i: number) => `${i+1}. ${q}`).join('\n')}
 
-→ ƯU TIÊN CAO: Tạo 2-3 topics TRỰC TIẾP trả lời các câu hỏi trên`;
+→ ƯU TIÊN CAO: Tạo 2-3 topics TRỰC TIẾP trả lời các câu hỏi trên (nhưng vẫn phải gắn với Brand)`;
   }
 
   // Build learning section
@@ -1442,9 +1474,13 @@ BAD examples (NEVER suggest these):
 ${goalConstraints[effectiveGoal] || goalConstraints.education}
 - TẤT CẢ topics PHẢI phục vụ mục tiêu "${goalLabels[effectiveGoal]}"
 - Topics KHÔNG phù hợp mục tiêu sẽ bị LOẠI BỎ
+
+### MA TRẬN GOAL × TOPIC TYPE:
+${effectiveGoal === 'education' ? '✅ Nên: how-to, hướng dẫn, tips, giải thích, "X điều cần biết"\n❌ Tránh: sales pitch, offer, giá cả' : ''}${effectiveGoal === 'awareness' ? '✅ Nên: brand story, values, behind-the-scenes, founder journey, culture\n❌ Tránh: hard-sell, technical deep-dive' : ''}${effectiveGoal === 'engagement' ? '✅ Nên: câu hỏi, poll, "team nào?", trend, debate nhẹ, UGC\n❌ Tránh: bài giảng dài, báo cáo khô khan' : ''}${effectiveGoal === 'expertise' ? '✅ Nên: phân tích chuyên sâu, case study, framework, dự đoán, myth-busting\n❌ Tránh: content hời hợt, listicle đơn giản' : ''}${effectiveGoal === 'conversion' ? '✅ Nên: so sánh sản phẩm, testimonial, offer, trước-sau, "X lý do chọn Brand"\n❌ Tránh: content thuần giáo dục không có CTA' : ''}
 `;
 
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm content marketing tại Việt Nam.
+${mandatoryBrandSection}
 ${topicAnchoringSection}
 ${mandatoryGoalSection}
 ⚠️ NGÀY HIỆN TẠI: ${currentDate}. Chúng ta đang ở ${currentMonth}.
