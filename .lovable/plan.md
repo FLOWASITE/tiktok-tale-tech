@@ -1,47 +1,28 @@
 
 
-## Nâng cấp UI và chức năng Popover "Đã tạo"
+## Đổi tên và nâng cấp nút "Đã tạo" thành "Kho chủ đề"
 
-### Hiện trạng
-Popover "Đã tạo" hiện có: header, 2 filter tabs (Tất cả / Chưa tạo nội dung), danh sách topic với category icon + date + status badge, và link sang Kho Ý Tưởng. Tuy nhiên UI khá đơn giản và thiếu nhiều tương tác.
+### Thay đổi
 
-### Các cải tiến
+**1. Đổi label nút trigger**
+- "Đã tạo" → **"Kho chủ đề"** — ý nghĩa hơn, bao quát cả topic đã dùng và chưa dùng
+- Đổi icon từ `History` sang `Archive` hoặc `FolderOpen` cho phù hợp ngữ nghĩa
 
-**1. Mở rộng filter tabs**
-- Thêm tab "Yêu thích" (filter `isFavorite`)
-- Thêm tab "Đã tạo" (filter `created`/`published`)
-- Hiển thị count cho từng tab
+**2. Tăng khả năng nhận diện (focus)**
+- Thêm count badge nhỏ (số lượng topic) ngay trên nút, ví dụ: `Kho chủ đề (15)`
+- Đổi variant từ `outline` sang style nổi bật hơn: border gradient nhẹ hoặc background primary/10
+- Tăng kích thước nút từ `h-4/h-5` lên `h-5/h-6` để dễ bấm hơn
+- Thêm hiệu ứng pulse nhẹ khi có topic mới chưa xem
 
-**2. Tìm kiếm nhanh trong popover**
-- Thêm ô search nhỏ phía trên danh sách
-- Filter real-time theo topic text
+**3. Cập nhật header popover**
+- "Chủ đề đã tạo" → **"Kho chủ đề của bạn"**
 
-**3. Hover actions trên mỗi item**
-- Nút Star (toggle favorite) hiện khi hover
-- Nút Delete hiện khi hover
-- Nút "Dùng lại" rõ ràng hơn với icon
-
-**4. Hiển thị thêm thông tin**
-- Số lần sử dụng (use count) nếu topic đã dùng nhiều lần
-- Related keywords dưới dạng mini tags
-- Performance score bar nhỏ (nếu có)
-
-**5. Empty state cải tiến**
-- Illustration/icon phù hợp cho từng filter tab khi trống
-- CTA "Chọn gợi ý bên dưới để bắt đầu"
-
-**6. Popover rộng hơn và scroll mượt hơn**
-- Tăng width từ `w-72` lên `w-80`
-- Thêm max height rõ ràng hơn và smooth scroll
-
-### Files thay đổi
-- `src/components/TopicSuggestionPanel.tsx` — Nâng cấp toàn bộ popover section (lines 254-377)
+### File thay đổi
+- `src/components/TopicSuggestionPanel.tsx` — dòng 277-285 (trigger button) và dòng 291 (header)
 
 ### Chi tiết kỹ thuật
-- Thêm state `searchQuery` cho popover search
-- Mở rộng `historyFilter` type thành `'all' | 'unused' | 'favorites' | 'used'`
-- Sử dụng data đã có từ `useTopicHistory` (`toggleFavorite`, `deleteTopic`, `isFavorite`, `performanceScore`)
-- Expose thêm `toggleFavorite` và `deleteTopic` từ hook call hiện tại
-- Thêm hover group actions cho mỗi item row
-- Không cần thay đổi database hay hook logic
+- Thay `History` icon → `FolderOpen` từ lucide-react
+- Thêm `allCount` vào label nút: `Kho chủ đề (${allCount})`
+- CSS: `bg-primary/10 border-primary/30 text-primary hover:bg-primary/20` cho nút nổi bật
+- Tăng size: `h-5 xs:h-6 text-[10px] xs:text-[11px]`
 
