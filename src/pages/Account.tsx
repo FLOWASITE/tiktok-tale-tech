@@ -430,7 +430,7 @@ export default function Account() {
                   <div key={addon.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-[10px]">
-                        {PLAN_NAMES[addon.plan_type] || addon.plan_type}
+                        {planNames[addon.plan_type] || addon.plan_type}
                       </Badge>
                     </div>
                     <span className="text-xs text-muted-foreground">
