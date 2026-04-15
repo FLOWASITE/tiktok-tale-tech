@@ -125,7 +125,7 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
 
     console.log('Instagram credentials verified successfully!', appName);
 
-    console.log('Instagram credentials verified successfully!', appData.name);
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-oauth-callback`;
 
     return new Response(
       JSON.stringify({
@@ -135,7 +135,8 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
           appId: maskedId,
           appName,
           platform: 'instagram',
-          note: 'Đảm bảo App đã thêm Instagram Product và cấu hình Business login settings',
+          callbackUrl,
+          note: `Đảm bảo đã thêm callback URL vào Valid OAuth Redirect URIs trong Business login settings: ${callbackUrl}`,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
