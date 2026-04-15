@@ -308,7 +308,7 @@ export function TopicSuggestionPanel({
                     <div className="py-1">
                       {filteredHistory.map((item) => {
                         const statusBadge = getStatusBadge(item.usageStatus);
-                        const score = item.score;
+                        const score = item.performanceScore;
                         return (
                           <button
                             key={item.id}
