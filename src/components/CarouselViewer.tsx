@@ -354,21 +354,44 @@ export function CarouselViewer({
     );
   }, [carousel?.platform, socialConnections]);
 
-  // onPublishSuccess handler — update carousel status + refetch logs
+  // onPublishSuccess handler — update UI immediately + persist publish log correctly
   const handlePublishSuccess = useCallback(async (channel: string) => {
     if (!carousel) return;
-    
-    // Immediately update local state for instant UI feedback
+
+    const timestamp = new Date().toISOString();
+    const optimisticLog = {
+      id: `local-${carousel.id}-${channel}-${timestamp}`,
+      content_id: carousel.id,
+      channel,
+      organization_id: currentOrganization?.id ?? null,
+      action: 'published',
+      performed_by: null,
+      performed_at: timestamp,
+      details: { source: 'carousel_viewer_fallback' },
+      error_message: null,
+      created_at: timestamp,
+    };
+
+    // Immediate local/UI sync
     setLocalPublishedChannels(prev => new Set([...Array.from(prev), channel]));
-    
-    // Write a fallback publishing log entry so carousel-publishing-logs query picks it up
+    queryClient.setQueryData(['carousel-publishing-logs', carousel.id], (prev: any[] | undefined) => {
+      const existing = Array.isArray(prev) ? prev : [];
+      if (existing.some((log) => log.channel === channel && ['published', 'publish', 'auto_publish'].includes(log.action))) {
+        return existing;
+      }
+      return [optimisticLog, ...existing];
+    });
+
+    // Persist fallback publishing log with the actual schema so reload/reopen still shows "Đã đăng"
     try {
       await supabase.from('content_publishing_logs').insert({
         content_id: carousel.id,
-        content_type: 'carousel',
         channel,
+        organization_id: currentOrganization?.id ?? null,
         action: 'published',
         performed_by: null,
+        performed_at: timestamp,
+        details: { source: 'carousel_viewer_fallback' },
       });
     } catch (logErr) {
       console.warn('Failed to write carousel publishing log (non-fatal):', logErr);
@@ -380,7 +403,7 @@ export function CarouselViewer({
     // Calculate new status using effective (local + DB) channels
     const newPublished = new Set(effectivePublishedChannels);
     newPublished.add(channel);
-    
+
     const allChannelsPublished = availableChannels.length > 0 && 
       availableChannels.every(ch => newPublished.has(ch));
     const newStatus = allChannelsPublished ? 'published' : 'partially_published';
@@ -388,17 +411,17 @@ export function CarouselViewer({
     try {
       const { error } = await supabase
         .from('carousels')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .update({ status: newStatus, updated_at: timestamp })
         .eq('id', carousel.id);
 
       if (error) throw error;
 
-      const updatedCarousel = { ...carousel, status: newStatus as CarouselStatus, updated_at: new Date().toISOString() };
+      const updatedCarousel = { ...carousel, status: newStatus as CarouselStatus, updated_at: timestamp };
       onCarouselUpdate?.(updatedCarousel);
     } catch (err) {
       console.error('Failed to update carousel status after publish:', err);
     }
-  }, [carousel, effectivePublishedChannels, availableChannels, queryClient, onCarouselUpdate]);
+  }, [carousel, currentOrganization?.id, effectivePublishedChannels, availableChannels, queryClient, onCarouselUpdate]);
 
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
