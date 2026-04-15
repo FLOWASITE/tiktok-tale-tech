@@ -137,19 +137,37 @@ export function TopicSuggestionPanel({
     enabled: true,
   });
 
+  const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
+
   const filteredHistory = useMemo(() => {
-    const sliced = topicHistory.slice(0, 15);
-    if (historyFilter === 'unused') {
-      return sliced.filter(item => !['created', 'published'].includes(item.usageStatus));
+    let items = historyItems;
+    
+    // Apply tab filter
+    switch (historyFilter) {
+      case 'unused':
+        items = items.filter(item => !['created', 'published'].includes(item.usageStatus));
+        break;
+      case 'favorites':
+        items = items.filter(item => item.isFavorite);
+        break;
+      case 'used':
+        items = items.filter(item => ['created', 'published'].includes(item.usageStatus));
+        break;
     }
-    return sliced;
-  }, [topicHistory, historyFilter]);
 
-  const unusedCount = useMemo(() => {
-    return topicHistory.slice(0, 15).filter(item => !['created', 'published'].includes(item.usageStatus)).length;
-  }, [topicHistory]);
+    // Apply search
+    if (historySearch.trim()) {
+      const q = historySearch.toLowerCase();
+      items = items.filter(item => item.topic.toLowerCase().includes(q));
+    }
 
-  const allCount = Math.min(topicHistory.length, 15);
+    return items;
+  }, [historyItems, historyFilter, historySearch]);
+
+  const allCount = historyItems.length;
+  const unusedCount = useMemo(() => historyItems.filter(item => !['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
+  const favCount = useMemo(() => historyItems.filter(item => item.isFavorite).length, [historyItems]);
+  const usedCount = useMemo(() => historyItems.filter(item => ['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
