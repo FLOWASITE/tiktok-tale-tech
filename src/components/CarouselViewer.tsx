@@ -1,4 +1,14 @@
 import { Carousel, CarouselStatus, CarouselSlide, CarouselStyleType, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
+import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { Channel } from '@/types/multichannel';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { Facebook, Instagram, Linkedin } from 'lucide-react';
+import { XIcon } from '@/components/icons/SocialIcons';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
@@ -819,21 +829,12 @@ export function CarouselViewer({
                   />
                 ))}
               </div>
-              <div className="h-5 w-px bg-border shrink-0" />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[10px] xs:text-xs px-2 shrink-0 gap-1"
-                onClick={() => {
-                  // Open schedule for the primary platform
-                  const primaryChannel = availableChannels[0] || carousel.platform;
-                  const btn = document.querySelector(`[data-schedule-channel="${primaryChannel}"]`);
-                  if (btn) (btn as HTMLButtonElement).click();
-                }}
-              >
-                <CalendarClock className="w-3 h-3" />
-                <span className="hidden xs:inline">Lên lịch</span>
-              </Button>
+               <div className="h-5 w-px bg-border shrink-0" />
+              <SchedulePopoverButton
+                contentId={carousel.id}
+                availableChannels={availableChannels.length > 0 ? availableChannels : [carousel.platform]}
+                connectedChannels={connectedChannelSet}
+              />
             </div>
           )}
 
