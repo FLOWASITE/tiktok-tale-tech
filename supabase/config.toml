@@ -327,3 +327,6 @@ verify_jwt = false
 
 [functions.payos-webhook]
 verify_jwt = false
+
+[functions.instagram-webhooks]
+verify_jwt = false
