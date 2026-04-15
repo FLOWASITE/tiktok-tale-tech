@@ -1,30 +1,28 @@
 
 
-## Chức năng "Đã tạo" đã hoạt động
+## Sửa popover "Đã tạo" không hiển thị đủ dữ liệu
 
-Tôi vừa kiểm tra trực tiếp trên preview — popover "Đã tạo" **đang hoạt động đúng**:
+### Nguyên nhân
+Popover "Đã tạo" truyền `brandTemplateId` vào `useTopicHistory`, khiến hook chỉ query các topic có `brand_template_id` khớp chính xác. Trong khi đó, **96% topic history** (2658/2810 records) có `brand_template_id = NULL** — do trước đây hệ thống chưa liên kết topic với brand. Kết quả: popover gần như trống khi brand được chọn.
 
-- Header "Chủ đề đã tạo trước đây" hiển thị
-- 2 filter tabs: "Tất cả (15)" và "Chưa tạo nội dung (15)" với count badge
-- Mỗi item có: category icon (lá xanh/trend), ngày tạo, badge trạng thái "Ý tưởng"
-- Footer link "Xem tất cả trong Kho Ý Tưởng" → `/topics`
+### Giải pháp
+Bỏ prop `brandTemplateId` khi gọi `useTopicHistory` trong `TopicSuggestionPanel` — để popover luôn hiển thị **tất cả topic** của organization, không lọc theo brand. Logic lọc brand chỉ cần cho phần gợi ý AI, không cho lịch sử.
 
-### Vấn đề có thể gặp
+### Thay đổi
 
-Tất cả 15 topic đều có status "Ý tưởng" (draft) — chưa có topic nào được đánh dấu "Đã tạo" hay "Đã đăng". Điều này là do:
-1. Chưa có topic nào được liên kết ngược với nội dung đã tạo (thiếu `content_id`)
-2. Score và favorite đều trống
+**`src/components/TopicSuggestionPanel.tsx`** — Dòng 133-136:
+```typescript
+// Trước:
+const { history: topicHistory, ... } = useTopicHistory({
+    brandTemplateId,
+    enabled: true,
+});
 
-### Đề xuất cải tiến (nếu cần)
+// Sau:
+const { history: topicHistory, ... } = useTopicHistory({
+    enabled: true,
+});
+```
 
-Nếu bạn muốn popover hữu ích hơn, tôi có thể:
-
-1. **Tự động liên kết topic khi tạo nội dung**: Khi user chọn topic từ gợi ý và nhấn "Tiếp tục", tự cập nhật `usage_status` → `selected`. Khi nội dung được tạo xong → `created`.
-
-2. **Hiển thị tất cả topic (không lọc brand)**: Hiện tại hook không filter brand vì `brandTemplateId` không được truyền từ `MultiChannelForm` — nên nó show toàn bộ org topics. Nếu muốn lọc theo brand đang chọn, cần truyền `brandTemplateId` prop.
-
-3. **Không cần thay đổi code** — chức năng đã hoạt động. Vấn đề có thể do cache trình duyệt hoặc bạn chưa thấy popover sau khi reload.
-
-### Files thay đổi
-Không cần thay đổi file nào — chức năng đã hoạt động đúng.
+1 dòng thay đổi duy nhất.
 
