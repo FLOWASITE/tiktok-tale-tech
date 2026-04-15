@@ -61,7 +61,7 @@ export default function AdminSocialSettings() {
     }
 
     if (platform === 'instagram') {
-      return 'Hãy dùng Facebook App ID/App Secret từ Meta for Developers → Settings → Basic, không dùng Instagram App ID.';
+      return 'Hãy dùng Instagram App ID/App Secret từ Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.';
     }
 
     return maybeError?.message || 'Không thể test credentials';

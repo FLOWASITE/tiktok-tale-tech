@@ -41,7 +41,7 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
   },
   instagram: {
     url: 'https://developers.facebook.com/apps/',
-    instructions: 'Meta for Developers → Settings → Basic → App ID & App Secret. App phải có Instagram Product. ⚠️ Dùng App ID từ Settings > Basic, KHÔNG dùng Instagram App ID.',
+    instructions: 'Meta App Dashboard → App của bạn → Instagram → API setup with Instagram login → Business login settings → Instagram App ID & Instagram App Secret.',
   },
   threads: {
     url: 'https://developers.facebook.com/apps/',
@@ -136,7 +136,7 @@ export function SocialPlatformCredentialsDialog({
         : isLinkedIn
           ? 'LinkedIn Client ID'
           : isMetaPlatform
-            ? (platform === 'instagram' ? 'Facebook App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+            ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
             : 'Consumer Key (API Key)';
 
   const secretLabel = isWebsite
@@ -148,7 +148,7 @@ export function SocialPlatformCredentialsDialog({
         : isLinkedIn
           ? 'LinkedIn Client Secret'
           : isMetaPlatform
-            ? (platform === 'instagram' ? 'Facebook App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+            ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
             : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
@@ -212,9 +212,9 @@ export function SocialPlatformCredentialsDialog({
 
           {isInstagram && (
             <div className="rounded-lg border bg-muted/50 p-3 text-sm">
-              <p className="font-medium text-foreground">Lưu ý cho Instagram</p>
+              <p className="font-medium text-foreground">⚠️ Lưu ý cho Instagram</p>
               <p className="text-muted-foreground">
-                Dùng <strong>Facebook App ID</strong> và <strong>Facebook App Secret</strong> trong <strong>Settings → Basic</strong>. Không dùng Instagram App ID nằm trong product Instagram.
+                Dùng <strong>Instagram App ID</strong> và <strong>Instagram App Secret</strong> từ <strong>Instagram → API setup with Instagram login → Business login settings</strong>. KHÔNG dùng Facebook App ID/Secret ở Settings → Basic.
               </p>
             </div>
           )}
@@ -265,7 +265,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={consumerKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Facebook App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Instagram App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
                 className="pr-10"
               />
               <Button
@@ -295,7 +295,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={consumerSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Facebook App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Instagram App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
                 className="pr-10"
               />
               <Button

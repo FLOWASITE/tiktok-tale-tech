@@ -506,11 +506,12 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const redirectUri = `${supabaseUrl}/functions/v1/instagram-oauth-callback`;
       
-      // Create state with brandTemplateId/organizationId for callback
+      // Create state with brandTemplateId/organizationId and frontendOrigin for callback
       const state = btoa(JSON.stringify({
         brandTemplateId: brandTemplateId || null,
         organizationId: organizationId || null,
         userId: user.id,
+        frontendOrigin: requestOrigin || null,
       }));
 
       const oauthUrl = `https://www.instagram.com/oauth/authorize?` + new URLSearchParams({
