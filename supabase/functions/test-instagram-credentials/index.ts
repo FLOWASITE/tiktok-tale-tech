@@ -130,10 +130,10 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Instagram API credentials hợp lệ! ✓',
+        message: `Instagram credentials hợp lệ! App: ${appName} ✓`,
         details: {
-          appId: appData.id,
-          appName: appData.name,
+          appId: maskedId,
+          appName,
           platform: 'instagram',
           note: 'Đảm bảo App đã thêm Instagram Product và cấu hình Business login settings',
         },
