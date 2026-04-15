@@ -48,6 +48,7 @@ export function useDirectPublish() {
       const PLATFORM_ACTION_MAP: Record<string, string> = {
         'zalo_oa': 'zalo',
         'google_business': 'google-business',
+        'tiktok': 'tiktok',
       };
       const action = PLATFORM_ACTION_MAP[platform] || platform;
       
