@@ -1,52 +1,31 @@
 
 
-## Sửa lỗi thanh toán PayOS và màn hình trắng
+## Sửa lỗi PayOS webhook không được gọi → subscription không cập nhật
 
-### Vấn đề 1: PayOS lỗi 214 (cổng tạm dừng)
-PayOS vẫn trả mã lỗi `214: "Cổng thanh toán không tồn tại hoặc đã tạm dừng"` ngay cả sau khi cập nhật credentials. Đây là lỗi từ phía PayOS — cổng thanh toán cần được **kích hoạt (Active)** trên dashboard PayOS tại https://my.payos.vn.
+### Nguyên nhân gốc
+Khi tạo link thanh toán (`create-payos-payment`), request gửi tới PayOS **thiếu trường `webhookUrl`**. PayOS chỉ redirect user về `returnUrl` sau khi thanh toán, nhưng **không gọi webhook** để cập nhật trạng thái đơn hàng và subscription.
 
-**Bạn cần kiểm tra trên PayOS dashboard:**
-- Đăng nhập → Cổng thanh toán → Đảm bảo trạng thái là "Hoạt động"
-- Nếu đang ở chế độ "Test", cần bật cổng test
+Kết quả: 2 payment_orders enterprise đang `pending`, subscription vẫn là `pro`.
 
-### Vấn đề 2: Màn hình trắng khi thanh toán lỗi
+### Sửa chữa
 
-**Nguyên nhân:** Edge function `create-payos-payment` trả `status: 500` khi PayOS lỗi. `supabase.functions.invoke` ném exception, nhưng UI có thể crash nếu error object không có `.message` chuẩn.
+#### 1. `supabase/functions/create-payos-payment/index.ts`
+- Thêm `webhookUrl` vào body gửi PayOS API, trỏ tới edge function `payos-webhook`:
+  ```
+  webhookUrl: `${supabaseUrl}/functions/v1/payos-webhook`
+  ```
+- Cập nhật checksum string theo spec PayOS (nếu PayOS yêu cầu webhookUrl trong checksum)
 
-**Sửa:**
+#### 2. Xử lý 2 đơn hàng pending hiện tại
+- Gọi PayOS API kiểm tra trạng thái 2 order đang pending (`orderCode: 177623065749` và `177622981687`)
+- Nếu đã thanh toán thành công → cập nhật thủ công `payment_orders.status = 'success'` và nâng subscription lên `enterprise`
 
-1. **`supabase/functions/create-payos-payment/index.ts`** (dòng 283-290):
-   - Khi PayOS trả lỗi, đổi từ `status: 500` thành `status: 200` kèm `{ error: ..., errorCode: 'GATEWAY_ERROR' }`.
-   - Giúp frontend nhận `data` thay vì `error`, tránh crash.
-
-2. **`src/components/UpgradePlanDialog.tsx`** (dòng 176-184):
-   - Sau `supabase.functions.invoke`, kiểm tra `data?.error` trước khi đọc `payment_url`.
-   - Nếu `data.error` tồn tại, hiện toast lỗi thay vì crash.
-
-3. **`src/pages/Pricing.tsx`**: Áp dụng cùng pattern xử lý lỗi.
-
-### Chi tiết kỹ thuật
-
-```typescript
-// Edge function: trả 200 thay vì 500 cho lỗi PayOS
-if (payosResult.code !== '00') {
-  return new Response(JSON.stringify({ 
-    error: payosResult.desc || 'Không thể tạo link thanh toán',
-    errorCode: 'GATEWAY_ERROR',
-  }), {
-    status: 200,  // thay vì 500
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-// Frontend: check data.error
-const { data, error } = await supabase.functions.invoke(functionName, { body });
-if (error) throw error;
-if (data?.error) throw new Error(data.error);
-```
+#### 3. Thêm fallback tại `returnUrl` page
+- Tại trang `/payment/result`, khi user quay về sau thanh toán, gọi API check trạng thái order
+- Nếu webhook chưa xử lý kịp, frontend tự verify và trigger update
 
 ### File cần sửa
-- `supabase/functions/create-payos-payment/index.ts`
-- `src/components/UpgradePlanDialog.tsx`
-- `src/pages/Pricing.tsx`
+- `supabase/functions/create-payos-payment/index.ts` — thêm `webhookUrl`
+- `src/pages/PaymentResult.tsx` (hoặc tương đương) — thêm fallback verify
+- Migration SQL — fix 2 đơn hàng pending hiện tại
 
