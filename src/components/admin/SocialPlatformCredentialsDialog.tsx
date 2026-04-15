@@ -110,6 +110,7 @@ export function SocialPlatformCredentialsDialog({
   const help = PLATFORM_HELP[platform];
   const callbackUrl = getCallbackUrl(platform);
   const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
+  const isInstagram = platform === 'instagram';
   const isLinkedIn = platform === 'linkedin';
   const isZalo = platform === 'zalo_oa';
   const isGoogle = platform === 'google_business';
@@ -125,7 +126,7 @@ export function SocialPlatformCredentialsDialog({
       console.error('Failed to copy:', err);
     }
   };
-  
+
   const keyLabel = isWebsite
     ? 'API URL / WordPress URL'
     : isGoogle
@@ -134,10 +135,10 @@ export function SocialPlatformCredentialsDialog({
         ? 'Zalo App ID'
         : isLinkedIn
           ? 'LinkedIn Client ID'
-          : isMetaPlatform 
+          : isMetaPlatform
             ? (platform === 'instagram' ? 'Facebook App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
             : 'Consumer Key (API Key)';
-  
+
   const secretLabel = isWebsite
     ? 'API Key / Application Password'
     : isGoogle
@@ -146,7 +147,7 @@ export function SocialPlatformCredentialsDialog({
         ? 'Zalo Secret Key'
         : isLinkedIn
           ? 'LinkedIn Client Secret'
-          : isMetaPlatform 
+          : isMetaPlatform
             ? (platform === 'instagram' ? 'Facebook App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
             : 'Consumer Secret (API Secret)';
 
@@ -166,7 +167,7 @@ export function SocialPlatformCredentialsDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const data: any = {
       platform,
       app_name: appName || undefined,
@@ -179,7 +180,7 @@ export function SocialPlatformCredentialsDialog({
     onSave(data);
   };
 
-  const isValid = existingSettings?.has_credentials 
+  const isValid = existingSettings?.has_credentials
     ? true
     : consumerKey && consumerSecret;
 
@@ -189,12 +190,13 @@ export function SocialPlatformCredentialsDialog({
         <DialogHeader>
           <DialogTitle>Cấu hình {platformName}</DialogTitle>
           <DialogDescription>
-            Nhập API credentials để user có thể kết nối {platformName} chỉ với Access Token.
+            {isInstagram
+              ? 'Nhập Facebook App credentials dùng cho Instagram OAuth/publish. Không dùng Instagram App ID trong Instagram Product.'
+              : `Nhập API credentials để user có thể kết nối ${platformName} chỉ với Access Token.`}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Help link */}
           <div className="p-3 bg-muted/50 rounded-lg text-sm">
             <p className="text-muted-foreground mb-2">{help.instructions}</p>
             <a
@@ -208,7 +210,15 @@ export function SocialPlatformCredentialsDialog({
             </a>
           </div>
 
-          {/* Callback URL */}
+          {isInstagram && (
+            <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+              <p className="font-medium text-foreground">Lưu ý cho Instagram</p>
+              <p className="text-muted-foreground">
+                Dùng <strong>Facebook App ID</strong> và <strong>Facebook App Secret</strong> trong <strong>Settings → Basic</strong>. Không dùng Instagram App ID nằm trong product Instagram.
+              </p>
+            </div>
+          )}
+
           {callbackUrl && (
             <div className="space-y-2">
               <Label>OAuth Callback URL</Label>
@@ -235,7 +245,6 @@ export function SocialPlatformCredentialsDialog({
             </div>
           )}
 
-          {/* App Name */}
           <div className="space-y-2">
             <Label htmlFor="appName">Tên App (tuỳ chọn)</Label>
             <Input
@@ -246,7 +255,6 @@ export function SocialPlatformCredentialsDialog({
             />
           </div>
 
-          {/* Consumer Key / App ID */}
           <div className="space-y-2">
             <Label htmlFor="consumerKey">
               {keyLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
@@ -257,7 +265,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={consumerKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Facebook App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
                 className="pr-10"
               />
               <Button
@@ -277,7 +285,6 @@ export function SocialPlatformCredentialsDialog({
             )}
           </div>
 
-          {/* Consumer Secret / App Secret */}
           <div className="space-y-2">
             <Label htmlFor="consumerSecret">
               {secretLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
@@ -288,7 +295,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={consumerSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
+                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Facebook App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
                 className="pr-10"
               />
               <Button
@@ -308,7 +315,6 @@ export function SocialPlatformCredentialsDialog({
             )}
           </div>
 
-          {/* Active Toggle */}
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
               <Label>Kích hoạt</Label>
