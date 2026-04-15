@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 import { useContentSchedules } from '@/hooks/useContentSchedules';
 import { Channel } from '@/types/multichannel';
 import { format } from 'date-fns';
@@ -124,34 +124,25 @@ export function SchedulePopoverButton({ contentId, availableChannels, connectedC
                 const existingSch = schedules.find(s => s.channel === ch && s.publish_status === 'scheduled');
 
                 return (
-                  <TooltipProvider key={ch} delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => isConnected && setSelectedChannel(ch)}
-                          disabled={!isConnected}
-                          className={cn(
-                            'w-8 h-8 rounded-full flex items-center justify-center transition-all relative',
-                            isSelected && 'bg-primary/15 border-2 border-primary ring-2 ring-primary/20',
-                            !isSelected && isConnected && 'border-2 border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5',
-                            !isConnected && 'border border-dashed border-muted-foreground/20 opacity-40 cursor-not-allowed',
-                          )}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          {existingSch && (
-                            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500 flex items-center justify-center">
-                              <Clock className="h-2 w-2 text-white" />
-                            </span>
-                          )}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs">
-                        {CHANNEL_LABELS[ch] || ch}
-                        {!isConnected && ' — Chưa kết nối'}
-                        {existingSch && ` — Đã lên lịch ${format(new Date(existingSch.scheduled_at), 'dd/MM HH:mm')}`}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <button
+                    key={ch}
+                    onClick={() => isConnected && setSelectedChannel(ch)}
+                    disabled={!isConnected}
+                    title={`${CHANNEL_LABELS[ch] || ch}${!isConnected ? ' — Chưa kết nối' : ''}${existingSch ? ` — Đã lên lịch ${format(new Date(existingSch.scheduled_at), 'dd/MM HH:mm')}` : ''}`}
+                    className={cn(
+                      'w-8 h-8 rounded-full flex items-center justify-center transition-all relative',
+                      isSelected && 'bg-primary/15 border-2 border-primary ring-2 ring-primary/20',
+                      !isSelected && isConnected && 'border-2 border-muted-foreground/20 hover:border-primary/50 hover:bg-primary/5',
+                      !isConnected && 'border border-dashed border-muted-foreground/20 opacity-40 cursor-not-allowed',
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {existingSch && (
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500 flex items-center justify-center">
+                        <Clock className="h-2 w-2 text-white" />
+                      </span>
+                    )}
+                  </button>
                 );
               })}
             </div>
