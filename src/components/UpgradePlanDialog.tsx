@@ -117,7 +117,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
     setVoucherInput("");
   };
 
-  const handleSelectPlan = (planType: string, fullPrice: number, prorateInfo: ReturnType<typeof getProrateInfo>, finalPrice: number) => {
+  const handleSelectPlan = (planType: string, fullPrice: number, prorateInfo: ConfirmState['prorateInfo'], finalPrice: number) => {
     if (!currentOrganization?.id) {
       toast.error("Vui lòng chọn workspace trước");
       return;
