@@ -479,6 +479,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                   onFeedback={submitFeedback}
                   disabled={isLoading}
                   showEnhancedInfo={true}
+                  brandTemplateId={brandTemplateId || undefined}
                 />
               )}
 

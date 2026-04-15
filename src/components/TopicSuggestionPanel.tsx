@@ -130,7 +130,7 @@ export function TopicSuggestionPanel({
   const [historyFilter, setHistoryFilter] = useState<'all' | 'unused'>('all');
   const navigate = useNavigate();
 
-  const { history: topicHistory, isLoading: historyLoading } = useTopicHistory({
+  const { history: topicHistory, isLoading: historyLoading, markAsSelected } = useTopicHistory({
     brandTemplateId,
     enabled: true,
   });
@@ -316,6 +316,10 @@ export function TopicSuggestionPanel({
                             className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors flex items-start gap-2"
                             onClick={() => {
                               onSelect(item.topic);
+                              // Auto-update status to 'selected' when picking from history
+                              if (item.usageStatus === 'draft' || item.usageStatus === 'suggested') {
+                                markAsSelected(item.id);
+                              }
                               setHistoryOpen(false);
                             }}
                           >
