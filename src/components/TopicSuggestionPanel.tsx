@@ -135,9 +135,12 @@ export function TopicSuggestionPanel({
   const [historyFilter, setHistoryFilter] = useState<'all' | 'unused' | 'favorites' | 'used'>('all');
   const [historySearch, setHistorySearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [historySortBy, setHistorySortBy] = useState<'newest' | 'oldest' | 'score' | 'az'>('newest');
+  const [historyViewMode, setHistoryViewMode] = useState<'list' | 'grid'>('list');
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
-  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic } = useTopicHistory({
+  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite } = useTopicHistory({
     enabled: true,
   });
 
@@ -165,13 +168,73 @@ export function TopicSuggestionPanel({
       items = items.filter(item => item.topic.toLowerCase().includes(q));
     }
 
+    // Apply sort
+    items = [...items].sort((a, b) => {
+      // Pinned items always first
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+
+      switch (historySortBy) {
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'score':
+          return (b.performanceScore || 0) - (a.performanceScore || 0);
+        case 'az':
+          return a.topic.localeCompare(b.topic, 'vi');
+        default: // newest
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
     return items;
-  }, [historyItems, historyFilter, historySearch]);
+  }, [historyItems, historyFilter, historySearch, historySortBy]);
 
   const allCount = historyItems.length;
   const unusedCount = useMemo(() => historyItems.filter(item => !['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
   const favCount = useMemo(() => historyItems.filter(item => item.isFavorite).length, [historyItems]);
   const usedCount = useMemo(() => historyItems.filter(item => ['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
+  const usagePercent = allCount > 0 ? Math.round((usedCount / allCount) * 100) : 0;
+
+  const toggleSelectItem = useCallback((id: string) => {
+    setSelectedHistoryIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    await bulkDelete(Array.from(selectedHistoryIds));
+    setSelectedHistoryIds(new Set());
+  }, [bulkDelete, selectedHistoryIds]);
+
+  const handleBulkFavorite = useCallback(async () => {
+    await bulkToggleFavorite(Array.from(selectedHistoryIds), true);
+    setSelectedHistoryIds(new Set());
+  }, [bulkToggleFavorite, selectedHistoryIds]);
+
+  const handleExportCSV = useCallback(() => {
+    const csv = ['Chủ đề,Danh mục,Trạng thái,Ngày tạo,Yêu thích,Điểm'];
+    filteredHistory.forEach(item => {
+      csv.push([
+        `"${item.topic}"`,
+        item.category,
+        item.usageStatus,
+        new Date(item.createdAt).toLocaleDateString('vi-VN'),
+        item.isFavorite ? 'Có' : 'Không',
+        item.performanceScore ?? '',
+      ].join(','));
+    });
+    const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kho-chu-de.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Đã xuất CSV');
+  }, [filteredHistory]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
