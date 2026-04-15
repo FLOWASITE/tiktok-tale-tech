@@ -1064,6 +1064,16 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }
   }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format]);
 
+  // Auto-save suggestions whenever new batch arrives
+  const prevAutoSaveFingerprintRef = useRef('');
+  useEffect(() => {
+    if (allSuggestions.length === 0) return;
+    const fingerprint = allSuggestions.map(s => s.topic).sort().join('|');
+    if (fingerprint === prevAutoSaveFingerprintRef.current) return;
+    prevAutoSaveFingerprintRef.current = fingerprint;
+    autoSaveSuggestions(allSuggestions);
+  }, [allSuggestions, autoSaveSuggestions]);
+
   const submitSuggestFeedback = useCallback(async (
     suggestion: EnhancedTopicSuggestion,
     feedback: 'positive' | 'negative'
