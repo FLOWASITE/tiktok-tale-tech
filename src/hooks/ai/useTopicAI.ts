@@ -860,9 +860,6 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
 
         setAllSuggestions(enhancedSuggestions);
         setSuggestSource(data.source);
-
-        // Auto-save new suggestions to topic_history
-        autoSaveSuggestions(enhancedSuggestions);
       } else {
         setAllSuggestions([]);
         setSuggestSource('fallback');
@@ -884,7 +881,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       suggestIsFetchingRef.current = false;
       setSuggestEnhancing(false);
     }
-  }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id, autoSaveSuggestions]);
+  }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
 
   // Auto-fetch suggestions with STALE-WHILE-REVALIDATE strategy
   // Keep old suggestions visible while fetching new ones
