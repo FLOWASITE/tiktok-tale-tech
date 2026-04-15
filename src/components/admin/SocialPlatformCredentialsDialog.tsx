@@ -41,7 +41,7 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
   },
   instagram: {
     url: 'https://developers.facebook.com/apps/',
-    instructions: 'Tạo App tại Meta for Developers → Add Instagram Product → Basic Display hoặc Business Login → App ID & Secret',
+    instructions: 'Meta for Developers → Settings → Basic → App ID & App Secret. App phải có Instagram Product. ⚠️ Dùng App ID từ Settings > Basic, KHÔNG dùng Instagram App ID.',
   },
   threads: {
     url: 'https://developers.facebook.com/apps/',
@@ -135,7 +135,7 @@ export function SocialPlatformCredentialsDialog({
         : isLinkedIn
           ? 'LinkedIn Client ID'
           : isMetaPlatform 
-            ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+            ? (platform === 'instagram' ? 'Facebook App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
             : 'Consumer Key (API Key)';
   
   const secretLabel = isWebsite
@@ -147,7 +147,7 @@ export function SocialPlatformCredentialsDialog({
         : isLinkedIn
           ? 'LinkedIn Client Secret'
           : isMetaPlatform 
-            ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+            ? (platform === 'instagram' ? 'Facebook App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
             : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
