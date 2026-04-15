@@ -428,7 +428,11 @@ export function TopicSuggestionPanel({
                             "active:scale-[0.98]",
                             disabled && "opacity-50 cursor-not-allowed hover:bg-background hover:border-border"
                           )}
-                          onClick={() => !disabled && onSelect(suggestion.topic)}
+                          onClick={async () => {
+                            if (disabled) return;
+                            const historyId = await ensureSelectedTopic(suggestion.topic);
+                            onSelect(suggestion.topic, historyId || undefined);
+                          }}
                         >
                           {/* Category Icon */}
                           {showEnhancedInfo && (
