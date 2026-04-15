@@ -143,6 +143,34 @@ export function TopicSuggestionPanel({
     return sliced;
   }, [topicHistory, historyFilter]);
 
+  const unusedCount = useMemo(() => {
+    return topicHistory.slice(0, 15).filter(item => !['created', 'published'].includes(item.usageStatus)).length;
+  }, [topicHistory]);
+
+  const allCount = Math.min(topicHistory.length, 15);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'published':
+        return { label: 'Đã đăng', className: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' };
+      case 'created':
+        return { label: 'Đã tạo', className: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' };
+      case 'selected':
+        return { label: 'Đã chọn', className: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' };
+      default:
+        return { label: 'Ý tưởng', className: 'bg-muted text-muted-foreground' };
+    }
+  };
+
+  const getCategoryIcon = (category?: string) => {
+    switch (category) {
+      case 'trending': return <TrendingUp className="w-3 h-3 text-orange-500" />;
+      case 'seasonal': return <Calendar className="w-3 h-3 text-purple-500" />;
+      case 'reactive': return <Zap className="w-3 h-3 text-red-500" />;
+      default: return <Leaf className="w-3 h-3 text-emerald-500" />;
+    }
+  };
+
   const sourceConfig = {
     ai: { icon: Sparkles, label: 'AI', className: 'bg-primary/10 text-primary border-primary/30' },
     cache: { icon: Database, label: 'Cached', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30' },
