@@ -786,44 +786,42 @@ export function CarouselViewer({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl w-[95vw] xs:w-full h-[95vh] xs:h-[90vh] flex flex-col p-0">
         {/* ===== COMPACT HEADER ===== */}
-        <DialogHeader className="px-3 xs:px-5 pt-2.5 xs:pt-4 pb-2 xs:pb-3 border-b border-border/50">
-          {/* Row 1: Title + Status + Actions */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <DialogTitle className="text-sm xs:text-base font-bold truncate">
-                  {carousel.title}
-                </DialogTitle>
-                <StatusSelector 
-                  status={(carousel.status as ContentStatus) || 'draft'} 
-                  onStatusChange={handleStatusChange}
-                  disabled={generatingAll}
-                />
-              </div>
-              <p className="text-[10px] xs:text-xs text-muted-foreground truncate">{carousel.topic}</p>
+        <DialogHeader className="px-3 xs:px-5 pt-2.5 xs:pt-4 pb-2 xs:pb-3 border-b border-border/50 space-y-1.5">
+          {/* Row 1: Title + Status */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <DialogTitle className="text-sm xs:text-base font-bold truncate">
+                {carousel.title}
+              </DialogTitle>
+              <StatusSelector 
+                status={(carousel.status as ContentStatus) || 'draft'} 
+                onStatusChange={handleStatusChange}
+                disabled={generatingAll}
+              />
             </div>
-            {/* Action buttons - compact row */}
-            <div className="flex items-center gap-1 shrink-0">
-              {generatedImages.length > 0 && availableChannels.length > 0 && (
-                <>
-                  {availableChannels.map(channel => (
-                    <DirectPublishButton
-                      key={channel}
-                      content={carousel.caption_suggestion || carousel.topic}
-                      contentId={carousel.id}
-                      channel={channel}
-                      brandTemplateId={brandTemplate?.id}
-                      mediaUrls={generatedImages.map(img => img.imageUrl)}
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[10px] xs:text-xs px-2"
-                      channelStatus={effectivePublishedChannels.has(channel) ? 'published' : undefined}
-                      onPublishSuccess={() => handlePublishSuccess(channel)}
-                    />
-                  ))}
-                </>
-              )}
-              {generatedImages.length > 0 && availableChannels.length === 0 && (
+            <p className="text-[10px] xs:text-xs text-muted-foreground truncate">{carousel.topic}</p>
+          </div>
+
+          {/* Row 2: Publish buttons (scrollable) */}
+          {generatedImages.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mb-0.5 scrollbar-none">
+              {availableChannels.length > 0 ? (
+                availableChannels.map(channel => (
+                  <DirectPublishButton
+                    key={channel}
+                    content={carousel.caption_suggestion || carousel.topic}
+                    contentId={carousel.id}
+                    channel={channel}
+                    brandTemplateId={brandTemplate?.id}
+                    mediaUrls={generatedImages.map(img => img.imageUrl)}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[10px] xs:text-xs px-2 shrink-0"
+                    channelStatus={effectivePublishedChannels.has(channel) ? 'published' : undefined}
+                    onPublishSuccess={() => handlePublishSuccess(channel)}
+                  />
+                ))
+              ) : (
                 <DirectPublishButton
                   content={carousel.caption_suggestion || carousel.topic}
                   contentId={carousel.id}
@@ -832,11 +830,77 @@ export function CarouselViewer({
                   mediaUrls={generatedImages.map(img => img.imageUrl)}
                   variant="outline"
                   size="sm"
-                  className="h-7 text-[10px] xs:text-xs px-2"
+                  className="h-7 text-[10px] xs:text-xs px-2 shrink-0"
                   channelStatus={effectivePublishedChannels.has(carousel.platform) ? 'published' : undefined}
                   onPublishSuccess={() => handlePublishSuccess(carousel.platform)}
                 />
               )}
+            </div>
+          )}
+
+          {/* Row 3: Badges + utility buttons */}
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{platformLabels[carousel.platform]}</Badge>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                {carousel.slide_count} slides
+              </Badge>
+              {effectivePublishedChannels.size > 0 && (
+                <>
+                  {Array.from(effectivePublishedChannels).map(ch => (
+                    <Badge key={ch} variant="default" className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
+                      ✓ {platformLabels[ch] || ch}
+                    </Badge>
+                  ))}
+                </>
+              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1 py-0.5 rounded hover:bg-muted/50">
+                    <Info className="w-3 h-3" />
+                    <span className="hidden xs:inline">Chi tiết</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3 space-y-2 text-xs" align="start">
+                  {styleOpt && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground w-16 shrink-0">Style:</span>
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        {(() => { const I = STYLE_ICON_MAP[styleOpt.icon]; return I ? <I className="w-3 h-3" /> : null; })()}
+                        {styleOpt.label}
+                      </Badge>
+                    </div>
+                  )}
+                  {presetOpt && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground w-16 shrink-0">Preset:</span>
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        {(() => { const I = PRESET_ICON_MAP[presetOpt.icon]; return I ? <I className="w-3 h-3" /> : null; })()}
+                        {presetOpt.label}
+                      </Badge>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground w-16 shrink-0">Brand:</span>
+                    <span>{carousel.brand_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground w-16 shrink-0">Tạo bởi:</span>
+                    <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground w-16 shrink-0">Ngày:</span>
+                    <span>{new Date(carousel.created_at).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <IndustryGuardrailBadge 
+                    industryMemory={industryMemory} 
+                    isLoading={isLoadingIndustry}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Utility buttons */}
+            <div className="flex items-center gap-1 shrink-0">
               {(carousel.status === 'published' || carousel.status === 'partially_published') && (
                 <TopicPerformanceUpdater
                   contentId={carousel.id}
@@ -855,67 +919,6 @@ export function CarouselViewer({
                 {copiedAll ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
               </Button>
             </div>
-          </div>
-
-          {/* Row 2: Key badges + detail popover */}
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{platformLabels[carousel.platform]}</Badge>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {carousel.slide_count} slides
-            </Badge>
-            {effectivePublishedChannels.size > 0 && (
-              <>
-                {Array.from(effectivePublishedChannels).map(ch => (
-                  <Badge key={ch} variant="default" className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
-                    ✓ {platformLabels[ch] || ch}
-                  </Badge>
-                ))}
-              </>
-            )}
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1 py-0.5 rounded hover:bg-muted/50">
-                  <Info className="w-3 h-3" />
-                  <span className="hidden xs:inline">Chi tiết</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-3 space-y-2 text-xs" align="start">
-                {styleOpt && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-16 shrink-0">Style:</span>
-                    <Badge variant="outline" className="text-[10px] gap-1">
-                      {(() => { const I = STYLE_ICON_MAP[styleOpt.icon]; return I ? <I className="w-3 h-3" /> : null; })()}
-                      {styleOpt.label}
-                    </Badge>
-                  </div>
-                )}
-                {presetOpt && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground w-16 shrink-0">Preset:</span>
-                    <Badge variant="outline" className="text-[10px] gap-1">
-                      {(() => { const I = PRESET_ICON_MAP[presetOpt.icon]; return I ? <I className="w-3 h-3" /> : null; })()}
-                      {presetOpt.label}
-                    </Badge>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground w-16 shrink-0">Brand:</span>
-                  <span>{carousel.brand_name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground w-16 shrink-0">Tạo bởi:</span>
-                  <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground w-16 shrink-0">Ngày:</span>
-                  <span>{new Date(carousel.created_at).toLocaleDateString('vi-VN')}</span>
-                </div>
-                <IndustryGuardrailBadge 
-                  industryMemory={industryMemory} 
-                  isLoading={isLoadingIndustry}
-                />
-              </PopoverContent>
-            </Popover>
           </div>
         </DialogHeader>
 
