@@ -154,6 +154,7 @@ interface MultiChannelFormWizardProps {
   topicHistoryId?: string;
   isGenerating: boolean;
   onFormDataChange?: (data: Partial<MultiChannelFormData>) => void;
+  onTopicHistoryIdChange?: (id: string | undefined) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
   // Step 5: Image generation
   onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw' }) => void;
@@ -262,6 +263,7 @@ export function MultiChannelFormWizard({
   topicHistoryId,
   isGenerating,
   onFormDataChange,
+  onTopicHistoryIdChange,
   onGenerate,
   // Step 5 props
   onStartImagePipeline,
@@ -1153,7 +1155,7 @@ export function MultiChannelFormWizard({
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={isSuggestionsEnhancing || isSuggestionsLoading}
-                onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
+                onSelect={(topic, historyId) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); if (historyId) onTopicHistoryIdChange?.(historyId); }}
                 onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                 onRefresh={refreshSuggestions}
                 onCategoryRefresh={(category) => { console.log('[TopicIdeaHub] Category refresh:', category); refreshSuggestions(category); }}
