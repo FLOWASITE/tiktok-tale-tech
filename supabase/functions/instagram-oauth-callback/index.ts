@@ -104,6 +104,7 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
       throw new Error('Failed to decrypt Instagram credentials');
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const redirectUri = `${supabaseUrl}/functions/v1/instagram-oauth-callback`;
 
     // Step 1: Exchange code for short-lived access token
