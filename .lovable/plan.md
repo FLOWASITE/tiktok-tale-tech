@@ -1,35 +1,40 @@
 
 
-## Tạo 2 endpoint cho Meta App: Deauthorize Callback và Data Deletion Request
+## Đồng bộ trạng thái Carousel với việc đăng bài Social
 
-### Bối cảnh
-Meta yêu cầu mọi App phải cung cấp 2 URL:
-1. **Deauthorize Callback URL** — Meta gọi khi user thu hồi quyền app
-2. **Data Deletion Request URL** — Meta gọi khi user yêu cầu xóa dữ liệu
-
-Hiện tại project chưa có 2 endpoint này.
+### Vấn đề hiện tại
+1. **DirectPublishButton** trong CarouselViewer **không truyền `onPublishSuccess`** → sau khi đăng bài thành công, carousel status vẫn giữ nguyên (draft/approved), không tự động chuyển sang `published`
+2. **Chỉ hardcode channel "facebook"** — không hỗ trợ chọn kênh khác (Instagram, TikTok, etc.)
+3. **Không có logic `partially_published`** — multichannel có cơ chế này nhưng carousel thì không
+4. **Không log publishing** vào `content_publishing_logs` cho carousel
 
 ### Kế hoạch
 
-**Tạo 1 edge function duy nhất** `instagram-webhooks` xử lý cả 2 loại request:
+**1. Thêm `onPublishSuccess` callback vào CarouselViewer**
+- Sau khi DirectPublishButton publish thành công → tự động cập nhật `carousels.status` sang `published` trong DB
+- Gọi `onCarouselUpdate` để UI phản ánh trạng thái mới
+- File: `src/components/CarouselViewer.tsx`
 
-- **POST `/instagram-webhooks?type=deauthorize`**
-  - Nhận signed request từ Meta
-  - Xác thực chữ ký HMAC-SHA256 bằng App Secret
-  - Xóa/vô hiệu hóa social connection của user trong DB (`social_connections`)
-  - Trả về `{ success: true }`
+**2. Hỗ trợ chọn nhiều kênh social để đăng**
+- Thay vì hardcode `channel="facebook"`, hiển thị danh sách kênh dựa trên `carousel.platform` và các social connections đã kết nối
+- Thêm nút đăng cho từng kênh có kết nối (Facebook, Instagram, etc.)
+- File: `src/components/CarouselViewer.tsx`
 
-- **POST `/instagram-webhooks?type=data-deletion`**
-  - Nhận signed request từ Meta
-  - Xác thực chữ ký
-  - Xóa dữ liệu liên quan đến user trong DB
-  - Trả về JSON với `url` (trang xác nhận) và `confirmation_code` theo yêu cầu của Meta
+**3. Hiển thị trạng thái đăng bài per-channel**
+- Thêm query `content_publishing_logs` để kiểm tra carousel đã đăng ở kênh nào
+- Hiển thị badge "Đã đăng" bên cạnh từng kênh đã publish thành công
+- Tái sử dụng `StatusTimeline` hoặc badge tương tự multichannel
+- File: `src/components/CarouselViewer.tsx`
 
-**Sau khi deploy**, bạn sẽ điền vào Meta Dashboard:
-- URL gọi lại để thu hồi quyền: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/instagram-webhooks?type=deauthorize`
-- URL yêu cầu xóa dữ liệu: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/instagram-webhooks?type=data-deletion`
+**4. Ghi log publishing cho carousel**
+- Khi publish thành công, đảm bảo `content_publishing_logs` có record với `content_id = carousel.id`
+- Kiểm tra edge function `channel-publisher` đã hỗ trợ content_type carousel chưa, nếu chưa thì bổ sung
 
-### File thay đổi
-- **Tạo mới**: `supabase/functions/instagram-webhooks/index.ts`
-- Không cần migration database
+### Files thay đổi
+- **Sửa**: `src/components/CarouselViewer.tsx` — thêm onPublishSuccess, multi-channel publish buttons, status display
+- **Sửa**: `src/types/carousel.ts` — nếu cần thêm type `partially_published` vào CarouselStatus
+- **Có thể sửa**: `supabase/functions/channel-publisher/index.ts` — đảm bảo hỗ trợ carousel content type
+
+### Không cần migration
+Bảng `content_publishing_logs` đã tồn tại và hỗ trợ bất kỳ `content_id` nào.
 
