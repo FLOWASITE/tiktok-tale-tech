@@ -616,6 +616,88 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     };
   }, [history, topPerformers]);
 
+  // Find or create a topic_history row and return its ID
+  const ensureSelectedTopic = useCallback(async (
+    topicText: string,
+    topicFormat: TopicFormat = 'multichannel'
+  ): Promise<string | null> => {
+    if (!user) return null;
+
+    try {
+      // Try to find existing row with same topic text for this org
+      let query = supabase
+        .from('topic_history')
+        .select('id, usage_status')
+        .eq('topic', topicText)
+        .limit(1);
+
+      if (currentOrganization?.id) {
+        query = query.eq('organization_id', currentOrganization.id);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data: existing } = await query;
+
+      if (existing && existing.length > 0) {
+        const row = existing[0];
+        // Update to selected if not already created/published
+        if (!['created', 'published'].includes(row.usage_status)) {
+          await supabase
+            .from('topic_history')
+            .update({ usage_status: 'selected', was_used: true, used_at: new Date().toISOString() })
+            .eq('id', row.id);
+          setHistory(prev => prev.map(h =>
+            h.id === row.id ? { ...h, usageStatus: 'selected', wasUsed: true, usedAt: new Date().toISOString() } : h
+          ));
+        }
+        return row.id;
+      }
+
+      // Insert new row
+      const { data: newRow, error: insertError } = await supabase
+        .from('topic_history')
+        .insert({
+          topic: topicText,
+          category: 'evergreen',
+          content_goal: contentGoal || 'education',
+          format: topicFormat,
+          usage_status: 'selected',
+          was_used: true,
+          used_at: new Date().toISOString(),
+          user_id: user.id,
+          organization_id: currentOrganization?.id || null,
+          brand_template_id: brandTemplateId || null,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      const newItem: TopicHistoryItem = {
+        id: newRow.id,
+        topic: newRow.topic,
+        category: newRow.category as TopicCategory,
+        contentGoal: newRow.content_goal as ContentGoal,
+        format: newRow.format as TopicFormat,
+        pillar: newRow.pillar,
+        scores: newRow.scores as unknown as TopicScores | undefined,
+        relatedKeywords: newRow.related_keywords,
+        reasoning: newRow.reasoning,
+        wasUsed: true,
+        usageStatus: 'selected',
+        isFavorite: false,
+        createdAt: newRow.created_at,
+        usedAt: newRow.used_at,
+      };
+      setHistory(prev => [newItem, ...prev]);
+      return newRow.id;
+    } catch (err) {
+      console.error('Error ensuring selected topic:', err);
+      return null;
+    }
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal]);
+
   return {
     history,
     drafts,
@@ -638,6 +720,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     submitFeedback,
     deleteTopic,
     linkToCampaign,
+    ensureSelectedTopic,
     refresh: fetchHistory,
     getLearningContext,
   };
