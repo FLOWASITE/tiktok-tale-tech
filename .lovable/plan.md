@@ -1,54 +1,61 @@
+<final-text>## Sửa việc gợi ý topic lệch Mục tiêu nội dung và lệch Brand
 
+### Mình đã rà code và thấy nguyên nhân thực tế
+- `contentGoal` đã được truyền xuống và prompt hiện đã có phần `MỤC TIÊU NỘI DUNG BẮT BUỘC`, nên lỗi không còn nằm ở việc thiếu prop.
+- Tuy nhiên prompt vẫn chưa có “khóa Brand” đủ mạnh: brand context đang ở dạng mô tả, chưa có rule bắt buộc kiểu “chỉ được tạo topic xoay quanh sản phẩm/pain points/content pillars của Brand”.
+- Kết quả AI hiện được parse và dùng gần như nguyên trạng, chưa có bước lọc lại theo Brand + Goal. Nếu model drift, topic sai vẫn lọt qua và được lưu vào Kho.
+- Ở form đa kênh, gợi ý có thể auto-fetch ngay sau khi load draft, trước khi `brandTemplateId` mặc định được set xong, nên request đầu tiên có thể chạy thiếu Brand context và sinh ra topic generic.
+- Dữ liệu web search đang thiên về ngành chung, nên dễ kéo AI sang topic “đúng ngành nhưng không đúng Brand”.
 
-## Tăng cường ảnh hưởng Mục tiêu nội dung lên Ý tưởng chủ đề
+### Phạm vi sửa
+1. `src/components/MultiChannelForm.tsx`
+- Chỉ bật auto-fetch topic suggestions khi đã có `brandTemplateId`.
+- Nếu chưa chọn Brand, không gọi AI; hiển thị trạng thái chờ/chọn Brand thay vì gợi ý generic.
+- Khi đổi Brand, ép fetch lại đúng ngữ cảnh Brand mới.
 
-### Vấn đề
-Khi user đổi Mục tiêu nội dung (education → conversion...), ý tưởng chủ đề AI tạo ra không phản ánh rõ ràng mục tiêu đã chọn. Nguyên nhân:
+2. `supabase/functions/topic-ai/index.ts`
+- Thêm section `MANDATORY BRAND ALIGNMENT` đứng trước cả phần content goal:
+  - Topics phải bám `brand_name`, `UVP`, `content_pillars`, `products/services`, `persona pain points/desires`.
+  - Cấm topic chỉ “đúng ngành” nhưng không gắn được với Brand offering.
+  - Cấm topic trend chung chung nếu không thể nối về sản phẩm/dịch vụ/góc chuyên môn của Brand.
+- Làm rõ ma trận Goal × Funnel × Topic type:
+  - education: how-to, giải thích, tips, TOFU/MOFU
+  - awareness: brand story, values, behind-the-scenes
+  - engagement: câu hỏi, tranh luận nhẹ, community/trend
+  - expertise: phân tích, case study, framework, insights
+  - conversion: comparison, testimonial, objection handling, offer, BOFU
+- Bổ sung ví dụ đúng/sai cho cả “đúng Goal” và “đúng Brand”.
 
-1. **Prompt yếu**: Trong `buildSuggestPrompts`, mục tiêu chỉ là 1 dòng nhỏ trong user prompt (`Mục tiêu: giáo dục`), không có ràng buộc bắt buộc như action `refine` (có `MANDATORY CONTENT GOAL`)
-2. **SWR giữ data cũ**: Khi đổi goal, suggestions cũ vẫn hiển thị trong lúc fetch mới — user thấy kết quả không khớp goal
-3. **Thiếu contentGoal prop**: `MultiChannelForm` không truyền `contentGoal` vào `TopicSuggestionPanel` (dù data đúng, nhưng thiếu context cho UI hiển thị)
+3. `supabase/functions/topic-ai/index.ts`
+- Thêm bước hậu kiểm sau khi AI trả về:
+  - Chấm/lọc từng topic theo tín hiệu Brand thực (pillar, product/service, persona pain point/desire, evergreen theme).
+  - Kiểm tra fit với Goal đã chọn (funnelStage, topicType, ngôn ngữ CTA/story/how-to...).
+  - Không tin hoàn toàn vào `scores.brandFit` do model tự chấm; dùng heuristic server-side để loại topic lệch.
+- Nếu sau lọc còn quá ít topic hợp lệ, tự re-prompt 1 lần với danh sách lý do bị loại để bù đủ số lượng.
 
-### Thay đổi
+4. `supabase/functions/_shared/topic-utils.ts`
+- Giảm ảnh hưởng của web search ngành chung:
+  - Web insights chỉ là dữ liệu tham khảo, không được override Brand rules.
+  - Làm query/context đầu vào brand-aware hơn bằng cách ưu tiên pain points / offerings / audience của Brand thay vì chỉ tên ngành chung.
 
-**File 1: `supabase/functions/topic-ai/index.ts`** — Tăng cường prompt
-
-Thêm ràng buộc bắt buộc trong `buildSuggestPrompts`:
-- Thêm section `⚠️ MANDATORY CONTENT GOAL` vào system prompt (tương tự refine action)
-- Map mỗi goal sang hướng dẫn cụ thể: conversion → ưu tiên BOFU/sales topics, education → TOFU/how-to, awareness → brand storytelling...
-- Thêm constraint: "Topics không phù hợp mục tiêu sẽ bị REJECT"
-- Điều chỉnh funnel balance theo goal (vd: conversion → 60% BOFU, education → 60% TOFU)
-
-**File 2: `src/hooks/ai/useTopicAI.ts`** — Cải thiện UX khi đổi goal
-
-- Khi `contentGoal` thay đổi: clear old suggestions ngay (không giữ stale data) và hiện loading
-- Giúp user thấy rõ hệ thống đang tạo lại suggestions mới theo goal mới
-
-**File 3: `src/components/MultiChannelForm.tsx`** — Truyền contentGoal
-
-- Thêm `contentGoal={contentGoal}` vào `TopicSuggestionPanel` tại line 472
+### Kết quả mong đợi
+- Đổi từ “Giáo dục” sang “Chuyển đổi” sẽ thấy khác rõ về funnel và kiểu topic.
+- Cùng một ngành nhưng khác Brand vẫn ra bộ topic khác nhau.
+- Topic generic kiểu “trend ngành chung” sẽ bị loại nếu không nối được về Brand.
+- Các topic được lưu vào Kho sau đó cũng sạch hơn vì chỉ lưu topic đã qua lọc.
 
 ### Chi tiết kỹ thuật
+- Không cần đổi database.
+- File chính sẽ sửa:
+  - `src/components/MultiChannelForm.tsx`
+  - `supabase/functions/topic-ai/index.ts`
+  - `supabase/functions/_shared/topic-utils.ts`
+- Có thể tận dụng thêm các prompt utility sẵn có để tăng độ chặt cho brand/persona scoring, nhưng trọng tâm là:
+  1) chặn fetch khi chưa có Brand,
+  2) khóa Brand mạnh trong prompt,
+  3) validate kết quả ở server trước khi trả về.
 
-**Prompt enhancement** (topic-ai/index.ts):
-```
-## ⚠️ MỤC TIÊU BẮT BUỘC: "${contentGoal}"
-${goalConstraints[contentGoal]}
-- TẤT CẢ topics PHẢI phục vụ mục tiêu "${contentGoal}"
-- Topics không phù hợp mục tiêu sẽ bị LOẠI BỎ
-```
-
-Với `goalConstraints` map chi tiết cho từng goal (conversion → CTA/pricing/offer topics, education → how-to/guide/tips...).
-
-**SWR fix** (useTopicAI.ts):
-```tsx
-if (paramsKey !== suggestPrevParamsRef.current) {
-  suggestHasLoadedRef.current = false;
-  setAllSuggestions([]); // Clear stale data on goal change
-  setSuggestLoading(true);
-}
-```
-
-### Không thay đổi
-- Database, các file khác
-
+### QA sau khi làm
+- Test cùng 1 Brand với 3 goal: Education / Awareness / Conversion.
+- Refresh nhiều lần để chắc topic mới vẫn bám Brand, không drift sang topic ngành chung.
+- Đổi sang Brand khác trong cùng ngành để chắc suggestions đổi theo Brand chứ không chỉ theo ngành.</final-text>
