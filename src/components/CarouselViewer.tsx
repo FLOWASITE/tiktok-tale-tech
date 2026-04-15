@@ -785,7 +785,7 @@ export function CarouselViewer({
                   onPublishSuccess={() => handlePublishSuccess(carousel.platform)}
                 />
               )}
-              {carousel.status === 'published' && (
+              {(carousel.status === 'published' || carousel.status === 'partially_published') && (
                 <TopicPerformanceUpdater
                   contentId={carousel.id}
                   onUpdate={() => {}}
