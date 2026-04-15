@@ -1,14 +1,4 @@
 import { Carousel, CarouselStatus, CarouselSlide, CarouselStyleType, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
-import { useContentSchedules } from '@/hooks/useContentSchedules';
-import { Channel } from '@/types/multichannel';
-import { Calendar } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { Facebook, Instagram, Linkedin } from 'lucide-react';
-import { XIcon } from '@/components/icons/SocialIcons';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
