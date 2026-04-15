@@ -59,7 +59,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { toast } from 'sonner';
@@ -77,6 +77,9 @@ import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
+import { useOrganization } from '@/hooks/useOrganization';
+import { useQueryClient } from '@tanstack/react-query';
 
 
 // Icon maps for badge rendering
@@ -288,6 +291,86 @@ export function CarouselViewer({
     },
     enabled: !!(carousel?.brand_template_id || carousel?.brand_name),
   });
+
+  // Social connections for multi-channel publish
+  const { currentOrganization } = useOrganization();
+  const { connections: socialConnections } = useSocialConnections({
+    brandTemplateId: brandTemplate?.id || carousel?.brand_template_id || undefined,
+    organizationId: currentOrganization?.id,
+  });
+  const queryClient = useQueryClient();
+
+  // Publishing logs for this carousel — track per-channel status
+  const { data: publishingLogs } = useQuery({
+    queryKey: ['carousel-publishing-logs', carousel?.id],
+    queryFn: async () => {
+      if (!carousel?.id) return [];
+      const { data, error } = await supabase
+        .from('content_publishing_logs')
+        .select('*')
+        .eq('content_id', carousel.id)
+        .eq('action', 'published')
+        .order('performed_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!carousel?.id,
+  });
+
+  // Derive which channels have been published
+  const publishedChannels = useMemo(() => {
+    const channels = new Set<string>();
+    publishingLogs?.forEach((log: any) => {
+      if (log.channel) channels.add(log.channel);
+    });
+    return channels;
+  }, [publishingLogs]);
+
+  // Channels available for this carousel based on platform + active connections
+  const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
+    facebook: ['facebook', 'instagram'],
+    instagram: ['instagram', 'facebook'],
+    tiktok: ['tiktok', 'instagram', 'facebook'],
+    linkedin: ['linkedin', 'facebook'],
+  };
+
+  const availableChannels = useMemo(() => {
+    const platformChannels = CAROUSEL_PLATFORM_CHANNELS[carousel?.platform || 'facebook'] || ['facebook'];
+    const activeConnections = socialConnections?.filter(c => c.is_active) || [];
+    return platformChannels.filter(ch => 
+      activeConnections.some(conn => conn.platform === ch)
+    );
+  }, [carousel?.platform, socialConnections]);
+
+  // onPublishSuccess handler — update carousel status + refetch logs
+  const handlePublishSuccess = useCallback(async (channel: string) => {
+    if (!carousel) return;
+    
+    // Refetch publishing logs
+    queryClient.invalidateQueries({ queryKey: ['carousel-publishing-logs', carousel.id] });
+
+    // Calculate new status
+    const newPublished = new Set(publishedChannels);
+    newPublished.add(channel);
+    
+    const allChannelsPublished = availableChannels.length > 0 && 
+      availableChannels.every(ch => newPublished.has(ch));
+    const newStatus = allChannelsPublished ? 'published' : 'partially_published';
+
+    try {
+      const { error } = await supabase
+        .from('carousels')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', carousel.id);
+
+      if (error) throw error;
+
+      const updatedCarousel = { ...carousel, status: newStatus as CarouselStatus, updated_at: new Date().toISOString() };
+      onCarouselUpdate?.(updatedCarousel);
+    } catch (err) {
+      console.error('Failed to update carousel status after publish:', err);
+    }
+  }, [carousel, publishedChannels, availableChannels, queryClient, onCarouselUpdate]);
 
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -670,19 +753,39 @@ export function CarouselViewer({
             </div>
             {/* Action buttons - compact row */}
             <div className="flex items-center gap-1 shrink-0">
-              {generatedImages.length > 0 && (
+              {generatedImages.length > 0 && availableChannels.length > 0 && (
+                <>
+                  {availableChannels.map(channel => (
+                    <DirectPublishButton
+                      key={channel}
+                      content={carousel.caption_suggestion || carousel.topic}
+                      contentId={carousel.id}
+                      channel={channel}
+                      brandTemplateId={brandTemplate?.id}
+                      mediaUrls={generatedImages.map(img => img.imageUrl)}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] xs:text-xs px-2"
+                      channelStatus={publishedChannels.has(channel) ? 'published' : undefined}
+                      onPublishSuccess={() => handlePublishSuccess(channel)}
+                    />
+                  ))}
+                </>
+              )}
+              {generatedImages.length > 0 && availableChannels.length === 0 && (
                 <DirectPublishButton
                   content={carousel.caption_suggestion || carousel.topic}
                   contentId={carousel.id}
-                  channel="facebook"
+                  channel={carousel.platform}
                   brandTemplateId={brandTemplate?.id}
                   mediaUrls={generatedImages.map(img => img.imageUrl)}
                   variant="outline"
                   size="sm"
                   className="h-7 text-[10px] xs:text-xs px-2"
+                  onPublishSuccess={() => handlePublishSuccess(carousel.platform)}
                 />
               )}
-              {carousel.status === 'published' && (
+              {(carousel.status === 'published' || carousel.status === 'partially_published') && (
                 <TopicPerformanceUpdater
                   contentId={carousel.id}
                   onUpdate={() => {}}
@@ -708,7 +811,15 @@ export function CarouselViewer({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               {carousel.slide_count} slides
             </Badge>
-            {/* Detail popover for secondary info */}
+            {publishedChannels.size > 0 && (
+              <>
+                {Array.from(publishedChannels).map(ch => (
+                  <Badge key={ch} variant="default" className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
+                    ✓ {platformLabels[ch] || ch}
+                  </Badge>
+                ))}
+              </>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <button className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1 py-0.5 rounded hover:bg-muted/50">
