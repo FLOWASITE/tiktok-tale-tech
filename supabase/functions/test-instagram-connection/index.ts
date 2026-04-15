@@ -104,10 +104,21 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
 
     if (!response.ok) {
       console.error("Instagram API error:", data);
+
+      // Transient errors (code 2, is_transient: true) — do NOT invalidate token
+      if (data.error?.is_transient || data.error?.code === 2) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Instagram đang gặp sự cố tạm thời. Vui lòng thử lại sau 1-2 phút.",
+            transient: true,
+          }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
-      // Check if token is invalid
-      if (data.error?.code === 190 || data.error?.type === "OAuthException") {
-        // Mark connection as inactive
+      // Token truly invalid (code 190) — mark inactive
+      if (data.error?.code === 190) {
         await supabase
           .from("social_connections")
           .update({ 
@@ -124,7 +135,7 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
         return new Response(
           JSON.stringify({ 
             success: false, 
-            error: data.error?.message || "Invalid or expired token",
+            error: data.error?.message || "Token không hợp lệ hoặc đã hết hạn",
             token_invalid: true,
           }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
