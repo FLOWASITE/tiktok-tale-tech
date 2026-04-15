@@ -703,6 +703,71 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     }
   }, [user, currentOrganization?.id, brandTemplateId, contentGoal]);
 
+  // Pin/unpin topic
+  const pinTopic = useCallback(async (topicId: string) => {
+    const item = history.find(h => h.id === topicId);
+    if (!item) return;
+
+    const newValue = !item.isPinned;
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({ is_pinned: newValue } as any)
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(h =>
+        h.id === topicId ? { ...h, isPinned: newValue } : h
+      ));
+
+      toast.success(newValue ? 'Đã ghim chủ đề' : 'Đã bỏ ghim');
+    } catch (err) {
+      console.error('Error pinning topic:', err);
+      toast.error('Không thể cập nhật');
+    }
+  }, [history]);
+
+  // Bulk delete
+  const bulkDelete = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    try {
+      const { error: deleteError } = await supabase
+        .from('topic_history')
+        .delete()
+        .in('id', ids);
+
+      if (deleteError) throw deleteError;
+
+      setHistory(prev => prev.filter(h => !ids.includes(h.id)));
+      toast.success(`Đã xóa ${ids.length} chủ đề`);
+    } catch (err) {
+      console.error('Error bulk deleting:', err);
+      toast.error('Không thể xóa hàng loạt');
+    }
+  }, []);
+
+  // Bulk toggle favorite
+  const bulkToggleFavorite = useCallback(async (ids: string[], value: boolean) => {
+    if (ids.length === 0) return;
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({ is_favorite: value })
+        .in('id', ids);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(h =>
+        ids.includes(h.id) ? { ...h, isFavorite: value } : h
+      ));
+      toast.success(value ? `Đã thêm ${ids.length} chủ đề vào yêu thích` : `Đã bỏ yêu thích ${ids.length} chủ đề`);
+    } catch (err) {
+      console.error('Error bulk toggling favorite:', err);
+      toast.error('Không thể cập nhật hàng loạt');
+    }
+  }, []);
+
   return {
     history,
     drafts,
@@ -726,6 +791,9 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     deleteTopic,
     linkToCampaign,
     ensureSelectedTopic,
+    pinTopic,
+    bulkDelete,
+    bulkToggleFavorite,
     refresh: fetchHistory,
     getLearningContext,
   };
