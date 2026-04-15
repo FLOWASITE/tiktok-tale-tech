@@ -148,10 +148,21 @@ export function TopicSuggestionPanel({
   const { currentBrand } = useCurrentBrand();
   const effectiveBrandId = brandTemplateId || currentBrand?.id;
 
-  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite } = useTopicHistory({
+  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite, refresh: refreshHistory } = useTopicHistory({
     enabled: true,
     brandTemplateId: effectiveBrandId,
   });
+
+  // Refresh history when new suggestions are loaded (auto-saved by useTopicAI)
+  const prevSuggestionsLengthRef = useRef(suggestions.length);
+  useEffect(() => {
+    if (suggestions.length > 0 && suggestions.length !== prevSuggestionsLengthRef.current) {
+      // Delay to let auto-save complete before refetching
+      const timer = setTimeout(() => refreshHistory(), 2000);
+      prevSuggestionsLengthRef.current = suggestions.length;
+      return () => clearTimeout(timer);
+    }
+  }, [suggestions.length, refreshHistory]);
 
   const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
 
