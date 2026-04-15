@@ -314,7 +314,7 @@ export function TopicSuggestionPanel({
                             type="button"
                             className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors flex items-start gap-2"
                             onClick={() => {
-                              onSelect(item.topic);
+                              onSelect(item.topic, item.id);
                               // Auto-update status to 'selected' when picking from history
                               if (item.usageStatus === 'draft' || item.usageStatus === 'suggested') {
                                 markAsSelected(item.id);
