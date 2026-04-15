@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import {
   Tooltip,
   TooltipContent,
