@@ -1,27 +1,54 @@
 
 
-## Thêm bộ lọc Mục tiêu nội dung (Content Goal) cho Kho chủ đề
+## Tăng cường ảnh hưởng Mục tiêu nội dung lên Ý tưởng chủ đề
 
-### Hiện trạng
-- Bảng `topic_history` **đã có** cột `content_goal` (education, awareness, engagement, expertise, conversion)
-- Hook `useTopicHistory` **đã hỗ trợ** filter theo `contentGoal`
-- UI Kho chủ đề hiện chỉ có 4 tab filter (Tất cả/Chưa dùng/Yêu thích/Đã tạo) và sort — **chưa có** filter theo Content Goal
+### Vấn đề
+Khi user đổi Mục tiêu nội dung (education → conversion...), ý tưởng chủ đề AI tạo ra không phản ánh rõ ràng mục tiêu đã chọn. Nguyên nhân:
+
+1. **Prompt yếu**: Trong `buildSuggestPrompts`, mục tiêu chỉ là 1 dòng nhỏ trong user prompt (`Mục tiêu: giáo dục`), không có ràng buộc bắt buộc như action `refine` (có `MANDATORY CONTENT GOAL`)
+2. **SWR giữ data cũ**: Khi đổi goal, suggestions cũ vẫn hiển thị trong lúc fetch mới — user thấy kết quả không khớp goal
+3. **Thiếu contentGoal prop**: `MultiChannelForm` không truyền `contentGoal` vào `TopicSuggestionPanel` (dù data đúng, nhưng thiếu context cho UI hiển thị)
 
 ### Thay đổi
 
-**File: `src/components/TopicSuggestionPanel.tsx`**
+**File 1: `supabase/functions/topic-ai/index.ts`** — Tăng cường prompt
 
-1. **Thêm state** `historyGoalFilter` kiểu `ContentGoal | 'all'` (default `'all'`)
-2. **Thêm hàng filter Content Goal** dưới tab filter hiện tại: 5 badge nhỏ (Giáo dục, Nhận diện, Tương tác, Xây chuyên gia, Chuyển đổi) + "Tất cả", dùng icon từ `CONTENT_GOALS`
-3. **Apply filter** trong `filteredHistory` useMemo: khi `historyGoalFilter !== 'all'`, lọc thêm `item.contentGoal === historyGoalFilter`
-4. **Reset page** khi goal filter thay đổi (thêm vào useEffect reset)
-5. **Hiển thị badge Content Goal** trên mỗi topic item (list + grid view) để dễ nhận biết
+Thêm ràng buộc bắt buộc trong `buildSuggestPrompts`:
+- Thêm section `⚠️ MANDATORY CONTENT GOAL` vào system prompt (tương tự refine action)
+- Map mỗi goal sang hướng dẫn cụ thể: conversion → ưu tiên BOFU/sales topics, education → TOFU/how-to, awareness → brand storytelling...
+- Thêm constraint: "Topics không phù hợp mục tiêu sẽ bị REJECT"
+- Điều chỉnh funnel balance theo goal (vd: conversion → 60% BOFU, education → 60% TOFU)
+
+**File 2: `src/hooks/ai/useTopicAI.ts`** — Cải thiện UX khi đổi goal
+
+- Khi `contentGoal` thay đổi: clear old suggestions ngay (không giữ stale data) và hiện loading
+- Giúp user thấy rõ hệ thống đang tạo lại suggestions mới theo goal mới
+
+**File 3: `src/components/MultiChannelForm.tsx`** — Truyền contentGoal
+
+- Thêm `contentGoal={contentGoal}` vào `TopicSuggestionPanel` tại line 472
 
 ### Chi tiết kỹ thuật
-- Import `CONTENT_GOALS, ContentGoal` từ `@/types/multichannel`
-- Badge style: `text-[10px]`, dùng icon 3x3, tương tự filter tabs hiện tại
-- Hiện số lượng topic theo mỗi goal trong badge (vd: "Giáo dục (12)")
+
+**Prompt enhancement** (topic-ai/index.ts):
+```
+## ⚠️ MỤC TIÊU BẮT BUỘC: "${contentGoal}"
+${goalConstraints[contentGoal]}
+- TẤT CẢ topics PHẢI phục vụ mục tiêu "${contentGoal}"
+- Topics không phù hợp mục tiêu sẽ bị LOẠI BỎ
+```
+
+Với `goalConstraints` map chi tiết cho từng goal (conversion → CTA/pricing/offer topics, education → how-to/guide/tips...).
+
+**SWR fix** (useTopicAI.ts):
+```tsx
+if (paramsKey !== suggestPrevParamsRef.current) {
+  suggestHasLoadedRef.current = false;
+  setAllSuggestions([]); // Clear stale data on goal change
+  setSuggestLoading(true);
+}
+```
 
 ### Không thay đổi
-- Database, hooks, các file khác
+- Database, các file khác
 
