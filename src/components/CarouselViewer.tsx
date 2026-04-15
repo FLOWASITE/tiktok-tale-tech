@@ -377,8 +377,8 @@ export function CarouselViewer({
     // Refetch publishing logs
     queryClient.invalidateQueries({ queryKey: ['carousel-publishing-logs', carousel.id] });
 
-    // Calculate new status
-    const newPublished = new Set(publishedChannels);
+    // Calculate new status using effective (local + DB) channels
+    const newPublished = new Set(effectivePublishedChannels);
     newPublished.add(channel);
     
     const allChannelsPublished = availableChannels.length > 0 && 
