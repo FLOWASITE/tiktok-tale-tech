@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ export default function PaymentResult() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { refetch } = useSubscription();
+  const queryClient = useQueryClient();
   const [countdown, setCountdown] = useState(10);
   const [showDetails, setShowDetails] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -135,6 +137,7 @@ export default function PaymentResult() {
   useEffect(() => {
     if (isSuccess) {
       refetch();
+      queryClient.invalidateQueries({ queryKey: ["user_payments"] });
       const timer = setTimeout(() => {
         confetti({
           particleCount: 80,

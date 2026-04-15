@@ -62,6 +62,7 @@ export function PaymentHistorySection() {
       return data || [];
     },
     enabled: !!orgId && !!user,
+    staleTime: 0,
   });
 
   const allPayments = paymentsQuery.data || [];
