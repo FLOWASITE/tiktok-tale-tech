@@ -38,6 +38,7 @@ export interface TopicHistoryItem {
     views?: number;
   };
   isFavorite: boolean;
+  isPinned: boolean;
   feedback?: FeedbackType;
   feedbackNote?: string;
   createdAt: string;
