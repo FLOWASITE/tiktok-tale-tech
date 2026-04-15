@@ -753,16 +753,36 @@ export function CarouselViewer({
             </div>
             {/* Action buttons - compact row */}
             <div className="flex items-center gap-1 shrink-0">
-              {generatedImages.length > 0 && (
+              {generatedImages.length > 0 && availableChannels.length > 0 && (
+                <>
+                  {availableChannels.map(channel => (
+                    <DirectPublishButton
+                      key={channel}
+                      content={carousel.caption_suggestion || carousel.topic}
+                      contentId={carousel.id}
+                      channel={channel}
+                      brandTemplateId={brandTemplate?.id}
+                      mediaUrls={generatedImages.map(img => img.imageUrl)}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] xs:text-xs px-2"
+                      channelStatus={publishedChannels.has(channel) ? 'published' : undefined}
+                      onPublishSuccess={() => handlePublishSuccess(channel)}
+                    />
+                  ))}
+                </>
+              )}
+              {generatedImages.length > 0 && availableChannels.length === 0 && (
                 <DirectPublishButton
                   content={carousel.caption_suggestion || carousel.topic}
                   contentId={carousel.id}
-                  channel="facebook"
+                  channel={carousel.platform}
                   brandTemplateId={brandTemplate?.id}
                   mediaUrls={generatedImages.map(img => img.imageUrl)}
                   variant="outline"
                   size="sm"
                   className="h-7 text-[10px] xs:text-xs px-2"
+                  onPublishSuccess={() => handlePublishSuccess(carousel.platform)}
                 />
               )}
               {carousel.status === 'published' && (
