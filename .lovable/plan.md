@@ -1,40 +1,21 @@
 
 
-## Đồng bộ trạng thái Carousel với việc đăng bài Social
+## Fix: Lịch sử thanh toán không hiển thị sau thanh toán
 
-### Vấn đề hiện tại
-1. **DirectPublishButton** trong CarouselViewer **không truyền `onPublishSuccess`** → sau khi đăng bài thành công, carousel status vẫn giữ nguyên (draft/approved), không tự động chuyển sang `published`
-2. **Chỉ hardcode channel "facebook"** — không hỗ trợ chọn kênh khác (Instagram, TikTok, etc.)
-3. **Không có logic `partially_published`** — multichannel có cơ chế này nhưng carousel thì không
-4. **Không log publishing** vào `content_publishing_logs` cho carousel
+### Nguyên nhân
+Trang `PaymentResult` sau khi xác nhận thanh toán thành công chỉ gọi `refetch()` cho subscription, nhưng **không invalidate query `user_payments`**. Khi user được redirect về `/account`, React Query vẫn serve cache cũ (rỗng) từ trước khi thanh toán.
 
-### Kế hoạch
+### Giải pháp
 
-**1. Thêm `onPublishSuccess` callback vào CarouselViewer**
-- Sau khi DirectPublishButton publish thành công → tự động cập nhật `carousels.status` sang `published` trong DB
-- Gọi `onCarouselUpdate` để UI phản ánh trạng thái mới
-- File: `src/components/CarouselViewer.tsx`
+**1. Invalidate `user_payments` sau thanh toán thành công**
+- File: `src/pages/PaymentResult.tsx`
+- Trong effect khi `isSuccess`, thêm `queryClient.invalidateQueries({ queryKey: ["user_payments"] })`
 
-**2. Hỗ trợ chọn nhiều kênh social để đăng**
-- Thay vì hardcode `channel="facebook"`, hiển thị danh sách kênh dựa trên `carousel.platform` và các social connections đã kết nối
-- Thêm nút đăng cho từng kênh có kết nối (Facebook, Instagram, etc.)
-- File: `src/components/CarouselViewer.tsx`
-
-**3. Hiển thị trạng thái đăng bài per-channel**
-- Thêm query `content_publishing_logs` để kiểm tra carousel đã đăng ở kênh nào
-- Hiển thị badge "Đã đăng" bên cạnh từng kênh đã publish thành công
-- Tái sử dụng `StatusTimeline` hoặc badge tương tự multichannel
-- File: `src/components/CarouselViewer.tsx`
-
-**4. Ghi log publishing cho carousel**
-- Khi publish thành công, đảm bảo `content_publishing_logs` có record với `content_id = carousel.id`
-- Kiểm tra edge function `channel-publisher` đã hỗ trợ content_type carousel chưa, nếu chưa thì bổ sung
+**2. Thêm `refetchOnMount` cho PaymentHistorySection**
+- File: `src/pages/PaymentHistory.tsx`
+- Thêm `staleTime: 0` vào query `user_payments` để đảm bảo luôn refetch khi mount
 
 ### Files thay đổi
-- **Sửa**: `src/components/CarouselViewer.tsx` — thêm onPublishSuccess, multi-channel publish buttons, status display
-- **Sửa**: `src/types/carousel.ts` — nếu cần thêm type `partially_published` vào CarouselStatus
-- **Có thể sửa**: `supabase/functions/channel-publisher/index.ts` — đảm bảo hỗ trợ carousel content type
-
-### Không cần migration
-Bảng `content_publishing_logs` đã tồn tại và hỗ trợ bất kỳ `content_id` nào.
+- `src/pages/PaymentResult.tsx` — invalidate user_payments cache
+- `src/pages/PaymentHistory.tsx` — thêm staleTime: 0
 
