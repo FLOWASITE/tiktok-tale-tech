@@ -284,102 +284,222 @@ export function TopicSuggestionPanel({
                   Đã tạo
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-72 p-0">
-                <div className="p-2 border-b border-border/60 space-y-1.5">
-                  <p className="text-xs font-medium">Chủ đề đã tạo trước đây</p>
-                   <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setHistoryFilter('all')}
-                      className={cn(
-                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-1",
-                        historyFilter === 'all' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      )}
-                    >
-                      Tất cả
-                      <span className="text-[9px] opacity-80">({allCount})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHistoryFilter('unused')}
-                      className={cn(
-                        "h-6 px-2.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-1",
-                        historyFilter === 'unused' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      )}
-                    >
-                      Chưa tạo nội dung
-                      <span className="text-[9px] opacity-80">({unusedCount})</span>
-                    </button>
+              <PopoverContent align="end" className="w-80 p-0">
+                {/* Header with search */}
+                <div className="p-2.5 border-b border-border/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold">Chủ đề đã tạo</p>
+                    <span className="text-[10px] text-muted-foreground">{allCount} chủ đề</span>
+                  </div>
+
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                    <Input
+                      placeholder="Tìm chủ đề..."
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                      className="h-7 text-[11px] pl-7 pr-7 bg-muted/30 border-border/40"
+                    />
+                    {historySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setHistorySearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter tabs */}
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { key: 'all' as const, label: 'Tất cả', count: allCount },
+                      { key: 'unused' as const, label: 'Chưa dùng', count: unusedCount },
+                      { key: 'favorites' as const, label: '⭐ Yêu thích', count: favCount },
+                      { key: 'used' as const, label: '✅ Đã tạo', count: usedCount },
+                    ]).map(tab => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setHistoryFilter(tab.key)}
+                        className={cn(
+                          "h-5.5 px-2 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-1",
+                          historyFilter === tab.key
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        )}
+                      >
+                        {tab.label}
+                        <span className="text-[9px] opacity-80">({tab.count})</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="max-h-60 overflow-y-auto">
+
+                {/* List */}
+                <div className="max-h-72 overflow-y-auto scrollbar-thin">
                   {historyLoading ? (
-                    <div className="flex items-center justify-center py-6">
+                    <div className="flex items-center justify-center py-8">
                       <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                     </div>
                   ) : filteredHistory.length === 0 ? (
-                    <div className="text-center py-6 px-3">
-                      <History className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-xs text-muted-foreground">
-                        {historyFilter === 'unused' ? 'Không có chủ đề chưa được tạo nội dung' : 'Chưa có chủ đề nào được tạo'}
-                      </p>
+                    <div className="text-center py-8 px-4">
+                      {historyFilter === 'favorites' ? (
+                        <>
+                          <Star className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                          <p className="text-xs text-muted-foreground">Chưa có chủ đề yêu thích</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Bấm ⭐ trên chủ đề để lưu</p>
+                        </>
+                      ) : historyFilter === 'used' ? (
+                        <>
+                          <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                          <p className="text-xs text-muted-foreground">Chưa có nội dung nào được tạo</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Chọn gợi ý bên dưới để bắt đầu</p>
+                        </>
+                      ) : historySearch ? (
+                        <>
+                          <Search className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                          <p className="text-xs text-muted-foreground">Không tìm thấy "{historySearch}"</p>
+                        </>
+                      ) : (
+                        <>
+                          <History className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                          <p className="text-xs text-muted-foreground">Chưa có chủ đề nào</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Chọn gợi ý bên dưới để bắt đầu</p>
+                        </>
+                      )}
                     </div>
                   ) : (
-                    <div className="py-1">
+                    <div className="py-0.5">
                       {filteredHistory.map((item) => {
                         const statusBadge = getStatusBadge(item.usageStatus);
                         const score = item.performanceScore;
+                        const isDeleting = deletingId === item.id;
                         return (
-                          <button
+                          <div
                             key={item.id}
-                            type="button"
-                            className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors flex items-start gap-2"
-                            onClick={() => {
-                              onSelect(item.topic, item.id);
-                              // Auto-update status to 'selected' when picking from history
-                              if (item.usageStatus === 'draft' || item.usageStatus === 'suggested') {
-                                markAsSelected(item.id);
-                              }
-                              setHistoryOpen(false);
-                            }}
+                            className="group relative w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors flex items-start gap-2"
                           >
-                            {/* Category icon */}
-                            <span className="mt-0.5 shrink-0">
-                              {getCategoryIcon(item.category)}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                <p className="text-xs truncate font-medium flex-1">{item.topic}</p>
-                                {item.isFavorite && (
-                                  <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                                )}
-                                {score != null && score > 0 && (
-                                  <span className={cn(
-                                    "text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0",
-                                    score >= 75 ? 'bg-emerald-500/20 text-emerald-600' :
-                                    score >= 50 ? 'bg-amber-500/20 text-amber-600' :
-                                    'bg-muted text-muted-foreground'
-                                  )}>
-                                    {score}
+                            {/* Main clickable area */}
+                            <button
+                              type="button"
+                              className="flex items-start gap-2 flex-1 min-w-0 text-left"
+                              onClick={() => {
+                                onSelect(item.topic, item.id);
+                                if (item.usageStatus === 'draft' || item.usageStatus === 'suggested') {
+                                  markAsSelected(item.id);
+                                }
+                                setHistoryOpen(false);
+                              }}
+                            >
+                              <span className="mt-0.5 shrink-0">
+                                {getCategoryIcon(item.category)}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs truncate font-medium">{item.topic}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                                   </span>
+                                  <Badge variant="secondary" className={cn("text-[8px] h-3.5 px-1 border-0", statusBadge.className)}>
+                                    {statusBadge.label}
+                                  </Badge>
+                                  {score != null && score > 0 && (
+                                    <span className={cn(
+                                      "text-[9px] font-semibold px-1.5 py-0.5 rounded-full",
+                                      score >= 75 ? 'bg-emerald-500/20 text-emerald-600' :
+                                      score >= 50 ? 'bg-amber-500/20 text-amber-600' :
+                                      'bg-muted text-muted-foreground'
+                                    )}>
+                                      {score}
+                                    </span>
+                                  )}
+                                  {/* Related keywords mini tags */}
+                                  {item.relatedKeywords && item.relatedKeywords.length > 0 && (
+                                    <div className="hidden group-hover:flex items-center gap-0.5">
+                                      {item.relatedKeywords.slice(0, 2).map((kw, i) => (
+                                        <span key={i} className="text-[8px] px-1 py-0 rounded bg-muted text-muted-foreground">
+                                          {kw}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+
+                            {/* Hover actions */}
+                            <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 mt-0.5">
+                              {/* Favorite toggle */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(item.id);
+                                }}
+                                className="p-1 rounded hover:bg-amber-500/10 transition-colors"
+                                title={item.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích'}
+                              >
+                                <Star className={cn(
+                                  "w-3 h-3",
+                                  item.isFavorite ? "text-amber-500 fill-amber-500" : "text-muted-foreground"
+                                )} />
+                              </button>
+
+                              {/* Reuse */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelect(item.topic, item.id);
+                                  if (item.usageStatus === 'draft' || item.usageStatus === 'suggested') {
+                                    markAsSelected(item.id);
+                                  }
+                                  setHistoryOpen(false);
+                                }}
+                                className="p-1 rounded hover:bg-primary/10 transition-colors"
+                                title="Dùng lại"
+                              >
+                                <RotateCcw className="w-3 h-3 text-primary" />
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isDeleting) {
+                                    deleteTopic(item.id);
+                                    setDeletingId(null);
+                                  } else {
+                                    setDeletingId(item.id);
+                                    setTimeout(() => setDeletingId(null), 3000);
+                                  }
+                                }}
+                                className={cn(
+                                  "p-1 rounded transition-colors",
+                                  isDeleting ? "bg-destructive/10 text-destructive" : "hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                                 )}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(item.createdAt).toLocaleDateString('vi-VN')}
-                                </span>
-                                <Badge variant="secondary" className={cn("text-[8px] h-3.5 px-1 border-0", statusBadge.className)}>
-                                  {statusBadge.label}
-                                </Badge>
-                              </div>
+                                title={isDeleting ? 'Click lần nữa để xóa' : 'Xóa'}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             </div>
-                          </button>
+
+                            {/* Favorite indicator (visible when not hovering) */}
+                            {item.isFavorite && (
+                              <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0 mt-1 group-hover:hidden" />
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   )}
                 </div>
-                {/* Footer: link to Kho Ý Tưởng */}
+
+                {/* Footer */}
                 <div className="border-t border-border/60 p-2">
                   <button
                     type="button"
