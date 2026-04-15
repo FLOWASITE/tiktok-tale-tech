@@ -1,0 +1,1 @@
+UPDATE ai_function_configs SET model_override = 'google/gemini-2.5-flash-lite' WHERE function_name = 'topic-ai' AND model_override = 'google/gemini-3.1-flash-lite-preview';
