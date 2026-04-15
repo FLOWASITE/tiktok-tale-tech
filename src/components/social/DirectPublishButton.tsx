@@ -4,6 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -56,6 +62,7 @@ interface DirectPublishButtonProps {
   className?: string;
   channelStatus?: string;
   onPublishSuccess?: () => void;
+  iconOnly?: boolean;
 }
 
 const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
@@ -117,6 +124,7 @@ export function DirectPublishButton({
   className,
   channelStatus,
   onPublishSuccess,
+  iconOnly = false,
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
@@ -348,6 +356,28 @@ export function DirectPublishButton({
   const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website'].includes(platform);
 
   if (!isSupported) {
+    if (iconOnly) {
+      return (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                disabled
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center border border-dashed border-muted-foreground/30 opacity-40 cursor-not-allowed',
+                  className
+                )}
+              >
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {PLATFORM_DISPLAY_NAMES[platform!] || platform} — Sắp ra mắt
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
     return (
       <Button variant="ghost" size={size} disabled className={cn('opacity-50', className)}>
         <Send className="h-4 w-4 mr-1" />
@@ -356,59 +386,98 @@ export function DirectPublishButton({
     );
   }
 
+  const tooltipText = isAlreadyPublished
+    ? `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Đã đăng ✓`
+    : connection
+      ? `Đăng lên ${PLATFORM_DISPLAY_NAMES[platform!] || platform}`
+      : `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Chưa kết nối`;
+
   return (
     <>
-      <div className="flex items-center gap-1">
-        {isAlreadyPublished && (
-          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 gap-1 text-xs">
-            <CheckCircle2 className="h-3 w-3" />
-            Đã đăng
-          </Badge>
-        )}
-        <Button
-          variant={isAlreadyPublished ? 'ghost' : variant}
-          size={size}
-          disabled={disabled || isPublishing || !content || isZaloMissingCover}
-          onClick={handleClick}
-          title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
-          className={cn(
-            isAlreadyPublished ? 'text-muted-foreground text-xs' : '',
-            variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
-            className
+      {iconOnly ? (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                disabled={disabled || isPublishing || !content}
+                onClick={handleClick}
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center transition-all relative shrink-0',
+                  isAlreadyPublished && 'bg-emerald-500/15 border-2 border-emerald-500/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25',
+                  !isAlreadyPublished && connection && 'border-2 border-primary/40 text-primary hover:bg-primary/10 hover:border-primary/70 hover:shadow-sm hover:shadow-primary/20',
+                  !isAlreadyPublished && !connection && 'border border-dashed border-muted-foreground/30 text-muted-foreground/50 opacity-60 hover:opacity-80 hover:border-muted-foreground/50',
+                  (disabled || isPublishing || !content) && 'pointer-events-none opacity-40',
+                  className
+                )}
+              >
+                {isPublishing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Icon className="h-3.5 w-3.5" />
+                )}
+                {isAlreadyPublished && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                  </span>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {tooltipText}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        <div className="flex items-center gap-1">
+          {isAlreadyPublished && (
+            <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 gap-1 text-xs">
+              <CheckCircle2 className="h-3 w-3" />
+              Đã đăng
+            </Badge>
           )}
-        >
-          {isPublishing && platform === 'zalo_oa' ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              Đang đăng...
-            </>
-          ) : isPublishing ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-1" />
-          ) : (
-            <Icon className="h-4 w-4 mr-1" />
-          )}
-          {!isPublishing && (
-            isAlreadyPublished ? 'Đăng lại' :
-            platform === 'website' ? 'Đăng Blog' : 
-            connection ? 'Đăng ngay' : 'Kết nối để đăng'
-          )}
-        </Button>
-
-        {connection && contentId && (
           <Button
-            variant="ghost"
-            size="icon"
-            disabled={disabled || !content}
-            onClick={handleScheduleClick}
-            className="h-7 w-7 xs:h-8 xs:w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-            title="Lên lịch đăng"
+            variant={isAlreadyPublished ? 'ghost' : variant}
+            size={size}
+            disabled={disabled || isPublishing || !content || isZaloMissingCover}
+            onClick={handleClick}
+            title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
+            className={cn(
+              isAlreadyPublished ? 'text-muted-foreground text-xs' : '',
+              variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
+              className
+            )}
           >
-            <CalendarClock className="h-3.5 w-3.5" />
+            {isPublishing && platform === 'zalo_oa' ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                Đang đăng...
+              </>
+            ) : isPublishing ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <Icon className="h-4 w-4 mr-1" />
+            )}
+            {!isPublishing && (
+              isAlreadyPublished ? 'Đăng lại' :
+              platform === 'website' ? 'Đăng Blog' : 
+              connection ? 'Đăng ngay' : 'Kết nối để đăng'
+            )}
           </Button>
-        )}
-      </div>
 
-      {/* Confirmation / Success Dialog */}
+          {connection && contentId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={disabled || !content}
+              onClick={handleScheduleClick}
+              className="h-7 w-7 xs:h-8 xs:w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              title="Lên lịch đăng"
+            >
+              <CalendarClock className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
           {dialogState === 'success' ? (

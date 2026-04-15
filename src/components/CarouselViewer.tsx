@@ -39,6 +39,7 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -800,11 +801,11 @@ export function CarouselViewer({
             <p className="text-[10px] xs:text-xs text-muted-foreground truncate">{carousel.topic}</p>
           </div>
 
-          {/* Row 2: Publish buttons (scrollable) */}
+          {/* Row 2: Publish icon buttons (compact) */}
           {generatedImages.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mb-0.5 scrollbar-none">
-              {availableChannels.length > 0 ? (
-                availableChannels.map(channel => (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                {(availableChannels.length > 0 ? availableChannels : [carousel.platform]).map(channel => (
                   <DirectPublishButton
                     key={channel}
                     content={carousel.caption_suggestion || carousel.topic}
@@ -812,27 +813,27 @@ export function CarouselViewer({
                     channel={channel}
                     brandTemplateId={brandTemplate?.id}
                     mediaUrls={generatedImages.map(img => img.imageUrl)}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[10px] xs:text-xs px-2 shrink-0"
+                    iconOnly
                     channelStatus={effectivePublishedChannels.has(channel) ? 'published' : undefined}
                     onPublishSuccess={() => handlePublishSuccess(channel)}
                   />
-                ))
-              ) : (
-                <DirectPublishButton
-                  content={carousel.caption_suggestion || carousel.topic}
-                  contentId={carousel.id}
-                  channel={carousel.platform}
-                  brandTemplateId={brandTemplate?.id}
-                  mediaUrls={generatedImages.map(img => img.imageUrl)}
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[10px] xs:text-xs px-2 shrink-0"
-                  channelStatus={effectivePublishedChannels.has(carousel.platform) ? 'published' : undefined}
-                  onPublishSuccess={() => handlePublishSuccess(carousel.platform)}
-                />
-              )}
+                ))}
+              </div>
+              <div className="h-5 w-px bg-border shrink-0" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] xs:text-xs px-2 shrink-0 gap-1"
+                onClick={() => {
+                  // Open schedule for the primary platform
+                  const primaryChannel = availableChannels[0] || carousel.platform;
+                  const btn = document.querySelector(`[data-schedule-channel="${primaryChannel}"]`);
+                  if (btn) (btn as HTMLButtonElement).click();
+                }}
+              >
+                <CalendarClock className="w-3 h-3" />
+                <span className="hidden xs:inline">Lên lịch</span>
+              </Button>
             </div>
           )}
 
