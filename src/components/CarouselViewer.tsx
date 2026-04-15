@@ -371,8 +371,6 @@ export function CarouselViewer({
     setLocalPublishedChannels(new Set());
   }, [carousel?.id]);
 
-  // Channels available for this carousel based on platform + active connections
-  const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
 
   const getChannelsForPlatform = (platform: string): string[] => {
     const rest = ALL_CAROUSEL_CHANNELS.filter(ch => ch !== platform);
