@@ -117,9 +117,10 @@ Deno.serve(withPerf({ functionName: 'payos-webhook' }, async (req) => {
 
     if (isSuccess) {
       const now = new Date();
+      const orderMetadata = (order.metadata as Record<string, unknown>) || {};
+      const isAddon = orderMetadata.purchase_type === 'addon';
 
       // Handle voucher usage if present
-      const orderMetadata = (order.metadata as Record<string, unknown>) || {};
       if (orderMetadata.voucher_id) {
         try {
           const voucherId = orderMetadata.voucher_id as string;
@@ -149,74 +150,104 @@ Deno.serve(withPerf({ functionName: 'payos-webhook' }, async (req) => {
         }
       }
 
-      // Get current subscription
-      const { data: currentSub } = await supabase
-        .from('subscriptions')
-        .select('plan_type, current_period_start, current_period_end, metadata')
-        .eq('organization_id', order.organization_id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      const currentRank = currentSub ? PLAN_ORDER.indexOf(currentSub.plan_type) : -1;
-      const newRank = PLAN_ORDER.indexOf(order.plan_type);
-      const isUpgrade = currentSub && newRank > currentRank && new Date(currentSub.current_period_end) > now;
-
-      // Update order
+      // Update order status
       await supabase
         .from('payment_orders')
         .update({
           status: 'success',
-          vnpay_response: data, // reuse column for payOS response
+          vnpay_response: data,
           updated_at: now.toISOString(),
         })
         .eq('id', order.id);
 
-      if (isUpgrade) {
-        const existingMetadata = (currentSub.metadata as Record<string, unknown>) || {};
-        await supabase
+      if (isAddon) {
+        // Insert addon purchase instead of updating subscription
+        const { data: currentSub } = await supabase
           .from('subscriptions')
-          .update({
-            plan_type: order.plan_type,
-            previous_plan_type: currentSub.plan_type,
-            payment_provider: 'payos',
-            payment_reference: String(reference || orderCode),
-            metadata: {
-              ...existingMetadata,
-              last_payos_order_code: orderCode,
-              amount,
-              billing_cycle: order.billing_cycle,
-              upgraded_at: now.toISOString(),
-              upgrade_from: currentSub.plan_type,
-            },
-            updated_at: now.toISOString(),
-          })
-          .eq('organization_id', order.organization_id);
+          .select('current_period_end')
+          .eq('organization_id', order.organization_id)
+          .eq('status', 'active')
+          .maybeSingle();
 
-        console.log(`Subscription upgraded (mid-cycle) via payOS: org=${order.organization_id}, ${currentSub.plan_type} → ${order.plan_type}`);
-      } else {
-        const periodEnd = new Date(now);
-        if (order.billing_cycle === 'yearly') {
-          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-        } else {
-          periodEnd.setMonth(periodEnd.getMonth() + 1);
-        }
+        const expiresAt = currentSub?.current_period_end
+          ? new Date(currentSub.current_period_end)
+          : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
         await supabase
-          .from('subscriptions')
-          .update({
+          .from('addon_purchases')
+          .insert({
+            organization_id: order.organization_id,
             plan_type: order.plan_type,
-            previous_plan_type: currentSub?.plan_type || null,
+            billing_cycle: order.billing_cycle || 'monthly',
+            amount: order.amount,
             status: 'active',
-            payment_provider: 'payos',
-            payment_reference: String(reference || orderCode),
-            current_period_start: now.toISOString(),
-            current_period_end: periodEnd.toISOString(),
-            metadata: { last_payos_order_code: orderCode, amount, billing_cycle: order.billing_cycle },
-            updated_at: now.toISOString(),
-          })
-          .eq('organization_id', order.organization_id);
+            purchased_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            payment_order_id: order.id,
+            metadata: { payos_order_code: orderCode, reference },
+          });
 
-        console.log(`Subscription updated (new/renewal) via payOS: org=${order.organization_id}, plan=${order.plan_type}`);
+        console.log(`Addon ${order.plan_type} purchased via payOS: org=${order.organization_id}`);
+      } else {
+        // Existing upgrade/renewal logic
+        const { data: currentSub } = await supabase
+          .from('subscriptions')
+          .select('plan_type, current_period_start, current_period_end, metadata')
+          .eq('organization_id', order.organization_id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        const currentRank = currentSub ? PLAN_ORDER.indexOf(currentSub.plan_type) : -1;
+        const newRank = PLAN_ORDER.indexOf(order.plan_type);
+        const isUpgrade = currentSub && newRank > currentRank && new Date(currentSub.current_period_end) > now;
+
+        if (isUpgrade) {
+          const existingMetadata = (currentSub.metadata as Record<string, unknown>) || {};
+          await supabase
+            .from('subscriptions')
+            .update({
+              plan_type: order.plan_type,
+              previous_plan_type: currentSub.plan_type,
+              payment_provider: 'payos',
+              payment_reference: String(reference || orderCode),
+              metadata: {
+                ...existingMetadata,
+                last_payos_order_code: orderCode,
+                amount,
+                billing_cycle: order.billing_cycle,
+                upgraded_at: now.toISOString(),
+                upgrade_from: currentSub.plan_type,
+              },
+              updated_at: now.toISOString(),
+            })
+            .eq('organization_id', order.organization_id);
+
+          console.log(`Subscription upgraded (mid-cycle) via payOS: org=${order.organization_id}, ${currentSub.plan_type} → ${order.plan_type}`);
+        } else {
+          const periodEnd = new Date(now);
+          if (order.billing_cycle === 'yearly') {
+            periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+          } else {
+            periodEnd.setMonth(periodEnd.getMonth() + 1);
+          }
+
+          await supabase
+            .from('subscriptions')
+            .update({
+              plan_type: order.plan_type,
+              previous_plan_type: currentSub?.plan_type || null,
+              status: 'active',
+              payment_provider: 'payos',
+              payment_reference: String(reference || orderCode),
+              current_period_start: now.toISOString(),
+              current_period_end: periodEnd.toISOString(),
+              metadata: { last_payos_order_code: orderCode, amount, billing_cycle: order.billing_cycle },
+              updated_at: now.toISOString(),
+            })
+            .eq('organization_id', order.organization_id);
+
+          console.log(`Subscription updated (new/renewal) via payOS: org=${order.organization_id}, plan=${order.plan_type}`);
+        }
       }
 
       return new Response(JSON.stringify({ success: true }), {
