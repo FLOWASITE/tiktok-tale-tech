@@ -47,6 +47,7 @@ import { QuickStartSection } from '@/components/QuickStartSection';
 import { TopicPerformancePreview } from '@/components/TopicPerformancePreview';
 import { SimilarTopicsSuggestion } from '@/components/SimilarTopicsSuggestion';
 import { QuickStartTemplate, ContentGoal } from '@/types/quickStartTemplates';
+import { CONTENT_GOALS } from '@/types/multichannel';
 
 interface TopicSuggestionPanelProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
@@ -136,6 +137,7 @@ export function TopicSuggestionPanel({
   const [savedTopics, setSavedTopics] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<'all' | 'unused' | 'favorites' | 'used'>('all');
+  const [historyGoalFilter, setHistoryGoalFilter] = useState<ContentGoal | 'all'>('all');
   const [historySearch, setHistorySearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [historySortBy, setHistorySortBy] = useState<'newest' | 'oldest' | 'score' | 'az'>('newest');
@@ -169,6 +171,11 @@ export function TopicSuggestionPanel({
         break;
     }
 
+    // Apply content goal filter
+    if (historyGoalFilter !== 'all') {
+      items = items.filter(item => item.contentGoal === historyGoalFilter);
+    }
+
     // Apply search
     if (historySearch.trim()) {
       const q = historySearch.toLowerCase();
@@ -194,7 +201,7 @@ export function TopicSuggestionPanel({
     });
 
     return items;
-  }, [historyItems, historyFilter, historySearch, historySortBy]);
+  }, [historyItems, historyFilter, historySearch, historySortBy, historyGoalFilter]);
 
   const ITEMS_PER_PAGE = 20;
   const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE);
@@ -206,7 +213,7 @@ export function TopicSuggestionPanel({
   // Reset page when filters change
   useEffect(() => {
     setHistoryPage(1);
-  }, [historyFilter, historySearch, historySortBy]);
+  }, [historyFilter, historySearch, historySortBy, historyGoalFilter]);
 
   const allCount = historyItems.length;
   const unusedCount = useMemo(() => historyItems.filter(item => !['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
