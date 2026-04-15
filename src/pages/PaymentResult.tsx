@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, XCircle, Loader2, ArrowRight, RotateCcw, Receipt, Clock, CreditCard, Hash, ShieldCheck } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
+import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 
@@ -38,6 +39,8 @@ export default function PaymentResult() {
   const { refetch } = useSubscription();
   const [countdown, setCountdown] = useState(10);
   const [showDetails, setShowDetails] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<string | null>(null);
 
   // Detect payment provider
   const responseCode = searchParams.get("vnp_ResponseCode");
@@ -57,9 +60,11 @@ export default function PaymentResult() {
   const payDate = searchParams.get("vnp_PayDate");
   const transactionNo = isVNPay ? searchParams.get("vnp_TransactionNo") : searchParams.get("reference");
 
-  const isSuccess = isPayOS
+  const isSuccessFromParams = isPayOS
     ? (payosStatus === "PAID" || payosCode === "00") && !payosCancel
     : responseCode === "00";
+
+  const isSuccess = verifyResult === 'success' || isSuccessFromParams;
 
   const formattedAmount = amount
     ? new Intl.NumberFormat("vi-VN").format(isVNPay ? parseInt(amount) / 100 : parseInt(amount)) + "₫"
@@ -76,12 +81,54 @@ export default function PaymentResult() {
     return `${h}:${min}:${s} — ${d}/${m}/${y}`;
   }, [payDate]);
 
-  // Extract plan from orderInfo (format: "Nang cap goi PRO ...")
   const planFromOrder = useMemo(() => {
     if (!orderInfo) return null;
     const match = orderInfo.match(/goi\s+(\w+)/i);
     return match ? match[1].toLowerCase() : null;
   }, [orderInfo]);
+
+  // Fallback: verify PayOS order status via backend
+  const verifyPayOSOrder = useCallback(async () => {
+    if (!payosOrderCode || verifying || verifyResult) return;
+    setVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-payos-order', {
+        body: { orderCode: parseInt(payosOrderCode) },
+      });
+      if (error) {
+        console.error('Verify error:', error);
+        return;
+      }
+      if (data?.status === 'success') {
+        setVerifyResult('success');
+        refetch();
+      } else if (data?.status === 'failed') {
+        setVerifyResult('failed');
+      }
+      // If pending, we'll retry
+    } catch (err) {
+      console.error('Verify exception:', err);
+    } finally {
+      setVerifying(false);
+    }
+  }, [payosOrderCode, verifying, verifyResult, refetch]);
+
+  // Auto-verify for PayOS on mount (fallback for webhook)
+  useEffect(() => {
+    if (isPayOS && payosOrderCode && !payosCancel) {
+      // Delay a bit to let webhook process first
+      const timer = setTimeout(() => verifyPayOSOrder(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isPayOS, payosOrderCode, payosCancel, verifyPayOSOrder]);
+
+  // Retry verify if still pending
+  useEffect(() => {
+    if (isPayOS && payosOrderCode && !payosCancel && !verifyResult && !verifying) {
+      const retryTimer = setTimeout(() => verifyPayOSOrder(), 5000);
+      return () => clearTimeout(retryTimer);
+    }
+  }, [isPayOS, payosOrderCode, payosCancel, verifyResult, verifying, verifyPayOSOrder]);
 
   // Confetti on success
   useEffect(() => {
@@ -163,6 +210,10 @@ export default function PaymentResult() {
                 <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="h-10 w-10 text-green-500" />
                 </div>
+              ) : verifying ? (
+                <div className="w-20 h-20 rounded-full bg-muted/20 flex items-center justify-center mx-auto mb-4">
+                  <Loader2 className="h-10 w-10 text-muted-foreground animate-spin" />
+                </div>
               ) : (
                 <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
                   <XCircle className="h-10 w-10 text-destructive" />
@@ -176,14 +227,16 @@ export default function PaymentResult() {
               transition={{ delay: 0.35 }}
             >
               <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
-                {isSuccess ? "Thanh toán thành công!" : "Thanh toán thất bại"}
+                {isSuccess ? "Thanh toán thành công!" : verifying ? "Đang xác nhận thanh toán..." : "Thanh toán thất bại"}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {isSuccess
                   ? "Gói của bạn đã được nâng cấp. Cảm ơn bạn đã tin tưởng!"
-                  : errorMessage}
+                  : verifying
+                    ? "Hệ thống đang xác nhận trạng thái giao dịch với ngân hàng..."
+                    : errorMessage}
               </p>
-              {!isSuccess && responseCode && (
+              {!isSuccess && !verifying && responseCode && (
                 <Badge variant="secondary" className="mt-2 text-xs font-mono">
                   Mã lỗi: {responseCode}
                 </Badge>
