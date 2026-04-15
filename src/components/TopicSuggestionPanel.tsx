@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, BarChart3, History, Star, Trash2, RotateCcw, X } from 'lucide-react';
+import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -278,17 +278,17 @@ export function TopicSuggestionPanel({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-4 xs:h-5 text-[9px] xs:text-[10px] px-1.5 xs:px-2 gap-0.5 xs:gap-1 rounded-full border-border/60"
+                  className="h-5 xs:h-6 text-[10px] xs:text-[11px] px-2 xs:px-2.5 gap-1 rounded-full bg-primary/10 border-primary/30 text-primary hover:bg-primary/20 hover:border-primary/50 transition-all"
                 >
-                  <History className="w-2 h-2 xs:w-2.5 xs:h-2.5" />
-                  Đã tạo
+                  <FolderOpen className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
+                  Kho chủ đề {allCount > 0 && `(${allCount})`}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-[40rem] p-0">
                 {/* Header with search */}
                 <div className="p-2.5 border-b border-border/60 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold">Chủ đề đã tạo</p>
+                    <p className="text-xs font-semibold">Kho chủ đề của bạn</p>
                     <span className="text-[10px] text-muted-foreground">{allCount} chủ đề</span>
                   </div>
 
@@ -365,7 +365,7 @@ export function TopicSuggestionPanel({
                         </>
                       ) : (
                         <>
-                          <History className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+                          <FolderOpen className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
                           <p className="text-xs text-muted-foreground">Chưa có chủ đề nào</p>
                           <p className="text-[10px] text-muted-foreground/60 mt-1">Chọn gợi ý bên dưới để bắt đầu</p>
                         </>
