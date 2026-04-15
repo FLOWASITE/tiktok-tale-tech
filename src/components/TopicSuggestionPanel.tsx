@@ -153,16 +153,17 @@ export function TopicSuggestionPanel({
     brandTemplateId: effectiveBrandId,
   });
 
-  // Refresh history when new suggestions are loaded (auto-saved by useTopicAI)
-  const prevSuggestionsLengthRef = useRef(suggestions.length);
+  // Refresh history when new suggestions arrive (content-based fingerprint, not just length)
+  const prevSuggestionsFingerprintRef = useRef('');
   useEffect(() => {
-    if (suggestions.length > 0 && suggestions.length !== prevSuggestionsLengthRef.current) {
-      // Delay to let auto-save complete before refetching
-      const timer = setTimeout(() => refreshHistory(), 2000);
-      prevSuggestionsLengthRef.current = suggestions.length;
-      return () => clearTimeout(timer);
-    }
-  }, [suggestions.length, refreshHistory]);
+    if (suggestions.length === 0) return;
+    const fingerprint = suggestions.map(s => typeof s === 'string' ? s : s.topic).sort().join('|');
+    if (fingerprint === prevSuggestionsFingerprintRef.current) return;
+    prevSuggestionsFingerprintRef.current = fingerprint;
+    // Delay to let auto-save complete before refetching
+    const timer = setTimeout(() => refreshHistory(), 2500);
+    return () => clearTimeout(timer);
+  }, [suggestions, refreshHistory]);
 
   const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
 
