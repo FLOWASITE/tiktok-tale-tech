@@ -13,6 +13,77 @@ interface TestRequest {
   appSecret?: string;
 }
 
+function trimCredential(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function extractErrorDetail(responseText: string): string {
+  try {
+    const payload = JSON.parse(responseText);
+
+    if (typeof payload?.error_message === 'string' && payload.error_message.trim()) {
+      return payload.error_message.trim();
+    }
+
+    if (typeof payload?.error_description === 'string' && payload.error_description.trim()) {
+      return payload.error_description.trim();
+    }
+
+    if (typeof payload?.error === 'string' && payload.error.trim()) {
+      return payload.error.trim();
+    }
+
+    if (typeof payload?.error?.message === 'string' && payload.error.message.trim()) {
+      return payload.error.message.trim();
+    }
+  } catch {
+    // Ignore JSON parse issues and fall back to raw text.
+  }
+
+  return responseText.trim();
+}
+
+function isRedirectIssue(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    'redirect_uri',
+    'redirect uri',
+    'redirect url',
+    'oauth callback url',
+    'used in the oauth dialog request',
+    'valid oauth redirect uris',
+  ].some((needle) => normalized.includes(needle));
+}
+
+function isCredentialIssue(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    'invalid client',
+    'invalid_client',
+    'client_id',
+    'client id',
+    'client secret',
+    'app secret',
+    'app id',
+    'invalid platform app',
+    'error validating application',
+    'cannot get application info',
+  ].some((needle) => normalized.includes(needle));
+}
+
+function isExpectedCodeValidationFailure(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    'invalid code',
+    'authorization code',
+    'verification code',
+    'code has expired',
+    'code was used',
+    'error validating verification code',
+  ].some((needle) => normalized.includes(needle));
+}
+
 Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -21,7 +92,7 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
   try {
     const supabase = getServiceClient();
 
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
     }
@@ -50,8 +121,8 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
       throw new Error('This endpoint is for Instagram only');
     }
 
-    let appId = rawAppId;
-    let appSecret = rawAppSecret;
+    let appId = trimCredential(rawAppId);
+    let appSecret = trimCredential(rawAppSecret);
 
     if (useStoredCredentials || (!appId && !appSecret)) {
       console.log('Fetching stored credentials for Instagram...');
@@ -71,8 +142,8 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
         throw new Error('Instagram App ID/Secret chưa được cấu hình');
       }
 
-      appId = await decryptCredential(settings.consumer_key);
-      appSecret = await decryptCredential(settings.consumer_secret);
+      appId = trimCredential(await decryptCredential(settings.consumer_key));
+      appSecret = trimCredential(await decryptCredential(settings.consumer_secret));
 
       if (!appId || !appSecret) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
@@ -86,56 +157,63 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
     const maskedId = appId.slice(0, 4) + '****' + appId.slice(-4);
     console.log(`Testing Instagram credentials... appId=${maskedId}, secretLen=${appSecret.length}`);
 
-    // Use OAuth client_credentials grant — works for both Facebook App ID and Instagram App ID
-    const tokenUrl = new URL('https://graph.facebook.com/v24.0/oauth/access_token');
-    tokenUrl.searchParams.set('client_id', appId);
-    tokenUrl.searchParams.set('client_secret', appSecret);
-    tokenUrl.searchParams.set('grant_type', 'client_credentials');
+    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-oauth-callback`;
 
-    const testResponse = await fetch(tokenUrl.toString(), { method: 'GET' });
-    const responseText = await testResponse.text();
-    console.log('Meta OAuth token response:', testResponse.status, responseText.slice(0, 200));
+    // Instagram Login does not support the Facebook Graph client_credentials app check
+    // used by Facebook/Threads. Instead, we preflight the real OAuth token exchange with
+    // a deliberately invalid code. If the response reaches code validation, the App ID,
+    // App Secret, and redirect URI are wired correctly for the current Instagram flow.
+    const preflightResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: appId,
+        client_secret: appSecret,
+        grant_type: 'authorization_code',
+        redirect_uri: callbackUrl,
+        code: 'lovable_preflight_invalid_code',
+      }),
+    });
 
-    if (!testResponse.ok) {
-      let detail = '';
-      try {
-        const errorData = JSON.parse(responseText);
-        detail = errorData.error?.message || '';
-      } catch { /* ignore parse errors */ }
+    const responseText = await preflightResponse.text();
+    const detail = extractErrorDetail(responseText);
+    const normalizedDetail = detail || responseText;
 
+    console.log('Instagram OAuth preflight response:', preflightResponse.status, normalizedDetail.slice(0, 200));
+
+    if (isRedirectIssue(normalizedDetail)) {
+      throw new Error('OAuth Callback URL chưa được cấu hình đúng trong Business login settings.');
+    }
+
+    if (isCredentialIssue(normalizedDetail)) {
       throw new Error(
-        `App ID hoặc App Secret không hợp lệ (HTTP ${testResponse.status}). ` +
-        (detail ? `Meta API: ${detail}. ` : '') +
-        `Hãy kiểm tra tại Meta App Dashboard → Settings → Basic.`
+        'Instagram App ID hoặc App Secret không hợp lệ. ' +
+        'Hãy lấy từ Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.'
       );
     }
 
-    // Token received — now fetch app info to confirm
-    let appName = 'Unknown';
-    try {
-      const tokenData = JSON.parse(responseText);
-      const infoRes = await fetch(
-        `https://graph.facebook.com/v24.0/${appId}?access_token=${tokenData.access_token}&fields=id,name`
+    const looksLikeExpectedInvalidCode = isExpectedCodeValidationFailure(normalizedDetail);
+
+    if (!preflightResponse.ok && !looksLikeExpectedInvalidCode) {
+      throw new Error(
+        `Không thể xác minh Instagram Login credentials (HTTP ${preflightResponse.status}). ` +
+        (detail ? `Meta API: ${detail}. ` : '') +
+        'Hãy kiểm tra lại Business login settings và callback URL.'
       );
-      if (infoRes.ok) {
-        const info = await infoRes.json();
-        appName = info.name || appName;
-      }
-    } catch { /* non-critical */ }
+    }
 
-    console.log('Instagram credentials verified successfully!', appName);
-
-    const callbackUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/instagram-oauth-callback`;
+    console.log('Instagram credentials verified successfully via OAuth preflight');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Instagram credentials hợp lệ! App: ${appName} ✓`,
+        message: 'Instagram Login credentials hợp lệ cho OAuth flow ✓',
         details: {
           appId: maskedId,
-          appName,
+          appName: null,
           platform: 'instagram',
           callbackUrl,
+          validationMode: looksLikeExpectedInvalidCode ? 'oauth-preflight' : 'oauth-token-response',
           note: `Đảm bảo đã thêm callback URL vào Valid OAuth Redirect URIs trong Business login settings: ${callbackUrl}`,
         },
       }),
