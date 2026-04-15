@@ -679,6 +679,16 @@ export function TopicSuggestionPanel({
                                       <Badge variant="secondary" className={cn("text-[8px] h-3.5 px-1 border-0", statusBadge.className)}>
                                         {statusBadge.label}
                                       </Badge>
+                                      {(() => {
+                                        const goalInfo = CONTENT_GOALS.find(g => g.value === item.contentGoal);
+                                        if (!goalInfo) return null;
+                                        return (
+                                          <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/10 text-primary inline-flex items-center gap-0.5">
+                                            {createElement(goalInfo.icon, { className: "w-2.5 h-2.5" })}
+                                            {goalInfo.label}
+                                          </span>
+                                        );
+                                      })()}
                                       {score != null && score > 0 && (
                                         <span className={cn(
                                           "text-[9px] font-semibold px-1.5 py-0.5 rounded-full",
