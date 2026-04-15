@@ -194,6 +194,7 @@ export function CarouselViewer({
 }: CarouselViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [localPublishedChannels, setLocalPublishedChannels] = useState<Set<string>>(new Set());
   const [copiedCta, setCopiedCta] = useState(false);
   const [copiedCaptionAll, setCopiedCaptionAll] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
