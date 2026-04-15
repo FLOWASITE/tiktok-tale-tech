@@ -480,6 +480,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                   disabled={isLoading}
                   showEnhancedInfo={true}
                   brandTemplateId={brandTemplateId || undefined}
+                  contentGoal={contentGoal}
                 />
               )}
 
