@@ -398,7 +398,7 @@ export function CarouselViewer({
     } catch (err) {
       console.error('Failed to update carousel status after publish:', err);
     }
-  }, [carousel, publishedChannels, availableChannels, queryClient, onCarouselUpdate]);
+  }, [carousel, effectivePublishedChannels, availableChannels, queryClient, onCarouselUpdate]);
 
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -794,7 +794,7 @@ export function CarouselViewer({
                       variant="outline"
                       size="sm"
                       className="h-7 text-[10px] xs:text-xs px-2"
-                      channelStatus={publishedChannels.has(channel) ? 'published' : undefined}
+                      channelStatus={effectivePublishedChannels.has(channel) ? 'published' : undefined}
                       onPublishSuccess={() => handlePublishSuccess(channel)}
                     />
                   ))}
@@ -839,9 +839,9 @@ export function CarouselViewer({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               {carousel.slide_count} slides
             </Badge>
-            {publishedChannels.size > 0 && (
+            {effectivePublishedChannels.size > 0 && (
               <>
-                {Array.from(publishedChannels).map(ch => (
+                {Array.from(effectivePublishedChannels).map(ch => (
                   <Badge key={ch} variant="default" className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
                     ✓ {platformLabels[ch] || ch}
                   </Badge>
