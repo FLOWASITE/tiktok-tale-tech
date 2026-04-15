@@ -1,23 +1,25 @@
 
 
-## Sửa lỗi: Số tiền thanh toán khác số tiền gói
+## Tăng khả năng hiển thị CTA "Mua thêm gói"
 
-### Nguyên nhân
-Dialog "Nâng cấp gói" đang tính **prorate** (chia theo ngày còn lại trong chu kỳ). Ví dụ: gói Starter 10.000đ/tháng nhưng còn 29/30 ngày → chỉ thu 9.667đ. Tương tự Pro 549.000đ → thu 530.700đ.
+### Vấn đề
+Nút "Mua thêm" hiện chỉ xuất hiện ở 2 chỗ kín: trang Account (cùng hàng với nút Nâng cấp) và widget UsageQuota trên dashboard. Khi quota hết, `QuotaExhaustedBanner` chỉ hiện nút "Nâng cấp" mà không có "Mua thêm".
 
 ### Sửa chữa
-Bỏ logic prorate — khi nâng cấp gói, **thu full giá** và bắt đầu chu kỳ mới 30 ngày từ thời điểm thanh toán.
 
-#### File: `src/components/UpgradePlanDialog.tsx`
-- **Xóa** hàm `getProrateInfo` (dòng 57-67)
-- **Xóa** mọi tham chiếu `prorateInfo` trong plan cards: block hiển thị "Thanh toán theo ngày còn lại", logic tính `priceBeforeDiscount`, nút bấm
-- Giá hiển thị = `fullPrice` (hoặc `fullPrice` sau voucher)
-- Nút bấm: `Thanh toán ${formatPrice(finalPrice)}₫`
+#### 1. `QuotaExhaustedBanner` — thêm nút "Mua thêm"
+- Thêm `AddonPurchaseDialog` và nút "Mua thêm" bên cạnh nút "Nâng cấp"
+- Khi hết quota, user thấy 2 lựa chọn rõ ràng: nâng cấp gói hoặc mua thêm lượt
 
-#### File: `src/components/PaymentConfirmDialog.tsx`
-- Giữ interface `ProrateInfo` cho backward compat nhưng block prorate sẽ không bao giờ hiện (vì `prorateInfo` luôn null)
+#### 2. Trang Account — làm nổi bật nút "Mua thêm"
+- Đổi nút "Mua thêm" từ `variant="outline"` sang `variant="default"` với màu primary
+- Thêm icon nổi bật hơn (Package hoặc Plus)
 
-### Kết quả
-- Starter hiện đúng **10.000₫**, Pro hiện đúng **549.000₫**, Enterprise hiện đúng **1.499.000₫**
-- Sau thanh toán thành công, chu kỳ mới bắt đầu từ ngày thanh toán
+#### 3. `UsageQuotaWidget` — highlight khi quota gần hết
+- Khi bất kỳ quota nào >= 80%, đổi nút "Mua thêm" từ `variant="outline"` sang `variant="default"` để nổi bật hơn
+
+### File cần sửa
+- `src/components/QuotaExhaustedBanner.tsx` — thêm nút + dialog "Mua thêm"
+- `src/pages/Account.tsx` — đổi variant nút "Mua thêm"
+- `src/components/dashboard/UsageQuotaWidget.tsx` — highlight nút khi quota cao
 
