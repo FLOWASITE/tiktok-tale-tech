@@ -190,7 +190,7 @@ export function TopicSuggestionPanel({
     return items;
   }, [historyItems, historyFilter, historySearch, historySortBy]);
 
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 20;
   const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE);
   const paginatedHistory = useMemo(() => 
     filteredHistory.slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE),
