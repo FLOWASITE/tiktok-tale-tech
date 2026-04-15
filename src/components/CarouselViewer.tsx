@@ -341,15 +341,17 @@ export function CarouselViewer({
   }, [carousel?.id]);
 
   // Channels available for this carousel based on platform + active connections
-  const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
-    facebook: ['facebook', 'instagram'],
-    instagram: ['instagram', 'facebook'],
-    tiktok: ['tiktok', 'instagram', 'facebook'],
-    linkedin: ['linkedin', 'facebook'],
+  const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
+
+  const getChannelsForPlatform = (platform: string): string[] => {
+    const rest = ALL_CAROUSEL_CHANNELS.filter(ch => ch !== platform);
+    return ALL_CAROUSEL_CHANNELS.includes(platform)
+      ? [platform, ...rest]
+      : ALL_CAROUSEL_CHANNELS;
   };
 
   const availableChannels = useMemo(() => {
-    const platformChannels = CAROUSEL_PLATFORM_CHANNELS[carousel?.platform || 'facebook'] || ['facebook'];
+    const platformChannels = getChannelsForPlatform(carousel?.platform || 'facebook');
     const activeConnections = socialConnections?.filter(c => c.is_active) || [];
     return platformChannels.filter(ch => 
       activeConnections.some(conn => conn.platform === ch)
