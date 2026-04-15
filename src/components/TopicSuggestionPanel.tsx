@@ -44,6 +44,7 @@ import {
 import { toast } from 'sonner';
 import { QuickStartSection } from '@/components/QuickStartSection';
 import { TopicPerformancePreview } from '@/components/TopicPerformancePreview';
+import { SimilarTopicsSuggestion } from '@/components/SimilarTopicsSuggestion';
 import { QuickStartTemplate, ContentGoal } from '@/types/quickStartTemplates';
 
 interface TopicSuggestionPanelProps {
@@ -558,6 +559,14 @@ export function TopicSuggestionPanel({
                               </div>
                             )}
                             <TopicPerformancePreview topicHistoryId={item.id} />
+                            <SimilarTopicsSuggestion
+                              currentItem={item}
+                              allItems={historyItems}
+                              onSelect={(topic, id) => {
+                                onSelect(topic, id);
+                                setHistoryOpen(false);
+                              }}
+                            />
                           </HoverCardContent>
                         </HoverCard>
                       ))}
@@ -736,6 +745,14 @@ export function TopicSuggestionPanel({
                                 </div>
                               )}
                               <TopicPerformancePreview topicHistoryId={item.id} />
+                              <SimilarTopicsSuggestion
+                                currentItem={item}
+                                allItems={historyItems}
+                                onSelect={(topic, id) => {
+                                  onSelect(topic, id);
+                                  setHistoryOpen(false);
+                                }}
+                              />
                             </HoverCardContent>
                           </HoverCard>
                         );
