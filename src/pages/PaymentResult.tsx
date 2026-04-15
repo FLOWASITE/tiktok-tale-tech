@@ -64,7 +64,8 @@ export default function PaymentResult() {
     ? (payosStatus === "PAID" || payosCode === "00") && !payosCancel
     : responseCode === "00";
 
-  const isSuccess = verifyResult === 'success' || isSuccessFromParams;
+  // Show success immediately based on URL params (optimistic), verify updates DB in background
+  const isSuccess = isSuccessFromParams || verifyResult === 'success';
 
   const formattedAmount = amount
     ? new Intl.NumberFormat("vi-VN").format(isVNPay ? parseInt(amount) / 100 : parseInt(amount)) + "₫"
