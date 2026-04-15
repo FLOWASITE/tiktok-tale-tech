@@ -860,6 +860,9 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
 
         setAllSuggestions(enhancedSuggestions);
         setSuggestSource(data.source);
+
+        // Auto-save new suggestions to topic_history
+        autoSaveSuggestions(enhancedSuggestions);
       } else {
         setAllSuggestions([]);
         setSuggestSource('fallback');
@@ -881,10 +884,15 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       suggestIsFetchingRef.current = false;
       setSuggestEnhancing(false);
     }
-  }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
+  }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id, autoSaveSuggestions]);
 
   // Auto-fetch suggestions with STALE-WHILE-REVALIDATE strategy
   // Keep old suggestions visible while fetching new ones
+  // Reset dedupe set when brand/goal/format context changes
+  useEffect(() => {
+    autoSavedTopicsRef.current = new Set();
+  }, [brandTemplateId, contentGoal, format]);
+
   useEffect(() => {
     const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
     
@@ -1003,12 +1011,19 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
 
     try {
       const topicTexts = newTopics.map(t => t.topic);
-      const { data: existing } = await supabase
+      // Dedupe by topic + organization + brand to allow same topic in different brands
+      let query = supabase
         .from('topic_history')
         .select('topic')
         .in('topic', topicTexts)
         .eq('organization_id', currentOrganization?.id || '')
         .limit(100);
+      
+      if (brandTemplateId) {
+        query = query.eq('brand_template_id', brandTemplateId);
+      }
+
+      const { data: existing } = await query;
 
       const existingSet = new Set((existing || []).map(e => e.topic));
       const toInsert = newTopics.filter(t => !existingSet.has(t.topic));
