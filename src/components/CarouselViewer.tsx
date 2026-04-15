@@ -346,6 +346,19 @@ export function CarouselViewer({
   const handlePublishSuccess = useCallback(async (channel: string) => {
     if (!carousel) return;
     
+    // Write a fallback publishing log entry so carousel-publishing-logs query picks it up
+    try {
+      await supabase.from('content_publishing_logs').insert({
+        content_id: carousel.id,
+        content_type: 'carousel',
+        channel,
+        action: 'published',
+        performed_by: null,
+      });
+    } catch (logErr) {
+      console.warn('Failed to write carousel publishing log (non-fatal):', logErr);
+    }
+
     // Refetch publishing logs
     queryClient.invalidateQueries({ queryKey: ['carousel-publishing-logs', carousel.id] });
 
