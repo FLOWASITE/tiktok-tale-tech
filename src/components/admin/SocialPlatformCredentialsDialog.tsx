@@ -191,7 +191,7 @@ export function SocialPlatformCredentialsDialog({
           <DialogTitle>Cấu hình {platformName}</DialogTitle>
           <DialogDescription>
             {isInstagram
-              ? 'Nhập Facebook App credentials dùng cho Instagram OAuth/publish. Không dùng Instagram App ID trong Instagram Product.'
+              ? 'Nhập Instagram App ID và Instagram App Secret từ mục "Business login settings" trong Meta App Dashboard.'
               : `Nhập API credentials để user có thể kết nối ${platformName} chỉ với Access Token.`}
           </DialogDescription>
         </DialogHeader>
