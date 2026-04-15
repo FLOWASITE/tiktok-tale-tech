@@ -890,11 +890,9 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     
     if (paramsKey !== suggestPrevParamsRef.current) {
       suggestHasLoadedRef.current = false;
-      // SWR: Do NOT clear allSuggestions here — keep stale data visible
-      // Only set loading if we have no data at all
-      if (allSuggestions.length === 0) {
-        setSuggestLoading(true);
-      }
+      // Clear stale suggestions when content goal changes — show loading for fresh results
+      setAllSuggestions([]);
+      setSuggestLoading(true);
     }
     
     if (!enabled) return;

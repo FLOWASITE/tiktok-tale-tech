@@ -1348,6 +1348,30 @@ function buildSuggestPrompts(params: {
     conversion: 'thúc đẩy chuyển đổi',
   };
 
+  // Mandatory content goal constraints — maps each goal to strict topic guidelines
+  const goalConstraints: Record<string, string> = {
+    education: `- Ưu tiên TOFU (60%): How-to, hướng dẫn, tips, kiến thức nền tảng, giải thích thuật ngữ
+- Topics PHẢI mang tính giáo dục: dạy kiến thức, chia sẻ kinh nghiệm, phân tích chuyên sâu
+- Funnel balance: 60% TOFU, 25% MOFU, 15% BOFU
+- TRÁNH: Topics bán hàng trực tiếp, CTA mạnh, so sánh giá`,
+    awareness: `- Ưu tiên brand storytelling, câu chuyện thương hiệu, giá trị cốt lõi
+- Topics PHẢI giúp khách hàng MỚI biết đến và nhớ thương hiệu
+- Funnel balance: 50% TOFU, 30% MOFU, 20% BOFU
+- Ưu tiên: Behind-the-scenes, founder story, brand values, social proof rộng`,
+    engagement: `- Ưu tiên tương tác: poll, câu hỏi, thử thách, trend, UGC, debate
+- Topics PHẢI kích thích comment, share, save — không chỉ đọc rồi lướt
+- Funnel balance: 45% TOFU, 35% MOFU, 20% BOFU
+- Ưu tiên: Controversial (nhẹ), so sánh, "bạn thuộc team nào?", meme ngành`,
+    expertise: `- Ưu tiên xây dựng thought leadership, chuyên gia đầu ngành
+- Topics PHẢI thể hiện chiều sâu chuyên môn: phân tích, case study, framework, dự đoán xu hướng
+- Funnel balance: 40% TOFU, 40% MOFU, 20% BOFU
+- Ưu tiên: Data-driven insights, industry reports, myth-busting, chuyên gia review`,
+    conversion: `- Ưu tiên BOFU (60%): So sánh sản phẩm, testimonial, offer, pricing, CTA rõ ràng
+- Topics PHẢI hướng đến hành động mua/đăng ký/liên hệ
+- Funnel balance: 15% TOFU, 25% MOFU, 60% BOFU
+- Ưu tiên: "X lý do chọn [brand]", trước-sau, demo, limited offer, social proof mua hàng`,
+  };
+
   // Build brand section
   let brandSection = '';
   if (brandContext) {
@@ -1411,8 +1435,18 @@ BAD examples (NEVER suggest these):
 `;
   }
 
+  // Build mandatory content goal section
+  const effectiveGoal = contentGoal || 'education';
+  const mandatoryGoalSection = `
+## ⚠️ MỤC TIÊU NỘI DUNG BẮT BUỘC: "${goalLabels[effectiveGoal]}"
+${goalConstraints[effectiveGoal] || goalConstraints.education}
+- TẤT CẢ topics PHẢI phục vụ mục tiêu "${goalLabels[effectiveGoal]}"
+- Topics KHÔNG phù hợp mục tiêu sẽ bị LOẠI BỎ
+`;
+
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm content marketing tại Việt Nam.
 ${topicAnchoringSection}
+${mandatoryGoalSection}
 ⚠️ NGÀY HIỆN TẠI: ${currentDate}. Chúng ta đang ở ${currentMonth}.
 - TẤT CẢ topics PHẢI phản ánh thời điểm hiện tại (${now.getFullYear()}).
 - TUYỆT ĐỐI KHÔNG đề cập năm cũ (2024, 2025) trừ khi so sánh với hiện tại.
@@ -1442,7 +1476,7 @@ Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
   "journeyStage": "awareness" | "consideration" | "decision" | "loyalty"
 }]
 
-## BALANCE: ~40% TOFU, ~35% MOFU, ~25% BOFU | 1 Hero, 2-3 Hub, 5-6 Hygiene`;
+## BALANCE theo mục tiêu "${effectiveGoal}" (xem phần MỤC TIÊU BẮT BUỘC ở trên)`;
 
   // Build category hint guidance
   const categoryHintMap: Record<string, string> = {
