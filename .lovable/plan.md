@@ -1,50 +1,30 @@
 
 
-## Hoàn thiện chức năng "Đã tạo" và liên kết với Kho Ý Tưởng
+## Chức năng "Đã tạo" đã hoạt động
 
-### Vấn đề hiện tại
-Popover "Đã tạo" đã có UI nhưng thiếu:
-1. Badge trạng thái chi tiết cho mỗi item (draft/suggested/selected/created/published)
-2. Nút nhanh mở Kho Ý Tưởng (`/topics`) từ popover
-3. Hiển thị category icon và score cho mỗi item
-4. Không phân biệt rõ "Chưa tạo nội dung" vs "Đã tạo nội dung"
+Tôi vừa kiểm tra trực tiếp trên preview — popover "Đã tạo" **đang hoạt động đúng**:
 
-### Giải pháp
+- Header "Chủ đề đã tạo trước đây" hiển thị
+- 2 filter tabs: "Tất cả (15)" và "Chưa tạo nội dung (15)" với count badge
+- Mỗi item có: category icon (lá xanh/trend), ngày tạo, badge trạng thái "Ý tưởng"
+- Footer link "Xem tất cả trong Kho Ý Tưởng" → `/topics`
 
-**`src/components/TopicSuggestionPanel.tsx`** — Nâng cấp popover "Đã tạo":
+### Vấn đề có thể gặp
 
-1. **Badge trạng thái cho mỗi item**: Hiển thị badge màu theo `usageStatus`:
-   - `draft`/`suggested` → "Ý tưởng" (xám)
-   - `selected` → "Đã chọn" (xanh dương)
-   - `created` → "Đã tạo" (tím)
-   - `published` → "Đã đăng" (xanh lá)
+Tất cả 15 topic đều có status "Ý tưởng" (draft) — chưa có topic nào được đánh dấu "Đã tạo" hay "Đã đăng". Điều này là do:
+1. Chưa có topic nào được liên kết ngược với nội dung đã tạo (thiếu `content_id`)
+2. Score và favorite đều trống
 
-2. **Category icon + score**: Thêm icon category (Leaf/TrendingUp/Calendar/Zap) và điểm score nếu có
+### Đề xuất cải tiến (nếu cần)
 
-3. **Nút "Xem tất cả trong Kho Ý Tưởng"**: Footer popover có link đến `/topics` — tận dụng toàn bộ hệ thống quản lý topic đã có sẵn (lọc, phân tích, bulk actions...)
+Nếu bạn muốn popover hữu ích hơn, tôi có thể:
 
-4. **Cải thiện filter "Chưa tạo nội dung"**: Thêm count badge cho mỗi tab filter
+1. **Tự động liên kết topic khi tạo nội dung**: Khi user chọn topic từ gợi ý và nhấn "Tiếp tục", tự cập nhật `usage_status` → `selected`. Khi nội dung được tạo xong → `created`.
 
-5. **Favorite indicator**: Hiển thị icon ⭐ nếu `isFavorite === true`
+2. **Hiển thị tất cả topic (không lọc brand)**: Hiện tại hook không filter brand vì `brandTemplateId` không được truyền từ `MultiChannelForm` — nên nó show toàn bộ org topics. Nếu muốn lọc theo brand đang chọn, cần truyền `brandTemplateId` prop.
 
-### Chi tiết kỹ thuật
-
-```text
-Popover "Đã tạo":
-┌─────────────────────────────┐
-│ Chủ đề đã tạo trước đây    │
-│ [Tất cả (15)] [Chưa tạo (8)]│
-├─────────────────────────────┤
-│ 🌿 Topic name...      82   │
-│   12/4/2026  [Ý tưởng]     │
-│ 🔥 Topic name...      ⭐   │
-│   11/4/2026  [Đã đăng]     │
-│ ...                         │
-├─────────────────────────────┤
-│ 📚 Xem tất cả trong Kho ÝT │
-└─────────────────────────────┘
-```
+3. **Không cần thay đổi code** — chức năng đã hoạt động. Vấn đề có thể do cache trình duyệt hoặc bạn chưa thấy popover sau khi reload.
 
 ### Files thay đổi
-- `src/components/TopicSuggestionPanel.tsx` — Nâng cấp popover content
+Không cần thay đổi file nào — chức năng đã hoạt động đúng.
 
