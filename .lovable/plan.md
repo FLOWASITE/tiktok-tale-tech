@@ -1,49 +1,49 @@
 
 
-## Redesign nút Social Publish — gọn gàng, khoa học hơn
+## Hoàn thiện chức năng "Lên lịch" trong CarouselViewer
 
 ### Vấn đề hiện tại
-Mỗi `DirectPublishButton` render cả text dài ("Đăng ngay", "Đăng lại", "Kết nối để đăng") + icon lịch riêng → hàng nút dài, tràn trên mobile 707px. Không thống nhất visual giữa các trạng thái.
+Nút "Lên lịch" trong CarouselViewer (line 823-836) dùng `querySelector('[data-schedule-channel]')` để tìm nút schedule bên trong `DirectPublishButton` — nhưng ở chế độ `iconOnly`, không có element nào với `data-schedule-channel` → nút bấm không làm gì.
 
-### Giải pháp: Icon-only buttons + Tooltip + Dropdown actions
+Ngoài ra, schedule dialog hiện nằm riêng trong mỗi `DirectPublishButton` và chỉ schedule cho 1 platform — không phù hợp với thiết kế "nút lịch gộp chung".
 
-**Thiết kế mới cho Row 2 trong CarouselViewer header:**
-
-```text
-┌─────────────────────────────────────────────────────┐
-│ [FB✓] [IG] [LI] [X] [TT]  │  [📅 Lên lịch ▾]     │
-└─────────────────────────────────────────────────────┘
-
-FB✓ = icon Facebook + green ring (đã đăng)
-IG   = icon Instagram + primary ring (sẵn sàng)
-LI   = icon LinkedIn + dashed ring (chưa kết nối)
-```
-
-**Chi tiết:**
-
-1. **Icon-only circular buttons** (32x32px) thay vì text buttons:
-   - Đã đăng: green background/ring + check overlay nhỏ
-   - Sẵn sàng (có connection): primary border, hover glow
-   - Chưa kết nối: dashed border, opacity-50
-   - Click → mở dialog publish hiện tại (hoặc navigate settings nếu chưa kết nối)
-
-2. **Tooltip** hiển thị tên platform + trạng thái khi hover
-
-3. **Nút lịch gộp chung**: 1 nút "Lên lịch" duy nhất bên phải → click mở dropdown chọn platform để schedule (thay vì mỗi platform 1 icon lịch riêng)
+### Giải pháp
+Chuyển logic schedule ra CarouselViewer: nút "Lên lịch" mở Popover cho phép chọn platform → chọn ngày giờ → gọi `upsertSchedule`.
 
 ### Thay đổi
 
-**File: `src/components/social/DirectPublishButton.tsx`**
-- Khi nhận prop `iconOnly` (hoặc detect từ className): render icon-only button 32x32 với Tooltip
-- 3 visual states: published (green), connected (primary), disconnected (dashed/muted)  
-- Bỏ text labels, chỉ giữ icon platform
-- Bỏ inline CalendarClock button (sẽ gộp ở parent)
+**File: `src/components/CarouselViewer.tsx` (Row 2, lines 822-836)**
 
-**File: `src/components/CarouselViewer.tsx` (Row 2, lines 803-837)**
-- Render 5 `DirectPublishButton` dạng icon-only trong flex row
-- Thêm 1 nút "Lên lịch" Popover/Dropdown bên phải cho phép chọn platform + datetime
+Thay nút Button đơn giản bằng Popover 2 bước:
+1. **Bước 1**: Hiện danh sách 5 platform icons (giống row publish) để chọn platform cần schedule
+2. **Bước 2**: Sau khi chọn platform → hiện inline date picker + time input + nút xác nhận
+
+```text
+┌──────────────────────────────┐
+│ 📅 Lên lịch đăng             │
+│                              │
+│ Chọn kênh:                   │
+│ [FB] [IG] [LI] [X] [TT]     │
+│                              │
+│ Ngày: [dd/MM/yyyy      📅]  │
+│ Giờ:  [09:00           🕐]  │
+│ Ghi chú: [____________]     │
+│                              │
+│ [Hủy]        [Lên lịch]     │
+└──────────────────────────────┘
+```
+
+- Import `useContentSchedules` tại CarouselViewer level (đã có `contentId = carousel.id`)
+- State: `schedulePopoverOpen`, `selectedScheduleChannel`, `scheduleDate`, `scheduleTime`, `scheduleNotes`
+- Gọi `upsertSchedule(carousel.id, { channel, scheduled_at, timezone, notes })` khi submit
+- Hiện existing schedules nếu có (từ `schedules` array)
+
+**File: `src/components/social/DirectPublishButton.tsx`**
+
+- Bỏ schedule dialog + state khi `iconOnly=true` (lines 172-176, 316-351, 861-946) — không cần nữa vì parent quản lý
+- Giữ schedule dialog cho mode non-iconOnly (multichannel viewer vẫn dùng)
 
 ### Files thay đổi
-- `src/components/social/DirectPublishButton.tsx` — icon-only mode với 3 visual states
-- `src/components/CarouselViewer.tsx` — Row 2 layout gọn lại
+- `src/components/CarouselViewer.tsx` — thêm schedule Popover với channel picker + date/time
+- `src/components/social/DirectPublishButton.tsx` — bỏ schedule logic khi iconOnly
 
