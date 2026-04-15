@@ -1,6 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
-import { createDecipheriv } from "node:crypto";
+import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 const corsHeaders = {
