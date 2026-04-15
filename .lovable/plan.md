@@ -1,41 +1,41 @@
 
 
-## Fix: Hiển thị đủ 5 nút publish social cho Carousel
+## Fix: Hiển thị đủ 5 nút publish social (kể cả chưa kết nối)
 
 ### Vấn đề
-`CAROUSEL_PLATFORM_CHANNELS` trong `CarouselViewer.tsx` (line 344-349) chỉ map một số channel cố định theo platform gốc của carousel. Ví dụ carousel Facebook chỉ hiện `['facebook', 'instagram']` — thiếu LinkedIn, X, TikTok.
+`availableChannels` (line 353-359) lọc bỏ các platform chưa có active connection → LinkedIn và TikTok không hiện nút.
 
 ### Giải pháp
-Mở rộng `CAROUSEL_PLATFORM_CHANNELS` để mọi carousel đều hiển thị đủ 5 nền tảng đã hỗ trợ: `facebook`, `instagram`, `linkedin`, `twitter`, `tiktok`. Platform gốc xếp đầu tiên.
+Hiển thị tất cả 5 nút publish luôn. Với platform chưa kết nối: hiện nút disabled/greyed out kèm tooltip "Chưa kết nối".
 
 ### Thay đổi
 
-**File: `src/components/CarouselViewer.tsx` (line 344-349)**
+**File: `src/components/CarouselViewer.tsx`**
 
-Thay:
+1. Bỏ filter active connections khỏi `availableChannels` — trả về tất cả 5 channels:
 ```typescript
-const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
-  facebook: ['facebook', 'instagram'],
-  instagram: ['instagram', 'facebook'],
-  tiktok: ['tiktok', 'instagram', 'facebook'],
-  linkedin: ['linkedin', 'facebook'],
-};
+const availableChannels = useMemo(() => {
+  return getChannelsForPlatform(carousel?.platform || 'facebook');
+}, [carousel?.platform]);
 ```
 
-Bằng:
+2. Tạo set `connectedChannels` riêng để truyền xuống:
 ```typescript
-const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
-
-// Platform gốc xếp đầu, còn lại theo thứ tự mặc định
-const getChannelsForPlatform = (platform: string): string[] => {
-  const rest = ALL_CAROUSEL_CHANNELS.filter(ch => ch !== platform);
-  return ALL_CAROUSEL_CHANNELS.includes(platform) 
-    ? [platform, ...rest] 
-    : ALL_CAROUSEL_CHANNELS;
-};
+const connectedChannels = useMemo(() => {
+  const active = socialConnections?.filter(c => c.is_active) || [];
+  return new Set(active.map(c => c.platform));
+}, [socialConnections]);
 ```
 
-Và cập nhật `availableChannels` useMemo dùng `getChannelsForPlatform(carousel?.platform)` thay vì lookup từ map.
+3. Khi render `DirectPublishButton`, truyền thêm prop `disabled` nếu channel không nằm trong `connectedChannels`
 
-Kết quả: tất cả carousel sẽ hiện đủ 5 nút publish (chỉ những platform có active connection mới hiện).
+**File: `src/components/social/DirectPublishButton.tsx`**
+
+4. Nhận prop `disabled` / `isConnected`. Nếu chưa kết nối:
+   - Hiện nút mờ (opacity-50) với text "Kết nối"
+   - Click → navigate tới trang brand connections
+
+### Files thay đổi
+- `src/components/CarouselViewer.tsx` — bỏ filter, thêm connectedChannels set
+- `src/components/social/DirectPublishButton.tsx` — xử lý trạng thái chưa kết nối
 
