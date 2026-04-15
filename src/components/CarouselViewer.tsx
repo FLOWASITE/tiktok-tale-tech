@@ -77,6 +77,9 @@ import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
+import { useOrganization } from '@/hooks/useOrganization';
+import { useQueryClient } from '@tanstack/react-query';
 
 
 // Icon maps for badge rendering
