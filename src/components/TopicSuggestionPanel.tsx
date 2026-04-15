@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import {
   Tooltip,
   TooltipContent,
@@ -142,9 +143,12 @@ export function TopicSuggestionPanel({
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
   const [historyPage, setHistoryPage] = useState(1);
   const navigate = useNavigate();
+  const { currentBrand } = useCurrentBrand();
+  const effectiveBrandId = brandTemplateId || currentBrand?.id;
 
   const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite } = useTopicHistory({
     enabled: true,
+    brandTemplateId: effectiveBrandId,
   });
 
   const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
