@@ -187,13 +187,20 @@ Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) =>
 
     const { data: existingConnection } = await query.maybeSingle();
 
+    // Encrypt the long-lived token before storing
+    const encryptedToken = encrypt(longLivedToken, encryptionKey);
+    if (!encryptedToken) {
+      throw new Error('Failed to encrypt access token');
+    }
+
     const connectionData = {
       organization_id: stateData.organizationId || null,
       brand_template_id: stateData.brandTemplateId || null,
       user_id: stateData.userId,
       platform: 'instagram',
       platform_username: userInfo.username,
-      access_token: longLivedToken,
+      platform_user_id: String(instagramUserId),
+      access_token: encryptedToken,
       refresh_token: null,
       token_expires_at: tokenExpiresAt,
       is_active: true,
