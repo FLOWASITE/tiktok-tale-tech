@@ -133,7 +133,7 @@ export function TopicSuggestionPanel({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic } = useTopicHistory({
+  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic } = useTopicHistory({
     enabled: true,
   });
 
