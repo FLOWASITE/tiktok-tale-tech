@@ -164,7 +164,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
     contentGoal,
     brandTemplateId,
     format: 'multichannel',
-    enabled: hasLoadedDraft, // Only fetch after draft loaded
+    enabled: hasLoadedDraft && !!brandTemplateId, // Only fetch after draft loaded AND brand resolved
   });
 
   // Topic refinement hook - AI-powered topic improvement suggestions

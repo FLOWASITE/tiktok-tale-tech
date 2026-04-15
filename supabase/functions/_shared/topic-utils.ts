@@ -286,7 +286,9 @@ export async function searchIndustryData(
 
   try {
     const currentYear = new Date().getFullYear();
-    const searchQuery = `${industry} Việt Nam ${currentYear}: thống kê ngành mới nhất, case studies thành công, insights marketing, báo cáo thị trường, xu hướng tiêu dùng, số liệu doanh thu, thị phần. Tập trung vào dữ liệu thực tế và số liệu cụ thể.`;
+    // Brand-aware search: include brand name to get more relevant results
+    const brandClause = brandName ? ` cho doanh nghiệp "${brandName}"` : '';
+    const searchQuery = `${industry}${brandClause} Việt Nam ${currentYear}: thống kê ngành mới nhất, case studies thành công, insights marketing, báo cáo thị trường, xu hướng tiêu dùng, số liệu doanh thu, thị phần. Tập trung vào dữ liệu thực tế và số liệu cụ thể liên quan trực tiếp đến ${brandName || industry}.`;
 
     console.log(`[${WEB_SEARCH_LABEL}] Industry search:`, searchQuery.substring(0, 80));
 
