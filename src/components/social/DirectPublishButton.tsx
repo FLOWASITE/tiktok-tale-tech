@@ -356,11 +356,97 @@ export function DirectPublishButton({
   const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website'].includes(platform);
 
   if (!isSupported) {
+    if (iconOnly) {
+      return (
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                disabled
+                className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center border border-dashed border-muted-foreground/30 opacity-40 cursor-not-allowed',
+                  className
+                )}
+              >
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {PLATFORM_DISPLAY_NAMES[platform!] || platform} — Sắp ra mắt
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
     return (
       <Button variant="ghost" size={size} disabled className={cn('opacity-50', className)}>
         <Send className="h-4 w-4 mr-1" />
         Sắp ra mắt
       </Button>
+    );
+  }
+
+  // ===== ICON-ONLY MODE =====
+  if (iconOnly) {
+    const tooltipText = isAlreadyPublished
+      ? `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Đã đăng ✓`
+      : connection
+        ? `Đăng lên ${PLATFORM_DISPLAY_NAMES[platform!] || platform}`
+        : `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Chưa kết nối`;
+
+    return (
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              disabled={disabled || isPublishing || !content}
+              onClick={handleClick}
+              className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center transition-all relative shrink-0',
+                // Published state: green
+                isAlreadyPublished && 'bg-emerald-500/15 border-2 border-emerald-500/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25',
+                // Connected state: primary
+                !isAlreadyPublished && connection && 'border-2 border-primary/40 text-primary hover:bg-primary/10 hover:border-primary/70 hover:shadow-sm hover:shadow-primary/20',
+                // Disconnected state: dashed
+                !isAlreadyPublished && !connection && 'border border-dashed border-muted-foreground/30 text-muted-foreground/50 opacity-60 hover:opacity-80 hover:border-muted-foreground/50',
+                // Disabled
+                (disabled || isPublishing || !content) && 'pointer-events-none opacity-40',
+                className
+              )}
+            >
+              {isPublishing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Icon className="h-3.5 w-3.5" />
+              )}
+              {/* Published check overlay */}
+              {isAlreadyPublished && (
+                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {tooltipText}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Keep dialogs for icon-only mode too */}
+        {/* Confirmation / Success Dialog */}
+        <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
+          <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+            {renderDialogContent()}
+          </DialogContent>
+        </Dialog>
+
+        {/* Schedule Dialog */}
+        <Dialog open={scheduleDialog} onOpenChange={setScheduleDialog}>
+          <DialogContent className="sm:max-w-md">
+            {renderScheduleContent()}
+          </DialogContent>
+        </Dialog>
+      </TooltipProvider>
     );
   }
 
