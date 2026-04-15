@@ -1,27 +1,32 @@
 
 
-## Thêm phân trang (Pagination) cho Kho chủ đề
+## Lọc Kho chủ đề theo Brand hiện tại
+
+### Vấn đề
+`useTopicHistory` trong `TopicSuggestionPanel` được gọi **không truyền `brandTemplateId`**, nên hiển thị tất cả topic của user/org bất kể brand nào. Cần lọc chỉ hiện topic thuộc brand đang chọn.
 
 ### Thay đổi
 
-Thêm pagination vào popover Kho chủ đề, hiển thị 10 items/trang với điều hướng ở footer.
-
-### Chi tiết kỹ thuật
-
 **File: `src/components/TopicSuggestionPanel.tsx`**
 
-1. **Thêm state**: `historyPage` (default 1), reset về 1 khi filter/search/sort thay đổi
-2. **Tính toán phân trang**:
-   - `ITEMS_PER_PAGE = 10`
-   - `totalPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE)`
-   - `paginatedHistory = filteredHistory.slice((page-1)*10, page*10)`
-3. **Render `paginatedHistory`** thay vì `filteredHistory` trong cả list view và grid view (lines 492, 553)
-4. **UI pagination ở footer** (line 732, trước bulk actions):
-   - Khi `totalPages > 1`: hiển thị row với nút Prev/Next + "Trang X/Y"
-   - Nút Previous/Next dùng `ChevronLeft`/`ChevronRight` icon, disable khi ở đầu/cuối
-   - Style nhỏ gọn phù hợp popover: `text-[10px]`, `h-6` buttons
-5. **Reset page**: Thêm `useEffect` reset `historyPage = 1` khi `historyFilter`, `historySearch`, `historySortBy` thay đổi
+1. Truyền `brandTemplateId` vào `useTopicHistory`:
+```tsx
+const { history: topicHistory, ... } = useTopicHistory({
+  enabled: true,
+  brandTemplateId,
+});
+```
+
+2. Nếu `brandTemplateId` không được truyền từ parent, fallback lấy từ `useCurrentBrand()`:
+```tsx
+import { useCurrentBrand } from '@/contexts/BrandContext';
+// ...
+const { currentBrand } = useCurrentBrand();
+const effectiveBrandId = brandTemplateId || currentBrand?.id;
+```
+
+Rồi truyền `effectiveBrandId` vào hook. Khi user đổi brand, kho chủ đề tự động cập nhật.
 
 ### Không thay đổi
-- Database, hook logic, hoặc file khác
+- Database, hook `useTopicHistory` (đã hỗ trợ filter `brand_template_id` sẵn), các file khác
 
