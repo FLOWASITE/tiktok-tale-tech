@@ -1,49 +1,41 @@
 
 
-## Hoàn thiện chức năng "Lên lịch" trong CarouselViewer
+## Fix: Không chọn được kênh trên mobile trong SchedulePopoverButton
 
-### Vấn đề hiện tại
-Nút "Lên lịch" trong CarouselViewer (line 823-836) dùng `querySelector('[data-schedule-channel]')` để tìm nút schedule bên trong `DirectPublishButton` — nhưng ở chế độ `iconOnly`, không có element nào với `data-schedule-channel` → nút bấm không làm gì.
-
-Ngoài ra, schedule dialog hiện nằm riêng trong mỗi `DirectPublishButton` và chỉ schedule cho 1 platform — không phù hợp với thiết kế "nút lịch gộp chung".
+### Nguyên nhân
+Mỗi channel button được wrap trong `TooltipProvider > Tooltip > TooltipTrigger`. Trên mobile (touch), Radix Tooltip intercept sự kiện touch đầu tiên để hiện tooltip → `onClick` của button bên trong không fire.
 
 ### Giải pháp
-Chuyển logic schedule ra CarouselViewer: nút "Lên lịch" mở Popover cho phép chọn platform → chọn ngày giờ → gọi `upsertSchedule`.
+Bỏ `Tooltip` wrapper khỏi các channel buttons. Thay bằng `title` attribute đơn giản (hoạt động trên cả mobile và desktop) hoặc hiển thị label text nhỏ bên dưới icon.
 
 ### Thay đổi
 
-**File: `src/components/CarouselViewer.tsx` (Row 2, lines 822-836)**
+**File: `src/components/carousel/SchedulePopoverButton.tsx` (lines 126-155)**
 
-Thay nút Button đơn giản bằng Popover 2 bước:
-1. **Bước 1**: Hiện danh sách 5 platform icons (giống row publish) để chọn platform cần schedule
-2. **Bước 2**: Sau khi chọn platform → hiện inline date picker + time input + nút xác nhận
+Thay thế `TooltipProvider > Tooltip > TooltipTrigger > button` bằng `button` trực tiếp với `title` attribute:
 
-```text
-┌──────────────────────────────┐
-│ 📅 Lên lịch đăng             │
-│                              │
-│ Chọn kênh:                   │
-│ [FB] [IG] [LI] [X] [TT]     │
-│                              │
-│ Ngày: [dd/MM/yyyy      📅]  │
-│ Giờ:  [09:00           🕐]  │
-│ Ghi chú: [____________]     │
-│                              │
-│ [Hủy]        [Lên lịch]     │
-└──────────────────────────────┘
+```tsx
+<button
+  key={ch}
+  onClick={() => isConnected && setSelectedChannel(ch)}
+  disabled={!isConnected}
+  title={`${CHANNEL_LABELS[ch]}${!isConnected ? ' — Chưa kết nối' : ''}${existingSch ? ` — Đã lên lịch` : ''}`}
+  className={cn(
+    'w-8 h-8 rounded-full flex items-center justify-center transition-all relative',
+    // ... same styles
+  )}
+>
+  <Icon className="h-3.5 w-3.5" />
+  {existingSch && (
+    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500 flex items-center justify-center">
+      <Clock className="h-2 w-2 text-white" />
+    </span>
+  )}
+</button>
 ```
 
-- Import `useContentSchedules` tại CarouselViewer level (đã có `contentId = carousel.id`)
-- State: `schedulePopoverOpen`, `selectedScheduleChannel`, `scheduleDate`, `scheduleTime`, `scheduleNotes`
-- Gọi `upsertSchedule(carousel.id, { channel, scheduled_at, timezone, notes })` khi submit
-- Hiện existing schedules nếu có (từ `schedules` array)
-
-**File: `src/components/social/DirectPublishButton.tsx`**
-
-- Bỏ schedule dialog + state khi `iconOnly=true` (lines 172-176, 316-351, 861-946) — không cần nữa vì parent quản lý
-- Giữ schedule dialog cho mode non-iconOnly (multichannel viewer vẫn dùng)
+Bỏ import `TooltipProvider, Tooltip, TooltipTrigger, TooltipContent` nếu không dùng ở chỗ khác.
 
 ### Files thay đổi
-- `src/components/CarouselViewer.tsx` — thêm schedule Popover với channel picker + date/time
-- `src/components/social/DirectPublishButton.tsx` — bỏ schedule logic khi iconOnly
+- `src/components/carousel/SchedulePopoverButton.tsx` — bỏ Tooltip wrapper, dùng `title` attribute
 
