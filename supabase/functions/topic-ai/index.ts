@@ -1607,6 +1607,17 @@ function filterByBrandAndGoal(
     brandSignals.push(brandContext.brandName.toLowerCase());
   }
   
+  // Industry keywords — CRITICAL for filtering cross-industry topics
+  const industryKeywords: string[] = [];
+  if (brandContext.industry?.length) {
+    for (const ind of brandContext.industry) {
+      // Split industry name into meaningful words (>2 chars)
+      const words = ind.toLowerCase().split(/[\s&,\/]+/).filter(w => w.length > 2);
+      industryKeywords.push(...words);
+      industryKeywords.push(ind.toLowerCase());
+    }
+  }
+  
   // Content pillars
   if (brandContext.contentPillars?.length) {
     for (const p of brandContext.contentPillars) {
@@ -1620,6 +1631,13 @@ function filterByBrandAndGoal(
     for (const p of brandContext.products) {
       if (p.name) brandSignals.push(p.name.toLowerCase());
       if (p.category) brandSignals.push(p.category.toLowerCase());
+      // Add USPs and pain_points_solved as signals
+      if (p.unique_selling_points?.length) {
+        for (const usp of p.unique_selling_points) {
+          const words = usp.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+          brandSignals.push(...words.slice(0, 3));
+        }
+      }
     }
   }
   
@@ -1636,11 +1654,19 @@ function filterByBrandAndGoal(
     brandSignals.push(...brandContext.evergreenThemes.map(t => t.toLowerCase()));
   }
   
-  // UVP keywords
+  // UVP keywords — only specific words (>5 chars to avoid generic matches like "giải", "pháp")
   if (brandContext.uniqueValueProposition) {
-    const uvpWords = brandContext.uniqueValueProposition.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    brandSignals.push(...uvpWords.slice(0, 10));
+    const uvpWords = brandContext.uniqueValueProposition.toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 5 && !['chúng', 'không', 'những', 'được', 'trong', 'nhưng', 'cùng', 'mang', 'tạo'].includes(w));
+    brandSignals.push(...uvpWords.slice(0, 8));
   }
+
+  // Deduplicate signals
+  const uniqueSignals = [...new Set(brandSignals)].filter(s => s.length >= 3);
+  const uniqueIndustryKw = [...new Set(industryKeywords)].filter(s => s.length >= 2);
+  
+  console.log(`[filterByBrandAndGoal] Brand: "${brandContext.brandName}", signals: ${uniqueSignals.length}, industry kw: ${uniqueIndustryKw.length}`);
 
   // Goal-funnel validation
   const goalFunnelMap: Record<string, string[]> = {
@@ -1656,40 +1682,51 @@ function filterByBrandAndGoal(
   const scored = suggestions.map(s => {
     const topicLower = (s.topic || '').toLowerCase();
     const reasoningLower = (s.reasoning || '').toLowerCase();
-    const combined = topicLower + ' ' + reasoningLower;
+    const pillarLower = (s.pillar || '').toLowerCase();
+    const combined = topicLower + ' ' + reasoningLower + ' ' + pillarLower;
     
     // Brand fit: how many brand signals match
     let brandMatches = 0;
-    for (const signal of brandSignals) {
-      if (signal.length >= 3 && combined.includes(signal)) {
+    for (const signal of uniqueSignals) {
+      if (combined.includes(signal)) {
         brandMatches++;
+      }
+    }
+    
+    // Industry fit: how many industry keywords match
+    let industryMatches = 0;
+    for (const kw of uniqueIndustryKw) {
+      if (combined.includes(kw)) {
+        industryMatches++;
       }
     }
     
     // Funnel fit
     const funnelFit = allowedFunnels.includes(s.funnelStage || 'tofu');
     
-    // Combined score: at least 1 brand match OR high self-reported brandFit (>80)
-    const hasBrandRelevance = brandMatches >= 1 || (s.scores?.brandFit >= 80);
+    // Topic is relevant if it matches brand signals OR industry keywords
+    // NO longer trust AI self-reported brandFit scores — they are unreliable
+    const hasBrandRelevance = brandMatches >= 1 || industryMatches >= 1;
+    const relevanceScore = brandMatches * 2 + industryMatches;
     
-    return { ...s, _brandMatches: brandMatches, _funnelFit: funnelFit, _hasBrandRelevance: hasBrandRelevance };
+    return { ...s, _brandMatches: brandMatches, _industryMatches: industryMatches, _funnelFit: funnelFit, _hasBrandRelevance: hasBrandRelevance, _relevanceScore: relevanceScore };
   });
 
-  // Filter: keep topics with brand relevance; if too few pass, keep top by brandMatches
+  // Filter: keep topics with brand/industry relevance
   const passing = scored.filter(s => s._hasBrandRelevance);
   
-  // If filtering removes too many (less than 3), relax and keep all sorted by brand relevance
   let result: any[];
   if (passing.length >= 3) {
-    result = passing;
+    // Sort by relevance score desc
+    result = passing.sort((a, b) => b._relevanceScore - a._relevanceScore);
   } else {
-    // Sort by brand matches desc and keep all
-    result = scored.sort((a, b) => b._brandMatches - a._brandMatches);
-    console.log(`[topic-ai:suggest] Brand filter too strict (${passing.length}/${scored.length} passed), keeping all sorted by relevance`);
+    // Fallback: sort by relevance and take top 8 — but log warning
+    result = scored.sort((a, b) => b._relevanceScore - a._relevanceScore).slice(0, 8);
+    console.warn(`[filterByBrandAndGoal] Only ${passing.length}/${scored.length} passed brand filter for "${brandContext.brandName}". Keeping top 8 by relevance.`);
   }
   
   // Clean internal scoring fields
-  return result.map(({ _brandMatches, _funnelFit, _hasBrandRelevance, ...rest }) => rest);
+  return result.map(({ _brandMatches, _industryMatches, _funnelFit, _hasBrandRelevance, _relevanceScore, ...rest }) => rest);
 }
 
 function parseRefinedTopics(content: string, brandContext: TopicBrandContext | null): any[] {
