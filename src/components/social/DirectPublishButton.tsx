@@ -358,24 +358,17 @@ export function DirectPublishButton({
   if (!isSupported) {
     if (iconOnly) {
       return (
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                disabled
-                className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center border border-dashed border-muted-foreground/30 opacity-40 cursor-not-allowed',
-                  className
-                )}
-              >
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {PLATFORM_DISPLAY_NAMES[platform!] || platform} — Sắp ra mắt
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <button
+          type="button"
+          disabled
+          title={`${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Sắp ra mắt`}
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center border border-dashed border-muted-foreground/30 opacity-40 cursor-not-allowed touch-manipulation',
+            className
+          )}
+        >
+          <ChannelIcon channel={(channel || platform || 'website') as Channel} size={16} className="text-muted-foreground" />
+        </button>
       );
     }
     return (
@@ -395,38 +388,36 @@ export function DirectPublishButton({
   return (
     <>
       {iconOnly ? (
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                disabled={disabled || isPublishing || !content}
-                onClick={handleClick}
-                className={cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center transition-all relative shrink-0',
-                  isAlreadyPublished && 'bg-emerald-500/15 border-2 border-emerald-500/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25',
-                  !isAlreadyPublished && connection && 'border-2 border-primary/40 text-primary hover:bg-primary/10 hover:border-primary/70 hover:shadow-sm hover:shadow-primary/20',
-                  !isAlreadyPublished && !connection && 'border border-dashed border-muted-foreground/30 text-muted-foreground/50 opacity-60 hover:opacity-80 hover:border-muted-foreground/50',
-                  (disabled || isPublishing || !content) && 'pointer-events-none opacity-40',
-                  className
-                )}
-              >
-                {isPublishing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Icon className="h-3.5 w-3.5" />
-                )}
-                {isAlreadyPublished && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <CheckCircle2 className="h-2.5 w-2.5 text-white" />
-                  </span>
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {tooltipText}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <button
+          type="button"
+          disabled={disabled || isPublishing || !content}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleClick();
+          }}
+          title={tooltipText}
+          aria-label={tooltipText}
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center transition-all relative shrink-0 touch-manipulation',
+            isAlreadyPublished && 'bg-emerald-500/15 border-2 border-emerald-500/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25',
+            !isAlreadyPublished && connection && 'border-2 border-primary/40 text-primary hover:bg-primary/10 hover:border-primary/70 hover:shadow-sm hover:shadow-primary/20',
+            !isAlreadyPublished && !connection && 'border border-dashed border-muted-foreground/30 text-muted-foreground/50 opacity-60 hover:opacity-80 hover:border-muted-foreground/50',
+            (disabled || isPublishing || !content) && 'pointer-events-none opacity-40',
+            className
+          )}
+        >
+          {isPublishing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ChannelIcon channel={(channel || platform || 'website') as Channel} size={14} />
+          )}
+          {isAlreadyPublished && (
+            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
+              <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+            </span>
+          )}
+        </button>
       ) : (
         <div className="flex items-center gap-1">
           {isAlreadyPublished && (
