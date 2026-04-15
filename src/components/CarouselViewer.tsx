@@ -85,6 +85,7 @@ import { CreatorCell } from '@/components/CreatorCell';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
+import { SchedulePopoverButton } from '@/components/carousel/SchedulePopoverButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
