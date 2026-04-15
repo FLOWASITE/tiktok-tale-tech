@@ -1,32 +1,27 @@
 
 
-## Lọc Kho chủ đề theo Brand hiện tại
+## Thêm bộ lọc Mục tiêu nội dung (Content Goal) cho Kho chủ đề
 
-### Vấn đề
-`useTopicHistory` trong `TopicSuggestionPanel` được gọi **không truyền `brandTemplateId`**, nên hiển thị tất cả topic của user/org bất kể brand nào. Cần lọc chỉ hiện topic thuộc brand đang chọn.
+### Hiện trạng
+- Bảng `topic_history` **đã có** cột `content_goal` (education, awareness, engagement, expertise, conversion)
+- Hook `useTopicHistory` **đã hỗ trợ** filter theo `contentGoal`
+- UI Kho chủ đề hiện chỉ có 4 tab filter (Tất cả/Chưa dùng/Yêu thích/Đã tạo) và sort — **chưa có** filter theo Content Goal
 
 ### Thay đổi
 
 **File: `src/components/TopicSuggestionPanel.tsx`**
 
-1. Truyền `brandTemplateId` vào `useTopicHistory`:
-```tsx
-const { history: topicHistory, ... } = useTopicHistory({
-  enabled: true,
-  brandTemplateId,
-});
-```
+1. **Thêm state** `historyGoalFilter` kiểu `ContentGoal | 'all'` (default `'all'`)
+2. **Thêm hàng filter Content Goal** dưới tab filter hiện tại: 5 badge nhỏ (Giáo dục, Nhận diện, Tương tác, Xây chuyên gia, Chuyển đổi) + "Tất cả", dùng icon từ `CONTENT_GOALS`
+3. **Apply filter** trong `filteredHistory` useMemo: khi `historyGoalFilter !== 'all'`, lọc thêm `item.contentGoal === historyGoalFilter`
+4. **Reset page** khi goal filter thay đổi (thêm vào useEffect reset)
+5. **Hiển thị badge Content Goal** trên mỗi topic item (list + grid view) để dễ nhận biết
 
-2. Nếu `brandTemplateId` không được truyền từ parent, fallback lấy từ `useCurrentBrand()`:
-```tsx
-import { useCurrentBrand } from '@/contexts/BrandContext';
-// ...
-const { currentBrand } = useCurrentBrand();
-const effectiveBrandId = brandTemplateId || currentBrand?.id;
-```
-
-Rồi truyền `effectiveBrandId` vào hook. Khi user đổi brand, kho chủ đề tự động cập nhật.
+### Chi tiết kỹ thuật
+- Import `CONTENT_GOALS, ContentGoal` từ `@/types/multichannel`
+- Badge style: `text-[10px]`, dùng icon 3x3, tương tự filter tabs hiện tại
+- Hiện số lượng topic theo mỗi goal trong badge (vd: "Giáo dục (12)")
 
 ### Không thay đổi
-- Database, hook `useTopicHistory` (đã hỗ trợ filter `brand_template_id` sẵn), các file khác
+- Database, hooks, các file khác
 
