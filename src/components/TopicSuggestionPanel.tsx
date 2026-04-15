@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X, Pin, List, LayoutGrid, ArrowUpDown, Download } from 'lucide-react';
+import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X, Pin, List, LayoutGrid, ArrowUpDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -138,6 +138,7 @@ export function TopicSuggestionPanel({
   const [historySortBy, setHistorySortBy] = useState<'newest' | 'oldest' | 'score' | 'az'>('newest');
   const [historyViewMode, setHistoryViewMode] = useState<'list' | 'grid'>('list');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
+  const [historyPage, setHistoryPage] = useState(1);
   const navigate = useNavigate();
 
   const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite } = useTopicHistory({
@@ -188,6 +189,18 @@ export function TopicSuggestionPanel({
 
     return items;
   }, [historyItems, historyFilter, historySearch, historySortBy]);
+
+  const ITEMS_PER_PAGE = 10;
+  const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE);
+  const paginatedHistory = useMemo(() => 
+    filteredHistory.slice((historyPage - 1) * ITEMS_PER_PAGE, historyPage * ITEMS_PER_PAGE),
+    [filteredHistory, historyPage]
+  );
+
+  // Reset page when filters change
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historyFilter, historySearch, historySortBy]);
 
   const allCount = historyItems.length;
   const unusedCount = useMemo(() => historyItems.filter(item => !['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
@@ -489,7 +502,7 @@ export function TopicSuggestionPanel({
                   ) : historyViewMode === 'grid' ? (
                     /* Grid view */
                     <div className="grid grid-cols-2 gap-1.5 p-2">
-                      {filteredHistory.map((item) => (
+                      {paginatedHistory.map((item) => (
                         <HoverCard key={item.id} openDelay={800}>
                           <HoverCardTrigger asChild>
                             <button
@@ -550,7 +563,7 @@ export function TopicSuggestionPanel({
                   ) : (
                     /* List view */
                     <div className="py-0.5">
-                      {filteredHistory.map((item) => {
+                      {paginatedHistory.map((item) => {
                         const statusBadge = getStatusBadge(item.usageStatus);
                         const score = item.performanceScore;
                         const isDeleting = deletingId === item.id;
@@ -727,6 +740,36 @@ export function TopicSuggestionPanel({
                     </div>
                   )}
                 </div>
+
+                {/* Footer with bulk actions or navigation */}
+                {/* Pagination */}
+                {totalHistoryPages > 1 && (
+                  <div className="border-t border-border/60 px-2 py-1.5 flex items-center justify-between">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      disabled={historyPage === 1}
+                      onClick={() => setHistoryPage(p => p - 1)}
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground">
+                      Trang {historyPage}/{totalHistoryPages}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      disabled={historyPage === totalHistoryPages}
+                      onClick={() => setHistoryPage(p => p + 1)}
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                )}
 
                 {/* Footer with bulk actions or navigation */}
                 <div className="border-t border-border/60 p-2">
