@@ -43,6 +43,7 @@ import {
 } from '@/types/topicDiscovery';
 import { toast } from 'sonner';
 import { QuickStartSection } from '@/components/QuickStartSection';
+import { TopicPerformancePreview } from '@/components/TopicPerformancePreview';
 import { QuickStartTemplate, ContentGoal } from '@/types/quickStartTemplates';
 
 interface TopicSuggestionPanelProps {
@@ -556,6 +557,7 @@ export function TopicSuggestionPanel({
                                 ))}
                               </div>
                             )}
+                            <TopicPerformancePreview topicHistoryId={item.id} />
                           </HoverCardContent>
                         </HoverCard>
                       ))}
@@ -733,6 +735,7 @@ export function TopicSuggestionPanel({
                                   ))}
                                 </div>
                               )}
+                              <TopicPerformancePreview topicHistoryId={item.id} />
                             </HoverCardContent>
                           </HoverCard>
                         );
