@@ -148,9 +148,9 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('refresh-google-business-token','social-oauth','Làm mới token Google Business', ['Google Business API'], []),
   fn('refresh-x-token',          'social-oauth', 'Làm mới token X/Twitter', ['X API'], []),
 
-  // ── Social Testing (legacy, routed via social-diagnostics) ──
-  fn('test-instagram-connection',   'social-test', 'Test kết nối Instagram', ['Instagram Graph API'], [], false, { optimizationStatus: 'legacy' }),
-  fn('test-instagram-credentials',  'social-test', 'Test credentials Instagram', ['Instagram Graph API'], [], false, { optimizationStatus: 'legacy' }),
+  // ── Social Testing (legacy routing via social-diagnostics) ──
+  fn('test-instagram-connection',   'social-test', 'Test kết nối Instagram', ['Instagram Login API'], [], false, { optimizationStatus: 'legacy' }),
+  fn('test-instagram-credentials',  'social-test', 'Test credentials Instagram', ['Instagram Login API'], [], false, { optimizationStatus: 'legacy' }),
   fn('test-facebook-connection',    'social-test', 'Test kết nối Facebook', ['Facebook Graph API'], [], false, { optimizationStatus: 'legacy' }),
   fn('test-facebook-credentials',   'social-test', 'Test credentials Facebook', ['Facebook Graph API'], [], false, { optimizationStatus: 'legacy' }),
   fn('test-linkedin-connection',    'social-test', 'Test kết nối LinkedIn', ['LinkedIn API'], [], false, { optimizationStatus: 'legacy' }),
