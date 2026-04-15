@@ -62,6 +62,7 @@ import GEODashboard from "@/pages/GEODashboard";
 import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
+import AppPricing from "@/pages/Pricing";
 
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
@@ -95,7 +96,7 @@ export function AppRoutes() {
       <Route path="/careers" element={<Suspense fallback={<LoadingFallback />}><Careers /></Suspense>} />
       <Route path="/blog" element={<Suspense fallback={<LoadingFallback />}><Blog /></Suspense>} />
       <Route path="/blog/:slug" element={<Suspense fallback={<LoadingFallback />}><BlogPost /></Suspense>} />
-      <Route path="/pricing" element={<Suspense fallback={<LoadingFallback />}><Pricing /></Suspense>} />
+      <Route path="/pricing" element={<ProtectedRoute><AppLayout><AppPricing /></AppLayout></ProtectedRoute>} />
       <Route path="/terms" element={<Suspense fallback={<LoadingFallback />}><TermsOfService /></Suspense>} />
       <Route path="/privacy" element={<Suspense fallback={<LoadingFallback />}><PrivacyPolicy /></Suspense>} />
 
