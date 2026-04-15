@@ -1,40 +1,41 @@
 
 
-## Xử lý lại Header CarouselViewer
+## Fix: Hiển thị đủ 5 nút publish social cho Carousel
 
 ### Vấn đề
-Từ screenshot: Header bị chật, các nút publish (Facebook "Đăng lại", Instagram "Đăng ngay", LinkedIn icon, etc.) + nút download/copy xếp cùng hàng với title → tràn, khó đọc trên mobile (707px viewport).
+`CAROUSEL_PLATFORM_CHANNELS` trong `CarouselViewer.tsx` (line 344-349) chỉ map một số channel cố định theo platform gốc của carousel. Ví dụ carousel Facebook chỉ hiện `['facebook', 'instagram']` — thiếu LinkedIn, X, TikTok.
 
-### Giải pháp: Tách header thành 3 rows rõ ràng
+### Giải pháp
+Mở rộng `CAROUSEL_PLATFORM_CHANNELS` để mọi carousel đều hiển thị đủ 5 nền tảng đã hỗ trợ: `facebook`, `instagram`, `linkedin`, `twitter`, `tiktok`. Platform gốc xếp đầu tiên.
 
-**File: `src/components/CarouselViewer.tsx` (lines 788-919)**
+### Thay đổi
 
-**Row 1** — Title + Status (giữ nguyên, bỏ action buttons ra)
+**File: `src/components/CarouselViewer.tsx` (line 344-349)**
+
+Thay:
+```typescript
+const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
+  facebook: ['facebook', 'instagram'],
+  instagram: ['instagram', 'facebook'],
+  tiktok: ['tiktok', 'instagram', 'facebook'],
+  linkedin: ['linkedin', 'facebook'],
+};
 ```
-[Title truncated...] [StatusSelector dropdown]
-[Topic subtitle]
+
+Bằng:
+```typescript
+const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
+
+// Platform gốc xếp đầu, còn lại theo thứ tự mặc định
+const getChannelsForPlatform = (platform: string): string[] => {
+  const rest = ALL_CAROUSEL_CHANNELS.filter(ch => ch !== platform);
+  return ALL_CAROUSEL_CHANNELS.includes(platform) 
+    ? [platform, ...rest] 
+    : ALL_CAROUSEL_CHANNELS;
+};
 ```
 
-**Row 2** — Publish buttons (dòng riêng, scroll ngang nếu nhiều)
-```
-[FB Đăng lại] [IG Đăng ngay] [LinkedIn Đăng ngay] [TikTok] ...
-```
-- Wrap trong `div` có `overflow-x-auto flex gap-1.5`
-- Chỉ hiện khi có `generatedImages.length > 0`
+Và cập nhật `availableChannels` useMemo dùng `getChannelsForPlatform(carousel?.platform)` thay vì lookup từ map.
 
-**Row 3** — Badges + utility buttons (download, copy, performance)
-```
-[Facebook] [6 slides] [✓ Facebook] [ⓘ Chi tiết]  ──  [📊] [⬇] [📋]
-```
-- Badges bên trái, utility icons bên phải
-
-### Chi tiết thay đổi
-
-1. Di chuyển `DirectPublishButton` ra khỏi row 1 (lines 806-839) → row 2 mới
-2. Di chuyển `TopicPerformanceUpdater`, `Download`, `Copy` buttons → row 3 (cùng dòng badges)
-3. Row 2 thêm `overflow-x-auto whitespace-nowrap` để scroll ngang khi có 4-5 channels
-4. Row 1 chỉ còn title + status selector → gọn gàng
-
-### Files thay đổi
-- `src/components/CarouselViewer.tsx` — restructure header layout (lines 788-919)
+Kết quả: tất cả carousel sẽ hiện đủ 5 nút publish (chỉ những platform có active connection mới hiện).
 
