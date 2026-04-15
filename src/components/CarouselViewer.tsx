@@ -309,7 +309,7 @@ export function CarouselViewer({
         .from('content_publishing_logs')
         .select('*')
         .eq('content_id', carousel.id)
-        .eq('action', 'published')
+        .in('action', ['published', 'publish', 'auto_publish'])
         .order('performed_at', { ascending: false });
       if (error) throw error;
       return data || [];
