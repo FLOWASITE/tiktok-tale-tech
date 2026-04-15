@@ -1,26 +1,31 @@
 
 
-## Sửa lỗi "webhookUrl: property webhookUrl should not exist"
+## Sửa lỗi màn hình trắng sau thanh toán PayOS thành công
 
 ### Nguyên nhân
-PayOS API v2 **không chấp nhận** trường `webhookUrl` trong body của request tạo payment. Webhook URL phải được cấu hình trực tiếp trên **dashboard PayOS** (https://my.payos.vn → Kênh thanh toán → Webhook URL).
+
+Có 2 vấn đề chính:
+
+1. **SPA reload chậm**: Khi PayOS redirect về app, trình duyệt tải lại toàn bộ SPA (JS bundle, auth init, route matching). Trong thời gian này, `index.html` không có loading indicator → hiện màn trắng.
+
+2. **Auth token hết hạn**: Logs cho thấy lỗi `JWT has expired` khi gọi `verify-payos-order`. Nếu user mất thời gian thanh toán, token hết hạn → ProtectedRoute chặn và redirect về `/auth` hoặc hiện skeleton lâu.
 
 ### Sửa chữa
 
-#### 1. `supabase/functions/create-payos-payment/index.ts`
-- **Xóa** dòng khai báo `webhookUrl` (dòng 256)
-- **Xóa** `webhookUrl` khỏi body gửi tới PayOS API (dòng 281)
-- Giữ nguyên checksum (checksum không bao gồm webhookUrl)
+#### 1. Thêm loading indicator vào `index.html`
+- Thêm spinner/loading text vào `<div id="root">` để hiện ngay khi browser load page, trước khi React mount.
 
-#### 2. Cấu hình webhook trên PayOS dashboard
-Bạn cần vào https://my.payos.vn → Kênh thanh toán → cài đặt Webhook URL:
-```
-https://rllyipiyuptkibqinotz.supabase.co/functions/v1/payos-webhook
-```
+#### 2. Xử lý tốt hơn tại `PaymentResult.tsx`
+- Khi URL params đã có `status=PAID` hoặc `code=00`, hiện kết quả thành công **ngay lập tức** mà không cần đợi verify.
+- Chạy verify ở background để cập nhật DB, nhưng không block UI.
+- Thêm timeout cho verify (max 10s), nếu quá thì vẫn hiện thành công dựa trên URL params.
 
-#### 3. Fallback verify vẫn hoạt động
-Trang `/payment/result` đã có logic gọi `verify-payos-order` khi user quay về — đây là backup trong trường hợp webhook chậm.
+#### 3. Sửa `verify-payos-order` — bỏ `getClaims` dùng `getUser`
+- Edge function đang dùng `getClaims()` (đã bị deprecated) gây lỗi JWT expired.
+- Chuyển sang dùng `supabase.auth.getUser(token)` theo memory pattern `edge-function-auth-pattern-vn`.
 
 ### File cần sửa
-- `supabase/functions/create-payos-payment/index.ts` — xóa 2 dòng liên quan `webhookUrl`
+- `index.html` — thêm loading placeholder
+- `src/pages/PaymentResult.tsx` — hiện success ngay từ URL params, verify chạy background
+- `supabase/functions/verify-payos-order/index.ts` — thay `getClaims` bằng `getUser`
 
