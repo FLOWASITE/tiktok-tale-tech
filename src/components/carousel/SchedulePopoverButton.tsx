@@ -7,12 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { useContentSchedules } from '@/hooks/useContentSchedules';
-import { Channel } from '@/types/multichannel';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { CalendarClock, CalendarIcon, Clock, Loader2, Check } from 'lucide-react';
 import { ChannelIcon } from '@/components/ui/channel-icon';
-import { Channel } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -105,7 +103,6 @@ export function SchedulePopoverButton({ contentId, availableChannels, connectedC
             <Label className="text-xs">Chọn kênh</Label>
             <div className="flex items-center gap-1.5">
               {availableChannels.map(ch => {
-                const Icon = CHANNEL_ICONS[ch] || CalendarClock;
                 const isConnected = connectedChannels.has(ch);
                 const isSelected = selectedChannel === ch;
                 const existingSch = schedules.find(s => s.channel === ch && s.publish_status === 'scheduled');
