@@ -580,6 +580,16 @@ export function TopicSuggestionPanel({
                                 {getCategoryIcon(item.category)}
                                 <p className="text-[10px] font-medium line-clamp-2 flex-1">{item.topic}</p>
                               </div>
+                              {(() => {
+                                const goalInfo = CONTENT_GOALS.find(g => g.value === item.contentGoal);
+                                if (!goalInfo) return null;
+                                return (
+                                  <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/10 text-primary inline-flex items-center gap-0.5 mt-1">
+                                    {createElement(goalInfo.icon, { className: "w-2.5 h-2.5" })}
+                                    {goalInfo.label}
+                                  </span>
+                                );
+                              })()}
                               <div className="flex items-center justify-between mt-1.5">
                                 {item.isPinned && <Pin className="w-2.5 h-2.5 text-primary" />}
                                 {item.isFavorite && <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
