@@ -54,17 +54,6 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
   const currentPlan = subscription?.plan_type || "free";
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
-  const getProrateInfo = (targetPlanPrice: number) => {
-    if (!subscription?.current_period_start || !subscription?.current_period_end) return null;
-    const now = new Date();
-    const periodEnd = new Date(subscription.current_period_end);
-    const periodStart = new Date(subscription.current_period_start);
-    if (periodEnd <= now) return null;
-    const daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000));
-    const daysRemaining = Math.max(1, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
-    const proratedPrice = Math.ceil(targetPlanPrice * daysRemaining / daysInPeriod);
-    return { daysRemaining, daysInPeriod, proratedPrice };
-  };
 
   const getDiscountedPrice = (price: number, planType: string) => {
     if (!appliedVoucher) return price;
@@ -267,10 +256,8 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
             {upgradablePlans.map((plan) => {
               const fullMonthlyPrice = isYearly ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
               const fullPrice = isYearly ? plan.price_yearly : plan.price_monthly;
-              const prorateInfo = getProrateInfo(fullPrice);
-              const priceBeforeDiscount = prorateInfo ? prorateInfo.proratedPrice : fullPrice;
-              const finalPrice = getDiscountedPrice(priceBeforeDiscount, plan.plan_type);
-              const hasDiscount = appliedVoucher && finalPrice < priceBeforeDiscount;
+              const finalPrice = getDiscountedPrice(fullPrice, plan.plan_type);
+              const hasDiscount = appliedVoucher && finalPrice < fullPrice;
 
               return (
                 <div key={plan.plan_type} className="rounded-xl border border-border p-5 space-y-4">
@@ -287,18 +274,6 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
                     )}
                   </div>
 
-                  {/* Proration notice */}
-                  {prorateInfo && (
-                    <div className="rounded-lg bg-accent/50 p-3 space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                        <Clock className="h-3.5 w-3.5" />
-                        Thanh toán theo ngày còn lại
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Chỉ <span className="font-semibold text-foreground">{formatPrice(prorateInfo.proratedPrice)}₫</span> cho {prorateInfo.daysRemaining} ngày còn lại
-                      </p>
-                    </div>
-                  )}
 
                   {/* Voucher discount notice */}
                   {hasDiscount && (
@@ -308,7 +283,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
                         Voucher {appliedVoucher.code}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        <span className="line-through">{formatPrice(priceBeforeDiscount)}₫</span>
+                        <span className="line-through">{formatPrice(fullPrice)}₫</span>
                         <span className="ml-1.5 font-semibold text-primary">{formatPrice(finalPrice)}₫</span>
                       </p>
                     </div>
@@ -347,15 +322,11 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
 
                   <Button
                     className="w-full"
-                    onClick={() => handleSelectPlan(plan.plan_type, fullPrice, prorateInfo, finalPrice)}
+                    onClick={() => handleSelectPlan(plan.plan_type, fullPrice, null, finalPrice)}
                     disabled={!!loadingPlan}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    {hasDiscount
-                      ? `Thanh toán ${formatPrice(finalPrice)}₫`
-                      : prorateInfo
-                        ? `Thanh toán ${formatPrice(prorateInfo.proratedPrice)}₫`
-                        : "Thanh toán qua VNPay"}
+                    Thanh toán {formatPrice(finalPrice)}₫
                   </Button>
                 </div>
               );
