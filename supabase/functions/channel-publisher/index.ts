@@ -119,22 +119,31 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           // --- Update carousels table if applicable ---
           const { data: carouselData } = await supabase
             .from('carousels')
-            .select('id, status')
+            .select('id, status, published_channels')
             .eq('id', contentId)
             .single();
 
           if (carouselData) {
+            const existingPublishedChannels = Array.isArray(carouselData.published_channels)
+              ? carouselData.published_channels.filter((value): value is string => typeof value === 'string')
+              : [];
+            const nextPublishedChannels = Array.from(new Set([...existingPublishedChannels, channelKey]));
+
             // For carousels we simply mark as published (no selected_channels tracking)
             const newCarouselStatus = 'published';
             const { error: carouselUpdateError } = await supabase
               .from('carousels')
-              .update({ status: newCarouselStatus, updated_at: new Date().toISOString() })
+              .update({
+                status: newCarouselStatus,
+                published_channels: nextPublishedChannels,
+                updated_at: new Date().toISOString(),
+              })
               .eq('id', contentId);
 
             if (carouselUpdateError) {
               console.error('[channel-publisher] Failed to update carousel status:', carouselUpdateError.message);
             } else {
-              console.log(`[channel-publisher] Updated carousels ${contentId} → ${newCarouselStatus} (${channelKey}=published)`);
+              console.log(`[channel-publisher] Updated carousels ${contentId} → ${newCarouselStatus} (${channelKey}=published, channels=${nextPublishedChannels.join(',')})`);
             }
           }
         }

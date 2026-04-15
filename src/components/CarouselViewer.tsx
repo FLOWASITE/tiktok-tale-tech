@@ -318,19 +318,21 @@ export function CarouselViewer({
     enabled: !!carousel?.id,
   });
 
-  // Derive which channels have been published
-  const publishedChannels = useMemo(() => {
-    const channels = new Set<string>();
+  // Persisted published state for carousels comes from the carousel row itself.
+  // Logs are kept as an auxiliary signal only because content_publishing_logs cannot
+  // reliably persist carousel IDs.
+  const persistedPublishedChannels = useMemo(() => {
+    const channels = new Set<string>(carousel?.published_channels || []);
     publishingLogs?.forEach((log: any) => {
       if (log.channel) channels.add(log.channel);
     });
     return channels;
-  }, [publishingLogs]);
+  }, [carousel?.published_channels, publishingLogs]);
 
   // Merge DB-derived channels with immediate local state for instant UI feedback
   const effectivePublishedChannels = useMemo(() => 
-    new Set([...Array.from(publishedChannels), ...Array.from(localPublishedChannels)]),
-    [publishedChannels, localPublishedChannels]
+    new Set([...Array.from(persistedPublishedChannels), ...Array.from(localPublishedChannels)]),
+    [persistedPublishedChannels, localPublishedChannels]
   );
 
   // Reset local published channels when carousel changes
@@ -359,6 +361,14 @@ export function CarouselViewer({
     if (!carousel) return;
 
     const timestamp = new Date().toISOString();
+    const nextPublishedChannels = Array.from(
+      new Set([
+        ...Array.from(persistedPublishedChannels),
+        ...Array.from(localPublishedChannels),
+        channel,
+      ])
+    );
+    const channelsToEvaluate = availableChannels.length > 0 ? availableChannels : [carousel.platform];
     const optimisticLog = {
       id: `local-${carousel.id}-${channel}-${timestamp}`,
       content_id: carousel.id,
@@ -382,46 +392,36 @@ export function CarouselViewer({
       return [optimisticLog, ...existing];
     });
 
-    // Persist fallback publishing log with the actual schema so reload/reopen still shows "Đã đăng"
-    try {
-      await supabase.from('content_publishing_logs').insert({
-        content_id: carousel.id,
-        channel,
-        organization_id: currentOrganization?.id ?? null,
-        action: 'published',
-        performed_by: null,
-        performed_at: timestamp,
-        details: { source: 'carousel_viewer_fallback' },
-      });
-    } catch (logErr) {
-      console.warn('Failed to write carousel publishing log (non-fatal):', logErr);
-    }
-
     // Refetch publishing logs
     queryClient.invalidateQueries({ queryKey: ['carousel-publishing-logs', carousel.id] });
 
-    // Calculate new status using effective (local + DB) channels
-    const newPublished = new Set(effectivePublishedChannels);
-    newPublished.add(channel);
-
-    const allChannelsPublished = availableChannels.length > 0 && 
-      availableChannels.every(ch => newPublished.has(ch));
+    const allChannelsPublished = channelsToEvaluate.length > 0 && 
+      channelsToEvaluate.every(ch => nextPublishedChannels.includes(ch));
     const newStatus = allChannelsPublished ? 'published' : 'partially_published';
 
     try {
       const { error } = await supabase
         .from('carousels')
-        .update({ status: newStatus, updated_at: timestamp })
+        .update({
+          status: newStatus,
+          published_channels: nextPublishedChannels,
+          updated_at: timestamp,
+        })
         .eq('id', carousel.id);
 
       if (error) throw error;
 
-      const updatedCarousel = { ...carousel, status: newStatus as CarouselStatus, updated_at: timestamp };
+      const updatedCarousel = {
+        ...carousel,
+        status: newStatus as CarouselStatus,
+        published_channels: nextPublishedChannels,
+        updated_at: timestamp,
+      };
       onCarouselUpdate?.(updatedCarousel);
     } catch (err) {
       console.error('Failed to update carousel status after publish:', err);
     }
-  }, [carousel, currentOrganization?.id, effectivePublishedChannels, availableChannels, queryClient, onCarouselUpdate]);
+  }, [carousel, currentOrganization?.id, persistedPublishedChannels, localPublishedChannels, availableChannels, queryClient, onCarouselUpdate]);
 
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -833,6 +833,7 @@ export function CarouselViewer({
                   variant="outline"
                   size="sm"
                   className="h-7 text-[10px] xs:text-xs px-2"
+                  channelStatus={effectivePublishedChannels.has(carousel.platform) ? 'published' : undefined}
                   onPublishSuccess={() => handlePublishSuccess(carousel.platform)}
                 />
               )}
