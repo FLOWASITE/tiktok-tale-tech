@@ -39,6 +39,7 @@ export function UsageQuotaWidget() {
   const { subscription, currentPlanLimits, usage, isLoading, currentPeriod } = useSubscription();
   const planBadge = getPlanBadge(subscription?.plan_type);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [addonOpen, setAddonOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -193,6 +194,15 @@ export function UsageQuotaWidget() {
             Xem chi tiết
             <ArrowUpRight className="h-3 w-3 ml-1" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setAddonOpen(true)}
+          >
+            <Package className="h-3 w-3 mr-1" />
+            Mua thêm
+          </Button>
           {hasWarning && (
             <Button
               size="sm"
@@ -206,6 +216,7 @@ export function UsageQuotaWidget() {
       </CardContent>
     </Card>
     <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+    <AddonPurchaseDialog open={addonOpen} onOpenChange={setAddonOpen} />
     </>
   );
 }
