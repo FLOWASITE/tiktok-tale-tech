@@ -351,12 +351,8 @@ export function CarouselViewer({
   };
 
   const availableChannels = useMemo(() => {
-    const platformChannels = getChannelsForPlatform(carousel?.platform || 'facebook');
-    const activeConnections = socialConnections?.filter(c => c.is_active) || [];
-    return platformChannels.filter(ch => 
-      activeConnections.some(conn => conn.platform === ch)
-    );
-  }, [carousel?.platform, socialConnections]);
+    return getChannelsForPlatform(carousel?.platform || 'facebook');
+  }, [carousel?.platform]);
 
   // onPublishSuccess handler — update UI immediately + persist publish log correctly
   const handlePublishSuccess = useCallback(async (channel: string) => {
