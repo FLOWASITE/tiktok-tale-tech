@@ -278,7 +278,7 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
         ],
         cancelUrl,
         returnUrl: clientReturnUrl,
-        webhookUrl,
+        
         signature: checksum,
       }),
     });
