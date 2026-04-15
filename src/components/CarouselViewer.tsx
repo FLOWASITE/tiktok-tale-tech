@@ -327,6 +327,17 @@ export function CarouselViewer({
     return channels;
   }, [publishingLogs]);
 
+  // Merge DB-derived channels with immediate local state for instant UI feedback
+  const effectivePublishedChannels = useMemo(() => 
+    new Set([...Array.from(publishedChannels), ...Array.from(localPublishedChannels)]),
+    [publishedChannels, localPublishedChannels]
+  );
+
+  // Reset local published channels when carousel changes
+  useEffect(() => {
+    setLocalPublishedChannels(new Set());
+  }, [carousel?.id]);
+
   // Channels available for this carousel based on platform + active connections
   const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
     facebook: ['facebook', 'instagram'],
