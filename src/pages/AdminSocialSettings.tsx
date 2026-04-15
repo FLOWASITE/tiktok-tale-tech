@@ -61,7 +61,7 @@ export default function AdminSocialSettings() {
     }
 
     if (platform === 'instagram') {
-      return 'Flow hiện tại dùng Instagram App ID/App Secret từ Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.';
+      return 'Hãy dùng Instagram App ID/App Secret từ Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.';
     }
 
     return maybeError?.message || 'Không thể test credentials';
@@ -194,13 +194,7 @@ export default function AdminSocialSettings() {
                           <p>App: <span className="text-foreground">{platformSettings.app_name}</span></p>
                         )}
                         <p>
-                          {config.platform === 'instagram'
-                            ? 'Instagram App ID'
-                            : ['facebook', 'threads', 'zalo_oa', 'google_business'].includes(config.platform)
-                              ? 'App ID'
-                              : config.platform === 'website'
-                                ? 'API URL'
-                                : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
+                          {['facebook', 'instagram', 'threads', 'zalo_oa', 'google_business'].includes(config.platform) ? 'App ID' : config.platform === 'website' ? 'API URL' : 'Consumer Key'}: <span className="font-mono text-xs">{platformSettings.consumer_key || '—'}</span>
                         </p>
                         <p>
                           Trạng thái: {platformSettings.is_active ? (
