@@ -4,6 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -56,6 +62,7 @@ interface DirectPublishButtonProps {
   className?: string;
   channelStatus?: string;
   onPublishSuccess?: () => void;
+  iconOnly?: boolean;
 }
 
 const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
