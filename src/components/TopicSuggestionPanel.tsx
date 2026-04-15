@@ -130,7 +130,7 @@ export function TopicSuggestionPanel({
   const [historyFilter, setHistoryFilter] = useState<'all' | 'unused'>('all');
   const navigate = useNavigate();
 
-  const { history: topicHistory, isLoading: historyLoading, markAsSelected } = useTopicHistory({
+  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic } = useTopicHistory({
     enabled: true,
   });
 
