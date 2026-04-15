@@ -65,7 +65,12 @@ async function verifyAuthorizeEndpoint(appId: string, redirectUri: string) {
     responseText.slice(0, 200),
   );
 
-  if (combined.includes("invalid platform app") || combined.includes("invalid_client") || combined.includes("invalid client_id")) {
+  if (
+    combined.includes("invalid platform app") ||
+    combined.includes("invalid_client") ||
+    combined.includes("invalid client_id") ||
+    combined.includes("oauth/error")
+  ) {
     throw new Error("Instagram App ID không hợp lệ hoặc app chưa bật Instagram Login.");
   }
 
