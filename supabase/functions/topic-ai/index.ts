@@ -305,6 +305,15 @@ async function handleSuggest(
   const content = result.data?.choices?.[0]?.message?.content || '';
   let suggestions = parseTopicSuggestions(content, industryInsight);
 
+  // === POST-GENERATION BRAND + GOAL FILTERING ===
+  if (brandContext && suggestions.length > 0) {
+    const beforeCount = suggestions.length;
+    suggestions = filterByBrandAndGoal(suggestions, brandContext, contentGoal || 'education');
+    if (suggestions.length < beforeCount) {
+      console.log(`[topic-ai:suggest] Brand/Goal filter: ${beforeCount} → ${suggestions.length} topics`);
+    }
+  }
+
   if (suggestions.length === 0) {
     suggestions = getDefaultSuggestions(contentGoal);
   }
