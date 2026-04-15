@@ -28,6 +28,23 @@ function decrypt(encryptedText: string, key: string): string {
   }
 }
 
+// Encrypt credentials
+function encrypt(text: string, key: string): string {
+  try {
+    const iv = randomBytes(16);
+    const keyBuffer = Buffer.alloc(32);
+    Buffer.from(key).copy(keyBuffer);
+    
+    const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch (error) {
+    console.error('Encryption error:', error);
+    return '';
+  }
+}
+
 Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) => {
   // Handle OPTIONS for CORS
   if (req.method === 'OPTIONS') {
