@@ -321,6 +321,7 @@ export default function MultiChannelCreate() {
               topicHistoryId={topicHistoryId}
               isGenerating={isGenerating}
               onFormDataChange={handleFormDataChange}
+              onTopicHistoryIdChange={(id) => setTopicHistoryId(id)}
               onGenerate={handleGenerate}
               // Step 5: Image pipeline props
               onStartImagePipeline={(channels, channelTexts, contentMeta) => {
