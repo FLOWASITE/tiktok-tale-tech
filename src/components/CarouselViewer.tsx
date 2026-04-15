@@ -811,7 +811,15 @@ export function CarouselViewer({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               {carousel.slide_count} slides
             </Badge>
-            {/* Detail popover for secondary info */}
+            {publishedChannels.size > 0 && (
+              <>
+                {Array.from(publishedChannels).map(ch => (
+                  <Badge key={ch} variant="default" className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
+                    ✓ {platformLabels[ch] || ch}
+                  </Badge>
+                ))}
+              </>
+            )}
             <Popover>
               <PopoverTrigger asChild>
                 <button className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1 py-0.5 rounded hover:bg-muted/50">
