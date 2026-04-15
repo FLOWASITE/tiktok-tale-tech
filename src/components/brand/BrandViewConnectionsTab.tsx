@@ -354,11 +354,37 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         body: { action: 'test-connection', platform: diagPlatform, connectionId },
       });
 
-      if (error || !data?.success) {
-        throw new Error(data?.error || error?.message || 'Không thể xác minh kết nối');
+      // Parse error context from FunctionsHttpError if available
+      let errorBody: any = null;
+      if (error) {
+        try {
+          // supabase-js wraps non-2xx responses; try to extract the JSON body
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') {
+            errorBody = await ctx.json();
+          } else if (typeof error.message === 'string') {
+            errorBody = JSON.parse(error.message);
+          }
+        } catch {
+          // ignore parse failures
+        }
       }
 
-      const displayName = data.data?.username || data.data?.name || data.data?.oa_name || 'Tài khoản';
+      const resolved = errorBody || data;
+
+      // Handle transient errors gracefully — don't mark as a failure
+      if (resolved?.transient) {
+        toast.warning('Instagram đang gặp sự cố tạm thời', {
+          description: 'Vui lòng thử lại sau 1-2 phút. Kết nối của bạn vẫn hợp lệ.',
+        });
+        return;
+      }
+
+      if (error || !resolved?.success) {
+        throw new Error(resolved?.error || error?.message || 'Không thể xác minh kết nối');
+      }
+
+      const displayName = resolved.data?.username || resolved.data?.name || resolved.data?.oa_name || 'Tài khoản';
       toast.success('Xác minh thành công!', {
         description: `Đã kết nối với ${displayName}`,
       });
