@@ -5,6 +5,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const jsonHeaders = {
+  ...corsHeaders,
+  'Content-Type': 'application/json',
+};
+
+function respond(payload: Record<string, unknown>) {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: jsonHeaders,
+  });
+}
+
+function parseJson<T>(value: string): T | null {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Consolidated social diagnostics — single entry point for all connection tests.
  * Routes to the appropriate test function via internal fetch.
@@ -34,13 +54,10 @@ Deno.serve(withPerf({ functionName: 'social-diagnostics' }, async (req) => {
 
     const functionName = resolveFunctionName(action, platform);
     if (!functionName) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Invalid action/platform: ${action}/${platform}. Supported actions: test-connection, test-credentials. Platforms: ${PLATFORM_NAMES.join(', ')}`,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return respond({
+        success: false,
+        error: `Invalid action/platform: ${action}/${platform}. Supported actions: test-connection, test-credentials. Platforms: ${PLATFORM_NAMES.join(', ')}`,
+      });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -60,19 +77,39 @@ Deno.serve(withPerf({ functionName: 'social-diagnostics' }, async (req) => {
     });
 
     const responseBody = await response.text();
+    const parsedBody = parseJson<Record<string, unknown>>(responseBody);
 
-    return new Response(responseBody, {
-      status: response.status,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      },
-    });
-  } catch (error: any) {
-    console.error('[social-diagnostics] error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message || 'Internal routing error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    // Always return 200 so supabase-js does not turn upstream diagnostic
+    // failures into FunctionsHttpError and hide the JSON payload from the UI.
+    if (parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody)) {
+      return respond(
+        response.ok
+          ? parsedBody
+          : {
+              ...parsedBody,
+              upstream_status: response.status,
+            }
+      );
+    }
+
+    return respond(
+      response.ok
+        ? {
+            success: true,
+            data: responseBody || null,
+          }
+        : {
+            success: false,
+            error: responseBody || `Upstream function ${functionName} failed`,
+            upstream_status: response.status,
+          }
     );
+  } catch (error: unknown) {
+    console.error('[social-diagnostics] error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal routing error';
+    return respond({
+      success: false,
+      error: errorMessage,
+    });
   }
 }));
