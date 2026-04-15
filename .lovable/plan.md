@@ -1,60 +1,27 @@
-## Nâng cấp chức năng Kho chủ đề
 
-### Hiện trạng
 
-Popover "Kho chủ đề" hiện có: search, 4 filter tabs (Tất cả/Chưa dùng/Yêu thích/Đã tạo), danh sách với hover actions (star/reuse/delete), và link sang Kho Ý Tưởng. Thiếu nhiều chức năng quản lý nâng cao.
+## Thêm phân trang (Pagination) cho Kho chủ đề
 
-### Các cải tiến mới
+### Thay đổi
 
-**1. Sắp xếp (Sort)**
-
-- Thêm dropdown sort bên cạnh search: Mới nhất, Cũ nhất, Điểm cao nhất, A-Z
-- Default: Mới nhất (hiện tại)
-
-**2. Hiển thị 2 chế độ: List / Compact Grid**
-
-- Toggle nhỏ (List/Grid icon) ở header
-- Grid mode: hiển thị dạng tag cards nhỏ gọn, 2 cột, chỉ topic + category icon + star
-- List mode: giữ nguyên layout hiện tại
-
-**3. Thống kê mini ở header**
-
-- Bar nhỏ hiển thị: tỷ lệ đã dùng / chưa dùng dưới dạng progress bar mỏng
-- Tooltip chi tiết khi hover
-
-**4. Bulk actions**
-
-- Checkbox nhỏ hiện khi hover bên trái mỗi item
-- Khi có item được chọn: hiện thanh actions ở footer (Xóa hàng loạt, Đánh dấu yêu thích hàng loạt)
-
-**5. Drag to reorder / Pin to top**
-
-- Nút "Pin" trong hover actions — đẩy topic lên đầu danh sách
-- Pinned items hiển thị với icon pin nhỏ, luôn ở trên cùng
-
-**6. Quick preview on hover**
-
-- Khi hover vào topic > 1s: hiện tooltip mở rộng với reasoning, full keywords, scores breakdown
-- Không cần click vào để xem chi tiết
-
-&nbsp;
-
-### Files thay đổi
-
-- `src/components/TopicSuggestionPanel.tsx` — Toàn bộ popover section (lines 275-517)
-- `src/hooks/useTopicHistory.ts` — Thêm `pinTopic`, `bulkDelete`, `bulkToggleFavorite` methods
+Thêm pagination vào popover Kho chủ đề, hiển thị 10 items/trang với điều hướng ở footer.
 
 ### Chi tiết kỹ thuật
 
-- Sort: thêm state `historySortBy` với useMemo sort trên `filteredHistory`
-- View mode: state `historyViewMode: 'list' | 'grid'`
-- Bulk select: state `selectedHistoryIds: Set<string>`, checkbox toggle per item
-- Pin: update `topic_history` row với field `is_pinned` (cần migration thêm column `is_pinned boolean default false`)
-- Quick preview: `HoverCard` từ radix-ui (đã có trong project) với delay 800ms
-  &nbsp;
+**File: `src/components/TopicSuggestionPanel.tsx`**
 
-### Database migration
+1. **Thêm state**: `historyPage` (default 1), reset về 1 khi filter/search/sort thay đổi
+2. **Tính toán phân trang**:
+   - `ITEMS_PER_PAGE = 10`
+   - `totalPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE)`
+   - `paginatedHistory = filteredHistory.slice((page-1)*10, page*10)`
+3. **Render `paginatedHistory`** thay vì `filteredHistory` trong cả list view và grid view (lines 492, 553)
+4. **UI pagination ở footer** (line 732, trước bulk actions):
+   - Khi `totalPages > 1`: hiển thị row với nút Prev/Next + "Trang X/Y"
+   - Nút Previous/Next dùng `ChevronLeft`/`ChevronRight` icon, disable khi ở đầu/cuối
+   - Style nhỏ gọn phù hợp popover: `text-[10px]`, `h-6` buttons
+5. **Reset page**: Thêm `useEffect` reset `historyPage = 1` khi `historyFilter`, `historySearch`, `historySortBy` thay đổi
 
-```sql
-ALTER TABLE public.topic_history ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false;
-```
+### Không thay đổi
+- Database, hook logic, hoặc file khác
+
