@@ -313,6 +313,22 @@ export function CarouselViewer({
   });
   const queryClient = useQueryClient();
 
+  // Set of channels that have an active social connection
+  const connectedChannelSet = useMemo(() => {
+    const CHANNEL_TO_PLATFORM: Record<string, string> = {
+      facebook: 'facebook', instagram: 'instagram', linkedin: 'linkedin',
+      twitter: 'twitter', tiktok: 'tiktok',
+    };
+    const set = new Set<string>();
+    for (const ch of ALL_CAROUSEL_CHANNELS) {
+      const platform = CHANNEL_TO_PLATFORM[ch];
+      if (platform && socialConnections?.some((c: any) => c.platform === platform && c.status === 'active')) {
+        set.add(ch);
+      }
+    }
+    return set;
+  }, [socialConnections]);
+
   // Publishing logs for this carousel — track per-channel status
   const { data: publishingLogs } = useQuery({
     queryKey: ['carousel-publishing-logs', carousel?.id],
