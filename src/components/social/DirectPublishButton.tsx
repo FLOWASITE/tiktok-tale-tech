@@ -124,6 +124,7 @@ export function DirectPublishButton({
   className,
   channelStatus,
   onPublishSuccess,
+  iconOnly = false,
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
