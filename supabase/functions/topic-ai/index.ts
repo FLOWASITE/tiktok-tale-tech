@@ -1398,6 +1398,7 @@ function buildSuggestPrompts(params: {
     mandatoryBrandSection = `
 ## 🔒 MANDATORY BRAND ALIGNMENT (ĐỌC TRƯỚC MỌI THỨ)
 Thương hiệu: "${brandContext.brandName}"
+Ngành: "${brandContext.industry?.join(', ') || 'Chưa xác định'}"
 ${uvp ? `USP: "${uvp}"` : ''}
 ${pillars.length ? `Content Pillars: ${pillars.join(', ')}` : ''}
 ${products.length ? `Sản phẩm/dịch vụ: ${products.join(', ')}` : ''}
@@ -1405,16 +1406,17 @@ ${painPoints.length ? `Pain points khách hàng: ${painPoints.join('; ')}` : ''}
 ${desires.length ? `Desires khách hàng: ${desires.join('; ')}` : ''}
 ${evergreenThemes.length ? `Chủ đề evergreen: ${evergreenThemes.join(', ')}` : ''}
 
-### QUY TẮC KHÓA BRAND:
-- MỌI topic PHẢI liên quan TRỰC TIẾP đến sản phẩm/dịch vụ, chuyên môn hoặc content pillars của "${brandContext.brandName}"
-- CẤM topic chỉ "đúng ngành" nhưng KHÔNG gắn được với offerings cụ thể của Brand
-- CẤM topic trend chung chung nếu không nối được về sản phẩm/dịch vụ/góc chuyên môn của Brand
-- Mỗi topic PHẢI trả lời được: "Điều này giúp ${brandContext.brandName} bán/giáo dục/kết nối khách hàng thế nào?"
+### QUY TẮC KHÓA BRAND (KHÔNG ĐƯỢC VI PHẠM):
+1. MỌI topic PHẢI thuộc ngành "${brandContext.industry?.join(', ') || ''}" — CẤM tạo topic ngành khác
+2. MỌI topic PHẢI liên quan TRỰC TIẾP đến sản phẩm/dịch vụ, chuyên môn hoặc content pillars của "${brandContext.brandName}"
+3. CẤM topic chỉ "đúng ngành" nhưng KHÔNG gắn được với offerings cụ thể của Brand
+4. CẤM topic trend chung chung nếu không nối được về sản phẩm/dịch vụ/góc chuyên môn của Brand
+5. Mỗi topic PHẢI trả lời được: "Điều này giúp ${brandContext.brandName} bán/giáo dục/kết nối khách hàng thế nào?"
 
-### VÍ DỤ ĐÚNG/SAI:
+### VÍ DỤ ĐÚNG/SAI cho "${brandContext.brandName}" (ngành ${brandContext.industry?.[0] || ''}):
 ${products.length ? `✅ ĐÚNG: Topic liên quan "${products[0]}" — nối trực tiếp về sản phẩm Brand
-❌ SAI: Topic chung về ngành mà không nhắc đến sản phẩm/dịch vụ cụ thể của "${brandContext.brandName}"` : `✅ ĐÚNG: Topic xoay quanh content pillars: ${pillars.slice(0, 2).join(', ')}
-❌ SAI: Topic chung ngành mà không gắn với chuyên môn đặc thù của Brand`}
+❌ SAI: Topic về ngành khác hoàn toàn (ví dụ: thuế, kế toán, bất động sản... nếu Brand không thuộc ngành đó)` : `✅ ĐÚNG: Topic xoay quanh ngành ${brandContext.industry?.[0] || ''} và chuyên môn của ${brandContext.brandName}
+❌ SAI: Topic về ngành khác hoàn toàn không liên quan đến "${brandContext.industry?.[0] || ''}"`}
 `;
   }
 
