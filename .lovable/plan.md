@@ -1,52 +1,52 @@
-<final-text>## Sửa triệt để lỗi Kho chủ đề chưa lưu/cập nhật topic mới
 
-### Mình đã xác định đúng nguyên nhân
-- Backend tạo topic vẫn chạy, và Kho hiện đã lọc đúng theo Brand hiện tại.
-- Vấn đề chính nằm ở frontend:
-  1. `useTopicAI` có hàm `autoSaveSuggestions`, nhưng hiện không được gọi ở đâu nên nhiều topic mới chỉ hiện trên UI chứ chưa được lưu vào `topic_history`.
-  2. `TopicSuggestionPanel` chỉ refetch Kho khi `suggestions.length` thay đổi. AI thường vẫn trả cùng 8 topic, nên refresh ra batch mới nhưng Kho không cập nhật.
-  3. Logic chống trùng đang quá rộng: chỉ check theo `topic + organization`, chưa theo `brand_template_id / content_goal / format`, nên có thể chặn lưu sai cho Brand hiện tại.
 
-### Phạm vi sửa
-1. `src/hooks/ai/useTopicAI.ts`
-- Gọi auto-save ngay sau khi fetch suggestions thành công.
-- Chỉ lưu các topic thật sự mới trong đúng ngữ cảnh hiện tại.
-- Reset `autoSavedTopicsRef` khi đổi `brandTemplateId`, `contentGoal`, hoặc `format`.
-- Siết dedupe theo:
-  - `organization_id`
-  - `brand_template_id`
-  - `content_goal`
-  - `format`
+## Sửa lỗi thanh toán PayOS và màn hình trắng
 
-2. `src/components/TopicSuggestionPanel.tsx`
-- Bỏ trigger refresh theo `suggestions.length`.
-- Đổi sang trigger theo nội dung batch topic mới hoặc theo tín hiệu save thành công, để cùng 8 topic nhưng khác nội dung vẫn refetch Kho.
-- Giữ delay ngắn sau save để tránh refetch trước khi insert xong.
+### Vấn đề 1: PayOS lỗi 214 (cổng tạm dừng)
+PayOS vẫn trả mã lỗi `214: "Cổng thanh toán không tồn tại hoặc đã tạm dừng"` ngay cả sau khi cập nhật credentials. Đây là lỗi từ phía PayOS — cổng thanh toán cần được **kích hoạt (Active)** trên dashboard PayOS tại https://my.payos.vn.
 
-3. Đồng bộ tín hiệu save giữa hook và UI
-- Nếu cần, truyền `autoSavedCount` xuống panel để chỉ refresh khi save thành công thật sự.
-- Chỗ này có thể cần nối thêm qua các component đang bọc panel.
+**Bạn cần kiểm tra trên PayOS dashboard:**
+- Đăng nhập → Cổng thanh toán → Đảm bảo trạng thái là "Hoạt động"
+- Nếu đang ở chế độ "Test", cần bật cổng test
 
-### Kết quả mong đợi
-- Refresh ra topic mới thì Kho chủ đề cũng lưu và cập nhật ngay.
-- Batch mới vẫn 8 topic nhưng khác nội dung thì Kho vẫn refetch đúng.
-- Topic trùng text ở Brand khác không còn chặn lưu vào Brand hiện tại.
-- Kho tiếp tục chỉ hiển thị topic của Brand đang chọn.
+### Vấn đề 2: Màn hình trắng khi thanh toán lỗi
+
+**Nguyên nhân:** Edge function `create-payos-payment` trả `status: 500` khi PayOS lỗi. `supabase.functions.invoke` ném exception, nhưng UI có thể crash nếu error object không có `.message` chuẩn.
+
+**Sửa:**
+
+1. **`supabase/functions/create-payos-payment/index.ts`** (dòng 283-290):
+   - Khi PayOS trả lỗi, đổi từ `status: 500` thành `status: 200` kèm `{ error: ..., errorCode: 'GATEWAY_ERROR' }`.
+   - Giúp frontend nhận `data` thay vì `error`, tránh crash.
+
+2. **`src/components/UpgradePlanDialog.tsx`** (dòng 176-184):
+   - Sau `supabase.functions.invoke`, kiểm tra `data?.error` trước khi đọc `payment_url`.
+   - Nếu `data.error` tồn tại, hiện toast lỗi thay vì crash.
+
+3. **`src/pages/Pricing.tsx`**: Áp dụng cùng pattern xử lý lỗi.
 
 ### Chi tiết kỹ thuật
-- Không cần đổi database.
-- File chắc chắn cần sửa:
-  - `src/hooks/ai/useTopicAI.ts`
-  - `src/components/TopicSuggestionPanel.tsx`
-- Có thể cần sửa thêm nếu truyền tín hiệu save xuống UI:
-  - `src/components/MultiChannelForm.tsx`
-  - `src/components/topic/TopicIdeaHub.tsx`
-  - các form khác dùng cùng panel để fix đồng bộ toàn app
 
-### QA sau khi làm
-- Vào `/multichannel/new`, chọn 1 Brand.
-- Ghi lại số topic hiện có trong Kho.
-- Refresh 2-3 lần để sinh batch mới, kể cả khi mỗi batch vẫn cùng số lượng.
-- Kiểm tra Kho tăng thêm đúng các topic mới vừa sinh.
-- Đổi sang Brand khác trong cùng workspace để chắc dedupe không chặn chéo Brand.
-- Quay lại Brand cũ và xác nhận Kho chỉ hiện topic của Brand đó.</final-text>
+```typescript
+// Edge function: trả 200 thay vì 500 cho lỗi PayOS
+if (payosResult.code !== '00') {
+  return new Response(JSON.stringify({ 
+    error: payosResult.desc || 'Không thể tạo link thanh toán',
+    errorCode: 'GATEWAY_ERROR',
+  }), {
+    status: 200,  // thay vì 500
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+// Frontend: check data.error
+const { data, error } = await supabase.functions.invoke(functionName, { body });
+if (error) throw error;
+if (data?.error) throw new Error(data.error);
+```
+
+### File cần sửa
+- `supabase/functions/create-payos-payment/index.ts`
+- `src/components/UpgradePlanDialog.tsx`
+- `src/pages/Pricing.tsx`
+
