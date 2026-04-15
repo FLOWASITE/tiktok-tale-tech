@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { Channel } from '@/types/multichannel';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { CalendarClock, CalendarIcon, Clock, Loader2, Check } from 'lucide-react';
