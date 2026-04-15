@@ -131,7 +131,6 @@ export function TopicSuggestionPanel({
   const navigate = useNavigate();
 
   const { history: topicHistory, isLoading: historyLoading, markAsSelected } = useTopicHistory({
-    brandTemplateId,
     enabled: true,
   });
 
