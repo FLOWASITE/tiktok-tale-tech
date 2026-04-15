@@ -194,6 +194,7 @@ export function CarouselViewer({
 }: CarouselViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [localPublishedChannels, setLocalPublishedChannels] = useState<Set<string>>(new Set());
   const [copiedCta, setCopiedCta] = useState(false);
   const [copiedCaptionAll, setCopiedCaptionAll] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
@@ -326,6 +327,17 @@ export function CarouselViewer({
     return channels;
   }, [publishingLogs]);
 
+  // Merge DB-derived channels with immediate local state for instant UI feedback
+  const effectivePublishedChannels = useMemo(() => 
+    new Set([...Array.from(publishedChannels), ...Array.from(localPublishedChannels)]),
+    [publishedChannels, localPublishedChannels]
+  );
+
+  // Reset local published channels when carousel changes
+  useEffect(() => {
+    setLocalPublishedChannels(new Set());
+  }, [carousel?.id]);
+
   // Channels available for this carousel based on platform + active connections
   const CAROUSEL_PLATFORM_CHANNELS: Record<string, string[]> = {
     facebook: ['facebook', 'instagram'],
@@ -346,6 +358,9 @@ export function CarouselViewer({
   const handlePublishSuccess = useCallback(async (channel: string) => {
     if (!carousel) return;
     
+    // Immediately update local state for instant UI feedback
+    setLocalPublishedChannels(prev => new Set([...Array.from(prev), channel]));
+    
     // Write a fallback publishing log entry so carousel-publishing-logs query picks it up
     try {
       await supabase.from('content_publishing_logs').insert({
@@ -362,8 +377,8 @@ export function CarouselViewer({
     // Refetch publishing logs
     queryClient.invalidateQueries({ queryKey: ['carousel-publishing-logs', carousel.id] });
 
-    // Calculate new status
-    const newPublished = new Set(publishedChannels);
+    // Calculate new status using effective (local + DB) channels
+    const newPublished = new Set(effectivePublishedChannels);
     newPublished.add(channel);
     
     const allChannelsPublished = availableChannels.length > 0 && 
@@ -383,7 +398,7 @@ export function CarouselViewer({
     } catch (err) {
       console.error('Failed to update carousel status after publish:', err);
     }
-  }, [carousel, publishedChannels, availableChannels, queryClient, onCarouselUpdate]);
+  }, [carousel, effectivePublishedChannels, availableChannels, queryClient, onCarouselUpdate]);
 
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -779,7 +794,7 @@ export function CarouselViewer({
                       variant="outline"
                       size="sm"
                       className="h-7 text-[10px] xs:text-xs px-2"
-                      channelStatus={publishedChannels.has(channel) ? 'published' : undefined}
+                      channelStatus={effectivePublishedChannels.has(channel) ? 'published' : undefined}
                       onPublishSuccess={() => handlePublishSuccess(channel)}
                     />
                   ))}
@@ -824,9 +839,9 @@ export function CarouselViewer({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               {carousel.slide_count} slides
             </Badge>
-            {publishedChannels.size > 0 && (
+            {effectivePublishedChannels.size > 0 && (
               <>
-                {Array.from(publishedChannels).map(ch => (
+                {Array.from(effectivePublishedChannels).map(ch => (
                   <Badge key={ch} variant="default" className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-700">
                     ✓ {platformLabels[ch] || ch}
                   </Badge>
