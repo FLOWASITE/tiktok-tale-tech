@@ -284,7 +284,7 @@ export function TopicSuggestionPanel({
                   Đã tạo
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-0">
+              <PopoverContent align="end" className="w-[40rem] p-0">
                 {/* Header with search */}
                 <div className="p-2.5 border-b border-border/60 space-y-2">
                   <div className="flex items-center justify-between">
