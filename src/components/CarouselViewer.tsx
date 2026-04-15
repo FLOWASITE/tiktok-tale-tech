@@ -75,6 +75,7 @@ import { CreatorCell } from '@/components/CreatorCell';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
+import { SchedulePopoverButton } from '@/components/carousel/SchedulePopoverButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
@@ -302,6 +303,25 @@ export function CarouselViewer({
   });
   const queryClient = useQueryClient();
 
+  // Channels available for this carousel based on platform + active connections
+  const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
+
+  // Set of channels that have an active social connection
+  const connectedChannelSet = useMemo(() => {
+    const CHANNEL_TO_PLATFORM: Record<string, string> = {
+      facebook: 'facebook', instagram: 'instagram', linkedin: 'linkedin',
+      twitter: 'twitter', tiktok: 'tiktok',
+    };
+    const set = new Set<string>();
+    for (const ch of ALL_CAROUSEL_CHANNELS) {
+      const platform = CHANNEL_TO_PLATFORM[ch];
+      if (platform && socialConnections?.some((c: any) => c.platform === platform && c.status === 'active')) {
+        set.add(ch);
+      }
+    }
+    return set;
+  }, [socialConnections]);
+
   // Publishing logs for this carousel — track per-channel status
   const { data: publishingLogs } = useQuery({
     queryKey: ['carousel-publishing-logs', carousel?.id],
@@ -341,8 +361,6 @@ export function CarouselViewer({
     setLocalPublishedChannels(new Set());
   }, [carousel?.id]);
 
-  // Channels available for this carousel based on platform + active connections
-  const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
 
   const getChannelsForPlatform = (platform: string): string[] => {
     const rest = ALL_CAROUSEL_CHANNELS.filter(ch => ch !== platform);
@@ -819,21 +837,12 @@ export function CarouselViewer({
                   />
                 ))}
               </div>
-              <div className="h-5 w-px bg-border shrink-0" />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-[10px] xs:text-xs px-2 shrink-0 gap-1"
-                onClick={() => {
-                  // Open schedule for the primary platform
-                  const primaryChannel = availableChannels[0] || carousel.platform;
-                  const btn = document.querySelector(`[data-schedule-channel="${primaryChannel}"]`);
-                  if (btn) (btn as HTMLButtonElement).click();
-                }}
-              >
-                <CalendarClock className="w-3 h-3" />
-                <span className="hidden xs:inline">Lên lịch</span>
-              </Button>
+               <div className="h-5 w-px bg-border shrink-0" />
+              <SchedulePopoverButton
+                contentId={carousel.id}
+                availableChannels={availableChannels.length > 0 ? availableChannels : [carousel.platform]}
+                connectedChannels={connectedChannelSet}
+              />
             </div>
           )}
 
