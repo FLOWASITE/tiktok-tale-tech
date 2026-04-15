@@ -19,8 +19,8 @@ export function PricingSection() {
     },
     {
       key: "starter",
-      monthlyPrice: 299000,
-      yearlyPrice: 2990000,
+      monthlyPrice: 10000,
+      yearlyPrice: 15000,
       popular: false,
     },
     {
