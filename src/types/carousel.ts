@@ -1,6 +1,6 @@
 export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'linkedin';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
-export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
+export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published' | 'partially_published';
 export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
 export type VisualPresetType = 'minimalist' | 'flat_design' | 'gradient' | 'geometric' | 'illustration' | 'product_only';
 
@@ -72,6 +72,7 @@ export const CAROUSEL_STATUS_CONFIG: Record<CarouselStatus, { label: string; var
   draft: { label: 'Nháp', variant: 'secondary' },
   review: { label: 'Chờ duyệt', variant: 'outline' },
   approved: { label: 'Đã duyệt', variant: 'default' },
+  partially_published: { label: 'Đăng một phần', variant: 'outline' },
   published: { label: 'Đã đăng', variant: 'default' },
 };
 
