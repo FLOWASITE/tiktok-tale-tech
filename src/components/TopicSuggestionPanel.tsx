@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, createElement } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef, createElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X, Pin, List, LayoutGrid, ArrowUpDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -148,10 +148,21 @@ export function TopicSuggestionPanel({
   const { currentBrand } = useCurrentBrand();
   const effectiveBrandId = brandTemplateId || currentBrand?.id;
 
-  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite } = useTopicHistory({
+  const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite, refresh: refreshHistory } = useTopicHistory({
     enabled: true,
     brandTemplateId: effectiveBrandId,
   });
+
+  // Refresh history when new suggestions are loaded (auto-saved by useTopicAI)
+  const prevSuggestionsLengthRef = useRef(suggestions.length);
+  useEffect(() => {
+    if (suggestions.length > 0 && suggestions.length !== prevSuggestionsLengthRef.current) {
+      // Delay to let auto-save complete before refetching
+      const timer = setTimeout(() => refreshHistory(), 2000);
+      prevSuggestionsLengthRef.current = suggestions.length;
+      return () => clearTimeout(timer);
+    }
+  }, [suggestions.length, refreshHistory]);
 
   const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
 
