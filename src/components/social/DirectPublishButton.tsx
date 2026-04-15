@@ -386,13 +386,11 @@ export function DirectPublishButton({
     );
   }
 
-  // ===== ICON-ONLY MODE =====
-  if (iconOnly) {
-    const tooltipText = isAlreadyPublished
-      ? `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Đã đăng ✓`
-      : connection
-        ? `Đăng lên ${PLATFORM_DISPLAY_NAMES[platform!] || platform}`
-        : `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Chưa kết nối`;
+  const tooltipText = isAlreadyPublished
+    ? `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Đã đăng ✓`
+    : connection
+      ? `Đăng lên ${PLATFORM_DISPLAY_NAMES[platform!] || platform}`
+      : `${PLATFORM_DISPLAY_NAMES[platform!] || platform} — Chưa kết nối`;
 
   return (
     <>
