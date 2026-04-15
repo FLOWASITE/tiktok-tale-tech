@@ -83,59 +83,57 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
       throw new Error('Instagram App ID và Instagram App Secret là bắt buộc');
     }
 
-    console.log('Testing Instagram credentials...');
+    const maskedId = appId.slice(0, 4) + '****' + appId.slice(-4);
+    console.log(`Testing Instagram credentials... appId=${maskedId}, secretLen=${appSecret.length}`);
 
-    // For Instagram Login flow, the credentials are Instagram App ID/Secret
-    // We test by constructing an app access token and querying the Facebook Graph API
-    // The Instagram App ID is actually a Facebook App ID internally
-    const appAccessToken = `${appId}|${appSecret}`;
+    // Use OAuth client_credentials grant — works for both Facebook App ID and Instagram App ID
+    const tokenUrl = new URL('https://graph.facebook.com/v24.0/oauth/access_token');
+    tokenUrl.searchParams.set('client_id', appId);
+    tokenUrl.searchParams.set('client_secret', appSecret);
+    tokenUrl.searchParams.set('grant_type', 'client_credentials');
 
-    const testResponse = await fetch(
-      `https://graph.facebook.com/v24.0/${appId}?access_token=${appAccessToken}&fields=id,name`,
-      { method: 'GET' }
-    );
-
+    const testResponse = await fetch(tokenUrl.toString(), { method: 'GET' });
     const responseText = await testResponse.text();
-    console.log('Instagram/Facebook API Response:', testResponse.status);
+    console.log('Meta OAuth token response:', testResponse.status, responseText.slice(0, 200));
 
     if (!testResponse.ok) {
+      let detail = '';
       try {
         const errorData = JSON.parse(responseText);
-        const apiMessage = errorData.error?.message as string | undefined;
+        detail = errorData.error?.message || '';
+      } catch { /* ignore parse errors */ }
 
-        if (apiMessage) {
-          const isCredentialError =
-            errorData.error?.code === 190 ||
-            errorData.error?.code === 101 ||
-            /app id|app secret|application|oauth/i.test(apiMessage);
+      throw new Error(
+        `App ID hoặc App Secret không hợp lệ (HTTP ${testResponse.status}). ` +
+        (detail ? `Meta API: ${detail}. ` : '') +
+        `Hãy kiểm tra tại Meta App Dashboard → Settings → Basic.`
+      );
+    }
 
-          if (isCredentialError) {
-            throw new Error('Instagram App ID hoặc App Secret không hợp lệ. Hãy lấy từ Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.');
-          }
-
-          throw new Error(`Meta API: ${apiMessage}`);
-        }
-      } catch (e) {
-        if (e instanceof Error && (e.message.startsWith('Meta API:') || e.message.startsWith('Instagram App ID'))) throw e;
+    // Token received — now fetch app info to confirm
+    let appName = 'Unknown';
+    try {
+      const tokenData = JSON.parse(responseText);
+      const infoRes = await fetch(
+        `https://graph.facebook.com/v24.0/${appId}?access_token=${tokenData.access_token}&fields=id,name`
+      );
+      if (infoRes.ok) {
+        const info = await infoRes.json();
+        appName = info.name || appName;
       }
-      throw new Error(`Instagram credentials không hợp lệ (HTTP ${testResponse.status}). Kiểm tra Instagram App ID/Secret trong Business login settings.`);
-    }
+    } catch { /* non-critical */ }
 
-    const appData = JSON.parse(responseText);
-
-    if (!appData.id) {
-      throw new Error('Unexpected response from Meta API');
-    }
+    console.log('Instagram credentials verified successfully!', appName);
 
     console.log('Instagram credentials verified successfully!', appData.name);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Instagram API credentials hợp lệ! ✓',
+        message: `Instagram credentials hợp lệ! App: ${appName} ✓`,
         details: {
-          appId: appData.id,
-          appName: appData.name,
+          appId: maskedId,
+          appName,
           platform: 'instagram',
           note: 'Đảm bảo App đã thêm Instagram Product và cấu hình Business login settings',
         },
