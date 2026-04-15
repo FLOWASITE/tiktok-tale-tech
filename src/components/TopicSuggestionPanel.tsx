@@ -143,9 +143,12 @@ export function TopicSuggestionPanel({
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<Set<string>>(new Set());
   const [historyPage, setHistoryPage] = useState(1);
   const navigate = useNavigate();
+  const { currentBrand } = useCurrentBrand();
+  const effectiveBrandId = brandTemplateId || currentBrand?.id;
 
   const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic, toggleFavorite, deleteTopic, pinTopic, bulkDelete, bulkToggleFavorite } = useTopicHistory({
     enabled: true,
+    brandTemplateId: effectiveBrandId,
   });
 
   const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
