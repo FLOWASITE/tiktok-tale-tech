@@ -315,7 +315,12 @@ export function CarouselViewer({
     const set = new Set<string>();
     for (const ch of ALL_CAROUSEL_CHANNELS) {
       const platform = CHANNEL_TO_PLATFORM[ch];
-      if (platform && socialConnections?.some((c: any) => c.platform === platform && c.status === 'active')) {
+      if (
+        platform &&
+        socialConnections?.some(
+          (c: any) => c.platform?.toLowerCase() === platform && c.is_active,
+        )
+      ) {
         set.add(ch);
       }
     }
