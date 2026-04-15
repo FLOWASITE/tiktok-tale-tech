@@ -1,41 +1,32 @@
 
-
-## Fix: Không chọn được kênh trên mobile trong SchedulePopoverButton
+## Fix: Không bấm được các social icon khoanh đỏ trên mobile
 
 ### Nguyên nhân
-Mỗi channel button được wrap trong `TooltipProvider > Tooltip > TooltipTrigger`. Trên mobile (touch), Radix Tooltip intercept sự kiện touch đầu tiên để hiện tooltip → `onClick` của button bên trong không fire.
+- Lỗi đang nằm ở `src/components/social/DirectPublishButton.tsx`, không phải `SchedulePopoverButton`.
+- Ở chế độ `iconOnly`, mỗi social button vẫn còn bọc bởi `TooltipProvider > Tooltip > TooltipTrigger`.
+- Trên mobile, Tooltip bắt touch event trước nên `onClick={handleClick}` không chạy ổn định.
+- Component này cũng vẫn dùng `PLATFORM_ICONS` riêng, nên icon TikTok ở hàng publish chưa đồng bộ với icon chuẩn của hệ thống.
 
-### Giải pháp
-Bỏ `Tooltip` wrapper khỏi các channel buttons. Thay bằng `title` attribute đơn giản (hoạt động trên cả mobile và desktop) hoặc hiển thị label text nhỏ bên dưới icon.
+### Cách sửa
+1. Trong `DirectPublishButton`, bỏ toàn bộ Tooltip wrapper ở các nhánh `iconOnly`.
+2. Render `button` trực tiếp với:
+   - `type="button"`
+   - `title` / `aria-label` thay cho tooltip
+   - `touch-manipulation` để tối ưu tap trên điện thoại
+   - giữ nguyên `handleClick` hiện tại:
+     - đã kết nối → mở publish flow
+     - chưa kết nối → chuyển sang `/settings?tab=social`
+3. Ở nhánh `iconOnly`, đổi icon sang `ChannelIcon` chuẩn để TikTok/LinkedIn/X hiển thị đúng, thay vì icon emoji cũ trong `PLATFORM_ICONS`.
+4. Giữ nguyên luồng publish dialog hiện tại, chỉ sửa hàng icon nhỏ ở header để tránh ảnh hưởng logic publish/schedule.
 
-### Thay đổi
+### File cần cập nhật
+- `src/components/social/DirectPublishButton.tsx`
+  - bỏ Radix Tooltip trong `iconOnly`
+  - thêm direct mobile-safe button handling
+  - dùng `ChannelIcon` cho hàng publish icon-only
+  - dọn import tooltip/icon không còn dùng
 
-**File: `src/components/carousel/SchedulePopoverButton.tsx` (lines 126-155)**
-
-Thay thế `TooltipProvider > Tooltip > TooltipTrigger > button` bằng `button` trực tiếp với `title` attribute:
-
-```tsx
-<button
-  key={ch}
-  onClick={() => isConnected && setSelectedChannel(ch)}
-  disabled={!isConnected}
-  title={`${CHANNEL_LABELS[ch]}${!isConnected ? ' — Chưa kết nối' : ''}${existingSch ? ` — Đã lên lịch` : ''}`}
-  className={cn(
-    'w-8 h-8 rounded-full flex items-center justify-center transition-all relative',
-    // ... same styles
-  )}
->
-  <Icon className="h-3.5 w-3.5" />
-  {existingSch && (
-    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500 flex items-center justify-center">
-      <Clock className="h-2 w-2 text-white" />
-    </span>
-  )}
-</button>
-```
-
-Bỏ import `TooltipProvider, Tooltip, TooltipTrigger, TooltipContent` nếu không dùng ở chỗ khác.
-
-### Files thay đổi
-- `src/components/carousel/SchedulePopoverButton.tsx` — bỏ Tooltip wrapper, dùng `title` attribute
-
+### Kết quả mong đợi
+- Các icon social khoanh đỏ bấm được trên điện thoại
+- Nút chưa kết nối vẫn bấm được để đi tới trang kết nối social
+- TikTok icon ở hàng publish hiển thị đúng, đồng bộ với phần còn lại của app
