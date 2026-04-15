@@ -1590,6 +1590,108 @@ function parseTopicSuggestions(content: string, industryInsight?: any): any[] {
   }
 }
 
+/**
+ * Post-generation filtering: validate each topic against Brand signals and Content Goal
+ * Uses heuristic matching (not AI self-scores) to remove misaligned topics
+ */
+function filterByBrandAndGoal(
+  suggestions: any[],
+  brandContext: TopicBrandContext,
+  contentGoal: string
+): any[] {
+  // Build brand signal keywords for matching
+  const brandSignals: string[] = [];
+  
+  // Brand name variations
+  if (brandContext.brandName) {
+    brandSignals.push(brandContext.brandName.toLowerCase());
+  }
+  
+  // Content pillars
+  if (brandContext.contentPillars?.length) {
+    for (const p of brandContext.contentPillars) {
+      if (p.name) brandSignals.push(p.name.toLowerCase());
+      if (p.keywords?.length) brandSignals.push(...p.keywords.map(k => k.toLowerCase()));
+    }
+  }
+  
+  // Products/services
+  if (brandContext.products?.length) {
+    for (const p of brandContext.products) {
+      if (p.name) brandSignals.push(p.name.toLowerCase());
+      if (p.category) brandSignals.push(p.category.toLowerCase());
+    }
+  }
+  
+  // Persona pain points and desires
+  if (brandContext.personas?.length) {
+    for (const p of brandContext.personas) {
+      if (p.pain_points?.length) brandSignals.push(...p.pain_points.map(pp => pp.toLowerCase().substring(0, 40)));
+      if (p.desires?.length) brandSignals.push(...p.desires.map(d => d.toLowerCase().substring(0, 40)));
+    }
+  }
+  
+  // Evergreen themes
+  if (brandContext.evergreenThemes?.length) {
+    brandSignals.push(...brandContext.evergreenThemes.map(t => t.toLowerCase()));
+  }
+  
+  // UVP keywords
+  if (brandContext.uniqueValueProposition) {
+    const uvpWords = brandContext.uniqueValueProposition.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    brandSignals.push(...uvpWords.slice(0, 10));
+  }
+
+  // Goal-funnel validation
+  const goalFunnelMap: Record<string, string[]> = {
+    education: ['tofu', 'mofu'],
+    awareness: ['tofu', 'mofu'],
+    engagement: ['tofu', 'mofu'],
+    expertise: ['tofu', 'mofu'],
+    conversion: ['mofu', 'bofu'],
+  };
+  const allowedFunnels = goalFunnelMap[contentGoal] || ['tofu', 'mofu', 'bofu'];
+
+  // Score each topic
+  const scored = suggestions.map(s => {
+    const topicLower = (s.topic || '').toLowerCase();
+    const reasoningLower = (s.reasoning || '').toLowerCase();
+    const combined = topicLower + ' ' + reasoningLower;
+    
+    // Brand fit: how many brand signals match
+    let brandMatches = 0;
+    for (const signal of brandSignals) {
+      if (signal.length >= 3 && combined.includes(signal)) {
+        brandMatches++;
+      }
+    }
+    
+    // Funnel fit
+    const funnelFit = allowedFunnels.includes(s.funnelStage || 'tofu');
+    
+    // Combined score: at least 1 brand match OR high self-reported brandFit (>80)
+    const hasBrandRelevance = brandMatches >= 1 || (s.scores?.brandFit >= 80);
+    
+    return { ...s, _brandMatches: brandMatches, _funnelFit: funnelFit, _hasBrandRelevance: hasBrandRelevance };
+  });
+
+  // Filter: keep topics with brand relevance; if too few pass, keep top by brandMatches
+  const passing = scored.filter(s => s._hasBrandRelevance);
+  
+  // If filtering removes too many (less than 3), relax and keep all sorted by brand relevance
+  let result: any[];
+  if (passing.length >= 3) {
+    result = passing;
+  } else {
+    // Sort by brand matches desc and keep all
+    result = scored.sort((a, b) => b._brandMatches - a._brandMatches);
+    console.log(`[topic-ai:suggest] Brand filter too strict (${passing.length}/${scored.length} passed), keeping all sorted by relevance`);
+  }
+  
+  // Clean internal scoring fields
+  return result.map(({ _brandMatches, _funnelFit, _hasBrandRelevance, ...rest }) => rest);
+}
+
 function parseRefinedTopics(content: string, brandContext: TopicBrandContext | null): any[] {
   try {
     const jsonMatch = content.match(/\[[\s\S]*\]/);
