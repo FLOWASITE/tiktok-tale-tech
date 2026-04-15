@@ -1,61 +1,52 @@
-<final-text>## Sửa việc gợi ý topic lệch Mục tiêu nội dung và lệch Brand
+<final-text>## Sửa triệt để lỗi Kho chủ đề chưa lưu/cập nhật topic mới
 
-### Mình đã rà code và thấy nguyên nhân thực tế
-- `contentGoal` đã được truyền xuống và prompt hiện đã có phần `MỤC TIÊU NỘI DUNG BẮT BUỘC`, nên lỗi không còn nằm ở việc thiếu prop.
-- Tuy nhiên prompt vẫn chưa có “khóa Brand” đủ mạnh: brand context đang ở dạng mô tả, chưa có rule bắt buộc kiểu “chỉ được tạo topic xoay quanh sản phẩm/pain points/content pillars của Brand”.
-- Kết quả AI hiện được parse và dùng gần như nguyên trạng, chưa có bước lọc lại theo Brand + Goal. Nếu model drift, topic sai vẫn lọt qua và được lưu vào Kho.
-- Ở form đa kênh, gợi ý có thể auto-fetch ngay sau khi load draft, trước khi `brandTemplateId` mặc định được set xong, nên request đầu tiên có thể chạy thiếu Brand context và sinh ra topic generic.
-- Dữ liệu web search đang thiên về ngành chung, nên dễ kéo AI sang topic “đúng ngành nhưng không đúng Brand”.
+### Mình đã xác định đúng nguyên nhân
+- Backend tạo topic vẫn chạy, và Kho hiện đã lọc đúng theo Brand hiện tại.
+- Vấn đề chính nằm ở frontend:
+  1. `useTopicAI` có hàm `autoSaveSuggestions`, nhưng hiện không được gọi ở đâu nên nhiều topic mới chỉ hiện trên UI chứ chưa được lưu vào `topic_history`.
+  2. `TopicSuggestionPanel` chỉ refetch Kho khi `suggestions.length` thay đổi. AI thường vẫn trả cùng 8 topic, nên refresh ra batch mới nhưng Kho không cập nhật.
+  3. Logic chống trùng đang quá rộng: chỉ check theo `topic + organization`, chưa theo `brand_template_id / content_goal / format`, nên có thể chặn lưu sai cho Brand hiện tại.
 
 ### Phạm vi sửa
-1. `src/components/MultiChannelForm.tsx`
-- Chỉ bật auto-fetch topic suggestions khi đã có `brandTemplateId`.
-- Nếu chưa chọn Brand, không gọi AI; hiển thị trạng thái chờ/chọn Brand thay vì gợi ý generic.
-- Khi đổi Brand, ép fetch lại đúng ngữ cảnh Brand mới.
+1. `src/hooks/ai/useTopicAI.ts`
+- Gọi auto-save ngay sau khi fetch suggestions thành công.
+- Chỉ lưu các topic thật sự mới trong đúng ngữ cảnh hiện tại.
+- Reset `autoSavedTopicsRef` khi đổi `brandTemplateId`, `contentGoal`, hoặc `format`.
+- Siết dedupe theo:
+  - `organization_id`
+  - `brand_template_id`
+  - `content_goal`
+  - `format`
 
-2. `supabase/functions/topic-ai/index.ts`
-- Thêm section `MANDATORY BRAND ALIGNMENT` đứng trước cả phần content goal:
-  - Topics phải bám `brand_name`, `UVP`, `content_pillars`, `products/services`, `persona pain points/desires`.
-  - Cấm topic chỉ “đúng ngành” nhưng không gắn được với Brand offering.
-  - Cấm topic trend chung chung nếu không thể nối về sản phẩm/dịch vụ/góc chuyên môn của Brand.
-- Làm rõ ma trận Goal × Funnel × Topic type:
-  - education: how-to, giải thích, tips, TOFU/MOFU
-  - awareness: brand story, values, behind-the-scenes
-  - engagement: câu hỏi, tranh luận nhẹ, community/trend
-  - expertise: phân tích, case study, framework, insights
-  - conversion: comparison, testimonial, objection handling, offer, BOFU
-- Bổ sung ví dụ đúng/sai cho cả “đúng Goal” và “đúng Brand”.
+2. `src/components/TopicSuggestionPanel.tsx`
+- Bỏ trigger refresh theo `suggestions.length`.
+- Đổi sang trigger theo nội dung batch topic mới hoặc theo tín hiệu save thành công, để cùng 8 topic nhưng khác nội dung vẫn refetch Kho.
+- Giữ delay ngắn sau save để tránh refetch trước khi insert xong.
 
-3. `supabase/functions/topic-ai/index.ts`
-- Thêm bước hậu kiểm sau khi AI trả về:
-  - Chấm/lọc từng topic theo tín hiệu Brand thực (pillar, product/service, persona pain point/desire, evergreen theme).
-  - Kiểm tra fit với Goal đã chọn (funnelStage, topicType, ngôn ngữ CTA/story/how-to...).
-  - Không tin hoàn toàn vào `scores.brandFit` do model tự chấm; dùng heuristic server-side để loại topic lệch.
-- Nếu sau lọc còn quá ít topic hợp lệ, tự re-prompt 1 lần với danh sách lý do bị loại để bù đủ số lượng.
-
-4. `supabase/functions/_shared/topic-utils.ts`
-- Giảm ảnh hưởng của web search ngành chung:
-  - Web insights chỉ là dữ liệu tham khảo, không được override Brand rules.
-  - Làm query/context đầu vào brand-aware hơn bằng cách ưu tiên pain points / offerings / audience của Brand thay vì chỉ tên ngành chung.
+3. Đồng bộ tín hiệu save giữa hook và UI
+- Nếu cần, truyền `autoSavedCount` xuống panel để chỉ refresh khi save thành công thật sự.
+- Chỗ này có thể cần nối thêm qua các component đang bọc panel.
 
 ### Kết quả mong đợi
-- Đổi từ “Giáo dục” sang “Chuyển đổi” sẽ thấy khác rõ về funnel và kiểu topic.
-- Cùng một ngành nhưng khác Brand vẫn ra bộ topic khác nhau.
-- Topic generic kiểu “trend ngành chung” sẽ bị loại nếu không nối được về Brand.
-- Các topic được lưu vào Kho sau đó cũng sạch hơn vì chỉ lưu topic đã qua lọc.
+- Refresh ra topic mới thì Kho chủ đề cũng lưu và cập nhật ngay.
+- Batch mới vẫn 8 topic nhưng khác nội dung thì Kho vẫn refetch đúng.
+- Topic trùng text ở Brand khác không còn chặn lưu vào Brand hiện tại.
+- Kho tiếp tục chỉ hiển thị topic của Brand đang chọn.
 
 ### Chi tiết kỹ thuật
 - Không cần đổi database.
-- File chính sẽ sửa:
+- File chắc chắn cần sửa:
+  - `src/hooks/ai/useTopicAI.ts`
+  - `src/components/TopicSuggestionPanel.tsx`
+- Có thể cần sửa thêm nếu truyền tín hiệu save xuống UI:
   - `src/components/MultiChannelForm.tsx`
-  - `supabase/functions/topic-ai/index.ts`
-  - `supabase/functions/_shared/topic-utils.ts`
-- Có thể tận dụng thêm các prompt utility sẵn có để tăng độ chặt cho brand/persona scoring, nhưng trọng tâm là:
-  1) chặn fetch khi chưa có Brand,
-  2) khóa Brand mạnh trong prompt,
-  3) validate kết quả ở server trước khi trả về.
+  - `src/components/topic/TopicIdeaHub.tsx`
+  - các form khác dùng cùng panel để fix đồng bộ toàn app
 
 ### QA sau khi làm
-- Test cùng 1 Brand với 3 goal: Education / Awareness / Conversion.
-- Refresh nhiều lần để chắc topic mới vẫn bám Brand, không drift sang topic ngành chung.
-- Đổi sang Brand khác trong cùng ngành để chắc suggestions đổi theo Brand chứ không chỉ theo ngành.</final-text>
+- Vào `/multichannel/new`, chọn 1 Brand.
+- Ghi lại số topic hiện có trong Kho.
+- Refresh 2-3 lần để sinh batch mới, kể cả khi mỗi batch vẫn cùng số lượng.
+- Kiểm tra Kho tăng thêm đúng các topic mới vừa sinh.
+- Đổi sang Brand khác trong cùng workspace để chắc dedupe không chặn chéo Brand.
+- Quay lại Brand cũ và xác nhận Kho chỉ hiện topic của Brand đó.</final-text>
