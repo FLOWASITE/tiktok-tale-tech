@@ -432,25 +432,13 @@ export function DirectPublishButton({
           </TooltipContent>
         </Tooltip>
 
-        {/* Keep dialogs for icon-only mode too */}
-        {/* Confirmation / Success Dialog */}
-        <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
-          <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
-            {renderDialogContent()}
-          </DialogContent>
-        </Dialog>
-
-        {/* Schedule Dialog */}
-        <Dialog open={scheduleDialog} onOpenChange={setScheduleDialog}>
-          <DialogContent className="sm:max-w-md">
-            {renderScheduleContent()}
-          </DialogContent>
-        </Dialog>
       </TooltipProvider>
     );
   }
 
-  return (
+  const iconOnlyDialogs = null; // dialogs rendered below in shared section
+
+  const defaultButton = (
     <>
       <div className="flex items-center gap-1">
         {isAlreadyPublished && (
