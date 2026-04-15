@@ -44,7 +44,7 @@ interface TopicSuggestionPanelProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
   source: 'ai' | 'cache' | 'fallback';
   isLoading: boolean;
-  onSelect: (suggestion: string) => void;
+  onSelect: (suggestion: string, topicHistoryId?: string) => void;
   onRefresh: () => void;
   onSave?: (suggestion: EnhancedTopicSuggestion) => void;
   onFeedback?: (suggestion: EnhancedTopicSuggestion, feedback: 'positive' | 'negative') => void;
