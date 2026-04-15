@@ -257,6 +257,30 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     }
   }, []);
 
+  // Mark topic as selected (when user picks from history)
+  const markAsSelected = useCallback(async (topicId: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('topic_history')
+        .update({
+          usage_status: 'selected',
+          was_used: true,
+          used_at: new Date().toISOString(),
+        })
+        .eq('id', topicId);
+
+      if (updateError) throw updateError;
+
+      setHistory(prev => prev.map(item =>
+        item.id === topicId
+          ? { ...item, usageStatus: 'selected', wasUsed: true, usedAt: new Date().toISOString() }
+          : item
+      ));
+    } catch (err) {
+      console.error('Error marking topic as selected:', err);
+    }
+  }, []);
+
   // Mark topic as published
   const markAsPublished = useCallback(async (topicId: string) => {
     try {
@@ -606,6 +630,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     saveBulkTopics,
     checkExistingTopics,
     confirmDraft,
+    markAsSelected,
     markAsUsed,
     markAsPublished,
     updatePerformance,
