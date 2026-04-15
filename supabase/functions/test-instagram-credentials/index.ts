@@ -68,7 +68,7 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
       }
 
       if (!settings.consumer_key || !settings.consumer_secret) {
-        throw new Error('App ID/Secret chưa được cấu hình');
+        throw new Error('Instagram App ID/Secret chưa được cấu hình');
       }
 
       appId = await decryptCredential(settings.consumer_key);
@@ -80,11 +80,14 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
     }
 
     if (!appId || !appSecret) {
-      throw new Error('App ID và App Secret là bắt buộc');
+      throw new Error('Instagram App ID và Instagram App Secret là bắt buộc');
     }
 
     console.log('Testing Instagram credentials...');
 
+    // For Instagram Login flow, the credentials are Instagram App ID/Secret
+    // We test by constructing an app access token and querying the Facebook Graph API
+    // The Instagram App ID is actually a Facebook App ID internally
     const appAccessToken = `${appId}|${appSecret}`;
 
     const testResponse = await fetch(
@@ -107,15 +110,15 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
             /app id|app secret|application|oauth/i.test(apiMessage);
 
           if (isCredentialError) {
-            throw new Error('Facebook App ID hoặc App Secret không hợp lệ cho Instagram. Hãy dùng App ID/App Secret từ Meta for Developers → Settings → Basic, không dùng Instagram App ID.');
+            throw new Error('Instagram App ID hoặc App Secret không hợp lệ. Hãy lấy từ Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.');
           }
 
           throw new Error(`Meta API: ${apiMessage}`);
         }
       } catch (e) {
-        if (e instanceof Error && (e.message.startsWith('Meta API:') || e.message.startsWith('Facebook App ID'))) throw e;
+        if (e instanceof Error && (e.message.startsWith('Meta API:') || e.message.startsWith('Instagram App ID'))) throw e;
       }
-      throw new Error(`Instagram credentials không hợp lệ (HTTP ${testResponse.status}). Hãy kiểm tra Facebook App ID/App Secret trong Meta Settings → Basic.`);
+      throw new Error(`Instagram credentials không hợp lệ (HTTP ${testResponse.status}). Kiểm tra Instagram App ID/Secret trong Business login settings.`);
     }
 
     const appData = JSON.parse(responseText);
@@ -134,7 +137,7 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
           appId: appData.id,
           appName: appData.name,
           platform: 'instagram',
-          note: 'Đảm bảo App đã thêm Instagram Product và dùng Facebook App credentials từ Settings > Basic',
+          note: 'Đảm bảo App đã thêm Instagram Product và cấu hình Business login settings',
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -145,7 +148,7 @@ Deno.serve(withPerf({ functionName: 'test-instagram-credentials' }, async (req) 
       JSON.stringify({
         success: false,
         error: error.message,
-        hint: 'Kiểm tra Facebook App ID và Facebook App Secret tại Meta for Developers → Settings → Basic. App phải thêm Instagram Product. Không dùng Instagram App ID.',
+        hint: 'Kiểm tra Instagram App ID và Instagram App Secret tại Meta App Dashboard → Instagram → API setup with Instagram login → Business login settings.',
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
