@@ -436,9 +436,7 @@ export function DirectPublishButton({
     );
   }
 
-  const iconOnlyDialogs = null; // dialogs rendered below in shared section
-
-  const defaultButton = (
+  return (
     <>
       <div className="flex items-center gap-1">
         {isAlreadyPublished && (
@@ -489,8 +487,6 @@ export function DirectPublishButton({
           </Button>
         )}
       </div>
-
-      {/* Confirmation / Success Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
           {dialogState === 'success' ? (
