@@ -195,7 +195,7 @@ export function UsageQuotaWidget() {
             <ArrowUpRight className="h-3 w-3 ml-1" />
           </Button>
           <Button
-            variant="outline"
+            variant={hasWarning ? "default" : "outline"}
             size="sm"
             className="text-xs h-7"
             onClick={() => setAddonOpen(true)}
