@@ -221,6 +221,15 @@ export function TopicSuggestionPanel({
   const usedCount = useMemo(() => historyItems.filter(item => ['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
   const usagePercent = allCount > 0 ? Math.round((usedCount / allCount) * 100) : 0;
 
+  // Goal counts for filter badges
+  const goalCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const goal of CONTENT_GOALS) {
+      counts[goal.value] = historyItems.filter(item => item.contentGoal === goal.value).length;
+    }
+    return counts;
+  }, [historyItems]);
+
   const toggleSelectItem = useCallback((id: string) => {
     setSelectedHistoryIds(prev => {
       const next = new Set(prev);
