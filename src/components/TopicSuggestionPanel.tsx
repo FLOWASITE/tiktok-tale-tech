@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, createElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search, BarChart3, FolderOpen, Star, Trash2, RotateCcw, X, Pin, List, LayoutGrid, ArrowUpDown, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -47,6 +47,7 @@ import { QuickStartSection } from '@/components/QuickStartSection';
 import { TopicPerformancePreview } from '@/components/TopicPerformancePreview';
 import { SimilarTopicsSuggestion } from '@/components/SimilarTopicsSuggestion';
 import { QuickStartTemplate, ContentGoal } from '@/types/quickStartTemplates';
+import { CONTENT_GOALS } from '@/types/multichannel';
 
 interface TopicSuggestionPanelProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
@@ -136,6 +137,7 @@ export function TopicSuggestionPanel({
   const [savedTopics, setSavedTopics] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<'all' | 'unused' | 'favorites' | 'used'>('all');
+  const [historyGoalFilter, setHistoryGoalFilter] = useState<ContentGoal | 'all'>('all');
   const [historySearch, setHistorySearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [historySortBy, setHistorySortBy] = useState<'newest' | 'oldest' | 'score' | 'az'>('newest');
@@ -169,6 +171,11 @@ export function TopicSuggestionPanel({
         break;
     }
 
+    // Apply content goal filter
+    if (historyGoalFilter !== 'all') {
+      items = items.filter(item => item.contentGoal === historyGoalFilter);
+    }
+
     // Apply search
     if (historySearch.trim()) {
       const q = historySearch.toLowerCase();
@@ -194,7 +201,7 @@ export function TopicSuggestionPanel({
     });
 
     return items;
-  }, [historyItems, historyFilter, historySearch, historySortBy]);
+  }, [historyItems, historyFilter, historySearch, historySortBy, historyGoalFilter]);
 
   const ITEMS_PER_PAGE = 20;
   const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE);
@@ -206,13 +213,22 @@ export function TopicSuggestionPanel({
   // Reset page when filters change
   useEffect(() => {
     setHistoryPage(1);
-  }, [historyFilter, historySearch, historySortBy]);
+  }, [historyFilter, historySearch, historySortBy, historyGoalFilter]);
 
   const allCount = historyItems.length;
   const unusedCount = useMemo(() => historyItems.filter(item => !['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
   const favCount = useMemo(() => historyItems.filter(item => item.isFavorite).length, [historyItems]);
   const usedCount = useMemo(() => historyItems.filter(item => ['created', 'published'].includes(item.usageStatus)).length, [historyItems]);
   const usagePercent = allCount > 0 ? Math.round((usedCount / allCount) * 100) : 0;
+
+  // Goal counts for filter badges
+  const goalCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const goal of CONTENT_GOALS) {
+      counts[goal.value] = historyItems.filter(item => item.contentGoal === goal.value).length;
+    }
+    return counts;
+  }, [historyItems]);
 
   const toggleSelectItem = useCallback((id: string) => {
     setSelectedHistoryIds(prev => {
@@ -470,6 +486,41 @@ export function TopicSuggestionPanel({
                       </button>
                     ))}
                   </div>
+
+                  {/* Content Goal filter */}
+                  <div className="flex gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryGoalFilter('all')}
+                      className={cn(
+                        "h-5 px-1.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-0.5",
+                        historyGoalFilter === 'all'
+                          ? "bg-primary/15 text-primary border border-primary/30"
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted/80 border border-transparent"
+                      )}
+                    >
+                      Tất cả
+                    </button>
+                    {CONTENT_GOALS.map(goal => (
+                      <button
+                        key={goal.value}
+                        type="button"
+                        onClick={() => setHistoryGoalFilter(goal.value)}
+                        className={cn(
+                          "h-5 px-1.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-0.5",
+                          historyGoalFilter === goal.value
+                            ? "bg-primary/15 text-primary border border-primary/30"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted/80 border border-transparent"
+                        )}
+                      >
+                        {createElement(goal.icon, { className: "w-3 h-3" })}
+                        {goal.label}
+                        {goalCounts[goal.value] > 0 && (
+                          <span className="text-[9px] opacity-70">({goalCounts[goal.value]})</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* List / Grid */}
@@ -529,6 +580,16 @@ export function TopicSuggestionPanel({
                                 {getCategoryIcon(item.category)}
                                 <p className="text-[10px] font-medium line-clamp-2 flex-1">{item.topic}</p>
                               </div>
+                              {(() => {
+                                const goalInfo = CONTENT_GOALS.find(g => g.value === item.contentGoal);
+                                if (!goalInfo) return null;
+                                return (
+                                  <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/10 text-primary inline-flex items-center gap-0.5 mt-1">
+                                    {createElement(goalInfo.icon, { className: "w-2.5 h-2.5" })}
+                                    {goalInfo.label}
+                                  </span>
+                                );
+                              })()}
                               <div className="flex items-center justify-between mt-1.5">
                                 {item.isPinned && <Pin className="w-2.5 h-2.5 text-primary" />}
                                 {item.isFavorite && <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />}
@@ -628,6 +689,16 @@ export function TopicSuggestionPanel({
                                       <Badge variant="secondary" className={cn("text-[8px] h-3.5 px-1 border-0", statusBadge.className)}>
                                         {statusBadge.label}
                                       </Badge>
+                                      {(() => {
+                                        const goalInfo = CONTENT_GOALS.find(g => g.value === item.contentGoal);
+                                        if (!goalInfo) return null;
+                                        return (
+                                          <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/10 text-primary inline-flex items-center gap-0.5">
+                                            {createElement(goalInfo.icon, { className: "w-2.5 h-2.5" })}
+                                            {goalInfo.label}
+                                          </span>
+                                        );
+                                      })()}
                                       {score != null && score > 0 && (
                                         <span className={cn(
                                           "text-[9px] font-semibold px-1.5 py-0.5 rounded-full",
