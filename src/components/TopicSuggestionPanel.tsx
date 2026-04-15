@@ -128,7 +128,9 @@ export function TopicSuggestionPanel({
   const [feedbackGiven, setFeedbackGiven] = useState<Set<string>>(new Set());
   const [savedTopics, setSavedTopics] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'unused'>('all');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'unused' | 'favorites' | 'used'>('all');
+  const [historySearch, setHistorySearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const { history: topicHistory, isLoading: historyLoading, markAsSelected, ensureSelectedTopic } = useTopicHistory({
