@@ -246,6 +246,9 @@ export function DirectPublishButton({
         case 'facebook':
           result = await publishToFacebook(publishOptions);
           break;
+        case 'instagram':
+          result = await publishToInstagram(publishOptions);
+          break;
         case 'zalo_oa':
           result = await publishToZaloOA(publishOptions);
           break;
