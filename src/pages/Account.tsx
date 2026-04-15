@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
+import { AddonPurchaseDialog } from "@/components/AddonPurchaseDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useSubscription, type UsageStats } from "@/hooks/useSubscription";
@@ -67,12 +68,13 @@ function ChannelBreakdown({ breakdown }: { breakdown: Record<string, number> }) 
 export default function Account() {
   const { user } = useAuth();
   const { profile, isLoading: profileLoading, updateProfile, uploadAvatar, isUpdating } = useProfile();
-  const { subscription, currentPlanLimits, usage, currentPeriod, isLoading: subLoading } = useSubscription();
+  const { subscription, currentPlanLimits, usage, currentPeriod, isLoading: subLoading, activeAddons } = useSubscription();
 
   const [fullName, setFullName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("current");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [addonOpen, setAddonOpen] = useState(false);
 
   // Generate last 6 months options
   const monthOptions = useMemo(() => {
@@ -407,11 +409,37 @@ export default function Account() {
               </div>
             )}
 
-            <Button className="w-full" variant="outline" onClick={() => setUpgradeOpen(true)}>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Nâng cấp gói
-            </Button>
+            <div className="flex gap-2">
+              <Button className="flex-1" variant="outline" onClick={() => setUpgradeOpen(true)}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                Nâng cấp gói
+              </Button>
+              <Button className="flex-1" variant="outline" onClick={() => setAddonOpen(true)}>
+                <Zap className="h-4 w-4 mr-2" />
+                Mua thêm
+              </Button>
+            </div>
             <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
+            <AddonPurchaseDialog open={addonOpen} onOpenChange={setAddonOpen} />
+
+            {/* Active Addons */}
+            {activeAddons.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gói bổ sung đang hoạt động</p>
+                {activeAddons.map(addon => (
+                  <div key={addon.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {PLAN_NAMES[addon.plan_type] || addon.plan_type}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      HH: {format(new Date(addon.expires_at), "dd/MM/yyyy")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
