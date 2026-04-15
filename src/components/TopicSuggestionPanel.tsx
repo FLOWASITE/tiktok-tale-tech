@@ -486,6 +486,41 @@ export function TopicSuggestionPanel({
                       </button>
                     ))}
                   </div>
+
+                  {/* Content Goal filter */}
+                  <div className="flex gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryGoalFilter('all')}
+                      className={cn(
+                        "h-5 px-1.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-0.5",
+                        historyGoalFilter === 'all'
+                          ? "bg-primary/15 text-primary border border-primary/30"
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted/80 border border-transparent"
+                      )}
+                    >
+                      Tất cả
+                    </button>
+                    {CONTENT_GOALS.map(goal => (
+                      <button
+                        key={goal.value}
+                        type="button"
+                        onClick={() => setHistoryGoalFilter(goal.value)}
+                        className={cn(
+                          "h-5 px-1.5 rounded-full text-[10px] font-medium transition-colors inline-flex items-center gap-0.5",
+                          historyGoalFilter === goal.value
+                            ? "bg-primary/15 text-primary border border-primary/30"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted/80 border border-transparent"
+                        )}
+                      >
+                        {createElement(goal.icon, { className: "w-3 h-3" })}
+                        {goal.label}
+                        {goalCounts[goal.value] > 0 && (
+                          <span className="text-[9px] opacity-70">({goalCounts[goal.value]})</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* List / Grid */}
