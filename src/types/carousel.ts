@@ -51,6 +51,7 @@ export interface Carousel {
   caption_suggestion: string | null;
   cta_suggestion: string | null;
   status: CarouselStatus;
+  published_channels?: string[] | null;
   carousel_style: CarouselStyleType;
   visual_preset: VisualPresetType;
   user_id: string | null;
