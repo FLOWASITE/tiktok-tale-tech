@@ -253,7 +253,7 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
     // Build payOS payment request
     const clientReturnUrl = return_url || `${req.headers.get('origin') || 'https://app.flowa.one'}/payment/result`;
     const cancelUrl = clientReturnUrl + '?payos_cancel=1';
-    const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
+    
 
     const description = (isAddon ? `Mua them ${plan_type} ${cycle}` : `Nang cap ${plan_type} ${cycle}`).slice(0, 25);
 
@@ -278,7 +278,7 @@ Deno.serve(withPerf({ functionName: 'create-payos-payment' }, async (req) => {
         ],
         cancelUrl,
         returnUrl: clientReturnUrl,
-        webhookUrl,
+        
         signature: checksum,
       }),
     });
