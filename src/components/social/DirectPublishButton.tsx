@@ -124,7 +124,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToBlog, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
@@ -249,6 +249,12 @@ export function DirectPublishButton({
         case 'instagram':
           result = await publishToInstagram(publishOptions);
           break;
+        case 'linkedin':
+          result = await publishToLinkedIn(publishOptions);
+          break;
+        case 'tiktok':
+          result = await publishToTikTok(publishOptions);
+          break;
         case 'zalo_oa':
           result = await publishToZaloOA(publishOptions);
           break;
@@ -339,7 +345,7 @@ export function DirectPublishButton({
   if (!platform) return null;
 
   const isAlreadyPublished = channelStatus === 'published';
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa', 'website'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website'].includes(platform);
 
   if (!isSupported) {
     return (

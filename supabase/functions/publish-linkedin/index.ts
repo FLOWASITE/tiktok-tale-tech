@@ -159,12 +159,12 @@ async function uploadLinkedInImage(
   return imageUrn;
 }
 
-// Create a LinkedIn post
+// Create a LinkedIn post (supports single image or multi-image carousel)
 async function createLinkedInPost(
   accessToken: string,
   personUrn: string,
   content: string,
-  imageUrn?: string
+  imageUrns?: string[]
 ): Promise<{ postId: string; postUrn: string }> {
   const postData: Record<string, unknown> = {
     author: personUrn,
@@ -180,12 +180,22 @@ async function createLinkedInPost(
   };
 
   // Add media if provided
-  if (imageUrn) {
-    postData.content = {
-      media: {
-        id: imageUrn,
-      },
-    };
+  if (imageUrns && imageUrns.length > 0) {
+    if (imageUrns.length === 1) {
+      // Single image post
+      postData.content = {
+        media: {
+          id: imageUrns[0],
+        },
+      };
+    } else {
+      // Multi-image post (up to 9 images)
+      postData.content = {
+        multiImage: {
+          images: imageUrns.map(urn => ({ id: urn })),
+        },
+      };
+    }
   }
 
   console.log('Creating LinkedIn post with data:', JSON.stringify(postData, null, 2));
@@ -205,7 +215,6 @@ async function createLinkedInPost(
     const errorText = await response.text();
     console.error('LinkedIn post creation failed:', response.status, errorText);
 
-    // Check for token expiry
     if (response.status === 401) {
       throw new Error('LinkedIn token expired. Please reconnect your account.');
     }
@@ -213,7 +222,6 @@ async function createLinkedInPost(
     throw new Error(`Failed to create post: ${response.status} - ${errorText}`);
   }
 
-  // Post ID is in the x-restli-id header
   const postId = response.headers.get('x-restli-id') || '';
   const postUrn = `urn:li:share:${postId}`;
 
@@ -316,18 +324,28 @@ Deno.serve(withPerf({ functionName: 'publish-linkedin' }, async (req) => {
     const attemptId = attempt?.id;
 
     try {
-      let imageUrn: string | undefined;
+      const imageUrns: string[] = [];
 
-      // Upload first image if provided (LinkedIn only supports one image per post via this API)
+      // Upload all images (LinkedIn supports up to 9 images per multi-image post)
       if (mediaUrls && mediaUrls.length > 0) {
-        const firstImageUrl = mediaUrls[0];
-        
-        // Only upload image files
-        if (/\.(jpg|jpeg|png|gif|webp)$/i.test(firstImageUrl)) {
-          imageUrn = await uploadLinkedInImage(accessToken, personUrn, firstImageUrl);
-        } else {
-          console.log('Skipping non-image media:', firstImageUrl);
+        const maxImages = Math.min(mediaUrls.length, 9);
+        console.log(`[linkedin] Uploading ${maxImages} image(s)...`);
+
+        for (let i = 0; i < maxImages; i++) {
+          const imageUrl = mediaUrls[i];
+          if (/\.(jpg|jpeg|png|gif|webp)$/i.test(imageUrl) || imageUrl.includes('/storage/')) {
+            try {
+              const urn = await uploadLinkedInImage(accessToken, personUrn, imageUrl);
+              imageUrns.push(urn);
+            } catch (imgErr) {
+              console.error(`[linkedin] Failed to upload image ${i + 1}:`, imgErr);
+              // Continue with remaining images
+            }
+          } else {
+            console.log('Skipping non-image media:', imageUrl);
+          }
         }
+        console.log(`[linkedin] Successfully uploaded ${imageUrns.length}/${maxImages} image(s)`);
       }
 
       // Create the post
@@ -335,7 +353,7 @@ Deno.serve(withPerf({ functionName: 'publish-linkedin' }, async (req) => {
         accessToken,
         personUrn,
         content,
-        imageUrn
+        imageUrns.length > 0 ? imageUrns : undefined
       );
 
       // Update publish attempt to success

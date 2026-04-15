@@ -48,6 +48,7 @@ export function useDirectPublish() {
       const PLATFORM_ACTION_MAP: Record<string, string> = {
         'zalo_oa': 'zalo',
         'google_business': 'google-business',
+        'tiktok': 'tiktok',
       };
       const action = PLATFORM_ACTION_MAP[platform] || platform;
       
@@ -171,6 +172,20 @@ export function useDirectPublish() {
     });
   };
 
+  const publishToLinkedIn = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'linkedin',
+      options,
+    });
+  };
+
+  const publishToTikTok = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'tiktok',
+      options,
+    });
+  };
+
   const publishToBlog = async (options: PublishOptions & { isPublic?: boolean }) => {
     const action = options.isPublic ? 'flowa_blog' : 'blog';
     const response = await supabase.functions.invoke('channel-publisher', {
@@ -229,6 +244,8 @@ export function useDirectPublish() {
     publishToFacebook,
     publishToInstagram,
     publishToZaloOA,
+    publishToLinkedIn,
+    publishToTikTok,
     publishToBlog,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
