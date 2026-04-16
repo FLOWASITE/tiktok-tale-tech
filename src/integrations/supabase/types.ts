@@ -5390,6 +5390,7 @@ export type Database = {
           progress: number | null
           progress_message: string | null
           result_id: string | null
+          result_metadata: Json | null
           result_type: string | null
           retry_count: number | null
           started_at: string | null
@@ -5410,6 +5411,7 @@ export type Database = {
           progress?: number | null
           progress_message?: string | null
           result_id?: string | null
+          result_metadata?: Json | null
           result_type?: string | null
           retry_count?: number | null
           started_at?: string | null
@@ -5430,6 +5432,7 @@ export type Database = {
           progress?: number | null
           progress_message?: string | null
           result_id?: string | null
+          result_metadata?: Json | null
           result_type?: string | null
           retry_count?: number | null
           started_at?: string | null
