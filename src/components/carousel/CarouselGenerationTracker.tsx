@@ -6,11 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselSlide } from '@/types/carousel';
-import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Check,
@@ -26,7 +28,6 @@ import {
   LayoutGrid,
   PenLine,
   Minimize2,
-  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -182,14 +183,68 @@ export function CarouselGenerationTracker({
   const [promptStep, setPromptStep] = useState(0);
   const promptDone = !!carousel && !promptGenerating;
 
-  // Phase 2 state
-  const { generateImage, generatedImages, setImages } = useImageGeneration();
-  const { images: savedImages, saveImage } = useCarouselImages(carousel?.id || '');
+  // Phase 2 state — background generation
+  const { currentOrganization } = useOrganizationContext();
+  const { images: savedImages } = useCarouselImages(carousel?.id || '');
   const [slideStatuses, setSlideStatuses] = useState<SlideStatus[]>([]);
   const [imageGenStarted, setImageGenStarted] = useState(false);
   const [imageGenDone, setImageGenDone] = useState(false);
-  const [retryingSlide, setRetryingSlide] = useState<number | null>(null);
-  const imageGenRunningRef = useRef(false);
+  const [backgroundTaskId, setBackgroundTaskId] = useState<string | null>(null);
+
+  const { fireConfetti } = useConfetti();
+  const { user } = useAuth();
+
+  // Background generation hook
+  const { createTask, activeTasks } = useBackgroundGeneration({
+    onTaskComplete: (task) => {
+      if (task.id === backgroundTaskId || task.input_params?.carouselId === carousel?.id) {
+        setImageGenDone(true);
+        fireConfetti();
+        // Parse result_metadata for slide statuses
+        const meta = (task as any).result_metadata;
+        if (meta?.results) {
+          const newStatuses: SlideStatus[] = [];
+          for (const r of meta.results) {
+            newStatuses[r.slideNumber - 1] = r.success ? 'done' : 'error';
+          }
+          setSlideStatuses(newStatuses);
+        } else {
+          // Fallback: mark all as done
+          setSlideStatuses(Array(slideCount).fill('done'));
+        }
+      }
+    },
+    onTaskError: (task) => {
+      if (task.id === backgroundTaskId || task.input_params?.carouselId === carousel?.id) {
+        setImageGenDone(true);
+        toast.error(task.error_message || 'Tạo ảnh thất bại');
+        setSlideStatuses(Array(slideCount).fill('error'));
+      }
+    },
+    onTaskProgress: (task) => {
+      if (task.id === backgroundTaskId || task.input_params?.carouselId === carousel?.id) {
+        // Update slide statuses from progress
+        const step = task.current_step;
+        if (step?.startsWith('slide_')) {
+          const slideNum = parseInt(step.replace('slide_', ''));
+          if (!isNaN(slideNum)) {
+            setSlideStatuses(prev => {
+              const next = [...prev];
+              // Mark previous slides as done if they aren't error
+              for (let i = 0; i < slideNum - 1; i++) {
+                if (next[i] !== 'error') next[i] = 'done';
+              }
+              next[slideNum - 1] = 'generating';
+              return next;
+            });
+          }
+        }
+      }
+    },
+  });
+
+  const promptNotifiedRef = useRef(false);
+  const doneNotifiedRef = useRef(false);
 
   // Timer
   const [startTime] = useState(Date.now());
@@ -198,15 +253,10 @@ export function CarouselGenerationTracker({
   // Tips
   const [tipIndex, setTipIndex] = useState(0);
 
-  const { fireConfetti } = useConfetti();
-  const { user } = useAuth();
-  const promptNotifiedRef = useRef(false);
-  const doneNotifiedRef = useRef(false);
-
   // Rotate prompt steps during Phase 1
   useEffect(() => {
     if (promptDone) {
-      setPromptStep(PROMPT_STEPS.length); // all done
+      setPromptStep(PROMPT_STEPS.length);
       return;
     }
     if (!promptGenerating) return;
@@ -218,11 +268,12 @@ export function CarouselGenerationTracker({
 
   // Elapsed timer
   useEffect(() => {
+    if (imageGenDone) return;
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
     return () => clearInterval(interval);
-  }, [startTime]);
+  }, [startTime, imageGenDone]);
 
   // Rotate tips
   useEffect(() => {
@@ -239,206 +290,91 @@ export function CarouselGenerationTracker({
     }
   }, [carousel, slideStatuses.length]);
 
-  // Phase 2: Auto-start image generation when prompt is done
-  // Stable ref for attemptGenerateSlide so it can be reused for manual retry
-  const attemptGenerateSlideRef = useRef<((i: number, localStatuses?: SlideStatus[]) => Promise<boolean>) | null>(null);
+  // Check if there's already an active task for this carousel
+  useEffect(() => {
+    if (!carousel?.id) return;
+    const existingTask = activeTasks.find(
+      t => t.task_type === 'carousel_image' && t.input_params?.carouselId === carousel.id
+    );
+    if (existingTask) {
+      setBackgroundTaskId(existingTask.id);
+      setImageGenStarted(true);
+    }
+  }, [carousel?.id, activeTasks]);
 
-  const runImageGeneration = useCallback(async () => {
-    if (!carousel || imageGenRunningRef.current) return;
-    imageGenRunningRef.current = true;
+  // Phase 2: Start background image generation when prompt is done
+  const startBackgroundGeneration = useCallback(async () => {
+    if (!carousel || !user || imageGenStarted) return;
     setImageGenStarted(true);
 
-    const colorPalette = carousel.slides_content.length > 0
-      ? extractColorPalette(carousel.slides_content[0])
-      : null;
+    // Extract brand colors
     const brandColors = await extractBrandColorsWithFallback(carousel);
-
-    const MAX_ATTEMPTS = 3;
-    const INTER_BATCH_DELAY = 2500;
-    const BATCH_SIZE = 3;
-    const localStatuses: SlideStatus[] = Array(carousel.slides_content.length).fill('pending');
-
-    // Build comprehensive Series Bible from ALL slides
     const seriesBible = buildSeriesBible(carousel.slides_content);
-    
-    // Build sibling context for visual coherence
     const siblingsSummary = carousel.slides_content
       .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
       .join(' | ');
-    
-    console.log(`[tracker] Series Bible (${seriesBible.length} chars): "${seriesBible.slice(0, 120)}..."`);
-    console.log(`[tracker] Siblings summary: "${siblingsSummary.slice(0, 100)}..."`);
 
-    const attemptGenerateSlide = async (i: number): Promise<boolean> => {
-      const slide = carousel.slides_content[i];
+    // Create background task
+    const task = await createTask('carousel_image', {
+      carouselId: carousel.id,
+      slides: carousel.slides_content,
+      brandColors,
+      carouselStyle: carousel.carousel_style,
+      visualPreset: carousel.visual_preset || 'minimalist',
+      platform: carousel.platform,
+      carouselTopic: carousel.topic,
+      seriesBible,
+      siblingsSummary,
+      userId: user.id,
+    }, currentOrganization?.id);
 
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        localStatuses[i] = 'generating';
-        setSlideStatuses(prev => {
-          const next = [...prev];
-          next[i] = 'generating';
-          return next;
-        });
+    if (!task) {
+      toast.error('Không thể tạo task tạo ảnh');
+      setImageGenStarted(false);
+      return;
+    }
 
-        const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
-          textContent: slide.textContent,
-          platform: carousel.platform,
+    setBackgroundTaskId(task.id);
+
+    // Fire-and-forget edge function call
+    try {
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-carousel-images-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken || ''}`,
+        },
+        body: JSON.stringify({
+          taskId: task.id,
+          carouselId: carousel.id,
+          slides: carousel.slides_content,
           brandColors,
           carouselStyle: carousel.carousel_style,
-          totalSlides: carousel.slides_content.length,
-          slideObjective: slide.objective,
           visualPreset: carousel.visual_preset || 'minimalist',
+          platform: carousel.platform,
           carouselTopic: carousel.topic,
-          seamlessContext: {
-            colorPalette,
-            previousSceneDescription: seriesBible || null,
-            siblingSlidesSummary: siblingsSummary || null,
-            sequencePosition: slide.slideNumber,
-            totalInSequence: carousel.slides_content.length,
-          },
-        });
-
-        if (result?.imageUrl) {
-          await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
-          localStatuses[i] = 'done';
-          setSlideStatuses(prev => {
-            const next = [...prev];
-            next[i] = 'done';
-            return next;
-          });
-          return true;
-        }
-
-        // Failed — backoff before retry
-        if (attempt < MAX_ATTEMPTS) {
-          console.log(`[tracker] Slide ${i + 1} attempt ${attempt} failed, retrying in ${3000 * attempt}ms...`);
-          await new Promise(r => setTimeout(r, 3000 * attempt));
-        }
-      }
-
-      // All attempts exhausted
-      localStatuses[i] = 'error';
-      setSlideStatuses(prev => {
-        const next = [...prev];
-        next[i] = 'error';
-        return next;
-      });
-      return false;
-    };
-
-    // Store ref for manual retry usage
-    attemptGenerateSlideRef.current = attemptGenerateSlide;
-
-    // Main pass — batch parallel (3 slides at a time)
-    for (let batchStart = 0; batchStart < carousel.slides_content.length; batchStart += BATCH_SIZE) {
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, carousel.slides_content.length);
-      const batchIndices = Array.from({ length: batchEnd - batchStart }, (_, k) => batchStart + k);
-
-      console.log(`[tracker] Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: slides ${batchIndices.map(i => i + 1).join(', ')}`);
-
-      await Promise.allSettled(batchIndices.map(idx => attemptGenerateSlide(idx)));
-
-      // Inter-batch delay
-      if (batchEnd < carousel.slides_content.length) {
-        await new Promise(r => setTimeout(r, INTER_BATCH_DELAY));
-      }
-    }
-
-    // Retry pass: sequential for failed slides
-    const retryIndices = localStatuses
-      .map((s, idx) => s === 'error' ? idx : -1)
-      .filter(idx => idx >= 0);
-
-    if (retryIndices.length > 0) {
-      console.log(`[tracker] Retry pass for ${retryIndices.length} failed slides: ${retryIndices.map(i => i + 1).join(', ')}`);
-      for (const idx of retryIndices) {
-        await new Promise(r => setTimeout(r, 5000));
-        await attemptGenerateSlide(idx);
-      }
-    }
-
-    setImageGenDone(true);
-    fireConfetti();
-  }, [carousel, generateImage, saveImage, fireConfetti]);
-
-  // Manual retry handler for individual failed slides
-  const handleRetrySlide = useCallback(async (slideIndex: number) => {
-    if (!carousel || retryingSlide !== null) return;
-    
-    const slide = carousel.slides_content[slideIndex];
-    if (!slide) return;
-
-    setRetryingSlide(slideIndex);
-    setSlideStatuses(prev => {
-      const next = [...prev];
-      next[slideIndex] = 'generating';
-      return next;
-    });
-
-    try {
-      const colorPalette = carousel.slides_content.length > 0
-        ? extractColorPalette(carousel.slides_content[0])
-        : null;
-      const brandColors = await extractBrandColorsWithFallback(carousel);
-      const seriesBible = buildSeriesBible(carousel.slides_content);
-      const siblingsSummary = carousel.slides_content
-        .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
-        .join(' | ');
-
-      const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
-        textContent: slide.textContent,
-        platform: carousel.platform,
-        brandColors,
-        carouselStyle: carousel.carousel_style,
-        totalSlides: carousel.slides_content.length,
-        slideObjective: slide.objective,
-        visualPreset: carousel.visual_preset || 'minimalist',
-        carouselTopic: carousel.topic,
-        seamlessContext: {
-          colorPalette,
-          previousSceneDescription: seriesBible || null,
-          siblingSlidesSummary: siblingsSummary || null,
-          sequencePosition: slide.slideNumber,
-          totalInSequence: carousel.slides_content.length,
-        },
-      });
-
-      if (result?.imageUrl) {
-        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
-        setSlideStatuses(prev => {
-          const next = [...prev];
-          next[slideIndex] = 'done';
-          return next;
-        });
-      } else {
-        setSlideStatuses(prev => {
-          const next = [...prev];
-          next[slideIndex] = 'error';
-          return next;
-        });
-      }
+          seriesBible,
+          siblingsSummary,
+          userId: user.id,
+        }),
+      }).catch(err => console.warn('[tracker] Edge function fire-and-forget error:', err));
     } catch (err) {
-      console.error(`[tracker] Manual retry slide ${slideIndex + 1} failed:`, err);
-      setSlideStatuses(prev => {
-        const next = [...prev];
-        next[slideIndex] = 'error';
-        return next;
-      });
-    } finally {
-      setRetryingSlide(null);
+      console.warn('[tracker] Failed to invoke edge function:', err);
     }
-  }, [carousel, generateImage, saveImage, retryingSlide]);
 
-  // Stable ref to avoid timer resets from re-renders
-  const runImageGenRef = useRef(runImageGeneration);
-  runImageGenRef.current = runImageGeneration;
+    toast.success('🎨 Ảnh đang được tạo dưới nền. Bạn có thể rời đi!', { duration: 5000 });
+  }, [carousel, user, imageGenStarted, createTask, currentOrganization?.id]);
 
+  // Auto-start when prompt is done
   useEffect(() => {
     if (promptDone && !imageGenStarted) {
-      const timer = setTimeout(() => runImageGenRef.current(), 500);
+      const timer = setTimeout(() => startBackgroundGeneration(), 500);
       return () => clearTimeout(timer);
     }
-  }, [promptDone, imageGenStarted]);
+  }, [promptDone, imageGenStarted, startBackgroundGeneration]);
 
   // Progress calculation
   const promptProgress = promptDone ? PROMPT_STEPS.length : promptStep;
@@ -461,14 +397,22 @@ export function CarouselGenerationTracker({
     .map((s, idx) => s === 'generating' ? idx + 1 : -1)
     .filter(n => n > 0);
 
+  // Get active task's progress message if available
+  const activeTask = activeTasks.find(
+    t => t.id === backgroundTaskId || t.input_params?.carouselId === carousel?.id
+  );
+  const taskProgressMessage = activeTask?.progress_message;
+
   const currentStatusText = allDone
     ? '✅ Hoàn tất!'
     : imageGenStarted
-      ? generatingSlides.length > 1
-        ? `Đang tạo ảnh slide ${generatingSlides.join(', ')}...`
-        : generatingSlides.length === 1
-          ? `Đang tạo ảnh slide ${generatingSlides[0]}...`
-          : 'Đang xử lý...'
+      ? taskProgressMessage || (
+          generatingSlides.length > 1
+            ? `Đang tạo ảnh slide ${generatingSlides.join(', ')}...`
+            : generatingSlides.length === 1
+              ? `Đang tạo ảnh slide ${generatingSlides[0]}...`
+              : 'Đang xử lý dưới nền...'
+        )
       : promptDone
         ? 'Đang chuẩn bị tạo ảnh...'
         : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
@@ -649,35 +593,24 @@ export function CarouselGenerationTracker({
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {Array.from({ length: slideCount }, (_, i) => {
                 const status: SlideStatus = slideStatuses[i] || 'pending';
-                const isRetrying = retryingSlide === i;
-                const canRetry = status === 'error' && imageGenDone && retryingSlide === null;
                 return (
                   <div
                     key={i}
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all duration-300",
                       status === 'done' && "bg-primary/10 border-primary/30 text-primary",
-                      (status === 'generating' || isRetrying) && "bg-primary/5 border-primary/40 text-primary animate-pulse",
-                      status === 'error' && !isRetrying && "bg-destructive/10 border-destructive/30 text-destructive",
+                      status === 'generating' && "bg-primary/5 border-primary/40 text-primary animate-pulse",
+                      status === 'error' && "bg-destructive/10 border-destructive/30 text-destructive",
                       status === 'pending' && "bg-muted/30 border-border/50 text-muted-foreground"
                     )}
                   >
                     <div className="flex items-center gap-1.5">
                       {status === 'done' && <Check className="w-3 h-3" />}
-                      {(status === 'generating' || isRetrying) && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {status === 'error' && !isRetrying && <AlertCircle className="w-3 h-3" />}
+                      {status === 'generating' && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {status === 'error' && <AlertCircle className="w-3 h-3" />}
                       {status === 'pending' && <Circle className="w-3 h-3 opacity-40" />}
                       <span>Slide {i + 1}</span>
                     </div>
-                    {canRetry && (
-                      <button
-                        onClick={() => handleRetrySlide(i)}
-                        className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors mt-0.5"
-                      >
-                        <RefreshCw className="w-2.5 h-2.5" />
-                        Tạo lại
-                      </button>
-                    )}
                   </div>
                 );
               })}

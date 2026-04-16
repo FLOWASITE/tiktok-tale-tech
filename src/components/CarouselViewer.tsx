@@ -61,6 +61,7 @@ import {
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { useQuery } from '@tanstack/react-query';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { toast } from 'sonner';
@@ -229,6 +230,20 @@ export function CarouselViewer({
     getImageForSlide: getSavedImage,
   } = useCarouselImages(carousel?.id || null);
   const { validating: seamlessValidating, result: seamlessResult, validate: validateSeamless } = useSeamlessValidation();
+
+  // Background generation task tracking
+  const { activeTasks: bgTasks } = useBackgroundGeneration({
+    onTaskComplete: (task) => {
+      if (task.task_type === 'carousel_image' && task.input_params?.carouselId === carousel?.id) {
+        toast.success('Ảnh carousel đã tạo xong!');
+      }
+    },
+  });
+  const activeCarouselTask = bgTasks.find(
+    t => t.task_type === 'carousel_image' && 
+         (t.input_params?.carouselId === carousel?.id) &&
+         (t.status === 'pending' || t.status === 'generating')
+  );
 
   // Sync saved images into generatedImages state on load — single effect to avoid race condition
   const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
@@ -1114,7 +1129,20 @@ export function CarouselViewer({
               </DndContext>
             </TabsContent>
 
-            <TabsContent value="images" className="mt-0">
+            <TabsContent value="images" className="mt-0 space-y-4">
+              {/* Background generation progress */}
+              {activeCarouselTask && (
+                <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span>{activeCarouselTask.progress_message || 'Đang tạo ảnh dưới nền...'}</span>
+                  </div>
+                  <Progress value={activeCarouselTask.progress || 0} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {activeCarouselTask.progress || 0}% · Bạn có thể đóng cửa sổ này
+                  </p>
+                </div>
+              )}
               <GeneratedImagesGallery
                 images={generatedImages}
                 totalSlides={carousel.slide_count}
