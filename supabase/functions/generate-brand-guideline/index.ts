@@ -534,7 +534,7 @@ Tạo guideline CHI TIẾT với:
     // Extract tool call result
     const toolCall = aiResponse.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
-      const result = JSON.parse(toolCall.function.arguments);
+      const result = safeParseToolCallJson(toolCall.function.arguments);
       console.log('Enhanced brand guideline generated successfully');
       
       // Build legacy guideline text from structured data for backward compatibility
