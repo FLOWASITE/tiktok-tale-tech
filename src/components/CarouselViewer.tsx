@@ -231,6 +231,20 @@ export function CarouselViewer({
   } = useCarouselImages(carousel?.id || null);
   const { validating: seamlessValidating, result: seamlessResult, validate: validateSeamless } = useSeamlessValidation();
 
+  // Background generation task tracking
+  const { activeTasks: bgTasks } = useBackgroundGeneration({
+    onTaskComplete: (task) => {
+      if (task.task_type === 'carousel_image' && task.input_params?.carouselId === carousel?.id) {
+        toast.success('Ảnh carousel đã tạo xong!');
+      }
+    },
+  });
+  const activeCarouselTask = bgTasks.find(
+    t => t.task_type === 'carousel_image' && 
+         (t.input_params?.carouselId === carousel?.id) &&
+         (t.status === 'pending' || t.status === 'generating')
+  );
+
   // Sync saved images into generatedImages state on load — single effect to avoid race condition
   const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
   const prevCarouselIdRef = useRef<string | null>(null);
