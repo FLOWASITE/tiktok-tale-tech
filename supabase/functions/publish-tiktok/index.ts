@@ -144,7 +144,8 @@ Deno.serve(withPerf({ functionName: 'publish-tiktok' }, async (req) => {
       // Extract title from content (first line or first 150 chars)
       const title = content.split('\n')[0].replace(/^#+\s*/, '').substring(0, 150) || 'Photo post';
 
-      const { publishId } = await publishPhotoPost(accessToken, title, mediaUrls);
+      const description = content.substring(0, 2200) || title;
+      const { publishId } = await publishPhotoPost(accessToken, title, description, mediaUrls);
 
       // Update attempt
       if (attempt) {
