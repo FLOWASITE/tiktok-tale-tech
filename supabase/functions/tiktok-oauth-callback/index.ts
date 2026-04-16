@@ -1,33 +1,10 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { encrypt } from "../_shared/crypto.ts";
+import { encrypt, decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Decrypt encrypted credentials from social_platform_settings
-async function decryptCredential(encryptedText: string, encryptionKey: string): Promise<string> {
-  try {
-    const keyData = new TextEncoder().encode(encryptionKey.slice(0, 32).padEnd(32, '0'));
-    const key = await crypto.subtle.importKey(
-      'raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']
-    );
-    const parts = encryptedText.split(':');
-    if (parts.length === 2) {
-      const iv = Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0));
-      const encrypted = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv }, key, encrypted
-      );
-      return new TextDecoder().decode(decrypted);
-    }
-    return encryptedText;
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
 
 function getFrontendUrl(stateData: any): string {
   if (stateData.frontendOrigin) return stateData.frontendOrigin;

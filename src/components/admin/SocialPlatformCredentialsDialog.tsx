@@ -79,6 +79,7 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
   instagram: 'instagram-oauth-callback',
   threads: 'threads-oauth-callback',
   linkedin: 'linkedin-oauth-callback',
+  tiktok: 'tiktok-oauth-callback',
   zalo_oa: 'zalo-oauth-callback',
   google_business: 'google-business-oauth-callback',
 };
