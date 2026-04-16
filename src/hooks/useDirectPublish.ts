@@ -115,11 +115,20 @@ export function useDirectPublish() {
       const isOaTierLimited = errorCode === 'OA_TIER_LIMITED' || error.message?.includes('upgrade OA Tier');
       const isMissingCover = errorCode === 'MISSING_COVER_IMAGE';
       const isMediaProcessing = errorCode === 'MEDIA_PROCESSING';
+      const isTikTokUnauditedPrivateOnly =
+        errorCode === 'TIKTOK_UNAUDITED_PRIVATE_ONLY' ||
+        error.message?.includes('unaudited_client_can_only_post_to_private_accounts');
       
       if (isMediaProcessing) {
         toast({
           title: 'Zalo đang xử lý ảnh',
           description: 'Ảnh bìa đang được xử lý. Vui lòng thử lại sau 1-2 phút.',
+          variant: 'destructive',
+        });
+      } else if (isTikTokUnauditedPrivateOnly) {
+        toast({
+          title: 'TikTok chưa cho đăng công khai',
+          description: 'Ứng dụng TikTok hiện chỉ được đăng lên tài khoản riêng tư. Hãy chuyển tài khoản sang private hoặc hoàn tất TikTok app review.',
           variant: 'destructive',
         });
       } else if (isMissingCover) {
