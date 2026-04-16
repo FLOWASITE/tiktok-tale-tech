@@ -35,8 +35,8 @@ async function publishPhotoPost(
 
   const body = {
     post_info: {
-      title: title.substring(0, 150), // TikTok title limit
-      privacy_level: 'SELF_ONLY', // Start as private, user can change on TikTok
+      title: title.substring(0, 150),
+      privacy_level: 'SELF_ONLY',
       disable_comment: false,
       auto_add_music: true,
     },
@@ -44,6 +44,7 @@ async function publishPhotoPost(
       source: 'PULL_FROM_URL',
       photo_images: imageUrls,
     },
+    post_mode: 'DIRECT_POST',
     media_type: 'PHOTO',
   };
 
