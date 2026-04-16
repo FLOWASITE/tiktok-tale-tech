@@ -566,7 +566,6 @@ export function BrandFormStepIdentity({
                   placeholder="VD: Tiết kiệm 80% thời gian xử lý hóa đơn"
                   className="min-h-[60px] resize-y"
                   rows={2}
-                  className="h-9"
                 />
               </div>
             </div>
