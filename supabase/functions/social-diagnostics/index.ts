@@ -34,7 +34,7 @@ function parseJson<T>(value: string): T | null {
 
 const PLATFORM_NAMES = [
   'facebook', 'instagram', 'linkedin', 'threads',
-  'twitter', 'zalo', 'google-business', 'website',
+  'tiktok', 'twitter', 'zalo', 'google-business', 'website',
 ];
 
 function resolveFunctionName(action: string, platform: string): string | null {
