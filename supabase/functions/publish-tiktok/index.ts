@@ -104,7 +104,7 @@ async function getCreatorPostSettings(accessToken: string): Promise<{
  * We proxy through app.flowa.one which the user owns and can verify.
  */
 const SUPABASE_STORAGE_DOMAIN = "rllyipiyuptkibqinotz.supabase.co";
-const PROXY_BASE_URL = "https://app.flowa.one/api/tiktok-media";
+const PROXY_BASE_URL = "https://media.flowa.one/functions/v1/tiktok-image-proxy";
 
 function rewriteImageUrlForTikTok(originalUrl: string): string {
   try {
