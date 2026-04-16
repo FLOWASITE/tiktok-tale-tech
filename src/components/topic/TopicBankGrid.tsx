@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { 
   Search, Star, TrendingUp, Filter, History, X, 
-  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck, Target, Link
+  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck, Target, Link,
+  ArrowUpDown, Loader2, Clock
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,8 @@ interface TopicBankGridProps {
 
 type FilterView = 'all' | 'drafts' | 'favorites' | 'top-performers' | 'recent';
 type ViewMode = 'grid' | 'list';
+type SortOption = 'newest' | 'oldest' | 'score-high' | 'alphabetical';
+type DateRange = 'all' | 'today' | 'week' | 'month' | '3months';
 
 export function TopicBankGrid({
   brandTemplateId,
@@ -55,6 +58,8 @@ export function TopicBankGrid({
   const [categoryFilter, setCategoryFilter] = useState<TopicCategory | 'all'>('all');
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortOption, setSortOption] = useState<SortOption>('newest');
+  const [dateRange, setDateRange] = useState<DateRange>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [linkCampaignTopic, setLinkCampaignTopic] = useState<TopicHistoryItem | null>(null);
 
@@ -68,11 +73,14 @@ export function TopicBankGrid({
     recentlyUsed,
     stats,
     isLoading,
+    isLoadingMore,
+    hasMore,
     toggleFavorite,
     submitFeedback,
     deleteTopic,
     confirmDraft,
     linkToCampaign,
+    loadMore,
   } = useTopicHistory({
     brandTemplateId,
     contentGoal,
@@ -80,7 +88,19 @@ export function TopicBankGrid({
     enabled: true,
   });
 
-  // Filtered items based on view and search
+  // Date range helper
+  const getDateRangeStart = (range: DateRange): Date | null => {
+    const now = new Date();
+    switch (range) {
+      case 'today': return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      case 'week': { const d = new Date(now); d.setDate(d.getDate() - 7); return d; }
+      case 'month': { const d = new Date(now); d.setMonth(d.getMonth() - 1); return d; }
+      case '3months': { const d = new Date(now); d.setMonth(d.getMonth() - 3); return d; }
+      default: return null;
+    }
+  };
+
+  // Filtered items based on view, search, date range, and sort
   const filteredItems = useMemo(() => {
     let items: TopicHistoryItem[] = [];
 
@@ -98,13 +118,21 @@ export function TopicBankGrid({
         items = recentlyUsed;
         break;
       default:
-        // All - exclude drafts from "all" view to keep it clean
         items = history.filter(h => h.usageStatus !== 'draft');
     }
 
     // Apply category filter
     if (categoryFilter !== 'all') {
       items = items.filter(item => item.category === categoryFilter);
+    }
+
+    // Apply date range filter
+    const rangeStart = getDateRangeStart(dateRange);
+    if (rangeStart) {
+      items = items.filter(item => {
+        const created = item.createdAt ? new Date(item.createdAt) : null;
+        return created && created >= rangeStart;
+      });
     }
 
     // Apply search
@@ -117,8 +145,26 @@ export function TopicBankGrid({
       );
     }
 
+    // Apply sort
+    items = [...items].sort((a, b) => {
+      switch (sortOption) {
+        case 'oldest':
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
+        case 'score-high': {
+          const scoreA = a.scores ? Math.round((a.scores.brandFit + a.scores.trend + a.scores.competition + a.scores.engagement) / 4) : 0;
+          const scoreB = b.scores ? Math.round((b.scores.brandFit + b.scores.trend + b.scores.competition + b.scores.engagement) / 4) : 0;
+          return scoreB - scoreA;
+        }
+        case 'alphabetical':
+          return a.topic.localeCompare(b.topic, 'vi');
+        case 'newest':
+        default:
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+      }
+    });
+
     return items;
-  }, [filterView, drafts, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery]);
+  }, [filterView, drafts, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery, dateRange, sortOption]);
 
   const handleReuse = (item: TopicHistoryItem) => {
     onSelectTopic(item.topic, item.id);
@@ -254,7 +300,7 @@ export function TopicBankGrid({
         </div>
       </div>
 
-      {/* Search and category filter */}
+      {/* Search and filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -289,6 +335,31 @@ export function TopicBankGrid({
             ))}
           </SelectContent>
         </Select>
+        <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+          <SelectTrigger className="w-36">
+            <Clock className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Thời gian" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Mọi lúc</SelectItem>
+            <SelectItem value="today">Hôm nay</SelectItem>
+            <SelectItem value="week">7 ngày qua</SelectItem>
+            <SelectItem value="month">30 ngày qua</SelectItem>
+            <SelectItem value="3months">3 tháng qua</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+          <SelectTrigger className="w-36">
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Sắp xếp" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Mới nhất</SelectItem>
+            <SelectItem value="oldest">Cũ nhất</SelectItem>
+            <SelectItem value="score-high">Điểm cao nhất</SelectItem>
+            <SelectItem value="alphabetical">A → Z</SelectItem>
+          </SelectContent>
+        </Select>
         <CampaignSelector
           value={campaignFilter}
           onValueChange={setCampaignFilter}
@@ -296,6 +367,45 @@ export function TopicBankGrid({
           className="w-44"
         />
       </div>
+
+      {/* Active filters summary */}
+      {(dateRange !== 'all' || categoryFilter !== 'all' || campaignFilter || searchQuery) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Đang lọc:</span>
+          {searchQuery && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              "{searchQuery}"
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchQuery('')} />
+            </Badge>
+          )}
+          {categoryFilter !== 'all' && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {TOPIC_CATEGORIES.find(c => c.value === categoryFilter)?.label}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter('all')} />
+            </Badge>
+          )}
+          {dateRange !== 'all' && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {dateRange === 'today' ? 'Hôm nay' : dateRange === 'week' ? '7 ngày' : dateRange === 'month' ? '30 ngày' : '3 tháng'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setDateRange('all')} />
+            </Badge>
+          )}
+          {campaignFilter && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              Chiến dịch
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setCampaignFilter(undefined)} />
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+            setSearchQuery('');
+            setCategoryFilter('all');
+            setDateRange('all');
+            setCampaignFilter(undefined);
+          }}>
+            Xóa bộ lọc
+          </Button>
+        </div>
+      )}
 
       {/* Results */}
       {filteredItems.length === 0 ? (
@@ -438,6 +548,34 @@ export function TopicBankGrid({
         </div>
       )}
 
+      {/* Load more */}
+      {hasMore && !searchQuery && categoryFilter === 'all' && dateRange === 'all' && filterView === 'all' && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadMore()}
+            disabled={isLoadingMore}
+            className="w-full max-w-xs"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Đang tải...
+              </>
+            ) : (
+              'Tải thêm ý tưởng'
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Results count */}
+      {filteredItems.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Hiển thị {filteredItems.length} ý tưởng
+        </p>
+      )}
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
