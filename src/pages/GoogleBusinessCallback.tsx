@@ -38,7 +38,7 @@ export default function GoogleBusinessCallback() {
         if (data?.success) {
           setStatus('success');
           setMessage(data.message || 'Kết nối Google Business thành công!');
-          setTimeout(() => navigate('/settings/connections'), 2000);
+          setTimeout(() => navigate('/connections'), 2000);
         } else {
           throw new Error(data?.error || 'Kết nối thất bại');
         }
@@ -73,7 +73,7 @@ export default function GoogleBusinessCallback() {
               <XCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
               <p className="text-destructive font-medium">{message}</p>
               <button
-                onClick={() => navigate('/settings/connections')}
+                onClick={() => navigate('/connections')}
                 className="mt-4 text-sm text-primary hover:underline"
               >
                 Quay lại cài đặt

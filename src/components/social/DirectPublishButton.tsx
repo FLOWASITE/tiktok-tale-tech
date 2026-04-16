@@ -291,7 +291,7 @@ export function DirectPublishButton({
     }
 
     if (!connection) {
-      navigate('/settings?tab=social');
+      navigate('/connections');
       return;
     }
 
@@ -316,7 +316,7 @@ export function DirectPublishButton({
 
   const handleScheduleClick = () => {
     if (!connection) {
-      navigate('/settings?tab=social');
+      navigate('/connections');
       return;
     }
     const tomorrow = new Date();
