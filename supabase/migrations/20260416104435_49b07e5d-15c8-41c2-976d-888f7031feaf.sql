@@ -1,0 +1,1 @@
+UPDATE social_connections SET is_active = true, metadata = metadata || '{"needs_reauth": false}'::jsonb WHERE id = '68fdeeaa-96b1-44ff-9fe4-5d3567402364'
