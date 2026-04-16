@@ -348,7 +348,7 @@ async function convertImagesToJpeg(imageUrls: string[]): Promise<string[]> {
   return results;
 }
 
-
+async function publishPhotoPost(
   accessToken: string,
   title: string,
   description: string,
