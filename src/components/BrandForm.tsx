@@ -11,6 +11,7 @@ import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
 import { BrandFormStepDNA } from '@/components/BrandFormStepDNA';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
+import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
 import { GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
@@ -117,6 +118,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     refresh: refetchPersonas,
   } = useCustomerPersonas({ brandTemplateId: template?.id, enabled: !!template?.id });
 
+  const { products: dbProducts } = useProductCatalog(template?.id);
+
   // Sync dbPersonas to local state when loaded from database
   useEffect(() => {
     if (template?.id && dbPersonas.length > 0) {
@@ -124,6 +127,29 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
     }
   }, [template?.id, dbPersonas]);
 
+  // Sync dbProducts to local state when loaded from database
+  useEffect(() => {
+    if (template?.id && dbProducts.length > 0) {
+      setLocalProducts(dbProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku || '',
+        category: p.category || '',
+        description: p.description || '',
+        price_display: p.price_display || '',
+        image_url: p.image_url || '',
+        unique_selling_points: p.unique_selling_points || [],
+        target_audience: p.target_audience || '',
+        pain_points_solved: p.pain_points_solved || [],
+        benefits: p.benefits || [],
+        keywords: p.keywords || [],
+        suggested_content_angles: p.suggested_content_angles || [],
+        best_channels: p.best_channels || [],
+        is_featured: p.is_featured || false,
+        is_active: p.is_active !== false,
+      })));
+    }
+  }, [template?.id, dbProducts]);
   useEffect(() => {
     if (template) {
       setName(template.name);
