@@ -429,7 +429,7 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
         "Photo post";
 
       const description = content.substring(0, 2200) || title;
-      const { publishId } = await publishPhotoPost(
+      const { publishId, statusResult } = await publishPhotoPost(
         accessToken,
         title,
         description,
