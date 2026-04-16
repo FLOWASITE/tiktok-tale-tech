@@ -275,7 +275,7 @@ export default function BrandView() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-[60vw] w-[60vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 md:p-6">
+        <DialogContent className="w-[95vw] max-w-[95vw] md:w-[60vw] md:max-w-[60vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
               <Palette className="w-4 h-4 md:w-5 md:h-5 text-primary" />
