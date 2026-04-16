@@ -61,6 +61,7 @@ import {
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { useQuery } from '@tanstack/react-query';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { toast } from 'sonner';
