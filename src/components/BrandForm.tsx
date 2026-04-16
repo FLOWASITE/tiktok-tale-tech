@@ -11,6 +11,7 @@ import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
 import { BrandFormStepDNA } from '@/components/BrandFormStepDNA';
 import { BrandFormStepGuideline } from '@/components/BrandFormStepGuideline';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
+import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { ChannelSettingsEditor, ChannelOverrides } from '@/components/ChannelSettingsEditor';
 import { BrandFormMiniPreview } from '@/components/BrandFormMiniPreview';
 import { GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
