@@ -52,27 +52,32 @@ function rewriteImageUrlForTikTok(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.hostname === SUPABASE_STORAGE_HOST || parsed.hostname === MEDIA_PROXY_HOST) {
-      // Convert /storage/v1/object/public/... to /storage/v1/render/image/public/...
-      // This uses Supabase image transformation to serve as JPEG (TikTok requires JPEG/WebP)
-      const path = parsed.pathname;
-      if (path.includes("/storage/v1/object/public/")) {
-        parsed.pathname = path.replace(
-          "/storage/v1/object/public/",
-          "/storage/v1/render/image/public/"
-        );
-        parsed.searchParams.set("format", "jpeg");
-        parsed.searchParams.set("quality", "90");
-      }
+      // Only change hostname — images are already .jpg, no transformation needed
       parsed.hostname = MEDIA_PROXY_HOST;
       parsed.protocol = "https:";
-      console.log(`[tiktok] Rewrote image URL for TikTok (JPEG): ${parsed.toString()}`);
+      console.log(`[tiktok] Rewrote image URL for TikTok: ${parsed.toString()}`);
       return parsed.toString();
     }
   } catch { /* keep original */ }
   return url;
 }
 
-async function verifyTikTokMediaReachability(imageUrls: string[]): Promise<void> {
+/** Rewrite media.flowa.one URLs back to direct Supabase storage */
+function fallbackToDirectUrls(urls: string[]): string[] {
+  return urls.map((url) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === MEDIA_PROXY_HOST) {
+        parsed.hostname = SUPABASE_STORAGE_HOST;
+        parsed.protocol = "https:";
+        return parsed.toString();
+      }
+    } catch { /* keep original */ }
+    return url;
+  });
+}
+
+async function verifyTikTokMediaReachability(imageUrls: string[]): Promise<string[]> {
   const sampleUrl = imageUrls[0];
   if (!sampleUrl) {
     throw new TikTokPublishError("TikTok photo post requires at least 1 image", {
@@ -81,48 +86,54 @@ async function verifyTikTokMediaReachability(imageUrls: string[]): Promise<void>
     });
   }
 
+  // Try media.flowa.one first (HEAD)
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MEDIA_PREFLIGHT_TIMEOUT_MS);
-
   try {
     const response = await fetch(sampleUrl, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Lovable-TikTok-Preflight/1.0",
-      },
+      method: "HEAD",
+      headers: { "User-Agent": "Lovable-TikTok-Preflight/1.0" },
       signal: controller.signal,
     });
-
-    if (!response.ok) {
-      const bodyPreview = (await response.text()).slice(0, 240);
-      console.error("[tiktok] Media preflight failed:", response.status, bodyPreview);
-      throw new TikTokPublishError(
-        `Không thể truy cập ảnh TikTok qua ${MEDIA_PROXY_HOST} (HTTP ${response.status}). Hãy kiểm tra Cloudflare Worker route media.flowa.one/* và SSL của domain này.`,
-        {
-          errorCode: "TIKTOK_MEDIA_PROXY_UNREACHABLE",
-          statusCode: 400,
-        },
-      );
+    if (response.ok) {
+      console.log("[tiktok] Media preflight OK:", sampleUrl);
+      return imageUrls;
     }
-
-    await response.arrayBuffer();
-    console.log("[tiktok] Media preflight OK:", sampleUrl);
+    console.error("[tiktok] Media preflight failed:", response.status);
   } catch (error) {
-    if (error instanceof TikTokPublishError) throw error;
-
     const message = error instanceof Error ? error.message : String(error);
     console.error("[tiktok] Media preflight exception:", message);
-
-    throw new TikTokPublishError(
-      `Không thể truy cập ảnh TikTok qua ${MEDIA_PROXY_HOST}. Cloudflare proxy/SSL chưa hoạt động đúng (${message}).`,
-      {
-        errorCode: "TIKTOK_MEDIA_PROXY_UNREACHABLE",
-        statusCode: 400,
-      },
-    );
   } finally {
     clearTimeout(timeout);
   }
+
+  // Fallback: try direct Supabase URL
+  console.warn("[tiktok] media.flowa.one unreachable, falling back to direct Supabase URLs");
+  const directUrls = fallbackToDirectUrls(imageUrls);
+
+  const controller2 = new AbortController();
+  const timeout2 = setTimeout(() => controller2.abort(), MEDIA_PREFLIGHT_TIMEOUT_MS);
+  try {
+    const response2 = await fetch(directUrls[0], {
+      method: "HEAD",
+      headers: { "User-Agent": "Lovable-TikTok-Preflight/1.0" },
+      signal: controller2.signal,
+    });
+    if (response2.ok) {
+      console.log("[tiktok] Direct Supabase preflight OK:", directUrls[0]);
+      return directUrls;
+    }
+    console.error("[tiktok] Direct Supabase preflight also failed:", response2.status);
+  } catch (err2) {
+    console.error("[tiktok] Direct Supabase preflight exception:", err2);
+  } finally {
+    clearTimeout(timeout2);
+  }
+
+  throw new TikTokPublishError(
+    `Không thể truy cập ảnh qua cả ${MEDIA_PROXY_HOST} và ${SUPABASE_STORAGE_HOST}.`,
+    { errorCode: "TIKTOK_MEDIA_PROXY_UNREACHABLE", statusCode: 400 },
+  );
 }
 
 /**
@@ -283,7 +294,8 @@ async function publishPhotoPost(
   // Rewrite all image URLs to use the verified Cloudflare proxy domain
   const rewrittenUrls = imageUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
-  await verifyTikTokMediaReachability(rewrittenUrls);
+  // verifyTikTokMediaReachability returns final URLs (may fallback to direct Supabase)
+  const finalUrls = await verifyTikTokMediaReachability(rewrittenUrls);
 
   const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
     accessToken,
@@ -301,7 +313,7 @@ async function publishPhotoPost(
       source_info: {
         source: "PULL_FROM_URL",
         photo_cover_index: 0,
-        photo_images: rewrittenUrls,
+        photo_images: finalUrls,
       },
       post_mode: "DIRECT_POST",
       media_type: "PHOTO",
