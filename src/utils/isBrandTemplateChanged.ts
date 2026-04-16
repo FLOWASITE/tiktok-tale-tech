@@ -19,6 +19,8 @@ type BrandTemplateComparable = Pick<
   | "allow_emoji"
   | "compliance_rules"
   | "channel_overrides"
+  | "headline"
+  | "sub_headline"
 >;
 
 const normalize = (v: unknown) => (v === undefined ? null : v);
@@ -51,6 +53,8 @@ export function isBrandTemplateChanged(
     "allow_emoji",
     "compliance_rules",
     "channel_overrides",
+    "headline",
+    "sub_headline",
   ];
 
   for (const k of keys) {

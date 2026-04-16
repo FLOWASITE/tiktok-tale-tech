@@ -71,6 +71,10 @@ export interface BrandTemplate {
   
   // Country/Region
   country_code?: string | null;
+  
+  // Headline
+  headline?: string | null;
+  sub_headline?: string | null;
 }
 
 // Helper to transform DB response to BrandTemplate

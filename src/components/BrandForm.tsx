@@ -89,6 +89,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [vision, setVision] = useState('');
   const [uniqueValueProposition, setUniqueValueProposition] = useState('');
   const [tagline, setTagline] = useState('');
+  const [headline, setHeadline] = useState('');
+  const [subHeadline, setSubHeadline] = useState('');
   const [targetAgeRange, setTargetAgeRange] = useState('');
   const [targetGender, setTargetGender] = useState('');
   const [marketSegment, setMarketSegment] = useState('');
@@ -176,6 +178,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       setVision(template.vision || '');
       setUniqueValueProposition(template.unique_value_proposition || '');
       setTagline(template.tagline || '');
+      setHeadline(template.headline || '');
+      setSubHeadline(template.sub_headline || '');
       setTargetAgeRange(template.target_age_range || '');
       setTargetGender(template.target_gender || '');
       setMarketSegment(template.market_segment || '');
@@ -292,6 +296,8 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       vision: vision || null,
       unique_value_proposition: uniqueValueProposition || null,
       tagline: tagline || null,
+      headline: headline || null,
+      sub_headline: subHeadline || null,
       target_age_range: targetAgeRange || null,
       target_gender: targetGender || null,
       market_segment: marketSegment || null,
@@ -449,6 +455,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
               setUniqueValueProposition={setUniqueValueProposition}
               tagline={tagline}
               setTagline={setTagline}
+              headline={headline}
+              setHeadline={setHeadline}
+              subHeadline={subHeadline}
+              setSubHeadline={setSubHeadline}
             />
           )}
 
