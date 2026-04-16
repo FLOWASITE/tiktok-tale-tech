@@ -802,6 +802,50 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       );
     }
 
+    // For TikTok - using OAuth 2.0 flow
+    if (platform === 'tiktok') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'tiktok', encryptionKey);
+      
+      if (!globalCreds.consumerKey || !globalCreds.consumerSecret) {
+        throw new Error('TikTok chưa được cấu hình. Liên hệ Admin để thiết lập Client Key/Secret trong Admin Settings.');
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/tiktok-oauth-callback`;
+      const state = btoa(JSON.stringify({
+        brandTemplateId: brandTemplateId || null,
+        organizationId: organizationId || null,
+        userId: user.id,
+        frontendOrigin: requestOrigin || null,
+      }));
+
+      const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?` + new URLSearchParams({
+        client_key: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        scope: 'user.info.basic,video.publish,video.upload',
+        response_type: 'code',
+        state: state,
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl,
+          instructions: {
+            steps: [
+              '1. Click để đăng nhập TikTok',
+              '2. Cho phép ứng dụng quyền đăng bài',
+              '3. Bạn sẽ được redirect về sau khi hoàn tất',
+            ],
+            note: 'TikTok hỗ trợ đăng ảnh carousel (2-35 ảnh). Token có hiệu lực 24 giờ, hệ thống sẽ tự động làm mới.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For Google Business Profile - using OAuth 2.0 flow
     if (platform === 'google_business') {
       const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
@@ -863,7 +907,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'zalo_oa', 'google_business', 'website'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'website'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

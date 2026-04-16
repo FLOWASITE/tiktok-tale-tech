@@ -18,6 +18,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   instagram: 'instagram-oauth-callback',
   linkedin: 'linkedin-oauth-callback',
   threads: 'threads-oauth-callback',
+  tiktok: 'tiktok-oauth-callback',
   'google-business': 'google-business-oauth-callback',
   x: 'x-oauth-callback',
   twitter: 'x-oauth-callback',
