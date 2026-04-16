@@ -742,7 +742,7 @@ export function BrandFormStepPersonas({
           </div>
 
           {/* Right: Editor Panel with Tabs */}
-          <div className="lg:col-span-7">
+          <div className="lg:col-span-8">
             <Card className={cn(
               "h-fit transition-opacity",
               !editingPersona && "opacity-50 pointer-events-none"
