@@ -1,40 +1,46 @@
 
 
-## Fix: TikTok privacy level chọn sai → bài đăng bị ẩn
+## Chuyển TikTok sang FILE_UPLOAD thay vì PULL_FROM_URL
 
-### Nguyên nhân
-Code hiện tại ưu tiên chọn `SELF_ONLY` nếu có trong danh sách options:
-```typescript
-privacyLevel: privacyLevelOptions.includes("SELF_ONLY")
-  ? "SELF_ONLY"
-  : privacyLevelOptions[0],
-```
-Kết quả: mọi bài đăng đều ở chế độ **chỉ mình tôi**, không hiện trên profile.
+### Vấn đề
+- `PULL_FROM_URL` yêu cầu domain ảnh phải được verify trên TikTok Developer Portal
+- `media.flowa.one` trỏ qua Namecheap không có Cloudflare proxy nên không auto SSL → TikTok không fetch được ảnh → bài bị drop
+- Không dùng Cloudflare nên giải pháp Cloudflare Worker không khả thi
 
-### Giải pháp
-Đảo ngược ưu tiên privacy: chọn mức công khai nhất có thể.
+### Giải pháp: Chuyển sang FILE_UPLOAD
+Thay vì để TikTok tự pull ảnh từ URL (cần domain verify + SSL), edge function sẽ **tải ảnh từ Supabase Storage rồi upload trực tiếp lên TikTok**. Cách này **không cần verify domain** gì cả.
 
-**File:** `supabase/functions/publish-tiktok/index.ts` — hàm `getCreatorPostSettings`
+### Luồng mới
 
-Thay logic chọn privacy (dòng 93-96):
-```typescript
-// Ưu tiên: PUBLIC > FOLLOWER > MUTUAL_FOLLOW > SELF_ONLY
-const PRIVACY_PRIORITY = [
-  "PUBLIC_TO_EVERYONE",
-  "FOLLOWER_OF_CREATOR", 
-  "MUTUAL_FOLLOW_FRIENDS",
-  "SELF_ONLY",
-];
-
-const privacyLevel = PRIVACY_PRIORITY.find(p => privacyLevelOptions.includes(p)) 
-  || privacyLevelOptions[0];
+```text
+Supabase Storage → Edge Function (fetch ảnh) → TikTok Upload API → TikTok Publish API
 ```
 
-### Kết quả mong đợi
-- App chưa audit → chọn `FOLLOWER_OF_CREATOR` (followers sẽ thấy bài)
-- App đã audit → chọn `PUBLIC_TO_EVERYONE` (ai cũng thấy)
-- Bài sẽ hiện trên profile TikTok thay vì bị ẩn hoàn toàn
+Thay vì:
+```text
+Edge Function → gửi URL cho TikTok → TikTok tự fetch (cần domain verify + SSL)
+```
 
-### Lưu ý
-Vì app TikTok chưa audit, bài vẫn chưa hiện **công khai** cho tất cả mọi người. Chỉ followers mới thấy. Để đăng `PUBLIC_TO_EVERYONE`, bạn cần hoàn tất TikTok App Review.
+### Thay đổi code
+
+**File:** `supabase/functions/publish-tiktok/index.ts`
+
+1. **Thêm hàm `uploadImageToTikTok`**: Fetch ảnh từ Supabase Storage, rồi PUT lên TikTok's upload endpoint
+2. **Sửa `publishPhotoPost`**: 
+   - Gọi TikTok `/v2/post/publish/content/init/` với `source: "FILE_UPLOAD"` thay vì `PULL_FROM_URL`
+   - TikTok trả về `upload_url` cho mỗi ảnh
+   - Fetch từng ảnh từ Supabase Storage → PUT bytes lên `upload_url`
+   - Gọi TikTok `/v2/post/publish/status/fetch/` để xác nhận
+3. **Xóa**: `rewriteImageUrlForTikTok`, `PROXY_BASE_URL`, `SUPABASE_STORAGE_DOMAIN` (không cần proxy nữa)
+
+### Lợi ích
+- Không cần verify domain trên TikTok
+- Không cần `media.flowa.one`, Cloudflare Worker, hay SSL setup
+- Hoạt động ngay với mọi nhà cung cấp DNS (Namecheap, GoDaddy, v.v.)
+- Ảnh được upload trực tiếp → đáng tin cậy hơn PULL_FROM_URL
+
+### Lưu ý kỹ thuật
+- TikTok giới hạn mỗi ảnh tối đa 20MB
+- Cần upload tuần tự (hoặc song song) tất cả ảnh trước khi gọi publish
+- Edge function có thể cần thêm thời gian xử lý (download + upload), nhưng vẫn nằm trong giới hạn timeout
 
