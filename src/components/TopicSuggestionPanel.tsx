@@ -165,7 +165,7 @@ export function TopicSuggestionPanel({
     return () => clearTimeout(timer);
   }, [suggestions, refreshHistory]);
 
-  const historyItems = useMemo(() => topicHistory.slice(0, 30), [topicHistory]);
+  const historyItems = useMemo(() => topicHistory, [topicHistory]);
 
   const filteredHistory = useMemo(() => {
     let items = historyItems;
