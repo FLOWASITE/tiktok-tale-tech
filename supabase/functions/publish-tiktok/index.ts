@@ -32,6 +32,7 @@ const TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE = "TIKTOK_UNAUDITED_PRIVATE_ONLY"
 
 const SUPABASE_STORAGE_HOST = "rllyipiyuptkibqinotz.supabase.co";
 const MEDIA_PROXY_HOST = "media.flowa.one";
+const MEDIA_PREFLIGHT_TIMEOUT_MS = 8000;
 
 /**
  * Rewrite Supabase Storage URLs to use the Cloudflare-proxied custom domain
@@ -49,6 +50,59 @@ function rewriteImageUrlForTikTok(url: string): string {
     }
   } catch { /* keep original */ }
   return url;
+}
+
+async function verifyTikTokMediaReachability(imageUrls: string[]): Promise<void> {
+  const sampleUrl = imageUrls[0];
+  if (!sampleUrl) {
+    throw new TikTokPublishError("TikTok photo post requires at least 1 image", {
+      errorCode: "TIKTOK_MEDIA_MISSING",
+      statusCode: 400,
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MEDIA_PREFLIGHT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(sampleUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent": "Lovable-TikTok-Preflight/1.0",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const bodyPreview = (await response.text()).slice(0, 240);
+      console.error("[tiktok] Media preflight failed:", response.status, bodyPreview);
+      throw new TikTokPublishError(
+        `Không thể truy cập ảnh TikTok qua ${MEDIA_PROXY_HOST} (HTTP ${response.status}). Hãy kiểm tra Cloudflare Worker route media.flowa.one/* và SSL của domain này.`,
+        {
+          errorCode: "TIKTOK_MEDIA_PROXY_UNREACHABLE",
+          statusCode: 400,
+        },
+      );
+    }
+
+    await response.arrayBuffer();
+    console.log("[tiktok] Media preflight OK:", sampleUrl);
+  } catch (error) {
+    if (error instanceof TikTokPublishError) throw error;
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[tiktok] Media preflight exception:", message);
+
+    throw new TikTokPublishError(
+      `Không thể truy cập ảnh TikTok qua ${MEDIA_PROXY_HOST}. Cloudflare proxy/SSL chưa hoạt động đúng (${message}).`,
+      {
+        errorCode: "TIKTOK_MEDIA_PROXY_UNREACHABLE",
+        statusCode: 400,
+      },
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
@@ -209,6 +263,7 @@ async function publishPhotoPost(
   // Rewrite all image URLs to use the verified Cloudflare proxy domain
   const rewrittenUrls = imageUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
+  await verifyTikTokMediaReachability(rewrittenUrls);
 
   const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
     accessToken,
