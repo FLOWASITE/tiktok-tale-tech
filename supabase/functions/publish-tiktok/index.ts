@@ -32,8 +32,8 @@ const TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE = "TIKTOK_UNAUDITED_PRIVATE_ONLY"
 
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
- * Uses FILE_UPLOAD source — uploads image bytes directly to TikTok
- * No domain verification or SSL proxy needed
+ * Uses PULL_FROM_URL source — TikTok only supports this for photos
+ * Image URLs must be publicly accessible with SSL
  */
 function truncateUtf16(input: string, maxUnits: number): string {
   let result = "";
@@ -114,48 +114,6 @@ async function getCreatorPostSettings(accessToken: string): Promise<{
   };
 }
 
-/**
- * Fetch image bytes from a URL (Supabase Storage or any public URL)
- */
-async function fetchImageBytes(imageUrl: string): Promise<{ bytes: Uint8Array; contentType: string; size: number }> {
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image from ${imageUrl}: ${response.status}`);
-  }
-  const buffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  const contentType = response.headers.get("Content-Type") || "image/jpeg";
-  console.log(`[tiktok] Fetched image: ${bytes.length} bytes, type: ${contentType}`);
-  return { bytes, contentType, size: bytes.length };
-}
-
-/**
- * Upload a single image to TikTok's upload endpoint
- */
-async function uploadImageToTikTok(
-  uploadUrl: string,
-  imageBytes: Uint8Array,
-  contentType: string,
-): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": contentType,
-      "Content-Range": `bytes 0-${imageBytes.length - 1}/${imageBytes.length}`,
-    },
-    body: imageBytes,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[tiktok] Upload failed: ${response.status}`, errorText);
-    throw new Error(`TikTok image upload failed: ${response.status} - ${errorText}`);
-  }
-  // Consume response body to prevent resource leak
-  await response.text();
-  console.log(`[tiktok] Image uploaded successfully to TikTok`);
-}
-
 async function publishPhotoPost(
   accessToken: string,
   title: string,
@@ -170,10 +128,6 @@ async function publishPhotoPost(
     console.warn("[tiktok] Trimmed to 35 images (TikTok max)");
   }
 
-  // Pre-fetch all images from Supabase Storage
-  console.log(`[tiktok] Pre-fetching ${imageUrls.length} images from storage...`);
-  const imageDataArray = await Promise.all(imageUrls.map(fetchImageBytes));
-
   const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
     accessToken,
   );
@@ -185,11 +139,12 @@ async function publishPhotoPost(
         description: truncateUtf16(description, 4000),
         privacy_level: privacyLevel,
         disable_comment: disableComment,
+        auto_add_music: true,
       },
       source_info: {
-        source: "FILE_UPLOAD",
+        source: "PULL_FROM_URL",
         photo_cover_index: 0,
-        photo_count: imageUrls.length,
+        photo_images: imageUrls,
       },
       post_mode: "DIRECT_POST",
       media_type: "PHOTO",
@@ -200,7 +155,7 @@ async function publishPhotoPost(
       imageUrls.length,
       "images using privacy",
       privacyLevel,
-      "(FILE_UPLOAD)",
+      "(PULL_FROM_URL)",
     );
 
     const response = await fetch(
@@ -277,6 +232,17 @@ async function publishPhotoPost(
       );
     }
 
+    // Handle URL ownership unverified error with helpful message
+    if (apiErrorCode === "url_ownership_unverified") {
+      throw new TikTokPublishError(
+        "TikTok yêu cầu verify domain lưu trữ ảnh. Vào TikTok Developer Portal → App → URL Properties, thêm domain của Supabase Storage vào danh sách URL đã xác minh.",
+        {
+          errorCode: "TIKTOK_URL_OWNERSHIP_UNVERIFIED",
+          statusCode: response.status,
+        },
+      );
+    }
+
     throw new TikTokPublishError(
       `TikTok API error: ${response.status} - ${responseText}`,
       {
@@ -301,33 +267,9 @@ async function publishPhotoPost(
   }
 
   const publishId = result.data?.publish_id;
-  // For FILE_UPLOAD, TikTok returns upload_url for each image
-  const uploadUrl = result.data?.upload_url;
 
   if (!publishId) {
     throw new Error("TikTok did not return a publish ID");
-  }
-
-  // Upload images if TikTok provided upload URLs
-  if (uploadUrl) {
-    // Single upload URL for all images — upload sequentially
-    if (typeof uploadUrl === "string") {
-      console.log("[tiktok] Uploading images to single upload URL...");
-      for (let i = 0; i < imageDataArray.length; i++) {
-        const { bytes, contentType } = imageDataArray[i];
-        console.log(`[tiktok] Uploading image ${i + 1}/${imageDataArray.length} (${bytes.length} bytes)`);
-        await uploadImageToTikTok(uploadUrl, bytes, contentType);
-      }
-    }
-  } else if (Array.isArray(result.data?.upload_urls)) {
-    // Multiple upload URLs — one per image
-    const uploadUrls = result.data.upload_urls as string[];
-    console.log(`[tiktok] Uploading ${uploadUrls.length} images to individual URLs...`);
-    for (let i = 0; i < Math.min(uploadUrls.length, imageDataArray.length); i++) {
-      const { bytes, contentType } = imageDataArray[i];
-      console.log(`[tiktok] Uploading image ${i + 1}/${uploadUrls.length} (${bytes.length} bytes)`);
-      await uploadImageToTikTok(uploadUrls[i], bytes, contentType);
-    }
   }
 
   console.log("[tiktok] Publish initiated, publish_id:", publishId);
