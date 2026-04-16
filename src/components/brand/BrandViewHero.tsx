@@ -76,6 +76,8 @@ export function BrandViewHero({
   productsCount = 0,
 }: BrandViewHeroProps) {
   const { currentOrganization } = useOrganizationContext();
+  const { connections } = useSocialConnections({ brandTemplateId: template.id });
+  const connectionsCount = connections?.filter(c => c.is_active).length || 0;
   const isOrganizationBrand = !!template.organization_id;
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
