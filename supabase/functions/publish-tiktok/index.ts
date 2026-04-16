@@ -443,16 +443,34 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
       throw new Error("TikTok photo post requires at least 1 image");
     }
 
-    // Fetch connection
+    // Fetch connection — allow inactive connections if token is still valid
     const { data: connection, error: connError } = await supabase
       .from("social_connections")
       .select("*")
       .eq("id", connectionId)
-      .eq("is_active", true)
       .single();
 
     if (connError || !connection) {
-      throw new Error("TikTok connection not found or inactive");
+      throw new Error("TikTok connection not found");
+    }
+
+    // Re-activate connection if it was deactivated due to transient errors
+    if (!connection.is_active) {
+      const tokenStillValid = connection.token_expires_at
+        ? new Date(connection.token_expires_at) > new Date()
+        : false;
+      const needsReauth = connection.metadata?.needs_reauth === true;
+
+      if (!tokenStillValid || needsReauth) {
+        throw new Error("TikTok connection is inactive. Please reconnect your account.");
+      }
+
+      // Token is still valid — reactivate silently
+      console.log("[tiktok] Reactivating connection with valid token:", connectionId);
+      await supabase
+        .from("social_connections")
+        .update({ is_active: true, metadata: { ...connection.metadata, needs_reauth: false } })
+        .eq("id", connectionId);
     }
     if (connection.platform !== "tiktok") {
       throw new Error("Invalid platform for this endpoint");
