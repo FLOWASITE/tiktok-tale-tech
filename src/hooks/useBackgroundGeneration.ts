@@ -8,7 +8,7 @@ import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 // Uses Realtime subscription for instant updates
 // ============================================
 
-export type TaskType = 'core_content' | 'multichannel';
+export type TaskType = 'core_content' | 'multichannel' | 'carousel_image';
 export type TaskStatus = 'pending' | 'generating' | 'completed' | 'failed';
 
 export interface GenerationTask {
@@ -199,6 +199,15 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
           .eq('id', typedTask.result_id)
           .single();
         return { type: 'multichannel' as const, data, task: typedTask };
+      } else if (typedTask.result_type === 'carousel_images') {
+        // For carousel images, result_id is the carousel_id
+        const { data } = await supabase
+          .from('carousel_images')
+          .select('*')
+          .eq('carousel_id', typedTask.result_id)
+          .eq('is_selected', true)
+          .order('slide_number', { ascending: true });
+        return { type: 'carousel_image' as const, data, task: typedTask };
       }
 
       return null;
@@ -291,7 +300,9 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
       if (accessToken) {
         const endpoint = typedTask.task_type === 'core_content' 
           ? 'generate-core-content' 
-          : 'generate-multichannel';
+          : typedTask.task_type === 'carousel_image'
+            ? 'generate-carousel-images-batch'
+            : 'generate-multichannel';
           
         fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${endpoint}`, {
           method: 'POST',
