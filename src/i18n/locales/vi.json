@@ -14,10 +14,11 @@
   "hero": {
     "badge": "500+ Marketer đang dùng",
     "problem": "AI Marketing Agent — Không phải AI Writing Tool",
-    "titleLine1": "Đội ngũ content của bạn",
-    "titleLine2": "chạy bằng AI Agent",
-    "description": "Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng, tạo nội dung cho 12 kênh, tự chấm điểm chất lượng, và đăng bài — không cần bạn ngồi viết từng bài.",
-    "descPlain": "Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng, tạo nội dung cho 12 kênh, tự chấm điểm chất lượng, và đăng bài — không cần bạn ngồi viết từng bài.",
+    "titleLine1": "Content marketing chạy",
+    "titleLine2": "tự động",
+    "titleLine3": "— từ chiến lược đến đăng bài",
+    "description": "Flowa là AI Agent tự lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài — thay cho cả một team content. Bạn chỉ cần duyệt.",
+    "descPlain": "Flowa là AI Agent tự lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài — thay cho cả một team content. Bạn chỉ cần duyệt.",
     "benefits": {
       "setup": "Setup 5 phút",
       "noCard": "Không cần thẻ tín dụng",
@@ -41,7 +42,7 @@
       "calendar": "Content Calendar",
       "aiGeneration": "AI Generation"
     },
-    "tag": "AI Marketing Agent — Không phải AI Writing Tool",
+    "tag": "Agentic Content Marketing Platform",
     "pipelineNote": "Toàn bộ pipeline chạy trong ~10 phút, không cần can thiệp",
     "pipeline": {
       "research": "Research",

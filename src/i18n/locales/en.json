@@ -14,10 +14,11 @@
   "hero": {
     "badge": "500+ Marketers using",
     "problem": "AI Marketing Agent — Not an AI Writing Tool",
-    "titleLine1": "Your content team",
-    "titleLine2": "powered by AI Agent",
-    "description": "Flowa researches markets, plans monthly campaigns, creates content for 12 channels, scores quality, and publishes — without you writing each post.",
-    "descPlain": "Flowa researches markets, plans monthly campaigns, creates content for 12 channels, scores quality, and publishes — without you writing each post.",
+    "titleLine1": "Content marketing runs",
+    "titleLine2": "automatically",
+    "titleLine3": "— from strategy to publishing",
+    "description": "Flowa is an AI Agent that plans campaigns, creates content for 12 channels, scores quality and publishes — replacing an entire content team. You just approve.",
+    "descPlain": "Flowa is an AI Agent that plans campaigns, creates content for 12 channels, scores quality and publishes — replacing an entire content team. You just approve.",
     "benefits": {
       "setup": "5-minute setup",
       "noCard": "No credit card required",
@@ -41,7 +42,7 @@
       "calendar": "Content Calendar",
       "aiGeneration": "AI Generation"
     },
-    "tag": "AI Marketing Agent — Not an AI Writing Tool",
+    "tag": "Agentic Content Marketing Platform",
     "pipelineNote": "Entire pipeline runs in ~10 minutes, no intervention needed",
     "pipeline": {
       "research": "Research",

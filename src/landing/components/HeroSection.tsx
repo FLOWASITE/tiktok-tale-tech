@@ -88,9 +88,10 @@ export function HeroSection() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
           >
-            <span className="text-foreground">{t("hero.titleLine1")}</span>
+            <span className="text-foreground">{t("hero.titleLine1")} </span>
+            <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{t("hero.titleLine2")}</span>
             <br />
-            <span className="text-primary">{t("hero.titleLine2")}</span>
+            <span className="text-foreground">{t("hero.titleLine3")}</span>
           </motion.h1>
 
           {/* Sub-headline */}
