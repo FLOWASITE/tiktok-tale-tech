@@ -149,6 +149,10 @@ async function publishPhotoPost(
     console.warn("[tiktok] Trimmed to 35 images (TikTok max)");
   }
 
+  // Rewrite all image URLs to use the verified Cloudflare proxy domain
+  const rewrittenUrls = imageUrls.map(rewriteImageUrlForTikTok);
+  console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
+
   const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
     accessToken,
   );
@@ -165,7 +169,7 @@ async function publishPhotoPost(
       source_info: {
         source: "PULL_FROM_URL",
         photo_cover_index: 0,
-        photo_images: imageUrls,
+        photo_images: rewrittenUrls,
       },
       post_mode: "DIRECT_POST",
       media_type: "PHOTO",
@@ -256,7 +260,7 @@ async function publishPhotoPost(
     // Handle URL ownership unverified error with helpful message
     if (apiErrorCode === "url_ownership_unverified") {
       throw new TikTokPublishError(
-        "TikTok yêu cầu verify domain lưu trữ ảnh. Vào TikTok Developer Portal → App → URL Properties, thêm domain của Supabase Storage vào danh sách URL đã xác minh.",
+        "TikTok yêu cầu verify domain media.flowa.one. Vào TikTok Developer Portal → App → URL Properties, đảm bảo domain media.flowa.one đã được xác minh (Status: Verified).",
         {
           errorCode: "TIKTOK_URL_OWNERSHIP_UNVERIFIED",
           statusCode: response.status,
