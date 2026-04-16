@@ -55,7 +55,7 @@ export default function BrandCreate() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state - same as BrandForm
-  const [scope, setScope] = useState<BrandScope>('personal');
+  const [scope, setScope] = useState<BrandScope>('organization');
   const [name, setName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [industries, setIndustries] = useState<string[]>([]);
