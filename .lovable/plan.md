@@ -1,32 +1,30 @@
 
 
-## Thêm Headline và Sub-headline cho Brand Template
-
-### Tổng quan
-Thêm 2 trường mới **Headline** và **Sub-headline** vào form khai báo brand, giúp thương hiệu định nghĩa tiêu đề chính và phụ đề cho các nội dung marketing.
+## Thêm badge "Số kết nối" vào Brand Hero
 
 ### Thay đổi
 
-**1. Database Migration**
-- Thêm 2 cột mới vào bảng `brand_templates`:
-  - `headline TEXT DEFAULT NULL`
-  - `sub_headline TEXT DEFAULT NULL`
+**File: `src/components/brand/BrandViewHero.tsx`**
+- Import `Link2` icon từ lucide-react và `useSocialConnections` hook
+- Gọi `useSocialConnections({ brandTemplateId: template.id })` để lấy số kết nối active
+- Thêm badge mới sau badge "Trang trọng", hiển thị số kết nối (VD: "2 Kết nối"), style tương tự các badge khác (màu xanh khi có kết nối, xám khi chưa có)
 
-**2. File: `src/components/BrandForm.tsx`**
-- Thêm state: `headline`, `subHeadline`
-- Load từ template khi edit: `template.headline`, `template.sub_headline`
-- Gửi trong submit data: `headline`, `sub_headline`
+### Vị trí badge
+Sau badge Formality ("Trang trọng"), trước badge Emoji — đúng chỗ khoanh đỏ trong ảnh.
 
-**3. File: `src/components/BrandFormStepIdentity.tsx`**
-- Thêm props: `headline`, `setHeadline`, `subHeadline`, `setSubHeadline`
-- Thêm 2 input fields (Headline + Sub-headline) vào khu vực Chiến lược thương hiệu, cạnh Tagline/Slogan
+### Chi tiết kỹ thuật
+```tsx
+// Thêm badge connections count (sau formality, trước emoji)
+<div className={cn(
+  "flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm",
+  connectionsCount > 0 
+    ? "bg-sky-500/10 border-sky-500/30" 
+    : "bg-background/80 border-border/50"
+)}>
+  <Link2 className={cn("w-3.5 h-3.5", connectionsCount > 0 ? "text-sky-600" : "text-muted-foreground")} />
+  <span className="text-xs">{connectionsCount} Kết nối</span>
+</div>
+```
 
-**4. File: `src/hooks/useBrandTemplates.ts`**
-- Thêm `headline` và `sub_headline` vào type `BrandTemplate`
-
-**5. File: `src/components/brand/BrandViewOverviewTab.tsx`** (nếu có)
-- Hiển thị Headline và Sub-headline trong trang xem chi tiết brand
-
-**6. File: `src/utils/isBrandTemplateChanged.ts`**
-- Thêm `headline` và `sub_headline` vào danh sách so sánh thay đổi
+Chỉ thay đổi 1 file.
 
