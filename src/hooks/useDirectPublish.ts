@@ -128,6 +128,12 @@ export function useDirectPublish() {
           description: 'Ảnh bìa đang được xử lý. Vui lòng thử lại sau 1-2 phút.',
           variant: 'destructive',
         });
+      } else if (isTikTokUrlUnverified) {
+        toast({
+          title: 'TikTok: Chưa xác minh domain ảnh',
+          description: 'Vào TikTok Developer Portal → App → URL Properties, thêm domain lưu trữ ảnh vào danh sách URL đã xác minh.',
+          variant: 'destructive',
+        });
       } else if (isTikTokUnauditedPrivateOnly) {
         toast({
           title: 'TikTok chưa cho đăng công khai',
