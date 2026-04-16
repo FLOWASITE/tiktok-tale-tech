@@ -408,17 +408,40 @@ Secondary color: ${secondaryColor}`;
         let raw = toolCall.function.arguments;
         // Strip markdown fences if present
         raw = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        // Remove control characters
+        raw = raw.replace(/[\x00-\x1F\x7F]/g, ' ');
         // Remove trailing commas before } or ]
         raw = raw.replace(/,\s*([}\]])/g, '$1');
-        // Try closing unclosed braces/brackets
-        let opens = 0, closes = 0;
-        for (const ch of raw) { if (ch === '{') opens++; if (ch === '}') closes++; }
-        if (opens > closes) raw += '}'.repeat(opens - closes);
-        let openB = 0, closeB = 0;
-        for (const ch of raw) { if (ch === '[') openB++; if (ch === ']') closeB++; }
-        if (openB > closeB) raw += ']'.repeat(openB - closeB);
-        parsed = JSON.parse(raw);
-        console.log('[decompose-image-request] JSON recovery succeeded');
+        
+        // Progressive repair: trim trailing incomplete content and try parsing
+        for (let attempt = 0; attempt < 5; attempt++) {
+          // Remove trailing incomplete key-value pairs
+          raw = raw
+            .replace(/,\s*"[^"]*"?\s*:\s*"[^"]*$/, '')  // incomplete string value
+            .replace(/,\s*"[^"]*"?\s*:\s*[^,}\]]*$/, '') // incomplete non-string value  
+            .replace(/,\s*"[^"]*$/, '')                    // incomplete key
+            .replace(/,\s*\{[^}]*$/, '')                   // incomplete object in array
+            .replace(/,\s*$/, '');                          // trailing comma
+          
+          // Re-count and close missing braces/brackets
+          let opens = 0, closes = 0;
+          for (const ch of raw) { if (ch === '{') opens++; if (ch === '}') closes++; }
+          let openB = 0, closeB = 0;
+          for (const ch of raw) { if (ch === '[') openB++; if (ch === ']') closeB++; }
+          
+          let candidate = raw;
+          if (openB > closeB) candidate += ']'.repeat(openB - closeB);
+          if (opens > closes) candidate += '}'.repeat(opens - closes);
+          candidate = candidate.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+          
+          try {
+            parsed = JSON.parse(candidate);
+            console.log(`[decompose-image-request] JSON recovery succeeded on attempt ${attempt + 1}`);
+            break;
+          } catch (_e) {
+            if (attempt === 4) throw _e;
+          }
+        }
       } catch (recoveryErr) {
         console.error('[decompose-image-request] JSON recovery also failed:', (recoveryErr as Error).message);
         return new Response(JSON.stringify({ error: "AI returned malformed data, please retry" }), {
