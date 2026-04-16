@@ -1,6 +1,7 @@
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { BrandScope } from '@/hooks/useBrandTemplates';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -489,11 +490,12 @@ export function BrandFormStepIdentity({
                   <Lightbulb className="w-3.5 h-3.5" />
                   Sứ mệnh (Mission)
                 </Label>
-                <Input
+                <Textarea
                   value={mission}
                   onChange={(e) => setMission(e.target.value)}
                   placeholder="VD: Giúp doanh nghiệp nhỏ quản lý tài chính hiệu quả"
-                  className="h-9"
+                  className="min-h-[60px] resize-y"
+                  rows={2}
                 />
               </div>
               
@@ -502,11 +504,12 @@ export function BrandFormStepIdentity({
                   <Eye className="w-3.5 h-3.5" />
                   Tầm nhìn (Vision)
                 </Label>
-                <Input
+                <Textarea
                   value={vision}
                   onChange={(e) => setVision(e.target.value)}
                   placeholder="VD: Trở thành nền tảng kế toán số 1 Việt Nam"
-                  className="h-9"
+                  className="min-h-[60px] resize-y"
+                  rows={2}
                 />
               </div>
 
@@ -515,11 +518,12 @@ export function BrandFormStepIdentity({
                   <Target className="w-3.5 h-3.5" />
                   Giá trị cốt lõi (UVP)
                 </Label>
-                <Input
+                <Textarea
                   value={uniqueValueProposition}
                   onChange={(e) => setUniqueValueProposition(e.target.value)}
                   placeholder="VD: Tiết kiệm 80% thời gian với tự động hóa thông minh"
-                  className="h-9"
+                  className="min-h-[60px] resize-y"
+                  rows={2}
                 />
               </div>
 
@@ -528,11 +532,12 @@ export function BrandFormStepIdentity({
                   <Quote className="w-3.5 h-3.5" />
                   Slogan / Tagline
                 </Label>
-                <Input
+                <Textarea
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
                   placeholder="VD: Kế toán đơn giản, kinh doanh thăng hoa"
-                  className="h-9"
+                  className="min-h-[60px] resize-y"
+                  rows={2}
                 />
               </div>
 
@@ -541,11 +546,12 @@ export function BrandFormStepIdentity({
                   <Target className="w-3.5 h-3.5" />
                   Headline
                 </Label>
-                <Input
+                <Textarea
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
                   placeholder="VD: Giải pháp kế toán #1 cho doanh nghiệp SME"
-                  className="h-9"
+                  className="min-h-[60px] resize-y"
+                  rows={2}
                 />
               </div>
 
@@ -554,10 +560,12 @@ export function BrandFormStepIdentity({
                   <Lightbulb className="w-3.5 h-3.5" />
                   Sub-headline
                 </Label>
-                <Input
+                <Textarea
                   value={subHeadline}
                   onChange={(e) => setSubHeadline(e.target.value)}
                   placeholder="VD: Tiết kiệm 80% thời gian xử lý hóa đơn"
+                  className="min-h-[60px] resize-y"
+                  rows={2}
                   className="h-9"
                 />
               </div>
