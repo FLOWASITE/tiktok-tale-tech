@@ -90,10 +90,19 @@ async function getCreatorPostSettings(accessToken: string): Promise<{
     throw new Error("TikTok creator info did not return privacy level options");
   }
 
+  // Ưu tiên: PUBLIC > FOLLOWER > MUTUAL_FOLLOW > SELF_ONLY
+  const PRIVACY_PRIORITY = [
+    "PUBLIC_TO_EVERYONE",
+    "FOLLOWER_OF_CREATOR",
+    "MUTUAL_FOLLOW_FRIENDS",
+    "SELF_ONLY",
+  ];
+
+  const privacyLevel = PRIVACY_PRIORITY.find(p => privacyLevelOptions.includes(p))
+    || privacyLevelOptions[0];
+
   return {
-    privacyLevel: privacyLevelOptions.includes("SELF_ONLY")
-      ? "SELF_ONLY"
-      : privacyLevelOptions[0],
+    privacyLevel,
     disableComment: Boolean(result.data?.comment_disabled),
   };
 }
