@@ -397,14 +397,22 @@ export function CarouselGenerationTracker({
     .map((s, idx) => s === 'generating' ? idx + 1 : -1)
     .filter(n => n > 0);
 
+  // Get active task's progress message if available
+  const activeTask = activeTasks.find(
+    t => t.id === backgroundTaskId || t.input_params?.carouselId === carousel?.id
+  );
+  const taskProgressMessage = activeTask?.progress_message;
+
   const currentStatusText = allDone
     ? '✅ Hoàn tất!'
     : imageGenStarted
-      ? generatingSlides.length > 1
-        ? `Đang tạo ảnh slide ${generatingSlides.join(', ')}...`
-        : generatingSlides.length === 1
-          ? `Đang tạo ảnh slide ${generatingSlides[0]}...`
-          : 'Đang xử lý...'
+      ? taskProgressMessage || (
+          generatingSlides.length > 1
+            ? `Đang tạo ảnh slide ${generatingSlides.join(', ')}...`
+            : generatingSlides.length === 1
+              ? `Đang tạo ảnh slide ${generatingSlides[0]}...`
+              : 'Đang xử lý dưới nền...'
+        )
       : promptDone
         ? 'Đang chuẩn bị tạo ảnh...'
         : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
