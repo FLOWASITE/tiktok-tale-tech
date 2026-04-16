@@ -476,8 +476,9 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
           success: true,
           data: {
             postId: publishId,
-            postUrl: null, // TikTok doesn't provide URL immediately
+            postUrl: null,
             mediaCount: mediaUrls.length,
+            publishStatus: statusResult.status,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
