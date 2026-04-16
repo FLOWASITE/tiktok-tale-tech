@@ -121,8 +121,29 @@ export function useDirectPublish() {
       const isTikTokUrlUnverified =
         errorCode === 'TIKTOK_URL_OWNERSHIP_UNVERIFIED' ||
         error.message?.includes('url_ownership_unverified');
+      const isTikTokFileFormat =
+        errorCode === 'TIKTOK_POST_PROCESSING_FAILED' &&
+        error.message?.includes('file_format_check_failed');
+      const isTikTokImageError = [
+        'TIKTOK_IMAGE_FETCH_FAILED',
+        'TIKTOK_IMAGE_DECODE_FAILED',
+        'TIKTOK_IMAGE_UPLOAD_FAILED',
+        'TIKTOK_UNSUPPORTED_FORMAT',
+      ].includes(errorCode || '');
       
-      if (isMediaProcessing) {
+      if (isTikTokFileFormat) {
+        toast({
+          title: 'TikTok: Định dạng ảnh không tương thích',
+          description: 'TikTok từ chối ảnh carousel do encoding không hỗ trợ. Hãy thử tạo lại ảnh hoặc dùng ảnh JPEG chuẩn.',
+          variant: 'destructive',
+        });
+      } else if (isTikTokImageError) {
+        toast({
+          title: 'TikTok: Lỗi xử lý ảnh',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else if (isMediaProcessing) {
         toast({
           title: 'Zalo đang xử lý ảnh',
           description: 'Ảnh bìa đang được xử lý. Vui lòng thử lại sau 1-2 phút.',
