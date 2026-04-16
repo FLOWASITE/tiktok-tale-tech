@@ -184,6 +184,16 @@ async function publishPhotoPost(
       );
     }
 
+    if (response.status === 403 && apiErrorCode === "url_ownership_unverified") {
+      throw new TikTokPublishError(
+        "TikTok yêu cầu xác minh domain ảnh. Vào TikTok Developer Portal → App → URL Properties, thêm domain lưu trữ ảnh (vd: rllyipiyuptkibqinotz.supabase.co) vào danh sách URL đã xác minh.",
+        {
+          errorCode: "TIKTOK_URL_OWNERSHIP_UNVERIFIED",
+          statusCode: 403,
+        },
+      );
+    }
+
     throw new TikTokPublishError(
       `TikTok API error: ${response.status} - ${responseText}`,
       {

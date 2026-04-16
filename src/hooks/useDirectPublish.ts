@@ -118,11 +118,20 @@ export function useDirectPublish() {
       const isTikTokUnauditedPrivateOnly =
         errorCode === 'TIKTOK_UNAUDITED_PRIVATE_ONLY' ||
         error.message?.includes('unaudited_client_can_only_post_to_private_accounts');
+      const isTikTokUrlUnverified =
+        errorCode === 'TIKTOK_URL_OWNERSHIP_UNVERIFIED' ||
+        error.message?.includes('url_ownership_unverified');
       
       if (isMediaProcessing) {
         toast({
           title: 'Zalo đang xử lý ảnh',
           description: 'Ảnh bìa đang được xử lý. Vui lòng thử lại sau 1-2 phút.',
+          variant: 'destructive',
+        });
+      } else if (isTikTokUrlUnverified) {
+        toast({
+          title: 'TikTok: Chưa xác minh domain ảnh',
+          description: 'Vào TikTok Developer Portal → App → URL Properties, thêm domain lưu trữ ảnh vào danh sách URL đã xác minh.',
           variant: 'destructive',
         });
       } else if (isTikTokUnauditedPrivateOnly) {
