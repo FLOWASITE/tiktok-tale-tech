@@ -11,7 +11,8 @@ import {
   Filter,
   BarChart3,
   History,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { TopicHistoryCard } from './TopicHistoryCard';
 import { useTopicHistory, TopicHistoryItem, FeedbackType } from '@/hooks/useTopicHistory';
@@ -54,9 +55,12 @@ export function TopicHistoryTab({
     recentlyUsed,
     stats,
     isLoading,
+    isLoadingMore,
+    hasMore,
     toggleFavorite,
     submitFeedback,
     deleteTopic,
+    loadMore,
   } = useTopicHistory({
     brandTemplateId,
     contentGoal,
@@ -247,6 +251,26 @@ export function TopicHistoryTab({
               onReuse={handleReuse}
             />
           ))}
+          {hasMore && filterView === 'all' && !searchQuery && categoryFilter === 'all' && (
+            <div className="flex justify-center pt-2 pb-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadMore()}
+                disabled={isLoadingMore}
+                className="w-full max-w-xs"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Đang tải...
+                  </>
+                ) : (
+                  'Tải thêm ý tưởng'
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
