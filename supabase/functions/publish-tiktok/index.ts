@@ -17,9 +17,62 @@ interface PublishRequest {
 
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
- * Supports 2-35 images via PULL_FROM_URL source
+ * Supports 1-35 images via PULL_FROM_URL source
  * Docs: https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
  */
+function truncateUtf16(input: string, maxUnits: number): string {
+  let result = '';
+  let usedUnits = 0;
+
+  for (const char of input) {
+    const units = (char.codePointAt(0) ?? 0) > 0xffff ? 2 : 1;
+    if (usedUnits + units > maxUnits) break;
+    result += char;
+    usedUnits += units;
+  }
+
+  return result;
+}
+
+async function getCreatorPostSettings(accessToken: string): Promise<{
+  privacyLevel: string;
+  disableComment: boolean;
+}> {
+  const response = await fetch('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: '{}',
+  });
+
+  const responseText = await response.text();
+  console.log('[tiktok] Creator info response:', response.status, responseText);
+
+  if (!response.ok) {
+    throw new Error(`TikTok creator info error: ${response.status} - ${responseText}`);
+  }
+
+  const result = JSON.parse(responseText);
+  if (result.error?.code !== 'ok' && result.error?.code) {
+    throw new Error(`TikTok creator info error: ${result.error.code} - ${result.error.message || 'Unknown error'}`);
+  }
+
+  const privacyLevelOptions = Array.isArray(result.data?.privacy_level_options)
+    ? result.data.privacy_level_options.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
+    : [];
+
+  if (privacyLevelOptions.length === 0) {
+    throw new Error('TikTok creator info did not return privacy level options');
+  }
+
+  return {
+    privacyLevel: privacyLevelOptions.includes('SELF_ONLY') ? 'SELF_ONLY' : privacyLevelOptions[0],
+    disableComment: Boolean(result.data?.comment_disabled),
+  };
+}
+
 async function publishPhotoPost(
   accessToken: string,
   title: string,
@@ -34,13 +87,14 @@ async function publishPhotoPost(
     console.warn('[tiktok] Trimmed to 35 images (TikTok max)');
   }
 
+  const { privacyLevel, disableComment } = await getCreatorPostSettings(accessToken);
+
   const body = {
     post_info: {
-      title: title.substring(0, 150),
-      description: description.substring(0, 2200),
-      privacy_level: 'SELF_ONLY',
-      disable_comment: false,
-      auto_add_music: true,
+      title: truncateUtf16(title, 90),
+      description: truncateUtf16(description, 4000),
+      privacy_level: privacyLevel,
+      disable_comment: disableComment,
     },
     source_info: {
       source: 'PULL_FROM_URL',
