@@ -62,8 +62,8 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
         </Card>
       )}
 
-      {/* UVP & Tagline */}
-      {(template.unique_value_proposition || template.tagline) && (
+      {/* UVP & Tagline & Headline */}
+      {(template.unique_value_proposition || template.tagline || template.headline || template.sub_headline) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -72,6 +72,18 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {template.headline && (
+              <div>
+                <span className="text-sm font-medium text-muted-foreground">Headline</span>
+                <p className="text-base font-semibold mt-1">{template.headline}</p>
+              </div>
+            )}
+            {template.sub_headline && (
+              <div>
+                <span className="text-sm font-medium text-muted-foreground">Sub-headline</span>
+                <p className="text-sm mt-1 text-muted-foreground">{template.sub_headline}</p>
+              </div>
+            )}
             {template.unique_value_proposition && (
               <div>
                 <span className="text-sm font-medium text-muted-foreground">

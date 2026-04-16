@@ -89,6 +89,8 @@ export default function BrandCreate() {
   const [vision, setVision] = useState('');
   const [uniqueValueProposition, setUniqueValueProposition] = useState('');
   const [tagline, setTagline] = useState('');
+  const [headline, setHeadline] = useState('');
+  const [subHeadline, setSubHeadline] = useState('');
   const [targetAgeRange, setTargetAgeRange] = useState('');
   const [targetGender, setTargetGender] = useState('');
   const [marketSegment, setMarketSegment] = useState('');
@@ -178,6 +180,8 @@ export default function BrandCreate() {
       setVision(editingTemplate.vision || '');
       setUniqueValueProposition(editingTemplate.unique_value_proposition || '');
       setTagline(editingTemplate.tagline || '');
+      setHeadline(editingTemplate.headline || '');
+      setSubHeadline(editingTemplate.sub_headline || '');
       setTargetAgeRange(editingTemplate.target_age_range || '');
       setTargetGender(editingTemplate.target_gender || '');
       setMarketSegment(editingTemplate.market_segment || '');
@@ -335,6 +339,8 @@ export default function BrandCreate() {
         vision: vision || null,
         unique_value_proposition: uniqueValueProposition || null,
         tagline: tagline || null,
+        headline: headline || null,
+        sub_headline: subHeadline || null,
         target_age_range: targetAgeRange || null,
         target_gender: targetGender || null,
         market_segment: marketSegment || null,
@@ -552,6 +558,10 @@ export default function BrandCreate() {
                   setUniqueValueProposition={setUniqueValueProposition}
                   tagline={tagline}
                   setTagline={setTagline}
+                  headline={headline}
+                  setHeadline={setHeadline}
+                  subHeadline={subHeadline}
+                  setSubHeadline={setSubHeadline}
                   focusFooterInfo={focusFooterInfo}
                 />
               )}

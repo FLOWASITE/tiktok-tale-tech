@@ -3102,6 +3102,7 @@ export type Database = {
           forbidden_words: string[] | null
           formality_level: string | null
           global_pack_id: string | null
+          headline: string | null
           id: string
           image_style: string | null
           include_logo: boolean
@@ -3123,6 +3124,7 @@ export type Database = {
           secondary_colors: string[] | null
           sentence_style: string | null
           signature_phrases: string[] | null
+          sub_headline: string | null
           tagline: string | null
           target_age_range: string | null
           target_gender: string | null
@@ -3155,6 +3157,7 @@ export type Database = {
           forbidden_words?: string[] | null
           formality_level?: string | null
           global_pack_id?: string | null
+          headline?: string | null
           id?: string
           image_style?: string | null
           include_logo?: boolean
@@ -3176,6 +3179,7 @@ export type Database = {
           secondary_colors?: string[] | null
           sentence_style?: string | null
           signature_phrases?: string[] | null
+          sub_headline?: string | null
           tagline?: string | null
           target_age_range?: string | null
           target_gender?: string | null
@@ -3208,6 +3212,7 @@ export type Database = {
           forbidden_words?: string[] | null
           formality_level?: string | null
           global_pack_id?: string | null
+          headline?: string | null
           id?: string
           image_style?: string | null
           include_logo?: boolean
@@ -3229,6 +3234,7 @@ export type Database = {
           secondary_colors?: string[] | null
           sentence_style?: string | null
           signature_phrases?: string[] | null
+          sub_headline?: string | null
           tagline?: string | null
           target_age_range?: string | null
           target_gender?: string | null

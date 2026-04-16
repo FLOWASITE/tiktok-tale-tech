@@ -51,6 +51,10 @@ interface BrandFormStepIdentityProps {
   setUniqueValueProposition: (value: string) => void;
   tagline: string;
   setTagline: (value: string) => void;
+  headline: string;
+  setHeadline: (value: string) => void;
+  subHeadline: string;
+  setSubHeadline: (value: string) => void;
   // Focus props
   focusFooterInfo?: boolean;
 }
@@ -89,6 +93,10 @@ export function BrandFormStepIdentity({
   setUniqueValueProposition,
   tagline,
   setTagline,
+  headline,
+  setHeadline,
+  subHeadline,
+  setSubHeadline,
   // Focus props
   focusFooterInfo = false,
 }: BrandFormStepIdentityProps) {
@@ -524,6 +532,32 @@ export function BrandFormStepIdentity({
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
                   placeholder="VD: Kế toán đơn giản, kinh doanh thăng hoa"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  Headline
+                </Label>
+                <Input
+                  value={headline}
+                  onChange={(e) => setHeadline(e.target.value)}
+                  placeholder="VD: Giải pháp kế toán #1 cho doanh nghiệp SME"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  Sub-headline
+                </Label>
+                <Input
+                  value={subHeadline}
+                  onChange={(e) => setSubHeadline(e.target.value)}
+                  placeholder="VD: Tiết kiệm 80% thời gian xử lý hóa đơn"
                   className="h-9"
                 />
               </div>
