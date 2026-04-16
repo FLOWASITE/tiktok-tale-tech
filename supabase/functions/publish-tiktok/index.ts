@@ -15,6 +15,18 @@ interface PublishRequest {
   contentId?: string;
 }
 
+class TikTokPublishError extends Error {
+  errorCode?: string;
+  statusCode?: number;
+
+  constructor(message: string, options?: { errorCode?: string; statusCode?: number }) {
+    super(message);
+    this.name = "TikTokPublishError";
+    this.errorCode = options?.errorCode;
+    this.statusCode = options?.statusCode;
+  }
+}
+
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
  * Supports 1-35 images via PULL_FROM_URL source
@@ -141,20 +153,57 @@ async function publishPhotoPost(
   const responseText = await response.text();
   console.log("[tiktok] API response:", response.status, responseText);
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("TikTok token expired. Please reconnect your account.");
-    }
-    throw new Error(`TikTok API error: ${response.status} - ${responseText}`);
+  let parsedErrorBody: Record<string, unknown> | null = null;
+  try {
+    parsedErrorBody = JSON.parse(responseText);
+  } catch {
+    parsedErrorBody = null;
   }
 
-  const result = JSON.parse(responseText);
+  const apiError = (parsedErrorBody?.error && typeof parsedErrorBody.error === "object")
+    ? parsedErrorBody.error as Record<string, unknown>
+    : null;
+  const apiErrorCode = typeof apiError?.code === "string" ? apiError.code : undefined;
+  const apiErrorMessage = typeof apiError?.message === "string" ? apiError.message : undefined;
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new TikTokPublishError("TikTok token expired. Please reconnect your account.", {
+        errorCode: "TIKTOK_TOKEN_EXPIRED",
+        statusCode: 401,
+      });
+    }
+
+    if (response.status === 403 && apiErrorCode === "unaudited_client_can_only_post_to_private_accounts") {
+      throw new TikTokPublishError(
+        "Ứng dụng TikTok hiện chưa được audit để đăng công khai. Hãy chuyển tài khoản TikTok sang chế độ riêng tư hoặc hoàn tất TikTok app review theo hướng dẫn của TikTok.",
+        {
+          errorCode: "TIKTOK_UNAUDITED_PRIVATE_ONLY",
+          statusCode: 403,
+        },
+      );
+    }
+
+    throw new TikTokPublishError(
+      `TikTok API error: ${response.status} - ${responseText}`,
+      {
+        errorCode: apiErrorCode || "TIKTOK_API_ERROR",
+        statusCode: response.status,
+      },
+    );
+  }
+
+  const result = parsedErrorBody ?? JSON.parse(responseText);
 
   if (result.error?.code !== "ok" && result.error?.code) {
-    throw new Error(
+    throw new TikTokPublishError(
       `TikTok error: ${result.error.code} - ${
         result.error.message || "Unknown error"
       }`,
+      {
+        errorCode: typeof result.error.code === "string" ? result.error.code : "TIKTOK_API_ERROR",
+        statusCode: 400,
+      },
     );
   }
 
@@ -290,6 +339,12 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
       const errorMessage = publishError instanceof Error
         ? publishError.message
         : "Unknown error";
+      const errorCode = publishError instanceof TikTokPublishError
+        ? publishError.errorCode
+        : undefined;
+      const statusCode = publishError instanceof TikTokPublishError && publishError.statusCode
+        ? publishError.statusCode
+        : 500;
 
       if (attempt) {
         await supabase.from("publish_attempts").update({
@@ -311,11 +366,17 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
     const errorMessage = error instanceof Error
       ? error.message
       : "Internal server error";
+    const errorCode = error instanceof TikTokPublishError
+      ? error.errorCode
+      : undefined;
+    const statusCode = error instanceof TikTokPublishError && error.statusCode
+      ? error.statusCode
+      : 500;
     console.error("[publish-tiktok] error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ success: false, error: errorMessage, ...(errorCode ? { errorCode } : {}) }),
       {
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
