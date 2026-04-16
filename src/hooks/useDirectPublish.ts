@@ -118,6 +118,9 @@ export function useDirectPublish() {
       const isTikTokUnauditedPrivateOnly =
         errorCode === 'TIKTOK_UNAUDITED_PRIVATE_ONLY' ||
         error.message?.includes('unaudited_client_can_only_post_to_private_accounts');
+      const isTikTokUrlUnverified =
+        errorCode === 'TIKTOK_URL_OWNERSHIP_UNVERIFIED' ||
+        error.message?.includes('url_ownership_unverified');
       
       if (isMediaProcessing) {
         toast({
