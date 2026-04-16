@@ -586,35 +586,24 @@ export function CarouselGenerationTracker({
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {Array.from({ length: slideCount }, (_, i) => {
                 const status: SlideStatus = slideStatuses[i] || 'pending';
-                const isRetrying = retryingSlide === i;
-                const canRetry = status === 'error' && imageGenDone && retryingSlide === null;
                 return (
                   <div
                     key={i}
                     className={cn(
                       "flex flex-col items-center justify-center gap-1 px-2 py-2 rounded-lg border text-xs font-medium transition-all duration-300",
                       status === 'done' && "bg-primary/10 border-primary/30 text-primary",
-                      (status === 'generating' || isRetrying) && "bg-primary/5 border-primary/40 text-primary animate-pulse",
-                      status === 'error' && !isRetrying && "bg-destructive/10 border-destructive/30 text-destructive",
+                      status === 'generating' && "bg-primary/5 border-primary/40 text-primary animate-pulse",
+                      status === 'error' && "bg-destructive/10 border-destructive/30 text-destructive",
                       status === 'pending' && "bg-muted/30 border-border/50 text-muted-foreground"
                     )}
                   >
                     <div className="flex items-center gap-1.5">
                       {status === 'done' && <Check className="w-3 h-3" />}
-                      {(status === 'generating' || isRetrying) && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {status === 'error' && !isRetrying && <AlertCircle className="w-3 h-3" />}
+                      {status === 'generating' && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {status === 'error' && <AlertCircle className="w-3 h-3" />}
                       {status === 'pending' && <Circle className="w-3 h-3 opacity-40" />}
                       <span>Slide {i + 1}</span>
                     </div>
-                    {canRetry && (
-                      <button
-                        onClick={() => handleRetrySlide(i)}
-                        className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors mt-0.5"
-                      >
-                        <RefreshCw className="w-2.5 h-2.5" />
-                        Tạo lại
-                      </button>
-                    )}
                   </div>
                 );
               })}
