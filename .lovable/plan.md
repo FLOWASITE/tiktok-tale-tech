@@ -1,18 +1,51 @@
 
 
-## Sửa lỗi: Thông tin Key bị mất khi chỉnh sửa Social Credentials
+## Sửa lỗi TikTok: "The request post info is empty or incorrect"
 
-### Nguyên nhân
-Trong `SocialPlatformCredentialsDialog.tsx`, dòng 164-165 luôn reset `consumerKey` và `consumerSecret` thành chuỗi rỗng khi mở dialog chỉnh sửa. Giá trị masked (vd: `sbaw****79qu`) chỉ hiển thị nhỏ bên dưới input dưới dạng text mờ, khiến người dùng cảm thấy dữ liệu bị mất.
+### Nguyên nhân gốc
+So sánh code hiện tại với TikTok API docs cho thấy 2 vấn đề trong `publishPhotoPost()`:
 
-### Giải pháp
-1. **Hiển thị masked value trực tiếp trong input** thay vì để trống — set giá trị masked làm placeholder rõ ràng hơn, và thêm badge "Đã lưu" để người dùng biết credentials vẫn còn.
-2. **Thêm thông báo rõ ràng** phía trên form khi đang chỉnh sửa: "Credentials hiện tại vẫn được lưu. Chỉ nhập mới nếu muốn thay đổi."
-3. **Cải thiện placeholder text** — thay vì "Giữ nguyên hoặc nhập mới", hiển thị masked value trực tiếp trong placeholder (vd: `sbaw****79qu — nhập mới để thay đổi`).
+1. **Thiếu `description`** trong `post_info` — TikTok photo post yêu cầu field `description` (caption text), không chỉ `title`
+2. **`privacy_level` có thể không hợp lệ** — Giá trị `SELF_ONLY` phải khớp với danh sách cho phép của creator. Theo best practice, cần query creator info trước khi post, hoặc dùng `SELF_ONLY` (đúng format)
 
-### File thay đổi
-- `src/components/admin/SocialPlatformCredentialsDialog.tsx`
-  - Thêm alert/notice box khi `existingSettings?.has_credentials` là true
-  - Cập nhật placeholder của input key/secret để hiển thị masked value
-  - Đổi label "Hiện tại:" thành badge nổi bật hơn
+Ví dụ request body đúng từ TikTok docs:
+```text
+{
+  "post_info": {
+    "title": "funny cat",
+    "description": "this will be a #funny photo on your @tiktok #fyp",
+    "disable_comment": false,
+    "privacy_level": "SELF_ONLY",
+    "auto_add_music": true
+  },
+  "source_info": {
+    "source": "PULL_FROM_URL",
+    "photo_cover_index": 0,
+    "photo_images": ["url1", "url2"]
+  },
+  "post_mode": "DIRECT_POST",
+  "media_type": "PHOTO"
+}
+```
+
+### Kế hoạch sửa
+
+**File: `supabase/functions/publish-tiktok/index.ts`**
+
+1. Thêm `description` vào `post_info` — lấy từ `content` (toàn bộ nội dung bài viết, max 2200 chars)
+2. Thêm `photo_cover_index: 0` vào `source_info`
+3. Tách `title` (dòng đầu, max 150 chars) và `description` (toàn bộ content, max 2200 chars) riêng biệt
+4. Giữ `privacy_level: 'SELF_ONLY'` (an toàn cho app chưa được duyệt production)
+
+**Thay đổi cụ thể trong hàm `publishPhotoPost`:**
+- Thêm param `description: string`
+- Thêm `description` vào `post_info`
+- Thêm `photo_cover_index: 0` vào `source_info`
+
+**Deploy lại** edge function `publish-tiktok`
+
+### Không cần thay đổi
+- Không cần migration
+- Không cần sửa UI
+- Không cần sửa channel-publisher (đã truyền `content` đúng)
 
