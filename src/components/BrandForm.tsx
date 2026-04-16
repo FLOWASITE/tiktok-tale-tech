@@ -547,7 +547,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
         </div>
 
         {/* Mini Preview Panel */}
-        {showPreview && (
+        {showPreview && currentStep !== 2 && currentStep !== 3 && (
           <div className="hidden lg:block w-96 shrink-0">
             <BrandFormMiniPreview
               brandName={brandName}
