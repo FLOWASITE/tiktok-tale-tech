@@ -189,7 +189,7 @@ async function publishPhotoPost(
       source_info: {
         source: "FILE_UPLOAD",
         photo_cover_index: 0,
-        photo_images: imageUrls.map((_url, index) => `image_${index}`),
+        photo_count: imageUrls.length,
       },
       post_mode: "DIRECT_POST",
       media_type: "PHOTO",
