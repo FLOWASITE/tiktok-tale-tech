@@ -1,37 +1,50 @@
 
 
-## Cập nhật Landing Page Hero Section
+## Hoàn thiện kết nối TikTok
 
-### Thay đổi
+### Hiện trạng
+- `publish-tiktok` edge function đã có (đăng photo post qua Content Posting API v2)
+- `channel-publisher` đã route đến `publish-tiktok`
+- TikTok đã có trong type definitions, hooks
+- **Thiếu**: OAuth flow kết nối, callback, token refresh, và UI đang đánh dấu "sắp ra mắt"
 
-**1. Tag line** — Đổi từ "AI Marketing Agent — Không phải AI Writing Tool" → "Agentic Content Marketing Platform"
+### Cần làm
 
-**2. Headline** — Tách thành 2 phần:
-- Dòng 1 (text thường): "Content marketing chạy "
-- Dòng 2 (gradient text): "tự động"
-- Dòng 3 (text thường): " — từ chiến lược đến đăng bài"
+**1. Thêm TikTok OAuth vào `connect-social` (supabase/functions/connect-social/index.ts)**
+- Thêm block `if (platform === 'tiktok')` tương tự Facebook/Threads
+- Lấy credentials từ `social_platform_settings` (TikTok Client Key/Secret)
+- Tạo OAuth URL: `https://www.tiktok.com/v2/auth/authorize/` với scopes: `user.info.basic,video.publish,video.upload`
+- Redirect URI: `{supabaseUrl}/functions/v1/tiktok-oauth-callback`
+- State chứa brandTemplateId, organizationId, userId, frontendOrigin
 
-Cần sửa component `HeroSection.tsx` để "tự động" có gradient thay vì chỉ dùng `text-primary` cho dòng 2.
+**2. Tạo `tiktok-oauth-callback` edge function (supabase/functions/tiktok-oauth-callback/index.ts)**
+- Nhận `code` và `state` từ TikTok redirect
+- Exchange code → access_token + refresh_token qua `https://open.tiktokapis.com/v2/oauth/token/`
+- Lấy user info qua `https://open.tiktokapis.com/v2/user/info/`
+- Lưu connection vào `social_connections` (encrypt token, lưu refresh_token, token_expires_at)
+- Redirect về frontend
 
-**3. Sub-headline** — Đổi thành: "Flowa là AI Agent tự lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài — thay cho cả một team content. Bạn chỉ cần duyệt."
+**3. Thêm TikTok vào `auth-gateway` (supabase/functions/auth-gateway/index.ts)**
+- Thêm `tiktok: 'tiktok-oauth-callback'` vào `PLATFORM_FUNCTION_MAP`
 
-### Files cần sửa
+**4. Cập nhật `SocialConnectionsManager` (src/components/social/SocialConnectionsManager.tsx)**
+- Đổi `available: false` → `true` cho TikTok
+- Đổi description: "Đăng video (sắp ra mắt)" → "Đăng ảnh carousel"
+- Thay emoji icon bằng SVG ChannelIcon (theo memory social-identity)
 
-**`src/i18n/locales/vi.json`**
-- `hero.tag` → "Agentic Content Marketing Platform"
-- `hero.titleLine1` → "Content marketing chạy"
-- `hero.titleLine2` → "tự động"
-- Thêm `hero.titleLine3` → "— từ chiến lược đến đăng bài"
-- `hero.descPlain` → text mới
+**5. Cập nhật `publish-tiktok` (supabase/functions/publish-tiktok/index.ts)**
+- Sử dụng `decrypt` từ `_shared/crypto.ts` thay vì decrypt thủ công (đồng bộ với các platform khác)
 
-**`src/i18n/locales/en.json`** và **`src/i18n/locales/th.json`** — cập nhật tương ứng
+**6. Thêm TikTok vào `supportedPlatforms` trong `connect-social` response (line 866)**
 
-**`src/landing/components/HeroSection.tsx`**
-- Headline: render `titleLine1` + `titleLine2` (gradient) + `titleLine3` trên cùng 1 block
-- Áp dụng gradient CSS cho "tự động": `bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent`
+### Yêu cầu
+- Admin cần cấu hình TikTok Client Key/Secret trong Admin Settings (`social_platform_settings`)
+- TikTok Developer App cần được set redirect URI đúng
 
-### Kết quả
-- Tag: "Agentic Content Marketing Platform"
-- Headline: "Content marketing chạy **tự động** — từ chiến lược đến đăng bài" (tự động có gradient)
-- Sub: "Flowa là AI Agent tự lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài — thay cho cả một team content. Bạn chỉ cần duyệt."
+### Files thay đổi
+- `supabase/functions/connect-social/index.ts` — thêm TikTok OAuth block
+- `supabase/functions/tiktok-oauth-callback/index.ts` — tạo mới
+- `supabase/functions/auth-gateway/index.ts` — thêm mapping
+- `supabase/functions/publish-tiktok/index.ts` — chuẩn hóa decrypt
+- `src/components/social/SocialConnectionsManager.tsx` — bật TikTok
 
