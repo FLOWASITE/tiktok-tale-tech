@@ -1,6 +1,8 @@
 import { getServiceClient, withPerf } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
-import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
+import ImageScript from "npm:imagescript@1.3.1";
+
+const { Image } = ImageScript;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
