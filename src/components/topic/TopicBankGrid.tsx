@@ -575,7 +575,7 @@ export function TopicBankGrid({
         <p className="text-xs text-muted-foreground text-center">
           Hiển thị {filteredItems.length} ý tưởng
         </p>
-
+      )}
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
