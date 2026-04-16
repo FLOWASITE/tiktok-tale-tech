@@ -279,72 +279,86 @@ async function pollPublishStatus(
 }
 
 /**
- * Convert PNG images to JPEG for TikTok compatibility.
- * TikTok Photo API only accepts JPEG and WebP formats.
- * Downloads each image, checks format, converts PNG→JPEG, re-uploads to storage.
+ * Normalize ALL images for TikTok compatibility.
+ * Re-encodes every image to a clean JPEG regardless of original format/extension.
+ * TikTok Photo API only accepts JPEG and WebP — this ensures binary compatibility.
  */
-async function convertImagesToJpeg(imageUrls: string[]): Promise<string[]> {
+async function normalizeImagesForTikTok(imageUrls: string[]): Promise<string[]> {
   const supabase = getServiceClient();
   const results: string[] = [];
 
-  for (const url of imageUrls) {
-    try {
-      // Check if URL is PNG by extension or content-type
-      const isPng = url.toLowerCase().includes('.png');
-      if (!isPng) {
-        // Already JPEG/WebP — keep as-is
-        results.push(url);
-        continue;
-      }
+  for (let i = 0; i < imageUrls.length; i++) {
+    const url = imageUrls[i];
+    console.log(`[tiktok-normalize] [${i + 1}/${imageUrls.length}] Fetching: ${url}`);
 
-      console.log("[tiktok] Converting PNG to JPEG:", url);
-
-      // Download the image
-      const imgResponse = await fetch(url);
-      if (!imgResponse.ok) {
-        console.warn("[tiktok] Failed to fetch image for conversion, keeping original:", url);
-        results.push(url);
-        continue;
-      }
-
-      const imgBuffer = new Uint8Array(await imgResponse.arrayBuffer());
-
-      // Decode and convert to JPEG
-      const image = await Image.decode(imgBuffer);
-      const jpegData = await image.encodeJPEG(85);
-
-      // Upload converted JPEG to storage
-      const timestamp = Date.now();
-      const uniqueId = crypto.randomUUID().slice(0, 8);
-      const newPath = `social/tiktok-optimized/${timestamp}-${uniqueId}.jpg`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("carousel-images")
-        .upload(newPath, jpegData, {
-          contentType: "image/jpeg",
-          upsert: true,
-        });
-
-      if (uploadError) {
-        console.warn("[tiktok] Upload failed for converted image, keeping original:", uploadError.message);
-        results.push(url);
-        continue;
-      }
-
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from("carousel-images")
-        .getPublicUrl(newPath);
-
-      console.log("[tiktok] Converted PNG→JPEG:", publicUrlData.publicUrl);
-      results.push(publicUrlData.publicUrl);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn("[tiktok] Image conversion failed, keeping original:", msg);
-      results.push(url);
+    const imgResponse = await fetch(url);
+    if (!imgResponse.ok) {
+      throw new TikTokPublishError(
+        `Không thể tải ảnh ${i + 1}: HTTP ${imgResponse.status}`,
+        { errorCode: "TIKTOK_IMAGE_FETCH_FAILED", statusCode: 400 },
+      );
     }
+
+    const contentType = imgResponse.headers.get("content-type") || "unknown";
+    const imgBuffer = new Uint8Array(await imgResponse.arrayBuffer());
+    const originalSize = imgBuffer.byteLength;
+    console.log(`[tiktok-normalize] [${i + 1}] content-type=${contentType}, size=${originalSize} bytes`);
+
+    // Reject non-raster formats
+    if (contentType.includes("svg") || contentType.includes("xml")) {
+      throw new TikTokPublishError(
+        `Ảnh ${i + 1} là SVG — TikTok chỉ chấp nhận JPEG/WebP`,
+        { errorCode: "TIKTOK_UNSUPPORTED_FORMAT", statusCode: 400 },
+      );
+    }
+
+    // Decode and re-encode to clean JPEG
+    let image: InstanceType<typeof Image>;
+    try {
+      image = await Image.decode(imgBuffer);
+    } catch (decodeErr) {
+      const msg = decodeErr instanceof Error ? decodeErr.message : String(decodeErr);
+      throw new TikTokPublishError(
+        `Không thể giải mã ảnh ${i + 1}: ${msg}`,
+        { errorCode: "TIKTOK_IMAGE_DECODE_FAILED", statusCode: 400 },
+      );
+    }
+
+    console.log(`[tiktok-normalize] [${i + 1}] Decoded: ${image.width}x${image.height}`);
+
+    // Flatten alpha to white background if image has alpha channel
+    // (imagescript JPEG encoder handles this, but explicit is safer)
+    const jpegData = await image.encodeJPEG(85);
+    console.log(`[tiktok-normalize] [${i + 1}] Re-encoded JPEG: ${jpegData.byteLength} bytes`);
+
+    // Upload normalized JPEG
+    const timestamp = Date.now();
+    const uniqueId = crypto.randomUUID().slice(0, 8);
+    const newPath = `social/tiktok-optimized/${timestamp}-${uniqueId}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("carousel-images")
+      .upload(newPath, jpegData, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new TikTokPublishError(
+        `Upload ảnh chuẩn hóa ${i + 1} thất bại: ${uploadError.message}`,
+        { errorCode: "TIKTOK_IMAGE_UPLOAD_FAILED", statusCode: 500 },
+      );
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("carousel-images")
+      .getPublicUrl(newPath);
+
+    console.log(`[tiktok-normalize] [${i + 1}] OK: ${publicUrlData.publicUrl}`);
+    results.push(publicUrlData.publicUrl);
   }
 
+  console.log(`[tiktok-normalize] All ${results.length} images normalized successfully`);
   return results;
 }
 
@@ -362,10 +376,10 @@ async function publishPhotoPost(
     console.warn("[tiktok] Trimmed to 35 images (TikTok max)");
   }
 
-  // Convert PNG images to JPEG (TikTok only accepts JPEG/WebP)
-  const jpegUrls = await convertImagesToJpeg(imageUrls);
+  // Normalize ALL images to clean JPEG (TikTok only accepts JPEG/WebP)
+  const normalizedUrls = await normalizeImagesForTikTok(imageUrls);
   // Rewrite all image URLs to use the verified Cloudflare proxy domain
-  const rewrittenUrls = jpegUrls.map(rewriteImageUrlForTikTok);
+  const rewrittenUrls = normalizedUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
   // verifyTikTokMediaReachability returns final URLs (may fallback to direct Supabase)
   const finalUrls = await verifyTikTokMediaReachability(rewrittenUrls);
