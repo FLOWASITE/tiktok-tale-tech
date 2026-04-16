@@ -294,7 +294,8 @@ async function publishPhotoPost(
   // Rewrite all image URLs to use the verified Cloudflare proxy domain
   const rewrittenUrls = imageUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
-  await verifyTikTokMediaReachability(rewrittenUrls);
+  // verifyTikTokMediaReachability returns final URLs (may fallback to direct Supabase)
+  const finalUrls = await verifyTikTokMediaReachability(rewrittenUrls);
 
   const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
     accessToken,
