@@ -135,12 +135,69 @@ async function getCreatorPostSettings(accessToken: string): Promise<{
   };
 }
 
+/**
+ * Poll TikTok publish status API to check if post was actually processed
+ */
+async function pollPublishStatus(
+  accessToken: string,
+  publishId: string,
+  maxAttempts = 3,
+  delayMs = 3000,
+): Promise<{ status: string; failReason?: string }> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (attempt > 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+
+    try {
+      const response = await fetch(
+        "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json; charset=UTF-8",
+          },
+          body: JSON.stringify({ publish_id: publishId }),
+        },
+      );
+
+      const data = await response.json();
+      console.log(`[tiktok] Status check attempt ${attempt}/${maxAttempts}:`, JSON.stringify(data));
+
+      const status = data?.data?.status;
+
+      if (status === "PUBLISH_COMPLETE") {
+        return { status: "PUBLISH_COMPLETE" };
+      }
+
+      if (status === "FAILED") {
+        const failReason = data?.data?.fail_reason || "Unknown failure";
+        console.error(`[tiktok] Post FAILED: ${failReason}`);
+        throw new TikTokPublishError(
+          `TikTok đã từ chối bài đăng sau khi xử lý: ${failReason}`,
+          { errorCode: "TIKTOK_POST_PROCESSING_FAILED", statusCode: 400 },
+        );
+      }
+
+      // PROCESSING_DOWNLOAD, PROCESSING_UPLOAD, SENDING_TO_USER_INBOX — keep polling
+    } catch (err) {
+      if (err instanceof TikTokPublishError) throw err;
+      console.warn(`[tiktok] Status check attempt ${attempt} error:`, err);
+    }
+  }
+
+  // If still processing after all attempts, treat as tentative success
+  console.log("[tiktok] Post still processing after polling — returning tentative success");
+  return { status: "PROCESSING" };
+}
+
 async function publishPhotoPost(
   accessToken: string,
   title: string,
   description: string,
   imageUrls: string[],
-): Promise<{ publishId: string }> {
+): Promise<{ publishId: string; statusResult: { status: string; failReason?: string } }> {
   if (imageUrls.length < 1) {
     throw new Error("TikTok photo post requires at least 1 image");
   }
