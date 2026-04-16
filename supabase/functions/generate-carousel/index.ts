@@ -945,44 +945,61 @@ Follow the carousel style guidelines strictly.`;
         
         try { return JSON.parse(cleaned); } catch (_e) { /* continue */ }
         
-        // Third attempt: detect truncation and try to repair
-        const openBraces = (cleaned.match(/{/g) || []).length;
-        const closeBraces = (cleaned.match(/}/g) || []).length;
-        const openBrackets = (cleaned.match(/\[/g) || []).length;
-        const closeBrackets = (cleaned.match(/]/g) || []).length;
+        // Third attempt: character-level truncation repair
+        // Walk backwards to find the last position where we can close all braces/brackets
+        console.warn(`[generate-carousel] JSON truncated, attempting char-level repair. Length: ${cleaned.length}`);
         
-        if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
-          console.warn(`[generate-carousel] Truncated JSON detected: {=${openBraces}/${closeBraces} [=${openBrackets}/${closeBrackets}. Attempting repair...`);
+        // Strategy: progressively chop from the end to find a parseable state
+        // Find last complete property by scanning for safe cut points
+        let repaired = cleaned;
+        
+        // Remove any trailing partial string (unmatched quote)
+        const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+        if (quoteCount % 2 !== 0) {
+          // Odd quotes = we're inside a string. Find the last unmatched quote and cut there
+          const lastQuote = repaired.lastIndexOf('"');
+          if (lastQuote > 0) {
+            repaired = repaired.substring(0, lastQuote);
+            // Now remove the incomplete key or value before this quote
+            // e.g. `, "someKey": "partial value` → remove from the comma
+            repaired = repaired.replace(/,?\s*"[^"]*"?\s*:\s*$/, '');
+            repaired = repaired.replace(/,?\s*"[^"]*$/, '');
+            repaired = repaired.replace(/,?\s*$/, '');
+          }
+        }
+        
+        // Try parsing with progressive trimming (up to 20 attempts)
+        for (let attempt = 0; attempt < 20; attempt++) {
+          // Count braces/brackets
+          let braces = 0, brackets = 0;
+          for (const ch of repaired) {
+            if (ch === '{') braces++;
+            else if (ch === '}') braces--;
+            else if (ch === '[') brackets++;
+            else if (ch === ']') brackets--;
+          }
           
-          // Progressively trim trailing incomplete content and try to parse
-          let repaired = cleaned;
-          for (let attempt = 0; attempt < 5; attempt++) {
-            // Remove trailing incomplete key-value pairs or partial strings
-            repaired = repaired
-              .replace(/,\s*"[^"]*"?\s*:\s*"[^"]*$/, '')  // incomplete string value
-              .replace(/,\s*"[^"]*"?\s*:\s*[^,}\]]*$/, '') // incomplete non-string value
-              .replace(/,\s*"[^"]*$/, '')                    // incomplete key
-              .replace(/,\s*\{[^}]*$/, '')                   // incomplete object in array
-              .replace(/,\s*$/, '');                          // trailing comma
+          let candidate = repaired;
+          // Close missing structures
+          if (brackets > 0) candidate += ']'.repeat(brackets);
+          if (braces > 0) candidate += '}'.repeat(braces);
+          candidate = candidate.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+          
+          try {
+            const parsed = JSON.parse(candidate);
+            console.log(`[generate-carousel] JSON repair succeeded on attempt ${attempt + 1}, trimmed ${cleaned.length - repaired.length} chars`);
+            return parsed;
+          } catch (_e) {
+            // Cut back further: remove last property/element
+            const cutPoints = [
+              repaired.lastIndexOf(','),
+              repaired.lastIndexOf('},{'),
+              repaired.lastIndexOf(',"'),
+            ].filter(p => p > repaired.length * 0.3); // Don't cut more than 70%
             
-            // Re-count after trimming
-            const ob = (repaired.match(/{/g) || []).length;
-            const cb = (repaired.match(/}/g) || []).length;
-            const obk = (repaired.match(/\[/g) || []).length;
-            const cbk = (repaired.match(/]/g) || []).length;
-            
-            let candidate = repaired;
-            for (let i = 0; i < obk - cbk; i++) candidate += ']';
-            for (let i = 0; i < ob - cb; i++) candidate += '}';
-            candidate = candidate.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-            
-            try {
-              const parsed = JSON.parse(candidate);
-              console.log(`[generate-carousel] JSON repair succeeded on attempt ${attempt + 1}`);
-              return parsed;
-            } catch (_e) {
-              // Continue trimming
-            }
+            const cutAt = Math.max(...cutPoints);
+            if (cutAt <= 0) break;
+            repaired = repaired.substring(0, cutAt);
           }
         }
         
