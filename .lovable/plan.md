@@ -1,27 +1,37 @@
 
 
-## Tách trạng thái "Đăng" ra khỏi dropdown phê duyệt
+## Cập nhật Landing Page Hero Section
 
-### Vấn đề
-`StatusSelector` hiện gộp cả trạng thái phê duyệt (Nháp, Chờ duyệt, Đã duyệt) và trạng thái đăng bài (Đăng 1 phần, Đã đăng) vào cùng 1 dropdown. Trạng thái đăng bài được xác định tự động khi publish, không nên để user chọn thủ công.
+### Thay đổi
 
-### Giải pháp
-1. **Dropdown chỉ còn 3 trạng thái phê duyệt**: Nháp, Chờ duyệt, Đã duyệt
-2. **Trạng thái đăng bài hiển thị dạng Badge read-only** bên cạnh dropdown (nếu status là `partially_published` hoặc `published`)
-3. Khi status là `partially_published`/`published`, dropdown vẫn hiển thị nhưng disabled hoặc hiển thị badge thay vì dropdown
+**1. Tag line** — Đổi từ "AI Marketing Agent — Không phải AI Writing Tool" → "Agentic Content Marketing Platform"
 
-### Chi tiết kỹ thuật
+**2. Headline** — Tách thành 2 phần:
+- Dòng 1 (text thường): "Content marketing chạy "
+- Dòng 2 (gradient text): "tự động"
+- Dòng 3 (text thường): " — từ chiến lược đến đăng bài"
 
-**File: `src/components/StatusSelector.tsx`**
-- Tách `STATUS_OPTIONS` thành 2 nhóm:
-  - `APPROVAL_OPTIONS`: draft, review, approved (cho dropdown)
-  - `PUBLISH_OPTIONS`: partially_published, published (chỉ hiển thị badge)
-- Nếu `status` là publish → render Badge read-only thay vì dropdown
-- Nếu `status` là approval → render dropdown bình thường chỉ với 3 option
+Cần sửa component `HeroSection.tsx` để "tự động" có gradient thay vì chỉ dùng `text-primary` cho dòng 2.
 
-**Không cần sửa file khác** — CarouselViewer, ScriptViewer, KanbanCard... đều dùng `StatusSelector` component, nên sửa 1 chỗ sẽ áp dụng toàn bộ.
+**3. Sub-headline** — Đổi thành: "Flowa là AI Agent tự lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài — thay cho cả một team content. Bạn chỉ cần duyệt."
+
+### Files cần sửa
+
+**`src/i18n/locales/vi.json`**
+- `hero.tag` → "Agentic Content Marketing Platform"
+- `hero.titleLine1` → "Content marketing chạy"
+- `hero.titleLine2` → "tự động"
+- Thêm `hero.titleLine3` → "— từ chiến lược đến đăng bài"
+- `hero.descPlain` → text mới
+
+**`src/i18n/locales/en.json`** và **`src/i18n/locales/th.json`** — cập nhật tương ứng
+
+**`src/landing/components/HeroSection.tsx`**
+- Headline: render `titleLine1` + `titleLine2` (gradient) + `titleLine3` trên cùng 1 block
+- Áp dụng gradient CSS cho "tự động": `bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent`
 
 ### Kết quả
-- Dropdown chỉ cho chọn: Nháp → Chờ duyệt → Đã duyệt
-- Khi đã đăng/đăng 1 phần → hiển thị badge, không cho đổi ngược về draft
+- Tag: "Agentic Content Marketing Platform"
+- Headline: "Content marketing chạy **tự động** — từ chiến lược đến đăng bài" (tự động có gradient)
+- Sub: "Flowa là AI Agent tự lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài — thay cho cả một team content. Bạn chỉ cần duyệt."
 
