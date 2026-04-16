@@ -30,10 +30,31 @@ class TikTokPublishError extends Error {
 const TIKTOK_UNAUDITED_PRIVATE_ONLY_API_CODE = "unaudited_client_can_only_post_to_private_accounts";
 const TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE = "TIKTOK_UNAUDITED_PRIVATE_ONLY";
 
+const SUPABASE_STORAGE_HOST = "rllyipiyuptkibqinotz.supabase.co";
+const MEDIA_PROXY_HOST = "media.flowa.one";
+
+/**
+ * Rewrite Supabase Storage URLs to use the Cloudflare-proxied custom domain
+ * that has been verified on TikTok Developer Portal.
+ * This ensures TikTok can fetch images via HTTPS from a verified domain.
+ */
+function rewriteImageUrlForTikTok(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === SUPABASE_STORAGE_HOST) {
+      parsed.hostname = MEDIA_PROXY_HOST;
+      parsed.protocol = "https:";
+      console.log(`[tiktok] Rewrote image URL: ${parsed.hostname} → ${MEDIA_PROXY_HOST}`);
+      return parsed.toString();
+    }
+  } catch { /* keep original */ }
+  return url;
+}
+
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
  * Uses PULL_FROM_URL source — TikTok only supports this for photos
- * Image URLs must be publicly accessible with SSL
+ * Image URLs are rewritten to media.flowa.one (Cloudflare proxy with SSL)
  */
 function truncateUtf16(input: string, maxUnits: number): string {
   let result = "";
