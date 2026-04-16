@@ -1,47 +1,47 @@
 
 
-## Cập nhật publish-tiktok: Rewrite URL ảnh sang media.flowa.one
+## TikTok: Bài đăng "thành công" nhưng không hiển thị
 
-### Bối cảnh
-- Cloudflare đã setup: `media.flowa.one` → CNAME → `rllyipiyuptkibqinotz.supabase.co` (Proxied, có SSL)
-- TikTok TXT record đã có trên Cloudflare DNS
-- Code hiện tại gửi URL Supabase Storage trực tiếp → TikTok reject vì domain chưa verify
+### Nguyên nhân gốc
 
-### Thay đổi code
+TikTok API trả về `publish_id` với status `ok` nhưng đây chỉ là bước **khởi tạo** (init). TikTok sau đó tải ảnh từ URL bất đồng bộ. Nếu TikTok không fetch được ảnh, bài sẽ bị drop âm thầm mà không báo lỗi.
 
-**File: `supabase/functions/publish-tiktok/index.ts`**
+**Vấn đề cốt lõi**: Khi Cloudflare proxy `media.flowa.one` → `rllyipiyuptkibqinotz.supabase.co`, request đến Supabase với `Host: media.flowa.one`. Supabase không nhận diện host này nên trả về 404/error. TikTok không tải được ảnh → bài bị hủy.
 
-Thêm hàm rewrite URL và áp dụng trước khi gửi cho TikTok:
+### Giải pháp: 2 thay đổi
 
-```typescript
-const SUPABASE_STORAGE_HOST = "rllyipiyuptkibqinotz.supabase.co";
-const MEDIA_PROXY_HOST = "media.flowa.one";
+**1. Cloudflare Worker để rewrite Host header**
 
-function rewriteImageUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname === SUPABASE_STORAGE_HOST) {
-      parsed.hostname = MEDIA_PROXY_HOST;
-      parsed.protocol = "https:";
-      return parsed.toString();
-    }
-  } catch { /* keep original */ }
-  return url;
-}
+Tạo Worker trên Cloudflare (miễn phí) gắn vào route `media.flowa.one/*`:
+
+```javascript
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    url.hostname = "rllyipiyuptkibqinotz.supabase.co";
+    return fetch(url.toString(), {
+      headers: { ...Object.fromEntries(request.headers), Host: url.hostname },
+      method: request.method,
+    });
+  }
+};
 ```
 
-Trong `publishPhotoPost`, rewrite URLs trước khi đưa vào `photo_images`:
-```typescript
-const rewrittenUrls = imageUrls.map(rewriteImageUrl);
-// source_info.photo_images = rewrittenUrls
-```
+Bạn cần làm trên Cloudflare Dashboard:
+- Workers & Pages → Create Worker → paste code trên
+- Workers Routes → thêm route `media.flowa.one/*` → chọn Worker vừa tạo
 
-Cập nhật error message cho `url_ownership_unverified` để nhắc verify `media.flowa.one` thay vì Supabase domain.
+**2. Thêm publish status check vào edge function**
 
-### Checklist trước khi deploy
-- ✋ **Bạn cần xác nhận**: Domain `media.flowa.one` đã được verify thành công trên TikTok Developer Portal chưa? (URL Properties → Status: Verified)
-- Nếu chưa verify, code sẽ vẫn bị lỗi `url_ownership_unverified` dù URL đã rewrite đúng
+Sau khi nhận `publish_id`, gọi TikTok Status API để xác nhận bài thực sự được xử lý. Cập nhật `publish-tiktok/index.ts`:
 
-### Deploy
-- Redeploy edge function `publish-tiktok`
+- Thêm hàm `checkPublishStatus(accessToken, publishId)` gọi `POST /v2/post/publish/status/fetch/`
+- Sau khi nhận `publish_id`, poll status 2-3 lần (mỗi lần cách 3 giây) để phát hiện lỗi sớm
+- Log kết quả status để debug
+
+### Thứ tự thực hiện
+
+1. **Bạn**: Tạo Cloudflare Worker + gắn route `media.flowa.one/*` (theo hướng dẫn trên)
+2. **Bạn**: Test thử truy cập `https://media.flowa.one/storage/v1/object/public/carousel-images/...` xem ảnh có load không
+3. **Lovable**: Thêm status check vào `publish-tiktok` edge function
 
