@@ -105,8 +105,8 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     name: 'TikTok',
     icon: <Music2 className="w-5 h-5" />,
     color: 'bg-black text-white',
-    available: false,
-    description: 'Đăng video ngắn (sắp ra mắt)',
+    available: true,
+    description: 'Đăng ảnh carousel',
   },
   threads: {
     name: 'Threads',
