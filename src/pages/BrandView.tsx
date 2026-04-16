@@ -172,7 +172,7 @@ export default function BrandView() {
   }
 
   return (
-    <div className="container mx-auto py-4 md:py-6 px-4 md:px-6 space-y-4 md:space-y-6 max-w-6xl">
+    <div className="container mx-auto py-4 md:py-6 px-4 md:px-6 space-y-4 md:space-y-6" style={{ maxWidth: '1450px' }}>
       {/* Hero Section */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <BrandViewHero
