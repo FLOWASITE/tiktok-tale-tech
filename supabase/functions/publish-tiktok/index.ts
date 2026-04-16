@@ -23,6 +23,7 @@ interface PublishRequest {
 async function publishPhotoPost(
   accessToken: string,
   title: string,
+  description: string,
   imageUrls: string[],
 ): Promise<{ publishId: string }> {
   if (imageUrls.length < 1) {
@@ -36,12 +37,14 @@ async function publishPhotoPost(
   const body = {
     post_info: {
       title: title.substring(0, 150),
+      description: description.substring(0, 2200),
       privacy_level: 'SELF_ONLY',
       disable_comment: false,
       auto_add_music: true,
     },
     source_info: {
       source: 'PULL_FROM_URL',
+      photo_cover_index: 0,
       photo_images: imageUrls,
     },
     post_mode: 'DIRECT_POST',
