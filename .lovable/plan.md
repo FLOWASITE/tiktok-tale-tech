@@ -1,41 +1,52 @@
 
+## Kiểm tra lỗi kết nối TikTok
 
-## Tiếp tục hoàn thiện kết nối TikTok
+### Kết luận nhanh
+- Redirect URI đang chạy đúng: log cho thấy request đã vào `tiktok-oauth-callback`.
+- Lỗi xảy ra ở bước đổi `code` sang token, không phải ở bước mở popup hay callback route.
+- Có 2 vấn đề cùng lúc:
+  1. `tiktok-oauth-callback` đang giải mã credentials sai format.
+  2. Credentials TikTok hiện lưu trong Admin cũng đang không hợp lệ.
 
-### Hiện trạng đã có
-- OAuth flow trong `connect-social` (tạo URL authorization)
-- `tiktok-oauth-callback` edge function (exchange code, lưu connection)
-- `publish-tiktok` edge function (đăng photo carousel)
-- `channel-publisher` đã route TikTok
-- `auth-gateway` đã map TikTok
-- UI `SocialConnectionsManager` đã bật TikTok (`available: true`)
-- Frontend callback page `/auth/tiktok/callback`
+### Bằng chứng đã tìm thấy
+- Log `tiktok-oauth-callback`: `Client key does not match authorization record`
+- Log `test-tiktok-credentials`: `Client key or secret is incorrect`
+- Trong code:
+  - `manage-social-platform-settings` lưu credentials bằng shared AES-GCM trong `_shared/crypto.ts`
+  - `connect-social` đọc credentials bằng helper có hỗ trợ GCM nên tạo OAuth URL đúng
+  - Nhưng `tiktok-oauth-callback` lại dùng hàm `decryptCredential` tự viết, chỉ xử lý format cũ `iv:cipher`
+  - Với format GCM hiện tại, callback đang trả về raw ciphertext thay vì Client Key/Secret thật, nên authorize dùng một key còn exchange lại gửi key sai
 
-### Còn thiếu
+### Kế hoạch sửa
+1. Chuẩn hóa TikTok callback theo đúng pattern đang dùng cho Instagram
+- File: `supabase/functions/tiktok-oauth-callback/index.ts`
+- Xóa hàm decrypt local
+- Import shared `decryptCredential` từ `supabase/functions/_shared/crypto.ts`
+- Giữ `redirect_uri` đồng nhất với `connect-social`
+- Thêm redirect-origin validation giống Instagram để flow ổn định hơn
 
-**1. Lưu TikTok Client Key/Secret vào `social_platform_settings`**
-- Gọi `manage-social-platform-settings` edge function để insert record TikTok với Client Key (`sbaw2bivdy100779qu`) và Client Secret từ screenshot
-- Credentials sẽ được mã hóa AES-256-GCM trước khi lưu
+2. Sửa UI Admin để tránh nhập nhầm TikTok credentials
+- File: `src/components/admin/SocialPlatformCredentialsDialog.tsx`
+- Thêm TikTok vào `CALLBACK_URL_MAP` để Admin nhìn thấy đúng callback URL ngay trong dialog
+- Đổi label TikTok thành `TikTok Client Key` / `TikTok Client Secret`
+- Cập nhật help text: phải dùng đúng cặp key/secret của cùng một TikTok app
 
-**2. Tạo `refresh-tiktok-token` edge function**
-- TikTok access token hết hạn sau 24h, cần refresh
-- Tạo `supabase/functions/refresh-tiktok-token/index.ts` theo pattern của `refresh-zalo-token`:
-  - Nhận `connectionId`
-  - Lấy refresh_token từ `social_connections`
-  - Gọi `https://open.tiktokapis.com/v2/oauth/token/` với `grant_type: refresh_token`
-  - Encrypt và lưu token mới
-- Thêm TikTok vào `social-diagnostics` nếu cần
+3. Cập nhật lại credentials TikTok đang lưu
+- Hiện log test xác nhận secret/key trong Admin chưa đúng
+- Sau khi sửa code, cần lưu lại Client Key + Client Secret thật từ TikTok Developer Portal
+- Nếu vẫn dùng placeholder hoặc secret của app khác, flow sẽ tiếp tục fail dù code đã đúng
 
-**3. Tạo `test-tiktok-connection` và `test-tiktok-credentials` edge functions**
-- Theo pattern các platform khác (test connection validity, test credentials)
+4. Kiểm thử lại end-to-end
+- Test credentials trong Admin phải pass
+- Bấm `Kết nối` ở tab Connections
+- Xác nhận callback về `/auth/tiktok/callback?success=true`
+- Xác nhận `social_connections` được insert/update và TikTok hiển thị trạng thái đã kết nối
 
-**4. Deploy & test**
-- Deploy các edge functions mới
-- Test OAuth flow end-to-end bằng `curl_edge_functions`
+### Files sẽ thay đổi
+- `supabase/functions/tiktok-oauth-callback/index.ts`
+- `src/components/admin/SocialPlatformCredentialsDialog.tsx`
 
-### Files thay đổi
-- `supabase/functions/refresh-tiktok-token/index.ts` — tạo mới
-- `supabase/functions/test-tiktok-connection/index.ts` — tạo mới  
-- `supabase/functions/test-tiktok-credentials/index.ts` — tạo mới
-- Gọi API để lưu credentials vào DB
-
+### Không cần thay đổi
+- Không cần migration database
+- Không cần sửa RLS
+- Không cần đổi Redirect URI hiện tại nếu đang dùng endpoint callback TikTok hiện có
