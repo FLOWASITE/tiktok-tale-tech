@@ -504,6 +504,31 @@ function ChannelSettingRow({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="p-3 border border-t-0 border-border/50 rounded-b-lg space-y-3 bg-muted/20">
+          {/* Word Count / Length */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Độ dài tối thiểu ({defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'})</Label>
+              <Input
+                type="number"
+                min={0}
+                max={currentMaxLength}
+                value={currentMinLength}
+                onChange={(e) => onUpdate({ min_length: parseInt(e.target.value) || 0 })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Độ dài tối đa ({defaults.length_unit === 'chars' ? 'ký tự' : 'chữ'})</Label>
+              <Input
+                type="number"
+                min={currentMinLength}
+                max={10000}
+                value={currentMaxLength}
+                onChange={(e) => onUpdate({ max_length: parseInt(e.target.value) || 0 })}
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
           {/* Hook & CTA */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
