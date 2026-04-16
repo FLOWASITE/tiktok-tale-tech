@@ -412,7 +412,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         {/* Main form content */}
-        <div className={showPreview ? 'flex-1 min-w-0' : 'w-full'}>
+        <div className={(showPreview && currentStep !== 2 && currentStep !== 3) ? 'flex-1 min-w-0' : 'w-full'}>
           {/* Step 1: Identity */}
 {currentStep === 1 && (
             <BrandFormStepIdentity
