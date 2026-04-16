@@ -68,13 +68,15 @@ interface UseTopicHistoryOptions {
 }
 
 export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
-  const { brandTemplateId, contentGoal, format, formats, campaignId, limit = 50, enabled = true, excludeDrafts = false } = options;
+  const { brandTemplateId, contentGoal, format, formats, campaignId, limit = 100, enabled = true, excludeDrafts = false } = options;
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
   
   const [history, setHistory] = useState<TopicHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch history
@@ -124,11 +126,18 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         query = query.neq('usage_status', 'draft');
       }
 
+      // Fetch limit+1 to check if there are more
+      query = query.limit(limit + 1);
+
       const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
-      const mappedData: TopicHistoryItem[] = (data || []).map(item => ({
+      const rawData = data || [];
+      const hasMoreItems = rawData.length > limit;
+      const slicedData = hasMoreItems ? rawData.slice(0, limit) : rawData;
+
+      const mappedData: TopicHistoryItem[] = slicedData.map(item => ({
         id: item.id,
         topic: item.topic,
         category: item.category as TopicCategory,
@@ -155,6 +164,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
       }));
 
       setHistory(mappedData);
+      setHasMore(hasMoreItems);
     } catch (err) {
       console.error('Error fetching topic history:', err);
       setError('Không thể tải lịch sử topic');
@@ -162,6 +172,75 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
       setIsLoading(false);
     }
   }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format, campaignId, limit, enabled]);
+
+  // Load more items
+  const loadMore = useCallback(async () => {
+    if (!user || !hasMore || isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const offset = history.length;
+      let query = supabase
+        .from('topic_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit);
+
+      if (currentOrganization?.id) {
+        query = query.eq('organization_id', currentOrganization.id);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
+      if (contentGoal) query = query.eq('content_goal', contentGoal);
+      if (format) query = query.eq('format', format);
+      if (formats && formats.length > 0) query = query.in('format', formats);
+      if (campaignId) query = query.eq('campaign_id', campaignId);
+      if (excludeDrafts) query = query.neq('usage_status', 'draft');
+
+      const { data, error: fetchError } = await query;
+      if (fetchError) throw fetchError;
+
+      const rawData = data || [];
+      const hasMoreItems = rawData.length > limit;
+      const slicedData = hasMoreItems ? rawData.slice(0, limit) : rawData;
+
+      const mappedData: TopicHistoryItem[] = slicedData.map(item => ({
+        id: item.id,
+        topic: item.topic,
+        category: item.category as TopicCategory,
+        contentGoal: item.content_goal as ContentGoal,
+        format: item.format as TopicFormat,
+        pillar: item.pillar,
+        contentId: item.content_id,
+        contentType: item.content_type as 'carousel' | 'script' | 'multichannel' | undefined,
+        campaignId: item.campaign_id || undefined,
+        scores: item.scores as unknown as TopicScores | undefined,
+        relatedKeywords: item.related_keywords,
+        reasoning: item.reasoning,
+        wasUsed: item.was_used,
+        usageStatus: item.usage_status as UsageStatus,
+        performanceScore: item.performance_score,
+        actualEngagement: item.actual_engagement as TopicHistoryItem['actualEngagement'],
+        isFavorite: item.is_favorite,
+        isPinned: (item as any).is_pinned ?? false,
+        feedback: item.feedback as FeedbackType | undefined,
+        feedbackNote: item.feedback_note,
+        createdAt: item.created_at,
+        usedAt: item.used_at,
+        publishedAt: item.published_at,
+      }));
+
+      setHistory(prev => [...prev, ...mappedData]);
+      setHasMore(hasMoreItems);
+    } catch (err) {
+      console.error('Error loading more topics:', err);
+      toast.error('Không thể tải thêm');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [user, currentOrganization?.id, brandTemplateId, contentGoal, format, formats, campaignId, limit, excludeDrafts, hasMore, isLoadingMore, history.length]);
 
   useEffect(() => {
     fetchHistory();
@@ -776,7 +855,9 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     recentlyUsed,
     stats,
     isLoading,
+    isLoadingMore,
     isSaving,
+    hasMore,
     error,
     saveTopic,
     saveBulkTopics,
@@ -795,6 +876,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
     bulkDelete,
     bulkToggleFavorite,
     refresh: fetchHistory,
+    loadMore,
     getLearningContext,
   };
 }
