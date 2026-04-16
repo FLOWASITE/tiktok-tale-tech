@@ -1,5 +1,6 @@
 import { getServiceClient, withPerf } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -277,6 +278,76 @@ async function pollPublishStatus(
   return { status: "PROCESSING" };
 }
 
+/**
+ * Convert PNG images to JPEG for TikTok compatibility.
+ * TikTok Photo API only accepts JPEG and WebP formats.
+ * Downloads each image, checks format, converts PNG→JPEG, re-uploads to storage.
+ */
+async function convertImagesToJpeg(imageUrls: string[]): Promise<string[]> {
+  const supabase = getServiceClient();
+  const results: string[] = [];
+
+  for (const url of imageUrls) {
+    try {
+      // Check if URL is PNG by extension or content-type
+      const isPng = url.toLowerCase().includes('.png');
+      if (!isPng) {
+        // Already JPEG/WebP — keep as-is
+        results.push(url);
+        continue;
+      }
+
+      console.log("[tiktok] Converting PNG to JPEG:", url);
+
+      // Download the image
+      const imgResponse = await fetch(url);
+      if (!imgResponse.ok) {
+        console.warn("[tiktok] Failed to fetch image for conversion, keeping original:", url);
+        results.push(url);
+        continue;
+      }
+
+      const imgBuffer = new Uint8Array(await imgResponse.arrayBuffer());
+
+      // Decode and convert to JPEG
+      const image = await Image.decode(imgBuffer);
+      const jpegData = await image.encodeJPEG(85);
+
+      // Upload converted JPEG to storage
+      const timestamp = Date.now();
+      const uniqueId = crypto.randomUUID().slice(0, 8);
+      const newPath = `social/tiktok-optimized/${timestamp}-${uniqueId}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("carousel-images")
+        .upload(newPath, jpegData, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.warn("[tiktok] Upload failed for converted image, keeping original:", uploadError.message);
+        results.push(url);
+        continue;
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from("carousel-images")
+        .getPublicUrl(newPath);
+
+      console.log("[tiktok] Converted PNG→JPEG:", publicUrlData.publicUrl);
+      results.push(publicUrlData.publicUrl);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[tiktok] Image conversion failed, keeping original:", msg);
+      results.push(url);
+    }
+  }
+
+  return results;
+}
+
 async function publishPhotoPost(
   accessToken: string,
   title: string,
@@ -291,8 +362,10 @@ async function publishPhotoPost(
     console.warn("[tiktok] Trimmed to 35 images (TikTok max)");
   }
 
+  // Convert PNG images to JPEG (TikTok only accepts JPEG/WebP)
+  const jpegUrls = await convertImagesToJpeg(imageUrls);
   // Rewrite all image URLs to use the verified Cloudflare proxy domain
-  const rewrittenUrls = imageUrls.map(rewriteImageUrlForTikTok);
+  const rewrittenUrls = jpegUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
   // verifyTikTokMediaReachability returns final URLs (may fallback to direct Supabase)
   const finalUrls = await verifyTikTokMediaReachability(rewrittenUrls);
