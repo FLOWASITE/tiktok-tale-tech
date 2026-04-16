@@ -339,6 +339,8 @@ export default function BrandCreate() {
         vision: vision || null,
         unique_value_proposition: uniqueValueProposition || null,
         tagline: tagline || null,
+        headline: headline || null,
+        sub_headline: subHeadline || null,
         target_age_range: targetAgeRange || null,
         target_gender: targetGender || null,
         market_segment: marketSegment || null,
