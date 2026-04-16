@@ -953,16 +953,41 @@ Follow the carousel style guidelines strictly.`;
         
         if (openBraces !== closeBraces || openBrackets !== closeBrackets) {
           console.warn(`[generate-carousel] Truncated JSON detected: {=${openBraces}/${closeBraces} [=${openBrackets}/${closeBrackets}. Attempting repair...`);
-          // Remove any trailing incomplete key-value or object
-          cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, '');
-          // Close missing brackets/braces
-          for (let i = 0; i < openBrackets - closeBrackets; i++) cleaned += ']';
-          for (let i = 0; i < openBraces - closeBraces; i++) cleaned += '}';
-          // Fix trailing commas again after repair
-          cleaned = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+          
+          // Progressively trim trailing incomplete content and try to parse
+          let repaired = cleaned;
+          for (let attempt = 0; attempt < 5; attempt++) {
+            // Remove trailing incomplete key-value pairs or partial strings
+            repaired = repaired
+              .replace(/,\s*"[^"]*"?\s*:\s*"[^"]*$/, '')  // incomplete string value
+              .replace(/,\s*"[^"]*"?\s*:\s*[^,}\]]*$/, '') // incomplete non-string value
+              .replace(/,\s*"[^"]*$/, '')                    // incomplete key
+              .replace(/,\s*\{[^}]*$/, '')                   // incomplete object in array
+              .replace(/,\s*$/, '');                          // trailing comma
+            
+            // Re-count after trimming
+            const ob = (repaired.match(/{/g) || []).length;
+            const cb = (repaired.match(/}/g) || []).length;
+            const obk = (repaired.match(/\[/g) || []).length;
+            const cbk = (repaired.match(/]/g) || []).length;
+            
+            let candidate = repaired;
+            for (let i = 0; i < obk - cbk; i++) candidate += ']';
+            for (let i = 0; i < ob - cb; i++) candidate += '}';
+            candidate = candidate.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+            
+            try {
+              const parsed = JSON.parse(candidate);
+              console.log(`[generate-carousel] JSON repair succeeded on attempt ${attempt + 1}`);
+              return parsed;
+            } catch (_e) {
+              // Continue trimming
+            }
+          }
         }
         
-        return JSON.parse(cleaned);
+        // Final fallback: throw with details
+        throw new Error(`JSON parse failed after repair. Length: ${cleaned.length}`);
       };
 
       // Try tool_calls first (preferred)
