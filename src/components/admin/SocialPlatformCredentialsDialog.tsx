@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
 
 interface SocialPlatformCredentialsDialogProps {
@@ -203,6 +204,18 @@ export function SocialPlatformCredentialsDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {existingSettings?.has_credentials && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm flex items-start gap-2">
+              <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-foreground">Credentials đã được lưu</p>
+                <p className="text-muted-foreground mt-0.5">
+                  Thông tin xác thực hiện tại vẫn đang hoạt động. Chỉ nhập giá trị mới nếu bạn muốn thay đổi.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="p-3 bg-muted/50 rounded-lg text-sm">
             <p className="text-muted-foreground mb-2">{help.instructions}</p>
             <a
@@ -262,16 +275,25 @@ export function SocialPlatformCredentialsDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="consumerKey">
-              {keyLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="consumerKey">
+                {keyLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
+              </Label>
+              {existingSettings?.consumer_key && (
+                <Badge variant="secondary" className="text-xs font-mono">
+                  {existingSettings.consumer_key}
+                </Badge>
+              )}
+            </div>
             <div className="relative">
               <Input
                 id="consumerKey"
                 type={showKey ? 'text' : 'password'}
                 value={consumerKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Instagram App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
+                placeholder={existingSettings?.has_credentials
+                  ? `${existingSettings.consumer_key || '••••'} — nhập mới để thay đổi`
+                  : isInstagram ? 'Nhập Instagram App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
                 className="pr-10"
               />
               <Button
@@ -284,24 +306,28 @@ export function SocialPlatformCredentialsDialog({
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
-            {existingSettings?.consumer_key && (
-              <p className="text-xs text-muted-foreground">
-                Hiện tại: {existingSettings.consumer_key}
-              </p>
-            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="consumerSecret">
-              {secretLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="consumerSecret">
+                {secretLabel} {!existingSettings?.has_credentials && <span className="text-destructive">*</span>}
+              </Label>
+              {existingSettings?.consumer_secret && (
+                <Badge variant="secondary" className="text-xs font-mono">
+                  {existingSettings.consumer_secret}
+                </Badge>
+              )}
+            </div>
             <div className="relative">
               <Input
                 id="consumerSecret"
                 type={showSecret ? 'text' : 'password'}
                 value={consumerSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
-                placeholder={existingSettings?.has_credentials ? 'Giữ nguyên hoặc nhập mới' : isInstagram ? 'Nhập Instagram App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
+                placeholder={existingSettings?.has_credentials
+                  ? `${existingSettings.consumer_secret || '••••'} — nhập mới để thay đổi`
+                  : isInstagram ? 'Nhập Instagram App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
                 className="pr-10"
               />
               <Button
@@ -314,11 +340,6 @@ export function SocialPlatformCredentialsDialog({
                 {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
-            {existingSettings?.consumer_secret && (
-              <p className="text-xs text-muted-foreground">
-                Hiện tại: {existingSettings.consumer_secret}
-              </p>
-            )}
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
