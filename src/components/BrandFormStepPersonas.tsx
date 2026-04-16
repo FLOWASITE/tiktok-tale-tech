@@ -356,9 +356,9 @@ export function BrandFormStepPersonas({
           </Badge>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Left: Personas List + Preview */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-4 space-y-4">
             {/* Persona Cards List */}
             <Card>
               <CardHeader className="pb-3">
@@ -742,7 +742,7 @@ export function BrandFormStepPersonas({
           </div>
 
           {/* Right: Editor Panel with Tabs */}
-          <div className="lg:col-span-7">
+          <div className="lg:col-span-8">
             <Card className={cn(
               "h-fit transition-opacity",
               !editingPersona && "opacity-50 pointer-events-none"
