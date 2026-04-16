@@ -1,5 +1,6 @@
 import { getServiceClient, withPerf } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -291,8 +292,10 @@ async function publishPhotoPost(
     console.warn("[tiktok] Trimmed to 35 images (TikTok max)");
   }
 
+  // Convert PNG images to JPEG (TikTok only accepts JPEG/WebP)
+  const jpegUrls = await convertImagesToJpeg(imageUrls);
   // Rewrite all image URLs to use the verified Cloudflare proxy domain
-  const rewrittenUrls = imageUrls.map(rewriteImageUrlForTikTok);
+  const rewrittenUrls = jpegUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Rewritten image URLs:", rewrittenUrls);
   // verifyTikTokMediaReachability returns final URLs (may fallback to direct Supabase)
   const finalUrls = await verifyTikTokMediaReachability(rewrittenUrls);
