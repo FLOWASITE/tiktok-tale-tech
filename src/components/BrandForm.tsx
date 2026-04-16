@@ -55,7 +55,7 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
   const [showQuickStart, setShowQuickStart] = useState(!template && !quickStartMode);
   
   // Form state
-  const [scope, setScope] = useState<BrandScope>('personal');
+  const [scope, setScope] = useState<BrandScope>('organization');
   const [name, setName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [industries, setIndustries] = useState<string[]>([]);
