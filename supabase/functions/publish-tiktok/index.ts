@@ -89,7 +89,6 @@ Deno.serve(withPerf({ functionName: 'publish-tiktok' }, async (req) => {
   }
 
   try {
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = getServiceClient();
 
     const body: PublishRequest = await req.json();
@@ -121,7 +120,7 @@ Deno.serve(withPerf({ functionName: 'publish-tiktok' }, async (req) => {
 
     let accessToken = connection.access_token;
     if (!accessToken) throw new Error('TikTok access token not found');
-    accessToken = await decryptToken(accessToken, encryptionKey);
+    accessToken = await decryptCredential(accessToken);
 
     // Create publish attempt
     const { data: attempt } = await supabase
