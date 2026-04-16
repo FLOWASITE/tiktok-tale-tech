@@ -52,24 +52,29 @@ function rewriteImageUrlForTikTok(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.hostname === SUPABASE_STORAGE_HOST || parsed.hostname === MEDIA_PROXY_HOST) {
-      // Convert /storage/v1/object/public/... to /storage/v1/render/image/public/...
-      // This uses Supabase image transformation to serve as JPEG (TikTok requires JPEG/WebP)
-      const path = parsed.pathname;
-      if (path.includes("/storage/v1/object/public/")) {
-        parsed.pathname = path.replace(
-          "/storage/v1/object/public/",
-          "/storage/v1/render/image/public/"
-        );
-        parsed.searchParams.set("format", "jpeg");
-        parsed.searchParams.set("quality", "90");
-      }
+      // Only change hostname — images are already .jpg, no transformation needed
       parsed.hostname = MEDIA_PROXY_HOST;
       parsed.protocol = "https:";
-      console.log(`[tiktok] Rewrote image URL for TikTok (JPEG): ${parsed.toString()}`);
+      console.log(`[tiktok] Rewrote image URL for TikTok: ${parsed.toString()}`);
       return parsed.toString();
     }
   } catch { /* keep original */ }
   return url;
+}
+
+/** Rewrite media.flowa.one URLs back to direct Supabase storage */
+function fallbackToDirectUrls(urls: string[]): string[] {
+  return urls.map((url) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === MEDIA_PROXY_HOST) {
+        parsed.hostname = SUPABASE_STORAGE_HOST;
+        parsed.protocol = "https:";
+        return parsed.toString();
+      }
+    } catch { /* keep original */ }
+    return url;
+  });
 }
 
 async function verifyTikTokMediaReachability(imageUrls: string[]): Promise<void> {
