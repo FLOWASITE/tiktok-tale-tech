@@ -32,8 +32,8 @@ const TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE = "TIKTOK_UNAUDITED_PRIVATE_ONLY"
 
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
- * Uses FILE_UPLOAD source — uploads image bytes directly to TikTok
- * No domain verification or SSL proxy needed
+ * Uses PULL_FROM_URL source — TikTok only supports this for photos
+ * Image URLs must be publicly accessible with SSL
  */
 function truncateUtf16(input: string, maxUnits: number): string {
   let result = "";
