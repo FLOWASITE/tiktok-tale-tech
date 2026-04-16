@@ -326,6 +326,16 @@ async function normalizeImagesForTikTok(imageUrls: string[]): Promise<string[]> 
 
     console.log(`[tiktok-normalize] [${i + 1}] Decoded: ${image.width}x${image.height}`);
 
+    // Resize if dimensions exceed TikTok limits (max 1080px per side)
+    const MAX_DIM = 1080;
+    if (image.width > MAX_DIM || image.height > MAX_DIM) {
+      const scale = Math.min(MAX_DIM / image.width, MAX_DIM / image.height);
+      const newW = Math.round(image.width * scale);
+      const newH = Math.round(image.height * scale);
+      console.log(`[tiktok-normalize] [${i + 1}] Resizing ${image.width}x${image.height} → ${newW}x${newH}`);
+      image = image.resize(newW, newH);
+    }
+
     // Flatten alpha to white background if image has alpha channel
     // (imagescript JPEG encoder handles this, but explicit is safer)
     const jpegData = await image.encodeJPEG(85);
