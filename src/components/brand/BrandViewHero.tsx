@@ -30,7 +30,9 @@ import {
   MapPin,
   Package,
   TrendingUp,
+  Link2,
 } from 'lucide-react';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { Link } from 'react-router-dom';
 import {
   AlertDialog,
