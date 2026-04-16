@@ -29,7 +29,6 @@ Deno.serve(withPerf({ functionName: 'tiktok-oauth-callback' }, async (req) => {
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
 
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = getServiceClient();
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 
@@ -72,8 +71,8 @@ Deno.serve(withPerf({ functionName: 'tiktok-oauth-callback' }, async (req) => {
       return Response.redirect(redirectUrl.toString(), 302);
     }
 
-    const clientKey = await decryptCredential(settings.consumer_key, encryptionKey);
-    const clientSecret = await decryptCredential(settings.consumer_secret, encryptionKey);
+    const clientKey = await decryptCredential(settings.consumer_key);
+    const clientSecret = await decryptCredential(settings.consumer_secret);
 
     if (!clientKey || !clientSecret) {
       const redirectUrl = new URL('/auth/tiktok/callback', frontendUrl);
