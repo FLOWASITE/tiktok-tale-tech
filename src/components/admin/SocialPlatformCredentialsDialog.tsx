@@ -116,6 +116,7 @@ export function SocialPlatformCredentialsDialog({
   const isZalo = platform === 'zalo_oa';
   const isGoogle = platform === 'google_business';
   const isWebsite = platform === 'website';
+  const isTikTok = platform === 'tiktok';
 
   const handleCopyCallback = async () => {
     if (!callbackUrl) return;
@@ -134,11 +135,13 @@ export function SocialPlatformCredentialsDialog({
       ? 'Google Client ID'
       : isZalo
         ? 'Zalo App ID'
-        : isLinkedIn
-          ? 'LinkedIn Client ID'
-          : isMetaPlatform
-            ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-            : 'Consumer Key (API Key)';
+        : isTikTok
+          ? 'TikTok Client Key'
+          : isLinkedIn
+            ? 'LinkedIn Client ID'
+            : isMetaPlatform
+              ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+              : 'Consumer Key (API Key)';
 
   const secretLabel = isWebsite
     ? 'API Key / Application Password'
@@ -146,11 +149,13 @@ export function SocialPlatformCredentialsDialog({
       ? 'Google Client Secret'
       : isZalo
         ? 'Zalo Secret Key'
-        : isLinkedIn
-          ? 'LinkedIn Client Secret'
-          : isMetaPlatform
-            ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-            : 'Consumer Secret (API Secret)';
+        : isTikTok
+          ? 'TikTok Client Secret'
+          : isLinkedIn
+            ? 'LinkedIn Client Secret'
+            : isMetaPlatform
+              ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+              : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {
