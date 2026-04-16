@@ -1,4 +1,5 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,21 +14,6 @@ interface PublishRequest {
   contentId?: string;
 }
 
-async function decryptToken(encryptedText: string, encryptionKey: string): Promise<string> {
-  try {
-    const parts = encryptedText.split(':');
-    if (parts.length !== 2) return encryptedText;
-
-    const keyData = new TextEncoder().encode(encryptionKey.slice(0, 32).padEnd(32, '0'));
-    const key = await crypto.subtle.importKey('raw', keyData, { name: 'AES-GCM' }, false, ['decrypt']);
-    const iv = Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0));
-    const encrypted = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
-    return new TextDecoder().decode(decrypted);
-  } catch {
-    throw new Error('Failed to decrypt access token');
-  }
-}
 
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
