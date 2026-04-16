@@ -30,6 +30,15 @@ class TikTokPublishError extends Error {
 const TIKTOK_UNAUDITED_PRIVATE_ONLY_API_CODE = "unaudited_client_can_only_post_to_private_accounts";
 const TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE = "TIKTOK_UNAUDITED_PRIVATE_ONLY";
 
+function shouldReturnSoftFailure(errorCode?: string): boolean {
+  return [
+    TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE,
+    "TIKTOK_MEDIA_PROXY_UNREACHABLE",
+    "TIKTOK_URL_OWNERSHIP_UNVERIFIED",
+    "TIKTOK_POST_PROCESSING_FAILED",
+  ].includes(errorCode ?? "");
+}
+
 const SUPABASE_STORAGE_HOST = "rllyipiyuptkibqinotz.supabase.co";
 const MEDIA_PROXY_HOST = "media.flowa.one";
 const MEDIA_PREFLIGHT_TIMEOUT_MS = 8000;
@@ -572,18 +581,20 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
     const statusCode = error instanceof TikTokPublishError && error.statusCode
       ? error.statusCode
       : 500;
+    const softFailure = shouldReturnSoftFailure(errorCode);
     console.error("[publish-tiktok] error:", error);
     return new Response(
       JSON.stringify({
         success: false,
         error: errorMessage,
         ...(errorCode ? { errorCode } : {}),
+        ...(softFailure ? { fallback: true } : {}),
         ...(errorCode === TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE
-          ? { fallback: true, requiresPrivateAccount: true }
+          ? { requiresPrivateAccount: true }
           : {}),
       }),
       {
-        status: statusCode,
+        status: softFailure ? 200 : statusCode,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
