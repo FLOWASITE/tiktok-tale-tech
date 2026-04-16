@@ -1,50 +1,28 @@
 
 
-## Bước tiếp theo: Gắn Worker Route cho media.flowa.one
+## Phân tích lỗi
 
-### Tình trạng hiện tại
-- DNS: CNAME `media` → `rllyipiyuptkibqinotz.supabase.co`, Proxy ON -- OK
-- SSL: Full -- OK  
-- Worker `muddy-mountain-3859`: Đã tạo nhưng chưa gắn Route
-- Kết quả: Request tới `media.flowa.one` đi qua Cloudflare proxy nhưng KHÔNG qua Worker, gửi Host header sai tới Supabase → lỗi
+**Nguyên nhân gốc**: Preflight check tới `media.flowa.one` trả về HTTP 400. Có 2 vấn đề:
 
-### Bước cần làm trên Cloudflare (bạn thao tác)
+1. **Worker route chưa hoạt động đúng** — request tới `media.flowa.one` không qua Worker hoặc Worker forward sai
+2. **Sử dụng `/storage/v1/render/image/public/`** — endpoint image transformation của Supabase có thể không hoạt động qua proxy. Các file ảnh đã là `.jpg` rồi nên **không cần chuyển đổi format**
 
-**Bước 1: Vào Workers Routes**
-1. Trên Cloudflare Dashboard, chọn domain `flowa.one` (sidebar trái)
-2. Vào **Workers Routes** (trong menu bên trái, mục "Workers Routes")
-3. Click **Add Route**
+## Kế hoạch sửa
 
-**Bước 2: Thêm Route**
-- **Route**: `media.flowa.one/*`
-- **Worker**: chọn `muddy-mountain-3859`
-- **Zone**: `flowa.one` (tự động)
-- Click **Save**
+### 1. Bỏ `/render/image/` — dùng `/object/public/` trực tiếp
+Ảnh carousel đã là `.jpg`, không cần Supabase image transformation. Hàm `rewriteImageUrlForTikTok` sẽ **không** rewrite path sang `/render/image/`, chỉ thay hostname sang `media.flowa.one`.
 
-**Bước 3: Xác nhận Worker code rewrite Host header**
-Worker code cần đảm bảo rewrite Host header. Code đúng:
+### 2. Thêm fallback: nếu `media.flowa.one` lỗi, dùng URL Supabase gốc
+Nếu preflight tới `media.flowa.one` fail, tự động fallback về URL gốc `rllyipiyuptkibqinotz.supabase.co` và thử lại. Điều này cho phép đăng bài ngay cả khi Worker chưa sẵn sàng (với rủi ro TikTok có thể yêu cầu verified domain).
 
-```text
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    url.hostname = "rllyipiyuptkibqinotz.supabase.co";
-    const newHeaders = new Headers(request.headers);
-    newHeaders.set("Host", "rllyipiyuptkibqinotz.supabase.co");
-    return fetch(url.toString(), {
-      method: request.method,
-      headers: newHeaders,
-    });
-  }
-};
-```
+### 3. Preflight dùng HEAD thay vì GET
+Tránh download toàn bộ ảnh trong preflight — chỉ kiểm tra reachability bằng `HEAD` request.
 
-**Bước 4: Test**
-Mở trình duyệt, truy cập một URL ảnh thật, ví dụ:
-`https://media.flowa.one/storage/v1/object/public/carousel-images/<tên-file>.jpg`
-- Nếu ảnh hiện ra → thành công, thử đăng TikTok lại
-- Nếu lỗi 52x hoặc không load → kiểm tra lại Worker code và Route
+### Thay đổi cụ thể
 
-### Sau khi media.flowa.one hoạt động
-Không cần sửa code Edge Function. Logic preflight và rewrite URL trong `publish-tiktok/index.ts` đã sẵn sàng. Chỉ cần thử đăng bài TikTok lại.
+**File**: `supabase/functions/publish-tiktok/index.ts`
+
+- `rewriteImageUrlForTikTok()`: Bỏ logic replace `/object/public/` → `/render/image/`, bỏ `format=jpeg&quality=90`. Chỉ thay hostname.
+- `verifyTikTokMediaReachability()`: Đổi method từ `GET` sang `HEAD`. Nếu fail với `media.flowa.one`, fallback về URL Supabase gốc và rewrite lại toàn bộ `imageUrls`.
+- Thêm hàm `fallbackToDirectUrls()` để rewrite ngược về Supabase host khi proxy không hoạt động.
 
