@@ -27,6 +27,9 @@ class TikTokPublishError extends Error {
   }
 }
 
+const TIKTOK_UNAUDITED_PRIVATE_ONLY_API_CODE = "unaudited_client_can_only_post_to_private_accounts";
+const TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE = "TIKTOK_UNAUDITED_PRIVATE_ONLY";
+
 /**
  * TikTok Photo Post (Carousel) via Content Posting API v2
  * Supports 1-35 images via PULL_FROM_URL source
@@ -48,6 +51,7 @@ function truncateUtf16(input: string, maxUnits: number): string {
 
 async function getCreatorPostSettings(accessToken: string): Promise<{
   privacyLevel: string;
+  privacyLevelOptions: string[];
   disableComment: boolean;
 }> {
   const response = await fetch(
@@ -101,8 +105,11 @@ async function getCreatorPostSettings(accessToken: string): Promise<{
   const privacyLevel = PRIVACY_PRIORITY.find(p => privacyLevelOptions.includes(p))
     || privacyLevelOptions[0];
 
+  console.log("[tiktok] Selected privacy level:", privacyLevel, "from", privacyLevelOptions);
+
   return {
     privacyLevel,
+    privacyLevelOptions,
     disableComment: Boolean(result.data?.comment_disabled),
   };
 }
@@ -142,59 +149,86 @@ async function publishPhotoPost(
   // Rewrite URLs to use verified proxy domain
   const proxiedImageUrls = imageUrls.map(rewriteImageUrlForTikTok);
   console.log("[tiktok] Proxied image URLs:", proxiedImageUrls);
-  const { privacyLevel, disableComment } = await getCreatorPostSettings(
+  const { privacyLevel: preferredPrivacyLevel, privacyLevelOptions, disableComment } = await getCreatorPostSettings(
     accessToken,
   );
 
-  const body = {
-    post_info: {
-      title: truncateUtf16(title, 90),
-      description: truncateUtf16(description, 4000),
-      privacy_level: privacyLevel,
-      disable_comment: disableComment,
-    },
-    source_info: {
-      source: "PULL_FROM_URL",
-      photo_cover_index: 0,
-      photo_images: proxiedImageUrls,
-    },
-    post_mode: "DIRECT_POST",
-    media_type: "PHOTO",
+  const sendPublishRequest = async (privacyLevel: string) => {
+    const body = {
+      post_info: {
+        title: truncateUtf16(title, 90),
+        description: truncateUtf16(description, 4000),
+        privacy_level: privacyLevel,
+        disable_comment: disableComment,
+      },
+      source_info: {
+        source: "PULL_FROM_URL",
+        photo_cover_index: 0,
+        photo_images: proxiedImageUrls,
+      },
+      post_mode: "DIRECT_POST",
+      media_type: "PHOTO",
+    };
+
+    console.log(
+      "[tiktok] Publishing photo post with",
+      imageUrls.length,
+      "images using privacy",
+      privacyLevel,
+    );
+
+    const response = await fetch(
+      "https://open.tiktokapis.com/v2/post/publish/content/init/",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json; charset=UTF-8",
+        },
+        body: JSON.stringify(body),
+      },
+    );
+
+    const responseText = await response.text();
+    console.log("[tiktok] API response:", response.status, responseText);
+
+    let parsedBody: Record<string, unknown> | null = null;
+    try {
+      parsedBody = JSON.parse(responseText);
+    } catch {
+      parsedBody = null;
+    }
+
+    const apiError = (parsedBody?.error && typeof parsedBody.error === "object")
+      ? parsedBody.error as Record<string, unknown>
+      : null;
+
+    return {
+      privacyLevel,
+      response,
+      responseText,
+      parsedBody,
+      apiErrorCode: typeof apiError?.code === "string" ? apiError.code : undefined,
+    };
   };
 
-  console.log(
-    "[tiktok] Publishing photo post with",
-    imageUrls.length,
-    "images",
-  );
+  let requestResult = await sendPublishRequest(preferredPrivacyLevel);
+  const attemptedPrivacyLevels = [preferredPrivacyLevel];
 
-  const response = await fetch(
-    "https://open.tiktokapis.com/v2/post/publish/content/init/",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-
-  const responseText = await response.text();
-  console.log("[tiktok] API response:", response.status, responseText);
-
-  let parsedErrorBody: Record<string, unknown> | null = null;
-  try {
-    parsedErrorBody = JSON.parse(responseText);
-  } catch {
-    parsedErrorBody = null;
+  if (
+    requestResult.response.status === 403
+    && requestResult.apiErrorCode === TIKTOK_UNAUDITED_PRIVATE_ONLY_API_CODE
+    && preferredPrivacyLevel !== "SELF_ONLY"
+    && privacyLevelOptions.includes("SELF_ONLY")
+  ) {
+    console.warn(
+      `[tiktok] Retrying publish with SELF_ONLY after TikTok rejected ${preferredPrivacyLevel} for unaudited app`,
+    );
+    attemptedPrivacyLevels.push("SELF_ONLY");
+    requestResult = await sendPublishRequest("SELF_ONLY");
   }
 
-  const apiError = (parsedErrorBody?.error && typeof parsedErrorBody.error === "object")
-    ? parsedErrorBody.error as Record<string, unknown>
-    : null;
-  const apiErrorCode = typeof apiError?.code === "string" ? apiError.code : undefined;
-  const apiErrorMessage = typeof apiError?.message === "string" ? apiError.message : undefined;
+  const { response, responseText, parsedBody, apiErrorCode } = requestResult;
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -204,12 +238,15 @@ async function publishPhotoPost(
       });
     }
 
-    if (response.status === 403 && apiErrorCode === "unaudited_client_can_only_post_to_private_accounts") {
+    if (response.status === 403 && apiErrorCode === TIKTOK_UNAUDITED_PRIVATE_ONLY_API_CODE) {
+      const fallbackMessage = attemptedPrivacyLevels.includes("SELF_ONLY")
+        ? " Flowa đã tự thử lại với chế độ SELF_ONLY nhưng TikTok vẫn từ chối, nên tài khoản TikTok cần được chuyển sang Private trước khi đăng qua API."
+        : "";
       throw new TikTokPublishError(
-        "Ứng dụng TikTok hiện chưa được audit để đăng công khai. Hãy chuyển tài khoản TikTok sang chế độ riêng tư hoặc hoàn tất TikTok app review theo hướng dẫn của TikTok.",
+        `Ứng dụng TikTok hiện chưa được audit để đăng công khai.${fallbackMessage} Hãy chuyển tài khoản TikTok sang chế độ riêng tư hoặc hoàn tất TikTok app review theo hướng dẫn của TikTok.`,
         {
-          errorCode: "TIKTOK_UNAUDITED_PRIVATE_ONLY",
-          statusCode: 403,
+          errorCode: TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE,
+          statusCode: 200,
         },
       );
     }
@@ -233,7 +270,7 @@ async function publishPhotoPost(
     );
   }
 
-  const result = parsedErrorBody ?? JSON.parse(responseText);
+  const result = parsedBody ?? JSON.parse(responseText);
 
   if (result.error?.code !== "ok" && result.error?.code) {
     throw new TikTokPublishError(
@@ -414,7 +451,14 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
       : 500;
     console.error("[publish-tiktok] error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage, ...(errorCode ? { errorCode } : {}) }),
+      JSON.stringify({
+        success: false,
+        error: errorMessage,
+        ...(errorCode ? { errorCode } : {}),
+        ...(errorCode === TIKTOK_UNAUDITED_PRIVATE_ONLY_ERROR_CODE
+          ? { fallback: true, requiresPrivateAccount: true }
+          : {}),
+      }),
       {
         status: statusCode,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
