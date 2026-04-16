@@ -548,6 +548,34 @@ export function TopicBankGrid({
         </div>
       )}
 
+      {/* Load more */}
+      {hasMore && !searchQuery && categoryFilter === 'all' && dateRange === 'all' && filterView === 'all' && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadMore()}
+            disabled={isLoadingMore}
+            className="w-full max-w-xs"
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Đang tải...
+              </>
+            ) : (
+              'Tải thêm ý tưởng'
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Results count */}
+      {filteredItems.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Hiển thị {filteredItems.length} ý tưởng
+        </p>
+
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
