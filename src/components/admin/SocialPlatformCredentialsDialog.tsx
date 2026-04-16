@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
 
 interface SocialPlatformCredentialsDialogProps {
