@@ -1,28 +1,35 @@
 
 
-## Phân tích lỗi
+## Phân tích lỗi `file_format_check_failed`
 
-**Nguyên nhân gốc**: Preflight check tới `media.flowa.one` trả về HTTP 400. Có 2 vấn đề:
+**Nguyên nhân gốc**: Ảnh carousel được lưu dưới dạng **PNG** trong Supabase Storage. TikTok Photo API chỉ chấp nhận **JPEG** và **WebP**. Việc thay hostname hay dùng Supabase Image Transformation qua proxy đều không giải quyết được vì ảnh vẫn là PNG.
 
-1. **Worker route chưa hoạt động đúng** — request tới `media.flowa.one` không qua Worker hoặc Worker forward sai
-2. **Sử dụng `/storage/v1/render/image/public/`** — endpoint image transformation của Supabase có thể không hoạt động qua proxy. Các file ảnh đã là `.jpg` rồi nên **không cần chuyển đổi format**
+**Giải pháp đã có sẵn**: `publish-zalo` đã dùng thư viện `imagescript` để convert PNG→JPEG trước khi đăng. Áp dụng pattern tương tự cho `publish-tiktok`.
 
 ## Kế hoạch sửa
 
-### 1. Bỏ `/render/image/` — dùng `/object/public/` trực tiếp
-Ảnh carousel đã là `.jpg`, không cần Supabase image transformation. Hàm `rewriteImageUrlForTikTok` sẽ **không** rewrite path sang `/render/image/`, chỉ thay hostname sang `media.flowa.one`.
+### File: `supabase/functions/publish-tiktok/index.ts`
 
-### 2. Thêm fallback: nếu `media.flowa.one` lỗi, dùng URL Supabase gốc
-Nếu preflight tới `media.flowa.one` fail, tự động fallback về URL gốc `rllyipiyuptkibqinotz.supabase.co` và thử lại. Điều này cho phép đăng bài ngay cả khi Worker chưa sẵn sàng (với rủi ro TikTok có thể yêu cầu verified domain).
+1. **Import `imagescript`** — thêm `import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";` (dòng 1)
 
-### 3. Preflight dùng HEAD thay vì GET
-Tránh download toàn bộ ảnh trong preflight — chỉ kiểm tra reachability bằng `HEAD` request.
+2. **Thêm hàm `convertImagesToJpeg()`** — download từng ảnh, kiểm tra nếu là PNG thì convert sang JPEG (quality 85), upload lại vào `carousel-images/social/tiktok-optimized/`, trả về URL mới. Nếu đã là JPEG/WebP thì giữ nguyên.
 
-### Thay đổi cụ thể
+3. **Gọi `convertImagesToJpeg()` trong `publishPhotoPost()`** — trước khi rewrite URL và preflight, convert tất cả ảnh sang JPEG trước:
+   ```
+   // Trước dòng 295 (rewrite URLs)
+   const jpegUrls = await convertImagesToJpeg(imageUrls);
+   const rewrittenUrls = jpegUrls.map(rewriteImageUrlForTikTok);
+   ```
 
-**File**: `supabase/functions/publish-tiktok/index.ts`
+### Logic convert chi tiết
+- Fetch ảnh gốc từ Supabase Storage
+- Kiểm tra Content-Type hoặc extension: nếu `image/png` hoặc `.png` → decode bằng `Image.decode()` → `encodeJPEG(85)`
+- Upload file JPEG mới vào `carousel-images/social/tiktok-optimized/{timestamp}-{uuid}.jpg`
+- Trả về public URL mới
+- Nếu convert/upload fail → giữ URL gốc (graceful fallback)
 
-- `rewriteImageUrlForTikTok()`: Bỏ logic replace `/object/public/` → `/render/image/`, bỏ `format=jpeg&quality=90`. Chỉ thay hostname.
-- `verifyTikTokMediaReachability()`: Đổi method từ `GET` sang `HEAD`. Nếu fail với `media.flowa.one`, fallback về URL Supabase gốc và rewrite lại toàn bộ `imageUrls`.
-- Thêm hàm `fallbackToDirectUrls()` để rewrite ngược về Supabase host khi proxy không hoạt động.
+### Không thay đổi
+- Logic rewrite hostname (`media.flowa.one`) giữ nguyên
+- Logic preflight và fallback giữ nguyên
+- Các file khác không bị ảnh hưởng
 
