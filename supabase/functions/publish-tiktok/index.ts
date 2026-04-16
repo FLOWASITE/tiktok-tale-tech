@@ -298,7 +298,12 @@ async function publishPhotoPost(
   }
 
   console.log("[tiktok] Publish initiated, publish_id:", publishId);
-  return { publishId };
+
+  // Poll TikTok publish status to detect async failures (image fetch errors etc.)
+  const statusResult = await pollPublishStatus(accessToken, publishId);
+  console.log("[tiktok] Final publish status:", JSON.stringify(statusResult));
+
+  return { publishId, statusResult };
 }
 
 Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
