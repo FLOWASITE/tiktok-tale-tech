@@ -348,7 +348,18 @@ export function BrandViewHero({
             </div>
           )}
 
-          {/* Emoji */}
+          {/* Connections Count */}
+          <div className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm",
+            connectionsCount > 0 
+              ? "bg-sky-500/10 border-sky-500/30" 
+              : "bg-background/80 border-border/50"
+          )}>
+            <Link2 className={cn("w-3.5 h-3.5", connectionsCount > 0 ? "text-sky-600" : "text-muted-foreground")} />
+            <span className="text-xs">{connectionsCount} Kết nối</span>
+          </div>
+
+
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background/80 border border-border/50 shadow-sm">
             {template.allow_emoji !== false ? (
               <>
