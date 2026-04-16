@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { 
   Search, Star, TrendingUp, Filter, History, X, 
-  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck, Target, Link
+  Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck, Target, Link,
+  ArrowUpDown, Loader2, Clock
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,8 @@ interface TopicBankGridProps {
 
 type FilterView = 'all' | 'drafts' | 'favorites' | 'top-performers' | 'recent';
 type ViewMode = 'grid' | 'list';
+type SortOption = 'newest' | 'oldest' | 'score-high' | 'alphabetical';
+type DateRange = 'all' | 'today' | 'week' | 'month' | '3months';
 
 export function TopicBankGrid({
   brandTemplateId,
@@ -55,6 +58,8 @@ export function TopicBankGrid({
   const [categoryFilter, setCategoryFilter] = useState<TopicCategory | 'all'>('all');
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortOption, setSortOption] = useState<SortOption>('newest');
+  const [dateRange, setDateRange] = useState<DateRange>('all');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [linkCampaignTopic, setLinkCampaignTopic] = useState<TopicHistoryItem | null>(null);
 
@@ -68,11 +73,14 @@ export function TopicBankGrid({
     recentlyUsed,
     stats,
     isLoading,
+    isLoadingMore,
+    hasMore,
     toggleFavorite,
     submitFeedback,
     deleteTopic,
     confirmDraft,
     linkToCampaign,
+    loadMore,
   } = useTopicHistory({
     brandTemplateId,
     contentGoal,
@@ -80,7 +88,19 @@ export function TopicBankGrid({
     enabled: true,
   });
 
-  // Filtered items based on view and search
+  // Date range helper
+  const getDateRangeStart = (range: DateRange): Date | null => {
+    const now = new Date();
+    switch (range) {
+      case 'today': return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      case 'week': { const d = new Date(now); d.setDate(d.getDate() - 7); return d; }
+      case 'month': { const d = new Date(now); d.setMonth(d.getMonth() - 1); return d; }
+      case '3months': { const d = new Date(now); d.setMonth(d.getMonth() - 3); return d; }
+      default: return null;
+    }
+  };
+
+  // Filtered items based on view, search, date range, and sort
   const filteredItems = useMemo(() => {
     let items: TopicHistoryItem[] = [];
 
@@ -98,13 +118,21 @@ export function TopicBankGrid({
         items = recentlyUsed;
         break;
       default:
-        // All - exclude drafts from "all" view to keep it clean
         items = history.filter(h => h.usageStatus !== 'draft');
     }
 
     // Apply category filter
     if (categoryFilter !== 'all') {
       items = items.filter(item => item.category === categoryFilter);
+    }
+
+    // Apply date range filter
+    const rangeStart = getDateRangeStart(dateRange);
+    if (rangeStart) {
+      items = items.filter(item => {
+        const created = item.createdAt ? new Date(item.createdAt) : null;
+        return created && created >= rangeStart;
+      });
     }
 
     // Apply search
@@ -117,8 +145,26 @@ export function TopicBankGrid({
       );
     }
 
+    // Apply sort
+    items = [...items].sort((a, b) => {
+      switch (sortOption) {
+        case 'oldest':
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
+        case 'score-high': {
+          const scoreA = a.scores ? Math.round((a.scores.brandFit + a.scores.trend + a.scores.competition + a.scores.engagement) / 4) : 0;
+          const scoreB = b.scores ? Math.round((b.scores.brandFit + b.scores.trend + b.scores.competition + b.scores.engagement) / 4) : 0;
+          return scoreB - scoreA;
+        }
+        case 'alphabetical':
+          return a.topic.localeCompare(b.topic, 'vi');
+        case 'newest':
+        default:
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+      }
+    });
+
     return items;
-  }, [filterView, drafts, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery]);
+  }, [filterView, drafts, favorites, topPerformers, recentlyUsed, history, categoryFilter, searchQuery, dateRange, sortOption]);
 
   const handleReuse = (item: TopicHistoryItem) => {
     onSelectTopic(item.topic, item.id);
