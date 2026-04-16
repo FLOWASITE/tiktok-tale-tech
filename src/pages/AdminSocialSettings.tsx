@@ -36,7 +36,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'zalo_oa', name: 'Zalo OA', icon: MessageCircle, color: 'text-blue-500', available: true },
   { platform: 'google_business', name: 'Google Business', icon: MapPin, color: 'text-red-500', available: true },
   { platform: 'website', name: 'Website', icon: Globe, color: 'text-green-600', available: true },
-  { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: false },
+  { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: true },
 ];
 
 export default function AdminSocialSettings() {
