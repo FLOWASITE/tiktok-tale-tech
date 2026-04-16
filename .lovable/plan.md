@@ -1,35 +1,43 @@
 
+Mục tiêu: chặn dứt điểm lỗi `file_format_check_failed` khi đăng carousel lên TikTok.
 
-## Phân tích lỗi `file_format_check_failed`
+Do I know what the issue is? Có.
+- Log cho thấy `media.flowa.one` đã truy cập được, nên lỗi không còn nằm ở proxy/domain.
+- Request hiện tại đang gửi các URL `.jpg` gốc của carousel.
+- Không có log `Converted PNG→JPEG`, nghĩa là helper hiện tại chỉ convert khi URL chứa `.png`.
+- Vì TikTok fail ở bước xử lý async, vấn đề nằm ở binary/encoding thực tế của ảnh gốc, không phải ở extension hay preflight.
 
-**Nguyên nhân gốc**: Ảnh carousel được lưu dưới dạng **PNG** trong Supabase Storage. TikTok Photo API chỉ chấp nhận **JPEG** và **WebP**. Việc thay hostname hay dùng Supabase Image Transformation qua proxy đều không giải quyết được vì ảnh vẫn là PNG.
+Kế hoạch sửa
 
-**Giải pháp đã có sẵn**: `publish-zalo` đã dùng thư viện `imagescript` để convert PNG→JPEG trước khi đăng. Áp dụng pattern tương tự cho `publish-tiktok`.
+1. Chuẩn hóa toàn bộ ảnh TikTok trong `supabase/functions/publish-tiktok/index.ts`
+- Thay `convertImagesToJpeg()` bằng helper mới kiểu `normalizeImagesForTikTok()`.
+- Helper này sẽ fetch mọi ảnh TikTok-bound, đọc `content-type` + bytes, rồi re-encode lại thành một file JPEG mới “sạch”.
+- Không còn tin vào extension `.jpg/.png`; ảnh raster nào cũng được chuẩn hóa lại trước khi publish.
+- Flatten alpha về nền trắng nếu cần, nén về quality an toàn, giới hạn dimensions/file size ở mức an toàn cho TikTok.
+- Nếu ảnh là SVG hoặc không decode được, fail sớm với lỗi rõ ràng thay vì âm thầm giữ URL gốc.
 
-## Kế hoạch sửa
+2. Chỉ publish bằng ảnh đã chuẩn hóa
+- Upload ảnh mới vào `carousel-images/social/tiktok-optimized/...jpg`.
+- Trong `publishPhotoPost()`, chỉ dùng các URL này rồi mới rewrite sang `media.flowa.one` và chạy preflight.
+- Bỏ fallback “giữ ảnh gốc nếu convert lỗi”, vì chính fallback đó đang để file không hợp lệ lọt vào TikTok.
 
-### File: `supabase/functions/publish-tiktok/index.ts`
+3. Tăng logging để xác minh nguyên nhân
+- Log cho từng ảnh: URL gốc, content-type gốc, kích thước bytes gốc, dimensions gốc, URL chuẩn hóa, kích thước sau nén.
+- Log rõ nếu ảnh bị chặn trước khi gọi TikTok.
+- Mục tiêu là lần sau chỉ nhìn log là biết fail vì SVG, decode lỗi, size, hay upload optimize lỗi.
 
-1. **Import `imagescript`** — thêm `import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";` (dòng 1)
+4. Cải thiện thông báo lỗi
+- Trong `publish-tiktok`, khi TikTok trả `file_format_check_failed`, đổi message sang thông điệp rõ hơn: TikTok từ chối file ảnh gốc vì định dạng/encoding không tương thích.
+- Trong `src/hooks/useDirectPublish.ts`, thêm nhánh toast riêng cho lỗi này để người dùng không chỉ thấy lỗi kỹ thuật chung.
 
-2. **Thêm hàm `convertImagesToJpeg()`** — download từng ảnh, kiểm tra nếu là PNG thì convert sang JPEG (quality 85), upload lại vào `carousel-images/social/tiktok-optimized/`, trả về URL mới. Nếu đã là JPEG/WebP thì giữ nguyên.
+5. Kiểm tra sau khi triển khai
+- Test lại đúng carousel đang fail: `2d097bd6-2779-4893-8e77-e1d1b8b9368b`.
+- Xác nhận log có URL mới trong `social/tiktok-optimized/...`.
+- Xác nhận không còn publish bằng URL gốc `slide-*-bg-...jpg`.
+- Xác nhận status không còn `file_format_check_failed`.
 
-3. **Gọi `convertImagesToJpeg()` trong `publishPhotoPost()`** — trước khi rewrite URL và preflight, convert tất cả ảnh sang JPEG trước:
-   ```
-   // Trước dòng 295 (rewrite URLs)
-   const jpegUrls = await convertImagesToJpeg(imageUrls);
-   const rewrittenUrls = jpegUrls.map(rewriteImageUrlForTikTok);
-   ```
-
-### Logic convert chi tiết
-- Fetch ảnh gốc từ Supabase Storage
-- Kiểm tra Content-Type hoặc extension: nếu `image/png` hoặc `.png` → decode bằng `Image.decode()` → `encodeJPEG(85)`
-- Upload file JPEG mới vào `carousel-images/social/tiktok-optimized/{timestamp}-{uuid}.jpg`
-- Trả về public URL mới
-- Nếu convert/upload fail → giữ URL gốc (graceful fallback)
-
-### Không thay đổi
-- Logic rewrite hostname (`media.flowa.one`) giữ nguyên
-- Logic preflight và fallback giữ nguyên
-- Các file khác không bị ảnh hưởng
-
+Chi tiết kỹ thuật
+- File chính cần sửa: `supabase/functions/publish-tiktok/index.ts`
+- File UX nên sửa thêm: `src/hooks/useDirectPublish.ts`
+- Không cần đổi flow publish ở frontend hay logic proxy hiện tại.
+- Không cần thêm dependency nặng mới; giữ `imagescript` để giảm rủi ro deploy timeout.
