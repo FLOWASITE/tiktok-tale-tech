@@ -1,29 +1,40 @@
 
 
-## Cập nhật PROXY_BASE_URL cho TikTok Image Proxy
+## Fix: TikTok privacy level chọn sai → bài đăng bị ẩn
 
-Vì bạn đã hoàn tất DNS cho `media.flowa.one` và xác minh domain trên TikTok Developer Portal, chỉ cần thay 1 dòng code và deploy lại.
-
-### Thay đổi
-
-**File:** `supabase/functions/publish-tiktok/index.ts` (dòng 107)
-
+### Nguyên nhân
+Code hiện tại ưu tiên chọn `SELF_ONLY` nếu có trong danh sách options:
+```typescript
+privacyLevel: privacyLevelOptions.includes("SELF_ONLY")
+  ? "SELF_ONLY"
+  : privacyLevelOptions[0],
 ```
-// Trước:
-const PROXY_BASE_URL = "https://app.flowa.one/api/tiktok-media";
+Kết quả: mọi bài đăng đều ở chế độ **chỉ mình tôi**, không hiện trên profile.
 
-// Sau:
-const PROXY_BASE_URL = "https://media.flowa.one/functions/v1/tiktok-image-proxy";
+### Giải pháp
+Đảo ngược ưu tiên privacy: chọn mức công khai nhất có thể.
+
+**File:** `supabase/functions/publish-tiktok/index.ts` — hàm `getCreatorPostSettings`
+
+Thay logic chọn privacy (dòng 93-96):
+```typescript
+// Ưu tiên: PUBLIC > FOLLOWER > MUTUAL_FOLLOW > SELF_ONLY
+const PRIVACY_PRIORITY = [
+  "PUBLIC_TO_EVERYONE",
+  "FOLLOWER_OF_CREATOR", 
+  "MUTUAL_FOLLOW_FRIENDS",
+  "SELF_ONLY",
+];
+
+const privacyLevel = PRIVACY_PRIORITY.find(p => privacyLevelOptions.includes(p)) 
+  || privacyLevelOptions[0];
 ```
 
-### Deploy
-- Redeploy `publish-tiktok`
+### Kết quả mong đợi
+- App chưa audit → chọn `FOLLOWER_OF_CREATOR` (followers sẽ thấy bài)
+- App đã audit → chọn `PUBLIC_TO_EVERYONE` (ai cũng thấy)
+- Bài sẽ hiện trên profile TikTok thay vì bị ẩn hoàn toàn
 
-### Kết quả
-Khi đăng ảnh TikTok, URL ảnh sẽ được rewrite từ:
-`https://rllyipiyuptkibqinotz.supabase.co/storage/v1/object/public/...`
-thành:
-`https://media.flowa.one/functions/v1/tiktok-image-proxy?url=<encoded_url>`
-
-TikTok sẽ pull ảnh từ domain `media.flowa.one` đã xác minh → không còn lỗi `url_ownership_unverified`.
+### Lưu ý
+Vì app TikTok chưa audit, bài vẫn chưa hiện **công khai** cho tất cả mọi người. Chỉ followers mới thấy. Để đăng `PUBLIC_TO_EVERYONE`, bạn cần hoàn tất TikTok App Review.
 
