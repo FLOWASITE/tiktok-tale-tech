@@ -6,11 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselSlide } from '@/types/carousel';
-import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Check,
