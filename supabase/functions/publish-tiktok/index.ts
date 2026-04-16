@@ -313,7 +313,7 @@ async function publishPhotoPost(
       source_info: {
         source: "PULL_FROM_URL",
         photo_cover_index: 0,
-        photo_images: rewrittenUrls,
+        photo_images: finalUrls,
       },
       post_mode: "DIRECT_POST",
       media_type: "PHOTO",
