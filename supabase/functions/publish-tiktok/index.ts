@@ -442,7 +442,7 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
           status: "success",
           external_id: publishId,
           published_at: new Date().toISOString(),
-          response_data: { publishId },
+          response_data: { publishId, statusResult },
         }).eq("id", attempt.id);
       }
 
