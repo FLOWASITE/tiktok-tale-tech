@@ -98,6 +98,24 @@ async function getCreatorPostSettings(accessToken: string): Promise<{
   };
 }
 
+/**
+ * Rewrite Supabase Storage URLs to go through the verified proxy domain.
+ * TikTok requires the image domain to be verified in Developer Portal.
+ * We proxy through app.flowa.one which the user owns and can verify.
+ */
+const SUPABASE_STORAGE_DOMAIN = "rllyipiyuptkibqinotz.supabase.co";
+const PROXY_BASE_URL = "https://app.flowa.one/api/tiktok-media";
+
+function rewriteImageUrlForTikTok(originalUrl: string): string {
+  try {
+    const parsed = new URL(originalUrl);
+    if (parsed.hostname === SUPABASE_STORAGE_DOMAIN) {
+      return `${PROXY_BASE_URL}?url=${encodeURIComponent(originalUrl)}`;
+    }
+  } catch { /* not a valid URL, pass through */ }
+  return originalUrl;
+}
+
 async function publishPhotoPost(
   accessToken: string,
   title: string,
@@ -112,6 +130,9 @@ async function publishPhotoPost(
     console.warn("[tiktok] Trimmed to 35 images (TikTok max)");
   }
 
+  // Rewrite URLs to use verified proxy domain
+  const proxiedImageUrls = imageUrls.map(rewriteImageUrlForTikTok);
+  console.log("[tiktok] Proxied image URLs:", proxiedImageUrls);
   const { privacyLevel, disableComment } = await getCreatorPostSettings(
     accessToken,
   );
@@ -126,7 +147,7 @@ async function publishPhotoPost(
     source_info: {
       source: "PULL_FROM_URL",
       photo_cover_index: 0,
-      photo_images: imageUrls,
+      photo_images: proxiedImageUrls,
     },
     post_mode: "DIRECT_POST",
     media_type: "PHOTO",

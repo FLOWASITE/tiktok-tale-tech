@@ -330,3 +330,6 @@ verify_jwt = false
 
 [functions.instagram-webhooks]
 verify_jwt = false
+
+[functions.tiktok-image-proxy]
+verify_jwt = false
