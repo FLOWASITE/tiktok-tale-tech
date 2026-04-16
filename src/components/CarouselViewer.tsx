@@ -1129,7 +1129,20 @@ export function CarouselViewer({
               </DndContext>
             </TabsContent>
 
-            <TabsContent value="images" className="mt-0">
+            <TabsContent value="images" className="mt-0 space-y-4">
+              {/* Background generation progress */}
+              {activeCarouselTask && (
+                <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span>{activeCarouselTask.progress_message || 'Đang tạo ảnh dưới nền...'}</span>
+                  </div>
+                  <Progress value={activeCarouselTask.progress || 0} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {activeCarouselTask.progress || 0}% · Bạn có thể đóng cửa sổ này
+                  </p>
+                </div>
+              )}
               <GeneratedImagesGallery
                 images={generatedImages}
                 totalSlides={carousel.slide_count}
