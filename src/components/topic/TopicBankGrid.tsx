@@ -300,7 +300,7 @@ export function TopicBankGrid({
         </div>
       </div>
 
-      {/* Search and category filter */}
+      {/* Search and filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -335,6 +335,31 @@ export function TopicBankGrid({
             ))}
           </SelectContent>
         </Select>
+        <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+          <SelectTrigger className="w-36">
+            <Clock className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Thời gian" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Mọi lúc</SelectItem>
+            <SelectItem value="today">Hôm nay</SelectItem>
+            <SelectItem value="week">7 ngày qua</SelectItem>
+            <SelectItem value="month">30 ngày qua</SelectItem>
+            <SelectItem value="3months">3 tháng qua</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+          <SelectTrigger className="w-36">
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Sắp xếp" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Mới nhất</SelectItem>
+            <SelectItem value="oldest">Cũ nhất</SelectItem>
+            <SelectItem value="score-high">Điểm cao nhất</SelectItem>
+            <SelectItem value="alphabetical">A → Z</SelectItem>
+          </SelectContent>
+        </Select>
         <CampaignSelector
           value={campaignFilter}
           onValueChange={setCampaignFilter}
@@ -342,6 +367,45 @@ export function TopicBankGrid({
           className="w-44"
         />
       </div>
+
+      {/* Active filters summary */}
+      {(dateRange !== 'all' || categoryFilter !== 'all' || campaignFilter || searchQuery) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Đang lọc:</span>
+          {searchQuery && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              "{searchQuery}"
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setSearchQuery('')} />
+            </Badge>
+          )}
+          {categoryFilter !== 'all' && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {TOPIC_CATEGORIES.find(c => c.value === categoryFilter)?.label}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter('all')} />
+            </Badge>
+          )}
+          {dateRange !== 'all' && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {dateRange === 'today' ? 'Hôm nay' : dateRange === 'week' ? '7 ngày' : dateRange === 'month' ? '30 ngày' : '3 tháng'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setDateRange('all')} />
+            </Badge>
+          )}
+          {campaignFilter && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              Chiến dịch
+              <X className="h-3 w-3 cursor-pointer" onClick={() => setCampaignFilter(undefined)} />
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => {
+            setSearchQuery('');
+            setCategoryFilter('all');
+            setDateRange('all');
+            setCampaignFilter(undefined);
+          }}>
+            Xóa bộ lọc
+          </Button>
+        </div>
+      )}
 
       {/* Results */}
       {filteredItems.length === 0 ? (
