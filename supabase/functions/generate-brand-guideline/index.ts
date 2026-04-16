@@ -13,6 +13,58 @@ import {
   buildCompletenessMetadata,
 } from "../_shared/brand-utils.ts";
 
+/** Robustly parse JSON from AI tool_call arguments (handles truncation) */
+function safeParseToolCallJson(raw: string): Record<string, unknown> {
+  // 1. Direct parse
+  try { return JSON.parse(raw); } catch { /* continue */ }
+
+  // 2. Strip markdown wrappers
+  let cleaned = raw.replace(/```json?\s*/gi, '').replace(/```/g, '').trim();
+
+  // Find JSON boundaries
+  const start = cleaned.search(/[{\[]/);
+  if (start > 0) cleaned = cleaned.substring(start);
+
+  // 3. Try again after cleanup
+  try { return JSON.parse(cleaned); } catch { /* continue */ }
+
+  // 4. Progressive truncation repair (up to 20 cuts)
+  let repaired = cleaned;
+  // Fix unbalanced quotes (truncated inside a string)
+  const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+  if (quoteCount % 2 !== 0) {
+    const lastQ = repaired.lastIndexOf('"');
+    repaired = repaired.substring(0, lastQ);
+    // Remove incomplete key or value before the quote
+    repaired = repaired.replace(/,?\s*"[^"]*$/, '').replace(/:\s*$/, '').replace(/,\s*$/, '');
+  }
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    // Count braces
+    let braces = 0, brackets = 0;
+    for (const ch of repaired) {
+      if (ch === '{') braces++;
+      else if (ch === '}') braces--;
+      else if (ch === '[') brackets++;
+      else if (ch === ']') brackets--;
+    }
+    const suffix = ']'.repeat(Math.max(0, brackets)) + '}'.repeat(Math.max(0, braces));
+    try {
+      return JSON.parse(repaired + suffix);
+    } catch {
+      // Trim back to last safe boundary
+      const cutAt = Math.max(
+        repaired.lastIndexOf(','),
+        repaired.lastIndexOf('},{'),
+      );
+      if (cutAt <= 1) break;
+      repaired = repaired.substring(0, cutAt);
+    }
+  }
+
+  throw new Error(`JSON parse failed after repair. Length: ${raw.length}`);
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
