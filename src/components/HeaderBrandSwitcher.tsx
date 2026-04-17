@@ -75,7 +75,7 @@ export function HeaderBrandSwitcher() {
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="w-64">
+      <DropdownMenuContent align="start" className="w-[280px] sm:w-[340px]">
         <DropdownMenuLabel className="text-xs text-muted-foreground">Brand hiện tại</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {brands.map((brand) => (
