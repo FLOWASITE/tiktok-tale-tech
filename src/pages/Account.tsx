@@ -83,12 +83,63 @@ export default function Account() {
   const { user } = useAuth();
   const { profile, isLoading: profileLoading, updateProfile, uploadAvatar, isUpdating } = useProfile();
   const { subscription, currentPlanLimits, usage, currentPeriod, isLoading: subLoading, activeAddons } = useSubscription();
+  const { currentOrganization, currentRole, updateOrganization, deleteOrganization, updating: orgUpdating } = useOrganization();
+  const { members, loading: membersLoading, inviteMember, createMember, bulkCreateMembers, updateMemberRole, removeMember, updating: membersUpdating } = useOrganizationMembers();
+  const { contents } = useMultiChannelContents();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") === "organization" ? "organization" : "personal";
 
   const [fullName, setFullName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("current");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [addonOpen, setAddonOpen] = useState(false);
+
+  // Organization editing state
+  const [orgName, setOrgName] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#000000");
+  const [isEditingOrg, setIsEditingOrg] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const orgFileInputRef = useRef<HTMLInputElement>(null);
+
+  const canEditOrg = currentRole ? canEditOrganization(currentRole) : false;
+  const canDeleteOrg = currentRole ? canDeleteOrganization(currentRole) : false;
+
+  const handleSaveOrgSettings = async () => {
+    if (!currentOrganization) return;
+    const success = await updateOrganization(currentOrganization.id, {
+      name: orgName,
+      primary_color: primaryColor,
+    });
+    if (success) setIsEditingOrg(false);
+  };
+
+  const handleOrgLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentOrganization) return;
+    if (!file.type.startsWith('image/')) { toast.error('Vui lòng chọn file ảnh'); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Kích thước file tối đa 2MB'); return; }
+    try {
+      setUploadingLogo(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentOrganization.id}/logo.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('brand-logos').upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('brand-logos').getPublicUrl(fileName);
+      await updateOrganization(currentOrganization.id, { logo_url: urlData.publicUrl + '?v=' + Date.now() });
+      toast.success('Đã cập nhật logo!');
+    } catch (error: any) {
+      toast.error('Lỗi khi upload logo: ' + error.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!currentOrganization) return;
+    await deleteOrganization(currentOrganization.id);
+  };
 
   // Generate last 6 months options
   const monthOptions = useMemo(() => {
