@@ -1,52 +1,55 @@
 
-## Hiểu lại vấn đề
-Phần "khoanh đỏ" trong ảnh là **topic title** (tiêu đề chủ đề), không phải reasoning. Bạn muốn tiêu đề dài hơn — mục tiêu **80-150 ký tự**.
+## Đã check lại nguyên nhân
+- `124/400` không phải do UI cắt ngắn. Nó là đúng độ dài string backend trả về.
+- Tôi đã check request thật của `topic-ai` với `forceRefresh: true`: backend vẫn trả ra nhiều title dưới 150 ký tự, trong đó có đúng title bạn đang thấy.
+- Code hiện tại **đã** có prompt `150-300 ký tự` và cache key `v12-title-150-300`, nên lỗi không còn là “quên sửa prompt” hay “cache cũ”.
+- Lỗi thật là: backend chỉ **nhắc model** viết dài hơn, nhưng **không có lớp enforce sau khi model trả kết quả**.
 
-Hiện tại prompt `topic-ai` chỉ yêu cầu `"Tiêu đề chi tiết (15-50 từ)"` — đếm theo "từ" rất mơ hồ với tiếng Việt, nên AI thường trả title ngắn (~50-80 ký tự).
+## Plan sửa đúng chỗ
 
-## Plan
+### 1. Thêm hard validation ở backend
+Trong `supabase/functions/topic-ai/index.ts`:
+- validate từng suggestion sau `parseTopicSuggestions()`
+- rule:
+  - `topic` phải từ **150-300 ký tự**
+  - `reasoning` phải **>= 300 ký tự**
+- log rõ độ dài từng item để dễ debug lần sau
 
-### 1. Sửa prompt `topic-ai` → ép độ dài title theo ký tự
-File: `supabase/functions/topic-ai/index.ts`, hàm `buildSuggestPrompts`, dòng ~1509.
+### 2. Repair các title bị ngắn
+Nếu AI trả ra item fail:
+- chạy thêm 1 pass AI chỉ để **rewrite lại các `topic` lỗi**
+- giữ nguyên intent/cấu trúc/topic subject, chỉ kéo title lên đúng **150-300 ký tự**
+- item nào sửa xong vẫn fail thì loại khỏi kết quả
 
-**Trước:**
-```
-"topic": "Tiêu đề chi tiết (15-50 từ)"
-```
+### 3. Siết chặt output format
+Đổi action `suggest` sang structured output/tool-calling schema:
+- `topic`: `minLength: 150`, `maxLength: 300`
+- `reasoning`: `minLength: 300`
+- vẫn giữ validator backend làm lớp chốt cuối, không tin model 100%
 
-**Sau:**
-```
-"topic": "Tiêu đề chi tiết, hấp dẫn, có hook + ngữ cảnh rõ ràng. ĐỘ DÀI BẮT BUỘC: 80-150 ký tự (đếm cả khoảng trắng). Tối ưu: 100-130 ký tự. Có thể dùng dấu `:` hoặc `—` để tách hook và mô tả phụ. KHÔNG ngắn hơn 80 ký tự."
-```
+### 4. Vá luôn fallback ngắn
+`getDefaultSuggestions()` hiện vẫn là title ngắn.
+Tôi sẽ sửa fallback để kể cả khi AI lỗi/parsing lỗi thì title fallback cũng theo chuẩn **150-300 ký tự**, tránh tái diễn.
 
-Thêm vào checklist cuối system prompt (dòng ~1528):
-```
-- Mỗi field "topic" PHẢI dài 80-150 ký tự. Nếu < 80, BẮT BUỘC viết lại dài hơn (thêm hook, ngữ cảnh, đối tượng, kết quả). KHÔNG nhồi từ rỗng.
-- Cấu trúc gợi ý: "[Hook/Số liệu/Câu hỏi]: [Đối tượng] [Vấn đề/Giải pháp] [Kết quả/Lợi ích]"
-```
+### 5. Thêm guard phía client
+Trong `src/hooks/ai/useTopicAI.ts`:
+- filter bỏ suggestion có `topic.length < 150` hoặc `> 300`
+- nếu toàn bộ invalid thì báo lỗi/refresh lại, không render title ngắn ra UI
 
-### 2. Bust cache
-Đổi cache key `topic-suggestions-v10-long` → `topic-suggestions-v11-long-title` để force regenerate (vì cache cũ vẫn chứa title ngắn).
+### 6. Giữ UI hiện tại nhưng thêm safeguard nhỏ
+- `MAX_TOPIC_LENGTH = 400` đang đủ, không cần đổi thêm
+- chỉnh nhẹ textarea ở:
+  - `src/components/multichannel/MultiChannelFormWizard.tsx`
+  - `src/components/multichannel/MultiChannelFormStepper.tsx`
+- mục tiêu: title dài 150-300 ký tự không bị badge counter đè lên dòng cuối
 
-### 3. Bỏ truncate UI ở chip suggestion
-File: `src/components/TopicSuggestionPanel.tsx` dòng ~1023:
-```tsx
-{suggestion.topic.length > 70 ? suggestion.topic.slice(0, 70) + '…' : suggestion.topic}
-```
-Tăng giới hạn truncate lên **140 ký tự** để title 80-150 hiển thị trọn vẹn trong chip; đồng thời tăng `max-w-[420px]` lên `max-w-[560px]` cho khung rộng hơn.
+## Files sẽ sửa
+- `supabase/functions/topic-ai/index.ts`
+- `src/hooks/ai/useTopicAI.ts`
+- `src/components/multichannel/MultiChannelFormWizard.tsx`
+- `src/components/multichannel/MultiChannelFormStepper.tsx`
 
-### 4. Không sửa MAX_TOPIC_LENGTH (300 ký tự)
-Ô input đã cho phép tới 300 ký tự, nên title 80-150 ký tự khi click chọn vẫn được giữ nguyên trong textarea — không cần đổi.
-
-## Chi tiết kỹ thuật
-- `supabase/functions/topic-ai/index.ts`:
-  - dòng ~1509: đổi instruction `"topic"` sang ép 80-150 ký tự
-  - thêm rule checklist title length
-  - đổi cache key version
-- `src/components/TopicSuggestionPanel.tsx`:
-  - dòng ~1020-1023: nới truncate threshold + chip max-width
-
-## Result
-- AI sẽ sinh tiêu đề dài 80-150 ký tự (giàu hook + ngữ cảnh).
-- Chip trong panel hiển thị đầy đủ title mới.
-- Sau khi click, ô nhập chứa nguyên title dài, counter sẽ hiện ~80-150/300.
+## Kết quả sau khi làm
+- Khung đỏ sẽ không còn hiện kiểu `124 ký tự` cho topic AI mới.
+- Topic title được render ra sẽ có **tối thiểu 150 ký tự thật**, không phải kéo dài giả ở UI.
+- Kể cả model trả sai, backend + client sẽ chặn không cho title ngắn lọt ra màn hình.
