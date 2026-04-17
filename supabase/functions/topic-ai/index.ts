@@ -1523,7 +1523,11 @@ Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
   "journeyStage": "awareness" | "consideration" | "decision" | "loyalty"
 }]
 
-## BALANCE theo mục tiêu "${effectiveGoal}" (xem phần MỤC TIÊU BẮT BUỘC ở trên)`;
+## BALANCE theo mục tiêu "${effectiveGoal}" (xem phần MỤC TIÊU BẮT BUỘC ở trên)
+
+## ✅ CHECKLIST BẮT BUỘC TRƯỚC KHI TRẢ KẾT QUẢ:
+- Mỗi field "reasoning" PHẢI ≥ 300 ký tự (đếm cả khoảng trắng). Nếu < 300, BẮT BUỘC viết lại dài hơn với nội dung CÓ GIÁ TRỊ thực sự (angle, lý do phù hợp brand, value cho audience, hook gợi ý) — KHÔNG nhồi từ rỗng, KHÔNG lặp ý.
+- Mỗi reasoning phải mạch lạc, văn xuôi tự nhiên, không bullet/gạch đầu dòng.`;
 
   // Build category hint guidance
   const categoryHintMap: Record<string, string> = {
