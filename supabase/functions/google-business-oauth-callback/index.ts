@@ -68,6 +68,7 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
     const { brandTemplateId, organizationId, userId } = stateData;
 
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabase = getServiceClient();
 
     // Get Google credentials from social_platform_settings

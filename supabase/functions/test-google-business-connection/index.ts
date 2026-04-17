@@ -31,6 +31,7 @@ Deno.serve(withPerf({ functionName: 'test-google-business-connection' }, async (
 
   try {
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabase = getServiceClient();
 
     const { connectionId } = await req.json();
