@@ -219,10 +219,15 @@ export function CarouselViewer({
         body: { carouselId: carousel.id },
       });
       if (error) {
-        const msg = (error as { message?: string })?.message || '';
-        if (msg.includes('429')) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
-        else if (msg.includes('402')) toast.error('Đã hết credits AI. Vui lòng nâng cấp gói.');
-        else toast.error('Không thể tạo lại caption. Vui lòng thử lại.');
+        const { parseEdgeFunctionError } = await import('@/lib/edgeFunctionErrors');
+        const parsed = parseEdgeFunctionError(error, 'Không thể tạo lại caption. Vui lòng thử lại.');
+        if (parsed.code === 'CREDITS_EXHAUSTED') {
+          toast.error('Đã hết credits AI. Vui lòng nâng cấp gói để tiếp tục.');
+        } else if (parsed.code === 'RATE_LIMIT') {
+          toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau ít phút.');
+        } else {
+          toast.error(parsed.message);
+        }
         return;
       }
       if (data?.error) {
