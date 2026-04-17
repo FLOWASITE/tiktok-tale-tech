@@ -1,48 +1,82 @@
 
-## Mục tiêu
-User muốn **kết nối Google Business Profile** (Google Maps/GBP) để có thể đăng bài tự động lên locations của họ.
+## Vấn đề đã xác định
+Lỗi “không tìm thấy cấu hình” của Google Business là do hệ thống đang dùng **3 tên platform khác nhau** cho cùng một tích hợp:
 
-## Hiện trạng (đã check)
-Code đã có sẵn khá đầy đủ:
-- `src/pages/GoogleBusinessCallback.tsx` — handler callback OAuth
-- `supabase/functions/publish-google-business/index.ts` — đăng bài
-- `supabase/functions/test-google-business-connection/index.ts` — test token
-- `channel-publisher` đã route `google-business` → `publish-google-business`
+- Admin settings lưu credentials dưới key: `google_business`
+- Diagnostic/test gọi bằng key: `google-business`
+- OAuth callback / refresh / một phần publish logic lại đọc hoặc lưu bằng: `google_maps`
 
-Còn **thiếu / cần verify**:
-1. Edge function `auth-gateway` có nhánh `platform: 'google-business'` xử lý OAuth code → token chưa? (callback đã gọi nó)
-2. Có nút "Kết nối Google Business" trong UI `/connections` chưa?
-3. Có function `refresh-google-business-token` chưa? (test function đang gọi nó)
-4. Secrets `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` đã có chưa? (BYOK theo memory `google-oauth-config-vn`)
+Vì vậy:
+- Trang `/admin/social-settings` lưu xong vẫn test ra “Không tìm thấy cấu hình cho google-business”
+- Nút kết nối có thể qua bước đầu nhưng callback/refresh lại tiếp tục lệch key
+- Bảng `social_connections` hiện còn có nguy cơ không đồng bộ với type/platform phía frontend
 
-## Plan
+## Bằng chứng từ code
+- `src/pages/AdminSocialSettings.tsx` dùng `platform: 'google_business'`
+- `supabase/functions/connect-social/index.ts` đọc credentials bằng `getGlobalPlatformCredentials(..., 'google_business', ...)`
+- `supabase/functions/test-google-business-credentials/index.ts` query `.eq('platform', platform)` và diagnostics đang truyền `google-business`
+- `supabase/functions/google-business-oauth-callback/index.ts` lại query settings bằng `.eq('platform', 'google_maps')`
+- `supabase/functions/refresh-google-business-token/index.ts` cũng query settings bằng `google_maps`
+- Migration hiện tại của `social_connections.platform` chỉ cho phép `google_business`, không phải `google_maps`
 
-### 1. Audit & bổ sung Edge Functions
-- Đọc `auth-gateway/index.ts` → nếu thiếu nhánh `google-business`, thêm: exchange code lấy `access_token` + `refresh_token`, fetch account info, mã hóa AES-256 và lưu vào `social_connections` với `platform = 'google_maps'`.
-- Tạo `refresh-google-business-token/index.ts` nếu chưa có.
-- Fix bug nhỏ trong `test-google-business-connection`: biến `supabaseUrl` chưa khai báo.
+## Plan sửa
+### 1. Chuẩn hóa identifier
+Dùng **một key duy nhất cho credentials + social connections** là:
+- `google_business`
 
-### 2. UI nút Connect ở trang Connections
-- Trong `src/pages/Connections.tsx` (hoặc component danh sách kết nối) thêm card **Google Business Profile**:
-  - Button "Kết nối" → mở popup OAuth Google với `redirect_uri = ${origin}/auth/google-business/callback`, scope: `https://www.googleapis.com/auth/business.manage` + `openid email`.
-  - Hiển thị trạng thái: chưa kết nối / đã kết nối (kèm location list) / cần re-auth.
-- Thêm route `/auth/google-business/callback` → `GoogleBusinessCallback` trong `src/app/routes.tsx` nếu chưa có.
+Chỉ giữ `google_maps` cho:
+- tên channel nội dung đa kênh nếu hệ thống nội dung hiện đang dùng vậy
+- label hiển thị “Google Maps / Google Business” nếu cần
 
-### 3. Secrets
-Hỏi user: dùng **OAuth Google managed sẵn** của Flowa hay **BYOK** (Client ID/Secret riêng)?
-- Nếu BYOK → dùng `add_secret` xin `GOOGLE_BUSINESS_CLIENT_ID` + `GOOGLE_BUSINESS_CLIENT_SECRET` (Google Business Profile API yêu cầu app riêng được approved bởi Google — recommend BYOK).
-- Setup hướng dẫn: enable Google Business Profile API + Account Management API trong Google Cloud Console, thêm redirect URI.
+### 2. Sửa các edge functions Google Business
+Cập nhật toàn bộ luồng Google Business để nhất quán:
+- `supabase/functions/test-google-business-credentials/index.ts`
+  - map input `google-business` -> `google_business` trước khi query DB
+- `supabase/functions/google-business-oauth-callback/index.ts`
+  - đọc credentials từ `social_platform_settings.platform = 'google_business'`
+  - lưu connection với `social_connections.platform = 'google_business'`
+- `supabase/functions/refresh-google-business-token/index.ts`
+  - đọc connection bằng `platform = 'google_business'`
+  - đọc settings bằng `platform = 'google_business'`
+- `supabase/functions/test-google-business-connection/index.ts`
+  - đọc connection bằng `platform = 'google_business'`
+- `supabase/functions/publish-google-business/index.ts`
+  - đọc connection bằng `platform = 'google_business'`
+  - response cũng trả `platform: 'google_business'` để đồng bộ
 
-### 4. Verify end-to-end
-- Click "Kết nối" → redirect Google → consent → quay về callback → thấy "Kết nối thành công" → list locations hiển thị → test post 1 bài.
+### 3. Sửa frontend chỗ lookup connection
+Hiện UI kết nối đang gọi `connect-social` với `google_business`, nhưng vài chỗ lookup/publish lại có thể đang giả định sai.
+Cần rà và chỉnh:
+- `src/hooks/useRetryPublish.ts`
+  - channel `google_maps` phải map sang DB platform `google_business` như hiện tại, giữ nguyên nếu đúng
+- `src/hooks/useSocialConnections.ts` và UI connections
+  - bảo đảm các list/test/refetch đều dùng `google_business` khi query `social_connections`
 
-## Files dự kiến sửa / tạo
-- `supabase/functions/auth-gateway/index.ts` (thêm nhánh google-business)
-- `supabase/functions/refresh-google-business-token/index.ts` (mới, nếu thiếu)
-- `supabase/functions/test-google-business-connection/index.ts` (fix `supabaseUrl`)
-- `src/pages/Connections.tsx` (thêm card + nút)
-- `src/app/routes.tsx` (đảm bảo route callback)
+### 4. Tương thích ngược dữ liệu cũ
+Nếu database hiện đã có row cũ mang platform `google_maps`, thêm migration để chuyển:
+- `social_platform_settings.platform = 'google_maps'` -> `google_business`
+- `social_connections.platform = 'google_maps'` -> `google_business`
 
-## Câu hỏi cần user xác nhận trước khi code
-1. **Google Cloud credentials**: dùng app Google của Flowa (managed) hay app riêng của bạn (BYOK — bắt buộc nếu Flowa chưa được Google approve cho `business.manage` scope)?
-2. Bạn đã có **Google Business Profile** đã verify location chưa? (nếu chưa, OAuth sẽ thành công nhưng không có location để đăng bài)
+Kèm logic an toàn:
+- chỉ update những row cũ sai key
+- tránh tạo duplicate nếu đã tồn tại row `google_business`
+
+### 5. Verify sau sửa
+Kiểm tra lại 3 bước:
+1. Trong `/admin/social-settings`, lưu Google Client ID/Secret
+2. Bấm “Test credentials” -> không còn báo “không tìm thấy cấu hình”
+3. Bấm “Kết nối Google Business” -> mở OAuth -> callback lưu connection thành công -> test connection/publish đọc đúng record
+
+## Files dự kiến sửa
+- `supabase/functions/test-google-business-credentials/index.ts`
+- `supabase/functions/google-business-oauth-callback/index.ts`
+- `supabase/functions/refresh-google-business-token/index.ts`
+- `supabase/functions/test-google-business-connection/index.ts`
+- `supabase/functions/publish-google-business/index.ts`
+- có thể thêm 1 migration để migrate dữ liệu cũ `google_maps` -> `google_business`
+
+## Kết quả mong đợi
+- Admin lưu cấu hình xong là test được ngay
+- OAuth callback không còn báo thiếu cấu hình
+- Connection, refresh token, test connection, publish đều dùng chung một platform key nhất quán
+- Không còn lỗi “Báo không tìm thấy cấu hình cho GG Business”
