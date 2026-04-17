@@ -130,7 +130,7 @@ export function PackCrawledRegulations({
           <CardContent className="pt-4 pb-4 text-center">
             <p className="text-2xl font-bold flex items-center justify-center gap-1">
               <Star className="h-4 w-4 text-yellow-500" />
-              {(avgScore * 100).toFixed(0)}%
+              {avgScore.toFixed(0)}%
             </p>
             <p className="text-xs text-muted-foreground">Độ tin cậy TB</p>
           </CardContent>
@@ -166,7 +166,7 @@ export function PackCrawledRegulations({
             {filteredRegulations.length > 0 ? (
               <div className="divide-y">
                 {filteredRegulations.map((reg) => {
-                  const qualityBadge = getQualityBadge(reg.quality_score);
+                  const qualityBadge = getQualityBadge(reg.content_quality_score);
                   const statusBadge = getParseStatusBadge(reg.parse_status);
                   const StatusIcon = statusBadge.icon;
                   const name = reg.display_name?.vi || reg.display_name?.en || 'Untitled';
@@ -184,8 +184,8 @@ export function PackCrawledRegulations({
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <Badge variant="outline" className={qualityBadge.className}>
                                 <Star className="h-3 w-3 mr-1" />
-                                {reg.quality_score !== null 
-                                  ? `${(reg.quality_score * 100).toFixed(0)}%` 
+                                {reg.content_quality_score !== null 
+                                  ? `${reg.content_quality_score.toFixed(0)}%` 
                                   : 'N/A'}
                               </Badge>
                               <Badge variant="outline" className={statusBadge.className}>
@@ -249,9 +249,9 @@ export function PackCrawledRegulations({
                 </SheetTitle>
                 <SheetDescription className="text-left">
                   <div className="flex items-center gap-2 flex-wrap mt-2">
-                    <Badge variant="outline" className={getQualityBadge(selectedRegulation.quality_score).className}>
-                      Độ tin cậy: {selectedRegulation.quality_score !== null 
-                        ? `${(selectedRegulation.quality_score * 100).toFixed(0)}%` 
+                    <Badge variant="outline" className={getQualityBadge(selectedRegulation.content_quality_score).className}>
+                      Độ tin cậy: {selectedRegulation.content_quality_score !== null 
+                        ? `${selectedRegulation.content_quality_score.toFixed(0)}%` 
                         : 'N/A'}
                     </Badge>
                     {selectedRegulation.effective_date && (
