@@ -320,12 +320,31 @@ export default function Account() {
     );
   }
 
+  const handleTabChange = (value: string) => {
+    if (value === "organization") setSearchParams({ tab: "organization" });
+    else setSearchParams({});
+  };
+
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="container max-w-5xl py-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Tài khoản</h1>
-        <p className="text-muted-foreground">Quản lý thông tin cá nhân và subscription</p>
+        <p className="text-muted-foreground">Quản lý thông tin cá nhân, tổ chức và subscription</p>
       </div>
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="personal" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Cá nhân
+          </TabsTrigger>
+          <TabsTrigger value="organization" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Tổ chức
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="personal" className="space-y-6 mt-0">
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Card */}
