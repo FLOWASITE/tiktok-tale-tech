@@ -1,5 +1,5 @@
 /**
- * TerminologyTab - Display forbidden terms, preferred terms, high-risk keywords, and risk weights
+ * TerminologyTab - Display forbidden terms, preferred terms, high-risk keywords, risk weights, auto-block
  */
 
 import { useState } from 'react';
@@ -14,18 +14,21 @@ import {
   Scale,
   Search,
   Copy,
+  Ban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 interface Terminology {
   forbidden_terms_global?: string[];
-  preferred_terms?: Record<string, string>;
+  preferred_terms?: Record<string, string | string[]>;
 }
 
 interface RiskGuidelines {
   high_risk_keywords?: string[];
   weights?: Record<string, number>;
+  scoring_weights?: Record<string, number>;
+  auto_block_conditions?: string[];
 }
 
 interface TerminologyTabProps {
@@ -34,6 +37,15 @@ interface TerminologyTabProps {
   translationForbiddenTerms?: string[];
   translationPreferredTerms?: string[];
 }
+
+const LANG_LABELS: Record<string, string> = {
+  vi: '🇻🇳 Tiếng Việt',
+  en: '🇬🇧 English',
+  zh: '🇨🇳 中文',
+  th: '🇹🇭 ไทย',
+  id: '🇮🇩 Indonesia',
+  ms: '🇲🇾 Malay',
+};
 
 export function TerminologyTab({ 
   terminology, 
@@ -44,11 +56,19 @@ export function TerminologyTab({
   const [searchTerm, setSearchTerm] = useState('');
 
   const forbiddenTerms = terminology.forbidden_terms_global || [];
-  const preferredTerms = terminology.preferred_terms || {};
+  const preferredTermsRaw = terminology.preferred_terms || {};
   const highRiskKeywords = riskGuidelines.high_risk_keywords || [];
-  const weights = riskGuidelines.weights || {};
+  const weights = riskGuidelines.scoring_weights || riskGuidelines.weights || {};
+  const autoBlockConditions = riskGuidelines.auto_block_conditions || [];
 
-  // Combine global and translation forbidden terms
+  // Normalize preferred_terms to Record<string, string[]>
+  const preferredTerms: Record<string, string[]> = Object.fromEntries(
+    Object.entries(preferredTermsRaw).map(([k, v]) => [
+      k,
+      Array.isArray(v) ? v : (typeof v === 'string' && v ? [v] : []),
+    ])
+  );
+
   const allForbiddenTerms = [...new Set([...forbiddenTerms, ...translationForbiddenTerms])];
 
   const filteredForbiddenTerms = allForbiddenTerms.filter(term =>
@@ -59,11 +79,23 @@ export function TerminologyTab({
     !searchTerm || keyword.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredPreferredTerms = Object.entries(preferredTerms).filter(([key, value]) =>
-    !searchTerm || 
-    key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    value.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAutoBlock = autoBlockConditions.filter(c =>
+    !searchTerm || c.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Group preferred terms by lang, filtering each
+  const filteredPreferredByLang: Array<[string, string[]]> = Object.entries(preferredTerms)
+    .map(([lang, terms]) => {
+      const filtered = terms.filter(t =>
+        !searchTerm ||
+        t.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lang.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      return [lang, filtered] as [string, string[]];
+    })
+    .filter(([, terms]) => terms.length > 0);
+
+  const totalPreferredCount = filteredPreferredByLang.reduce((s, [, t]) => s + t.length, 0);
 
   const copyAll = (items: string[], label: string) => {
     navigator.clipboard.writeText(items.join('\n'));
@@ -165,30 +197,37 @@ export function TerminologyTab({
         </CardContent>
       </Card>
 
-      {/* Preferred Terms */}
+      {/* Preferred Terms (grouped by language) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-500" />
-            Preferred Terms ({filteredPreferredTerms.length})
+            Preferred Terms ({totalPreferredCount})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[300px]">
-            {filteredPreferredTerms.length > 0 ? (
-              <div className="space-y-2">
-                {filteredPreferredTerms.map(([key, value], i) => (
-                  <div 
-                    key={i} 
-                    className="flex items-center gap-3 p-2 rounded-lg bg-green-500/5 border border-green-500/10"
-                  >
-                    <Badge variant="outline" className="shrink-0 font-mono bg-muted">
-                      {key}
-                    </Badge>
-                    <span className="text-sm">→</span>
-                    <span className="text-sm text-green-600 dark:text-green-400 flex-1">
-                      {value}
-                    </span>
+          <ScrollArea className="max-h-[400px]">
+            {filteredPreferredByLang.length > 0 ? (
+              <div className="space-y-4">
+                {filteredPreferredByLang.map(([lang, terms]) => (
+                  <div key={lang} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="font-mono bg-muted">
+                        {LANG_LABELS[lang] || lang.toUpperCase()}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{terms.length} terms</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pl-2">
+                      {terms.map((term, i) => (
+                        <Badge 
+                          key={i}
+                          variant="secondary"
+                          className="text-sm bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20"
+                        >
+                          {term}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -222,6 +261,31 @@ export function TerminologyTab({
                 </Badge>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Auto Block Conditions */}
+      {filteredAutoBlock.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Ban className="h-4 w-4 text-red-500" />
+              Auto Block Conditions ({filteredAutoBlock.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {filteredAutoBlock.map((cond, i) => (
+                <li 
+                  key={i}
+                  className="flex items-start gap-2 text-sm p-3 rounded bg-red-500/5 border border-red-500/20"
+                >
+                  <Ban className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                  <span>{cond}</span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}
