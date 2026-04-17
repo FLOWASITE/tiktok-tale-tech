@@ -1506,7 +1506,7 @@ ${learningSection}
 ## OUTPUT FORMAT:
 Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
 [{
-  "topic": "Tiêu đề chi tiết, hấp dẫn, có hook + ngữ cảnh rõ ràng. ĐỘ DÀI BẮT BUỘC: 80-150 ký tự (đếm cả khoảng trắng). Tối ưu: 100-130 ký tự. Có thể dùng dấu `:` hoặc `—` để tách hook và mô tả phụ. KHÔNG ngắn hơn 80 ký tự.",
+  "topic": "Tiêu đề chi tiết, hấp dẫn, có hook + ngữ cảnh rõ ràng. ĐỘ DÀI BẮT BUỘC: 150-300 ký tự (đếm cả khoảng trắng). Tối ưu: 180-250 ký tự. Có thể dùng dấu `:` hoặc `—` để tách hook và mô tả phụ. KHÔNG ngắn hơn 150 ký tự.",
   "category": "evergreen" | "trending" | "seasonal" | "reactive",
   "pillar": "Tên content pillar phù hợp",
   "reasoning": "Mô tả chi tiết về topic: bao gồm (1) góc tiếp cận / angle, (2) vì sao topic này phù hợp với brand & mục tiêu, (3) value chính mang lại cho audience, (4) gợi ý hook hoặc key message. TỐI THIỂU 300 ký tự, TỐI ƯU 350-500 ký tự. Viết tự nhiên, mạch lạc, KHÔNG gạch đầu dòng, KHÔNG nhồi từ rỗng.",
@@ -1526,7 +1526,7 @@ Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
 ## BALANCE theo mục tiêu "${effectiveGoal}" (xem phần MỤC TIÊU BẮT BUỘC ở trên)
 
 ## ✅ CHECKLIST BẮT BUỘC TRƯỚC KHI TRẢ KẾT QUẢ:
-- Mỗi field "topic" PHẢI dài 80-150 ký tự (đếm cả khoảng trắng). Nếu < 80, BẮT BUỘC viết lại dài hơn (thêm hook, ngữ cảnh, đối tượng, kết quả). KHÔNG nhồi từ rỗng, KHÔNG lặp ý.
+- Mỗi field "topic" PHẢI dài 150-300 ký tự (đếm cả khoảng trắng). Nếu < 150, BẮT BUỘC viết lại dài hơn (thêm hook, ngữ cảnh, đối tượng, kết quả). KHÔNG nhồi từ rỗng, KHÔNG lặp ý.
 - Cấu trúc gợi ý cho "topic": "[Hook/Số liệu/Câu hỏi]: [Đối tượng] [Vấn đề/Giải pháp] [Kết quả/Lợi ích]"
 - Mỗi field "reasoning" PHẢI ≥ 300 ký tự (đếm cả khoảng trắng). Nếu < 300, BẮT BUỘC viết lại dài hơn với nội dung CÓ GIÁ TRỊ thực sự (angle, lý do phù hợp brand, value cho audience, hook gợi ý) — KHÔNG nhồi từ rỗng, KHÔNG lặp ý.
 - Mỗi reasoning phải mạch lạc, văn xuôi tự nhiên, không bullet/gạch đầu dòng.`;
