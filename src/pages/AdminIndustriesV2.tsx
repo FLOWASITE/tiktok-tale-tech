@@ -51,42 +51,42 @@ export function AdminIndustriesV2() {
   });
 
   return (
-    <div className="container py-6 space-y-4">
+    <div className="container py-3 md:py-6 space-y-3 md:space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
           {selectedPackId && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSelectedPackId(null)}
-              className="mr-2"
+              className="mr-1 md:mr-2 px-2"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Quay lại
+              <ArrowLeft className="h-4 w-4 md:mr-1" />
+              <span className="hidden md:inline">Quay lại</span>
             </Button>
           )}
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Layers className="h-6 w-6 text-primary" />
+          <div className="p-1.5 md:p-2 rounded-lg bg-primary/10 shrink-0">
+            <Layers className="h-5 w-5 md:h-6 md:w-6 text-primary" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold flex items-center gap-2 truncate">
               Industry Park
-              <Badge variant="secondary" className="text-xs">v2.1</Badge>
+              <Badge variant="secondary" className="text-xs hidden md:inline-flex">v2.1</Badge>
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground hidden md:block">
               Quản lý Global Packs và Jurisdiction Profiles
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setIsJsonImportOpen(true)}>
-            <FileJson className="h-4 w-4 mr-2" />
-            Import JSON
+          <Button variant="outline" size="sm" onClick={() => setIsJsonImportOpen(true)} className="px-2 md:px-3">
+            <FileJson className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Import JSON</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import Excel
+          <Button variant="outline" size="sm" onClick={() => setIsImportDialogOpen(true)} className="px-2 md:px-3">
+            <Upload className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Import Excel</span>
           </Button>
         </div>
       </div>
