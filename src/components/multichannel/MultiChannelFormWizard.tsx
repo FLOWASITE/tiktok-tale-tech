@@ -1135,13 +1135,13 @@ export function MultiChannelFormWizard({
                       el.style.height = Math.min(el.scrollHeight, 200) + 'px';
                     }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="min-h-[80px] max-h-[200px] resize-none border-2 pr-20 text-base"
+                    className="min-h-[96px] max-h-[240px] resize-none border-2 pr-3 pb-8 text-base leading-relaxed"
                     disabled={isGenerating}
                     autoFocus
                   />
                   <Badge
                     variant="secondary"
-                    className="absolute right-3 bottom-2 text-[10px] font-mono pointer-events-none"
+                    className="absolute right-3 bottom-2 text-[10px] font-mono pointer-events-none bg-background/90 backdrop-blur"
                     title="Số ký tự của ô nhập chủ đề (không phải độ dài mô tả AI)"
                   >
                     {formData.topic.length}/{MAX_TOPIC_LENGTH} ký tự tiêu đề

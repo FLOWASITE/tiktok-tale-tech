@@ -510,15 +510,15 @@ export function MultiChannelFormStepper({
                       el.style.height = Math.min(el.scrollHeight, 200) + 'px';
                     }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="min-h-[80px] max-h-[200px] resize-none border-2 pr-20 text-base"
+                    className="min-h-[96px] max-h-[240px] resize-none border-2 pr-3 pb-8 text-base leading-relaxed"
                     disabled={isLoading}
                     autoFocus
                   />
                   <Badge
                     variant="secondary"
                     className={cn(
-                      "absolute right-3 bottom-2 text-[10px] font-mono",
-                      formData.topic.length < 10 ? 'bg-amber-500/20 text-amber-600' : 'bg-muted text-muted-foreground'
+                      "absolute right-3 bottom-2 text-[10px] font-mono backdrop-blur",
+                      formData.topic.length < 10 ? 'bg-amber-500/20 text-amber-600' : 'bg-background/90 text-muted-foreground'
                     )}
                   >
                     {formData.topic.length}/{MAX_TOPIC_LENGTH}
