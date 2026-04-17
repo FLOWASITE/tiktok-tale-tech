@@ -37,23 +37,26 @@ interface PackCrawledRegulationsProps {
   onRefresh: () => void;
 }
 
-// Quality score badge
+// Quality score badge (0-100 scale)
 const getQualityBadge = (score: number | null) => {
   if (score === null) return { label: 'N/A', className: 'bg-muted text-muted-foreground' };
-  if (score >= 0.8) return { label: 'Tốt', className: 'bg-green-500/10 text-green-700 dark:text-green-400' };
-  if (score >= 0.5) return { label: 'Trung bình', className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400' };
+  if (score >= 80) return { label: 'Tốt', className: 'bg-green-500/10 text-green-700 dark:text-green-400' };
+  if (score >= 50) return { label: 'Trung bình', className: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400' };
   return { label: 'Cần xem lại', className: 'bg-red-500/10 text-red-700 dark:text-red-400' };
 };
 
 // Parse status badge
 const getParseStatusBadge = (status: string | null) => {
   switch (status) {
+    case 'parsed':
     case 'completed':
       return { icon: CheckCircle, label: 'Hoàn thành', className: 'text-green-500' };
     case 'pending':
       return { icon: Clock, label: 'Chờ xử lý', className: 'text-blue-500' };
     case 'failed':
       return { icon: AlertTriangle, label: 'Lỗi', className: 'text-red-500' };
+    case 'skipped':
+      return { icon: AlertCircle, label: 'Bỏ qua', className: 'text-muted-foreground' };
     case 'needs_reparse':
       return { icon: AlertCircle, label: 'Cần re-parse', className: 'text-yellow-500' };
     default:
@@ -80,7 +83,7 @@ export function PackCrawledRegulations({
   const completedCount = regulations.filter(r => r.parse_status === 'completed').length;
   const pendingCount = regulations.filter(r => r.parse_status === 'pending' || r.parse_status === 'needs_reparse').length;
   const avgScore = regulations.length > 0 
-    ? regulations.reduce((sum, r) => sum + (r.quality_score || 0), 0) / regulations.length 
+    ? regulations.reduce((sum, r) => sum + (r.content_quality_score || 0), 0) / regulations.length 
     : 0;
 
   if (isLoading) {
@@ -127,7 +130,7 @@ export function PackCrawledRegulations({
           <CardContent className="pt-4 pb-4 text-center">
             <p className="text-2xl font-bold flex items-center justify-center gap-1">
               <Star className="h-4 w-4 text-yellow-500" />
-              {(avgScore * 100).toFixed(0)}%
+              {avgScore.toFixed(0)}%
             </p>
             <p className="text-xs text-muted-foreground">Độ tin cậy TB</p>
           </CardContent>
@@ -163,7 +166,7 @@ export function PackCrawledRegulations({
             {filteredRegulations.length > 0 ? (
               <div className="divide-y">
                 {filteredRegulations.map((reg) => {
-                  const qualityBadge = getQualityBadge(reg.quality_score);
+                  const qualityBadge = getQualityBadge(reg.content_quality_score);
                   const statusBadge = getParseStatusBadge(reg.parse_status);
                   const StatusIcon = statusBadge.icon;
                   const name = reg.display_name?.vi || reg.display_name?.en || 'Untitled';
@@ -181,8 +184,8 @@ export function PackCrawledRegulations({
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <Badge variant="outline" className={qualityBadge.className}>
                                 <Star className="h-3 w-3 mr-1" />
-                                {reg.quality_score !== null 
-                                  ? `${(reg.quality_score * 100).toFixed(0)}%` 
+                                {reg.content_quality_score !== null 
+                                  ? `${reg.content_quality_score.toFixed(0)}%` 
                                   : 'N/A'}
                               </Badge>
                               <Badge variant="outline" className={statusBadge.className}>
@@ -246,9 +249,9 @@ export function PackCrawledRegulations({
                 </SheetTitle>
                 <SheetDescription className="text-left">
                   <div className="flex items-center gap-2 flex-wrap mt-2">
-                    <Badge variant="outline" className={getQualityBadge(selectedRegulation.quality_score).className}>
-                      Độ tin cậy: {selectedRegulation.quality_score !== null 
-                        ? `${(selectedRegulation.quality_score * 100).toFixed(0)}%` 
+                    <Badge variant="outline" className={getQualityBadge(selectedRegulation.content_quality_score).className}>
+                      Độ tin cậy: {selectedRegulation.content_quality_score !== null 
+                        ? `${selectedRegulation.content_quality_score.toFixed(0)}%` 
                         : 'N/A'}
                     </Badge>
                     {selectedRegulation.effective_date && (
