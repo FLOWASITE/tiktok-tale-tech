@@ -28,7 +28,7 @@ export interface CrawledRegulation {
   source_url: string | null;
   full_text: string | null;
   effective_date: string | null;
-  quality_score: number | null;
+  content_quality_score: number | null;
   parse_status: string | null;
   last_verified_at: string | null;
   created_at: string;
