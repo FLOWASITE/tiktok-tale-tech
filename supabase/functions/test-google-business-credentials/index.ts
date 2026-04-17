@@ -1,6 +1,5 @@
-import { createDecipheriv } from "node:crypto";
-import { Buffer } from "node:buffer";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,25 +13,7 @@ interface TestRequest {
   consumerSecret?: string;
 }
 
-// Decrypt encrypted credentials
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
+// Decryption now uses shared decryptCredential (GCM with legacy CBC fallback)
 
 Deno.serve(withPerf({ functionName: 'test-google-business-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') {
@@ -100,9 +81,13 @@ Deno.serve(withPerf({ functionName: 'test-google-business-credentials' }, async 
         throw new Error('Client ID/Secret chưa được cấu hình');
       }
 
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      clientId = decrypt(settings.consumer_key, encryptionKey);
-      clientSecret = decrypt(settings.consumer_secret, encryptionKey);
+      try {
+        clientId = await decryptCredential(settings.consumer_key);
+        clientSecret = await decryptCredential(settings.consumer_secret);
+      } catch (e) {
+        console.error('decryptCredential failed:', e);
+        throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
+      }
 
       if (!clientId || !clientSecret) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
