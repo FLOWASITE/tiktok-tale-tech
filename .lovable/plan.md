@@ -1,57 +1,46 @@
 
 
-## Root cause
-Có **2 vấn đề độc lập**:
+## Goal
+Tăng độ dài nội dung mô tả topic trong "Gợi ý chủ đề" lên **tối thiểu 300 ký tự**, để mỗi gợi ý đầy đủ và có chiều sâu hơn (không bị quá ngắn như hiện tại).
 
-### 1. UI hiển thị "Qwen Plus" nhưng DB không có row
-Query DB (`SELECT … FROM ai_function_configs WHERE function_name='regenerate-carousel-caption'`) trả về **0 rows**. Logs edge function cũng xác nhận `source=default`. Nghĩa là user đã chọn Qwen Plus trên UI nhưng **chưa save thực sự** (hoặc save thất bại silently). Có thể user chỉ chọn dropdown rồi rời tab mà không nhấn nút "Lưu".
+## Phân tích hiện trạng
+File: `supabase/functions/topic-ai/index.ts` (action `suggest`, hàm `buildSuggestPrompts`)
 
-### 2. Edge function không hỗ trợ DashScope (kể cả khi save thành công)
-`supabase/functions/regenerate-carousel-caption/index.ts` đang **hardcode** gọi `https://ai.gateway.lovable.dev` — gateway này CHỈ hỗ trợ `google/gemini-*`, `openai/gpt-5*`, `sonar`. Khi gọi với `qwen-plus`, sẽ bị reject (hoặc trả 402/400).
+Trong OUTPUT FORMAT (dòng ~1506-1524), AI đang được yêu cầu:
+- `"topic"`: Tiêu đề 15-50 từ
+- `"reasoning"`: **"Lý do ngắn gọn (1-2 câu)"** ← đây là field hiển thị làm "nội dung mô tả" trong card (thấy ở `TopicMobileCard.tsx` dòng 222-226 và `TopicIdeaCard.tsx`).
 
-→ Phải refactor để dùng helper `callAI()` chung trong `_shared/ai-provider.ts`, helper này tự route sang `dashscope` endpoint khi model là `qwen-*` hoặc khi `force_provider='dashscope'`.
+→ Vì `reasoning` được yêu cầu "ngắn gọn 1-2 câu" nên AI thường trả ~80-150 ký tự, gây cảm giác "hơi ngắn".
 
 ## Changes
 
-### File: `supabase/functions/regenerate-carousel-caption/index.ts`
-- Thay đoạn `fetch("https://ai.gateway.lovable.dev/...")` bằng `callAI()` từ `_shared/ai-provider.ts`.
-- `callAI` tự động:
-  - Đọc config (model + force_provider) từ DB.
-  - Route đúng endpoint (lovable / dashscope / openrouter).
-  - Đọc đúng API key (`DASHSCOPE_API_KEY` cho Qwen).
-  - Xử lý 402/429 + circuit breaker.
+### 1. `supabase/functions/topic-ai/index.ts` — action `suggest`
 
-```ts
-import { callAI } from "../_shared/ai-provider.ts";
+Trong `buildSuggestPrompts()` (dòng ~1506-1524), thay đổi instruction cho field `reasoning`:
 
-const result = await callAI({
-  functionName: "regenerate-carousel-caption",
-  organizationId: carousel.organization_id,
-  messages: [
-    { role: "system", content: "Bạn là chuyên gia copywriting…" },
-    { role: "user", content: prompt },
-  ],
-  tools: [{ type: "function", function: { name: "regenerate_caption_cta", … } }],
-  toolChoice: { type: "function", function: { name: "regenerate_caption_cta" } },
-});
-
-if (!result.success) {
-  // map result.errorCode → 402/429/500 response
-}
-const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
+**Trước:**
+```
+"reasoning": "Lý do ngắn gọn (1-2 câu)",
 ```
 
-### Hướng dẫn user (sau khi fix code)
-1. Vào `/admin/ai` → **Functions** → tìm `regenerate-carousel-caption`.
-2. Click chọn model **Qwen Plus** → **bấm nút "Lưu"** (quan trọng!).
-3. Chờ toast "Đã lưu cấu hình function" hiện lên.
-4. Đợi ~60s (cache TTL) hoặc reload edge function.
-5. Bấm "Tạo lại" trong carousel → log sẽ hiện `source=individual model=qwen-plus` và call sang DashScope.
+**Sau:**
+```
+"reasoning": "Mô tả chi tiết về topic: bao gồm (1) góc tiếp cận / angle, (2) vì sao topic này phù hợp với brand & mục tiêu, (3) value chính mang lại cho audience, (4) gợi ý hook hoặc key message. TỐI THIỂU 300 ký tự, TỐI ƯU 350-500 ký tự. Viết tự nhiên, không gạch đầu dòng.",
+```
 
-⚠️ **Lưu ý:** cần đảm bảo `DASHSCOPE_API_KEY` đã có trong Supabase Secrets (memory đã ghi nhận tích hợp DashScope, nên thường có sẵn).
+Đồng thời thêm rule kiểm tra ở phần checklist cuối system prompt:
+```
+- Mỗi field "reasoning" PHẢI ≥ 300 ký tự (đếm cả khoảng trắng). Nếu < 300, BẮT BUỘC viết lại dài hơn với nội dung có giá trị (KHÔNG nhồi từ rỗng).
+```
+
+### 2. (Optional, nhẹ) Validation client-side
+Trong `parseTopicSuggestions()` (~dòng 1551), không thay đổi schema — chỉ giữ nguyên. Không cần reject topic ngắn để tránh mất kết quả khi AI lỡ trả ngắn; chỉ enforce qua prompt là đủ.
+
+### 3. Tăng `max_tokens` nếu cần
+File `supabase/functions/_shared/ai-config.ts` — kiểm tra default cho `topic-ai`. Nếu hiện max_tokens < 4000, nâng lên ~6000 để có đủ chỗ cho 8-10 topics × 500 chars reasoning. (Sẽ kiểm tra cụ thể khi implement và chỉ tăng nếu cần.)
 
 ## Result
-- Function chạy đúng provider user chọn (DashScope, OpenRouter, Lovable…).
-- 402 "hết credits AI" sẽ không xảy ra nữa khi dùng Qwen vì gọi thẳng DashScope, không tốn credits Lovable.
-- Tận dụng đầy đủ circuit breaker + retry + metrics tracking của `callAI`.
+- Mỗi gợi ý chủ đề có phần mô tả (`reasoning`) **dày hơn, ≥ 300 ký tự**, đủ thông tin về angle / lý do phù hợp / value cho audience.
+- Card topic trong UI (mobile drawer + idea card) tự động hiển thị mô tả dài hơn — không cần đổi component nào.
+- Không ảnh hưởng cấu trúc data, chỉ thay đổi nội dung sinh ra.
 
