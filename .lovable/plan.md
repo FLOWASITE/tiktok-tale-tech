@@ -1,46 +1,65 @@
+<final-text>
+## Kết luận
+Backend hiện **đã sinh mô tả dài đúng yêu cầu**. Dữ liệu cache mới của `topic-ai` đang dùng key `topic-suggestions-v10-long` và `reasoning` thực tế đang ở khoảng **641–710 ký tự**.
 
+Vì vậy, vấn đề bạn thấy “vẫn ngắn” là ở **UI hiển thị**, không phải ở AI generation.
 
-## Goal
-Tăng độ dài nội dung mô tả topic trong "Gợi ý chủ đề" lên **tối thiểu 300 ký tự**, để mỗi gợi ý đầy đủ và có chiều sâu hơn (không bị quá ngắn như hiện tại).
+Trong màn hình hiện tại:
+- phần viền đỏ trong ảnh là **title/topic**, không phải `reasoning`;
+- chip chủ đề đang bị cắt ngắn;
+- popup hover quá hẹp để đọc đoạn 300+ ký tự;
+- khi chọn gợi ý, form chỉ điền **`topic`** vào ô nhập, còn **`reasoning`** không được giữ lại để hiển thị;
+- bộ đếm `0/300` là **độ dài ô nhập chủ đề**, không phải độ dài mô tả AI.
 
-## Phân tích hiện trạng
-File: `supabase/functions/topic-ai/index.ts` (action `suggest`, hàm `buildSuggestPrompts`)
+## Plan
 
-Trong OUTPUT FORMAT (dòng ~1506-1524), AI đang được yêu cầu:
-- `"topic"`: Tiêu đề 15-50 từ
-- `"reasoning"`: **"Lý do ngắn gọn (1-2 câu)"** ← đây là field hiển thị làm "nội dung mô tả" trong card (thấy ở `TopicMobileCard.tsx` dòng 222-226 và `TopicIdeaCard.tsx`).
+### 1. Sửa UI hiển thị gợi ý chủ đề
+Thay vì chỉ dựa vào tooltip hover, thêm một vùng preview rõ ràng ngay trong bước “Chủ đề” để hiển thị:
+- tiêu đề đầy đủ,
+- mô tả `reasoning` đầy đủ,
+- điểm số chính.
 
-→ Vì `reasoning` được yêu cầu "ngắn gọn 1-2 câu" nên AI thường trả ~80-150 ký tự, gây cảm giác "hơi ngắn".
+Tooltip vẫn giữ để xem nhanh, nhưng nội dung dài sẽ có chỗ hiển thị ổn định.
 
-## Changes
+### 2. Giữ lại đầy đủ dữ liệu của suggestion khi user chọn
+Hiện tại click vào suggestion chỉ truyền `suggestion.topic`.
 
-### 1. `supabase/functions/topic-ai/index.ts` — action `suggest`
+Tôi sẽ đổi luồng chọn để giữ cả:
+- `topic`
+- `reasoning`
+- `scores`
+- metadata liên quan
 
-Trong `buildSuggestPrompts()` (dòng ~1506-1524), thay đổi instruction cho field `reasoning`:
+Sau đó hiển thị một block kiểu:
+- “Lý do AI gợi ý chủ đề này”
+- “Giải thích chi tiết”
 
-**Trước:**
-```
-"reasoning": "Lý do ngắn gọn (1-2 câu)",
-```
+ngay dưới ô nhập chủ đề, để bạn luôn thấy đoạn 300+ ký tự sau khi chọn.
 
-**Sau:**
-```
-"reasoning": "Mô tả chi tiết về topic: bao gồm (1) góc tiếp cận / angle, (2) vì sao topic này phù hợp với brand & mục tiêu, (3) value chính mang lại cho audience, (4) gợi ý hook hoặc key message. TỐI THIỂU 300 ký tự, TỐI ƯU 350-500 ký tự. Viết tự nhiên, không gạch đầu dòng.",
-```
+### 3. Làm rõ UX để tránh hiểu nhầm
+Điều chỉnh label/helper text để phân biệt:
+- **Ô chủ đề** = tiêu đề ngắn để tạo nội dung
+- **Mô tả AI** = phần giải thích dài 300+ ký tự
 
-Đồng thời thêm rule kiểm tra ở phần checklist cuối system prompt:
-```
-- Mỗi field "reasoning" PHẢI ≥ 300 ký tự (đếm cả khoảng trắng). Nếu < 300, BẮT BUỘC viết lại dài hơn với nội dung có giá trị (KHÔNG nhồi từ rỗng).
-```
+Đồng thời đổi wording quanh counter `0/300` để không gây hiểu nhầm rằng đây là số ký tự của mô tả AI.
 
-### 2. (Optional, nhẹ) Validation client-side
-Trong `parseTopicSuggestions()` (~dòng 1551), không thay đổi schema — chỉ giữ nguyên. Không cần reject topic ngắn để tránh mất kết quả khi AI lỡ trả ngắn; chỉ enforce qua prompt là đủ.
+### 4. Giữ nguyên backend prompt hiện tại
+Không tiếp tục chỉnh prompt của `topic-ai` nữa ở vòng này, vì logs/cache đã xác nhận backend trả về đủ dài rồi. Tập trung sửa đúng chỗ là UI + state flow.
 
-### 3. Tăng `max_tokens` nếu cần
-File `supabase/functions/_shared/ai-config.ts` — kiểm tra default cho `topic-ai`. Nếu hiện max_tokens < 4000, nâng lên ~6000 để có đủ chỗ cho 8-10 topics × 500 chars reasoning. (Sẽ kiểm tra cụ thể khi implement và chỉ tăng nếu cần.)
+## Chi tiết kỹ thuật
+- `supabase/functions/topic-ai/index.ts`: không cần sửa thêm cho case này.
+- `src/components/TopicSuggestionPanel.tsx`:
+  - đang truncate title;
+  - tooltip đang `max-w-xs`, không phù hợp cho reasoning dài;
+  - click handler chỉ gửi `suggestion.topic`.
+- `src/components/multichannel/MultiChannelFormWizard.tsx`:
+  - hiện chỉ set `formData.topic`;
+  - cần lưu selected suggestion metadata và render preview reasoning.
+- `src/components/multichannel/MultiChannelFormStepper.tsx`:
+  - nên đồng bộ cùng cách xử lý để tránh lệch behavior giữa các biến thể UI.
 
-## Result
-- Mỗi gợi ý chủ đề có phần mô tả (`reasoning`) **dày hơn, ≥ 300 ký tự**, đủ thông tin về angle / lý do phù hợp / value cho audience.
-- Card topic trong UI (mobile drawer + idea card) tự động hiển thị mô tả dài hơn — không cần đổi component nào.
-- Không ảnh hưởng cấu trúc data, chỉ thay đổi nội dung sinh ra.
-
+## Result sau khi làm
+- Bạn sẽ thấy **đúng đoạn mô tả dài 300+ ký tự** ngay trên màn hình bước Chủ đề.
+- Sau khi chọn suggestion, phần mô tả dài **không bị mất** nữa.
+- Không cần nghi ngờ backend nữa; vấn đề sẽ được xử lý đúng ở phần hiển thị và tương tác.
+</final-text>
