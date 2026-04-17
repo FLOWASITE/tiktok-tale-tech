@@ -75,7 +75,7 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
     const { data: settings, error: settingsError } = await supabase
       .from('social_platform_settings')
       .select('consumer_key, consumer_secret')
-      .eq('platform', 'google_maps')
+      .eq('platform', 'google_business')
       .eq('is_active', true)
       .single();
 
@@ -171,7 +171,7 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
     let query = supabase
       .from('social_connections')
       .select('id')
-      .eq('platform', 'google_maps');
+      .eq('platform', 'google_business');
 
     if (brandTemplateId) {
       query = query.eq('brand_template_id', brandTemplateId);
@@ -189,7 +189,7 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
       organization_id: organizationId || null,
       brand_template_id: brandTemplateId || null,
       user_id: userId,
-      platform: 'google_maps',
+      platform: 'google_business',
       platform_user_id: accountId,
       platform_username: accountName,
       access_token: encryptedAccessToken,
