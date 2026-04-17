@@ -197,7 +197,7 @@ async function handleSuggest(
   const contextHash = hashContextData(brandContext);
   const queryHash = query ? hashContextData({ q: query }) : 'no-query';
   const categoryHash = categoryHint ? hashContextData({ cat: categoryHint }) : 'no-cat';
-  const cacheKey = `topic-suggestions-v11-long-title:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
+  const cacheKey = `topic-suggestions-v12-title-150-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
   
   // Parallel: Check cache + fetch learning context simultaneously
   const [cachedResult, learningContext] = await Promise.all([
