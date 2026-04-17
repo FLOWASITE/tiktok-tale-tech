@@ -288,8 +288,6 @@ export function AppSidebar() {
     { title: 'Industry Park', titleKey: 'app.sidebar.adminIndustry', url: '/admin/industries', icon: Layers },
     { title: 'Knowledge Graph', titleKey: 'app.sidebar.adminKnowledgeGraph', url: '/admin/knowledge-graph', icon: Network },
     { title: 'Countries', titleKey: 'app.sidebar.adminCountries', url: '/admin/countries', icon: Flag },
-    { title: 'Curated Events', titleKey: 'app.sidebar.adminEvents', url: '/admin/events', icon: CalendarDays },
-    { title: 'Curated News', titleKey: 'app.sidebar.adminNews', url: '/admin/industry-news', icon: Newspaper },
     { title: 'Help Articles', titleKey: 'app.sidebar.adminHelp', url: '/admin/help-articles', icon: BookOpen },
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
     { title: 'Edge Functions', titleKey: 'app.sidebar.adminEdgeFunctions', url: '/admin/edge-functions', icon: Zap },
