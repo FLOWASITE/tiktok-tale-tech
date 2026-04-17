@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getAIConfig } from "../_shared/ai-config.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,84 +135,67 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Call Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const prompt = buildPrompt(carousel);
 
-    const aiConfig = await getAIConfig("regenerate-carousel-caption", carousel.organization_id);
-    console.log(`[regenerate-carousel-caption] Using model: ${aiConfig.model}`);
-
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        temperature: aiConfig.temperature,
-        max_tokens: aiConfig.max_tokens,
-        messages: [
-          { role: "system", content: aiConfig.custom_system_prompt || "Bạn là chuyên gia copywriting social media chuyên viết caption và CTA viral." },
-          { role: "user", content: prompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "regenerate_caption_cta",
-              description: "Trả về caption mới và CTA mới cho carousel",
-              parameters: {
-                type: "object",
-                properties: {
-                  captionSuggestion: {
-                    type: "string",
-                    description: "Caption mới theo công thức HOOK-BODY-CTA-HASHTAG, dùng \\n line breaks.",
-                  },
-                  ctaSuggestion: {
-                    type: "string",
-                    description: "CTA mới đa tầng (3 dòng: 🎯 CTA chính, 💬 Engagement, 👥 Share), dùng \\n line breaks.",
-                  },
+    const result = await callAI({
+      functionName: "regenerate-carousel-caption",
+      organizationId: carousel.organization_id,
+      messages: [
+        { role: "system", content: "Bạn là chuyên gia copywriting social media chuyên viết caption và CTA viral." },
+        { role: "user", content: prompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "regenerate_caption_cta",
+            description: "Trả về caption mới và CTA mới cho carousel",
+            parameters: {
+              type: "object",
+              properties: {
+                captionSuggestion: {
+                  type: "string",
+                  description: "Caption mới theo công thức HOOK-BODY-CTA-HASHTAG, dùng \\n line breaks.",
                 },
-                required: ["captionSuggestion", "ctaSuggestion"],
-                additionalProperties: false,
+                ctaSuggestion: {
+                  type: "string",
+                  description: "CTA mới đa tầng (3 dòng: 🎯 CTA chính, 💬 Engagement, 👥 Share), dùng \\n line breaks.",
+                },
               },
+              required: ["captionSuggestion", "ctaSuggestion"],
+              additionalProperties: false,
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "regenerate_caption_cta" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "regenerate_caption_cta" } },
     });
 
-    if (!aiResp.ok) {
-      const errText = await aiResp.text();
-      console.error("AI gateway error:", aiResp.status, errText);
-      if (aiResp.status === 429) {
+    console.log(`[regenerate-carousel-caption] provider=${result.provider} model=${result.model} success=${result.success}`);
+
+    if (!result.success) {
+      const err = result.error || "AI generation failed";
+      const isCredits = /payment required|not enough credits|402|credits/i.test(err);
+      const isRate = /rate limit|429|too many requests/i.test(err);
+      if (isCredits) {
+        return new Response(
+          JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp gói hoặc đổi sang model khác (Qwen/OpenRouter).", errorCode: "CREDITS_EXHAUSTED" }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (isRate) {
         return new Response(
           JSON.stringify({ error: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      if (aiResp.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp gói.", errorCode: "CREDITS_EXHAUSTED" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      return new Response(JSON.stringify({ error: "AI generation failed" }), {
+      return new Response(JSON.stringify({ error: err }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiData = await aiResp.json();
+    const aiData = result.data;
     const toolCall = aiData?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
       console.error("No tool call in response:", JSON.stringify(aiData));
