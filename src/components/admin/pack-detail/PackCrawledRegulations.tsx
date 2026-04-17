@@ -83,7 +83,7 @@ export function PackCrawledRegulations({
   const completedCount = regulations.filter(r => r.parse_status === 'completed').length;
   const pendingCount = regulations.filter(r => r.parse_status === 'pending' || r.parse_status === 'needs_reparse').length;
   const avgScore = regulations.length > 0 
-    ? regulations.reduce((sum, r) => sum + (r.quality_score || 0), 0) / regulations.length 
+    ? regulations.reduce((sum, r) => sum + (r.content_quality_score || 0), 0) / regulations.length 
     : 0;
 
   if (isLoading) {
