@@ -99,7 +99,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
   'topic-ai': {
     model: 'google/gemini-2.5-flash',
     temperature: 0.7,
-    max_tokens: 4096,
+    max_tokens: 8192,
     cache_ttl_seconds: 3600,
     is_enabled: true,
     priority_level: 'normal',
