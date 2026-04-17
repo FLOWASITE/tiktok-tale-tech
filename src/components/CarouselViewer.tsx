@@ -40,6 +40,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarClock,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
