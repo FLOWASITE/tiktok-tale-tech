@@ -1,45 +1,30 @@
 
 
-## Vấn đề: Tabs hiển thị thiếu data do sai tên field
+## Vấn đề: Tab "Quy định" lỗi 400 — sai tên cột
 
-Data trong DB rất phong phú, nhưng các tab components đọc sai tên field nên hiển thị "Không có dữ liệu" hoặc bỏ qua nhiều trường.
+Network log: `column industry_knowledge_nodes.quality_score does not exist` → tab Regulations không load được data.
 
-### Mismatches phát hiện được (industry `medical_aesthetic_clinic` v3.0)
+### Root cause
+File `src/hooks/usePackRegulationSources.ts` (line 81) SELECT cột `quality_score`, nhưng schema thật là **`content_quality_score`** (xác nhận qua `db functions` như `get_detailed_quality_stats`, `find_node_duplicates`).
 
-| Tab | Field code expects | Field DB actually has | Hậu quả |
-|---|---|---|---|
-| **Rules > Compliance** | `rule_text`, `rule_id` | `rule` | 15 rules hiện ra **trống nội dung** |
-| **Rules > Claims** | `forbidden_claim` | `claim` | 13 claims hiện ra **trống** |
-| **Terminology > Preferred Terms** | `Record<string, string>` | `Record<string, string[]>` (vi: 23 terms, en: 17 terms) | Không render được, hoặc render `[object]` |
-| **Terminology > Risk Weights** | `weights`, `thresholds` | `scoring_weights`, `risk_thresholds` | Card Risk Weights/Thresholds **không hiện** |
-| **BrandVoice** | chỉ đọc `tone_of_voice`, `formality_level`, `language_style`, `emoji_policy`, `cta_policy` | Còn thêm: `voice_dos` (8), `voice_donts` (8), `tone_must_avoid` (9), `industry_definition` (mô tả dài), `industry_subsectors` (9), `auto_block_conditions` (8 — nằm trong risk_guidelines) | **5+ section lớn bị ẩn hoàn toàn** |
+Ngoài ra `parse_status` trong DB dùng giá trị `'parsed'` / `'pending'` / `'failed'` / `'skipped'` (theo function `get_detailed_quality_stats`), nhưng UI `PackCrawledRegulations.tsx` đang check `'completed'` và `'needs_reparse'` → badge sai.
 
 ### Thay đổi
 
-**1. `src/components/admin/pack-detail/RulesTab.tsx`**
-- Đọc `rule.rule || rule.rule_text` (fallback cả 2 schema).
-- Đọc `claim.claim || claim.forbidden_claim`.
-- Search filter cũng update 2 key.
+**1. `src/hooks/usePackRegulationSources.ts`**
+- Đổi SELECT: `quality_score` → `content_quality_score`.
+- Interface `CrawledRegulation`: rename field `quality_score` → `content_quality_score: number | null` (giá trị 0–100, không phải 0–1).
 
-**2. `src/components/admin/pack-detail/TerminologyTab.tsx`**
-- `preferred_terms`: render đúng `Record<string, string[]>` — group theo language code (vi/en/zh), mỗi badge là 1 term trong array. Fallback nếu là string.
-- `riskGuidelines.weights || riskGuidelines.scoring_weights` và `thresholds || risk_thresholds`.
-- Thêm card **Auto Block Conditions** (đọc `risk_guidelines.auto_block_conditions`).
-
-**3. `src/components/admin/pack-detail/BrandVoiceTab.tsx`** — bổ sung 5 section mới:
-- **Industry Definition** (text block dài, prose).
-- **Industry Subsectors** (badge list).
-- **Voice DOs** (✅ list xanh) và **Voice DON'Ts** (❌ list đỏ) — 2 cột.
-- **Tone Must Avoid** (badge đỏ).
-- Giữ nguyên các section hiện có.
-
-**4. `src/components/admin/pack-detail/OverviewTab.tsx`**
-- `preferredTerms` count: tính `Object.values(preferred_terms).flat().length` thay vì `Object.keys` (hiện chỉ đếm 2 = vi+en thay vì ~40).
+**2. `src/components/admin/pack-detail/PackCrawledRegulations.tsx`**
+- Đọc `reg.content_quality_score` thay vì `quality_score`.
+- `getQualityBadge`: scale 0–100 (≥80 Tốt, ≥50 TB, <50 Cần xem lại) — bỏ `* 100` khi hiển thị.
+- `getParseStatusBadge`: thêm case `'parsed'` (Hoàn thành ✅) bên cạnh `'completed'` để tương thích cả 2; thêm `'skipped'`.
+- Stats `avgScore`: dùng `content_quality_score` (không nhân 100).
 
 ### Không đổi
-- Schema DB, hooks, types.
-- Layout, routes, các tabs khác (Profiles, Glossary, Personas) — đã hoạt động đúng.
+- DB schema, RLS, edge functions.
+- Các tabs khác.
 
-### Kết quả mong đợi
-Tab Brand Voice sẽ hiện đầy đủ industry definition + 9 subsectors + 8 dos + 8 donts + 9 must-avoid. Tab Rules sẽ hiện text của 15 compliance + 13 claims. Tab Terminology sẽ hiện 40 preferred terms (vi+en) + risk weights + auto-block conditions.
+### Kết quả
+Tab Quy định sẽ load thành công danh sách regulation đã crawl cho pack `medical_aesthetic_clinic` với điểm chất lượng và parse status đúng.
 
