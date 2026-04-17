@@ -291,6 +291,10 @@ export function MultiChannelFormWizard({
 
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
 
+  // Selected AI suggestion metadata (reasoning, scores, …) — kept so the user
+  // keeps seeing the long AI explanation after picking a chip.
+  const [selectedSuggestionMeta, setSelectedSuggestionMeta] = useState<import('@/types/topicDiscovery').EnhancedTopicSuggestion | null>(null);
+
   // Intent detection removed - brainstorm is now inline in TopicIdeaHub
 
   // NEW: Core Content generation state
@@ -1135,13 +1139,48 @@ export function MultiChannelFormWizard({
                     disabled={isGenerating}
                     autoFocus
                   />
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="absolute right-3 bottom-2 text-[10px] font-mono pointer-events-none"
+                    title="Số ký tự của ô nhập chủ đề (không phải độ dài mô tả AI)"
                   >
-                    {formData.topic.length}/{MAX_TOPIC_LENGTH}
+                    {formData.topic.length}/{MAX_TOPIC_LENGTH} ký tự tiêu đề
                   </Badge>
                 </div>
+
+                {/* AI suggestion preview — shows the full reasoning (300+ ký tự) after a chip is picked */}
+                {selectedSuggestionMeta && selectedSuggestionMeta.topic === formData.topic && selectedSuggestionMeta.reasoning && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5 animate-fade-in">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Lý do AI gợi ý chủ đề này
+                      </p>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {selectedSuggestionMeta.reasoning.length} ký tự
+                      </span>
+                    </div>
+                    <p className="text-xs text-foreground/85 leading-relaxed whitespace-pre-line">
+                      {selectedSuggestionMeta.reasoning}
+                    </p>
+                    {selectedSuggestionMeta.scores && (
+                      <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-primary/15">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Brand fit: {selectedSuggestionMeta.scores.brandFit}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Trending: {selectedSuggestionMeta.scores.trend}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Engagement: {selectedSuggestionMeta.scores.engagement}
+                        </Badge>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Competition: {selectedSuggestionMeta.scores.competition}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {formData.topic.length > 0 && formData.topic.length < TOPIC_MIN_LENGTH_FOR_REFINEMENT && (
                   <p className="text-xs text-amber-500">
@@ -1155,8 +1194,17 @@ export function MultiChannelFormWizard({
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={isSuggestionsEnhancing || isSuggestionsLoading}
-                onSelect={(topic, historyId) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); if (historyId) onTopicHistoryIdChange?.(historyId); }}
-                onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
+                onSelect={(topic, historyId, fullSuggestion) => {
+                  setTopicFromQuickAction(false);
+                  setFormData(prev => ({ ...prev, topic }));
+                  if (historyId) onTopicHistoryIdChange?.(historyId);
+                  setSelectedSuggestionMeta(fullSuggestion ?? null);
+                }}
+                onQuickActionSelect={(topic) => {
+                  setTopicFromQuickAction(true);
+                  setFormData(prev => ({ ...prev, topic }));
+                  setSelectedSuggestionMeta(null);
+                }}
                 onRefresh={refreshSuggestions}
                 onCategoryRefresh={(category) => { console.log('[TopicIdeaHub] Category refresh:', category); refreshSuggestions(category); }}
                 onBrainstorm={() => setShowBrainstormSheet(true)}
