@@ -1,43 +1,50 @@
 
 
-User muốn tối ưu UI Admin Industries trên mobile (viewport ~707px). Hiện tại header + 4 stats cards chiếm quá nhiều không gian, làm cho phần Categories sidebar và Industry Park browser bị thu hẹp.
+User đã có dữ liệu 5 personas chi tiết cho ngành Thẩm mỹ Việt Nam. Cần insert vào database `industry_personas_v2` + `industry_persona_translations_v2`.
 
-Cần xem `IndustryBrowserV2` để hiểu layout chính.
+## Kế hoạch: Import 5 Vietnam Beauty Personas vào Industry Memory
 
-## Kế hoạch: Tối ưu UI Admin Industries cho Mobile
+### Bước 1: Xác định Global Pack ID
+Query `industry_global_packs` tìm pack với `industry_code = 'beauty_cosmetics'` (hoặc tương đương). Nếu chưa có, sẽ tạo mới với `target_audience = 'B2C'`.
 
-### Vấn đề
-Trên mobile (~707px), trang `/admin/industries` có:
-- Header lớn với icon + title + description + 2 nút import
-- 4 stats cards chiếm 2 hàng (grid-cols-2)
-- → Phần Categories sidebar và Industry Park browser bị đẩy xuống dưới, ít không gian hiển thị
+### Bước 2: Insert 5 Personas vào `industry_personas_v2`
+Mỗi persona sẽ được map từ JSON nghiên cứu sang schema DB:
 
-### Giải pháp
-Làm gọn header và stats cards trên mobile, dành nhiều không gian hơn cho nội dung chính.
+| Persona | name | age_range | income | communication_style |
+|---|---|---|---|---|
+| 1 | Linh Văn Phòng | 25-32 | medium-high | emotional |
+| 2 | Cô Hương Trung Niên | 35-50 | high | analytical |
+| 3 | Mẹ Trang Bỉm Sữa | 28-38 | medium | empathetic |
+| 4 | Chị Mai CEO | 40-55 | very_high | consultative |
+| 5 | Anh Tuấn Nam Giới | 28-42 | high | direct |
 
-### Thay đổi trong `src/pages/AdminIndustriesV2.tsx`
+Các field map:
+- `pain_points`, `goals`, `objections` → từ customer_journey (gộp từ 4 stages)
+- `values`, `interests`, `personality_traits` → từ psychographics
+- `buying_motivation`, `decision_factors` → từ buying_behavior
+- `preferred_channels`, `social_platforms` → từ digital_behavior
+- `response_tone_hints` → từ ai_enhancement.tone_descriptors
+- `content_preferences`, `device_usage` → JSONB từ ai_enhancement
 
-**1. Header gọn hơn trên mobile:**
-- Icon nhỏ hơn (`p-1.5`, `h-5 w-5` thay vì `p-2`, `h-6 w-6`)
-- Title nhỏ hơn (`text-lg` mobile, `text-2xl` desktop)
-- Ẩn description trên mobile
-- Nút Import: chỉ hiện icon trên mobile (ẩn text), full button trên desktop
-- Ẩn badge "v2.1" trên mobile
+### Bước 3: Insert Vietnamese Translations vào `industry_persona_translations_v2`
+Mỗi persona một bản dịch tiếng Việt (name_vi, description_vi, motto, tagline).
 
-**2. Stats cards collapsible trên mobile:**
-- Mobile: gộp 4 stats thành 1 hàng compact (grid-cols-4) chỉ hiện số + icon nhỏ, ẩn label
-- Hoặc: thêm nút toggle "Hiện thống kê" để ẩn/hiện cards (mặc định ẩn trên mobile)
-- → Chọn phương án **compact 1 hàng** với padding nhỏ (`p-2`), icon `h-3 w-3`, số `text-sm font-bold`, ẩn label phụ
+### Bước 4: Thêm metadata đặc trưng VN
+- `country_variants`: `{ "VN": { regions: ["HCM", "Hà Nội", "Đà Nẵng"] } }`
+- `journey_stages`: 4 stages chi tiết (awareness/consideration/decision/post_purchase)
+- Marketing hooks theo lịch văn hóa VN (Tết, 8/3, 20/10) lưu trong `properties` JSONB
 
-**3. Container padding gọn hơn:**
-- `py-6` → `py-3 md:py-6`
-- `space-y-4` → `space-y-3 md:space-y-4`
+### Bước 5: Verify
+Query lại để confirm 5 personas + translations đã insert đúng, sau đó refresh UI Admin Industries.
 
-### Kết quả
-- Header + stats chiếm ~80px trên mobile (giảm từ ~200px)
-- Phần Categories và Industry Park có thêm ~120px chiều cao
-- Desktop UI giữ nguyên không đổi
+### Files/Tools sẽ dùng (khi switch sang default mode)
+- `supabase--read_query` để check pack hiện có
+- Migration tool để insert (vì là data operation lớn, dùng SQL trực tiếp gọn hơn 5 lệnh insert riêng lẻ)
+- Không sửa code frontend — UI Admin Industries hiện tại đã hiển thị được personas
 
-### File chỉnh sửa
-- `src/pages/AdminIndustriesV2.tsx` (chỉ 1 file)
+### Lưu ý quan trọng
+- 5 personas là rất nhiều dữ liệu phong phú → sẽ insert đầy đủ pain_points/goals/objections từ tất cả 4 journey stages, không cắt bớt
+- "Do-not-mix rules" sẽ lưu vào `properties.tone_avoid` của mỗi persona để AI generation dùng được
+- Marketing hooks theo mùa (Tết, 8/3, kỷ yếu...) lưu vào `properties.seasonal_hooks`
+- Sub-variants của Linh (bride/student/KOL) lưu vào `properties.sub_variants`
 
