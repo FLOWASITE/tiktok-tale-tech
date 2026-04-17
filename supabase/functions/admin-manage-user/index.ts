@@ -22,26 +22,30 @@ Deno.serve(withPerf({ functionName: 'admin-manage-user' }, async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceClient = createClient(
       supabaseUrl,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Use anon client with user's token to validate JWT via getClaims
+    // Validate JWT by decoding payload (signature already verified by Supabase gateway when verify_jwt=true,
+    // but we also accept verify_jwt=false and validate user via service client)
     const token = authHeader.replace("Bearer ", "");
-    const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims?.sub) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    let callerId: string;
+    try {
+      const { data: userData, error: userError } = await serviceClient.auth.getUser(token);
+      if (userError || !userData?.user?.id) {
+        return new Response(JSON.stringify({ error: "Unauthorized: invalid or expired session. Please sign in again." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      callerId = userData.user.id;
+    } catch (_e) {
+      return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const callerId = claimsData.claims.sub as string;
 
     const { data: adminRole } = await serviceClient
       .from("user_roles")
