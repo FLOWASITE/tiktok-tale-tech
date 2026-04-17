@@ -77,6 +77,44 @@ export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Industry Definition */}
+      {industryDefinition && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              Định nghĩa ngành
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">
+              {industryDefinition}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Industry Subsectors */}
+      {subsectors.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              Phân ngành ({subsectors.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {subsectors.map((s, i) => (
+                <Badge key={i} variant="outline" className="text-sm py-1.5 px-3">
+                  {s}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tone of Voice */}
       <Card>
         <CardHeader>
