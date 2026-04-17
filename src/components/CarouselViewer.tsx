@@ -1160,8 +1160,22 @@ export function CarouselViewer({
             </TabsContent>
 
             <TabsContent value="caption" className="mt-0 space-y-4">
-              {(carousel.caption_suggestion || carousel.cta_suggestion) && (
-                <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateCaption}
+                  disabled={regeneratingCaption}
+                  className="h-7 xs:h-8 text-xs"
+                >
+                  {regeneratingCaption ? (
+                    <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                  )}
+                  <span className="ml-1 xs:ml-1.5">Tạo lại</span>
+                </Button>
+                {(carousel.caption_suggestion || carousel.cta_suggestion) && (
                   <Button variant="outline" size="sm" onClick={handleCopyCaptionAll} className="h-7 xs:h-8 text-xs">
                     {copiedCaptionAll ? (
                       <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-green-500" />
@@ -1170,8 +1184,8 @@ export function CarouselViewer({
                     )}
                     <span className="ml-1 xs:ml-1.5">Copy tất cả</span>
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
                 <div className="flex items-center justify-between mb-3 xs:mb-4">
