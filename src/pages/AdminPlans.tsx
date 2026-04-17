@@ -56,6 +56,10 @@ export default function AdminPlans() {
             <Building2 className="h-4 w-4" />
             Workspaces
           </TabsTrigger>
+          <TabsTrigger value="vouchers" className="gap-2">
+            <Ticket className="h-4 w-4" />
+            Voucher
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="plans">
@@ -72,6 +76,9 @@ export default function AdminPlans() {
         </TabsContent>
         <TabsContent value="workspaces">
           <AdminWorkspacesTab />
+        </TabsContent>
+        <TabsContent value="vouchers">
+          <AdminVouchers />
         </TabsContent>
       </Tabs>
     </div>
