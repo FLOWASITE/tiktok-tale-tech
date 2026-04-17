@@ -104,61 +104,63 @@ export function AdminIndustriesV2() {
       />
 
       {/* Stats Cards - Compact */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-        <div className="bg-card border rounded-lg p-3 flex items-center gap-3">
-          <div className="p-1.5 rounded-lg bg-blue-500/10">
-            <Globe className="h-4 w-4 text-blue-500" />
+      <div className="grid gap-2 md:gap-3 grid-cols-4">
+        <div className="bg-card border rounded-lg p-2 md:p-3 flex items-center gap-2 md:gap-3">
+          <div className="p-1 md:p-1.5 rounded-lg bg-blue-500/10 shrink-0">
+            <Globe className="h-3 w-3 md:h-4 md:w-4 text-blue-500" />
           </div>
-          <div>
+          <div className="min-w-0">
             {statsLoading ? (
-              <Skeleton className="h-6 w-10" />
+              <Skeleton className="h-5 w-8 md:h-6 md:w-10" />
             ) : (
-              <p className="text-xl font-bold">{stats?.packs ?? 0}</p>
+              <p className="text-sm md:text-xl font-bold leading-tight">{stats?.packs ?? 0}</p>
             )}
-            <p className="text-xs text-muted-foreground">Total Packs</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground hidden md:block">Total Packs</p>
+            <p className="text-[10px] text-muted-foreground md:hidden">Packs</p>
           </div>
         </div>
-        <div className="bg-card border rounded-lg p-3 flex items-center gap-3">
-          <div className="p-1.5 rounded-lg bg-primary/10">
-            <Layers className="h-4 w-4 text-primary" />
+        <div className="bg-card border rounded-lg p-2 md:p-3 flex items-center gap-2 md:gap-3">
+          <div className="p-1 md:p-1.5 rounded-lg bg-primary/10 shrink-0">
+            <Layers className="h-3 w-3 md:h-4 md:w-4 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0">
             {statsLoading ? (
-              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-5 w-12 md:h-6 md:w-16" />
             ) : (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-bold">{stats?.corePacks ?? 0}</span>
-                <span className="text-xs text-muted-foreground">/</span>
-                <span className="text-lg font-semibold text-orange-600">{stats?.subPacks ?? 0}</span>
+              <div className="flex items-baseline gap-0.5 md:gap-1">
+                <span className="text-sm md:text-xl font-bold leading-tight">{stats?.corePacks ?? 0}</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground">/</span>
+                <span className="text-xs md:text-lg font-semibold text-orange-600">{stats?.subPacks ?? 0}</span>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">Core / Sub</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Core/Sub</p>
           </div>
         </div>
-        <div className="bg-card border rounded-lg p-3 flex items-center gap-3">
-          <div className="p-1.5 rounded-lg bg-green-500/10">
-            <MapPin className="h-4 w-4 text-green-500" />
+        <div className="bg-card border rounded-lg p-2 md:p-3 flex items-center gap-2 md:gap-3">
+          <div className="p-1 md:p-1.5 rounded-lg bg-green-500/10 shrink-0">
+            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
           </div>
-          <div>
+          <div className="min-w-0">
             {statsLoading ? (
-              <Skeleton className="h-6 w-10" />
+              <Skeleton className="h-5 w-8 md:h-6 md:w-10" />
             ) : (
-              <p className="text-xl font-bold">{stats?.profiles ?? 0}</p>
+              <p className="text-sm md:text-xl font-bold leading-tight">{stats?.profiles ?? 0}</p>
             )}
-            <p className="text-xs text-muted-foreground">Profiles</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground">Profiles</p>
           </div>
         </div>
-        <div className="bg-card border rounded-lg p-3 flex items-center gap-3">
-          <div className="p-1.5 rounded-lg bg-purple-500/10">
-            <Database className="h-4 w-4 text-purple-500" />
+        <div className="bg-card border rounded-lg p-2 md:p-3 flex items-center gap-2 md:gap-3">
+          <div className="p-1 md:p-1.5 rounded-lg bg-purple-500/10 shrink-0">
+            <Database className="h-3 w-3 md:h-4 md:w-4 text-purple-500" />
           </div>
-          <div>
+          <div className="min-w-0">
             {statsLoading ? (
-              <Skeleton className="h-6 w-10" />
+              <Skeleton className="h-5 w-8 md:h-6 md:w-10" />
             ) : (
-              <p className="text-xl font-bold">{stats?.translations ?? 0}</p>
+              <p className="text-sm md:text-xl font-bold leading-tight">{stats?.translations ?? 0}</p>
             )}
-            <p className="text-xs text-muted-foreground">Translations</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground hidden md:block">Translations</p>
+            <p className="text-[10px] text-muted-foreground md:hidden">Trans.</p>
           </div>
         </div>
       </div>
