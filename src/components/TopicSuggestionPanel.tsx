@@ -53,7 +53,11 @@ interface TopicSuggestionPanelProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
   source: 'ai' | 'cache' | 'fallback';
   isLoading: boolean;
-  onSelect: (suggestion: string, topicHistoryId?: string) => void;
+  /**
+   * Selection callback. Now also receives the full suggestion object so the parent
+   * can display rich metadata (reasoning, scores, …) — not only the topic title.
+   */
+  onSelect: (suggestion: string, topicHistoryId?: string, fullSuggestion?: EnhancedTopicSuggestion) => void;
   onRefresh: () => void;
   onSave?: (suggestion: EnhancedTopicSuggestion) => void;
   onFeedback?: (suggestion: EnhancedTopicSuggestion, feedback: 'positive' | 'negative') => void;
@@ -998,7 +1002,7 @@ export function TopicSuggestionPanel({
                           onClick={async () => {
                             if (disabled) return;
                             const historyId = await ensureSelectedTopic(suggestion.topic);
-                            onSelect(suggestion.topic, historyId || undefined);
+                            onSelect(suggestion.topic, historyId || undefined, suggestion);
                           }}
                         >
                           {/* Category Icon */}
@@ -1011,9 +1015,12 @@ export function TopicSuggestionPanel({
                             </span>
                           )}
 
-                          {/* Topic Text */}
-                          <span className="truncate max-w-[140px] xs:max-w-[180px]" title={suggestion.topic}>
-                            {suggestion.topic.length > 30 ? suggestion.topic.slice(0, 30) + '...' : suggestion.topic}
+                          {/* Topic Text — show more chars, allow chip to grow */}
+                          <span
+                            className="truncate max-w-[220px] xs:max-w-[320px] sm:max-w-[420px]"
+                            title={suggestion.topic}
+                          >
+                            {suggestion.topic.length > 70 ? suggestion.topic.slice(0, 70) + '…' : suggestion.topic}
                           </span>
 
                           {/* Score Badge */}
@@ -1083,14 +1090,20 @@ export function TopicSuggestionPanel({
                           )}
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs p-3 space-y-2">
-                        <p className="font-medium text-sm">{suggestion.topic}</p>
-                        
+                      <TooltipContent
+                        side="bottom"
+                        className="w-[min(92vw,520px)] max-w-[520px] p-3 space-y-2"
+                      >
+                        <p className="font-medium text-sm leading-snug">{suggestion.topic}</p>
+
                         {suggestion.reasoning && (
-                          <p className="text-xs text-muted-foreground">
-                            <Info className="w-3 h-3 inline mr-1" />
+                          <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                            <Info className="w-3 h-3 inline mr-1 -mt-0.5" />
                             {suggestion.reasoning}
-                          </p>
+                            <span className="ml-1 text-[10px] opacity-60">
+                              ({suggestion.reasoning.length} ký tự)
+                            </span>
+                          </div>
                         )}
 
                         {suggestion.scores && (
