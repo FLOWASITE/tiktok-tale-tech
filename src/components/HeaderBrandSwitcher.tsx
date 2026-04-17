@@ -40,7 +40,10 @@ export function HeaderBrandSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="gap-2 h-9 px-2 pr-3 hover:bg-accent/50">
+        <Button
+          variant="ghost"
+          className="gap-2 h-9 px-2.5 pr-3 min-w-[180px] sm:min-w-[210px] justify-start border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 shadow-sm ring-1 ring-primary/5"
+        >
           {currentBrand ? (
             <>
               <div className="relative">
