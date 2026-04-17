@@ -1,9 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
 import { AddonPurchaseDialog } from "@/components/AddonPurchaseDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useSubscription, type UsageStats } from "@/hooks/useSubscription";
+import { useOrganization } from "@/hooks/useOrganization";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useMultiChannelContents } from "@/hooks/useMultiChannelContents";
+import { canEditOrganization, canDeleteOrganization, ORG_ROLE_LABELS, ORG_ROLE_COLORS } from "@/types/organization";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,10 +21,15 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  User, Mail, Calendar, Crown, Zap, FileText, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  User, Mail, Calendar, Crown, Zap, FileText,
   Images, Layers, Wand2, Upload, Save, CreditCard, History,
-  Globe, Youtube, Send, Building2, AtSign, Package
+  Globe, Youtube, Send, Building2, AtSign, Package, Users, Settings, Palette, Trash2
 } from "lucide-react";
 import { Facebook, Instagram, Linkedin } from "lucide-react";
 import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
@@ -28,6 +38,10 @@ import { vi } from "date-fns/locale";
 import type { Channel } from "@/types/multichannel";
 import { WorkspaceUsageStats } from "@/components/WorkspaceUsageStats";
 import { PaymentHistorySection } from "@/pages/PaymentHistory";
+import { OrganizationStats } from "@/components/OrganizationStats";
+import { OrganizationMembersList } from "@/components/OrganizationMembersList";
+import { ApprovalSettingsCard } from "@/components/ApprovalSettingsCard";
+import { toast } from "sonner";
 
 const CHANNEL_META: Record<Channel, { label: string; icon: React.ReactNode; color: string }> = {
   facebook: { label: "Facebook", icon: <Facebook className="w-3.5 h-3.5" />, color: "text-blue-600" },
