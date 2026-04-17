@@ -16,9 +16,9 @@ const sections = [
   {
     icon: Shield,
     title: "1. Giới thiệu",
-    content: `Flowa ("chúng tôi") cam kết bảo vệ quyền riêng tư và dữ liệu cá nhân của bạn. Chính sách Bảo mật này giải thích cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin của bạn khi sử dụng nền tảng Flowa.
+    content: `Chính sách Bảo mật này ("Chính sách") áp dụng cho ứng dụng **Flowa** ("Flowa", "ứng dụng", "chúng tôi") — nền tảng AI Content Marketing được vận hành tại flowa.one và app.flowa.one. Chính sách này giải thích cách ứng dụng Flowa thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân của bạn khi bạn truy cập, đăng ký hoặc sử dụng các tính năng của ứng dụng Flowa.
 
-Chính sách này tuân thủ các quy định hiện hành về bảo vệ dữ liệu cá nhân tại Việt Nam (Nghị định 13/2023/NĐ-CP) và các tiêu chuẩn quốc tế.`,
+Bằng việc sử dụng ứng dụng Flowa, bạn xác nhận đã đọc và đồng ý với các điều khoản trong Chính sách Bảo mật này. Chính sách này tuân thủ các quy định hiện hành về bảo vệ dữ liệu cá nhân tại Việt Nam (Nghị định 13/2023/NĐ-CP) và các tiêu chuẩn quốc tế.`,
   },
   {
     icon: Database,
@@ -149,8 +149,8 @@ export default function PrivacyPolicy() {
   return (
     <PublicPageLayout>
       <SEOHead
-        title="Chính sách bảo mật"
-        description="Chính sách bảo mật của Flowa - Cam kết bảo vệ quyền riêng tư và dữ liệu cá nhân của bạn. Tuân thủ Nghị định 13/2023/NĐ-CP."
+        title="Chính sách bảo mật — Flowa"
+        description="Chính sách bảo mật của ứng dụng Flowa (flowa.one) — Cam kết bảo vệ quyền riêng tư và dữ liệu cá nhân của người dùng. Tuân thủ Nghị định 13/2023/NĐ-CP."
         canonicalPath="/privacy"
         ogType="website"
       />
@@ -170,10 +170,13 @@ export default function PrivacyPolicy() {
               <span className="text-sm font-medium text-primary">Bảo mật</span>
             </div>
             <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
-              Chính sách bảo mật
+              Chính sách bảo mật của Flowa
             </h1>
-            <p className="text-lg text-muted-foreground">
-              Cập nhật lần cuối: 18 tháng 3, 2026
+            <p className="text-base md:text-lg text-muted-foreground mb-2">
+              Chính sách bảo mật này áp dụng cho ứng dụng <strong className="text-foreground">Flowa</strong> (flowa.one) — nền tảng AI Content Marketing.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Cập nhật lần cuối: 17 tháng 4, 2026
             </p>
           </motion.div>
         </div>
