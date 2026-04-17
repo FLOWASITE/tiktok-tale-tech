@@ -78,7 +78,7 @@ export function usePackRegulationSources(globalPackId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('industry_knowledge_nodes')
-        .select('id, display_name, node_type, source_url, full_text, effective_date, quality_score, parse_status, last_verified_at, created_at')
+        .select('id, display_name, node_type, source_url, full_text, effective_date, content_quality_score, parse_status, last_verified_at, created_at')
         .eq('global_pack_id', globalPackId)
         .eq('node_type', 'regulation')
         .eq('is_active', true)
