@@ -1,44 +1,48 @@
 
 ## Vấn đề
-Ảnh user gửi: `accounts.google.com bị chặn` với `ERR_BLOCKED_BY_RESPONSE` khi popup OAuth Google mở ra.
+OAuth đã thành công (connection `93f8e1ea...` đã lưu, `is_active: true`). Nhưng khi bấm "Xác minh" → gọi Google Business API → bị Google trả về:
+
+> Quota exceeded for quota metric 'Requests' and limit 'Requests per minute' of service 'mybusinessaccountmanagement.googleapis.com'
 
 ## Nguyên nhân
-Đây **KHÔNG phải lỗi code** trong project. Đây là lỗi phía Google chặn request OAuth. Có 3 nguyên nhân chính:
+Đây là **giới hạn cứng từ Google Cloud**, không phải bug code:
 
-### 1. Cấu hình Google Cloud Console chưa đúng (khả năng cao nhất)
-- **Redirect URI chưa được whitelist** trong OAuth Client của Google Cloud Console
-- URI cần thêm: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/google-business-oauth-callback`
-- Nếu thiếu hoặc sai → Google sẽ từ chối kết nối ngay từ đầu
+- Google Business Profile API có quota mặc định **rất thấp** (thường **1 request/phút** cho project mới chưa được approve).
+- Mỗi lần bấm "Test connection" gọi `GET /v1/accounts` + `GET /v1/{account}/locations` = 2 requests → vượt quota ngay.
+- Project Google Cloud `31483738041` đang dùng quota mặc định.
 
-### 2. OAuth Consent Screen chưa cấu hình
-- App đang ở **Testing mode** nhưng email user chưa được thêm vào **Test users**
-- Hoặc chưa publish app, hoặc chưa thêm scope `business.manage`
+## Giải pháp
 
-### 3. Client ID/Secret sai hoặc thuộc project Google Cloud khác
-- Credentials nhập trong `/admin/social-settings` không khớp với OAuth Client thật trên Google Cloud
-- Project Google Cloud chưa enable **Google Business Profile API** + **My Business Account Management API**
+### A. Phía Google Cloud (user phải tự làm — bắt buộc)
+1. Vào [Google Cloud Console → Quotas](https://console.cloud.google.com/iam-admin/quotas) cho project `31483738041`
+2. Filter service: `mybusinessaccountmanagement.googleapis.com`
+3. Submit **Quota increase request** cho "Requests per minute" (Google duyệt 2-7 ngày)
+4. Hoặc chờ ~1 phút giữa mỗi lần test
 
-## Cần user xác nhận trước khi tiếp tục
+### B. Phía code (cải thiện UX)
+Hiện tại code không xử lý lỗi 429 quota tốt — báo `needs_reauth: true` gây hiểu nhầm là phải kết nối lại. Cần sửa:
 
-Vui lòng kiểm tra trên [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services:
+**1. `supabase/functions/test-google-business-connection/index.ts`**
+- Phát hiện lỗi quota (`RESOURCE_EXHAUSTED` / status 429 / message chứa "Quota exceeded") → **KHÔNG** set `needs_reauth: true`, **KHÔNG** disable connection
+- Trả về `errorCode: 'QUOTA_EXCEEDED'` + message thân thiện tiếng Việt
+- Giữ nguyên `is_active: true` vì token vẫn hợp lệ
 
-1. **Credentials → OAuth 2.0 Client IDs → [Client của bạn] → Authorized redirect URIs** có đúng URI sau chưa?
-   ```
-   https://rllyipiyuptkibqinotz.supabase.co/functions/v1/google-business-oauth-callback
-   ```
+**2. `supabase/functions/publish-google-business/index.ts`**
+- Tương tự: bắt lỗi quota khi publish, trả message rõ ràng "Google đang giới hạn tốc độ, vui lòng thử lại sau X giây"
+- Implement exponential backoff đơn giản (retry 1 lần sau 60s) hoặc trả lỗi để user retry
 
-2. **OAuth consent screen** → Publishing status:
-   - Nếu "Testing" → email Google bạn dùng đã có trong "Test users" chưa?
-   - Scopes có chứa `https://www.googleapis.com/auth/business.manage` chưa?
+**3. UI hiển thị connection (Connections tab)**
+- Khi nhận `errorCode: 'QUOTA_EXCEEDED'` → hiện banner vàng "Google rate limit — thử lại sau 1 phút" thay vì badge đỏ "Cần kết nối lại"
 
-3. **Enabled APIs**: đã bật cả 2 API sau chưa?
-   - Google Business Profile API
-   - My Business Account Management API
+**4. Cache locations**
+- Sau lần fetch locations đầu tiên (lúc OAuth callback), lưu vào `metadata.locations` và **không refetch** ở mỗi lần test
+- Test connection chỉ cần check token validity bằng 1 API call nhẹ nhất (ví dụ: `GET /v1/accounts` với rate limit aware)
 
-4. Client ID/Secret nhập trong Flowa có đúng từ project Google Cloud có cấu hình ở (1)(2)(3) không?
+## Files sửa
+- `supabase/functions/test-google-business-connection/index.ts`
+- `supabase/functions/publish-google-business/index.ts`
+- File UI hiển thị status connection (cần xác định: có thể là `src/components/connections/SocialConnectionCard.tsx` hoặc tương tự — sẽ tìm khi thực hiện)
 
-## Sau khi user xác nhận
-- Nếu cấu hình thiếu → user tự bổ sung trên Google Cloud Console (không cần đụng code)
-- Nếu mọi cấu hình đều đúng nhưng vẫn lỗi → mới cần debug code (kiểm tra URL `authUrl` mà `connect-social` đang generate, xem có truyền sai `client_id` hay `redirect_uri` encoding sai không)
-
-**Không có file nào cần sửa cho đến khi xác định rõ nguyên nhân.**
+## Lưu ý quan trọng cho user
+**Code fix chỉ giúp UX rõ ràng hơn, KHÔNG giải quyết được giới hạn Google.**
+Nếu muốn dùng Google Business Profile thực tế, **bắt buộc phải request quota increase** từ Google Cloud Console, nếu không sẽ tiếp tục fail mỗi lần publish/test trong cùng 1 phút.
