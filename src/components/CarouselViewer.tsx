@@ -208,7 +208,41 @@ export function CarouselViewer({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
+  const [regeneratingCaption, setRegeneratingCaption] = useState(false);
   const lastAutoGenCarouselIdRef = useRef<string | null>(null);
+
+  const handleRegenerateCaption = async () => {
+    if (!carousel || regeneratingCaption) return;
+    setRegeneratingCaption(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-carousel-caption', {
+        body: { carouselId: carousel.id },
+      });
+      if (error) {
+        const msg = (error as { message?: string })?.message || '';
+        if (msg.includes('429')) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
+        else if (msg.includes('402')) toast.error('Đã hết credits AI. Vui lòng nâng cấp gói.');
+        else toast.error('Không thể tạo lại caption. Vui lòng thử lại.');
+        return;
+      }
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      const updated = {
+        ...carousel,
+        caption_suggestion: data.captionSuggestion,
+        cta_suggestion: data.ctaSuggestion,
+      } as Carousel;
+      onCarouselUpdate?.(updated);
+      toast.success('Đã tạo lại Caption & CTA!');
+    } catch (e) {
+      console.error('Regenerate caption error:', e);
+      toast.error('Không thể tạo lại caption. Vui lòng thử lại.');
+    } finally {
+      setRegeneratingCaption(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
