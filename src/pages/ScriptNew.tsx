@@ -45,7 +45,7 @@ export default function ScriptNew() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Back button */}
       <Button
         variant="ghost"
