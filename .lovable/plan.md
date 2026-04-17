@@ -1,29 +1,20 @@
 
 ## Vấn đề
-Trang `/multichannel` (form tạo nội dung đa kênh) hiện đang render **bên ngoài AppLayout** — không có sidebar, header, organization switcher... User muốn form này nằm trong layout chính như các trang khác.
+Badge counter `96/400 ký tự tiêu đề` ở góc dưới-phải textarea "Chủ đề / Ý tưởng" hiện gần như **vô hình** trên nền trắng. Trong ảnh user gửi chỉ còn vệt mờ (gạch đỏ).
 
-## Cần kiểm tra
-- `src/App.tsx` (route definition cho `/multichannel`)
-- So sánh với route đã wrap `AppLayout` (vd `/scripts`, `/scripts/new`)
+Nguyên nhân: badge dùng `bg-background/90 backdrop-blur` + `variant="secondary"` → trên nền card trắng thì cả nền lẫn chữ đều xám nhạt, khó đọc.
 
-## Plan
+## Plan sửa (1 file, 1 dòng)
 
-### 1. Wrap route `/multichannel` bằng `AppLayout`
-Trong `src/App.tsx`:
-- Tìm route `<Route path="/multichannel" element={<MultiChannel />} />`
-- Đổi thành:
-  ```tsx
-  <Route path="/multichannel" element={<AppLayout><MultiChannel /></AppLayout>} />
-  ```
-- Áp dụng tương tự cho các sub-route liên quan nếu có (`/multichannel/new`, `/multichannel/:id`...).
+**File:** `src/components/multichannel/MultiChannelFormWizard.tsx` (~dòng 1142-1148)
 
-### 2. Kiểm tra padding/width nội bộ
-- Nếu trang `MultiChannel` đang tự set `min-h-screen` hoặc full-bleed background, gỡ bỏ để khớp với `<main>` của `AppLayout` (đã có `p-4 sm:p-6`).
+Đổi style Badge cho counter:
+- Bỏ `variant="secondary"` (xám-trên-xám).
+- Dùng nền `bg-muted` đậm hơn + `text-foreground` để chữ đen rõ.
+- Thêm `border border-border` để tách khỏi textarea.
+- Giữ `pointer-events-none` và vị trí `absolute right-3 bottom-2`.
 
-## Files sẽ sửa
-- `src/App.tsx` — wrap route với `AppLayout`
-- `src/pages/MultiChannel.tsx` (chỉ nếu cần gỡ wrapper trùng)
+Kết quả: counter hiển thị rõ ràng như cũ, đọc được số ký tự ngay khi gõ.
 
-## Kết quả
-- Form đa kênh hiển thị cùng sidebar + header + brand switcher như `/scripts`.
-- Điều hướng nhất quán toàn app.
+## File sẽ sửa
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — chỉ đổi className của Badge counter.
