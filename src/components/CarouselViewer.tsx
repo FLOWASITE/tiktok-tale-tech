@@ -40,6 +40,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarClock,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -207,7 +208,41 @@ export function CarouselViewer({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
+  const [regeneratingCaption, setRegeneratingCaption] = useState(false);
   const lastAutoGenCarouselIdRef = useRef<string | null>(null);
+
+  const handleRegenerateCaption = async () => {
+    if (!carousel || regeneratingCaption) return;
+    setRegeneratingCaption(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-carousel-caption', {
+        body: { carouselId: carousel.id },
+      });
+      if (error) {
+        const msg = (error as { message?: string })?.message || '';
+        if (msg.includes('429')) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
+        else if (msg.includes('402')) toast.error('Đã hết credits AI. Vui lòng nâng cấp gói.');
+        else toast.error('Không thể tạo lại caption. Vui lòng thử lại.');
+        return;
+      }
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      const updated = {
+        ...carousel,
+        caption_suggestion: data.captionSuggestion,
+        cta_suggestion: data.ctaSuggestion,
+      } as Carousel;
+      onCarouselUpdate?.(updated);
+      toast.success('Đã tạo lại Caption & CTA!');
+    } catch (e) {
+      console.error('Regenerate caption error:', e);
+      toast.error('Không thể tạo lại caption. Vui lòng thử lại.');
+    } finally {
+      setRegeneratingCaption(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -1159,8 +1194,22 @@ export function CarouselViewer({
             </TabsContent>
 
             <TabsContent value="caption" className="mt-0 space-y-4">
-              {(carousel.caption_suggestion || carousel.cta_suggestion) && (
-                <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateCaption}
+                  disabled={regeneratingCaption}
+                  className="h-7 xs:h-8 text-xs"
+                >
+                  {regeneratingCaption ? (
+                    <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                  )}
+                  <span className="ml-1 xs:ml-1.5">Tạo lại</span>
+                </Button>
+                {(carousel.caption_suggestion || carousel.cta_suggestion) && (
                   <Button variant="outline" size="sm" onClick={handleCopyCaptionAll} className="h-7 xs:h-8 text-xs">
                     {copiedCaptionAll ? (
                       <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-green-500" />
@@ -1169,8 +1218,8 @@ export function CarouselViewer({
                     )}
                     <span className="ml-1 xs:ml-1.5">Copy tất cả</span>
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
                 <div className="flex items-center justify-between mb-3 xs:mb-4">
