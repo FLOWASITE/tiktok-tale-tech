@@ -858,8 +858,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           } as EnhancedTopicSuggestion;
         });
 
-        // Client-side guard: enforce topic length 150-300 chars
-        const TOPIC_MIN = 150;
+        // Client-side guard: enforce topic length 80-300 chars (soft fallback if all fail)
+        const TOPIC_MIN = 80;
         const TOPIC_MAX = 300;
         const validSuggestions = enhancedSuggestions.filter((s) => {
           const len = (s.topic || '').length;
@@ -867,13 +867,16 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
         });
 
         if (validSuggestions.length === 0 && enhancedSuggestions.length > 0) {
+          // Soft fallback: keep top 4 longest items instead of dropping all
           console.warn(
-            `[useTopicAI] All ${enhancedSuggestions.length} suggestions dropped — topic length out of [${TOPIC_MIN}-${TOPIC_MAX}]. ` +
+            `[useTopicAI] All ${enhancedSuggestions.length} suggestions below ${TOPIC_MIN} chars — using soft fallback (top 4 longest). ` +
             `Lengths: [${enhancedSuggestions.map((s) => s.topic?.length || 0).join(', ')}]`
           );
-          setAllSuggestions([]);
-          setSuggestSource('fallback');
-          setSuggestError('AI sinh tiêu đề chưa đạt độ dài. Hãy nhấn làm mới.');
+          const fallback = [...enhancedSuggestions]
+            .sort((a, b) => (b.topic?.length || 0) - (a.topic?.length || 0))
+            .slice(0, 4);
+          setAllSuggestions(fallback);
+          setSuggestSource(data.source);
         } else {
           if (validSuggestions.length < enhancedSuggestions.length) {
             console.log(

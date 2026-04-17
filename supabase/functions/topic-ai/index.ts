@@ -197,7 +197,7 @@ async function handleSuggest(
   const contextHash = hashContextData(brandContext);
   const queryHash = query ? hashContextData({ q: query }) : 'no-query';
   const categoryHash = categoryHint ? hashContextData({ cat: categoryHint }) : 'no-cat';
-  const cacheKey = `topic-suggestions-v13-strict-150-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
+  const cacheKey = `topic-suggestions-v14-flex-80-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
   
   // Parallel: Check cache + fetch learning context simultaneously
   const [cachedResult, learningContext] = await Promise.all([
@@ -306,8 +306,8 @@ async function handleSuggest(
   let suggestions = parseTopicSuggestions(content, industryInsight);
 
   // === LENGTH VALIDATION + REPAIR PASS ===
-  // Rule: topic length 150-300 chars. Run a repair pass for any short topic, then drop fails.
-  const TOPIC_MIN = 150;
+  // Rule: topic length 80-300 chars (flexible). Repair short ones, then drop fails.
+  const TOPIC_MIN = 80;
   const TOPIC_MAX = 300;
   const lengthsBefore = suggestions.map((s: any) => (s.topic || '').length);
   console.log(`[topic-ai:suggest] Topic lengths before validation: [${lengthsBefore.join(', ')}]`);
@@ -316,8 +316,8 @@ async function handleSuggest(
   if (shortItems.length > 0) {
     console.log(`[topic-ai:suggest] Repairing ${shortItems.length} short titles`);
     try {
-      const repairSystem = `Bạn là biên tập viên content. Nhiệm vụ: viết lại MỖI tiêu đề dưới đây sao cho dài 150-300 ký tự (tối ưu 180-250), GIỮ NGUYÊN chủ đề/intent, thêm hook + ngữ cảnh + đối tượng + lợi ích. KHÔNG nhồi từ rỗng, KHÔNG lặp ý. Trả về JSON array các string theo đúng thứ tự, không thêm field khác.`;
-      const repairUser = `Viết lại các tiêu đề sau (giữ nguyên ý nghĩa, chỉ kéo dài 150-300 ký tự):\n${JSON.stringify(shortItems.map((s: any) => s.topic))}`;
+      const repairSystem = `Bạn là biên tập viên content. Nhiệm vụ: viết lại MỖI tiêu đề dưới đây sao cho dài 80-300 ký tự (tối ưu 120-200), GIỮ NGUYÊN chủ đề/intent, thêm hook + ngữ cảnh + đối tượng + lợi ích. KHÔNG nhồi từ rỗng, KHÔNG lặp ý. Trả về JSON array các string theo đúng thứ tự, không thêm field khác.`;
+      const repairUser = `Viết lại các tiêu đề sau (giữ nguyên ý nghĩa, kéo dài tối thiểu 80 ký tự, tối đa 300):\n${JSON.stringify(shortItems.map((s: any) => s.topic))}`;
       const repairResult = await callAIWithMetrics(supabase, {
         functionName: 'topic-ai',
         organizationId,
