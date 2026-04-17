@@ -1,9 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
 import { AddonPurchaseDialog } from "@/components/AddonPurchaseDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useSubscription, type UsageStats } from "@/hooks/useSubscription";
+import { useOrganization } from "@/hooks/useOrganization";
+import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useMultiChannelContents } from "@/hooks/useMultiChannelContents";
+import { canEditOrganization, canDeleteOrganization, ORG_ROLE_LABELS, ORG_ROLE_COLORS } from "@/types/organization";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,10 +21,15 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  User, Mail, Calendar, Crown, Zap, FileText, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  User, Mail, Calendar, Crown, Zap, FileText,
   Images, Layers, Wand2, Upload, Save, CreditCard, History,
-  Globe, Youtube, Send, Building2, AtSign, Package
+  Globe, Youtube, Send, Building2, AtSign, Package, Users, Settings, Palette, Trash2
 } from "lucide-react";
 import { Facebook, Instagram, Linkedin } from "lucide-react";
 import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
@@ -28,6 +38,10 @@ import { vi } from "date-fns/locale";
 import type { Channel } from "@/types/multichannel";
 import { WorkspaceUsageStats } from "@/components/WorkspaceUsageStats";
 import { PaymentHistorySection } from "@/pages/PaymentHistory";
+import { OrganizationStats } from "@/components/OrganizationStats";
+import { OrganizationMembersList } from "@/components/OrganizationMembersList";
+import { ApprovalSettingsCard } from "@/components/ApprovalSettingsCard";
+import { toast } from "sonner";
 
 const CHANNEL_META: Record<Channel, { label: string; icon: React.ReactNode; color: string }> = {
   facebook: { label: "Facebook", icon: <Facebook className="w-3.5 h-3.5" />, color: "text-blue-600" },
@@ -69,12 +83,63 @@ export default function Account() {
   const { user } = useAuth();
   const { profile, isLoading: profileLoading, updateProfile, uploadAvatar, isUpdating } = useProfile();
   const { subscription, currentPlanLimits, usage, currentPeriod, isLoading: subLoading, activeAddons } = useSubscription();
+  const { currentOrganization, currentRole, updateOrganization, deleteOrganization, updating: orgUpdating } = useOrganization();
+  const { members, loading: membersLoading, inviteMember, createMember, bulkCreateMembers, updateMemberRole, removeMember, updating: membersUpdating } = useOrganizationMembers();
+  const { contents } = useMultiChannelContents();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") === "organization" ? "organization" : "personal";
 
   const [fullName, setFullName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("current");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [addonOpen, setAddonOpen] = useState(false);
+
+  // Organization editing state
+  const [orgName, setOrgName] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#000000");
+  const [isEditingOrg, setIsEditingOrg] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const orgFileInputRef = useRef<HTMLInputElement>(null);
+
+  const canEditOrg = currentRole ? canEditOrganization(currentRole) : false;
+  const canDeleteOrg = currentRole ? canDeleteOrganization(currentRole) : false;
+
+  const handleSaveOrgSettings = async () => {
+    if (!currentOrganization) return;
+    const success = await updateOrganization(currentOrganization.id, {
+      name: orgName,
+      primary_color: primaryColor,
+    });
+    if (success) setIsEditingOrg(false);
+  };
+
+  const handleOrgLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentOrganization) return;
+    if (!file.type.startsWith('image/')) { toast.error('Vui lòng chọn file ảnh'); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Kích thước file tối đa 2MB'); return; }
+    try {
+      setUploadingLogo(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentOrganization.id}/logo.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('brand-logos').upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('brand-logos').getPublicUrl(fileName);
+      await updateOrganization(currentOrganization.id, { logo_url: urlData.publicUrl + '?v=' + Date.now() });
+      toast.success('Đã cập nhật logo!');
+    } catch (error: any) {
+      toast.error('Lỗi khi upload logo: ' + error.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!currentOrganization) return;
+    await deleteOrganization(currentOrganization.id);
+  };
 
   // Generate last 6 months options
   const monthOptions = useMemo(() => {
@@ -255,12 +320,31 @@ export default function Account() {
     );
   }
 
+  const handleTabChange = (value: string) => {
+    if (value === "organization") setSearchParams({ tab: "organization" });
+    else setSearchParams({});
+  };
+
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="container max-w-5xl py-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Tài khoản</h1>
-        <p className="text-muted-foreground">Quản lý thông tin cá nhân và subscription</p>
+        <p className="text-muted-foreground">Quản lý thông tin cá nhân, tổ chức và subscription</p>
       </div>
+
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="personal" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Cá nhân
+          </TabsTrigger>
+          <TabsTrigger value="organization" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Tổ chức
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="personal" className="space-y-6 mt-0">
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Card */}
@@ -614,6 +698,172 @@ export default function Account() {
           <PaymentHistorySection />
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="organization" className="space-y-6 mt-0">
+          {!currentOrganization || !currentRole ? (
+            <div className="space-y-6">
+              <Skeleton className="h-20" />
+              <Skeleton className="h-96" />
+            </div>
+          ) : (
+            <>
+              {/* Org Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative group">
+                    <div
+                      className="h-16 w-16 rounded-xl border-2 border-border flex items-center justify-center overflow-hidden shadow-lg"
+                      style={{ backgroundColor: currentOrganization.primary_color + '20' }}
+                    >
+                      {currentOrganization.logo_url ? (
+                        <img src={currentOrganization.logo_url} alt={currentOrganization.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <Building2 className="h-8 w-8" style={{ color: currentOrganization.primary_color }} />
+                      )}
+                    </div>
+                    {canEditOrg && (
+                      <label className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 rounded-xl cursor-pointer transition-opacity">
+                        <Upload className="h-5 w-5 text-white" />
+                        <input ref={orgFileInputRef} type="file" className="hidden" accept="image/*" onChange={handleOrgLogoUpload} disabled={uploadingLogo} />
+                      </label>
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-2xl font-bold">{currentOrganization.name}</h2>
+                      <Badge className={ORG_ROLE_COLORS[currentRole]}>{ORG_ROLE_LABELS[currentRole]}</Badge>
+                    </div>
+                    <p className="text-muted-foreground text-sm">Quản lý thông tin và thành viên tổ chức</p>
+                  </div>
+                </div>
+                <div className="h-8 w-8 rounded-lg border border-border shrink-0 shadow-sm" style={{ backgroundColor: currentOrganization.primary_color }} />
+              </div>
+
+              <OrganizationStats members={members} totalContent={contents.length} />
+
+              <Tabs defaultValue="members" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
+                  <TabsTrigger value="members" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Thành viên
+                  </TabsTrigger>
+                  <TabsTrigger value="settings" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Cài đặt
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="members" className="space-y-4">
+                  <OrganizationMembersList
+                    members={members}
+                    loading={membersLoading}
+                    currentRole={currentRole}
+                    onInviteMember={inviteMember}
+                    onCreateMember={createMember}
+                    onBulkCreateMembers={bulkCreateMembers}
+                    onUpdateRole={updateMemberRole}
+                    onRemoveMember={removeMember}
+                    updating={membersUpdating}
+                  />
+                </TabsContent>
+
+                <TabsContent value="settings" className="space-y-4">
+                  <ApprovalSettingsCard canEdit={canEditOrg} />
+
+                  <Card className="border-border/50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-5 w-5 text-primary" />
+                        Thông tin tổ chức
+                      </CardTitle>
+                      <CardDescription>Cập nhật thông tin cơ bản của tổ chức</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="orgName" className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          Tên tổ chức
+                        </Label>
+                        {isEditingOrg && canEditOrg ? (
+                          <div className="flex gap-2">
+                            <Input id="orgName" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Nhập tên tổ chức" />
+                            <Button onClick={handleSaveOrgSettings} disabled={orgUpdating}>
+                              <Save className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Input id="orgName" value={currentOrganization.name} disabled />
+                            {canEditOrg && (
+                              <Button variant="outline" onClick={() => {
+                                setOrgName(currentOrganization.name);
+                                setPrimaryColor(currentOrganization.primary_color);
+                                setIsEditingOrg(true);
+                              }}>Sửa</Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="primaryColor" className="flex items-center gap-2">
+                          <Palette className="h-4 w-4" />
+                          Màu chủ đạo
+                        </Label>
+                        <div className="flex gap-2">
+                          <div className="h-10 w-10 rounded-md border border-border shrink-0" style={{ backgroundColor: isEditingOrg ? primaryColor : currentOrganization.primary_color }} />
+                          {isEditingOrg && canEditOrg ? (
+                            <Input id="primaryColor" type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="h-10 w-20 p-1 cursor-pointer" />
+                          ) : (
+                            <Input value={currentOrganization.primary_color} disabled className="flex-1" />
+                          )}
+                        </div>
+                      </div>
+
+                      {canDeleteOrg && (
+                        <>
+                          <Separator />
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-sm font-medium text-destructive">Vùng nguy hiểm</h4>
+                              <p className="text-xs text-muted-foreground">
+                                Xóa tổ chức sẽ xóa tất cả dữ liệu, nội dung và thành viên.
+                              </p>
+                            </div>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" className="w-full sm:w-auto">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Xóa tổ chức
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Xác nhận xóa tổ chức?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Hành động này không thể hoàn tác. Tất cả dữ liệu, nội dung và thành viên liên quan đến tổ chức sẽ bị xóa vĩnh viễn.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                  <AlertDialogAction onClick={handleDeleteOrg} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Xóa tổ chức
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

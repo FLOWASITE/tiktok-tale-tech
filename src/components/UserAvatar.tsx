@@ -109,7 +109,7 @@ export function UserAvatar() {
       setNewOrgName('');
       setCreateOrgDialogOpen(false);
       switchOrganization(org.id);
-      navigate('/organization');
+      navigate('/account?tab=organization');
     } catch (error: any) {
       toast.error('Lỗi tạo tổ chức: ' + (error?.message ?? 'Unknown error'));
     } finally {
@@ -201,13 +201,6 @@ export function UserAvatar() {
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>
-
-            {currentOrganization && (
-              <DropdownMenuItem onClick={() => navigate('/organization')} className="gap-2 rounded-sm">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Cài đặt tổ chức</span>
-              </DropdownMenuItem>
-            )}
 
             <DropdownMenuItem onClick={() => navigate('/account')} className="gap-2 rounded-sm">
               <User className="h-4 w-4 text-muted-foreground" />
