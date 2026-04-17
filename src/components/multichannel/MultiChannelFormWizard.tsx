@@ -196,7 +196,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   threads: <AtSign className="w-4 h-4" />,
 };
 
-const MAX_TOPIC_LENGTH = 300;
+const MAX_TOPIC_LENGTH = 400;
 
 // Threshold for showing refinement vs brainstorm suggestions
 const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;

@@ -1020,7 +1020,7 @@ export function TopicSuggestionPanel({
                             className="truncate max-w-[280px] xs:max-w-[420px] sm:max-w-[560px]"
                             title={suggestion.topic}
                           >
-                            {suggestion.topic.length > 140 ? suggestion.topic.slice(0, 140) + '…' : suggestion.topic}
+                            {suggestion.topic.length > 280 ? suggestion.topic.slice(0, 280) + '…' : suggestion.topic}
                           </span>
 
                           {/* Score Badge */}
