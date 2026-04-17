@@ -42,7 +42,7 @@ export function HeaderBrandSwitcher() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="gap-2 h-9 px-2.5 pr-3 min-w-[180px] sm:min-w-[210px] justify-start border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 shadow-sm ring-1 ring-primary/5"
+          className="gap-2 h-9 px-2.5 pr-3 min-w-[220px] sm:min-w-[260px] justify-start border border-primary/10 bg-primary/[0.03] hover:bg-primary/[0.06] hover:border-primary/20 shadow-sm"
         >
           {currentBrand ? (
             <>
