@@ -1,17 +1,9 @@
 
-User muốn xóa 2 menu "Curated Events" và "Curated News" khỏi sidebar Admin vì thấy vô nghĩa.
+Di chuyển 2 menu "Quản lý Brand" và "Kết nối kênh" từ sidebar vào menu Profile (user dropdown).
 
-## Kế hoạch
+## Thay đổi
+1. **`src/components/AppSidebar.tsx`**: Xóa 2 menu items "Quản lý Brand" (`/brands`) và "Kết nối kênh" (`/social-connections`) khỏi sidebar.
+2. **Profile dropdown menu**: Tìm component dropdown của user (avatar góc phải/dưới) và thêm 2 entries này.
 
-### Thay đổi
-**File:** `src/components/AppSidebar.tsx`
-- Xóa menu item "Curated Events" (`/admin/curated-events`)
-- Xóa menu item "Curated News" (`/admin/curated-news`)
-
-### Không thay đổi
-- Giữ nguyên routes và pages (`AdminCuratedEvents`, `AdminCuratedNews`) — chỉ ẩn khỏi sidebar, không xóa code/data
-- Giữ nguyên hook `useCuratedNews`, types `curatedData.ts`, bảng DB `curated_events` / `curated_news` — vì có thể đang được dùng bởi tính năng khác (trending topics, AI suggestions)
-- Không động đến edge functions
-
-### Lý do giữ data layer
-Curated data có thể được consume bởi hệ thống Trending Topics / AI content generation (xem `HybridTrendingTopic` với source `curated_event` / `curated_news`). Chỉ ẩn UI admin, không phá backend.
+## Cần xác định
+- File nào chứa user profile dropdown để thêm vào.
