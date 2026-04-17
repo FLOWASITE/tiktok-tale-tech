@@ -1017,10 +1017,10 @@ export function TopicSuggestionPanel({
 
                           {/* Topic Text — show more chars, allow chip to grow */}
                           <span
-                            className="truncate max-w-[220px] xs:max-w-[320px] sm:max-w-[420px]"
+                            className="truncate max-w-[280px] xs:max-w-[420px] sm:max-w-[560px]"
                             title={suggestion.topic}
                           >
-                            {suggestion.topic.length > 70 ? suggestion.topic.slice(0, 70) + '…' : suggestion.topic}
+                            {suggestion.topic.length > 140 ? suggestion.topic.slice(0, 140) + '…' : suggestion.topic}
                           </span>
 
                           {/* Score Badge */}
