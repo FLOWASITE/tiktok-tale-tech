@@ -78,7 +78,7 @@ Deno.serve(withPerf({ functionName: 'publish-google-business' }, async (req) => 
       .from('social_connections')
       .select('*')
       .eq('id', connectionId)
-      .eq('platform', 'google_maps')
+      .eq('platform', 'google_business')
       .single();
 
     if (connError || !connection) {
@@ -190,7 +190,7 @@ Deno.serve(withPerf({ functionName: 'publish-google-business' }, async (req) => 
     return new Response(
       JSON.stringify({
         success: true,
-        platform: 'google_maps',
+        platform: 'google_business',
         postId: result.name,
         postUrl: result.searchUrl,
         message: 'Đã đăng bài thành công lên Google Business Profile',

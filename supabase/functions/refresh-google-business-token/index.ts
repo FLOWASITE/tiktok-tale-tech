@@ -54,7 +54,7 @@ Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (re
       .from('social_connections')
       .select('*')
       .eq('id', connectionId)
-      .eq('platform', 'google_maps')
+      .eq('platform', 'google_business')
       .single();
 
     if (connError || !connection) {
@@ -81,7 +81,7 @@ Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (re
     const { data: settings, error: settingsError } = await supabase
       .from('social_platform_settings')
       .select('consumer_key, consumer_secret')
-      .eq('platform', 'google_maps')
+      .eq('platform', 'google_business')
       .eq('is_active', true)
       .single();
 

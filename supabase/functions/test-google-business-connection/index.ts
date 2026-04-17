@@ -45,7 +45,7 @@ Deno.serve(withPerf({ functionName: 'test-google-business-connection' }, async (
       .from('social_connections')
       .select('*')
       .eq('id', connectionId)
-      .eq('platform', 'google_maps')
+      .eq('platform', 'google_business')
       .single();
 
     if (connError || !connection) {

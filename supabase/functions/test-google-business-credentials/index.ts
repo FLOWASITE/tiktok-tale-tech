@@ -67,11 +67,16 @@ Deno.serve(withPerf({ functionName: 'test-google-business-credentials' }, async 
     }
 
     const body: TestRequest = await req.json();
-    const { platform, useStoredCredentials, consumerKey: rawKey, consumerSecret: rawSecret } = body;
+    const { platform: rawPlatform, useStoredCredentials, consumerKey: rawKey, consumerSecret: rawSecret } = body;
 
-    if (!platform) {
+    if (!rawPlatform) {
       throw new Error('platform is required');
     }
+
+    // Normalize: 'google-business' / 'google_maps' -> 'google_business'
+    const platform = (rawPlatform === 'google-business' || rawPlatform === 'google_maps')
+      ? 'google_business'
+      : rawPlatform;
 
     let clientId = rawKey;
     let clientSecret = rawSecret;
