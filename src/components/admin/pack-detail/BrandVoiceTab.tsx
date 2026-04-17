@@ -10,18 +10,12 @@ import {
   MousePointerClick,
   Type,
   Sparkles,
+  BookOpen,
+  Layers,
+  Check,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
-
-interface BrandVoice {
-  tone_of_voice?: string[];
-  formality_level?: string;
-  language_style?: string | string[];
-  allow_emoji?: boolean;
-  emoji_policy?: string;
-  cta_policy?: 'soft' | 'medium' | 'hard' | 'aggressive';
-  preferred_cta_styles?: string[];
-  content_principles?: string[];
-}
 
 interface BrandVoiceTabProps {
   brandVoice: Record<string, unknown>;
@@ -34,16 +28,24 @@ const toArray = (value: unknown): string[] => {
   return [];
 };
 
+const toStr = (value: unknown): string =>
+  typeof value === 'string' ? value : '';
+
 export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
   const tones = toArray(brandVoice?.tone_of_voice);
   const languageStyles = toArray(brandVoice?.language_style);
   const ctaStyles = toArray(brandVoice?.preferred_cta_styles);
   const principles = toArray(brandVoice?.content_principles);
+  const voiceDos = toArray(brandVoice?.voice_dos);
+  const voiceDonts = toArray(brandVoice?.voice_donts);
+  const toneMustAvoid = toArray(brandVoice?.tone_must_avoid);
+  const subsectors = toArray(brandVoice?.industry_subsectors);
+  const industryDefinition = toStr(brandVoice?.industry_definition);
   
-  const formality = typeof brandVoice?.formality_level === 'string' ? brandVoice.formality_level : '';
+  const formality = toStr(brandVoice?.formality_level);
   const allowEmoji = Boolean(brandVoice?.allow_emoji);
-  const emojiPolicy = typeof brandVoice?.emoji_policy === 'string' ? brandVoice.emoji_policy : '';
-  const ctaPolicy = typeof brandVoice?.cta_policy === 'string' ? brandVoice.cta_policy : '';
+  const emojiPolicy = toStr(brandVoice?.emoji_policy);
+  const ctaPolicy = toStr(brandVoice?.cta_policy);
 
   const getCtaPolicyColor = (policy: string) => {
     switch (policy) {
