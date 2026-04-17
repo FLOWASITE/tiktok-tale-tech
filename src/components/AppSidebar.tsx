@@ -270,11 +270,6 @@ export function AppSidebar() {
     { title: 'Lịch đăng', titleKey: 'app.sidebar.calendar', url: '/calendar', icon: CalendarDays },
   ];
 
-  // Nhóm 4: Settings
-  const settingsItems: MenuItem[] = [
-    { title: 'Quản lý Brand', titleKey: 'app.sidebar.brandManagement', url: '/brands', icon: Bookmark },
-    { title: 'Kết nối kênh', titleKey: 'app.sidebar.connections', url: '/connections', icon: Globe },
-  ];
 
   // Nhóm 5: Admin
   const adminItems: MenuItem[] = [
@@ -434,20 +429,6 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {managementItems.map((item) => (
-                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <GradientSeparator />
-
-        {/* Nhóm 4: Settings */}
-        <SidebarGroup className="py-2">
-          <PremiumGroupLabel isCollapsed={isCollapsed}>{t('app.sidebar.settings')}</PremiumGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
                 <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
               ))}
             </SidebarMenu>

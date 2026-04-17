@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Check, Shield, Building2, Plus, Globe, Sun, Moon, Leaf, Monitor, Settings, ChevronRight, Palette, HelpCircle, ExternalLink } from 'lucide-react';
+import { User, LogOut, Check, Shield, Building2, Plus, Globe, Sun, Moon, Leaf, Monitor, Settings, ChevronRight, Palette, HelpCircle, ExternalLink, Bookmark } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -212,6 +212,16 @@ export function UserAvatar() {
             <DropdownMenuItem onClick={() => navigate('/account')} className="gap-2 rounded-sm">
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">Quản lý tài khoản</span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem onClick={() => navigate('/brands')} className="gap-2 rounded-sm">
+              <Bookmark className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Quản lý Brand</span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem onClick={() => navigate('/connections')} className="gap-2 rounded-sm">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Kết nối kênh</span>
             </DropdownMenuItem>
 
             {isAdmin && (
