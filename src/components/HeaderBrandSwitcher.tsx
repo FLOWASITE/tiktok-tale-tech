@@ -61,7 +61,7 @@ export function HeaderBrandSwitcher() {
                   </div>
                 )}
               </div>
-              <span className="text-sm font-medium max-w-[60px] sm:max-w-[100px] truncate">
+              <span className="text-sm font-semibold max-w-[100px] sm:max-w-[140px] truncate">
                 {currentBrand.brand_name}
               </span>
             </>
