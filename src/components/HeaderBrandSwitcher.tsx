@@ -71,7 +71,7 @@ export function HeaderBrandSwitcher() {
               <span className="text-sm text-muted-foreground hidden sm:inline">Chọn Brand</span>
             </>
           )}
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-auto" />
         </Button>
       </DropdownMenuTrigger>
 
