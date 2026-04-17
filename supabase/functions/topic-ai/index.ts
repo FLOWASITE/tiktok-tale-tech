@@ -1509,7 +1509,7 @@ Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
   "topic": "Tiêu đề chi tiết (15-50 từ)",
   "category": "evergreen" | "trending" | "seasonal" | "reactive",
   "pillar": "Tên content pillar phù hợp",
-  "reasoning": "Lý do ngắn gọn (1-2 câu)",
+  "reasoning": "Mô tả chi tiết về topic: bao gồm (1) góc tiếp cận / angle, (2) vì sao topic này phù hợp với brand & mục tiêu, (3) value chính mang lại cho audience, (4) gợi ý hook hoặc key message. TỐI THIỂU 300 ký tự, TỐI ƯU 350-500 ký tự. Viết tự nhiên, mạch lạc, KHÔNG gạch đầu dòng, KHÔNG nhồi từ rỗng.",
   "formats": ["carousel", "script", "multichannel"],
   "relatedKeywords": ["kw1", "kw2", "kw3"],
   "scores": { "brandFit": 0-100, "trend": 0-100, "competition": 0-100, "engagement": 0-100 },
@@ -1523,7 +1523,11 @@ Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
   "journeyStage": "awareness" | "consideration" | "decision" | "loyalty"
 }]
 
-## BALANCE theo mục tiêu "${effectiveGoal}" (xem phần MỤC TIÊU BẮT BUỘC ở trên)`;
+## BALANCE theo mục tiêu "${effectiveGoal}" (xem phần MỤC TIÊU BẮT BUỘC ở trên)
+
+## ✅ CHECKLIST BẮT BUỘC TRƯỚC KHI TRẢ KẾT QUẢ:
+- Mỗi field "reasoning" PHẢI ≥ 300 ký tự (đếm cả khoảng trắng). Nếu < 300, BẮT BUỘC viết lại dài hơn với nội dung CÓ GIÁ TRỊ thực sự (angle, lý do phù hợp brand, value cho audience, hook gợi ý) — KHÔNG nhồi từ rỗng, KHÔNG lặp ý.
+- Mỗi reasoning phải mạch lạc, văn xuôi tự nhiên, không bullet/gạch đầu dòng.`;
 
   // Build category hint guidance
   const categoryHintMap: Record<string, string> = {
