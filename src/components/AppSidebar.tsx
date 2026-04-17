@@ -248,8 +248,6 @@ export function AppSidebar() {
   const quickItems: MenuItem[] = [
     { title: 'Dashboard', titleKey: 'app.sidebar.dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Kho Ý Tưởng', titleKey: 'app.sidebar.ideaBank', url: '/topics', icon: Lightbulb },
-    { title: 'Core Content', titleKey: 'app.sidebar.coreContent', url: '/core-content', icon: FileText },
-    { title: 'GEO Engine', titleKey: 'app.sidebar.geoEngine', url: '/geo', icon: Radar },
     { title: 'Gallery', titleKey: 'app.sidebar.gallery', url: '/gallery', icon: GalleryHorizontalEnd },
   ];
 
@@ -258,7 +256,6 @@ export function AppSidebar() {
     { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
     { title: 'Kịch bản Video', titleKey: 'app.sidebar.videoScript', url: '/scripts', icon: Film },
     { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
-    { title: 'Ad Copies', titleKey: 'app.sidebar.adCopies', url: '/ad-copies', icon: Megaphone },
   ];
 
   // Agent items under Flowa Team
