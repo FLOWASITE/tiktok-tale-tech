@@ -49,6 +49,7 @@ import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
 import { UserBulkActionsBar } from "@/components/admin/UserBulkActionsBar";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
+import AdminOrganizations from "@/pages/AdminOrganizations";
 
 import { ImportUsersDialog } from "@/components/admin/ImportUsersDialog";
 import { toast } from "sonner";
@@ -391,6 +392,10 @@ export default function AdminUsers() {
             <ClipboardList className="h-4 w-4" />
             Audit Log
           </TabsTrigger>
+          <TabsTrigger value="organizations" className="gap-1.5">
+            <Building2 className="h-4 w-4" />
+            Organizations
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
@@ -688,6 +693,10 @@ export default function AdminUsers() {
               <AuditLogPanel />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="organizations">
+          <AdminOrganizations />
         </TabsContent>
       </Tabs>
 
