@@ -1140,8 +1140,7 @@ export function MultiChannelFormWizard({
                     autoFocus
                   />
                   <Badge
-                    variant="secondary"
-                    className="absolute right-3 bottom-2 text-[10px] font-mono pointer-events-none bg-background/90 backdrop-blur"
+                    className="absolute right-3 bottom-2 text-[10px] font-mono pointer-events-none bg-muted text-foreground border border-border shadow-sm"
                     title="Số ký tự của ô nhập chủ đề (không phải độ dài mô tả AI)"
                   >
                     {formData.topic.length}/{MAX_TOPIC_LENGTH} ký tự tiêu đề
