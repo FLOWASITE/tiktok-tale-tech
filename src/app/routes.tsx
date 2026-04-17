@@ -159,7 +159,7 @@ export function AppRoutes() {
       <Route path="/brands/new" element={<ProtectedRoute><BrandCreate /></ProtectedRoute>} />
       <Route path="/connections" element={<ProtectedRoute><AppLayout><Connections /></AppLayout></ProtectedRoute>} />
       <Route path="/multichannel" element={<ProtectedRoute><AppLayout><MultiChannel /></AppLayout></ProtectedRoute>} />
-      <Route path="/multichannel/new" element={<ProtectedRoute><MultiChannelCreate /></ProtectedRoute>} />
+      <Route path="/multichannel/new" element={<ProtectedRoute><AppLayout><MultiChannelCreate /></AppLayout></ProtectedRoute>} />
       <Route path="/campaigns" element={<ProtectedRoute><AppLayout><Campaigns /></AppLayout></ProtectedRoute>} />
       <Route path="/campaigns/new" element={<ProtectedRoute><CampaignCreate /></ProtectedRoute>} />
       <Route path="/campaigns/:id/edit" element={<ProtectedRoute><CampaignCreate /></ProtectedRoute>} />
