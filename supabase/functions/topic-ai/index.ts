@@ -305,6 +305,64 @@ async function handleSuggest(
   const content = result.data?.choices?.[0]?.message?.content || '';
   let suggestions = parseTopicSuggestions(content, industryInsight);
 
+  // === LENGTH VALIDATION + REPAIR PASS ===
+  // Rule: topic length 150-300 chars. Run a repair pass for any short topic, then drop fails.
+  const TOPIC_MIN = 150;
+  const TOPIC_MAX = 300;
+  const lengthsBefore = suggestions.map((s: any) => (s.topic || '').length);
+  console.log(`[topic-ai:suggest] Topic lengths before validation: [${lengthsBefore.join(', ')}]`);
+
+  const shortItems = suggestions.filter((s: any) => (s.topic || '').length < TOPIC_MIN);
+  if (shortItems.length > 0) {
+    console.log(`[topic-ai:suggest] Repairing ${shortItems.length} short titles`);
+    try {
+      const repairSystem = `Bạn là biên tập viên content. Nhiệm vụ: viết lại MỖI tiêu đề dưới đây sao cho dài 150-300 ký tự (tối ưu 180-250), GIỮ NGUYÊN chủ đề/intent, thêm hook + ngữ cảnh + đối tượng + lợi ích. KHÔNG nhồi từ rỗng, KHÔNG lặp ý. Trả về JSON array các string theo đúng thứ tự, không thêm field khác.`;
+      const repairUser = `Viết lại các tiêu đề sau (giữ nguyên ý nghĩa, chỉ kéo dài 150-300 ký tự):\n${JSON.stringify(shortItems.map((s: any) => s.topic))}`;
+      const repairResult = await callAIWithMetrics(supabase, {
+        functionName: 'topic-ai',
+        organizationId,
+        userId: params._userId,
+        brandTemplateId,
+        actionType: 'suggest_repair',
+        ...(params.model_override && { modelOverride: params.model_override }),
+        messages: [
+          { role: 'system', content: repairSystem },
+          { role: 'user', content: repairUser },
+        ],
+      });
+      if (repairResult.success) {
+        const repairContent = repairResult.data?.choices?.[0]?.message?.content || '';
+        const arrMatch = repairContent.match(/\[[\s\S]*\]/);
+        if (arrMatch) {
+          const rewritten: string[] = JSON.parse(arrMatch[0]);
+          let idx = 0;
+          for (let i = 0; i < suggestions.length && idx < rewritten.length; i++) {
+            if ((suggestions[i].topic || '').length < TOPIC_MIN) {
+              const newTitle = String(rewritten[idx] || '').trim();
+              if (newTitle.length >= TOPIC_MIN) {
+                suggestions[i].topic = newTitle.length > TOPIC_MAX ? newTitle.slice(0, TOPIC_MAX) : newTitle;
+              }
+              idx++;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[topic-ai:suggest] Repair pass failed', e);
+    }
+  }
+
+  // Drop items still out of bounds
+  const beforeLengthFilter = suggestions.length;
+  suggestions = suggestions.filter((s: any) => {
+    const len = (s.topic || '').length;
+    return len >= TOPIC_MIN && len <= TOPIC_MAX;
+  });
+  if (suggestions.length < beforeLengthFilter) {
+    console.log(`[topic-ai:suggest] Length filter dropped ${beforeLengthFilter - suggestions.length} items (must be ${TOPIC_MIN}-${TOPIC_MAX} chars)`);
+  }
+  console.log(`[topic-ai:suggest] Topic lengths after validation: [${suggestions.map((s: any) => s.topic.length).join(', ')}]`);
+
   // === POST-GENERATION BRAND + GOAL FILTERING ===
   if (brandContext && suggestions.length > 0) {
     const beforeCount = suggestions.length;
@@ -1790,11 +1848,12 @@ function parseRefinedTopics(content: string, brandContext: TopicBrandContext | n
 }
 
 function getDefaultSuggestions(contentGoal?: string): any[] {
+  // Note: each `topic` must be 150-300 chars to satisfy hard length validator.
   return [
     {
-      topic: 'Hướng dẫn từng bước cho người mới bắt đầu',
+      topic: 'Hướng dẫn từng bước cho người mới bắt đầu: lộ trình thực chiến từ con số 0, kèm checklist công cụ, ví dụ cụ thể và những lưu ý quan trọng giúp bạn tránh sai lầm và đạt kết quả nhanh nhất trong 30 ngày đầu tiên.',
       category: 'evergreen',
-      reasoning: 'Nội dung hướng dẫn luôn có giá trị lâu dài',
+      reasoning: 'Nội dung hướng dẫn cơ bản luôn có giá trị lâu dài cho nhóm audience mới tiếp cận lĩnh vực, đáp ứng search intent cao, dễ build authority cho brand. Format này phù hợp đa kênh (carousel, blog, video ngắn), giữ chân người dùng và mở đường dẫn họ đi sâu hơn vào hệ thống nội dung của brand qua các bài liên quan.',
       formats: ['carousel', 'script', 'multichannel'],
       relatedKeywords: ['hướng dẫn', 'bắt đầu', 'cơ bản'],
       scores: { brandFit: 80, trend: 65, competition: 75, engagement: 80 },
@@ -1808,9 +1867,9 @@ function getDefaultSuggestions(contentGoal?: string): any[] {
       journeyStage: 'awareness',
     },
     {
-      topic: '5 sai lầm phổ biến và cách tránh',
+      topic: '5 sai lầm phổ biến khiến người mới mất thời gian và tiền bạc — cách nhận diện sớm, tự kiểm tra trong 5 phút và phương án xử lý dứt điểm để không lặp lại trong các dự án tiếp theo của bạn.',
       category: 'evergreen',
-      reasoning: 'Người dùng luôn muốn tránh sai lầm',
+      reasoning: 'Định dạng "tránh sai lầm" có engagement rate cao vì chạm trực tiếp vào nỗi sợ và pain point của audience. Brand có thể tận dụng để khẳng định chuyên môn, đồng thời mở thêm cơ hội bán giải pháp/dịch vụ ở bước sau. Topic này dễ tái sử dụng cho carousel, short video, email và bài blog dài.',
       formats: ['carousel', 'multichannel'],
       relatedKeywords: ['sai lầm', 'tránh', 'kinh nghiệm'],
       scores: { brandFit: 75, trend: 70, competition: 65, engagement: 85 },

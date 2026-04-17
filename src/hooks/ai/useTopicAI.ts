@@ -858,8 +858,31 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           } as EnhancedTopicSuggestion;
         });
 
-        setAllSuggestions(enhancedSuggestions);
-        setSuggestSource(data.source);
+        // Client-side guard: enforce topic length 150-300 chars
+        const TOPIC_MIN = 150;
+        const TOPIC_MAX = 300;
+        const validSuggestions = enhancedSuggestions.filter((s) => {
+          const len = (s.topic || '').length;
+          return len >= TOPIC_MIN && len <= TOPIC_MAX;
+        });
+
+        if (validSuggestions.length === 0 && enhancedSuggestions.length > 0) {
+          console.warn(
+            `[useTopicAI] All ${enhancedSuggestions.length} suggestions dropped — topic length out of [${TOPIC_MIN}-${TOPIC_MAX}]. ` +
+            `Lengths: [${enhancedSuggestions.map((s) => s.topic?.length || 0).join(', ')}]`
+          );
+          setAllSuggestions([]);
+          setSuggestSource('fallback');
+          setSuggestError('AI sinh tiêu đề chưa đạt độ dài. Hãy nhấn làm mới.');
+        } else {
+          if (validSuggestions.length < enhancedSuggestions.length) {
+            console.log(
+              `[useTopicAI] Filtered ${enhancedSuggestions.length - validSuggestions.length} short/long suggestions`
+            );
+          }
+          setAllSuggestions(validSuggestions);
+          setSuggestSource(data.source);
+        }
       } else {
         setAllSuggestions([]);
         setSuggestSource('fallback');
