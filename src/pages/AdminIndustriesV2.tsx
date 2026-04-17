@@ -13,6 +13,8 @@ import { IndustryJsonImporter } from '@/components/admin/IndustryJsonImporter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AdminCategories from '@/pages/AdminCategories';
 import {
   Layers,
   Upload,
@@ -21,6 +23,7 @@ import {
   Globe,
   ArrowLeft,
   FileJson,
+  Bookmark,
 } from 'lucide-react';
 
 export function AdminIndustriesV2() {
@@ -172,10 +175,27 @@ export function AdminIndustriesV2() {
           onBack={() => setSelectedPackId(null)}
         />
       ) : (
-        <IndustryBrowserV2
-          selectedPackId={selectedPackId}
-          onSelectPack={setSelectedPackId}
-        />
+        <Tabs defaultValue="industries" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="industries" className="gap-2">
+              <Layers className="h-4 w-4" />
+              Industries
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="gap-2">
+              <Bookmark className="h-4 w-4" />
+              Categories
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="industries">
+            <IndustryBrowserV2
+              selectedPackId={selectedPackId}
+              onSelectPack={setSelectedPackId}
+            />
+          </TabsContent>
+          <TabsContent value="categories">
+            <AdminCategories />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
