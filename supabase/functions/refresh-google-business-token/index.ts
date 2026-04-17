@@ -1,38 +1,12 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { encrypt as encryptGCM, decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function encrypt(text: string, key: string): string {
-  const iv = randomBytes(16);
-  const keyBuffer = Buffer.alloc(32);
-  Buffer.from(key).copy(keyBuffer);
-  const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
+// Crypto handled via shared helpers
 
 Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (req) => {
   if (req.method === 'OPTIONS') {
@@ -40,7 +14,6 @@ Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (re
   }
 
   try {
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = getServiceClient();
 
     const { connectionId } = await req.json();
@@ -89,10 +62,17 @@ Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (re
       throw new Error('Google Business settings not found');
     }
 
-    const clientId = decrypt(settings.consumer_key, encryptionKey);
-    const clientSecret = decrypt(settings.consumer_secret, encryptionKey);
-    const refreshToken = decrypt(connection.refresh_token, encryptionKey);
-
+    let clientId = '';
+    let clientSecret = '';
+    let refreshToken = '';
+    try {
+      clientId = await decryptCredential(settings.consumer_key);
+      clientSecret = await decryptCredential(settings.consumer_secret);
+      refreshToken = await decryptCredential(connection.refresh_token);
+    } catch (e) {
+      console.error('decryptCredential failed:', e);
+      throw new Error('Invalid credentials');
+    }
     if (!clientId || !clientSecret || !refreshToken) {
       throw new Error('Invalid credentials');
     }
@@ -143,8 +123,8 @@ Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (re
     const expiresIn = tokenData.expires_in || 3600;
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Encrypt and update tokens
-    const encryptedAccessToken = encrypt(tokenData.access_token, encryptionKey);
+    // Encrypt and update tokens (AES-GCM)
+    const encryptedAccessToken = await encryptGCM(tokenData.access_token);
 
     await supabase
       .from('social_connections')

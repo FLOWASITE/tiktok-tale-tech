@@ -1,40 +1,12 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { encrypt as encryptGCM, decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Encryption helpers
-function encrypt(text: string, key: string): string {
-  const iv = randomBytes(16);
-  const keyBuffer = Buffer.alloc(32);
-  Buffer.from(key).copy(keyBuffer);
-  const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
+// Crypto handled via shared helpers (AES-GCM with legacy CBC fallback)
 
 Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (req) => {
   if (req.method === 'OPTIONS') {
@@ -67,7 +39,6 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
 
     const { brandTemplateId, organizationId, userId } = stateData;
 
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabase = getServiceClient();
 
@@ -83,9 +54,15 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
       throw new Error('Google Business Profile chưa được cấu hình. Liên hệ Admin.');
     }
 
-    const clientId = decrypt(settings.consumer_key, encryptionKey);
-    const clientSecret = decrypt(settings.consumer_secret, encryptionKey);
-
+    let clientId = '';
+    let clientSecret = '';
+    try {
+      clientId = await decryptCredential(settings.consumer_key);
+      clientSecret = await decryptCredential(settings.consumer_secret);
+    } catch (e) {
+      console.error('decryptCredential failed:', e);
+      throw new Error('Invalid Google credentials');
+    }
     if (!clientId || !clientSecret) {
       throw new Error('Invalid Google credentials');
     }
@@ -181,9 +158,9 @@ Deno.serve(withPerf({ functionName: 'google-business-oauth-callback' }, async (r
 
     const { data: existingConnection } = await query.maybeSingle();
 
-    // Encrypt tokens before storing
-    const encryptedAccessToken = encrypt(accessToken, encryptionKey);
-    const encryptedRefreshToken = refreshToken ? encrypt(refreshToken, encryptionKey) : null;
+    // Encrypt tokens before storing (AES-GCM)
+    const encryptedAccessToken = await encryptGCM(accessToken);
+    const encryptedRefreshToken = refreshToken ? await encryptGCM(refreshToken) : null;
 
     const connectionData = {
       organization_id: organizationId || null,
