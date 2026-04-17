@@ -22,7 +22,7 @@ interface TopicIdeaHubProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
   source: 'ai' | 'cache' | 'fallback';
   isLoading: boolean;
-  onSelect: (topic: string, topicHistoryId?: string) => void;
+  onSelect: (topic: string, topicHistoryId?: string, fullSuggestion?: EnhancedTopicSuggestion) => void;
   onQuickActionSelect?: (topic: string) => void;
   onRefresh: () => void;
   onCategoryRefresh?: (category: string) => void;
