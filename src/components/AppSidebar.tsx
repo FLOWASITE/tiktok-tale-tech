@@ -247,7 +247,6 @@ export function AppSidebar() {
   // Nhóm 1: Quick Access
   const quickItems: MenuItem[] = [
     { title: 'Dashboard', titleKey: 'app.sidebar.dashboard', url: '/', icon: LayoutDashboard },
-    { title: 'Kho Ý Tưởng', titleKey: 'app.sidebar.ideaBank', url: '/topics', icon: Lightbulb },
     { title: 'Gallery', titleKey: 'app.sidebar.gallery', url: '/gallery', icon: GalleryHorizontalEnd },
   ];
 

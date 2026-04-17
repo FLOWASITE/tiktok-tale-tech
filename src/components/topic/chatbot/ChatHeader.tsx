@@ -5,8 +5,9 @@
 
 import {
   Bot, Search as SearchIcon, Volume2, VolumeX,
-  RefreshCw, HelpCircle, X, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal, SquarePen, Keyboard
+  RefreshCw, HelpCircle, X, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal, SquarePen, Keyboard, Lightbulb
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -82,6 +83,7 @@ export function ChatHeader({
 }: ChatHeaderProps) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   
   return (
     <div className={cn(
@@ -222,6 +224,10 @@ export function ChatHeader({
               <DropdownMenuItem onClick={onNewConversation}>
                 <SquarePen className="w-4 h-4 mr-2" />
                 Đoạn chat mới
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/topics')}>
+                <Lightbulb className="w-4 h-4 mr-2" />
+                Kho Ý Tưởng
               </DropdownMenuItem>
               {onToggleShortcutsHint && (
                 <DropdownMenuItem onClick={onToggleShortcutsHint}>
