@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Building2, Check, ChevronDown, Crown, Settings2 } from 'lucide-react';
+import { Building2, Check, ChevronDown, Crown, Link2, Settings2 } from 'lucide-react';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -119,6 +119,13 @@ export function HeaderBrandSwitcher() {
         >
           <Settings2 className="w-4 h-4" />
           <span>Quản lý Brand</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => navigate('/connections')}
+          className="flex items-center gap-2 text-muted-foreground"
+        >
+          <Link2 className="w-4 h-4" />
+          <span>Kết nối kênh</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
