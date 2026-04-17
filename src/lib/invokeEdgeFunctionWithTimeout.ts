@@ -23,6 +23,10 @@ interface InvokeResult<T = unknown> {
   error: Error | null;
 }
 
+function isUnauthorizedResponse(status: number, body: string): boolean {
+  return status === 401 && /unauthorized|auth session missing|invalid token|expired session|session/i.test(body);
+}
+
 export async function invokeWithTimeout<T = unknown>(
   functionName: string,
   options: InvokeOptions = {},
@@ -32,36 +36,60 @@ export async function invokeWithTimeout<T = unknown>(
   // Build the full URL
   const url = `${SUPABASE_URL}/functions/v1/${functionName}`;
 
-  // Get auth token
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+  const invokeRequest = async (accessToken: string | null, signal: AbortSignal) => {
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken || SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  };
+
+  const getAccessToken = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    return sessionData?.session?.access_token ?? null;
+  };
+
+  let token = await getAccessToken();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
-        'apikey': SUPABASE_ANON_KEY,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
+    let response = await invokeRequest(token, controller.signal);
+    let responseText = await response.text();
+
+    if (token && isUnauthorizedResponse(response.status, responseText)) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      const refreshedToken = refreshed.session?.access_token ?? null;
+
+      if (refreshError || !refreshedToken) {
+        await supabase.auth.signOut().catch(() => undefined);
+        clearTimeout(timer);
+        return {
+          data: null,
+          error: new Error('Session expired. Please sign in again.'),
+        };
+      }
+
+      token = refreshedToken;
+      response = await invokeRequest(token, controller.signal);
+      responseText = await response.text();
+    }
 
     clearTimeout(timer);
 
     if (!response.ok) {
-      const text = await response.text();
       return {
         data: null,
-        error: new Error(`Edge Function error (${response.status}): ${text}`),
+        error: new Error(`Edge Function error (${response.status}): ${responseText}`),
       };
     }
 
-    const responseText = await response.text();
     if (!responseText || !responseText.trim()) {
       return { data: null, error: null };
     }
