@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -145,6 +146,9 @@ Deno.serve(async (req) => {
 
     const prompt = buildPrompt(carousel);
 
+    const aiConfig = await getAIConfig("regenerate-carousel-caption", carousel.organization_id);
+    console.log(`[regenerate-carousel-caption] Using model: ${aiConfig.model}`);
+
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -152,9 +156,11 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: aiConfig.model,
+        temperature: aiConfig.temperature,
+        max_tokens: aiConfig.max_tokens,
         messages: [
-          { role: "system", content: "Bạn là chuyên gia copywriting social media chuyên viết caption và CTA viral." },
+          { role: "system", content: aiConfig.custom_system_prompt || "Bạn là chuyên gia copywriting social media chuyên viết caption và CTA viral." },
           { role: "user", content: prompt },
         ],
         tools: [
