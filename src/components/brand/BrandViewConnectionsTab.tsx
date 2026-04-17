@@ -380,11 +380,21 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         return;
       }
 
+      // Handle Google Business quota exhaustion — token is still valid
+      if (resolved?.errorCode === 'QUOTA_EXCEEDED' || resolved?.data?.errorCode === 'QUOTA_EXCEEDED') {
+        toast.warning('Google đang giới hạn tốc độ', {
+          description: resolved?.warning || resolved?.data?.warning || 'Google Business API quota mặc định rất thấp (~1 request/phút). Token vẫn hợp lệ — vui lòng thử lại sau ~60 giây.',
+          duration: 8000,
+        });
+        refetch();
+        return;
+      }
+
       if (error || !resolved?.success) {
         throw new Error(resolved?.error || error?.message || 'Không thể xác minh kết nối');
       }
 
-      const displayName = resolved.data?.username || resolved.data?.name || resolved.data?.oa_name || 'Tài khoản';
+      const displayName = resolved.data?.username || resolved.data?.name || resolved.data?.oa_name || resolved.data?.accountInfo?.name || 'Tài khoản';
       toast.success('Xác minh thành công!', {
         description: `Đã kết nối với ${displayName}`,
       });

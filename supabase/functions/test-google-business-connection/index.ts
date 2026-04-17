@@ -91,7 +91,38 @@ Deno.serve(withPerf({ functionName: 'test-google-business-connection' }, async (
     console.log('Google Business accounts:', accountsData);
 
     if (accountsData.error) {
-      // Token is invalid
+      const errMsg = accountsData.error.message || 'Invalid token';
+      const errStatus = accountsData.error.status || '';
+      const errCode = accountsData.error.code;
+      const isQuotaError =
+        accountsResponse.status === 429 ||
+        errCode === 429 ||
+        errStatus === 'RESOURCE_EXHAUSTED' ||
+        /quota exceeded|rate limit|resource_exhausted/i.test(errMsg);
+
+      if (isQuotaError) {
+        // Quota exhausted — token is still valid, do NOT disable connection
+        console.log('Quota exceeded for Google Business API — keeping connection active');
+        // If we have cached locations, return them as success
+        const cachedLocations = connection.metadata?.locations || [];
+        return new Response(
+          JSON.stringify({
+            success: true,
+            valid: true,
+            errorCode: 'QUOTA_EXCEEDED',
+            warning: 'Google Business API đang giới hạn tốc độ (quota mặc định ~1 request/phút). Token vẫn hợp lệ — vui lòng thử lại sau ~60 giây hoặc yêu cầu tăng quota tại Google Cloud Console.',
+            accountInfo: {
+              name: connection.platform_username,
+              accountId: connection.platform_user_id,
+              locations: cachedLocations,
+            },
+            expiresAt: connection.token_expires_at,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Token is genuinely invalid
       await supabase
         .from('social_connections')
         .update({
@@ -99,7 +130,7 @@ Deno.serve(withPerf({ functionName: 'test-google-business-connection' }, async (
           metadata: { 
             ...connection.metadata, 
             needs_reauth: true, 
-            test_error: accountsData.error.message || 'Invalid token' 
+            test_error: errMsg 
           },
         })
         .eq('id', connectionId);
@@ -108,7 +139,7 @@ Deno.serve(withPerf({ functionName: 'test-google-business-connection' }, async (
         JSON.stringify({
           success: false,
           valid: false,
-          error: accountsData.error.message || 'Invalid token',
+          error: errMsg,
           needs_reauth: true,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

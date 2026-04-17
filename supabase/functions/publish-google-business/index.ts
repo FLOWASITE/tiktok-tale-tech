@@ -173,7 +173,28 @@ Deno.serve(withPerf({ functionName: 'publish-google-business' }, async (req) => 
     console.log('Google Business publish result:', result);
 
     if (result.error) {
-      throw new Error(result.error.message || 'Failed to publish to Google Business');
+      const errMsg = result.error.message || 'Failed to publish to Google Business';
+      const errStatus = result.error.status || '';
+      const errCode = result.error.code;
+      const isQuotaError =
+        postResponse.status === 429 ||
+        errCode === 429 ||
+        errStatus === 'RESOURCE_EXHAUSTED' ||
+        /quota exceeded|rate limit|resource_exhausted/i.test(errMsg);
+
+      if (isQuotaError) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errorCode: 'QUOTA_EXCEEDED',
+            error: 'Google Business API đang giới hạn tốc độ (quota mặc định ~1 request/phút cho project chưa được Google duyệt). Vui lòng thử lại sau ~60 giây, hoặc yêu cầu tăng quota tại Google Cloud Console → IAM & Admin → Quotas.',
+            retryAfterSeconds: 60,
+          }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      throw new Error(errMsg);
     }
 
     return new Response(
