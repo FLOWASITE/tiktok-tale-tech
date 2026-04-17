@@ -5,7 +5,7 @@ import { ScriptViewer } from '@/components/ScriptViewer';
 import { useScripts } from '@/hooks/useScripts';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Clapperboard } from 'lucide-react';
 import { Script } from '@/types/script';
 
 interface LocationState {
