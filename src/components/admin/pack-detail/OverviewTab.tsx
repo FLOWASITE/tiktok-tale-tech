@@ -28,12 +28,20 @@ interface OverviewTabProps {
 export function OverviewTab({ pack, translations, profiles, personasCount }: OverviewTabProps) {
   const terminology = pack.globalTerminology as {
     forbidden_terms_global?: string[];
-    preferred_terms?: Record<string, string>;
+    preferred_terms?: Record<string, string | string[]>;
   };
   const riskGuidelines = pack.riskGuidelines as {
     high_risk_keywords?: string[];
     thresholds?: Record<string, number>;
+    risk_thresholds?: Record<string, number>;
     weights?: Record<string, number>;
+    scoring_weights?: Record<string, number>;
+  };
+
+  // Count preferred terms across all languages (handles both string and string[] values)
+  const countPreferredTerms = (pt: Record<string, string | string[]> | undefined): number => {
+    if (!pt) return 0;
+    return Object.values(pt).reduce((sum, v) => sum + (Array.isArray(v) ? v.length : (v ? 1 : 0)), 0);
   };
 
   const stats = {
@@ -42,14 +50,14 @@ export function OverviewTab({ pack, translations, profiles, personasCount }: Ove
     systemRules: pack.globalSystemRules?.length || 0,
     forbiddenTerms: terminology?.forbidden_terms_global?.length || 0,
     highRiskKeywords: riskGuidelines?.high_risk_keywords?.length || 0,
-    preferredTerms: Object.keys(terminology?.preferred_terms || {}).length,
+    preferredTerms: countPreferredTerms(terminology?.preferred_terms),
     relatedIndustries: pack.relatedIndustries?.length || 0,
     translations: Object.keys(translations).length,
     jurisdictions: profiles.length,
     personas: personasCount,
   };
 
-  const thresholds = riskGuidelines?.thresholds || {};
+  const thresholds = riskGuidelines?.risk_thresholds || riskGuidelines?.thresholds || {};
 
   return (
     <div className="space-y-6">

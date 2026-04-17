@@ -10,18 +10,12 @@ import {
   MousePointerClick,
   Type,
   Sparkles,
+  BookOpen,
+  Layers,
+  Check,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
-
-interface BrandVoice {
-  tone_of_voice?: string[];
-  formality_level?: string;
-  language_style?: string | string[];
-  allow_emoji?: boolean;
-  emoji_policy?: string;
-  cta_policy?: 'soft' | 'medium' | 'hard' | 'aggressive';
-  preferred_cta_styles?: string[];
-  content_principles?: string[];
-}
 
 interface BrandVoiceTabProps {
   brandVoice: Record<string, unknown>;
@@ -34,16 +28,24 @@ const toArray = (value: unknown): string[] => {
   return [];
 };
 
+const toStr = (value: unknown): string =>
+  typeof value === 'string' ? value : '';
+
 export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
   const tones = toArray(brandVoice?.tone_of_voice);
   const languageStyles = toArray(brandVoice?.language_style);
   const ctaStyles = toArray(brandVoice?.preferred_cta_styles);
   const principles = toArray(brandVoice?.content_principles);
+  const voiceDos = toArray(brandVoice?.voice_dos);
+  const voiceDonts = toArray(brandVoice?.voice_donts);
+  const toneMustAvoid = toArray(brandVoice?.tone_must_avoid);
+  const subsectors = toArray(brandVoice?.industry_subsectors);
+  const industryDefinition = toStr(brandVoice?.industry_definition);
   
-  const formality = typeof brandVoice?.formality_level === 'string' ? brandVoice.formality_level : '';
+  const formality = toStr(brandVoice?.formality_level);
   const allowEmoji = Boolean(brandVoice?.allow_emoji);
-  const emojiPolicy = typeof brandVoice?.emoji_policy === 'string' ? brandVoice.emoji_policy : '';
-  const ctaPolicy = typeof brandVoice?.cta_policy === 'string' ? brandVoice.cta_policy : '';
+  const emojiPolicy = toStr(brandVoice?.emoji_policy);
+  const ctaPolicy = toStr(brandVoice?.cta_policy);
 
   const getCtaPolicyColor = (policy: string) => {
     switch (policy) {
@@ -75,6 +77,44 @@ export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Industry Definition */}
+      {industryDefinition && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              Định nghĩa ngành
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">
+              {industryDefinition}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Industry Subsectors */}
+      {subsectors.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              Phân ngành ({subsectors.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {subsectors.map((s, i) => (
+                <Badge key={i} variant="outline" className="text-sm py-1.5 px-3">
+                  {s}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tone of Voice */}
       <Card>
         <CardHeader>
@@ -212,6 +252,84 @@ export function BrandVoiceTab({ brandVoice }: BrandVoiceTabProps) {
                 </li>
               ))}
             </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Voice DOs / DON'Ts */}
+      {(voiceDos.length > 0 || voiceDonts.length > 0) && (
+        <div className="grid md:grid-cols-2 gap-4">
+          {voiceDos.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Voice DOs ({voiceDos.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {voiceDos.map((item, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-sm p-2 rounded bg-green-500/5 border border-green-500/10"
+                    >
+                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {voiceDonts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <X className="h-4 w-4 text-red-500" />
+                  Voice DON'Ts ({voiceDonts.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {voiceDonts.map((item, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-sm p-2 rounded bg-red-500/5 border border-red-500/10"
+                    >
+                      <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Tone Must Avoid */}
+      {toneMustAvoid.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+              Tone Must Avoid ({toneMustAvoid.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {toneMustAvoid.map((item, i) => (
+                <Badge
+                  key={i}
+                  variant="destructive"
+                  className="text-sm bg-red-500/10 text-red-600 border border-red-500/20"
+                >
+                  {item}
+                </Badge>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

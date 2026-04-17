@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 interface ComplianceRule {
   rule_id?: string;
   rule_text?: string;
+  rule?: string;
   category?: string;
   severity?: 'critical' | 'high' | 'medium' | 'low';
   source?: string;
@@ -32,10 +33,15 @@ interface ComplianceRule {
 
 interface ClaimRestriction {
   forbidden_claim?: string;
+  claim?: string;
   alternative?: string;
   reason?: string;
   severity?: string;
 }
+
+// Helper getters supporting both schema variants
+const getRuleText = (r: ComplianceRule): string => r.rule || r.rule_text || '';
+const getClaimText = (c: ClaimRestriction): string => c.claim || c.forbidden_claim || '';
 
 interface ArgumentPatterns {
   valid_patterns?: string[];
@@ -88,13 +94,13 @@ export function RulesTab({
 
   const filteredComplianceRules = complianceRules.filter(r => 
     !searchTerm || 
-    r.rule_text?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getRuleText(r).toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredClaimRestrictions = claimRestrictions.filter(r =>
     !searchTerm ||
-    r.forbidden_claim?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getClaimText(r).toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.alternative?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -172,7 +178,7 @@ export function RulesTab({
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm">{rule.rule_text}</p>
+                            <p className="text-sm">{getRuleText(rule)}</p>
                             {rule.source && (
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 <ExternalLink className="h-3 w-3" />
@@ -183,7 +189,7 @@ export function RulesTab({
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            onClick={() => copyToClipboard(rule.rule_text || '')}
+                            onClick={() => copyToClipboard(getRuleText(rule))}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
@@ -220,7 +226,7 @@ export function RulesTab({
                             <X className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                             <div className="flex-1">
                               <p className="text-sm font-medium text-red-600 dark:text-red-400">
-                                {claim.forbidden_claim}
+                                {getClaimText(claim)}
                               </p>
                             </div>
                             {claim.severity && (
