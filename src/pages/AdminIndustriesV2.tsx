@@ -175,10 +175,27 @@ export function AdminIndustriesV2() {
           onBack={() => setSelectedPackId(null)}
         />
       ) : (
-        <IndustryBrowserV2
-          selectedPackId={selectedPackId}
-          onSelectPack={setSelectedPackId}
-        />
+        <Tabs defaultValue="industries" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="industries" className="gap-2">
+              <Layers className="h-4 w-4" />
+              Industries
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="gap-2">
+              <Bookmark className="h-4 w-4" />
+              Categories
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="industries">
+            <IndustryBrowserV2
+              selectedPackId={selectedPackId}
+              onSelectPack={setSelectedPackId}
+            />
+          </TabsContent>
+          <TabsContent value="categories">
+            <AdminCategories />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
