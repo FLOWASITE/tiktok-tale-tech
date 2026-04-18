@@ -1,7 +1,8 @@
 // ============================================
 // BATCH CAROUSEL IMAGE GENERATION (Background)
-// Generates all slide images sequentially,
-// updates generation_tasks progress in realtime
+// Sequential V2: Each slide N waits for slide N-1 and uses
+// its actual scene description + image URL for true seamless continuity.
+// Auto-triggers seamless validation when done.
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -46,9 +47,32 @@ Deno.serve(async (req) => {
     let successCount = 0;
     let failCount = 0;
     const results: { slideNumber: number; success: boolean; imageUrl?: string; error?: string }[] = [];
+    const successUrls: string[] = []; // for post-batch seamless validation
+
+    // === Sequential scene chain state ===
+    // Captures the ACTUAL previous slide's scene + image, so seamless context is real.
+    let previousSceneDescription: string | null = seriesBible || null;
+    let previousImageUrl: string | null = null;
+    // Rolling window of last 2 slides' descriptions to limit drift
+    const recentScenes: string[] = [];
 
     try {
       await updateTaskProgress(supabase, taskId, 0, `Bắt đầu tạo ${totalSlides} ảnh...`, 'starting', 'generating');
+
+      // Mark carousel as using sequential_v2 mode + clear any stale flag
+      try {
+        await supabase
+          .from('carousels')
+          .update({
+            generation_mode: 'sequential_v2',
+            needs_regeneration: false,
+            seamless_score: null,
+            seamless_issues: null,
+          })
+          .eq('id', carouselId);
+      } catch (e) {
+        console.warn('[batch] Could not mark generation_mode:', e);
+      }
 
       // Resolve organizationId from carousel
       let organizationId: string | undefined;
@@ -63,7 +87,8 @@ Deno.serve(async (req) => {
         console.warn('[batch] Could not resolve organizationId:', e);
       }
 
-      // Process slides sequentially (to avoid rate limits)
+      // Process slides STRICTLY sequentially (slide N waits for slide N-1).
+      // This is mandatory for seamless continuity — see plan layer 1.
       for (let i = 0; i < totalSlides; i++) {
         const slide = slides[i];
         const slideNum = slide.slideNumber || (i + 1);
@@ -78,16 +103,30 @@ Deno.serve(async (req) => {
           'generating'
         );
 
-        // Call the single-slide edge function internally
+        // Build seamless context from PREVIOUS slide's actual output (not from a static seriesBible).
+        // For slide 1, fall back to seriesBible (no previous slide exists yet).
+        const accumulatedChain = recentScenes.length > 0
+          ? `Recent slides in this carousel: ${recentScenes.map((s, idx) => `[${idx + 1}] ${s}`).join(' | ')}`
+          : null;
+
+        const slideSeamlessContext = {
+          colorPalette: null,
+          previousSceneDescription: previousSceneDescription, // ACTUAL previous slide scene (or seriesBible for slide 1)
+          siblingSlidesSummary: accumulatedChain || siblingsSummary || null,
+          sequencePosition: slideNum,
+          totalInSequence: totalSlides,
+        };
+
         const MAX_ATTEMPTS = 3;
         let slideSuccess = false;
         let slideImageUrl: string | undefined;
+        let slideSceneDescription: string | null = null;
         let slideError: string | undefined;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS}`);
-            
+            console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
+
             const response = await fetch(`${supabaseUrl}/functions/v1/generate-carousel-image`, {
               method: 'POST',
               headers: {
@@ -106,13 +145,9 @@ Deno.serve(async (req) => {
                 slideObjective: slide.objective,
                 visualPreset: visualPreset || 'minimalist',
                 carouselTopic,
-                seamlessContext: {
-                  colorPalette: null,
-                  previousSceneDescription: seriesBible || null,
-                  siblingSlidesSummary: siblingsSummary || null,
-                  sequencePosition: slideNum,
-                  totalInSequence: totalSlides,
-                },
+                // Pass previous slide image for img2img continuity (slide 2..N only)
+                previousImageUrl: slideNum > 1 ? previousImageUrl : null,
+                seamlessContext: slideSeamlessContext,
               }),
             });
 
@@ -128,6 +163,7 @@ Deno.serve(async (req) => {
 
             if (data.imageUrl) {
               slideImageUrl = data.imageUrl;
+              slideSceneDescription = data.sceneDescription || null;
               slideSuccess = true;
 
               // Save to carousel_images table
@@ -149,22 +185,39 @@ Deno.serve(async (req) => {
                   organization_id: organizationId || null,
                 });
 
-              break; // Success, no more retries
+              break; // Success
             }
           } catch (err) {
             slideError = err instanceof Error ? err.message : String(err);
             console.error(`[batch] Slide ${slideNum} attempt ${attempt} failed:`, slideError);
-            
+
             if (attempt < MAX_ATTEMPTS) {
               await new Promise(r => setTimeout(r, 3000 * attempt));
             }
           }
         }
 
-        if (slideSuccess) {
+        if (slideSuccess && slideImageUrl) {
           successCount++;
+          successUrls.push(slideImageUrl);
+
+          // === Update chain state for NEXT slide ===
+          // Prefer AI-returned sceneDescription. Fallback to slide objective + first 100 chars of prompt.
+          const nextSceneDesc = slideSceneDescription
+            || slide.objective
+            || (slide.fullPrompt ? String(slide.fullPrompt).slice(0, 200) : null);
+
+          previousSceneDescription = nextSceneDesc;
+          previousImageUrl = slideImageUrl;
+
+          // Maintain rolling window of last 2 scenes (avoid drift from slide 1)
+          if (nextSceneDesc) {
+            recentScenes.push(`Slide ${slideNum}: ${nextSceneDesc.slice(0, 150)}`);
+            if (recentScenes.length > 2) recentScenes.shift();
+          }
         } else {
           failCount++;
+          // Do NOT update chain state on failure — keep last successful slide as anchor
         }
 
         results.push({
@@ -174,15 +227,15 @@ Deno.serve(async (req) => {
           error: slideError,
         });
 
-        // Brief delay between slides
+        // Brief delay between slides to avoid provider rate limits
         if (i < totalSlides - 1) {
           await new Promise(r => setTimeout(r, 1500));
         }
       }
 
-      // Update result_metadata
-      const metadata = { successCount, failCount, totalSlides, results };
-      
+      // === Post-batch: persist metadata ===
+      const metadata = { successCount, failCount, totalSlides, results, generationMode: 'sequential_v2' };
+
       try {
         await supabase
           .from('generation_tasks')
@@ -192,13 +245,57 @@ Deno.serve(async (req) => {
         console.warn('[batch] Failed to save result_metadata:', e);
       }
 
+      // === AUTO seamless validation (anti silent-failure) ===
+      // Only when 2+ slides succeeded and style is seamless (or always for V2 to detect drift).
+      if (successCount >= 2) {
+        try {
+          await updateTaskProgress(
+            supabase,
+            taskId,
+            98,
+            `Đang kiểm tra tính liên tục thị giác...`,
+            'validating',
+            'generating'
+          );
+
+          const validationResp = await fetch(`${supabaseUrl}/functions/v1/validate-seamless-consistency`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({ carouselId, slideImageUrls: successUrls }),
+          });
+
+          if (validationResp.ok) {
+            const validation = await validationResp.json();
+            const score = validation?.consistency?.overallScore ?? null;
+            const issues = validation?.consistency?.issues || [];
+            const needsRegen = typeof score === 'number' && score < 60;
+
+            await supabase
+              .from('carousels')
+              .update({
+                seamless_score: score,
+                seamless_issues: issues.length ? { issues, suggestion: validation?.consistency?.suggestion } : null,
+                needs_regeneration: needsRegen,
+              })
+              .eq('id', carouselId);
+
+            console.log(`[batch] Seamless validation: score=${score}, needsRegen=${needsRegen}`);
+          } else {
+            console.warn('[batch] Seamless validation HTTP error:', validationResp.status);
+          }
+        } catch (vErr) {
+          console.warn('[batch] Seamless validation failed (non-fatal):', vErr);
+        }
+      }
+
       if (successCount === 0) {
         await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
       } else {
-        // Use carousel ID as result_id, carousel_images as result_type
         await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
-        
-        // Update progress message to show final count
+
         await updateTaskProgress(
           supabase,
           taskId,
@@ -228,7 +325,7 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ ok: true, taskId, message: "Background generation started" }),
+    JSON.stringify({ ok: true, taskId, message: "Background generation started (sequential v2)" }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 });
