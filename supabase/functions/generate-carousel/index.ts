@@ -3,6 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { hashComplianceRules } from "../_shared/cache/compliance-hash.ts";
 import {
+  postCheckCarouselCompliance,
+  type PostCheckResult,
+} from "../_shared/compliance/compliance-postcheck.ts";
+import {
   runSelfCritiqueLoop,
   CRITIQUE_CONFIG,
   type CritiqueResult,
