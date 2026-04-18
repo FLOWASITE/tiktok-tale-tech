@@ -10,6 +10,7 @@ import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
 import { createTrace } from "../_shared/tracing.ts";
 import { lightenHex, darkenHex } from "../_shared/color-utils.ts";
+import { isCircuitOpen, recordSuccess, recordFailure } from "../_shared/circuit-breaker.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
