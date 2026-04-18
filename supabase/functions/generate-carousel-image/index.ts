@@ -410,27 +410,10 @@ function blendBrandColors(
   return blended;
 }
 
-function darkenHex(hex: string, percent: number): string {
-  try {
-    const clean = hex.replace('#', '');
-    const num = parseInt(clean, 16);
-    const r = Math.max(0, (num >> 16) - Math.round(255 * percent / 100));
-    const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
-    const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
-    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-  } catch { return hex; }
-}
-
-function lightenHex(hex: string, percent: number): string {
-  try {
-    const clean = hex.replace('#', '');
-    const num = parseInt(clean, 16);
-    const r = Math.min(255, (num >> 16) + Math.round(255 * percent / 100));
-    const g = Math.min(255, ((num >> 8) & 0xFF) + Math.round(255 * percent / 100));
-    const b = Math.min(255, (num & 0xFF) + Math.round(255 * percent / 100));
-    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-  } catch { return hex; }
-}
+// lightenHex / darkenHex are imported from ../_shared/color-utils.ts (OKLCH-based,
+// perceptually uniform — preserves brand hue when lightening saturated colors
+// like purple, magenta, cyan that RGB linear-interp washes to gray).
+// See color-utils.ts for math notes.
 
 // ============================================
 // Get Overlay Config — DB preset first, fallback to hardcoded
