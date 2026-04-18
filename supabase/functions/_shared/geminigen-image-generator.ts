@@ -197,10 +197,10 @@ export async function generateImageViaGeminiGen(
     throw new Error('GEMINIGEN_API_KEY not configured. Please add it in project secrets.');
   }
 
-  console.log(`[geminigen] Starting generation: model=${params.model}, ratio=${params.aspectRatio || '1:1'}`);
+  console.log(`[geminigen] Starting generation: model=${params.model}, ratio=${params.aspectRatio || '1:1'}, maxAttempts=${params.maxAttempts ?? 20}`);
 
   const uuid = await submitTask(params, apiKey);
-  const imageUrl = await pollTask(uuid, apiKey);
+  const imageUrl = await pollTask(uuid, apiKey, params.maxAttempts);
 
   return imageUrl;
 }
