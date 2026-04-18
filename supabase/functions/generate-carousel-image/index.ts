@@ -766,9 +766,14 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         console.error(`[generate-carousel-image] PoYo.ai failed: ${errMsg}`);
 
         if (errMsg.includes('POYO_AUTH_ERROR') || errMsg.includes('POYO_CREDITS_EXHAUSTED') || errMsg.includes('POYO_RATE_LIMIT')) {
+          const isCredits = errMsg.includes('CREDITS_EXHAUSTED');
           return new Response(
-            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+              error: isCredits ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.' : errMsg,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+              fallback: true,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
