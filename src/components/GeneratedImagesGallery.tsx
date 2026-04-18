@@ -124,7 +124,7 @@ export function GeneratedImagesGallery({
         </div>
         <h3 className="font-medium text-lg mb-1">Chưa có ảnh nào</h3>
         <p className="text-sm text-muted-foreground max-w-sm mb-4">
-          Vào tab "Slide Prompts" và nhấn "Tạo ảnh với Gemini" trên từng slide để bắt đầu tạo ảnh.
+          Vào tab "Slide Prompts" và nhấn "Tạo ảnh AI" trên từng slide để bắt đầu tạo ảnh.
         </p>
         {onGenerateAll && (
           <Button onClick={onGenerateAll} className="gap-2" disabled={isGenerating}>
