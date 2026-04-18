@@ -1403,7 +1403,7 @@ Follow the carousel style guidelines strictly.`;
           : null;
 
         supabase.from('ai_metrics').insert({
-          trace_id: carouselTraceId,
+          trace_id: traceId,
           organization_id: orgIdForLog,
           user_id: userId,
           function_name: 'generate-carousel',
