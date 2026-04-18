@@ -1,80 +1,60 @@
 
 
-## Nguyên nhân (đọc logs cụ thể)
+## Triệu chứng
+User thấy **quá nhiều ảnh** được tạo cho mỗi slide trong carousel — DB có nhiều row hơn dự kiến.
 
-Logs slide 2 cho thấy chuỗi sự kiện:
+## Điều tra cần làm
+Đọc code để xác định các điểm có thể tạo ảnh trùng:
 
+1. **`useImageGeneration.ts` + `useCarouselImages.ts`**: Đã thấy logic — khi `generateImage()` thành công, có nơi nào gọi `saveImage()` không? Có double-insert không?
+2. **`generate-carousel-image/index.ts`**: Edge function bây giờ tự `Persisted slide=3 to carousel_images` (thấy trong logs). Vậy frontend còn gọi `saveImage()` nữa không → **double insert**.
+3. **`generate-carousel-images-batch`**: Loop có gọi mirror/persist 2 lần không? Logs có `[mirror] slide 3 mirrored` → nghi ngờ mirror tạo thêm row.
+4. **CarouselViewer**: Component cha có trigger generate nhiều lần khi state thay đổi (useEffect dependency sai)?
+
+## Giả thuyết chính (từ logs đã thấy)
+
+Logs cho slide 3:
 ```
-t+0ms      [generate-carousel-image] Step 1: Generating background...
-t+6s       [geminigen] Task submitted
-t+7s..96s  Polling 32 attempts
-t+121s     [geminigen] Image ready after 96s ✓ ẢNH ĐÃ TẠO XONG
-t+122s     [generate-carousel-image] FAST PATH: using external URL directly
-t+122s     [generate-carousel-image] Background uploaded (R2 URL)
-t+122s     [describe] Failed status=402   ← Gemini Flash Lite hết credits
-t+122s     [generate-carousel-image] Returning background image: https://...r2...
-t+122.9s   [PERF][SLOW] status=200 durationMs=122952  ← Edge function ĐÃ TRẢ 200 OK
-t+125s     shutdown
-```
-
-→ **GeminiGen tạo ảnh xong, edge function trả 200 OK với URL R2 trong 122.9s.**
-
-Nhưng client log:
-```
-Error: Edge Function timed out after 150s
-at invokeWithTimeout (src/lib/invokeEdgeFunctionWithTimeout.ts:85)
+[generate-carousel-image] Persisted slide=3 to carousel_images   ← Edge tự insert (lần 1)
+[mirror] slide 3 mirrored in 2264ms                              ← Mirror cũng insert (lần 2?)
 ```
 
-## Root cause
+Frontend `useImageGeneration.generateImage()` trả về `imageUrl` → `CarouselViewer` có thể gọi `useCarouselImages.saveImage()` → **insert lần 3**.
 
-Mismatch timing **client ↔ edge**:
-- Edge function cold-start mất ~6s trước khi log đầu tiên (Step 1).
-- Tổng thời gian thực client phải chờ = cold-start + 122.9s ≈ **128-130s**.
-- Nhưng `useImageGeneration.ts` set `timeoutMs: 150_000` — về lý thuyết đủ.
-- **Vấn đề thật:** Có thể request bị retry/queue ở Supabase gateway, hoặc cold-start lần này lâu hơn (Lovable preview proxy + browser fetch overhead) → AbortController fire ở 150s **trước khi** response stream về tới client.
+Cộng với `useCarouselImages.saveImage()` không dùng UPSERT mà:
+1. Update `is_selected=false` cho version cũ
+2. INSERT row mới (auto-bump version)
 
-Đồng thời, có 1 vấn đề phụ làm chậm: dù `[describe] Failed 402` chỉ tốn ~400ms, mỗi slide vẫn chạy describe call sequential **sau khi** đã có ảnh — đẩy thêm độ trễ trước khi return.
+→ Mỗi click "Tạo ảnh" tạo +1 row vĩnh viễn (versioning by design), nhưng nếu **edge + mirror + frontend cùng insert** → 2-3 row mỗi lần generate.
 
-## Hệ quả người dùng thấy
+Cũng có thể `useCarouselCardImages` realtime subscription kích trigger UI re-render → vô tình kích lại generate.
 
-- GeminiGen dashboard: ảnh xong ✓
-- R2 storage: ảnh đã upload ✓
-- DB `carousel_images`: **KHÔNG có row** vì client throw timeout → không gọi `saveImage()` lưu vào DB
-- Carousel viewer: trống
+## Kế hoạch điều tra (read-only)
 
-→ Ảnh "mồ côi" trên R2, DB không biết.
+1. Đọc `supabase/functions/generate-carousel-image/index.ts` — xem chính xác chỗ persist + mirror logic.
+2. Đọc `supabase/functions/generate-carousel-images-batch/index.ts` — xem loop có duplicate persist không.
+3. Đọc `CarouselViewer.tsx` (hoặc component gọi `generateImage`) — xem sau khi generate xong có gọi `saveImage()` nữa không.
+4. Query DB: `SELECT carousel_id, slide_number, COUNT(*) FROM carousel_images GROUP BY 1,2 HAVING COUNT(*) > 1` để confirm có duplicate.
 
-## Kế hoạch sửa
+## Kế hoạch sửa (sau khi xác định)
 
-### 1. Skip describe call khi đã 402 (loại bỏ 400ms+ thừa)
-File: `supabase/functions/generate-carousel-image/index.ts`
-- Cache `describeFailed=true` ở module scope. Nếu đã fail 402 trong session, slide tiếp theo bỏ qua describe → trả response ngay → giảm tail latency ~500ms-1s.
+**Nếu nguyên nhân là double-insert (edge + frontend):**
+- Bỏ `saveImage()` call ở frontend khi nhận response từ `generate-carousel-image` — edge function đã tự lưu.
+- Frontend chỉ rely vào realtime subscription `useCarouselCardImages` để pick up row mới.
 
-### 2. Nâng client timeout lên 180s (buffer cho cold-start + proxy)
-File: `src/hooks/useImageGeneration.ts`
-- `timeoutMs: 150_000` → `180_000`.
-- Edge runtime hard limit 150s nhưng client phải cộng thêm cold-start + network round-trip → cần buffer 30s.
+**Nếu nguyên nhân là mirror tạo row riêng:**
+- Mirror chỉ nên upload R2 lại (re-host) và **UPDATE** `image_url` của row đã có, không INSERT mới.
 
-### 3. Background-safe persistence: lưu DB ngay trong edge function
-File: `supabase/functions/generate-carousel-image/index.ts`
-- Sau khi có `imageUrl`, **insert vào `carousel_images` ngay trong edge function** (dùng service client) **trước khi** return response.
-- Wrap bằng `EdgeRuntime.waitUntil()` để nếu client đã disconnect (timeout), edge vẫn hoàn tất ghi DB.
-- Frontend đã có realtime subscription `carousel-card-images` → ảnh sẽ tự xuất hiện kể cả khi client báo timeout.
+**Nếu nguyên nhân là versioning không kiểm soát:**
+- Thêm dedup check ở edge function: trước khi insert, query xem có row `is_selected=true` cho `(carousel_id, slide_number)` trong vòng 30s không → nếu có thì UPDATE thay vì INSERT.
 
-### 4. Frontend: handle timeout gracefully
-File: `src/hooks/useImageGeneration.ts`
-- Khi catch timeout error, **không hiện toast đỏ ngay**. Thay vào đó:
-  - Hiện toast info: "Ảnh đang được hoàn tất ở nền, sẽ xuất hiện trong giây lát…"
-  - Trigger `refetch()` của `useCarouselImages` sau 5-10s để pick up ảnh đã được edge function lưu background.
-
-## Files đụng
-
-- `supabase/functions/generate-carousel-image/index.ts` — skip describe khi 402, persist DB inline với `EdgeRuntime.waitUntil`
-- `src/hooks/useImageGeneration.ts` — timeout 180s + graceful timeout handling với refetch trigger
+## Files dự kiến đụng
+- `supabase/functions/generate-carousel-image/index.ts` — nguồn truth duy nhất cho persist
+- `src/components/CarouselViewer.tsx` (hoặc tương đương) — bỏ saveImage redundant
+- `src/hooks/useCarouselImages.ts` — đảm bảo không double-insert nếu vẫn cần fallback
 
 ## Kết quả mong đợi
-
-- Ảnh GeminiGen tạo xong → **luôn được lưu DB** dù client timeout hay không.
-- User thấy ảnh trong viewer trong vòng vài giây sau khi GeminiGen done, không cần reload.
-- Không còn cảnh "ảnh có ở GeminiGen nhưng viewer trống".
+- Mỗi lần generate slide chỉ tạo **đúng 1 row** trong `carousel_images`.
+- Không còn ảnh "ghost" version chồng chất.
+- Logs sẽ chỉ ra rõ chỉ có 1 nơi insert.
 
