@@ -124,6 +124,13 @@ Deno.serve(async (req) => {
         let slideError: string | undefined;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          // Per-attempt timeout: 150s. If generate-carousel-image hangs longer than this
+          // (typically due to a slow provider like GeminiGen), abort and retry with a
+          // fresh connection rather than waiting for the platform to kill the socket
+          // mid-response (which produces "connection closed before message completed").
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 150_000);
+
           try {
             console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
 
@@ -149,7 +156,10 @@ Deno.serve(async (req) => {
                 previousImageUrl: slideNum > 1 ? previousImageUrl : null,
                 seamlessContext: slideSeamlessContext,
               }),
+              signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
               const errText = await response.text().catch(() => 'Unknown error');
@@ -166,7 +176,8 @@ Deno.serve(async (req) => {
               slideSceneDescription = data.sceneDescription || null;
               slideSuccess = true;
 
-              // Save to carousel_images table
+              // Save to carousel_images table — persist scene_description for
+              // seamless continuity across refresh + single-slide regenerate.
               await supabase
                 .from('carousel_images')
                 .update({ is_selected: false })
@@ -180,6 +191,7 @@ Deno.serve(async (req) => {
                   slide_number: slideNum,
                   image_url: slideImageUrl,
                   prompt: slide.fullPrompt,
+                  scene_description: slideSceneDescription,
                   is_selected: true,
                   created_by: body.userId || null,
                   organization_id: organizationId || null,
@@ -188,7 +200,11 @@ Deno.serve(async (req) => {
               break; // Success
             }
           } catch (err) {
-            slideError = err instanceof Error ? err.message : String(err);
+            clearTimeout(timeoutId);
+            const isAbort = err instanceof Error && (err.name === 'AbortError' || /abort/i.test(err.message));
+            slideError = isAbort
+              ? `Timeout sau 150s (provider treo) — attempt ${attempt}`
+              : (err instanceof Error ? err.message : String(err));
             console.error(`[batch] Slide ${slideNum} attempt ${attempt} failed:`, slideError);
 
             if (attempt < MAX_ATTEMPTS) {
