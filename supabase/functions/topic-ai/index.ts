@@ -1564,7 +1564,7 @@ ${learningSection}
 ## OUTPUT FORMAT:
 Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
 [{
-  "topic": "Tiêu đề chi tiết, hấp dẫn, có hook + ngữ cảnh rõ ràng. ĐỘ DÀI BẮT BUỘC: 80-300 ký tự (đếm cả khoảng trắng). Tối ưu: 120-200 ký tự. Có thể dùng dấu `:` hoặc `—` để tách hook và mô tả phụ. KHÔNG ngắn hơn 80 ký tự.",
+  "topic": "Tiêu đề chi tiết, hấp dẫn, có hook + ngữ cảnh rõ ràng. ĐỘ DÀI BẮT BUỘC: 80-300 ký tự (đếm cả khoảng trắng). Tối ưu: 120-200 ký tự. Có thể dùng dấu ':' hoặc '—' để tách hook và mô tả phụ. KHÔNG ngắn hơn 80 ký tự.",
   "category": "evergreen" | "trending" | "seasonal" | "reactive",
   "pillar": "Tên content pillar phù hợp",
   "reasoning": "Mô tả chi tiết về topic: bao gồm (1) góc tiếp cận / angle, (2) vì sao topic này phù hợp với brand & mục tiêu, (3) value chính mang lại cho audience, (4) gợi ý hook hoặc key message. TỐI THIỂU 300 ký tự, TỐI ƯU 350-500 ký tự. Viết tự nhiên, mạch lạc, KHÔNG gạch đầu dòng, KHÔNG nhồi từ rỗng.",
