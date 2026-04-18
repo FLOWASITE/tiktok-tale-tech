@@ -6,6 +6,10 @@ import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
+import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
+import { createTrace } from "../_shared/tracing.ts";
+import { lightenHex, darkenHex } from "../_shared/color-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -410,27 +414,10 @@ function blendBrandColors(
   return blended;
 }
 
-function darkenHex(hex: string, percent: number): string {
-  try {
-    const clean = hex.replace('#', '');
-    const num = parseInt(clean, 16);
-    const r = Math.max(0, (num >> 16) - Math.round(255 * percent / 100));
-    const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
-    const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
-    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-  } catch { return hex; }
-}
-
-function lightenHex(hex: string, percent: number): string {
-  try {
-    const clean = hex.replace('#', '');
-    const num = parseInt(clean, 16);
-    const r = Math.min(255, (num >> 16) + Math.round(255 * percent / 100));
-    const g = Math.min(255, ((num >> 8) & 0xFF) + Math.round(255 * percent / 100));
-    const b = Math.min(255, (num & 0xFF) + Math.round(255 * percent / 100));
-    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-  } catch { return hex; }
-}
+// lightenHex / darkenHex are imported from ../_shared/color-utils.ts (OKLCH-based,
+// perceptually uniform — preserves brand hue when lightening saturated colors
+// like purple, magenta, cyan that RGB linear-interp washes to gray).
+// See color-utils.ts for math notes.
 
 // ============================================
 // Get Overlay Config — DB preset first, fallback to hardcoded
@@ -517,7 +504,45 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic,
             previousImageUrl } = requestBody;
 
-    console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
+    // ============================================
+    // Distributed trace — propagate from generate-carousel
+    // ============================================
+    const incomingTraceId = req.headers.get("x-trace-id") || requestBody.traceId || carouselId || undefined;
+    const trace = createTrace(incomingTraceId);
+    const traceId = trace.traceId;
+    const tlog = (msg: string, ...rest: any[]) =>
+      console.log(`[trace=${traceId.slice(0, 8)} slide=${slideNumber}] ${msg}`, ...rest);
+    const twarn = (msg: string, ...rest: any[]) =>
+      console.warn(`[trace=${traceId.slice(0, 8)} slide=${slideNumber}] ${msg}`, ...rest);
+
+    tlog(`Starting for carousel ${carouselId}`);
+
+    // ============================================
+    // 2.1 Prompt-injection guard on user-supplied prompt
+    // ============================================
+    if (typeof prompt === "string" && prompt.length > 0) {
+      const promptGuard = sanitizeInput(prompt);
+      if (promptGuard.riskLevel === "high") {
+        // Log async, never block response on logging
+        try {
+          const tmpSupa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+          logSecurityEvent(tmpSupa, undefined, undefined, promptGuard).catch(() => {});
+        } catch { /* ignore */ }
+        twarn("Prompt injection blocked", { flagged: promptGuard.flaggedPatterns });
+        return new Response(
+          JSON.stringify({
+            error: "INPUT_BLOCKED",
+            message: "Phát hiện mẫu prompt injection trong dữ liệu nhập.",
+            flagged: promptGuard.flaggedPatterns,
+            traceId,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json", "x-trace-id": traceId } }
+        );
+      }
+      // Replace with sanitized version downstream
+      requestBody.prompt = promptGuard.sanitizedMessage;
+    }
+
 
     if (!prompt) {
       return new Response(
@@ -563,6 +588,27 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       brandTemplateId = carouselData?.brand_template_id || null;
     } catch (e) {
       console.warn('[generate-carousel-image] Could not resolve carousel meta:', e);
+    }
+
+    // ============================================
+    // 2.1 Per-user rate limit (carousel_image bucket — per minute)
+    // Defends against cost-amplification across the 4-provider fallback chain.
+    // ============================================
+    try {
+      const userIdForRl = await resolveUserId(req, supabase);
+      if (userIdForRl) {
+        const planType = await getUserPlanType(supabase, userIdForRl);
+        const rlConfig = getRateLimitConfig(planType, "carousel_image");
+        const rl = checkRateLimit(userIdForRl, rlConfig);
+        if (!rl.allowed) {
+          twarn(`Rate limit exceeded plan=${planType} resetAt=${rl.resetAt.toISOString()}`);
+          return createRateLimitErrorResponse(rl, { ...corsHeaders, "x-trace-id": traceId });
+        }
+        tlog(`Rate limit OK plan=${planType} remaining=${rl.remaining}/${rlConfig.maxRequests}`);
+      }
+    } catch (rlErr) {
+      // Don't fail request on rate-limit infrastructure error
+      twarn("Rate limit check failed (allowing through):", rlErr);
     }
 
     // Resolve brand logo URL when includeLogo === true
