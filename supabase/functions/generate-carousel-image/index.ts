@@ -1108,30 +1108,40 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     let backgroundUrl: string;
 
     if (externalImageUrl) {
-      // PoYo/KIE returned a public URL — download and re-upload to our storage for consistency
+      // FAST PATH: External providers (GeminiGen/PoYo/KIE) return public URLs
+      // (e.g. R2 signed URL valid 7 days). Use directly to avoid the
+      // download→re-upload round-trip that was causing 150s edge timeouts on
+      // multi-slide carousels. Mirror to Supabase Storage in the background
+      // so we have long-term persistence without blocking the response.
+      const tFastPath = Math.round(performance.now());
+      backgroundUrl = externalImageUrl;
+      console.log(`[generate-carousel-image] FAST PATH: using external URL directly (slide=${slideNumber}, t+${tFastPath}ms)`);
+
+      const externalUrlForMirror = externalImageUrl;
+      const mirrorFileName = `${carouselId}/slide-${slideNumber}-bg-${Date.now()}.jpg`;
       try {
-        const imgResponse = await fetch(externalImageUrl);
-        if (!imgResponse.ok) throw new Error(`Failed to download: ${imgResponse.status}`);
-        const imgBlob = await imgResponse.arrayBuffer();
-        const imgBytes = new Uint8Array(imgBlob);
-        const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
-        const ext = contentType.includes('png') ? 'png' : 'jpg';
-        const bgFileName = `${carouselId}/slide-${slideNumber}-bg-${Date.now()}.${ext}`;
-
-        const { error: uploadErr } = await supabase.storage
-          .from("carousel-images")
-          .upload(bgFileName, imgBytes, { contentType, upsert: true });
-
-        if (uploadErr) {
-          console.warn("[generate-carousel-image] Upload failed, using external URL:", uploadErr);
-          backgroundUrl = externalImageUrl;
-        } else {
-          const { data: urlData } = supabase.storage.from("carousel-images").getPublicUrl(bgFileName);
-          backgroundUrl = urlData.publicUrl;
-        }
-      } catch (dlErr) {
-        console.warn("[generate-carousel-image] Download/upload failed, using external URL:", dlErr);
-        backgroundUrl = externalImageUrl;
+        // @ts-ignore — EdgeRuntime available in Supabase edge runtime
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            const mirrorStart = performance.now();
+            const r = await fetch(externalUrlForMirror);
+            if (!r.ok) throw new Error(`mirror fetch ${r.status}`);
+            const buf = new Uint8Array(await r.arrayBuffer());
+            const ct = r.headers.get('content-type') || 'image/jpeg';
+            const { error: upErr } = await supabase.storage
+              .from('carousel-images')
+              .upload(mirrorFileName, buf, { contentType: ct, upsert: true });
+            if (upErr) {
+              console.warn(`[mirror] slide ${slideNumber} upload failed:`, upErr.message);
+            } else {
+              console.log(`[mirror] slide ${slideNumber} mirrored in ${Math.round(performance.now() - mirrorStart)}ms`);
+            }
+          } catch (e) {
+            console.warn(`[mirror] slide ${slideNumber} background mirror failed:`, (e as Error).message);
+          }
+        })());
+      } catch {
+        // EdgeRuntime not available — silently skip
       }
     } else {
       // Lovable AI: upload base64
