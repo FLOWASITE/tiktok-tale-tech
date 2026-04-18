@@ -478,17 +478,61 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Resolve organizationId from carousel for proper config resolution
+    // Resolve organizationId + brand logo from carousel for proper config resolution
     let organizationId: string | undefined;
+    let includeLogo = false;
+    let brandTemplateId: string | null = null;
+    let resolvedLogoUrl: string | null = null;
     try {
       const { data: carouselData } = await supabase
         .from('carousels')
-        .select('organization_id')
+        .select('organization_id, include_logo, brand_template_id')
         .eq('id', carouselId)
         .maybeSingle();
       organizationId = carouselData?.organization_id || undefined;
+      includeLogo = !!carouselData?.include_logo;
+      brandTemplateId = carouselData?.brand_template_id || null;
     } catch (e) {
-      console.warn('[generate-carousel-image] Could not resolve organizationId from carousel:', e);
+      console.warn('[generate-carousel-image] Could not resolve carousel meta:', e);
+    }
+
+    // Resolve brand logo URL when includeLogo === true
+    // Pattern: brand_templates.logo_url may be a full URL or a Storage path under 'brand-assets'
+    if (includeLogo && brandTemplateId) {
+      try {
+        const { data: brand } = await supabase
+          .from('brand_templates')
+          .select('logo_url')
+          .eq('id', brandTemplateId)
+          .maybeSingle();
+        const raw = brand?.logo_url || null;
+        if (raw) {
+          if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) {
+            resolvedLogoUrl = raw;
+          } else {
+            // Assume Storage path. Try 'brand-assets' first; fall back to 'brand-logos' if needed.
+            const { data: pub1 } = supabase.storage.from('brand-assets').getPublicUrl(raw);
+            resolvedLogoUrl = pub1?.publicUrl || null;
+          }
+          console.log(`[generate-carousel-image] Brand logo resolved: ${resolvedLogoUrl ? 'YES' : 'NO'} (brand=${brandTemplateId})`);
+        } else {
+          console.warn(`[generate-carousel-image] include_logo=true but brand has no logo_url (brand=${brandTemplateId})`);
+        }
+      } catch (e) {
+        console.warn('[generate-carousel-image] Could not resolve brand logo:', e);
+      }
+    }
+
+    // Logo fingerprint (short hash) for downstream cache invalidation when admin swaps logo
+    let logoFingerprint = 'no-logo';
+    if (resolvedLogoUrl) {
+      try {
+        const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(resolvedLogoUrl));
+        logoFingerprint = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+          .slice(0, 16);
+      } catch { /* ignore */ }
     }
 
     const resolvedPresetKey = visualPreset || carouselStyle || 'minimalist';
