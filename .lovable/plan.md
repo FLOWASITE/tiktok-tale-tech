@@ -1,133 +1,192 @@
 
 ## Bối cảnh
+User nêu 5 vấn đề quan sát được sau audit pipeline carousel. Cần verify trước khi fix vì codebase đã có sẵn nhiều primitive (`prompt-guard.ts`, `tracing.ts`, `request-validator.ts`). Tránh duplicate work.
 
-User đã review audit lần 1 và đưa ra verdict + priority list rất rõ. Cần triển khai 4 fix theo thứ tự, **đồng thời trả lời 4 câu hỏi cuối** để confirm scope của Risk 1 (P0 hay không).
+## Phase 0 — Investigation (đã thấy trong context)
 
-## Phase 0 — Investigation (trả lời 4 câu hỏi trước khi code)
+Có sẵn:
+- ✅ `supabase/functions/_shared/prompt-guard.ts` — `sanitizeInput()` + `logSecurityEvent()` (chưa biết có dùng trong generate-carousel chưa)
+- ✅ `supabase/functions/_shared/tracing.ts` — W3C trace context (chưa biết áp dụng vào carousel chưa)
+- ✅ `supabase/functions/_shared/pipeline/request-validator.ts` — rate limit util qua `checkRateLimit()` (chưa biết generate-carousel có gọi không)
 
-Đọc files để confirm trước khi fix:
-1. `supabase/functions/_shared/cache/compliance-hash.ts` → đã có sẵn (xem Core context). Confirm: hash bao gồm `forbidden_words`, `preferred_words`, `system_rules`, `forbidden_patterns`, `valid_patterns`, `brand_voice` object. **`language_style` & `allow_emoji` không có** → cần verify chúng nằm trong `brand_voice` object hay không.
-2. `supabase/functions/_shared/compliance/compliance-postcheck.ts` → đã có (vừa tạo). Confirm scan `fullPrompt` field hay không.
-3. `supabase/functions/generate-carousel-image/index.ts` → tìm logic chọn provider (`getAIConfig` / model selection). Xác định **default provider production**.
-4. Search `sceneDescription = null` / warning log.
+Cần đọc để xác nhận:
+1. `supabase/functions/generate-carousel/index.ts` — có gọi `sanitizeInput`, `validateRequest`, `createTrace` không?
+2. `supabase/functions/generate-carousel-image/index.ts` — có gọi `createTrace`/`getTraceHeaders` không? Provider fallback chain code path?
+3. `supabase/functions/_shared/rate-limiter.ts` — có config `'carousel'` không?
+4. `src/lib/colorUtils.ts` (hoặc tương đương) — `lightenHex` đang RGB hay HSL?
+5. Bảng logs/metrics — có cột `correlation_id` / `trace_id` chưa?
 
-## Phase 1 — CRITICAL: Populate `sceneDescription` cho mọi provider (1-2 ngày work, scope nhỏ)
+## Giải pháp — 5 vấn đề (chia priority theo impact × effort)
 
-**File**: `supabase/functions/generate-carousel-image/index.ts`
+### 2.1 — HIGH: Prompt injection guard + rate limit per org
 
-**Approach**: Sau khi PoYo/KIE/GeminiGen trả về `imageUrl`, gọi Gemini Flash describe call (~$0.001/slide) để extract scene description.
+**File**: `supabase/functions/generate-carousel/index.ts`, `generate-carousel-image/index.ts`
 
 ```typescript
-async function describeImageForContinuity(imageUrl: string, lovableApiKey: string): Promise<string> {
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
+import { validateRequest } from "../_shared/pipeline/request-validator.ts";
+
+// At entry, after parse body:
+const topicGuard = sanitizeInput(topic || "");
+const brandGuide = sanitizeInput(brandGuideline || "");
+if (topicGuard.riskLevel === "high") {
+  await logSecurityEvent(supabase, userId, organizationId, topicGuard);
+  return new Response(JSON.stringify({
+    error: "INPUT_BLOCKED",
+    reason: "Detected prompt injection patterns",
+    flagged: topicGuard.flaggedPatterns,
+  }), { status: 400, headers: corsHeaders });
+}
+// Use sanitized strings downstream
+const safeTopic = topicGuard.sanitizedMessage;
+const safeBrandGuide = brandGuide.sanitizedMessage;
+
+// Rate limit (extend rate-limiter config to include 'carousel')
+const validation = await validateRequest(supabase, userId, corsHeaders, logger);
+if (!validation.allowed) return validation.errorResponse!;
+```
+
+**File**: `supabase/functions/_shared/rate-limiter.ts` — thêm config:
+```typescript
+carousel: { free: { perHour: 10 }, starter: { perHour: 30 }, pro: { perHour: 100 }, enterprise: { perHour: 500 } }
+```
+
+### 2.2 — HIGH: Circuit breaker cho image provider fallback
+
+**New file**: `supabase/functions/_shared/circuit-breaker.ts`
+
+```typescript
+// In-memory + Postgres-backed circuit breaker
+// Window: 60s sliding, threshold: 50% fail rate min 5 requests, open duration: 5min
+interface ProviderState { failures: number; total: number; openedAt?: number; }
+const STATE = new Map<string, ProviderState>();
+
+export function shouldSkip(provider: string): boolean {
+  const s = STATE.get(provider);
+  if (!s?.openedAt) return false;
+  if (Date.now() - s.openedAt > 5 * 60_000) { STATE.delete(provider); return false; }
+  return true;
+}
+
+export function recordResult(provider: string, ok: boolean): void { /* update + open if needed */ }
+```
+
+**File**: `supabase/functions/generate-carousel-image/index.ts` — wrap mỗi provider call:
+```typescript
+for (const provider of ["poyo", "kie", "gemini-gen", "lovable-gateway"]) {
+  if (shouldSkip(provider)) { console.log(`[circuit] SKIP ${provider}`); continue; }
+  try {
+    const result = await callProvider(provider, ...);
+    recordResult(provider, true);
+    return result;
+  } catch (err) {
+    recordResult(provider, false);
+  }
+}
+```
+
+Persist breaker state vào table `provider_circuit_state` (uuid, provider text, opened_at, failures, total) để chia sẻ giữa instance edge function.
+
+### 2.3 — MEDIUM: sceneDescription extraction robust
+
+**File**: `supabase/functions/generate-carousel-image/index.ts` — đã có `describeImageForContinuity` (vừa tạo Phase 1). Cập nhật prompt + extraction:
+
+```typescript
+async function describeImageForContinuity(imageUrl: string, lovableApiKey: string) {
+  const resp = await fetch(GATEWAY, {
     method: "POST",
-    headers: { Authorization: `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash-lite",
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: "Describe this image's visual style, color palette, lighting, composition, and key subjects in 2-3 sentences. No markdown, no JSON, plain prose only." },
-          { type: "image_url", image_url: { url: imageUrl } },
-        ],
-      }],
+      messages: [{ role: "user", content: [
+        { type: "text", text: "Describe this image's visual style. Respond ONLY with JSON: {\"scene\": \"...2-3 sentences plain prose, no markdown...\"}" },
+        { type: "image_url", image_url: { url: imageUrl } },
+      ]}],
+      tools: [{ type: "function", function: {
+        name: "describe_scene",
+        parameters: { type: "object", properties: { scene: { type: "string" }}, required: ["scene"]}
+      }}],
+      tool_choice: { type: "function", function: { name: "describe_scene" }},
     }),
   });
   const data = await resp.json();
-  let desc = data?.choices?.[0]?.message?.content || "";
-  // Strip markdown/JSON artifacts
-  desc = desc.replace(/```[\s\S]*?```/g, "").replace(/[*_#`]/g, "").replace(/\s+/g, " ").trim();
-  return desc.slice(0, 300);
+  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  const parsed = args ? JSON.parse(args) : {};
+  return sanitizeSceneDescription(parsed.scene || "").slice(0, 300);
 }
 ```
 
-Apply cho **tất cả** provider branches (PoYo, KIE, GeminiGen) — không chỉ Lovable Gateway. Cũng strip markdown trên Lovable Gateway path (fix bug raw slice).
+Fallback: nếu tool call fail → regex extract `Scene:\s*(.+)` từ raw text → cuối cùng mới slice 300 chars.
 
-**Persist vào DB** — migration thêm column:
-```sql
-ALTER TABLE carousel_images 
-  ADD COLUMN IF NOT EXISTS scene_description text;
-```
-Save `sceneDescription` vào row khi insert. Frontend `useCarouselImages` đọc lại khi single-slide regenerate.
+### 2.4 — MEDIUM: Color lightening dùng OKLCH
 
-## Phase 2 — HIGH: Fix cache-store-before-validate (30 phút)
+**File**: tìm `lightenHex` trong codebase — likely `src/lib/colorUtils.ts` hoặc `supabase/functions/_shared/image-prompt-style-computer.ts`.
 
-**File**: `supabase/functions/generate-carousel/index.ts`
-
-Move `validateRepairedSlides()` **vào trong** `withCache` generateFn, trước khi return. Nếu fail → throw → cache không store invalid payload.
-
+Replace RGB linear interp bằng OKLCH:
 ```typescript
-const result = await withCache(cacheKey, async () => {
-  const generated = await generateAIContent(...);
-  const normalized = normalizeAndRepair(generated);
-  const validation = validateRepairedSlides(normalized.slides, slideCount);
-  if (!validation.valid) {
-    throw new Error(`SLIDE_VALIDATION_FAIL: ${validation.errors.join("; ")}`);
-  }
-  return normalized;
+// OKLCH is perceptually uniform — preserves hue when lightening
+function lightenHex(hex: string, amount: number): string {
+  const { l, c, h } = hexToOklch(hex);
+  const newL = l + (1 - l) * amount; // amount 0..1
+  return oklchToHex({ l: newL, c: c * (1 - amount * 0.3), h }); // slight chroma reduce for natural pastel
+}
+```
+
+Sử dụng lib `culori` (Deno port: `https://esm.sh/culori@4`) để khỏi tự implement chuyển đổi không gian màu.
+
+Test fixture: 20 màu đa dạng (red/blue/purple/orange/cyan/lime/magenta...) → assert lightened version giữ hue (delta H < 5°).
+
+### 2.5 — LOW: Correlation ID xuyên function
+
+**File**: `generate-carousel/index.ts` — tạo `traceId = carouselId` (nếu đã có) hoặc fresh uuid:
+```typescript
+import { createTrace, getTraceHeaders } from "../_shared/tracing.ts";
+
+const trace = createTrace(req.headers.get("x-trace-id") || carouselId);
+const childSpan = createSpan(trace, trace.rootSpanId, "generate-carousel-image-call");
+
+// When invoking generate-carousel-image:
+await fetch(`${SUPABASE_URL}/functions/v1/generate-carousel-image`, {
+  headers: { ...getTraceHeaders(trace.traceId, childSpan.spanId), Authorization: `Bearer ${jwt}` },
+  body: JSON.stringify({ ..., traceId: trace.traceId }),
 });
 ```
 
-## Phase 3 — HIGH: Logo cho mọi slide (Option A + C hybrid)
+**Frontend** `useImageGeneration.ts`: forward `traceId` (= `carouselId`) trong body.
 
-**Option A (immediate)**: Trong `generate-carousel-image/index.ts`, đổi logic provider selection:
-```typescript
-// Nếu brand có logo + includeLogo=true → force Lovable Gateway
-if (includeLogo && resolvedLogoUrl && imageProvider !== "lovable-gateway") {
-  console.log("[provider] Switching to Lovable Gateway: brand has logo (multi-image required)");
-  imageProvider = "lovable-gateway";
-}
+**Logging**: Thêm `[trace=${traceId}]` prefix vào mọi `console.log` trong cả 2 function.
+
+**Sampling raw AI response** — migration:
+```sql
+ALTER TABLE ai_metrics ADD COLUMN IF NOT EXISTS trace_id text;
+ALTER TABLE ai_metrics ADD COLUMN IF NOT EXISTS sampled_response text; -- truncated 2000 chars
+CREATE INDEX IF NOT EXISTS ai_metrics_trace_id_idx ON ai_metrics(trace_id);
 ```
 
-**Option C deferred** (composite overlay với sharp/canvas) — out of scope task này, ghi note tạo task riêng.
-
-## Phase 4 — MEDIUM: Admin cache invalidation endpoint (4 giờ)
-
-**New edge function**: `supabase/functions/admin-cache-invalidate/index.ts`
-
-```typescript
-// POST /admin-cache-invalidate
-// Body: { organization_id?: uuid, industry_template_id?: uuid, brand_template_id?: uuid }
-// Auth: require admin role via has_role(uid, 'admin')
-```
-
-Implementation:
-- Verify caller is admin (`user_roles` table).
-- Build prefix: `flowa:cache:{brandId}:*` hoặc query `ai_response_cache` table by `industry_memory_version`.
-- Call `invalidateByPrefix()` (Redis) + `DELETE FROM ai_response_cache WHERE ...` (Postgres fallback).
-- Return `{ deleted_redis: N, deleted_pg: M }`.
-
-UI button (later task): Settings → Brand → "Flush AI cache".
-
-## Phase 5 — LOW: Confirm `hashComplianceRules` coverage
-
-**File audit only**: `supabase/functions/_shared/cache/compliance-hash.ts` đã shown trong context.
-
-Confirm hash includes: `version`, `compliance_rules`, `claim_restrictions`, `forbidden_terms`, `forbidden_words`, `preferred_words`, `system_rules`, `forbidden_patterns`, `valid_patterns`, **`brand_voice` (full object)**.
-
-`language_style`, `allow_emoji`, `formality_level` thường nằm trong `brand_voice` JSON → đã được cover qua `bv: industry.brand_voice`. **Không cần fix**, chỉ document rõ trong memory.
+Logic sample: `if (Math.random() < 0.1) metric.sampled_response = aiResponse.slice(0, 2000);`
 
 ## Files dự kiến sửa
 
-- **Edit**: `supabase/functions/generate-carousel-image/index.ts` (describe call + provider switch + markdown strip)
-- **Edit**: `supabase/functions/generate-carousel/index.ts` (move validate vào withCache)
-- **Edit**: `src/hooks/useCarouselImages.ts` (đọc + lưu `scene_description`)
-- **New**: `supabase/functions/admin-cache-invalidate/index.ts`
-- **Migration**: ADD COLUMN `carousel_images.scene_description text`
-- **Memory update**: `mem://features/carousel/sequential-v2-seamless-vn` — add note "scene_description giờ persist + populate cho mọi provider"
+- **Edit**: `supabase/functions/generate-carousel/index.ts` (sanitize + rate limit + trace)
+- **Edit**: `supabase/functions/generate-carousel-image/index.ts` (sanitize + circuit breaker + structured scene + trace)
+- **Edit**: `supabase/functions/_shared/rate-limiter.ts` (add 'carousel' bucket)
+- **New**: `supabase/functions/_shared/circuit-breaker.ts`
+- **Edit**: `src/lib/colorUtils.ts` hoặc image-prompt style computer (OKLCH)
+- **Edit**: `src/hooks/useImageGeneration.ts` (forward traceId)
+- **Migration**: `provider_circuit_state` table + `ai_metrics.trace_id` + `ai_metrics.sampled_response`
 
 ## Trade-off
 
-- **Cost**: +$0.001/slide cho describe call (Gemini Flash Lite). Acceptable.
-- **Latency**: +1-2s/slide. Có thể fire-and-forget (lưu DB async, slide kế tiếp đợi 1s nếu chưa có).
-- **Backward compat**: Existing carousels không có `scene_description` → fallback to `null` → behavior cũ giữ.
+- **Cost**: Sanitize ~0ms (regex). Circuit breaker ~5ms (in-memory + occasional DB write). Structured scene call same cost as current describe. OKLCH conversion ~1ms/color.
+- **Latency**: Rate limit check ~10ms. Trace headers ~0ms.
+- **False positive**: Circuit breaker có thể trip oan khi network blip — giảm bằng `min 5 requests` rule.
+- **Backward compat**: Cũ vẫn chạy nếu thiếu `traceId` (auto-generate fallback).
 
-## Out of scope (task riêng)
+## Out of scope
 
-- Option C composite overlay (sharp/canvas) — Phase 2.
-- Admin UI button cho cache flush — Phase 2.
-- Vision-based logo verification — Phase 3.
+- Distributed circuit breaker với Redis (in-memory + DB là đủ cho hiện tại)
+- LLM-judge cho injection (regex đủ cho high-severity patterns)
+- Full OpenTelemetry export (chỉ logging in-house)
 
 ## Sau khi approve
 
-Triển khai theo thứ tự: Phase 0 (read files để xác định default provider) → Phase 2 (quick win 30 phút) → Phase 1 (sceneDescription + migration) → Phase 3 (provider switch) → Phase 4 (admin endpoint) → update memory.
+Triển khai theo thứ tự: 2.1 (input safety + rate limit) → 2.2 (circuit breaker) → 2.5 (trace ID — quick) → 2.3 (structured scene) → 2.4 (OKLCH).
