@@ -2,53 +2,86 @@
 
 ## Hiểu yêu cầu
 
-User muốn quá trình **tạo prompt carousel** (gọi `generate-carousel`) chạy **background** — nghĩa là user có thể rời khỏi màn hình carousel (đi sang trang khác, đóng dialog, v.v.) mà process vẫn tiếp tục và khi quay lại sẽ thấy kết quả.
+User muốn **streaming** cho quá trình tạo prompt carousel — thay vì chờ 30-60s trong im lặng, user sẽ thấy:
+- Slide 1 prompt xuất hiện dần dần (token-by-token hoặc slide-by-slide)
+- Progress thực (không phải fake timer dựa trên elapsed)
+- Có thể đọc/preview trong khi các slide còn lại đang generate
 
-Hiện tại: nếu user thoát màn hình → component unmount → `generateCarousel()` promise bị bỏ rơi → state `generating` reset → carousel mới không xuất hiện trong list khi quay lại.
+Hiện tại: `generate-carousel` trả về 1 cục JSON sau khi LLM xong → `CarouselGenerationContext` chỉ biết "đang chạy" với fake progress dựa trên thời gian.
 
-## Điều tra cần làm (read-only)
+## Điều tra cần thực hiện (read-only)
 
-1. **`useCarousels.ts`** — hook hiện tại: `generateCarousel()` set `generating=true`, await edge function, push vào state. Nếu component dùng hook unmount → state mất.
-2. **`generate-carousel/index.ts`** — edge function: kiểm tra đã có `EdgeRuntime.waitUntil()` để persist DB chưa, hay vẫn rely vào client nhận response rồi mới insert.
-3. **Nơi gọi `generateCarousel()`** — `CarouselGeneratorDialog` hoặc tương tự — xem flow UI.
-4. **Realtime** — `carousels` table có enable realtime publication chưa? Nếu có → frontend ở bất kỳ đâu cũng có thể subscribe và pick up row mới.
+1. **`supabase/functions/generate-carousel/index.ts`** — đọc để hiểu:
+   - Đang gọi LLM 1 lần lấy hết slides hay loop từng slide?
+   - Có dùng `stream: true` với Lovable AI Gateway chưa?
+   - Cấu trúc response hiện tại (slides_content array)
+   - Compliance post-check ở đâu (Layer 2) — quan trọng vì stream xong vẫn cần validate
 
-## Giải pháp đề xuất (2 tầng)
+2. **`generate-multichannel/index.ts`** — pattern streaming đã có sẵn (`useExpandChannelsStreaming` hook tham khảo) → tái sử dụng SSE writer pattern.
 
-### Tầng 1: Background-safe ở edge function
+3. **`_shared/sse-writer.ts`** + **`_shared/stream-utils.ts`** — utils đã có cho SSE.
+
+## Thiết kế giải pháp
+
+### Tầng 1: Edge function streaming (SSE)
 File: `supabase/functions/generate-carousel/index.ts`
-- Sau khi tạo xong slides_content (AI call), wrap step **INSERT vào `carousels` table** trong `EdgeRuntime.waitUntil()` để dù client disconnect, DB vẫn được ghi.
-- Trả response sớm (nếu có thể) hoặc đảm bảo INSERT hoàn tất trước khi response — tùy hiện trạng.
+- Detect `body.stream === true` → trả `text/event-stream` thay vì JSON.
+- Sử dụng `createSSEWriter` đã có.
+- Events emit:
+  - `progress`: `{step: 'planning', percent: 5}` — bắt đầu plan
+  - `slide_start`: `{slideNumber: 1}` — bắt đầu generate slide N
+  - `slide_chunk`: `{slideNumber: 1, text: "..."}` — token streaming (tùy provider hỗ trợ)
+  - `slide_done`: `{slideNumber: 1, slide: {...}}` — slide N hoàn chỉnh + đã parse
+  - `progress`: `{step: 'compliance_check', percent: 90}`
+  - `result`: `{carousel: {...}}` — final với DB row đã insert
+  - `error`: `{message}`
+- DB persist vẫn chạy trong `EdgeRuntime.waitUntil` để đảm bảo background-safe (đã có).
 
-### Tầng 2: Global generation tracker ở frontend
-File mới: `src/contexts/CarouselGenerationContext.tsx`
-- Context provider ở root (App.tsx) — track tất cả carousel đang generate (Map<tempId, {status, formData, startedAt}>).
-- `generateCarousel()` move từ `useCarousels` → context → **không bị unmount khi user đổi route**.
-- `useCarousels` subscribe context để hiển thị trạng thái + hiển thị mini tracker (đã có `CarouselMiniTracker`) global.
+**Approach LLM:** Nếu hiện tại gọi 1 LLM call lấy all slides → 2 lựa chọn:
+- (A) Stream raw text → parse JSON khi đủ delimiter giữa slides (phức tạp)
+- (B) Loop từng slide với chained context (đã có pattern Sequential V2) → emit `slide_done` sau mỗi slide → tự nhiên streaming theo slide. **Khuyến nghị B** vì rõ ràng và đã align với kiến trúc Sequential.
 
-### Tầng 3: Realtime subscription cho `carousels` table
-File: `src/hooks/useCarousels.ts`
-- Migration: `ALTER PUBLICATION supabase_realtime ADD TABLE public.carousels;` (nếu chưa)
-- Hook subscribe INSERT events filtered by `organization_id` → tự động prepend carousel mới vào list khi DB có row, kể cả khi process chạy ở session/tab khác.
+### Tầng 2: Frontend streaming consumer
+File: `src/contexts/CarouselGenerationContext.tsx`
+- Thay `supabase.functions.invoke()` bằng `fetch()` để đọc SSE stream (như `useExpandChannelsStreaming` đã làm).
+- Job state mở rộng:
+  ```
+  CarouselGenerationJob {
+    ...existing,
+    progress: number,        // % thực từ events
+    currentStep: string,     // "Đang tạo slide 3/8..."
+    partialSlides: CarouselSlide[],  // slides đã done
+    totalSlides: number,
+  }
+  ```
+- Watchdog timeout (30s first byte, 150s idle) — tái dùng pattern từ `useExpandChannelsStreaming`.
+- AbortController để cancel.
 
-### Tầng 4: UI feedback global
-- `CarouselMiniTracker` (đã có) render ở root layout, đọc từ `CarouselGenerationContext` → hiển thị progress dù user ở page nào.
-- Khi xong: toast "Carousel sẵn sàng!" với CTA "Xem kết quả" → navigate về trang carousel.
+### Tầng 3: UI feedback nâng cấp
+File: `src/components/carousel/GlobalCarouselGenTracker.tsx`
+- Replace fake elapsed-based percent với `activeJob.progress` thực.
+- Hiển thị step text: "Đang tạo slide 3/8" thay vì "Đang tạo prompts... 23s".
+- Mini progress bar reflect real progress.
 
-## Files dự kiến đụng
+(Tùy chọn) Trong `CarouselViewer` hoặc dialog tạo, nếu user đang ở màn hình → render preview slides đã `slide_done` ngay (skeleton cho slide chưa xong) → "đang tạo trước mắt user".
 
-- `supabase/functions/generate-carousel/index.ts` — `EdgeRuntime.waitUntil` cho DB persist
-- `supabase/migrations/*` — enable realtime cho `carousels` table (nếu chưa)
-- `src/contexts/CarouselGenerationContext.tsx` — **mới**, global generation tracker
-- `src/App.tsx` — wrap với `CarouselGenerationProvider` + render `CarouselMiniTracker` global
-- `src/hooks/useCarousels.ts` — bridge với context + realtime subscription
-- Component đang gọi `generateCarousel()` — chuyển sang dùng context thay vì hook trực tiếp
+### Tầng 4: Backward compat
+- Nếu `body.stream !== true` → giữ nguyên JSON response cũ (không break call site khác).
+- Migration nhẹ: `CarouselGenerationContext` set `stream: true` mặc định.
+
+## Files đụng
+
+- `supabase/functions/generate-carousel/index.ts` — thêm SSE branch, loop slide với emit events, giữ JSON branch fallback
+- `src/contexts/CarouselGenerationContext.tsx` — đổi sang fetch + SSE parsing, mở rộng job state
+- `src/components/carousel/GlobalCarouselGenTracker.tsx` — hiển thị progress + step thực
+- (Tùy chọn) `src/components/CarouselGeneratorDialog.tsx` (hoặc form caller) — preview partial slides nếu vẫn mở
 
 ## Kết quả mong đợi
 
-- User submit form tạo carousel → có thể rời màn hình ngay, đi sang trang khác.
-- Mini tracker bottom-right hiện trên mọi page với progress + ETA.
-- Edge function hoàn tất → DB có row → realtime push → carousel xuất hiện trong list dù user đang ở đâu.
-- Toast "Sẵn sàng" + CTA quay lại xem.
-- Không còn cảnh "thoát màn hình → mất tiến trình".
+- User submit → trong 1-2s đã thấy "Đang tạo slide 1/8"
+- Progress bar nhích đều theo từng slide done (12.5% mỗi slide với 8 slides)
+- Có thể navigate đi nơi khác → mini tracker vẫn cập nhật real-time
+- Slide nào fail → event `slide_error` riêng, các slide khác vẫn tiếp tục
+- Khi xong → toast + carousel xuất hiện trong list (realtime đã có)
+- Cảm giác "AI đang làm việc trước mắt" thay vì spinner câm.
 
