@@ -1,58 +1,57 @@
 
+## Giả thuyết người dùng
+"GeminiGen đã tạo ra ảnh rồi, nhưng hệ thống không kịp xử lý/đưa ảnh vào DB → fail"
 
-## Câu hỏi cốt lõi
-Cùng provider GeminiGen, tại sao **Đa kênh tạo ảnh OK** mà **Carousel fail**?
+## Kiểm chứng
 
-## Điều tra
+Đọc lại flow `generate-carousel-image` + `_shared/geminigen-image-generator.ts` để xem sau khi GeminiGen trả URL R2, hệ thống làm gì:
 
-Logs xác nhận:
-- `generate-brand-image` (đa kênh): chạy 92s, status 200, có ảnh trả về (URL R2 cloudflarestorage). GeminiGen poll 20 attempts cũng tới đích.
-- `generate-carousel-image` / `generate-carousel-images-batch`: GeminiGen timeout 60s → PoYo `402 insufficient credits` → Gateway `402 Not enough credits` → fail toàn bộ.
+1. Poll GeminiGen status mỗi 3s.
+2. Khi status = done → lấy `imageUrl` (R2 cloudflarestorage signed URL).
+3. Trả về cho `generate-carousel-image`.
+4. `generate-carousel-image` upload R2 URL → Supabase Storage (`carousel-images` bucket) bằng fetch + putObject.
+5. Insert row vào `carousel_images` với URL Supabase.
 
-Khác biệt mấu chốt giữa 2 luồng:
+→ **Có 2 điểm có thể fail SAU khi GeminiGen đã có ảnh:**
 
-| | Đa kênh (`generate-brand-image`) | Carousel (`generate-carousel-image`) |
-|---|---|---|
-| GeminiGen poll budget | ~90s+ (chạy được tới attempt 20+ mới ra ảnh) | **60s cứng** → timeout sớm |
-| Số ảnh / request | 1 ảnh | 5-10 ảnh tuần tự, mỗi slide 1 request |
-| Fallback chain | GeminiGen → PoYo → Gateway | Giống nhau |
-| Áp lực rate | Thấp | Cao (gọi liên tiếp 5-10 lần) |
+### Điểm fail A: Download R2 URL bị timeout
+- R2 signed URL hết hạn rất nhanh hoặc edge function không reach được R2.
+- Nếu fetch R2 mất 20-30s × 7 slide = tốn thêm 150s+ → đụng trần edge timeout dù GeminiGen đã xong.
 
-## Nguyên nhân thật
+### Điểm fail B: Upload Supabase Storage chậm
+- Bucket `carousel-images` upload qua REST có thể chậm khi file >2MB.
+- Nếu fail → throw error → toàn bộ slide mất, dù ảnh GeminiGen đã sẵn sàng.
 
-1. **GeminiGen luôn cần ~80-90s để render xong** (xác nhận từ log đa kênh: 92s mới done). Carousel cắt ở 60s nên **chưa bao giờ kịp lấy ảnh từ GeminiGen** → luôn rơi sang PoYo.
-2. PoYo và Gateway hiện đều **hết credits (402)** → fail toàn bộ slide carousel.
-3. Đa kênh "may mắn" vì GeminiGen kịp trả ảnh trong 92s, không cần fallback nên không gặp 402.
-4. Đa kênh chỉ tạo 1 ảnh/lần nên dù chậm vẫn lọt; carousel tạo nhiều slide tuần tự, mỗi slide đều bị cắt sớm.
+### Điểm fail C (nghi ngờ chính): Không persist URL R2 trực tiếp
+- `generate-brand-image` (đa kênh) **trả thẳng R2 URL về frontend** (xem console log: `mediaUrls` chứa link `cloudflarestorage.com`) → không cần re-upload → nhanh + không fail.
+- `generate-carousel-image` cố **download R2 → upload Supabase Storage** → tốn thời gian + có điểm fail.
 
-→ Đây **không phải lỗi GeminiGen**. Là lỗi **poll budget của carousel quá ngắn** + **PoYo/Gateway hết credits**.
+→ Đây có thể là **lý do thực sự** carousel fail trong khi đa kênh OK, ngoài chuyện poll budget đã fix.
 
 ## Kế hoạch sửa
 
-### 1. Đồng bộ poll budget GeminiGen cho carousel
-- Trong `generate-carousel-image`, nâng GeminiGen timeout từ 60s → **100-110s** (giống đa kênh).
-- Vẫn nằm dưới giới hạn 150s edge function.
-- Bỏ PoYo fallback hoặc rút gọn để tránh đốt thêm thời gian khi đã hết credits.
+### 1. Bỏ bước re-upload Supabase Storage cho carousel
+- Trong `generate-carousel-image/index.ts`, sau khi GeminiGen trả `externalImageUrl` (R2 link), **lưu thẳng URL R2 vào `carousel_images.image_url`** giống như đa kênh đang làm.
+- Bỏ block `fetch(R2) → uploadToStorage()` đang gây timeout/fail.
+- R2 signed URL có expires=604800 (7 ngày), đủ cho preview + publish ngay.
 
-### 2. Detect và short-circuit khi hết credits
-- Khi PoYo/Gateway trả 402, **dừng ngay toàn bộ batch** thay vì retry từng slide.
-- Đánh dấu task `failed` với message rõ "Hết credits provider — vui lòng nạp PoYo/Lovable AI".
+### 2. Optional: Background mirror sang Supabase Storage
+- Nếu cần persist >7 ngày, dùng `EdgeRuntime.waitUntil()` mirror R2 → Supabase Storage **sau khi đã trả response** cho client.
+- Frontend không cần đợi.
+- Nếu mirror fail cũng không break user flow.
 
-### 3. Persist từng slide thành công (không all-or-nothing)
-- Trong batch loop, slide nào ra ảnh thì insert vào `carousel_images` ngay.
-- Nếu slide 3/7 fail vì 402, vẫn giữ slide 1-2 đã tạo.
+### 3. Thêm log rõ ràng từng bước
+- Log timing: `geminigen_done_at`, `r2_fetch_start`, `storage_upload_start`, `db_insert_start`.
+- Để lần sau debug được chính xác bottleneck nằm đâu.
 
-### 4. Hiển thị lỗi credits ở UI
-- `useCarouselImages` / tracker đọc `error_message` từ `generation_tasks` và toast rõ "Provider hết credits" thay vì im lặng.
+### 4. Verify với logs
+- Sau fix, chạy 1 carousel 5-7 slide, đọc log `generate-carousel-image` + `generate-carousel-images-batch` xem có còn timeout sau khi GeminiGen done không.
 
-## Files dự kiến đụng
-- `supabase/functions/generate-carousel-image/index.ts` — nâng poll budget GeminiGen, fail-fast 402
-- `supabase/functions/generate-carousel-images-batch/index.ts` — short-circuit batch khi gặp 402, persist từng slide
-- `supabase/functions/_shared/geminigen-image-generator.ts` — cho phép truyền `maxAttempts` từ caller
-- `src/hooks/useImageGeneration.ts` — surface lỗi 402 rõ hơn
+## Files đụng
+- `supabase/functions/generate-carousel-image/index.ts` — bỏ re-upload, dùng thẳng R2 URL + thêm timing log
+- (Optional) `supabase/functions/generate-carousel-image/index.ts` — thêm `EdgeRuntime.waitUntil` mirror background
 
 ## Kết quả mong đợi
-- Carousel dùng GeminiGen có cơ hội thành công như đa kênh (cùng poll budget).
-- Khi provider hết credits, fail nhanh + báo rõ thay vì treo + đốt thêm token.
-- Slide nào tạo xong vẫn lưu, không mất sạch.
-
+- Carousel hoạt động giống đa kênh: GeminiGen done → URL R2 lưu thẳng vào DB → frontend nhận trong vài giây.
+- Loại bỏ điểm fail "ảnh đã tạo nhưng không vào được hệ thống" mà bạn vừa chỉ ra.
+- Nếu vẫn fail sau fix, log timing sẽ chỉ ra chính xác bước nào nghẽn.
