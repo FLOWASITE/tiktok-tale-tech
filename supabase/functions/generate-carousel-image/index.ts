@@ -941,7 +941,19 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             recordSuccess(poyoFallbackModel).catch(() => {});
           } catch (poyoFallbackErr) {
             recordFailure(poyoFallbackModel, undefined, supabase).catch(() => {});
-            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+            const poyoErrMsg = poyoFallbackErr instanceof Error ? poyoFallbackErr.message : String(poyoFallbackErr);
+            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoErrMsg);
+
+            // Fail-fast on credits: don't waste more time on Lovable Gateway (also out).
+            if (poyoErrMsg.includes('CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_AUTH_ERROR')) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Tất cả provider ảnh đã hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.',
+                  errorCode: 'CREDITS_EXHAUSTED',
+                }),
+                { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
             console.log('[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway');
           }
         } else {
