@@ -1,64 +1,54 @@
 
 
-## Nguyên nhân (đọc logs)
+## Hiểu yêu cầu
 
-Logs slide 2 cho thấy lỗi rõ ràng:
+User muốn quá trình **tạo prompt carousel** (gọi `generate-carousel`) chạy **background** — nghĩa là user có thể rời khỏi màn hình carousel (đi sang trang khác, đóng dialog, v.v.) mà process vẫn tiếp tục và khi quay lại sẽ thấy kết quả.
 
-```
-[generate-carousel-image] Unexpected error: ReferenceError: GEMINIGEN_MAX_RETRIES is not defined
-    at generate-carousel-image/index.ts:1047:75
-[batch] Slide 2 attempt 1 failed: HTTP 500: {"error":"GEMINIGEN_MAX_RETRIES is not defined"}
-[batch] Slide 2 attempt 2/2 (prevImage=yes)
-```
+Hiện tại: nếu user thoát màn hình → component unmount → `generateCarousel()` promise bị bỏ rơi → state `generating` reset → carousel mới không xuất hiện trong list khi quay lại.
 
-Đồng thời slide 1 đã thành công nhưng:
-```
-[generate-carousel-image] DB persist failed: duplicate key value violates unique constraint "carousel_images_carousel_id_slide_number_version_key"
-```
+## Điều tra cần làm (read-only)
 
-## Root cause (2 bug riêng biệt)
+1. **`useCarousels.ts`** — hook hiện tại: `generateCarousel()` set `generating=true`, await edge function, push vào state. Nếu component dùng hook unmount → state mất.
+2. **`generate-carousel/index.ts`** — edge function: kiểm tra đã có `EdgeRuntime.waitUntil()` để persist DB chưa, hay vẫn rely vào client nhận response rồi mới insert.
+3. **Nơi gọi `generateCarousel()`** — `CarouselGeneratorDialog` hoặc tương tự — xem flow UI.
+4. **Realtime** — `carousels` table có enable realtime publication chưa? Nếu có → frontend ở bất kỳ đâu cũng có thể subscribe và pick up row mới.
 
-### Bug 1: `GEMINIGEN_MAX_RETRIES is not defined` (line 1047)
-Lần sửa trước đã **xóa biến `GEMINIGEN_MAX_RETRIES`** khỏi code retry-loop của GeminiGen, nhưng còn 1 chỗ khác (line 1047) vẫn tham chiếu biến này → ReferenceError → edge function trả 500 → batch coi slide 2 fail → retry attempt 2.
+## Giải pháp đề xuất (2 tầng)
 
-→ **Đây không phải "tạo lại từ đầu"** — batch chỉ retry slide 2 thôi (đúng logic). Nhưng vì mỗi attempt GeminiGen vẫn submit task → user thấy ảnh xuất hiện trong GeminiGen dashboard nhiều lần cho cùng 1 slide.
+### Tầng 1: Background-safe ở edge function
+File: `supabase/functions/generate-carousel/index.ts`
+- Sau khi tạo xong slides_content (AI call), wrap step **INSERT vào `carousels` table** trong `EdgeRuntime.waitUntil()` để dù client disconnect, DB vẫn được ghi.
+- Trả response sớm (nếu có thể) hoặc đảm bảo INSERT hoàn tất trước khi response — tùy hiện trạng.
 
-### Bug 2: Duplicate key violation khi persist slide 1
-Trigger DB `auto_increment_carousel_image_version` tự bump version dựa trên MAX(version) hiện có. Nhưng nếu có **2 INSERT đồng thời** (race condition giữa main edge persist + mirror persist), cả 2 cùng tính ra version=N → 1 thành công, 1 violate unique constraint `(carousel_id, slide_number, version)`.
+### Tầng 2: Global generation tracker ở frontend
+File mới: `src/contexts/CarouselGenerationContext.tsx`
+- Context provider ở root (App.tsx) — track tất cả carousel đang generate (Map<tempId, {status, formData, startedAt}>).
+- `generateCarousel()` move từ `useCarousels` → context → **không bị unmount khi user đổi route**.
+- `useCarousels` subscribe context để hiển thị trạng thái + hiển thị mini tracker (đã có `CarouselMiniTracker`) global.
 
-→ Slide 1 may mắn — main persist fail nhưng mirror persist thành công (hoặc ngược lại) → DB vẫn có row → user vẫn thấy ảnh. Nhưng nếu cả 2 cùng fail thì mất ảnh.
+### Tầng 3: Realtime subscription cho `carousels` table
+File: `src/hooks/useCarousels.ts`
+- Migration: `ALTER PUBLICATION supabase_realtime ADD TABLE public.carousels;` (nếu chưa)
+- Hook subscribe INSERT events filtered by `organization_id` → tự động prepend carousel mới vào list khi DB có row, kể cả khi process chạy ở session/tab khác.
 
-## Hệ quả user thấy
+### Tầng 4: UI feedback global
+- `CarouselMiniTracker` (đã có) render ở root layout, đọc từ `CarouselGenerationContext` → hiển thị progress dù user ở page nào.
+- Khi xong: toast "Carousel sẵn sàng!" với CTA "Xem kết quả" → navigate về trang carousel.
 
-- Slide 2 fail liên tiếp → batch retry → mỗi retry tạo thêm 1 task ở GeminiGen → "ảnh được tạo ra quá nhiều" trên dashboard provider.
-- Slide 1 đôi khi có 2 row trong DB (nếu race không trùng version), đôi khi có warning duplicate.
-- Toàn bộ quá trình kéo dài vô ích vì lỗi ReferenceError chặn slide 2 vĩnh viễn.
+## Files dự kiến đụng
 
-## Kế hoạch sửa
-
-### Fix 1: Xóa tham chiếu `GEMINIGEN_MAX_RETRIES` còn sót
-File: `supabase/functions/generate-carousel-image/index.ts` (line ~1047)
-- Tìm chỗ vẫn dùng `GEMINIGEN_MAX_RETRIES` → thay bằng giá trị literal `1` (đã quyết định không retry trong cùng edge function nữa, để batch handle retry ở tầng trên).
-
-### Fix 2: Loại bỏ double-persist (main + mirror cùng insert)
-File: `supabase/functions/generate-carousel-image/index.ts`
-- Chọn **1 nguồn truth duy nhất**: main edge persist là chính, **mirror chỉ UPDATE** `image_url` của row đã insert (không INSERT mới).
-- Hoặc: nếu mirror chạy trong `EdgeRuntime.waitUntil` background, thì main persist phải bỏ — chỉ mirror persist. Cần đọc code chính xác để chọn approach.
-
-### Fix 3: Reduce batch attempts từ 2 xuống 1 cho lỗi non-retryable
-File: `supabase/functions/generate-carousel-images-batch/index.ts`
-- Khi attempt 1 fail với lỗi `ReferenceError`, `TypeError`, hoặc HTTP 5xx có message "is not defined" → **không retry** (đây là code bug, retry vô ích).
-- Chỉ retry với lỗi network/timeout/429.
-
-## Files đụng
-
-- `supabase/functions/generate-carousel-image/index.ts` — fix ReferenceError + dedupe persist
-- `supabase/functions/generate-carousel-images-batch/index.ts` — smart retry logic
+- `supabase/functions/generate-carousel/index.ts` — `EdgeRuntime.waitUntil` cho DB persist
+- `supabase/migrations/*` — enable realtime cho `carousels` table (nếu chưa)
+- `src/contexts/CarouselGenerationContext.tsx` — **mới**, global generation tracker
+- `src/App.tsx` — wrap với `CarouselGenerationProvider` + render `CarouselMiniTracker` global
+- `src/hooks/useCarousels.ts` — bridge với context + realtime subscription
+- Component đang gọi `generateCarousel()` — chuyển sang dùng context thay vì hook trực tiếp
 
 ## Kết quả mong đợi
 
-- Slide 2 không còn fail vì ReferenceError → tạo thành công lần đầu.
-- GeminiGen dashboard chỉ thấy đúng N task cho N slide (không +retry waste).
-- DB không còn warning duplicate key — mỗi slide chỉ 1 row.
-- Nếu có lỗi thật, batch fail nhanh thay vì retry mù quáng tạo task thừa.
+- User submit form tạo carousel → có thể rời màn hình ngay, đi sang trang khác.
+- Mini tracker bottom-right hiện trên mọi page với progress + ETA.
+- Edge function hoàn tất → DB có row → realtime push → carousel xuất hiện trong list dù user đang ở đâu.
+- Toast "Sẵn sàng" + CTA quay lại xem.
+- Không còn cảnh "thoát màn hình → mất tiến trình".
 
