@@ -1,0 +1,2 @@
+ALTER TABLE public.generation_tasks DROP CONSTRAINT IF EXISTS generation_tasks_task_type_check;
+ALTER TABLE public.generation_tasks ADD CONSTRAINT generation_tasks_task_type_check CHECK (task_type = ANY (ARRAY['core_content'::text, 'multichannel'::text, 'carousel_image'::text]));
