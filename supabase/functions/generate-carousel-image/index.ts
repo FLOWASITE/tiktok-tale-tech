@@ -37,6 +37,75 @@ function detectSlideRole(
   return 'body';
 }
 
+// ============================================
+// Image → Scene Description (for seamless continuity)
+// ============================================
+// PoYo / KIE / GeminiGen return only an image URL — no companion text.
+// Without a scene description, the next slide cannot anchor its style and
+// the seamless V2 continuity feature silently degrades to "model guesses
+// from the previous image alone". For aesthetic / luxury verticals where
+// visual consistency IS the product, we pay ~$0.001/slide to ask Gemini
+// Flash Lite to describe the image so slide N+1 can consume it.
+async function describeImageForContinuity(
+  imageUrl: string,
+  lovableApiKey: string | undefined,
+): Promise<string | null> {
+  if (!lovableApiKey || !imageUrl) return null;
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Describe this image's visual style, color palette, lighting, composition, and key subjects in 2-3 sentences. Plain prose only — no markdown, no JSON, no bullet points, no headings.",
+              },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      console.warn(`[describe] Failed status=${resp.status}`);
+      return null;
+    }
+    const data = await resp.json();
+    const raw = data?.choices?.[0]?.message?.content || "";
+    return sanitizeSceneDescription(raw);
+  } catch (e) {
+    console.warn("[describe] Error:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Strip markdown / code-fence / JSON artifacts from a scene description and
+ * cap at 300 chars. Used both for Gemini Flash describe output and for
+ * Lovable Gateway's raw text response (previously sliced raw — bug).
+ */
+function sanitizeSceneDescription(raw: string): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const cleaned = raw
+    .replace(/```[\s\S]*?```/g, " ")          // code fences
+    .replace(/^\s*[-*+]\s+/gm, "")              // bullet markers
+    .replace(/^\s*#{1,6}\s+/gm, "")             // headings
+    .replace(/[*_`#]/g, "")                     // inline md markers
+    .replace(/\{[\s\S]*?\}/g, " ")              // JSON-ish blocks
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length < 10) return null;
+  return cleaned.slice(0, 300);
+}
+
 // CarouselSlide interface (matches generate-carousel output)
 interface CarouselSlide {
   slideNumber: number;
