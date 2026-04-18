@@ -665,6 +665,14 @@ export function CarouselViewer({
     const previousSceneDescription = prevSlide
       ? (prevSlide.objective || (typeof prevSlide.textContent === 'object' ? prevSlide.textContent.headline : null))
       : null;
+
+    // Look up the actual previously-generated image URL for img2img continuity (slide N-1).
+    // This makes single-slide regeneration also benefit from sequential_v2 seamless logic.
+    const prevGenerated = slideNumber > 1 ? getGeneratedImage(slideNumber - 1) : null;
+    const prevSaved = slideNumber > 1 ? getSavedImage(slideNumber - 1) : null;
+    const previousImageUrl: string | null =
+      prevGenerated?.imageUrl || (prevSaved as any)?.image_url || null;
+
     const seamlessContext = {
       colorPalette,
       previousSceneDescription,
@@ -681,6 +689,7 @@ export function CarouselViewer({
       slideObjective: slide?.objective,
       visualPreset: carousel.visual_preset || 'minimalist',
       carouselTopic: carousel.topic,
+      previousImageUrl,
       seamlessContext,
     });
     if (result?.imageUrl) {
@@ -705,6 +714,7 @@ export function CarouselViewer({
       : null;
 
     let previousSceneDescription: string | null = null;
+    let previousImageUrl: string | null = null;
     let successCount = 0;
     const collectedUrls: string[] = [];
 
@@ -721,6 +731,7 @@ export function CarouselViewer({
         slideObjective: slide.objective,
         visualPreset: carousel.visual_preset || 'minimalist',
         carouselTopic: carousel.topic,
+        previousImageUrl,
         seamlessContext: {
           colorPalette,
           previousSceneDescription,
@@ -732,6 +743,8 @@ export function CarouselViewer({
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
         successCount++;
         collectedUrls.push(result.imageUrl);
+        // Chain real outputs for next iteration (sequential_v2)
+        previousImageUrl = result.imageUrl;
         if (result.modelUsed) {
           setLastModelUsed(result.modelUsed);
           if (result.modelUsed.includes('fallback') && successCount === 1) {

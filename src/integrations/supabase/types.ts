@@ -3811,17 +3811,21 @@ export type Database = {
           critique_score: number | null
           cta_suggestion: string | null
           generated_images: Json | null
+          generation_mode: string | null
           id: string
           include_logo: boolean
           industry_template_id: string | null
           industry_template_version: string | null
           needs_manual_review: boolean | null
+          needs_regeneration: boolean | null
           organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
           published_channels: string[]
           refinement_count: number | null
           seamless_analysis: Json | null
           seamless_consistency_score: number | null
+          seamless_issues: Json | null
+          seamless_score: number | null
           slide_count: number
           slides_content: Json
           status: string | null
@@ -3845,17 +3849,21 @@ export type Database = {
           critique_score?: number | null
           cta_suggestion?: string | null
           generated_images?: Json | null
+          generation_mode?: string | null
           id?: string
           include_logo?: boolean
           industry_template_id?: string | null
           industry_template_version?: string | null
           needs_manual_review?: boolean | null
+          needs_regeneration?: boolean | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           published_channels?: string[]
           refinement_count?: number | null
           seamless_analysis?: Json | null
           seamless_consistency_score?: number | null
+          seamless_issues?: Json | null
+          seamless_score?: number | null
           slide_count?: number
           slides_content?: Json
           status?: string | null
@@ -3879,17 +3887,21 @@ export type Database = {
           critique_score?: number | null
           cta_suggestion?: string | null
           generated_images?: Json | null
+          generation_mode?: string | null
           id?: string
           include_logo?: boolean
           industry_template_id?: string | null
           industry_template_version?: string | null
           needs_manual_review?: boolean | null
+          needs_regeneration?: boolean | null
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           published_channels?: string[]
           refinement_count?: number | null
           seamless_analysis?: Json | null
           seamless_consistency_score?: number | null
+          seamless_issues?: Json | null
+          seamless_score?: number | null
           slide_count?: number
           slides_content?: Json
           status?: string | null
