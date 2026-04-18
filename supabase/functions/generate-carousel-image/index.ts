@@ -741,9 +741,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       for (let attempt = 1; attempt <= GEMINIGEN_MAX_RETRIES; attempt++) {
         try {
           externalImageUrl = await generateImageViaGeminiGen({
-            prompt: backgroundPrompt,
+            prompt: finalPrompt,
             model: requestedModel,
             aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+            inputImage: singleRefImage,
           }, GEMINIGEN_API_KEY);
           modelUsed = requestedModel;
           geminiGenSuccess = true;
