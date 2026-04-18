@@ -704,9 +704,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         console.log('[generate-carousel-image] KIE failed, falling back to PoYo (nano-banana-pro)...');
         try {
           externalImageUrl = await generateImageViaPoyo({
-            prompt: backgroundPrompt,
+            prompt: finalPrompt,
             model: 'poyo/nano-banana-pro',
             aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+            inputImage: singleRefImage,
           }, POYO_KEY_FOR_KIE);
           modelUsed = `poyo/nano-banana-pro (fallback from ${requestedModel})`;
           usedFallback = true;
