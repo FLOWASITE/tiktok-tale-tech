@@ -266,9 +266,9 @@ export function CarouselViewer({
   const {
     images: savedImages,
     loading: loadingImages,
-    saveImage,
     deleteImage: deleteSavedImage,
     getImageForSlide: getSavedImage,
+    refetch: refetchSavedImages,
   } = useCarouselImages(carousel?.id || null);
   const { validating: seamlessValidating, result: seamlessResult, validate: validateSeamless } = useSeamlessValidation();
 
@@ -699,7 +699,8 @@ export function CarouselViewer({
       seamlessContext,
     });
     if (result?.imageUrl) {
-      await saveImage(slideNumber, result.imageUrl, prompt, result.sceneDescription ?? null);
+      // Edge function đã tự persist vào carousel_images — chỉ refetch để sync UI
+      await refetchSavedImages();
       if (result.modelUsed) {
         setLastModelUsed(result.modelUsed);
         if (result.modelUsed.includes('fallback')) {
@@ -746,7 +747,7 @@ export function CarouselViewer({
         },
       });
       if (result?.imageUrl) {
-        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt, result.sceneDescription ?? null);
+        // Edge function đã tự persist — không cần saveImage() ở client
         successCount++;
         collectedUrls.push(result.imageUrl);
         // Chain real outputs for next iteration (sequential_v2)
