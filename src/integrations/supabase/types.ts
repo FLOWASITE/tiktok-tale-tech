@@ -2077,6 +2077,7 @@ export type Database = {
           prompt_version: number | null
           quality_mode: string | null
           retry_count: number | null
+          sampled_response: string | null
           span_id: string | null
           tools_executed: string[] | null
           total_duration_ms: number
@@ -2119,6 +2120,7 @@ export type Database = {
           prompt_version?: number | null
           quality_mode?: string | null
           retry_count?: number | null
+          sampled_response?: string | null
           span_id?: string | null
           tools_executed?: string[] | null
           total_duration_ms: number
@@ -2161,6 +2163,7 @@ export type Database = {
           prompt_version?: number | null
           quality_mode?: string | null
           retry_count?: number | null
+          sampled_response?: string | null
           span_id?: string | null
           tools_executed?: string[] | null
           total_duration_ms?: number
