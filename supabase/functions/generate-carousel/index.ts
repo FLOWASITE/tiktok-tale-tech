@@ -16,6 +16,9 @@ import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 import { getOutputLanguage, getLanguageConfig, getCountryConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
+import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
+import { createTrace, getTraceHeaders, createSpan, endSpan } from "../_shared/tracing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
