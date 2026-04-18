@@ -675,10 +675,11 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.log(`[generate-carousel-image] Routing to KIE.ai: ${requestedModel}`);
       try {
         externalImageUrl = await generateImageViaKie({
-          prompt: backgroundPrompt,
+          prompt: finalPrompt,
           model: requestedModel,
           aspectRatio: mapAspectRatioToKie(platform === 'tiktok' ? '9:16' : '1:1'),
           outputFormat: 'jpeg',
+          inputImage: singleRefImage,
         }, KIE_API_KEY);
         modelUsed = requestedModel;
       } catch (kieErr) {
