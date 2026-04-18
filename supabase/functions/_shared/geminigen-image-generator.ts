@@ -13,6 +13,8 @@ export interface GeminiGenGenerateParams {
   inputImage?: string;     // URL for image editing mode
   resolution?: '1K' | '2K' | '4K';
   style?: string;          // 'None', '3D Render', 'Photorealistic', 'Anime General', etc.
+  maxAttempts?: number;    // Override default poll attempts (default 20 = 60s).
+                           // Carousel uses ~33 (~99s) to match generate-brand-image's success budget.
 }
 
 /**
