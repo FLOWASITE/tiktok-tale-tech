@@ -771,6 +771,86 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
     }
     console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
 
+    // ============================================
+    // Distributed trace (correlate with generate-carousel-image)
+    // ============================================
+    const incomingTraceId = req.headers.get("x-trace-id") || (formData as any).traceId || undefined;
+    const trace = createTrace(incomingTraceId);
+    const traceId = trace.traceId;
+    const tlog = (msg: string, ...rest: any[]) => console.log(`[trace=${traceId.slice(0, 8)}] ${msg}`, ...rest);
+    const twarn = (msg: string, ...rest: any[]) => console.warn(`[trace=${traceId.slice(0, 8)}] ${msg}`, ...rest);
+
+    // ============================================
+    // 2.1 Prompt-injection guard on user-supplied free text
+    // ============================================
+    const topicGuard = sanitizeInput(formData.topic || "");
+    const guideGuard = sanitizeInput(formData.brandGuideline || "");
+    const brandNameGuard = sanitizeInput(formData.brandName || "");
+
+    const highRisk =
+      topicGuard.riskLevel === "high" ||
+      guideGuard.riskLevel === "high" ||
+      brandNameGuard.riskLevel === "high";
+
+    if (highRisk) {
+      // Fire-and-forget security log
+      Promise.all([
+        topicGuard.riskLevel === "high" ? logSecurityEvent(supabase, userId, organizationId || undefined, topicGuard) : null,
+        guideGuard.riskLevel === "high" ? logSecurityEvent(supabase, userId, organizationId || undefined, guideGuard) : null,
+        brandNameGuard.riskLevel === "high" ? logSecurityEvent(supabase, userId, organizationId || undefined, brandNameGuard) : null,
+      ].filter(Boolean)).catch(() => {});
+
+      twarn("Prompt injection blocked", {
+        userId, organizationId,
+        flagged: [
+          ...topicGuard.flaggedPatterns,
+          ...guideGuard.flaggedPatterns,
+          ...brandNameGuard.flaggedPatterns,
+        ],
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: "INPUT_BLOCKED",
+          message: "Phát hiện mẫu prompt injection trong dữ liệu nhập. Vui lòng kiểm tra topic / brand guideline.",
+          flagged: Array.from(new Set([
+            ...topicGuard.flaggedPatterns,
+            ...guideGuard.flaggedPatterns,
+            ...brandNameGuard.flaggedPatterns,
+          ])),
+          traceId,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json", "x-trace-id": traceId } }
+      );
+    }
+
+    // Replace with sanitized versions for downstream prompt assembly
+    formData.topic = topicGuard.sanitizedMessage;
+    formData.brandGuideline = guideGuard.sanitizedMessage;
+    formData.brandName = brandNameGuard.sanitizedMessage;
+
+    if (topicGuard.riskLevel !== "none" || guideGuard.riskLevel !== "none") {
+      tlog(`Sanitized input — topicRisk=${topicGuard.riskLevel} guideRisk=${guideGuard.riskLevel}`);
+      // Log medium-risk for analysis (not blocking)
+      Promise.all([
+        topicGuard.riskLevel !== "none" ? logSecurityEvent(supabase, userId, organizationId || undefined, topicGuard) : null,
+        guideGuard.riskLevel !== "none" ? logSecurityEvent(supabase, userId, organizationId || undefined, guideGuard) : null,
+      ].filter(Boolean)).catch(() => {});
+    }
+
+    // ============================================
+    // 2.1 Rate limit per user (carousel-specific bucket — per-hour quota)
+    // ============================================
+    const planType = await getUserPlanType(supabase, userId);
+    const rlConfig = getRateLimitConfig(planType, "carousel");
+    const rl = checkRateLimit(userId, rlConfig);
+    if (!rl.allowed) {
+      twarn(`Rate limit exceeded planType=${planType} resetAt=${rl.resetAt.toISOString()}`);
+      return createRateLimitErrorResponse(rl, { ...corsHeaders, "x-trace-id": traceId });
+    }
+    tlog(`Rate limit OK plan=${planType} remaining=${rl.remaining}/${rlConfig.maxRequests}`);
+
+
     // Load Brand Voice and Industry Memory from template if provided
     let brandVoice: BrandVoice | undefined;
     let industryMemory: IndustryMemory | null = null;
