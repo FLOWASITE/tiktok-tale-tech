@@ -56,6 +56,27 @@ export const CHAT_RATE_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 /**
+ * Carousel-specific rate limits (carousels per HOUR — heavier than chat).
+ * Mitigates cost-amplification attacks: 1 user × N requests × (4 providers × 2-3 retries).
+ */
+export const CAROUSEL_RATE_LIMITS: Record<string, RateLimitConfig> = {
+  free: { windowMs: 60 * 60 * 1000, maxRequests: 10, keyPrefix: 'rl:carousel:free' },
+  starter: { windowMs: 60 * 60 * 1000, maxRequests: 30, keyPrefix: 'rl:carousel:starter' },
+  pro: { windowMs: 60 * 60 * 1000, maxRequests: 100, keyPrefix: 'rl:carousel:pro' },
+  enterprise: { windowMs: 60 * 60 * 1000, maxRequests: 500, keyPrefix: 'rl:carousel:enterprise' },
+};
+
+/**
+ * Carousel image rate limits (per minute — finer-grained for image gen).
+ */
+export const CAROUSEL_IMAGE_RATE_LIMITS: Record<string, RateLimitConfig> = {
+  free: { windowMs: 60 * 1000, maxRequests: 8, keyPrefix: 'rl:cimg:free' },
+  starter: { windowMs: 60 * 1000, maxRequests: 20, keyPrefix: 'rl:cimg:starter' },
+  pro: { windowMs: 60 * 1000, maxRequests: 40, keyPrefix: 'rl:cimg:pro' },
+  enterprise: { windowMs: 60 * 1000, maxRequests: 100, keyPrefix: 'rl:cimg:enterprise' },
+};
+
+/**
  * In-memory rate limit store (for edge functions)
  */
 class InMemoryRateLimitStore {
