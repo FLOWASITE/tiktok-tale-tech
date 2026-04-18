@@ -808,6 +808,20 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
 
+        // Build multi-image content array: [text prompt, optional previous-slide ref, optional logo ref]
+        // Lovable AI Gateway / Gemini image models accept multi-image input via OpenAI-compatible content array.
+        const userContent: any[] = [{ type: "text", text: finalPrompt }];
+        if (previousImageUrl) {
+          userContent.push({ type: "image_url", image_url: { url: previousImageUrl } });
+        }
+        if (includeLogo && resolvedLogoUrl) {
+          userContent.push({ type: "image_url", image_url: { url: resolvedLogoUrl } });
+        }
+        const attachedImages = userContent.length - 1;
+        if (gatewayAttempt === 0) {
+          console.log(`[generate-carousel-image] Gateway payload: model=${imageModel}, refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, prev=${!!previousImageUrl})`);
+        }
+
         const bgResponse = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -818,7 +832,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             },
             body: JSON.stringify({
               model: imageModel,
-              messages: [{ role: "user", content: backgroundPrompt }],
+              messages: [{ role: "user", content: userContent }],
               modalities: ["image", "text"],
             }),
           }
