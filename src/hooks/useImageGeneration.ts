@@ -71,20 +71,37 @@ export function useImageGeneration() {
 
       if (error) {
         console.error('Error generating image:', error);
-        if (error.message?.includes('429')) {
+        // Try to extract embedded CREDITS_EXHAUSTED from the 402 body the
+        // edge function returns (supabase-js packs it into error.context.body).
+        let embeddedCode: string | undefined;
+        let embeddedMsg: string | undefined;
+        try {
+          const ctxBody = (error as any)?.context?.body;
+          if (typeof ctxBody === 'string' && ctxBody.trim()) {
+            const parsed = JSON.parse(ctxBody);
+            embeddedCode = parsed?.errorCode;
+            embeddedMsg = parsed?.error;
+          }
+        } catch { /* ignore non-JSON */ }
+
+        if (embeddedCode === 'CREDITS_EXHAUSTED' || error.message?.includes('CREDITS_EXHAUSTED')) {
+          toast.error(embeddedMsg || 'Provider ảnh hết credits. Vui lòng nạp thêm hoặc thử lại sau.');
+        } else if (error.message?.includes('429')) {
           toast.error('Đã vượt giới hạn API. Vui lòng thử lại sau.');
-        } else if (error.message?.includes('CREDITS_EXHAUSTED')) {
-          toast.error('Đã hết credits AI. Vui lòng nâng cấp hoặc chờ reset.');
         } else if (error.message?.includes('CONNECTION_ERROR') || error.message?.includes('502')) {
           toast.error('Kết nối AI bị gián đoạn. Hệ thống sẽ tự retry.');
         } else {
-          toast.error('Không thể tạo ảnh: ' + error.message);
+          toast.error('Không thể tạo ảnh: ' + (embeddedMsg || error.message));
         }
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        if (data?.errorCode === 'CREDITS_EXHAUSTED') {
+          toast.error('Provider ảnh hết credits. Vui lòng nạp thêm hoặc thử lại sau.');
+        } else {
+          toast.error(data.error);
+        }
         return null;
       }
 
