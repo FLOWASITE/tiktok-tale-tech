@@ -569,7 +569,28 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     let fallbackFromModel: string | null = null;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-    console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
+    // === Enterprise logo path: PoYo/KIE/GeminiGen are single-image providers
+    // and in seamless mode `previousImageUrl` displaces the logo (slide 2..N
+    // loses brand mark). When a brand has a real logo + includeLogo=true and
+    // we'd otherwise pick a single-image provider while a previous slide
+    // exists, force-route to Lovable AI Gateway which supports multi-image
+    // (logo + previous + prompt) natively. Slide 1 still goes to the requested
+    // provider since there's no `previousImageUrl` competing for the slot.
+    const isSingleImageProvider =
+      isPoyoModel(requestedModel) || isKieModel(requestedModel) || isGeminiGenModel(requestedModel);
+    if (
+      includeLogo && resolvedLogoUrl && previousImageUrl &&
+      isSingleImageProvider && lovableApiKey
+    ) {
+      console.log(
+        `[generate-carousel-image] Logo + previousImage + single-slot provider (${requestedModel}) → routing to Lovable Gateway for multi-image support (slide ${slideNumber})`,
+      );
+      imageModel = 'google/gemini-2.5-flash-image';
+      // Leave requestedModel intact for telemetry; downstream branches check requested model name.
+      // We do NOT mutate requestedModel: the multi-image fork below triggers on `!externalImageUrl`.
+    }
+
+    console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel})`);
 
     // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
     const overlayConfig = getOverlayConfig(
