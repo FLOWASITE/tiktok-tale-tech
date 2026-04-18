@@ -1,48 +1,38 @@
 
-## Vấn đề
-OAuth đã thành công (connection `93f8e1ea...` đã lưu, `is_active: true`). Nhưng khi bấm "Xác minh" → gọi Google Business API → bị Google trả về:
+## Yêu cầu
+User muốn một tài liệu chi tiết step-by-step về cách hệ thống Flowa tạo Carousel — để chuyên gia bên ngoài có thể đánh giá. Đây là **research/documentation task**, không phải implementation. Cần đọc code thực tế để mô tả chính xác.
 
-> Quota exceeded for quota metric 'Requests' and limit 'Requests per minute' of service 'mybusinessaccountmanagement.googleapis.com'
+## Phạm vi cần khảo sát
+1. **Frontend trigger**: Form tạo carousel (`useCarousels.ts` → `generate-carousel` edge function)
+2. **Edge function `generate-carousel`**: orchestrator logic
+3. **Pipeline tạo nội dung slides**: prompt strategy, model dùng, structure output
+4. **Pipeline tạo prompt ảnh từng slide**: Visual Engine V3, style presets, brand context injection
+5. **Pipeline render ảnh**: provider (Lovable AI Gateway / PoYo), text-in-prompt rendering, fallback, retry
+6. **Style preset system**: `carousel_style_presets` DB → design tokens → overlay config
+7. **Persistence + progress**: DB schema, realtime updates, gallery
+8. **Memory references**: `mem://features/carousel/comprehensive-v4-system-vn`, `mem://image-system/architecture-vn`, `mem://image-system/visual-specs-vn`, `mem://features/multichannel/image-generation-modes-vn`
 
-## Nguyên nhân
-Đây là **giới hạn cứng từ Google Cloud**, không phải bug code:
+## Files cần đọc (read-only)
+- `supabase/functions/generate-carousel/index.ts` (+ subfolders nếu có)
+- `supabase/functions/_shared/image-prompt-*.ts` (đã có overview)
+- `src/lib/carouselStylePresets.ts` (đã có)
+- `src/types/carousel.ts`
+- `src/components/carousel/*` (form + viewer chính)
+- `src/utils/parseCarouselSlides.ts` (đã có)
+- 3 memory files về carousel + image system
 
-- Google Business Profile API có quota mặc định **rất thấp** (thường **1 request/phút** cho project mới chưa được approve).
-- Mỗi lần bấm "Test connection" gọi `GET /v1/accounts` + `GET /v1/{account}/locations` = 2 requests → vượt quota ngay.
-- Project Google Cloud `31483738041` đang dùng quota mặc định.
+## Cách trình bày
+Vì là "đánh giá bởi chuyên gia", output sẽ là một **technical document tiếng Việt** trình bày trong chat (không tạo file), gồm các phần:
 
-## Giải pháp
+1. **Tổng quan kiến trúc** (sơ đồ ASCII data flow)
+2. **Step 1 — User Input & Form Validation**: tham số đầu vào, brand context binding
+3. **Step 2 — Orchestration trong edge function `generate-carousel`**: queue/sequential, error handling, cost tracking
+4. **Step 3 — Sinh nội dung text từng slide** (Sequential Kinetics): prompt template, model (gpt-5/gemini), schema output 6 fields/slide, hook→problem→explain→solution→CTA
+5. **Step 4 — Build Image Prompt cho từng slide** (Visual Engine V3): style preset lookup, design tokens, brand color sandwich, text-in-prompt rendering rules, safe zones, aspect ratio
+6. **Step 5 — Gọi AI Image Provider**: Gemini 2.5 Flash Image (Nano Banana) chính, PoYo fallback, retry/early-exit polling, base64 → storage upload
+7. **Step 6 — Persistence**: bảng `carousels`, `carousel_images` (nếu có), realtime channel, progress UI
+8. **Step 7 — Hiển thị + Gallery**: viewer, edit, regenerate
+9. **Điểm mạnh / Điểm cần đánh giá** (cho chuyên gia): consistency cross-slides, vietnamese text accuracy, brand fidelity, cost/latency, dedup
+10. **Tham số kỹ thuật chi tiết**: model IDs, token budget, timeout, retry counts
 
-### A. Phía Google Cloud (user phải tự làm — bắt buộc)
-1. Vào [Google Cloud Console → Quotas](https://console.cloud.google.com/iam-admin/quotas) cho project `31483738041`
-2. Filter service: `mybusinessaccountmanagement.googleapis.com`
-3. Submit **Quota increase request** cho "Requests per minute" (Google duyệt 2-7 ngày)
-4. Hoặc chờ ~1 phút giữa mỗi lần test
-
-### B. Phía code (cải thiện UX)
-Hiện tại code không xử lý lỗi 429 quota tốt — báo `needs_reauth: true` gây hiểu nhầm là phải kết nối lại. Cần sửa:
-
-**1. `supabase/functions/test-google-business-connection/index.ts`**
-- Phát hiện lỗi quota (`RESOURCE_EXHAUSTED` / status 429 / message chứa "Quota exceeded") → **KHÔNG** set `needs_reauth: true`, **KHÔNG** disable connection
-- Trả về `errorCode: 'QUOTA_EXCEEDED'` + message thân thiện tiếng Việt
-- Giữ nguyên `is_active: true` vì token vẫn hợp lệ
-
-**2. `supabase/functions/publish-google-business/index.ts`**
-- Tương tự: bắt lỗi quota khi publish, trả message rõ ràng "Google đang giới hạn tốc độ, vui lòng thử lại sau X giây"
-- Implement exponential backoff đơn giản (retry 1 lần sau 60s) hoặc trả lỗi để user retry
-
-**3. UI hiển thị connection (Connections tab)**
-- Khi nhận `errorCode: 'QUOTA_EXCEEDED'` → hiện banner vàng "Google rate limit — thử lại sau 1 phút" thay vì badge đỏ "Cần kết nối lại"
-
-**4. Cache locations**
-- Sau lần fetch locations đầu tiên (lúc OAuth callback), lưu vào `metadata.locations` và **không refetch** ở mỗi lần test
-- Test connection chỉ cần check token validity bằng 1 API call nhẹ nhất (ví dụ: `GET /v1/accounts` với rate limit aware)
-
-## Files sửa
-- `supabase/functions/test-google-business-connection/index.ts`
-- `supabase/functions/publish-google-business/index.ts`
-- File UI hiển thị status connection (cần xác định: có thể là `src/components/connections/SocialConnectionCard.tsx` hoặc tương tự — sẽ tìm khi thực hiện)
-
-## Lưu ý quan trọng cho user
-**Code fix chỉ giúp UX rõ ràng hơn, KHÔNG giải quyết được giới hạn Google.**
-Nếu muốn dùng Google Business Profile thực tế, **bắt buộc phải request quota increase** từ Google Cloud Console, nếu không sẽ tiếp tục fail mỗi lần publish/test trong cùng 1 phút.
+Plan này không cần ask_questions — yêu cầu rõ ràng. Sau khi user approve, sẽ đọc các file trên rồi trả về tài liệu hoàn chỉnh trong 1 message (không cần thay đổi code, không cần tạo file artifact trừ khi user yêu cầu PDF).
