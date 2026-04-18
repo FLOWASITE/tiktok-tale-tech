@@ -281,6 +281,22 @@ Deno.serve(async (req) => {
           console.warn('[batch] Failed to persist incremental progress:', e);
         }
 
+        // Short-circuit: provider out of credits — skip remaining slides.
+        if (creditsExhausted) {
+          // Mark all remaining slides as failed in results so UI shows accurate state.
+          for (let j = i + 1; j < totalSlides; j++) {
+            const remNum = slides[j]?.slideNumber || (j + 1);
+            failCount++;
+            results.push({
+              slideNumber: remNum,
+              success: false,
+              error: 'Bỏ qua: provider hết credits',
+            });
+          }
+          console.warn(`[batch] CREDITS_EXHAUSTED — aborted batch at slide ${slideNum}, marked ${totalSlides - i - 1} remaining as skipped`);
+          break;
+        }
+
         // Brief delay between slides to avoid provider rate limits
         if (i < totalSlides - 1) {
           await new Promise(r => setTimeout(r, 1500));
