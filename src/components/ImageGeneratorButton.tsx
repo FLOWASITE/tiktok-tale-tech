@@ -66,7 +66,7 @@ export function ImageGeneratorButton({
         ) : (
           <>
             <Sparkles className="w-4 h-4 mr-2" />
-            Tạo ảnh với Gemini
+            Tạo ảnh AI
           </>
         )}
       </Button>
