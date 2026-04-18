@@ -36,6 +36,14 @@ interface CacheParams<T> {
   versions: {
     industryMemory?: string;
     brandVoice?: string;
+    /**
+     * Defense-in-depth: SHA-256 hash of the *actual* merged compliance rule
+     * content (compliance_rules, claim_restrictions, forbidden_terms,
+     * argument_patterns, system_rules, etc.). When admin edits rules but
+     * forgets to bump industry version, this hash still changes → cache miss.
+     * Compute via `_shared/cache/compliance-hash.ts#hashComplianceRules`.
+     */
+    complianceHash?: string;
   };
   ttlDays: number;
   generateFn: () => Promise<T>;  // Returns validated AI response
@@ -100,24 +108,30 @@ async function generateCacheKeys(params: {
   versions: {
     industryMemory?: string;
     brandVoice?: string;
+    complianceHash?: string;
   };
 }): Promise<CacheKeyParts> {
   const normalizedInput = normalizeInput(params.input);
-  
+
   // Input-only hash for analytics
   const inputHash = await sha256(JSON.stringify(normalizedInput));
-  
-  // Full cache key includes function name and versions
+
+  // Full cache key includes function name + ALL versioning signals.
+  // `ch` (complianceHash) is critical: when admin edits compliance rules
+  // without bumping industry version, this changes → cache miss → no
+  // stale rule-violating content is ever served. Legal risk mitigation
+  // for medical/aesthetic-surgery vertical.
   const cachePayload = {
     fn: params.functionName,
     v: {
       im: params.versions.industryMemory || null,
       bv: params.versions.brandVoice || null,
+      ch: params.versions.complianceHash || null,
     },
     input: normalizedInput,
   };
   const cacheKey = await sha256(JSON.stringify(cachePayload));
-  
+
   return { cacheKey, inputHash };
 }
 
