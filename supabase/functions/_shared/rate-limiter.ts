@@ -156,9 +156,13 @@ export function checkRateLimit(
  */
 export function getRateLimitConfig(
   planType: string,
-  limitType: 'general' | 'chat' = 'general'
+  limitType: 'general' | 'chat' | 'carousel' | 'carousel_image' = 'general'
 ): RateLimitConfig {
-  const limits = limitType === 'chat' ? CHAT_RATE_LIMITS : PLAN_RATE_LIMITS;
+  const limits =
+    limitType === 'chat' ? CHAT_RATE_LIMITS :
+    limitType === 'carousel' ? CAROUSEL_RATE_LIMITS :
+    limitType === 'carousel_image' ? CAROUSEL_IMAGE_RATE_LIMITS :
+    PLAN_RATE_LIMITS;
   return limits[planType] || limits['free'];
 }
 
