@@ -39,6 +39,7 @@ interface UseBackgroundGenerationOptions {
 }
 
 const FALLBACK_POLL_INTERVAL = 30000; // 30 seconds fallback
+const STALE_TASK_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes — auto-dismiss zombies
 
 export function useBackgroundGeneration(options: UseBackgroundGenerationOptions = {}) {
   const { user } = useAuth();
@@ -70,7 +71,38 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
         return;
       }
 
-      setActiveTasks((tasks as GenerationTask[]) || []);
+      // Auto-recover zombie tasks: anything stuck for >10min with no update.
+      // Mark as failed in DB so it disappears from UI everywhere, not just locally.
+      const allTasks = (tasks as GenerationTask[]) || [];
+      const now = Date.now();
+      const stale: GenerationTask[] = [];
+      const fresh: GenerationTask[] = [];
+      for (const t of allTasks) {
+        const updatedMs = new Date(t.updated_at).getTime();
+        if (now - updatedMs > STALE_TASK_THRESHOLD_MS) {
+          stale.push(t);
+        } else {
+          fresh.push(t);
+        }
+      }
+
+      if (stale.length > 0) {
+        console.warn(`[useBackgroundGeneration] Auto-recovering ${stale.length} stale task(s)`);
+        // Fire-and-forget: don't block UI on cleanup
+        supabase
+          .from('generation_tasks')
+          .update({
+            status: 'failed',
+            error_message: 'Auto-recovered: stale background task',
+            completed_at: new Date().toISOString(),
+          })
+          .in('id', stale.map(t => t.id))
+          .then(({ error: updErr }) => {
+            if (updErr) console.warn('[useBackgroundGeneration] Stale recovery failed:', updErr);
+          });
+      }
+
+      setActiveTasks(fresh);
       setIsChecking(false);
     } catch (err) {
       console.error('[useBackgroundGeneration] Error:', err);

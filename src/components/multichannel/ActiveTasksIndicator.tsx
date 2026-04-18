@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X, CheckCircle2, AlertCircle, BookOpen, Layers, RotateCcw, Clock } from 'lucide-react';
+import { Loader2, X, CheckCircle2, AlertCircle, BookOpen, Layers, RotateCcw, Clock, Images, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GenerationTask } from '@/hooks/useBackgroundGeneration';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -28,9 +28,22 @@ interface ActiveTasksIndicatorProps {
   className?: string;
 }
 
+const TASK_LABELS: Record<string, string> = {
+  core_content: 'Core Content',
+  multichannel: 'Đa kênh',
+  carousel_image: 'Tạo ảnh Carousel',
+};
+
+function getTaskLabel(taskType: string): string {
+  return TASK_LABELS[taskType] || taskType;
+}
+
 const TaskIcon = memo(function TaskIcon({ taskType }: { taskType: string }) {
   if (taskType === 'core_content') {
     return <BookOpen className="w-4 h-4 text-primary" />;
+  }
+  if (taskType === 'carousel_image') {
+    return <Images className="w-4 h-4 text-primary" />;
   }
   return <Layers className="w-4 h-4 text-primary" />;
 });
@@ -91,7 +104,7 @@ const TaskCard = memo(function TaskCard({
   const isActive = task.status === 'pending' || task.status === 'generating';
   const isFailed = task.status === 'failed';
   const isCompleted = task.status === 'completed';
-  const taskLabel = task.task_type === 'core_content' ? 'Core Content' : 'Đa kênh';
+  const taskLabel = getTaskLabel(task.task_type);
 
   return (
     <motion.div
@@ -270,6 +283,8 @@ const PendingQueueCard = memo(function PendingQueueCard({
   );
 });
 
+const COLLAPSE_THRESHOLD = 3;
+
 export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({ 
   tasks, 
   pendingQueue = [],
@@ -279,7 +294,13 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
   onCancelPending,
   className 
 }: ActiveTasksIndicatorProps) {
+  const [expanded, setExpanded] = useState(false);
+
   if (tasks.length === 0 && pendingQueue.length === 0) return null;
+
+  const shouldCollapse = tasks.length > COLLAPSE_THRESHOLD && !expanded;
+  const visibleTasks = shouldCollapse ? tasks.slice(0, 1) : tasks;
+  const hiddenCount = tasks.length - visibleTasks.length;
 
   return (
     <div className={cn(
@@ -296,8 +317,8 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
           />
         ))}
         
-        {/* Regular Tasks */}
-        {tasks.map(task => (
+        {/* Regular Tasks (collapsed or full) */}
+        {visibleTasks.map(task => (
           <TaskCard 
             key={task.id} 
             task={task} 
@@ -306,6 +327,35 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
             onRetry={onRetry}
           />
         ))}
+
+        {/* Collapsed summary toggle */}
+        {tasks.length > COLLAPSE_THRESHOLD && (
+          <motion.div
+            key="collapse-toggle"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full bg-card/95 backdrop-blur-md shadow-lg"
+              onClick={() => setExpanded(e => !e)}
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="w-3 h-3 mr-1" />
+                  Thu gọn ({tasks.length} tác vụ)
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3 h-3 mr-1" />
+                  Xem thêm {hiddenCount} tác vụ đang chạy
+                </>
+              )}
+            </Button>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

@@ -340,6 +340,29 @@ Deno.serve(async (req) => {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error('[batch] Fatal error:', errMsg);
       await failTask(supabase, taskId, errMsg);
+    } finally {
+      // Safety net: ensure task NEVER stays in pending/generating once this
+      // function returns, even if both try and catch somehow miss closing it.
+      // Without this, a crash anywhere above creates a zombie task that
+      // shows up as a permanent popup in the UI.
+      try {
+        const { data: finalTask } = await supabase
+          .from('generation_tasks')
+          .select('status')
+          .eq('id', taskId)
+          .maybeSingle();
+
+        if (finalTask && (finalTask.status === 'pending' || finalTask.status === 'generating')) {
+          console.warn(`[batch] Task ${taskId} still open in finally — force-closing`);
+          if (successCount > 0) {
+            await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
+          } else {
+            await failTask(supabase, taskId, 'Batch ended without explicit completion');
+          }
+        }
+      } catch (finalErr) {
+        console.warn('[batch] Finally safety-net failed:', finalErr);
+      }
     }
   })();
 
