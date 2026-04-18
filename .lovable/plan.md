@@ -1,55 +1,58 @@
 
 
-## Tại sao thấy nhiều popup "Đa kênh"
+## Câu hỏi cốt lõi
+Cùng provider GeminiGen, tại sao **Đa kênh tạo ảnh OK** mà **Carousel fail**?
 
-Đây không phải nhiều multichannel job đang chạy. Đó là tác dụng phụ của vấn đề carousel chưa fix:
+## Điều tra
 
-1. Mỗi lần bấm tạo carousel, code chèn 1 row `carousel_image` vào `generation_tasks` với status `generating`.
-2. Pipeline ảnh fail (timeout / 402 / nested HTTP chết) trước khi update status sang `completed`/`failed`.
-3. Row vẫn nằm lại với status `generating` mãi mãi → mỗi lần thử là +1 zombie task.
-4. DB hiện có **7 task carousel_image bị kẹt** ở `generating` (xác nhận qua query).
-5. `ActiveTasksIndicator` hiển thị mọi task `pending`/`generating` của user → ra 5+ popup chồng nhau.
-6. Bug nhãn phụ: tại `ActiveTasksIndicator.tsx` line 94, label hardcode `task.task_type === 'core_content' ? 'Core Content' : 'Đa kênh'` — task `carousel_image` cũng bị gọi nhầm là "Đa kênh", gây hiểu lầm rằng đang chạy 5 job multichannel.
+Logs xác nhận:
+- `generate-brand-image` (đa kênh): chạy 92s, status 200, có ảnh trả về (URL R2 cloudflarestorage). GeminiGen poll 20 attempts cũng tới đích.
+- `generate-carousel-image` / `generate-carousel-images-batch`: GeminiGen timeout 60s → PoYo `402 insufficient credits` → Gateway `402 Not enough credits` → fail toàn bộ.
 
-## Kế hoạch sửa (2 phần)
+Khác biệt mấu chốt giữa 2 luồng:
 
-### Phần A — Dọn ngay zombie tasks (1-shot)
-- Migration cập nhật mọi `generation_tasks` đang `pending`/`generating` quá lâu (ví dụ `updated_at < now() - interval '10 minutes'`) → set `status='failed'`, `error_message='Auto-recovered: stale background task'`.
-- Áp dụng riêng cho user hiện tại trước, sau đó bật cho cả hệ thống.
-- Hiệu ứng tức thì: 5 popup biến mất khỏi màn hình.
+| | Đa kênh (`generate-brand-image`) | Carousel (`generate-carousel-image`) |
+|---|---|---|
+| GeminiGen poll budget | ~90s+ (chạy được tới attempt 20+ mới ra ảnh) | **60s cứng** → timeout sớm |
+| Số ảnh / request | 1 ảnh | 5-10 ảnh tuần tự, mỗi slide 1 request |
+| Fallback chain | GeminiGen → PoYo → Gateway | Giống nhau |
+| Áp lực rate | Thấp | Cao (gọi liên tiếp 5-10 lần) |
 
-### Phần B — Chặn không cho zombie tái sinh
-1. **Auto-recover ở frontend khi load**
-   - Trong `useBackgroundGeneration.checkActiveTasks`, sau khi fetch task, với task nào `updated_at` cũ hơn N phút thì tự dismiss/mark failed luôn.
-   - Tránh chờ cron.
+## Nguyên nhân thật
 
-2. **Cron tự dọn**
-   - Thêm một pg_cron mỗi vài phút quét `generation_tasks` cũ hơn ngưỡng và set `failed` + `error_message` rõ ràng.
-   - Đồng bộ với pattern `recover_stuck` đã có cho agent pipeline.
+1. **GeminiGen luôn cần ~80-90s để render xong** (xác nhận từ log đa kênh: 92s mới done). Carousel cắt ở 60s nên **chưa bao giờ kịp lấy ảnh từ GeminiGen** → luôn rơi sang PoYo.
+2. PoYo và Gateway hiện đều **hết credits (402)** → fail toàn bộ slide carousel.
+3. Đa kênh "may mắn" vì GeminiGen kịp trả ảnh trong 92s, không cần fallback nên không gặp 402.
+4. Đa kênh chỉ tạo 1 ảnh/lần nên dù chậm vẫn lọt; carousel tạo nhiều slide tuần tự, mỗi slide đều bị cắt sớm.
 
-3. **Sửa nhãn ở `ActiveTasksIndicator`**
-   - Map đúng theo `task_type`:
-     - `core_content` → "Core Content"
-     - `multichannel` → "Đa kênh"
-     - `carousel_image` → "Tạo ảnh Carousel"
-   - Icon cũng tách: `carousel_image` dùng icon Images thay vì Layers để không nhầm với multichannel.
+→ Đây **không phải lỗi GeminiGen**. Là lỗi **poll budget của carousel quá ngắn** + **PoYo/Gateway hết credits**.
 
-4. **Giới hạn số popup hiển thị**
-   - Trong `ActiveTasksIndicator`, nếu `tasks.length > 3`, gộp lại thành 1 card "Đang chạy N tác vụ" với nút mở rộng.
-   - Tránh phủ kín màn hình mobile.
+## Kế hoạch sửa
 
-5. **Liên kết với fix pipeline carousel đã chốt trước**
-   - Đảm bảo `generate-carousel-images-batch` luôn `completeTask` hoặc `failTask` trong khối `finally`, kể cả khi nested call fail/timeout. Đây là nguồn gốc tạo zombie.
+### 1. Đồng bộ poll budget GeminiGen cho carousel
+- Trong `generate-carousel-image`, nâng GeminiGen timeout từ 60s → **100-110s** (giống đa kênh).
+- Vẫn nằm dưới giới hạn 150s edge function.
+- Bỏ PoYo fallback hoặc rút gọn để tránh đốt thêm thời gian khi đã hết credits.
 
-## File dự kiến đụng tới
-- migration mới: dọn `generation_tasks` cũ + tạo cron auto-recover
-- `src/hooks/useBackgroundGeneration.ts`: tự bỏ qua / mark failed task quá hạn khi load
-- `src/components/multichannel/ActiveTasksIndicator.tsx`: sửa label/icon theo task_type, gộp khi quá nhiều
-- `supabase/functions/generate-carousel-images-batch/index.ts`: bọc `finally` để luôn close task
+### 2. Detect và short-circuit khi hết credits
+- Khi PoYo/Gateway trả 402, **dừng ngay toàn bộ batch** thay vì retry từng slide.
+- Đánh dấu task `failed` với message rõ "Hết credits provider — vui lòng nạp PoYo/Lovable AI".
+
+### 3. Persist từng slide thành công (không all-or-nothing)
+- Trong batch loop, slide nào ra ảnh thì insert vào `carousel_images` ngay.
+- Nếu slide 3/7 fail vì 402, vẫn giữ slide 1-2 đã tạo.
+
+### 4. Hiển thị lỗi credits ở UI
+- `useCarouselImages` / tracker đọc `error_message` từ `generation_tasks` và toast rõ "Provider hết credits" thay vì im lặng.
+
+## Files dự kiến đụng
+- `supabase/functions/generate-carousel-image/index.ts` — nâng poll budget GeminiGen, fail-fast 402
+- `supabase/functions/generate-carousel-images-batch/index.ts` — short-circuit batch khi gặp 402, persist từng slide
+- `supabase/functions/_shared/geminigen-image-generator.ts` — cho phép truyền `maxAttempts` từ caller
+- `src/hooks/useImageGeneration.ts` — surface lỗi 402 rõ hơn
 
 ## Kết quả mong đợi
-- Màn hình không còn 5 popup "Đa kênh" treo vĩnh viễn
-- Task carousel hiển thị đúng nhãn "Tạo ảnh Carousel", không bị nhầm thành multichannel
-- Task fail/timeout sẽ tự đóng trong vài phút thay vì kẹt mãi
-- Mobile không bị popup phủ kín UI
+- Carousel dùng GeminiGen có cơ hội thành công như đa kênh (cùng poll budget).
+- Khi provider hết credits, fail nhanh + báo rõ thay vì treo + đốt thêm token.
+- Slide nào tạo xong vẫn lưu, không mất sạch.
 
