@@ -904,8 +904,14 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             recordFailure(requestedModel, undefined, supabase).catch(() => {});
             const isCredits = lastGeminiGenErr.includes('CREDITS_EXHAUSTED');
             return new Response(
-              JSON.stringify({ error: lastGeminiGenErr, errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR' }),
-              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({
+                error: isCredits
+                  ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.'
+                  : lastGeminiGenErr,
+                errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+                fallback: true,
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
 
