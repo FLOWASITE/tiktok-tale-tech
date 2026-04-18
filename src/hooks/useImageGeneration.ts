@@ -65,7 +65,7 @@ export function useImageGeneration() {
           seamlessContext: options?.seamlessContext,
           traceId: carouselId,
         },
-        timeoutMs: 150_000,
+        timeoutMs: 180_000,
       });
       const error = invokeError;
 
