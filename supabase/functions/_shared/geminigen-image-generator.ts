@@ -13,6 +13,8 @@ export interface GeminiGenGenerateParams {
   inputImage?: string;     // URL for image editing mode
   resolution?: '1K' | '2K' | '4K';
   style?: string;          // 'None', '3D Render', 'Photorealistic', 'Anime General', etc.
+  maxAttempts?: number;    // Override default poll attempts (default 20 = 60s).
+                           // Carousel uses ~33 (~99s) to match generate-brand-image's success budget.
 }
 
 /**
@@ -116,11 +118,9 @@ async function submitTask(params: GeminiGenGenerateParams, apiKey: string): Prom
  * Poll GeminiGen.ai until image is ready
  * status: 1=processing, 2=completed, 3=failed
  */
-async function pollTask(uuid: string, apiKey: string): Promise<string> {
-  // Tightened: 20 × 3s = 60s. If GeminiGen hasn't completed in 60s, fall through
-  // to the caller's fallback chain (PoYo / KIE / Lovable Gateway) instead of holding
-  // the parent HTTP request open until it gets killed by the platform (~170s).
-  const maxAttempts = 20;
+async function pollTask(uuid: string, apiKey: string, maxAttempts = 20): Promise<string> {
+  // Default: 20 × 3s = 60s. Caller may override (e.g. carousel uses 33 ≈ 99s
+  // because generate-brand-image proved GeminiGen needs ~80-90s to render).
   const pollInterval = 3000;
 
   console.log(`[geminigen] Starting poll: uuid=${uuid}, max=${maxAttempts * pollInterval / 1000}s`);
@@ -197,10 +197,10 @@ export async function generateImageViaGeminiGen(
     throw new Error('GEMINIGEN_API_KEY not configured. Please add it in project secrets.');
   }
 
-  console.log(`[geminigen] Starting generation: model=${params.model}, ratio=${params.aspectRatio || '1:1'}`);
+  console.log(`[geminigen] Starting generation: model=${params.model}, ratio=${params.aspectRatio || '1:1'}, maxAttempts=${params.maxAttempts ?? 20}`);
 
   const uuid = await submitTask(params, apiKey);
-  const imageUrl = await pollTask(uuid, apiKey);
+  const imageUrl = await pollTask(uuid, apiKey, params.maxAttempts);
 
   return imageUrl;
 }

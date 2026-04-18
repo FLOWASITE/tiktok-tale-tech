@@ -886,6 +886,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             model: requestedModel,
             aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
             inputImage: singleRefImage,
+            // Match generate-brand-image's poll budget. Logs show GeminiGen needs
+            // ~80-90s to render. 60s (default) was cutting carousel off too early
+            // and forcing every slide into the (out-of-credits) PoYo fallback.
+            maxAttempts: 33, // 33 × 3s = 99s, safely under 150s edge-fn limit
           }, GEMINIGEN_API_KEY);
           modelUsed = requestedModel;
           geminiGenSuccess = true;
@@ -898,8 +902,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           // Don't retry on auth/credits/rate-limit errors
           if (lastGeminiGenErr.includes('GEMINIGEN_AUTH_ERROR') || lastGeminiGenErr.includes('GEMINIGEN_CREDITS_EXHAUSTED') || lastGeminiGenErr.includes('GEMINIGEN_RATE_LIMIT')) {
             recordFailure(requestedModel, undefined, supabase).catch(() => {});
+            const isCredits = lastGeminiGenErr.includes('CREDITS_EXHAUSTED');
             return new Response(
-              JSON.stringify({ error: lastGeminiGenErr, errorCode: 'PROVIDER_ERROR' }),
+              JSON.stringify({ error: lastGeminiGenErr, errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR' }),
               { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -936,7 +941,19 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             recordSuccess(poyoFallbackModel).catch(() => {});
           } catch (poyoFallbackErr) {
             recordFailure(poyoFallbackModel, undefined, supabase).catch(() => {});
-            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+            const poyoErrMsg = poyoFallbackErr instanceof Error ? poyoFallbackErr.message : String(poyoFallbackErr);
+            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoErrMsg);
+
+            // Fail-fast on credits: don't waste more time on Lovable Gateway (also out).
+            if (poyoErrMsg.includes('CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_AUTH_ERROR')) {
+              return new Response(
+                JSON.stringify({
+                  error: 'Tất cả provider ảnh đã hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.',
+                  errorCode: 'CREDITS_EXHAUSTED',
+                }),
+                { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
             console.log('[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway');
           }
         } else {

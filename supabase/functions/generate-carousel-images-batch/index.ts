@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
     const totalSlides = slides.length;
     let successCount = 0;
     let failCount = 0;
+    let batchCreditsExhausted = false;
     const results: { slideNumber: number; success: boolean; imageUrl?: string; error?: string }[] = [];
     const successUrls: string[] = []; // for post-batch seamless validation
 
@@ -122,6 +123,7 @@ Deno.serve(async (req) => {
         let slideImageUrl: string | undefined;
         let slideSceneDescription: string | null = null;
         let slideError: string | undefined;
+        let creditsExhausted = false;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           // Per-attempt timeout: 240s. Some providers (GeminiGen Nano Banana 2) can
@@ -160,6 +162,21 @@ Deno.serve(async (req) => {
 
             clearTimeout(timeoutId);
 
+            // Detect 402 / CREDITS_EXHAUSTED — short-circuit the whole batch.
+            // Retrying remaining slides is pointless when all providers are out of credits.
+            if (response.status === 402) {
+              const errBody = await response.text().catch(() => '');
+              let parsedMsg = 'Provider hết credits';
+              try {
+                const j = JSON.parse(errBody);
+                parsedMsg = j.error || parsedMsg;
+              } catch { /* ignore */ }
+              creditsExhausted = true;
+              slideError = parsedMsg;
+              console.error(`[batch] Slide ${slideNum} hit 402 — aborting remaining ${totalSlides - slideNum} slides`);
+              break;
+            }
+
             if (!response.ok) {
               const errText = await response.text().catch(() => 'Unknown error');
               throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
@@ -167,6 +184,12 @@ Deno.serve(async (req) => {
 
             const data = await response.json();
             if (data.error) {
+              if (data.errorCode === 'CREDITS_EXHAUSTED') {
+                creditsExhausted = true;
+                slideError = data.error;
+                console.error(`[batch] Slide ${slideNum} CREDITS_EXHAUSTED — aborting batch`);
+                break;
+              }
               throw new Error(data.error);
             }
 
@@ -259,6 +282,23 @@ Deno.serve(async (req) => {
           console.warn('[batch] Failed to persist incremental progress:', e);
         }
 
+        // Short-circuit: provider out of credits — skip remaining slides.
+        if (creditsExhausted) {
+          batchCreditsExhausted = true;
+          // Mark all remaining slides as failed in results so UI shows accurate state.
+          for (let j = i + 1; j < totalSlides; j++) {
+            const remNum = slides[j]?.slideNumber || (j + 1);
+            failCount++;
+            results.push({
+              slideNumber: remNum,
+              success: false,
+              error: 'Bỏ qua: provider hết credits',
+            });
+          }
+          console.warn(`[batch] CREDITS_EXHAUSTED — aborted batch at slide ${slideNum}, marked ${totalSlides - i - 1} remaining as skipped`);
+          break;
+        }
+
         // Brief delay between slides to avoid provider rate limits
         if (i < totalSlides - 1) {
           await new Promise(r => setTimeout(r, 1500));
@@ -281,14 +321,20 @@ Deno.serve(async (req) => {
       // Mark task COMPLETED BEFORE validation so user sees images immediately.
       // Validation runs as best-effort with a tight timeout.
       if (successCount === 0) {
-        await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
+        const failMsg = batchCreditsExhausted
+          ? 'Provider ảnh hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.'
+          : `Tất cả ${totalSlides} slide đều thất bại`;
+        await failTask(supabase, taskId, failMsg);
       } else {
         await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
+        const completeMsg = batchCreditsExhausted
+          ? `Hoàn thành ${successCount}/${totalSlides} ảnh — dừng vì hết credits`
+          : `Hoàn thành: ${successCount}/${totalSlides} ảnh`;
         await updateTaskProgress(
           supabase,
           taskId,
           100,
-          `Hoàn thành: ${successCount}/${totalSlides} ảnh`,
+          completeMsg,
           'completed',
           'completed'
         );
