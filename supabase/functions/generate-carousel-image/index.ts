@@ -863,7 +863,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn(`[circuit-breaker] KIE model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- GeminiGen routing ---
-    else if (isGeminiGenModel(requestedModel)) {
+    else if (isGeminiGenModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
         return new Response(
@@ -873,12 +873,12 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       }
 
       console.log(`[generate-carousel-image] Routing to GeminiGen.ai: ${requestedModel}`);
-      
+
       // Retry GeminiGen up to 2 times before falling back (intermittent failures are common)
       const GEMINIGEN_MAX_RETRIES = 2;
       let geminiGenSuccess = false;
       let lastGeminiGenErr = '';
-      
+
       for (let attempt = 1; attempt <= GEMINIGEN_MAX_RETRIES; attempt++) {
         try {
           externalImageUrl = await generateImageViaGeminiGen({
@@ -889,55 +889,62 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           }, GEMINIGEN_API_KEY);
           modelUsed = requestedModel;
           geminiGenSuccess = true;
+          recordSuccess(requestedModel).catch(() => {});
           break;
         } catch (geminiGenErr) {
           lastGeminiGenErr = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
           console.warn(`[generate-carousel-image] GeminiGen attempt ${attempt}/${GEMINIGEN_MAX_RETRIES} failed: ${lastGeminiGenErr}`);
-          
+
           // Don't retry on auth/credits/rate-limit errors
           if (lastGeminiGenErr.includes('GEMINIGEN_AUTH_ERROR') || lastGeminiGenErr.includes('GEMINIGEN_CREDITS_EXHAUSTED') || lastGeminiGenErr.includes('GEMINIGEN_RATE_LIMIT')) {
+            recordFailure(requestedModel, undefined, supabase).catch(() => {});
             return new Response(
               JSON.stringify({ error: lastGeminiGenErr, errorCode: 'PROVIDER_ERROR' }),
               { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
-          
+
           if (attempt < GEMINIGEN_MAX_RETRIES) {
             console.log(`[generate-carousel-image] Retrying GeminiGen in 3s...`);
             await new Promise(r => setTimeout(r, 3000));
           }
         }
       }
-      
-      // Fallback to PoYo if all GeminiGen retries failed
+
+      // Record final outcome (only failures, success already recorded above)
+      if (!geminiGenSuccess) {
+        recordFailure(requestedModel, undefined, supabase).catch(() => {});
+      }
+
+      // Fallback to PoYo if all GeminiGen retries failed (and PoYo circuit closed)
       if (!geminiGenSuccess) {
         console.error(`[generate-carousel-image] GeminiGen failed after ${GEMINIGEN_MAX_RETRIES} attempts: ${lastGeminiGenErr}`);
         const POYO_KEY_FOR_GEMINIGEN = Deno.env.get('POYO_API_KEY');
-        if (!POYO_KEY_FOR_GEMINIGEN) {
-          return new Response(
-            JSON.stringify({ error: `GeminiGen failed and POYO_API_KEY not configured for fallback: ${lastGeminiGenErr}`, errorCode: 'PROVIDER_ERROR' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        console.log('[generate-carousel-image] Falling back to PoYo (nano-banana-2-new)...');
-        try {
-          externalImageUrl = await generateImageViaPoyo({
-            prompt: finalPrompt,
-            model: 'poyo/nano-banana-2-new',
-            aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
-            inputImage: singleRefImage,
-          }, POYO_KEY_FOR_GEMINIGEN);
-          modelUsed = `poyo/nano-banana-2-new (fallback from ${requestedModel})`;
-          usedFallback = true;
-          fallbackFromModel = requestedModel;
-        } catch (poyoFallbackErr) {
-          console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
-          return new Response(
-            JSON.stringify({ error: `GeminiGen and PoYo fallback both failed: ${lastGeminiGenErr}`, errorCode: 'PROVIDER_ERROR' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        const poyoFallbackModel = 'poyo/nano-banana-2-new';
+        if (POYO_KEY_FOR_GEMINIGEN && !(await isCircuitOpen(poyoFallbackModel))) {
+          console.log('[generate-carousel-image] Falling back to PoYo (nano-banana-2-new)...');
+          try {
+            externalImageUrl = await generateImageViaPoyo({
+              prompt: finalPrompt,
+              model: poyoFallbackModel,
+              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              inputImage: singleRefImage,
+            }, POYO_KEY_FOR_GEMINIGEN);
+            modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
+            usedFallback = true;
+            fallbackFromModel = requestedModel;
+            recordSuccess(poyoFallbackModel).catch(() => {});
+          } catch (poyoFallbackErr) {
+            recordFailure(poyoFallbackModel, undefined, supabase).catch(() => {});
+            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+            console.log('[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway');
+          }
+        } else {
+          console.log('[generate-carousel-image] GeminiGen failed and PoYo fallback unavailable → falling through to Lovable Gateway');
         }
       }
+    } else if (isGeminiGenModel(requestedModel)) {
+      console.warn(`[circuit-breaker] GeminiGen model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
 
     // --- Lovable AI Gateway (default or fallback) ---
