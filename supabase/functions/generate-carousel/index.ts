@@ -1297,7 +1297,9 @@ Follow the carousel style guidelines strictly.`;
       }
     }
 
-
+    // ============================================
+    // SELF-CRITIQUE LOOP - Evaluate and refine carousel
+    // ============================================
     let critiqueResult: CritiqueResult | null = null;
     let wasRefined = false;
     let refinementCount = 0;
