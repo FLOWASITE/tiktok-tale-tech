@@ -887,9 +887,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
             inputImage: singleRefImage,
             // Match generate-brand-image's poll budget. Logs show GeminiGen needs
-            // ~80-90s to render. 60s (default) was cutting carousel off too early
-            // and forcing every slide into the (out-of-credits) PoYo fallback.
-            maxAttempts: 33, // 33 × 3s = 99s, safely under 150s edge-fn limit
+            // ~80-90s to render, and img2img slides (with previousImage) take
+            // even longer. 99s was timing out attempt 1 on slide 2+.
+            maxAttempts: 40, // 40 × 3s = 120s, still safely under 150s edge-fn limit
           }, GEMINIGEN_API_KEY);
           modelUsed = requestedModel;
           geminiGenSuccess = true;

@@ -412,14 +412,17 @@ Deno.serve(async (req) => {
     }
   })();
 
-  // Use waitUntil if available (Deno Deploy), otherwise fire-and-forget
+  // Keep background task alive on Supabase Edge Runtime.
+  // EdgeRuntime.waitUntil is the official API — without it the worker is
+  // killed shortly after the 200 response and slides 2..N never finish.
   try {
-    const ctx = (Deno as any).serve?.context;
-    if (ctx?.waitUntil) {
-      ctx.waitUntil(responsePromise);
+    // @ts-ignore — EdgeRuntime is a Supabase global, not in Deno types
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(responsePromise);
     }
   } catch {
-    // fire-and-forget — the async function runs in background
+    // Local dev fallback — promise still runs as fire-and-forget
   }
 
   return new Response(
