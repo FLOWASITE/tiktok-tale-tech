@@ -1,66 +1,97 @@
 
-## Phân tích vấn đề (đồng ý với chuyên gia)
+## Vấn đề (đồng ý với chuyên gia)
 
-Chuyên gia chỉ ra **lỗi thiết kế cốt lõi**: `seamlessContext.previousSceneDescription` chỉ có giá trị khi slide N-1 đã xong trước slide N. Nếu frontend (hoặc batch function) chạy parallel → field rỗng → "seamless carousel" trở thành lời hứa rỗng. Đây là **silent failure** — user không biết, hệ thống không cảnh báo.
+Cache key hiện tại trong `generate-carousel` có lỗ hổng compliance nghiêm trọng:
+- Cache key bao gồm `brandVoice` nhưng **KHÔNG bao gồm version/hash của Industry Memory rules** (compliance_rules, forbidden_terms, claim_restrictions, argument_patterns).
+- Khi admin update `industry_templates.compliance_rules` mà không bump `promptSchemaVersion` thủ công → cache hit → bài cũ (có thể vi phạm rule mới) được trả về.
+- Với ngành thẩm mỹ/y tế, 1 lần hit sai = vi phạm Luật Quảng cáo. **Rủi ro pháp lý, không chỉ chất lượng.**
+- `promptSchemaVersion: 'carousel_v5'` là manual bump → dễ quên.
 
-## Khảo sát hiện trạng (cần đọc trước khi sửa)
+## Khảo sát cần làm
+- `supabase/functions/generate-carousel/index.ts` — tìm chỗ build cache key, xác định fields hiện có.
+- `supabase/functions/_shared/cache/redis-cache.ts` (đã thấy) — `generateCacheKey()` nhận `brandVersion` nhưng KHÔNG nhận `industryVersion`.
+- `supabase/functions/_shared/data-fetchers/industry-fetcher.ts` (đã thấy) — `IndustryMemory` đã có field `version`. Tốt — chỉ cần truyền vào.
+- Các edge functions khác có cache liên quan compliance: `generate-multichannel`, `generate-script`, `generate-carousel-image`, `score-ad-creative`. Cần audit cùng lúc để fix triệt để (cùng pattern).
 
-Cần xác minh chính xác orchestration hiện tại:
-- `supabase/functions/generate-carousel-images-batch/index.ts` — đã thấy: **for-loop sequential** (i=0..totalSlides-1), nhưng truyền `seriesBible` + `siblingsSummary` **giống nhau** cho mọi slide → KHÔNG có `previousSceneDescription` thực sự cập nhật theo slide.
-- `supabase/functions/generate-carousel-image/index.ts` — cần đọc: nó làm gì với `seamlessContext.previousSceneDescription`? Có lưu lại scene description sau khi generate không?
-- `src/components/carousel/*` — tìm chỗ frontend gọi `generate-carousel-image` parallel (Promise.all). Cần xác định: hiện tại UI đang dùng batch (sequential) hay parallel từ FE?
-- Khả năng PoYo image-to-image: kiểm tra `_shared/image-providers/*` xem provider nào support `previous_image_reference` / image input.
+## Giải pháp (3 lớp)
 
-## Kế hoạch sửa (3 lớp)
+### Lớp 1 — Mở rộng `generateCacheKey()` shared util
+**File:** `supabase/functions/_shared/cache/redis-cache.ts`
 
-### Lớp 1 — Backend bắt buộc sequential cho slide 2..N
+Thêm 2 params mới (optional để backward-compat):
+- `industryVersion?: string` — version từ `industry_templates.version`
+- `complianceRulesHash?: string` — SHA-256 của serialized merged compliance rules (gồm `compliance_rules`, `forbidden_terms`, `claim_restrictions`, `forbidden_patterns`, `claim_substitutions`)
 
-**File:** `supabase/functions/generate-carousel-images-batch/index.ts`
+Hash này được **inject vào payload trước khi tính SHA-256 cuối**, đảm bảo bất kỳ thay đổi rule nào → key đổi → cache miss.
 
-- Slide 1 (hook): generate độc lập → sau khi xong, **trích xuất `sceneDescription`** từ kết quả (ask AI mô tả lại cảnh vừa tạo trong 50 từ EN, hoặc echo lại prompt scene block) và lưu vào biến `previousSceneSummary`.
-- Slide 2..N: **bắt buộc chờ slide N-1 xong**, truyền:
-  - `previousSceneDescription`: scene của slide N-1 (vừa generate)
-  - `previousImageUrl`: URL ảnh slide N-1 (cho image-to-image nếu provider hỗ trợ)
-  - `accumulatedSceneChain`: chuỗi tóm tắt 1-2 slide gần nhất (tránh drift quá xa khỏi slide 1)
-- Loại bỏ khả năng parallel cho slide 2..N. Slide 1 có thể được generate trước/song song với việc fetch metadata.
+### Lớp 2 — Thêm helper `hashComplianceRules()`
+**File mới:** `supabase/functions/_shared/cache/compliance-hash.ts`
 
-### Lớp 2 — Frontend KHÔNG được bypass batch
+```typescript
+export async function hashComplianceRules(industry: IndustryMemory | null): Promise<string> {
+  if (!industry) return 'no-industry';
+  // Canonical serialization: sort keys, include all rule fields
+  const canonical = JSON.stringify({
+    v: industry.version,
+    cr: industry.compliance_rules ?? [],
+    ft: (industry.forbidden_terms ?? []).slice().sort(),
+    cl: industry.claim_restrictions ?? [],
+    fp: industry.argument_patterns?.forbidden_patterns ?? [],
+    sr: industry.system_rules ?? [],
+    fw: (industry.forbidden_words ?? []).slice().sort(),
+  });
+  // SHA-256 → hex (16 chars)
+  return sha256Hex(canonical).slice(0, 16);
+}
+```
 
-**Files cần kiểm tra & sửa:**
-- `src/components/carousel/*Generator*.tsx` / `*Viewer*.tsx`
-- Bất kỳ chỗ nào gọi `supabase.functions.invoke('generate-carousel-image', ...)` trực tiếp trong vòng lặp / `Promise.all`
+Lý do dùng cả `version` + hash thực: nếu admin sửa rule mà **quên bump version**, hash vẫn đổi → vẫn miss cache. Defense-in-depth.
 
-**Hành động:**
-- Mọi luồng generate **toàn bộ carousel** phải đi qua `generate-carousel-images-batch` (đã sequential ở Lớp 1).
-- Chỉ cho phép gọi `generate-carousel-image` đơn lẻ khi user **regenerate 1 slide cụ thể** — và trong trường hợp này, **tự động truyền `previousSceneDescription` + `previousImageUrl`** lấy từ slide N-1 đã có trong DB.
+### Lớp 3 — Áp dụng vào `generate-carousel` (và các function compliance-sensitive khác)
+**Files cần sửa:**
+- `supabase/functions/generate-carousel/index.ts` (ưu tiên #1)
+- `supabase/functions/generate-carousel-image/index.ts`
+- `supabase/functions/generate-multichannel/index.ts`
+- `supabase/functions/generate-script/index.ts`
+- `supabase/functions/score-ad-creative/index.ts` (nếu có cache)
 
-### Lớp 3 — Tận dụng PoYo nano-banana image-to-image
+Pattern thay thế:
+```typescript
+// TRƯỚC
+const cacheKey = await generateCacheKey(brandId, 'carousel', {...input, brandVoice}, 'carousel_v5', brandVersion);
 
-**File:** `supabase/functions/generate-carousel-image/index.ts` + provider layer
+// SAU
+const complianceHash = await hashComplianceRules(industryMemory);
+const cacheKey = await generateCacheKey(
+  brandId,
+  'carousel',
+  {...input, brandVoice},
+  'carousel_v5',
+  brandVersion,
+  industryMemory?.version,   // NEW
+  complianceHash              // NEW
+);
+```
 
-- Khi `previousImageUrl` được truyền vào và provider = PoYo (nano-banana hỗ trợ img2img):
-  - Gửi ảnh slide N-1 làm **reference image** (low strength ~0.3-0.4) để giữ palette/style/lighting/composition flow.
-  - Prompt vẫn mô tả scene mới của slide N, nhưng có ràng buộc visual hard-coded từ ảnh trước.
-- Fallback: nếu provider không hỗ trợ img2img → chỉ dùng `previousSceneDescription` text (như hiện tại) nhưng lần này nó **thực sự có giá trị** vì đã chờ sequential.
+### Lớp 4 — Auto-invalidation trigger (DB)
+**Migration:** Thêm trigger `invalidate_cache_on_industry_rules_update` trên `industry_templates` để **auto-bump `version`** khi bất kỳ rule field nào đổi (compliance_rules, forbidden_terms, claim_restrictions, argument_patterns, system_rules). Hiện đã có `invalidate_cache_on_industry_update` nhưng nó chỉ trigger khi `version` đổi — cần đảo ngược: rule đổi → version tự bump → cascade invalidation.
 
-### Lớp 4 — Validation post-hoc (chống silent failure)
-
-- Sau khi batch xong **toàn bộ slide**, trigger `validate-seamless-consistency` (đã có) **tự động** thay vì chờ user bấm.
-- Nếu `overallScore < 60` → đánh dấu carousel `needs_regeneration: true` + hiện banner UI "Tính liên tục thấp — bấm để tạo lại slide X, Y".
-- Lưu thêm field `generation_mode: 'sequential_v2'` vào carousel để phân biệt với data cũ.
+Đồng thời gọi `invalidateByPrefix(\`flowa:cache:*:${nodeType}:\`)` từ một edge function admin endpoint khi bump rule (best-effort, không blocking).
 
 ## Files dự kiến sửa
-- `supabase/functions/generate-carousel-images-batch/index.ts` (logic sequential + scene chain)
-- `supabase/functions/generate-carousel-image/index.ts` (nhận `previousImageUrl`, dùng img2img khi có)
-- `supabase/functions/_shared/image-providers/*` (thêm img2img path cho PoYo nếu chưa có)
-- `src/components/carousel/*` (chuyển mọi luồng "generate all" sang batch; regenerate 1 slide phải truyền context slide N-1)
-- `src/hooks/useCarousels.ts` hoặc hook tạo ảnh (nếu có Promise.all → bỏ)
-- Optional: migration thêm cột `carousels.generation_mode` + `carousels.needs_regeneration`
+- `supabase/functions/_shared/cache/redis-cache.ts` (mở rộng signature)
+- `supabase/functions/_shared/cache/compliance-hash.ts` (mới)
+- `supabase/functions/generate-carousel/index.ts`
+- `supabase/functions/generate-carousel-image/index.ts`
+- `supabase/functions/generate-multichannel/index.ts`
+- `supabase/functions/generate-script/index.ts`
+- `supabase/functions/_shared/data-fetchers/industry-fetcher.ts` (đảm bảo trả về đủ field cho hash)
+- Migration: trigger auto-bump `industry_templates.version` khi rule fields đổi
 
-## Tradeoff cần user xác nhận
+## Trade-off
+- **Cache hit rate giảm nhẹ** sau mỗi lần admin update rule (đúng — đó là mục tiêu).
+- **Latency mỗi request +1-2ms** do tính SHA-256 hash compliance rules (negligible).
+- **Backward compat**: param mới optional → các function chưa migrate vẫn chạy bình thường, chỉ là chưa được bảo vệ.
 
-Sequential slide 2..N sẽ **tăng latency tuyến tính** (5 slide × ~15s = 75s thay vì ~20s parallel). Đổi lại: seamless thực sự hoạt động. Có 2 hướng giảm thiểu:
-1. **UI streaming**: hiện ảnh slide 1 ngay khi xong, các slide sau xuất hiện dần (skeleton + progress) — UX vẫn tốt dù tổng thời gian dài hơn.
-2. **Tùy chọn user**: thêm toggle "Seamless mode (chậm hơn, đẹp hơn)" vs "Independent slides (nhanh, mỗi slide 1 concept)" trong form tạo carousel.
-
-Sau khi approve, tôi sẽ đọc các file còn thiếu rồi triển khai theo đúng 4 lớp trên.
+## Sau khi user approve
+Đọc các file trên rồi triển khai theo thứ tự: shared util → helper hash → áp dụng vào `generate-carousel` trước (vertical aesthetic surgery), sau đó cascade sang các function khác trong cùng commit.
