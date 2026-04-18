@@ -639,10 +639,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           console.log(`[generate-carousel-image] PoYo failed, trying alternate PoYo model: ${altPoyoModel}...`);
           try {
             externalImageUrl = await generateImageViaPoyo({
-              prompt: backgroundPrompt,
+              prompt: finalPrompt,
               model: altPoyoModel,
               aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
-              inputImage: previousImageUrl || undefined,
+              inputImage: singleRefImage,
             }, POYO_API_KEY);
             modelUsed = `${altPoyoModel} (fallback from ${requestedModel})`;
             usedFallback = true;
