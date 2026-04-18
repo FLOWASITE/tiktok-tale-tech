@@ -45,6 +45,9 @@ export function useImageGeneration() {
     setGenerating(slideNumber);
     
     try {
+      // Use carouselId as the trace correlation key — propagates across
+      // generate-carousel → generate-carousel-image so a 7-slide carousel
+      // becomes 1 traceable session in logs.
       const { data, error: invokeError } = await invokeWithTimeout<any>('generate-carousel-image', {
         body: {
           prompt,
@@ -60,6 +63,7 @@ export function useImageGeneration() {
           carouselTopic: options?.carouselTopic,
           previousImageUrl: options?.previousImageUrl ?? null,
           seamlessContext: options?.seamlessContext,
+          traceId: carouselId,
         },
         timeoutMs: 150_000,
       });
