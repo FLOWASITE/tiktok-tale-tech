@@ -582,12 +582,24 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective,
       textContent, overlayConfig
     );
+
+    // === Logo conditioning directive (only when we actually attach the logo image) ===
+    // Models receive the logo as a real image input (multi-image), this text tells them HOW to use it.
+    const logoDirective = (includeLogo && resolvedLogoUrl)
+      ? `\n\n[REFERENCE IMAGE — BRAND LOGO]: One of the attached images is the EXACT brand logo. You MUST place it in the design WITHOUT redrawing, modifying its shape, colors, typography, or proportions. Position: top-right corner with ~5% padding from edges. Size: ~10–12% of canvas width. Do NOT invent a different logo. If unsure, omit the logo rather than guess.`
+      : '';
+    const finalPrompt = backgroundPrompt + logoDirective;
+
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
     let imageBase64: string | null = null;
     let mimeType = "image/png";
     let externalImageUrl: string | null = null;
     let sceneDescription: string | null = null;
+
+    // For single-input providers (PoYo/KIE/GeminiGen), prefer previousImageUrl for seamless continuity;
+    // when no previous image exists (e.g. slide 1 or non-seamless), use the logo as the single reference.
+    const singleRefImage = previousImageUrl || (includeLogo && resolvedLogoUrl) || undefined;
 
     // --- PoYo routing ---
     if (isPoyoModel(requestedModel)) {
