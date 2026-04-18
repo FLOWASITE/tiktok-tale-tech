@@ -1003,9 +1003,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           );
         }
 
-        // Extract scene description from AI text response
+        // Extract scene description from AI text response (sanitize markdown/JSON)
         const aiResponseText = bgData.choices?.[0]?.message?.content || '';
-        sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
+        sceneDescription = sanitizeSceneDescription(aiResponseText);
         break; // Success — exit retry loop
       }
 
@@ -1072,6 +1072,29 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     }
 
     console.log(`[generate-carousel-image] Background uploaded: ${backgroundUrl}, model: ${modelUsed}`);
+
+    // ============================================
+    // Populate sceneDescription for external providers (PoYo/KIE/GeminiGen).
+    // These providers return only an image URL — no companion text — so the
+    // seamless-V2 chain breaks at slide 2 unless we describe the result.
+    // Lovable Gateway already populates sceneDescription from its own text
+    // response (sanitized above), so skip there.
+    // ============================================
+    if (!sceneDescription && externalImageUrl) {
+      const t0 = performance.now();
+      sceneDescription = await describeImageForContinuity(backgroundUrl, lovableApiKey);
+      const took = Math.round(performance.now() - t0);
+      console.log(
+        `[generate-carousel-image] sceneDescription via Gemini Flash Lite: ` +
+        `${sceneDescription ? `${sceneDescription.length} chars` : 'NULL'} (${took}ms, slide=${slideNumber})`,
+      );
+    }
+    if (!sceneDescription) {
+      console.warn(
+        `[generate-carousel-image] sceneDescription is NULL for slide=${slideNumber} ` +
+        `(provider=${modelUsed}). Next slide will fall back to objective/fullPrompt.`,
+      );
+    }
 
     // === Gallery visual slides: skip overlay, return background directly ===
     if (slideRole === 'visual') {
