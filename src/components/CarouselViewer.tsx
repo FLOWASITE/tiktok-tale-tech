@@ -714,6 +714,7 @@ export function CarouselViewer({
       : null;
 
     let previousSceneDescription: string | null = null;
+    let previousImageUrl: string | null = null;
     let successCount = 0;
     const collectedUrls: string[] = [];
 
@@ -730,6 +731,7 @@ export function CarouselViewer({
         slideObjective: slide.objective,
         visualPreset: carousel.visual_preset || 'minimalist',
         carouselTopic: carousel.topic,
+        previousImageUrl,
         seamlessContext: {
           colorPalette,
           previousSceneDescription,
@@ -741,6 +743,8 @@ export function CarouselViewer({
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
         successCount++;
         collectedUrls.push(result.imageUrl);
+        // Chain real outputs for next iteration (sequential_v2)
+        previousImageUrl = result.imageUrl;
         if (result.modelUsed) {
           setLastModelUsed(result.modelUsed);
           if (result.modelUsed.includes('fallback') && successCount === 1) {
