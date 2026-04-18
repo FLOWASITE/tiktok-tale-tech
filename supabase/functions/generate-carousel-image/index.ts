@@ -51,11 +51,20 @@ function detectSlideRole(
 // from the previous image alone". For aesthetic / luxury verticals where
 // visual consistency IS the product, we pay ~$0.001/slide to ask Gemini
 // Flash Lite to describe the image so slide N+1 can consume it.
+// Module-scope flag: once Gemini Flash Lite returns 402 (credits exhausted)
+// in this worker, skip describe entirely for the rest of the worker lifetime.
+// Saves ~400-1000ms per slide and reduces tail latency to keep us under 150s.
+let DESCRIBE_DISABLED_UNTIL_RESTART = false;
+
 async function describeImageForContinuity(
   imageUrl: string,
   lovableApiKey: string | undefined,
 ): Promise<string | null> {
   if (!lovableApiKey || !imageUrl) return null;
+  if (DESCRIBE_DISABLED_UNTIL_RESTART) {
+    console.log('[describe] Skipped — disabled (prior 402 in this worker)');
+    return null;
+  }
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -81,6 +90,10 @@ async function describeImageForContinuity(
     });
     if (!resp.ok) {
       console.warn(`[describe] Failed status=${resp.status}`);
+      if (resp.status === 402 || resp.status === 429) {
+        DESCRIBE_DISABLED_UNTIL_RESTART = true;
+        console.warn('[describe] Disabling for rest of worker lifetime');
+      }
       return null;
     }
     const data = await resp.json();
@@ -1200,6 +1213,51 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         `[generate-carousel-image] sceneDescription is NULL for slide=${slideNumber} ` +
         `(provider=${modelUsed}). Next slide will fall back to objective/fullPrompt.`,
       );
+    }
+
+    // === Persist to carousel_images BEFORE returning response ===
+    // This guarantees the image survives even if the client times out — the
+    // frontend has a realtime subscription on this table and will pick it up.
+    // Wrapped in EdgeRuntime.waitUntil so it completes even if client aborts.
+    const persistImageToDb = async () => {
+      try {
+        await supabase
+          .from('carousel_images')
+          .update({ is_selected: false })
+          .eq('carousel_id', carouselId)
+          .eq('slide_number', slideNumber);
+
+        const { error: insErr } = await supabase
+          .from('carousel_images')
+          .insert({
+            carousel_id: carouselId,
+            slide_number: slideNumber,
+            image_url: backgroundUrl,
+            prompt: backgroundPrompt?.slice(0, 2000) ?? null,
+            is_selected: true,
+            created_by: userId ?? null,
+            organization_id: organizationId ?? null,
+            scene_description: sceneDescription ?? null,
+          });
+        if (insErr) {
+          console.warn('[generate-carousel-image] DB persist failed:', insErr.message);
+        } else {
+          console.log(`[generate-carousel-image] Persisted slide=${slideNumber} to carousel_images`);
+        }
+      } catch (e) {
+        console.warn('[generate-carousel-image] DB persist threw:', e instanceof Error ? e.message : e);
+      }
+    };
+    try {
+      // @ts-ignore - EdgeRuntime is available in Supabase Edge runtime
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(persistImageToDb());
+      } else {
+        await persistImageToDb();
+      }
+    } catch {
+      await persistImageToDb();
     }
 
     // === Gallery visual slides: skip overlay, return background directly ===
