@@ -356,6 +356,55 @@ const getSlideObjective = (slideNumber: number, totalSlides: number, lang: strin
   return o.impact;
 };
 
+/**
+ * Strict post-repair validator. JSON repair can yield slides that are
+ * schema-valid but semantically empty (e.g. fullPrompt:"", missing headline,
+ * non-contiguous slideNumber). Caching such garbage = persistent UX failure
+ * and, in regulated verticals, compliance risk. This guard refuses them.
+ */
+function validateRepairedSlides(
+  slides: unknown,
+  expectedCount: number,
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (!Array.isArray(slides)) {
+    return { valid: false, errors: ['slides is not an array'] };
+  }
+  if (slides.length !== expectedCount) {
+    errors.push(`expected ${expectedCount} slides, got ${slides.length}`);
+  }
+  const seenNumbers = new Set<number>();
+  slides.forEach((slide: any, idx: number) => {
+    const expectedNum = idx + 1;
+    const num = slide?.slideNumber;
+    if (num !== expectedNum) {
+      errors.push(`slide[${idx}]: slideNumber=${num}, expected ${expectedNum}`);
+    }
+    if (typeof num === 'number') {
+      if (seenNumbers.has(num)) errors.push(`duplicate slideNumber ${num}`);
+      seenNumbers.add(num);
+    }
+    // headline check (string textContent OR structured.headline)
+    const tc = slide?.textContent;
+    let headlineOk = false;
+    if (typeof tc === 'string') {
+      headlineOk = tc.trim().length > 0;
+    } else if (tc && typeof tc === 'object') {
+      headlineOk = typeof tc.headline === 'string' && tc.headline.trim().length > 0;
+    }
+    if (!headlineOk) {
+      errors.push(`slide ${expectedNum}: empty/missing headline`);
+    }
+    // fullPrompt: must be ≥30 words
+    const fp = typeof slide?.fullPrompt === 'string' ? slide.fullPrompt.trim() : '';
+    const wordCount = fp ? fp.split(/\s+/).length : 0;
+    if (wordCount < 30) {
+      errors.push(`slide ${expectedNum}: fullPrompt has ${wordCount} words (<30)`);
+    }
+  });
+  return { valid: errors.length === 0, errors };
+}
+
 const getCarouselStylePrompt = (style: string, slideCount: number): string => {
   switch (style) {
     case 'seamless':
