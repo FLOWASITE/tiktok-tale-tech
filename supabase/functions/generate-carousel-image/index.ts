@@ -884,51 +884,41 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
 
       console.log(`[generate-carousel-image] Routing to GeminiGen.ai: ${requestedModel}`);
 
-      // Retry GeminiGen up to 2 times before falling back (intermittent failures are common)
-      const GEMINIGEN_MAX_RETRIES = 2;
+      // Single attempt only — Supabase edge fn has 150s idle timeout.
+      // GeminiGen poll budget = 105s, leaving ~40s for fallback to PoYo/Gateway.
+      // Retrying GeminiGen on timeout would blow the budget (was causing 504s).
       let geminiGenSuccess = false;
       let lastGeminiGenErr = '';
 
-      for (let attempt = 1; attempt <= GEMINIGEN_MAX_RETRIES; attempt++) {
-        try {
-          externalImageUrl = await generateImageViaGeminiGen({
-            prompt: finalPrompt,
-            model: requestedModel,
-            aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
-            inputImage: singleRefImage,
-            // Match generate-brand-image's poll budget. Logs show GeminiGen needs
-            // ~80-90s to render, and img2img slides (with previousImage) take
-            // even longer. 99s was timing out attempt 1 on slide 2+.
-            maxAttempts: 40, // 40 × 3s = 120s, still safely under 150s edge-fn limit
-          }, GEMINIGEN_API_KEY);
-          modelUsed = requestedModel;
-          geminiGenSuccess = true;
-          recordSuccess(requestedModel).catch(() => {});
-          break;
-        } catch (geminiGenErr) {
-          lastGeminiGenErr = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
-          console.warn(`[generate-carousel-image] GeminiGen attempt ${attempt}/${GEMINIGEN_MAX_RETRIES} failed: ${lastGeminiGenErr}`);
+      try {
+        externalImageUrl = await generateImageViaGeminiGen({
+          prompt: finalPrompt,
+          model: requestedModel,
+          aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+          inputImage: singleRefImage,
+          maxAttempts: 35, // 35 × 3s = 105s, leaves ~40s budget for fallback
+        }, GEMINIGEN_API_KEY);
+        modelUsed = requestedModel;
+        geminiGenSuccess = true;
+        recordSuccess(requestedModel).catch(() => {});
+      } catch (geminiGenErr) {
+        lastGeminiGenErr = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
+        console.warn(`[generate-carousel-image] GeminiGen failed: ${lastGeminiGenErr}`);
 
-          // Don't retry on auth/credits/rate-limit errors
-          if (lastGeminiGenErr.includes('GEMINIGEN_AUTH_ERROR') || lastGeminiGenErr.includes('GEMINIGEN_CREDITS_EXHAUSTED') || lastGeminiGenErr.includes('GEMINIGEN_RATE_LIMIT')) {
-            recordFailure(requestedModel, undefined, supabase).catch(() => {});
-            const isCredits = lastGeminiGenErr.includes('CREDITS_EXHAUSTED');
-            return new Response(
-              JSON.stringify({
-                error: isCredits
-                  ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.'
-                  : lastGeminiGenErr,
-                errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
-                fallback: true,
-              }),
-              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-
-          if (attempt < GEMINIGEN_MAX_RETRIES) {
-            console.log(`[generate-carousel-image] Retrying GeminiGen in 3s...`);
-            await new Promise(r => setTimeout(r, 3000));
-          }
+        // Don't fallback on auth/credits/rate-limit — surface immediately
+        if (lastGeminiGenErr.includes('GEMINIGEN_AUTH_ERROR') || lastGeminiGenErr.includes('GEMINIGEN_CREDITS_EXHAUSTED') || lastGeminiGenErr.includes('GEMINIGEN_RATE_LIMIT')) {
+          recordFailure(requestedModel, undefined, supabase).catch(() => {});
+          const isCredits = lastGeminiGenErr.includes('CREDITS_EXHAUSTED');
+          return new Response(
+            JSON.stringify({
+              error: isCredits
+                ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.'
+                : lastGeminiGenErr,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+              fallback: true,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       }
 
