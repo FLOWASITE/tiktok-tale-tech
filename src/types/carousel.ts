@@ -65,6 +65,13 @@ export interface Carousel {
   was_refined?: boolean | null;
   refinement_count?: number | null;
   needs_manual_review?: boolean | null;
+  // Seamless V2 (auto-validation post-batch)
+  needs_regeneration?: boolean | null;
+  seamless_score?: number | null;
+  seamless_consistency_score?: number | null;
+  seamless_issues?: string[] | null;
+  seamless_analysis?: Record<string, unknown> | null;
+  generation_mode?: string | null;
   created_at: string;
   updated_at: string;
 }
