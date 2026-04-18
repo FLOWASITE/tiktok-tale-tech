@@ -3729,6 +3729,7 @@ export type Database = {
           is_selected: boolean | null
           organization_id: string | null
           prompt: string | null
+          scene_description: string | null
           slide_number: number
           version: number
         }
@@ -3741,6 +3742,7 @@ export type Database = {
           is_selected?: boolean | null
           organization_id?: string | null
           prompt?: string | null
+          scene_description?: string | null
           slide_number: number
           version?: number
         }
@@ -3753,6 +3755,7 @@ export type Database = {
           is_selected?: boolean | null
           organization_id?: string | null
           prompt?: string | null
+          scene_description?: string | null
           slide_number?: number
           version?: number
         }
