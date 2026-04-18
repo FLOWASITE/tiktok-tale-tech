@@ -1176,15 +1176,17 @@ Follow the carousel style guidelines strictly.`;
       throw new Error("Invalid AI response format");
     };
 
-    // Wrap generateFn so structural validation happens BEFORE the cache is written.
-    // Without this guard a truncated/repaired payload (e.g. 3 slides instead of 7)
-    // would be cached, then thrown by validateRepairedSlides on every retry,
-    // producing a permanent 500 for that input combination until TTL expiry.
+    // Wrap generateFn so STRUCTURAL + STRICT + COMPLIANCE validation happens
+    // BEFORE the cache is written. Without this guard a truncated/repaired payload
+    // (e.g. 3 slides instead of 7) OR a compliance-blocked payload would be cached,
+    // then re-thrown on every retry — producing a permanent 500 / silent compliance
+    // violation for that input combination until TTL expiry.
+    //
+    // P1 cache-poisoning fix: validation + compliance now run inside the cache
+    // wrapper so any failure aborts the cache.set() call entirely.
     const generateAndStructurallyValidate = async () => {
       const data = await generateAIContent();
-      // Cheap structural pre-check: slide array exists + length matches request.
-      // Full strict validation (headline non-empty, contiguous slideNumber, fullPrompt
-      // word-count) still runs after normalize() outside withCache.
+      // 1) Structural pre-check: slide array exists + length matches request.
       if (!data || !Array.isArray(data.slides)) {
         throw new Error('SLIDE_VALIDATION_FAIL: response missing slides array — refusing to cache');
       }
@@ -1192,6 +1194,34 @@ Follow the carousel style guidelines strictly.`;
         throw new Error(
           `SLIDE_VALIDATION_FAIL: got ${data.slides.length} slides, expected ${formData.slideCount} — refusing to cache truncated payload`,
         );
+      }
+      // 2) Strict validation (headline, contiguous slideNumber, fullPrompt word-count).
+      const cacheValidation = validateRepairedSlides(data.slides, formData.slideCount);
+      if (!cacheValidation.valid) {
+        throw new Error(
+          `SLIDE_VALIDATION_FAIL: ${cacheValidation.errors.slice(0, 3).join('; ')}` +
+          (cacheValidation.errors.length > 3 ? ` (+${cacheValidation.errors.length - 3} more)` : '')
+        );
+      }
+      // 3) Layer-2 compliance scan — refuse to cache blocked content.
+      //    "high" is allowed through (flagged + logged downstream) so reviewers
+      //    can still see and remediate borderline output.
+      if (mergedRules) {
+        const cacheCompliance = postCheckCarouselCompliance(
+          data.slides,
+          {
+            forbidden_terms: mergedRules.forbidden_terms,
+            forbidden_words: mergedRules.forbidden_words,
+            claim_restrictions: mergedRules.claim_restrictions,
+          },
+          { caption: data.captionSuggestion, cta: data.ctaSuggestion },
+        );
+        if (cacheCompliance.riskLevel === 'blocked') {
+          throw new Error(
+            `COMPLIANCE_BLOCKED: ${cacheCompliance.violations.length} violation(s) — refusing to cache. ` +
+            `First: slide=${cacheCompliance.violations[0]?.slideNumber} type=${cacheCompliance.violations[0]?.type}`,
+          );
+        }
       }
       return data;
     };
@@ -1360,7 +1390,20 @@ Follow the carousel style guidelines strictly.`;
       // Audit log — fire-and-forget, never block on logging failures
       const orgIdForLog = organizationId || null;
       if (orgIdForLog) {
+        // 10% sampling of raw output (truncated 2000 chars) for post-hoc debugging.
+        // Stored in ai_metrics.sampled_response — see audit Round 2 finding #2.
+        const shouldSample = Math.random() < 0.1;
+        const sampledResponse = shouldSample
+          ? JSON.stringify({
+              title: generatedData.title,
+              slides: generatedData.slides?.slice(0, 3),
+              captionSuggestion: generatedData.captionSuggestion,
+              ctaSuggestion: generatedData.ctaSuggestion,
+            }).slice(0, 2000)
+          : null;
+
         supabase.from('ai_metrics').insert({
+          trace_id: traceId,
           organization_id: orgIdForLog,
           user_id: userId,
           function_name: 'generate-carousel',
@@ -1369,6 +1412,10 @@ Follow the carousel style guidelines strictly.`;
           compliance_action: complianceResult.riskLevel === 'blocked'
             ? 'blocked'
             : (complianceResult.riskLevel === 'high' ? 'flagged_high' : 'pass'),
+          sampled_response: sampledResponse,
+          had_error: false,
+          context_sources: [],
+          total_duration_ms: 0,
         }).then(({ error }: { error: any }) => {
           if (error) console.warn('[Compliance] audit log insert failed:', error.message);
         });
