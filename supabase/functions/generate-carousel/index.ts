@@ -3,6 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { hashComplianceRules } from "../_shared/cache/compliance-hash.ts";
 import {
+  postCheckCarouselCompliance,
+  type PostCheckResult,
+} from "../_shared/compliance/compliance-postcheck.ts";
+import {
   runSelfCritiqueLoop,
   CRITIQUE_CONFIG,
   type CritiqueResult,
@@ -1223,6 +1227,75 @@ Follow the carousel style guidelines strictly.`;
       );
     }
     console.log(`[validate] All ${generatedData.slides.length} slides passed strict validation`);
+
+    // ============================================
+    // LAYER 2 — POST-GENERATION COMPLIANCE SCAN
+    // Catches violations that pre-check missed (model produced forbidden
+    // claims even from a clean topic). Critical for aesthetic / medical /
+    // financial verticals. Runs BEFORE caching so bad output is never persisted.
+    // ============================================
+    let complianceResult: PostCheckResult | null = null;
+    if (mergedRules) {
+      complianceResult = postCheckCarouselCompliance(
+        generatedData.slides,
+        {
+          forbidden_terms: mergedRules.forbidden_terms,
+          forbidden_words: mergedRules.forbidden_words,
+          claim_restrictions: mergedRules.claim_restrictions,
+        },
+        {
+          caption: generatedData.captionSuggestion,
+          cta: generatedData.ctaSuggestion,
+        },
+      );
+
+      console.log(
+        `[Compliance] postcheck: level=${complianceResult.riskLevel} score=${complianceResult.riskScore} ` +
+        `violations=${complianceResult.violations.length} fields=${complianceResult.scannedFields}`,
+      );
+
+      // Audit log — fire-and-forget, never block on logging failures
+      const orgIdForLog = organizationId || null;
+      if (orgIdForLog) {
+        supabase.from('ai_metrics').insert({
+          organization_id: orgIdForLog,
+          user_id: userId,
+          function_name: 'generate-carousel',
+          compliance_risk_level: complianceResult.riskLevel,
+          compliance_violations: complianceResult.violations.slice(0, 50),
+          compliance_action: complianceResult.riskLevel === 'blocked'
+            ? 'blocked'
+            : (complianceResult.riskLevel === 'high' ? 'flagged_high' : 'pass'),
+        }).then(({ error }: { error: any }) => {
+          if (error) console.warn('[Compliance] audit log insert failed:', error.message);
+        });
+      }
+
+      if (complianceResult.riskLevel === 'blocked') {
+        for (const v of complianceResult.violations.slice(0, 5)) {
+          console.error(
+            `[Compliance] BLOCKED slide=${v.slideNumber} field=${v.field} type=${v.type} match="${v.match}"`,
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            status: 'compliance_blocked',
+            error: 'Nội dung vi phạm quy định ngành. Cần admin override để xuất bản.',
+            risk_level: complianceResult.riskLevel,
+            risk_score: complianceResult.riskScore,
+            violations: complianceResult.violations,
+            requires_manual_override: true,
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      if (complianceResult.riskLevel === 'high') {
+        // Phase 1: log + flag for review (auto-regenerate w/ feedback is Phase 2 —
+        // requires refactoring the cache wrapper to support feedback injection)
+        console.warn(`[Compliance] HIGH risk — flagged for review (${complianceResult.violations.length} issues)`);
+      }
+    }
 
     // ============================================
     // SELF-CRITIQUE LOOP - Evaluate and refine carousel
