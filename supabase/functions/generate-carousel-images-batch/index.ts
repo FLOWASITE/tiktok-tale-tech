@@ -321,14 +321,20 @@ Deno.serve(async (req) => {
       // Mark task COMPLETED BEFORE validation so user sees images immediately.
       // Validation runs as best-effort with a tight timeout.
       if (successCount === 0) {
-        await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
+        const failMsg = batchCreditsExhausted
+          ? 'Provider ảnh hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.'
+          : `Tất cả ${totalSlides} slide đều thất bại`;
+        await failTask(supabase, taskId, failMsg);
       } else {
         await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
+        const completeMsg = batchCreditsExhausted
+          ? `Hoàn thành ${successCount}/${totalSlides} ảnh — dừng vì hết credits`
+          : `Hoàn thành: ${successCount}/${totalSlides} ảnh`;
         await updateTaskProgress(
           supabase,
           taskId,
           100,
-          `Hoàn thành: ${successCount}/${totalSlides} ảnh`,
+          completeMsg,
           'completed',
           'completed'
         );
