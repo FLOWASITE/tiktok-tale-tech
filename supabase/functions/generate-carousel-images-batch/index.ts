@@ -117,19 +117,18 @@ Deno.serve(async (req) => {
           totalInSequence: totalSlides,
         };
 
-        const MAX_ATTEMPTS = 3;
+        const MAX_ATTEMPTS = 2;
         let slideSuccess = false;
         let slideImageUrl: string | undefined;
         let slideSceneDescription: string | null = null;
         let slideError: string | undefined;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-          // Per-attempt timeout: 150s. If generate-carousel-image hangs longer than this
-          // (typically due to a slow provider like GeminiGen), abort and retry with a
-          // fresh connection rather than waiting for the platform to kill the socket
-          // mid-response (which produces "connection closed before message completed").
+          // Per-attempt timeout: 240s. Some providers (GeminiGen Nano Banana 2) can
+          // legitimately take ~170s. We were aborting at 150s and retrying, which
+          // burned the whole batch budget before any slide could succeed.
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 150_000);
+          const timeoutId = setTimeout(() => controller.abort(), 240_000);
 
           try {
             console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
@@ -203,7 +202,7 @@ Deno.serve(async (req) => {
             clearTimeout(timeoutId);
             const isAbort = err instanceof Error && (err.name === 'AbortError' || /abort/i.test(err.message));
             slideError = isAbort
-              ? `Timeout sau 150s (provider treo) — attempt ${attempt}`
+              ? `Timeout sau 240s (provider treo) — attempt ${attempt}`
               : (err instanceof Error ? err.message : String(err));
             console.error(`[batch] Slide ${slideNum} attempt ${attempt} failed:`, slideError);
 
@@ -228,7 +227,7 @@ Deno.serve(async (req) => {
 
           // Maintain rolling window of last 2 scenes (avoid drift from slide 1)
           if (nextSceneDesc) {
-            recentScenes.push(`Slide ${slideNum}: ${nextSceneDesc.slice(0, 150)}`);
+          recentScenes.push(`Slide ${slideNum}: ${nextSceneDesc.slice(0, 150)}`);
             if (recentScenes.length > 2) recentScenes.shift();
           }
         } else {
@@ -242,6 +241,23 @@ Deno.serve(async (req) => {
           imageUrl: slideImageUrl,
           error: slideError,
         });
+
+        // Persist incremental progress so UI sees results slide-by-slide,
+        // even if the function gets shut down before completion.
+        try {
+          const incProgress = Math.round(((i + 1) / totalSlides) * 100);
+          await supabase
+            .from('generation_tasks')
+            .update({
+              progress: incProgress,
+              progress_message: `Đã xử lý ${i + 1}/${totalSlides} (${successCount} OK, ${failCount} lỗi)`,
+              current_step: `slide_${slideNum}_done`,
+              result_metadata: { successCount, failCount, totalSlides, results, generationMode: 'sequential_v2' },
+            })
+            .eq('id', taskId);
+        } catch (e) {
+          console.warn('[batch] Failed to persist incremental progress:', e);
+        }
 
         // Brief delay between slides to avoid provider rate limits
         if (i < totalSlides - 1) {
