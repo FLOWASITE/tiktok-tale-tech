@@ -766,6 +766,9 @@ export function CarouselViewer({
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
+    // Sync UI với toàn bộ ảnh đã được edge function persist
+    await refetchSavedImages();
+
     setGeneratingAll(false);
     setGeneratingProgress(0);
     setCurrentGeneratingSlide(null);
