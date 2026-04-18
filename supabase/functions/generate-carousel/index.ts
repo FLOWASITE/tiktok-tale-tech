@@ -1390,7 +1390,20 @@ Follow the carousel style guidelines strictly.`;
       // Audit log — fire-and-forget, never block on logging failures
       const orgIdForLog = organizationId || null;
       if (orgIdForLog) {
+        // 10% sampling of raw output (truncated 2000 chars) for post-hoc debugging.
+        // Stored in ai_metrics.sampled_response — see audit Round 2 finding #2.
+        const shouldSample = Math.random() < 0.1;
+        const sampledResponse = shouldSample
+          ? JSON.stringify({
+              title: generatedData.title,
+              slides: generatedData.slides?.slice(0, 3),
+              captionSuggestion: generatedData.captionSuggestion,
+              ctaSuggestion: generatedData.ctaSuggestion,
+            }).slice(0, 2000)
+          : null;
+
         supabase.from('ai_metrics').insert({
+          trace_id: carouselTraceId,
           organization_id: orgIdForLog,
           user_id: userId,
           function_name: 'generate-carousel',
@@ -1399,6 +1412,10 @@ Follow the carousel style guidelines strictly.`;
           compliance_action: complianceResult.riskLevel === 'blocked'
             ? 'blocked'
             : (complianceResult.riskLevel === 'high' ? 'flagged_high' : 'pass'),
+          sampled_response: sampledResponse,
+          had_error: false,
+          context_sources: [],
+          total_duration_ms: 0,
         }).then(({ error }: { error: any }) => {
           if (error) console.warn('[Compliance] audit log insert failed:', error.message);
         });
