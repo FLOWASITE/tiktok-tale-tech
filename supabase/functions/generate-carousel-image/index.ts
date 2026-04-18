@@ -6,6 +6,10 @@ import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
+import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
+import { createTrace } from "../_shared/tracing.ts";
+import { lightenHex, darkenHex } from "../_shared/color-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
