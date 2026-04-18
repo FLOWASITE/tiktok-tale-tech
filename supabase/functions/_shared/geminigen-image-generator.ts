@@ -118,11 +118,9 @@ async function submitTask(params: GeminiGenGenerateParams, apiKey: string): Prom
  * Poll GeminiGen.ai until image is ready
  * status: 1=processing, 2=completed, 3=failed
  */
-async function pollTask(uuid: string, apiKey: string): Promise<string> {
-  // Tightened: 20 × 3s = 60s. If GeminiGen hasn't completed in 60s, fall through
-  // to the caller's fallback chain (PoYo / KIE / Lovable Gateway) instead of holding
-  // the parent HTTP request open until it gets killed by the platform (~170s).
-  const maxAttempts = 20;
+async function pollTask(uuid: string, apiKey: string, maxAttempts = 20): Promise<string> {
+  // Default: 20 × 3s = 60s. Caller may override (e.g. carousel uses 33 ≈ 99s
+  // because generate-brand-image proved GeminiGen needs ~80-90s to render).
   const pollInterval = 3000;
 
   console.log(`[geminigen] Starting poll: uuid=${uuid}, max=${maxAttempts * pollInterval / 1000}s`);
