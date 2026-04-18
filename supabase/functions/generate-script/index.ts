@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
+import { hashComplianceRules } from "../_shared/cache/compliance-hash.ts";
 import { 
   buildExtendedBrandPrompt,
   buildJourneyStageMessagingSection,
@@ -1735,6 +1736,10 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
     let fromCache = false;
 
     try {
+      // Defense-in-depth: hash actual compliance rules so admin edits
+      // (even without version bump) invalidate cache → no stale rule violations.
+      const complianceHash = await hashComplianceRules(industryMemory);
+
       const cacheResult = await withCache({
         functionName,
         scope,
@@ -1744,6 +1749,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
         versions: {
           industryMemory: industryMemory?.version,
           brandVoice: brandVoice?.formality_level || undefined,
+          complianceHash,
         },
         ttlDays,
         generateFn: generateAIContent,

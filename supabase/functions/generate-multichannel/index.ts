@@ -4,6 +4,7 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedGoalDescriptions, getLocalizedAngleDescriptions, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
+import { hashComplianceRules } from "../_shared/cache/compliance-hash.ts";
 import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
 import { callAI, iterateStreamDeltas } from "../_shared/ai-provider.ts";
 import {
@@ -2415,13 +2416,20 @@ Nội dung sẵn sàng đăng ngay.`;
       let fromCache = false;
       
       try {
+        // Defense-in-depth compliance hash (regenerate path)
+        const complianceHashRegen = await hashComplianceRules(industryMemory);
+
         const cacheResult = await withCache({
           functionName: 'generate-multichannel',
           scope: 'org',
           organizationId: organizationId || undefined,
           brandTemplateId: formData.brandTemplateId || undefined,
           input: { ...cacheInput, action: 'regenerate' },
-          versions: { brandVoice: brandVoice?.formality_level || undefined },
+          versions: {
+            industryMemory: industryMemory?.version,
+            brandVoice: brandVoice?.formality_level || undefined,
+            complianceHash: complianceHashRegen,
+          },
           ttlDays: 1, // Short TTL for regeneration
           generateFn: generateAIContent,
         });
@@ -4465,6 +4473,9 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         };
 
         // P2: Use cache wrapper (same as manual mode)
+        // Defense-in-depth compliance hash (agent-mode path)
+        const complianceHashAgent = await hashComplianceRules(industryMemory);
+
         const agentCacheResult = await withCache({
           functionName,
           scope,
@@ -4474,6 +4485,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           versions: {
             industryMemory: industryMemory?.version,
             brandVoice: brandVoice?.formality_level || undefined,
+            complianceHash: complianceHashAgent,
           },
           ttlDays,
           generateFn: generateAgentContent,
@@ -4536,6 +4548,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         return true;
       };
 
+      // Defense-in-depth compliance hash (manual-mode path)
+      const complianceHashManual = await hashComplianceRules(industryMemory);
+
       const cacheResult = await withCache({
         functionName,
         scope,
@@ -4545,6 +4560,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         versions: {
           industryMemory: industryMemory?.version,
           brandVoice: brandVoice?.formality_level || undefined,
+          complianceHash: complianceHashManual,
         },
         ttlDays,
         generateFn: generateWithRetry,
