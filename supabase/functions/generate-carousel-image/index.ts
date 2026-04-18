@@ -90,6 +90,10 @@ async function describeImageForContinuity(
     });
     if (!resp.ok) {
       console.warn(`[describe] Failed status=${resp.status}`);
+      if (resp.status === 402 || resp.status === 429) {
+        DESCRIBE_DISABLED_UNTIL_RESTART = true;
+        console.warn('[describe] Disabling for rest of worker lifetime');
+      }
       return null;
     }
     const data = await resp.json();
