@@ -120,7 +120,14 @@ export function useImageGeneration() {
       return { imageUrl: data.imageUrl, sceneDescription: data.sceneDescription || null, modelUsed: data.modelUsed || null };
     } catch (error) {
       console.error('Error generating image:', error);
-      toast.error('Lỗi không xác định khi tạo ảnh');
+      const msg = error instanceof Error ? error.message : String(error);
+      if (/timed out|timeout|aborted/i.test(msg)) {
+        // Edge function may still be persisting in background via EdgeRuntime.waitUntil.
+        // Realtime subscription on carousel_images will pick it up.
+        toast.info('Ảnh đang được hoàn tất ở nền, sẽ xuất hiện trong giây lát…');
+      } else {
+        toast.error('Lỗi không xác định khi tạo ảnh');
+      }
       return null;
     } finally {
       setGenerating(null);
