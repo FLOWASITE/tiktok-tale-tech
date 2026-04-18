@@ -766,9 +766,14 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         console.error(`[generate-carousel-image] PoYo.ai failed: ${errMsg}`);
 
         if (errMsg.includes('POYO_AUTH_ERROR') || errMsg.includes('POYO_CREDITS_EXHAUSTED') || errMsg.includes('POYO_RATE_LIMIT')) {
+          const isCredits = errMsg.includes('CREDITS_EXHAUSTED');
           return new Response(
-            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+              error: isCredits ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.' : errMsg,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+              fallback: true,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -828,9 +833,14 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         console.error(`[generate-carousel-image] KIE.ai failed: ${errMsg}`);
 
         if (errMsg.includes('KIE_AUTH_ERROR') || errMsg.includes('KIE_CREDITS_EXHAUSTED') || errMsg.includes('KIE_RATE_LIMIT')) {
+          const isCredits = errMsg.includes('CREDITS_EXHAUSTED');
           return new Response(
-            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+              error: isCredits ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.' : errMsg,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+              fallback: true,
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -904,8 +914,14 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             recordFailure(requestedModel, undefined, supabase).catch(() => {});
             const isCredits = lastGeminiGenErr.includes('CREDITS_EXHAUSTED');
             return new Response(
-              JSON.stringify({ error: lastGeminiGenErr, errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR' }),
-              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              JSON.stringify({
+                error: isCredits
+                  ? 'Provider ảnh đã hết credits. Vui lòng nạp thêm hoặc thử lại sau.'
+                  : lastGeminiGenErr,
+                errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+                fallback: true,
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
 
@@ -950,8 +966,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
                 JSON.stringify({
                   error: 'Tất cả provider ảnh đã hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.',
                   errorCode: 'CREDITS_EXHAUSTED',
+                  fallback: true,
                 }),
-                { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
             }
             console.log('[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway');
@@ -1030,8 +1047,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           }
           if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
             return new Response(
-              JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
-              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED", fallback: true }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
           if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
