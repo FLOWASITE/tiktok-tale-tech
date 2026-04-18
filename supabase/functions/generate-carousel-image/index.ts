@@ -1010,6 +1010,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           sceneDescription,
           modelUsed,
           modelRequested: requestedModel,
+          logoApplied: includeLogo && !!resolvedLogoUrl,
+          logoFingerprint,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
