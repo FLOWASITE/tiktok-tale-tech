@@ -713,14 +713,84 @@ QUAN TRỌNG: captionSuggestion và ctaSuggestion PHẢI tuân thủ công thứ
 ${formData.includeLogo ? `\nLưu ý: Logo "${formData.brandName}" sẽ được thêm tự động, KHÔNG cần yêu cầu trong fullPrompt.` : ""}`;
 };
 
+// ============================================
+// SSE streaming helper — emits progress events to frontend
+// ============================================
+type StreamEmit = (event: { type: string; [k: string]: any }) => Promise<void>;
+
+function makeSSEStream(): { stream: ReadableStream<Uint8Array>; emit: StreamEmit; close: () => Promise<void> } {
+  const encoder = new TextEncoder();
+  let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controllerRef = controller;
+    },
+    cancel() {
+      controllerRef = null;
+    },
+  });
+  const emit: StreamEmit = async (event) => {
+    if (!controllerRef) return;
+    try {
+      controllerRef.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+    } catch (_e) {
+      // Stream closed by client — ignore
+    }
+  };
+  const close = async () => {
+    if (!controllerRef) return;
+    try {
+      controllerRef.enqueue(encoder.encode(`data: [DONE]\n\n`));
+      controllerRef.close();
+    } catch (_e) { /* ignore */ }
+    controllerRef = null;
+  };
+  return { stream, emit, close };
+}
+
 Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const formData: CarouselFormData = await req.json();
-    console.log("Generating carousel for:", formData.topic);
+    const formData: CarouselFormData & { stream?: boolean } = await req.json();
+    const wantStream = formData.stream === true;
+    console.log("Generating carousel for:", formData.topic, wantStream ? "(STREAMING)" : "(JSON)");
+
+    // ============================================
+    // STREAMING BRANCH — return SSE immediately, run pipeline in background
+    // ============================================
+    if (wantStream) {
+      const { stream, emit, close } = makeSSEStream();
+
+      // Run pipeline async — never block response
+      const pipelinePromise = runCarouselPipelineStreaming(formData, req, emit)
+        .catch(async (err) => {
+          console.error("[generate-carousel] streaming pipeline error:", err);
+          await emit({ type: 'error', message: err?.message || 'Unknown error', status: err?.status });
+        })
+        .finally(async () => {
+          await close();
+        });
+
+      // Use waitUntil so the function keeps running even if client disconnects
+      // @ts-ignore — EdgeRuntime is Deno Deploy specific
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(pipelinePromise);
+      }
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
 
     // Note: AI calls now use the multi-provider system (ai-provider.ts)
     // which handles API key management internally
