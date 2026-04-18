@@ -555,12 +555,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         );
       }
 
-      console.log(`[generate-carousel-image] Routing to PoYo.ai: ${requestedModel}`);
+      console.log(`[generate-carousel-image] Routing to PoYo.ai: ${requestedModel} (img2img=${previousImageUrl ? 'yes' : 'no'})`);
       try {
         externalImageUrl = await generateImageViaPoyo({
           prompt: backgroundPrompt,
           model: requestedModel,
           aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+          // Use previous slide as visual reference for true seamless continuity (PoYo nano-banana supports img2img).
+          // This is most impactful for carouselStyle === 'seamless' but helps consistency in any style.
+          inputImage: previousImageUrl || undefined,
         }, POYO_API_KEY);
         modelUsed = requestedModel;
       } catch (poyoErr) {
@@ -583,6 +586,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
               prompt: backgroundPrompt,
               model: altPoyoModel,
               aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              inputImage: previousImageUrl || undefined,
             }, POYO_API_KEY);
             modelUsed = `${altPoyoModel} (fallback from ${requestedModel})`;
             usedFallback = true;
