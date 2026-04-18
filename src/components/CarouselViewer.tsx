@@ -668,10 +668,10 @@ export function CarouselViewer({
 
     // Look up the actual previously-generated image URL for img2img continuity (slide N-1).
     // This makes single-slide regeneration also benefit from sequential_v2 seamless logic.
-    const prevImageRecord = slideNumber > 1
-      ? (getGeneratedImage(slideNumber - 1) || getSavedImage(slideNumber - 1))
-      : null;
-    const previousImageUrl = prevImageRecord?.imageUrl || null;
+    const prevGenerated = slideNumber > 1 ? getGeneratedImage(slideNumber - 1) : null;
+    const prevSaved = slideNumber > 1 ? getSavedImage(slideNumber - 1) : null;
+    const previousImageUrl: string | null =
+      prevGenerated?.imageUrl || (prevSaved as any)?.image_url || null;
 
     const seamlessContext = {
       colorPalette,
