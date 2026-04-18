@@ -956,8 +956,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
                 JSON.stringify({
                   error: 'Tất cả provider ảnh đã hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.',
                   errorCode: 'CREDITS_EXHAUSTED',
+                  fallback: true,
                 }),
-                { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
             }
             console.log('[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway');
