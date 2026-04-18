@@ -10807,6 +10807,7 @@ export type Database = {
         Returns: Json
       }
       normalize_vn_text: { Args: { input_text: string }; Returns: string }
+      recover_stuck_generation_tasks: { Args: never; Returns: number }
       refresh_compliance_rules_mv: { Args: never; Returns: undefined }
       search_brand_memory: {
         Args: {
