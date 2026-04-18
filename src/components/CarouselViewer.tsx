@@ -78,6 +78,7 @@ import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { SchedulePopoverButton } from '@/components/carousel/SchedulePopoverButton';
+import { SeamlessRegenBanner } from '@/components/carousel/SeamlessRegenBanner';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
@@ -1183,6 +1184,19 @@ export function CarouselViewer({
             </TabsContent>
 
             <TabsContent value="images" className="mt-0 space-y-4">
+              {/* Seamless V2: Banner cảnh báo nếu auto-validation phát hiện slide lệch */}
+              <SeamlessRegenBanner
+                needsRegeneration={!!carousel.needs_regeneration}
+                seamlessScore={carousel.seamless_score ?? carousel.seamless_consistency_score ?? null}
+                issues={Array.isArray(carousel.seamless_issues) ? (carousel.seamless_issues as string[]) : null}
+                affectedSlides={(() => {
+                  const analysis = carousel.seamless_analysis as { affectedSlides?: number[] } | null | undefined;
+                  return Array.isArray(analysis?.affectedSlides) ? analysis!.affectedSlides : undefined;
+                })()}
+                onRegenerate={handleGenerateAllImages}
+                regenerating={generatingAll}
+              />
+
               {/* Background generation progress */}
               {activeCarouselTask && (
                 <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-2">
