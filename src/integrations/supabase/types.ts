@@ -2052,6 +2052,9 @@ export type Database = {
           cache_hit: boolean | null
           channel_durations: Json | null
           channels: string[] | null
+          compliance_action: string | null
+          compliance_risk_level: string | null
+          compliance_violations: Json | null
           content_id: string | null
           context_fetch_duration_ms: number | null
           context_richness_score: number | null
@@ -2091,6 +2094,9 @@ export type Database = {
           cache_hit?: boolean | null
           channel_durations?: Json | null
           channels?: string[] | null
+          compliance_action?: string | null
+          compliance_risk_level?: string | null
+          compliance_violations?: Json | null
           content_id?: string | null
           context_fetch_duration_ms?: number | null
           context_richness_score?: number | null
@@ -2130,6 +2136,9 @@ export type Database = {
           cache_hit?: boolean | null
           channel_durations?: Json | null
           channels?: string[] | null
+          compliance_action?: string | null
+          compliance_risk_level?: string | null
+          compliance_violations?: Json | null
           content_id?: string | null
           context_fetch_duration_ms?: number | null
           context_richness_score?: number | null
