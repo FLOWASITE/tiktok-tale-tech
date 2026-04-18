@@ -229,6 +229,14 @@ Deno.serve(async (req) => {
               : (err instanceof Error ? err.message : String(err));
             console.error(`[batch] Slide ${slideNum} attempt ${attempt} failed:`, slideError);
 
+            // Skip retry for non-retryable code-level bugs (ReferenceError,
+            // TypeError, "is not defined") — retrying just wastes provider credits.
+            const isCodeBug = /ReferenceError|TypeError|is not defined|SyntaxError/i.test(slideError);
+            if (isCodeBug) {
+              console.warn(`[batch] Slide ${slideNum}: non-retryable code bug detected — aborting retries`);
+              break;
+            }
+
             if (attempt < MAX_ATTEMPTS) {
               await new Promise(r => setTimeout(r, 3000 * attempt));
             }

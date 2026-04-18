@@ -942,7 +942,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
 
       // Fallback to PoYo if all GeminiGen retries failed (and PoYo circuit closed)
       if (!geminiGenSuccess) {
-        console.error(`[generate-carousel-image] GeminiGen failed after ${GEMINIGEN_MAX_RETRIES} attempts: ${lastGeminiGenErr}`);
+        console.error(`[generate-carousel-image] GeminiGen failed (no retry): ${lastGeminiGenErr}`);
         const POYO_KEY_FOR_GEMINIGEN = Deno.env.get('POYO_API_KEY');
         const poyoFallbackModel = 'poyo/nano-banana-2-new';
         if (POYO_KEY_FOR_GEMINIGEN && !(await isCircuitOpen(poyoFallbackModel))) {
@@ -1148,13 +1148,35 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             if (!r.ok) throw new Error(`mirror fetch ${r.status}`);
             const buf = new Uint8Array(await r.arrayBuffer());
             const ct = r.headers.get('content-type') || 'image/jpeg';
-            const { error: upErr } = await supabase.storage
+            const { error: upErr, data: upData } = await supabase.storage
               .from('carousel-images')
               .upload(mirrorFileName, buf, { contentType: ct, upsert: true });
             if (upErr) {
               console.warn(`[mirror] slide ${slideNumber} upload failed:`, upErr.message);
-            } else {
-              console.log(`[mirror] slide ${slideNumber} mirrored in ${Math.round(performance.now() - mirrorStart)}ms`);
+              return;
+            }
+            console.log(`[mirror] slide ${slideNumber} mirrored in ${Math.round(performance.now() - mirrorStart)}ms`);
+
+            // Re-host successful → UPDATE existing carousel_images row's image_url
+            // (do NOT INSERT a new row — main persist already did that).
+            try {
+              const { data: pub } = supabase.storage.from('carousel-images').getPublicUrl(mirrorFileName);
+              const mirroredUrl = pub?.publicUrl;
+              if (mirroredUrl) {
+                const { error: updErr } = await supabase
+                  .from('carousel_images')
+                  .update({ image_url: mirroredUrl })
+                  .eq('carousel_id', carouselId)
+                  .eq('slide_number', slideNumber)
+                  .eq('is_selected', true);
+                if (updErr) {
+                  console.warn(`[mirror] slide ${slideNumber} DB url-swap failed:`, updErr.message);
+                } else {
+                  console.log(`[mirror] slide ${slideNumber} DB url-swap → mirrored URL`);
+                }
+              }
+            } catch (e) {
+              console.warn(`[mirror] slide ${slideNumber} url-swap threw:`, (e as Error).message);
             }
           } catch (e) {
             console.warn(`[mirror] slide ${slideNumber} background mirror failed:`, (e as Error).message);
