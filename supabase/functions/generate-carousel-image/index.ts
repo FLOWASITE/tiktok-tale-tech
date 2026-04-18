@@ -739,7 +739,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const singleRefImage = previousImageUrl || (includeLogo && resolvedLogoUrl) || undefined;
 
     // --- PoYo routing ---
-    if (isPoyoModel(requestedModel)) {
+    if (isPoyoModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
         return new Response(
@@ -759,7 +759,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           inputImage: singleRefImage,
         }, POYO_API_KEY);
         modelUsed = requestedModel;
+        recordSuccess(requestedModel).catch(() => {});
       } catch (poyoErr) {
+        recordFailure(requestedModel, undefined, supabase).catch(() => {});
         const errMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
         console.error(`[generate-carousel-image] PoYo.ai failed: ${errMsg}`);
 
@@ -770,9 +772,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           );
         }
 
-        // PoYo failed — try alternate PoYo model if different, otherwise return error
+        // PoYo failed — try alternate PoYo model if different and its circuit is closed
         const altPoyoModel = requestedModel.includes('nano-banana-2') ? 'poyo/nano-banana-pro' : 'poyo/nano-banana-2-new';
-        if (altPoyoModel !== requestedModel && POYO_API_KEY) {
+        if (altPoyoModel !== requestedModel && POYO_API_KEY && !(await isCircuitOpen(altPoyoModel))) {
           console.log(`[generate-carousel-image] PoYo failed, trying alternate PoYo model: ${altPoyoModel}...`);
           try {
             externalImageUrl = await generateImageViaPoyo({
@@ -784,20 +786,20 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             modelUsed = `${altPoyoModel} (fallback from ${requestedModel})`;
             usedFallback = true;
             fallbackFromModel = requestedModel;
+            recordSuccess(altPoyoModel).catch(() => {});
           } catch (altPoyoErr) {
+            recordFailure(altPoyoModel, undefined, supabase).catch(() => {});
             console.error(`[generate-carousel-image] Alternate PoYo also failed:`, altPoyoErr instanceof Error ? altPoyoErr.message : altPoyoErr);
-            return new Response(
-              JSON.stringify({ error: `PoYo generation failed: ${errMsg}`, errorCode: 'PROVIDER_ERROR' }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            // Fall through to Lovable Gateway (don't return early)
+            console.log('[generate-carousel-image] Both PoYo models failed → falling through to Lovable Gateway');
           }
         } else {
-          return new Response(
-            JSON.stringify({ error: `PoYo generation failed: ${errMsg}`, errorCode: 'PROVIDER_ERROR' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          // Circuit open or no alt — fall through to Lovable Gateway
+          console.log('[generate-carousel-image] PoYo failed and alt unavailable → falling through to Lovable Gateway');
         }
       }
+    } else if (isPoyoModel(requestedModel)) {
+      console.warn(`[circuit-breaker] PoYo model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- KIE routing ---
     else if (isKieModel(requestedModel)) {
