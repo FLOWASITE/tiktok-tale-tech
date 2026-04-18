@@ -966,8 +966,22 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           userContent.push({ type: "image_url", image_url: { url: resolvedLogoUrl } });
         }
         const attachedImages = userContent.length - 1;
+
+        // === CRITICAL: Normalize external-provider model IDs to a valid
+        // Lovable AI Gateway image model. Without this, fallback to the
+        // gateway fails with "invalid model" AFTER upstream credits were
+        // already burned by PoYo/KIE/GeminiGen. Map every external prefix
+        // (poyo/*, kie/*, geminigen/*) to a safe gateway image model.
+        const isExternalProviderModel =
+          imageModel.startsWith('poyo/') ||
+          imageModel.startsWith('kie/') ||
+          imageModel.startsWith('geminigen/');
+        const gatewayModel = isExternalProviderModel
+          ? 'google/gemini-3.1-flash-image-preview'
+          : imageModel;
+
         if (gatewayAttempt === 0) {
-          console.log(`[generate-carousel-image] Gateway payload: model=${imageModel}, refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, prev=${!!previousImageUrl})`);
+          console.log(`[generate-carousel-image] Gateway payload: model=${gatewayModel} (requested=${imageModel}), refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, prev=${!!previousImageUrl})`);
         }
 
         const bgResponse = await fetch(
@@ -979,7 +993,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
               "Authorization": `Bearer ${lovableApiKey}`,
             },
             body: JSON.stringify({
-              model: imageModel,
+              model: gatewayModel,
               messages: [{ role: "user", content: userContent }],
               modalities: ["image", "text"],
             }),
