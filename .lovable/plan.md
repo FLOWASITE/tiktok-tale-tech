@@ -1,41 +1,30 @@
 
-## Nguyên nhân thật (đọc logs)
+## Hiểu yêu cầu
+User chỉ vào nút **"Tạo ảnh với Gemini"** trong khung Prompts của carousel viewer. Hiện tại nút này tạo ảnh **đơn lẻ cho 1 slide** — có thể đang dùng model/provider khác với batch "Tạo carousel" tổng. User muốn **đồng bộ**: nút này phải xài **cùng model + provider** với luồng tạo carousel hàng loạt (hiện đang là `geminigen/nano-banana-2` qua provider GeminiGen.ai).
 
-1. `generate-carousel-images-batch` bị **shutdown giữa chừng** (timestamp 22763, 22765) — trước khi xử lý xong slide 2. Lý do: code dùng `(Deno as any).serve?.context?.waitUntil` — **API này không tồn tại** trong Supabase Edge Runtime. Background promise không được giữ sống → Supabase free worker bất kỳ lúc nào sau khi response 200 trả về → slide 3..N không bao giờ chạy.
-2. Slide 2 (img2img với `previousImage`) GeminiGen render lâu hơn slide 1 → poll 99s không đủ → attempt 1 fail. Attempt 2 mới chạy thì batch đã bị kill.
-3. `generate-carousel-image` cũng bị shutdown ở giữa polling (22768) — cùng lý do.
+## Điều tra cần làm
+1. Tìm component render nút "Tạo ảnh với Gemini" (search "Tạo ảnh với Gemini").
+2. Xem nó đang gọi edge function nào, truyền model gì.
+3. So sánh với luồng batch `generate-carousel-images-batch` → `generate-carousel-image` để biết model/provider chuẩn.
+4. Đồng bộ: nút đơn lẻ phải truyền cùng `aiTool`/model resolution như batch.
 
-→ Slide 1 may mắn xong trước khi shutdown; slide 2+ không bao giờ tới đích.
+## Giả thuyết nguồn lệch
+- Nút này có thể hard-code `model: 'google/gemini-2.5-flash-image'` (Lovable Gateway) thay vì để edge function tự resolve sang `geminigen/nano-banana-2` từ `ai_config`.
+- Hoặc gọi thẳng `generate-carousel-image` nhưng không truyền `carouselId` đầy đủ → resolver fallback sang Gateway.
 
 ## Kế hoạch sửa
+1. **Tìm & xác minh**: Đọc component có nút "Tạo ảnh với Gemini" + handler.
+2. **Đồng bộ payload**: Đảm bảo handler gọi `generate-carousel-image` với **cùng body shape** như batch loop:
+   - `carouselId`, `slideNumber`, `textContent`, `platform`, `brandColors`, `carouselStyle`, `visualPreset`, `carouselTopic`, `previousImageUrl`, `seamlessContext`.
+   - Không hard-code model — để edge function resolve theo `ai_config` (đang là `geminigen/nano-banana-2`).
+3. **Đổi label nếu cần**: "Tạo ảnh với Gemini" → giữ nguyên hoặc đổi thành "Tạo ảnh" để khỏi gây hiểu nhầm provider.
+4. **Verify**: Bấm nút → log `generate-carousel-image` phải hiện `Routing to GeminiGen.ai: geminigen/nano-banana-2` giống batch.
 
-### 1. Dùng đúng API `EdgeRuntime.waitUntil` cho batch
-File: `supabase/functions/generate-carousel-images-batch/index.ts`
-- Thay block `(Deno as any).serve?.context?.waitUntil` (không tồn tại) bằng `EdgeRuntime.waitUntil(responsePromise)`.
-- Đây là API chính thức Supabase Edge Runtime giữ background task sống tới khi promise resolve.
-- `generate-carousel-image` đã dùng đúng pattern này cho mirror — copy y nguyên.
-
-### 2. Nâng GeminiGen poll budget cho carousel slide phức tạp
-File: `supabase/functions/generate-carousel-image/index.ts`
-- Nâng `maxAttempts` từ 33 (99s) → **40 (120s)** cho GeminiGen call.
-- Vẫn dưới 150s edge timeout.
-- Slide có `previousImage` (img2img) cần thêm thời gian render.
-
-### 3. Heartbeat update mỗi slide để chống "zombie"
-File: `supabase/functions/generate-carousel-images-batch/index.ts`
-- Trước khi vào mỗi slide, update `generation_tasks.updated_at = now()` → trigger `recover_stuck_generation_tasks` không kill nhầm.
-- Đã có persist incremental progress, chỉ cần đảm bảo update đều.
-
-### 4. Verify
-- Tạo 1 carousel 5-7 slide.
-- Đọc logs `generate-carousel-images-batch` xem có còn shutdown giữa chừng không.
-- Đọc `generate-carousel-image` xem slide 2-N có ra ảnh không.
-
-## Files đụng
-- `supabase/functions/generate-carousel-images-batch/index.ts` — dùng `EdgeRuntime.waitUntil` đúng API + heartbeat
-- `supabase/functions/generate-carousel-image/index.ts` — nâng GeminiGen `maxAttempts` lên 40
+## Files dự kiến đụng
+- Component carousel viewer chứa nút "Tạo ảnh với Gemini" (cần search xác định, có thể `src/components/carousel/CarouselSlideViewer.tsx` hoặc `CarouselPromptCard.tsx`)
+- Handler tạo ảnh đơn slide — đảm bảo dùng cùng `useImageGeneration.generateImage()` với đầy đủ options như batch
 
 ## Kết quả mong đợi
-- Batch không còn bị Supabase kill giữa chừng → tất cả slide đều được xử lý tuần tự.
-- GeminiGen có đủ thời gian render slide img2img phức tạp.
-- Nếu vẫn fail, sẽ fail rõ ở provider chứ không phải "im lặng mất slide 2-N".
+- Nút "Tạo ảnh với Gemini" gọi cùng provider GeminiGen + model `nano-banana-2` như batch.
+- Logs giống nhau giữa 2 luồng.
+- Khi GeminiGen 503/hết credit, cùng fallback chain (PoYo → Gateway).
