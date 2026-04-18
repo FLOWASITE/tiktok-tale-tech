@@ -705,9 +705,17 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           }, POYO_KEY_FALLBACK);
           modelUsed = `poyo/nano-banana-pro (fallback from ${primaryModel})`;
         } catch (poyoFallbackErr) {
-          console.error('[generate-brand-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+          const poyoMsg = poyoFallbackErr instanceof Error ? poyoFallbackErr.message : String(poyoFallbackErr);
+          console.error('[generate-brand-image] PoYo fallback also failed:', poyoMsg);
+          const isCredits = poyoMsg.includes('POYO_CREDITS_EXHAUSTED') || poyoMsg.includes('insufficient_credits');
           return new Response(
-            JSON.stringify({ success: false, error: `GeminiGen and PoYo fallback both failed: ${errMsg}`, errorCode: 'PROVIDER_ERROR' }),
+            JSON.stringify({
+              success: false,
+              error: isCredits
+                ? 'Hết credits ở cả GeminiGen và PoYo. Vui lòng nạp thêm credits cho provider tạo ảnh.'
+                : `GeminiGen and PoYo fallback both failed: ${errMsg}`,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+            }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -758,9 +766,17 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           }, POYO_KEY_FOR_KIE);
           modelUsed = `poyo/nano-banana-pro (fallback from ${primaryModel})`;
         } catch (poyoFallbackErr) {
-          console.error('[generate-brand-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+          const poyoMsg = poyoFallbackErr instanceof Error ? poyoFallbackErr.message : String(poyoFallbackErr);
+          console.error('[generate-brand-image] PoYo fallback also failed:', poyoMsg);
+          const isCredits = poyoMsg.includes('POYO_CREDITS_EXHAUSTED') || poyoMsg.includes('insufficient_credits');
           return new Response(
-            JSON.stringify({ success: false, error: `KIE and PoYo fallback both failed: ${kieErrMsg}`, errorCode: 'PROVIDER_ERROR' }),
+            JSON.stringify({
+              success: false,
+              error: isCredits
+                ? 'Hết credits ở cả KIE và PoYo. Vui lòng nạp thêm credits cho provider tạo ảnh.'
+                : `KIE and PoYo fallback both failed: ${kieErrMsg}`,
+              errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+            }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
