@@ -590,6 +590,27 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn('[generate-carousel-image] Could not resolve carousel meta:', e);
     }
 
+    // ============================================
+    // 2.1 Per-user rate limit (carousel_image bucket — per minute)
+    // Defends against cost-amplification across the 4-provider fallback chain.
+    // ============================================
+    try {
+      const userIdForRl = await resolveUserId(req, supabase);
+      if (userIdForRl) {
+        const planType = await getUserPlanType(supabase, userIdForRl);
+        const rlConfig = getRateLimitConfig(planType, "carousel_image");
+        const rl = checkRateLimit(userIdForRl, rlConfig);
+        if (!rl.allowed) {
+          twarn(`Rate limit exceeded plan=${planType} resetAt=${rl.resetAt.toISOString()}`);
+          return createRateLimitErrorResponse(rl, { ...corsHeaders, "x-trace-id": traceId });
+        }
+        tlog(`Rate limit OK plan=${planType} remaining=${rl.remaining}/${rlConfig.maxRequests}`);
+      }
+    } catch (rlErr) {
+      // Don't fail request on rate-limit infrastructure error
+      twarn("Rate limit check failed (allowing through):", rlErr);
+    }
+
     // Resolve brand logo URL when includeLogo === true
     // Pattern: brand_templates.logo_url may be a full URL or a Storage path under 'brand-assets'
     if (includeLogo && brandTemplateId) {
