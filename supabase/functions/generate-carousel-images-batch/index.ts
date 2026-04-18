@@ -124,6 +124,13 @@ Deno.serve(async (req) => {
         let slideError: string | undefined;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          // Per-attempt timeout: 150s. If generate-carousel-image hangs longer than this
+          // (typically due to a slow provider like GeminiGen), abort and retry with a
+          // fresh connection rather than waiting for the platform to kill the socket
+          // mid-response (which produces "connection closed before message completed").
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 150_000);
+
           try {
             console.log(`[batch] Slide ${slideNum} attempt ${attempt}/${MAX_ATTEMPTS} (prevImage=${previousImageUrl ? 'yes' : 'no'})`);
 
@@ -149,7 +156,10 @@ Deno.serve(async (req) => {
                 previousImageUrl: slideNum > 1 ? previousImageUrl : null,
                 seamlessContext: slideSeamlessContext,
               }),
+              signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
               const errText = await response.text().catch(() => 'Unknown error');
@@ -166,7 +176,8 @@ Deno.serve(async (req) => {
               slideSceneDescription = data.sceneDescription || null;
               slideSuccess = true;
 
-              // Save to carousel_images table
+              // Save to carousel_images table — persist scene_description for
+              // seamless continuity across refresh + single-slide regenerate.
               await supabase
                 .from('carousel_images')
                 .update({ is_selected: false })
@@ -180,6 +191,7 @@ Deno.serve(async (req) => {
                   slide_number: slideNum,
                   image_url: slideImageUrl,
                   prompt: slide.fullPrompt,
+                  scene_description: slideSceneDescription,
                   is_selected: true,
                   created_by: body.userId || null,
                   organization_id: organizationId || null,
@@ -188,7 +200,11 @@ Deno.serve(async (req) => {
               break; // Success
             }
           } catch (err) {
-            slideError = err instanceof Error ? err.message : String(err);
+            clearTimeout(timeoutId);
+            const isAbort = err instanceof Error && (err.name === 'AbortError' || /abort/i.test(err.message));
+            slideError = isAbort
+              ? `Timeout sau 150s (provider treo) — attempt ${attempt}`
+              : (err instanceof Error ? err.message : String(err));
             console.error(`[batch] Slide ${slideNum} attempt ${attempt} failed:`, slideError);
 
             if (attempt < MAX_ATTEMPTS) {
@@ -246,17 +262,26 @@ Deno.serve(async (req) => {
       }
 
       // === AUTO seamless validation (anti silent-failure) ===
-      // Only when 2+ slides succeeded and style is seamless (or always for V2 to detect drift).
+      // Mark task COMPLETED BEFORE validation so user sees images immediately.
+      // Validation runs as best-effort with a tight timeout.
+      if (successCount === 0) {
+        await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
+      } else {
+        await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
+        await updateTaskProgress(
+          supabase,
+          taskId,
+          100,
+          `Hoàn thành: ${successCount}/${totalSlides} ảnh`,
+          'completed',
+          'completed'
+        );
+      }
+
       if (successCount >= 2) {
         try {
-          await updateTaskProgress(
-            supabase,
-            taskId,
-            98,
-            `Đang kiểm tra tính liên tục thị giác...`,
-            'validating',
-            'generating'
-          );
+          const valController = new AbortController();
+          const valTimeout = setTimeout(() => valController.abort(), 30_000);
 
           const validationResp = await fetch(`${supabaseUrl}/functions/v1/validate-seamless-consistency`, {
             method: 'POST',
@@ -265,7 +290,10 @@ Deno.serve(async (req) => {
               'Authorization': `Bearer ${supabaseServiceKey}`,
             },
             body: JSON.stringify({ carouselId, slideImageUrls: successUrls }),
+            signal: valController.signal,
           });
+
+          clearTimeout(valTimeout);
 
           if (validationResp.ok) {
             const validation = await validationResp.json();
@@ -287,23 +315,8 @@ Deno.serve(async (req) => {
             console.warn('[batch] Seamless validation HTTP error:', validationResp.status);
           }
         } catch (vErr) {
-          console.warn('[batch] Seamless validation failed (non-fatal):', vErr);
+          console.warn('[batch] Seamless validation skipped/failed (non-fatal):', vErr);
         }
-      }
-
-      if (successCount === 0) {
-        await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
-      } else {
-        await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
-
-        await updateTaskProgress(
-          supabase,
-          taskId,
-          100,
-          `Hoàn thành: ${successCount}/${totalSlides} ảnh`,
-          'completed',
-          'completed'
-        );
       }
 
       console.log(`[batch] Done: ${successCount}/${totalSlides} success, ${failCount} failed`);
