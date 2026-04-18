@@ -1,35 +1,56 @@
 
 ## Bối cảnh
-Anh yêu cầu audit READ-ONLY 11 câu hỏi (Section 1: Q1.1-1.5, Section 4: Q4.1-4.6). Output paste raw code/grep, không sửa file, không recommend. Em đang ở chat mode → không exec được, dùng read-only tools (search_files, view, supabase--read_query).
+Anh báo "Không thấy ảnh Carousel được tạo" trên route `/carousel`. Console logs cho thấy lỗi lặp lại liên tục mỗi giây:
 
-## Approach
+```
+[useBackgroundGeneration] Create task error: {
+  "code": "23514",
+  "message": "new row for relation \"generation_tasks\" violates check constraint \"generation_tasks_task_type_check\""
+}
+```
 
-**Round 1 — Greps & list_dir song song**
-- `code--search_files` "sceneDescription" trong `supabase/functions/generate-carousel-image/`
-- `code--search_files` "previousSceneDescription" trong `supabase/functions/` + `src/`
-- `code--search_files` "singleRefImage" trong `supabase/functions/generate-carousel-image/`
-- `code--search_files` "inputImages|multipleImages|referenceImages|images\[" trong `supabase/functions/`
-- `code--search_files` "sharp|composite|overlay|Jimp" trong `supabase/functions/`
-- `code--search_files` "scene_description" trong `supabase/migrations/`
-- `code--list_dir` `supabase/functions/_shared/` (locate KIE wrapper)
+→ Đây là root cause: hook `useBackgroundGeneration` đang cố INSERT vào bảng `generation_tasks` với `task_type` không match CHECK constraint → DB từ chối → image generation task không bao giờ được tạo → ảnh không xuất hiện.
 
-**Round 2 — Reads song song** (dựa vào line numbers từ Round 1)
-- `generate-carousel-image/index.ts` — các block chứa sceneDescription assignment per provider + Response JSON + singleRefImage logic
-- KIE wrapper file (sau khi locate)
-- PoYo + GeminiGen wrappers — đã có context, paste signature từ context có sẵn
-- Migration file cho `scene_description`
+## Investigation cần làm (read-only)
 
-**Round 3 — DB queries song song**
-- `SELECT function_name, default_model, fallback_models FROM ai_config WHERE function_name LIKE '%carousel-image%'`
-- `SELECT column_name, data_type FROM information_schema.columns WHERE table_name='carousel_images' AND column_name='scene_description'`
+1. **DB**: Query CHECK constraint definition
+   ```sql
+   SELECT pg_get_constraintdef(oid) FROM pg_constraint 
+   WHERE conname = 'generation_tasks_task_type_check';
+   ```
+2. **DB**: Check sample existing rows + columns
+   ```sql
+   SELECT column_name, data_type FROM information_schema.columns 
+   WHERE table_name='generation_tasks';
+   SELECT task_type, COUNT(*) FROM generation_tasks GROUP BY task_type;
+   ```
+3. **Code**: `src/hooks/useBackgroundGeneration.ts` — tìm chỗ INSERT, xem `task_type` value đang gửi
+4. **Code**: Caller trong `/carousel` page — xem trigger nào đang gọi liên tục (loop mỗi giây = useEffect thiếu deps hoặc retry không có backoff)
 
-## Output
-Single message markdown:
-- 11 Q&A blocks: `Q[X.Y] / Command / File / Lines / Snippet (raw) / Direct answer / Evidence`
-- Table 2 rows (Section 1, Section 4)
-- Self-Verification 5 items, SV-5 = 11
+## Root cause hypothesis
+- Frontend gửi `task_type: 'carousel_image'` (hoặc tương tự) nhưng CHECK constraint chỉ allow set khác (vd `'carousel'`, `'image_generation'`).
+- Caller retry không có debounce → spam DB mỗi giây.
 
-Mỗi NOT FOUND list ≥3 patterns + files đã check. Không paraphrase, không recommend.
+## Fix plan (sau khi approve)
 
-## Sau khi approve
-Em chạy parallel search_files + list_dir → parallel reads + DB queries → assemble report 11 Q&A trực tiếp trong chat.
+**Phase 1 — Sửa task_type mismatch**
+- Đọc CHECK constraint → xác định allowed values
+- Sửa `useBackgroundGeneration.ts` gửi đúng `task_type` value
+- HOẶC tạo migration ALTER constraint thêm value mới (nếu UX cần value đó)
+
+**Phase 2 — Stop infinite retry loop**
+- Trong caller (carousel page hook), thêm:
+  - Guard `if (error) return` không retry tự động
+  - Hoặc exponential backoff
+  - useEffect deps array đúng để không re-fire mỗi render
+
+**Phase 3 — Verify image pipeline**
+- Test tạo carousel mới → check `generation_tasks` row được insert với status='pending'
+- Check `carousel_images` table có row sau khi pipeline complete
+- Check edge function `generate-carousel-image` logs không có error
+
+## Output sau khi approve
+1. Query DB constraint + columns (parallel)
+2. Read `useBackgroundGeneration.ts` + carousel page caller (parallel)
+3. Trình bày exact mismatch + sửa 1-2 file
+4. Yêu cầu anh test "Tạo carousel mới" để confirm ảnh xuất hiện
