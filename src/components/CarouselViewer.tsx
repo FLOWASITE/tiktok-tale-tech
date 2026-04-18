@@ -663,16 +663,21 @@ export function CarouselViewer({
       ? extractColorPalette(carousel.slides_content[0])
       : null;
     const prevSlide = carousel.slides_content.find(s => s.slideNumber === slideNumber - 1);
-    const previousSceneDescription = prevSlide
-      ? (prevSlide.objective || (typeof prevSlide.textContent === 'object' ? prevSlide.textContent.headline : null))
-      : null;
+    // Prefer the persisted scene_description from the previously-generated image
+    // (richer + actually describes the rendered visual). Fall back to slide
+    // objective / headline only when no prior image exists yet.
+    const prevSavedImage = slideNumber > 1 ? getSavedImage(slideNumber - 1) : null;
+    const persistedSceneDesc = (prevSavedImage as any)?.scene_description as string | null | undefined;
+    const previousSceneDescription = persistedSceneDesc
+      || (prevSlide
+          ? (prevSlide.objective || (typeof prevSlide.textContent === 'object' ? prevSlide.textContent.headline : null))
+          : null);
 
     // Look up the actual previously-generated image URL for img2img continuity (slide N-1).
     // This makes single-slide regeneration also benefit from sequential_v2 seamless logic.
     const prevGenerated = slideNumber > 1 ? getGeneratedImage(slideNumber - 1) : null;
-    const prevSaved = slideNumber > 1 ? getSavedImage(slideNumber - 1) : null;
     const previousImageUrl: string | null =
-      prevGenerated?.imageUrl || (prevSaved as any)?.image_url || null;
+      prevGenerated?.imageUrl || (prevSavedImage as any)?.image_url || null;
 
     const seamlessContext = {
       colorPalette,
@@ -694,7 +699,7 @@ export function CarouselViewer({
       seamlessContext,
     });
     if (result?.imageUrl) {
-      await saveImage(slideNumber, result.imageUrl, prompt);
+      await saveImage(slideNumber, result.imageUrl, prompt, result.sceneDescription ?? null);
       if (result.modelUsed) {
         setLastModelUsed(result.modelUsed);
         if (result.modelUsed.includes('fallback')) {
@@ -741,7 +746,7 @@ export function CarouselViewer({
         },
       });
       if (result?.imageUrl) {
-        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt, result.sceneDescription ?? null);
         successCount++;
         collectedUrls.push(result.imageUrl);
         // Chain real outputs for next iteration (sequential_v2)
