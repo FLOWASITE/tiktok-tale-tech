@@ -105,6 +105,21 @@ async function submitPoyoTask(params: PoyoGenerateParams, apiKey: string): Promi
 
   const data = await response.json();
 
+  // PoYo can return HTTP 200 with embedded error codes in the body
+  // (e.g. { code: 402, error: { type: 'insufficient_credits_error' } })
+  const embeddedCode = data?.code;
+  const embeddedErrType = data?.error?.type || data?.error?.code;
+  if (embeddedCode === 402 || embeddedErrType === 'insufficient_credits_error') {
+    console.error('[poyo-generator] Insufficient credits (embedded 402):', JSON.stringify(data).slice(0, 300));
+    throw new Error('POYO_CREDITS_EXHAUSTED: Insufficient PoYo.ai credits');
+  }
+  if (embeddedCode === 401) {
+    throw new Error('POYO_AUTH_ERROR: Invalid or expired API key');
+  }
+  if (embeddedCode === 429) {
+    throw new Error('POYO_RATE_LIMIT: Too many requests to PoYo.ai');
+  }
+
   // PoYo response: { code: 200, data: { task_id: '...' } }
   const taskId = data?.data?.task_id || data?.task_id;
   if (!taskId) {
@@ -122,7 +137,9 @@ async function submitPoyoTask(params: PoyoGenerateParams, apiKey: string): Promi
  * Reduced from 120s to leave headroom for fallback within edge function wall clock limit.
  */
 async function pollPoyoTask(taskId: string, apiKey: string): Promise<string> {
-  const maxAttempts = 35; // 35 × 3s = 105s timeout (fits within 150s edge function limit)
+  // Tightened: 20 × 3s = 60s. Combined with GeminiGen's 60s budget this stays
+  // safely under the 150s edge function IDLE_TIMEOUT (60+60+overhead ≈ 130s).
+  const maxAttempts = 20;
   const pollInterval = 3000;
 
   console.log(`[poyo-generator] Starting poll: task_id=${taskId}, max=${maxAttempts * pollInterval / 1000}s`);
