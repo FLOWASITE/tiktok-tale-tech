@@ -114,7 +114,9 @@ const THRESHOLDS = {
 };
 
 function levelFor(score: number, hasError: boolean): PostCheckResult['riskLevel'] {
-  if (hasError && score >= THRESHOLDS.blocked) return 'blocked';
+  // Per plan: ANY error-severity violation → blocked (manual override required).
+  // Forbidden terms / patterns in regulated verticals are non-negotiable.
+  if (hasError) return 'blocked';
   if (score >= THRESHOLDS.high) return 'high';
   if (score >= THRESHOLDS.medium) return 'medium';
   return 'low';
