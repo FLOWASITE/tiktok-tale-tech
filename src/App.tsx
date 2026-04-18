@@ -37,7 +37,10 @@ const App = () => (
                 <AnimatedToaster />
                 <Sonner />
                 <BrowserRouter>
-                  <DomainRouter />
+                  <CarouselGenerationProvider>
+                    <DomainRouter />
+                    <GlobalCarouselGenTracker />
+                  </CarouselGenerationProvider>
                 </BrowserRouter>
               </TooltipProvider>
             </BrandProvider>
