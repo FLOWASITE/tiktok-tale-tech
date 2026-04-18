@@ -51,11 +51,20 @@ function detectSlideRole(
 // from the previous image alone". For aesthetic / luxury verticals where
 // visual consistency IS the product, we pay ~$0.001/slide to ask Gemini
 // Flash Lite to describe the image so slide N+1 can consume it.
+// Module-scope flag: once Gemini Flash Lite returns 402 (credits exhausted)
+// in this worker, skip describe entirely for the rest of the worker lifetime.
+// Saves ~400-1000ms per slide and reduces tail latency to keep us under 150s.
+let DESCRIBE_DISABLED_UNTIL_RESTART = false;
+
 async function describeImageForContinuity(
   imageUrl: string,
   lovableApiKey: string | undefined,
 ): Promise<string | null> {
   if (!lovableApiKey || !imageUrl) return null;
+  if (DESCRIBE_DISABLED_UNTIL_RESTART) {
+    console.log('[describe] Skipped — disabled (prior 402 in this worker)');
+    return null;
+  }
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
