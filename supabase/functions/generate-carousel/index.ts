@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
+import { hashComplianceRules } from "../_shared/cache/compliance-hash.ts";
 import {
   runSelfCritiqueLoop,
   CRITIQUE_CONFIG,
@@ -1067,6 +1068,11 @@ Follow the carousel style guidelines strictly.`;
     let fromCache = false;
 
     try {
+      // Defense-in-depth: hash *actual* compliance rules so admin edits
+      // (even without version bump) invalidate cache. Critical for
+      // legal compliance in regulated verticals (aesthetic surgery, medical).
+      const complianceHash = await hashComplianceRules(industryMemory);
+
       const cacheResult = await withCache({
         functionName,
         scope,
@@ -1076,6 +1082,7 @@ Follow the carousel style guidelines strictly.`;
         versions: {
           industryMemory: industryMemory?.version,
           brandVoice: brandVoice?.formality_level || undefined,
+          complianceHash,
         },
         ttlDays,
         generateFn: generateAIContent,
