@@ -37,6 +37,75 @@ function detectSlideRole(
   return 'body';
 }
 
+// ============================================
+// Image → Scene Description (for seamless continuity)
+// ============================================
+// PoYo / KIE / GeminiGen return only an image URL — no companion text.
+// Without a scene description, the next slide cannot anchor its style and
+// the seamless V2 continuity feature silently degrades to "model guesses
+// from the previous image alone". For aesthetic / luxury verticals where
+// visual consistency IS the product, we pay ~$0.001/slide to ask Gemini
+// Flash Lite to describe the image so slide N+1 can consume it.
+async function describeImageForContinuity(
+  imageUrl: string,
+  lovableApiKey: string | undefined,
+): Promise<string | null> {
+  if (!lovableApiKey || !imageUrl) return null;
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Describe this image's visual style, color palette, lighting, composition, and key subjects in 2-3 sentences. Plain prose only — no markdown, no JSON, no bullet points, no headings.",
+              },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      console.warn(`[describe] Failed status=${resp.status}`);
+      return null;
+    }
+    const data = await resp.json();
+    const raw = data?.choices?.[0]?.message?.content || "";
+    return sanitizeSceneDescription(raw);
+  } catch (e) {
+    console.warn("[describe] Error:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Strip markdown / code-fence / JSON artifacts from a scene description and
+ * cap at 300 chars. Used both for Gemini Flash describe output and for
+ * Lovable Gateway's raw text response (previously sliced raw — bug).
+ */
+function sanitizeSceneDescription(raw: string): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const cleaned = raw
+    .replace(/```[\s\S]*?```/g, " ")          // code fences
+    .replace(/^\s*[-*+]\s+/gm, "")              // bullet markers
+    .replace(/^\s*#{1,6}\s+/gm, "")             // headings
+    .replace(/[*_`#]/g, "")                     // inline md markers
+    .replace(/\{[\s\S]*?\}/g, " ")              // JSON-ish blocks
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length < 10) return null;
+  return cleaned.slice(0, 300);
+}
+
 // CarouselSlide interface (matches generate-carousel output)
 interface CarouselSlide {
   slideNumber: number;
@@ -569,7 +638,28 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     let fallbackFromModel: string | null = null;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-    console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
+    // === Enterprise logo path: PoYo/KIE/GeminiGen are single-image providers
+    // and in seamless mode `previousImageUrl` displaces the logo (slide 2..N
+    // loses brand mark). When a brand has a real logo + includeLogo=true and
+    // we'd otherwise pick a single-image provider while a previous slide
+    // exists, force-route to Lovable AI Gateway which supports multi-image
+    // (logo + previous + prompt) natively. Slide 1 still goes to the requested
+    // provider since there's no `previousImageUrl` competing for the slot.
+    const isSingleImageProvider =
+      isPoyoModel(requestedModel) || isKieModel(requestedModel) || isGeminiGenModel(requestedModel);
+    if (
+      includeLogo && resolvedLogoUrl && previousImageUrl &&
+      isSingleImageProvider && lovableApiKey
+    ) {
+      console.log(
+        `[generate-carousel-image] Logo + previousImage + single-slot provider (${requestedModel}) → routing to Lovable Gateway for multi-image support (slide ${slideNumber})`,
+      );
+      imageModel = 'google/gemini-2.5-flash-image';
+      // Leave requestedModel intact for telemetry; downstream branches check requested model name.
+      // We do NOT mutate requestedModel: the multi-image fork below triggers on `!externalImageUrl`.
+    }
+
+    console.log(`[generate-carousel-image] Requested model: ${requestedModel} (effective image model: ${imageModel})`);
 
     // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
     const overlayConfig = getOverlayConfig(
@@ -913,9 +1003,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           );
         }
 
-        // Extract scene description from AI text response
+        // Extract scene description from AI text response (sanitize markdown/JSON)
         const aiResponseText = bgData.choices?.[0]?.message?.content || '';
-        sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
+        sceneDescription = sanitizeSceneDescription(aiResponseText);
         break; // Success — exit retry loop
       }
 
@@ -982,6 +1072,29 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     }
 
     console.log(`[generate-carousel-image] Background uploaded: ${backgroundUrl}, model: ${modelUsed}`);
+
+    // ============================================
+    // Populate sceneDescription for external providers (PoYo/KIE/GeminiGen).
+    // These providers return only an image URL — no companion text — so the
+    // seamless-V2 chain breaks at slide 2 unless we describe the result.
+    // Lovable Gateway already populates sceneDescription from its own text
+    // response (sanitized above), so skip there.
+    // ============================================
+    if (!sceneDescription && externalImageUrl) {
+      const t0 = performance.now();
+      sceneDescription = await describeImageForContinuity(backgroundUrl, lovableApiKey);
+      const took = Math.round(performance.now() - t0);
+      console.log(
+        `[generate-carousel-image] sceneDescription via Gemini Flash Lite: ` +
+        `${sceneDescription ? `${sceneDescription.length} chars` : 'NULL'} (${took}ms, slide=${slideNumber})`,
+      );
+    }
+    if (!sceneDescription) {
+      console.warn(
+        `[generate-carousel-image] sceneDescription is NULL for slide=${slideNumber} ` +
+        `(provider=${modelUsed}). Next slide will fall back to objective/fullPrompt.`,
+      );
+    }
 
     // === Gallery visual slides: skip overlay, return background directly ===
     if (slideRole === 'visual') {

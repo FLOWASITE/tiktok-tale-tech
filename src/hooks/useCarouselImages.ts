@@ -14,6 +14,7 @@ export interface CarouselImage {
   is_selected: boolean;
   created_by: string | null;
   organization_id: string | null;
+  scene_description: string | null;
   created_at: string;
 }
 
@@ -48,6 +49,7 @@ export function useCarouselImages(carouselId: string | null) {
     slideNumber: number,
     imageUrl: string,
     prompt?: string,
+    sceneDescription?: string | null,
   ): Promise<CarouselImage | null> => {
     if (!carouselId || !user) return null;
 
@@ -59,7 +61,8 @@ export function useCarouselImages(carouselId: string | null) {
         .eq('carousel_id', carouselId)
         .eq('slide_number', slideNumber);
 
-      // Insert new version
+      // Insert new version (scene_description persists for seamless continuity
+      // across page refresh + single-slide regenerate)
       const { data, error } = await supabase
         .from('carousel_images')
         .insert({
@@ -70,6 +73,7 @@ export function useCarouselImages(carouselId: string | null) {
           is_selected: true,
           created_by: user.id,
           organization_id: currentOrganization?.id || null,
+          scene_description: sceneDescription ?? null,
         })
         .select()
         .single();

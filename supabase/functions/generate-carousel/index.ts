@@ -1093,6 +1093,26 @@ Follow the carousel style guidelines strictly.`;
       throw new Error("Invalid AI response format");
     };
 
+    // Wrap generateFn so structural validation happens BEFORE the cache is written.
+    // Without this guard a truncated/repaired payload (e.g. 3 slides instead of 7)
+    // would be cached, then thrown by validateRepairedSlides on every retry,
+    // producing a permanent 500 for that input combination until TTL expiry.
+    const generateAndStructurallyValidate = async () => {
+      const data = await generateAIContent();
+      // Cheap structural pre-check: slide array exists + length matches request.
+      // Full strict validation (headline non-empty, contiguous slideNumber, fullPrompt
+      // word-count) still runs after normalize() outside withCache.
+      if (!data || !Array.isArray(data.slides)) {
+        throw new Error('SLIDE_VALIDATION_FAIL: response missing slides array — refusing to cache');
+      }
+      if (data.slides.length !== formData.slideCount) {
+        throw new Error(
+          `SLIDE_VALIDATION_FAIL: got ${data.slides.length} slides, expected ${formData.slideCount} — refusing to cache truncated payload`,
+        );
+      }
+      return data;
+    };
+
     // Use cache wrapper
     const functionName = 'generate-carousel';
     const scope = CACHE_SCOPE[functionName] || 'org';
@@ -1138,7 +1158,7 @@ Follow the carousel style guidelines strictly.`;
           complianceHash,
         },
         ttlDays,
-        generateFn: generateAIContent,
+        generateFn: generateAndStructurallyValidate,
       });
 
       generatedData = cacheResult.data;
