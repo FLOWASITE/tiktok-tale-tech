@@ -284,6 +284,7 @@ Deno.serve(async (req) => {
 
         // Short-circuit: provider out of credits — skip remaining slides.
         if (creditsExhausted) {
+          batchCreditsExhausted = true;
           // Mark all remaining slides as failed in results so UI shows accurate state.
           for (let j = i + 1; j < totalSlides; j++) {
             const remNum = slides[j]?.slideNumber || (j + 1);
