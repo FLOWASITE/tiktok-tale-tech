@@ -8,6 +8,8 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { BrandProvider } from "@/contexts/BrandContext";
+import { CarouselGenerationProvider } from "@/contexts/CarouselGenerationContext";
+import { GlobalCarouselGenTracker } from "@/components/carousel/GlobalCarouselGenTracker";
 import { useDomainRouting } from "@/hooks/useDomainRouting";
 import { LandingRoutes } from "@/landing/routes";
 import { AppRoutes } from "@/app/routes";
@@ -35,7 +37,10 @@ const App = () => (
                 <AnimatedToaster />
                 <Sonner />
                 <BrowserRouter>
-                  <DomainRouter />
+                  <CarouselGenerationProvider>
+                    <DomainRouter />
+                    <GlobalCarouselGenTracker />
+                  </CarouselGenerationProvider>
                 </BrowserRouter>
               </TooltipProvider>
             </BrandProvider>
