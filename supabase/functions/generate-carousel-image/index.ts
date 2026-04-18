@@ -886,6 +886,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             model: requestedModel,
             aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
             inputImage: singleRefImage,
+            // Match generate-brand-image's poll budget. Logs show GeminiGen needs
+            // ~80-90s to render. 60s (default) was cutting carousel off too early
+            // and forcing every slide into the (out-of-credits) PoYo fallback.
+            maxAttempts: 33, // 33 × 3s = 99s, safely under 150s edge-fn limit
           }, GEMINIGEN_API_KEY);
           modelUsed = requestedModel;
           geminiGenSuccess = true;
@@ -898,8 +902,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           // Don't retry on auth/credits/rate-limit errors
           if (lastGeminiGenErr.includes('GEMINIGEN_AUTH_ERROR') || lastGeminiGenErr.includes('GEMINIGEN_CREDITS_EXHAUSTED') || lastGeminiGenErr.includes('GEMINIGEN_RATE_LIMIT')) {
             recordFailure(requestedModel, undefined, supabase).catch(() => {});
+            const isCredits = lastGeminiGenErr.includes('CREDITS_EXHAUSTED');
             return new Response(
-              JSON.stringify({ error: lastGeminiGenErr, errorCode: 'PROVIDER_ERROR' }),
+              JSON.stringify({ error: lastGeminiGenErr, errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR' }),
               { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
