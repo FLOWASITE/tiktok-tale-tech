@@ -1,5 +1,11 @@
 # Edge Functions Rules
 
+## ⚠️ Lovable Cloud auto-deploy
+Edge functions **auto-deploy khi commit lên git** (Lovable Cloud quản pipeline). KHÔNG chạy `supabase functions deploy` thủ công — tạo drift, Lovable không sync được.
+- Tạo function mới / sửa code → commit → Lovable deploy
+- Khi thêm function public mới → cập nhật `supabase/config.toml` (`verify_jwt = false`) trong cùng commit
+- Lovable.dev cũng có thể edit function — `git pull` trước khi edit lớn để tránh conflict
+
 ## Runtime
 - **Deno**, không phải Node. Import qua `https://esm.sh/...` hoặc relative path
 - Supabase client: `import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"`

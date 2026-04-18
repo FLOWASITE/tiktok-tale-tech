@@ -1,5 +1,11 @@
 # Migrations Rules
 
+## ⚠️ Lovable Cloud quản deploy
+Backend host trên **Lovable Cloud**. Migrations **auto-apply khi commit lên git** — KHÔNG chạy `supabase db push` thủ công, sẽ tạo drift.
+- Tạo migration mới → commit → Lovable apply
+- Nếu Supabase MCP có cài: chỉ `--read-only` để query schema, KHÔNG `apply_migration` qua MCP
+- Trước khi edit migration mới: `git pull` để chắc chắn không conflict với Lovable
+
 ## Filename pattern
 `YYYYMMDDHHMMSS_<uuid>.sql` — auto-generated bởi Lovable/Supabase. Đừng tự đặt tên thủ công, để tooling generate.
 

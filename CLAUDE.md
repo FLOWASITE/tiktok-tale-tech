@@ -8,6 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 AI Marketing Agent platform cho teams tại Vietnam/SEA.
 Vertical-first: Aesthetic surgery & high-tech beauty industry.
 
+## 🤝 Parallel workflow với Lovable.dev
+Repo này được edit **song song bởi Claude Code và Lovable.dev**. Backend host trên **Lovable Cloud** (managed Supabase, project `rllyipiyuptkibqinotz`).
+- **Coordination via git**: pull trước khi edit, commit/push thường xuyên để Lovable thấy được thay đổi
+- **Deploy/migration ĐI QUA LOVABLE**: edge functions auto-deploy khi commit; migrations auto-apply. KHÔNG chạy `supabase functions deploy` hay `supabase db push` thủ công → tạo drift Lovable không track được
+- **Supabase MCP nếu có cài → dùng `--read-only`**: chỉ query data/schema/RLS, không mutate
+- **Auto-generated files** (`src/integrations/supabase/{client,types}.ts`, `.env`, một phần `supabase/config.toml`) do Lovable Cloud regenerate — KHÔNG sửa tay
+
 ## 🏗️ Architecture
 - **Frontend**: React 18 + TypeScript + Vite + shadcn/ui + TanStack Query
 - **Backend**: Supabase + Lovable Cloud
