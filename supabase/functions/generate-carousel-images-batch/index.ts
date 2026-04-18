@@ -262,17 +262,26 @@ Deno.serve(async (req) => {
       }
 
       // === AUTO seamless validation (anti silent-failure) ===
-      // Only when 2+ slides succeeded and style is seamless (or always for V2 to detect drift).
+      // Mark task COMPLETED BEFORE validation so user sees images immediately.
+      // Validation runs as best-effort with a tight timeout.
+      if (successCount === 0) {
+        await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
+      } else {
+        await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
+        await updateTaskProgress(
+          supabase,
+          taskId,
+          100,
+          `Hoàn thành: ${successCount}/${totalSlides} ảnh`,
+          'completed',
+          'completed'
+        );
+      }
+
       if (successCount >= 2) {
         try {
-          await updateTaskProgress(
-            supabase,
-            taskId,
-            98,
-            `Đang kiểm tra tính liên tục thị giác...`,
-            'validating',
-            'generating'
-          );
+          const valController = new AbortController();
+          const valTimeout = setTimeout(() => valController.abort(), 30_000);
 
           const validationResp = await fetch(`${supabaseUrl}/functions/v1/validate-seamless-consistency`, {
             method: 'POST',
@@ -281,7 +290,10 @@ Deno.serve(async (req) => {
               'Authorization': `Bearer ${supabaseServiceKey}`,
             },
             body: JSON.stringify({ carouselId, slideImageUrls: successUrls }),
+            signal: valController.signal,
           });
+
+          clearTimeout(valTimeout);
 
           if (validationResp.ok) {
             const validation = await validationResp.json();
@@ -303,23 +315,8 @@ Deno.serve(async (req) => {
             console.warn('[batch] Seamless validation HTTP error:', validationResp.status);
           }
         } catch (vErr) {
-          console.warn('[batch] Seamless validation failed (non-fatal):', vErr);
+          console.warn('[batch] Seamless validation skipped/failed (non-fatal):', vErr);
         }
-      }
-
-      if (successCount === 0) {
-        await failTask(supabase, taskId, `Tất cả ${totalSlides} slide đều thất bại`);
-      } else {
-        await completeTask(supabase, taskId, carouselId, 'carousel_images' as any);
-
-        await updateTaskProgress(
-          supabase,
-          taskId,
-          100,
-          `Hoàn thành: ${successCount}/${totalSlides} ảnh`,
-          'completed',
-          'completed'
-        );
       }
 
       console.log(`[batch] Done: ${successCount}/${totalSlides} success, ${failCount} failed`);
