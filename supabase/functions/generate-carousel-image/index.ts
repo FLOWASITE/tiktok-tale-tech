@@ -802,7 +802,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.warn(`[circuit-breaker] PoYo model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- KIE routing ---
-    else if (isKieModel(requestedModel)) {
+    else if (isKieModel(requestedModel) && !(await isCircuitOpen(requestedModel))) {
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
         return new Response(
@@ -821,7 +821,9 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           inputImage: singleRefImage,
         }, KIE_API_KEY);
         modelUsed = requestedModel;
+        recordSuccess(requestedModel).catch(() => {});
       } catch (kieErr) {
+        recordFailure(requestedModel, undefined, supabase).catch(() => {});
         const errMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
         console.error(`[generate-carousel-image] KIE.ai failed: ${errMsg}`);
 
@@ -832,33 +834,33 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           );
         }
 
-        // Fallback to PoYo
+        // Fallback to PoYo (only if its circuit is closed)
         const POYO_KEY_FOR_KIE = Deno.env.get('POYO_API_KEY');
-        if (!POYO_KEY_FOR_KIE) {
-          return new Response(
-            JSON.stringify({ error: `KIE failed and POYO_API_KEY not configured for fallback: ${errMsg}`, errorCode: 'PROVIDER_ERROR' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        console.log('[generate-carousel-image] KIE failed, falling back to PoYo (nano-banana-pro)...');
-        try {
-          externalImageUrl = await generateImageViaPoyo({
-            prompt: finalPrompt,
-            model: 'poyo/nano-banana-pro',
-            aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
-            inputImage: singleRefImage,
-          }, POYO_KEY_FOR_KIE);
-          modelUsed = `poyo/nano-banana-pro (fallback from ${requestedModel})`;
-          usedFallback = true;
-          fallbackFromModel = requestedModel;
-        } catch (poyoFallbackErr) {
-          console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
-          return new Response(
-            JSON.stringify({ error: `KIE and PoYo fallback both failed: ${errMsg}`, errorCode: 'PROVIDER_ERROR' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        const poyoFallbackModel = 'poyo/nano-banana-pro';
+        if (POYO_KEY_FOR_KIE && !(await isCircuitOpen(poyoFallbackModel))) {
+          console.log('[generate-carousel-image] KIE failed, falling back to PoYo (nano-banana-pro)...');
+          try {
+            externalImageUrl = await generateImageViaPoyo({
+              prompt: finalPrompt,
+              model: poyoFallbackModel,
+              aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+              inputImage: singleRefImage,
+            }, POYO_KEY_FOR_KIE);
+            modelUsed = `${poyoFallbackModel} (fallback from ${requestedModel})`;
+            usedFallback = true;
+            fallbackFromModel = requestedModel;
+            recordSuccess(poyoFallbackModel).catch(() => {});
+          } catch (poyoFallbackErr) {
+            recordFailure(poyoFallbackModel, undefined, supabase).catch(() => {});
+            console.error('[generate-carousel-image] PoYo fallback also failed:', poyoFallbackErr instanceof Error ? poyoFallbackErr.message : poyoFallbackErr);
+            console.log('[generate-carousel-image] KIE+PoYo failed → falling through to Lovable Gateway');
+          }
+        } else {
+          console.log('[generate-carousel-image] KIE failed and PoYo fallback unavailable → falling through to Lovable Gateway');
         }
       }
+    } else if (isKieModel(requestedModel)) {
+      console.warn(`[circuit-breaker] KIE model ${requestedModel} circuit OPEN → skipping to Lovable Gateway`);
     }
     // --- GeminiGen routing ---
     else if (isGeminiGenModel(requestedModel)) {
