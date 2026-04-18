@@ -445,7 +445,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
 
   try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
-            carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic } = requestBody;
+            carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic,
+            previousImageUrl } = requestBody;
 
     console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
 
