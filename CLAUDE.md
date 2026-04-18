@@ -2,88 +2,109 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project
+# Flowa - AI Marketing Agent Platform
 
-**Flowa** — B2B Content Orchestration Platform cho thị trường Việt Nam (despite the repo name `tiktok-tale-tech`). Generates AI content (scripts, carousels, multi-channel posts, ad copy) with industry compliance and brand voice consistency, then publishes to 8+ social platforms.
+## 🎯 Mission
+AI Marketing Agent platform cho teams tại Vietnam/SEA.
+Vertical-first: Aesthetic surgery & high-tech beauty industry.
 
-The full technical documentation lives in `docs/` (README, ARCHITECTURE, CORE-FEATURES, INDUSTRY-PARK, KNOWLEDGE-GRAPH, EDGE-FUNCTIONS, DATABASE-SCHEMA). Read these before making non-trivial changes.
+## 🏗️ Architecture
+- **Frontend**: React 18 + TypeScript + Vite + shadcn/ui + TanStack Query
+- **Backend**: Supabase + Lovable Cloud
+- **AI**: Lovable Gateway (GPT-5, Gemini 2.5/3) + Supabase embeddings (`gte-small`, 384-dim)
+- **Routing**: flowa.one (landing) / app.flowa.one (app) / help.flowa.one
+  - Subdomain detection via `useDomainRouting` in `src/App.tsx` → switches between `src/landing/routes.tsx` và `src/app/routes.tsx`
+- **State**: TanStack Query (server) + 3 contexts layered: Auth → Organization → Brand
 
-## Commands
+## 📁 Project Structure
+- `/supabase/functions/` → 157 edge functions (Deno)
+  - `generate-*` (22) → content generation (script, carousel, multichannel, ad-copy, hooks, …)
+  - `publish-*` (10) → platform publishing (facebook, instagram, linkedin, tiktok, twitter, threads, zalo, google-business, website, blog)
+  - `*-oauth-callback` + `refresh-*-token` + `test-*-connection` (21+) → OAuth flows
+  - `_shared/` → shared modules (`ai-provider.ts`, `agentic-loop.ts`, `streaming-handler.ts`, `compliance-precheck.ts`)
+- `/supabase/migrations/` → 268 migrations
+- `/src/pages/` → 58 route pages (Core, Brand, Campaign, 18 Admin, Auth callbacks, Landing)
+- `/src/components/` → 172 UI components (`ui/`, `admin/`, `brand/`, `topic/`, `carousel/`, `scripts/`, `agents/`, `compliance/`)
+- `/src/hooks/` → 197 hooks (data fetching + AI in `hooks/ai/`)
+- `/src/contexts/` → AuthContext, OrganizationContext, BrandContext
+- `/src/integrations/supabase/` → auto-generated client + types (DO NOT EDIT)
+- `/src/i18n/locales/` → vi (default), en, th
+- `/docs/` → documentation chính
 
+## 🗄️ Core Database Tables
+- **Industry Memory system** (HIGHEST PRIORITY, immutable from user):
+  - `industry_global_packs`, `industry_pack_translations`, `industry_jurisdiction_profiles`
+  - `industry_templates`, `industry_personas`, `industry_glossary`, `industry_memory_versions`
+- `brand_templates` → giọng điệu thương hiệu (per organization)
+- `industry_knowledge_nodes` (pgvector 384-dim) + `industry_knowledge_edges` → Knowledge Graph
+- `topics`, `scripts`, `carousels`, `multi_channel_contents`, `campaigns`, `core_contents`
+- `social_connections` (encrypted tokens), `publishing_logs`
+- `agent_pipelines`, `agent_execution_logs`
+- `regulation_sources`, `regulation_crawl_history`, `regulation_propagation_log`
+- **RLS**: isolation theo `organization_id` (org members CRUD; profiles/social_connections owner-only; admin tables admin-only)
+
+## 🎯 Core Features (theo priority cascade)
+```
+Industry Memory (immutable)  →  Brand Voice  →  Channel Rules  →  System Defaults
+```
+1. **Industry Memory** - priority cao nhất, block mọi thứ; rules per jurisdiction (forbidden terms, claim restrictions)
+2. **Brand Voice** - clone từ samples + variants, persisted in `brand_templates`
+3. **Content Generation** - script video (60-180s), carousel (5-10 slides), multi-channel, ad copy
+4. **Knowledge Graph** - vector search (IVF index), semantic similarity, regulation propagation
+5. **Agent System** - AI agents pipeline với approval flow (`agent-pipeline`, `agent-orchestrator-analytics`, `agent-approve`)
+6. **Multi-platform Publishing** - FB, IG, LinkedIn, TikTok, X, Threads, Zalo, GBP, Website, Blog
+7. **Compliance Automation** - `compliance-precheck` shared module + auto regulation crawling
+
+## ⚙️ Development Rules
+- **Luôn check RLS** khi viết query mới (isolation theo `organization_id`)
+- **Edge functions**: Deno syntax, không phải Node; public endpoints phải khai báo `verify_jwt = false` trong `supabase/config.toml`
+- **Migrations**: không bao giờ edit migration đã deploy, chỉ tạo mới (additive)
+- **Industry Memory**: read-only từ user, chỉ admin update
+- **Naming**: edge functions theo pattern `action-resource` (generate-script, publish-tiktok)
+- **Merged functions**: kiểm tra `config.toml` comments trước khi tạo lại function "thiếu" (vd: `regenerate-channel` đã merged vào `generate-multichannel` với `action='regenerate'`)
+- **Styling**: dùng semantic tokens (`bg-primary`, `text-muted-foreground`); KHÔNG dùng raw colors (`bg-blue-500`)
+- **Auth pattern**: protected routes wrap trong `<ProtectedRoute>` + `<AppLayout>`; admin routes thêm `<AdminProtectedRoute>`
+
+## 🚫 Không được làm
+- Không tự ý chạy migration production
+- Không edit file trong `/supabase/functions/_shared/` mà không hỏi (ảnh hưởng tất cả 157 functions)
+- Không commit API keys, secrets
+- Không thay đổi schema `industry_*` tables mà không confirm
+- Không sửa file auto-generated: `src/integrations/supabase/client.ts`, `src/integrations/supabase/types.ts`, `.env`
+- Không đảo ngược priority cascade (Industry > Brand > Channel > Defaults)
+
+## 📚 Key Docs (đọc khi cần context sâu)
+- `docs/ARCHITECTURE.md` → Industry Park v2.1 deep dive
+- `docs/CORE-FEATURES.md` → feature specs
+- `docs/INDUSTRY-PARK.md` → industry memory logic
+- `docs/KNOWLEDGE-GRAPH.md` → vector search
+- `docs/EDGE-FUNCTIONS.md` → edge function catalog
+- `docs/DATABASE-SCHEMA.md` → full schema
+
+## 🔧 Common Commands
 ```bash
-npm run dev              # Vite dev server on port 8080 (host "::")
-npm run build            # Production build
-npm run build:dev        # Development-mode build (keeps componentTagger)
-npm run lint             # ESLint over the repo
-npm run preview          # Preview production build
+# Local dev
+npm run dev                          # Vite dev server on port 8080
+npm run build                        # Production build
+npm run build:dev                    # Dev-mode build (giữ componentTagger)
+npm run lint                         # ESLint
+npm run preview                      # Preview production build
 
-# Tests (no npm script defined — run vitest directly)
-npx vitest               # Watch mode
-npx vitest run           # Single pass
-npx vitest run path/to/file.test.ts        # Single file
-npx vitest run -t "test name pattern"      # Single test by name
-npx vitest --coverage    # Coverage (v8 reporter)
+# Tests (no npm script — run vitest directly)
+npx vitest                           # Watch mode
+npx vitest run                       # Single pass
+npx vitest run path/to/file.test.ts  # Single file
+npx vitest run -t "test name"        # Single test by name
+npx vitest --coverage                # v8 coverage
+
+# Supabase (edge functions auto-deploy qua Lovable Cloud khi push)
+supabase functions deploy <name>     # manual deploy nếu cần
+supabase db push                     # apply migrations
 ```
 
-Vitest picks up tests in both `src/**/*.{test,spec}.*` and `supabase/functions/**/*.{test,spec}.*`. Globals are enabled (no need to import `describe`/`it`/`expect`). Setup file: `vitest.setup.ts` (mocks `crypto.randomUUID`, resets mocks in `beforeEach`).
+Tests cover both `src/**/*.{test,spec}.*` và `supabase/functions/**/*.{test,spec}.*`. Vitest globals enabled (no need to import `describe`/`it`/`expect`).
 
-`bun.lockb` is also checked in — either npm or bun works.
-
-## Architecture
-
-### Subdomain-based routing
-`src/App.tsx` selects between two route trees via `useDomainRouting`:
-
-- `flowa.one` → marketing/landing (`src/landing/routes.tsx`)
-- `app.flowa.one` → application (`src/app/routes.tsx`), wraps protected routes in `<ProtectedRoute>` + `<AppLayout>`; admin pages add `<AdminProtectedRoute>`
-- `help.flowa.one` → help center
-
-OAuth callback routes (Facebook/Instagram/LinkedIn/TikTok/X/Threads/Zalo/Google Business) live outside the protected tree.
-
-### Multi-tenant context layering
-Three React contexts compose state (in `src/contexts/`):
-
-1. **AuthContext** — Supabase session, profile
-2. **OrganizationContext** — current org, members, switching
-3. **BrandContext** — brand templates scoped to the active org
-
-Most data hooks (`useTopics`, `useCampaigns`, …) depend on org and/or brand IDs from these contexts. RLS policies enforce the same isolation server-side.
-
-### Priority cascade for content generation
-When generating content, rules apply in this fixed order — never invert it:
-
-```
-Industry Memory (immutable, per-jurisdiction)
-   ↓
-Brand Voice (customizable per brand_template)
-   ↓
-Channel Rules (per platform)
-   ↓
-System Defaults
-```
-
-Industry Memory lives in `industry_global_packs` + `industry_jurisdiction_profiles` and feeds the Knowledge Graph (`industry_knowledge_nodes`, pgvector 384-dim embeddings via `gte-small`). See `docs/INDUSTRY-PARK.md` and `docs/KNOWLEDGE-GRAPH.md`.
-
-### Supabase backend (Lovable Cloud)
-- **157 edge functions** in `supabase/functions/` (Deno). Naming groups: `generate-*`, `publish-<platform>`, `<platform>-oauth-callback`, `refresh-<platform>-token`, `test-<platform>-connection`, `topic-*`, `agent-*`, `*-regulation*`, `*-knowledge*`. Shared modules under `supabase/functions/_shared/` (e.g. `ai-provider.ts` for multi-provider routing across Lovable Gateway / OpenRouter / OpenAI, `agentic-loop.ts`, `streaming-handler.ts`, `compliance-precheck.ts`).
-- **268 migrations** in `supabase/migrations/` — apply additive changes only; never edit a published migration.
-- **Public functions** must be added to `supabase/config.toml` with `verify_jwt = false` (e.g. webhooks, payment callbacks, public generators). Edits to this file are deploy-relevant — don't change unrelated entries.
-- Some functions have been **merged**; comments in `config.toml` document this (e.g. `regenerate-channel` merged into `generate-multichannel` with `action='regenerate'`). Check before re-creating a "missing" function.
-
-### Frontend stack notes
-- Vite + `@vitejs/plugin-react-swc`, path alias `@` → `src/`
-- shadcn/ui (config in `components.json`, base color `slate`, CSS vars in `src/index.css`); component aliases: `@/components`, `@/components/ui`, `@/lib`, `@/lib/utils`, `@/hooks`
-- TanStack Query for all server state — invalidate by `queryKey` after mutations
-- i18next with `vi` (default + fallback), `en`, `th` in `src/i18n/locales/`; bootstrapped from `src/main.tsx`
-- ESLint disables `@typescript-eslint/no-unused-vars` globally — don't rely on it to flag dead code
-
-## Auto-generated files — do not edit by hand
-
-- `src/integrations/supabase/client.ts`
-- `src/integrations/supabase/types.ts` (DB types regenerated from schema)
-- `.env` (managed by Lovable Cloud)
-- `supabase/config.toml` is partially auto-managed; only add `verify_jwt` entries for new public functions
-
-## Styling rule
-
-Use semantic Tailwind tokens defined in `src/index.css` (`bg-primary`, `text-muted-foreground`, `border-border`, …). Don't use raw color utilities (`bg-blue-500`, `text-white`) — they bypass theming and dark mode.
+## 👤 About the developer
+- Solo founder, thinking in Vietnamese + English
+- Prefer structured, data-driven responses
+- Don't over-explain basics, get to the point
