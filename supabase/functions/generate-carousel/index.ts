@@ -1159,6 +1159,23 @@ Follow the carousel style guidelines strictly.`;
     }
 
     // ============================================
+    // STRICT VALIDATION — guard against schema-valid but semantically empty slides
+    // (JSON repair can produce slides with fullPrompt:"" or out-of-order numbering)
+    // ============================================
+    const validation = validateRepairedSlides(generatedData?.slides, formData.slideCount);
+    if (!validation.valid) {
+      console.error('[generate-carousel] Slide validation FAILED:', validation.errors);
+      // Throw before any DB write or response — caller will see error and can retry.
+      // Important: this is reached only when not fromCache OR cached payload is corrupt;
+      // in either case we refuse to serve garbage.
+      throw new Error(
+        `Carousel validation failed: ${validation.errors.slice(0, 3).join('; ')}` +
+        (validation.errors.length > 3 ? ` (+${validation.errors.length - 3} more)` : '')
+      );
+    }
+    console.log(`[validate] All ${generatedData.slides.length} slides passed strict validation`);
+
+    // ============================================
     // SELF-CRITIQUE LOOP - Evaluate and refine carousel
     // ============================================
     let critiqueResult: CritiqueResult | null = null;
