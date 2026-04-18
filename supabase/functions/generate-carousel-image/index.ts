@@ -478,17 +478,61 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Resolve organizationId from carousel for proper config resolution
+    // Resolve organizationId + brand logo from carousel for proper config resolution
     let organizationId: string | undefined;
+    let includeLogo = false;
+    let brandTemplateId: string | null = null;
+    let resolvedLogoUrl: string | null = null;
     try {
       const { data: carouselData } = await supabase
         .from('carousels')
-        .select('organization_id')
+        .select('organization_id, include_logo, brand_template_id')
         .eq('id', carouselId)
         .maybeSingle();
       organizationId = carouselData?.organization_id || undefined;
+      includeLogo = !!carouselData?.include_logo;
+      brandTemplateId = carouselData?.brand_template_id || null;
     } catch (e) {
-      console.warn('[generate-carousel-image] Could not resolve organizationId from carousel:', e);
+      console.warn('[generate-carousel-image] Could not resolve carousel meta:', e);
+    }
+
+    // Resolve brand logo URL when includeLogo === true
+    // Pattern: brand_templates.logo_url may be a full URL or a Storage path under 'brand-assets'
+    if (includeLogo && brandTemplateId) {
+      try {
+        const { data: brand } = await supabase
+          .from('brand_templates')
+          .select('logo_url')
+          .eq('id', brandTemplateId)
+          .maybeSingle();
+        const raw = brand?.logo_url || null;
+        if (raw) {
+          if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) {
+            resolvedLogoUrl = raw;
+          } else {
+            // Assume Storage path. Try 'brand-assets' first; fall back to 'brand-logos' if needed.
+            const { data: pub1 } = supabase.storage.from('brand-assets').getPublicUrl(raw);
+            resolvedLogoUrl = pub1?.publicUrl || null;
+          }
+          console.log(`[generate-carousel-image] Brand logo resolved: ${resolvedLogoUrl ? 'YES' : 'NO'} (brand=${brandTemplateId})`);
+        } else {
+          console.warn(`[generate-carousel-image] include_logo=true but brand has no logo_url (brand=${brandTemplateId})`);
+        }
+      } catch (e) {
+        console.warn('[generate-carousel-image] Could not resolve brand logo:', e);
+      }
+    }
+
+    // Logo fingerprint (short hash) for downstream cache invalidation when admin swaps logo
+    let logoFingerprint = 'no-logo';
+    if (resolvedLogoUrl) {
+      try {
+        const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(resolvedLogoUrl));
+        logoFingerprint = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+          .slice(0, 16);
+      } catch { /* ignore */ }
     }
 
     const resolvedPresetKey = visualPreset || carouselStyle || 'minimalist';
@@ -538,12 +582,24 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective,
       textContent, overlayConfig
     );
+
+    // === Logo conditioning directive (only when we actually attach the logo image) ===
+    // Models receive the logo as a real image input (multi-image), this text tells them HOW to use it.
+    const logoDirective = (includeLogo && resolvedLogoUrl)
+      ? `\n\n[REFERENCE IMAGE — BRAND LOGO]: One of the attached images is the EXACT brand logo. You MUST place it in the design WITHOUT redrawing, modifying its shape, colors, typography, or proportions. Position: top-right corner with ~5% padding from edges. Size: ~10–12% of canvas width. Do NOT invent a different logo. If unsure, omit the logo rather than guess.`
+      : '';
+    const finalPrompt = backgroundPrompt + logoDirective;
+
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
     let imageBase64: string | null = null;
     let mimeType = "image/png";
     let externalImageUrl: string | null = null;
     let sceneDescription: string | null = null;
+
+    // For single-input providers (PoYo/KIE/GeminiGen), prefer previousImageUrl for seamless continuity;
+    // when no previous image exists (e.g. slide 1 or non-seamless), use the logo as the single reference.
+    const singleRefImage = previousImageUrl || (includeLogo && resolvedLogoUrl) || undefined;
 
     // --- PoYo routing ---
     if (isPoyoModel(requestedModel)) {
@@ -558,12 +614,12 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.log(`[generate-carousel-image] Routing to PoYo.ai: ${requestedModel} (img2img=${previousImageUrl ? 'yes' : 'no'})`);
       try {
         externalImageUrl = await generateImageViaPoyo({
-          prompt: backgroundPrompt,
+          prompt: finalPrompt,
           model: requestedModel,
           aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
-          // Use previous slide as visual reference for true seamless continuity (PoYo nano-banana supports img2img).
-          // This is most impactful for carouselStyle === 'seamless' but helps consistency in any style.
-          inputImage: previousImageUrl || undefined,
+          // Single-image providers: previous slide takes priority for seamless continuity;
+          // when absent, fall back to brand logo as the visual anchor.
+          inputImage: singleRefImage,
         }, POYO_API_KEY);
         modelUsed = requestedModel;
       } catch (poyoErr) {
@@ -583,10 +639,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           console.log(`[generate-carousel-image] PoYo failed, trying alternate PoYo model: ${altPoyoModel}...`);
           try {
             externalImageUrl = await generateImageViaPoyo({
-              prompt: backgroundPrompt,
+              prompt: finalPrompt,
               model: altPoyoModel,
               aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
-              inputImage: previousImageUrl || undefined,
+              inputImage: singleRefImage,
             }, POYO_API_KEY);
             modelUsed = `${altPoyoModel} (fallback from ${requestedModel})`;
             usedFallback = true;
@@ -619,10 +675,11 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       console.log(`[generate-carousel-image] Routing to KIE.ai: ${requestedModel}`);
       try {
         externalImageUrl = await generateImageViaKie({
-          prompt: backgroundPrompt,
+          prompt: finalPrompt,
           model: requestedModel,
           aspectRatio: mapAspectRatioToKie(platform === 'tiktok' ? '9:16' : '1:1'),
           outputFormat: 'jpeg',
+          inputImage: singleRefImage,
         }, KIE_API_KEY);
         modelUsed = requestedModel;
       } catch (kieErr) {
@@ -647,9 +704,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         console.log('[generate-carousel-image] KIE failed, falling back to PoYo (nano-banana-pro)...');
         try {
           externalImageUrl = await generateImageViaPoyo({
-            prompt: backgroundPrompt,
+            prompt: finalPrompt,
             model: 'poyo/nano-banana-pro',
             aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+            inputImage: singleRefImage,
           }, POYO_KEY_FOR_KIE);
           modelUsed = `poyo/nano-banana-pro (fallback from ${requestedModel})`;
           usedFallback = true;
@@ -683,9 +741,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       for (let attempt = 1; attempt <= GEMINIGEN_MAX_RETRIES; attempt++) {
         try {
           externalImageUrl = await generateImageViaGeminiGen({
-            prompt: backgroundPrompt,
+            prompt: finalPrompt,
             model: requestedModel,
             aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+            inputImage: singleRefImage,
           }, GEMINIGEN_API_KEY);
           modelUsed = requestedModel;
           geminiGenSuccess = true;
@@ -722,9 +781,10 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         console.log('[generate-carousel-image] Falling back to PoYo (nano-banana-2-new)...');
         try {
           externalImageUrl = await generateImageViaPoyo({
-            prompt: backgroundPrompt,
+            prompt: finalPrompt,
             model: 'poyo/nano-banana-2-new',
             aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+            inputImage: singleRefImage,
           }, POYO_KEY_FOR_GEMINIGEN);
           modelUsed = `poyo/nano-banana-2-new (fallback from ${requestedModel})`;
           usedFallback = true;
@@ -748,6 +808,20 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
 
+        // Build multi-image content array: [text prompt, optional previous-slide ref, optional logo ref]
+        // Lovable AI Gateway / Gemini image models accept multi-image input via OpenAI-compatible content array.
+        const userContent: any[] = [{ type: "text", text: finalPrompt }];
+        if (previousImageUrl) {
+          userContent.push({ type: "image_url", image_url: { url: previousImageUrl } });
+        }
+        if (includeLogo && resolvedLogoUrl) {
+          userContent.push({ type: "image_url", image_url: { url: resolvedLogoUrl } });
+        }
+        const attachedImages = userContent.length - 1;
+        if (gatewayAttempt === 0) {
+          console.log(`[generate-carousel-image] Gateway payload: model=${imageModel}, refImages=${attachedImages} (logo=${includeLogo && !!resolvedLogoUrl}, prev=${!!previousImageUrl})`);
+        }
+
         const bgResponse = await fetch(
           "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
@@ -758,7 +832,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             },
             body: JSON.stringify({
               model: imageModel,
-              messages: [{ role: "user", content: backgroundPrompt }],
+              messages: [{ role: "user", content: userContent }],
               modalities: ["image", "text"],
             }),
           }
@@ -936,6 +1010,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
           sceneDescription,
           modelUsed,
           modelRequested: requestedModel,
+          logoApplied: includeLogo && !!resolvedLogoUrl,
+          logoFingerprint,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -981,6 +1057,8 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         sceneDescription,
         modelUsed,
         modelRequested: requestedModel,
+        logoApplied: includeLogo && !!resolvedLogoUrl,
+        logoFingerprint,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
