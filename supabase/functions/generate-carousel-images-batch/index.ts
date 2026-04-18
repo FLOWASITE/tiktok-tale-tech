@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
         let slideImageUrl: string | undefined;
         let slideSceneDescription: string | null = null;
         let slideError: string | undefined;
+        let creditsExhausted = false;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           // Per-attempt timeout: 240s. Some providers (GeminiGen Nano Banana 2) can
@@ -160,6 +161,21 @@ Deno.serve(async (req) => {
 
             clearTimeout(timeoutId);
 
+            // Detect 402 / CREDITS_EXHAUSTED — short-circuit the whole batch.
+            // Retrying remaining slides is pointless when all providers are out of credits.
+            if (response.status === 402) {
+              const errBody = await response.text().catch(() => '');
+              let parsedMsg = 'Provider hết credits';
+              try {
+                const j = JSON.parse(errBody);
+                parsedMsg = j.error || parsedMsg;
+              } catch { /* ignore */ }
+              creditsExhausted = true;
+              slideError = parsedMsg;
+              console.error(`[batch] Slide ${slideNum} hit 402 — aborting remaining ${totalSlides - slideNum} slides`);
+              break;
+            }
+
             if (!response.ok) {
               const errText = await response.text().catch(() => 'Unknown error');
               throw new Error(`HTTP ${response.status}: ${errText.slice(0, 200)}`);
@@ -167,6 +183,12 @@ Deno.serve(async (req) => {
 
             const data = await response.json();
             if (data.error) {
+              if (data.errorCode === 'CREDITS_EXHAUSTED') {
+                creditsExhausted = true;
+                slideError = data.error;
+                console.error(`[batch] Slide ${slideNum} CREDITS_EXHAUSTED — aborting batch`);
+                break;
+              }
               throw new Error(data.error);
             }
 
