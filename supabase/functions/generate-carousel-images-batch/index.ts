@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
     const totalSlides = slides.length;
     let successCount = 0;
     let failCount = 0;
+    let batchCreditsExhausted = false;
     const results: { slideNumber: number; success: boolean; imageUrl?: string; error?: string }[] = [];
     const successUrls: string[] = []; // for post-batch seamless validation
 
