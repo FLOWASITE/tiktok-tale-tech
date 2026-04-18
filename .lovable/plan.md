@@ -1,50 +1,43 @@
 
 ## Bối cảnh
-
-User yêu cầu **audit vòng 2** — KHÔNG fix gì, chỉ READ + REPORT theo 9 sections với rule nghiêm: paste code thật + line numbers, không paraphrase. Đây là task READ-ONLY thuần, không có file change.
+Anh yêu cầu audit nghiêm ngặt 15 câu hỏi với rule absolute: paste raw code + grep output, không sửa file, không recommend. Em đang ở READ-ONLY mode — đúng mode cho task này, không cần switch sang default.
 
 ## Approach
+Chạy reads + greps + DB queries song song, assemble report markdown 15 Q&A theo format chính xác + table tổng kết + self-verification. Output trực tiếp trong chat (không tạo file, không exec).
 
-Tôi sẽ thực hiện audit bằng các tool read-only:
+**Round 1 — Greps song song**
+- `sceneDescription` trong `generate-carousel-image/index.ts`
+- `previousSceneDescription` trong `supabase/functions/` + `src/`
+- `singleRefImage` trong `generate-carousel-image/`
+- `inputImages|multipleImages|referenceImages` trong shared + carousel-image
+- `invalidate|deleteCache|clearCache|purgeCache` trong `_shared/` + admin
+- `sharp|composite|overlay|Jimp|canvas` trong `supabase/functions/`
+- `scene_description` trong `supabase/migrations/`
+- `function hashComplianceRules|hashComplianceRules =` trong `supabase/functions/`
 
-**Round 1 — Files & Schema (parallel)**
-- `code--view` các file core: `generate-carousel-image/index.ts`, `generate-carousel/index.ts`, `cache-utils.ts`, `compliance-postcheck.ts`, `compliance-hash.ts`, `color-utils.ts`, `circuit-breaker.ts`, `rate-limiter.ts`, `prompt-guard.ts`
-- `code--view` provider wrappers: `poyo-image-generator.ts`, KIE wrapper, GeminiGen wrapper
-- `code--view` frontend: `useImageGeneration.ts`, `CarouselViewer.tsx`
+**Round 2 — Reads song song**
+- `generate-carousel-image/index.ts` (full hoặc các line ranges từ grep)
+- `generate-carousel/index.ts` (line ranges quanh withCache + validate)
+- `_shared/cache-utils.ts` (full withCache function)
+- `_shared/cache/compliance-hash.ts` (đã có 1 phần, đọc lại confirm)
+- `_shared/poyo-image-generator.ts` (đã có context, paste signature)
+- `_shared/geminigen-image-generator.ts` (đã có context, paste signature)
+- KIE wrapper file (cần list_dir `_shared/` để locate)
 
-**Round 2 — Greps (parallel, where files unclear)**
-- `code--search_files` cho: `sceneDescription`, `traceId|correlationId`, `rateLimit`, `sanitize`, `circuitBreaker`, `sharp|composite|overlay`, `formData.topic|formData.brandName`, `invalidate|deleteCache`
+**Round 3 — DB query**
+- `SELECT function_name, default_model, fallback_models FROM ai_config WHERE function_name LIKE '%carousel-image%'`
+- Check column `scene_description` trong `carousel_images` qua `information_schema`
 
-**Round 3 — Database (parallel)**
-- `supabase--read_query` cho:
-  - `\d carousel_images` (verify `scene_description` column exists)
-  - `\d ai_metrics` (verify `trace_id`, `sampled_response`, `compliance_*`)
-  - `SELECT * FROM ai_config WHERE function_name = 'generate-carousel-image'`
-  - Check `compliance_violations` table existence
-- `supabase--edge_function_logs` cho `generate-carousel-image` để verify trace prefix + sceneDescription log thực tế
+## Output
+Single response markdown:
+- 15 Q&A blocks theo format `Q[X.Y] / Command run / File / Lines / Snippet / Direct answer / Evidence`
+- Table 4 rows status
+- Self-verification 5 items
 
-**Round 4 — Color math test (manual)**
-- Đọc `color-utils.ts` (đã có trong context — confirmed OKLCH).
-- Tính tay 3 test cases: `lightenHex('#FF0000', 85)`, `lightenHex('#7C3AED', 85)`, `darkenHex('#FF0000', 40)` bằng cách trace OKLCH math từ code.
-
-## Output structure
-
-Markdown report 9 sections + summary table + Top 3 issues. Mỗi section:
-- File path + line range
-- Code snippet nguyên văn (paste, no paraphrase)
-- Direct YES/NO/value cho từng câu hỏi
-- Nếu NOT IMPLEMENTED → ghi rõ "đã grep pattern X, không tìm thấy"
+Mỗi snippet paste raw từ tool output, không paraphrase. Mỗi NOT FOUND list ≥3 patterns + files đã check.
 
 ## Estimate
-
-~15-20 read tool calls (mostly parallel) + 4-5 DB queries + 1 edge log query. Single response. Không cần ask_questions vì user đã specify rất rõ format & rule.
-
-## Scope clarification
-
-- Không fix gì — pure audit
-- Không tạo task tracking (single deliverable, không multi-step work)
-- Không cần ask_questions
+~8-10 grep calls, ~7 read calls, 2 DB queries, all parallel-batched. Single message ~10-12K chars markdown.
 
 ## Sau khi approve
-
-Em chạy parallel reads + DB queries → assemble markdown report theo đúng format 9-section + summary table + Top 3 issues.
+Em chạy parallel greps/reads/DB → assemble 15 Q&A + table + SV trực tiếp output trong chat. Không sửa file, không tạo file, không exec script.
