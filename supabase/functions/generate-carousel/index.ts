@@ -1661,3 +1661,103 @@ Follow the carousel style guidelines strictly.`;
     );
   }
 }));
+
+// ============================================
+// Streaming pipeline: invokes the JSON path internally and emits SSE
+// progress events. Reuses the entire validation / compliance / DB
+// pipeline so behaviour stays identical for the streaming caller.
+// ============================================
+async function runCarouselPipelineStreaming(
+  formData: CarouselFormData & { stream?: boolean },
+  req: Request,
+  emit: StreamEmit,
+): Promise<void> {
+  const slideCount = formData.slideCount || 6;
+
+  await emit({ type: 'progress', step: 'planning', percent: 3, message: 'Đang phân tích chủ đề...', totalSlides: slideCount });
+
+  // Heartbeat ticker — fakes a smooth progress between AI call start and finish.
+  // Caps at 65% while the AI is running; real events take over after parse.
+  let percent = 5;
+  let stopHeartbeat = false;
+  const heartbeat = (async () => {
+    await emit({ type: 'progress', step: 'ai_generating', percent: 8, message: 'Đang gọi AI tạo nội dung slides...', totalSlides: slideCount });
+    while (!stopHeartbeat && percent < 65) {
+      await new Promise((r) => setTimeout(r, 1500));
+      if (stopHeartbeat) break;
+      percent = Math.min(65, percent + 3);
+      await emit({ type: 'progress', step: 'ai_generating', percent, message: `AI đang tạo slides... ${percent}%`, totalSlides: slideCount });
+    }
+  })();
+
+  // Internal call: re-invoke this function in JSON mode by constructing a new request.
+  // Keeps single source of truth for pipeline logic.
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const internalUrl = `${supabaseUrl}/functions/v1/generate-carousel`;
+  const authHeader = req.headers.get("authorization") || `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`;
+  const traceId = req.headers.get("x-trace-id") || (formData as any).traceId || crypto.randomUUID();
+
+  const { stream: _omit, ...jsonBody } = formData; // strip stream flag
+  let resp: Response;
+  try {
+    resp = await fetch(internalUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": authHeader,
+        "x-trace-id": traceId,
+      },
+      body: JSON.stringify({ ...jsonBody, stream: false }),
+    });
+  } catch (err: any) {
+    stopHeartbeat = true;
+    await heartbeat.catch(() => {});
+    throw new Error(`Internal fetch failed: ${err?.message || err}`);
+  }
+
+  stopHeartbeat = true;
+  await heartbeat.catch(() => {});
+
+  await emit({ type: 'progress', step: 'parsing', percent: 70, message: 'AI hoàn tất, đang xử lý kết quả...', totalSlides: slideCount });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    let errPayload: any = {};
+    try { errPayload = JSON.parse(errText); } catch { errPayload = { error: errText }; }
+    await emit({
+      type: 'error',
+      status: resp.status,
+      message: errPayload.error || errPayload.message || `HTTP ${resp.status}`,
+      details: errPayload,
+    });
+    return;
+  }
+
+  const carousel: any = await resp.json();
+
+  // Emit slides progressively for "appearing" UX
+  const slides: any[] = Array.isArray(carousel?.slides_content) ? carousel.slides_content : [];
+  if (slides.length > 0) {
+    await emit({ type: 'progress', step: 'compliance_check', percent: 80, message: 'Đang kiểm tra tuân thủ...', totalSlides: slides.length });
+    const baseAfterCompliance = 82;
+    const reservedForResult = 6;
+    const span = 100 - baseAfterCompliance - reservedForResult; // 12
+    for (let i = 0; i < slides.length; i++) {
+      const p = baseAfterCompliance + Math.round(((i + 1) / slides.length) * span);
+      await emit({
+        type: 'slide_done',
+        slideNumber: slides[i]?.slideNumber || i + 1,
+        slide: slides[i],
+        completedSlides: i + 1,
+        totalSlides: slides.length,
+        percent: p,
+        message: `Hoàn tất slide ${i + 1}/${slides.length}`,
+      });
+      await new Promise((r) => setTimeout(r, 80));
+    }
+  }
+
+  await emit({ type: 'progress', step: 'finalizing', percent: 96, message: 'Đang lưu carousel...', totalSlides: slides.length });
+  await emit({ type: 'result', percent: 100, carousel, message: 'Hoàn thành!' });
+}
+
