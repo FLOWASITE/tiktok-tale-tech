@@ -9,13 +9,13 @@ import { toast } from 'sonner';
 export interface CarouselGenerationJob {
   id: string;
   formData: CarouselFormData;
-  status: 'generating' | 'done' | 'error';
+  status: 'generating' | 'done' | 'error' | 'cancelled';
   startedAt: number;
   carousel?: Carousel;
   error?: string;
   // Streaming state
-  progress: number;          // 0-100
-  currentStep: string;       // human-readable step
+  progress: number;
+  currentStep: string;
   partialSlides: CarouselSlide[];
   totalSlides: number;
   completedSlides: number;
@@ -27,6 +27,8 @@ interface CarouselGenerationContextValue {
   generating: boolean;
   generateCarousel: (formData: CarouselFormData) => Promise<Carousel | null>;
   dismissJob: (id: string) => void;
+  cancelJob: (id: string) => void;
+  retryJob: (id: string) => void;
 }
 
 const CarouselGenerationContext = createContext<CarouselGenerationContextValue | null>(null);
@@ -40,6 +42,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<CarouselGenerationJob[]>([]);
   const inFlightRef = useRef<Set<string>>(new Set());
+  const abortersRef = useRef<Map<string, AbortController>>(new Map());
 
   const updateJob = useCallback((id: string, patch: Partial<CarouselGenerationJob>) => {
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
@@ -47,6 +50,23 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
 
   const dismissJob = useCallback((id: string) => {
     setJobs((prev) => prev.filter((j) => j.id !== id));
+    abortersRef.current.delete(id);
+  }, []);
+
+  const cancelJob = useCallback((id: string) => {
+    const c = abortersRef.current.get(id);
+    if (c) {
+      try { c.abort(); } catch { /* noop */ }
+    }
+    abortersRef.current.delete(id);
+    setJobs((prev) =>
+      prev.map((j) =>
+        j.id === id && j.status === 'generating'
+          ? { ...j, status: 'cancelled', currentStep: 'Đã hủy', error: 'Cancelled by user' }
+          : j
+      )
+    );
+    toast.info('Đã hủy quá trình tạo carousel');
   }, []);
 
   const generateCarousel = useCallback(
@@ -89,13 +109,14 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-carousel`;
 
         const controller = new AbortController();
+        abortersRef.current.set(jobId, controller);
         let watchdog: ReturnType<typeof setTimeout> | null = null;
         let receivedFirstByte = false;
         const armWatchdog = () => {
           if (watchdog) clearTimeout(watchdog);
           watchdog = setTimeout(() => {
             console.warn('[CarouselGen] Watchdog timeout — aborting');
-            controller.abort();
+            controller.abort('watchdog');
           }, receivedFirstByte ? IDLE_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS);
         };
         armWatchdog();
@@ -211,15 +232,34 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           return finalCarousel;
         }
 
-        // Stream ended without result event
-        updateJob(jobId, { status: 'error', error: 'Stream kết thúc không có kết quả' });
-        toast.error('Tạo carousel chưa hoàn tất. Vui lòng thử lại.');
+        // Stream ended without result event — only flag error if not already cancelled
+        setJobs((prev) =>
+          prev.map((j) =>
+            j.id === jobId && j.status === 'generating'
+              ? { ...j, status: 'error', error: 'Stream kết thúc không có kết quả' }
+              : j
+          )
+        );
+        const cur = jobs.find((j) => j.id === jobId);
+        if (cur?.status !== 'cancelled') {
+          toast.error('Tạo carousel chưa hoàn tất. Vui lòng thử lại.');
+        }
         return null;
       } catch (err: any) {
         console.error('[CarouselGen] Unexpected error:', err);
         if (err?.name === 'AbortError') {
-          updateJob(jobId, { status: 'error', error: 'Hết thời gian chờ' });
-          toast.error('Quá trình tạo bị gián đoạn. Vui lòng thử lại.');
+          // Distinguish user-cancel vs watchdog
+          setJobs((prev) =>
+            prev.map((j) => {
+              if (j.id !== jobId) return j;
+              if (j.status === 'cancelled') return j;
+              return { ...j, status: 'error', error: 'Mất kết nối streaming' };
+            })
+          );
+          const j = jobs.find((x) => x.id === jobId);
+          if (j?.status !== 'cancelled') {
+            toast.error('Mất kết nối streaming. Vui lòng thử lại.');
+          }
         } else {
           updateJob(jobId, { status: 'error', error: String(err?.message || err) });
           toast.error('Không thể tạo carousel. Vui lòng thử lại.');
@@ -227,9 +267,20 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         return null;
       } finally {
         inFlightRef.current.delete(dedupKey);
+        abortersRef.current.delete(jobId);
       }
     },
-    [user, currentOrganization?.id, navigate, updateJob]
+    [user, currentOrganization?.id, navigate, updateJob, jobs]
+  );
+
+  const retryJob = useCallback(
+    (id: string) => {
+      const j = jobs.find((x) => x.id === id);
+      if (!j) return;
+      dismissJob(id);
+      void generateCarousel(j.formData);
+    },
+    [jobs, dismissJob, generateCarousel]
   );
 
   const activeJob = jobs.find((j) => j.status === 'generating') || jobs[0] || null;
@@ -237,7 +288,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
 
   return (
     <CarouselGenerationContext.Provider
-      value={{ jobs, activeJob, generating, generateCarousel, dismissJob }}
+      value={{ jobs, activeJob, generating, generateCarousel, dismissJob, cancelJob, retryJob }}
     >
       {children}
     </CarouselGenerationContext.Provider>
