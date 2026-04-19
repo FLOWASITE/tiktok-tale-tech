@@ -64,18 +64,28 @@ export function useTelegramBinding() {
     const { data, error } = await supabase.functions.invoke('telegram-link-token', {
       body: { organization_id: currentOrganization.id },
     });
-    if (error) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const needsAdmin = (error as any)?.context?.needs_admin_setup ?? (data as any)?.needs_admin_setup;
-      if (needsAdmin) {
-        toast({
-          title: 'Chưa cấu hình',
-          description: 'Admin cần cấu hình bot Telegram trước',
-          variant: 'destructive',
-        });
-      } else {
-        toast({ title: 'Lỗi', description: error.message ?? 'Không tạo được link', variant: 'destructive' });
-      }
+
+    // Try to extract structured error body even on non-2xx responses
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errCtx = (error as any)?.context;
+    let errorBody: { error?: string; code?: string; needs_admin_setup?: boolean } | null = null;
+    if (errCtx && typeof errCtx.json === 'function') {
+      try { errorBody = await errCtx.json(); } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dataAsAny = data as any;
+    const payload = errorBody ?? (dataAsAny?.error ? dataAsAny : null);
+
+    if (error || payload?.error) {
+      const description =
+        payload?.error ??
+        error?.message ??
+        'Không tạo được link kết nối';
+      toast({
+        title: payload?.needs_admin_setup ? 'Chưa cấu hình bot' : 'Lỗi tạo link',
+        description,
+        variant: 'destructive',
+      });
       return null;
     }
     return data as { deeplink: string; expires_in: number };
