@@ -15,6 +15,20 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type TelegramUpdate = any;
 
+// In-memory dedup of Telegram update_id to avoid double-processing on retry.
+// Bounded LRU-ish set; entries expire via size cap (Telegram retries within seconds).
+const RECENT_UPDATES = new Set<number>();
+const RECENT_UPDATES_MAX = 500;
+function isDuplicateUpdate(updateId: number): boolean {
+  if (RECENT_UPDATES.has(updateId)) return true;
+  RECENT_UPDATES.add(updateId);
+  if (RECENT_UPDATES.size > RECENT_UPDATES_MAX) {
+    const first = RECENT_UPDATES.values().next().value;
+    if (first !== undefined) RECENT_UPDATES.delete(first);
+  }
+  return false;
+}
+
 Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -46,6 +60,10 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     }
 
     const update: TelegramUpdate = await req.json();
+    if (typeof update.update_id === "number" && isDuplicateUpdate(update.update_id)) {
+      console.log("[telegram-webhook] duplicate update_id skipped:", update.update_id);
+      return okResponse();
+    }
     const message = update.message;
     if (!message || typeof message.text !== "string") {
       return okResponse();
@@ -78,6 +96,14 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await handleStatus({ supabase, botConfig, chatId });
         break;
       case "/generate":
+        if (chatType !== "private") {
+          await sendMessage(
+            botConfig.botToken,
+            chatId,
+            "⚠️ Lệnh /generate chỉ dùng trong DM với bot để tránh spam quota.",
+          );
+          break;
+        }
         await handleGenerate({
           supabase,
           botConfig,
@@ -312,7 +338,8 @@ async function handleGenerate(
       frequency: {},
       autonomy_level: botConfig.defaultAutonomyLevel,
       approval_mode: "approve_plan",
-      status: "active",
+      is_active: true,
+      is_paused: false,
     })
     .select("id")
     .single();
@@ -334,10 +361,11 @@ async function handleGenerate(
 
   // Log execution
   await supabase.from("agent_execution_logs").insert({
-    organization_id: botConfig.organizationId,
+    session_id: crypto.randomUUID(),
     agent_name: "telegram-bot",
-    event_type: "goal_created_from_telegram",
-    payload: { goal_id: goal.id, chat_id: chatId, user_id: binding.userId },
+    status: "completed",
+    input_summary: `Telegram /generate: ${prompt.slice(0, 200)}`,
+    output_summary: `Created goal ${goal.id} from chat ${chatId} by user ${binding.userId}`,
   });
 
   await sendMessage(
