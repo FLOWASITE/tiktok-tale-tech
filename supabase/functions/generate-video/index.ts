@@ -1,20 +1,23 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { generateVideoViaGeminiGen, GEMINIGEN_VIDEO_MODELS } from "../_shared/geminigen-video-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type VideoProvider = 'lovable' | 'minimax' | 'runway';
+type VideoProvider = 'geminigen' | 'lovable' | 'minimax' | 'runway';
 
 interface VideoGenerationRequest {
   provider: VideoProvider;
   prompt: string;
-  duration?: number; // 5 or 10 seconds
-  aspect_ratio?: string; // 16:9, 9:16, 1:1, etc
-  resolution?: string; // 480p or 1080p
-  starting_frame_url?: string; // Image to animate
+  model?: string;          // e.g. 'geminigen/veo-3' — required when provider='geminigen'
+  duration?: number;
+  aspect_ratio?: string;
+  resolution?: string;
+  starting_frame_url?: string;
+  negative_prompt?: string;
   script_id?: string;
   storyboard_id?: string;
   scene_number?: number;
@@ -52,12 +55,14 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
     const body: VideoGenerationRequest = await req.json();
     const {
-      provider = 'lovable',
+      provider = 'geminigen',
       prompt,
+      model,
       duration = 5,
       aspect_ratio = '16:9',
       resolution = '1080p',
       starting_frame_url,
+      negative_prompt,
       script_id,
       storyboard_id,
       scene_number,
@@ -80,6 +85,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         storyboard_id,
         scene_number,
         provider,
+        model_used: model,
         prompt,
         duration_seconds: duration,
         aspect_ratio,
@@ -101,7 +107,23 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     let error: string | null = null;
 
     try {
-      if (provider === 'lovable') {
+      if (provider === 'geminigen') {
+        const apiKey = Deno.env.get("GEMINIGEN_API_KEY");
+        if (!apiKey) throw new Error('GEMINIGEN_API_KEY not configured');
+
+        const selectedModel = model || GEMINIGEN_VIDEO_MODELS[0].id;
+        const result = await generateVideoViaGeminiGen({
+          prompt,
+          model: selectedModel,
+          aspectRatio: aspect_ratio,
+          resolution: resolution === '720p' ? '720p' : '1080p',
+          duration,
+          negativePrompt: negative_prompt,
+          startingFrameUrl: starting_frame_url,
+        }, apiKey);
+
+        videoUrl = result.videoUrl;
+      } else if (provider === 'lovable') {
         videoUrl = await generateWithLovable({
           prompt,
           duration,
@@ -116,7 +138,6 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           aspect_ratio,
         });
       } else if (provider === 'runway') {
-        // Runway integration placeholder
         throw new Error('Runway integration coming soon');
       }
     } catch (e) {

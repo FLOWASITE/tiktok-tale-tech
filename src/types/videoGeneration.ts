@@ -1,4 +1,15 @@
-export type VideoProvider = 'lovable' | 'minimax' | 'runway';
+export type VideoProvider = 'geminigen' | 'lovable' | 'minimax' | 'runway';
+
+export const GEMINIGEN_VIDEO_MODELS = [
+  { id: 'geminigen/veo-3', label: 'Veo 3', maxDuration: 10 },
+  { id: 'geminigen/veo-3-fast', label: 'Veo 3 Fast', maxDuration: 10 },
+  { id: 'geminigen/veo-3.1', label: 'Veo 3.1', maxDuration: 10 },
+  { id: 'geminigen/veo-3.1-fast', label: 'Veo 3.1 Fast', maxDuration: 10 },
+  { id: 'geminigen/veo-2', label: 'Veo 2', maxDuration: 8 },
+  { id: 'geminigen/sora-2', label: 'Sora 2', maxDuration: 10 },
+] as const;
+
+export type GeminiGenVideoModelId = typeof GEMINIGEN_VIDEO_MODELS[number]['id'];
 export type VideoGenerationStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 export interface VideoGeneration {
@@ -37,10 +48,12 @@ export interface VideoGeneration {
 export interface VideoGenerationRequest {
   provider: VideoProvider;
   prompt: string;
+  model?: string;
   duration?: number;
   aspect_ratio?: string;
   resolution?: string;
   starting_frame_url?: string;
+  negative_prompt?: string;
   script_id?: string;
   storyboard_id?: string;
   scene_number?: number;
@@ -53,7 +66,17 @@ export const VIDEO_PROVIDER_CONFIG: Record<VideoProvider, {
   requiresApiKey: boolean;
   maxDuration: number;
   aspectRatios: string[];
+  supportsModelSelect?: boolean;
 }> = {
+  geminigen: {
+    label: 'GeminiGen (Veo / Sora)',
+    description: 'Veo 3, Veo 3 Fast, Veo 3.1, Sora 2 — cần GEMINIGEN_API_KEY',
+    icon: '🎥',
+    requiresApiKey: true,
+    maxDuration: 10,
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    supportsModelSelect: true,
+  },
   lovable: {
     label: 'Lovable AI',
     description: 'Tích hợp sẵn, không cần API key',
