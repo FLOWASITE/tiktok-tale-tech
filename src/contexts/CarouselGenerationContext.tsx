@@ -157,6 +157,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         lastEventAt: startedAt,
         abortReason: null,
         revealingSlide: null,
+        revealingSlideMeta: null,
       };
       setJobs((prev) => [job, ...prev]);
 
@@ -259,7 +260,21 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
               updateJob(jobId, {
                 phase: 'revealing',
                 revealingSlide: event.slideNumber ?? null,
-                currentStep: event.message || `Đang hiển thị slide ${event.slideNumber}...`,
+                revealingSlideMeta: { slideNumber: event.slideNumber ?? 0 },
+                currentStep: event.message || `Prompt cho Slide ${event.slideNumber}`,
+                totalSlides: event.totalSlides ?? job.totalSlides,
+              });
+            } else if (event.type === 'slide_preview') {
+              updateJob(jobId, {
+                phase: 'revealing',
+                revealingSlide: event.slideNumber ?? null,
+                revealingSlideMeta: {
+                  slideNumber: event.slideNumber ?? 0,
+                  objective: event.objective,
+                  textPreview: event.textPreview,
+                  promptPreview: event.promptPreview,
+                },
+                currentStep: event.objective || event.message || `Đang viết slide ${event.slideNumber}...`,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
             } else if (event.type === 'slide_done') {
@@ -269,6 +284,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 currentStep: event.message || `Slide ${event.completedSlides}/${event.totalSlides}`,
                 phase: 'revealing',
                 revealingSlide: null,
+                revealingSlideMeta: null,
                 partialSlides: [...partial],
                 completedSlides: event.completedSlides ?? partial.length,
                 totalSlides: event.totalSlides ?? partial.length,
