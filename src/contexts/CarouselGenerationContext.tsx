@@ -303,6 +303,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 partialSlides: finalCarousel.slides_content || partial,
                 completedSlides: (finalCarousel.slides_content || partial).length,
                 revealingSlide: null,
+                revealingSlideMeta: null,
               });
               // Auto-launch image batch independently of UI mount
               if (formData.autoGenerateImages && finalCarousel.id && user) {
