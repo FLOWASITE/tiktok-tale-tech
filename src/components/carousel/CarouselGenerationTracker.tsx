@@ -12,6 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  extractBrandColorsWithFallback,
+  buildSeriesBible,
+  launchCarouselImageBatch,
+} from '@/lib/carousel/imageGenLauncher';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
