@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
+import { launchCarouselImageBatch } from '@/lib/carousel/imageGenLauncher';
 import { toast } from 'sonner';
 
 export interface CarouselGenerationJob {
@@ -189,6 +190,23 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 partialSlides: finalCarousel.slides_content || partial,
                 completedSlides: (finalCarousel.slides_content || partial).length,
               });
+
+              // Background-safe: kick off image batch immediately if requested.
+              // This survives even if the user navigated away from the carousel page,
+              // because the launcher creates a DB task + fires the edge function
+              // (which uses EdgeRuntime.waitUntil). Idempotent — won't double-launch.
+              if (formData.autoGenerateImages && finalCarousel?.id && finalCarousel.slides_content?.length) {
+                launchCarouselImageBatch(finalCarousel, user.id, currentOrganization?.id)
+                  .then((res) => {
+                    if (res.taskId && !res.alreadyRunning) {
+                      console.log('[CarouselGen] Image batch launched in background:', res.taskId);
+                      toast.success('🎨 Ảnh đang được tạo dưới nền', { duration: 4000 });
+                    }
+                  })
+                  .catch((err) => {
+                    console.error('[CarouselGen] Failed to launch image batch:', err);
+                  });
+              }
             } else if (event.type === 'error') {
               const m = event.message || 'Tạo carousel thất bại';
               if (event.status === 429) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');

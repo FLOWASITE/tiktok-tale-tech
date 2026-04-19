@@ -12,6 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  extractBrandColorsWithFallback,
+  buildSeriesBible,
+  launchCarouselImageBatch,
+} from '@/lib/carousel/imageGenLauncher';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -75,98 +80,9 @@ function extractColorPalette(slide: any): string[] | null {
   return hexColors && hexColors.length > 0 ? hexColors : null;
 }
 
-async function extractBrandColorsWithFallback(
-  carousel: Carousel,
-): Promise<{ textColor?: string; backgroundColor?: string } | undefined> {
-  // 1. Try parsing brand_guideline (may contain embedded JSON colors)
-  if (carousel.brand_guideline) {
-    try {
-      const parsed = typeof carousel.brand_guideline === 'string'
-        ? JSON.parse(carousel.brand_guideline)
-        : carousel.brand_guideline;
-      if (parsed?.primaryColor) {
-        return {
-          textColor: parsed.primaryColor,
-          backgroundColor: parsed.secondaryColors?.[0] || parsed.backgroundColor,
-        };
-      }
-      if (parsed?.colors || parsed?.textColor) {
-        return {
-          textColor: parsed.textColor || parsed.colors?.text || parsed.colors?.primary,
-          backgroundColor: parsed.backgroundColor || parsed.colors?.background || parsed.colors?.secondary,
-        };
-      }
-    } catch {
-      const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
-      if (hexColors && hexColors.length >= 2) return { textColor: hexColors[0], backgroundColor: hexColors[1] };
-      if (hexColors && hexColors.length === 1) return { textColor: hexColors[0] };
-    }
-  }
-
-  // 2. Fallback: query brand_templates by ID or name
-  try {
-    let template: any = null;
-    if (carousel.brand_template_id) {
-      const { data } = await supabase
-        .from('brand_templates')
-        .select('primary_color, secondary_colors')
-        .eq('id', carousel.brand_template_id)
-        .single();
-      template = data;
-    }
-    if (!template && carousel.brand_name) {
-      const { data } = await supabase
-        .from('brand_templates')
-        .select('primary_color, secondary_colors')
-        .or(`brand_name.eq.${carousel.brand_name},name.eq.${carousel.brand_name}`)
-        .limit(1)
-        .maybeSingle();
-      template = data;
-    }
-    if (template?.primary_color) {
-      return {
-        textColor: template.primary_color,
-        backgroundColor: (template.secondary_colors as string[])?.[0],
-      };
-    }
-  } catch (err) {
-    console.warn('[extractBrandColors] fallback query failed:', err);
-  }
-
-  return undefined;
-}
-
-/**
- * Build a comprehensive "Series Bible" from ALL slides' prompts.
- * Aggregates consistency directives, design style, and visual world
- * so parallel-generated slides share the same visual identity.
- */
-function buildSeriesBible(slides: CarouselSlide[]): string {
-  // Collect ALL "consistent with..." directives from all slides
-  const consistencyParts: string[] = [];
-  slides.forEach(s => {
-    const match = s.fullPrompt.match(/consistent with (?:previous slides|series):\s*(.+?)$/im);
-    if (match) consistencyParts.push(match[1].trim());
-  });
-  const uniqueParts = [...new Set(consistencyParts)];
-
-  // Extract common visual elements from slide 1's full prompt
-  const slide1Prompt = slides[0]?.fullPrompt || '';
-
-  // Build comprehensive series bible
-  const bible = [
-    `SERIES VISUAL BIBLE (applies to ALL slides):`,
-    uniqueParts.length > 0
-      ? `Visual world: ${uniqueParts.join('. ')}.`
-      : `Visual world: ${slides[0]?.designStyle || 'professional photography'}.`,
-    `Total slides in series: ${slides.length}.`,
-    `All slides share the SAME: lighting direction, color temperature, photography style, environment/setting, and visual mood.`,
-    `DIFFERENTIATION: Each slide MUST use a DIFFERENT camera angle (wide/medium/close-up/overhead/side), focal subject, and composition while staying in the same visual world. No two slides should look alike.`,
-    `Reference scene (slide 1): "${slide1Prompt.slice(0, 200)}..."`,
-  ].join('\n');
-
-  return bible;
-}
+// extractBrandColorsWithFallback + buildSeriesBible moved to
+// src/lib/carousel/imageGenLauncher.ts (shared with CarouselGenerationContext
+// for background-safe auto-launch).
 
 export function CarouselGenerationTracker({
   onBack,
@@ -302,71 +218,31 @@ export function CarouselGenerationTracker({
     }
   }, [carousel?.id, activeTasks]);
 
-  // Phase 2: Start background image generation when prompt is done
+  // Phase 2: Start background image generation when prompt is done.
+  // Uses shared launcher (idempotent) so if CarouselGenerationContext
+  // already kicked off the batch, we just adopt the existing task.
   const startBackgroundGeneration = useCallback(async () => {
     if (!carousel || !user || imageGenStarted) return;
     setImageGenStarted(true);
 
-    // Extract brand colors
-    const brandColors = await extractBrandColorsWithFallback(carousel);
-    const seriesBible = buildSeriesBible(carousel.slides_content);
-    const siblingsSummary = carousel.slides_content
-      .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
-      .join(' | ');
+    const result = await launchCarouselImageBatch(
+      carousel,
+      user.id,
+      currentOrganization?.id,
+    );
 
-    // Create background task
-    const task = await createTask('carousel_image', {
-      carouselId: carousel.id,
-      slides: carousel.slides_content,
-      brandColors,
-      carouselStyle: carousel.carousel_style,
-      visualPreset: carousel.visual_preset || 'minimalist',
-      platform: carousel.platform,
-      carouselTopic: carousel.topic,
-      seriesBible,
-      siblingsSummary,
-      userId: user.id,
-    }, currentOrganization?.id);
-
-    if (!task) {
-      toast.error('Không thể tạo task tạo ảnh');
+    if (!result.taskId) {
+      toast.error(result.error || 'Không thể tạo task tạo ảnh');
       setImageGenStarted(false);
       return;
     }
 
-    setBackgroundTaskId(task.id);
+    setBackgroundTaskId(result.taskId);
 
-    // Fire-and-forget edge function call
-    try {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-carousel-images-batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken || ''}`,
-        },
-        body: JSON.stringify({
-          taskId: task.id,
-          carouselId: carousel.id,
-          slides: carousel.slides_content,
-          brandColors,
-          carouselStyle: carousel.carousel_style,
-          visualPreset: carousel.visual_preset || 'minimalist',
-          platform: carousel.platform,
-          carouselTopic: carousel.topic,
-          seriesBible,
-          siblingsSummary,
-          userId: user.id,
-        }),
-      }).catch(err => console.warn('[tracker] Edge function fire-and-forget error:', err));
-    } catch (err) {
-      console.warn('[tracker] Failed to invoke edge function:', err);
+    if (!result.alreadyRunning) {
+      toast.success('🎨 Ảnh đang được tạo dưới nền. Bạn có thể rời đi!', { duration: 5000 });
     }
-
-    toast.success('🎨 Ảnh đang được tạo dưới nền. Bạn có thể rời đi!', { duration: 5000 });
-  }, [carousel, user, imageGenStarted, createTask, currentOrganization?.id]);
+  }, [carousel, user, imageGenStarted, currentOrganization?.id]);
 
   // Auto-start when prompt is done
   useEffect(() => {
