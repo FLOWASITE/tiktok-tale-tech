@@ -139,7 +139,7 @@ export function GlobalCarouselGenTracker() {
         <CarouselGenExpandedPanel
           key={`exp-${activeJob.id}`}
           job={activeJob}
-          percent={percent}
+          percent={effectivePercent}
           statusText={statusText}
           etaText={etaText}
           onCollapse={() => setExpanded(false)}
@@ -150,7 +150,8 @@ export function GlobalCarouselGenTracker() {
               : undefined
           }
           onDismiss={
-            activeJob.status === 'done' || activeJob.status === 'error' || activeJob.status === 'cancelled'
+            !imagePhaseActive &&
+            (activeJob.status === 'done' || activeJob.status === 'error' || activeJob.status === 'cancelled')
               ? () => {
                   dismissJob(activeJob.id);
                   setExpanded(false);
@@ -162,12 +163,12 @@ export function GlobalCarouselGenTracker() {
       ) : (
         <CarouselMiniTracker
           key={`mini-${activeJob.id}`}
-          overallPercent={percent}
+          overallPercent={effectivePercent}
           statusText={statusText}
           etaText={etaText}
-          totalSlides={activeJob.totalSlides}
-          completedSlides={activeJob.completedSlides}
-          status={activeJob.status}
+          totalSlides={imagePhaseActive ? imageSlideTotal : activeJob.totalSlides}
+          completedSlides={imagePhaseActive ? imageSlideDone : activeJob.completedSlides}
+          status={imagePhaseActive ? 'generating' : activeJob.status}
           onExpand={() => setExpanded(true)}
           onViewResults={
             activeJob.status === 'done' && activeJob.carousel ? handleOpenCarousel : undefined
@@ -179,7 +180,8 @@ export function GlobalCarouselGenTracker() {
               : undefined
           }
           onDismiss={
-            activeJob.status === 'done' || activeJob.status === 'error' || activeJob.status === 'cancelled'
+            !imagePhaseActive &&
+            (activeJob.status === 'done' || activeJob.status === 'error' || activeJob.status === 'cancelled')
               ? () => dismissJob(activeJob.id)
               : undefined
           }
