@@ -42,6 +42,8 @@ export interface CarouselGenerationJob {
   abortReason: CarouselAbortReason;
   /** Slide number currently being revealed (after slide_start, before slide_done) */
   revealingSlide: number | null;
+  /** Real preview content for the slide currently being written */
+  revealingSlideMeta: { slideNumber: number; objective?: string; textPreview?: string; promptPreview?: string } | null;
 }
 
 interface CarouselGenerationContextValue {
