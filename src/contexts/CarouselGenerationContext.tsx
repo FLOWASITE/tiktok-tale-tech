@@ -286,6 +286,20 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 completedSlides: (finalCarousel.slides_content || partial).length,
                 revealingSlide: null,
               });
+              // Auto-launch image batch independently of UI mount
+              if (formData.autoGenerateImages && finalCarousel.id && user) {
+                void launchCarouselImageBatch({
+                  carousel: finalCarousel,
+                  userId: user.id,
+                  organizationId: currentOrganization?.id,
+                }).then(({ taskId, alreadyRunning }) => {
+                  if (taskId && !alreadyRunning) {
+                    toast.success('🎨 Ảnh đang được tạo nền. Bạn có thể rời đi bất cứ lúc nào!', {
+                      duration: 5000,
+                    });
+                  }
+                });
+              }
             } else if (event.type === 'error') {
               const m = event.message || 'Tạo carousel thất bại';
               if (event.status === 429) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
