@@ -1,105 +1,36 @@
 
-## Kết luận sau khi đọc code
 
-Luồng stream hiện tại vẫn **chưa phải stream thật**:
+## Vấn đề
 
-1. `supabase/functions/generate-carousel/index.ts`
-   - Nhánh `stream:true` chỉ mở SSE rồi gọi lại **chính function đó ở JSON mode**.
-   - `runCarouselPipelineStreaming()` đang bắn heartbeat giả `ai_generating` từ 8% → 60%.
-   - `slide_start/slide_done` chỉ xuất hiện **sau khi JSON toàn bộ đã xong**.
+User bấm "Tạo link kết nối" → toast "Failed to send a request to the Edge Function". Edge function `telegram-link-token` fail.
 
-2. Log backend xác nhận đúng pattern này
-   - Có log `Http: connection closed before message completed`
-   - Nghĩa là SSE có thể đóng trước khi nhánh JSON nội bộ hoàn tất.
-   - Frontend sau đó rơi vào `syncing`, hết timeout thì báo: `Tạo carousel chưa hoàn tất...`
+## Nguyên nhân (đọc code)
 
-3. UI hiện chưa thể hiện “prompt đang viết” thật
-   - `CarouselGenExpandedPanel` chỉ hiện skeleton cho slide đang chạy.
-   - Context chưa giữ preview/objective của slide đang viết.
+`supabase/functions/telegram-link-token/index.ts` import `signLinkToken` từ `../_shared/telegram-client.ts`. Nếu module này throw lúc import (vd thiếu `TELEGRAM_LINK_SECRET` env var, hoặc lỗi crypto init), function crash trước khi return → client nhận `Failed to send a request`.
 
-## Plan sửa đúng gốc
+Cũng có khả năng:
+- `telegram_bot_configs` table chưa có row cho org → trả 404 nhưng client lại hiện generic error
+- `getServiceClient()` hoặc query `organization_members` lỗi schema
 
-### 1. Đổi backend từ “stream bọc JSON” sang pipeline stream thật theo slide
-Refactor `generate-carousel` để không internal-fetch JSON toàn bộ nữa.
+## Plan sửa
 
-Luồng mới:
-- Phase 1: tạo **outline/plan** cho toàn carousel
-- Phase 2: generate **từng slide riêng**
-- Mỗi slide emit ngay:
-  - `slide_start`
-  - `slide_preview`
-  - `slide_done`
-- Cuối cùng mới chạy:
-  - compliance/final validation
-  - save DB
-  - `result`
+1. **Verify** edge function deploy & xem logs `telegram-link-token` để xác định lỗi thật (import error vs runtime).
+2. **Check `_shared/telegram-client.ts`**: đảm bảo `signLinkToken` không throw ở top-level, lazy-load secret.
+3. **Harden `telegram-link-token`**:
+   - Try/catch quanh import-time side effects
+   - Trả error JSON rõ ràng kèm `code` (`MISSING_SECRET`, `NO_BOT_CONFIG`, `NOT_MEMBER`)
+   - CORS headers đầy đủ trên mọi response (kể cả 401/403/404/500)
+4. **Frontend `useTelegramBinding.generateDeeplink`**: parse error body để hiện message tiếng Việt cụ thể thay vì generic "Failed to send".
+5. **Nếu thiếu `TELEGRAM_LINK_SECRET` secret** → dùng `add_secret` để user nhập trước khi function chạy được.
 
-Kết quả:
-- user thấy Slide 1 bắt đầu thật, không phải đợi gần xong mới hiện hàng loạt
-- bỏ hẳn progress heartbeat giả
+## File cần chỉnh
 
-### 2. Thêm event preview để UI hiện rõ “Prompt cho Slide 1”
-Mở rộng event stream:
-- `slide_start`: slideNumber
-- `slide_preview`: `slideNumber`, `objective`, `textPreview`, `promptPreview`
-- `slide_done`: full slide data như hiện tại
+- `supabase/functions/telegram-link-token/index.ts` — bọc import lazy, trả error chi tiết
+- `supabase/functions/_shared/telegram-client.ts` — lazy init secret, không throw at import
+- `src/hooks/useTelegramBinding.ts` — parse error body, hiện message rõ
+- (nếu cần) yêu cầu thêm secret `TELEGRAM_LINK_SECRET`
 
-Như vậy expanded panel và tracker có thể hiện:
-- “Prompt cho Slide 1”
-- objective ngắn
-- 1-2 dòng preview đang được viết
+## Kết quả
 
-### 3. Harden stream lifecycle để không báo fail giả
-Trong backend:
-- nếu client disconnect, vẫn tiếp tục background-safe và persist kết quả
-- không coi việc socket đóng là pipeline fail
-- chỉ emit `error` khi generation thật sự fail
+- Bấm "Tạo link kết nối" → hoặc thành công ra deeplink, hoặc thấy lỗi rõ ("Chưa cấu hình bot", "Thiếu secret", "Không thuộc org") thay vì "Failed to send".
 
-Trong frontend context:
-- khi stream kết thúc mà chưa có `result`, chuyển `syncing` mềm hơn
-- tăng độ tin cậy sync bằng `jobId/requestId` riêng thay vì chỉ dò theo `topic + startedAt`
-- chỉ báo fail sau khi hết thời gian chờ thực sự và không tìm thấy row nào
-
-### 4. Đồng bộ lại state source cho full-page tracker
-Hiện `CarouselGenerationTracker` vẫn nhận một phần state từ prop (`promptGenerating`, `carousel`) và một phần từ context.
-
-Sẽ đổi để tracker lấy trạng thái prompt chủ yếu từ `activeJob`:
-- `promptDone` dựa trên `activeJob.status/activeJob.carousel`
-- không phụ thuộc promise return của `generateCarousel`
-- tránh case backend vẫn chạy nhưng page tracker thoát/error sớm
-
-### 5. Nâng UI stream để phản ánh dữ liệu thật
-Cập nhật:
-- `CarouselGenerationContext.tsx`
-  - thêm `revealingSlideMeta`
-  - parse `slide_preview`
-  - giữ `partialSlides` + preview slide đang viết
-- `CarouselGenExpandedPanel.tsx`
-  - render preview thật thay skeleton trống
-- `GlobalCarouselGenTracker.tsx`
-  - status text ưu tiên objective của slide hiện tại
-- `CarouselGenerationTracker.tsx`
-  - card “Tạo Prompt” bám phase/event thật
-  - hiện “Đang viết slide N/M” + preview thật
-
-### 6. Giữ image generation độc lập UI như hiện tại
-Phần auto-launch ảnh sau `result` trong context là đúng hướng, sẽ giữ nguyên.
-Chỉ cần đảm bảo nó chạy sau khi stream pipeline mới đã save carousel thành công.
-
-## File sẽ chỉnh
-
-- `supabase/functions/generate-carousel/index.ts`
-- `src/contexts/CarouselGenerationContext.tsx`
-- `src/components/carousel/CarouselGenExpandedPanel.tsx`
-- `src/components/carousel/GlobalCarouselGenTracker.tsx`
-- `src/components/carousel/CarouselGenerationTracker.tsx`
-- `src/pages/Carousel.tsx`
-- `.lovable/memory/features/carousel/streaming-prompt-generation-vn.md`
-
-## Kết quả mong đợi
-
-- không còn progress giả 8% → 60%
-- user thấy rõ “Prompt cho Slide 1” và nội dung preview thật
-- slide xuất hiện dần theo stream thật
-- rớt kết nối không báo fail giả nếu backend vẫn hoàn tất
-- full-page tracker và mini tracker cùng đọc một nguồn trạng thái, không lệch nhau
