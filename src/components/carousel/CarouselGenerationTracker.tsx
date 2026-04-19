@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Carousel, CarouselSlide } from '@/types/carousel';
-import { useCarouselImages } from '@/hooks/useCarouselImages';
+import { Carousel } from '@/types/carousel';
 import { useConfetti } from '@/hooks/useConfetti';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { useCarouselGeneration, CarouselGenPhase } from '@/contexts/CarouselGenerationContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +17,6 @@ import {
   Check,
   Loader2,
   Circle,
-  Images,
   Eye,
   Lightbulb,
   Clock,
