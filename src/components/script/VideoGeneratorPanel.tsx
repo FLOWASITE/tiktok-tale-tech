@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Video, Sparkles, Clock, Maximize } from 'lucide-react';
-import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG } from '@/types/videoGeneration';
+import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG, GEMINIGEN_VIDEO_MODELS } from '@/types/videoGeneration';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { Script } from '@/types/script';
 import { StoryboardScene } from '@/types/storyboard';
@@ -27,7 +27,8 @@ export function VideoGeneratorPanel({
 }: VideoGeneratorPanelProps) {
   const { generateVideo, generating } = useVideoGeneration();
   
-  const [provider, setProvider] = useState<VideoProvider>('lovable');
+  const [provider, setProvider] = useState<VideoProvider>('geminigen');
+  const [model, setModel] = useState<string>(GEMINIGEN_VIDEO_MODELS[0].id);
   const [prompt, setPrompt] = useState(scene?.promptText || '');
   const [duration, setDuration] = useState<number>(5);
   const [aspectRatio, setAspectRatio] = useState('16:9');
@@ -42,6 +43,7 @@ export function VideoGeneratorPanel({
     const result = await generateVideo({
       provider,
       prompt: prompt.trim(),
+      model: provider === 'geminigen' ? model : undefined,
       duration,
       aspect_ratio: aspectRatio,
       resolution,
@@ -102,6 +104,28 @@ export function VideoGeneratorPanel({
             ))}
           </RadioGroup>
         </div>
+
+        {/* Model Selection (GeminiGen only) */}
+        {provider === 'geminigen' && (
+          <div className="space-y-2">
+            <Label className="text-xs font-medium flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              Model
+            </Label>
+            <Select value={model} onValueChange={setModel}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GEMINIGEN_VIDEO_MODELS.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.label} (max {m.maxDuration}s)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Prompt */}
         <div className="space-y-2">

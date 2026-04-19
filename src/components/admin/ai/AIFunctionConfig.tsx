@@ -20,7 +20,7 @@ import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network } from 'lucide-react';
+import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +32,8 @@ const TYPE_FILTERS = [
   { id: 'all', label: 'Tất cả', icon: null },
   { id: 'text', label: 'Text', icon: <Type className="h-3 w-3" /> },
   { id: 'image', label: 'Image', icon: <Image className="h-3 w-3" /> },
+  { id: 'video', label: 'Video', icon: <Video className="h-3 w-3" /> },
+  { id: 'audio', label: 'Audio', icon: <Music className="h-3 w-3" /> },
   { id: 'search', label: 'Search', icon: <Globe className="h-3 w-3" /> },
   { id: 'knowledge-graph', label: 'Knowledge Graph', icon: <Network className="h-3 w-3" />, isTagFilter: true },
 ];

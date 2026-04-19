@@ -36,7 +36,7 @@ export interface AIFunctionConfig {
 }
 
 // Function types for model filtering
-export type AIFunctionType = 'text' | 'image' | 'image-direct' | 'search';
+export type AIFunctionType = 'text' | 'image' | 'image-direct' | 'search' | 'video' | 'audio';
 
 // Function tags for categorization
 export type AIFunctionTag = 'knowledge-graph' | 'regulation' | 'embedding' | 'crawl';
@@ -58,7 +58,8 @@ export const AI_FUNCTIONS = [
   { name: 'improve-script', description: 'Cải thiện kịch bản video', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-3-flash-preview' },
   { name: 'optimize-social-text', description: 'Tối ưu text cho mạng xã hội', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'extract-broll-keywords', description: 'Trích xuất keywords B-roll', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
-  { name: 'generate-video', description: 'Tạo/enhance mô tả video', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-3-flash-preview' },
+  { name: 'generate-video', description: 'Tạo video từ kịch bản/storyboard (GeminiGen Veo/Sora)', category: 'video', type: 'video' as AIFunctionType, currentModel: 'geminigen/veo-3' },
+  { name: 'generate-music', description: 'Tạo nhạc nền cho video (ElevenLabs Music)', category: 'audio', type: 'audio' as AIFunctionType, currentModel: 'elevenlabs/music-v1' },
   { name: 'generate-ad-copy', description: 'Tạo ad copy đa nền tảng', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'suggest-ad-fix', description: 'Đề xuất sửa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'optimize-ad-copy', description: 'Tối ưu hóa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
