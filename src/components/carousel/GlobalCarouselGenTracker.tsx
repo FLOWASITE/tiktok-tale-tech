@@ -62,16 +62,18 @@ export function GlobalCarouselGenTracker() {
 
   const percent = Math.round(tweenedPercent);
 
-  // ETA: based on per-slide pace once we have at least one done slide
+  // ETA: only meaningful during revealing phase (per-slide pace)
   const etaText = (() => {
     if (activeJob.status !== 'generating') return null;
-    if (activeJob.completedSlides > 0 && activeJob.totalSlides > 0 && elapsed > 2) {
+    if (activeJob.phase === 'syncing') return 'Đồng bộ...';
+    if (activeJob.phase === 'revealing' && activeJob.completedSlides > 0 && activeJob.totalSlides > 0 && elapsed > 2) {
       const perSlide = elapsed / activeJob.completedSlides;
       const remaining = Math.max(0, Math.round(perSlide * (activeJob.totalSlides - activeJob.completedSlides)));
       if (remaining === 0) return 'Sắp xong...';
       if (remaining < 60) return `Còn ~${remaining}s`;
       return `Còn ~${Math.ceil(remaining / 60)}m`;
     }
+    // Pre-revealing: show elapsed only (no fake ETA)
     return `${elapsed}s`;
   })();
 
