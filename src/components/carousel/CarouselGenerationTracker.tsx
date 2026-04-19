@@ -327,79 +327,13 @@ export function CarouselGenerationTracker({
     }
   }, [carousel?.id, activeTasks]);
 
-  // Phase 2: Start background image generation when prompt is done
-  const startBackgroundGeneration = useCallback(async () => {
-    if (!carousel || !user || imageGenStarted) return;
-    setImageGenStarted(true);
-
-    // Extract brand colors
-    const brandColors = await extractBrandColorsWithFallback(carousel);
-    const seriesBible = buildSeriesBible(carousel.slides_content);
-    const siblingsSummary = carousel.slides_content
-      .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
-      .join(' | ');
-
-    // Create background task
-    const task = await createTask('carousel_image', {
-      carouselId: carousel.id,
-      slides: carousel.slides_content,
-      brandColors,
-      carouselStyle: carousel.carousel_style,
-      visualPreset: carousel.visual_preset || 'minimalist',
-      platform: carousel.platform,
-      carouselTopic: carousel.topic,
-      seriesBible,
-      siblingsSummary,
-      userId: user.id,
-    }, currentOrganization?.id);
-
-    if (!task) {
-      toast.error('Không thể tạo task tạo ảnh');
-      setImageGenStarted(false);
-      return;
-    }
-
-    setBackgroundTaskId(task.id);
-
-    // Fire-and-forget edge function call
-    try {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-carousel-images-batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken || ''}`,
-        },
-        body: JSON.stringify({
-          taskId: task.id,
-          carouselId: carousel.id,
-          slides: carousel.slides_content,
-          brandColors,
-          carouselStyle: carousel.carousel_style,
-          visualPreset: carousel.visual_preset || 'minimalist',
-          platform: carousel.platform,
-          carouselTopic: carousel.topic,
-          seriesBible,
-          siblingsSummary,
-          userId: user.id,
-        }),
-      }).catch(err => console.warn('[tracker] Edge function fire-and-forget error:', err));
-    } catch (err) {
-      console.warn('[tracker] Failed to invoke edge function:', err);
-    }
-
-    toast.success('🎨 Ảnh đang được tạo dưới nền. Bạn có thể rời đi!', { duration: 5000 });
-  }, [carousel, user, imageGenStarted, createTask, currentOrganization?.id]);
-
-  // Auto-start when prompt is done
-  useEffect(() => {
-    if (promptDone && !imageGenStarted) {
-      const timer = setTimeout(() => startBackgroundGeneration(), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [promptDone, imageGenStarted, startBackgroundGeneration]);
+  // Phase 2 image generation is now launched automatically by
+  // CarouselGenerationContext (independent of UI mount) right after the
+  // carousel prompt completes. The tracker just observes activeTasks.
+  // We keep a defensive fallback: if for some reason no task was created
+  // (e.g. tracker opened on an existing carousel without auto flag), allow
+  // a manual launch via launchCarouselImageBatch when an explicit need arises.
+  // No proactive useEffect here.
 
   // Progress calculation
   const promptProgress = promptDone ? PROMPT_STEPS.length : promptStep;
