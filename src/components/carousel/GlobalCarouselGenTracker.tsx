@@ -65,8 +65,19 @@ export function GlobalCarouselGenTracker() {
 
   const percent = Math.round(tweenedPercent);
 
-  // ETA: only meaningful during revealing phase (per-slide pace)
+  // Find image-batch task tied to this carousel (auto-launched by context)
+  const imageTask = activeJob.carousel?.id
+    ? activeTasks.find(
+        (t) =>
+          t.task_type === 'carousel_image' &&
+          (t.input_params as any)?.carouselId === activeJob.carousel?.id,
+      )
+    : undefined;
+
+  const imagePhaseActive = activeJob.status === 'done' && !!imageTask;
+
   const etaText = (() => {
+    if (imagePhaseActive) return null;
     if (activeJob.status !== 'generating') return null;
     if (activeJob.phase === 'syncing') return 'Đồng bộ...';
     if (activeJob.phase === 'revealing' && activeJob.completedSlides > 0 && activeJob.totalSlides > 0 && elapsed > 2) {
@@ -76,11 +87,18 @@ export function GlobalCarouselGenTracker() {
       if (remaining < 60) return `Còn ~${remaining}s`;
       return `Còn ~${Math.ceil(remaining / 60)}m`;
     }
-    // Pre-revealing: show elapsed only (no fake ETA)
     return `${elapsed}s`;
   })();
 
   const statusText = (() => {
+    if (imagePhaseActive) {
+      const total = (imageTask!.input_params as any)?.slides?.length || activeJob.totalSlides || 0;
+      const step = imageTask!.current_step;
+      const m = step?.match(/slide_(\d+)/);
+      if (m) return `Đang tạo ảnh slide ${m[1]}/${total}`;
+      if (imageTask!.progress_message) return imageTask!.progress_message;
+      return total ? `Đang tạo ảnh nền (${total} slides)...` : 'Đang tạo ảnh nền...';
+    }
     if (activeJob.status === 'done') return 'Carousel sẵn sàng';
     if (activeJob.status === 'cancelled') return 'Đã hủy';
     if (activeJob.status === 'error') return activeJob.error || 'Tạo thất bại';
@@ -96,6 +114,19 @@ export function GlobalCarouselGenTracker() {
     }
     return 'Đang khởi tạo...';
   })();
+
+  const effectivePercent = imagePhaseActive
+    ? Math.max(0, Math.min(100, imageTask!.progress || 0))
+    : percent;
+  const imageSlideTotal = imagePhaseActive
+    ? ((imageTask!.input_params as any)?.slides?.length || activeJob.totalSlides || 0)
+    : 0;
+  const imageSlideDone = imagePhaseActive
+    ? (() => {
+        const m = imageTask!.current_step?.match(/slide_(\d+)/);
+        return m ? Math.max(0, parseInt(m[1], 10) - 1) : 0;
+      })()
+    : 0;
 
   const handleOpenCarousel = () => {
     navigate('/carousel');
