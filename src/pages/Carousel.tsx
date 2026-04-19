@@ -5,7 +5,7 @@ import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselGenerationTracker } from '@/components/carousel/CarouselGenerationTracker';
-import { CarouselMiniTracker } from '@/components/carousel/CarouselMiniTracker';
+// CarouselMiniTracker is rendered by GlobalCarouselGenTracker — no direct use here
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
@@ -327,44 +327,7 @@ const CarouselPage = () => {
           }}
           autoGenerateImages={autoGenerateImages}
         />
-        {/* Minimized tracker overlay */}
-        {trackerMode && trackerMinimized && (
-          <>
-            <div className="hidden">
-              <CarouselGenerationTracker
-                onBack={() => {}}
-                onProgressChange={setTrackerProgress}
-                topic={trackerTopic}
-                platform={trackerPlatform}
-                slideCount={trackerSlideCount}
-                promptGenerating={generating}
-                carousel={trackerCarousel}
-                onViewResults={(carousel) => {
-                  setTrackerMode(false);
-                  setTrackerMinimized(false);
-                  setTrackerCarousel(null);
-                  setSelectedCarousel(carousel);
-                  setAutoGenerateImages(false);
-                  setViewerOpen(true);
-                }}
-              />
-            </div>
-            <CarouselMiniTracker
-              overallPercent={trackerProgress.overallPercent}
-              statusText={trackerProgress.statusText}
-              status={trackerProgress.allDone ? 'done' : 'generating'}
-              onExpand={() => setTrackerMinimized(false)}
-            onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
-                setTrackerMode(false);
-                setTrackerMinimized(false);
-                setTrackerCarousel(null);
-                setSelectedCarousel(trackerCarousel);
-                setAutoGenerateImages(false);
-                setViewerOpen(true);
-              } : undefined}
-            />
-          </>
-        )}
+        {/* Minimized prompt-streaming tracker is handled globally by GlobalCarouselGenTracker. */}
       </div>
     );
   }
@@ -632,44 +595,10 @@ const CarouselPage = () => {
         }}
         autoGenerateImages={autoGenerateImages}
       />
-      {/* Minimized tracker overlay */}
-      {trackerMode && trackerMinimized && (
-        <>
-          <div className="hidden">
-            <CarouselGenerationTracker
-              onBack={() => {}}
-              onProgressChange={setTrackerProgress}
-              topic={trackerTopic}
-              platform={trackerPlatform}
-              slideCount={trackerSlideCount}
-              promptGenerating={generating}
-              carousel={trackerCarousel}
-              onViewResults={(carousel) => {
-                setTrackerMode(false);
-                setTrackerMinimized(false);
-                setTrackerCarousel(null);
-                setSelectedCarousel(carousel);
-                setAutoGenerateImages(false);
-                setViewerOpen(true);
-              }}
-            />
-          </div>
-          <CarouselMiniTracker
-            overallPercent={trackerProgress.overallPercent}
-            statusText={trackerProgress.statusText}
-            status={trackerProgress.allDone ? 'done' : 'generating'}
-            onExpand={() => setTrackerMinimized(false)}
-            onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
-              setTrackerMode(false);
-              setTrackerMinimized(false);
-              setTrackerCarousel(null);
-              setSelectedCarousel(trackerCarousel);
-              setAutoGenerateImages(false);
-              setViewerOpen(true);
-            } : undefined}
-          />
-        </>
-      )}
+      {/* NOTE: Minimized prompt-streaming tracker is handled globally by
+          GlobalCarouselGenTracker (mounted app-wide via CarouselGenerationProvider).
+          We no longer render a duplicate hidden CarouselGenerationTracker + MiniTracker
+          here — single source of truth = CarouselGenerationContext. */}
     </div>
   );
 };

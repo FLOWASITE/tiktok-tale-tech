@@ -62,16 +62,18 @@ export function GlobalCarouselGenTracker() {
 
   const percent = Math.round(tweenedPercent);
 
-  // ETA: based on per-slide pace once we have at least one done slide
+  // ETA: only meaningful during revealing phase (per-slide pace)
   const etaText = (() => {
     if (activeJob.status !== 'generating') return null;
-    if (activeJob.completedSlides > 0 && activeJob.totalSlides > 0 && elapsed > 2) {
+    if (activeJob.phase === 'syncing') return 'Đồng bộ...';
+    if (activeJob.phase === 'revealing' && activeJob.completedSlides > 0 && activeJob.totalSlides > 0 && elapsed > 2) {
       const perSlide = elapsed / activeJob.completedSlides;
       const remaining = Math.max(0, Math.round(perSlide * (activeJob.totalSlides - activeJob.completedSlides)));
       if (remaining === 0) return 'Sắp xong...';
       if (remaining < 60) return `Còn ~${remaining}s`;
       return `Còn ~${Math.ceil(remaining / 60)}m`;
     }
+    // Pre-revealing: show elapsed only (no fake ETA)
     return `${elapsed}s`;
   })();
 
@@ -79,8 +81,12 @@ export function GlobalCarouselGenTracker() {
     if (activeJob.status === 'done') return 'Carousel sẵn sàng';
     if (activeJob.status === 'cancelled') return 'Đã hủy';
     if (activeJob.status === 'error') return activeJob.error || 'Tạo thất bại';
+    if (activeJob.phase === 'syncing') return 'Đang đồng bộ kết quả từ máy chủ...';
+    if (activeJob.revealingSlide && activeJob.totalSlides > 0) {
+      return `Đang hiển thị slide ${activeJob.revealingSlide}/${activeJob.totalSlides}...`;
+    }
     if (activeJob.currentStep) {
-      if (activeJob.totalSlides > 0 && activeJob.completedSlides > 0) {
+      if (activeJob.totalSlides > 0 && activeJob.completedSlides > 0 && activeJob.phase === 'revealing') {
         return `${activeJob.currentStep} (${activeJob.completedSlides}/${activeJob.totalSlides})`;
       }
       return activeJob.currentStep;

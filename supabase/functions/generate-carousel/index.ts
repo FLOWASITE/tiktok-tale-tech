@@ -1674,19 +1674,52 @@ async function runCarouselPipelineStreaming(
 ): Promise<void> {
   const slideCount = formData.slideCount || 6;
 
-  await emit({ type: 'progress', step: 'planning', percent: 3, message: 'Đang phân tích chủ đề...', totalSlides: slideCount });
+  await emit({
+    type: 'progress',
+    step: 'planning',
+    phase: 'planning',
+    percent: 3,
+    message: 'Đang phân tích chủ đề & lập kế hoạch slide...',
+    totalSlides: slideCount,
+  });
 
-  // Heartbeat ticker — fakes a smooth progress between AI call start and finish.
-  // Caps at 65% while the AI is running; real events take over after parse.
+  // Phase-aware heartbeat. The single LLM tool-call cannot be split into
+  // per-slide chunks (it's one structured tool call), so during the AI phase
+  // we emit phase-tagged status messages with slow, capped progress (max 60%).
+  // Real per-slide events fire as soon as the JSON is parsed.
   let percent = 5;
   let stopHeartbeat = false;
+  const aiPhaseMessages = [
+    'AI đang viết hook slide đầu...',
+    'AI đang phát triển nội dung chính...',
+    'AI đang viết các slide giải thích...',
+    'AI đang tinh chỉnh CTA & caption...',
+    'AI đang hoàn thiện prompt ảnh cho từng slide...',
+  ];
+  let msgIdx = 0;
   const heartbeat = (async () => {
-    await emit({ type: 'progress', step: 'ai_generating', percent: 8, message: 'Đang gọi AI tạo nội dung slides...', totalSlides: slideCount });
-    while (!stopHeartbeat && percent < 65) {
-      await new Promise((r) => setTimeout(r, 1500));
+    await emit({
+      type: 'progress',
+      step: 'ai_generating',
+      phase: 'ai_generating',
+      percent: 8,
+      message: 'Đang gọi AI tạo nội dung slides...',
+      totalSlides: slideCount,
+    });
+    while (!stopHeartbeat && percent < 60) {
+      await new Promise((r) => setTimeout(r, 2200));
       if (stopHeartbeat) break;
-      percent = Math.min(65, percent + 3);
-      await emit({ type: 'progress', step: 'ai_generating', percent, message: `AI đang tạo slides... ${percent}%`, totalSlides: slideCount });
+      percent = Math.min(60, percent + 2);
+      const message = aiPhaseMessages[msgIdx % aiPhaseMessages.length];
+      msgIdx++;
+      await emit({
+        type: 'progress',
+        step: 'ai_generating',
+        phase: 'ai_generating',
+        percent,
+        message,
+        totalSlides: slideCount,
+      });
     }
   })();
 
@@ -1718,7 +1751,14 @@ async function runCarouselPipelineStreaming(
   stopHeartbeat = true;
   await heartbeat.catch(() => {});
 
-  await emit({ type: 'progress', step: 'parsing', percent: 70, message: 'AI hoàn tất, đang xử lý kết quả...', totalSlides: slideCount });
+  await emit({
+    type: 'progress',
+    step: 'parsing',
+    phase: 'parsing',
+    percent: 65,
+    message: 'AI hoàn tất, đang phân tích & xác thực kết quả...',
+    totalSlides: slideCount,
+  });
 
   if (!resp.ok) {
     const errText = await resp.text();
@@ -1735,29 +1775,61 @@ async function runCarouselPipelineStreaming(
 
   const carousel: any = await resp.json();
 
-  // Emit slides progressively for "appearing" UX
+  // Emit slides progressively — start + done events for proper UI state machine
   const slides: any[] = Array.isArray(carousel?.slides_content) ? carousel.slides_content : [];
   if (slides.length > 0) {
-    await emit({ type: 'progress', step: 'compliance_check', percent: 80, message: 'Đang kiểm tra tuân thủ...', totalSlides: slides.length });
-    const baseAfterCompliance = 82;
-    const reservedForResult = 6;
-    const span = 100 - baseAfterCompliance - reservedForResult; // 12
+    await emit({
+      type: 'progress',
+      step: 'compliance_check',
+      phase: 'compliance',
+      percent: 72,
+      message: 'Đang kiểm tra tuân thủ nội dung...',
+      totalSlides: slides.length,
+    });
+    // Span: 75% → 95% reserved for slide reveal (so finalize fits in 95→100)
+    const baseStart = 75;
+    const reservedForFinalize = 5;
+    const span = 100 - baseStart - reservedForFinalize; // 20
     for (let i = 0; i < slides.length; i++) {
-      const p = baseAfterCompliance + Math.round(((i + 1) / slides.length) * span);
+      const slideNumber = slides[i]?.slideNumber || i + 1;
+      // slide_start: signals "this slide is being revealed"
+      await emit({
+        type: 'slide_start',
+        slideNumber,
+        totalSlides: slides.length,
+        phase: 'revealing',
+        message: `Đang hiển thị slide ${slideNumber}...`,
+      });
+      await new Promise((r) => setTimeout(r, 60));
+      const p = baseStart + Math.round(((i + 1) / slides.length) * span);
       await emit({
         type: 'slide_done',
-        slideNumber: slides[i]?.slideNumber || i + 1,
+        slideNumber,
         slide: slides[i],
         completedSlides: i + 1,
         totalSlides: slides.length,
         percent: p,
+        phase: 'revealing',
         message: `Hoàn tất slide ${i + 1}/${slides.length}`,
       });
-      await new Promise((r) => setTimeout(r, 80));
+      await new Promise((r) => setTimeout(r, 90));
     }
   }
 
-  await emit({ type: 'progress', step: 'finalizing', percent: 96, message: 'Đang lưu carousel...', totalSlides: slides.length });
-  await emit({ type: 'result', percent: 100, carousel, message: 'Hoàn thành!' });
+  await emit({
+    type: 'progress',
+    step: 'finalizing',
+    phase: 'finalizing',
+    percent: 96,
+    message: 'Đang lưu carousel & chuẩn bị tạo ảnh...',
+    totalSlides: slides.length,
+  });
+  await emit({
+    type: 'result',
+    percent: 100,
+    phase: 'done',
+    carousel,
+    message: 'Hoàn thành!',
+  });
 }
 
