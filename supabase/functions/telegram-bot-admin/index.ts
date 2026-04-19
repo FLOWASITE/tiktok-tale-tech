@@ -27,13 +27,14 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
     );
-    const { data: claimsData, error: authError } = await userClient.auth.getClaims(token);
-    if (authError || !claimsData?.claims?.sub) {
+    const { data: userData, error: authError } = await userClient.auth.getUser(token);
+    if (authError || !userData?.user?.id) {
       console.error("[telegram-bot-admin] auth fail:", authError?.message);
-      return json({ error: "Unauthorized" }, 401);
+      return json({ error: "Unauthorized", details: authError?.message }, 401);
     }
-    const user = { id: claimsData.claims.sub as string };
+    const user = { id: userData.user.id };
 
     const body = await req.json();
     const { action, organization_id } = body as {
