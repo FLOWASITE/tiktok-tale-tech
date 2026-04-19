@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useCarouselGeneration } from '@/contexts/CarouselGenerationContext';
+import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
 import { CarouselMiniTracker } from './CarouselMiniTracker';
 import { CarouselGenExpandedPanel } from './CarouselGenExpandedPanel';
 
@@ -11,9 +12,11 @@ import { CarouselGenExpandedPanel } from './CarouselGenExpandedPanel';
  * - Expand → floating panel with partial slide previews
  * - Cancel / retry / dismiss controls
  * - Smooth tweened progress + ETA
+ * - After prompt done, also surfaces auto-launched image batch progress
  */
 export function GlobalCarouselGenTracker() {
   const { activeJob, dismissJob, cancelJob, retryJob } = useCarouselGeneration();
+  const { activeTasks } = useBackgroundGeneration();
   const navigate = useNavigate();
   const [elapsed, setElapsed] = useState(0);
   const [expanded, setExpanded] = useState(false);
