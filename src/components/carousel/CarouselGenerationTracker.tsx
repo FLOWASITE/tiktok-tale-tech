@@ -122,9 +122,7 @@ export function CarouselGenerationTracker({
   const revealTotal = activeJob?.totalSlides || slideCount;
   const lastRevealedSlide = revealCompleted > 0 ? activeJob?.partialSlides?.[revealCompleted - 1] : undefined;
 
-  // Phase 2 state — background generation
-  const { currentOrganization } = useOrganizationContext();
-  const { images: savedImages } = useCarouselImages(carousel?.id || '');
+  // Phase 2 state — observe background generation tasks (auto-launched by context)
   const [slideStatuses, setSlideStatuses] = useState<SlideStatus[]>([]);
   const [imageGenStarted, setImageGenStarted] = useState(false);
   const [imageGenDone, setImageGenDone] = useState(false);
