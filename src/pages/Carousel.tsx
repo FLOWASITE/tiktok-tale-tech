@@ -352,7 +352,7 @@ const CarouselPage = () => {
             <CarouselMiniTracker
               overallPercent={trackerProgress.overallPercent}
               statusText={trackerProgress.statusText}
-              allDone={trackerProgress.allDone}
+              status={trackerProgress.allDone ? 'done' : 'generating'}
               onExpand={() => setTrackerMinimized(false)}
             onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
                 setTrackerMode(false);
@@ -657,7 +657,7 @@ const CarouselPage = () => {
           <CarouselMiniTracker
             overallPercent={trackerProgress.overallPercent}
             statusText={trackerProgress.statusText}
-            allDone={trackerProgress.allDone}
+            status={trackerProgress.allDone ? 'done' : 'generating'}
             onExpand={() => setTrackerMinimized(false)}
             onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
               setTrackerMode(false);
