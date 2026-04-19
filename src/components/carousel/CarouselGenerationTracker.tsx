@@ -11,6 +11,7 @@ import { useConfetti } from '@/hooks/useConfetti';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBackgroundGeneration } from '@/hooks/useBackgroundGeneration';
+import { useCarouselGeneration, CarouselGenPhase } from '@/contexts/CarouselGenerationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -39,6 +40,34 @@ const PROMPT_STEPS: { id: PromptPhase; label: string; icon: LucideIcon }[] = [
   { id: 'writing', label: 'Viết nội dung từng slide', icon: PenLine },
   { id: 'finalizing', label: 'Hoàn thiện prompt ảnh', icon: Sparkles },
 ];
+
+/**
+ * Map real backend phase → which PROMPT_STEPS index is currently active.
+ * Steps before that index are "done", steps after are "pending".
+ */
+function phaseToStepIndex(phase: CarouselGenPhase): number {
+  switch (phase) {
+    case 'init':
+    case 'planning':
+      return 0; // analyzing
+    case 'ai_generating':
+      return 1; // structuring
+    case 'parsing':
+    case 'compliance':
+      return 2; // writing
+    case 'revealing':
+      return 2; // still writing (live count shown)
+    case 'finalizing':
+    case 'syncing':
+      return 3; // finalizing
+    case 'done':
+      return PROMPT_STEPS.length;
+    case 'error':
+    case 'cancelled':
+    default:
+      return 0;
+  }
+}
 
 const TIPS = [
   'Carousel 6 slides thường mất khoảng 1-2 phút',
@@ -179,9 +208,16 @@ export function CarouselGenerationTracker({
   carousel,
   onViewResults,
 }: CarouselGenerationTrackerProps) {
-  // Phase 1 state
-  const [promptStep, setPromptStep] = useState(0);
+  // Phase 1 state — bound to real stream phase from context
+  const { activeJob } = useCarouselGeneration();
+  const currentPhase: CarouselGenPhase = activeJob?.phase || (promptGenerating ? 'planning' : 'init');
   const promptDone = !!carousel && !promptGenerating;
+  const promptStep = promptDone ? PROMPT_STEPS.length : phaseToStepIndex(currentPhase);
+
+  // Live slide reveal info from context
+  const revealCompleted = activeJob?.completedSlides || 0;
+  const revealTotal = activeJob?.totalSlides || slideCount;
+  const lastRevealedSlide = revealCompleted > 0 ? activeJob?.partialSlides?.[revealCompleted - 1] : undefined;
 
   // Phase 2 state — background generation
   const { currentOrganization } = useOrganizationContext();
@@ -253,18 +289,7 @@ export function CarouselGenerationTracker({
   // Tips
   const [tipIndex, setTipIndex] = useState(0);
 
-  // Rotate prompt steps during Phase 1
-  useEffect(() => {
-    if (promptDone) {
-      setPromptStep(PROMPT_STEPS.length);
-      return;
-    }
-    if (!promptGenerating) return;
-    const interval = setInterval(() => {
-      setPromptStep(prev => Math.min(prev + 1, PROMPT_STEPS.length - 1));
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [promptGenerating, promptDone]);
+  // (Prompt step is now derived from real stream phase — no fake timer)
 
   // Elapsed timer
   useEffect(() => {
@@ -415,7 +440,11 @@ export function CarouselGenerationTracker({
         )
       : promptDone
         ? 'Đang chuẩn bị tạo ảnh...'
-        : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
+        : currentPhase === 'syncing'
+          ? 'Đang đồng bộ kết quả...'
+          : currentPhase === 'revealing' && revealTotal > 0
+            ? `Đang viết slide ${Math.min(revealCompleted + 1, revealTotal)}/${revealTotal}...`
+            : activeJob?.currentStep || PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
 
   // Report progress to parent
   useEffect(() => {
@@ -526,33 +555,63 @@ export function CarouselGenerationTracker({
               {PROMPT_STEPS.map((step, idx) => {
                 const isDone = idx < promptStep || promptDone;
                 const isActive = idx === promptStep && !promptDone;
+                const isWritingStep = step.id === 'writing';
+                const showLiveCount =
+                  isActive && isWritingStep && currentPhase === 'revealing' && revealTotal > 0;
+                const label = showLiveCount
+                  ? `Đang viết slide ${Math.min(revealCompleted + 1, revealTotal)}/${revealTotal}`
+                  : step.label;
                 return (
-                  <div
-                    key={step.id}
-                    className={cn(
-                      "flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-300",
-                      isActive && "bg-background/80",
-                      isDone && "opacity-60",
-                      !isActive && !isDone && "opacity-30"
-                    )}
-                  >
-                    <span className="w-5 flex items-center justify-center">
-                      {isDone ? (
-                        <Check className="w-4 h-4 text-primary" />
-                      ) : isActive ? (
-                        <step.icon className="w-4 h-4 text-primary animate-pulse" />
-                      ) : (
-                        <step.icon className="w-4 h-4 text-muted-foreground" />
+                  <div key={step.id}>
+                    <div
+                      className={cn(
+                        'flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-300',
+                        isActive && 'bg-background/80',
+                        isDone && 'opacity-60',
+                        !isActive && !isDone && 'opacity-30'
                       )}
-                    </span>
-                    <span className={cn(
-                      "text-xs flex-1",
-                      isActive && "font-medium text-foreground",
-                      isDone && "text-muted-foreground line-through"
-                    )}>
-                      {step.label}
-                    </span>
-                    {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                    >
+                      <span className="w-5 flex items-center justify-center">
+                        {isDone ? (
+                          <Check className="w-4 h-4 text-primary" />
+                        ) : isActive ? (
+                          <step.icon className="w-4 h-4 text-primary animate-pulse" />
+                        ) : (
+                          <step.icon className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </span>
+                      <span
+                        className={cn(
+                          'text-xs flex-1',
+                          isActive && 'font-medium text-foreground',
+                          isDone && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        {label}
+                      </span>
+                      {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                    </div>
+
+                    {/* Live preview of last revealed slide under "writing" step */}
+                    {isActive && isWritingStep && lastRevealedSlide && (
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={revealCompleted}
+                          initial={{ opacity: 0, y: -3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="ml-10 mr-2 mt-0.5 mb-1 px-2 py-1 rounded-md bg-primary/5 border border-primary/10"
+                        >
+                          <p className="text-[10px] text-muted-foreground leading-snug">
+                            <span className="text-primary font-medium">
+                              Slide {lastRevealedSlide.slideNumber} ✓
+                            </span>{' '}
+                            <span className="line-clamp-1">{lastRevealedSlide.objective}</span>
+                          </p>
+                        </motion.div>
+                      </AnimatePresence>
+                    )}
                   </div>
                 );
               })}
