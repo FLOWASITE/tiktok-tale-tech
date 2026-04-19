@@ -7,6 +7,7 @@ import { CarouselMiniTracker } from './CarouselMiniTracker';
 /**
  * Global floating mini-tracker for background carousel prompt generation.
  * Renders on every authenticated route — survives navigation.
+ * Uses real streaming progress from SSE events when available.
  */
 export function GlobalCarouselGenTracker() {
   const { activeJob, dismissJob } = useCarouselGeneration();
@@ -23,17 +24,26 @@ export function GlobalCarouselGenTracker() {
 
   if (!activeJob) return null;
 
-  // Estimated 60s total; cap at 95% while generating
-  const estimatedTotal = 60;
-  const rawPercent = Math.min(95, Math.floor((elapsed / estimatedTotal) * 100));
-  const percent = activeJob.status === 'done' ? 100 : activeJob.status === 'error' ? 0 : rawPercent;
+  // Prefer real streaming progress; fall back to elapsed-based estimate only if missing.
+  const realPercent = typeof activeJob.progress === 'number' ? activeJob.progress : 0;
+  const fallbackPercent = Math.min(95, Math.floor((elapsed / 60) * 100));
+  const rawPercent = realPercent > 0 ? realPercent : fallbackPercent;
+  const percent =
+    activeJob.status === 'done' ? 100 :
+    activeJob.status === 'error' ? 0 :
+    Math.min(99, rawPercent);
 
-  const statusText =
-    activeJob.status === 'done'
-      ? 'Carousel sẵn sàng'
-      : activeJob.status === 'error'
-        ? 'Tạo thất bại'
-        : `Đang tạo prompts... ${elapsed}s`;
+  const statusText = (() => {
+    if (activeJob.status === 'done') return 'Carousel sẵn sàng';
+    if (activeJob.status === 'error') return 'Tạo thất bại';
+    if (activeJob.currentStep) {
+      if (activeJob.totalSlides > 0 && activeJob.completedSlides > 0) {
+        return `${activeJob.currentStep} (${activeJob.completedSlides}/${activeJob.totalSlides})`;
+      }
+      return activeJob.currentStep;
+    }
+    return `Đang tạo prompts... ${elapsed}s`;
+  })();
 
   return (
     <AnimatePresence>
