@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 import AgentTeamPage from '@/pages/AgentTeamPage';
+import AgentTelegramPage from '@/pages/AgentTelegramPage';
 import AgentDirectoryPage from '@/pages/AgentDirectoryPage';
 
 export default function AgentDashboard() {
@@ -232,6 +233,9 @@ export default function AgentDashboard() {
             <TabsTrigger value="team" className="gap-1.5 text-xs">
               <Users className="w-3.5 h-3.5" /> Team
             </TabsTrigger>
+            <TabsTrigger value="telegram" className="gap-1.5 text-xs">
+              <Bot className="w-3.5 h-3.5" /> Telegram
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4 space-y-6">
@@ -408,6 +412,10 @@ export default function AgentDashboard() {
 
           <TabsContent value="team" className="mt-4">
             <AgentTeamPage />
+          </TabsContent>
+
+          <TabsContent value="telegram" className="mt-4">
+            <AgentTelegramPage />
           </TabsContent>
         </Tabs>
 
