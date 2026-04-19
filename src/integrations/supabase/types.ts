@@ -9611,6 +9611,109 @@ export type Database = {
           },
         ]
       }
+      telegram_bot_configs: {
+        Row: {
+          bot_token_encrypted: string
+          bot_username: string
+          created_at: string
+          created_by: string | null
+          default_autonomy_level: string
+          group_chat_id: number | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          updated_at: string
+          webhook_secret: string
+        }
+        Insert: {
+          bot_token_encrypted: string
+          bot_username: string
+          created_at?: string
+          created_by?: string | null
+          default_autonomy_level?: string
+          group_chat_id?: number | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          updated_at?: string
+          webhook_secret: string
+        }
+        Update: {
+          bot_token_encrypted?: string
+          bot_username?: string
+          created_at?: string
+          created_by?: string | null
+          default_autonomy_level?: string
+          group_chat_id?: number | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          updated_at?: string
+          webhook_secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_bot_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      telegram_chat_bindings: {
+        Row: {
+          chat_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_command_at: string | null
+          linked_at: string
+          organization_id: string
+          telegram_chat_id: number
+          telegram_user_id: number | null
+          telegram_username: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          chat_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_command_at?: string | null
+          linked_at?: string
+          organization_id: string
+          telegram_chat_id: number
+          telegram_user_id?: number | null
+          telegram_username?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          chat_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_command_at?: string | null
+          linked_at?: string
+          organization_id?: string
+          telegram_chat_id?: number
+          telegram_user_id?: number | null
+          telegram_username?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_chat_bindings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topic_content_links: {
         Row: {
           content_id: string
