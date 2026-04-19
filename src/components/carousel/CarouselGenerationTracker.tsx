@@ -132,7 +132,7 @@ export function CarouselGenerationTracker({
   const { user } = useAuth();
 
   // Background generation hook
-  const { createTask, activeTasks } = useBackgroundGeneration({
+  const { activeTasks } = useBackgroundGeneration({
     onTaskComplete: (task) => {
       if (task.id === backgroundTaskId || task.input_params?.carouselId === carousel?.id) {
         setImageGenDone(true);
