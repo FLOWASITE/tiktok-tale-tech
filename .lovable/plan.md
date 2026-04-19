@@ -1,49 +1,50 @@
 
 
-## Vấn đề (vùng khoanh đỏ)
+## Nguyên nhân
 
-Card "1. Tạo Prompt" trong `CarouselGenerationTracker.tsx` đang hiển thị 4 bước **fake** rotate theo `setInterval(2500ms)`:
-- Phân tích chủ đề & ngữ cảnh
-- Thiết kế cấu trúc carousel
-- Viết nội dung từng slide
-- Hoàn thiện prompt ảnh
+Image generation **chỉ trigger khi `CarouselGenerationTracker` mount + Tracker page đang được render** (qua `startBackgroundGeneration` trong `useEffect [promptDone]` ở line 397-402).
 
-→ Strikethrough giả + spinner "Hoàn thiện prompt ảnh" không phản ánh đúng pha streaming thật từ backend (`planning` / `ai_generating` / `parsing` / `compliance` / `revealing` / `finalizing`).
+Khi user rời `/carousel` **TRƯỚC khi prompt xong**:
+1. `CarouselGenerationTracker` unmount → `useEffect` cleanup
+2. Stream prompt vẫn chạy ở `CarouselGenerationContext` (global) và lưu carousel vào DB OK
+3. Nhưng **không ai gọi `generate-carousel-images-batch`** vì tracker đã unmount → ảnh không được tạo
+
+Ngoài ra `CarouselViewer` cũng gate auto-gen bằng `open && carousel?.id` → chỉ chạy khi user mở viewer.
+
+→ **Image generation phụ thuộc UI mount**, vi phạm nguyên tắc "thoát màn hình vẫn chạy" của Lovable Cloud streaming pattern (memory `streaming-prompt-generation-vn`).
 
 ## Hướng sửa
 
-Bind card này vào **real stream state** từ `CarouselGenerationContext` (đã có `phase`, `completedSlides`, `totalSlides`, `revealingSlide`, `partialSlides`).
+Tách image-batch trigger ra **độc lập với UI mount**, đặt vào `CarouselGenerationContext` (đã global qua `CarouselGenerationProvider` ở app root).
 
-### 1. Map phase backend → step UI
-```
-planning           → Phân tích chủ đề & ngữ cảnh
-ai_generating      → Thiết kế cấu trúc carousel  
-parsing/compliance → Viết nội dung từng slide
-revealing          → Hiển thị slide N/M (live count)
-finalizing/done    → Hoàn thiện prompt ảnh ✓
-```
+### 1. Trong `CarouselGenerationContext.tsx`
+Khi nhận event `result` (carousel created) **VÀ** `formData.autoGenerateImages === true`:
+- Gọi thẳng `fetch('/functions/v1/generate-carousel-images-batch')` từ context
+- Tạo `background_generation_task` qua `useBackgroundGeneration` style (insert row trực tiếp với supabase client)
+- Fire-and-forget — không phụ thuộc tracker mount
 
-### 2. Refactor `CarouselGenerationTracker.tsx`
-- Bỏ `setInterval` fake (lines 257-267) + state `promptStep`
-- Đọc `activeJob` từ `useCarouselGeneration()` để lấy phase thật
-- Step status (done/current/pending) tính từ phase thật, không phải timer
-- Step "Viết nội dung từng slide" hiện sub-progress `slide N/M` khi phase=`revealing`
-- Mỗi step done → check icon thật khi backend đã qua phase đó
+### 2. Trong `CarouselGenerationTracker.tsx`
+- Bỏ `startBackgroundGeneration` chủ động
+- Chỉ **đọc** trạng thái task qua `activeTasks` từ `useBackgroundGeneration` (đã match `carouselId`)
+- Tracker mount lại bất kỳ lúc nào sẽ tự pick up task đang chạy nền
 
-### 3. Live preview slide vừa reveal (bonus)
-- Dưới step "Viết nội dung", thêm 1 dòng nhỏ: "Slide vừa xong: [objective ngắn]" lấy từ `partialSlides[completedSlides-1]`
-- Animate fade-in mỗi khi `completedSlides` tăng → user thấy "AI đang viết thật"
+### 3. DB sync fallback (mở rộng existing)
+- Khi context detect carousel done qua DB sync (stream đứt) → vẫn trigger image batch nếu `autoGenerateImages`
+- Đảm bảo idempotent: check `background_generation_tasks` xem đã có task cho `carouselId` này chưa trước khi tạo mới
 
-### 4. Loại bỏ bất đồng bộ với GlobalTracker
-- Cả `CarouselGenerationTracker` (full-page) và `GlobalCarouselGenTracker` (mini) cùng đọc 1 nguồn `activeJob` → đảm bảo status text khớp nhau
-- Khi `phase='syncing'` → hiển thị "Đang đồng bộ kết quả..." thay vì static label
+### 4. Toast UX
+- Khi context auto-launch image batch → toast "🎨 Ảnh đang được tạo nền. Bạn có thể rời đi bất cứ lúc nào!"
+- Mini tracker hiện thêm row "Đang tạo ảnh slide N/M" sau khi prompt xong
 
-## File sẽ chỉnh
-- `src/components/carousel/CarouselGenerationTracker.tsx` — replace fake timer logic với context-driven phase mapping; thêm live slide preview line
+## File cần sửa
+- `src/contexts/CarouselGenerationContext.tsx` — thêm `launchImageBatch(carousel, formData)`, gọi sau `result` event + sau DB sync; insert background_generation_tasks row
+- `src/components/carousel/CarouselGenerationTracker.tsx` — bỏ `startBackgroundGeneration` proactive, chỉ render trạng thái task
+- `src/components/carousel/GlobalCarouselGenTracker.tsx` — hiển thị thêm phase "image_generating" với slide N/M counter
+- `.lovable/memory/features/carousel/streaming-prompt-generation-vn.md` — cập nhật pattern auto-launch image độc lập UI
 
 ## Kết quả
-- Step 1 không còn nhấp nháy giả; check thật theo phase backend
-- Khi đến phase `revealing`, user thấy đếm "Slide 3/6" tăng dần real-time
-- Khớp 100% với mini tracker → không bị lệch trạng thái
-- Vẫn giữ phong cách Soft Luxury hiện tại
+- User submit form `autoGenerateImages=true` → có thể đóng tab/rời route ngay
+- Prompt xong → context tự fire image batch → ảnh được tạo và lưu vào `carousel_images`
+- Quay lại bất kỳ lúc nào → tracker/viewer pick up từ DB + active tasks
+- Không còn case "prompt xong, ảnh không tạo"
 
