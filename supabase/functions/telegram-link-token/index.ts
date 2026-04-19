@@ -34,23 +34,26 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return json({ error: "Thiếu Authorization header", code: "NO_AUTH" }, 401);
     }
+    const token = authHeader.replace("Bearer ", "");
 
-    const userClient = createClient(
+    const authClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
+    const { data: claimsData, error: authError } = await authClient.auth.getClaims(token);
+    const userId = claimsData?.claims?.sub;
+    if (authError || !userId) {
+      console.error("[telegram-link-token] auth failed:", authError?.message);
       return json(
-        { error: "Phiên đăng nhập không hợp lệ", code: "INVALID_SESSION" },
+        { error: "Phiên đăng nhập không hợp lệ", code: "INVALID_SESSION", details: authError?.message },
         401,
       );
     }
+    const user = { id: userId };
 
     const body = await req.json().catch(() => ({}));
     const organizationId = body.organization_id as string | undefined;
