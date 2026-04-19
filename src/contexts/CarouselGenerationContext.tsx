@@ -343,6 +343,19 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 completedSlides: ((synced.slides_content as CarouselSlide[]) || partial).length,
               });
               toast.success('Carousel đã sẵn sàng (đồng bộ từ máy chủ)!');
+              if (formData.autoGenerateImages && synced.id && user) {
+                void launchCarouselImageBatch({
+                  carousel: synced,
+                  userId: user.id,
+                  organizationId: currentOrganization?.id,
+                }).then(({ taskId, alreadyRunning }) => {
+                  if (taskId && !alreadyRunning) {
+                    toast.success('🎨 Ảnh đang được tạo nền. Bạn có thể rời đi bất cứ lúc nào!', {
+                      duration: 5000,
+                    });
+                  }
+                });
+              }
               return synced;
             }
             await new Promise((r) => setTimeout(r, 4_000));
