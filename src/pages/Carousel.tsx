@@ -327,44 +327,7 @@ const CarouselPage = () => {
           }}
           autoGenerateImages={autoGenerateImages}
         />
-        {/* Minimized tracker overlay */}
-        {trackerMode && trackerMinimized && (
-          <>
-            <div className="hidden">
-              <CarouselGenerationTracker
-                onBack={() => {}}
-                onProgressChange={setTrackerProgress}
-                topic={trackerTopic}
-                platform={trackerPlatform}
-                slideCount={trackerSlideCount}
-                promptGenerating={generating}
-                carousel={trackerCarousel}
-                onViewResults={(carousel) => {
-                  setTrackerMode(false);
-                  setTrackerMinimized(false);
-                  setTrackerCarousel(null);
-                  setSelectedCarousel(carousel);
-                  setAutoGenerateImages(false);
-                  setViewerOpen(true);
-                }}
-              />
-            </div>
-            <CarouselMiniTracker
-              overallPercent={trackerProgress.overallPercent}
-              statusText={trackerProgress.statusText}
-              status={trackerProgress.allDone ? 'done' : 'generating'}
-              onExpand={() => setTrackerMinimized(false)}
-            onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
-                setTrackerMode(false);
-                setTrackerMinimized(false);
-                setTrackerCarousel(null);
-                setSelectedCarousel(trackerCarousel);
-                setAutoGenerateImages(false);
-                setViewerOpen(true);
-              } : undefined}
-            />
-          </>
-        )}
+        {/* Minimized prompt-streaming tracker is handled globally by GlobalCarouselGenTracker. */}
       </div>
     );
   }
