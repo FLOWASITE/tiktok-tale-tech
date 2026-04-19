@@ -19,15 +19,21 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Thiếu Authorization" }, 401);
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ error: "Thiếu Authorization" }, 401);
+    }
 
+    const token = authHeader.replace("Bearer ", "");
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
     );
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) return json({ error: "Unauthorized" }, 401);
+    const { data: claimsData, error: authError } = await userClient.auth.getClaims(token);
+    if (authError || !claimsData?.claims?.sub) {
+      console.error("[telegram-bot-admin] auth fail:", authError?.message);
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const user = { id: claimsData.claims.sub as string };
 
     const body = await req.json();
     const { action, organization_id } = body as {
