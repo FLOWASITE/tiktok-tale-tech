@@ -13,6 +13,12 @@ export interface CarouselGenerationJob {
   startedAt: number;
   carousel?: Carousel;
   error?: string;
+  // Streaming state
+  progress: number;          // 0-100
+  currentStep: string;       // human-readable step
+  partialSlides: CarouselSlide[];
+  totalSlides: number;
+  completedSlides: number;
 }
 
 interface CarouselGenerationContextValue {
@@ -24,6 +30,9 @@ interface CarouselGenerationContextValue {
 }
 
 const CarouselGenerationContext = createContext<CarouselGenerationContextValue | null>(null);
+
+const FIRST_BYTE_TIMEOUT_MS = 30_000;
+const IDLE_TIMEOUT_MS = 150_000;
 
 export function CarouselGenerationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -47,7 +56,6 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         return null;
       }
 
-      // Dedup: same topic+style within 3s
       const dedupKey = `${formData.topic}|${formData.carouselStyle}|${formData.visualPreset}`;
       if (inFlightRef.current.has(dedupKey)) {
         console.log('[CarouselGen] Blocked duplicate invoke');
@@ -61,6 +69,11 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         formData,
         status: 'generating',
         startedAt: Date.now(),
+        progress: 0,
+        currentStep: 'Đang khởi tạo...',
+        partialSlides: [],
+        totalSlides: formData.slideCount || 0,
+        completedSlides: 0,
       };
       setJobs((prev) => [job, ...prev]);
 
@@ -72,53 +85,145 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           return null;
         }
 
-        const { data, error } = await supabase.functions.invoke('generate-carousel', {
-          body: {
+        const accessToken = sessionData.session.access_token;
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-carousel`;
+
+        const controller = new AbortController();
+        let watchdog: ReturnType<typeof setTimeout> | null = null;
+        let receivedFirstByte = false;
+        const armWatchdog = () => {
+          if (watchdog) clearTimeout(watchdog);
+          watchdog = setTimeout(() => {
+            console.warn('[CarouselGen] Watchdog timeout — aborting');
+            controller.abort();
+          }, receivedFirstByte ? IDLE_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS);
+        };
+        armWatchdog();
+
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
             ...formData,
             user_id: user.id,
             organization_id: currentOrganization?.id,
             carouselStyle: formData.carouselStyle,
-          },
+            stream: true,
+          }),
+          signal: controller.signal,
         });
 
-        if (error) {
-          console.error('[CarouselGen] Edge error:', error);
-          if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
-            toast.error('Phiên đăng nhập đã hết hạn.');
-          } else if (error.message?.includes('429')) {
-            toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
-          } else if (error.message?.includes('402')) {
-            toast.error('Cần nạp thêm credits để tiếp tục sử dụng.');
-          } else {
-            toast.error('Không thể tạo carousel. Vui lòng thử lại.');
+        if (!resp.ok || !resp.body) {
+          const errText = await resp.text().catch(() => '');
+          let msg = 'Không thể tạo carousel. Vui lòng thử lại.';
+          if (resp.status === 401) msg = 'Phiên đăng nhập đã hết hạn.';
+          else if (resp.status === 429) msg = 'Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.';
+          else if (resp.status === 402) msg = 'Cần nạp thêm credits để tiếp tục sử dụng.';
+          else if (errText) {
+            try {
+              const parsed = JSON.parse(errText);
+              if (parsed?.error) msg = parsed.error;
+            } catch { /* ignore */ }
           }
-          updateJob(jobId, { status: 'error', error: error.message });
+          toast.error(msg);
+          updateJob(jobId, { status: 'error', error: msg });
           return null;
         }
 
-        if (data?.error) {
-          toast.error(data.error);
-          updateJob(jobId, { status: 'error', error: data.error });
-          return null;
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalCarousel: Carousel | null = null;
+        const partial: CarouselSlide[] = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!receivedFirstByte) {
+            receivedFirstByte = true;
+            armWatchdog();
+          }
+          buffer += decoder.decode(value, { stream: true });
+
+          let nl: number;
+          while ((nl = buffer.indexOf('\n')) !== -1) {
+            let line = buffer.slice(0, nl);
+            buffer = buffer.slice(nl + 1);
+            if (line.endsWith('\r')) line = line.slice(0, -1);
+            if (!line.startsWith('data: ')) continue;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') continue;
+
+            let event: any;
+            try { event = JSON.parse(payload); } catch { continue; }
+            armWatchdog();
+
+            if (event.type === 'progress') {
+              updateJob(jobId, {
+                progress: typeof event.percent === 'number' ? event.percent : undefined as any,
+                currentStep: event.message || event.step || 'Đang xử lý...',
+                totalSlides: event.totalSlides ?? job.totalSlides,
+              });
+            } else if (event.type === 'slide_done') {
+              if (event.slide) partial.push(event.slide as CarouselSlide);
+              updateJob(jobId, {
+                progress: event.percent ?? 0,
+                currentStep: event.message || `Slide ${event.completedSlides}/${event.totalSlides}`,
+                partialSlides: [...partial],
+                completedSlides: event.completedSlides ?? partial.length,
+                totalSlides: event.totalSlides ?? partial.length,
+              });
+            } else if (event.type === 'result') {
+              finalCarousel = {
+                ...event.carousel,
+                slides_content: event.carousel?.slides_content as CarouselSlide[],
+              } as Carousel;
+              updateJob(jobId, {
+                status: 'done',
+                carousel: finalCarousel,
+                progress: 100,
+                currentStep: 'Hoàn thành!',
+                partialSlides: finalCarousel.slides_content || partial,
+                completedSlides: (finalCarousel.slides_content || partial).length,
+              });
+            } else if (event.type === 'error') {
+              const m = event.message || 'Tạo carousel thất bại';
+              if (event.status === 429) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
+              else if (event.status === 402) toast.error('Cần nạp thêm credits để tiếp tục sử dụng.');
+              else toast.error(m);
+              updateJob(jobId, { status: 'error', error: m });
+            }
+          }
         }
 
-        const newCarousel = {
-          ...data,
-          slides_content: data.slides_content as CarouselSlide[],
-        } as Carousel;
+        if (watchdog) clearTimeout(watchdog);
 
-        updateJob(jobId, { status: 'done', carousel: newCarousel });
-        toast.success('Carousel đã sẵn sàng!', {
-          action: {
-            label: 'Xem kết quả',
-            onClick: () => navigate('/carousel'),
-          },
-        });
-        return newCarousel;
-      } catch (err) {
+        if (finalCarousel) {
+          toast.success('Carousel đã sẵn sàng!', {
+            action: {
+              label: 'Xem kết quả',
+              onClick: () => navigate('/carousel'),
+            },
+          });
+          return finalCarousel;
+        }
+
+        // Stream ended without result event
+        updateJob(jobId, { status: 'error', error: 'Stream kết thúc không có kết quả' });
+        toast.error('Tạo carousel chưa hoàn tất. Vui lòng thử lại.');
+        return null;
+      } catch (err: any) {
         console.error('[CarouselGen] Unexpected error:', err);
-        toast.error('Không thể tạo carousel. Vui lòng thử lại.');
-        updateJob(jobId, { status: 'error', error: String(err) });
+        if (err?.name === 'AbortError') {
+          updateJob(jobId, { status: 'error', error: 'Hết thời gian chờ' });
+          toast.error('Quá trình tạo bị gián đoạn. Vui lòng thử lại.');
+        } else {
+          updateJob(jobId, { status: 'error', error: String(err?.message || err) });
+          toast.error('Không thể tạo carousel. Vui lòng thử lại.');
+        }
         return null;
       } finally {
         inFlightRef.current.delete(dedupKey);
