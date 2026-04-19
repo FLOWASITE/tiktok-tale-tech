@@ -223,6 +223,27 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'google/gemini-3-pro-image-preview',
     'google/gemini-2.5-flash-image',
   ],
+  video: [
+    // GeminiGen video models (Veo / Sora)
+    'geminigen/veo-3',
+    'geminigen/veo-3-fast',
+    'geminigen/veo-3.1',
+    'geminigen/veo-3.1-fast',
+    'geminigen/veo-2',
+    'geminigen/sora-2',
+    // Minimax (kept for backward compatibility — provider wired in generate-video)
+    'minimax/video-01',
+    // PoYo video (register model IDs here when provider exposes video endpoints)
+    'poyo/veo-3',
+    'poyo/veo-3-fast',
+    'poyo/sora-2',
+  ],
+  audio: [
+    // ElevenLabs music (default for generate-music)
+    'elevenlabs/music-v1',
+    // GeminiGen TTS (if/when endpoint confirmed)
+    'geminigen/tts-v1',
+  ],
   search: [
     'perplexity/sonar-pro',
     'perplexity/sonar',
@@ -1045,6 +1066,120 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Open source', 'Reasoning'],
     provider: 'openrouter',
   },
+  // GeminiGen video models (Veo / Sora)
+  'geminigen/veo-3': {
+    shortName: 'Veo 3',
+    description: 'Google Veo 3 qua GeminiGen — chất lượng cinematic',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Video chất lượng cao', 'Cinematic'],
+    provider: 'geminigen',
+    isRecommended: true,
+  },
+  'geminigen/veo-3-fast': {
+    shortName: 'Veo 3 Fast',
+    description: 'Veo 3 tốc độ ưu tiên, trade-off chất lượng',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Video nhanh', 'Iterate nhiều lần'],
+    provider: 'geminigen',
+  },
+  'geminigen/veo-3.1': {
+    shortName: 'Veo 3.1',
+    description: 'Veo 3.1 — bản cải tiến mới nhất',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Video mới nhất', 'High fidelity'],
+    provider: 'geminigen',
+  },
+  'geminigen/veo-3.1-fast': {
+    shortName: 'Veo 3.1 Fast',
+    description: 'Veo 3.1 tốc độ ưu tiên',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Video nhanh mới', 'Preview'],
+    provider: 'geminigen',
+  },
+  'geminigen/veo-2': {
+    shortName: 'Veo 2',
+    description: 'Veo 2 — rẻ hơn, dùng cho preview',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Preview', 'Cost-effective'],
+    provider: 'geminigen',
+  },
+  'geminigen/sora-2': {
+    shortName: 'Sora 2',
+    description: 'OpenAI Sora 2 qua GeminiGen',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Creative video', 'Storytelling'],
+    provider: 'geminigen',
+  },
+  // Minimax video (already integrated in generate-video)
+  'minimax/video-01': {
+    shortName: 'Minimax Video 01',
+    description: 'Minimax/Hailuo video generation',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Video chất lượng cao'],
+    provider: 'custom',
+  },
+  // PoYo video (register real endpoints when wired into generate-video)
+  'poyo/veo-3': {
+    shortName: 'PoYo Veo 3',
+    description: 'Veo 3 qua PoYo.ai gateway',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Video cao cấp qua PoYo'],
+    provider: 'poyo',
+  },
+  'poyo/veo-3-fast': {
+    shortName: 'PoYo Veo 3 Fast',
+    description: 'Veo 3 Fast qua PoYo.ai',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Video nhanh qua PoYo'],
+    provider: 'poyo',
+  },
+  'poyo/sora-2': {
+    shortName: 'PoYo Sora 2',
+    description: 'Sora 2 qua PoYo.ai gateway',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Sora qua PoYo'],
+    provider: 'poyo',
+  },
+  // Audio models
+  'elevenlabs/music-v1': {
+    shortName: 'ElevenLabs Music',
+    description: 'Nhạc nền từ mô tả mood/style',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Nhạc nền video', 'Background music'],
+    provider: 'custom',
+    isRecommended: true,
+  },
+  'geminigen/tts-v1': {
+    shortName: 'GeminiGen TTS',
+    description: 'Text-to-speech qua GeminiGen (endpoint chưa verify)',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Narration', 'Voice-over'],
+    provider: 'geminigen',
+  },
 };
 
 // KIE.ai model prefixes - models served through kie.ai gateway
@@ -1231,10 +1366,10 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   replicate: ['black-forest-labs/flux-schnell', 'stability-ai/sdxl'],
   perplexity: ['sonar-pro', 'sonar'],
   kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
-  poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
+  poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine', 'poyo/veo-3', 'poyo/veo-3-fast', 'poyo/sora-2'],
   dashscope: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'],
-  geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4'],
-  custom: [],
+  geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4', 'geminigen/veo-3', 'geminigen/veo-3-fast', 'geminigen/veo-3.1', 'geminigen/veo-3.1-fast', 'geminigen/veo-2', 'geminigen/sora-2', 'geminigen/tts-v1'],
+  custom: ['elevenlabs/music-v1', 'minimax/video-01'],
 };
 
 export function useAIConfig(organizationId?: string) {
