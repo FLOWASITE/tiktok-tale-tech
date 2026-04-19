@@ -28,27 +28,35 @@ export function GlobalCarouselGenTracker() {
     return () => clearInterval(id);
   }, [activeJob]);
 
-  // Tween percent (smooth interpolation toward target)
+  // Tween percent (rAF-based smooth interpolation; stops on settle/error)
   useEffect(() => {
     if (!activeJob) {
       setTweenedPercent(0);
       return;
     }
+    if (activeJob.status === 'error' || activeJob.status === 'cancelled') return;
+
     const target =
       activeJob.status === 'done'
         ? 100
-        : activeJob.status === 'error' || activeJob.status === 'cancelled'
-          ? tweenedPercent
-          : Math.min(99, Math.max(activeJob.progress || 0, Math.min(95, Math.floor((elapsed / 60) * 100))));
+        : Math.min(99, Math.max(activeJob.progress || 0, Math.min(95, Math.floor((elapsed / 60) * 100))));
 
-    const id = setInterval(() => {
+    let raf = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(120, now - last);
+      last = now;
       setTweenedPercent((prev) => {
-        if (Math.abs(target - prev) < 0.5) return target;
-        return prev + (target - prev) * 0.25;
+        const diff = target - prev;
+        if (Math.abs(diff) < 0.3) return target;
+        const k = 1 - Math.pow(1 - 0.25, dt / 80);
+        return prev + diff * k;
       });
-    }, 80);
-    return () => clearInterval(id);
-  }, [activeJob, elapsed, tweenedPercent]);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [activeJob, elapsed]);
 
   if (!activeJob) return null;
 
