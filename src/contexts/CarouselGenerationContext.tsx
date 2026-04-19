@@ -6,6 +6,21 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
 
+export type CarouselGenPhase =
+  | 'init'
+  | 'planning'
+  | 'ai_generating'
+  | 'parsing'
+  | 'compliance'
+  | 'revealing'
+  | 'finalizing'
+  | 'syncing'
+  | 'done'
+  | 'error'
+  | 'cancelled';
+
+export type CarouselAbortReason = 'user' | 'watchdog' | 'network' | 'backend' | null;
+
 export interface CarouselGenerationJob {
   id: string;
   formData: CarouselFormData;
@@ -16,9 +31,15 @@ export interface CarouselGenerationJob {
   // Streaming state
   progress: number;
   currentStep: string;
+  phase: CarouselGenPhase;
   partialSlides: CarouselSlide[];
   totalSlides: number;
   completedSlides: number;
+  // Realtime / observability
+  lastEventAt: number;
+  abortReason: CarouselAbortReason;
+  /** Slide number currently being revealed (after slide_start, before slide_done) */
+  revealingSlide: number | null;
 }
 
 interface CarouselGenerationContextValue {
@@ -35,6 +56,7 @@ const CarouselGenerationContext = createContext<CarouselGenerationContextValue |
 
 const FIRST_BYTE_TIMEOUT_MS = 30_000;
 const IDLE_TIMEOUT_MS = 150_000;
+const SYNC_FALLBACK_TIMEOUT_MS = 60_000; // After stream drop, wait this long for DB row before failing
 
 export function CarouselGenerationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -43,17 +65,20 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
   const [jobs, setJobs] = useState<CarouselGenerationJob[]>([]);
   const inFlightRef = useRef<Set<string>>(new Set());
   const abortersRef = useRef<Map<string, AbortController>>(new Map());
+  const cancelReasonRef = useRef<Map<string, CarouselAbortReason>>(new Map());
 
   const updateJob = useCallback((id: string, patch: Partial<CarouselGenerationJob>) => {
-    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
+    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch, lastEventAt: Date.now() } : j)));
   }, []);
 
   const dismissJob = useCallback((id: string) => {
     setJobs((prev) => prev.filter((j) => j.id !== id));
     abortersRef.current.delete(id);
+    cancelReasonRef.current.delete(id);
   }, []);
 
   const cancelJob = useCallback((id: string) => {
+    cancelReasonRef.current.set(id, 'user');
     const c = abortersRef.current.get(id);
     if (c) {
       try { c.abort(); } catch { /* noop */ }
@@ -62,12 +87,41 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
     setJobs((prev) =>
       prev.map((j) =>
         j.id === id && j.status === 'generating'
-          ? { ...j, status: 'cancelled', currentStep: 'Đã hủy', error: 'Cancelled by user' }
+          ? {
+              ...j,
+              status: 'cancelled',
+              phase: 'cancelled',
+              currentStep: 'Đã hủy',
+              error: 'Cancelled by user',
+              abortReason: 'user',
+              lastEventAt: Date.now(),
+            }
           : j
       )
     );
     toast.info('Đã hủy quá trình tạo carousel');
   }, []);
+
+  /** Try to fetch the carousel row by topic+timestamp window — used as fallback when stream drops */
+  const trySyncFromDb = useCallback(
+    async (formData: CarouselFormData, startedAt: number): Promise<Carousel | null> => {
+      try {
+        const { data } = await supabase
+          .from('carousels')
+          .select('*')
+          .eq('topic', formData.topic)
+          .gte('created_at', new Date(startedAt - 5_000).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return (data as any) || null;
+      } catch (err) {
+        console.warn('[CarouselGen] DB sync fallback query failed:', err);
+        return null;
+      }
+    },
+    []
+  );
 
   const generateCarousel = useCallback(
     async (formData: CarouselFormData): Promise<Carousel | null> => {
@@ -84,16 +138,21 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
       inFlightRef.current.add(dedupKey);
 
       const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const startedAt = Date.now();
       const job: CarouselGenerationJob = {
         id: jobId,
         formData,
         status: 'generating',
-        startedAt: Date.now(),
+        startedAt,
         progress: 0,
         currentStep: 'Đang khởi tạo...',
+        phase: 'init',
         partialSlides: [],
         totalSlides: formData.slideCount || 0,
         completedSlides: 0,
+        lastEventAt: startedAt,
+        abortReason: null,
+        revealingSlide: null,
       };
       setJobs((prev) => [job, ...prev]);
 
@@ -101,7 +160,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         const { data: sessionData } = await supabase.auth.getSession();
         if (!sessionData.session) {
           toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-          updateJob(jobId, { status: 'error', error: 'Unauthorized' });
+          updateJob(jobId, { status: 'error', phase: 'error', error: 'Unauthorized' });
           return null;
         }
 
@@ -116,6 +175,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           if (watchdog) clearTimeout(watchdog);
           watchdog = setTimeout(() => {
             console.warn('[CarouselGen] Watchdog timeout — aborting');
+            cancelReasonRef.current.set(jobId, 'watchdog');
             controller.abort('watchdog');
           }, receivedFirstByte ? IDLE_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS);
         };
@@ -150,7 +210,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
             } catch { /* ignore */ }
           }
           toast.error(msg);
-          updateJob(jobId, { status: 'error', error: msg });
+          updateJob(jobId, { status: 'error', phase: 'error', error: msg, abortReason: 'backend' });
           return null;
         }
 
@@ -182,10 +242,20 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
             try { event = JSON.parse(payload); } catch { continue; }
             armWatchdog();
 
+            const phase: CarouselGenPhase = (event.phase as CarouselGenPhase) || 'ai_generating';
+
             if (event.type === 'progress') {
               updateJob(jobId, {
                 progress: typeof event.percent === 'number' ? event.percent : undefined as any,
                 currentStep: event.message || event.step || 'Đang xử lý...',
+                phase,
+                totalSlides: event.totalSlides ?? job.totalSlides,
+              });
+            } else if (event.type === 'slide_start') {
+              updateJob(jobId, {
+                phase: 'revealing',
+                revealingSlide: event.slideNumber ?? null,
+                currentStep: event.message || `Đang hiển thị slide ${event.slideNumber}...`,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
             } else if (event.type === 'slide_done') {
@@ -193,6 +263,8 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
               updateJob(jobId, {
                 progress: event.percent ?? 0,
                 currentStep: event.message || `Slide ${event.completedSlides}/${event.totalSlides}`,
+                phase: 'revealing',
+                revealingSlide: null,
                 partialSlides: [...partial],
                 completedSlides: event.completedSlides ?? partial.length,
                 totalSlides: event.totalSlides ?? partial.length,
@@ -204,18 +276,20 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
               } as Carousel;
               updateJob(jobId, {
                 status: 'done',
+                phase: 'done',
                 carousel: finalCarousel,
                 progress: 100,
                 currentStep: 'Hoàn thành!',
                 partialSlides: finalCarousel.slides_content || partial,
                 completedSlides: (finalCarousel.slides_content || partial).length,
+                revealingSlide: null,
               });
             } else if (event.type === 'error') {
               const m = event.message || 'Tạo carousel thất bại';
               if (event.status === 429) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
               else if (event.status === 402) toast.error('Cần nạp thêm credits để tiếp tục sử dụng.');
               else toast.error(m);
-              updateJob(jobId, { status: 'error', error: m });
+              updateJob(jobId, { status: 'error', phase: 'error', error: m, abortReason: 'backend' });
             }
           }
         }
@@ -232,45 +306,84 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
           return finalCarousel;
         }
 
-        // Stream ended without result event — only flag error if not already cancelled
+        // Stream ended without result — try DB sync fallback before failing
+        const reason = cancelReasonRef.current.get(jobId);
+        if (reason !== 'user') {
+          updateJob(jobId, {
+            phase: 'syncing',
+            currentStep: 'Stream đứt, đang đồng bộ kết quả từ máy chủ...',
+          });
+          const syncStart = Date.now();
+          while (Date.now() - syncStart < SYNC_FALLBACK_TIMEOUT_MS) {
+            const synced = await trySyncFromDb(formData, startedAt);
+            if (synced) {
+              updateJob(jobId, {
+                status: 'done',
+                phase: 'done',
+                carousel: synced,
+                progress: 100,
+                currentStep: 'Hoàn thành (đồng bộ từ máy chủ)!',
+                partialSlides: (synced.slides_content as CarouselSlide[]) || partial,
+                completedSlides: ((synced.slides_content as CarouselSlide[]) || partial).length,
+              });
+              toast.success('Carousel đã sẵn sàng (đồng bộ từ máy chủ)!');
+              return synced;
+            }
+            await new Promise((r) => setTimeout(r, 4_000));
+          }
+        }
+
         setJobs((prev) =>
           prev.map((j) =>
             j.id === jobId && j.status === 'generating'
-              ? { ...j, status: 'error', error: 'Stream kết thúc không có kết quả' }
+              ? {
+                  ...j,
+                  status: 'error',
+                  phase: 'error',
+                  error: 'Stream kết thúc không có kết quả',
+                  abortReason: 'network',
+                  lastEventAt: Date.now(),
+                }
               : j
           )
         );
-        const cur = jobs.find((j) => j.id === jobId);
-        if (cur?.status !== 'cancelled') {
+        if (reason !== 'user') {
           toast.error('Tạo carousel chưa hoàn tất. Vui lòng thử lại.');
         }
         return null;
       } catch (err: any) {
         console.error('[CarouselGen] Unexpected error:', err);
         if (err?.name === 'AbortError') {
-          // Distinguish user-cancel vs watchdog
+          const reason = cancelReasonRef.current.get(jobId);
           setJobs((prev) =>
             prev.map((j) => {
               if (j.id !== jobId) return j;
               if (j.status === 'cancelled') return j;
-              return { ...j, status: 'error', error: 'Mất kết nối streaming' };
+              return {
+                ...j,
+                status: 'error',
+                phase: 'error',
+                error: reason === 'watchdog' ? 'Hết thời gian chờ máy chủ' : 'Mất kết nối streaming',
+                abortReason: reason || 'network',
+                lastEventAt: Date.now(),
+              };
             })
           );
-          const j = jobs.find((x) => x.id === jobId);
-          if (j?.status !== 'cancelled') {
-            toast.error('Mất kết nối streaming. Vui lòng thử lại.');
+          if (reason !== 'user') {
+            toast.error(reason === 'watchdog' ? 'Máy chủ phản hồi chậm. Vui lòng thử lại.' : 'Mất kết nối streaming. Vui lòng thử lại.');
           }
         } else {
-          updateJob(jobId, { status: 'error', error: String(err?.message || err) });
+          updateJob(jobId, { status: 'error', phase: 'error', error: String(err?.message || err), abortReason: 'network' });
           toast.error('Không thể tạo carousel. Vui lòng thử lại.');
         }
         return null;
       } finally {
         inFlightRef.current.delete(dedupKey);
         abortersRef.current.delete(jobId);
+        cancelReasonRef.current.delete(jobId);
       }
     },
-    [user, currentOrganization?.id, navigate, updateJob, jobs]
+    [user, currentOrganization?.id, navigate, updateJob, trySyncFromDb]
   );
 
   const retryJob = useCallback(
