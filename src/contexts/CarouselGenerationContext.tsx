@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
+import { launchCarouselImageBatch } from '@/lib/carousel/imageGenLauncher';
 import { toast } from 'sonner';
 
 export interface CarouselGenerationJob {
