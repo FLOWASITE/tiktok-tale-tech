@@ -237,9 +237,27 @@ ${suggestLabel}`;
 
   } catch (error) {
     console.error('[suggest-prompt-rewrite] Error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const isPayment = /payment required|not enough credits|402/i.test(message);
+    const isRateLimit = /rate limit|429|too many requests/i.test(message);
+
+    if (isPayment || isRateLimit) {
+      return new Response(
+        JSON.stringify({
+          suggestions: [],
+          fallback: true,
+          errorCode: isPayment ? 'CREDITS_EXHAUSTED' : 'RATE_LIMIT',
+          error: isPayment
+            ? 'Đã hết AI credits. Vui lòng nâng cấp hoặc chờ reset.'
+            : 'Đã đạt giới hạn request. Vui lòng thử lại sau.',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: message, suggestions: [], fallback: true }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 }));
