@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Type, Image, Globe, X, Layers } from 'lucide-react';
+import { Type, Image, Globe, X, Layers, Video, Music } from 'lucide-react';
 import { useGroupModelConfig, FUNCTION_TYPE_GROUPS, countAffectedFunctions } from '@/hooks/useGroupModelConfig';
 import { AIFunctionConfig, getModelInfo } from '@/hooks/useAIConfig';
 import { ProviderIndicator } from './ModelCard';
@@ -17,12 +17,16 @@ interface GroupDefaultsPanelProps {
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   text: <Type className="h-4 w-4" />,
   image: <Image className="h-4 w-4" />,
+  video: <Video className="h-4 w-4" />,
+  audio: <Music className="h-4 w-4" />,
   search: <Globe className="h-4 w-4" />,
 };
 
 const TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   text: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-600' },
   image: { bg: 'bg-pink-500/10', border: 'border-pink-500/30', text: 'text-pink-600' },
+  video: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-600' },
+  audio: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-600' },
   search: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-600' },
 };
 
@@ -39,7 +43,7 @@ export function GroupDefaultsPanel({ organizationId, functionConfigs }: GroupDef
           <span className="text-xs text-muted-foreground">— Đặt model mặc định cho nhóm function type</span>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {FUNCTION_TYPE_GROUPS.map((group) => {
             const config = getGroupConfig(group.id);
             const colors = TYPE_COLORS[group.id];

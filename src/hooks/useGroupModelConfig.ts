@@ -18,6 +18,8 @@ export interface GroupModelConfig {
 export const FUNCTION_TYPE_GROUPS = [
   { id: 'text' as const, label: 'Text', description: 'Tất cả functions tạo & xử lý văn bản', icon: 'Type', color: 'blue' },
   { id: 'image' as const, label: 'Image', description: 'Tất cả functions tạo & chỉnh sửa hình ảnh', icon: 'Image', color: 'pink' },
+  { id: 'video' as const, label: 'Video', description: 'Tất cả functions tạo video (Veo, Sora, Kling...)', icon: 'Video', color: 'purple' },
+  { id: 'audio' as const, label: 'Audio', description: 'Tất cả functions tạo nhạc/giọng đọc', icon: 'Music', color: 'orange' },
   { id: 'search' as const, label: 'Search', description: 'Tất cả functions tìm kiếm & research', icon: 'Globe', color: 'green' },
 ] as const;
 
