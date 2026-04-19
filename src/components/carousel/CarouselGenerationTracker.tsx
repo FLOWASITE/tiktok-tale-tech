@@ -555,33 +555,63 @@ export function CarouselGenerationTracker({
               {PROMPT_STEPS.map((step, idx) => {
                 const isDone = idx < promptStep || promptDone;
                 const isActive = idx === promptStep && !promptDone;
+                const isWritingStep = step.id === 'writing';
+                const showLiveCount =
+                  isActive && isWritingStep && currentPhase === 'revealing' && revealTotal > 0;
+                const label = showLiveCount
+                  ? `Đang viết slide ${Math.min(revealCompleted + 1, revealTotal)}/${revealTotal}`
+                  : step.label;
                 return (
-                  <div
-                    key={step.id}
-                    className={cn(
-                      "flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-300",
-                      isActive && "bg-background/80",
-                      isDone && "opacity-60",
-                      !isActive && !isDone && "opacity-30"
-                    )}
-                  >
-                    <span className="w-5 flex items-center justify-center">
-                      {isDone ? (
-                        <Check className="w-4 h-4 text-primary" />
-                      ) : isActive ? (
-                        <step.icon className="w-4 h-4 text-primary animate-pulse" />
-                      ) : (
-                        <step.icon className="w-4 h-4 text-muted-foreground" />
+                  <div key={step.id}>
+                    <div
+                      className={cn(
+                        'flex items-center gap-2.5 px-3 py-1.5 rounded-lg transition-all duration-300',
+                        isActive && 'bg-background/80',
+                        isDone && 'opacity-60',
+                        !isActive && !isDone && 'opacity-30'
                       )}
-                    </span>
-                    <span className={cn(
-                      "text-xs flex-1",
-                      isActive && "font-medium text-foreground",
-                      isDone && "text-muted-foreground line-through"
-                    )}>
-                      {step.label}
-                    </span>
-                    {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                    >
+                      <span className="w-5 flex items-center justify-center">
+                        {isDone ? (
+                          <Check className="w-4 h-4 text-primary" />
+                        ) : isActive ? (
+                          <step.icon className="w-4 h-4 text-primary animate-pulse" />
+                        ) : (
+                          <step.icon className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </span>
+                      <span
+                        className={cn(
+                          'text-xs flex-1',
+                          isActive && 'font-medium text-foreground',
+                          isDone && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        {label}
+                      </span>
+                      {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                    </div>
+
+                    {/* Live preview of last revealed slide under "writing" step */}
+                    {isActive && isWritingStep && lastRevealedSlide && (
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={revealCompleted}
+                          initial={{ opacity: 0, y: -3 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="ml-10 mr-2 mt-0.5 mb-1 px-2 py-1 rounded-md bg-primary/5 border border-primary/10"
+                        >
+                          <p className="text-[10px] text-muted-foreground leading-snug">
+                            <span className="text-primary font-medium">
+                              Slide {lastRevealedSlide.slideNumber} ✓
+                            </span>{' '}
+                            <span className="line-clamp-1">{lastRevealedSlide.objective}</span>
+                          </p>
+                        </motion.div>
+                      </AnimatePresence>
+                    )}
                   </div>
                 );
               })}
