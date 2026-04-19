@@ -131,21 +131,52 @@ export function CarouselGenExpandedPanel({
               );
             }
 
+            const showLivePreview = isCurrent && job.revealingSlideMeta?.slideNumber === n;
+            const meta = showLivePreview ? job.revealingSlideMeta : null;
+
             return (
-              <div key={n} className="rounded-lg border border-dashed border-border p-2.5 space-y-1.5">
+              <div
+                key={n}
+                className={cn(
+                  'rounded-lg border p-2.5 space-y-1.5',
+                  isCurrent
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-dashed border-border'
+                )}
+              >
                 <div className="flex items-center gap-1.5">
                   {isCurrent ? (
                     <Loader2 className="w-3 h-3 text-primary animate-spin shrink-0" />
                   ) : (
                     <div className="w-3 h-3 rounded-full border border-muted-foreground/40 shrink-0" />
                   )}
-                  <span className="text-[11px] font-medium text-muted-foreground">Slide {n}</span>
+                  <span className={cn(
+                    "text-[11px] font-medium",
+                    isCurrent ? "text-primary" : "text-muted-foreground"
+                  )}>
+                    {isCurrent ? `Prompt cho Slide ${n}` : `Slide ${n}`}
+                  </span>
                 </div>
                 {isCurrent ? (
-                  <>
-                    <Skeleton className="h-2 w-full" />
-                    <Skeleton className="h-2 w-3/4" />
-                  </>
+                  meta?.objective || meta?.textPreview ? (
+                    <>
+                      {meta.objective && (
+                        <p className="text-[10.5px] text-foreground/80 leading-snug line-clamp-1 font-medium">
+                          {meta.objective}
+                        </p>
+                      )}
+                      {meta.textPreview && (
+                        <p className="text-[10.5px] text-muted-foreground leading-snug line-clamp-2">
+                          {meta.textPreview}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Skeleton className="h-2 w-full" />
+                      <Skeleton className="h-2 w-3/4" />
+                    </>
+                  )
                 ) : (
                   <div className="text-[10px] text-muted-foreground/60">Chờ...</div>
                 )}

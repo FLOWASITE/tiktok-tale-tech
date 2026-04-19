@@ -42,6 +42,8 @@ export interface CarouselGenerationJob {
   abortReason: CarouselAbortReason;
   /** Slide number currently being revealed (after slide_start, before slide_done) */
   revealingSlide: number | null;
+  /** Real preview content for the slide currently being written */
+  revealingSlideMeta: { slideNumber: number; objective?: string; textPreview?: string; promptPreview?: string } | null;
 }
 
 interface CarouselGenerationContextValue {
@@ -155,6 +157,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
         lastEventAt: startedAt,
         abortReason: null,
         revealingSlide: null,
+        revealingSlideMeta: null,
       };
       setJobs((prev) => [job, ...prev]);
 
@@ -257,7 +260,21 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
               updateJob(jobId, {
                 phase: 'revealing',
                 revealingSlide: event.slideNumber ?? null,
-                currentStep: event.message || `Đang hiển thị slide ${event.slideNumber}...`,
+                revealingSlideMeta: { slideNumber: event.slideNumber ?? 0 },
+                currentStep: event.message || `Prompt cho Slide ${event.slideNumber}`,
+                totalSlides: event.totalSlides ?? job.totalSlides,
+              });
+            } else if (event.type === 'slide_preview') {
+              updateJob(jobId, {
+                phase: 'revealing',
+                revealingSlide: event.slideNumber ?? null,
+                revealingSlideMeta: {
+                  slideNumber: event.slideNumber ?? 0,
+                  objective: event.objective,
+                  textPreview: event.textPreview,
+                  promptPreview: event.promptPreview,
+                },
+                currentStep: event.objective || event.message || `Đang viết slide ${event.slideNumber}...`,
                 totalSlides: event.totalSlides ?? job.totalSlides,
               });
             } else if (event.type === 'slide_done') {
@@ -267,6 +284,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 currentStep: event.message || `Slide ${event.completedSlides}/${event.totalSlides}`,
                 phase: 'revealing',
                 revealingSlide: null,
+                revealingSlideMeta: null,
                 partialSlides: [...partial],
                 completedSlides: event.completedSlides ?? partial.length,
                 totalSlides: event.totalSlides ?? partial.length,
@@ -285,6 +303,7 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 partialSlides: finalCarousel.slides_content || partial,
                 completedSlides: (finalCarousel.slides_content || partial).length,
                 revealingSlide: null,
+                revealingSlideMeta: null,
               });
               // Auto-launch image batch independently of UI mount
               if (formData.autoGenerateImages && finalCarousel.id && user) {

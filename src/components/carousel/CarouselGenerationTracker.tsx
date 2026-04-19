@@ -427,23 +427,41 @@ export function CarouselGenerationTracker({
                       {isActive && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
                     </div>
 
-                    {/* Live preview of last revealed slide under "writing" step */}
-                    {isActive && isWritingStep && lastRevealedSlide && (
+                    {/* Live preview: prefer real revealingSlideMeta, fallback to last revealed */}
+                    {isActive && isWritingStep && (activeJob?.revealingSlideMeta || lastRevealedSlide) && (
                       <AnimatePresence mode="wait">
                         <motion.div
-                          key={revealCompleted}
+                          key={activeJob?.revealingSlideMeta?.slideNumber || revealCompleted}
                           initial={{ opacity: 0, y: -3 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.25 }}
-                          className="ml-10 mr-2 mt-0.5 mb-1 px-2 py-1 rounded-md bg-primary/5 border border-primary/10"
+                          className="ml-10 mr-2 mt-0.5 mb-1 px-2 py-1 rounded-md bg-primary/5 border border-primary/10 space-y-0.5"
                         >
-                          <p className="text-[10px] text-muted-foreground leading-snug">
-                            <span className="text-primary font-medium">
-                              Slide {lastRevealedSlide.slideNumber} ✓
-                            </span>{' '}
-                            <span className="line-clamp-1">{lastRevealedSlide.objective}</span>
-                          </p>
+                          {activeJob?.revealingSlideMeta ? (
+                            <>
+                              <p className="text-[10px] text-primary font-medium leading-snug">
+                                Prompt cho Slide {activeJob.revealingSlideMeta.slideNumber}
+                              </p>
+                              {activeJob.revealingSlideMeta.objective && (
+                                <p className="text-[10px] text-foreground/80 leading-snug line-clamp-1">
+                                  {activeJob.revealingSlideMeta.objective}
+                                </p>
+                              )}
+                              {activeJob.revealingSlideMeta.textPreview && (
+                                <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">
+                                  {activeJob.revealingSlideMeta.textPreview}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground leading-snug">
+                              <span className="text-primary font-medium">
+                                Slide {lastRevealedSlide!.slideNumber} ✓
+                              </span>{' '}
+                              <span className="line-clamp-1">{lastRevealedSlide!.objective}</span>
+                            </p>
+                          )}
                         </motion.div>
                       </AnimatePresence>
                     )}
