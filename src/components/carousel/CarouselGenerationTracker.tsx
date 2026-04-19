@@ -218,71 +218,31 @@ export function CarouselGenerationTracker({
     }
   }, [carousel?.id, activeTasks]);
 
-  // Phase 2: Start background image generation when prompt is done
+  // Phase 2: Start background image generation when prompt is done.
+  // Uses shared launcher (idempotent) so if CarouselGenerationContext
+  // already kicked off the batch, we just adopt the existing task.
   const startBackgroundGeneration = useCallback(async () => {
     if (!carousel || !user || imageGenStarted) return;
     setImageGenStarted(true);
 
-    // Extract brand colors
-    const brandColors = await extractBrandColorsWithFallback(carousel);
-    const seriesBible = buildSeriesBible(carousel.slides_content);
-    const siblingsSummary = carousel.slides_content
-      .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
-      .join(' | ');
+    const result = await launchCarouselImageBatch(
+      carousel,
+      user.id,
+      currentOrganization?.id,
+    );
 
-    // Create background task
-    const task = await createTask('carousel_image', {
-      carouselId: carousel.id,
-      slides: carousel.slides_content,
-      brandColors,
-      carouselStyle: carousel.carousel_style,
-      visualPreset: carousel.visual_preset || 'minimalist',
-      platform: carousel.platform,
-      carouselTopic: carousel.topic,
-      seriesBible,
-      siblingsSummary,
-      userId: user.id,
-    }, currentOrganization?.id);
-
-    if (!task) {
-      toast.error('Không thể tạo task tạo ảnh');
+    if (!result.taskId) {
+      toast.error(result.error || 'Không thể tạo task tạo ảnh');
       setImageGenStarted(false);
       return;
     }
 
-    setBackgroundTaskId(task.id);
+    setBackgroundTaskId(result.taskId);
 
-    // Fire-and-forget edge function call
-    try {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-carousel-images-batch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken || ''}`,
-        },
-        body: JSON.stringify({
-          taskId: task.id,
-          carouselId: carousel.id,
-          slides: carousel.slides_content,
-          brandColors,
-          carouselStyle: carousel.carousel_style,
-          visualPreset: carousel.visual_preset || 'minimalist',
-          platform: carousel.platform,
-          carouselTopic: carousel.topic,
-          seriesBible,
-          siblingsSummary,
-          userId: user.id,
-        }),
-      }).catch(err => console.warn('[tracker] Edge function fire-and-forget error:', err));
-    } catch (err) {
-      console.warn('[tracker] Failed to invoke edge function:', err);
+    if (!result.alreadyRunning) {
+      toast.success('🎨 Ảnh đang được tạo dưới nền. Bạn có thể rời đi!', { duration: 5000 });
     }
-
-    toast.success('🎨 Ảnh đang được tạo dưới nền. Bạn có thể rời đi!', { duration: 5000 });
-  }, [carousel, user, imageGenStarted, createTask, currentOrganization?.id]);
+  }, [carousel, user, imageGenStarted, currentOrganization?.id]);
 
   // Auto-start when prompt is done
   useEffect(() => {
