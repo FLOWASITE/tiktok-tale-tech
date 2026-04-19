@@ -147,6 +147,7 @@ export function useVideoGeneration() {
     // Check which providers are available based on configured secrets
     const availability: Record<VideoProvider, boolean> = {
       lovable: true, // Always available
+      geminigen: false,
       minimax: false,
       runway: false,
     };

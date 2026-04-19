@@ -31,6 +31,8 @@ const TYPE_BADGES: Record<AIFunctionType, { label: string; className: string }> 
   image: { label: 'Image', className: 'bg-purple-500/20 text-purple-600 border-purple-500/30' },
   'image-direct': { label: 'Image', className: 'bg-orange-500/20 text-orange-600 border-orange-500/30' },
   search: { label: 'Search', className: 'bg-green-500/20 text-green-600 border-green-500/30' },
+  video: { label: 'Video', className: 'bg-pink-500/20 text-pink-600 border-pink-500/30' },
+  audio: { label: 'Audio', className: 'bg-amber-500/20 text-amber-600 border-amber-500/30' },
 };
 
 const CATEGORY_BORDER: Record<string, string> = {
