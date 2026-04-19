@@ -143,7 +143,7 @@ export function TelegramBotConfigCard() {
             <div className="flex gap-2">
               <Input readOnly value={webhookUrl} className="font-mono text-xs" />
               <Button size="icon" variant="outline" onClick={handleCopy} title="Copy">
-                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
           </div>

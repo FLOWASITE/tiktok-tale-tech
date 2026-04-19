@@ -69,10 +69,10 @@ export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
     <div className="space-y-5">
       {/* Personal binding */}
       {binding ? (
-        <div className="flex items-center justify-between rounded-md border p-3 bg-green-50/50 dark:bg-green-950/20">
+        <div className="flex items-center justify-between rounded-md border p-3 bg-primary/5">
           <div className="space-y-1">
             <div className="text-sm font-medium flex items-center gap-2">
-              <Check className="w-4 h-4 text-green-600" /> Đã kết nối
+              <Check className="w-4 h-4 text-primary" /> Đã kết nối
             </div>
             <div className="text-xs text-muted-foreground">
               {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
