@@ -37,14 +37,14 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return json({ error: "Thiếu Authorization header", code: "NO_AUTH" }, 401);
     }
-    const token = authHeader.replace("Bearer ", "");
+    const accessToken = authHeader.replace("Bearer ", "");
 
     const authClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
     );
 
-    const { data: claimsData, error: authError } = await authClient.auth.getClaims(token);
+    const { data: claimsData, error: authError } = await authClient.auth.getClaims(accessToken);
     const userId = claimsData?.claims?.sub;
     if (authError || !userId) {
       console.error("[telegram-link-token] auth failed:", authError?.message);
