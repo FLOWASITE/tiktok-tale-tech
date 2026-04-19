@@ -237,7 +237,7 @@ export function ModelSelector({
             >
               Tất cả
             </ProviderTab>
-            {functionType === 'image' && availablePoyoModels.length > 0 && (
+            {availablePoyoModels.length > 0 && (
               <ProviderTab
                 active={providerFilter === 'poyo'}
                 onClick={() => setProviderFilter('poyo')}
@@ -247,7 +247,7 @@ export function ModelSelector({
                 PoYo.ai
               </ProviderTab>
             )}
-            {functionType === 'image' && availableGeminigenModels.length > 0 && (
+            {availableGeminigenModels.length > 0 && (
               <ProviderTab
                 active={providerFilter === 'geminigen'}
                 onClick={() => setProviderFilter('geminigen')}
@@ -257,7 +257,7 @@ export function ModelSelector({
                 GeminiGen.ai
               </ProviderTab>
             )}
-            {functionType === 'image' && availableKieModels.length > 0 && (
+            {availableKieModels.length > 0 && (
               <ProviderTab
                 active={providerFilter === 'kie'}
                 onClick={() => setProviderFilter('kie')}
