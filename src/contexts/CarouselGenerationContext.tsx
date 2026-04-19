@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
+import { launchCarouselImageBatch } from '@/lib/carouselImageBatch';
 
 export type CarouselGenPhase =
   | 'init'
@@ -15,6 +16,7 @@ export type CarouselGenPhase =
   | 'revealing'
   | 'finalizing'
   | 'syncing'
+  | 'image_generating'
   | 'done'
   | 'error'
   | 'cancelled';
@@ -284,6 +286,20 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 completedSlides: (finalCarousel.slides_content || partial).length,
                 revealingSlide: null,
               });
+              // Auto-launch image batch independently of UI mount
+              if (formData.autoGenerateImages && finalCarousel.id && user) {
+                void launchCarouselImageBatch({
+                  carousel: finalCarousel,
+                  userId: user.id,
+                  organizationId: currentOrganization?.id,
+                }).then(({ taskId, alreadyRunning }) => {
+                  if (taskId && !alreadyRunning) {
+                    toast.success('🎨 Ảnh đang được tạo nền. Bạn có thể rời đi bất cứ lúc nào!', {
+                      duration: 5000,
+                    });
+                  }
+                });
+              }
             } else if (event.type === 'error') {
               const m = event.message || 'Tạo carousel thất bại';
               if (event.status === 429) toast.error('Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau.');
@@ -327,6 +343,19 @@ export function CarouselGenerationProvider({ children }: { children: ReactNode }
                 completedSlides: ((synced.slides_content as CarouselSlide[]) || partial).length,
               });
               toast.success('Carousel đã sẵn sàng (đồng bộ từ máy chủ)!');
+              if (formData.autoGenerateImages && synced.id && user) {
+                void launchCarouselImageBatch({
+                  carousel: synced,
+                  userId: user.id,
+                  organizationId: currentOrganization?.id,
+                }).then(({ taskId, alreadyRunning }) => {
+                  if (taskId && !alreadyRunning) {
+                    toast.success('🎨 Ảnh đang được tạo nền. Bạn có thể rời đi bất cứ lúc nào!', {
+                      duration: 5000,
+                    });
+                  }
+                });
+              }
               return synced;
             }
             await new Promise((r) => setTimeout(r, 4_000));
