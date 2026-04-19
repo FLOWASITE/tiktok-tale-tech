@@ -1130,7 +1130,7 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     quality: 'high',
     cost: 'medium',
     bestFor: ['Video chất lượng cao'],
-    provider: 'custom',
+    provider: 'lovable',
   },
   // PoYo video (register real endpoints when wired into generate-video)
   'poyo/veo-3': {
@@ -1168,7 +1168,7 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     quality: 'high',
     cost: 'medium',
     bestFor: ['Nhạc nền video', 'Background music'],
-    provider: 'custom',
+    provider: 'lovable',
     isRecommended: true,
   },
   'geminigen/tts-v1': {
