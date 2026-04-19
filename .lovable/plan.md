@@ -1,87 +1,79 @@
 
+Mục tiêu: biến stream hiện tại từ “giả lập tiến trình” thành stream thật, nhất quán ở mọi màn hình, và ổn định khi user rời trang.
 
-## Hiểu yêu cầu
+1. Chuyển `generate-carousel` sang stream thật theo từng slide
+- Hiện tại stream chỉ trả heartbeat giả rồi đợi JSON branch hoàn tất mới bắn `slide_done`.
+- Refactor `runCarouselPipelineStreaming()` để sinh từng slide trong pipeline streaming, emit trực tiếp:
+  - `progress` cho planning / validation / compliance
+  - `slide_start`
+  - `slide_chunk` hoặc ít nhất `slide_preview`
+  - `slide_done`
+  - `result`
+- Vẫn giữ JSON mode fallback để không làm hỏng caller cũ.
 
-User muốn **streaming** cho quá trình tạo prompt carousel — thay vì chờ 30-60s trong im lặng, user sẽ thấy:
-- Slide 1 prompt xuất hiện dần dần (token-by-token hoặc slide-by-slide)
-- Progress thực (không phải fake timer dựa trên elapsed)
-- Có thể đọc/preview trong khi các slide còn lại đang generate
+2. Làm frontend parse stream như một state machine hoàn chỉnh
+- Mở rộng `CarouselGenerationContext` để xử lý thêm:
+  - `slide_start`
+  - `slide_chunk`
+  - `slide_done`
+  - `result`
+  - `error`
+- Thêm state riêng cho:
+  - `streamingSlidesByNumber`
+  - `lastEventAt`
+  - `abortReason`
+  - `phase`
+- Sửa các race/stale-state hiện có khi cancel/watchdog/result cùng xảy ra.
 
-Hiện tại: `generate-carousel` trả về 1 cục JSON sau khi LLM xong → `CarouselGenerationContext` chỉ biết "đang chạy" với fake progress dựa trên thời gian.
+3. Hiển thị preview thật thay vì chỉ hiện sau khi xong
+- `CarouselGenExpandedPanel` sẽ render:
+  - slide đang viết dở từ `slide_chunk`
+  - slide hoàn tất từ `slide_done`
+  - placeholder cho slide chưa bắt đầu
+- `GlobalCarouselGenTracker` đổi status text sang phase thật, bỏ cảm giác “đếm thời gian giả”.
 
-## Điều tra cần thực hiện (read-only)
+4. Loại bỏ luồng UI cũ đang gây lệch trạng thái
+- `CarouselGenerationTracker` ở page `/carousel` vẫn dùng fake step/timer riêng.
+- Gộp về một nguồn sự thật duy nhất là `CarouselGenerationContext`.
+- Trang Carousel chỉ đọc job hiện tại từ context thay vì tự dựng tracker cục bộ + tracker hidden song song.
 
-1. **`supabase/functions/generate-carousel/index.ts`** — đọc để hiểu:
-   - Đang gọi LLM 1 lần lấy hết slides hay loop từng slide?
-   - Có dùng `stream: true` với Lovable AI Gateway chưa?
-   - Cấu trúc response hiện tại (slides_content array)
-   - Compliance post-check ở đâu (Layer 2) — quan trọng vì stream xong vẫn cần validate
+5. Tinh chỉnh tiến trình để trông “chuẩn”
+- Không dùng phần trăm heartbeat kiểu tăng đều ảo quá lâu.
+- Percent mới sẽ bám theo:
+  - planning nhỏ
+  - mỗi slide đóng góp rõ ràng
+  - compliance/final save là phần cuối
+- ETA chỉ hiển thị khi đủ dữ liệu thực; nếu chưa đủ thì hiện phase text thay vì số giây không đáng tin.
 
-2. **`generate-multichannel/index.ts`** — pattern streaming đã có sẵn (`useExpandChannelsStreaming` hook tham khảo) → tái sử dụng SSE writer pattern.
+6. Tăng độ bền của stream
+- Phân biệt rõ:
+  - user cancel
+  - watchdog timeout
+  - stream đóng sớm
+  - backend error
+- Khi stream đứt nhưng backend vẫn có thể hoàn tất, frontend sẽ chuyển sang trạng thái “đang đồng bộ kết quả” thay vì báo fail ngay.
+- Nếu có row carousel xuất hiện qua realtime thì job tự complete.
 
-3. **`_shared/sse-writer.ts`** + **`_shared/stream-utils.ts`** — utils đã có cho SSE.
+7. Đồng bộ với luồng tạo ảnh nền
+- Khi prompt stream hoàn tất, trigger tạo ảnh vẫn phải tiếp tục độc lập route.
+- UI tracker cần phản ánh rõ: “đã xong prompt” và “đang tạo ảnh” là 2 pha khác nhau, tránh user hiểu nhầm stream bị đứng.
 
-## Thiết kế giải pháp
+8. File sẽ cần chỉnh
+- `supabase/functions/generate-carousel/index.ts`
+- `src/contexts/CarouselGenerationContext.tsx`
+- `src/components/carousel/GlobalCarouselGenTracker.tsx`
+- `src/components/carousel/CarouselGenExpandedPanel.tsx`
+- `src/components/carousel/CarouselGenerationTracker.tsx`
+- `src/pages/Carousel.tsx`
 
-### Tầng 1: Edge function streaming (SSE)
-File: `supabase/functions/generate-carousel/index.ts`
-- Detect `body.stream === true` → trả `text/event-stream` thay vì JSON.
-- Sử dụng `createSSEWriter` đã có.
-- Events emit:
-  - `progress`: `{step: 'planning', percent: 5}` — bắt đầu plan
-  - `slide_start`: `{slideNumber: 1}` — bắt đầu generate slide N
-  - `slide_chunk`: `{slideNumber: 1, text: "..."}` — token streaming (tùy provider hỗ trợ)
-  - `slide_done`: `{slideNumber: 1, slide: {...}}` — slide N hoàn chỉnh + đã parse
-  - `progress`: `{step: 'compliance_check', percent: 90}`
-  - `result`: `{carousel: {...}}` — final với DB row đã insert
-  - `error`: `{message}`
-- DB persist vẫn chạy trong `EdgeRuntime.waitUntil` để đảm bảo background-safe (đã có).
+9. Kết quả mong đợi
+- Vào 1-2 giây đầu đã có event thật.
+- User thấy slide đang được viết dần, không phải đợi 80s rồi hiện một lượt.
+- Thoát màn hình vẫn theo dõi được.
+- Cancel/retry/watchdog hoạt động rõ ràng, không nhảy sai trạng thái.
+- Tracker trên mọi màn hình và tracker trong trang Carousel hiển thị cùng một sự thật.
 
-**Approach LLM:** Nếu hiện tại gọi 1 LLM call lấy all slides → 2 lựa chọn:
-- (A) Stream raw text → parse JSON khi đủ delimiter giữa slides (phức tạp)
-- (B) Loop từng slide với chained context (đã có pattern Sequential V2) → emit `slide_done` sau mỗi slide → tự nhiên streaming theo slide. **Khuyến nghị B** vì rõ ràng và đã align với kiến trúc Sequential.
-
-### Tầng 2: Frontend streaming consumer
-File: `src/contexts/CarouselGenerationContext.tsx`
-- Thay `supabase.functions.invoke()` bằng `fetch()` để đọc SSE stream (như `useExpandChannelsStreaming` đã làm).
-- Job state mở rộng:
-  ```
-  CarouselGenerationJob {
-    ...existing,
-    progress: number,        // % thực từ events
-    currentStep: string,     // "Đang tạo slide 3/8..."
-    partialSlides: CarouselSlide[],  // slides đã done
-    totalSlides: number,
-  }
-  ```
-- Watchdog timeout (30s first byte, 150s idle) — tái dùng pattern từ `useExpandChannelsStreaming`.
-- AbortController để cancel.
-
-### Tầng 3: UI feedback nâng cấp
-File: `src/components/carousel/GlobalCarouselGenTracker.tsx`
-- Replace fake elapsed-based percent với `activeJob.progress` thực.
-- Hiển thị step text: "Đang tạo slide 3/8" thay vì "Đang tạo prompts... 23s".
-- Mini progress bar reflect real progress.
-
-(Tùy chọn) Trong `CarouselViewer` hoặc dialog tạo, nếu user đang ở màn hình → render preview slides đã `slide_done` ngay (skeleton cho slide chưa xong) → "đang tạo trước mắt user".
-
-### Tầng 4: Backward compat
-- Nếu `body.stream !== true` → giữ nguyên JSON response cũ (không break call site khác).
-- Migration nhẹ: `CarouselGenerationContext` set `stream: true` mặc định.
-
-## Files đụng
-
-- `supabase/functions/generate-carousel/index.ts` — thêm SSE branch, loop slide với emit events, giữ JSON branch fallback
-- `src/contexts/CarouselGenerationContext.tsx` — đổi sang fetch + SSE parsing, mở rộng job state
-- `src/components/carousel/GlobalCarouselGenTracker.tsx` — hiển thị progress + step thực
-- (Tùy chọn) `src/components/CarouselGeneratorDialog.tsx` (hoặc form caller) — preview partial slides nếu vẫn mở
-
-## Kết quả mong đợi
-
-- User submit → trong 1-2s đã thấy "Đang tạo slide 1/8"
-- Progress bar nhích đều theo từng slide done (12.5% mỗi slide với 8 slides)
-- Có thể navigate đi nơi khác → mini tracker vẫn cập nhật real-time
-- Slide nào fail → event `slide_error` riêng, các slide khác vẫn tiếp tục
-- Khi xong → toast + carousel xuất hiện trong list (realtime đã có)
-- Cảm giác "AI đang làm việc trước mắt" thay vì spinner câm.
-
+Chi tiết kỹ thuật quan trọng
+- Log hiện tại cho thấy nhánh stream trả về rất nhanh nhưng nhánh JSON nội bộ chạy ~85s, nghĩa là stream đang “bọc” pipeline cũ chứ chưa stream thật.
+- `CarouselGenerationTracker` vẫn là UI giả lập theo timer, nên dù backend có stream tốt hơn thì trải nghiệm trên trang Carousel vẫn chưa chuẩn nếu không gộp lại.
+- Ưu tiên triển khai theo hướng “single source of truth + real per-slide events”, thay vì vá thêm animation lên stream giả hiện tại.
