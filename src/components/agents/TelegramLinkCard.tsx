@@ -112,7 +112,7 @@ export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
                       {deeplink}
                     </code>
                     <Button size="icon" variant="outline" onClick={handleCopy} className="shrink-0">
-                      {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                      {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
                 </div>

@@ -52,23 +52,21 @@ function StepHeader({
   const Icon = status === 'done' ? CheckCircle2 : status === 'locked' ? AlertCircle : Circle;
   const iconColor =
     status === 'done'
-      ? 'text-green-600'
+      ? 'text-primary'
       : status === 'current'
       ? 'text-primary'
-      : status === 'locked'
-      ? 'text-muted-foreground'
       : 'text-muted-foreground';
 
   return (
     <div className="flex items-start gap-3">
       <div className="flex flex-col items-center">
         <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-          status === 'done' ? 'border-green-600 bg-green-600/10' :
+          status === 'done' ? 'border-primary bg-primary/10' :
           status === 'current' ? 'border-primary bg-primary/10' :
           'border-muted bg-muted/30'
         }`}>
           {status === 'done' ? (
-            <CheckCircle2 className="w-4 h-4 text-green-600" />
+            <CheckCircle2 className="w-4 h-4 text-primary" />
           ) : (
             <span className="text-sm font-semibold text-muted-foreground">{index}</span>
           )}
