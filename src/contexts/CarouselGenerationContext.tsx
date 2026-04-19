@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Carousel, CarouselFormData, CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
+import { launchCarouselImageBatch } from '@/lib/carouselImageBatch';
 
 export type CarouselGenPhase =
   | 'init'
@@ -15,6 +16,7 @@ export type CarouselGenPhase =
   | 'revealing'
   | 'finalizing'
   | 'syncing'
+  | 'image_generating'
   | 'done'
   | 'error'
   | 'cancelled';
