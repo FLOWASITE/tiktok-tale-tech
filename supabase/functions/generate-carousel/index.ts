@@ -1674,19 +1674,52 @@ async function runCarouselPipelineStreaming(
 ): Promise<void> {
   const slideCount = formData.slideCount || 6;
 
-  await emit({ type: 'progress', step: 'planning', percent: 3, message: 'Đang phân tích chủ đề...', totalSlides: slideCount });
+  await emit({
+    type: 'progress',
+    step: 'planning',
+    phase: 'planning',
+    percent: 3,
+    message: 'Đang phân tích chủ đề & lập kế hoạch slide...',
+    totalSlides: slideCount,
+  });
 
-  // Heartbeat ticker — fakes a smooth progress between AI call start and finish.
-  // Caps at 65% while the AI is running; real events take over after parse.
+  // Phase-aware heartbeat. The single LLM tool-call cannot be split into
+  // per-slide chunks (it's one structured tool call), so during the AI phase
+  // we emit phase-tagged status messages with slow, capped progress (max 60%).
+  // Real per-slide events fire as soon as the JSON is parsed.
   let percent = 5;
   let stopHeartbeat = false;
+  const aiPhaseMessages = [
+    'AI đang viết hook slide đầu...',
+    'AI đang phát triển nội dung chính...',
+    'AI đang viết các slide giải thích...',
+    'AI đang tinh chỉnh CTA & caption...',
+    'AI đang hoàn thiện prompt ảnh cho từng slide...',
+  ];
+  let msgIdx = 0;
   const heartbeat = (async () => {
-    await emit({ type: 'progress', step: 'ai_generating', percent: 8, message: 'Đang gọi AI tạo nội dung slides...', totalSlides: slideCount });
-    while (!stopHeartbeat && percent < 65) {
-      await new Promise((r) => setTimeout(r, 1500));
+    await emit({
+      type: 'progress',
+      step: 'ai_generating',
+      phase: 'ai_generating',
+      percent: 8,
+      message: 'Đang gọi AI tạo nội dung slides...',
+      totalSlides: slideCount,
+    });
+    while (!stopHeartbeat && percent < 60) {
+      await new Promise((r) => setTimeout(r, 2200));
       if (stopHeartbeat) break;
-      percent = Math.min(65, percent + 3);
-      await emit({ type: 'progress', step: 'ai_generating', percent, message: `AI đang tạo slides... ${percent}%`, totalSlides: slideCount });
+      percent = Math.min(60, percent + 2);
+      const message = aiPhaseMessages[msgIdx % aiPhaseMessages.length];
+      msgIdx++;
+      await emit({
+        type: 'progress',
+        step: 'ai_generating',
+        phase: 'ai_generating',
+        percent,
+        message,
+        totalSlides: slideCount,
+      });
     }
   })();
 
