@@ -79,8 +79,12 @@ export function GlobalCarouselGenTracker() {
     if (activeJob.status === 'done') return 'Carousel sẵn sàng';
     if (activeJob.status === 'cancelled') return 'Đã hủy';
     if (activeJob.status === 'error') return activeJob.error || 'Tạo thất bại';
+    if (activeJob.phase === 'syncing') return 'Đang đồng bộ kết quả từ máy chủ...';
+    if (activeJob.revealingSlide && activeJob.totalSlides > 0) {
+      return `Đang hiển thị slide ${activeJob.revealingSlide}/${activeJob.totalSlides}...`;
+    }
     if (activeJob.currentStep) {
-      if (activeJob.totalSlides > 0 && activeJob.completedSlides > 0) {
+      if (activeJob.totalSlides > 0 && activeJob.completedSlides > 0 && activeJob.phase === 'revealing') {
         return `${activeJob.currentStep} (${activeJob.completedSlides}/${activeJob.totalSlides})`;
       }
       return activeJob.currentStep;
