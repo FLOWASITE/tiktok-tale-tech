@@ -440,7 +440,11 @@ export function CarouselGenerationTracker({
         )
       : promptDone
         ? 'Đang chuẩn bị tạo ảnh...'
-        : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
+        : currentPhase === 'syncing'
+          ? 'Đang đồng bộ kết quả...'
+          : currentPhase === 'revealing' && revealTotal > 0
+            ? `Đang viết slide ${Math.min(revealCompleted + 1, revealTotal)}/${revealTotal}...`
+            : activeJob?.currentStep || PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
 
   // Report progress to parent
   useEffect(() => {
