@@ -1368,7 +1368,39 @@ async function getActiveBrandContext(
   }
 }
 
-// Show a one-time hint about /brand the first time a user free-chats,
+// Detect when user mentions a brand name (in free-chat) different from the active brand.
+// Returns { mentionedBrand } if a different brand is found, otherwise null.
+// Uses simple substring match (case-insensitive, ≥3-char names) to avoid false positives.
+async function detectBrandMismatch(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  chatId: number,
+  text: string,
+  activeBrandName?: string | null,
+): Promise<{ mentionedBrand: BrandLite } | null> {
+  try {
+    const lowerText = text.toLowerCase();
+    if (lowerText.length < 4) return null;
+    const brands = await fetchOrgBrands(supabase, organizationId);
+    if (brands.length < 2) return null;
+
+    // Find brand whose name appears in user text but is NOT the active one
+    for (const b of brands) {
+      const name = b.brand_name.trim();
+      if (name.length < 3) continue;
+      if (activeBrandName && name.toLowerCase() === activeBrandName.toLowerCase()) continue;
+      // Word-boundary-ish match — require the brand name to appear as a contiguous substring
+      if (lowerText.includes(name.toLowerCase())) {
+        return { mentionedBrand: b };
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn("[telegram-webhook] detectBrandMismatch failed:", e);
+    return null;
+  }
+}
 // IF they don't have an explicitly chosen brand yet (only org-default fallback).
 async function maybeShowBrandHint(
   // deno-lint-ignore no-explicit-any
