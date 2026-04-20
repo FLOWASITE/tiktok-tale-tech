@@ -9666,6 +9666,7 @@ export type Database = {
           active_brand_template_id: string | null
           chat_type: string
           created_at: string
+          first_chat_hint_shown_at: string | null
           id: string
           is_active: boolean
           last_command_at: string | null
@@ -9683,6 +9684,7 @@ export type Database = {
           active_brand_template_id?: string | null
           chat_type: string
           created_at?: string
+          first_chat_hint_shown_at?: string | null
           id?: string
           is_active?: boolean
           last_command_at?: string | null
@@ -9700,6 +9702,7 @@ export type Database = {
           active_brand_template_id?: string | null
           chat_type?: string
           created_at?: string
+          first_chat_hint_shown_at?: string | null
           id?: string
           is_active?: boolean
           last_command_at?: string | null
