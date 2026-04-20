@@ -96,13 +96,133 @@ export interface BotCommand {
 
 export const BOT_COMMANDS: BotCommand[] = [
   { command: "start", description: "Bắt đầu / kết nối tài khoản" },
+  { command: "examples", description: "Xem ví dụ prompt thực tế" },
+  { command: "tutorial", description: "Hướng dẫn 30s cho người mới" },
   { command: "status", description: "Xem quota & pipeline tháng này" },
   { command: "brand", description: "Chọn thương hiệu active" },
   { command: "campaigns", description: "5 campaign gần nhất" },
   { command: "generate", description: "Tạo campaign mới từ mô tả" },
+  { command: "settings", description: "Cài đặt cá nhân (digest, ngôn ngữ…)" },
   { command: "cancel", description: "Hủy pipeline đang chạy" },
-  { command: "help", description: "Hướng dẫn sử dụng bot" },
+  { command: "help", description: "Menu hướng dẫn theo nhu cầu" },
 ];
+
+// =====================================================
+// Inline keyboard builders — UX overhaul Phase 1+2
+// =====================================================
+
+export interface InlineButton {
+  text: string;
+  callback_data?: string;
+  url?: string;
+  web_app?: { url: string };
+}
+
+export type InlineKeyboard = InlineButton[][];
+
+// Welcome 4-button grid shown right after successful /start link.
+export function buildWelcomeKeyboard(webAppUrl?: string): InlineKeyboard {
+  const rows: InlineKeyboard = [
+    [
+      { text: "🚀 Tạo campaign đầu", callback_data: "ux:welcome:generate" },
+      { text: "📊 Brand hiện tại", callback_data: "ux:welcome:brand" },
+    ],
+    [
+      { text: "💡 Xem ví dụ thực tế", callback_data: "ux:welcome:examples" },
+      { text: "📚 Hướng dẫn 30s", callback_data: "ux:welcome:tutorial" },
+    ],
+  ];
+  if (webAppUrl) {
+    rows.push([{ text: "🚀 Mở Mini App Flowa", web_app: { url: webAppUrl } }]);
+  }
+  return rows;
+}
+
+// Help redesign — grouped by use case (drill-down).
+export function buildHelpKeyboard(): InlineKeyboard {
+  return [
+    [
+      { text: "✍️ Tạo nội dung", callback_data: "ux:help:create" },
+      { text: "📊 Xem báo cáo", callback_data: "ux:help:report" },
+    ],
+    [
+      { text: "⚙️ Quản lý brand", callback_data: "ux:help:brand" },
+      { text: "💳 Quota & gói", callback_data: "ux:help:quota" },
+    ],
+    [
+      { text: "👥 Group team", callback_data: "ux:help:group" },
+      { text: "❓ Cần hỗ trợ", callback_data: "ux:help:support" },
+    ],
+  ];
+}
+
+// Contextual hints — append after replies to expose next-step actions.
+// Returns null when no useful hints for this surface (caller skips reply_markup).
+export function buildContextualHints(
+  surface: "status" | "campaign_created" | "fallback" | "examples" | "brand_changed",
+  webAppUrl?: string,
+): InlineKeyboard | null {
+  switch (surface) {
+    case "status":
+      return [
+        [
+          { text: "💎 Mua thêm quota", url: "https://app.flowa.one/pricing" },
+          { text: "📈 Xem báo cáo", url: "https://app.flowa.one/dashboard" },
+        ],
+      ];
+    case "campaign_created":
+      return [
+        [
+          { text: "📋 Duyệt ngay", url: "https://app.flowa.one/agent/approvals" },
+          { text: "📅 Lịch đăng", url: "https://app.flowa.one/calendar" },
+        ],
+      ];
+    case "fallback":
+      return [
+        [
+          { text: "💡 Xem ví dụ", callback_data: "ux:welcome:examples" },
+          { text: "📚 Hướng dẫn", callback_data: "ux:welcome:tutorial" },
+        ],
+      ];
+    case "examples":
+      return [
+        [{ text: "🚀 Bắt đầu chat tự do", callback_data: "ux:hint:freechat" }],
+      ];
+    case "brand_changed":
+      return [
+        [{ text: "✍️ Tạo content với brand này", callback_data: "ux:welcome:generate" }],
+      ];
+    default:
+      return null;
+  }
+}
+
+// =====================================================
+// Telegram Mini App: setChatMenuButton
+// =====================================================
+export async function setChatMenuButton(
+  botToken: string,
+  webAppUrl: string,
+  text = "🚀 Mở Flowa",
+): Promise<{ ok: boolean; description?: string }> {
+  try {
+    const res = await fetch(`${TELEGRAM_API}/bot${botToken}/setChatMenuButton`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        menu_button: {
+          type: "web_app",
+          text,
+          web_app: { url: webAppUrl },
+        },
+      }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn("[telegram-client] setChatMenuButton failed:", err);
+    return { ok: false, description: String(err) };
+  }
+}
 
 export async function setMyCommands(
   botToken: string,
