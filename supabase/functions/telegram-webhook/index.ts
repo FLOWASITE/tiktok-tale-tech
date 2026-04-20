@@ -800,6 +800,22 @@ async function handleFreeChat(
 ): Promise<void> {
   const { supabase, botConfig, chatId, telegramUserId, text } = ctx;
 
+  // 0. Per-user rate limit (free chat only — slash commands not counted)
+  if (telegramUserId) {
+    const rate = checkFreeChatRate(telegramUserId);
+    if (!rate.allowed) {
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        `⏳ Bạn đã đạt giới hạn ${FREE_CHAT_LIMIT} tin chat AI/giờ. Thử lại sau ~${rate.resetMins} phút, hoặc dùng lệnh /generate, /status, /help (không bị giới hạn).`,
+      );
+      return;
+    }
+  }
+
+  // 0b. Resolve active brand for this user (if linked + chosen)
+  const brandCtx = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+
   // 1. Log user message (best-effort)
   await supabase.from("telegram_messages_log").insert({
     organization_id: botConfig.organizationId,
