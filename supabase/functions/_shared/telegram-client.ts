@@ -198,6 +198,136 @@ export function buildContextualHints(
 }
 
 // =====================================================
+// Brand switcher — one-tap inline keyboard
+// =====================================================
+
+export interface BrandLite {
+  id: string;
+  brand_name: string;
+  is_default?: boolean | null;
+  primary_color?: string | null;
+}
+
+const BRANDS_PER_PAGE = 8;
+
+/**
+ * Map a hex color (e.g. "#A855F7") to the closest Telegram-renderable colored circle emoji.
+ * Falls back to ⚪ for missing/invalid input.
+ */
+export function colorToEmoji(hex?: string | null): string {
+  if (!hex) return "⚪";
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "⚪";
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 0xff;
+  const g = (n >> 8) & 0xff;
+  const b = n & 0xff;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2 / 255;
+
+  if (max - min < 25) {
+    if (l < 0.2) return "⚫";
+    if (l > 0.85) return "⚪";
+    return "⚫";
+  }
+
+  // Hue (deg)
+  const d = max - min;
+  let h = 0;
+  if (max === r) h = 60 * (((g - b) / d) % 6);
+  else if (max === g) h = 60 * ((b - r) / d + 2);
+  else h = 60 * ((r - g) / d + 4);
+  if (h < 0) h += 360;
+
+  if (h < 18 || h >= 345) return "🔴";
+  if (h < 45) return "🟠";
+  if (h < 70) return "🟡";
+  if (h < 165) return "🟢";
+  if (h < 200) return "🔵";
+  if (h < 260) return "🔵";
+  if (h < 310) return "🟣";
+  return "🔴";
+}
+
+/**
+ * Build the inline keyboard for the brand switcher.
+ * - Active brand gets ✓
+ * - Default brand gets 👑
+ * - 8 brands per page; pagination row appears only when >8
+ * - Trailing rows: [🔍 Tìm] [➕ Tạo brand] · [🚀 Mở Mini App]
+ */
+export function buildBrandSwitcherKeyboard(
+  brands: BrandLite[],
+  activeId: string | null,
+  page = 0,
+  opts: { webAppUrl?: string; appBaseUrl?: string } = {},
+): InlineKeyboard {
+  const totalPages = Math.max(1, Math.ceil(brands.length / BRANDS_PER_PAGE));
+  const safePage = Math.max(0, Math.min(page, totalPages - 1));
+  const start = safePage * BRANDS_PER_PAGE;
+  const slice = brands.slice(start, start + BRANDS_PER_PAGE);
+
+  const rows: InlineKeyboard = [];
+  // 2 per row
+  for (let i = 0; i < slice.length; i += 2) {
+    const row: InlineButton[] = [];
+    for (const b of slice.slice(i, i + 2)) {
+      const dot = colorToEmoji(b.primary_color);
+      const crown = b.is_default ? "👑 " : "";
+      const check = b.id === activeId ? " ✓" : "";
+      const name = b.brand_name.length > 18 ? b.brand_name.slice(0, 17) + "…" : b.brand_name;
+      row.push({
+        text: `${dot} ${crown}${name}${check}`,
+        callback_data: `brand:switch:${b.id}`,
+      });
+    }
+    rows.push(row);
+  }
+
+  if (totalPages > 1) {
+    const navRow: InlineButton[] = [];
+    if (safePage > 0) navRow.push({ text: "« Trước", callback_data: `brand:page:${safePage - 1}` });
+    navRow.push({ text: `${safePage + 1}/${totalPages}`, callback_data: "brand:noop" });
+    if (safePage < totalPages - 1) navRow.push({ text: "Sau »", callback_data: `brand:page:${safePage + 1}` });
+    rows.push(navRow);
+  }
+
+  const utilityRow: InlineButton[] = [
+    { text: "🔍 Tìm brand…", callback_data: "brand:search" },
+  ];
+  if (opts.appBaseUrl) {
+    utilityRow.push({ text: "➕ Tạo brand", url: `${opts.appBaseUrl}/brands` });
+  }
+  rows.push(utilityRow);
+
+  if (opts.webAppUrl) {
+    rows.push([{ text: "🚀 Quản lý brand đầy đủ", web_app: { url: `${opts.webAppUrl}/brands` } }]);
+  }
+
+  return rows;
+}
+
+/**
+ * Compact reply_markup with a single "Đổi brand" button — appended to /status,
+ * /generate, free-chat replies so the active brand stays one tap away.
+ */
+export function buildBrandFooterKeyboard(): InlineKeyboard {
+  return [[{ text: "🎨 Đổi brand", callback_data: "brand:open" }]];
+}
+
+/**
+ * Append "🎨 Brand: <name>" footer text. Caller controls parse_mode escaping.
+ * Returns the original text untouched if brandName is empty.
+ */
+export function appendBrandFooter(text: string, brandName?: string | null): string {
+  if (!brandName) return text;
+  const sep = "\n\n─────────";
+  return `${text}${sep}\n🎨 Brand: ${brandName}`;
+}
+
+// =====================================================
 // Telegram Mini App: setChatMenuButton
 // =====================================================
 export async function setChatMenuButton(
