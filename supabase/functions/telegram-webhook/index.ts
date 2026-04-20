@@ -8,12 +8,28 @@ import {
   buildWelcomeKeyboard,
   buildHelpKeyboard,
   buildContextualHints,
+  buildBrandSwitcherKeyboard,
+  buildBrandFooterKeyboard,
+  appendBrandFooter,
   signLinkToken,
+  type BrandLite,
 } from "../_shared/telegram-client.ts";
 
 const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
-import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+import { answerCallback, editMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+
+// In-memory per-chat brand switcher state (page index + search filter + last switcher message id).
+// Edge instance scope; resets on cold start — acceptable for an interactive UI element.
+const brandSwitcherState = new Map<number, { page: number; filter?: string; messageId?: number; awaitingSearch?: boolean }>();
+function getBrandSwitcherState(chatId: number) {
+  let s = brandSwitcherState.get(chatId);
+  if (!s) {
+    s = { page: 0 };
+    brandSwitcherState.set(chatId, s);
+  }
+  return s;
+}
 
 // Reply keyboard shown after /start, /help — quick access to common actions.
 const QUICK_KEYBOARD = {
@@ -317,6 +333,16 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
           break;
         }
         if (chatType === "private") {
+          // If user just tapped 🔍 in brand switcher, treat next plain message as filter.
+          const bs = brandSwitcherState.get(chatId);
+          if (bs?.awaitingSearch) {
+            bs.awaitingSearch = false;
+            bs.filter = text.slice(0, 50);
+            bs.page = 0;
+            const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+            await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
+            break;
+          }
           await safeReply(botConfig.botToken, chatId, traceId, () =>
             handleFreeChat({ supabase, botConfig, chatId, telegramUserId, text }));
         }
@@ -1088,7 +1114,9 @@ async function handleFreeChat(
 }
 
 // =====================================================
-// /brand command — list brands or set active one
+// /brand command — inline-keyboard switcher (one-tap)
+//   • No arg → render switcher with all brands
+//   • Arg → fuzzy match → switch directly (back-compat with `/brand <name>`)
 // =====================================================
 async function handleBrand(
   ctx: HandlerCtx & { telegramUserId?: number; arg: string },
@@ -1106,72 +1134,166 @@ async function handleBrand(
     return;
   }
 
-  const { data: brands } = await supabase
-    .from("brand_templates")
-    .select("id, brand_name, is_default")
-    .eq("organization_id", botConfig.organizationId)
-    .order("is_default", { ascending: false })
-    .order("brand_name", { ascending: true })
-    .limit(20);
-
-  if (!brands || brands.length === 0) {
+  const allBrands = await fetchOrgBrands(supabase, botConfig.organizationId);
+  if (allBrands.length === 0) {
     await sendMessage(botConfig.botToken, chatId, "Tổ chức chưa có brand nào. Tạo trong app Flowa trước.");
     return;
   }
 
-  // No arg → show current + list
-  if (!arg) {
-    const { data: current } = await supabase
-      .from("telegram_chat_bindings")
-      .select("active_brand_template_id, brand_templates:active_brand_template_id(brand_name)")
-      .eq("organization_id", botConfig.organizationId)
-      .eq("telegram_chat_id", chatId)
-      .maybeSingle();
-    const currentName = (current as any)?.brand_templates?.brand_name as string | undefined;
-
-    const lines: string[] = [];
-    lines.push(`🎨 *Brand đang active:* ${currentName ? escMdNotif(currentName) : "_chưa chọn_"}`);
-    lines.push("");
-    lines.push("*Chọn brand bằng:* `/brand <tên>`");
-    lines.push("");
-    lines.push("*Brand trong tổ chức:*");
-    for (const b of brands) {
-      lines.push(`• ${escMdNotif(b.brand_name)}${b.is_default ? " _(mặc định)_" : ""}`);
+  // Back-compat: `/brand <name>` → switch directly
+  if (arg) {
+    const matched = matchBrandByName(allBrands, arg);
+    if (!matched) {
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        `❌ Không tìm thấy brand "${arg}". Gõ /brand để xem danh sách.`,
+      );
+      return;
     }
-    await sendMessage(botConfig.botToken, chatId, lines.join("\n"), { parse_mode: "Markdown" });
-    return;
-  }
-
-  // arg → fuzzy match brand name
-  const needle = arg.toLowerCase();
-  const matched = brands.find((b: any) => b.brand_name.toLowerCase() === needle)
-    || brands.find((b: any) => b.brand_name.toLowerCase().includes(needle));
-  if (!matched) {
+    await switchActiveBrand(supabase, botConfig.organizationId, chatId, matched.id);
     await sendMessage(
       botConfig.botToken,
       chatId,
-      `❌ Không tìm thấy brand "${arg}". Gõ /brand để xem danh sách.`,
+      `✅ Đã chọn brand *${escMdNotif(matched.brand_name)}* cho phiên chat.`,
+      { parse_mode: "Markdown" },
     );
     return;
   }
 
+  // No arg → render inline switcher
+  await renderBrandSwitcher({ supabase, botConfig, chatId, brands: allBrands, replaceMessageId: undefined });
+}
+
+// Helper — fetch brands once, pass around
+async function fetchOrgBrands(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+): Promise<BrandLite[]> {
+  const { data } = await supabase
+    .from("brand_templates")
+    .select("id, brand_name, is_default, primary_color")
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null)
+    .order("is_default", { ascending: false })
+    .order("brand_name", { ascending: true })
+    .limit(50);
+  return (data || []) as BrandLite[];
+}
+
+function matchBrandByName(brands: BrandLite[], needle: string): BrandLite | undefined {
+  const n = needle.trim().toLowerCase();
+  if (!n) return undefined;
+  return brands.find((b) => b.brand_name.toLowerCase() === n)
+    || brands.find((b) => b.brand_name.toLowerCase().includes(n));
+}
+
+async function getActiveBrandId(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  chatId: number,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("telegram_chat_bindings")
+    .select("active_brand_template_id")
+    .eq("organization_id", organizationId)
+    .eq("telegram_chat_id", chatId)
+    .maybeSingle();
+  return (data?.active_brand_template_id as string | null) ?? null;
+}
+
+async function switchActiveBrand(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  chatId: number,
+  brandId: string,
+): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase
     .from("telegram_chat_bindings")
-    .update({ active_brand_template_id: matched.id })
-    .eq("organization_id", botConfig.organizationId)
+    .update({ active_brand_template_id: brandId })
+    .eq("organization_id", organizationId)
     .eq("telegram_chat_id", chatId);
   if (error) {
-    console.error("[telegram-webhook] set active brand failed:", error);
-    await sendMessage(botConfig.botToken, chatId, "❌ Không lưu được. Thử lại sau.");
+    console.error("[telegram-webhook] switchActiveBrand failed:", error);
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+// Render (or re-render) the inline brand switcher.
+// If `replaceMessageId` is passed → editMessageReplyMarkup (no new message).
+async function renderBrandSwitcher(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  brands: BrandLite[];
+  replaceMessageId?: number;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, brands, replaceMessageId } = args;
+  const state = getBrandSwitcherState(chatId);
+
+  const filtered = state.filter
+    ? brands.filter((b) => b.brand_name.toLowerCase().includes(state.filter!.toLowerCase()))
+    : brands;
+
+  const activeId = await getActiveBrandId(supabase, botConfig.organizationId, chatId);
+  const keyboard = buildBrandSwitcherKeyboard(filtered, activeId, state.page, {
+    webAppUrl: MINI_APP_URL,
+    appBaseUrl: "https://app.flowa.one",
+  });
+  const replyMarkup = { inline_keyboard: keyboard };
+
+  if (replaceMessageId) {
+    await editMessageReplyMarkup(botConfig.botToken, chatId, replaceMessageId, replyMarkup);
     return;
   }
 
-  await sendMessage(
+  const activeName = activeId ? brands.find((b) => b.id === activeId)?.brand_name : undefined;
+  const header = activeName
+    ? `🎨 *Brand đang dùng:* ✨ ${escMdNotif(activeName)}`
+    : `🎨 *Chưa chọn brand* — chạm để chọn:`;
+  const filterLine = state.filter ? `\n_Lọc:_ \`${escMdNotif(state.filter)}\` · gõ /brand để xoá lọc` : "";
+
+  // Send and remember message id so subsequent callbacks can edit in place.
+  const sent = await sendMessageReturn(
     botConfig.botToken,
     chatId,
-    `✅ Đã chọn brand *${escMdNotif(matched.brand_name)}* cho phiên chat.`,
-    { parse_mode: "Markdown" },
+    `${header}${filterLine}\n\nChọn brand khác:`,
+    { parse_mode: "Markdown", reply_markup: replyMarkup },
   );
+  if (sent?.message_id) {
+    state.messageId = sent.message_id;
+  }
+}
+
+// Variant of sendMessage that returns the Telegram message object so we can later edit it.
+async function sendMessageReturn(
+  botToken: string,
+  chatId: number,
+  text: string,
+  // deno-lint-ignore no-explicit-any
+  opts: any = {},
+): Promise<{ message_id: number } | null> {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text, ...opts }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.ok) {
+      console.warn("[telegram-webhook] sendMessageReturn failed:", res.status, json);
+      return null;
+    }
+    return json.result as { message_id: number };
+  } catch (e) {
+    console.warn("[telegram-webhook] sendMessageReturn error:", e);
+    return null;
+  }
 }
 
 // Resolve active brand → BrandContext (for free chat).
@@ -1272,6 +1394,12 @@ async function handleCallbackQuery(args: {
   // UX callbacks: ux:<group>:<key>
   if (data.startsWith("ux:") && chatId) {
     await handleUxCallback({ supabase, botConfig, chatId, fromTgId, cbId, data });
+    return;
+  }
+
+  // Brand switcher callbacks: brand:switch:<id> | brand:open | brand:page:<n> | brand:search | brand:noop
+  if (data.startsWith("brand:") && chatId) {
+    await handleBrandCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
     return;
   }
 
@@ -1830,4 +1958,86 @@ async function handleUxCallback(args: {
     await sendMessage(botConfig.botToken, chatId, "💬 Cứ gõ tin nhắn bình thường — mình hiểu tiếng Việt và sẽ tự nhận diện ý định!");
     return;
   }
+}
+
+// =====================================================
+// Brand switcher callback router — brand:switch:<id> | brand:open | brand:page:<n> | brand:search | brand:noop
+// =====================================================
+async function handleBrandCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  const parts = data.split(":");
+  const action = parts[1];
+  const param = parts.slice(2).join(":");
+  const state = getBrandSwitcherState(chatId);
+
+  if (action === "noop") {
+    await answerCallback(botConfig.botToken, cbId).catch(() => {});
+    return;
+  }
+
+  if (action === "open") {
+    await answerCallback(botConfig.botToken, cbId).catch(() => {});
+    state.filter = undefined;
+    state.page = 0;
+    const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+    if (brands.length === 0) {
+      await sendMessage(botConfig.botToken, chatId, "Tổ chức chưa có brand nào.");
+      return;
+    }
+    await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
+    return;
+  }
+
+  if (action === "page") {
+    const next = parseInt(param, 10);
+    if (Number.isNaN(next)) {
+      await answerCallback(botConfig.botToken, cbId).catch(() => {});
+      return;
+    }
+    state.page = next;
+    await answerCallback(botConfig.botToken, cbId).catch(() => {});
+    const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+    await renderBrandSwitcher({ supabase, botConfig, chatId, brands, replaceMessageId: messageId });
+    return;
+  }
+
+  if (action === "search") {
+    state.awaitingSearch = true;
+    await answerCallback(botConfig.botToken, cbId, "Gõ tên brand để lọc").catch(() => {});
+    await sendMessage(botConfig.botToken, chatId, "🔍 Gõ tên brand để tìm (hoặc /brand để hủy):", {
+      reply_markup: { force_reply: true, selective: true, input_field_placeholder: "VD: spa" },
+    });
+    return;
+  }
+
+  if (action === "switch") {
+    const brandId = param;
+    if (!brandId) {
+      await answerCallback(botConfig.botToken, cbId, "Brand không hợp lệ.").catch(() => {});
+      return;
+    }
+    const result = await switchActiveBrand(supabase, botConfig.organizationId, chatId, brandId);
+    if (!result.ok) {
+      await answerCallback(botConfig.botToken, cbId, "❌ Không lưu được", true).catch(() => {});
+      return;
+    }
+    const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+    const switched = brands.find((b) => b.id === brandId);
+    await answerCallback(botConfig.botToken, cbId, switched ? `✅ Đã đổi sang ${switched.brand_name}` : "✅ Đã đổi").catch(() => {});
+    if (messageId) {
+      await renderBrandSwitcher({ supabase, botConfig, chatId, brands, replaceMessageId: messageId });
+    }
+    return;
+  }
+
+  await answerCallback(botConfig.botToken, cbId).catch(() => {});
 }

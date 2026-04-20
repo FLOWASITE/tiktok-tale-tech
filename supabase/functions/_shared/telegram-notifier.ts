@@ -337,3 +337,26 @@ export async function editMessageText(
     console.warn("[telegram-notifier] editMessageText failed:", e);
   }
 }
+
+// Edit only the inline keyboard of an existing message (no text change).
+// Used by the brand switcher to re-render check marks after a tap.
+export async function editMessageReplyMarkup(
+  botToken: string,
+  chatId: number,
+  messageId: number,
+  replyMarkup: unknown,
+): Promise<void> {
+  try {
+    await fetch(`${TELEGRAM_API}/bot${botToken}/editMessageReplyMarkup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: replyMarkup,
+      }),
+    });
+  } catch (e) {
+    console.warn("[telegram-notifier] editMessageReplyMarkup failed:", e);
+  }
+}
