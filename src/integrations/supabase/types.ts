@@ -9669,6 +9669,8 @@ export type Database = {
           id: string
           is_active: boolean
           last_command_at: string | null
+          last_quota_alert_at: string | null
+          last_quota_alert_threshold: number | null
           linked_at: string
           organization_id: string
           telegram_chat_id: number
@@ -9684,6 +9686,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_command_at?: string | null
+          last_quota_alert_at?: string | null
+          last_quota_alert_threshold?: number | null
           linked_at?: string
           organization_id: string
           telegram_chat_id: number
@@ -9699,6 +9703,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_command_at?: string | null
+          last_quota_alert_at?: string | null
+          last_quota_alert_threshold?: number | null
           linked_at?: string
           organization_id?: string
           telegram_chat_id?: number
