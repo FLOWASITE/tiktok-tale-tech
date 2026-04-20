@@ -865,6 +865,10 @@ async function handleFreeChat(
   // 0b. Resolve active brand for this user (if linked + chosen)
   const brandCtx = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
 
+  // 0c. First-time brand hint — nudge user to /brand if they haven't picked one yet.
+  // Shown at most once per binding (tracked via first_chat_hint_shown_at).
+  await maybeShowBrandHint(supabase, botConfig, chatId, brandCtx);
+
   // 1. Log user message (best-effort)
   await supabase.from("telegram_messages_log").insert({
     organization_id: botConfig.organizationId,
