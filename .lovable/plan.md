@@ -1,103 +1,58 @@
 
 
-User hỏi mở — cần đề xuất các improvement cho Telegram bot. Dựa vào context hiện tại:
+# Hiện menu lệnh native trên Telegram
 
-**Đã có:**
-- Free chat (intent classifier qwen-plus)
-- `/start`, `/status` (mini dashboard mới), `/help`, `/generate`, `/link_group`
-- Permission fallback owner/admin
+## Vấn đề
+Hiện tại bot có Quick Reply Keyboard (4 nút text dưới input) và list lệnh trong app, nhưng **không có menu lệnh native của Telegram** — tức là nút "Menu" (icon `/`) bên trái input box không hiện danh sách lệnh để user click.
 
-**Gaps tôi thấy:**
-1. Không có notification push từ Flowa → Telegram (pipeline done, approval needed, publish success/fail)
-2. Không có inline buttons (approve/reject ngay trên Telegram)
-3. Không nhận ảnh/file (upload brand reference, logo qua chat)
-4. Không có `/campaigns` để list nhanh campaign
-5. Không group chat support đầy đủ (mention bot, multi-user trong team)
-6. Free chat chưa có context brand (bot không biết user đang làm brand nào)
-7. Không có rate limit per user → dễ abuse credits
-8. Không có quick reply keyboard cho action thường dùng
+→ User mới phải nhớ tự gõ `/status`, `/brand`, `/campaigns`...
 
-Đề xuất dạng menu để user chọn priority.
+## Giải pháp
+Telegram có API `setMyCommands` để đăng ký danh sách lệnh chính thức. Sau khi gọi 1 lần, **tất cả user của bot** sẽ thấy:
+- Icon menu (☰) bên trái ô nhập tin nhắn
+- Bấm vào hiện popup list lệnh + mô tả ngắn
+- Khi user gõ `/`, autocomplete dropdown các lệnh
+- Mobile: nút "Menu" bên dưới hiện luôn
 
----
+## Phạm vi triển khai
 
-# Đề xuất cải thiện Telegram Bot
-
-Hiện bot đã có: free chat AI, `/status` dashboard, `/generate`, permission auto cho owner/admin. Dưới đây là các hướng nâng cấp xếp theo **mức độ tác động**.
-
-## 🔥 High impact — đáng làm trước
-
-### 1. Push notification từ Flowa → Telegram
-Bot đang **một chiều** (user hỏi → bot trả). Thiếu chiều ngược: khi có sự kiện trong app, đẩy về Telegram.
-- Pipeline hoàn tất → "✅ Campaign 'Spa trẻ hóa' đã sẵn sàng duyệt"
-- Cần approval → ping admin kèm inline button **Duyệt / Từ chối / Xem chi tiết**
-- Publish thành công/thất bại → báo ngay
-- Quota chạm 80% / 100% → cảnh báo
-
-→ Cho phép user **rời app vẫn nắm hết** mọi thứ quan trọng.
-
-### 2. Inline buttons (Telegram InlineKeyboard)
-Thay vì user phải mở app để duyệt, gắn button trực tiếp vào message:
+### 1. Thêm helper `setMyCommands` vào `telegram-client.ts`
+Wrapper gọi `POST /bot{token}/setMyCommands` với danh sách:
 ```
-[✅ Duyệt] [❌ Từ chối] [👁 Xem]
-[📅 Lên lịch đăng]
+/start       — Bắt đầu / kết nối
+/status      — Xem quota & pipeline
+/brand       — Chọn thương hiệu active
+/campaigns   — 5 campaign gần nhất
+/generate    — Tạo campaign mới
+/help        — Hướng dẫn
 ```
-Click → bot xử lý ngay qua callback_query, không cần rời chat.
 
-### 3. Brand context trong free chat
-Hiện chat AI không biết user đang dùng brand nào → trả lời chung chung.
-- Lệnh `/brand` → list brand, chọn active brand cho phiên chat
-- Free chat ngầm prepend brand context (tone, industry, USP) vào prompt
-- `/generate` tự dùng brand đang active
+### 2. Tự động đăng ký khi admin register webhook
+Trong `telegram-bot-admin/index.ts`, ngay sau `setWebhook(...)` thành công → gọi `setMyCommands(botToken, COMMANDS)`. Nếu fail chỉ log warning, không block flow (vì menu là enhancement, không critical).
 
-## ⚡ Medium impact
+### 3. Mỗi org = 1 bot riêng → chạy per-bot
+Vì kiến trúc đã là multi-tenant 1 bot/org, mỗi lần admin register/re-register webhook sẽ tự sync menu cho bot đó.
 
-### 4. Rate limit per user
-Hiện 1 user spam free chat → đốt credits cả tổ chức.
-- Giới hạn ~20 free-chat msg / giờ / user
-- Vượt → bot báo "đã đạt giới hạn, thử lại sau X phút"
-- Lệnh `/`, `/status`, `/help` không tính
+### 4. (Optional) Nút "Re-sync menu" trong UI
+Trong `TelegramBotConfigCard.tsx` thêm 1 nút nhỏ "Đồng bộ menu lệnh" gọi action `sync_commands` của edge function — phòng khi muốn update menu mà không cần re-register webhook.
 
-### 5. Quick reply keyboard
-Khi user `/start`, hiện keyboard cố định 2-3 nút:
-```
-[📊 Status] [🚀 Tạo campaign]
-[📅 Lịch đăng] [💡 Help]
-```
-→ User không phải nhớ lệnh.
+## Files thay đổi
 
-### 6. `/campaigns` list nhanh
-Tương tự `/status` nhưng focus campaigns:
-- 5 campaign mới nhất + status
-- Inline button "Xem tất cả" → mở app deeplink
+| File | Thay đổi |
+|---|---|
+| `supabase/functions/_shared/telegram-client.ts` | + `setMyCommands()` + const `BOT_COMMANDS` |
+| `supabase/functions/telegram-bot-admin/index.ts` | Gọi `setMyCommands` sau `setWebhook`; thêm action `sync_commands` |
+| `src/hooks/useTelegramBotConfig.ts` | + `syncCommands()` method |
+| `src/components/agents/TelegramBotConfigCard.tsx` | + button "Đồng bộ menu lệnh" |
 
-### 7. Nhận ảnh / file
-User gửi ảnh logo / sample → bot upload vào brand assets.
-User gửi PDF brief → bot đọc và tự `/generate`.
+## Behavior sau khi deploy
+- Admin nào đã register webhook trước đó → bấm "Đồng bộ menu lệnh" 1 lần để áp dụng cho bot của họ
+- Admin mới register → menu tự được set, không cần thao tác thêm
+- User mở chat bot → thấy ngay nút Menu hiện list 6 lệnh
 
-## 🌱 Nice to have
-
-### 8. Group chat nâng cao
-- Mention `@flowa_bot` trong group team mới phản hồi (không spam)
-- Notification chỉ gửi tới group đã link, theo organization
-- Hỗ trợ thread reply giữ context
-
-### 9. Daily/weekly digest
-Mỗi sáng 8h gửi tóm tắt: "Hôm qua publish 3 bài, hôm nay 2 bài lên lịch, quota còn 18/30".
-
-### 10. Voice message → command
-User gửi voice → Whisper transcribe → route như text message.
-
----
-
-## Câu hỏi cho bạn
-
-Mình đề xuất **chọn 1-2 hướng làm trước** thay vì làm tất cả. Bạn muốn ưu tiên hướng nào?
-
-- **A)** Push notification + inline approve buttons (mục 1+2) — biến Telegram thành "remote control" cho Flowa
-- **B)** Brand context + rate limit (mục 3+4) — chat AI thông minh & an toàn hơn
-- **C)** Quick keyboard + `/campaigns` (mục 5+6) — UX gọn cho user mới
-- **D)** Bạn có hướng khác / kết hợp riêng
-
-Cho mình biết lựa chọn, mình sẽ viết plan chi tiết để triển khai.
+## Test sau khi triển khai
+1. Vào Agent → Telegram → bấm "Đồng bộ menu lệnh"
+2. Mở chat bot trong Telegram → thấy icon menu (☰) bên trái input
+3. Bấm vào → hiện 6 lệnh + mô tả
+4. Click 1 lệnh (vd `/status`) → tự gửi lệnh, bot phản hồi đúng
 
