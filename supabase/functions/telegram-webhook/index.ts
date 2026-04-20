@@ -7,7 +7,17 @@ import {
   verifyLinkToken,
 } from "../_shared/telegram-client.ts";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
-import { answerCallback, editMessageText, escapeMd as escMdNotif } from "../_shared/telegram-notifier.ts";
+import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+
+// Reply keyboard shown after /start, /help — quick access to common actions.
+const QUICK_KEYBOARD = {
+  keyboard: [
+    [{ text: "📊 Status" }, { text: "🎨 Brand" }],
+    [{ text: "📋 Campaigns" }, { text: "💡 Help" }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
 
 // Per-user free-chat rate limit (in-memory, per edge instance)
 // 20 messages / hour per Telegram user. Slash commands are NOT counted.
@@ -250,9 +260,12 @@ function helpText(): string {
     "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
     "/generate <mô tả> — Tạo campaign mới (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
+    "/campaigns — Xem 5 campaign mới nhất",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
     "/link_group — (Admin, trong group) Kết nối group với tổ chức",
     "/help — Hiện danh sách này",
+    "",
+    "💬 Hoặc chat tự nhiên — bot hiểu tiếng Việt!",
   ].join("\n");
 }
 
