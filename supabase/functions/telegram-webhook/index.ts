@@ -1454,6 +1454,7 @@ async function handleCallbackQuery(args: {
   const msg = callback.message;
   const chatId = msg?.chat?.id as number | undefined;
   const messageId = msg?.message_id as number | undefined;
+  console.log("[telegram-webhook] callback_query:", { data, chatId, fromTgId, messageId });
 
   // UX callbacks: ux:<group>:<key>
   if (data.startsWith("ux:") && chatId) {
