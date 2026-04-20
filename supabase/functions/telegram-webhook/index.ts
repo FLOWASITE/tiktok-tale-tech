@@ -616,6 +616,47 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const orgId = botConfig.organizationId;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Resolve active brand first — to scope pipeline queries
+  const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
+  const activeBrandId = (activeBrand as any)?.id ?? null;
+
+  // If brand active, get its goal IDs to filter pipelines
+  let goalIdsForBrand: string[] | null = null;
+  if (activeBrandId) {
+    const { data: gs } = await supabase
+      .from("agent_goals")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("brand_template_id", activeBrandId);
+    goalIdsForBrand = (gs || []).map((g: any) => g.id);
+  }
+
+  // Sentinel UUID so `.in(..., [])` returns 0 rows cleanly when brand has no goals
+  const SENTINEL = ["00000000-0000-0000-0000-000000000000"];
+  const brandGoalFilter = goalIdsForBrand !== null
+    ? (goalIdsForBrand.length ? goalIdsForBrand : SENTINEL)
+    : null;
+
+  let runningQ = supabase
+    .from("agent_pipelines")
+    .select("content_title,current_stage")
+    .eq("organization_id", orgId)
+    .in("current_stage", ["strategy", "create", "quality", "approval", "publish"])
+    .is("completed_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  if (brandGoalFilter) runningQ = runningQ.in("goal_id", brandGoalFilter);
+
+  let recentQ = supabase
+    .from("agent_pipelines")
+    .select("content_title,completed_at")
+    .eq("organization_id", orgId)
+    .not("completed_at", "is", null)
+    .gte("completed_at", sevenDaysAgo)
+    .order("completed_at", { ascending: false })
+    .limit(3);
+  if (brandGoalFilter) recentQ = recentQ.in("goal_id", brandGoalFilter);
+
   // Parallel fetch — resilient: each piece can fail without breaking others
   const [orgRes, subRes, quotaRes, runningRes, recentRes] = await Promise.allSettled([
     supabase.from("organizations").select("name").eq("id", orgId).maybeSingle(),
@@ -626,22 +667,8 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
       .eq("status", "active")
       .maybeSingle(),
     assertCanCreateGoal(supabase, orgId, binding.userId),
-    supabase
-      .from("agent_pipelines")
-      .select("content_title,current_stage")
-      .eq("organization_id", orgId)
-      .in("current_stage", ["strategy", "create", "quality", "approval", "publish"])
-      .is("completed_at", null)
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("agent_pipelines")
-      .select("content_title,completed_at")
-      .eq("organization_id", orgId)
-      .not("completed_at", "is", null)
-      .gte("completed_at", sevenDaysAgo)
-      .order("completed_at", { ascending: false })
-      .limit(3),
+    runningQ,
+    recentQ,
   ]);
 
   const orgName = orgRes.status === "fulfilled" ? (orgRes.value.data?.name as string | undefined) : undefined;
@@ -667,6 +694,9 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (quota?.ok) {
     lines.push(`• Quyền agent: ${escapeMd(autonomyLabel(quota.maxAutonomyLevel))}`);
   }
+  if (activeBrand?.brand_name) {
+    lines.push(`• 🎨 Brand đang xem: ${escapeMd(activeBrand.brand_name)}`);
+  }
   lines.push("");
 
   // Usage section
@@ -674,36 +704,43 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (!quota?.ok) {
     lines.push(`• ${escapeMd(quota?.message || "Không lấy được hạn mức")}`);
   } else if (quota.monthlyLimit === null) {
-    lines.push(`• Pipeline: ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
+    lines.push(`• Pipeline (toàn org): ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
   } else {
     const used = quota.pipelinesUsed;
     const limit = quota.monthlyLimit;
-    lines.push(`• Pipeline: ${used}/${limit}  ${formatProgressBar(used, limit)}`);
+    lines.push(`• Pipeline (toàn org): ${used}/${limit}  ${formatProgressBar(used, limit)}`);
     const remaining = Math.max(0, limit - used);
     lines.push(`• Còn ${remaining} lượt`);
   }
   lines.push("");
 
-  // Running pipelines
-  if (running.length > 0) {
-    lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
-    for (const p of running) {
-      const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
-      const stg = stageLabel(p.current_stage);
-      const pct = stageProgressPct(p.current_stage);
-      lines.push(`• "${title}" — ${stg} (${pct}%)`);
-    }
+  // Brand has no pipeline yet
+  if (activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0) {
+    lines.push(`ℹ️ Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
+    lines.push("👉 /generate <mô tả> để tạo campaign đầu tiên.");
     lines.push("");
-  }
+  } else {
+    // Running pipelines
+    if (running.length > 0) {
+      lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
+      for (const p of running) {
+        const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
+        const stg = stageLabel(p.current_stage);
+        const pct = stageProgressPct(p.current_stage);
+        lines.push(`• "${title}" — ${stg} (${pct}%)`);
+      }
+      lines.push("");
+    }
 
-  // Recently completed
-  if (recent.length > 0) {
-    lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
-    for (const p of recent) {
-      const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
-      lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
+    // Recently completed
+    if (recent.length > 0) {
+      lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
+      for (const p of recent) {
+        const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
+        lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
+      }
+      lines.push("");
     }
-    lines.push("");
   }
 
   // Hints
@@ -718,7 +755,10 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
       hints.push("💎 Bạn đang dùng gói Free — upgrade để mở khoá thêm tính năng");
     }
   }
-  if (running.length === 0) {
+  if (!activeBrandId) {
+    hints.push("💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó");
+  }
+  if (running.length === 0 && !(activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0)) {
     hints.push("👉 /generate <mô tả> để tạo campaign mới");
   }
   if (hints.length > 0) {
@@ -727,7 +767,6 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   }
 
   // Footer with brand badge + one-tap "Đổi brand" button
-  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
   const finalText = appendBrandFooter(lines.join("\n").trim(), activeBrand?.brand_name);
   await sendMessage(
     botConfig.botToken,
