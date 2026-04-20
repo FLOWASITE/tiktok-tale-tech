@@ -9714,6 +9714,47 @@ export type Database = {
           },
         ]
       }
+      telegram_messages_log: {
+        Row: {
+          chat_id: number
+          content: string
+          created_at: string
+          id: string
+          intent: string | null
+          organization_id: string
+          role: string
+          user_id: string | null
+        }
+        Insert: {
+          chat_id: number
+          content: string
+          created_at?: string
+          id?: string
+          intent?: string | null
+          organization_id: string
+          role: string
+          user_id?: string | null
+        }
+        Update: {
+          chat_id?: number
+          content?: string
+          created_at?: string
+          id?: string
+          intent?: string | null
+          organization_id?: string
+          role?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_messages_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       topic_content_links: {
         Row: {
           content_id: string

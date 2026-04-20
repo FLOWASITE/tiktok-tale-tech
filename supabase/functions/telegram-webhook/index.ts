@@ -2,9 +2,11 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import {
   assertCanCreateGoal,
   resolveBotConfig,
+  sendChatAction,
   sendMessage,
   verifyLinkToken,
 } from "../_shared/telegram-client.ts";
+import { classifyIntent, type ChatHistoryItem } from "../_shared/telegram-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -160,12 +162,26 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         });
         break;
       default:
+        // Slash-command unknown → standard error
+        if (text.startsWith("/")) {
+          if (chatType === "private") {
+            await sendMessage(
+              botConfig.botToken,
+              chatId,
+              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
+            );
+          }
+          break;
+        }
+        // Free chat (non-slash text) — DM only
         if (chatType === "private") {
-          await sendMessage(
-            botConfig.botToken,
+          await handleFreeChat({
+            supabase,
+            botConfig,
             chatId,
-            "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
-          );
+            telegramUserId,
+            text,
+          });
         }
     }
 
@@ -573,3 +589,89 @@ async function triggerPipeline(
     }),
   });
 }
+
+// =====================================================
+// Free chat (natural language, no slash command)
+// =====================================================
+async function handleFreeChat(
+  ctx: HandlerCtx & { telegramUserId?: number; text: string },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, text } = ctx;
+
+  // 1. Log user message (best-effort)
+  await supabase.from("telegram_messages_log").insert({
+    organization_id: botConfig.organizationId,
+    chat_id: chatId,
+    role: "user",
+    content: text.slice(0, 2000),
+  }).then(() => {}, (e: unknown) => console.warn("[free-chat] log user failed:", e));
+
+  // 2. Fetch last 6 messages for context
+  const { data: rawHistory } = await supabase
+    .from("telegram_messages_log")
+    .select("role, content")
+    .eq("organization_id", botConfig.organizationId)
+    .eq("chat_id", chatId)
+    .order("created_at", { ascending: false })
+    .limit(7); // 6 prior + current we just inserted
+
+  const history: ChatHistoryItem[] = (rawHistory ?? [])
+    .reverse()
+    .slice(0, -1) // drop the message we just inserted (it's also the input)
+    .map((r: { role: string; content: string }) => ({
+      role: r.role === "assistant" ? "assistant" : "user",
+      content: r.content,
+    }));
+
+  // 3. Typing indicator
+  await sendChatAction(botConfig.botToken, chatId, "typing");
+
+  // 4. Classify
+  const result = await classifyIntent(text, history);
+  console.log("[free-chat] intent:", result.intent, "org:", botConfig.organizationId);
+
+  // 5. Route
+  let assistantReply = "";
+  switch (result.intent) {
+    case "generate_campaign": {
+      const prompt = result.prompt?.trim() || text;
+      // Reuse existing handleGenerate (sends its own confirmation messages)
+      await handleGenerate({
+        supabase,
+        botConfig,
+        chatId,
+        telegramUserId,
+        prompt,
+      });
+      assistantReply = `[generate_campaign] ${prompt.slice(0, 200)}`;
+      break;
+    }
+    case "status": {
+      await handleStatus({ supabase, botConfig, chatId });
+      assistantReply = "[status]";
+      break;
+    }
+    case "help": {
+      await sendMessage(botConfig.botToken, chatId, helpText());
+      assistantReply = "[help]";
+      break;
+    }
+    case "chitchat":
+    default: {
+      const reply = result.reply?.trim() ||
+        "Mình ở đây 👋 Bạn cần mình giúp gì với marketing hôm nay?";
+      await sendMessage(botConfig.botToken, chatId, reply);
+      assistantReply = reply;
+    }
+  }
+
+  // 6. Log assistant reply
+  await supabase.from("telegram_messages_log").insert({
+    organization_id: botConfig.organizationId,
+    chat_id: chatId,
+    role: "assistant",
+    content: assistantReply.slice(0, 2000),
+    intent: result.intent,
+  }).then(() => {}, (e: unknown) => console.warn("[free-chat] log assistant failed:", e));
+}
+

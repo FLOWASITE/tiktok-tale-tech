@@ -83,18 +83,24 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
     <div className="space-y-4">
       {/* Personal binding */}
       {binding ? (
-        <div className="flex items-center justify-between rounded-md border p-3 bg-primary/5 gap-2 flex-wrap">
-          <div className="space-y-0.5 min-w-0">
-            <div className="text-sm font-medium flex items-center gap-2">
-              <Check className="w-4 h-4 text-primary" /> Đã kết nối
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-md border p-3 bg-primary/5 gap-2 flex-wrap">
+            <div className="space-y-0.5 min-w-0">
+              <div className="text-sm font-medium flex items-center gap-2">
+                <Check className="w-4 h-4 text-primary" /> Đã kết nối
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground truncate">
-              {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
-            </div>
+            <Button size="sm" variant="outline" onClick={handleUnlink}>
+              <Unlink className="w-4 h-4 mr-1" /> Gỡ
+            </Button>
           </div>
-          <Button size="sm" variant="outline" onClick={handleUnlink}>
-            <Unlink className="w-4 h-4 mr-1" /> Gỡ
-          </Button>
+          <p className="text-xs text-muted-foreground leading-relaxed pl-1">
+            ✨ Bạn có thể <span className="font-medium text-foreground">chat tự nhiên</span> với bot — không cần gõ lệnh.
+            Ví dụ: "tạo campaign cho spa làm đẹp", "quota tháng này còn bao nhiêu?".
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
