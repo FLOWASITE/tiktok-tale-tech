@@ -797,7 +797,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
           case "openrouter":
             return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
           case "dashscope":
-            return callDashScope(messages, effectiveModel, effectiveConfig, options);
+            return callDashScope(messages, effectiveModel, effectiveConfig, options, apiKey);
           default:
             return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
         }
