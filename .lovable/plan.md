@@ -1,164 +1,88 @@
 
 
-# Telegram Bot UX Overhaul — Cho user dễ dùng
+# Nâng cấp `/brand` — One-tap brand switching
 
-## 🎯 Mục tiêu
-- **Onboarding zero-friction**: User vừa link xong biết ngay phải làm gì
-- **Discoverability liên tục**: Bot tự "show" năng lực qua context, không bắt user phải nhớ lệnh
-- **Giảm typing**: Inline buttons + Mini App thay cho gõ command dài
+## 🎯 Vấn đề hiện tại
+- Lệnh `/brand` chỉ liệt kê text + bắt user gõ `/brand <tên>` để đổi → khó dùng trên mobile
+- Không có visual feedback (logo, màu, industry) như header switcher trên web
+- Không hỗ trợ **search** khi org có nhiều brand (>10)
+- Không hiển thị brand đang active rõ ràng trong các reply khác (free-chat, /generate)
 
----
+## ✨ Nâng cấp
 
-## Phase 1 — Smart Onboarding ⭐
-
-### 1.1 Welcome message giàu context (sau `/start <token>`)
+### 1. `/brand` → Inline keyboard switcher
+Thay vì list text, gửi message với **inline buttons**:
 ```
-🎉 Chào [Tên]! Đã kết nối với Flowa.
-Mình là AI Marketing Agent — tạo content, quản campaign, theo dõi quota từ Telegram.
+🎨 Brand đang dùng: ✨ Spa Hồng Ngọc
 
-👇 Thử ngay:
-[🚀 Tạo campaign đầu tiên]  [📊 Xem brand hiện tại]
-[💡 Xem ví dụ thực tế]      [📚 Hướng dẫn 30s]
+Chọn brand khác:
+[🟣 Spa Hồng Ngọc ✓]  [🔵 Beauty Pro]
+[🟢 Aesthetic Lab]    [🟡 Glow Center]
+[🔴 Skin Studio]      [⚫ Premium Med]
+                      
+[🔍 Tìm brand...]  [➕ Tạo brand mới]
 ```
-4 inline buttons → callback dẫn vào sub-flow.
+- Mỗi button = 1 brand, callback `brand:switch:<id>`
+- Hiển thị emoji circle theo `primary_color` (map hex → 🔴🟠🟡🟢🔵🟣⚫⚪)
+- Brand active có dấu `✓`
+- Default brand có 👑
+- Limit 8 brands/page; nếu >8 → thêm nút `[« Trước]` `[Sau »]` paginate
 
-### 1.2 Interactive tutorial 3 bước
-- Step 1: "Chat tự nhiên — thử gõ *'tạo bài cho spa làm đẹp'*"
-- Step 2: "Lệnh nhanh — bấm /status"
-- Step 3: "Mini App — bấm nút mở giao diện đầy đủ"
-- Track: `telegram_chat_bindings.onboarded_at`, `tutorial_step`
+### 2. Callback handler `brand:switch:<id>`
+- Update `telegram_chat_bindings.active_brand_template_id`
+- `answerCallbackQuery` toast "✅ Đã đổi sang [tên brand]"
+- `editMessageReplyMarkup` re-render keyboard với check mark mới (không cần gửi message mới)
+- Optionally show 1 contextual hint: "💡 Thử ngay: [✍️ Tạo content] [📊 Xem campaign]"
 
-### 1.3 `/examples` — Example library
-7 prompt mẫu kèm button "Thử ngay" → click tự fill prompt:
-- "Tạo campaign Black Friday cho thẩm mỹ viện"
-- "Viết 3 caption Facebook cho sản phẩm A"
-- "Phân tích hiệu quả campaign tuần này"
-- ...
+### 3. Search mode khi >8 brand
+- Click `[🔍 Tìm brand...]` → bot reply: "Gõ tên brand để tìm:"
+- Dùng `force_reply: { selective: true }` để Telegram auto-focus reply
+- Next message từ user → fuzzy match → trả lại keyboard filtered
 
----
-
-## Phase 2 — Discoverability
-
-### 2.1 Contextual hints sau mỗi reply
-Append "💡 Bạn cũng có thể:" + 2 button gợi ý:
-- Vừa tạo campaign → "Duyệt ngay" / "Xem lịch đăng"
-- Vừa `/status` → "Mua thêm quota" / "Xem báo cáo"
-
-### 2.2 `/help` redesign — grouped by use case
+### 4. Persistent brand badge trong replies khác
+Sau mỗi `/generate`, `/status`, free-chat reply, append footer nhỏ:
 ```
-🎯 Bạn muốn làm gì?
-[✍️ Tạo nội dung]  [📊 Xem báo cáo]
-[⚙️ Quản lý brand]  [💳 Quota & gói cước]
-[👥 Group team]    [❓ Cần hỗ trợ]
+─────────
+🎨 Brand: Spa Hồng Ngọc · [Đổi]
 ```
-Mỗi button → drill-down list lệnh + ví dụ.
+- Button `[Đổi]` callback `brand:open` → mở keyboard switcher
+- Helper `appendBrandFooter(text, brandName)` reusable
 
-### 2.3 Smart fallback khi bot không hiểu
-Reuse intent classifier có sẵn:
-- Detect intent gần nhất → "Có phải bạn muốn *tạo campaign*?" + button confirm
-- Hoặc gợi ý template: "Thử: *'tạo bài cho [sản phẩm]'* hoặc /help"
+### 5. Smart auto-suggest khi free-chat detect brand mismatch
+Reuse intent classifier — nếu user gõ "tạo bài cho **Beauty Pro**" nhưng active brand đang là "Spa Hồng Ngọc":
+- Bot detect brand name trong prompt (fuzzy match `brand_templates.brand_name`)
+- Reply: "🤔 Bạn nhắc tới *Beauty Pro* nhưng đang dùng brand *Spa Hồng Ngọc*. Đổi không?"
+- 2 buttons: `[✅ Đổi sang Beauty Pro]` / `[❌ Giữ Spa Hồng Ngọc]`
 
-### 2.4 Daily/Weekly digest (proactive push)
-Cron 8h sáng → "📅 Hôm nay có 3 bài chờ duyệt [📋 Duyệt ngay]"
-Tuần 1 lần → tóm tắt reach/engagement. Toggle qua `/settings`.
-
----
-
-## Phase 3 — Telegram Mini App (WebApp) 🚀
-
-### 3.1 Setup
-- Đăng ký Mini App URL với BotFather
-- URL: `https://app.flowa.one/telegram-app`
-- Auto-auth: verify HMAC `Telegram.WebApp.initData` → mint Supabase session
-- New edge function `telegram-webapp-auth`
-
-### 3.2 Scope (mobile-first, 3 màn)
-- **Dashboard**: Quota, pipeline đang chạy, campaign chờ duyệt
-- **Quick Create**: Form tạo campaign 1 màn (chọn brand → topic → Generate)
-- **Approve queue**: Swipe duyệt/từ chối, preview ảnh full-screen
-
-### 3.3 `web_app` button trong replies
-```ts
-{ text: "📋 Duyệt nhanh", web_app: { url: ".../approve" } }
+### 6. Mini App hook (optional)
+Trong inline keyboard `/brand`, thêm row cuối:
 ```
-Mở overlay trong Telegram, không leave app.
-
-### 3.4 Persistent menu button
-`setChatMenuButton` → thay icon "/" bằng "🚀 Mở Flowa" launch Mini App.
-
----
-
-## Phase 4 — Settings & Personalization
-
-### 4.1 `/settings` panel
+[🚀 Quản lý brand đầy đủ] (web_app: /telegram-app/brands)
 ```
-⚙️ Cài đặt
-[🔔 Daily digest: BẬT]    [🌐 Ngôn ngữ: VI]
-[🎨 Brand mặc định: ABC]  [🤖 Verbose: TẮT]
-[🔓 Gỡ kết nối]
-```
-Toggle inline → update `telegram_user_preferences`.
-
-### 4.2 Brand quick-switch
-`/brand` → inline list nhiều brand → click switch active brand cho session.
-
----
+Mở Mini App tab Brand → user xem chi tiết, edit voice, products, personas mà không leave Telegram.
 
 ## 📦 Files thay đổi
 
-### Database
-- **NEW** `telegram_user_preferences` (user_id, org_id, daily_digest, language, default_brand_id, verbose_mode)
-- `telegram_chat_bindings` thêm cột: `onboarded_at`, `tutorial_step`, `tutorial_completed_at`
-- **NEW** `telegram_example_prompts` (seed 7 examples)
+| File | Thay đổi |
+|---|---|
+| `supabase/functions/telegram-webhook/index.ts` | Refactor `handleBrand` → inline keyboard; add callbacks `brand:switch:<id>`, `brand:open`, `brand:page:<n>`, `brand:search`; brand-mismatch detector trong free-chat handler |
+| `supabase/functions/_shared/telegram-client.ts` | Helper mới: `buildBrandSwitcherKeyboard(brands, activeId, page)`, `colorToEmoji(hex)`, `appendBrandFooter(text, brandName)` |
+| `src/pages/TelegramApp.tsx` | Thêm tab/route `/telegram-app/brands` (list + switch) — reuse `useCurrentBrand` |
 
-### Edge functions
-- `telegram-webhook/index.ts` — major refactor:
-  - `handleStart` smart welcome 4 buttons
-  - New: `handleExamples`, `handleSettings`, `handleTutorial`
-  - Smart fallback unknown intent
-  - Append contextual hints sau mọi reply
-- **NEW** `telegram-webapp-auth/index.ts` — validate initData HMAC
-- **NEW** `telegram-daily-digest/index.ts` — cron 8h
-- `_shared/telegram-client.ts`:
-  - `BOT_COMMANDS` thêm `/examples`, `/settings`, `/tutorial`
-  - Helpers: `appendContextualHints`, `buildWelcomeKeyboard`, `buildHelpKeyboard`
-- `telegram-bot-admin/index.ts` — action `set_menu_button`
-
-### Frontend (Mini App)
-- **NEW** `src/pages/TelegramApp.tsx` route `/telegram-app/*`
-- **NEW** `src/components/telegram-app/`: Layout, Dashboard, QuickCreate, ApproveQueue
-- **NEW** `src/hooks/useTelegramWebApp.ts` — init SDK + auth
-- `src/app/routes.tsx` — đăng ký route (KHÔNG ProtectedRoute, dùng webapp auth)
-- `index.html` — script `telegram-web-app.js` conditional
-
-### i18n + Cron
-- `vi/en/th.json` — namespace `telegramApp.*` (60-80 keys)
-- pg_cron 8h ICT → `telegram-daily-digest`
-
----
-
-## 🧪 Test sau triển khai
-
-1. **Welcome**: Link mới → 4 buttons → click "Hướng dẫn" → 3 step → completed
-2. **Examples**: `/examples` → 7 prompts → click → bot generate
-3. **Fallback**: Gõ "abc xyz" → suggest "Có phải bạn muốn…"
-4. **Hints**: Sau `/status` → buttons "Mua quota" / "Báo cáo"
-5. **Mini App**: Menu button → webapp mở trong Telegram → auto-login
-6. **Approve**: Mini App tab Approve → swipe → DB update
-7. **Digest**: Trigger manual → nhận tóm tắt
-8. **Settings**: Toggle digest off → DB update
-
----
+## 🧪 Test
+1. `/brand` → thấy inline keyboard với màu emoji + check mark đúng brand active
+2. Click brand khác → toast confirm + keyboard update check mark **không gửi message mới**
+3. Org có 12 brands → thấy nút Trước/Sau, pagination chạy đúng
+4. Click `[🔍 Tìm brand...]` → bot prompt → gõ "spa" → keyboard filtered
+5. Sau `/status` → thấy footer "🎨 Brand: X · [Đổi]" → click → mở switcher
+6. Free-chat: "tạo bài cho Beauty Pro" khi đang ở brand khác → thấy suggest đổi
+7. Mini App `/telegram-app/brands` → list brand, tap → switch + sync với DB
 
 ## ⏱ Ước tính
-
-| Phase | Time | Priority |
-|---|---|---|
-| Phase 1 (Onboarding) | 2-3h | ⭐⭐⭐ Must |
-| Phase 2 (Discoverability) | 2-3h | ⭐⭐⭐ Must |
-| Phase 3 (Mini App) | 5-7h | ⭐⭐ High impact |
-| Phase 4 (Settings) | 1-2h | ⭐ Nice |
-| **Tổng** | **10-15h** | Deploy theo phase |
-
-**Đề xuất**: Phase 1+2 trước (deploy + validate 2-3 ngày với user thật), rồi mới làm Phase 3 (Mini App là đầu tư lớn).
+- Inline switcher + callbacks: 1.5h
+- Pagination + search: 1h  
+- Brand mismatch detector: 1h
+- Persistent footer: 30m
+- Mini App brand tab: 1h
+- **Tổng: ~5h**, deploy 1 lần.
 
