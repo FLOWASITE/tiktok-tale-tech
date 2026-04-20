@@ -481,9 +481,26 @@ async function handleStart(
   await sendMessage(
     botConfig.botToken,
     chatId,
-    `✅ Đã kết nối! Gõ /help để xem lệnh có sẵn.`,
-    { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
+    [
+      `🎉 Chào ${telegramUsername ? "@" + telegramUsername : "bạn"}! Đã kết nối với Flowa.`,
+      "",
+      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "",
+      "👇 Thử ngay:",
+    ].join("\n"),
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+    },
   );
+
+  // Mark onboarded (best-effort)
+  await supabase
+    .from("telegram_chat_bindings")
+    .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
+    .eq("organization_id", botConfig.organizationId)
+    .eq("telegram_chat_id", chatId)
+    .then(() => {}, () => {});
 }
 
 // ===== Helpers cho /status dashboard =====
