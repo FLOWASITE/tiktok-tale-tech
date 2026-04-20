@@ -2055,7 +2055,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
       try {
         const goalId = pipeline.goal_id;
         if (goalId) {
-          const { data: goal } = await supabase.from("agent_goals").select("created_by").eq("id", goalId).single();
+          const { data: goal } = await supabase.from("agent_goals").select("created_by, campaign_id").eq("id", goalId).single();
           if (goal?.created_by) {
             await supabase.from("notifications").insert({
               user_id: goal.created_by,
@@ -2065,6 +2065,25 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
               message: `"${pipeline.content_title}" đã hoàn thành pipeline (Score: ${analysisSummary.quality_score || "N/A"}).`,
               data: { pipeline_id: pipeline.id, ...analysisSummary },
             });
+
+            // Push Telegram notification (fire-and-forget)
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/notify-telegram`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+                body: JSON.stringify({
+                  user_id: goal.created_by,
+                  organization_id: pipeline.organization_id,
+                  content_title: pipeline.content_title,
+                  status: "completed",
+                  pipeline_id: pipeline.id,
+                  campaign_id: goal.campaign_id ?? pipeline.campaign_id ?? undefined,
+                  summary: `Score: ${analysisSummary.quality_score || "N/A"} · ${analysisSummary.publish_success || 0} kênh đăng OK`,
+                }),
+              });
+            } catch (tgErr) {
+              console.warn("[analyze] Telegram notify failed:", tgErr);
+            }
           }
         }
       } catch (e) {
