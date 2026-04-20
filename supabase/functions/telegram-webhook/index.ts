@@ -45,16 +45,83 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type TelegramUpdate = any;
 
-// In-memory dedup of Telegram update_id to avoid double-processing on retry.
-// Bounded LRU-ish set; entries expire via size cap (Telegram retries within seconds).
+// In-memory dedup of Telegram update_id (fast path before DB roundtrip).
+// DB-level idempotency in `telegram_processed_updates` is the source of truth.
 const RECENT_UPDATES = new Set<number>();
 const RECENT_UPDATES_MAX = 500;
-function isDuplicateUpdate(updateId: number): boolean {
+function isDuplicateUpdateMem(updateId: number): boolean {
   if (RECENT_UPDATES.has(updateId)) return true;
   RECENT_UPDATES.add(updateId);
   if (RECENT_UPDATES.size > RECENT_UPDATES_MAX) {
     const first = RECENT_UPDATES.values().next().value;
     if (first !== undefined) RECENT_UPDATES.delete(first);
+  }
+  return false;
+}
+
+// DB-level idempotency: returns true if INSERT collided (already processed).
+// deno-lint-ignore no-explicit-any
+async function markUpdateProcessed(supabase: any, updateId: number, botConfigId: string, chatId: number): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("telegram_processed_updates")
+      .insert({ update_id: updateId, bot_config_id: botConfigId, chat_id: chatId });
+    if (!error) return false; // inserted = first time
+    // PostgREST unique-violation = 23505
+    // deno-lint-ignore no-explicit-any
+    if ((error as any).code === "23505") return true;
+    console.warn("[telegram-webhook] markUpdateProcessed insert error:", error);
+    return false; // fail open — process it (memory dedup still helps within 500 recent IDs)
+  } catch (e) {
+    console.warn("[telegram-webhook] markUpdateProcessed exception:", e);
+    return false;
+  }
+}
+
+// Standardized error wrapper for command handlers — never let an exception
+// bubble up silently. Always reply to the user with a friendly trace ID.
+async function safeReply(
+  botToken: string,
+  chatId: number,
+  traceId: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  try {
+    await fn();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[telegram-webhook] handler error trace=${traceId}:`, msg, e);
+    try {
+      await sendMessage(
+        botToken,
+        chatId,
+        `⚠️ Có lỗi rồi, thử lại sau nhé. (mã: ${traceId.slice(0, 8)})`,
+      );
+    } catch (_) { /* swallow */ }
+  }
+}
+
+// Group mention filter — in group/supergroup, only respond when:
+//  - message is a slash command (`/...`), OR
+//  - bot is @mentioned in entities, OR
+//  - message is a reply to a bot message.
+// deno-lint-ignore no-explicit-any
+function shouldRespondInGroup(message: any, botUsername: string): boolean {
+  const text: string = (message.text || "").trim();
+  if (text.startsWith("/")) return true;
+
+  const entities: Array<{ type: string; offset: number; length: number }> = message.entities || [];
+  const botTag = `@${botUsername}`.toLowerCase();
+  for (const ent of entities) {
+    if (ent.type === "mention") {
+      const mention = text.slice(ent.offset, ent.offset + ent.length).toLowerCase();
+      if (mention === botTag) return true;
+    }
+  }
+
+  const repliedTo = message.reply_to_message;
+  if (repliedTo?.from?.username && repliedTo.from.username.toLowerCase() === botUsername.toLowerCase()) {
+    return true;
   }
   return false;
 }
