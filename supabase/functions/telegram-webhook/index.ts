@@ -45,16 +45,83 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type TelegramUpdate = any;
 
-// In-memory dedup of Telegram update_id to avoid double-processing on retry.
-// Bounded LRU-ish set; entries expire via size cap (Telegram retries within seconds).
+// In-memory dedup of Telegram update_id (fast path before DB roundtrip).
+// DB-level idempotency in `telegram_processed_updates` is the source of truth.
 const RECENT_UPDATES = new Set<number>();
 const RECENT_UPDATES_MAX = 500;
-function isDuplicateUpdate(updateId: number): boolean {
+function isDuplicateUpdateMem(updateId: number): boolean {
   if (RECENT_UPDATES.has(updateId)) return true;
   RECENT_UPDATES.add(updateId);
   if (RECENT_UPDATES.size > RECENT_UPDATES_MAX) {
     const first = RECENT_UPDATES.values().next().value;
     if (first !== undefined) RECENT_UPDATES.delete(first);
+  }
+  return false;
+}
+
+// DB-level idempotency: returns true if INSERT collided (already processed).
+// deno-lint-ignore no-explicit-any
+async function markUpdateProcessed(supabase: any, updateId: number, botConfigId: string, chatId: number): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("telegram_processed_updates")
+      .insert({ update_id: updateId, bot_config_id: botConfigId, chat_id: chatId });
+    if (!error) return false; // inserted = first time
+    // PostgREST unique-violation = 23505
+    // deno-lint-ignore no-explicit-any
+    if ((error as any).code === "23505") return true;
+    console.warn("[telegram-webhook] markUpdateProcessed insert error:", error);
+    return false; // fail open — process it (memory dedup still helps within 500 recent IDs)
+  } catch (e) {
+    console.warn("[telegram-webhook] markUpdateProcessed exception:", e);
+    return false;
+  }
+}
+
+// Standardized error wrapper for command handlers — never let an exception
+// bubble up silently. Always reply to the user with a friendly trace ID.
+async function safeReply(
+  botToken: string,
+  chatId: number,
+  traceId: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  try {
+    await fn();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[telegram-webhook] handler error trace=${traceId}:`, msg, e);
+    try {
+      await sendMessage(
+        botToken,
+        chatId,
+        `⚠️ Có lỗi rồi, thử lại sau nhé. (mã: ${traceId.slice(0, 8)})`,
+      );
+    } catch (_) { /* swallow */ }
+  }
+}
+
+// Group mention filter — in group/supergroup, only respond when:
+//  - message is a slash command (`/...`), OR
+//  - bot is @mentioned in entities, OR
+//  - message is a reply to a bot message.
+// deno-lint-ignore no-explicit-any
+function shouldRespondInGroup(message: any, botUsername: string): boolean {
+  const text: string = (message.text || "").trim();
+  if (text.startsWith("/")) return true;
+
+  const entities: Array<{ type: string; offset: number; length: number }> = message.entities || [];
+  const botTag = `@${botUsername}`.toLowerCase();
+  for (const ent of entities) {
+    if (ent.type === "mention") {
+      const mention = text.slice(ent.offset, ent.offset + ent.length).toLowerCase();
+      if (mention === botTag) return true;
+    }
+  }
+
+  const repliedTo = message.reply_to_message;
+  if (repliedTo?.from?.username && repliedTo.from.username.toLowerCase() === botUsername.toLowerCase()) {
+    return true;
   }
   return false;
 }
@@ -90,18 +157,30 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     }
 
     const update: TelegramUpdate = await req.json();
-    if (typeof update.update_id === "number" && isDuplicateUpdate(update.update_id)) {
-      console.log("[telegram-webhook] duplicate update_id skipped:", update.update_id);
-      return okResponse();
+
+    // Idempotency — fast in-memory check, then DB check
+    if (typeof update.update_id === "number") {
+      if (isDuplicateUpdateMem(update.update_id)) {
+        console.log("[telegram-webhook] duplicate update_id (mem) skipped:", update.update_id);
+        return okResponse();
+      }
+      const cbChatId = update.callback_query?.message?.chat?.id ?? update.message?.chat?.id ?? 0;
+      const isDup = await markUpdateProcessed(supabase, update.update_id, botConfig.id, Number(cbChatId) || 0);
+      if (isDup) {
+        console.log("[telegram-webhook] duplicate update_id (db) skipped:", update.update_id);
+        return okResponse();
+      }
     }
 
-    // Inline-button callbacks (approve/reject on push notifications)
+    const traceId = crypto.randomUUID();
+
     if (update.callback_query) {
-      await handleCallbackQuery({
-        supabase,
-        botConfig,
-        callback: update.callback_query,
-      });
+      await safeReply(
+        botConfig.botToken,
+        update.callback_query.message?.chat?.id ?? 0,
+        traceId,
+        () => handleCallbackQuery({ supabase, botConfig, callback: update.callback_query }),
+      );
       return okResponse();
     }
 
@@ -119,7 +198,13 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     const telegramUserId: number | undefined = message.from?.id;
     const telegramUsername: string | undefined = message.from?.username;
 
-    // Handle non-text messages (sticker, photo, voice, document, ...) in DM
+    // Group mention filter — in groups only respond to commands or @mentions/replies
+    if (chatType === "group" || chatType === "supergroup") {
+      if (!shouldRespondInGroup(message, botConfig.botUsername)) {
+        return okResponse();
+      }
+    }
+
     if (typeof message.text !== "string") {
       const contentType = message.sticker ? "sticker"
         : message.photo ? "photo"
@@ -129,34 +214,34 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         : "unknown";
       console.log("[telegram-webhook] non-text message:", {
         update_id: update.update_id,
-        chatType,
-        contentType,
-        org: botConfig.organizationId,
+        chatType, contentType, org: botConfig.organizationId,
       });
       if (chatType === "private") {
         await sendMessage(
-          botConfig.botToken,
-          chatId,
+          botConfig.botToken, chatId,
           "🤖 Hiện bot chỉ hiểu tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
         );
       }
       return okResponse();
     }
 
-    const text: string = message.text.trim();
-    const [command, ...argParts] = text.split(/\s+/);
+    let text: string = message.text.trim();
+    // Strip leading "@botusername" prefix in groups
+    const botTag = `@${botConfig.botUsername}`;
+    if (text.toLowerCase().startsWith(botTag.toLowerCase())) {
+      text = text.slice(botTag.length).trim();
+    }
+    const [rawCommand, ...argParts] = text.split(/\s+/);
+    // Strip "@botusername" suffix on commands (e.g. "/status@flowabot")
+    const command = rawCommand.split("@")[0];
     const args = argParts.join(" ");
 
     console.log("[telegram-webhook] message:", {
-      update_id: update.update_id,
-      chatType,
-      command,
-      argsLength: args.length,
-      org: botConfig.organizationId,
-      bot: botConfig.botUsername,
+      update_id: update.update_id, trace: traceId,
+      chatType, command, argsLength: args.length,
+      org: botConfig.organizationId, bot: botConfig.botUsername,
     });
 
-    // Map quick-keyboard text labels → slash commands
     let normalizedCommand = command;
     if (text === "📊 Status") normalizedCommand = "/status";
     else if (text === "🎨 Brand") normalizedCommand = "/brand";
@@ -165,83 +250,56 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
 
     switch (normalizedCommand) {
       case "/start":
-        await handleStart({
-          supabase,
-          botConfig,
-          chatId,
-          chatType,
-          telegramUserId,
-          telegramUsername,
-          token: args,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () => handleStart({
+          supabase, botConfig, chatId, chatType, telegramUserId, telegramUsername, token: args,
+        }));
         break;
       case "/help":
-        await sendMessage(botConfig.botToken, chatId, helpText(), {
-          reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () => sendMessage(
+          botConfig.botToken, chatId, helpText(),
+          { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
+        ));
         break;
       case "/status":
-        await handleStatus({ supabase, botConfig, chatId });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleStatus({ supabase, botConfig, chatId }));
         break;
       case "/campaigns":
-        await handleCampaigns({ supabase, botConfig, chatId, telegramUserId });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleCampaigns({ supabase, botConfig, chatId, telegramUserId }));
         break;
       case "/generate":
         if (chatType !== "private") {
-          await sendMessage(
-            botConfig.botToken,
-            chatId,
-            "⚠️ Lệnh /generate chỉ dùng trong DM với bot để tránh spam quota.",
-          );
+          await sendMessage(botConfig.botToken, chatId,
+            "⚠️ Lệnh /generate chỉ dùng trong DM với bot để tránh spam quota.");
           break;
         }
-        await handleGenerate({
-          supabase,
-          botConfig,
-          chatId,
-          telegramUserId,
-          prompt: args,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleGenerate({ supabase, botConfig, chatId, telegramUserId, prompt: args }));
+        break;
+      case "/cancel":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleCancel({ supabase, botConfig, chatId, telegramUserId }));
         break;
       case "/link_group":
-        await handleLinkGroup({
-          supabase,
-          botConfig,
-          chatId,
-          chatType,
-          telegramUserId,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleLinkGroup({ supabase, botConfig, chatId, chatType, telegramUserId }));
         break;
       case "/brand":
-        await handleBrand({
-          supabase,
-          botConfig,
-          chatId,
-          telegramUserId,
-          arg: args,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleBrand({ supabase, botConfig, chatId, telegramUserId, arg: args }));
         break;
       default:
-        // Slash-command unknown → standard error
         if (text.startsWith("/")) {
           if (chatType === "private") {
-            await sendMessage(
-              botConfig.botToken,
-              chatId,
-              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
-            );
+            await sendMessage(botConfig.botToken, chatId,
+              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.");
           }
           break;
         }
-        // Free chat (non-slash text) — DM only
         if (chatType === "private") {
-          await handleFreeChat({
-            supabase,
-            botConfig,
-            chatId,
-            telegramUserId,
-            text,
-          });
+          await safeReply(botConfig.botToken, chatId, traceId, () =>
+            handleFreeChat({ supabase, botConfig, chatId, telegramUserId, text }));
         }
     }
 
