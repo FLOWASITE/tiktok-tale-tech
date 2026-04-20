@@ -106,12 +106,28 @@ export function useTelegramBinding() {
     await fetchBindings();
   }, [binding, fetchBindings]);
 
+  const unlinkGroup = useCallback(async () => {
+    if (!groupBinding) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('telegram_chat_bindings')
+      .delete()
+      .eq('id', groupBinding.id);
+    if (error) {
+      toast({ title: 'Lỗi', description: 'Không gỡ được group', variant: 'destructive' });
+      throw error;
+    }
+    toast({ title: 'Đã gỡ group', description: 'Group đã được tách khỏi tổ chức' });
+    await fetchBindings();
+  }, [groupBinding, fetchBindings]);
+
   return {
     binding,
     groupBinding,
     loading,
     generateDeeplink,
     unlink,
+    unlinkGroup,
     refresh: fetchBindings,
   };
 }

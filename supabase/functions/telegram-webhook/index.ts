@@ -155,6 +155,7 @@ function okResponse(): Response {
 function helpText(): string {
   return [
     "📋 Lệnh hỗ trợ:",
+    "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
     "/generate <mô tả> — Tạo campaign mới (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
     "/link_group — (Admin, trong group) Kết nối group với tổ chức",
