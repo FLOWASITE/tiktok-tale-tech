@@ -572,11 +572,12 @@ async function callDashScope(
   messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
-  options: AICallOptions
+  options: AICallOptions,
+  apiKeyOverride?: string
 ): Promise<AICallResult> {
-  const apiKey = Deno.env.get("DASHSCOPE_API_KEY");
+  const apiKey = apiKeyOverride || Deno.env.get("DASHSCOPE_API_KEY");
   if (!apiKey) {
-    return { success: false, error: "DASHSCOPE_API_KEY not configured", provider: "dashscope", model };
+    return { success: false, error: "DASHSCOPE_API_KEY not configured (no DB key and no env var)", provider: "dashscope", model };
   }
 
   try {
