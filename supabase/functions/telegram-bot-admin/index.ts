@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { encrypt } from "../_shared/crypto.ts";
-import { setWebhook, getWebhookInfo } from "../_shared/telegram-client.ts";
+import { setWebhook, getWebhookInfo, setMyCommands } from "../_shared/telegram-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,7 +127,31 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
       if (!result.ok) {
         return json({ error: `Telegram từ chối: ${result.description}` }, 400);
       }
-      return json({ ok: true, webhook_url: webhookUrl });
+      // Sync native command menu (non-blocking — log warn on fail)
+      const cmdResult = await setMyCommands(botToken);
+      if (!cmdResult.ok) {
+        console.warn("[telegram-bot-admin] setMyCommands warning:", cmdResult.description);
+      }
+      return json({ ok: true, webhook_url: webhookUrl, commands_synced: cmdResult.ok });
+    }
+
+    if (action === "sync_commands") {
+      const { data: cfg, error: cfgErr } = await service
+        .from("telegram_bot_configs")
+        .select("bot_token_encrypted")
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+      if (cfgErr) throw cfgErr;
+      if (!cfg) return json({ error: "Chưa có cấu hình bot" }, 404);
+
+      const { decryptCredential } = await import("../_shared/crypto.ts");
+      const botToken = await decryptCredential((cfg as any).bot_token_encrypted);
+
+      const result = await setMyCommands(botToken);
+      if (!result.ok) {
+        return json({ error: `Telegram từ chối: ${result.description}` }, 400);
+      }
+      return json({ ok: true });
     }
 
     if (action === "webhook_info") {
