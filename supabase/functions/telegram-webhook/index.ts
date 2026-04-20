@@ -292,11 +292,24 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleBrand({ supabase, botConfig, chatId, telegramUserId, arg: args }));
         break;
+      case "/examples":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleExamples({ supabase, botConfig, chatId }));
+        break;
+      case "/tutorial":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleTutorial({ supabase, botConfig, chatId, telegramUserId, step: 1 }));
+        break;
+      case "/settings":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleSettings({ supabase, botConfig, chatId, telegramUserId }));
+        break;
       default:
         if (text.startsWith("/")) {
           if (chatType === "private") {
             await sendMessage(botConfig.botToken, chatId,
-              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.");
+              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
+              { reply_markup: { inline_keyboard: buildHelpKeyboard() } });
           }
           break;
         }
