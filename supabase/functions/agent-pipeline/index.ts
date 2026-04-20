@@ -1737,6 +1737,22 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           } catch (e) {
             console.warn("[approval] Notification failed:", e);
           }
+
+          // Telegram push (best-effort, non-blocking)
+          if (newApproval?.id) {
+            try {
+              const { notifyApprovalNeeded } = await import("../_shared/telegram-notifier.ts");
+              await notifyApprovalNeeded(
+                supabase,
+                pipeline.organization_id,
+                newApproval.id,
+                pipeline.content_title || "Nội dung mới",
+                createOutput?.title || null,
+              );
+            } catch (e) {
+              console.warn("[approval] Telegram push failed:", e);
+            }
+          }
         }
       } else if (!smartAutoApproved && pipeline.autonomy_level === "human_on_loop") {
         // Auto-approve but create a record for tracking

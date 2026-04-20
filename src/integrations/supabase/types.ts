@@ -9663,6 +9663,7 @@ export type Database = {
       }
       telegram_chat_bindings: {
         Row: {
+          active_brand_template_id: string | null
           chat_type: string
           created_at: string
           id: string
@@ -9677,6 +9678,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          active_brand_template_id?: string | null
           chat_type: string
           created_at?: string
           id?: string
@@ -9691,6 +9693,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          active_brand_template_id?: string | null
           chat_type?: string
           created_at?: string
           id?: string
@@ -9705,6 +9708,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "telegram_chat_bindings_active_brand_template_id_fkey"
+            columns: ["active_brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "telegram_chat_bindings_organization_id_fkey"
             columns: ["organization_id"]
