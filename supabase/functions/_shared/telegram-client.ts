@@ -35,6 +35,7 @@ export async function setWebhook(
   botToken: string,
   webhookUrl: string,
   secretToken: string,
+  dropPending = false,
 ): Promise<{ ok: boolean; description?: string }> {
   const res = await fetch(`${TELEGRAM_API}/bot${botToken}/setWebhook`, {
     method: "POST",
@@ -43,8 +44,28 @@ export async function setWebhook(
       url: webhookUrl,
       secret_token: secretToken,
       allowed_updates: ["message"],
+      drop_pending_updates: dropPending,
     }),
   });
+  return await res.json();
+}
+
+export interface TelegramWebhookInfo {
+  url: string;
+  has_custom_certificate: boolean;
+  pending_update_count: number;
+  ip_address?: string;
+  last_error_date?: number;
+  last_error_message?: string;
+  last_synchronization_error_date?: number;
+  max_connections?: number;
+  allowed_updates?: string[];
+}
+
+export async function getWebhookInfo(
+  botToken: string,
+): Promise<{ ok: boolean; result?: TelegramWebhookInfo; description?: string }> {
+  const res = await fetch(`${TELEGRAM_API}/bot${botToken}/getWebhookInfo`);
   return await res.json();
 }
 

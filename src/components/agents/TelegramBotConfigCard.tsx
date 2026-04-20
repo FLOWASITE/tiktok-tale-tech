@@ -5,14 +5,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTelegramBotConfig } from '@/hooks/useTelegramBotConfig';
-import { Loader2, Link as LinkIcon, Trash2, ExternalLink, Copy, Check, CheckCircle2 } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Trash2, ExternalLink, Copy, Check, CheckCircle2, Activity, AlertTriangle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+
+interface WebhookInfo {
+  url: string;
+  pending_update_count: number;
+  last_error_date?: number;
+  last_error_message?: string;
+  max_connections?: number;
+  allowed_updates?: string[];
+}
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,32}$/;
 const TOKEN_REGEX = /^\d+:[A-Za-z0-9_-]{30,}$/;
 
 export function TelegramBotConfigCard() {
-  const { config, loading, upsertConfig, deleteConfig, registerWebhook } = useTelegramBotConfig();
+  const { config, loading, upsertConfig, deleteConfig, registerWebhook, getWebhookInfo } = useTelegramBotConfig();
   const [botUsername, setBotUsername] = useState('');
   const [botToken, setBotToken] = useState('');
   const [autonomy, setAutonomy] = useState<'human_in_loop' | 'human_on_loop' | 'full_auto'>('human_in_loop');
@@ -20,6 +29,34 @@ export function TelegramBotConfigCard() {
   const [registering, setRegistering] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [webhookInfo, setWebhookInfo] = useState<WebhookInfo | null>(null);
+  const [checkingInfo, setCheckingInfo] = useState(false);
+
+  const handleCheckWebhook = async () => {
+    setCheckingInfo(true);
+    try {
+      const info = await getWebhookInfo();
+      setWebhookInfo(info);
+      if (info) {
+        if (info.last_error_message) {
+          toast({
+            title: 'Webhook có lỗi gần đây',
+            description: info.last_error_message,
+            variant: 'destructive',
+          });
+        } else if (info.pending_update_count > 0) {
+          toast({
+            title: `Có ${info.pending_update_count} update đang kẹt`,
+            description: 'Bấm "Đăng ký lại webhook" để clear backlog.',
+          });
+        } else {
+          toast({ title: 'Webhook hoạt động bình thường' });
+        }
+      }
+    } finally {
+      setCheckingInfo(false);
+    }
+  };
 
   useEffect(() => {
     if (config?.default_autonomy_level) {
@@ -245,6 +282,43 @@ export function TelegramBotConfigCard() {
                     {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs">Trạng thái webhook (từ Telegram)</Label>
+                  <Button size="sm" variant="ghost" onClick={handleCheckWebhook} disabled={checkingInfo} className="h-7">
+                    {checkingInfo ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1.5" />}
+                    Kiểm tra
+                  </Button>
+                </div>
+                {webhookInfo && (
+                  <div className="rounded-md border bg-muted/30 p-2.5 text-xs space-y-1.5">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Pending updates:</span>
+                      <span className={webhookInfo.pending_update_count > 0 ? 'text-destructive font-medium' : 'text-primary font-medium'}>
+                        {webhookInfo.pending_update_count}
+                      </span>
+                    </div>
+                    {webhookInfo.last_error_message && (
+                      <div className="rounded bg-destructive/10 p-2 flex gap-1.5 items-start">
+                        <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="text-destructive font-medium">Lỗi gần nhất:</div>
+                          <div className="text-muted-foreground break-words">{webhookInfo.last_error_message}</div>
+                          {webhookInfo.last_error_date && (
+                            <div className="text-muted-foreground text-[10px]">
+                              {new Date(webhookInfo.last_error_date * 1000).toLocaleString('vi-VN')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {!webhookInfo.last_error_message && webhookInfo.pending_update_count === 0 && (
+                      <div className="text-primary">✓ Hoạt động bình thường</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2 border-t">
