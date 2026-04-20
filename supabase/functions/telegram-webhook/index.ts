@@ -156,7 +156,14 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       bot: botConfig.botUsername,
     });
 
-    switch (command) {
+    // Map quick-keyboard text labels → slash commands
+    let normalizedCommand = command;
+    if (text === "📊 Status") normalizedCommand = "/status";
+    else if (text === "🎨 Brand") normalizedCommand = "/brand";
+    else if (text === "📋 Campaigns") normalizedCommand = "/campaigns";
+    else if (text === "💡 Help") normalizedCommand = "/help";
+
+    switch (normalizedCommand) {
       case "/start":
         await handleStart({
           supabase,
@@ -169,10 +176,15 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         });
         break;
       case "/help":
-        await sendMessage(botConfig.botToken, chatId, helpText());
+        await sendMessage(botConfig.botToken, chatId, helpText(), {
+          reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined,
+        });
         break;
       case "/status":
         await handleStatus({ supabase, botConfig, chatId });
+        break;
+      case "/campaigns":
+        await handleCampaigns({ supabase, botConfig, chatId, telegramUserId });
         break;
       case "/generate":
         if (chatType !== "private") {
