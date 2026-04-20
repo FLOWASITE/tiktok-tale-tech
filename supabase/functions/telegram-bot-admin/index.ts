@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { encrypt } from "../_shared/crypto.ts";
-import { setWebhook, getWebhookInfo, setMyCommands } from "../_shared/telegram-client.ts";
+import { setWebhook, getWebhookInfo, setMyCommands, setChatMenuButton } from "../_shared/telegram-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,6 +171,24 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
         return json({ error: `Telegram từ chối: ${info.description}` }, 400);
       }
       return json({ ok: true, info: info.result });
+    }
+
+    if (action === "set_menu_button") {
+      const { web_app_url } = body as { web_app_url?: string };
+      const url = String(web_app_url || "https://app.flowa.one/telegram-app").trim();
+      const { data: cfg, error: cfgErr } = await service
+        .from("telegram_bot_configs")
+        .select("bot_token_encrypted")
+        .eq("organization_id", organization_id)
+        .maybeSingle();
+      if (cfgErr) throw cfgErr;
+      if (!cfg) return json({ error: "Chưa có cấu hình bot" }, 404);
+
+      const { decryptCredential } = await import("../_shared/crypto.ts");
+      const botToken = await decryptCredential((cfg as { bot_token_encrypted: string }).bot_token_encrypted);
+      const result = await setChatMenuButton(botToken, url, "🚀 Mở Flowa");
+      if (!result.ok) return json({ error: `Telegram từ chối: ${result.description}` }, 400);
+      return json({ ok: true, web_app_url: url });
     }
 
     return json({ error: `Action không hỗ trợ: ${action}` }, 400);
