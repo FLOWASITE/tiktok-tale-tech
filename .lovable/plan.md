@@ -1,56 +1,40 @@
 
 
-## Mục tiêu
-Cho phép user **chat tự nhiên** trên Telegram (không cần gõ `/generate ...`). Bot tự hiểu intent → trả lời / tạo campaign / báo quota.
+## Vấn đề
+Free chat Telegram không hoạt động vì **Lovable AI Gateway hết credits (402)**. Khi `classifyIntent` fail, hàm `fallback()` trả `chitchat` + reply mặc định — nhưng có 2 vấn đề:
 
-## Cách tiếp cận
+1. **Không có route reply chitchat trong webhook** → cần verify `handleFreeChat` thật sự gọi `sendMessage` với `result.reply` khi gateway lỗi
+2. **Không có fallback provider**: Khi Lovable Gateway 402, bot im lặng hoàn toàn với user (chỉ có log lỗi). User không biết tại sao bot không trả lời.
+3. **Không tận dụng DashScope user key**: Org này có `qwen-plus` qua DashScope key riêng (không tốn Lovable credits) — nhưng `telegram-intent.ts` hardcode gọi Lovable Gateway only.
 
-Khi nhận tin text **không bắt đầu bằng `/`** trong DM với binding hợp lệ:
+## Giải pháp (3 layer)
 
-1. **Intent classification** bằng 1 lần gọi Lovable AI Gateway (`google/gemini-2.5-flash` — rẻ, nhanh):
-   - `chitchat` → reply tự nhiên (giải đáp về Flowa, hỏi đáp marketing)
-   - `generate_campaign` → trích `prompt`, tự gọi luồng `/generate` hiện có
-   - `status` → tự gọi `handleStatus`
-   - `help` → reply danh sách lệnh (vẫn giữ ngôn ngữ tự nhiên)
+### Layer 1 — Dùng `ai-provider` shared module
+Thay vì hardcode `fetch("https://ai.gateway.lovable.dev/...")`, refactor `telegram-intent.ts` để dùng shared `ai-provider.ts` — tự động:
+- Ưu tiên DashScope (qwen-plus) nếu org có key → **không tốn Lovable credit**
+- Fallback Lovable Gateway nếu DashScope fail
+- Fallback model rẻ hơn nếu primary 402
 
-2. **Conversation memory** ngắn: lấy 6 message gần nhất từ bảng mới `telegram_messages_log` (chat_id + role + content + created_at) để feed vào system prompt → bot có context multi-turn.
+### Layer 2 — User-facing error message khi AI fail
+Trong `handleFreeChat`, nếu `classifyIntent` trả intent `chitchat` + reply mặc định **DO error**, gửi message rõ ràng:
+> "🤖 Bot tạm thời quá tải, thử lại sau ít phút nhé. Hoặc dùng lệnh `/generate <mô tả>` / `/status` để tránh delay."
 
-3. **Typing indicator**: gửi `sendChatAction(typing)` trước khi gọi AI để UX mượt.
+Phân biệt 2 trường hợp:
+- Classify OK + intent=chitchat → reply tự nhiên như cũ
+- Classify FAIL (gateway error) → reply error message + gợi ý dùng `/` command
 
-4. **Fallback**: nếu intent classifier fail → reply chitchat mặc định, không bao giờ im lặng.
+### Layer 3 — Cảnh báo admin
+Log structured warning `[telegram-intent] CREDITS_EXHAUSTED org=<id>` để dashboard analytics có thể alert.
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/migrations/<new>` | Tạo bảng `telegram_messages_log` (id, organization_id, chat_id, user_id nullable, role: 'user'\|'assistant', content, created_at) + index + RLS service-role only |
-| `supabase/functions/_shared/telegram-client.ts` | Thêm helper `sendChatAction()` |
-| `supabase/functions/_shared/telegram-intent.ts` (mới) | `classifyIntent(text, history)` gọi Lovable AI → `{ intent, prompt?, reply? }` |
-| `supabase/functions/telegram-webhook/index.ts` | Trong `default:` branch của switch (DM only): gọi `handleFreeChat()` thay vì reply "Lệnh không hợp lệ". Hàm mới: log message → classify → route → log assistant reply |
-| `src/components/agents/TelegramLinkCard.tsx` | Cập nhật helper text: "Đã link xong, bạn có thể chat tự nhiên với bot — không cần gõ lệnh." |
-| `src/pages/AgentTelegramPage.tsx` | Đổi 1 dòng tagline: "Chat tự nhiên với AI Agent từ Telegram." |
-
-## Luồng kỹ thuật
-
-```text
-User text (DM, no /) → log user msg
-    → fetch last 6 msgs (history)
-    → sendChatAction("typing")
-    → classifyIntent(text, history) [Gemini Flash, ~500ms]
-        ├─ chitchat   → reply.text → sendMessage + log assistant
-        ├─ generate   → handleGenerate(prompt) (reuse existing)
-        ├─ status     → handleStatus (reuse)
-        └─ unknown    → fallback chitchat
-```
-
-## Bảo vệ
-- **Group chat**: không bật free chat (giữ command-only, tránh spam quota nhiều người trong group).
-- **Rate limit**: tận dụng `assertCanCreateGoal` đã có cho intent `generate_campaign`. Chitchat không tốn quota pipeline nhưng count vào AI gateway tự nhiên.
-- **Prompt injection**: system prompt clamp role bot, refuse khi user yêu cầu lộ token/secret.
+| `supabase/functions/_shared/telegram-intent.ts` | Refactor `classifyIntent()` dùng `getAIProvider()` từ `ai-provider.ts` thay vì hardcode fetch. Thêm `organizationId` param. Trả thêm field `error: 'credits_exhausted' \| 'unknown'` khi fail. |
+| `supabase/functions/telegram-webhook/index.ts` | Trong `handleFreeChat`: pass `org_id` vào `classifyIntent`. Khi `result.error === 'credits_exhausted'` → gửi message thân thiện gợi ý dùng `/` command thay vì im lặng. |
 
 ## Kết quả
-- User gõ "tạo cho tôi campaign về spa làm đẹp" → bot hiểu, chạy pipeline ngay.
-- User gõ "quota tháng này còn bao nhiêu?" → bot trả status.
-- User gõ "Flowa làm gì?" → bot chitchat giải thích.
-- Không cần học lệnh `/`. Lệnh `/` vẫn hoạt động cho power user.
+- Org có DashScope key (như org hiện tại) → bot dùng qwen-plus, **không tốn Lovable credit**, chat tự nhiên hoạt động ngay
+- Org không có key + Lovable hết credit → bot báo rõ "tạm quá tải, dùng lệnh /" thay vì im lặng
+- Lệnh `/generate`, `/status`, `/help` vẫn luôn hoạt động (không qua intent classifier)
 
