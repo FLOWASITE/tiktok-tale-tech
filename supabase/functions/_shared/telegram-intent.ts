@@ -41,13 +41,29 @@ export interface ClassifyResult {
   error?: ClassifyError;
 }
 
+export interface BrandContext {
+  brand_name?: string;
+  industry?: string;
+  tone_of_voice?: string;
+  unique_value_proposition?: string;
+}
+
 export async function classifyIntent(
   text: string,
   history: ChatHistoryItem[],
   organizationId?: string,
+  brand?: BrandContext | null,
 ): Promise<ClassifyResult> {
+  const brandBlock = brand?.brand_name
+    ? `\n\nBRAND ĐANG ACTIVE (dùng để cá nhân hoá reply chitchat):
+- Tên: ${brand.brand_name}
+- Ngành: ${brand.industry || "—"}
+- Tone: ${brand.tone_of_voice || "—"}
+- USP: ${brand.unique_value_proposition || "—"}`
+    : "";
+
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT + brandBlock },
     ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
     { role: "user", content: text },
   ];
