@@ -780,6 +780,11 @@ async function handleGenerate(
     return;
   }
 
+  // Resolve active brand BEFORE goal insert so we can attach brand_template_id
+  const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+  const today = new Date();
+  const endDate = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
     .insert({
@@ -788,14 +793,18 @@ async function handleGenerate(
       organization_id: botConfig.organizationId,
       created_by: binding.userId,
       target_topics: [],
-      target_channels: [],
-      frequency: {},
+      target_channels: ["facebook", "website"],
+      frequency: { cadence: "weekly", per_week: 3 },
+      campaign_duration_days: 14,
+      campaign_start_date: today.toISOString().split("T")[0],
+      campaign_end_date: endDate.toISOString().split("T")[0],
+      brand_template_id: (activeBrandGen as any)?.id || null,
       autonomy_level: botConfig.defaultAutonomyLevel,
       approval_mode: "approve_plan",
       is_active: true,
       is_paused: false,
     })
-    .select("id")
+    .select("id, name")
     .single();
 
   if (goalError || !goal) {
@@ -808,11 +817,6 @@ async function handleGenerate(
     return;
   }
 
-  // Fire-and-forget trigger pipeline
-  triggerPipeline(goal.id, botConfig.organizationId).catch((err) => {
-    console.error("[telegram-webhook] pipeline trigger failed:", err);
-  });
-
   // Log execution
   await supabase.from("agent_execution_logs").insert({
     session_id: crypto.randomUUID(),
@@ -822,13 +826,53 @@ async function handleGenerate(
     output_summary: `Created goal ${goal.id} from chat ${chatId} by user ${binding.userId}`,
   });
 
-  const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
-  await sendMessage(
-    botConfig.botToken,
-    chatId,
-    appendBrandFooter(`✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`, activeBrandGen?.brand_name),
-    { reply_markup: activeBrandGen?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined },
-  );
+  // Await pipeline trigger with timeout, surface real status
+  console.log("[handleGenerate] triggering pipeline for goal", goal.id);
+  const footerKb = activeBrandGen?.brand_name
+    ? { reply_markup: { inline_keyboard: buildBrandFooterKeyboard() } }
+    : undefined;
+
+  try {
+    const r = await Promise.race([
+      triggerPipeline(goal.id, botConfig.organizationId),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
+    ]) as { success?: boolean; pipelines_created?: number; error?: string; status?: number };
+
+    console.log("[handleGenerate] pipeline result:", r);
+
+    if (!r?.pipelines_created || r.pipelines_created === 0) {
+      const errMsg = (r?.error || "").toLowerCase();
+      let warn = `⚠️ Goal "${goal.name}" đã lưu nhưng chưa tạo được plan (AI gateway tạm quá tải). Mở Mini App để chạy lại hoặc thử sau ít phút.`;
+      if (r?.status === 402 || errMsg.includes("402") || errMsg.includes("credit") || errMsg.includes("payment")) {
+        warn = `🤖 AI đang hết credits. Admin có thể nạp thêm trong Lovable Cloud, hoặc cấu hình API key riêng (DashScope/OpenRouter) tại Settings → AI Providers.\n\nGoal "${goal.name}" đã lưu, có thể chạy lại sau.`;
+      } else if (r?.status === 429 || errMsg.includes("429") || errMsg.includes("rate")) {
+        warn = `⏳ AI đang quá tải (rate limit). Goal "${goal.name}" đã lưu — thử lại sau 1-2 phút.`;
+      }
+      await sendMessage(botConfig.botToken, chatId, appendBrandFooter(warn, activeBrandGen?.brand_name), footerKb);
+    } else {
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        appendBrandFooter(
+          `✅ Đã tạo ${r.pipelines_created} pipeline từ goal "${goal.name}".\nDùng /status để theo dõi.`,
+          activeBrandGen?.brand_name,
+        ),
+        footerKb,
+      );
+    }
+  } catch (e) {
+    console.error("[handleGenerate] pipeline trigger error:", e);
+    const msg = String((e as Error)?.message || e).slice(0, 100);
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      appendBrandFooter(
+        `⚠️ Goal "${goal.name}" đã lưu nhưng chưa khởi chạy được (${msg}).\nThử lại sau bằng /status hoặc Mini App.`,
+        activeBrandGen?.brand_name,
+      ),
+      footerKb,
+    );
+  }
 
   // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
   try {
@@ -985,21 +1029,38 @@ async function lookupUserBinding(
 async function triggerPipeline(
   goalId: string,
   organizationId: string,
-): Promise<void> {
+): Promise<{ success: boolean; pipelines_created: number; plan_id?: string; error?: string; status?: number }> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/agent-pipeline`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      action: "trigger_from_goal",
-      goal_id: goalId,
-      organization_id: organizationId,
-    }),
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        action: "trigger_from_goal",
+        goal_id: goalId,
+        organization_id: organizationId,
+      }),
+    });
+    const text = await res.text();
+    let body: any = {};
+    try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
+    if (!res.ok) {
+      return { success: false, pipelines_created: 0, error: body?.error || text || `HTTP ${res.status}`, status: res.status };
+    }
+    return {
+      success: !!body?.success,
+      pipelines_created: Number(body?.pipelines_created || 0),
+      plan_id: body?.plan_id,
+      error: body?.error,
+      status: res.status,
+    };
+  } catch (e) {
+    return { success: false, pipelines_created: 0, error: String((e as Error)?.message || e) };
+  }
 }
 
 // =====================================================
