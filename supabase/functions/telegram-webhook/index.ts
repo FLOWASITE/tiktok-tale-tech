@@ -5,6 +5,9 @@ import {
   sendChatAction,
   sendMessage,
   verifyLinkToken,
+  buildWelcomeKeyboard,
+  buildHelpKeyboard,
+  buildContextualHints,
 } from "../_shared/telegram-client.ts";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
