@@ -333,6 +333,16 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
           break;
         }
         if (chatType === "private") {
+          // If user just tapped 🔍 in brand switcher, treat next plain message as filter.
+          const bs = brandSwitcherState.get(chatId);
+          if (bs?.awaitingSearch) {
+            bs.awaitingSearch = false;
+            bs.filter = text.slice(0, 50);
+            bs.page = 0;
+            const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+            await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
+            break;
+          }
           await safeReply(botConfig.botToken, chatId, traceId, () =>
             handleFreeChat({ supabase, botConfig, chatId, telegramUserId, text }));
         }
