@@ -17,7 +17,19 @@ import {
 
 const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
-import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+import { answerCallback, editMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+
+// In-memory per-chat brand switcher state (page index + search filter + last switcher message id).
+// Edge instance scope; resets on cold start — acceptable for an interactive UI element.
+const brandSwitcherState = new Map<number, { page: number; filter?: string; messageId?: number; awaitingSearch?: boolean }>();
+function getBrandSwitcherState(chatId: number) {
+  let s = brandSwitcherState.get(chatId);
+  if (!s) {
+    s = { page: 0 };
+    brandSwitcherState.set(chatId, s);
+  }
+  return s;
+}
 
 // Reply keyboard shown after /start, /help — quick access to common actions.
 const QUICK_KEYBOARD = {
