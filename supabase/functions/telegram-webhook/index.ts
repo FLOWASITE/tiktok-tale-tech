@@ -865,6 +865,10 @@ async function handleFreeChat(
   // 0b. Resolve active brand for this user (if linked + chosen)
   const brandCtx = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
 
+  // 0c. First-time brand hint — nudge user to /brand if they haven't picked one yet.
+  // Shown at most once per binding (tracked via first_chat_hint_shown_at).
+  await maybeShowBrandHint(supabase, botConfig, chatId, brandCtx);
+
   // 1. Log user message (best-effort)
   await supabase.from("telegram_messages_log").insert({
     organization_id: botConfig.organizationId,
@@ -1081,6 +1085,43 @@ async function getActiveBrandContext(
   } catch (e) {
     console.warn("[telegram-webhook] getActiveBrandContext failed:", e);
     return null;
+  }
+}
+
+// Show a one-time hint about /brand the first time a user free-chats,
+// IF they don't have an explicitly chosen brand yet (only org-default fallback).
+async function maybeShowBrandHint(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  botConfig: HandlerCtx["botConfig"],
+  chatId: number,
+  brandCtx: BrandContext | null,
+): Promise<void> {
+  try {
+    const { data: binding } = await supabase
+      .from("telegram_chat_bindings")
+      .select("active_brand_template_id, first_chat_hint_shown_at")
+      .eq("organization_id", botConfig.organizationId)
+      .eq("telegram_chat_id", chatId)
+      .maybeSingle();
+
+    if (!binding) return;
+    if (binding.first_chat_hint_shown_at) return;
+    if (binding.active_brand_template_id) return;
+
+    const fallbackName = brandCtx?.brand_name;
+    const hint = fallbackName
+      ? `💡 *Mẹo:* Bạn đang chat với brand mặc định _${escMdNotif(fallbackName)}_. Dùng \`/brand\` để đổi sang brand khác — AI sẽ trả lời sát giọng brand hơn.`
+      : `💡 *Mẹo:* Dùng \`/brand\` để chọn thương hiệu cho phiên chat — AI sẽ hiểu rõ ngành, tone, USP và trả lời sát hơn.`;
+
+    await sendMessage(botConfig.botToken, chatId, hint, { parse_mode: "Markdown" });
+    await supabase
+      .from("telegram_chat_bindings")
+      .update({ first_chat_hint_shown_at: new Date().toISOString() })
+      .eq("organization_id", botConfig.organizationId)
+      .eq("telegram_chat_id", chatId);
+  } catch (e) {
+    console.warn("[telegram-webhook] maybeShowBrandHint failed:", e);
   }
 }
 
