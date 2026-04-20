@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check } from 'lucide-react';
 
-type Tab = 'dashboard' | 'create' | 'approve';
+type Tab = 'dashboard' | 'create' | 'approve' | 'brands';
 
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, userId, organizationId } = useTelegramWebApp();
@@ -62,12 +62,14 @@ export default function TelegramApp() {
         {tab === 'dashboard' && <DashboardTab orgId={organizationId} userId={userId} />}
         {tab === 'create' && <CreateTab orgId={organizationId} userId={userId} onDone={() => setTab('dashboard')} />}
         {tab === 'approve' && <ApproveTab orgId={organizationId} />}
+        {tab === 'brands' && <BrandsTab orgId={organizationId} />}
       </main>
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-3">
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-4">
         <NavBtn active={tab === 'dashboard'} icon={<LayoutDashboard className="w-5 h-5" />} label="Tổng quan" onClick={() => setTab('dashboard')} />
         <NavBtn active={tab === 'create'} icon={<Plus className="w-5 h-5" />} label="Tạo" onClick={() => setTab('create')} />
+        <NavBtn active={tab === 'brands'} icon={<Palette className="w-5 h-5" />} label="Brand" onClick={() => setTab('brands')} />
         <NavBtn active={tab === 'approve'} icon={<CheckSquare className="w-5 h-5" />} label="Duyệt" onClick={() => setTab('approve')} />
       </nav>
     </div>
@@ -327,6 +329,152 @@ function Loading() {
   return (
     <div className="p-8 text-center">
       <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+    </div>
+  );
+}
+
+// ============= Brands =============
+type BrandRow = {
+  id: string;
+  brand_name: string;
+  is_default: boolean | null;
+  primary_color: string | null;
+  industry: string[] | null;
+  logo_url: string | null;
+};
+
+function BrandsTab({ orgId }: { orgId: string }) {
+  const [brands, setBrands] = useState<BrandRow[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+
+  async function load() {
+    setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const tg = (window as any).Telegram?.WebApp;
+      const chatIdRaw = tg?.initDataUnsafe?.user?.id;
+      const [brandsRes, bindingRes] = await Promise.all([
+        sb.from('brand_templates')
+          .select('id, brand_name, is_default, primary_color, industry, logo_url')
+          .eq('organization_id', orgId)
+          .is('deleted_at', null)
+          .order('is_default', { ascending: false })
+          .order('brand_name', { ascending: true }),
+        chatIdRaw
+          ? sb.from('telegram_chat_bindings')
+              .select('active_brand_template_id')
+              .eq('organization_id', orgId)
+              .eq('telegram_chat_id', chatIdRaw)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      setBrands(brandsRes.data ?? []);
+      setActiveId(bindingRes.data?.active_brand_template_id ?? null);
+    } catch (e) {
+      console.error('[telegram-app] brands load failed', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, [orgId]);
+
+  async function switchTo(brandId: string) {
+    setSwitching(brandId);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const tg = (window as any).Telegram?.WebApp;
+      const chatIdRaw = tg?.initDataUnsafe?.user?.id;
+      if (!chatIdRaw) throw new Error('Không tìm được Telegram chat ID');
+      const { error } = await sb.from('telegram_chat_bindings')
+        .update({ active_brand_template_id: brandId })
+        .eq('organization_id', orgId)
+        .eq('telegram_chat_id', chatIdRaw);
+      if (error) throw error;
+      setActiveId(brandId);
+      tg?.HapticFeedback?.notificationOccurred?.('success');
+    } catch (e) {
+      console.error('[telegram-app] switch brand failed', e);
+    } finally {
+      setSwitching(null);
+    }
+  }
+
+  if (loading) return <Loading />;
+  if (brands.length === 0) {
+    return (
+      <div className="p-6 text-center">
+        <Palette className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+        <p className="text-sm text-muted-foreground">Tổ chức chưa có brand nào.</p>
+      </div>
+    );
+  }
+
+  const filtered = filter
+    ? brands.filter((b) => b.brand_name.toLowerCase().includes(filter.toLowerCase()))
+    : brands;
+
+  return (
+    <div className="p-4 space-y-3">
+      <div>
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="🔍 Tìm brand…"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+      <div className="space-y-2">
+        {filtered.map((b) => {
+          const isActive = b.id === activeId;
+          return (
+            <button
+              key={b.id}
+              disabled={switching !== null}
+              onClick={() => switchTo(b.id)}
+              className={`w-full text-left rounded-lg border p-3 flex items-center gap-3 transition-colors ${
+                isActive
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-card hover:bg-accent/50'
+              }`}
+            >
+              <div
+                className="w-10 h-10 rounded-md flex items-center justify-center text-sm font-bold text-white shrink-0"
+                style={{ backgroundColor: b.primary_color || 'hsl(var(--muted))' }}
+              >
+                {b.logo_url ? (
+                  <img src={b.logo_url} alt={b.brand_name} className="w-full h-full rounded-md object-cover" />
+                ) : (
+                  b.brand_name.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-sm truncate">{b.brand_name}</span>
+                  {b.is_default && <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                </div>
+                {b.industry && b.industry.length > 0 && (
+                  <div className="text-xs text-muted-foreground truncate">{b.industry.join(', ')}</div>
+                )}
+              </div>
+              {switching === b.id ? (
+                <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+              ) : isActive ? (
+                <Check className="w-5 h-5 text-primary shrink-0" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      {filtered.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-6">Không khớp brand nào.</p>
+      )}
     </div>
   );
 }

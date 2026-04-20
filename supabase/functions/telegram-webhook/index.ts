@@ -726,11 +726,18 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     for (const h of hints) lines.push(h);
   }
 
+  // Footer with brand badge + one-tap "Đổi brand" button
+  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+  const finalText = appendBrandFooter(lines.join("\n").trim(), activeBrand?.brand_name);
   await sendMessage(
     botConfig.botToken,
     chatId,
-    lines.join("\n").trim(),
-    { parse_mode: "Markdown", disable_web_page_preview: true },
+    finalText,
+    {
+      parse_mode: "Markdown",
+      disable_web_page_preview: true,
+      reply_markup: activeBrand?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined,
+    },
   );
 }
 
@@ -815,10 +822,12 @@ async function handleGenerate(
     output_summary: `Created goal ${goal.id} from chat ${chatId} by user ${binding.userId}`,
   });
 
+  const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
   await sendMessage(
     botConfig.botToken,
     chatId,
-    `✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`,
+    appendBrandFooter(`✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`, activeBrandGen?.brand_name),
+    { reply_markup: activeBrandGen?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined },
   );
 
   // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
@@ -1021,6 +1030,26 @@ async function handleFreeChat(
   // Shown at most once per binding (tracked via first_chat_hint_shown_at).
   await maybeShowBrandHint(supabase, botConfig, chatId, brandCtx);
 
+  // 0d. Brand-mismatch detector — if user mentions another brand by name, suggest switch.
+  const mismatch = await detectBrandMismatch(supabase, botConfig.organizationId, chatId, text, brandCtx?.brand_name);
+  if (mismatch) {
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `🤔 Bạn nhắc tới *${escMdNotif(mismatch.mentionedBrand.brand_name)}* nhưng đang dùng brand *${escMdNotif(brandCtx?.brand_name || "(chưa chọn)")}*. Đổi không?`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [[
+            { text: `✅ Đổi sang ${mismatch.mentionedBrand.brand_name.slice(0, 24)}`, callback_data: `brand:switch:${mismatch.mentionedBrand.id}` },
+            { text: "❌ Giữ nguyên", callback_data: "brand:noop" },
+          ]],
+        },
+      },
+    );
+    return;
+  }
+
   // 1. Log user message (best-effort)
   await supabase.from("telegram_messages_log").insert({
     organization_id: botConfig.organizationId,
@@ -1097,7 +1126,10 @@ async function handleFreeChat(
       default: {
         const reply = result.reply?.trim() ||
           "Mình ở đây 👋 Bạn cần mình giúp gì với marketing hôm nay?";
-        await sendMessage(botConfig.botToken, chatId, reply);
+        const finalReply = appendBrandFooter(reply, brandCtx?.brand_name);
+        await sendMessage(botConfig.botToken, chatId, finalReply, {
+          reply_markup: brandCtx?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined,
+        });
         assistantReply = reply;
       }
     }
@@ -1336,7 +1368,39 @@ async function getActiveBrandContext(
   }
 }
 
-// Show a one-time hint about /brand the first time a user free-chats,
+// Detect when user mentions a brand name (in free-chat) different from the active brand.
+// Returns { mentionedBrand } if a different brand is found, otherwise null.
+// Uses simple substring match (case-insensitive, ≥3-char names) to avoid false positives.
+async function detectBrandMismatch(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  chatId: number,
+  text: string,
+  activeBrandName?: string | null,
+): Promise<{ mentionedBrand: BrandLite } | null> {
+  try {
+    const lowerText = text.toLowerCase();
+    if (lowerText.length < 4) return null;
+    const brands = await fetchOrgBrands(supabase, organizationId);
+    if (brands.length < 2) return null;
+
+    // Find brand whose name appears in user text but is NOT the active one
+    for (const b of brands) {
+      const name = b.brand_name.trim();
+      if (name.length < 3) continue;
+      if (activeBrandName && name.toLowerCase() === activeBrandName.toLowerCase()) continue;
+      // Word-boundary-ish match — require the brand name to appear as a contiguous substring
+      if (lowerText.includes(name.toLowerCase())) {
+        return { mentionedBrand: b };
+      }
+    }
+    return null;
+  } catch (e) {
+    console.warn("[telegram-webhook] detectBrandMismatch failed:", e);
+    return null;
+  }
+}
 // IF they don't have an explicitly chosen brand yet (only org-default fallback).
 async function maybeShowBrandHint(
   // deno-lint-ignore no-explicit-any
