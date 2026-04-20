@@ -1387,6 +1387,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // Brand switcher callbacks: brand:switch:<id> | brand:open | brand:page:<n> | brand:search | brand:noop
+  if (data.startsWith("brand:") && chatId) {
+    await handleBrandCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
+
   // Format: apv:<a|r>:<approvalId>
   const m = /^apv:([ar]):(.+)$/.exec(data);
   if (!m || !chatId || !fromTgId) {
