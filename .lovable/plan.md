@@ -1,86 +1,81 @@
 
-## Kết luận nhanh
 
-Bot Telegram vẫn báo "Hệ thống quá tải" vì free-chat hiện đang rơi vào fallback `credits_exhausted`, và em đã xác định được 2 nguyên nhân rõ ràng từ code + logs:
+## Mục tiêu
+Biến `/status` từ 3 dòng text khô → **dashboard mini** trên Telegram giúp user nắm nhanh tình trạng tài khoản & campaign mà không cần mở app.
 
-1. **Function đang chạy ngoài production chưa nhận bản fix model mới**
-   - Log mới nhất của `telegram-webhook` cho thấy:
-     - `telegram-intent: resolved model=google/gemini-2.5-flash source=default`
-     - `Primary provider: lovable`
-     - `Lovable Gateway error: 402`
-   - Trong code hiện tại, `telegram-intent` đã có config riêng và đã được thêm vào nhóm text override.
-   - Việc log vẫn ra `source=default` cho thấy **bundle đang deploy là bản cũ / deploy trước đó bị kẹt timeout**, nên chưa dùng `qwen-plus`.
+## Hiện tại
+```
+📊 Trạng thái của bạn:
+Quota: 5/30 pipeline tháng này
+Autonomy tối đa: full_auto
+```
+→ Thiếu: pipeline đang chạy, lần dùng gần nhất, % quota, gói cước, brand đang dùng, gợi ý hành động.
 
-2. **Ngay cả khi deploy bản mới, nhánh DashScope vẫn đang có bug**
-   - `callAI()` có decrypt được API key từ `ai_provider_configs`.
-   - Nhưng khi vào case `dashscope`, code lại gọi `callDashScope(...)` mà hàm này **không dùng API key đã decrypt**, nó chỉ đọc `Deno.env.get("DASHSCOPE_API_KEY")`.
-   - DB hiện có `ai_provider_configs` cho `dashscope` với `has_encrypted_key=true`, nên key nằm trong DB chứ không chắc có trong env.
-   - Kết quả: provider DashScope có thể vẫn không chạy đúng dù model đã route sang `qwen-plus`.
+## Sau nâng cấp
 
-## Plan fix
+```
+📊 Trạng thái Flowa — Tháng 4/2026
 
-### Bước 1 — Fix đúng nhánh DashScope trong shared AI provider
-Sửa `supabase/functions/_shared/ai-provider.ts` để:
-- `callDashScope()` nhận `apiKey` như OpenAI/OpenRouter path
-- Khi có `providerConfig` + decrypt được key, dùng **chính key đó** để gọi DashScope
-- Chỉ fallback sang `DASHSCOPE_API_KEY` env nếu không có key trong DB
+👤 Tài khoản
+• Tổ chức: Flowa Beauty Co.
+• Gói: Pro (renew 15/05)
+• Quyền agent: Full Auto
 
-### Bước 2 — Đảm bảo `telegram-intent` thật sự được xếp vào text group override
-Rà lại và giữ nhất quán trong `supabase/functions/_shared/ai-config.ts`:
-- `telegram-intent` phải nằm trong `DEFAULT_CONFIGS`
-- `telegram-intent` phải nằm trong `textFunctions`
-- Log phải ra dạng:
-  - `using group override model=qwen-plus`
-  - `resolved model=qwen-plus source=group`
+📈 Sử dụng tháng này
+• Pipeline: 18/30  ▓▓▓▓▓▓░░░░ 60%
+• Còn 12 lượt · Reset sau 14 ngày
 
-### Bước 3 — Triển khai lại edge function theo hướng tránh stale bundle
-Vì trước đó đã có lỗi `Bundle generation timed out`, em sẽ:
-- deploy lại function sau khi sửa
-- nếu còn timeout, tách phần Telegram free-chat hoặc giảm dependency nặng để bundle `telegram-webhook` build ổn định hơn
-- ưu tiên giữ logic Telegram chạy được trước, không để phụ thuộc vào bundle cũ
+🚀 Pipeline đang chạy (2)
+• "Spa trẻ hóa da" — Creator (45%)
+• "Promo 30/4" — Quality (80%)
 
-### Bước 4 — Verify end-to-end bằng logs thực tế
-Sau deploy cần kiểm tra lại log `telegram-webhook`:
-- mong đợi:
-  - `resolved model=qwen-plus source=group`
-  - `Primary provider: dashscope`
-  - `Using user's dashscope API key`
-- không còn:
-  - `Primary provider: lovable`
-  - `Lovable Gateway error: 402`
+✅ Hoàn tất gần đây (3 trong 7 ngày)
+• "Brand voice clinic" — 2h trước
+• "Top 5 dịch vụ hot" — hôm qua
+• "Idea Tết" — 3 ngày trước
 
-### Bước 5 — Test hành vi user
-Test 3 case trong DM Telegram:
-- `"hello flowa"` → bot chitchat bình thường
-- `"quota tháng này còn bao nhiêu"` → route `status`
-- `"tạo campaign cho spa trẻ hóa da"` → route `generate_campaign`
-
-## Files sẽ đụng tới
-
-- `supabase/functions/_shared/ai-provider.ts`
-- `supabase/functions/_shared/ai-config.ts` (chỉ nếu cần đồng bộ thêm)
-- có thể thêm 1 test nhỏ cho route DashScope nếu repo đã có pattern test edge/shared
-
-## Technical details
-
-```text
-Current runtime behavior
-telegram-intent
-  -> model=google/gemini-2.5-flash
-  -> provider=lovable
-  -> 402 not enough credits
-  -> bot sends overload message
-
-Expected fixed behavior
-telegram-intent
-  -> model=qwen-plus
-  -> provider=dashscope
-  -> uses org encrypted API key from ai_provider_configs
-  -> normal Telegram free-chat response
+💡 Gợi ý
+⚠️ Đã dùng 60% quota — cân nhắc upgrade nếu cần thêm
+👉 /generate <mô tả> để tạo campaign mới
 ```
 
-## Mức độ ưu tiên
+## Thay đổi kỹ thuật
 
-- Đây là **bug backend/provider-routing**, không phải lỗi prompt.
-- Ưu tiên fix **ai-provider DashScope key path** trước, vì đó là root cause bền vững.
-- Sau đó redeploy và xác minh logs để chắc bot không còn bám vào Lovable AI credits nữa.
+**File chính:** `supabase/functions/telegram-webhook/index.ts` — refactor `handleStatus()`.
+
+### Data cần fetch (1 lượt parallel `Promise.all`)
+1. **Org info** từ `organizations` (name)
+2. **Subscription** từ `subscriptions` (plan_type, current_period_end)
+3. **Quota** từ `assertCanCreateGoal` (đã có)
+4. **Pipeline đang chạy** từ `agent_pipelines` where `organization_id` + `status in ('running','queued')` limit 5
+5. **Pipeline hoàn tất gần đây** từ `agent_pipelines` where `status='completed'` AND `completed_at >= now() - 7d` limit 3
+
+### Helper mới
+- `formatProgressBar(used, limit)` → render `▓▓▓▓░░░░░░ 40%` (10 ô)
+- `formatRelativeTime(date)` → "2h trước" / "hôm qua" / "3 ngày trước" (Việt hóa)
+- `pickHealthHint(usagePct, planType)` → câu gợi ý theo ngữ cảnh:
+  - `>= 90%` → cảnh báo gần hết quota + CTA upgrade
+  - `>= 60%` → nhắc nhẹ
+  - `< 60%` + free plan → gợi ý dùng thêm feature
+  - không có pipeline đang chạy → gợi ý `/generate`
+
+### Edge cases
+- User chưa link → giữ nguyên message hiện tại
+- Không có pipeline → ẩn hẳn 2 section "đang chạy" / "hoàn tất"
+- Quota = unlimited → ẩn progress bar, hiện "♾️ Không giới hạn"
+- Lỗi fetch 1 phần → vẫn render phần còn lại (resilient, không fail toàn bộ)
+
+### Markdown format
+Dùng `parse_mode: "Markdown"` để bold tiêu đề; escape ký tự đặc biệt trong tên campaign (`*`, `_`, `[`).
+
+## Phạm vi không đụng tới
+- Không đổi schema DB
+- Không đổi `assertCanCreateGoal` / `lookupUserBinding`
+- Không deploy function khác — chỉ `telegram-webhook`
+
+## Test sau khi deploy
+1. DM bot `/status` khi không có pipeline → render gọn (ẩn section rỗng)
+2. DM `/status` khi đang có pipeline running → hiện đúng tên + stage + %
+3. Free plan đã dùng > 80% quota → có cảnh báo ⚠️
+4. Org unlimited → hiện ♾️ thay vì progress bar
+
