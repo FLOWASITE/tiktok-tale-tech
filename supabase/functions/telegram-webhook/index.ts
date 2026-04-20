@@ -65,7 +65,11 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       return okResponse();
     }
     const message = update.message;
-    if (!message || typeof message.text !== "string") {
+    if (!message) {
+      console.log("[telegram-webhook] non-message update skipped:", {
+        update_id: update.update_id,
+        keys: Object.keys(update),
+      });
       return okResponse();
     }
 
@@ -73,9 +77,42 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     const chatType: string = message.chat.type;
     const telegramUserId: number | undefined = message.from?.id;
     const telegramUsername: string | undefined = message.from?.username;
+
+    // Handle non-text messages (sticker, photo, voice, document, ...) in DM
+    if (typeof message.text !== "string") {
+      const contentType = message.sticker ? "sticker"
+        : message.photo ? "photo"
+        : message.voice ? "voice"
+        : message.document ? "document"
+        : message.video ? "video"
+        : "unknown";
+      console.log("[telegram-webhook] non-text message:", {
+        update_id: update.update_id,
+        chatType,
+        contentType,
+        org: botConfig.organizationId,
+      });
+      if (chatType === "private") {
+        await sendMessage(
+          botConfig.botToken,
+          chatId,
+          "🤖 Hiện bot chỉ hiểu tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
+        );
+      }
+      return okResponse();
+    }
+
     const text: string = message.text.trim();
     const [command, ...argParts] = text.split(/\s+/);
     const args = argParts.join(" ");
+
+    console.log("[telegram-webhook] message:", {
+      update_id: update.update_id,
+      chatType,
+      command,
+      org: botConfig.organizationId,
+      bot: botConfig.botUsername,
+    });
 
     switch (command) {
       case "/start":

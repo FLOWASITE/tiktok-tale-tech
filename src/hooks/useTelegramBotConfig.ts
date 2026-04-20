@@ -82,6 +82,19 @@ export function useTelegramBotConfig() {
     await fetchConfig();
   }, [currentOrganization, config, fetchConfig]);
 
+  const getWebhookInfo = useCallback(async () => {
+    if (!currentOrganization) return null;
+    const { data, error } = await supabase.functions.invoke('telegram-bot-admin', {
+      body: { action: 'webhook_info', organization_id: currentOrganization.id },
+    });
+    if (error) {
+      toast({ title: 'Lỗi', description: error.message ?? 'Không lấy được thông tin webhook', variant: 'destructive' });
+      throw error;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data as any)?.info ?? null;
+  }, [currentOrganization]);
+
   const registerWebhook = useCallback(async () => {
     if (!currentOrganization) return;
     const { data, error } = await supabase.functions.invoke('telegram-bot-admin', {
@@ -95,5 +108,5 @@ export function useTelegramBotConfig() {
     return data;
   }, [currentOrganization]);
 
-  return { config, loading, upsertConfig, deleteConfig, registerWebhook, refresh: fetchConfig };
+  return { config, loading, upsertConfig, deleteConfig, registerWebhook, getWebhookInfo, refresh: fetchConfig };
 }
