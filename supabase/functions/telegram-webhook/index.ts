@@ -8,7 +8,10 @@ import {
   buildWelcomeKeyboard,
   buildHelpKeyboard,
   buildContextualHints,
+  signLinkToken,
 } from "../_shared/telegram-client.ts";
+
+const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
 
@@ -1266,6 +1269,12 @@ async function handleCallbackQuery(args: {
   const chatId = msg?.chat?.id as number | undefined;
   const messageId = msg?.message_id as number | undefined;
 
+  // UX callbacks: ux:<group>:<key>
+  if (data.startsWith("ux:") && chatId) {
+    await handleUxCallback({ supabase, botConfig, chatId, fromTgId, cbId, data });
+    return;
+  }
+
   // Format: apv:<a|r>:<approvalId>
   const m = /^apv:([ar]):(.+)$/.exec(data);
   if (!m || !chatId || !fromTgId) {
@@ -1502,3 +1511,323 @@ async function handleCancel(
   );
 }
 
+
+// =====================================================
+// /examples — example prompt library
+// =====================================================
+async function handleExamples(ctx: HandlerCtx): Promise<void> {
+  const { supabase, botConfig, chatId } = ctx;
+
+  const { data: prompts } = await supabase
+    .from("telegram_example_prompts")
+    .select("title, prompt, emoji, category")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(10);
+
+  const list = (prompts ?? []) as Array<{ title: string; prompt: string; emoji: string | null; category: string | null }>;
+
+  if (list.length === 0) {
+    // Fallback hardcoded examples nếu chưa seed DB
+    const fallback = [
+      { title: "Campaign Black Friday cho thẩm mỹ viện", prompt: "Tạo campaign Black Friday giảm 30% cho dịch vụ thẩm mỹ viện, target nữ 25-40 tuổi", emoji: "🎁" },
+      { title: "3 caption Facebook bán mỹ phẩm", prompt: "Viết 3 caption Facebook bán kem dưỡng da cho da khô, tone thân thiện", emoji: "💄" },
+      { title: "Phân tích campaign tuần", prompt: "Phân tích hiệu quả các campaign tuần này, gợi ý cải thiện", emoji: "📊" },
+      { title: "Idea content TikTok", prompt: "Cho 5 idea content TikTok cho spa làm đẹp, format storytime", emoji: "🎬" },
+      { title: "Email sequence ra mắt sản phẩm", prompt: "Viết email sequence 5 email ra mắt sản phẩm serum mới", emoji: "✉️" },
+    ];
+    list.push(...fallback);
+  }
+
+  const lines: string[] = ["💡 *Ví dụ thực tế — bấm nút để thử ngay:*", ""];
+  const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
+  list.slice(0, 7).forEach((p, idx) => {
+    const emoji = p.emoji || "✨";
+    lines.push(`${emoji} _${escapeMd(p.title)}_`);
+    keyboard.push([{ text: `${emoji} Thử: ${p.title.slice(0, 40)}`, callback_data: `ux:ex:${idx}` }]);
+  });
+  lines.push("", "👉 Hoặc chat tự nhiên — mình hiểu tiếng Việt!");
+
+  // Stash prompts in memory by chat (best-effort, in-process cache)
+  exampleCache.set(chatId, list.slice(0, 7).map((p) => p.prompt));
+
+  await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard: keyboard },
+  });
+}
+
+const exampleCache = new Map<number, string[]>();
+
+// =====================================================
+// /tutorial — 3-step interactive tutorial
+// =====================================================
+async function handleTutorial(
+  ctx: HandlerCtx & { telegramUserId?: number; step: number },
+): Promise<void> {
+  const { supabase, botConfig, chatId, step } = ctx;
+  const stepClamped = Math.min(3, Math.max(1, step));
+
+  const STEPS: Array<{ title: string; body: string; cta: string }> = [
+    {
+      title: "Bước 1/3 — Chat tự nhiên",
+      body: "Cứ nhắn như chat với người thật.\n\n📝 *Thử gõ:* `tạo bài đăng FB cho spa làm đẹp`\n\nBot tự hiểu, không cần học cú pháp.",
+      cta: "Tiếp ▶️",
+    },
+    {
+      title: "Bước 2/3 — Lệnh nhanh",
+      body: "Gõ `/` để xem menu lệnh, hoặc dùng nút bàn phím dưới.\n\n📊 `/status` — xem quota tháng này\n📋 `/campaigns` — list 5 campaign mới\n💡 `/examples` — ví dụ thực tế",
+      cta: "Tiếp ▶️",
+    },
+    {
+      title: "Bước 3/3 — Mini App",
+      body: "Bấm nút *menu* (góc dưới-trái) để mở Mini App Flowa — quản lý đầy đủ ngay trong Telegram, không cần rời app.",
+      cta: "✅ Hoàn tất",
+    },
+  ];
+
+  const s = STEPS[stepClamped - 1];
+  const keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>> = [];
+
+  if (stepClamped < 3) {
+    keyboard.push([{ text: s.cta, callback_data: `ux:tut:${stepClamped + 1}` }]);
+  } else {
+    keyboard.push([{ text: "🚀 Mở Mini App", web_app: { url: MINI_APP_URL } }]);
+    keyboard.push([{ text: s.cta, callback_data: "ux:tut:done" }]);
+  }
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    `📚 *${s.title}*\n\n${s.body}`,
+    { parse_mode: "Markdown", reply_markup: { inline_keyboard: keyboard } },
+  );
+
+  await supabase
+    .from("telegram_chat_bindings")
+    .update({ tutorial_step: stepClamped })
+    .eq("organization_id", botConfig.organizationId)
+    .eq("telegram_chat_id", chatId)
+    .then(() => {}, () => {});
+}
+
+// =====================================================
+// /settings — user preferences panel
+// =====================================================
+async function handleSettings(
+  ctx: HandlerCtx & { telegramUserId?: number },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId } = ctx;
+
+  const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    return;
+  }
+
+  // Upsert default preferences if missing
+  const { data: prefs } = await supabase
+    .from("telegram_user_preferences")
+    .select("daily_digest, language, verbose_mode, default_brand_id")
+    .eq("organization_id", botConfig.organizationId)
+    .eq("user_id", binding.userId)
+    .maybeSingle();
+
+  const cur = prefs ?? { daily_digest: true, language: "vi", verbose_mode: false, default_brand_id: null };
+  const dg = cur.daily_digest ? "BẬT ✅" : "TẮT ⛔";
+  const vb = cur.verbose_mode ? "BẬT ✅" : "TẮT ⛔";
+
+  const lines = [
+    "⚙️ *Cài đặt cá nhân*",
+    "",
+    `🔔 Daily digest: *${dg}*`,
+    `🌐 Ngôn ngữ: *${(cur.language || "vi").toUpperCase()}*`,
+    `🤖 Verbose mode: *${vb}*`,
+    "",
+    "Bấm nút để thay đổi:",
+  ];
+
+  const keyboard = [
+    [
+      { text: cur.daily_digest ? "🔕 Tắt digest" : "🔔 Bật digest", callback_data: "ux:set:digest" },
+      { text: "🌐 Đổi ngôn ngữ", callback_data: "ux:set:lang" },
+    ],
+    [
+      { text: cur.verbose_mode ? "🤖 Tắt verbose" : "🤖 Bật verbose", callback_data: "ux:set:verbose" },
+      { text: "🎨 Brand mặc định", callback_data: "ux:set:brand" },
+    ],
+    [{ text: "🔓 Gỡ kết nối", callback_data: "ux:set:unlink" }],
+  ];
+
+  await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard: keyboard },
+  });
+}
+
+// =====================================================
+// UX callback router (welcome / help / tutorial / settings / examples)
+// =====================================================
+async function handleUxCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, data } = args;
+  const parts = data.split(":");
+  const group = parts[1] || "";
+  const key = parts.slice(2).join(":");
+
+  // Acknowledge immediately so the spinner clears
+  await answerCallback(botConfig.botToken, cbId).catch(() => {});
+
+  const ctx: HandlerCtx = { supabase, botConfig, chatId };
+
+  if (group === "welcome") {
+    switch (key) {
+      case "generate":
+        await sendMessage(botConfig.botToken, chatId,
+          "✍️ *Tạo campaign:*\n\nGõ `/generate <mô tả>` hoặc chat tự nhiên, ví dụ:\n_\"tạo campaign Tết cho spa làm đẹp\"_",
+          { parse_mode: "Markdown" });
+        return;
+      case "brand":
+        await handleBrand({ ...ctx, telegramUserId: fromTgId, arg: "" });
+        return;
+      case "examples":
+        await handleExamples(ctx);
+        return;
+      case "tutorial":
+        await handleTutorial({ ...ctx, telegramUserId: fromTgId, step: 1 });
+        return;
+    }
+  }
+
+  if (group === "help") {
+    const sections: Record<string, { title: string; body: string }> = {
+      create: { title: "✍️ Tạo nội dung", body: "• `/generate <mô tả>` — tạo campaign\n• `/examples` — ví dụ\n• Hoặc chat tự nhiên: _\"viết 3 caption FB cho serum\"_" },
+      report: { title: "📊 Xem báo cáo", body: "• `/status` — quota & pipeline tháng\n• `/campaigns` — 5 campaign gần nhất\n• Mini App: dashboard đầy đủ" },
+      brand: { title: "⚙️ Quản lý brand", body: "• `/brand` — xem brand active\n• `/brand <tên>` — đổi brand\n• Quản lý chi tiết tại app.flowa.one" },
+      quota: { title: "💳 Quota & gói", body: "• `/status` — xem quota còn lại\n• Upgrade tại app.flowa.one/pricing" },
+      group: { title: "👥 Group team", body: "• Add bot vào group\n• Admin gõ `/link_group` để link group với tổ chức\n• Member đã `/start` DM có thể `/generate` từ group" },
+      support: { title: "❓ Cần hỗ trợ", body: "📧 support@flowa.one\n🌐 help.flowa.one\n💬 Chat trong app" },
+    };
+    const s = sections[key];
+    if (s) {
+      await sendMessage(botConfig.botToken, chatId, `*${s.title}*\n\n${s.body}`, {
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: [[{ text: "← Quay lại menu", callback_data: "ux:help:menu" }]] },
+      });
+      return;
+    }
+    if (key === "menu") {
+      await sendMessage(botConfig.botToken, chatId, "🎯 *Bạn muốn làm gì?*", {
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: buildHelpKeyboard() },
+      });
+      return;
+    }
+  }
+
+  if (group === "tut") {
+    if (key === "done") {
+      await supabase
+        .from("telegram_chat_bindings")
+        .update({ tutorial_completed_at: new Date().toISOString() })
+        .eq("organization_id", botConfig.organizationId)
+        .eq("telegram_chat_id", chatId)
+        .then(() => {}, () => {});
+      await sendMessage(botConfig.botToken, chatId, "🎉 Hoàn tất hướng dẫn! Cứ chat tự nhiên với mình nhé.");
+      return;
+    }
+    const next = parseInt(key, 10);
+    if (!Number.isNaN(next)) {
+      await handleTutorial({ ...ctx, telegramUserId: fromTgId, step: next });
+      return;
+    }
+  }
+
+  if (group === "ex") {
+    const idx = parseInt(key, 10);
+    const cached = exampleCache.get(chatId);
+    if (cached && cached[idx]) {
+      const prompt = cached[idx];
+      await sendMessage(botConfig.botToken, chatId, `🚀 *Đang chạy:*\n_${escapeMd(prompt)}_`, { parse_mode: "Markdown" });
+      await handleGenerate({ ...ctx, telegramUserId: fromTgId, prompt });
+      return;
+    }
+    await sendMessage(botConfig.botToken, chatId, "Ví dụ này đã hết hạn, gõ /examples để xem lại.");
+    return;
+  }
+
+  if (group === "set") {
+    if (!fromTgId) return;
+    const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, fromTgId);
+    if (!binding) return;
+
+    if (key === "digest" || key === "verbose") {
+      const col = key === "digest" ? "daily_digest" : "verbose_mode";
+      const { data: cur } = await supabase
+        .from("telegram_user_preferences")
+        .select(col)
+        .eq("organization_id", botConfig.organizationId)
+        .eq("user_id", binding.userId)
+        .maybeSingle();
+      // deno-lint-ignore no-explicit-any
+      const newVal = !((cur as any)?.[col] ?? (key === "digest"));
+      await supabase
+        .from("telegram_user_preferences")
+        .upsert({
+          organization_id: botConfig.organizationId,
+          user_id: binding.userId,
+          [col]: newVal,
+        }, { onConflict: "organization_id,user_id" });
+      await sendMessage(botConfig.botToken, chatId, `✅ Đã ${newVal ? "BẬT" : "TẮT"} ${key === "digest" ? "daily digest" : "verbose mode"}.`);
+      return;
+    }
+    if (key === "lang") {
+      await sendMessage(botConfig.botToken, chatId, "🌐 Chọn ngôn ngữ:", {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🇻🇳 Tiếng Việt", callback_data: "ux:setlang:vi" }, { text: "🇬🇧 English", callback_data: "ux:setlang:en" }],
+            [{ text: "🇹🇭 ภาษาไทย", callback_data: "ux:setlang:th" }],
+          ],
+        },
+      });
+      return;
+    }
+    if (key === "brand") {
+      await handleBrand({ ...ctx, telegramUserId: fromTgId, arg: "" });
+      return;
+    }
+    if (key === "unlink") {
+      await sendMessage(botConfig.botToken, chatId,
+        "⚠️ Để gỡ kết nối, vào *app.flowa.one → Agent → Telegram → Gỡ kết nối*.",
+        { parse_mode: "Markdown" });
+      return;
+    }
+  }
+
+  if (group === "setlang") {
+    if (!fromTgId) return;
+    const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, fromTgId);
+    if (!binding) return;
+    await supabase
+      .from("telegram_user_preferences")
+      .upsert({
+        organization_id: botConfig.organizationId,
+        user_id: binding.userId,
+        language: key,
+      }, { onConflict: "organization_id,user_id" });
+    await sendMessage(botConfig.botToken, chatId, `✅ Đã đổi ngôn ngữ sang *${key.toUpperCase()}*.`, { parse_mode: "Markdown" });
+    return;
+  }
+
+  if (group === "hint" && key === "freechat") {
+    await sendMessage(botConfig.botToken, chatId, "💬 Cứ gõ tin nhắn bình thường — mình hiểu tiếng Việt và sẽ tự nhận diện ý định!");
+    return;
+  }
+}
