@@ -794,7 +794,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (!activeBrandId) {
     hints.push("💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó");
   }
-  if (running.length === 0 && !(activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0)) {
+  if (running.length === 0 && !(activeBrandId && running.length === 0 && recent.length === 0)) {
     hints.push("👉 /generate <mô tả> để tạo campaign mới");
   }
   if (hints.length > 0) {
