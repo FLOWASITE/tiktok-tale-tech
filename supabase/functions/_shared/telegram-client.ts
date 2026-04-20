@@ -31,6 +31,23 @@ export async function sendMessage(
   }
 }
 
+export async function sendChatAction(
+  botToken: string,
+  chatId: number,
+  action: "typing" | "upload_photo" | "record_video" = "typing",
+): Promise<void> {
+  try {
+    await fetch(`${TELEGRAM_API}/bot${botToken}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action }),
+    });
+  } catch (err) {
+    // Non-critical; log and continue.
+    console.warn("[telegram-client] sendChatAction failed:", err);
+  }
+}
+
 export async function setWebhook(
   botToken: string,
   webhookUrl: string,

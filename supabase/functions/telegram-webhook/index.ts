@@ -2,9 +2,11 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import {
   assertCanCreateGoal,
   resolveBotConfig,
+  sendChatAction,
   sendMessage,
   verifyLinkToken,
 } from "../_shared/telegram-client.ts";
+import { classifyIntent, type ChatHistoryItem } from "../_shared/telegram-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -160,12 +162,26 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         });
         break;
       default:
+        // Slash-command unknown → standard error
+        if (text.startsWith("/")) {
+          if (chatType === "private") {
+            await sendMessage(
+              botConfig.botToken,
+              chatId,
+              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
+            );
+          }
+          break;
+        }
+        // Free chat (non-slash text) — DM only
         if (chatType === "private") {
-          await sendMessage(
-            botConfig.botToken,
+          await handleFreeChat({
+            supabase,
+            botConfig,
             chatId,
-            "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
-          );
+            telegramUserId,
+            text,
+          });
         }
     }
 
