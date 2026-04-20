@@ -17,7 +17,7 @@ export interface TelegramBotConfig {
 
 export interface UpsertBotConfigInput {
   bot_username: string;
-  bot_token: string;
+  bot_token?: string;
   default_autonomy_level?: TelegramBotConfig['default_autonomy_level'];
   is_active?: boolean;
 }
