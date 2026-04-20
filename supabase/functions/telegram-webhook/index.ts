@@ -1030,6 +1030,26 @@ async function handleFreeChat(
   // Shown at most once per binding (tracked via first_chat_hint_shown_at).
   await maybeShowBrandHint(supabase, botConfig, chatId, brandCtx);
 
+  // 0d. Brand-mismatch detector — if user mentions another brand by name, suggest switch.
+  const mismatch = await detectBrandMismatch(supabase, botConfig.organizationId, chatId, text, brandCtx?.brand_name);
+  if (mismatch) {
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `🤔 Bạn nhắc tới *${escMdNotif(mismatch.mentionedBrand.brand_name)}* nhưng đang dùng brand *${escMdNotif(brandCtx?.brand_name || "(chưa chọn)")}*. Đổi không?`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [[
+            { text: `✅ Đổi sang ${mismatch.mentionedBrand.brand_name.slice(0, 24)}`, callback_data: `brand:switch:${mismatch.mentionedBrand.id}` },
+            { text: "❌ Giữ nguyên", callback_data: "brand:noop" },
+          ]],
+        },
+      },
+    );
+    return;
+  }
+
   // 1. Log user message (best-effort)
   await supabase.from("telegram_messages_log").insert({
     organization_id: botConfig.organizationId,
@@ -1106,7 +1126,10 @@ async function handleFreeChat(
       default: {
         const reply = result.reply?.trim() ||
           "Mình ở đây 👋 Bạn cần mình giúp gì với marketing hôm nay?";
-        await sendMessage(botConfig.botToken, chatId, reply);
+        const finalReply = appendBrandFooter(reply, brandCtx?.brand_name);
+        await sendMessage(botConfig.botToken, chatId, finalReply, {
+          reply_markup: brandCtx?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined,
+        });
         assistantReply = reply;
       }
     }
