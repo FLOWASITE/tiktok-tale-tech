@@ -726,11 +726,18 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     for (const h of hints) lines.push(h);
   }
 
+  // Footer with brand badge + one-tap "Đổi brand" button
+  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+  const finalText = appendBrandFooter(lines.join("\n").trim(), activeBrand?.brand_name);
   await sendMessage(
     botConfig.botToken,
     chatId,
-    lines.join("\n").trim(),
-    { parse_mode: "Markdown", disable_web_page_preview: true },
+    finalText,
+    {
+      parse_mode: "Markdown",
+      disable_web_page_preview: true,
+      reply_markup: activeBrand?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined,
+    },
   );
 }
 
@@ -815,10 +822,12 @@ async function handleGenerate(
     output_summary: `Created goal ${goal.id} from chat ${chatId} by user ${binding.userId}`,
   });
 
+  const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
   await sendMessage(
     botConfig.botToken,
     chatId,
-    `✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`,
+    appendBrandFooter(`✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`, activeBrandGen?.brand_name),
+    { reply_markup: activeBrandGen?.brand_name ? { inline_keyboard: buildBrandFooterKeyboard() } : undefined },
   );
 
   // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
