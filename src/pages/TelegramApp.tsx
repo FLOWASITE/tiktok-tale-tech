@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check } from 'lucide-react';
 
-type Tab = 'dashboard' | 'create' | 'approve';
+type Tab = 'dashboard' | 'create' | 'approve' | 'brands';
 
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, userId, organizationId } = useTelegramWebApp();
@@ -62,12 +62,14 @@ export default function TelegramApp() {
         {tab === 'dashboard' && <DashboardTab orgId={organizationId} userId={userId} />}
         {tab === 'create' && <CreateTab orgId={organizationId} userId={userId} onDone={() => setTab('dashboard')} />}
         {tab === 'approve' && <ApproveTab orgId={organizationId} />}
+        {tab === 'brands' && <BrandsTab orgId={organizationId} />}
       </main>
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-3">
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-4">
         <NavBtn active={tab === 'dashboard'} icon={<LayoutDashboard className="w-5 h-5" />} label="Tổng quan" onClick={() => setTab('dashboard')} />
         <NavBtn active={tab === 'create'} icon={<Plus className="w-5 h-5" />} label="Tạo" onClick={() => setTab('create')} />
+        <NavBtn active={tab === 'brands'} icon={<Palette className="w-5 h-5" />} label="Brand" onClick={() => setTab('brands')} />
         <NavBtn active={tab === 'approve'} icon={<CheckSquare className="w-5 h-5" />} label="Duyệt" onClick={() => setTab('approve')} />
       </nav>
     </div>
