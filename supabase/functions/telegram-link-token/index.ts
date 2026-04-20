@@ -44,7 +44,9 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
     );
 
-    const { data: claimsData, error: authError } = await authClient.auth.getClaims(accessToken);
+    const { data: claimsData, error: authError } = await (authClient.auth as typeof authClient.auth & {
+      getClaims: (token: string) => Promise<{ data: { claims?: { sub?: string } } | null; error: { message?: string } | null }>;
+    }).getClaims(accessToken);
     const userId = claimsData?.claims?.sub;
     if (authError || !userId) {
       console.error("[telegram-link-token] auth failed:", authError?.message);
