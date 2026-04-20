@@ -300,7 +300,10 @@ Deno.serve(async (req) => {
     const { action, goal_id, pipeline_id, organization_id } = body;
 
     // ========== ACTION: trigger_from_goal ==========
-    // New flow: call generate-campaign-strategy instead of creating pipelines directly
+    // New flow: call generate-campaign-strategy instead of creating pipelines directly.
+    // IMPORTANT: strategy generation is a long AI call (10-30s). We dispatch it in the
+    // background via EdgeRuntime.waitUntil and return 202 immediately so callers
+    // (telegram-webhook, UI) don't time out. Clients can poll via /status or agent_pipelines table.
     if (action === "trigger_from_goal") {
       if (!goal_id) throw new Error("goal_id required");
 
@@ -311,27 +314,79 @@ Deno.serve(async (req) => {
         .single();
       if (goalErr || !goal) throw new Error("Goal not found");
 
-      // Call generate-campaign-strategy to create a content plan
-      const strategyResult = await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
-        goal_id: goal.id,
-        campaign_title: goal.name,
-        campaign_description: goal.description || "",
-        target_channels: goal.target_channels || [],
-        campaign_duration_days: goal.campaign_duration_days || 14,
-        campaign_start_date: goal.campaign_start_date || new Date().toISOString().split("T")[0],
-        approval_mode: goal.approval_mode || "approve_plan",
-        brand_template_id: goal.brand_template_id || null,
-        clarification_context: goal.clarification_context || null,
-        organization_id: goal.organization_id,
-      });
+      // Synchronous fast mode (only when caller explicitly asks) — kept for backward compat / testing
+      if (body.sync === true) {
+        const strategyResult = await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
+          goal_id: goal.id,
+          campaign_title: goal.name,
+          campaign_description: goal.description || "",
+          target_channels: goal.target_channels || [],
+          campaign_duration_days: goal.campaign_duration_days || 14,
+          campaign_start_date: goal.campaign_start_date || new Date().toISOString().split("T")[0],
+          approval_mode: goal.approval_mode || "approve_plan",
+          brand_template_id: goal.brand_template_id || null,
+          clarification_context: goal.clarification_context || null,
+          organization_id: goal.organization_id,
+        });
+        return json({
+          success: true,
+          plan_id: strategyResult.plan_id,
+          total_pieces: strategyResult.total_pieces || 0,
+          pipelines_created: strategyResult.pipelines_created || 0,
+          approval_mode: strategyResult.approval_mode || "approve_plan",
+        });
+      }
 
-      return json({
-        success: true,
-        plan_id: strategyResult.plan_id,
-        total_pieces: strategyResult.total_pieces || 0,
-        pipelines_created: strategyResult.pipelines_created || 0,
-        approval_mode: strategyResult.approval_mode || "approve_plan",
-      });
+      // Async mode (default): dispatch in background, return 202 immediately
+      const bgTask = (async () => {
+        try {
+          console.log(`[trigger_from_goal] bg: starting strategy for goal ${goal.id}`);
+          const strategyResult = await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
+            goal_id: goal.id,
+            campaign_title: goal.name,
+            campaign_description: goal.description || "",
+            target_channels: goal.target_channels || [],
+            campaign_duration_days: goal.campaign_duration_days || 14,
+            campaign_start_date: goal.campaign_start_date || new Date().toISOString().split("T")[0],
+            approval_mode: goal.approval_mode || "approve_plan",
+            brand_template_id: goal.brand_template_id || null,
+            clarification_context: goal.clarification_context || null,
+            organization_id: goal.organization_id,
+          });
+          console.log(`[trigger_from_goal] bg: done goal=${goal.id} plan=${strategyResult?.plan_id} pipelines=${strategyResult?.pipelines_created}`);
+        } catch (bgErr) {
+          console.error(`[trigger_from_goal] bg error for goal ${goal.id}:`, bgErr);
+          // Surface failure on the goal so UI/bot can show it
+          try {
+            await supabase.from("agent_execution_logs").insert({
+              session_id: crypto.randomUUID(),
+              agent_name: "agent-pipeline",
+              status: "failed",
+              input_summary: `trigger_from_goal ${goal.id}`,
+              output_summary: String((bgErr as Error)?.message || bgErr).slice(0, 500),
+            });
+          } catch (_) { /* ignore */ }
+        }
+      })();
+
+      // @ts-ignore Deno Deploy / Supabase Edge runtime global
+      if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any)?.waitUntil) {
+        // @ts-ignore
+        (EdgeRuntime as any).waitUntil(bgTask);
+      } else {
+        // Fallback: let it run detached
+        bgTask.catch(() => {});
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status: "accepted",
+          goal_id: goal.id,
+          message: "Strategy generation dispatched in background. Poll /status or agent_pipelines.",
+        }),
+        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // ========== ACTION: advance_stage ==========
