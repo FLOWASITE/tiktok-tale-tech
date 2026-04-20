@@ -110,6 +110,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       update_id: update.update_id,
       chatType,
       command,
+      argsLength: args.length,
       org: botConfig.organizationId,
       bot: botConfig.botUsername,
     });
@@ -224,6 +225,12 @@ async function handleStart(
   const { supabase, botConfig, chatId, chatType, telegramUserId, telegramUsername, token } = ctx;
 
   if (!token) {
+    console.log("[telegram-webhook] /start without token", {
+      organizationId: botConfig.organizationId,
+      chatId,
+      chatType,
+      telegramUserId,
+    });
     await sendMessage(
       botConfig.botToken,
       chatId,
@@ -237,6 +244,12 @@ async function handleStart(
     payload = await verifyLinkToken(token);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "invalid";
+    console.warn("[telegram-webhook] invalid /start token", {
+      organizationId: botConfig.organizationId,
+      chatId,
+      tokenLength: token.length,
+      error: msg,
+    });
     await sendMessage(
       botConfig.botToken,
       chatId,

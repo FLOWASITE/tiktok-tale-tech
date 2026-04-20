@@ -129,6 +129,12 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
       ttlSeconds: 600,
     });
 
+    console.log("[telegram-link-token] generated compact token", {
+      organizationId,
+      bot: botConfig.bot_username,
+      tokenLength: token.length,
+    });
+
     const deeplink = `https://t.me/${botConfig.bot_username}?start=${token}`;
 
     return json({ token, deeplink, expires_in: 600 });
