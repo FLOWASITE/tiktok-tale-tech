@@ -67,6 +67,7 @@ import AppPricing from "@/pages/Pricing";
 
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
+const TelegramApp = lazy(() => import("@/pages/TelegramApp"));
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
@@ -100,6 +101,10 @@ export function AppRoutes() {
       <Route path="/pricing" element={<ProtectedRoute><AppLayout><AppPricing /></AppLayout></ProtectedRoute>} />
       <Route path="/terms" element={<Suspense fallback={<LoadingFallback />}><TermsOfService /></Suspense>} />
       <Route path="/privacy" element={<Suspense fallback={<LoadingFallback />}><PrivacyPolicy /></Suspense>} />
+
+      {/* Telegram Mini App — public, auth via initData HMAC */}
+      <Route path="/telegram-app" element={<Suspense fallback={<LoadingFallback />}><TelegramApp /></Suspense>} />
+      <Route path="/telegram-app/*" element={<Suspense fallback={<LoadingFallback />}><TelegramApp /></Suspense>} />
 
       {/* Auth routes */}
       <Route path="/auth" element={<Auth />} />
