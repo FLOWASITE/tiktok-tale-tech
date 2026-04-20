@@ -108,5 +108,18 @@ export function useTelegramBotConfig() {
     return data;
   }, [currentOrganization]);
 
-  return { config, loading, upsertConfig, deleteConfig, registerWebhook, getWebhookInfo, refresh: fetchConfig };
+  const syncCommands = useCallback(async () => {
+    if (!currentOrganization) return;
+    const { data, error } = await supabase.functions.invoke('telegram-bot-admin', {
+      body: { action: 'sync_commands', organization_id: currentOrganization.id },
+    });
+    if (error) {
+      toast({ title: 'Lỗi', description: error.message ?? 'Không đồng bộ được menu lệnh', variant: 'destructive' });
+      throw error;
+    }
+    toast({ title: 'Đã đồng bộ menu lệnh', description: 'Mở chat bot để thấy nút Menu (☰) hiện list lệnh.' });
+    return data;
+  }, [currentOrganization]);
+
+  return { config, loading, upsertConfig, deleteConfig, registerWebhook, syncCommands, getWebhookInfo, refresh: fetchConfig };
 }

@@ -87,6 +87,40 @@ export async function getWebhookInfo(
 }
 
 // =====================================================
+// Bot commands menu (native Telegram "/" menu button)
+// =====================================================
+export interface BotCommand {
+  command: string;
+  description: string;
+}
+
+export const BOT_COMMANDS: BotCommand[] = [
+  { command: "start", description: "Bắt đầu / kết nối tài khoản" },
+  { command: "status", description: "Xem quota & pipeline tháng này" },
+  { command: "brand", description: "Chọn thương hiệu active" },
+  { command: "campaigns", description: "5 campaign gần nhất" },
+  { command: "generate", description: "Tạo campaign mới từ mô tả" },
+  { command: "help", description: "Hướng dẫn sử dụng bot" },
+];
+
+export async function setMyCommands(
+  botToken: string,
+  commands: BotCommand[] = BOT_COMMANDS,
+): Promise<{ ok: boolean; description?: string }> {
+  try {
+    const res = await fetch(`${TELEGRAM_API}/bot${botToken}/setMyCommands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commands }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn("[telegram-client] setMyCommands failed:", err);
+    return { ok: false, description: String(err) };
+  }
+}
+
+// =====================================================
 // Link-token: compact HMAC token for Telegram deep link.
 // Telegram /start payload is capped, so we encode:
 // [16 bytes uid][16 bytes org][4 bytes exp][8 bytes mac]

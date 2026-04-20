@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTelegramBotConfig } from '@/hooks/useTelegramBotConfig';
-import { Loader2, Link as LinkIcon, Trash2, ExternalLink, Copy, Check, CheckCircle2, Activity, AlertTriangle } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Trash2, ExternalLink, Copy, Check, CheckCircle2, Activity, AlertTriangle, ListChecks } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface WebhookInfo {
@@ -21,7 +21,7 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,32}$/;
 const TOKEN_REGEX = /^\d+:[A-Za-z0-9_-]{30,}$/;
 
 export function TelegramBotConfigCard() {
-  const { config, loading, upsertConfig, deleteConfig, registerWebhook, getWebhookInfo } = useTelegramBotConfig();
+  const { config, loading, upsertConfig, deleteConfig, registerWebhook, getWebhookInfo, syncCommands } = useTelegramBotConfig();
   const [botUsername, setBotUsername] = useState('');
   const [botToken, setBotToken] = useState('');
   const [autonomy, setAutonomy] = useState<'human_in_loop' | 'human_on_loop' | 'full_auto'>('human_in_loop');
@@ -31,6 +31,12 @@ export function TelegramBotConfigCard() {
   const [showEdit, setShowEdit] = useState(false);
   const [webhookInfo, setWebhookInfo] = useState<WebhookInfo | null>(null);
   const [checkingInfo, setCheckingInfo] = useState(false);
+  const [syncingCmds, setSyncingCmds] = useState(false);
+
+  const handleSyncCommands = async () => {
+    setSyncingCmds(true);
+    try { await syncCommands(); } finally { setSyncingCmds(false); }
+  };
 
   const handleCheckWebhook = async () => {
     setCheckingInfo(true);
@@ -325,6 +331,10 @@ export function TelegramBotConfigCard() {
                 <Button variant="outline" size="sm" onClick={handleRegister} disabled={registering}>
                   {registering ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LinkIcon className="w-4 h-4 mr-2" />}
                   Đăng ký lại webhook
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleSyncCommands} disabled={syncingCmds}>
+                  {syncingCmds ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ListChecks className="w-4 h-4 mr-2" />}
+                  Đồng bộ menu lệnh
                 </Button>
                 <Button variant="ghost" size="sm" onClick={deleteConfig} className="text-destructive hover:text-destructive ml-auto">
                   <Trash2 className="w-4 h-4 mr-2" /> Xóa cấu hình
