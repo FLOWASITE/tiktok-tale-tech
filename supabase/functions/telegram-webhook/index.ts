@@ -618,9 +618,12 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const orgId = botConfig.organizationId;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Resolve active brand first — to scope pipeline queries
-  const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
-  const activeBrandId = (activeBrand as any)?.id ?? null;
+  // Resolve active brand first — strictly from the current chat binding.
+  // /status must NOT silently fall back to org-wide when a brand was explicitly chosen.
+  const activeBrandId = await getActiveBrandId(supabase, orgId, chatId, { fallbackToDefault: false });
+  const activeBrand = activeBrandId
+    ? await getBrandContextById(supabase, orgId, activeBrandId)
+    : null;
 
   console.log("[handleStatus] scope", {
     chatId,
@@ -1384,14 +1387,27 @@ async function getActiveBrandId(
   supabase: any,
   organizationId: string,
   chatId: number,
+  options: { fallbackToDefault?: boolean } = {},
 ): Promise<string | null> {
+  const { fallbackToDefault = true } = options;
   const { data } = await supabase
     .from("telegram_chat_bindings")
     .select("active_brand_template_id")
     .eq("organization_id", organizationId)
     .eq("telegram_chat_id", chatId)
     .maybeSingle();
-  return (data?.active_brand_template_id as string | null) ?? null;
+  const activeBrandId = (data?.active_brand_template_id as string | null) ?? null;
+  if (activeBrandId || !fallbackToDefault) return activeBrandId;
+
+  const { data: def } = await supabase
+    .from("brand_templates")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("is_default", true)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  return (def?.id as string | null) ?? null;
 }
 
 async function switchActiveBrand(
@@ -1494,36 +1510,29 @@ async function getActiveBrandContext(
   chatId: number,
 ): Promise<ActiveBrandContext | null> {
   try {
-    const { data: binding } = await supabase
-      .from("telegram_chat_bindings")
-      .select("active_brand_template_id")
-      .eq("organization_id", organizationId)
-      .eq("telegram_chat_id", chatId)
-      .maybeSingle();
-    let brandId = binding?.active_brand_template_id as string | undefined;
-
-    // Fallback to org default brand if user hasn't picked one
-    if (!brandId) {
-      const { data: def } = await supabase
-        .from("brand_templates")
-        .select("id")
-        .eq("organization_id", organizationId)
-        .eq("is_default", true)
-        .maybeSingle();
-      brandId = def?.id;
-    }
+    const brandId = await getActiveBrandId(supabase, organizationId, chatId);
     if (!brandId) return null;
-
-    const { data: brand } = await supabase
-      .from("brand_templates")
-      .select("id, brand_name, industry, tone_of_voice, unique_value_proposition")
-      .eq("id", brandId)
-      .maybeSingle();
-    return (brand as ActiveBrandContext) ?? null;
+    return await getBrandContextById(supabase, organizationId, brandId);
   } catch (e) {
     console.warn("[telegram-webhook] getActiveBrandContext failed:", e);
     return null;
   }
+}
+
+async function getBrandContextById(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  brandId: string,
+): Promise<ActiveBrandContext | null> {
+  const { data: brand } = await supabase
+    .from("brand_templates")
+    .select("id, brand_name, industry, tone_of_voice, unique_value_proposition")
+    .eq("organization_id", organizationId)
+    .eq("id", brandId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  return (brand as ActiveBrandContext) ?? null;
 }
 
 // Detect when user mentions a brand name (in free-chat) different from the active brand.
