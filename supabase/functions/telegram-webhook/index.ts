@@ -616,6 +616,47 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const orgId = botConfig.organizationId;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Resolve active brand first — to scope pipeline queries
+  const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
+  const activeBrandId = (activeBrand as any)?.id ?? null;
+
+  // If brand active, get its goal IDs to filter pipelines
+  let goalIdsForBrand: string[] | null = null;
+  if (activeBrandId) {
+    const { data: gs } = await supabase
+      .from("agent_goals")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("brand_template_id", activeBrandId);
+    goalIdsForBrand = (gs || []).map((g: any) => g.id);
+  }
+
+  // Sentinel UUID so `.in(..., [])` returns 0 rows cleanly when brand has no goals
+  const SENTINEL = ["00000000-0000-0000-0000-000000000000"];
+  const brandGoalFilter = goalIdsForBrand !== null
+    ? (goalIdsForBrand.length ? goalIdsForBrand : SENTINEL)
+    : null;
+
+  let runningQ = supabase
+    .from("agent_pipelines")
+    .select("content_title,current_stage")
+    .eq("organization_id", orgId)
+    .in("current_stage", ["strategy", "create", "quality", "approval", "publish"])
+    .is("completed_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  if (brandGoalFilter) runningQ = runningQ.in("goal_id", brandGoalFilter);
+
+  let recentQ = supabase
+    .from("agent_pipelines")
+    .select("content_title,completed_at")
+    .eq("organization_id", orgId)
+    .not("completed_at", "is", null)
+    .gte("completed_at", sevenDaysAgo)
+    .order("completed_at", { ascending: false })
+    .limit(3);
+  if (brandGoalFilter) recentQ = recentQ.in("goal_id", brandGoalFilter);
+
   // Parallel fetch — resilient: each piece can fail without breaking others
   const [orgRes, subRes, quotaRes, runningRes, recentRes] = await Promise.allSettled([
     supabase.from("organizations").select("name").eq("id", orgId).maybeSingle(),
@@ -626,22 +667,8 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
       .eq("status", "active")
       .maybeSingle(),
     assertCanCreateGoal(supabase, orgId, binding.userId),
-    supabase
-      .from("agent_pipelines")
-      .select("content_title,current_stage")
-      .eq("organization_id", orgId)
-      .in("current_stage", ["strategy", "create", "quality", "approval", "publish"])
-      .is("completed_at", null)
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("agent_pipelines")
-      .select("content_title,completed_at")
-      .eq("organization_id", orgId)
-      .not("completed_at", "is", null)
-      .gte("completed_at", sevenDaysAgo)
-      .order("completed_at", { ascending: false })
-      .limit(3),
+    runningQ,
+    recentQ,
   ]);
 
   const orgName = orgRes.status === "fulfilled" ? (orgRes.value.data?.name as string | undefined) : undefined;
