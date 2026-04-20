@@ -256,8 +256,8 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error("agent-approve error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Internal error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "Internal error", code: "internal_error" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
