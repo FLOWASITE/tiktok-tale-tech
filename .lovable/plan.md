@@ -1,81 +1,103 @@
 
 
-## Mục tiêu
-Biến `/status` từ 3 dòng text khô → **dashboard mini** trên Telegram giúp user nắm nhanh tình trạng tài khoản & campaign mà không cần mở app.
+User hỏi mở — cần đề xuất các improvement cho Telegram bot. Dựa vào context hiện tại:
 
-## Hiện tại
+**Đã có:**
+- Free chat (intent classifier qwen-plus)
+- `/start`, `/status` (mini dashboard mới), `/help`, `/generate`, `/link_group`
+- Permission fallback owner/admin
+
+**Gaps tôi thấy:**
+1. Không có notification push từ Flowa → Telegram (pipeline done, approval needed, publish success/fail)
+2. Không có inline buttons (approve/reject ngay trên Telegram)
+3. Không nhận ảnh/file (upload brand reference, logo qua chat)
+4. Không có `/campaigns` để list nhanh campaign
+5. Không group chat support đầy đủ (mention bot, multi-user trong team)
+6. Free chat chưa có context brand (bot không biết user đang làm brand nào)
+7. Không có rate limit per user → dễ abuse credits
+8. Không có quick reply keyboard cho action thường dùng
+
+Đề xuất dạng menu để user chọn priority.
+
+---
+
+# Đề xuất cải thiện Telegram Bot
+
+Hiện bot đã có: free chat AI, `/status` dashboard, `/generate`, permission auto cho owner/admin. Dưới đây là các hướng nâng cấp xếp theo **mức độ tác động**.
+
+## 🔥 High impact — đáng làm trước
+
+### 1. Push notification từ Flowa → Telegram
+Bot đang **một chiều** (user hỏi → bot trả). Thiếu chiều ngược: khi có sự kiện trong app, đẩy về Telegram.
+- Pipeline hoàn tất → "✅ Campaign 'Spa trẻ hóa' đã sẵn sàng duyệt"
+- Cần approval → ping admin kèm inline button **Duyệt / Từ chối / Xem chi tiết**
+- Publish thành công/thất bại → báo ngay
+- Quota chạm 80% / 100% → cảnh báo
+
+→ Cho phép user **rời app vẫn nắm hết** mọi thứ quan trọng.
+
+### 2. Inline buttons (Telegram InlineKeyboard)
+Thay vì user phải mở app để duyệt, gắn button trực tiếp vào message:
 ```
-📊 Trạng thái của bạn:
-Quota: 5/30 pipeline tháng này
-Autonomy tối đa: full_auto
+[✅ Duyệt] [❌ Từ chối] [👁 Xem]
+[📅 Lên lịch đăng]
 ```
-→ Thiếu: pipeline đang chạy, lần dùng gần nhất, % quota, gói cước, brand đang dùng, gợi ý hành động.
+Click → bot xử lý ngay qua callback_query, không cần rời chat.
 
-## Sau nâng cấp
+### 3. Brand context trong free chat
+Hiện chat AI không biết user đang dùng brand nào → trả lời chung chung.
+- Lệnh `/brand` → list brand, chọn active brand cho phiên chat
+- Free chat ngầm prepend brand context (tone, industry, USP) vào prompt
+- `/generate` tự dùng brand đang active
 
+## ⚡ Medium impact
+
+### 4. Rate limit per user
+Hiện 1 user spam free chat → đốt credits cả tổ chức.
+- Giới hạn ~20 free-chat msg / giờ / user
+- Vượt → bot báo "đã đạt giới hạn, thử lại sau X phút"
+- Lệnh `/`, `/status`, `/help` không tính
+
+### 5. Quick reply keyboard
+Khi user `/start`, hiện keyboard cố định 2-3 nút:
 ```
-📊 Trạng thái Flowa — Tháng 4/2026
-
-👤 Tài khoản
-• Tổ chức: Flowa Beauty Co.
-• Gói: Pro (renew 15/05)
-• Quyền agent: Full Auto
-
-📈 Sử dụng tháng này
-• Pipeline: 18/30  ▓▓▓▓▓▓░░░░ 60%
-• Còn 12 lượt · Reset sau 14 ngày
-
-🚀 Pipeline đang chạy (2)
-• "Spa trẻ hóa da" — Creator (45%)
-• "Promo 30/4" — Quality (80%)
-
-✅ Hoàn tất gần đây (3 trong 7 ngày)
-• "Brand voice clinic" — 2h trước
-• "Top 5 dịch vụ hot" — hôm qua
-• "Idea Tết" — 3 ngày trước
-
-💡 Gợi ý
-⚠️ Đã dùng 60% quota — cân nhắc upgrade nếu cần thêm
-👉 /generate <mô tả> để tạo campaign mới
+[📊 Status] [🚀 Tạo campaign]
+[📅 Lịch đăng] [💡 Help]
 ```
+→ User không phải nhớ lệnh.
 
-## Thay đổi kỹ thuật
+### 6. `/campaigns` list nhanh
+Tương tự `/status` nhưng focus campaigns:
+- 5 campaign mới nhất + status
+- Inline button "Xem tất cả" → mở app deeplink
 
-**File chính:** `supabase/functions/telegram-webhook/index.ts` — refactor `handleStatus()`.
+### 7. Nhận ảnh / file
+User gửi ảnh logo / sample → bot upload vào brand assets.
+User gửi PDF brief → bot đọc và tự `/generate`.
 
-### Data cần fetch (1 lượt parallel `Promise.all`)
-1. **Org info** từ `organizations` (name)
-2. **Subscription** từ `subscriptions` (plan_type, current_period_end)
-3. **Quota** từ `assertCanCreateGoal` (đã có)
-4. **Pipeline đang chạy** từ `agent_pipelines` where `organization_id` + `status in ('running','queued')` limit 5
-5. **Pipeline hoàn tất gần đây** từ `agent_pipelines` where `status='completed'` AND `completed_at >= now() - 7d` limit 3
+## 🌱 Nice to have
 
-### Helper mới
-- `formatProgressBar(used, limit)` → render `▓▓▓▓░░░░░░ 40%` (10 ô)
-- `formatRelativeTime(date)` → "2h trước" / "hôm qua" / "3 ngày trước" (Việt hóa)
-- `pickHealthHint(usagePct, planType)` → câu gợi ý theo ngữ cảnh:
-  - `>= 90%` → cảnh báo gần hết quota + CTA upgrade
-  - `>= 60%` → nhắc nhẹ
-  - `< 60%` + free plan → gợi ý dùng thêm feature
-  - không có pipeline đang chạy → gợi ý `/generate`
+### 8. Group chat nâng cao
+- Mention `@flowa_bot` trong group team mới phản hồi (không spam)
+- Notification chỉ gửi tới group đã link, theo organization
+- Hỗ trợ thread reply giữ context
 
-### Edge cases
-- User chưa link → giữ nguyên message hiện tại
-- Không có pipeline → ẩn hẳn 2 section "đang chạy" / "hoàn tất"
-- Quota = unlimited → ẩn progress bar, hiện "♾️ Không giới hạn"
-- Lỗi fetch 1 phần → vẫn render phần còn lại (resilient, không fail toàn bộ)
+### 9. Daily/weekly digest
+Mỗi sáng 8h gửi tóm tắt: "Hôm qua publish 3 bài, hôm nay 2 bài lên lịch, quota còn 18/30".
 
-### Markdown format
-Dùng `parse_mode: "Markdown"` để bold tiêu đề; escape ký tự đặc biệt trong tên campaign (`*`, `_`, `[`).
+### 10. Voice message → command
+User gửi voice → Whisper transcribe → route như text message.
 
-## Phạm vi không đụng tới
-- Không đổi schema DB
-- Không đổi `assertCanCreateGoal` / `lookupUserBinding`
-- Không deploy function khác — chỉ `telegram-webhook`
+---
 
-## Test sau khi deploy
-1. DM bot `/status` khi không có pipeline → render gọn (ẩn section rỗng)
-2. DM `/status` khi đang có pipeline running → hiện đúng tên + stage + %
-3. Free plan đã dùng > 80% quota → có cảnh báo ⚠️
-4. Org unlimited → hiện ♾️ thay vì progress bar
+## Câu hỏi cho bạn
+
+Mình đề xuất **chọn 1-2 hướng làm trước** thay vì làm tất cả. Bạn muốn ưu tiên hướng nào?
+
+- **A)** Push notification + inline approve buttons (mục 1+2) — biến Telegram thành "remote control" cho Flowa
+- **B)** Brand context + rate limit (mục 3+4) — chat AI thông minh & an toàn hơn
+- **C)** Quick keyboard + `/campaigns` (mục 5+6) — UX gọn cho user mới
+- **D)** Bạn có hướng khác / kết hợp riêng
+
+Cho mình biết lựa chọn, mình sẽ viết plan chi tiết để triển khai.
 
