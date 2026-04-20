@@ -250,6 +250,7 @@ function helpText(): string {
     "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
     "/generate <mô tả> — Tạo campaign mới (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
+    "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
     "/link_group — (Admin, trong group) Kết nối group với tổ chức",
     "/help — Hiện danh sách này",
   ].join("\n");
