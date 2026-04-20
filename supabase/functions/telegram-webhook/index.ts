@@ -311,10 +311,42 @@ async function handleStart(
       chatType,
       telegramUserId,
     });
+
+    // Check if this chat is already linked → friendly welcome back
+    const { data: existing } = await supabase
+      .from("telegram_chat_bindings")
+      .select("user_id, telegram_username")
+      .eq("organization_id", botConfig.organizationId)
+      .eq("telegram_chat_id", chatId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (existing?.user_id) {
+      const who = existing.telegram_username ? `@${existing.telegram_username}` : "bạn";
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        `👋 Chào ${who}! Tài khoản đã được kết nối với Flowa.\n\n💬 Cứ chat tự nhiên — ví dụ: "tạo campaign cho spa làm đẹp", "quota tháng này còn bao nhiêu?"\n\nGõ /help để xem tất cả lệnh.`,
+        { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
+      );
+      return;
+    }
+
+    // Not linked yet → specific instructions
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Để kết nối, mở app Flowa và bấm 'Link Telegram' để lấy link.",
+      [
+        "👋 Chào mừng đến với Flowa Bot!",
+        "",
+        "🔗 *Để kết nối tài khoản:*",
+        "1. Mở app Flowa: https://app.flowa.one",
+        "2. Vào *Agent → Telegram*",
+        "3. Bấm *Tạo link kết nối* → mở link hoặc scan QR",
+        "",
+        "Sau khi link xong, bạn có thể chat tự nhiên với bot ngay.",
+      ].join("\n"),
+      { parse_mode: "Markdown" },
     );
     return;
   }
