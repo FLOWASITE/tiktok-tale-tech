@@ -121,6 +121,14 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  'telegram-intent': {
+    model: 'google/gemini-2.5-flash-lite',
+    temperature: 0.1,
+    max_tokens: 512,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'high',
+  },
   // Image functions
   'generate-brand-image': {
     model: 'google/gemini-3-pro-image-preview',
@@ -237,6 +245,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'expand-multichannel-channels', 'generate-ad-copy',
     'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
     'reviewer-agent', 'learning-agent', 'decompose-image-request', 'suggest-usp',
+    'telegram-intent',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
