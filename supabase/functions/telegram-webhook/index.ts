@@ -872,28 +872,37 @@ async function handleGenerate(
     : undefined;
 
   try {
+    // agent-pipeline dispatches strategy in background and returns 202 quickly.
+    // Short timeout (6s) only to catch early auth / 402 / 429 / routing errors.
     const r = await Promise.race([
       triggerPipeline(goal.id, botConfig.organizationId),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000)),
-    ]) as { success?: boolean; pipelines_created?: number; error?: string; status?: number };
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000)),
+    ]) as { success?: boolean; status?: number | string; pipelines_created?: number; error?: string };
 
     console.log("[handleGenerate] pipeline result:", r);
 
-    if (!r?.pipelines_created || r.pipelines_created === 0) {
-      const errMsg = (r?.error || "").toLowerCase();
-      let warn = `⚠️ Goal "${goal.name}" đã lưu nhưng chưa tạo được plan (AI gateway tạm quá tải). Mở Mini App để chạy lại hoặc thử sau ít phút.`;
-      if (r?.status === 402 || errMsg.includes("402") || errMsg.includes("credit") || errMsg.includes("payment")) {
-        warn = `🤖 AI đang hết credits. Admin có thể nạp thêm trong Lovable Cloud, hoặc cấu hình API key riêng (DashScope/OpenRouter) tại Settings → AI Providers.\n\nGoal "${goal.name}" đã lưu, có thể chạy lại sau.`;
-      } else if (r?.status === 429 || errMsg.includes("429") || errMsg.includes("rate")) {
-        warn = `⏳ AI đang quá tải (rate limit). Goal "${goal.name}" đã lưu — thử lại sau 1-2 phút.`;
-      }
-      await sendMessage(botConfig.botToken, chatId, appendBrandFooter(warn, activeBrandGen?.brand_name), footerKb);
+    const errMsg = (r?.error || "").toLowerCase();
+    const statusNum = typeof r?.status === "number" ? r.status : 0;
+
+    if (statusNum === 402 || errMsg.includes("402") || errMsg.includes("credit") || errMsg.includes("payment")) {
+      await sendMessage(botConfig.botToken, chatId,
+        appendBrandFooter(`🤖 AI đang hết credits. Goal "${goal.name}" đã lưu — admin nạp thêm credit rồi chạy lại bằng /status hoặc Mini App.`, activeBrandGen?.brand_name),
+        footerKb);
+    } else if (statusNum === 429 || errMsg.includes("429") || errMsg.includes("rate")) {
+      await sendMessage(botConfig.botToken, chatId,
+        appendBrandFooter(`⏳ AI đang quá tải (rate limit). Goal "${goal.name}" đã lưu — thử lại sau 1-2 phút.`, activeBrandGen?.brand_name),
+        footerKb);
+    } else if (r?.success === false && r?.error) {
+      await sendMessage(botConfig.botToken, chatId,
+        appendBrandFooter(`⚠️ Goal "${goal.name}" đã lưu nhưng trigger pipeline lỗi: ${String(r.error).slice(0,120)}. Thử /status sau ít phút.`, activeBrandGen?.brand_name),
+        footerKb);
     } else {
+      // Happy path: accepted (202) — background job is running
       await sendMessage(
         botConfig.botToken,
         chatId,
         appendBrandFooter(
-          `✅ Đã tạo ${r.pipelines_created} pipeline từ goal "${goal.name}".\nDùng /status để theo dõi.`,
+          `✅ Goal "${goal.name}" đã nhận.\nAI đang dựng kế hoạch & pipeline trong nền (thường 20-60 giây).\nDùng /status sau ~1 phút để xem pipeline đã tạo.`,
           activeBrandGen?.brand_name,
         ),
         footerKb,
@@ -901,16 +910,29 @@ async function handleGenerate(
     }
   } catch (e) {
     console.error("[handleGenerate] pipeline trigger error:", e);
-    const msg = String((e as Error)?.message || e).slice(0, 100);
-    await sendMessage(
-      botConfig.botToken,
-      chatId,
-      appendBrandFooter(
-        `⚠️ Goal "${goal.name}" đã lưu nhưng chưa khởi chạy được (${msg}).\nThử lại sau bằng /status hoặc Mini App.`,
-        activeBrandGen?.brand_name,
-      ),
-      footerKb,
-    );
+    const msg = String((e as Error)?.message || e);
+    // Timeout = agent-pipeline didn't ack in 6s. Background job may still run; don't claim failure.
+    if (msg.includes("timeout")) {
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        appendBrandFooter(
+          `✅ Goal "${goal.name}" đã lưu. Hệ thống đang xử lý nền (phản hồi chậm hơn thường lệ).\nDùng /status sau 1-2 phút để kiểm tra pipeline.`,
+          activeBrandGen?.brand_name,
+        ),
+        footerKb,
+      );
+    } else {
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        appendBrandFooter(
+          `⚠️ Goal "${goal.name}" đã lưu nhưng chưa khởi chạy được (${msg.slice(0,100)}).\nThử lại sau bằng /status hoặc Mini App.`,
+          activeBrandGen?.brand_name,
+        ),
+        footerKb,
+      );
+    }
   }
 
   // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
