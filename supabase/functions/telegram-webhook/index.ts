@@ -7,7 +7,17 @@ import {
   verifyLinkToken,
 } from "../_shared/telegram-client.ts";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
-import { answerCallback, editMessageText, escapeMd as escMdNotif } from "../_shared/telegram-notifier.ts";
+import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+
+// Reply keyboard shown after /start, /help — quick access to common actions.
+const QUICK_KEYBOARD = {
+  keyboard: [
+    [{ text: "📊 Status" }, { text: "🎨 Brand" }],
+    [{ text: "📋 Campaigns" }, { text: "💡 Help" }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
 
 // Per-user free-chat rate limit (in-memory, per edge instance)
 // 20 messages / hour per Telegram user. Slash commands are NOT counted.
@@ -146,7 +156,14 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       bot: botConfig.botUsername,
     });
 
-    switch (command) {
+    // Map quick-keyboard text labels → slash commands
+    let normalizedCommand = command;
+    if (text === "📊 Status") normalizedCommand = "/status";
+    else if (text === "🎨 Brand") normalizedCommand = "/brand";
+    else if (text === "📋 Campaigns") normalizedCommand = "/campaigns";
+    else if (text === "💡 Help") normalizedCommand = "/help";
+
+    switch (normalizedCommand) {
       case "/start":
         await handleStart({
           supabase,
@@ -159,10 +176,15 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         });
         break;
       case "/help":
-        await sendMessage(botConfig.botToken, chatId, helpText());
+        await sendMessage(botConfig.botToken, chatId, helpText(), {
+          reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined,
+        });
         break;
       case "/status":
         await handleStatus({ supabase, botConfig, chatId });
+        break;
+      case "/campaigns":
+        await handleCampaigns({ supabase, botConfig, chatId, telegramUserId });
         break;
       case "/generate":
         if (chatType !== "private") {
@@ -250,9 +272,12 @@ function helpText(): string {
     "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
     "/generate <mô tả> — Tạo campaign mới (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
+    "/campaigns — Xem 5 campaign mới nhất",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
     "/link_group — (Admin, trong group) Kết nối group với tổ chức",
     "/help — Hiện danh sách này",
+    "",
+    "💬 Hoặc chat tự nhiên — bot hiểu tiếng Việt!",
   ].join("\n");
 }
 
@@ -351,6 +376,7 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     `✅ Đã kết nối! Gõ /help để xem lệnh có sẵn.`,
+    { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
   );
 }
 
@@ -642,6 +668,29 @@ async function handleGenerate(
     chatId,
     `✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`,
   );
+
+  // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
+  try {
+    const post = await assertCanCreateGoal(supabase, botConfig.organizationId, binding.userId);
+    if (post.ok && post.monthlyLimit && post.monthlyLimit > 0) {
+      const pct = (post.pipelinesUsed / post.monthlyLimit) * 100;
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("current_period_start")
+        .eq("organization_id", botConfig.organizationId)
+        .eq("status", "active")
+        .maybeSingle();
+      const periodStart = sub?.current_period_start || new Date(0).toISOString();
+
+      if (pct >= 100) {
+        await notifyQuotaThreshold(supabase, botConfig.organizationId, 100, post.pipelinesUsed, post.monthlyLimit, periodStart);
+      } else if (pct >= 80) {
+        await notifyQuotaThreshold(supabase, botConfig.organizationId, 80, post.pipelinesUsed, post.monthlyLimit, periodStart);
+      }
+    }
+  } catch (qErr) {
+    console.warn("[telegram-webhook] quota alert check failed:", qErr);
+  }
 }
 
 async function handleLinkGroup(
@@ -1130,4 +1179,75 @@ async function handleCallbackQuery(args: {
   }
 }
 
+// =====================================================
+// /campaigns — list 5 most recent campaigns for the org
+// =====================================================
+async function handleCampaigns(
+  ctx: HandlerCtx & { telegramUserId?: number },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId } = ctx;
+
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    return;
+  }
+
+  const { data: campaigns, error } = await supabase
+    .from("agent_goals")
+    .select("id, name, is_active, is_paused, created_at")
+    .eq("organization_id", botConfig.organizationId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error("[telegram-webhook] /campaigns query failed:", error);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không tải được danh sách campaign.");
+    return;
+  }
+
+  if (!campaigns || campaigns.length === 0) {
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      "📋 Chưa có campaign nào. Dùng /generate <mô tả> để tạo mới.",
+    );
+    return;
+  }
+
+  // Pipeline counts per goal (last 30d)
+  const goalIds = (campaigns as any[]).map((c) => c.id);
+  const { data: pipes } = await supabase
+    .from("agent_pipelines")
+    .select("goal_id, completed_at")
+    .in("goal_id", goalIds)
+    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+  const stats = new Map<string, { running: number; done: number }>();
+  for (const p of (pipes ?? []) as any[]) {
+    const s = stats.get(p.goal_id) || { running: 0, done: 0 };
+    if (p.completed_at) s.done += 1; else s.running += 1;
+    stats.set(p.goal_id, s);
+  }
+
+  const lines: string[] = [`📋 *5 campaign mới nhất*`, ""];
+  for (const c of campaigns as any[]) {
+    const status = !c.is_active ? "⏸ Tắt" : c.is_paused ? "⏸ Pause" : "▶️ Active";
+    const st = stats.get(c.id);
+    const stTxt = st ? ` · ${st.running} chạy / ${st.done} xong (30d)` : "";
+    lines.push(`• ${escMdNotif((c.name || "Không tên").slice(0, 50))}`);
+    lines.push(`  ${status}${stTxt}`);
+  }
+  lines.push("", "_Dùng /generate <mô tả> để tạo campaign mới._");
+
+  await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
+    parse_mode: "Markdown",
+    disable_web_page_preview: true,
+  });
+}
 

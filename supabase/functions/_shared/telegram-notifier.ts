@@ -195,6 +195,7 @@ export async function notifyPipelineCompleted(
 }
 
 // Notify on publish success/failure.
+// If channel + postUrl provided, surface it as a clickable inline button.
 export async function notifyPublishResult(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -203,16 +204,92 @@ export async function notifyPublishResult(
   contentTitle: string,
   success: boolean,
   errorMessage?: string,
+  opts?: { channel?: string; postUrl?: string },
 ): Promise<void> {
   const targets = userId
     ? [await resolveUserTarget(supabase, organizationId, userId)].filter(Boolean) as PushTarget[]
     : await resolveAdminTargets(supabase, organizationId);
   if (targets.length === 0) return;
   const title = escapeMd(contentTitle.slice(0, 80));
+  const channelTag = opts?.channel ? ` _(${escapeMd(opts.channel)})_` : "";
   const text = success
-    ? `🚀 Đã đăng *${title}* thành công.`
-    : `⚠️ Đăng *${title}* thất bại.${errorMessage ? `\n\n_${escapeMd(errorMessage.slice(0, 200))}_` : ""}`;
-  await pushMany(targets, text, { parse_mode: "Markdown" });
+    ? `🚀 Đã đăng *${title}*${channelTag} thành công.`
+    : `⚠️ Đăng *${title}*${channelTag} thất bại.${errorMessage ? `\n\n_${escapeMd(errorMessage.slice(0, 200))}_` : ""}`;
+
+  const sendOpts: SendOpts = { parse_mode: "Markdown", disable_web_page_preview: true };
+  if (success && opts?.postUrl) {
+    sendOpts.reply_markup = {
+      inline_keyboard: [[{ text: "🔗 Xem bài đăng", url: opts.postUrl }]],
+    };
+  }
+  await pushMany(targets, text, sendOpts);
+}
+
+// =====================================================
+// Quota threshold alert (P2)
+// =====================================================
+// Push to admins when org's monthly pipeline usage crosses 80% or 100%.
+// Throttled per binding: only one alert per threshold per billing cycle.
+export async function notifyQuotaThreshold(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  threshold: 80 | 100,
+  used: number,
+  limit: number,
+  periodStartIso: string,
+): Promise<void> {
+  const botToken = await getOrgBotToken(supabase, organizationId);
+  if (!botToken) return;
+
+  // Find admin DM bindings that haven't been alerted at this threshold this period
+  const { data: admins } = await supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", organizationId)
+    .in("role", ["owner", "admin"]);
+  const adminIds = (admins ?? []).map((m: { user_id: string }) => m.user_id);
+  if (adminIds.length === 0) return;
+
+  const { data: bindings } = await supabase
+    .from("telegram_chat_bindings")
+    .select("id, telegram_chat_id, last_quota_alert_at, last_quota_alert_threshold")
+    .eq("organization_id", organizationId)
+    .eq("chat_type", "private")
+    .eq("is_active", true)
+    .in("user_id", adminIds);
+
+  const eligible = (bindings ?? []).filter((b: any) => {
+    // Not alerted this billing period at >= this threshold
+    if (!b.last_quota_alert_at) return true;
+    if (new Date(b.last_quota_alert_at) < new Date(periodStartIso)) return true;
+    return (b.last_quota_alert_threshold ?? 0) < threshold;
+  });
+  if (eligible.length === 0) return;
+
+  const remaining = Math.max(0, limit - used);
+  const text = threshold === 100
+    ? `🚨 *Đã hết quota tháng này* (${used}/${limit}).\n\nUpgrade gói để tiếp tục dùng AI Agent.`
+    : `⚠️ *Sắp hết quota* — đã dùng ${used}/${limit} (${Math.round((used/limit)*100)}%).\n\nCòn ${remaining} lượt. Cân nhắc upgrade gói.`;
+
+  const targets: PushTarget[] = eligible.map((b: any) => ({
+    chatId: Number(b.telegram_chat_id),
+    botToken,
+  }));
+
+  await pushMany(targets, text, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [[{ text: "💎 Upgrade plan", url: "https://app.flowa.one/settings/billing" }]],
+    },
+  });
+
+  // Mark as alerted
+  const nowIso = new Date().toISOString();
+  await supabase
+    .from("telegram_chat_bindings")
+    .update({ last_quota_alert_at: nowIso, last_quota_alert_threshold: threshold })
+    .in("id", eligible.map((b: any) => b.id));
 }
 
 // Answer a callback_query (must be called within 15s to remove the loading spinner)
