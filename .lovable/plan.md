@@ -1,88 +1,63 @@
 
 
-# Nâng cấp `/brand` — One-tap brand switching
+# Fix: Brand switching không hoạt động
 
-## 🎯 Vấn đề hiện tại
-- Lệnh `/brand` chỉ liệt kê text + bắt user gõ `/brand <tên>` để đổi → khó dùng trên mobile
-- Không có visual feedback (logo, màu, industry) như header switcher trên web
-- Không hỗ trợ **search** khi org có nhiều brand (>10)
-- Không hiển thị brand đang active rõ ràng trong các reply khác (free-chat, /generate)
+## 🎯 Root cause
 
-## ✨ Nâng cấp
+**`setWebhook` chỉ whitelist `["message"]`** trong `allowed_updates` → Telegram không bao giờ gửi `callback_query` events cho bot → user bấm nút đổi brand, webhook không nhận được gì, không có log.
 
-### 1. `/brand` → Inline keyboard switcher
-Thay vì list text, gửi message với **inline buttons**:
+Bằng chứng: logs lúc 15:33 chỉ thấy `/brand` (message), không có callback_query nào sau đó dù UI có gửi inline keyboard.
+
+## 🔧 Fix
+
+### 1. Thêm `callback_query` vào `allowed_updates`
+
+**File**: `supabase/functions/_shared/telegram-client.ts` (dòng 63)
+
+```ts
+allowed_updates: ["message", "callback_query"],
 ```
-🎨 Brand đang dùng: ✨ Spa Hồng Ngọc
 
-Chọn brand khác:
-[🟣 Spa Hồng Ngọc ✓]  [🔵 Beauty Pro]
-[🟢 Aesthetic Lab]    [🟡 Glow Center]
-[🔴 Skin Studio]      [⚫ Premium Med]
-                      
-[🔍 Tìm brand...]  [➕ Tạo brand mới]
+### 2. Re-register webhook cho tất cả bot đang active
+
+Gọi `telegram-bot-admin` với action `register_webhook` kèm `drop_pending_updates: true` để Telegram áp dụng config mới. Nếu có >1 bot, loop qua từng bot trong bảng `telegram_bot_configs`.
+
+Có 2 cách:
+- **A (tự động)**: Tạo 1 script chạy trong migration gọi edge function `telegram-bot-admin` cho mỗi config đang bật. 
+- **B (thủ công)**: User bấm nút "Đăng ký lại webhook" trong UI admin Telegram sau khi deploy.
+
+→ Chọn **A** để fix ngay, không bắt user thao tác.
+
+### 3. Bổ sung RLS policy INSERT/UPDATE cho `telegram_chat_bindings` (defense-in-depth)
+
+Hiện thiếu policy INSERT/UPDATE. Webhook dùng service role nên không ảnh hưởng, nhưng Mini App frontend đang `UPDATE active_brand_template_id` bằng anon key → sẽ bị RLS chặn silently. Thêm:
+
+```sql
+CREATE POLICY "Users update own bindings"
+ON telegram_chat_bindings FOR UPDATE
+USING (auth.uid() = user_id OR is_org_admin(auth.uid(), organization_id))
+WITH CHECK (auth.uid() = user_id OR is_org_admin(auth.uid(), organization_id));
 ```
-- Mỗi button = 1 brand, callback `brand:switch:<id>`
-- Hiển thị emoji circle theo `primary_color` (map hex → 🔴🟠🟡🟢🔵🟣⚫⚪)
-- Brand active có dấu `✓`
-- Default brand có 👑
-- Limit 8 brands/page; nếu >8 → thêm nút `[« Trước]` `[Sau »]` paginate
 
-### 2. Callback handler `brand:switch:<id>`
-- Update `telegram_chat_bindings.active_brand_template_id`
-- `answerCallbackQuery` toast "✅ Đã đổi sang [tên brand]"
-- `editMessageReplyMarkup` re-render keyboard với check mark mới (không cần gửi message mới)
-- Optionally show 1 contextual hint: "💡 Thử ngay: [✍️ Tạo content] [📊 Xem campaign]"
-
-### 3. Search mode khi >8 brand
-- Click `[🔍 Tìm brand...]` → bot reply: "Gõ tên brand để tìm:"
-- Dùng `force_reply: { selective: true }` để Telegram auto-focus reply
-- Next message từ user → fuzzy match → trả lại keyboard filtered
-
-### 4. Persistent brand badge trong replies khác
-Sau mỗi `/generate`, `/status`, free-chat reply, append footer nhỏ:
-```
-─────────
-🎨 Brand: Spa Hồng Ngọc · [Đổi]
-```
-- Button `[Đổi]` callback `brand:open` → mở keyboard switcher
-- Helper `appendBrandFooter(text, brandName)` reusable
-
-### 5. Smart auto-suggest khi free-chat detect brand mismatch
-Reuse intent classifier — nếu user gõ "tạo bài cho **Beauty Pro**" nhưng active brand đang là "Spa Hồng Ngọc":
-- Bot detect brand name trong prompt (fuzzy match `brand_templates.brand_name`)
-- Reply: "🤔 Bạn nhắc tới *Beauty Pro* nhưng đang dùng brand *Spa Hồng Ngọc*. Đổi không?"
-- 2 buttons: `[✅ Đổi sang Beauty Pro]` / `[❌ Giữ Spa Hồng Ngọc]`
-
-### 6. Mini App hook (optional)
-Trong inline keyboard `/brand`, thêm row cuối:
-```
-[🚀 Quản lý brand đầy đủ] (web_app: /telegram-app/brands)
-```
-Mở Mini App tab Brand → user xem chi tiết, edit voice, products, personas mà không leave Telegram.
+(INSERT không cần vì binding tạo qua webhook service role).
 
 ## 📦 Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/telegram-webhook/index.ts` | Refactor `handleBrand` → inline keyboard; add callbacks `brand:switch:<id>`, `brand:open`, `brand:page:<n>`, `brand:search`; brand-mismatch detector trong free-chat handler |
-| `supabase/functions/_shared/telegram-client.ts` | Helper mới: `buildBrandSwitcherKeyboard(brands, activeId, page)`, `colorToEmoji(hex)`, `appendBrandFooter(text, brandName)` |
-| `src/pages/TelegramApp.tsx` | Thêm tab/route `/telegram-app/brands` (list + switch) — reuse `useCurrentBrand` |
+| `supabase/functions/_shared/telegram-client.ts` | `allowed_updates` thêm `"callback_query"` |
+| `supabase/migrations/*_telegram_rls_fix.sql` | Policy UPDATE cho `telegram_chat_bindings` |
+| Script re-register | Gọi `telegram-bot-admin` → `register_webhook` cho mọi bot active (1 lần, không cần commit) |
 
-## 🧪 Test
-1. `/brand` → thấy inline keyboard với màu emoji + check mark đúng brand active
-2. Click brand khác → toast confirm + keyboard update check mark **không gửi message mới**
-3. Org có 12 brands → thấy nút Trước/Sau, pagination chạy đúng
-4. Click `[🔍 Tìm brand...]` → bot prompt → gõ "spa" → keyboard filtered
-5. Sau `/status` → thấy footer "🎨 Brand: X · [Đổi]" → click → mở switcher
-6. Free-chat: "tạo bài cho Beauty Pro" khi đang ở brand khác → thấy suggest đổi
-7. Mini App `/telegram-app/brands` → list brand, tap → switch + sync với DB
+## 🧪 Test sau fix
+
+1. Deploy → chạy re-register webhook → check `getWebhookInfo` thấy `allowed_updates` có `callback_query`
+2. `/brand` trong Telegram → thấy inline keyboard → bấm brand khác
+3. Xem logs `telegram-webhook` → thấy log `[telegram-webhook] callback_query: { data: "brand:switch:...", ... }`
+4. UI Telegram → check mark `✓` chuyển sang brand mới **không gửi message mới**
+5. Query DB: `SELECT active_brand_template_id FROM telegram_chat_bindings WHERE telegram_chat_id = 501332455` → thấy ID mới
+6. Mini App `/telegram-app/brands` → tap brand khác → sync DB thành công (không bị RLS chặn nữa)
 
 ## ⏱ Ước tính
-- Inline switcher + callbacks: 1.5h
-- Pagination + search: 1h  
-- Brand mismatch detector: 1h
-- Persistent footer: 30m
-- Mini App brand tab: 1h
-- **Tổng: ~5h**, deploy 1 lần.
+**15 phút** — fix 1 dòng + 1 migration + re-register webhook.
 
