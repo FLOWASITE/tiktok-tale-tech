@@ -1,93 +1,152 @@
 
+# Fix: `/status` vẫn leak pipeline của brand khác
 
-# Fix: `/status` show toàn bộ org, không lọc theo brand đang active
+## Vấn đề đã xác định
 
-## 🎯 Root cause
+DB hiện tại cho thấy:
 
-Trong `handleStatus` (telegram-webhook/index.ts dòng 603-727), 2 query pipelines (`running` + `recent`) chỉ filter theo `organization_id`:
+- Chat `501332455` đang có `active_brand_template_id = 8dd69b10-17e1-4daf-968a-4ec8a241c858` (`Flowa - Agentic Content Marketing Platform`)
+- Brand này hiện **không có pipeline nào**
+- Toàn bộ pipeline của org đang nằm ở brand khác: `Thuế Hộ by TAF.vn`
 
+Nếu `/status` vẫn hiển thị các pipeline đó, thì logic live đang **không áp filter brand một cách thực sự** trên đường chạy hiện tại.
+
+## Root cause khả dĩ nhất
+
+Có 2 điểm cần khóa lại để hết lỗi hẳn:
+
+1. `handleStatus` hiện filter pipeline bằng bước trung gian:
+   - lấy `goalIdsForBrand`
+   - rồi `.in("goal_id", goalIdsForBrand)`
+
+   Cách này dễ fail im lặng nếu:
+   - `activeBrandId` resolve sai ở runtime
+   - query goal trả rỗng nhưng code path không đi vào empty-state như kỳ vọng
+   - function live chưa dùng đúng code path mới
+
+2. Thiếu log chẩn đoán ở `/status`, nên hiện chưa thấy được runtime thực tế đang resolve:
+   - brand nào
+   - goal ids nào
+   - query cuối trả bao nhiêu pipeline
+
+## Cách sửa
+
+### 1. Siết chặt `/status` bằng query filter theo quan hệ goal-brand, không phụ thuộc prefetch list
+
+Thay vì:
+- query `agent_goals` trước
+- rồi filter `agent_pipelines.goal_id IN (...)`
+
+Sửa sang query pipeline kèm relation `agent_goals` và filter trực tiếp theo `agent_goals.brand_template_id`.
+
+Hướng làm:
+- `runningQ` và `recentQ` select thêm relation goal
+- chỉ lấy pipeline có `agent_goals.brand_template_id = activeBrandId`
+- nếu active brand có nhưng không match row nào thì trả empty-state rõ ràng
+
+Lợi ích:
+- bỏ hẳn lớp trung gian `goalIdsForBrand`
+- giảm khả năng mismatch giữa brand → goals → pipelines
+- debug dễ hơn vì filter nằm ngay trên query cuối
+
+### 2. Thêm logging bắt buộc trong `handleStatus`
+
+Thêm log cho mỗi lần `/status`:
+- `chatId`
+- `activeBrandId`
+- `activeBrandName`
+- số goal thuộc brand
+- số running/recent pipeline sau filter
+- có fallback sang org-wide hay không
+
+Ví dụ log cần có:
 ```ts
-.from("agent_pipelines")
-.select(...)
-.eq("organization_id", orgId)  // ← thiếu filter theo brand
+console.log("[handleStatus] scope", {
+  chatId,
+  orgId,
+  activeBrandId,
+  activeBrandName: activeBrand?.brand_name ?? null,
+});
+console.log("[handleStatus] result", {
+  runningCount: running.length,
+  recentCount: recent.length,
+  usedOrgWide: true,
+});
 ```
 
-Trong khi đó `/generate` đã gắn đúng `brand_template_id` vào goal (dòng 801). Goals → pipelines kế thừa brand qua `goal_id`. Vì vậy:
-- User đổi brand sang "Beauty Pro" → `/status` vẫn show pipeline của brand "Spa X" cũ → tưởng "báo sai".
-- Quota `pipelinesUsed` cũng đếm toàn org, không tách theo brand.
+### 3. Làm empty-state quyết liệt hơn khi đang có active brand
 
-## 🔧 Fix
+Nếu đã có `activeBrandId`, tuyệt đối không được rơi về “show toàn org”.
 
-### 1. Lọc pipelines theo brand đang active
+Khi brand hiện tại không có pipeline:
+- hiện:
+  - `🎨 Brand đang xem: <name>`
+  - `ℹ️ Brand này chưa có pipeline nào`
+  - `👉 /generate <mô tả> để tạo campaign đầu tiên`
 
-`handleStatus` resolve `activeBrandId` ngay đầu (đã có `getActiveBrandContext` ở dòng 730 — di chuyển lên trước query). Nếu có `activeBrandId`, filter pipelines:
+Không render block pipeline org-wide trong case này.
 
-```ts
-const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
-const activeBrandId = (activeBrand as any)?.id ?? null;
+### 4. Kiểm tra lại `getActiveBrandContext` và `getActiveBrandId` dùng cùng một nguồn
 
-// Lấy goal IDs thuộc brand này trước
-let goalIdsForBrand: string[] | null = null;
-if (activeBrandId) {
-  const { data: gs } = await supabase
-    .from("agent_goals")
-    .select("id")
-    .eq("organization_id", orgId)
-    .eq("brand_template_id", activeBrandId);
-  goalIdsForBrand = (gs || []).map(g => g.id);
-}
+Hiện có 2 helper:
+- `getActiveBrandId()`
+- `getActiveBrandContext()`
 
-// Apply vào 2 query running + recent
-let runningQ = supabase.from("agent_pipelines").select(...).eq("organization_id", orgId)...
-if (goalIdsForBrand) runningQ = runningQ.in("goal_id", goalIdsForBrand.length ? goalIdsForBrand : ["00000000-0000-0000-0000-000000000000"]);
-```
+Sẽ đồng bộ để cả 2:
+- đọc cùng row `telegram_chat_bindings`
+- cùng fallback mặc định
+- cùng trả về brand hiện hành nhất quán
 
-(Dùng sentinel UUID khi `goalIdsForBrand` rỗng để query trả 0 row sạch sẽ.)
+Mục tiêu là tránh case:
+- `/brand` nhìn một brand
+- `/status` resolve brand khác
 
-### 2. Header hiển thị scope brand
+### 5. Xác minh sau sửa bằng dữ liệu thực tế của chat đang lỗi
 
-Thêm dòng vào section "Tài khoản":
-```
-🎨 Brand đang xem: Beauty Pro  [Đổi]
-```
-→ User hiểu rõ stats đang scope theo brand nào, không nhầm lẫn.
+Test đúng với chat đang báo lỗi:
+- chat `501332455`
+- active brand = `Flowa - Agentic Content Marketing Platform`
+- expected `/status` = không còn thấy pipeline của `Thuế Hộ by TAF.vn`
 
-### 3. Quota note
+## File thay đổi
 
-Quota tháng (`pipelinesUsed`) vẫn tính toàn org (vì giới hạn là theo subscription org). Thêm caption nhỏ:
-```
-• Pipeline (toàn org): 12/100
-```
-Để phân biệt với "đang chạy / hoàn tất" (đã lọc theo brand).
+- `supabase/functions/telegram-webhook/index.ts`
+  - refactor `handleStatus`
+  - đồng bộ `getActiveBrandContext` / `getActiveBrandId`
+  - thêm runtime logs
 
-### 4. Hint khi brand không có pipeline
+## Kết quả mong muốn
 
-Nếu `goalIdsForBrand` rỗng (brand mới, chưa có goal), thay block "Pipeline đang chạy / Hoàn tất" bằng:
-```
-ℹ️ Brand "Beauty Pro" chưa có pipeline nào.
-👉 /generate <mô tả> để tạo campaign đầu tiên.
-```
+### Case hiện tại
+- Active brand: `Flowa - Agentic Content Marketing Platform`
+- Brand này không có pipeline
+- `/status` phải trả:
+  - header brand đúng
+  - empty-state đúng
+  - không còn leak pipeline của `Thuế Hộ by TAF.vn`
 
-### 5. Edge case: chưa chọn brand
+### Case đổi về brand có pipeline
+- Chuyển sang `Thuế Hộ by TAF.vn`
+- `/status` chỉ hiện pipeline của brand đó
 
-Nếu `activeBrandId` null → giữ nguyên hành vi cũ (show toàn org), thêm hint:
-```
-💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó.
-```
+### Case chưa chọn brand
+- vẫn có thể fallback org-wide
+- nhưng phải hiện hint rõ ràng rằng đây là toàn org
 
-## 📦 Files thay đổi
+## Test sau implement
 
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/telegram-webhook/index.ts` | `handleStatus`: resolve activeBrand đầu hàm; query goals theo brand → filter pipelines; thêm header brand scope + caption quota org-wide + hint empty/no-brand |
+1. `/brand` chọn `Flowa - Agentic Content Marketing Platform`
+2. Gõ `/status`
+3. Kiểm tra logs `telegram-webhook`:
+   - thấy đúng `activeBrandId = 8dd69b10-17e1-4daf-968a-4ec8a241c858`
+   - `runningCount = 0`, `recentCount = 0`
+4. Trên Telegram:
+   - không còn pipeline của `Thuế Hộ by TAF.vn`
+   - hiện message “brand chưa có pipeline”
+5. Đổi sang `Thuế Hộ by TAF.vn`
+6. Gõ lại `/status`
+7. Xác nhận chỉ hiện pipeline của brand này
 
-## 🧪 Test
+## Ước tính
 
-1. Brand A có 2 pipeline đang chạy, Brand B có 0 → `/brand` chọn B → `/status` thấy "Brand đang xem: B" + "chưa có pipeline" (KHÔNG thấy 2 pipeline của A)
-2. Đổi sang A → `/status` thấy 2 pipeline của A
-3. Chưa chọn brand (active null) → `/status` show toàn org + hint chọn brand
-4. Quota line ghi rõ "(toàn org)" để không gây nhầm
-
-## ⏱ Ước tính
-**20 phút** — chỉ sửa 1 hàm `handleStatus` trong 1 file.
-
+20–30 phút, chỉ cần sửa 1 file nhưng có thêm log chẩn đoán để khóa lỗi dứt điểm.
