@@ -70,8 +70,10 @@ export async function getWebhookInfo(
 }
 
 // =====================================================
-// Link-token: HMAC-SHA256 signed JWT (HS256)
-// Payload: { uid, org, exp }
+// Link-token: compact HMAC token for Telegram deep link.
+// Telegram /start payload is capped, so we encode:
+// [16 bytes uid][16 bytes org][4 bytes exp][8 bytes mac]
+// Base64url output stays under the 64-char payload limit.
 // =====================================================
 function base64UrlEncode(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -102,6 +104,37 @@ export interface LinkTokenPayload {
   exp: number;
 }
 
+function uuidToBytes(uuid: string): Uint8Array {
+  const hex = uuid.replace(/-/g, "");
+  if (!/^[0-9a-fA-F]{32}$/.test(hex)) throw new Error("Invalid UUID");
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToUuid(bytes: Uint8Array): string {
+  if (bytes.length !== 16) throw new Error("Invalid UUID bytes");
+  const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join("-");
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
 export async function signLinkToken(
   payload: Omit<LinkTokenPayload, "exp"> & { ttlSeconds?: number },
 ): Promise<string> {
@@ -109,26 +142,18 @@ export async function signLinkToken(
   if (!secret) throw new Error("TELEGRAM_LINK_SECRET not configured");
 
   const exp = Math.floor(Date.now() / 1000) + (payload.ttlSeconds ?? 600);
-  const fullPayload: LinkTokenPayload = {
-    uid: payload.uid,
-    org: payload.org,
-    exp,
-  };
-
-  const header = { alg: "HS256", typ: "JWT" };
-  const enc = new TextEncoder();
-  const headerB64 = base64UrlEncode(enc.encode(JSON.stringify(header)));
-  const payloadB64 = base64UrlEncode(enc.encode(JSON.stringify(fullPayload)));
-  const signingInput = `${headerB64}.${payloadB64}`;
+  const payloadBytes = new Uint8Array(36);
+  payloadBytes.set(uuidToBytes(payload.uid), 0);
+  payloadBytes.set(uuidToBytes(payload.org), 16);
+  new DataView(payloadBytes.buffer).setUint32(32, exp, false);
 
   const key = await getHmacKey(secret);
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    enc.encode(signingInput),
-  );
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, payloadBytes));
+  const tokenBytes = new Uint8Array(44);
+  tokenBytes.set(payloadBytes, 0);
+  tokenBytes.set(signature.slice(0, 8), 36);
 
-  return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
+  return base64UrlEncode(tokenBytes);
 }
 
 export async function verifyLinkToken(
@@ -137,24 +162,30 @@ export async function verifyLinkToken(
   const secret = Deno.env.get("TELEGRAM_LINK_SECRET");
   if (!secret) throw new Error("TELEGRAM_LINK_SECRET not configured");
 
-  const parts = token.split(".");
-  if (parts.length !== 3) throw new Error("Malformed token");
+  let tokenBytes: Uint8Array;
+  try {
+    tokenBytes = base64UrlDecode(token);
+  } catch {
+    throw new Error("Malformed token");
+  }
+  if (tokenBytes.length !== 44) throw new Error("Malformed token");
 
-  const [headerB64, payloadB64, sigB64] = parts;
-  const signingInput = `${headerB64}.${payloadB64}`;
-
+  const payloadBytes = tokenBytes.slice(0, 36);
+  const macBytes = tokenBytes.slice(36);
   const key = await getHmacKey(secret);
-  const valid = await crypto.subtle.verify(
-    "HMAC",
-    key,
-    base64UrlDecode(sigB64) as unknown as BufferSource,
-    new TextEncoder().encode(signingInput),
-  );
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, payloadBytes));
+  const expectedMac = signature.slice(0, 8);
+
+  const valid = constantTimeEqual(macBytes, expectedMac);
   if (!valid) throw new Error("Invalid signature");
 
-  const payload = JSON.parse(
-    new TextDecoder().decode(base64UrlDecode(payloadB64)),
-  ) as LinkTokenPayload;
+  const exp = new DataView(payloadBytes.buffer, payloadBytes.byteOffset, payloadBytes.byteLength)
+    .getUint32(32, false);
+  const payload: LinkTokenPayload = {
+    uid: bytesToUuid(payloadBytes.slice(0, 16)),
+    org: bytesToUuid(payloadBytes.slice(16, 32)),
+    exp,
+  };
 
   if (typeof payload.exp !== "number" || payload.exp * 1000 < Date.now()) {
     throw new Error("Token expired");
