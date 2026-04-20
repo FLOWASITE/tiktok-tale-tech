@@ -1,63 +1,88 @@
 
 
-# Fix: Brand switching không hoạt động
+# Fix: Bot không hiểu "Tạo chiến dịch tháng 5"
 
 ## 🎯 Root cause
 
-**`setWebhook` chỉ whitelist `["message"]`** trong `allowed_updates` → Telegram không bao giờ gửi `callback_query` events cho bot → user bấm nút đổi brand, webhook không nhận được gì, không có log.
+Thực tế **bot HIỂU đúng** — logs show `intent: generate_campaign` → `handleGenerate` chạy → goal `4d85693a-...` "Tạo mới chiến dịch cho tháng 5" đã được insert vào DB lúc 15:59:05.
 
-Bằng chứng: logs lúc 15:33 chỉ thấy `/brand` (message), không có callback_query nào sau đó dù UI có gửi inline keyboard.
+**Vấn đề nằm ở 2 điểm sau khi tạo goal:**
+
+1. **Pipeline không được tạo**: `triggerPipeline` gọi `agent-pipeline` với `action=trigger_from_goal` → function này gọi `generate-campaign-strategy` → function đó đang **hết credits Lovable Gateway (402)** và fallback sang DashScope cũng đang fail (xem logs `generate-campaign-strategy` có nhiều `payment_required` 402). Kết quả: 0 pipeline được tạo, goal mồ côi.
+
+2. **User không nhận feedback đúng**: Goal được tạo với `target_topics=[]`, `target_channels=[]`, `frequency={}` (rỗng) → `generate-campaign-strategy` thiếu input → fail sớm. Message "✅ Pipeline đã khởi chạy" vẫn được gửi (vì `triggerPipeline` là fire-and-forget `.catch`), nên **user thấy "Pipeline đã khởi chạy" nhưng thực tế không có gì chạy** → bối rối "bot ko hiểu để làm".
 
 ## 🔧 Fix
 
-### 1. Thêm `callback_query` vào `allowed_updates`
+### 1. `handleGenerate` — await & report lỗi thật
 
-**File**: `supabase/functions/_shared/telegram-client.ts` (dòng 63)
+Thay fire-and-forget bằng await có timeout ngắn, bắt lỗi và báo cụ thể:
 
 ```ts
-allowed_updates: ["message", "callback_query"],
+// Thay vì triggerPipeline(...).catch(...)
+try {
+  const r = await Promise.race([
+    triggerPipeline(goal.id, botConfig.organizationId),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000))
+  ]);
+  // r có { success, plan_id, pipelines_created }
+  if (!r?.pipelines_created) {
+    await sendMessage(botConfig.botToken, chatId, 
+      "⚠️ Goal đã tạo nhưng chưa tạo được plan (AI gateway tạm quá tải). Bạn mở Mini App để chạy lại hoặc thử sau ít phút.");
+    return;
+  }
+  await sendMessage(..., `✅ Đã tạo ${r.pipelines_created} pipeline từ goal "${goal.name}".\nDùng /status để theo dõi.`);
+} catch (e) {
+  // Goal vẫn tồn tại, báo user biết để retry
+  await sendMessage(..., `⚠️ Goal "${goal.name}" đã lưu nhưng chưa khởi chạy được (${String(e).slice(0,80)}). Thử lại sau bằng /status hoặc Mini App.`);
+}
 ```
 
-### 2. Re-register webhook cho tất cả bot đang active
+→ `triggerPipeline` cần return JSON thay vì void.
 
-Gọi `telegram-bot-admin` với action `register_webhook` kèm `drop_pending_updates: true` để Telegram áp dụng config mới. Nếu có >1 bot, loop qua từng bot trong bảng `telegram_bot_configs`.
+### 2. `handleGenerate` — điền defaults vào goal
 
-Có 2 cách:
-- **A (tự động)**: Tạo 1 script chạy trong migration gọi edge function `telegram-bot-admin` cho mỗi config đang bật. 
-- **B (thủ công)**: User bấm nút "Đăng ký lại webhook" trong UI admin Telegram sau khi deploy.
+Goal đang insert với `target_topics=[]`, `target_channels=[]`, `campaign_duration_days` không có. Thêm defaults hợp lý để `generate-campaign-strategy` luôn có input:
 
-→ Chọn **A** để fix ngay, không bắt user thao tác.
-
-### 3. Bổ sung RLS policy INSERT/UPDATE cho `telegram_chat_bindings` (defense-in-depth)
-
-Hiện thiếu policy INSERT/UPDATE. Webhook dùng service role nên không ảnh hưởng, nhưng Mini App frontend đang `UPDATE active_brand_template_id` bằng anon key → sẽ bị RLS chặn silently. Thêm:
-
-```sql
-CREATE POLICY "Users update own bindings"
-ON telegram_chat_bindings FOR UPDATE
-USING (auth.uid() = user_id OR is_org_admin(auth.uid(), organization_id))
-WITH CHECK (auth.uid() = user_id OR is_org_admin(auth.uid(), organization_id));
+```ts
+.insert({
+  name: prompt.slice(0, 120),
+  description: prompt,
+  // ...
+  target_channels: ["facebook", "website"],      // default 2 kênh
+  campaign_duration_days: 14,
+  campaign_start_date: new Date().toISOString().split("T")[0],
+  brand_template_id: brandCtx?.id || null,       // ← dùng active brand
+})
 ```
 
-(INSERT không cần vì binding tạo qua webhook service role).
+### 3. Surface lỗi AI gateway trong reply
+
+Trong `handleGenerate` catch case, detect 402/credits → message thân thiện:
+> "🤖 AI đang hết credits. Admin có thể nạp thêm trong Lovable Cloud, hoặc cấu hình API key riêng (DashScope/OpenRouter) tại Settings → AI Providers."
+
+### 4. Bổ sung log chi tiết
+
+Thêm `console.log` trước/sau `triggerPipeline` để lần sau debug nhanh:
+```ts
+console.log("[handleGenerate] triggering pipeline for goal", goal.id);
+console.log("[handleGenerate] pipeline result:", r);
+```
 
 ## 📦 Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/_shared/telegram-client.ts` | `allowed_updates` thêm `"callback_query"` |
-| `supabase/migrations/*_telegram_rls_fix.sql` | Policy UPDATE cho `telegram_chat_bindings` |
-| Script re-register | Gọi `telegram-bot-admin` → `register_webhook` cho mọi bot active (1 lần, không cần commit) |
+| `supabase/functions/telegram-webhook/index.ts` | `handleGenerate`: điền defaults (channels, duration, brand_template_id); await `triggerPipeline` có timeout; báo lỗi cụ thể thay vì "✅ Pipeline đã khởi chạy" giả |
+| `supabase/functions/telegram-webhook/index.ts` | `triggerPipeline`: return JSON `{ success, pipelines_created, error }` thay vì void |
 
-## 🧪 Test sau fix
+## 🧪 Test
 
-1. Deploy → chạy re-register webhook → check `getWebhookInfo` thấy `allowed_updates` có `callback_query`
-2. `/brand` trong Telegram → thấy inline keyboard → bấm brand khác
-3. Xem logs `telegram-webhook` → thấy log `[telegram-webhook] callback_query: { data: "brand:switch:...", ... }`
-4. UI Telegram → check mark `✓` chuyển sang brand mới **không gửi message mới**
-5. Query DB: `SELECT active_brand_template_id FROM telegram_chat_bindings WHERE telegram_chat_id = 501332455` → thấy ID mới
-6. Mini App `/telegram-app/brands` → tap brand khác → sync DB thành công (không bị RLS chặn nữa)
+1. Gõ "Tạo chiến dịch tháng 5" trong Telegram → thấy message xác nhận có **số pipeline thực tế** (`✅ Đã tạo N pipeline…`) hoặc cảnh báo cụ thể
+2. Gõ lại trong lúc gateway hết credits → thấy message "AI đang hết credits, thử lại sau" thay vì giả bộ OK
+3. `/status` sau đó → list pipeline khớp với số đã báo
+4. DB check: `agent_pipelines` có row với `goal_id = <mới>`
 
 ## ⏱ Ước tính
-**15 phút** — fix 1 dòng + 1 migration + re-register webhook.
+**30 phút** — chỉ sửa 2 hàm trong 1 file.
 
