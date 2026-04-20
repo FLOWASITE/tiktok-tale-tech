@@ -694,6 +694,9 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (quota?.ok) {
     lines.push(`• Quyền agent: ${escapeMd(autonomyLabel(quota.maxAutonomyLevel))}`);
   }
+  if (activeBrand?.brand_name) {
+    lines.push(`• 🎨 Brand đang xem: ${escapeMd(activeBrand.brand_name)}`);
+  }
   lines.push("");
 
   // Usage section
@@ -701,36 +704,43 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (!quota?.ok) {
     lines.push(`• ${escapeMd(quota?.message || "Không lấy được hạn mức")}`);
   } else if (quota.monthlyLimit === null) {
-    lines.push(`• Pipeline: ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
+    lines.push(`• Pipeline (toàn org): ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
   } else {
     const used = quota.pipelinesUsed;
     const limit = quota.monthlyLimit;
-    lines.push(`• Pipeline: ${used}/${limit}  ${formatProgressBar(used, limit)}`);
+    lines.push(`• Pipeline (toàn org): ${used}/${limit}  ${formatProgressBar(used, limit)}`);
     const remaining = Math.max(0, limit - used);
     lines.push(`• Còn ${remaining} lượt`);
   }
   lines.push("");
 
-  // Running pipelines
-  if (running.length > 0) {
-    lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
-    for (const p of running) {
-      const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
-      const stg = stageLabel(p.current_stage);
-      const pct = stageProgressPct(p.current_stage);
-      lines.push(`• "${title}" — ${stg} (${pct}%)`);
-    }
+  // Brand has no pipeline yet
+  if (activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0) {
+    lines.push(`ℹ️ Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
+    lines.push("👉 /generate <mô tả> để tạo campaign đầu tiên.");
     lines.push("");
-  }
+  } else {
+    // Running pipelines
+    if (running.length > 0) {
+      lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
+      for (const p of running) {
+        const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
+        const stg = stageLabel(p.current_stage);
+        const pct = stageProgressPct(p.current_stage);
+        lines.push(`• "${title}" — ${stg} (${pct}%)`);
+      }
+      lines.push("");
+    }
 
-  // Recently completed
-  if (recent.length > 0) {
-    lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
-    for (const p of recent) {
-      const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
-      lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
+    // Recently completed
+    if (recent.length > 0) {
+      lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
+      for (const p of recent) {
+        const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
+        lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
+      }
+      lines.push("");
     }
-    lines.push("");
   }
 
   // Hints
@@ -745,7 +755,10 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
       hints.push("💎 Bạn đang dùng gói Free — upgrade để mở khoá thêm tính năng");
     }
   }
-  if (running.length === 0) {
+  if (!activeBrandId) {
+    hints.push("💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó");
+  }
+  if (running.length === 0 && !(activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0)) {
     hints.push("👉 /generate <mô tả> để tạo campaign mới");
   }
   if (hints.length > 0) {
@@ -754,7 +767,6 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   }
 
   // Footer with brand badge + one-tap "Đổi brand" button
-  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
   const finalText = appendBrandFooter(lines.join("\n").trim(), activeBrand?.brand_name);
   await sendMessage(
     botConfig.botToken,
