@@ -905,6 +905,7 @@ async function handleFreeChat(
     role: "assistant",
     content: assistantReply.slice(0, 2000),
     intent: result.intent,
+  }).then(() => {}, (e: unknown) => console.warn("[free-chat] log assistant failed:", e));
 }
 
 // =====================================================
