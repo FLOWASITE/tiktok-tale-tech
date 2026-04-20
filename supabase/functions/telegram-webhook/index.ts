@@ -315,6 +315,74 @@ async function handleStart(
   );
 }
 
+// ===== Helpers cho /status dashboard =====
+function escapeMd(s: string): string {
+  return (s || "").replace(/([_*\[\]`])/g, "\\$1");
+}
+
+function formatProgressBar(used: number, limit: number): string {
+  const pct = Math.max(0, Math.min(100, Math.round((used / Math.max(1, limit)) * 100)));
+  const filled = Math.round(pct / 10);
+  const bar = "▓".repeat(filled) + "░".repeat(10 - filled);
+  return `${bar} ${pct}%`;
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const d = new Date(dateStr).getTime();
+  if (!d || Number.isNaN(d)) return "vừa xong";
+  const diffMs = Date.now() - d;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "vừa xong";
+  if (mins < 60) return `${mins} phút trước`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h trước`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "hôm qua";
+  if (days < 7) return `${days} ngày trước`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks} tuần trước`;
+}
+
+function autonomyLabel(level: string): string {
+  switch (level) {
+    case "full_auto": return "Tự động hoàn toàn";
+    case "human_on_loop": return "Bán tự động";
+    case "human_in_loop": return "Duyệt từng bước";
+    default: return level;
+  }
+}
+
+function planLabel(plan?: string | null): string {
+  if (!plan) return "Free";
+  return plan.charAt(0).toUpperCase() + plan.slice(1);
+}
+
+function formatVnDate(dateStr?: string | null): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function stageLabel(stage?: string | null): string {
+  switch (stage) {
+    case "strategy": return "Chiến lược";
+    case "create": return "Sáng tạo";
+    case "quality": return "Chất lượng";
+    case "approval": return "Duyệt";
+    case "publish": return "Đăng bài";
+    case "analyze": return "Phân tích";
+    default: return stage || "—";
+  }
+}
+
+const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
+function stageProgressPct(stage?: string | null): number {
+  const idx = STAGE_ORDER.indexOf(stage || "");
+  if (idx < 0) return 0;
+  return Math.round(((idx + 1) / STAGE_ORDER.length) * 100);
+}
+
 async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const { supabase, botConfig, chatId } = ctx;
 
@@ -328,29 +396,124 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     return;
   }
 
-  const result = await assertCanCreateGoal(
-    supabase,
-    botConfig.organizationId,
-    binding.userId,
-  );
+  const orgId = botConfig.organizationId;
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  if (!result.ok) {
-    await sendMessage(botConfig.botToken, chatId, result.message);
-    return;
+  // Parallel fetch — resilient: each piece can fail without breaking others
+  const [orgRes, subRes, quotaRes, runningRes, recentRes] = await Promise.allSettled([
+    supabase.from("organizations").select("name").eq("id", orgId).maybeSingle(),
+    supabase
+      .from("subscriptions")
+      .select("plan_type,current_period_end,status")
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .maybeSingle(),
+    assertCanCreateGoal(supabase, orgId, binding.userId),
+    supabase
+      .from("agent_pipelines")
+      .select("content_title,current_stage")
+      .eq("organization_id", orgId)
+      .in("current_stage", ["strategy", "create", "quality", "approval", "publish"])
+      .is("completed_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("agent_pipelines")
+      .select("content_title,completed_at")
+      .eq("organization_id", orgId)
+      .not("completed_at", "is", null)
+      .gte("completed_at", sevenDaysAgo)
+      .order("completed_at", { ascending: false })
+      .limit(3),
+  ]);
+
+  const orgName = orgRes.status === "fulfilled" ? (orgRes.value.data?.name as string | undefined) : undefined;
+  const sub = subRes.status === "fulfilled" ? subRes.value.data as any : null;
+  const quota = quotaRes.status === "fulfilled" ? quotaRes.value : null;
+  const running = runningRes.status === "fulfilled" ? (runningRes.value.data as any[] || []) : [];
+  const recent = recentRes.status === "fulfilled" ? (recentRes.value.data as any[] || []) : [];
+
+  // Header — month/year
+  const now = new Date();
+  const monthLabel = `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
+
+  const lines: string[] = [];
+  lines.push(`📊 *Trạng thái Flowa* — ${monthLabel}`);
+  lines.push("");
+
+  // Account section
+  lines.push("👤 *Tài khoản*");
+  if (orgName) lines.push(`• Tổ chức: ${escapeMd(orgName)}`);
+  const planTxt = planLabel(sub?.plan_type);
+  const renew = formatVnDate(sub?.current_period_end);
+  lines.push(`• Gói: ${escapeMd(planTxt)}${renew ? ` (renew ${renew})` : ""}`);
+  if (quota?.ok) {
+    lines.push(`• Quyền agent: ${escapeMd(autonomyLabel(quota.maxAutonomyLevel))}`);
+  }
+  lines.push("");
+
+  // Usage section
+  lines.push("📈 *Sử dụng tháng này*");
+  if (!quota?.ok) {
+    lines.push(`• ${escapeMd(quota?.message || "Không lấy được hạn mức")}`);
+  } else if (quota.monthlyLimit === null) {
+    lines.push(`• Pipeline: ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
+  } else {
+    const used = quota.pipelinesUsed;
+    const limit = quota.monthlyLimit;
+    lines.push(`• Pipeline: ${used}/${limit}  ${formatProgressBar(used, limit)}`);
+    const remaining = Math.max(0, limit - used);
+    lines.push(`• Còn ${remaining} lượt`);
+  }
+  lines.push("");
+
+  // Running pipelines
+  if (running.length > 0) {
+    lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
+    for (const p of running) {
+      const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
+      const stg = stageLabel(p.current_stage);
+      const pct = stageProgressPct(p.current_stage);
+      lines.push(`• "${title}" — ${stg} (${pct}%)`);
+    }
+    lines.push("");
   }
 
-  const quotaLine = result.monthlyLimit === null
-    ? "Quota: không giới hạn"
-    : `Quota: ${result.pipelinesUsed}/${result.monthlyLimit} pipeline tháng này`;
+  // Recently completed
+  if (recent.length > 0) {
+    lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
+    for (const p of recent) {
+      const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
+      lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
+    }
+    lines.push("");
+  }
+
+  // Hints
+  const hints: string[] = [];
+  if (quota?.ok && quota.monthlyLimit !== null && quota.monthlyLimit > 0) {
+    const pct = (quota.pipelinesUsed / quota.monthlyLimit) * 100;
+    if (pct >= 90) {
+      hints.push("⚠️ Sắp hết quota tháng này — cân nhắc nâng cấp gói để tiếp tục");
+    } else if (pct >= 60) {
+      hints.push(`⚠️ Đã dùng ${Math.round(pct)}% quota — cân nhắc upgrade nếu cần thêm`);
+    } else if ((sub?.plan_type || "free") === "free") {
+      hints.push("💎 Bạn đang dùng gói Free — upgrade để mở khoá thêm tính năng");
+    }
+  }
+  if (running.length === 0) {
+    hints.push("👉 /generate <mô tả> để tạo campaign mới");
+  }
+  if (hints.length > 0) {
+    lines.push("💡 *Gợi ý*");
+    for (const h of hints) lines.push(h);
+  }
 
   await sendMessage(
     botConfig.botToken,
     chatId,
-    [
-      "📊 Trạng thái của bạn:",
-      quotaLine,
-      `Autonomy tối đa: ${result.maxAutonomyLevel}`,
-    ].join("\n"),
+    lines.join("\n").trim(),
+    { parse_mode: "Markdown", disable_web_page_preview: true },
   );
 }
 
