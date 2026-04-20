@@ -750,8 +750,8 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   }
   lines.push("");
 
-  // Brand has no pipeline yet
-  if (activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0) {
+  // Brand active but has no pipeline at all (no goals OR goals exist but no pipelines yet)
+  if (activeBrandId && running.length === 0 && recent.length === 0) {
     lines.push(`ℹ️ Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
     lines.push("👉 /generate <mô tả> để tạo campaign đầu tiên.");
     lines.push("");
