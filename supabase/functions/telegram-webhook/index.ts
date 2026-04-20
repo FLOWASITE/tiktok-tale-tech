@@ -19,6 +19,8 @@ const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
 
+type ActiveBrandContext = BrandContext & { id: string };
+
 // In-memory per-chat brand switcher state (page index + search filter + last switcher message id).
 // Edge instance scope; resets on cold start — acceptable for an interactive UI element.
 const brandSwitcherState = new Map<number, { page: number; filter?: string; messageId?: number; awaitingSearch?: boolean }>();
@@ -1456,7 +1458,7 @@ async function getActiveBrandContext(
   supabase: any,
   organizationId: string,
   chatId: number,
-): Promise<BrandContext | null> {
+): Promise<ActiveBrandContext | null> {
   try {
     const { data: binding } = await supabase
       .from("telegram_chat_bindings")
@@ -1480,10 +1482,10 @@ async function getActiveBrandContext(
 
     const { data: brand } = await supabase
       .from("brand_templates")
-      .select("brand_name, industry, tone_of_voice, unique_value_proposition")
+      .select("id, brand_name, industry, tone_of_voice, unique_value_proposition")
       .eq("id", brandId)
       .maybeSingle();
-    return (brand as BrandContext) ?? null;
+    return (brand as ActiveBrandContext) ?? null;
   } catch (e) {
     console.warn("[telegram-webhook] getActiveBrandContext failed:", e);
     return null;
