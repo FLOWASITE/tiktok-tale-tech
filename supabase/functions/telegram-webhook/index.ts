@@ -376,6 +376,7 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     `✅ Đã kết nối! Gõ /help để xem lệnh có sẵn.`,
+    { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
   );
 }
 
@@ -667,6 +668,29 @@ async function handleGenerate(
     chatId,
     `✅ Pipeline đã khởi chạy.\nGoal: ${goal.id}\nDùng /status để theo dõi.`,
   );
+
+  // P2: Check quota threshold AFTER creating goal — push alert if crossed 80%/100%
+  try {
+    const post = await assertCanCreateGoal(supabase, botConfig.organizationId, binding.userId);
+    if (post.ok && post.monthlyLimit && post.monthlyLimit > 0) {
+      const pct = (post.pipelinesUsed / post.monthlyLimit) * 100;
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("current_period_start")
+        .eq("organization_id", botConfig.organizationId)
+        .eq("status", "active")
+        .maybeSingle();
+      const periodStart = sub?.current_period_start || new Date(0).toISOString();
+
+      if (pct >= 100) {
+        await notifyQuotaThreshold(supabase, botConfig.organizationId, 100, post.pipelinesUsed, post.monthlyLimit, periodStart);
+      } else if (pct >= 80) {
+        await notifyQuotaThreshold(supabase, botConfig.organizationId, 80, post.pipelinesUsed, post.monthlyLimit, periodStart);
+      }
+    }
+  } catch (qErr) {
+    console.warn("[telegram-webhook] quota alert check failed:", qErr);
+  }
 }
 
 async function handleLinkGroup(
