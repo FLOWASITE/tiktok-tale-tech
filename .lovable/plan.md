@@ -1,49 +1,56 @@
 
 
-## Câu hỏi của user
-"Tại sao phải cần Link kết nối?" — user thắc mắc tại sao bot Telegram cần bước "Tạo link kết nối" thay vì cho phép chat thẳng.
+## Mục tiêu
+Cho phép user **chat tự nhiên** trên Telegram (không cần gõ `/generate ...`). Bot tự hiểu intent → trả lời / tạo campaign / báo quota.
 
-## Trả lời (research, không cần plan implementation)
+## Cách tiếp cận
 
-### Lý do kỹ thuật
+Khi nhận tin text **không bắt đầu bằng `/`** trong DM với binding hợp lệ:
 
-**1. Telegram chỉ biết `chat_id`, không biết user là ai trong app**
-- Khi user nhắn bot, Telegram gửi cho ta payload chứa `telegram_chat_id` (vd: `123456789`) và optionally `username` (vd: `@john`).
-- Ta KHÔNG có cách nào biết `chat_id 123456789` thuộc về user nào trong Flowa (user A hay user B trong cùng tổ chức?).
+1. **Intent classification** bằng 1 lần gọi Lovable AI Gateway (`google/gemini-2.5-flash` — rẻ, nhanh):
+   - `chitchat` → reply tự nhiên (giải đáp về Flowa, hỏi đáp marketing)
+   - `generate_campaign` → trích `prompt`, tự gọi luồng `/generate` hiện có
+   - `status` → tự gọi `handleStatus`
+   - `help` → reply danh sách lệnh (vẫn giữ ngôn ngữ tự nhiên)
 
-**2. Link kết nối = cầu nối danh tính**
-- Deeplink chứa **token đã ký** (HMAC) bao gồm: `user_id` + `organization_id` + thời hạn 10 phút.
-- Khi user click link → Telegram mở bot với lệnh `/start <token>` → webhook ta verify token → ghi vào bảng `telegram_chat_bindings`: "chat_id X = user Y trong org Z".
-- Từ đó về sau, mọi tin nhắn từ chat_id X đều được map ngược về user Y → biết quota, brand, quyền hạn của ai.
+2. **Conversation memory** ngắn: lấy 6 message gần nhất từ bảng mới `telegram_messages_log` (chat_id + role + content + created_at) để feed vào system prompt → bot có context multi-turn.
 
-**3. Bảo mật**
-- Không thể giả mạo: token có chữ ký HMAC, chỉ server tạo được.
-- Không thể replay: hết hạn sau 10 phút.
-- Không cho phép random user nhắn bot rồi tự xưng "tôi là admin org ABC" → phải có proof.
+3. **Typing indicator**: gửi `sendChatAction(typing)` trước khi gọi AI để UX mượt.
 
-### Giải pháp thay thế (nếu user không thích)
+4. **Fallback**: nếu intent classifier fail → reply chitchat mặc định, không bao giờ im lặng.
 
-| Cách | Ưu | Nhược |
-|---|---|---|
-| **Link kết nối (hiện tại)** | An toàn, 1 click | Cần thao tác 1 lần |
-| Nhập username Telegram trong app | Không cần link | Dễ giả mạo (ai cũng claim được @username), Telegram username có thể đổi |
-| OAuth Telegram Login Widget | Chuẩn OAuth | Phức tạp hơn, cần widget JS, không work trên mobile app |
-| Gõ mã 6 số trong chat | Đơn giản hơn deeplink? | Vẫn cần ra app lấy mã → tương đương link |
+## Files thay đổi
 
-→ **Deeplink là cách chuẩn industry** (Linear, Notion, Vercel bot đều dùng cách này).
+| File | Thay đổi |
+|---|---|
+| `supabase/migrations/<new>` | Tạo bảng `telegram_messages_log` (id, organization_id, chat_id, user_id nullable, role: 'user'\|'assistant', content, created_at) + index + RLS service-role only |
+| `supabase/functions/_shared/telegram-client.ts` | Thêm helper `sendChatAction()` |
+| `supabase/functions/_shared/telegram-intent.ts` (mới) | `classifyIntent(text, history)` gọi Lovable AI → `{ intent, prompt?, reply? }` |
+| `supabase/functions/telegram-webhook/index.ts` | Trong `default:` branch của switch (DM only): gọi `handleFreeChat()` thay vì reply "Lệnh không hợp lệ". Hàm mới: log message → classify → route → log assistant reply |
+| `src/components/agents/TelegramLinkCard.tsx` | Cập nhật helper text: "Đã link xong, bạn có thể chat tự nhiên với bot — không cần gõ lệnh." |
+| `src/pages/AgentTelegramPage.tsx` | Đổi 1 dòng tagline: "Chat tự nhiên với AI Agent từ Telegram." |
 
-### Đề xuất UX (nếu muốn rõ ràng hơn cho user)
+## Luồng kỹ thuật
 
-Hiện tại UI chỉ ghi "Tạo link kết nối" mà không giải thích tại sao. Có thể bổ sung:
+```text
+User text (DM, no /) → log user msg
+    → fetch last 6 msgs (history)
+    → sendChatAction("typing")
+    → classifyIntent(text, history) [Gemini Flash, ~500ms]
+        ├─ chitchat   → reply.text → sendMessage + log assistant
+        ├─ generate   → handleGenerate(prompt) (reuse existing)
+        ├─ status     → handleStatus (reuse)
+        └─ unknown    → fallback chitchat
+```
 
-1. **Tooltip/helper text** dưới nút "Tạo link kết nối":
-   > "Link này gắn tài khoản Telegram của bạn với Flowa để bot biết bạn là ai khi chat."
+## Bảo vệ
+- **Group chat**: không bật free chat (giữ command-only, tránh spam quota nhiều người trong group).
+- **Rate limit**: tận dụng `assertCanCreateGoal` đã có cho intent `generate_campaign`. Chitchat không tốn quota pipeline nhưng count vào AI gateway tự nhiên.
+- **Prompt injection**: system prompt clamp role bot, refuse khi user yêu cầu lộ token/secret.
 
-2. **One-time only** — sau khi link 1 lần, không cần link lại trừ khi đổi tài khoản Telegram. Nhấn mạnh điều này.
-
-3. **So sánh với Slack/Discord bot** — user quen với mô hình "add bot vào workspace" có thể không nhận ra sự khác biệt.
-
-## Có cần code change không?
-
-User chỉ hỏi *tại sao*, không yêu cầu thay đổi. Em sẽ trả lời câu hỏi + đề xuất nhỏ về UX (thêm 1 dòng helper text giải thích) — user quyết định có muốn implement không.
+## Kết quả
+- User gõ "tạo cho tôi campaign về spa làm đẹp" → bot hiểu, chạy pipeline ngay.
+- User gõ "quota tháng này còn bao nhiêu?" → bot trả status.
+- User gõ "Flowa làm gì?" → bot chitchat giải thích.
+- Không cần học lệnh `/`. Lệnh `/` vẫn hoạt động cho power user.
 
