@@ -84,6 +84,17 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       console.log("[telegram-webhook] duplicate update_id skipped:", update.update_id);
       return okResponse();
     }
+
+    // Inline-button callbacks (approve/reject on push notifications)
+    if (update.callback_query) {
+      await handleCallbackQuery({
+        supabase,
+        botConfig,
+        callback: update.callback_query,
+      });
+      return okResponse();
+    }
+
     const message = update.message;
     if (!message) {
       console.log("[telegram-webhook] non-message update skipped:", {
