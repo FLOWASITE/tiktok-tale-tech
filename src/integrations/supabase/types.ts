@@ -9774,6 +9774,27 @@ export type Database = {
           },
         ]
       }
+      telegram_processed_updates: {
+        Row: {
+          bot_config_id: string | null
+          chat_id: number | null
+          processed_at: string
+          update_id: number
+        }
+        Insert: {
+          bot_config_id?: string | null
+          chat_id?: number | null
+          processed_at?: string
+          update_id: number
+        }
+        Update: {
+          bot_config_id?: string | null
+          chat_id?: number | null
+          processed_at?: string
+          update_id?: number
+        }
+        Relationships: []
+      }
       topic_content_links: {
         Row: {
           content_id: string
@@ -10711,6 +10732,7 @@ export type Database = {
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_old_checkpoints: { Args: never; Returns: number }
       cleanup_old_edge_metrics: { Args: never; Returns: number }
+      cleanup_telegram_processed_updates: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       extract_doc_year: { Args: { doc_name: string }; Returns: string }
       fetch_brand_context_batch: {
