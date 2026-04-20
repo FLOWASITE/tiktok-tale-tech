@@ -905,6 +905,228 @@ async function handleFreeChat(
     role: "assistant",
     content: assistantReply.slice(0, 2000),
     intent: result.intent,
-  }).then(() => {}, (e: unknown) => console.warn("[free-chat] log assistant failed:", e));
 }
+
+// =====================================================
+// /brand command — list brands or set active one
+// =====================================================
+async function handleBrand(
+  ctx: HandlerCtx & { telegramUserId?: number; arg: string },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, arg } = ctx;
+
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    return;
+  }
+
+  const { data: brands } = await supabase
+    .from("brand_templates")
+    .select("id, brand_name, is_default")
+    .eq("organization_id", botConfig.organizationId)
+    .order("is_default", { ascending: false })
+    .order("brand_name", { ascending: true })
+    .limit(20);
+
+  if (!brands || brands.length === 0) {
+    await sendMessage(botConfig.botToken, chatId, "Tổ chức chưa có brand nào. Tạo trong app Flowa trước.");
+    return;
+  }
+
+  // No arg → show current + list
+  if (!arg) {
+    const { data: current } = await supabase
+      .from("telegram_chat_bindings")
+      .select("active_brand_template_id, brand_templates:active_brand_template_id(brand_name)")
+      .eq("organization_id", botConfig.organizationId)
+      .eq("telegram_chat_id", chatId)
+      .maybeSingle();
+    const currentName = (current as any)?.brand_templates?.brand_name as string | undefined;
+
+    const lines: string[] = [];
+    lines.push(`🎨 *Brand đang active:* ${currentName ? escMdNotif(currentName) : "_chưa chọn_"}`);
+    lines.push("");
+    lines.push("*Chọn brand bằng:* `/brand <tên>`");
+    lines.push("");
+    lines.push("*Brand trong tổ chức:*");
+    for (const b of brands) {
+      lines.push(`• ${escMdNotif(b.brand_name)}${b.is_default ? " _(mặc định)_" : ""}`);
+    }
+    await sendMessage(botConfig.botToken, chatId, lines.join("\n"), { parse_mode: "Markdown" });
+    return;
+  }
+
+  // arg → fuzzy match brand name
+  const needle = arg.toLowerCase();
+  const matched = brands.find((b: any) => b.brand_name.toLowerCase() === needle)
+    || brands.find((b: any) => b.brand_name.toLowerCase().includes(needle));
+  if (!matched) {
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `❌ Không tìm thấy brand "${arg}". Gõ /brand để xem danh sách.`,
+    );
+    return;
+  }
+
+  const { error } = await supabase
+    .from("telegram_chat_bindings")
+    .update({ active_brand_template_id: matched.id })
+    .eq("organization_id", botConfig.organizationId)
+    .eq("telegram_chat_id", chatId);
+  if (error) {
+    console.error("[telegram-webhook] set active brand failed:", error);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không lưu được. Thử lại sau.");
+    return;
+  }
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    `✅ Đã chọn brand *${escMdNotif(matched.brand_name)}* cho phiên chat.`,
+    { parse_mode: "Markdown" },
+  );
+}
+
+// Resolve active brand → BrandContext (for free chat).
+async function getActiveBrandContext(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  chatId: number,
+): Promise<BrandContext | null> {
+  try {
+    const { data: binding } = await supabase
+      .from("telegram_chat_bindings")
+      .select("active_brand_template_id")
+      .eq("organization_id", organizationId)
+      .eq("telegram_chat_id", chatId)
+      .maybeSingle();
+    let brandId = binding?.active_brand_template_id as string | undefined;
+
+    // Fallback to org default brand if user hasn't picked one
+    if (!brandId) {
+      const { data: def } = await supabase
+        .from("brand_templates")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("is_default", true)
+        .maybeSingle();
+      brandId = def?.id;
+    }
+    if (!brandId) return null;
+
+    const { data: brand } = await supabase
+      .from("brand_templates")
+      .select("brand_name, industry, tone_of_voice, unique_value_proposition")
+      .eq("id", brandId)
+      .maybeSingle();
+    return (brand as BrandContext) ?? null;
+  } catch (e) {
+    console.warn("[telegram-webhook] getActiveBrandContext failed:", e);
+    return null;
+  }
+}
+
+// =====================================================
+// callback_query — inline button taps (approve/reject from push notif)
+// =====================================================
+async function handleCallbackQuery(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  // deno-lint-ignore no-explicit-any
+  callback: any;
+}): Promise<void> {
+  const { supabase, botConfig, callback } = args;
+  const cbId = callback.id as string;
+  const data = (callback.data || "") as string;
+  const fromTgId = callback.from?.id as number | undefined;
+  const msg = callback.message;
+  const chatId = msg?.chat?.id as number | undefined;
+  const messageId = msg?.message_id as number | undefined;
+
+  // Format: apv:<a|r>:<approvalId>
+  const m = /^apv:([ar]):(.+)$/.exec(data);
+  if (!m || !chatId || !fromTgId) {
+    await answerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
+    return;
+  }
+  const action = m[1] === "a" ? "approve" : "reject";
+  const approvalId = m[2];
+
+  // Resolve calling Telegram user → app user via DM binding
+  const { data: dm } = await supabase
+    .from("telegram_chat_bindings")
+    .select("user_id")
+    .eq("organization_id", botConfig.organizationId)
+    .eq("telegram_user_id", fromTgId)
+    .eq("chat_type", "private")
+    .maybeSingle();
+  if (!dm?.user_id) {
+    await answerCallback(botConfig.botToken, cbId, "Bạn cần /start với bot trước.", true);
+    return;
+  }
+
+  // Permission check: only owner/admin can approve from Telegram
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", botConfig.organizationId)
+    .eq("user_id", dm.user_id)
+    .maybeSingle();
+  if (!member || !["owner", "admin"].includes(member.role)) {
+    await answerCallback(botConfig.botToken, cbId, "Chỉ admin mới duyệt được.", true);
+    return;
+  }
+
+  // Call agent-approve
+  try {
+    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/agent-approve`;
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        approval_id: approvalId,
+        action,
+        reviewer_id: dm.user_id,
+        notes: `via Telegram by tg_user=${fromTgId}`,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+
+    let toast: string;
+    let edited: string;
+    if (body?.already_decided) {
+      toast = "Đã được xử lý trước đó.";
+      edited = `ℹ️ Yêu cầu này đã được ${body.status === "approved" ? "duyệt" : body.status} trước đó.`;
+    } else if (body?.success) {
+      toast = action === "approve" ? "✅ Đã duyệt" : "❌ Đã từ chối";
+      edited = action === "approve"
+        ? `✅ *Đã duyệt* — pipeline sẽ chuyển sang publish.`
+        : `❌ *Đã từ chối* — pipeline sẽ tạo lại.`;
+    } else {
+      toast = body?.error || "Có lỗi xảy ra.";
+      edited = `⚠️ ${escMdNotif(toast)}`;
+    }
+
+    await answerCallback(botConfig.botToken, cbId, toast);
+    if (messageId) {
+      await editMessageText(botConfig.botToken, chatId, messageId, edited, {
+        parse_mode: "Markdown",
+      });
+    }
+  } catch (e) {
+    console.error("[telegram-webhook] callback agent-approve failed:", e);
+    await answerCallback(botConfig.botToken, cbId, "Lỗi hệ thống, thử lại.", true);
+  }
+}
+
 
