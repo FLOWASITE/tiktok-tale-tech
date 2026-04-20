@@ -107,7 +107,7 @@ export default function AgentTelegramPage() {
               <div>
                 <CardTitle>Telegram Agent</CardTitle>
                 <CardDescription className="mt-1">
-                  Điều khiển AI Agent từ Telegram — tạo campaign, xem quota, duyệt nội dung qua chat.
+                  Chat tự nhiên với AI Agent từ Telegram — không cần gõ lệnh, bot tự hiểu để tạo campaign, báo quota, tư vấn marketing.
                 </CardDescription>
               </div>
             </div>
@@ -138,7 +138,7 @@ export default function AgentTelegramPage() {
       <StepSection
         index={isAdmin ? 2 : 1}
         title="Kết nối tài khoản Telegram cá nhân"
-        description="Gõ /generate trực tiếp từ Telegram để trigger campaign."
+        description="Sau khi link xong, chat tự nhiên với bot — không cần học lệnh."
         done={botReady && userLinked}
       >
         <TelegramLinkCard botReady={botReady} isAdmin={isAdmin} botUsername={config?.bot_username} />
