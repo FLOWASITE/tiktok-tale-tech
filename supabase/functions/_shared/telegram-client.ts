@@ -126,6 +126,15 @@ function bytesToUuid(bytes: Uint8Array): string {
   ].join("-");
 }
 
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
 export async function signLinkToken(
   payload: Omit<LinkTokenPayload, "exp"> & { ttlSeconds?: number },
 ): Promise<string> {
@@ -162,7 +171,7 @@ export async function verifyLinkToken(
   const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, payloadBytes));
   const expectedMac = signature.slice(0, 8);
 
-  const valid = crypto.timingSafeEqual(macBytes, expectedMac);
+  const valid = constantTimeEqual(macBytes, expectedMac);
   if (!valid) throw new Error("Invalid signature");
 
   const exp = new DataView(payloadBytes.buffer, payloadBytes.byteOffset, payloadBytes.byteLength)
