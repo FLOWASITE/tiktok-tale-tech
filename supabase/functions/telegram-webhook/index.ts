@@ -1179,4 +1179,75 @@ async function handleCallbackQuery(args: {
   }
 }
 
+// =====================================================
+// /campaigns — list 5 most recent campaigns for the org
+// =====================================================
+async function handleCampaigns(
+  ctx: HandlerCtx & { telegramUserId?: number },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId } = ctx;
+
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    return;
+  }
+
+  const { data: campaigns, error } = await supabase
+    .from("agent_goals")
+    .select("id, name, is_active, is_paused, created_at")
+    .eq("organization_id", botConfig.organizationId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error("[telegram-webhook] /campaigns query failed:", error);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không tải được danh sách campaign.");
+    return;
+  }
+
+  if (!campaigns || campaigns.length === 0) {
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      "📋 Chưa có campaign nào. Dùng /generate <mô tả> để tạo mới.",
+    );
+    return;
+  }
+
+  // Pipeline counts per goal (last 30d)
+  const goalIds = (campaigns as any[]).map((c) => c.id);
+  const { data: pipes } = await supabase
+    .from("agent_pipelines")
+    .select("goal_id, completed_at")
+    .in("goal_id", goalIds)
+    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+  const stats = new Map<string, { running: number; done: number }>();
+  for (const p of (pipes ?? []) as any[]) {
+    const s = stats.get(p.goal_id) || { running: 0, done: 0 };
+    if (p.completed_at) s.done += 1; else s.running += 1;
+    stats.set(p.goal_id, s);
+  }
+
+  const lines: string[] = [`📋 *5 campaign mới nhất*`, ""];
+  for (const c of campaigns as any[]) {
+    const status = !c.is_active ? "⏸ Tắt" : c.is_paused ? "⏸ Pause" : "▶️ Active";
+    const st = stats.get(c.id);
+    const stTxt = st ? ` · ${st.running} chạy / ${st.done} xong (30d)` : "";
+    lines.push(`• ${escMdNotif((c.name || "Không tên").slice(0, 50))}`);
+    lines.push(`  ${status}${stTxt}`);
+  }
+  lines.push("", "_Dùng /generate <mô tả> để tạo campaign mới._");
+
+  await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
+    parse_mode: "Markdown",
+    disable_web_page_preview: true,
+  });
+}
 
