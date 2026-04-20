@@ -153,7 +153,7 @@ export default function AgentTelegramPage() {
           />
         </CardHeader>
         <CardContent>
-          <TelegramLinkCard botReady={botReady} isAdmin={isAdmin} />
+          <TelegramLinkCard botReady={botReady} isAdmin={isAdmin} botUsername={config?.bot_username} />
         </CardContent>
       </Card>
 

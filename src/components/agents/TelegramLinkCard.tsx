@@ -8,13 +8,17 @@ import { toast } from '@/hooks/use-toast';
 interface TelegramLinkCardProps {
   botReady: boolean;
   isAdmin: boolean;
+  botUsername?: string;
 }
 
-export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
-  const { binding, groupBinding, loading, generateDeeplink, unlink } = useTelegramBinding();
+export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLinkCardProps) {
+  const { binding, groupBinding, loading, generateDeeplink, unlink, unlinkGroup } = useTelegramBinding();
   const [deeplink, setDeeplink] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [unlinkingGroup, setUnlinkingGroup] = useState(false);
+
+  const botDirectUrl = botUsername ? `https://t.me/${botUsername}` : null;
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -32,6 +36,16 @@ export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
     setCopied(true);
     toast({ title: 'Đã copy link' });
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleUnlink = async () => {
+    await unlink();
+    setDeeplink(null); // Clear stale deeplink so next render shows generate button
+  };
+
+  const handleUnlinkGroup = async () => {
+    setUnlinkingGroup(true);
+    try { await unlinkGroup(); } finally { setUnlinkingGroup(false); }
   };
 
   if (loading) {
@@ -67,6 +81,21 @@ export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
 
   return (
     <div className="space-y-5">
+      {/* Direct bot link — always visible when bot is ready */}
+      {botDirectUrl && (
+        <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-muted-foreground shrink-0">Bot:</span>
+            <code className="truncate text-primary">@{botUsername}</code>
+          </div>
+          <Button asChild size="sm" variant="ghost" className="shrink-0">
+            <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-3.5 h-3.5 mr-1" /> Mở chat
+            </a>
+          </Button>
+        </div>
+      )}
+
       {/* Personal binding */}
       {binding ? (
         <div className="flex items-center justify-between rounded-md border p-3 bg-primary/5">
@@ -78,7 +107,7 @@ export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
               {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
             </div>
           </div>
-          <Button size="sm" variant="outline" onClick={unlink}>
+          <Button size="sm" variant="outline" onClick={handleUnlink}>
             <Unlink className="w-4 h-4 mr-1" /> Gỡ
           </Button>
         </div>
@@ -134,9 +163,27 @@ export function TelegramLinkCard({ botReady, isAdmin }: TelegramLinkCardProps) {
           )}
         </div>
         {groupBinding ? (
-          <p className="text-xs text-muted-foreground pl-6">
-            Chat ID: <code className="text-foreground">{groupBinding.telegram_chat_id}</code>
-          </p>
+          <div className="pl-6 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Chat ID: <code className="text-foreground">{groupBinding.telegram_chat_id}</code>
+            </p>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleUnlinkGroup}
+                disabled={unlinkingGroup}
+                className="text-destructive hover:text-destructive"
+              >
+                {unlinkingGroup ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Unlink className="w-3.5 h-3.5 mr-1" />
+                )}
+                Gỡ group
+              </Button>
+            )}
+          </div>
         ) : (
           <ol className="text-xs text-muted-foreground pl-6 space-y-1 list-decimal list-inside">
             <li>Admin add bot vào group Telegram của team</li>

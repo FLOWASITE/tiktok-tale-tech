@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTelegramBotConfig } from '@/hooks/useTelegramBotConfig';
 import { Loader2, Link as LinkIcon, Trash2, ExternalLink, Copy, Check } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,32}$/;
+const TOKEN_REGEX = /^\d+:[A-Za-z0-9_-]{30,}$/;
 
 export function TelegramBotConfigCard() {
   const { config, loading, upsertConfig, deleteConfig, registerWebhook } = useTelegramBotConfig();
@@ -17,13 +20,46 @@ export function TelegramBotConfigCard() {
   const [registering, setRegistering] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Sync local autonomy state with persisted DB value
+  useEffect(() => {
+    if (config?.default_autonomy_level) {
+      setAutonomy(config.default_autonomy_level);
+    }
+  }, [config?.default_autonomy_level]);
+
   const isFirstSetup = !config;
-  const webhookUrl = config
-    ? `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/telegram-webhook/${config.webhook_secret}`
+
+  // Robust webhook URL fallback: env var → project_id → empty
+  const supabaseBase =
+    (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
+    (import.meta.env.VITE_SUPABASE_PROJECT_ID
+      ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`
+      : '');
+  const webhookUrl = config && supabaseBase
+    ? `${supabaseBase}/functions/v1/telegram-webhook/${config.webhook_secret}`
     : '';
 
   const handleSave = async () => {
     if (!botUsername || !botToken) return;
+
+    // Validate before save
+    if (!USERNAME_REGEX.test(botUsername)) {
+      toast({
+        title: 'Username không hợp lệ',
+        description: 'Username Telegram bot phải dài 5-32 ký tự, chỉ chứa chữ, số, dấu _',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!TOKEN_REGEX.test(botToken)) {
+      toast({
+        title: 'Token không hợp lệ',
+        description: 'Token bot phải có dạng "123456789:AA..." (lấy từ @BotFather)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       await upsertConfig({
@@ -33,13 +69,11 @@ export function TelegramBotConfigCard() {
         is_active: true,
       });
       setBotToken('');
-      // Auto-register webhook on first setup
-      if (isFirstSetup) {
-        try {
-          await registerWebhook();
-        } catch {
-          // upsertConfig already showed success; webhook fail just logs
-        }
+      // Always re-register webhook after save to ensure Telegram has the latest token
+      try {
+        await registerWebhook();
+      } catch {
+        // upsertConfig already toasted success; webhook fail logged silently
       }
     } finally {
       setSaving(false);
@@ -142,7 +176,7 @@ export function TelegramBotConfigCard() {
             <Label>Webhook URL (đã đăng ký với Telegram)</Label>
             <div className="flex gap-2">
               <Input readOnly value={webhookUrl} className="font-mono text-xs" />
-              <Button size="icon" variant="outline" onClick={handleCopy} title="Copy">
+              <Button size="icon" variant="outline" onClick={handleCopy} title="Copy" disabled={!webhookUrl}>
                 {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
