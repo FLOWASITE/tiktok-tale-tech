@@ -618,9 +618,12 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const orgId = botConfig.organizationId;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Resolve active brand first — to scope pipeline queries
-  const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
-  const activeBrandId = (activeBrand as any)?.id ?? null;
+  // Resolve active brand first — strictly from the current chat binding.
+  // /status must NOT silently fall back to org-wide when a brand was explicitly chosen.
+  const activeBrandId = await getActiveBrandId(supabase, orgId, chatId, { fallbackToDefault: false });
+  const activeBrand = activeBrandId
+    ? await getBrandContextById(supabase, orgId, activeBrandId)
+    : null;
 
   console.log("[handleStatus] scope", {
     chatId,
