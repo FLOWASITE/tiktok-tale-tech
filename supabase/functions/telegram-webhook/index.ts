@@ -157,18 +157,30 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     }
 
     const update: TelegramUpdate = await req.json();
-    if (typeof update.update_id === "number" && isDuplicateUpdate(update.update_id)) {
-      console.log("[telegram-webhook] duplicate update_id skipped:", update.update_id);
-      return okResponse();
+
+    // Idempotency — fast in-memory check, then DB check
+    if (typeof update.update_id === "number") {
+      if (isDuplicateUpdateMem(update.update_id)) {
+        console.log("[telegram-webhook] duplicate update_id (mem) skipped:", update.update_id);
+        return okResponse();
+      }
+      const cbChatId = update.callback_query?.message?.chat?.id ?? update.message?.chat?.id ?? 0;
+      const isDup = await markUpdateProcessed(supabase, update.update_id, botConfig.id, Number(cbChatId) || 0);
+      if (isDup) {
+        console.log("[telegram-webhook] duplicate update_id (db) skipped:", update.update_id);
+        return okResponse();
+      }
     }
 
-    // Inline-button callbacks (approve/reject on push notifications)
+    const traceId = crypto.randomUUID();
+
     if (update.callback_query) {
-      await handleCallbackQuery({
-        supabase,
-        botConfig,
-        callback: update.callback_query,
-      });
+      await safeReply(
+        botConfig.botToken,
+        update.callback_query.message?.chat?.id ?? 0,
+        traceId,
+        () => handleCallbackQuery({ supabase, botConfig, callback: update.callback_query }),
+      );
       return okResponse();
     }
 
@@ -186,7 +198,13 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     const telegramUserId: number | undefined = message.from?.id;
     const telegramUsername: string | undefined = message.from?.username;
 
-    // Handle non-text messages (sticker, photo, voice, document, ...) in DM
+    // Group mention filter — in groups only respond to commands or @mentions/replies
+    if (chatType === "group" || chatType === "supergroup") {
+      if (!shouldRespondInGroup(message, botConfig.botUsername)) {
+        return okResponse();
+      }
+    }
+
     if (typeof message.text !== "string") {
       const contentType = message.sticker ? "sticker"
         : message.photo ? "photo"
@@ -196,34 +214,34 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         : "unknown";
       console.log("[telegram-webhook] non-text message:", {
         update_id: update.update_id,
-        chatType,
-        contentType,
-        org: botConfig.organizationId,
+        chatType, contentType, org: botConfig.organizationId,
       });
       if (chatType === "private") {
         await sendMessage(
-          botConfig.botToken,
-          chatId,
+          botConfig.botToken, chatId,
           "🤖 Hiện bot chỉ hiểu tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
         );
       }
       return okResponse();
     }
 
-    const text: string = message.text.trim();
-    const [command, ...argParts] = text.split(/\s+/);
+    let text: string = message.text.trim();
+    // Strip leading "@botusername" prefix in groups
+    const botTag = `@${botConfig.botUsername}`;
+    if (text.toLowerCase().startsWith(botTag.toLowerCase())) {
+      text = text.slice(botTag.length).trim();
+    }
+    const [rawCommand, ...argParts] = text.split(/\s+/);
+    // Strip "@botusername" suffix on commands (e.g. "/status@flowabot")
+    const command = rawCommand.split("@")[0];
     const args = argParts.join(" ");
 
     console.log("[telegram-webhook] message:", {
-      update_id: update.update_id,
-      chatType,
-      command,
-      argsLength: args.length,
-      org: botConfig.organizationId,
-      bot: botConfig.botUsername,
+      update_id: update.update_id, trace: traceId,
+      chatType, command, argsLength: args.length,
+      org: botConfig.organizationId, bot: botConfig.botUsername,
     });
 
-    // Map quick-keyboard text labels → slash commands
     let normalizedCommand = command;
     if (text === "📊 Status") normalizedCommand = "/status";
     else if (text === "🎨 Brand") normalizedCommand = "/brand";
@@ -232,83 +250,56 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
 
     switch (normalizedCommand) {
       case "/start":
-        await handleStart({
-          supabase,
-          botConfig,
-          chatId,
-          chatType,
-          telegramUserId,
-          telegramUsername,
-          token: args,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () => handleStart({
+          supabase, botConfig, chatId, chatType, telegramUserId, telegramUsername, token: args,
+        }));
         break;
       case "/help":
-        await sendMessage(botConfig.botToken, chatId, helpText(), {
-          reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () => sendMessage(
+          botConfig.botToken, chatId, helpText(),
+          { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
+        ));
         break;
       case "/status":
-        await handleStatus({ supabase, botConfig, chatId });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleStatus({ supabase, botConfig, chatId }));
         break;
       case "/campaigns":
-        await handleCampaigns({ supabase, botConfig, chatId, telegramUserId });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleCampaigns({ supabase, botConfig, chatId, telegramUserId }));
         break;
       case "/generate":
         if (chatType !== "private") {
-          await sendMessage(
-            botConfig.botToken,
-            chatId,
-            "⚠️ Lệnh /generate chỉ dùng trong DM với bot để tránh spam quota.",
-          );
+          await sendMessage(botConfig.botToken, chatId,
+            "⚠️ Lệnh /generate chỉ dùng trong DM với bot để tránh spam quota.");
           break;
         }
-        await handleGenerate({
-          supabase,
-          botConfig,
-          chatId,
-          telegramUserId,
-          prompt: args,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleGenerate({ supabase, botConfig, chatId, telegramUserId, prompt: args }));
+        break;
+      case "/cancel":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleCancel({ supabase, botConfig, chatId, telegramUserId }));
         break;
       case "/link_group":
-        await handleLinkGroup({
-          supabase,
-          botConfig,
-          chatId,
-          chatType,
-          telegramUserId,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleLinkGroup({ supabase, botConfig, chatId, chatType, telegramUserId }));
         break;
       case "/brand":
-        await handleBrand({
-          supabase,
-          botConfig,
-          chatId,
-          telegramUserId,
-          arg: args,
-        });
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleBrand({ supabase, botConfig, chatId, telegramUserId, arg: args }));
         break;
       default:
-        // Slash-command unknown → standard error
         if (text.startsWith("/")) {
           if (chatType === "private") {
-            await sendMessage(
-              botConfig.botToken,
-              chatId,
-              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
-            );
+            await sendMessage(botConfig.botToken, chatId,
+              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.");
           }
           break;
         }
-        // Free chat (non-slash text) — DM only
         if (chatType === "private") {
-          await handleFreeChat({
-            supabase,
-            botConfig,
-            chatId,
-            telegramUserId,
-            text,
-          });
+          await safeReply(botConfig.botToken, chatId, traceId, () =>
+            handleFreeChat({ supabase, botConfig, chatId, telegramUserId, text }));
         }
     }
 
