@@ -8,7 +8,10 @@ import {
   buildWelcomeKeyboard,
   buildHelpKeyboard,
   buildContextualHints,
+  signLinkToken,
 } from "../_shared/telegram-client.ts";
+
+const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
 
