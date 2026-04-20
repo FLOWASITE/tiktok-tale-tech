@@ -845,7 +845,7 @@ async function handleFreeChat(
   await sendChatAction(botConfig.botToken, chatId, "typing");
 
   // 4. Classify (with org context for AI provider routing)
-  const result = await classifyIntent(text, history, botConfig.organizationId);
+  const result = await classifyIntent(text, history, botConfig.organizationId, brandCtx);
   console.log(
     "[free-chat] intent:", result.intent,
     "org:", botConfig.organizationId,
