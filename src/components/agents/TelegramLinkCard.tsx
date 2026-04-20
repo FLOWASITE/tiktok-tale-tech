@@ -99,18 +99,24 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
       ) : (
         <div className="space-y-3">
           {!deeplink && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={handleGenerate} disabled={generating}>
-                {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Tạo link kết nối
-              </Button>
-              {botDirectUrl && (
-                <Button asChild variant="ghost" size="sm">
-                  <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-3.5 h-3.5 mr-1" /> Xem bot @{botUsername}
-                  </a>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={handleGenerate} disabled={generating}>
+                  {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Tạo link kết nối
                 </Button>
-              )}
+                {botDirectUrl && (
+                  <Button asChild variant="ghost" size="sm">
+                    <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" /> Xem bot @{botUsername}
+                    </a>
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Link gắn tài khoản Telegram của bạn với Flowa để bot biết bạn là ai khi chat (quota, brand, quyền hạn).
+                Chỉ cần làm <span className="font-medium text-foreground">1 lần duy nhất</span> — sau đó nhắn bot bình thường.
+              </p>
             </div>
           )}
           {deeplink && (
