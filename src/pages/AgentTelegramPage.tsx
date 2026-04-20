@@ -7,7 +7,7 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { canManageMembers } from '@/types/organization';
 import { useTelegramBotConfig } from '@/hooks/useTelegramBotConfig';
 import { useTelegramBinding } from '@/hooks/useTelegramBinding';
-import { Send, CheckCircle2, Circle, AlertCircle, Loader2, Settings2, UserPlus, Users } from 'lucide-react';
+import { Send, CheckCircle2, Loader2, Settings2 } from 'lucide-react';
 
 interface CommandRow {
   cmd: string;
@@ -38,48 +38,42 @@ const COMMAND_GROUPS: { label: string; items: CommandRow[] }[] = [
   },
 ];
 
-function StepHeader({
+function StepSection({
   index,
   title,
   description,
-  status,
+  done,
+  children,
 }: {
   index: number;
   title: string;
   description: string;
-  status: 'done' | 'current' | 'pending' | 'locked';
+  done: boolean;
+  children: React.ReactNode;
 }) {
-  const Icon = status === 'done' ? CheckCircle2 : status === 'locked' ? AlertCircle : Circle;
-  const iconColor =
-    status === 'done'
-      ? 'text-primary'
-      : status === 'current'
-      ? 'text-primary'
-      : 'text-muted-foreground';
-
   return (
-    <div className="flex items-start gap-3">
-      <div className="flex flex-col items-center">
-        <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-          status === 'done' ? 'border-primary bg-primary/10' :
-          status === 'current' ? 'border-primary bg-primary/10' :
-          'border-muted bg-muted/30'
-        }`}>
-          {status === 'done' ? (
+    <section className="space-y-4">
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex items-center justify-center w-8 h-8 rounded-full border-2 shrink-0 ${
+            done
+              ? 'border-primary bg-primary/10'
+              : 'border-muted-foreground/30 bg-muted/30'
+          }`}
+        >
+          {done ? (
             <CheckCircle2 className="w-4 h-4 text-primary" />
           ) : (
             <span className="text-sm font-semibold text-muted-foreground">{index}</span>
           )}
         </div>
-      </div>
-      <div className="flex-1 pt-1">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex-1 pt-1 min-w-0">
           <h3 className="text-base font-semibold">{title}</h3>
-          <Icon className={`w-4 h-4 ${iconColor}`} />
+          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
         </div>
-        <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
       </div>
-    </div>
+      <div className="pl-0 sm:pl-11">{children}</div>
+    </section>
   );
 }
 
@@ -101,13 +95,13 @@ export default function AgentTelegramPage() {
     : { label: 'Sẵn sàng kết nối', variant: 'outline' as const };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto">
       {/* Header */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                 <Send className="w-5 h-5 text-primary" />
               </div>
               <div>
@@ -127,35 +121,28 @@ export default function AgentTelegramPage() {
 
       {/* Step 1 — Admin bot config */}
       {isAdmin && (
-        <Card>
-          <CardHeader>
-            <StepHeader
-              index={1}
-              title="Cấu hình Bot Telegram"
-              description="Admin tạo bot qua @BotFather rồi nhập token. Mỗi tổ chức 1 bot riêng."
-              status={botReady ? 'done' : 'current'}
-            />
-          </CardHeader>
-          <CardContent>
+        <>
+          <StepSection
+            index={1}
+            title="Cấu hình Bot Telegram"
+            description="Tạo bot qua @BotFather rồi nhập token. Mỗi tổ chức 1 bot riêng."
+            done={botReady}
+          >
             <TelegramBotConfigCard />
-          </CardContent>
-        </Card>
+          </StepSection>
+          <div className="border-t" />
+        </>
       )}
 
       {/* Step 2 — Personal link */}
-      <Card>
-        <CardHeader>
-          <StepHeader
-            index={isAdmin ? 2 : 1}
-            title="Kết nối tài khoản Telegram cá nhân"
-            description="Gõ /generate trực tiếp từ Telegram để trigger campaign."
-            status={!botReady ? 'locked' : userLinked ? 'done' : 'current'}
-          />
-        </CardHeader>
-        <CardContent>
-          <TelegramLinkCard botReady={botReady} isAdmin={isAdmin} botUsername={config?.bot_username} />
-        </CardContent>
-      </Card>
+      <StepSection
+        index={isAdmin ? 2 : 1}
+        title="Kết nối tài khoản Telegram cá nhân"
+        description="Gõ /generate trực tiếp từ Telegram để trigger campaign."
+        done={botReady && userLinked}
+      >
+        <TelegramLinkCard botReady={botReady} isAdmin={isAdmin} botUsername={config?.bot_username} />
+      </StepSection>
 
       {/* Bot commands */}
       <Card>
@@ -172,21 +159,16 @@ export default function AgentTelegramPage() {
                 <div className="space-y-4 pt-2">
                   {COMMAND_GROUPS.map((group) => (
                     <div key={group.label}>
-                      <div className="flex items-center gap-2 mb-2">
-                        {group.label === 'Cá nhân' && <UserPlus className="w-3.5 h-3.5 text-muted-foreground" />}
-                        {group.label === 'Quản trị' && <Users className="w-3.5 h-3.5 text-muted-foreground" />}
-                        {group.label === 'Tạo nội dung' && <Send className="w-3.5 h-3.5 text-muted-foreground" />}
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          {group.label}
-                        </span>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                        {group.label}
                       </div>
-                      <div className="space-y-1.5 pl-5">
+                      <div className="space-y-1.5">
                         {group.items.map((item) => (
-                          <div key={item.cmd} className="flex items-start gap-3 text-sm">
+                          <div key={item.cmd} className="flex items-start gap-3 text-sm flex-wrap">
                             <code className="text-primary font-mono text-xs bg-primary/5 px-2 py-0.5 rounded shrink-0">
                               {item.cmd}
                             </code>
-                            <span className="text-muted-foreground flex-1">{item.desc}</span>
+                            <span className="text-muted-foreground flex-1 min-w-0">{item.desc}</span>
                             {item.perm && (
                               <Badge variant="outline" className="text-[10px] h-5 shrink-0">
                                 {item.perm}
