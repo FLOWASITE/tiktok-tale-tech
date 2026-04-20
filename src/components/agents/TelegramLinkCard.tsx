@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTelegramBinding } from '@/hooks/useTelegramBinding';
 import { Loader2, Unlink, Users, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
@@ -40,7 +41,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
 
   const handleUnlink = async () => {
     await unlink();
-    setDeeplink(null); // Clear stale deeplink so next render shows generate button
+    setDeeplink(null);
   };
 
   const handleUnlinkGroup = async () => {
@@ -56,7 +57,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
     );
   }
 
-  // Empty state: bot not configured yet
   if (!botReady) {
     return (
       <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-center space-y-3">
@@ -80,30 +80,15 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
     : '';
 
   return (
-    <div className="space-y-5">
-      {/* Direct bot link — always visible when bot is ready */}
-      {botDirectUrl && (
-        <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-muted-foreground shrink-0">Bot:</span>
-            <code className="truncate text-primary">@{botUsername}</code>
-          </div>
-          <Button asChild size="sm" variant="ghost" className="shrink-0">
-            <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-3.5 h-3.5 mr-1" /> Mở chat
-            </a>
-          </Button>
-        </div>
-      )}
-
+    <div className="space-y-4">
       {/* Personal binding */}
       {binding ? (
-        <div className="flex items-center justify-between rounded-md border p-3 bg-primary/5">
-          <div className="space-y-1">
+        <div className="flex items-center justify-between rounded-md border p-3 bg-primary/5 gap-2 flex-wrap">
+          <div className="space-y-0.5 min-w-0">
             <div className="text-sm font-medium flex items-center gap-2">
               <Check className="w-4 h-4 text-primary" /> Đã kết nối
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground truncate">
               {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
             </div>
           </div>
@@ -114,10 +99,19 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
       ) : (
         <div className="space-y-3">
           {!deeplink && (
-            <Button onClick={handleGenerate} disabled={generating}>
-              {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Tạo link kết nối
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={handleGenerate} disabled={generating}>
+                {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Tạo link kết nối
+              </Button>
+              {botDirectUrl && (
+                <Button asChild variant="ghost" size="sm">
+                  <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-3.5 h-3.5 mr-1" /> Xem bot @{botUsername}
+                  </a>
+                </Button>
+              )}
+            </div>
           )}
           {deeplink && (
             <div className="rounded-lg border bg-muted/40 p-4">
@@ -128,7 +122,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
                 <img
                   src={qrUrl}
                   alt="QR code Telegram"
-                  className="w-[140px] h-[140px] rounded border bg-white shrink-0"
+                  className="w-[140px] h-[140px] rounded border bg-white shrink-0 mx-auto sm:mx-0"
                 />
                 <div className="flex-1 space-y-2 w-full">
                   <Button asChild size="sm" className="w-full sm:w-auto">
@@ -151,46 +145,53 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
         </div>
       )}
 
-      {/* Group binding section */}
-      <div className="pt-4 border-t space-y-2">
-        <div className="flex items-center gap-2 text-sm">
-          <Users className="w-4 h-4 text-muted-foreground" />
-          <span className="font-medium">Group tổ chức (tùy chọn)</span>
-          {groupBinding ? (
-            <Badge variant="default" className="ml-auto">Đã link</Badge>
-          ) : (
-            <Badge variant="secondary" className="ml-auto">Chưa link</Badge>
-          )}
-        </div>
-        {groupBinding ? (
-          <div className="pl-6 space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Chat ID: <code className="text-foreground">{groupBinding.telegram_chat_id}</code>
-            </p>
-            {isAdmin && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleUnlinkGroup}
-                disabled={unlinkingGroup}
-                className="text-destructive hover:text-destructive"
-              >
-                {unlinkingGroup ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                ) : (
-                  <Unlink className="w-3.5 h-3.5 mr-1" />
+      {/* Group binding — collapsed by default */}
+      <Accordion type="single" collapsible>
+        <AccordionItem value="group" className="border rounded-md px-3">
+          <AccordionTrigger className="py-2 text-sm hover:no-underline">
+            <div className="flex items-center gap-2 flex-1">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span>Group tổ chức</span>
+              <span className="text-xs text-muted-foreground">(tùy chọn)</span>
+              {groupBinding ? (
+                <Badge variant="default" className="ml-auto mr-2">Đã link</Badge>
+              ) : (
+                <Badge variant="secondary" className="ml-auto mr-2">Chưa link</Badge>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            {groupBinding ? (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs text-muted-foreground">
+                  Chat ID: <code className="text-foreground">{groupBinding.telegram_chat_id}</code>
+                </p>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleUnlinkGroup}
+                    disabled={unlinkingGroup}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    {unlinkingGroup ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Unlink className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    Gỡ group
+                  </Button>
                 )}
-                Gỡ group
-              </Button>
+              </div>
+            ) : (
+              <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside pt-1">
+                <li>Admin add bot vào group Telegram của team</li>
+                <li>Gõ <code className="text-primary">/link_group</code> trong group để hoàn tất</li>
+              </ol>
             )}
-          </div>
-        ) : (
-          <ol className="text-xs text-muted-foreground pl-6 space-y-1 list-decimal list-inside">
-            <li>Admin add bot vào group Telegram của team</li>
-            <li>Gõ <code className="text-primary">/link_group</code> trong group để hoàn tất</li>
-          </ol>
-        )}
-      </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }
