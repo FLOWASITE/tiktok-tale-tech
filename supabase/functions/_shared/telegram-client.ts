@@ -275,11 +275,28 @@ export async function assertCanCreateGoal(
 
   if (permError) throw permError;
 
+  // Owner/admin của org luôn có full quyền Agent (không cần row trong agent_team_permissions)
   if (!permission) {
+    const { data: orgMember } = await supabase
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", organizationId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (orgMember?.role === "owner" || orgMember?.role === "admin") {
+      return {
+        ok: true,
+        maxAutonomyLevel: "full_auto",
+        pipelinesUsed: 0,
+        monthlyLimit: null,
+      };
+    }
+
     return {
       ok: false,
       code: "no_permission",
-      message: "❌ Bạn chưa được cấp quyền Agent trong tổ chức này.",
+      message: "❌ Bạn chưa được cấp quyền Agent trong tổ chức này. Liên hệ admin để cấp quyền tại trang Agent Team.",
     };
   }
   if (!permission.is_active) {
