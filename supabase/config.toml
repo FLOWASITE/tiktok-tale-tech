@@ -336,4 +336,7 @@ verify_jwt = false
 
 [functions.telegram-webhook]
 verify_jwt = false
+
+[functions.notify-telegram]
+verify_jwt = false
 # telegram-link-token keeps default verify_jwt = true (authed)

@@ -100,6 +100,7 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: "brand", description: "Chọn thương hiệu active" },
   { command: "campaigns", description: "5 campaign gần nhất" },
   { command: "generate", description: "Tạo campaign mới từ mô tả" },
+  { command: "cancel", description: "Hủy pipeline đang chạy" },
   { command: "help", description: "Hướng dẫn sử dụng bot" },
 ];
 
