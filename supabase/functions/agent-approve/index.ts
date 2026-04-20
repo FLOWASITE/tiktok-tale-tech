@@ -39,14 +39,37 @@ Deno.serve(async (req) => {
         .single();
       if (found) approval_id = found.id;
     }
-    if (!approval_id) throw new Error("approval_id required (or pipeline_id with a pending approval)");
+    if (!approval_id) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Không tìm thấy yêu cầu duyệt cho pipeline này (có thể đã được xử lý).", code: "approval_missing" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { data: approval, error: fetchErr } = await supabase
       .from("agent_approvals")
       .select("*, agent_pipelines(*)")
       .eq("id", approval_id)
-      .single();
-    if (fetchErr || !approval) throw new Error("Approval not found");
+      .maybeSingle();
+    if (fetchErr || !approval) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Yêu cầu duyệt không tồn tại hoặc đã bị xóa.", code: "approval_not_found" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Idempotency: already decided
+    if ((approval as any).status && (approval as any).status !== "pending") {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          already_decided: true,
+          status: (approval as any).status,
+          message: `Yêu cầu này đã được ${(approval as any).status === "approved" ? "duyệt" : "xử lý"} trước đó.`,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const now = new Date().toISOString();
     const pipeline = (approval as any).agent_pipelines;
@@ -233,8 +256,8 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error("agent-approve error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Internal error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "Internal error", code: "internal_error" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

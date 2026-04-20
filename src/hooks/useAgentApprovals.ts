@@ -62,12 +62,17 @@ export function useAgentApprovals() {
         },
       });
       if (error) throw error;
+      if (data?.ok === false) throw new Error(data.error || 'Lỗi không xác định');
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (_, vars) => {
+    onSuccess: (data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['agent-approvals', orgId] });
       queryClient.invalidateQueries({ queryKey: ['agent-pipelines', orgId] });
+      if (data?.already_decided) {
+        toast.info(data.message || 'Yêu cầu đã được xử lý trước đó');
+        return;
+      }
       const msg = vars.status === 'approved' ? 'Đã duyệt — pipeline tiếp tục' : vars.status === 'rejected' ? 'Đã từ chối — trả về sáng tạo' : 'Đã cập nhật';
       toast.success(msg);
     },
