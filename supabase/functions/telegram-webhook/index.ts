@@ -5,6 +5,9 @@ import {
   sendChatAction,
   sendMessage,
   verifyLinkToken,
+  buildWelcomeKeyboard,
+  buildHelpKeyboard,
+  buildContextualHints,
 } from "../_shared/telegram-client.ts";
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
@@ -289,11 +292,24 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleBrand({ supabase, botConfig, chatId, telegramUserId, arg: args }));
         break;
+      case "/examples":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleExamples({ supabase, botConfig, chatId }));
+        break;
+      case "/tutorial":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleTutorial({ supabase, botConfig, chatId, telegramUserId, step: 1 }));
+        break;
+      case "/settings":
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          handleSettings({ supabase, botConfig, chatId, telegramUserId }));
+        break;
       default:
         if (text.startsWith("/")) {
           if (chatType === "private") {
             await sendMessage(botConfig.botToken, chatId,
-              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.");
+              "Lệnh không hợp lệ. Gõ /help để xem hướng dẫn.",
+              { reply_markup: { inline_keyboard: buildHelpKeyboard() } });
           }
           break;
         }
@@ -465,9 +481,26 @@ async function handleStart(
   await sendMessage(
     botConfig.botToken,
     chatId,
-    `✅ Đã kết nối! Gõ /help để xem lệnh có sẵn.`,
-    { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
+    [
+      `🎉 Chào ${telegramUsername ? "@" + telegramUsername : "bạn"}! Đã kết nối với Flowa.`,
+      "",
+      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "",
+      "👇 Thử ngay:",
+    ].join("\n"),
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+    },
   );
+
+  // Mark onboarded (best-effort)
+  await supabase
+    .from("telegram_chat_bindings")
+    .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
+    .eq("organization_id", botConfig.organizationId)
+    .eq("telegram_chat_id", chatId)
+    .then(() => {}, () => {});
 }
 
 // ===== Helpers cho /status dashboard =====
