@@ -9673,10 +9673,13 @@ export type Database = {
           last_quota_alert_at: string | null
           last_quota_alert_threshold: number | null
           linked_at: string
+          onboarded_at: string | null
           organization_id: string
           telegram_chat_id: number
           telegram_user_id: number | null
           telegram_username: string | null
+          tutorial_completed_at: string | null
+          tutorial_step: number
           updated_at: string
           user_id: string | null
         }
@@ -9691,10 +9694,13 @@ export type Database = {
           last_quota_alert_at?: string | null
           last_quota_alert_threshold?: number | null
           linked_at?: string
+          onboarded_at?: string | null
           organization_id: string
           telegram_chat_id: number
           telegram_user_id?: number | null
           telegram_username?: string | null
+          tutorial_completed_at?: string | null
+          tutorial_step?: number
           updated_at?: string
           user_id?: string | null
         }
@@ -9709,10 +9715,13 @@ export type Database = {
           last_quota_alert_at?: string | null
           last_quota_alert_threshold?: number | null
           linked_at?: string
+          onboarded_at?: string | null
           organization_id?: string
           telegram_chat_id?: number
           telegram_user_id?: number | null
           telegram_username?: string | null
+          tutorial_completed_at?: string | null
+          tutorial_step?: number
           updated_at?: string
           user_id?: string | null
         }
@@ -9732,6 +9741,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      telegram_example_prompts: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          language: string
+          prompt_text: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          prompt_text: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          prompt_text?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       telegram_messages_log: {
         Row: {
@@ -9794,6 +9839,60 @@ export type Database = {
           update_id?: number
         }
         Relationships: []
+      }
+      telegram_user_preferences: {
+        Row: {
+          created_at: string
+          daily_digest: boolean
+          default_brand_id: string | null
+          id: string
+          language: string
+          organization_id: string
+          updated_at: string
+          user_id: string
+          verbose_mode: boolean
+          weekly_digest: boolean
+        }
+        Insert: {
+          created_at?: string
+          daily_digest?: boolean
+          default_brand_id?: string | null
+          id?: string
+          language?: string
+          organization_id: string
+          updated_at?: string
+          user_id: string
+          verbose_mode?: boolean
+          weekly_digest?: boolean
+        }
+        Update: {
+          created_at?: string
+          daily_digest?: boolean
+          default_brand_id?: string | null
+          id?: string
+          language?: string
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+          verbose_mode?: boolean
+          weekly_digest?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_user_preferences_default_brand_id_fkey"
+            columns: ["default_brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "telegram_user_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       topic_content_links: {
         Row: {
