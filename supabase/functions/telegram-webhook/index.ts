@@ -1367,18 +1367,105 @@ async function handleCampaigns(
   }
 
   const lines: string[] = [`📋 *5 campaign mới nhất*`, ""];
+  const inlineKeyboard: Array<Array<{ text: string; url?: string; callback_data?: string }>> = [];
+
   for (const c of campaigns as any[]) {
     const status = !c.is_active ? "⏸ Tắt" : c.is_paused ? "⏸ Pause" : "▶️ Active";
     const st = stats.get(c.id);
     const stTxt = st ? ` · ${st.running} chạy / ${st.done} xong (30d)` : "";
-    lines.push(`• ${escMdNotif((c.name || "Không tên").slice(0, 50))}`);
+    const name = (c.name || "Không tên").slice(0, 40);
+    lines.push(`• ${escMdNotif(name)}`);
     lines.push(`  ${status}${stTxt}`);
+
+    inlineKeyboard.push([
+      {
+        text: `👁 ${name.slice(0, 25)}`,
+        url: `https://app.flowa.one/agent/goals/${c.id}`,
+      },
+    ]);
   }
   lines.push("", "_Dùng /generate <mô tả> để tạo campaign mới._");
 
   await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
     parse_mode: "Markdown",
     disable_web_page_preview: true,
+    reply_markup: inlineKeyboard.length > 0 ? { inline_keyboard: inlineKeyboard } : undefined,
   });
+}
+
+// =====================================================
+// /cancel — cancel running pipelines for this user (last 1h)
+// =====================================================
+async function handleCancel(
+  ctx: HandlerCtx & { telegramUserId?: number },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId } = ctx;
+
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    return;
+  }
+
+  // Find pipelines created by this user in the last 1h that haven't completed yet
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data: running, error } = await supabase
+    .from("agent_pipelines")
+    .select("id, content_title, current_stage, pipeline_state")
+    .eq("organization_id", botConfig.organizationId)
+    .is("completed_at", null)
+    .gte("created_at", oneHourAgo)
+    .in("current_stage", ["strategy", "create", "quality", "approval"]);
+
+  if (error) {
+    console.error("[telegram-webhook] /cancel query failed:", error);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không kiểm tra được pipeline.");
+    return;
+  }
+
+  if (!running || running.length === 0) {
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      "ℹ️ Không có pipeline nào đang chạy trong 1h gần đây.",
+    );
+    return;
+  }
+
+  // Mark cancelled — set flag + completed_at to stop downstream processing
+  const ids = (running as any[]).map((p) => p.id);
+  const nowIso = new Date().toISOString();
+  const { error: updErr } = await supabase
+    .from("agent_pipelines")
+    .update({
+      completed_at: nowIso,
+      is_flagged: true,
+      flag_reason: "cancelled_by_user_via_telegram",
+      updated_at: nowIso,
+    })
+    .in("id", ids);
+
+  if (updErr) {
+    console.error("[telegram-webhook] /cancel update failed:", updErr);
+    await sendMessage(botConfig.botToken, chatId, "❌ Không hủy được pipeline. Thử lại sau.");
+    return;
+  }
+
+  const titles = (running as any[])
+    .slice(0, 5)
+    .map((p) => `• ${escMdNotif((p.content_title || "Không tên").slice(0, 50))}`)
+    .join("\n");
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    `🚫 *Đã hủy ${ids.length} pipeline đang chạy:*\n\n${titles}`,
+    { parse_mode: "Markdown" },
+  );
 }
 
