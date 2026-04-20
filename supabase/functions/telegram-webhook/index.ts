@@ -8,7 +8,11 @@ import {
   buildWelcomeKeyboard,
   buildHelpKeyboard,
   buildContextualHints,
+  buildBrandSwitcherKeyboard,
+  buildBrandFooterKeyboard,
+  appendBrandFooter,
   signLinkToken,
+  type BrandLite,
 } from "../_shared/telegram-client.ts";
 
 const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
