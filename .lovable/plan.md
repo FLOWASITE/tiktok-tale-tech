@@ -1,88 +1,93 @@
 
 
-# Fix: Bot không hiểu "Tạo chiến dịch tháng 5"
+# Fix: `/status` show toàn bộ org, không lọc theo brand đang active
 
 ## 🎯 Root cause
 
-Thực tế **bot HIỂU đúng** — logs show `intent: generate_campaign` → `handleGenerate` chạy → goal `4d85693a-...` "Tạo mới chiến dịch cho tháng 5" đã được insert vào DB lúc 15:59:05.
+Trong `handleStatus` (telegram-webhook/index.ts dòng 603-727), 2 query pipelines (`running` + `recent`) chỉ filter theo `organization_id`:
 
-**Vấn đề nằm ở 2 điểm sau khi tạo goal:**
+```ts
+.from("agent_pipelines")
+.select(...)
+.eq("organization_id", orgId)  // ← thiếu filter theo brand
+```
 
-1. **Pipeline không được tạo**: `triggerPipeline` gọi `agent-pipeline` với `action=trigger_from_goal` → function này gọi `generate-campaign-strategy` → function đó đang **hết credits Lovable Gateway (402)** và fallback sang DashScope cũng đang fail (xem logs `generate-campaign-strategy` có nhiều `payment_required` 402). Kết quả: 0 pipeline được tạo, goal mồ côi.
-
-2. **User không nhận feedback đúng**: Goal được tạo với `target_topics=[]`, `target_channels=[]`, `frequency={}` (rỗng) → `generate-campaign-strategy` thiếu input → fail sớm. Message "✅ Pipeline đã khởi chạy" vẫn được gửi (vì `triggerPipeline` là fire-and-forget `.catch`), nên **user thấy "Pipeline đã khởi chạy" nhưng thực tế không có gì chạy** → bối rối "bot ko hiểu để làm".
+Trong khi đó `/generate` đã gắn đúng `brand_template_id` vào goal (dòng 801). Goals → pipelines kế thừa brand qua `goal_id`. Vì vậy:
+- User đổi brand sang "Beauty Pro" → `/status` vẫn show pipeline của brand "Spa X" cũ → tưởng "báo sai".
+- Quota `pipelinesUsed` cũng đếm toàn org, không tách theo brand.
 
 ## 🔧 Fix
 
-### 1. `handleGenerate` — await & report lỗi thật
+### 1. Lọc pipelines theo brand đang active
 
-Thay fire-and-forget bằng await có timeout ngắn, bắt lỗi và báo cụ thể:
+`handleStatus` resolve `activeBrandId` ngay đầu (đã có `getActiveBrandContext` ở dòng 730 — di chuyển lên trước query). Nếu có `activeBrandId`, filter pipelines:
 
 ```ts
-// Thay vì triggerPipeline(...).catch(...)
-try {
-  const r = await Promise.race([
-    triggerPipeline(goal.id, botConfig.organizationId),
-    new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000))
-  ]);
-  // r có { success, plan_id, pipelines_created }
-  if (!r?.pipelines_created) {
-    await sendMessage(botConfig.botToken, chatId, 
-      "⚠️ Goal đã tạo nhưng chưa tạo được plan (AI gateway tạm quá tải). Bạn mở Mini App để chạy lại hoặc thử sau ít phút.");
-    return;
-  }
-  await sendMessage(..., `✅ Đã tạo ${r.pipelines_created} pipeline từ goal "${goal.name}".\nDùng /status để theo dõi.`);
-} catch (e) {
-  // Goal vẫn tồn tại, báo user biết để retry
-  await sendMessage(..., `⚠️ Goal "${goal.name}" đã lưu nhưng chưa khởi chạy được (${String(e).slice(0,80)}). Thử lại sau bằng /status hoặc Mini App.`);
+const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
+const activeBrandId = (activeBrand as any)?.id ?? null;
+
+// Lấy goal IDs thuộc brand này trước
+let goalIdsForBrand: string[] | null = null;
+if (activeBrandId) {
+  const { data: gs } = await supabase
+    .from("agent_goals")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("brand_template_id", activeBrandId);
+  goalIdsForBrand = (gs || []).map(g => g.id);
 }
+
+// Apply vào 2 query running + recent
+let runningQ = supabase.from("agent_pipelines").select(...).eq("organization_id", orgId)...
+if (goalIdsForBrand) runningQ = runningQ.in("goal_id", goalIdsForBrand.length ? goalIdsForBrand : ["00000000-0000-0000-0000-000000000000"]);
 ```
 
-→ `triggerPipeline` cần return JSON thay vì void.
+(Dùng sentinel UUID khi `goalIdsForBrand` rỗng để query trả 0 row sạch sẽ.)
 
-### 2. `handleGenerate` — điền defaults vào goal
+### 2. Header hiển thị scope brand
 
-Goal đang insert với `target_topics=[]`, `target_channels=[]`, `campaign_duration_days` không có. Thêm defaults hợp lý để `generate-campaign-strategy` luôn có input:
+Thêm dòng vào section "Tài khoản":
+```
+🎨 Brand đang xem: Beauty Pro  [Đổi]
+```
+→ User hiểu rõ stats đang scope theo brand nào, không nhầm lẫn.
 
-```ts
-.insert({
-  name: prompt.slice(0, 120),
-  description: prompt,
-  // ...
-  target_channels: ["facebook", "website"],      // default 2 kênh
-  campaign_duration_days: 14,
-  campaign_start_date: new Date().toISOString().split("T")[0],
-  brand_template_id: brandCtx?.id || null,       // ← dùng active brand
-})
+### 3. Quota note
+
+Quota tháng (`pipelinesUsed`) vẫn tính toàn org (vì giới hạn là theo subscription org). Thêm caption nhỏ:
+```
+• Pipeline (toàn org): 12/100
+```
+Để phân biệt với "đang chạy / hoàn tất" (đã lọc theo brand).
+
+### 4. Hint khi brand không có pipeline
+
+Nếu `goalIdsForBrand` rỗng (brand mới, chưa có goal), thay block "Pipeline đang chạy / Hoàn tất" bằng:
+```
+ℹ️ Brand "Beauty Pro" chưa có pipeline nào.
+👉 /generate <mô tả> để tạo campaign đầu tiên.
 ```
 
-### 3. Surface lỗi AI gateway trong reply
+### 5. Edge case: chưa chọn brand
 
-Trong `handleGenerate` catch case, detect 402/credits → message thân thiện:
-> "🤖 AI đang hết credits. Admin có thể nạp thêm trong Lovable Cloud, hoặc cấu hình API key riêng (DashScope/OpenRouter) tại Settings → AI Providers."
-
-### 4. Bổ sung log chi tiết
-
-Thêm `console.log` trước/sau `triggerPipeline` để lần sau debug nhanh:
-```ts
-console.log("[handleGenerate] triggering pipeline for goal", goal.id);
-console.log("[handleGenerate] pipeline result:", r);
+Nếu `activeBrandId` null → giữ nguyên hành vi cũ (show toàn org), thêm hint:
+```
+💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó.
 ```
 
 ## 📦 Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/telegram-webhook/index.ts` | `handleGenerate`: điền defaults (channels, duration, brand_template_id); await `triggerPipeline` có timeout; báo lỗi cụ thể thay vì "✅ Pipeline đã khởi chạy" giả |
-| `supabase/functions/telegram-webhook/index.ts` | `triggerPipeline`: return JSON `{ success, pipelines_created, error }` thay vì void |
+| `supabase/functions/telegram-webhook/index.ts` | `handleStatus`: resolve activeBrand đầu hàm; query goals theo brand → filter pipelines; thêm header brand scope + caption quota org-wide + hint empty/no-brand |
 
 ## 🧪 Test
 
-1. Gõ "Tạo chiến dịch tháng 5" trong Telegram → thấy message xác nhận có **số pipeline thực tế** (`✅ Đã tạo N pipeline…`) hoặc cảnh báo cụ thể
-2. Gõ lại trong lúc gateway hết credits → thấy message "AI đang hết credits, thử lại sau" thay vì giả bộ OK
-3. `/status` sau đó → list pipeline khớp với số đã báo
-4. DB check: `agent_pipelines` có row với `goal_id = <mới>`
+1. Brand A có 2 pipeline đang chạy, Brand B có 0 → `/brand` chọn B → `/status` thấy "Brand đang xem: B" + "chưa có pipeline" (KHÔNG thấy 2 pipeline của A)
+2. Đổi sang A → `/status` thấy 2 pipeline của A
+3. Chưa chọn brand (active null) → `/status` show toàn org + hint chọn brand
+4. Quota line ghi rõ "(toàn org)" để không gây nhầm
 
 ## ⏱ Ước tính
-**30 phút** — chỉ sửa 2 hàm trong 1 file.
+**20 phút** — chỉ sửa 1 hàm `handleStatus` trong 1 file.
 
