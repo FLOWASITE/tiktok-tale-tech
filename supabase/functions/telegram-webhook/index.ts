@@ -190,6 +190,15 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
           telegramUserId,
         });
         break;
+      case "/brand":
+        await handleBrand({
+          supabase,
+          botConfig,
+          chatId,
+          telegramUserId,
+          arg: args,
+        });
+        break;
       default:
         // Slash-command unknown → standard error
         if (text.startsWith("/")) {
