@@ -1029,21 +1029,38 @@ async function lookupUserBinding(
 async function triggerPipeline(
   goalId: string,
   organizationId: string,
-): Promise<void> {
+): Promise<{ success: boolean; pipelines_created: number; plan_id?: string; error?: string; status?: number }> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/agent-pipeline`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      action: "trigger_from_goal",
-      goal_id: goalId,
-      organization_id: organizationId,
-    }),
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        action: "trigger_from_goal",
+        goal_id: goalId,
+        organization_id: organizationId,
+      }),
+    });
+    const text = await res.text();
+    let body: any = {};
+    try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
+    if (!res.ok) {
+      return { success: false, pipelines_created: 0, error: body?.error || text || `HTTP ${res.status}`, status: res.status };
+    }
+    return {
+      success: !!body?.success,
+      pipelines_created: Number(body?.pipelines_created || 0),
+      plan_id: body?.plan_id,
+      error: body?.error,
+      status: res.status,
+    };
+  } catch (e) {
+    return { success: false, pipelines_created: 0, error: String((e as Error)?.message || e) };
+  }
 }
 
 // =====================================================
