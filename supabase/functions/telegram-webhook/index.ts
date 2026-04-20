@@ -622,42 +622,57 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const activeBrand = await getActiveBrandContext(supabase, orgId, chatId);
   const activeBrandId = (activeBrand as any)?.id ?? null;
 
-  // If brand active, get its goal IDs to filter pipelines
-  let goalIdsForBrand: string[] | null = null;
+  console.log("[handleStatus] scope", {
+    chatId,
+    orgId,
+    activeBrandId,
+    activeBrandName: activeBrand?.brand_name ?? null,
+  });
+
+  // Count goals for this brand (diagnostics + empty-state)
+  let brandGoalCount = 0;
   if (activeBrandId) {
-    const { data: gs } = await supabase
+    const { count } = await supabase
       .from("agent_goals")
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId)
       .eq("brand_template_id", activeBrandId);
-    goalIdsForBrand = (gs || []).map((g: any) => g.id);
+    brandGoalCount = count ?? 0;
   }
 
-  // Sentinel UUID so `.in(..., [])` returns 0 rows cleanly when brand has no goals
-  const SENTINEL = ["00000000-0000-0000-0000-000000000000"];
-  const brandGoalFilter = goalIdsForBrand !== null
-    ? (goalIdsForBrand.length ? goalIdsForBrand : SENTINEL)
-    : null;
-
+  // Build queries — when brand active, filter via inner-join on agent_goals.brand_template_id.
+  // This pushes the filter to DB layer, no intermediate goal-id list to drift.
   let runningQ = supabase
     .from("agent_pipelines")
-    .select("content_title,current_stage")
+    .select(
+      activeBrandId
+        ? "content_title,current_stage,agent_goals!inner(brand_template_id)"
+        : "content_title,current_stage",
+    )
     .eq("organization_id", orgId)
     .in("current_stage", ["strategy", "create", "quality", "approval", "publish"])
     .is("completed_at", null)
     .order("updated_at", { ascending: false })
     .limit(5);
-  if (brandGoalFilter) runningQ = runningQ.in("goal_id", brandGoalFilter);
+  if (activeBrandId) {
+    runningQ = runningQ.eq("agent_goals.brand_template_id", activeBrandId);
+  }
 
   let recentQ = supabase
     .from("agent_pipelines")
-    .select("content_title,completed_at")
+    .select(
+      activeBrandId
+        ? "content_title,completed_at,agent_goals!inner(brand_template_id)"
+        : "content_title,completed_at",
+    )
     .eq("organization_id", orgId)
     .not("completed_at", "is", null)
     .gte("completed_at", sevenDaysAgo)
     .order("completed_at", { ascending: false })
     .limit(3);
-  if (brandGoalFilter) recentQ = recentQ.in("goal_id", brandGoalFilter);
+  if (activeBrandId) {
+    recentQ = recentQ.eq("agent_goals.brand_template_id", activeBrandId);
+  }
 
   // Parallel fetch — resilient: each piece can fail without breaking others
   const [orgRes, subRes, quotaRes, runningRes, recentRes] = await Promise.allSettled([
@@ -678,6 +693,25 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const quota = quotaRes.status === "fulfilled" ? quotaRes.value : null;
   const running = runningRes.status === "fulfilled" ? (runningRes.value.data as any[] || []) : [];
   const recent = recentRes.status === "fulfilled" ? (recentRes.value.data as any[] || []) : [];
+
+  if (runningRes.status === "rejected") {
+    console.error("[handleStatus] runningQ failed:", runningRes.reason);
+  } else if (runningRes.value.error) {
+    console.error("[handleStatus] runningQ error:", runningRes.value.error);
+  }
+  if (recentRes.status === "rejected") {
+    console.error("[handleStatus] recentQ failed:", recentRes.reason);
+  } else if (recentRes.value.error) {
+    console.error("[handleStatus] recentQ error:", recentRes.value.error);
+  }
+
+  console.log("[handleStatus] result", {
+    activeBrandId,
+    brandGoalCount,
+    runningCount: running.length,
+    recentCount: recent.length,
+    usedOrgWide: !activeBrandId,
+  });
 
   // Header — month/year
   const now = new Date();
@@ -716,8 +750,8 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   }
   lines.push("");
 
-  // Brand has no pipeline yet
-  if (activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0) {
+  // Brand active but has no pipeline at all (no goals OR goals exist but no pipelines yet)
+  if (activeBrandId && running.length === 0 && recent.length === 0) {
     lines.push(`ℹ️ Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
     lines.push("👉 /generate <mô tả> để tạo campaign đầu tiên.");
     lines.push("");
@@ -760,7 +794,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (!activeBrandId) {
     hints.push("💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó");
   }
-  if (running.length === 0 && !(activeBrandId && goalIdsForBrand && goalIdsForBrand.length === 0)) {
+  if (running.length === 0 && !(activeBrandId && running.length === 0 && recent.length === 0)) {
     hints.push("👉 /generate <mô tả> để tạo campaign mới");
   }
   if (hints.length > 0) {
