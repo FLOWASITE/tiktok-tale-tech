@@ -162,7 +162,12 @@ export async function verifyLinkToken(
   const secret = Deno.env.get("TELEGRAM_LINK_SECRET");
   if (!secret) throw new Error("TELEGRAM_LINK_SECRET not configured");
 
-  const tokenBytes = base64UrlDecode(token);
+  let tokenBytes: Uint8Array;
+  try {
+    tokenBytes = base64UrlDecode(token);
+  } catch {
+    throw new Error("Malformed token");
+  }
   if (tokenBytes.length !== 44) throw new Error("Malformed token");
 
   const payloadBytes = tokenBytes.slice(0, 36);
