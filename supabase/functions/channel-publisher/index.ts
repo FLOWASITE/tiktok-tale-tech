@@ -79,14 +79,14 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
     // Stream the response back transparently
     const responseBody = await response.text();
 
-    // === Centralized status update after successful publish ===
+    // === Centralized status update + Telegram notif after publish ===
     const contentId = payload.contentId || payload.content_id;
-    if (response.ok && contentId) {
+    let parsedResponse: Record<string, unknown> | null = null;
+    try { parsedResponse = JSON.parse(responseBody); } catch { /* not JSON */ }
+    const isSuccess = response.ok && parsedResponse?.success === true;
+
+    if (contentId) {
       try {
-        let parsedResponse: Record<string, unknown> | null = null;
-        try { parsedResponse = JSON.parse(responseBody); } catch { /* not JSON */ }
-        
-        const isSuccess = parsedResponse?.success === true;
         if (isSuccess) {
           const channelKey = ACTION_TO_CHANNEL[action] || action;
           const supabase = getServiceClient();
@@ -131,7 +131,6 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
               : [];
             const nextPublishedChannels = Array.from(new Set([...existingPublishedChannels, channelKey]));
 
-            // For carousels we simply mark as published (no selected_channels tracking)
             const newCarouselStatus = 'published';
             const { error: carouselUpdateError } = await supabase
               .from('carousels')
@@ -151,6 +150,36 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         }
       } catch (statusErr) {
         console.error('[channel-publisher] Status update error (non-fatal):', statusErr);
+      }
+
+      // --- Telegram push: success OR failure ---
+      try {
+        const supabase = getServiceClient();
+        const [{ data: mcc }, { data: car }] = await Promise.all([
+          supabase.from('multi_channel_contents').select('title, organization_id, created_by').eq('id', contentId).maybeSingle(),
+          supabase.from('carousels').select('title, organization_id, created_by').eq('id', contentId).maybeSingle(),
+        ]);
+        const contentRow = mcc || car;
+        if (contentRow?.organization_id) {
+          const errMsg = !isSuccess
+            ? (parsedResponse?.error as string | undefined) || `HTTP ${response.status}`
+            : undefined;
+          const postUrl = isSuccess
+            ? ((parsedResponse?.data as any)?.postUrl || (parsedResponse?.postUrl as string | undefined))
+            : undefined;
+          const { notifyPublishResult } = await import('../_shared/telegram-notifier.ts');
+          await notifyPublishResult(
+            supabase,
+            contentRow.organization_id,
+            contentRow.created_by ?? null,
+            contentRow.title || 'Bài đăng',
+            isSuccess,
+            errMsg,
+            { channel: action, postUrl },
+          );
+        }
+      } catch (notifErr) {
+        console.error('[channel-publisher] Telegram notify error (non-fatal):', notifErr);
       }
     }
 
