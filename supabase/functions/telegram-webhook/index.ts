@@ -1949,3 +1949,85 @@ async function handleUxCallback(args: {
     return;
   }
 }
+
+// =====================================================
+// Brand switcher callback router — brand:switch:<id> | brand:open | brand:page:<n> | brand:search | brand:noop
+// =====================================================
+async function handleBrandCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  const parts = data.split(":");
+  const action = parts[1];
+  const param = parts.slice(2).join(":");
+  const state = getBrandSwitcherState(chatId);
+
+  if (action === "noop") {
+    await answerCallback(botConfig.botToken, cbId).catch(() => {});
+    return;
+  }
+
+  if (action === "open") {
+    await answerCallback(botConfig.botToken, cbId).catch(() => {});
+    state.filter = undefined;
+    state.page = 0;
+    const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+    if (brands.length === 0) {
+      await sendMessage(botConfig.botToken, chatId, "Tổ chức chưa có brand nào.");
+      return;
+    }
+    await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
+    return;
+  }
+
+  if (action === "page") {
+    const next = parseInt(param, 10);
+    if (Number.isNaN(next)) {
+      await answerCallback(botConfig.botToken, cbId).catch(() => {});
+      return;
+    }
+    state.page = next;
+    await answerCallback(botConfig.botToken, cbId).catch(() => {});
+    const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+    await renderBrandSwitcher({ supabase, botConfig, chatId, brands, replaceMessageId: messageId });
+    return;
+  }
+
+  if (action === "search") {
+    state.awaitingSearch = true;
+    await answerCallback(botConfig.botToken, cbId, "Gõ tên brand để lọc").catch(() => {});
+    await sendMessage(botConfig.botToken, chatId, "🔍 Gõ tên brand để tìm (hoặc /brand để hủy):", {
+      reply_markup: { force_reply: true, selective: true, input_field_placeholder: "VD: spa" },
+    });
+    return;
+  }
+
+  if (action === "switch") {
+    const brandId = param;
+    if (!brandId) {
+      await answerCallback(botConfig.botToken, cbId, "Brand không hợp lệ.").catch(() => {});
+      return;
+    }
+    const result = await switchActiveBrand(supabase, botConfig.organizationId, chatId, brandId);
+    if (!result.ok) {
+      await answerCallback(botConfig.botToken, cbId, "❌ Không lưu được", true).catch(() => {});
+      return;
+    }
+    const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+    const switched = brands.find((b) => b.id === brandId);
+    await answerCallback(botConfig.botToken, cbId, switched ? `✅ Đã đổi sang ${switched.brand_name}` : "✅ Đã đổi").catch(() => {});
+    if (messageId) {
+      await renderBrandSwitcher({ supabase, botConfig, chatId, brands, replaceMessageId: messageId });
+    }
+    return;
+  }
+
+  await answerCallback(botConfig.botToken, cbId).catch(() => {});
+}
