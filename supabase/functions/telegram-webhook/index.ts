@@ -626,42 +626,57 @@ async function handleFreeChat(
   // 3. Typing indicator
   await sendChatAction(botConfig.botToken, chatId, "typing");
 
-  // 4. Classify
-  const result = await classifyIntent(text, history);
-  console.log("[free-chat] intent:", result.intent, "org:", botConfig.organizationId);
+  // 4. Classify (with org context for AI provider routing)
+  const result = await classifyIntent(text, history, botConfig.organizationId);
+  console.log(
+    "[free-chat] intent:", result.intent,
+    "org:", botConfig.organizationId,
+    "error:", result.error ?? "none",
+  );
 
   // 5. Route
   let assistantReply = "";
-  switch (result.intent) {
-    case "generate_campaign": {
-      const prompt = result.prompt?.trim() || text;
-      // Reuse existing handleGenerate (sends its own confirmation messages)
-      await handleGenerate({
-        supabase,
-        botConfig,
-        chatId,
-        telegramUserId,
-        prompt,
-      });
-      assistantReply = `[generate_campaign] ${prompt.slice(0, 200)}`;
-      break;
-    }
-    case "status": {
-      await handleStatus({ supabase, botConfig, chatId });
-      assistantReply = "[status]";
-      break;
-    }
-    case "help": {
-      await sendMessage(botConfig.botToken, chatId, helpText());
-      assistantReply = "[help]";
-      break;
-    }
-    case "chitchat":
-    default: {
-      const reply = result.reply?.trim() ||
-        "Mình ở đây 👋 Bạn cần mình giúp gì với marketing hôm nay?";
-      await sendMessage(botConfig.botToken, chatId, reply);
-      assistantReply = reply;
+
+  // If classifier failed (e.g. AI gateway 402), send friendly fallback
+  // instead of the generic chitchat reply, and surface slash commands.
+  if (result.error) {
+    const errMsg = result.error === "credits_exhausted"
+      ? "🤖 Bot AI đang tạm quá tải, thử lại sau ít phút nhé.\n\nTrong lúc chờ, bạn có thể dùng lệnh:\n• `/generate <mô tả campaign>` — tạo campaign\n• `/status` — xem hạn mức\n• `/help` — danh sách lệnh"
+      : "🤖 Mình gặp trục trặc nhỏ khi xử lý tin nhắn. Thử lại nhé, hoặc dùng `/generate <mô tả>` / `/status` / `/help`.";
+    await sendMessage(botConfig.botToken, chatId, errMsg);
+    assistantReply = errMsg;
+  } else {
+    switch (result.intent) {
+      case "generate_campaign": {
+        const prompt = result.prompt?.trim() || text;
+        // Reuse existing handleGenerate (sends its own confirmation messages)
+        await handleGenerate({
+          supabase,
+          botConfig,
+          chatId,
+          telegramUserId,
+          prompt,
+        });
+        assistantReply = `[generate_campaign] ${prompt.slice(0, 200)}`;
+        break;
+      }
+      case "status": {
+        await handleStatus({ supabase, botConfig, chatId });
+        assistantReply = "[status]";
+        break;
+      }
+      case "help": {
+        await sendMessage(botConfig.botToken, chatId, helpText());
+        assistantReply = "[help]";
+        break;
+      }
+      case "chitchat":
+      default: {
+        const reply = result.reply?.trim() ||
+          "Mình ở đây 👋 Bạn cần mình giúp gì với marketing hôm nay?";
+        await sendMessage(botConfig.botToken, chatId, reply);
+        assistantReply = reply;
+      }
     }
   }
 

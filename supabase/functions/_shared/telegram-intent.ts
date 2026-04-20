@@ -1,5 +1,8 @@
 // Intent classifier for Telegram free chat.
-// Calls Lovable AI Gateway (gemini-2.5-flash) and returns structured intent.
+// Uses shared ai-provider (auto routes to user's DashScope key if available,
+// falls back to Lovable Gateway). Returns structured intent + error code.
+
+import { callAI } from "./ai-provider.ts";
 
 export type TelegramIntent =
   | { intent: "chitchat"; reply: string }
@@ -29,91 +32,98 @@ QUY TẮC:
 - Với status/help: không cần reply (bot sẽ tự build).
 - Với chitchat: BẮT BUỘC có reply.`;
 
-interface ClassifyResult {
+export type ClassifyError = "credits_exhausted" | "rate_limit" | "unknown";
+
+export interface ClassifyResult {
   intent: "chitchat" | "generate_campaign" | "status" | "help";
   prompt?: string;
   reply?: string;
+  error?: ClassifyError;
 }
 
 export async function classifyIntent(
   text: string,
   history: ChatHistoryItem[],
+  organizationId?: string,
 ): Promise<ClassifyResult> {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) {
-    return { intent: "chitchat", reply: "Mình đang gặp sự cố nhỏ, thử lại sau nhé." };
-  }
-
-  const messages: { role: string; content: string }[] = [
+  const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
     { role: "user", content: text },
   ];
 
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "respond",
-              description: "Phân loại intent và trả lời user",
-              parameters: {
-                type: "object",
-                properties: {
-                  intent: {
-                    type: "string",
-                    enum: ["chitchat", "generate_campaign", "status", "help"],
-                  },
-                  prompt: {
-                    type: "string",
-                    description: "Mô tả campaign (chỉ khi intent=generate_campaign)",
-                  },
-                  reply: {
-                    type: "string",
-                    description: "Lời trả lời tự nhiên (bắt buộc khi intent=chitchat)",
-                  },
-                },
-                required: ["intent"],
-                additionalProperties: false,
-              },
+  const tools = [
+    {
+      type: "function",
+      function: {
+        name: "respond",
+        description: "Phân loại intent và trả lời user",
+        parameters: {
+          type: "object",
+          properties: {
+            intent: {
+              type: "string",
+              enum: ["chitchat", "generate_campaign", "status", "help"],
+            },
+            prompt: {
+              type: "string",
+              description: "Mô tả campaign (chỉ khi intent=generate_campaign)",
+            },
+            reply: {
+              type: "string",
+              description: "Lời trả lời tự nhiên (bắt buộc khi intent=chitchat)",
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "respond" } },
-      }),
+          required: ["intent"],
+          additionalProperties: false,
+        },
+      },
+    },
+  ];
+
+  try {
+    const result = await callAI({
+      functionName: "telegram-intent",
+      organizationId,
+      messages,
+      tools,
+      toolChoice: { type: "function", function: { name: "respond" } },
+      maxTokensOverride: 400,
     });
 
-    if (!res.ok) {
-      const body = await res.text();
-      console.error("[telegram-intent] gateway error:", res.status, body.slice(0, 200));
-      return fallback();
+    if (!result.success) {
+      const errMsg = (result.error || "").toLowerCase();
+      let code: ClassifyError = "unknown";
+      if (errMsg.includes("402") || errMsg.includes("credit") || errMsg.includes("payment")) {
+        code = "credits_exhausted";
+        console.warn(`[telegram-intent] CREDITS_EXHAUSTED org=${organizationId ?? "n/a"}`);
+      } else if (errMsg.includes("429") || errMsg.includes("rate")) {
+        code = "rate_limit";
+      }
+      console.error("[telegram-intent] callAI failed:", result.error);
+      return fallback(code);
     }
 
-    const data = await res.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) return fallback();
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) {
+      console.warn("[telegram-intent] no tool_call in response");
+      return fallback("unknown");
+    }
 
     const args = JSON.parse(toolCall.function.arguments) as ClassifyResult;
-    if (!args.intent) return fallback();
+    if (!args.intent) return fallback("unknown");
     return args;
   } catch (err) {
     console.error("[telegram-intent] classify failed:", err);
-    return fallback();
+    return fallback("unknown");
   }
 }
 
-function fallback(): ClassifyResult {
+function fallback(error: ClassifyError): ClassifyResult {
   return {
     intent: "chitchat",
-    reply: "Mình chưa hiểu ý bạn lắm 🤔 Thử nói rõ hơn, hoặc gõ /help để xem mình làm được gì nhé.",
+    reply:
+      "Mình chưa hiểu ý bạn lắm 🤔 Thử nói rõ hơn, hoặc gõ /help để xem mình làm được gì nhé.",
+    error,
   };
 }
