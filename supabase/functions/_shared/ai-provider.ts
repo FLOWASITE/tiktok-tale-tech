@@ -572,11 +572,12 @@ async function callDashScope(
   messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
-  options: AICallOptions
+  options: AICallOptions,
+  apiKeyOverride?: string
 ): Promise<AICallResult> {
-  const apiKey = Deno.env.get("DASHSCOPE_API_KEY");
+  const apiKey = apiKeyOverride || Deno.env.get("DASHSCOPE_API_KEY");
   if (!apiKey) {
-    return { success: false, error: "DASHSCOPE_API_KEY not configured", provider: "dashscope", model };
+    return { success: false, error: "DASHSCOPE_API_KEY not configured (no DB key and no env var)", provider: "dashscope", model };
   }
 
   try {
@@ -796,7 +797,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
           case "openrouter":
             return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
           case "dashscope":
-            return callDashScope(messages, effectiveModel, effectiveConfig, options);
+            return callDashScope(messages, effectiveModel, effectiveConfig, options, apiKey);
           default:
             return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
         }
