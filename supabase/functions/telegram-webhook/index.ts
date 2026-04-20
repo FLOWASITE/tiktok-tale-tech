@@ -6,7 +6,25 @@ import {
   sendMessage,
   verifyLinkToken,
 } from "../_shared/telegram-client.ts";
-import { classifyIntent, type ChatHistoryItem } from "../_shared/telegram-intent.ts";
+import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
+import { answerCallback, editMessageText, escapeMd as escMdNotif } from "../_shared/telegram-notifier.ts";
+
+// Per-user free-chat rate limit (in-memory, per edge instance)
+// 20 messages / hour per Telegram user. Slash commands are NOT counted.
+const FREE_CHAT_LIMIT = 20;
+const FREE_CHAT_WINDOW_MS = 60 * 60 * 1000;
+const freeChatHits = new Map<number, { count: number; resetAt: number }>();
+function checkFreeChatRate(telegramUserId: number): { allowed: boolean; resetMins: number } {
+  const now = Date.now();
+  const entry = freeChatHits.get(telegramUserId);
+  if (!entry || entry.resetAt < now) {
+    freeChatHits.set(telegramUserId, { count: 1, resetAt: now + FREE_CHAT_WINDOW_MS });
+    return { allowed: true, resetMins: 60 };
+  }
+  entry.count += 1;
+  const resetMins = Math.max(1, Math.ceil((entry.resetAt - now) / 60000));
+  return { allowed: entry.count <= FREE_CHAT_LIMIT, resetMins };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
