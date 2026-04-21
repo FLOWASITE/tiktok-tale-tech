@@ -1992,11 +1992,16 @@ async function handleCallbackQuery(args: {
     return;
   }
 
-  // Format: apv:<a|r|s>:<approvalId>  OR  apv:sx:<approvalId>:<slot>
-  // a = approve now, r = reject, s = open reschedule menu, sx = execute reschedule slot
+  // Format:
+  //   apv:<a|r|s>:<approvalId>                       (approve all / reject / open all-reschedule menu)
+  //   apv:sx:<approvalId>:<slot>                     (execute reschedule slot for ALL channels)
+  //   apv:c:<approvalId>:<chIdx>                     (open per-channel reschedule menu)
+  //   apv:cx:<approvalId>:<chIdx>:<slot>             (execute per-channel approve+schedule)
+  const mPerChanExec = /^apv:cx:([^:]+):(\d+):(now|1h|3h|tmr9|tmr14)$/.exec(data);
+  const mPerChanMenu = /^apv:c:([^:]+):(\d+)$/.exec(data);
   const mSchedExec = /^apv:sx:([^:]+):(now|1h|3h|tmr9|tmr14)$/.exec(data);
   const mBase = /^apv:([ars]):(.+)$/.exec(data);
-  if (!mSchedExec && !mBase) {
+  if (!mPerChanExec && !mPerChanMenu && !mSchedExec && !mBase) {
     await answerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
     return;
   }
@@ -2005,8 +2010,14 @@ async function handleCallbackQuery(args: {
     return;
   }
 
-  const approvalId = mSchedExec ? mSchedExec[1] : mBase![2];
-  const subAction = mSchedExec ? "schedule_exec" : (mBase![1] === "a" ? "approve" : mBase![1] === "r" ? "reject" : "schedule_menu");
+  const approvalId = mPerChanExec ? mPerChanExec[1]
+    : mPerChanMenu ? mPerChanMenu[1]
+    : mSchedExec ? mSchedExec[1]
+    : mBase![2];
+  const subAction = mPerChanExec ? "perchan_exec"
+    : mPerChanMenu ? "perchan_menu"
+    : mSchedExec ? "schedule_exec"
+    : (mBase![1] === "a" ? "approve" : mBase![1] === "r" ? "reject" : "schedule_menu");
 
   // Resolve calling Telegram user → app user via DM binding
   const { data: dm } = await supabase
@@ -2033,7 +2044,70 @@ async function handleCallbackQuery(args: {
     return;
   }
 
-  // Sub-action: open reschedule menu (no API call yet)
+  // Helper: resolve channels[] for an approval (used by per-channel flows).
+  // Source of truth = pipeline_state.metadata.target_channels, fallback to
+  // multi_channel_contents.selected_channels.
+  async function resolveApprovalChannels(approvalIdLocal: string): Promise<string[]> {
+    const { data: ap } = await supabase
+      .from("agent_approvals")
+      .select("pipeline_id, agent_pipelines(pipeline_state, content_id)")
+      .eq("id", approvalIdLocal)
+      .maybeSingle();
+    const pState = (ap as any)?.agent_pipelines?.pipeline_state || {};
+    const meta = pState.metadata || {};
+    let chans: string[] = ((meta.target_channels || []) as string[])
+      .flatMap((c) => (c.includes(",") ? c.split(",").map((s: string) => s.trim()) : [c]))
+      .filter(Boolean)
+      .map((c: string) => (c === "blog" ? "website" : c.toLowerCase()));
+    if (chans.length === 0 && (ap as any)?.agent_pipelines?.content_id) {
+      const { data: mc } = await supabase
+        .from("multi_channel_contents")
+        .select("selected_channels")
+        .eq("id", (ap as any).agent_pipelines.content_id)
+        .maybeSingle();
+      chans = ((mc?.selected_channels as string[] | null) || []).map((c) => c.toLowerCase());
+    }
+    return chans;
+  }
+
+  // ===== Per-channel reschedule menu (subAction = perchan_menu) =====
+  if (subAction === "perchan_menu") {
+    await answerCallback(botConfig.botToken, cbId);
+    const chIdx = Number(mPerChanMenu![2]);
+    const channels = await resolveApprovalChannels(approvalId);
+    const chName = channels[chIdx];
+    if (!chName) {
+      await answerCallback(botConfig.botToken, cbId, "Kênh không tồn tại.", true);
+      return;
+    }
+    if (messageId) {
+      const kb = {
+        inline_keyboard: [
+          [{ text: "🚀 Đăng ngay", callback_data: `apv:cx:${approvalId}:${chIdx}:now` }],
+          [
+            { text: "+1 giờ", callback_data: `apv:cx:${approvalId}:${chIdx}:1h` },
+            { text: "+3 giờ", callback_data: `apv:cx:${approvalId}:${chIdx}:3h` },
+          ],
+          [
+            { text: "Mai 9h", callback_data: `apv:cx:${approvalId}:${chIdx}:tmr9` },
+            { text: "Mai 14h", callback_data: `apv:cx:${approvalId}:${chIdx}:tmr14` },
+          ],
+          [{ text: "« Quay lại", callback_data: `apv:a:${approvalId}` }],
+        ],
+      };
+      const niceName = chName.charAt(0).toUpperCase() + chName.slice(1);
+      await editMessageText(
+        botConfig.botToken,
+        chatId,
+        messageId,
+        `📅 *Chọn thời điểm đăng cho ${escMdNotif(niceName)}:*`,
+        { parse_mode: "Markdown", reply_markup: kb },
+      );
+    }
+    return;
+  }
+
+  // ===== All-channels reschedule menu (subAction = schedule_menu) =====
   if (subAction === "schedule_menu") {
     await answerCallback(botConfig.botToken, cbId);
     if (messageId) {
@@ -2055,17 +2129,19 @@ async function handleCallbackQuery(args: {
         botConfig.botToken,
         chatId,
         messageId,
-        "📅 *Chọn thời điểm đăng:*",
+        "📅 *Chọn thời điểm đăng (tất cả kênh):*",
         { parse_mode: "Markdown", reply_markup: kb },
       );
     }
     return;
   }
 
-  // Compute scheduled_publish_at if subAction is schedule_exec
+  // Compute scheduled_publish_at if subAction is schedule_exec or perchan_exec
   let scheduledPublishAt: string | null | undefined = undefined;
-  if (subAction === "schedule_exec") {
-    const slot = mSchedExec![2];
+  let slotForLog: string | undefined;
+  if (subAction === "schedule_exec" || subAction === "perchan_exec") {
+    const slot = subAction === "perchan_exec" ? mPerChanExec![3] : mSchedExec![2];
+    slotForLog = slot;
     const now = new Date();
     if (slot === "now") {
       scheduledPublishAt = null; // publish immediately
@@ -2082,6 +2158,21 @@ async function handleCallbackQuery(args: {
     }
   }
 
+  // For per-channel exec: resolve channel name + remaining channels to render
+  // an updated keyboard after this approval.
+  let perChanName: string | undefined;
+  let perChanRemaining: string[] = [];
+  let perChanAllChannels: string[] = [];
+  if (subAction === "perchan_exec") {
+    const chIdx = Number(mPerChanExec![2]);
+    perChanAllChannels = await resolveApprovalChannels(approvalId);
+    perChanName = perChanAllChannels[chIdx];
+    if (!perChanName) {
+      await answerCallback(botConfig.botToken, cbId, "Kênh không tồn tại.", true);
+      return;
+    }
+  }
+
   const apiAction = subAction === "reject" ? "reject" : "approve";
 
   // Call agent-approve
@@ -2092,9 +2183,12 @@ async function handleCallbackQuery(args: {
       approval_id: approvalId,
       action: apiAction,
       reviewer_id: dm.user_id,
-      notes: `via Telegram by tg_user=${fromTgId}${subAction === "schedule_exec" ? ` (slot=${mSchedExec![2]})` : ""}`,
+      notes: `via Telegram by tg_user=${fromTgId}${slotForLog ? ` (slot=${slotForLog})` : ""}${perChanName ? ` (channel=${perChanName})` : ""}`,
     };
     if (scheduledPublishAt !== undefined) reqBody.scheduled_publish_at = scheduledPublishAt;
+    if (subAction === "perchan_exec" && perChanName) {
+      reqBody.channels = [perChanName];
+    }
 
     const res = await fetch(url, {
       method: "POST",
@@ -2105,11 +2199,54 @@ async function handleCallbackQuery(args: {
 
     let toast: string;
     let edited: string;
+    let updatedKeyboard: { inline_keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>> } | undefined;
+
     if (body?.already_decided) {
       toast = "Đã được xử lý trước đó.";
       edited = `ℹ️ Yêu cầu này đã được ${body.status === "approved" ? "duyệt" : body.status} trước đó.`;
     } else if (body?.success) {
-      if (apiAction === "reject") {
+      // Per-channel partial success: update keyboard with remaining channels
+      if (subAction === "perchan_exec" && perChanName && body.all_done === false) {
+        const pendingChans: string[] = (body.pending_channels || []) as string[];
+        perChanRemaining = pendingChans;
+        const fmt = scheduledPublishAt
+          ? (() => {
+              const d = new Date(scheduledPublishAt!);
+              const pad = (n: number) => String(n).padStart(2, "0");
+              return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            })()
+          : "ngay";
+        const niceName = perChanName.charAt(0).toUpperCase() + perChanName.slice(1);
+        toast = `✅ ${niceName}: ${fmt}`;
+
+        const approvedNow = perChanAllChannels.filter((c) => !pendingChans.includes(c));
+        const approvedLine = approvedNow.length > 0
+          ? `\n✅ Đã duyệt: *${escMdNotif(approvedNow.join(", "))}*`
+          : "";
+        edited = `🔔 *Cần duyệt nội dung — còn ${pendingChans.length} kênh*${approvedLine}\n⏳ Còn lại: *${escMdNotif(pendingChans.join(", "))}*`;
+
+        // Rebuild keyboard with only remaining channels
+        const rows: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>> = [];
+        const miniAppUrl = `https://app.flowa.one/telegram-app?view=approve&id=${approvalId}&v=tg-auth-v2`;
+        rows.push([{ text: "👁️ Xem chi tiết", web_app: { url: miniAppUrl } }]);
+        // Per-channel buttons (use ORIGINAL indices so callbacks resolve correctly)
+        const remainRow: Array<{ text: string; callback_data: string }> = [];
+        for (let i = 0; i < perChanAllChannels.length; i++) {
+          if (!pendingChans.includes(perChanAllChannels[i])) continue;
+          const cap = perChanAllChannels[i].charAt(0).toUpperCase() + perChanAllChannels[i].slice(1);
+          remainRow.push({ text: `✅ ${cap}`, callback_data: `apv:c:${approvalId}:${i}` });
+          if (remainRow.length === 2) {
+            rows.push([...remainRow]);
+            remainRow.length = 0;
+          }
+        }
+        if (remainRow.length > 0) rows.push(remainRow);
+        rows.push([
+          { text: "✅ Duyệt tất cả", callback_data: `apv:a:${approvalId}` },
+          { text: "❌ Từ chối", callback_data: `apv:r:${approvalId}` },
+        ]);
+        updatedKeyboard = { inline_keyboard: rows };
+      } else if (apiAction === "reject") {
         toast = "❌ Đã từ chối";
         edited = `❌ *Đã từ chối* — pipeline sẽ tạo lại.`;
       } else if (scheduledPublishAt) {
@@ -2134,6 +2271,7 @@ async function handleCallbackQuery(args: {
     if (messageId) {
       await editMessageText(botConfig.botToken, chatId, messageId, edited, {
         parse_mode: "Markdown",
+        ...(updatedKeyboard ? { reply_markup: updatedKeyboard } : {}),
       });
     }
   } catch (e) {
