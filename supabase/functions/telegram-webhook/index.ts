@@ -1772,6 +1772,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // 2-step link confirmation (Manus-style): confirm_link:<chatId>
+  if (data.startsWith("confirm_link:") && chatId) {
+    await handleConfirmLinkCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId });
+    return;
+  }
+
   // Format: apv:<a|r>:<approvalId>
   const m = /^apv:([ar]):(.+)$/.exec(data);
   if (!m || !chatId || !fromTgId) {
