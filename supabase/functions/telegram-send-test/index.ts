@@ -67,9 +67,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!binding) {
       return json({
+        ok: false,
         error: "Bạn chưa link Telegram. Bấm 'Mở Telegram' ở trên để kết nối.",
         code: "not_linked",
-      }, 404);
+      }, 200);
     }
 
     // 3. Load bot config (BYOB first, then default)
