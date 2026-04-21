@@ -264,14 +264,17 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
       const { web_app_url } = body as { web_app_url?: string };
       const baseUrl = String(web_app_url || Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app").trim();
       // Embed ?org=<organization_id> so the Mini App can authenticate immediately.
+      // Append ?v=tg-auth-v2 to bust Telegram WebView cache after auth-flow fixes.
+      const MINI_APP_VERSION = "tg-auth-v2";
       let url = baseUrl;
       try {
         const u = new URL(baseUrl);
         u.searchParams.set("org", organization_id);
+        u.searchParams.set("v", MINI_APP_VERSION);
         url = u.toString();
       } catch {
         const sep = baseUrl.includes("?") ? "&" : "?";
-        url = `${baseUrl}${sep}org=${organization_id}`;
+        url = `${baseUrl}${sep}org=${organization_id}&v=${MINI_APP_VERSION}`;
       }
       const { data: cfg, error: cfgErr } = await service
         .from("telegram_bot_configs")

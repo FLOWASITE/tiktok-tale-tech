@@ -61,7 +61,7 @@ export default function TelegramApp() {
     } else if (sessionOkButOrgMissing) {
       hint = 'Đã đăng nhập Flowa nhưng chưa map được Telegram → workspace. Thử /start trong DM với bot.';
     } else if (error && /token_hash and type|Only the token_hash/i.test(error)) {
-      hint = 'Mini App đang chạy bundle cũ trong cache Telegram. Đóng hẳn Telegram/Mini App rồi mở lại từ bot.';
+      hint = 'Bạn đang mở Mini App từ cache cũ của Telegram. Backend đã được vá để tương thích — hãy đóng hẳn Mini App (vuốt xuống/Close), rồi bấm lại nút "Xem & duyệt" hoặc menu Mở Flowa mới.';
     } else if (error && /verify|otp|expired|invalid token/i.test(error)) {
       hint = 'Không tạo được phiên đăng nhập từ Telegram. Đóng Mini App và mở lại từ bot.';
     }

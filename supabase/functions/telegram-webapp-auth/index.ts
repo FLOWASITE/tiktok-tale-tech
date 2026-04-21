@@ -173,10 +173,13 @@ Deno.serve(withPerf({ functionName: "telegram-webapp-auth" }, async (req) => {
       return json({ error: "Không tạo được session" }, 500);
     }
 
+    // Compatibility: do NOT return `email`. Older cached frontend bundles passed
+    // `email` to supabase.auth.verifyOtp, which Supabase rejects with
+    // "Only the token_hash and type should be provided" (400). By omitting email
+    // here, both old and new bundles can verify the magic link successfully.
     return json({
       ok: true,
       user_id: userId,
-      email,
       token_hash: link.properties?.hashed_token,
       organization_id: orgId,
     });
