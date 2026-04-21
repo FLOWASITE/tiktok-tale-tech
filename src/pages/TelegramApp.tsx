@@ -427,8 +427,19 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
         setTimeout(tryOpen, 1000);
         return;
       }
-      // 3) Not in the recent list — fetch directly by ID (might be older or
-      //    just-decided). If found, hydrate a temporary item and open preview.
+      // 3) Not in the recent list — check session cache, else fetch directly
+      //    by ID (might be older or just-decided). Cache hits avoid repeated
+      //    network round-trips when the user toggles tabs.
+      const cached = readApprovalCache(autoOpenId);
+      if (cached) {
+        await openPreview(cached.item);
+        if (cached.status && cached.status !== 'pending') {
+          toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
+        }
+        try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
+        onAutoOpened?.();
+        return;
+      }
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sb = supabase as any;
@@ -450,6 +461,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
             scheduled_publish_at: data.agent_pipelines?.scheduled_publish_at ?? null,
             selected_channels: data.agent_pipelines?.multi_channel_contents?.selected_channels ?? null,
           };
+          APPROVAL_FETCH_CACHE.set(autoOpenId, { item: hydrated, status: data.status ?? null, cachedAt: Date.now() });
           await openPreview(hydrated);
           if (data.status && data.status !== 'pending') {
             toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
