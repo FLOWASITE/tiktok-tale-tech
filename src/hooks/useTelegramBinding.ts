@@ -69,6 +69,36 @@ export function useTelegramBinding() {
     fetchBindings();
   }, [fetchBindings]);
 
+  // Realtime: refresh khi binding được tạo/xóa (vd: user vừa /start bot trong Telegram)
+  useEffect(() => {
+    if (!currentOrganization || !user) return;
+    const channel = supabase
+      .channel(`telegram-bindings-${currentOrganization.id}-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'telegram_chat_bindings',
+          filter: `organization_id=eq.${currentOrganization.id}`,
+        },
+        () => {
+          fetchBindings();
+        },
+      )
+      .subscribe();
+
+    // Fallback polling khi tab visible & chưa có binding (realtime có thể bị firewall chặn)
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchBindings();
+    }, 5000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
+  }, [currentOrganization, user, fetchBindings]);
+
   const generateDeeplink = useCallback(async (): Promise<{ deeplink: string; expires_in: number; bot_username?: string } | null> => {
     if (!currentOrganization) return null;
     const { data, error } = await supabase.functions.invoke('telegram-link-token', {
