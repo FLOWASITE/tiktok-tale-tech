@@ -4047,7 +4047,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         const model = channelConfig?.model || aiConfig.model;
         const temperature = channelConfig?.temperature ?? aiConfig.temperature;
         const dynamicTokens = calculateChannelMaxTokens(channel, {
-          contentGoal: formData.contentGoal || derivedContentGoal,
+          contentGoal: contentGoal,
           qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
         });
         const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
@@ -4325,7 +4325,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             const model = channelConfig?.model || formData.model_override || aiConfig.model;
             const temp = channelConfig?.temperature ?? aiConfig.temperature;
             const dynamicTokens = calculateChannelMaxTokens(channel, {
-              contentGoal: formData.contentGoal || derivedContentGoal,
+              contentGoal: contentGoal,
               qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
             });
             const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
