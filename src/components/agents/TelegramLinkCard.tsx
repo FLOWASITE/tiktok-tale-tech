@@ -21,7 +21,6 @@ import {
   QrCode,
   Bell,
   Sparkles,
-  CircleDot,
 } from 'lucide-react';
 
 interface TelegramLinkCardProps {
@@ -218,7 +217,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
               <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center">
                 <Send className="w-4 h-4 text-primary" />
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-background" aria-hidden />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary border-2 border-background animate-pulse" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
