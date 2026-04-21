@@ -250,32 +250,87 @@ export async function notifyApprovalNeeded(
     return;
   }
 
-  // Fallback: post to linked group(s) so admins notice even without DM
+  // Fallback: post to linked group(s) so admins notice even without DM.
+  // Rate-limited per binding via `last_group_fallback_at` so we don't spam
+  // groups when many approvals queue up. Cooldown defaults to 30 minutes,
+  // overridable per-org via env `TELEGRAM_GROUP_FALLBACK_COOLDOWN_MIN`.
   console.log("[telegram-notifier] no admin DM targets, trying group fallback for org", organizationId);
   const botToken = await getOrgBotToken(supabase, organizationId);
   if (!botToken) return;
 
+  const cooldownMin = (() => {
+    const raw = Deno.env.get("TELEGRAM_GROUP_FALLBACK_COOLDOWN_MIN");
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+  })();
+  const cooldownAgoIso = new Date(Date.now() - cooldownMin * 60 * 1000).toISOString();
+
   const { data: groups } = await supabase
     .from("telegram_chat_bindings")
-    .select("telegram_chat_id")
+    .select("id, telegram_chat_id, last_group_fallback_at, group_fallback_count")
     .eq("organization_id", organizationId)
-    .eq("chat_type", "group")
+    .in("chat_type", ["group", "supergroup"])
     .eq("is_active", true);
 
-  const groupTargets: PushTarget[] = (groups ?? []).map(
-    (g: { telegram_chat_id: number }) => ({ chatId: Number(g.telegram_chat_id), botToken }),
-  );
-  if (groupTargets.length === 0) return;
+  // deno-lint-ignore no-explicit-any
+  const allGroups = (groups ?? []) as any[];
+  if (allGroups.length === 0) return;
+
+  // Partition into "ready to send" vs "in cooldown"
+  const ready = allGroups.filter((g) => !g.last_group_fallback_at || g.last_group_fallback_at < cooldownAgoIso);
+  const skipped = allGroups.length - ready.length;
+
+  if (ready.length === 0) {
+    console.log(
+      `[telegram-notifier] all ${allGroups.length} group binding(s) for org ${organizationId} still in cooldown (${cooldownMin}min); skipping reminder for approval ${approvalId}`,
+    );
+    return;
+  }
+
+  const groupTargets: PushTarget[] = ready.map((g) => ({
+    chatId: Number(g.telegram_chat_id),
+    botToken,
+  }));
 
   const startLink = opts.botUsername
-    ? `\n\n👆 Admin chưa kết nối DM bot — vào https://t.me/${opts.botUsername}?start=link để nhận push duyệt riêng.`
-    : "\n\n👆 Admin chưa kết nối DM bot — gõ /start trong DM để nhận push duyệt riêng.";
+    ? `\n\n👆 Admin chưa kết nối DM bot — vào https://t.me/${opts.botUsername}?start=link để nhận push duyệt riêng.\n_Nhắc nhở nhóm này được giới hạn 1 lần / ${cooldownMin} phút để tránh spam._`
+    : `\n\n👆 Admin chưa kết nối DM bot — gõ /start trong DM để nhận push duyệt riêng.\n_Nhắc nhở nhóm này được giới hạn 1 lần / ${cooldownMin} phút để tránh spam._`;
 
   await pushMany(groupTargets, text + startLink, {
     parse_mode: "Markdown",
     reply_markup: { inline_keyboard: keyboard },
     disable_web_page_preview: true,
   });
+
+  // Mark throttle window — best-effort, never block on failure
+  const nowIso = new Date().toISOString();
+  try {
+    // Atomic per-row update so concurrent approvals don't both pass the
+    // cooldown gate. We use a single UPDATE with array of IDs.
+    const ids = ready.map((g) => g.id);
+    const { error: updErr } = await supabase
+      .from("telegram_chat_bindings")
+      .update({ last_group_fallback_at: nowIso })
+      .in("id", ids);
+    if (updErr) console.warn("[telegram-notifier] failed to stamp last_group_fallback_at:", updErr);
+    // Increment counter individually (no atomic increment in PostgREST without RPC)
+    await Promise.allSettled(
+      ready.map((g) =>
+        supabase
+          .from("telegram_chat_bindings")
+          .update({ group_fallback_count: (g.group_fallback_count ?? 0) + 1 })
+          .eq("id", g.id)
+      ),
+    );
+  } catch (e) {
+    console.warn("[telegram-notifier] throttle bookkeeping error:", e);
+  }
+
+  if (skipped > 0) {
+    console.log(
+      `[telegram-notifier] sent group fallback to ${ready.length} binding(s), skipped ${skipped} in cooldown for org ${organizationId}`,
+    );
+  }
 }
 
 // Notify the goal owner that their pipeline is done.
