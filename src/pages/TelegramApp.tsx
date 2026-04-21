@@ -627,29 +627,65 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
     }
   }
 
-  if (loading) return <Loading />;
-  if (items.length === 0) {
-    return (
-      <div className="p-6 text-center">
-        <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
-        <div className="flex flex-col gap-2 items-center mt-4">
-          <Button variant="default" size="sm" onClick={retryAutoOpen} disabled={retryingOpen}>
-            {retryingOpen
-              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              : <RefreshCw className="w-4 h-4 mr-2" />}
-            Làm mới & thử mở lại
-          </Button>
-          <Button variant="outline" size="sm" onClick={onScheduled}>
-            <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
-          </Button>
+  const autoOpenBanner = (autoOpenStatus === 'searching' || autoOpenStatus === 'not_found') && (
+    <div className={`mx-4 mt-3 rounded-md border p-3 text-xs flex items-start gap-2 ${
+      autoOpenStatus === 'not_found'
+        ? 'border-destructive/40 bg-destructive/5 text-destructive'
+        : 'border-primary/30 bg-primary/5 text-foreground'
+    }`}>
+      {autoOpenStatus === 'searching'
+        ? <Loader2 className="w-4 h-4 animate-spin shrink-0 mt-0.5 text-primary" />
+        : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+      <div className="flex-1 min-w-0">
+        <div className="font-medium">
+          {autoOpenStatus === 'searching'
+            ? 'Đang mở yêu cầu duyệt…'
+            : 'Không tìm thấy yêu cầu duyệt'}
+        </div>
+        <div className="text-muted-foreground mt-0.5">
+          {autoOpenStatus === 'searching'
+            ? `Đang tìm theo deep-link · lần ${Math.max(autoOpenAttempt, 1)}/6 · ${(autoOpenElapsedMs / 1000).toFixed(1)}s`
+            : 'Có thể đã được xử lý hoặc chưa đồng bộ.'}
         </div>
       </div>
+      {autoOpenStatus === 'not_found' && (
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs shrink-0" onClick={retryAutoOpen} disabled={retryingOpen}>
+          {retryingOpen
+            ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+            : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+          Thử lại
+        </Button>
+      )}
+    </div>
+  );
+
+  if (loading) return <>{autoOpenBanner}<Loading /></>;
+  if (items.length === 0) {
+    return (
+      <>
+        {autoOpenBanner}
+        <div className="p-6 text-center">
+          <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
+          <div className="flex flex-col gap-2 items-center mt-4">
+            <Button variant="default" size="sm" onClick={retryAutoOpen} disabled={retryingOpen}>
+              {retryingOpen
+                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <RefreshCw className="w-4 h-4 mr-2" />}
+              Làm mới & thử mở lại
+            </Button>
+            <Button variant="outline" size="sm" onClick={onScheduled}>
+              <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
+            </Button>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      {autoOpenBanner}
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-xs text-muted-foreground">{items.length} yêu cầu chờ duyệt</div>
