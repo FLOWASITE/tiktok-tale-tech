@@ -49,7 +49,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   const { currentOrganization } = useOrganizationContext();
 
   const [qrOpen, setQrOpen] = useState(false);
-  const [qrOpen, setQrOpen] = useState(false);
   const [pinging, setPinging] = useState(false);
   const [prefetchError, setPrefetchError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
