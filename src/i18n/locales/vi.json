@@ -835,7 +835,10 @@
       "adminNews": "Curated News",
       "adminHelp": "Help Articles",
       "adminVersions": "Version History",
-      "flowaTeam": "Flowa Team"
+      "flowaTeam": "Flowa Team",
+      "agents": "AI Agents",
+      "telegramAgent": "Nhận Agent của bạn",
+      "slackAgent": "Slack"
     },
     "userMenu": {
       "profile": "Hồ sơ cá nhân",

@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -56,14 +56,37 @@ interface MenuItem {
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   isMain?: boolean;
+  comingSoon?: boolean;
 }
 
 function PremiumMenuItem({ item, isCollapsed, isAdminItem = false }: { item: MenuItem; isCollapsed: boolean; isAdminItem?: boolean }) {
   const location = useLocation();
   const { t } = useTranslation();
-  const isActive = location.pathname === item.url || (item.url !== '/' && location.pathname.startsWith(item.url));
+  const isActive = item.comingSoon ? false : (location.pathname === item.url || (item.url !== '/' && item.url !== '#' && location.pathname.startsWith(item.url)));
   const label = t(item.titleKey, { defaultValue: item.title });
-  
+
+  if (item.comingSoon) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          disabled
+          tooltip={`${label} — Soon`}
+          className="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground/70 opacity-60 cursor-not-allowed hover:bg-transparent"
+        >
+          <item.icon className="w-4 h-4 flex-shrink-0" />
+          {!isCollapsed && (
+            <>
+              <span className="flex-1">{label}</span>
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-medium">
+                Soon
+              </Badge>
+            </>
+          )}
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild tooltip={label}>
@@ -260,6 +283,8 @@ export function AppSidebar() {
   // Agent items under Flowa Team
   const agentItems: MenuItem[] = [
     { title: 'AI Agents', titleKey: 'app.sidebar.agents', url: '/agents', icon: Bot },
+    { title: 'Nhận Agent của bạn', titleKey: 'app.sidebar.telegramAgent', url: '/agents/telegram', icon: Send },
+    { title: 'Slack', titleKey: 'app.sidebar.slackAgent', url: '#', icon: Slack, comingSoon: true },
   ];
 
   // Nhóm 3: Management

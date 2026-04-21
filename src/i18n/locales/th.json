@@ -694,7 +694,10 @@
       "adminEvents": "Curated Events",
       "adminNews": "Curated News",
       "adminHelp": "Help Articles",
-      "adminVersions": "Version History"
+      "adminVersions": "Version History",
+      "agents": "AI Agents",
+      "telegramAgent": "รับ Agent ของคุณ",
+      "slackAgent": "Slack"
     },
     "userMenu": {
       "profile": "โปรไฟล์",
