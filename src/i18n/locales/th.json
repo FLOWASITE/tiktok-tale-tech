@@ -696,8 +696,14 @@
       "adminHelp": "Help Articles",
       "adminVersions": "Version History",
       "agents": "AI Agents",
-      "telegramAgent": "รับ Agent ของคุณ",
-      "slackAgent": "Slack"
+      "telegramAgent": "รับ Agent ของคุณ"
+    },
+    "agentHub": {
+      "title": "รับ Agent ของคุณ",
+      "subtitle": "เลือกแพลตฟอร์มเพื่อแชทกับ AI Agent",
+      "connected": "เชื่อมต่อแล้ว",
+      "connect": "เชื่อมต่อ",
+      "comingSoon": "เร็วๆ นี้"
     },
     "userMenu": {
       "profile": "โปรไฟล์",

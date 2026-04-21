@@ -283,8 +283,7 @@ export function AppSidebar() {
   // Agent items under Flowa Team
   const agentItems: MenuItem[] = [
     { title: 'AI Agents', titleKey: 'app.sidebar.agents', url: '/agents', icon: Bot },
-    { title: 'Nhận Agent của bạn', titleKey: 'app.sidebar.telegramAgent', url: '/agents/telegram', icon: Send },
-    { title: 'Slack', titleKey: 'app.sidebar.slackAgent', url: '#', icon: Slack, comingSoon: true },
+    { title: 'Nhận Agent của bạn', titleKey: 'app.sidebar.telegramAgent', url: '/agents/channels', icon: Send },
   ];
 
   // Nhóm 3: Management
