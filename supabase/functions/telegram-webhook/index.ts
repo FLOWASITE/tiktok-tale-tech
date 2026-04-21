@@ -1856,6 +1856,142 @@ async function handleCallbackQuery(args: {
 }
 
 // =====================================================
+// 2-step link confirmation handler — Manus-style
+// =====================================================
+async function handleConfirmLinkCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  messageId?: number;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId } = args;
+
+  const { data: pending, error: lookupErr } = await supabase
+    .from("telegram_pending_links")
+    .select("*")
+    .eq("telegram_chat_id", chatId)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (lookupErr) {
+    console.error("[telegram-webhook] confirm_link lookup failed:", lookupErr);
+    await answerCallback(botConfig.botToken, cbId, "Lỗi hệ thống, thử lại.", true);
+    return;
+  }
+  if (!pending) {
+    await answerCallback(
+      botConfig.botToken,
+      cbId,
+      "❌ Link đã hết hạn. Quay lại app Flowa để lấy link mới.",
+      true,
+    );
+    if (messageId) {
+      await editMessageText(
+        botConfig.botToken,
+        chatId,
+        messageId,
+        "⌛ Link kết nối đã hết hạn. Quay lại app Flowa → Agent → Telegram để tạo link mới.",
+      );
+    }
+    return;
+  }
+
+  // Anti-spoof: only the same Telegram user who initiated /start can confirm
+  if (pending.telegram_user_id && fromTgId && Number(pending.telegram_user_id) !== fromTgId) {
+    await answerCallback(
+      botConfig.botToken,
+      cbId,
+      "❌ Chỉ người mở link mới xác nhận được.",
+      true,
+    );
+    return;
+  }
+
+  // Re-verify token (defense in depth)
+  try {
+    await verifyLinkToken(pending.token);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "invalid";
+    console.warn("[telegram-webhook] confirm_link token invalid:", msg);
+    await answerCallback(botConfig.botToken, cbId, "❌ Token không hợp lệ.", true);
+    if (messageId) {
+      await editMessageText(
+        botConfig.botToken,
+        chatId,
+        messageId,
+        `❌ Token không hợp lệ (${msg}). Quay lại app để lấy link mới.`,
+      );
+    }
+    return;
+  }
+
+  const { error: upsertErr } = await supabase
+    .from("telegram_chat_bindings")
+    .upsert({
+      organization_id: pending.payload_org,
+      user_id: pending.payload_uid,
+      telegram_chat_id: chatId,
+      chat_type: "private",
+      telegram_user_id: pending.telegram_user_id ?? fromTgId ?? null,
+      telegram_username: pending.telegram_username ?? null,
+      is_active: true,
+      linked_at: new Date().toISOString(),
+    }, { onConflict: "organization_id,telegram_chat_id" });
+
+  if (upsertErr) {
+    console.error("[telegram-webhook] confirm_link upsert failed:", upsertErr);
+    await answerCallback(botConfig.botToken, cbId, "❌ Không lưu được kết nối.", true);
+    return;
+  }
+
+  await supabase
+    .from("telegram_pending_links")
+    .delete()
+    .eq("telegram_chat_id", chatId);
+
+  await supabase
+    .from("telegram_chat_bindings")
+    .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
+    .eq("organization_id", pending.payload_org)
+    .eq("telegram_chat_id", chatId)
+    .then(() => {}, () => {});
+
+  await answerCallback(botConfig.botToken, cbId, "✅ Đã kết nối!");
+
+  if (messageId) {
+    await editMessageText(
+      botConfig.botToken,
+      chatId,
+      messageId,
+      "✅ *Đã kết nối thành công với Flowa!*",
+      { parse_mode: "Markdown" },
+    );
+  }
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    [
+      `🎉 Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
+      "",
+      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "",
+      "👇 Thử ngay:",
+    ].join("\n"),
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+    },
+  );
+
+  // Rehydrate botConfig so any later handlers in this request see the right org
+  botConfig.organizationId = pending.payload_org;
+}
+
+// =====================================================
 // /campaigns — list 5 most recent campaigns for the org
 // =====================================================
 async function handleCampaigns(
