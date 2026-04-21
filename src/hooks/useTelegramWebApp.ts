@@ -163,10 +163,11 @@ export function useTelegramWebApp(): TelegramAppAuth {
         // Only verify OTP when no session exists yet. Re-verifying with an
         // already-active session would needlessly rotate the token.
         if (!existingUserId) {
+          // IMPORTANT: với token_hash flow, Supabase chỉ chấp nhận `token_hash` + `type`.
+          // Truyền thêm `email` sẽ bị reject với 400 "Only the token_hash and type should be provided".
           const { error: vErr } = await supabase.auth.verifyOtp({
             type: 'magiclink',
             token_hash: payload.token_hash,
-            email: payload.email,
           });
           if (vErr) throw vErr;
         }
