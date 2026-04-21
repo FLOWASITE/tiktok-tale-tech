@@ -654,7 +654,8 @@ async function routeCarousel(
   input: CreatorInput,
   brief: BrandBrief
 ): Promise<CreatorResult> {
-  const ctx = input.campaign_context;
+  const ctx = input.campaign_context as any;
+  const inputAny = input as any;
   const targetChannel = ctx?.target_channel || ctx?.target_channels?.[0] || "facebook";
   const lengthMode = ctx?.estimated_length || input.length_mode || "medium";
   const slideCount = lengthMode === "long" ? 8 : lengthMode === "short" ? 5 : 6;
@@ -674,7 +675,7 @@ async function routeCarousel(
 
   // Derive carousel style from campaign context or content_role instead of hardcoding
   const contentRole = ctx?.content_role || "nurture";
-  const visualPreset = ctx?.visual_preset || input.visual_preset || (() => {
+  const visualPreset = ctx?.visual_preset || inputAny.visual_preset || (() => {
     switch (contentRole) {
       case "seed": return "gradient";
       case "harvest": return "flat_design";
@@ -682,7 +683,7 @@ async function routeCarousel(
       default: return "minimalist";
     }
   })();
-  const carouselStyle = ctx?.carousel_style || input.carousel_style || (() => {
+  const carouselStyle = ctx?.carousel_style || inputAny.carousel_style || (() => {
     switch (contentRole) {
       case "seed": return "gallery";
       case "harvest": return "listicle";
