@@ -42,16 +42,13 @@ const COMMAND_GROUPS: { label: string; items: CommandRow[] }[] = [
 export function TelegramUseCases() {
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-base font-semibold mb-1">Sau khi link, bạn có thể…</h3>
-        <p className="text-xs text-muted-foreground">Chat tự nhiên — hoặc dùng lệnh gõ nhanh nếu thích.</p>
-      </div>
+      <h3 className="text-base font-semibold">Gợi ý nhanh</h3>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {USE_CASES.map(({ icon: Icon, title, example }) => (
           <div
             key={title}
-            className="rounded-lg border bg-card hover:bg-muted/30 transition-colors p-3 flex gap-3"
+            className="rounded-lg border bg-card hover:bg-muted/30 transition-colors p-2.5 flex gap-3"
           >
             <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
               <Icon className="w-4 h-4 text-primary" />

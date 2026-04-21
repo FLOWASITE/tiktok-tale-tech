@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useTelegramBinding, type TelegramBinding } from '@/hooks/useTelegramBinding';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -20,7 +27,7 @@ import {
   Send,
   QrCode,
   Bell,
-  Sparkles,
+  MoreHorizontal,
 } from 'lucide-react';
 
 interface TelegramLinkCardProps {
@@ -220,24 +227,30 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary border-2 border-background animate-pulse" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium flex flex-wrap items-center gap-x-2 gap-y-1">
+              <div className="text-sm font-medium flex flex-wrap items-center gap-x-2">
                 <span>AI Agent đang lắng nghe</span>
                 {resolvedBotUsername && (
                   <span className="text-primary">trên @{resolvedBotUsername}</span>
                 )}
-                {usingDefaultBot && (
-                  <Badge variant="secondary" className="text-[10px] font-normal">mặc định</Badge>
-                )}
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
-                <span className="mx-1.5">·</span>
-                Hoạt động {lastSeenLabel}
-              </div>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate cursor-default">
+                      Hoạt động {lastSeenLabel}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {binding.telegram_username
+                      ? `@${binding.telegram_username} · Chat ID ${binding.telegram_chat_id}`
+                      : `Chat ID: ${binding.telegram_chat_id}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             {botDirectUrl && (
               <Button asChild size="sm">
                 <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
@@ -245,26 +258,27 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
                 </a>
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={handleTestPing} disabled={pinging}>
-              {pinging ? (
-                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Bell className="w-3.5 h-3.5 mr-1.5" />
-              )}
-              Test ping
-            </Button>
-            <Button size="sm" variant="ghost" onClick={unlink} className="text-muted-foreground hover:text-destructive">
-              <Unlink className="w-3.5 h-3.5 mr-1.5" /> Gỡ
-            </Button>
-          </div>
-
-          <div className="flex items-start gap-2 text-xs text-muted-foreground border-t pt-3">
-            <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-primary/70" />
-            <span className="leading-relaxed">
-              Chat tự nhiên: <span className="text-foreground">"tạo campaign cho spa"</span>,{' '}
-              <span className="text-foreground">"quota tháng này"</span>, hoặc gõ{' '}
-              <code className="text-primary">/campaign</code>, <code className="text-primary">/pause</code>.
-            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-9 w-9" aria-label="Tùy chọn khác">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleTestPing} disabled={pinging}>
+                  {pinging ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Bell className="w-4 h-4 mr-2" />
+                  )}
+                  Test ping
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={unlink} className="text-destructive focus:text-destructive">
+                  <Unlink className="w-4 h-4 mr-2" />
+                  Gỡ kết nối
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
