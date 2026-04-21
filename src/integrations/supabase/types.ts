@@ -9775,6 +9775,30 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_example_cache: {
+        Row: {
+          chat_id: number
+          created_at: string
+          expires_at: string
+          idx: number
+          prompt: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          expires_at?: string
+          idx: number
+          prompt: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          expires_at?: string
+          idx?: number
+          prompt?: string
+        }
+        Relationships: []
+      }
       telegram_example_prompts: {
         Row: {
           category: string
