@@ -461,7 +461,31 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
     void tryOpen();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenId, loading, items.length, orgId]);
+  }, [autoOpenId, loading, items.length, orgId, retryNonce]);
+
+  // Manual retry — re-fetch the list and re-trigger the deep-link open flow.
+  // Restores the pending ID from sessionStorage if the parent has already
+  // cleared its prop after a previous failed attempt.
+  async function retryAutoOpen() {
+    setRetryingOpen(true);
+    try {
+      let id = autoOpenId;
+      if (!id) {
+        try { id = sessionStorage.getItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
+      }
+      await load();
+      if (id) {
+        try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
+        // Bumping the nonce re-runs the auto-open effect even when autoOpenId
+        // is unchanged (or was cleared by the parent).
+        setRetryNonce((n) => n + 1);
+      } else {
+        toast.info('Đã làm mới danh sách.');
+      }
+    } finally {
+      setRetryingOpen(false);
+    }
+  }
 
   async function openPreview(it: ApprovalItem) {
     setPreviewItem(it);
