@@ -258,6 +258,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
 
     return (
       <div className="space-y-4">
+        {ghostBanner}
         <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3">
           <div className="flex items-start gap-3">
             <div className="relative shrink-0">
