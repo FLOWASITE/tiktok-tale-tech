@@ -301,6 +301,16 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleGenerate({ supabase, botConfig, chatId, telegramUserId, prompt: args }));
         break;
+      case "/campaign":
+      case "/campaign_wizard":
+        if (chatType !== "private") {
+          await sendMessage(botConfig.botToken, chatId,
+            "⚠️ /campaign chỉ dùng trong DM với bot.");
+          break;
+        }
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          startCampaignWizard({ supabase, botConfig, chatId, telegramUserId, initialPrompt: args }));
+        break;
       case "/cancel":
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleCancel({ supabase, botConfig, chatId, telegramUserId }));
