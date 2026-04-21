@@ -1949,6 +1949,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // Single-post quick mode: single:pick:<channel> | single:cancel:<n>
+  if (data.startsWith("single:") && chatId) {
+    await handleSingleCallback({ supabase, botConfig, chatId, fromTgId, cbId, data });
+    return;
+  }
+
   // Campaign wizard callbacks: cw:<step>:<value>
   if (data.startsWith("cw:") && chatId && fromTgId) {
     await handleCampaignWizardCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
