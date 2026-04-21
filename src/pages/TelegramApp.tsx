@@ -30,10 +30,20 @@ function formatDateTime(iso: string | null | undefined): string {
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [deepLinkApprovalId, setDeepLinkApprovalId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authenticated) return;
+    const search = window.location.search || '';
     const hash = window.location.hash || '';
+    const params = new URLSearchParams(search);
+    const view = params.get('view');
+    const id = params.get('id');
+    if (view === 'approve') {
+      setTab('approve');
+      if (id) setDeepLinkApprovalId(id);
+      return;
+    }
     if (/multichannel|approve|approval/i.test(hash)) {
       setTab('approve');
     }
@@ -108,7 +118,7 @@ export default function TelegramApp() {
       <main className="flex-1 overflow-y-auto pb-20">
         {tab === 'dashboard' && <DashboardTab orgId={organizationId} userId={userId} />}
         {tab === 'create' && <CreateTab orgId={organizationId} userId={userId} onDone={() => setTab('dashboard')} />}
-        {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} />}
+        {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} autoOpenId={deepLinkApprovalId} onAutoOpened={() => setDeepLinkApprovalId(null)} />}
         {tab === 'scheduled' && <ScheduledTab orgId={organizationId} />}
         {tab === 'brands' && <BrandsTab orgId={organizationId} />}
       </main>
@@ -312,7 +322,7 @@ type ApprovalItem = {
 
 type ImageRow = { image_url: string; channel: string };
 
-function ApproveTab({ orgId, onScheduled }: { orgId: string; onScheduled: () => void }) {
+function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: string; onScheduled: () => void; autoOpenId?: string | null; onAutoOpened?: () => void }) {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
@@ -346,6 +356,21 @@ function ApproveTab({ orgId, onScheduled }: { orgId: string; onScheduled: () => 
     setLoading(false);
   }
   useEffect(() => { void load(); }, [orgId]);
+
+  // Deep-link auto-open: if URL had ?view=approve&id=, open that approval's preview drawer
+  useEffect(() => {
+    if (!autoOpenId || loading || items.length === 0) return;
+    const target = items.find((x) => x.id === autoOpenId);
+    if (target) {
+      void openPreview(target);
+      onAutoOpened?.();
+    } else {
+      // Approval might already be processed or out of recent window
+      toast.info('Yêu cầu duyệt này không còn trong danh sách (có thể đã xử lý).');
+      onAutoOpened?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenId, loading, items.length]);
 
   async function openPreview(it: ApprovalItem) {
     setPreviewItem(it);

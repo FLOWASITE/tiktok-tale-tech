@@ -10,6 +10,7 @@ export interface InlineButton {
   text: string;
   callback_data?: string; // <= 64 bytes
   url?: string;
+  web_app?: { url: string };
 }
 
 export type InlineKeyboard = InlineButton[][];
@@ -142,16 +143,34 @@ export async function pushMany(
 
 // Convenience builder for an "approval needed" inline keyboard.
 // callback_data must stay <= 64 bytes — use short prefix + approval id.
+// Includes optional web_app deep-link to Mini App preview drawer.
 export function approvalKeyboard(approvalId: string): InlineKeyboard {
+  const miniAppUrl = `https://app.flowa.one/telegram-app?view=approve&id=${approvalId}&v=tg-auth-v2`;
   return [
+    [{ text: "👁️ Xem chi tiết", web_app: { url: miniAppUrl } } as unknown as InlineButton],
     [
-      { text: "✅ Duyệt", callback_data: `apv:a:${approvalId}` },
+      { text: "✅ Duyệt ngay", callback_data: `apv:a:${approvalId}` },
       { text: "❌ Từ chối", callback_data: `apv:r:${approvalId}` },
     ],
+    [{ text: "📅 Duyệt & đổi lịch", callback_data: `apv:s:${approvalId}` }],
   ];
 }
 
+function formatVnDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+interface ApprovalNotifyOpts {
+  channels?: string[] | null;
+  scheduledAt?: string | null;
+  botUsername?: string | null;
+}
+
 // Notify admins that a pipeline needs approval.
+// Falls back to linked group(s) if no admin DM is available.
 export async function notifyApprovalNeeded(
   // deno-lint-ignore no-explicit-any
   supabase: any,
@@ -159,21 +178,54 @@ export async function notifyApprovalNeeded(
   approvalId: string,
   contentTitle: string,
   contentPreview?: string | null,
+  opts: ApprovalNotifyOpts = {},
 ): Promise<void> {
   const targets = await resolveAdminTargets(supabase, organizationId);
-  if (targets.length === 0) {
-    console.log("[telegram-notifier] no admin targets for org", organizationId);
+
+  const title = escapeMd(contentTitle.slice(0, 80));
+  const channelsLine = opts.channels && opts.channels.length > 0
+    ? `\n📢 ${escapeMd(opts.channels.join(", "))}`
+    : "";
+  const scheduleLine = opts.scheduledAt
+    ? `\n📅 Sẽ đăng: ${escapeMd(formatVnDateTime(opts.scheduledAt))}`
+    : "";
+  const preview = contentPreview
+    ? `\n\n${escapeMd(contentPreview.slice(0, 200))}${contentPreview.length > 200 ? "…" : ""}`
+    : "";
+
+  const text = `🔔 *Cần duyệt nội dung*\n\n📝 ${title}${channelsLine}${scheduleLine}${preview}`;
+
+  if (targets.length > 0) {
+    await pushMany(targets, text, {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: approvalKeyboard(approvalId) },
+      disable_web_page_preview: true,
+    });
     return;
   }
 
-  const title = escapeMd(contentTitle.slice(0, 80));
-  const preview = contentPreview
-    ? `\n\n${escapeMd(contentPreview.slice(0, 280))}${contentPreview.length > 280 ? "…" : ""}`
-    : "";
+  // Fallback: post to linked group(s) so admins notice even without DM
+  console.log("[telegram-notifier] no admin DM targets, trying group fallback for org", organizationId);
+  const botToken = await getOrgBotToken(supabase, organizationId);
+  if (!botToken) return;
 
-  const text = `🔔 *Cần duyệt nội dung*\n\n📝 ${title}${preview}\n\n_Bấm nút bên dưới để xử lý ngay._`;
+  const { data: groups } = await supabase
+    .from("telegram_chat_bindings")
+    .select("telegram_chat_id")
+    .eq("organization_id", organizationId)
+    .eq("chat_type", "group")
+    .eq("is_active", true);
 
-  await pushMany(targets, text, {
+  const groupTargets: PushTarget[] = (groups ?? []).map(
+    (g: { telegram_chat_id: number }) => ({ chatId: Number(g.telegram_chat_id), botToken }),
+  );
+  if (groupTargets.length === 0) return;
+
+  const startLink = opts.botUsername
+    ? `\n\n👆 Admin chưa kết nối DM bot — vào https://t.me/${opts.botUsername}?start=link để nhận push duyệt riêng.`
+    : "\n\n👆 Admin chưa kết nối DM bot — gõ /start trong DM để nhận push duyệt riêng.";
+
+  await pushMany(groupTargets, text + startLink, {
     parse_mode: "Markdown",
     reply_markup: { inline_keyboard: approvalKeyboard(approvalId) },
     disable_web_page_preview: true,

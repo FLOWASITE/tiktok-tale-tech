@@ -1797,12 +1797,35 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           if (newApproval?.id) {
             try {
               const { notifyApprovalNeeded } = await import("../_shared/telegram-notifier.ts");
+
+              // Enrich with channels + scheduled time + bot username for fallback link
+              let channels: string[] | null = null;
+              if (pipeline.content_id) {
+                const { data: mc } = await supabase
+                  .from("multi_channel_contents")
+                  .select("selected_channels")
+                  .eq("id", pipeline.content_id)
+                  .maybeSingle();
+                channels = (mc?.selected_channels as string[] | null) ?? null;
+              }
+              const { data: bot } = await supabase
+                .from("telegram_bot_configs")
+                .select("bot_username")
+                .eq("organization_id", pipeline.organization_id)
+                .eq("is_active", true)
+                .maybeSingle();
+
               await notifyApprovalNeeded(
                 supabase,
                 pipeline.organization_id,
                 newApproval.id,
                 pipeline.content_title || "Nội dung mới",
                 createOutput?.title || null,
+                {
+                  channels,
+                  scheduledAt: pipeline.scheduled_publish_at ?? null,
+                  botUsername: bot?.bot_username ?? null,
+                },
               );
             } catch (e) {
               console.warn("[approval] Telegram push failed:", e);
