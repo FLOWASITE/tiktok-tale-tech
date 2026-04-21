@@ -61,7 +61,7 @@ export function useTelegramBinding() {
     } catch (err) {
       console.error('[useTelegramBinding] fetch error:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [currentOrganization, user]);
 
