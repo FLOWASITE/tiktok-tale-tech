@@ -1,56 +1,86 @@
 
 
-# Tại sao vẫn chưa duyệt được — chẩn đoán cuối cùng
+# Tại sao sau khi duyệt không thấy nội dung và hình ảnh
 
-## Kết luận sau khi kiểm tra trực tiếp
+## Chẩn đoán chính xác
 
-Tôi vừa fetch HTML của `https://app.flowa.one/telegram-app` và phát hiện bundle **published vẫn là bundle CŨ**, bằng chứng:
+Tôi đã check DB cho pipeline vừa duyệt (`165d279c...`):
 
-- Trang hiện text hint:
-  ```text
-  Nếu bạn chưa link tài khoản: gõ /start trong DM với bot trước.
-  ```
-- Text này **không còn tồn tại** trong source hiện tại (`src/pages/TelegramApp.tsx`). Source mới đã đổi sang các hint khác nhau theo `errorCode` (`not_linked`, `ambiguous_org`, `no_init_data`, `token_hash and type`, …).
+- Content `e10e774e...` đã được tạo thành công từ 00:42 cùng ngày
+- Đã có **ảnh Facebook** tại `channel_image_history` (tạo 00:42:02)
+- Approval `5a18bd2a...` đã chuyển sang `approved` lúc 15:55:23
+- Pipeline đã chuyển `approval → publish`
+- Tạo 2 `content_schedules`: Facebook + Website, **scheduled_at = 2026-04-23 09:00**
+- Cả 2 schedule vẫn ở trạng thái `scheduled`, chưa published
 
-## Vì sao điều này gây ra lỗi
+Kết luận: **luồng duyệt đã chạy ĐÚNG**. Nội dung + ảnh đã có sẵn, và đã được đặt lịch đăng vào 2 ngày sau (23/04). Chưa có gì "mất" cả.
 
-- Tất cả các fix vừa rồi (verifyMagicLinkTokenHash trực tiếp, bỏ `email` khỏi backend, cache-busting `v=tg-auth-v2`) đều đã có trong source code.
-- Backend (`telegram-webapp-auth`, `telegram-webhook`, `telegram-bot-admin`) đã auto-deploy khi push (Lovable Cloud tự động).
-- Nhưng **frontend không tự deploy** — phải bấm nút **Update** trong Publish dialog để bundle mới được đẩy lên `app.flowa.one`.
-- Telegram WebView mở `app.flowa.one` → vẫn nhận bundle cũ → vẫn gọi `verifyOtp` kèm `email` → vẫn lỗi `400 Only the token_hash and type should be provided`.
+## Vậy tại sao user cảm thấy "không thấy gì"?
 
-## Bằng chứng phụ từ logs
+Đây là **vấn đề UX** trong `TelegramApp.tsx > ApproveTab`:
 
-- `auth_logs` không còn entry `/verify` 4xx mới nào trong khoảng gần đây — đúng kỳ vọng vì backend đã ngừng trả `email`, nhưng frontend cũ vẫn gửi field `email: undefined` nên Supabase reject.
-- `telegram-webapp-auth` edge function log gần nhất: `200 OK` trong ~10s (cold start). Backend phía server hoạt động đúng.
-- `telegram_chat_bindings` có 1 row active cho org `bccfec38-2d27-…` → bot binding OK.
+1. Sau khi bấm "Duyệt", code chỉ chạy `setItems((arr) => arr.filter((x) => x.id !== id))` — xoá item khỏi list
+2. Không hiện thông báo "Đã duyệt xong, sẽ đăng lúc ngày/giờ X"
+3. Không link sang chỗ xem nội dung đã duyệt và ảnh
+4. Mini App không có tab "Đã duyệt / Lên lịch" để preview content + xem ảnh
+5. Nếu tất cả item đã duyệt xong → hiện "Không có nội dung nào chờ duyệt 🎉" → user tưởng "mất hết"
 
-## Hành động cần làm — 1 bước duy nhất
+Nội dung thực sự nằm ở trang web `app.flowa.one/multichannel/e10e774e...` và ảnh ở `channel_image_history`, nhưng Mini App không render những chỗ đó.
 
-### Bấm Update trong Publish dialog
+## Kế hoạch fix
 
-1. Mở Publish dialog (góc trên phải editor).
-2. Bấm **Update** để đẩy bundle frontend mới nhất lên `app.flowa.one`.
-3. Sau khi update xong, trong Telegram:
-   - **Đóng hẳn Mini App** (vuốt xuống để close, không chỉ thu nhỏ).
-   - Bấm lại nút "Xem & duyệt" mới (đã có `?v=tg-auth-v2`) — cache buster sẽ buộc Telegram WebView load HTML mới.
-4. Mini App sẽ chạy bundle mới: gọi `verifyMagicLinkTokenHash` (direct fetch, chỉ gửi `type + token_hash`) → đăng nhập thành công → vào tab Duyệt.
+### 1) Toast xác nhận sau khi duyệt
+File: `src/pages/TelegramApp.tsx` trong `ApproveTab.act()`
 
-## Verify sau khi update
+Sau khi invoke `agent-approve`, đọc response:
+- Nếu có `scheduled_publish_at` → toast: "Đã duyệt. Sẽ đăng lúc {dd/MM HH:mm}"
+- Nếu publish ngay → toast: "Đã duyệt và đang đăng"
+- Nếu error → toast đỏ
 
-- Mở `https://app.flowa.one/telegram-app` ngoài Telegram → text hint phải đổi thành câu mới (nói về việc mở từ trong bot).
-- Mini App trong Telegram: không còn card "Không xác thực được", vào thẳng tab Duyệt.
-- Auth logs: `/verify` mới sẽ trả `200`, không còn `400`.
+### 2) Thêm "Preview" trước khi duyệt
+Trong card mỗi approval, thêm nút "Xem đầy đủ" mở dialog/drawer hiện:
+- Nội dung full (text)
+- Ảnh cover từ `channel_image_history` (query theo `content_id` lấy từ `agent_approvals.agent_pipelines.content_id`)
+- Danh sách kênh sẽ đăng
+- Thời gian đã scheduled nếu có
 
-## Nếu sau khi Update vẫn lỗi
+Query bổ sung trong `ApproveTab.load()`:
+```
+select id, content_preview, created_at,
+       agent_pipelines(content_id, content_title,
+         multi_channel_contents(channel_statuses, selected_channels),
+         scheduled_publish_at
+       )
+from agent_approvals
+```
+Và fetch `channel_image_history` theo `content_id` để hiện ảnh.
 
-Khi đó vấn đề thực sự nằm ở runtime — gửi lại screenshot, tôi sẽ debug tiếp dựa trên bundle MỚI. Hiện tại không thể fix thêm gì ở code vì code đã đúng; điểm nghẽn là deployment.
+### 3) Tab "Lên lịch" mới
+Thêm tab `scheduled` vào bottom nav. Hiện danh sách `content_schedules` của org với trạng thái `scheduled` hoặc `publishing`:
+- Tiêu đề bài, kênh, thời gian sẽ đăng
+- Thumbnail ảnh nếu có
+- Nút "Huỷ lịch" gọi update `publish_status = 'cancelled'`
+
+Giúp user thấy rõ: "Bài đã duyệt đang nằm ở đây, sẽ đăng vào ngày X".
+
+### 4) Hiện scheduled time ngay trong card approval
+Trước khi duyệt, nếu `agent_pipelines.scheduled_publish_at` đã set (từ Goal Wizard / Campaign Planner), hiện dòng nhỏ:
+
+```
+📅 Sẽ đăng: 23/04/2026 09:00 • Facebook, Website
+```
+
+Để user biết approve bây giờ không có nghĩa là đăng ngay.
+
+## Files sẽ sửa
+
+- `src/pages/TelegramApp.tsx` — thêm toast, preview drawer, tab Lên lịch, hiện scheduled_at
 
 ## Rủi ro
 
-Không có. Đây chỉ là bước publish frontend — backend đã sẵn sàng từ trước.
+Thấp. Không đụng `agent-approve`, không đổi schema, không đổi RLS. Chỉ cải thiện UX đọc dữ liệu có sẵn.
 
-<lov-actions>
-<lov-link url="https://docs.lovable.dev/features/deploy">Hướng dẫn Publish</lov-link>
-</lov-actions>
+## Ngoài phạm vi
+
+Nếu user muốn "duyệt xong đăng ngay lập tức", cần bỏ `scheduled_publish_at` của pipeline trước khi duyệt — việc này do Goal Wizard / Campaign quyết định, không phải bug. Có thể thêm toggle "Đăng ngay thay vì theo lịch" trong approve dialog ở lần sau nếu cần.
 
