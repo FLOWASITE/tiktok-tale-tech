@@ -501,6 +501,8 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       if (!id) {
         try { id = sessionStorage.getItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
       }
+      // Force a fresh DB hit on the next auto-open attempt.
+      if (id) APPROVAL_FETCH_CACHE.delete(id);
       await load();
       if (id) {
         try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
