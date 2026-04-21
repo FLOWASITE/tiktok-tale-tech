@@ -282,13 +282,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           </div>
         </div>
 
-        {/* Group binding accordion — unchanged */}
-        <GroupAccordion
-          groupBinding={groupBinding}
-          isAdmin={isAdmin}
-          unlinkingGroup={unlinkingGroup}
-          onUnlinkGroup={handleUnlinkGroup}
-        />
       </div>
     );
   }
