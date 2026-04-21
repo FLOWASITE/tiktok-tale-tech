@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { TelegramBotConfigCard } from '@/components/agents/TelegramBotConfigCard';
 import { TelegramLinkCard } from '@/components/agents/TelegramLinkCard';
 import { ChatPreview } from '@/components/agents/ChatPreview';
-import { TelegramUseCases } from '@/components/agents/TelegramUseCases';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -129,9 +129,6 @@ export default function AgentTelegramPage() {
         botUsername={effectiveBotUsername}
         usingDefaultBot={usingDefaultBot}
       />
-
-      {/* Use cases + full command list */}
-      <TelegramUseCases />
     </div>
   );
 }

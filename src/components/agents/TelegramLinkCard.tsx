@@ -3,8 +3,6 @@ import QRCode from 'qrcode';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -21,7 +19,6 @@ import { toast } from '@/hooks/use-toast';
 import {
   Loader2,
   Unlink,
-  Users,
   AlertCircle,
   ExternalLink,
   Send,
@@ -42,10 +39,8 @@ const TOKEN_REFRESH_MS = 8 * 60 * 1000; // refresh 2 min before 10-min TTL
 export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultBot }: TelegramLinkCardProps) {
   const {
     binding,
-    groupBinding,
     loading,
     unlink,
-    unlinkGroup,
     ensureDeeplink,
     prefetchedDeeplink,
     setBinding,
@@ -53,7 +48,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
 
-  const [unlinkingGroup, setUnlinkingGroup] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [pinging, setPinging] = useState(false);
   const [prefetchError, setPrefetchError] = useState<string | null>(null);
@@ -136,11 +130,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
       supabase.removeChannel(channel);
     };
   }, [user, currentOrganization, binding, setBinding]);
-
-  const handleUnlinkGroup = async () => {
-    setUnlinkingGroup(true);
-    try { await unlinkGroup(); } finally { setUnlinkingGroup(false); }
-  };
 
   const handleTestPing = async () => {
     if (!currentOrganization) return;
@@ -282,13 +271,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           </div>
         </div>
 
-        {/* Group binding accordion — unchanged */}
-        <GroupAccordion
-          groupBinding={groupBinding}
-          isAdmin={isAdmin}
-          unlinkingGroup={unlinkingGroup}
-          onUnlinkGroup={handleUnlinkGroup}
-        />
       </div>
     );
   }
@@ -374,75 +356,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           tạo campaign, hỏi quota, kiểm tra pipeline, không cần mở app.
         </p>
       </div>
-
-      <GroupAccordion
-        groupBinding={groupBinding}
-        isAdmin={isAdmin}
-        unlinkingGroup={unlinkingGroup}
-        onUnlinkGroup={handleUnlinkGroup}
-      />
     </div>
   );
 }
 
-// ----------------- Group accordion (unchanged behaviour) -----------------
-function GroupAccordion({
-  groupBinding,
-  isAdmin,
-  unlinkingGroup,
-  onUnlinkGroup,
-}: {
-  groupBinding: TelegramBinding | null;
-  isAdmin: boolean;
-  unlinkingGroup: boolean;
-  onUnlinkGroup: () => void;
-}) {
-  return (
-    <Accordion type="single" collapsible>
-      <AccordionItem value="group" className="border rounded-md px-3">
-        <AccordionTrigger className="py-2 text-sm hover:no-underline">
-          <div className="flex items-center gap-2 flex-1">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            <span>Group tổ chức</span>
-            <span className="text-xs text-muted-foreground">(tùy chọn)</span>
-            {groupBinding ? (
-              <Badge variant="default" className="ml-auto mr-2">Đã link</Badge>
-            ) : (
-              <Badge variant="secondary" className="ml-auto mr-2">Chưa link</Badge>
-            )}
-          </div>
-        </AccordionTrigger>
-        <AccordionContent>
-          {groupBinding ? (
-            <div className="space-y-2 pt-1">
-              <p className="text-xs text-muted-foreground">
-                Chat ID: <code className="text-foreground">{groupBinding.telegram_chat_id}</code>
-              </p>
-              {isAdmin && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onUnlinkGroup}
-                  disabled={unlinkingGroup}
-                  className="text-destructive hover:text-destructive"
-                >
-                  {unlinkingGroup ? (
-                    <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                  ) : (
-                    <Unlink className="w-3.5 h-3.5 mr-1" />
-                  )}
-                  Gỡ group
-                </Button>
-              )}
-            </div>
-          ) : (
-            <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside pt-1">
-              <li>Admin add bot vào group Telegram của team</li>
-              <li>Gõ <code className="text-primary">/link_group</code> trong group để hoàn tất</li>
-            </ol>
-          )}
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
-  );
-}
