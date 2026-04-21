@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { toast } from 'sonner';
-import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check, CalendarClock, Eye, X as XIcon } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check, CalendarClock, Eye, X as XIcon, RefreshCw } from 'lucide-react';
 
 type Tab = 'dashboard' | 'create' | 'approve' | 'scheduled' | 'brands';
 
