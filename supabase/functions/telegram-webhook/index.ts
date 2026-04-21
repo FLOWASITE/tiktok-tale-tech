@@ -16,6 +16,25 @@ import {
 } from "../_shared/telegram-client.ts";
 
 const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
+
+/**
+ * Build a Mini App URL with `?org=<uuid>` query (used by useTelegramWebApp for auth)
+ * and an optional hash path for in-app navigation (BrowserRouter ignores #-hash so query is needed).
+ * If orgId is null/empty (e.g. default bot before binding), returns base URL untouched.
+ */
+function buildMiniAppUrl(orgId: string | null | undefined, hashPath?: string): string {
+  try {
+    const u = new URL(MINI_APP_URL);
+    if (orgId) u.searchParams.set("org", orgId);
+    if (hashPath) u.hash = hashPath.startsWith("#") ? hashPath : `#${hashPath}`;
+    return u.toString();
+  } catch {
+    // Fallback string concat if URL parsing fails
+    const sep = MINI_APP_URL.includes("?") ? "&" : "?";
+    const base = orgId ? `${MINI_APP_URL}${sep}org=${orgId}` : MINI_APP_URL;
+    return hashPath ? `${base}${hashPath.startsWith("#") ? hashPath : `#${hashPath}`}` : base;
+  }
+}
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
 
@@ -1281,7 +1300,7 @@ async function handleGenerateSingle(
     if (contentId) {
       keyboard.push([{
         text: "📝 Xem & duyệt",
-        web_app: { url: `${MINI_APP_URL}#/multichannel/${contentId}` },
+        web_app: { url: buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`) },
       }]);
     }
 
@@ -1762,7 +1781,7 @@ async function renderBrandSwitcher(args: {
 
   const activeId = await getActiveBrandId(supabase, botConfig.organizationId, chatId);
   const keyboard = buildBrandSwitcherKeyboard(filtered, activeId, state.page, {
-    webAppUrl: MINI_APP_URL,
+    webAppUrl: buildMiniAppUrl(botConfig.organizationId),
     appBaseUrl: "https://app.flowa.one",
   });
   const replyMarkup = { inline_keyboard: keyboard };
@@ -2187,7 +2206,7 @@ async function handleConfirmLinkCallback(args: {
     ].join("\n"),
     {
       parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+      reply_markup: { inline_keyboard: buildWelcomeKeyboard(buildMiniAppUrl(pending.payload_org)) },
     },
   );
 
@@ -2449,7 +2468,7 @@ async function handleTutorial(
   if (stepClamped < 3) {
     keyboard.push([{ text: s.cta, callback_data: `ux:tut:${stepClamped + 1}` }]);
   } else {
-    keyboard.push([{ text: "🚀 Mở Mini App", web_app: { url: MINI_APP_URL } }]);
+    keyboard.push([{ text: "🚀 Mở Mini App", web_app: { url: buildMiniAppUrl(botConfig.organizationId) } }]);
     keyboard.push([{ text: s.cta, callback_data: "ux:tut:done" }]);
   }
 
