@@ -1,76 +1,89 @@
-# Refactor "Nhận Agent của bạn" thành hub chọn channel
 
-## Mục tiêu
 
-Thay vì click "Nhận Agent của bạn" → vào thẳng Telegram page, sẽ vào trang **hub** liệt kê 3 channel: Telegram , Slack (Soon), Zalo (Soon). User chọn channel → vào trang config tương ứng.
+# Gọn gàng hóa Telegram Agent page (connected state)
 
-Layout giống ảnh Manus: list dạng card mỗi row có icon + tên channel bên trái, status badge "Đã kết nối" / button "Kết nối" bên phải.
+## Tình trạng hiện tại (theo screenshot)
+Khi đã kết nối, page có quá nhiều khối lặp nội dung trên 1 viewport:
+1. Header "Telegram Agent" + status badge
+2. Banner "Đang dùng bot mặc định @Flowa123bot" + nút "Đổi bot riêng"
+3. Card "AI Agent đang lắng nghe trên @Flowa123bot · mặc định" + Chat ID + Mở chat / Test ping / Gỡ
+4. Hint "Chat tự nhiên: tạo campaign cho spa…"
+5. Accordion "Group tổ chức"
+6. Section "Sau khi link, bạn có thể…" + 4 use case card
+7. Accordion "Xem tất cả lệnh"
 
-## Thay đổi
+→ Bot username lặp 3 lần (header banner, card title, hint mặc định). Khoảng cách lớn, hint command chiếm chỗ trùng với section use-case bên dưới.
 
-### 1. Tạo page mới `src/pages/AgentChannelHubPage.tsx`
+## Nguyên tắc dọn
+- 1 ý chỉ nói 1 lần.
+- Các action phụ (Test ping, Gỡ) → ẩn vào dropdown menu (kebab `⋯`).
+- Banner default-bot và badge "mặc định" trong card → gộp lại thành 1 dòng meta nhỏ dưới title card, không còn banner riêng.
+- Hint "Chat tự nhiên: tạo campaign…" trong card → bỏ (đã có hẳn section "Sau khi link, bạn có thể…" phía dưới với 4 use case rõ ràng hơn).
+- Section "Sau khi link…" → đổi heading thành "Gợi ý nhanh" + grid gọn lại (không cần subtitle dài).
+- Group accordion + Commands accordion → giữ nguyên (đã collapse mặc định, không chiếm chỗ).
 
-- Header: "Nhận Agent của bạn" + sub "Chọn nền tảng để chat với AI Agent"
-- Card list (3 row):
-  - **Telegram**: icon Send (xanh), check `useTelegramBinding` → nếu có binding hiện badge "Đã kết nối" (green); nếu không hiện button "Kết nối" → navigate `/agents/telegram`
-  - **Slack**: icon Slack (lucide), badge "Sắp ra mắt" (secondary), disabled
-  - **Zalo**: icon `ZaloIcon` từ `@/components/icons/SocialIcons`, badge "Sắp ra mắt", disabled
-- Click vào row Telegram (hoặc button) → navigate `/agents/telegram`
-- Style: dùng `Card` shadcn, divider giữa rows, hover bg-muted/30 cho row clickable, opacity-60 cho row coming-soon
+## Thay đổi cụ thể
 
-### 2. Routing `src/app/routes.tsx`
+### 1. `src/pages/AgentTelegramPage.tsx`
+- **Xoá** banner "Đang dùng bot mặc định @… · Đổi bot riêng" (block `usingDefaultBot &&`). Thay bằng: nếu admin + dùng default bot → đặt 1 link nhỏ "Dùng bot riêng (white-label)" ở góc phải header (cùng dòng badge status), click mở dialog chứa `<TelegramBotConfigCard />`. Non-admin: không thấy gì cả.
+- **Xoá** subtitle "Chat AI Agent ngay trong Telegram. Setup < 1 phút." khi đã kết nối (chỉ giữ khi `showOnboarding`). Khi connected, subtitle redundant.
+- Onboarding section + ChatPreview: giữ nguyên (chỉ hiện khi chưa link).
 
-- Thêm route `/agents/channels` → `AgentChannelHubPage` (lazy)
-- Giữ nguyên `/agents/telegram` (đã có)
+### 2. `src/components/agents/TelegramLinkCard.tsx` (connected state)
+- Card title row: giữ "AI Agent đang lắng nghe trên @bot". **Bỏ** badge "mặc định" inline (đã thể hiện qua link "white-label" ở header).
+- **Bỏ** dòng meta `Chat ID: 8709703794 · Hoạt động 26 phút trước` → rút thành 1 dòng nhỏ chỉ "Hoạt động 26 phút trước" (Chat ID là technical, ẩn vào tooltip trên dot pulse).
+- Action row: giữ **chỉ "Mở chat"** là button primary. "Test ping" + "Gỡ" → gộp vào `DropdownMenu` với trigger là icon button `⋯` (MoreHorizontal) bên cạnh.
+- **Xoá hẳn block hint** "Chat tự nhiên: tạo campaign cho spa, quota tháng này, hoặc gõ /campaign, /pause" (lines 261-268) — duplicate với section use-case bên dưới.
 
-### 3. Sidebar `src/components/AppSidebar.tsx`
+### 3. `src/components/agents/TelegramUseCases.tsx`
+- Heading "Sau khi link, bạn có thể…" → đổi thành **"Gợi ý nhanh"**, bỏ subtitle dài "Chat tự nhiên — hoặc dùng lệnh gõ nhanh nếu thích."
+- Grid 4 card: giảm padding `p-3` → `p-2.5`, gap `2.5` → `2`. Giữ icon + title + example (ngắn).
 
-- Đổi URL của item "Nhận Agent của bạn" từ `/agents/telegram` → `/agents/channels`
-- **Xóa** item Slack đã thêm trước đó (vì giờ Slack nằm trong hub)
+## Kết quả mong đợi (connected state)
+```
+┌─ Telegram Agent                              [Đã kết nối] [Dùng bot riêng] ─┐
+│                                                                              │
+│ ┌────────────────────────────────────────────────────────────────────────┐  │
+│ │ ●  AI Agent đang lắng nghe trên @Flowa123bot                           │  │
+│ │    Hoạt động 26 phút trước                                             │  │
+│ │                                                                         │  │
+│ │  [Mở chat]  [⋯]                                                        │  │
+│ └────────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│ ▸ Group tổ chức (tùy chọn)                              [Chưa link]         │
+│                                                                              │
+│ Gợi ý nhanh                                                                  │
+│ ┌────────────────┐ ┌────────────────┐                                       │
+│ │ 💬 Chat tự nhiên│ │ 📊 Hỏi quota   │                                       │
+│ └────────────────┘ └────────────────┘                                       │
+│ ┌────────────────┐ ┌────────────────┐                                       │
+│ │ 🎯 Tạo campaign│ │ ⏸ Quản lý      │                                       │
+│ └────────────────┘ └────────────────┘                                       │
+│                                                                              │
+│ ▸ Xem tất cả lệnh                                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
-### 4. i18n `src/i18n/locales/{vi,en,th}.json`
-
-- Xóa key `app.sidebar.slackAgent` (không còn dùng)
-- Thêm keys cho hub page (optional nếu muốn i18n đầy đủ):
-  - `agentHub.title`: "Nhận Agent của bạn" / "Get your Agent" / "รับ Agent ของคุณ"
-  - `agentHub.subtitle`: "Chọn nền tảng để chat với AI Agent" / ... / ...
-  - `agentHub.connected`: "Đã kết nối" / "Connected" / "เชื่อมต่อแล้ว"
-  - `agentHub.connect`: "Kết nối" / "Connect" / "เชื่อมต่อ"
-  - `agentHub.comingSoon`: "Sắp ra mắt" / "Coming soon" / "เร็วๆ นี้"
-
-### 5. Optional: back link trên `AgentTelegramPage`
-
-- Thêm 1 nút "← Quay lại" ở header trỏ về `/agents/channels` để UX vòng tròn rõ ràng. Không bắt buộc.
+→ Vertical chiều dài giảm ~35-40%, bot username chỉ xuất hiện 1 lần, không có CTA trùng lắp.
 
 ## File thay đổi
 
-
-| File                                | Loại                                        |
-| ----------------------------------- | ------------------------------------------- |
-| `src/pages/AgentChannelHubPage.tsx` | mới                                         |
-| `src/app/routes.tsx`                | thêm route `/agents/channels`               |
-| `src/components/AppSidebar.tsx`     | đổi URL Telegram → channels, xóa item Slack |
-| `src/i18n/locales/vi.json`          | xóa slackAgent, thêm agentHub.*             |
-| `src/i18n/locales/en.json`          | tương tự                                    |
-| `src/i18n/locales/th.json`          | tương tự                                    |
-| `src/pages/AgentTelegramPage.tsx`   | (optional) thêm back link                   |
-
+| File | Loại |
+|---|---|
+| `src/pages/AgentTelegramPage.tsx` | bỏ banner default-bot + subtitle khi connected, thêm link "white-label" ở header (admin) mở dialog |
+| `src/components/agents/TelegramLinkCard.tsx` | rút meta line, gộp Test ping + Gỡ vào DropdownMenu, xoá hint block |
+| `src/components/agents/TelegramUseCases.tsx` | rút heading + spacing |
 
 ## Test E2E
-
-1. Sidebar click "Nhận Agent của bạn" → vào `/agents/channels`, thấy 3 card: Telegram, Slack, Zalo
-2. User chưa link Telegram → row Telegram hiện button "Kết nối" → click → vào `/agents/telegram` flow link bình thường
-3. User đã link → row Telegram hiện badge "Đã kết nối" (green) thay vì button
-4. Slack & Zalo: badge "Sắp ra mắt", click không có effect (disabled)
-5. Sidebar không còn item Slack riêng — chỉ còn 1 item "Nhận Agent của bạn"
-6. Mobile 707px: card stack đẹp, icon + label không bị crop, badge/button align right
-7. Switch EN/TH: labels dịch đúng
+1. Connected + default bot + non-admin: chỉ thấy 1 card lắng nghe + 1 nút "Mở chat" + kebab menu, không thấy banner "default bot"
+2. Connected + admin: header có link nhỏ "Dùng bot riêng" → click mở dialog config (Accordion cũ converted thành dialog hoặc giữ inline tuỳ implementation gọn)
+3. Click kebab `⋯`: thấy 2 mục "Test ping" + "Gỡ kết nối"
+4. Chưa connected (onboarding): giữ nguyên 3-step strip + ChatPreview như cũ
+5. Mobile 798px: card không tràn, kebab menu mở đúng vị trí
 
 ## Ước tính
-
-**12-18 phút** — 1 page mới, 1 route, 1 sidebar update, 3 file i18n.
+**8-12 phút** — 3 file UI, không đụng logic/data.
 
 ## Rủi ro
+Không. Chỉ refactor visual; binding logic, deeplink prefetch, realtime subscription giữ nguyên 100%.
 
-- Bookmark cũ `/agents/telegram` vẫn hoạt động (không break).
-- Nếu user vào thẳng `/agents/telegram` không qua hub, vẫn OK (page self-contained).
