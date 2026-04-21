@@ -1,94 +1,77 @@
 
 
-# Duyệt trực tiếp bằng nút trong Telegram — đã có sẵn, cần nâng cấp
+# Sửa lỗi Telegram tạo bài: sai brand, sai tiêu đề, thiếu ảnh, thiếu nội dung X
 
-## Trả lời ngắn
+## Chẩn đoán
 
-**Có. Đã có sẵn từ trước.** Mỗi khi pipeline tới bước duyệt, bot tự động đẩy push vào DM admin kèm 2 nút inline:
+Khi user chat trong Telegram bot "tạo bài đăng FB" / "tạo bài đăng X", flow hiện tại:
+1. Webhook nhận message → route sang chat agent (orchestrator → content-node)
+2. `content-node` gọi `generate_multichannel` với **`channels: ['facebook', 'instagram', 'tiktok']` hard-coded** (xem `supabase/functions/_shared/graph/nodes/content-node.ts` dòng 77)
+3. Không truyền `brandTemplateId` đúng từ Telegram binding → fallback brand mặc định
+4. Không gọi `image-node` → không có ảnh
+5. Tiêu đề trên Multichannel page lấy từ `userMessage` thô ("tạo bài đăng FB") thay vì topic được generate
 
-```text
-🔔 Cần duyệt nội dung
+Đây là 4 bug riêng biệt, cần sửa cùng lúc.
 
-📝 [Tiêu đề]
-[Preview 280 ký tự]
+## Kế hoạch sửa
 
-[ ✅ Duyệt ] [ ❌ Từ chối ]
-```
+### A. Parse channel từ message người dùng (fix bug #2 - X không có nội dung)
+File: `supabase/functions/_shared/graph/nodes/content-node.ts`
 
-Bấm nút → bot resolve Telegram user → app user → check role admin/owner → gọi `agent-approve` → chỉnh sửa message thành "✅ Đã duyệt — pipeline sẽ chuyển sang publish".
+- Thêm hàm `extractChannelsFromMessage(userMessage)`:
+  - Regex match: `facebook|fb|fanpage` → `facebook`
+  - `twitter|x\b|tweet` → `twitter`
+  - `instagram|ig` → `instagram`
+  - `tiktok|tt` → `tiktok`
+  - `linkedin|li` → `linkedin`
+  - `zalo|oa` → `zalo_oa`
+  - `threads`, `youtube`, `email`, `website|blog` → tương ứng
+- Nếu match được ≥1 channel → dùng list đó. Nếu không match → fallback `['facebook', 'instagram', 'tiktok']`
+- Áp dụng ở cả fast-path và fallback path
 
-**Tại sao bạn chưa thấy?** Push chỉ gửi cho admin/owner đã `/start` DM với bot. Nếu bạn chỉ kết nối qua group hoặc chưa từng /start trong DM, bot không gửi được push (Telegram cấm bot khởi tạo DM).
+### B. Truyền brand context đúng từ Telegram binding (fix bug #1 - sai brand)
+File: `supabase/functions/telegram-webhook/index.ts`
 
-## Tình trạng hiện tại trong code
+- Khi handler chat message resolve user_id từ telegram, đọc thêm `active_brand_template_id` từ `telegram_chat_bindings` (hoặc binding hiện hành của org)
+- Truyền `brandTemplateId` + `brandName` + `industry` xuống graph context (orchestrator → content-node ctx)
+- Nếu binding chưa có brand → fetch brand mặc định của org (`brand_templates` order by created_at limit 1)
 
-- `_shared/telegram-notifier.ts` → `approvalKeyboard()` + `notifyApprovalNeeded()` ✅
-- `agent-pipeline/index.ts` → tự gọi `notifyApprovalNeeded` khi tạo `agent_approvals` mới ✅
-- `telegram-webhook/index.ts` → handler `apv:a:` / `apv:r:` gọi `agent-approve` ✅
-- Permission check: chỉ `owner` / `admin` được duyệt từ Telegram ✅
-- Idempotent: nếu đã duyệt trước đó → toast "Đã được xử lý trước đó" ✅
+### C. Sinh topic/title đúng thay vì dùng raw message (fix bug #1 - tiêu đề sai)
+File: `supabase/functions/_shared/graph/nodes/content-node.ts`
 
-## Hạn chế cần fix
+- Trong fast-path, hiện đang lấy `topic = state.bestTopic || extractTopicFromPlan(...) || state.userMessage`
+- Vấn đề: từ Telegram, `bestTopic` và `contentPlan` đều null → rơi vào `userMessage = "tạo bài đăng FB"` → topic xấu
+- Fix: nếu `userMessage` match pattern "tạo bài [đăng/post] cho/trên <channel>" mà không có chủ đề cụ thể → **bỏ fast-path**, chạy fallback path để LLM tự sinh topic dựa trên brand context (industry, content_pillars)
+- Heuristic: regex `^(tạo|làm|viết)\s+(bài|post)` + length < 40 ký tự → coi là "thiếu topic" → đi fallback
 
-1. **Message thiếu context**: không hiện kênh sẽ đăng, không hiện scheduled time → user duyệt mù
-2. **Không có nút "Xem chi tiết"**: muốn xem ảnh + nội dung đầy đủ phải mở Mini App thủ công
-3. **Không có nút "Duyệt & lên lịch"**: chỉ có duyệt-ngay, không thể chỉnh giờ đăng từ Telegram
-4. **Push chỉ vào DM admin**: nếu chưa /start, không nhận được — không có fallback group notify
+### D. Gọi image-node sau content-node khi user yêu cầu bài đăng (fix bug #1, #2 - thiếu ảnh)
+File: `supabase/functions/_shared/graph/orchestrator.ts` (hoặc nơi build pipeline DAG)
 
-## Kế hoạch nâng cấp
+- Khi intent = `create_content` và message chứa keyword "bài đăng / post / đăng" → thêm node `image` chạy song song hoặc tuần tự sau `content`
+- `image-node` đã có sẵn (`image-node.ts`) — chỉ cần plan trong DAG include nó
+- Truyền `contentSummary` + `channel` từ output của content-node vào image-node để sinh ảnh đúng kênh
+- Lưu image URL vào `multi_channel_contents.channel_images[channel]` cùng lúc khi save content
 
-### A) Enrich message duyệt (file: `_shared/telegram-notifier.ts`)
+### E. Hiển thị title đúng trên Multichannel page
+File: `supabase/functions/_shared/tool-executor.ts` (hàm `executeGenerateMultichannel`) 
 
-Mở rộng `notifyApprovalNeeded` nhận thêm `channels[]` + `scheduledAt`. Render:
-
-```text
-🔔 Cần duyệt nội dung
-
-📝 [Tiêu đề]
-📢 Facebook, Website
-📅 Sẽ đăng: 23/04/2026 09:00
-
-[Preview 200 ký tự]
-
-[ 👁️ Xem chi tiết ] ← mở Mini App tới approval id
-[ ✅ Duyệt ngay ] [ ❌ Từ chối ]
-[ 📅 Duyệt & đổi lịch ]
-```
-
-Nút "Xem chi tiết" dùng `web_app` button trỏ tới `https://app.flowa.one/telegram-app?view=approve&id=<approvalId>&v=tg-auth-v2` — TelegramApp deep-link để auto-open Preview Drawer của approval đó.
-
-### B) Bổ sung callback "đổi lịch" (file: `telegram-webhook/index.ts`)
-
-Thêm pattern `apv:s:<approvalId>` → bot gửi inline keyboard chọn nhanh:
-- Đăng ngay
-- +1 giờ / +3 giờ / Sáng mai 9h / Chiều mai 14h
-- Mở Mini App để chọn ngày tuỳ chỉnh
-
-Khi user bấm → gọi `agent-approve` với `scheduled_publish_at` tương ứng.
-
-### C) Pass thêm dữ liệu từ `agent-pipeline` (file: `agent-pipeline/index.ts`)
-
-Tại chỗ gọi `notifyApprovalNeeded`, query thêm:
-- `multi_channel_contents.selected_channels` (theo `pipeline.content_id`)
-- `pipeline.scheduled_publish_at`
-
-Pass xuống notifier để render đầy đủ.
-
-### D) Fallback group notify (optional)
-
-Nếu không resolve được DM target nào (admin chưa /start), gửi vào group đã link với org kèm câu: "👆 Admin chưa kết nối DM bot — vào https://t.me/<bot>?start=link để nhận push duyệt".
+- Verify: khi insert vào `multi_channel_contents`, field `topic`/`title` đang lấy từ đâu?
+- Đảm bảo lưu **topic do AI generate** (từ output `generate_multichannel`), không phải `userMessage` raw
+- Nếu cần — thêm bước extract title từ first generated channel content (heading đầu tiên)
 
 ## Files sẽ sửa
 
-- `supabase/functions/_shared/telegram-notifier.ts` — extend `approvalKeyboard` + `notifyApprovalNeeded` signature
-- `supabase/functions/agent-pipeline/index.ts` — query thêm channels/schedule, pass xuống notifier
-- `supabase/functions/telegram-webhook/index.ts` — handler `apv:s:` cho đổi lịch nhanh
-- `src/pages/TelegramApp.tsx` — đọc `?view=approve&id=` để auto-mở Preview Drawer của đúng approval
+- `supabase/functions/_shared/graph/nodes/content-node.ts` — channel parser + smart fast-path skip
+- `supabase/functions/telegram-webhook/index.ts` — truyền brand context vào graph
+- `supabase/functions/_shared/graph/orchestrator.ts` — thêm image node vào DAG khi intent là create_content
+- `supabase/functions/_shared/tool-executor.ts` — verify title saving logic
 
 ## Rủi ro
 
-Thấp. Tất cả là enrich UX trên flow đã hoạt động. Không đổi schema, không đổi RLS, không đổi logic `agent-approve`. Callback data vẫn dưới 64 bytes (Telegram limit).
+Trung bình. Thay đổi DAG (thêm image node) có thể tăng thời gian sinh ~10-20s. Sẽ giữ image generation **không block** content save — nếu image fail vẫn save content.
 
-## Cần xác nhận trước khi triển khai
+## Ngoài phạm vi
 
-Bạn có muốn cả 4 phần (A+B+C+D) không, hay chỉ A+C (enrich message + nút Xem chi tiết) cho gọn lần đầu?
+- Cải thiện UI Telegram để chọn channel/brand trước khi generate (sẽ làm sau khi base flow ổn)
+- Đa ngôn ngữ trong channel parser (giờ chỉ VI/EN)
 
