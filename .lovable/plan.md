@@ -1,117 +1,71 @@
 
 
-# Telegram: gom nhiều step Goal Wizard vào 1 luồng chat
+# Fix: Carousel AI Agent ra khác Carousel thủ công
 
-## Vấn đề
+## Root cause
 
-Trên app, tạo campaign đi qua 6 bước Wizard:
-1. Tên + mô tả
-2. Kênh
-3. Thời lượng + ngày bắt đầu
-4. Tần suất
-5. Autonomy + approval mode
-6. Brand + clarification context
+Cả hai luồng đều gọi `generate-carousel` để soạn slides. Khác biệt nằm ở **Phase 2 — sinh ảnh**:
 
-Telegram `/generate <prompt>` hiện **bỏ qua hết**, hard-code:
-- channels = `["facebook","website"]`
-- duration = 14 ngày, cadence weekly×3
-- approval = `approve_plan`
-- brand = active brand
-- clarification = rỗng
+| | Thủ công (Carousel page) | Agent (`agent-creator-v2`) |
+|---|---|---|
+| Edge function | `generate-carousel-images-batch` | `generate-carousel-image` (gọi từng slide) |
+| Chain seamless V2 | Có: `previousSceneDescription` + `previousImageUrl` cuốn theo từng slide thực tế | Có 1 phần (`seamlessContext` = scene mô tả) nhưng **không có previousImageUrl**, không có rolling window 2 slide |
+| Series Bible | `buildSeriesBible(slides)` từ slide 1 → đảm bảo 1 thế giới hình ảnh | Không build, không truyền |
+| Brand colors | `extractBrandColorsWithFallback` (parse `brand_guideline` JSON → fallback `brand_templates.primary_color/secondary_colors`) | Không truyền `brandColors` xuống image function |
+| Siblings summary | Truyền `siblingsSummary` (Slide N: objective …) | Không có |
+| Auto-validation | Chạy `validate-seamless-consistency` cuối batch + `seamless_consistency_score` | Không chạy |
+| Tracking | `generation_tasks` row + UI `CarouselGenerationTracker` | Chỉ log trong `agent_execution_logs` |
 
-→ Campaign tạo từ Telegram thường sai kênh / sai thời lượng so với ý user.
+→ Agent ra ảnh **rời rạc, lệch màu brand, không seamless**, dù slides text giống thủ công.
 
-## Mục tiêu
+Phụ thêm: agent cũng hard-code `aiTool: "ideogram"`, không tôn trọng default user, và fallback `visualPreset/carouselStyle` theo `content_role` thay vì lấy của brand.
 
-Giữ tinh thần "chat tự nhiên, không bắt user gõ form", nhưng cho phép **2 chế độ**:
+## Cách sửa
 
-### A. Quick mode (mặc định, giữ nguyên trải nghiệm hiện tại)
-`/generate viết 5 bài về spa làm đẹp tháng 5`
-→ AI tự suy luận channels/duration/frequency từ prompt (LLM extract), tạo luôn. User nhận tóm tắt + nút "Sửa".
+### 1. Agent dùng cùng pipeline batch như thủ công
+Trong `agent-creator-v2/routeCarousel`, **bỏ vòng for `generate-carousel-image`** ở `generateCarouselImages`, thay bằng:
+- Gọi helper chung `launchCarouselImageBatch` (dịch sang Deno-side trong `_shared/carousel-image-batch.ts`) hoặc `fetch` thẳng `generate-carousel-images-batch` với cùng payload thủ công đang dùng.
+- Chờ `generation_tasks.status = completed` (poll mỗi 3s, max 5 phút) trước khi return → giữ nguyên contract của agent (sync result).
 
-### B. Guided mode (khi user click "Sửa" hoặc gõ `/campaign`)
-Bot hỏi tuần tự bằng inline keyboard, mỗi câu 1 message ngắn. Lưu state ở `telegram_chat_state` (jsonb) theo `chat_id + user_id`.
+### 2. Tách helper share giữa frontend & edge
+Tạo `supabase/functions/_shared/carousel-image-batch-payload.ts` chứa:
+- `extractBrandColorsFromTemplate(supabase, brandTemplateId, brandGuideline)`
+- `buildSeriesBibleFromSlides(slides)`
+- `buildSiblingsSummary(slides)`
 
-## Flow Guided mode (5 câu hỏi)
+Frontend `src/lib/carouselImageBatch.ts` **giữ nguyên** (chỉ dùng cho thủ công). Edge clone logic vào `_shared` để agent gọi cùng output.
 
-```
-Bot: 📝 Mô tả campaign?
-User: Viết content cho spa tháng 5
+### 3. Tôn trọng brand defaults
+Trong `routeCarousel`:
+- Lấy `brand_templates.default_ai_tool / visual_preset / carousel_style` (nếu có cột) → dùng trước khi rơi về `content_role` heuristic.
+- `brandPrimaryColor`, `brandSecondaryColors` đã có trong brief → đảm bảo truyền xuống batch payload.
 
-Bot: 📅 Thời lượng?
-     [7 ngày] [14 ngày] [30 ngày] [Tùy chọn]
-User: [14 ngày]
+### 4. Đồng bộ tracking
+Cho agent insert `generation_tasks` row (task_type=`carousel_image`, status=`pending`, gắn `pipeline_id` vào `input_params`) trước khi gọi batch → `CarouselGenerationTracker` và `useBackgroundGeneration` tự nhặt được.
 
-Bot: 📢 Kênh nào? (chọn nhiều)
-     [✓ Facebook] [Instagram] [✓ Website] [TikTok] [LinkedIn]
-     [✅ Xong]
-User: [✅ Xong]
+### 5. Validation cuối
+Sau khi batch xong, agent gọi `validate-seamless-consistency` (đã có) và lưu `seamless_consistency_score` vào carousel — cùng metric với thủ công.
 
-Bot: ⚡ Tần suất?
-     [2 bài/tuần] [3 bài/tuần] [Hàng ngày]
-
-Bot: 🛡️ Chế độ duyệt?
-     [Duyệt kế hoạch] [Duyệt từng bài] [Tự động]
-
-Bot: ✅ Tóm tắt:
-     • 14 ngày, từ 21/04
-     • FB + Website, 3 bài/tuần
-     • Duyệt kế hoạch
-     • Brand: Flowa
-     [🚀 Tạo] [✏️ Sửa lại] [❌ Hủy]
-```
-
-## Implementation
-
-### 1. Bảng state mới
-```sql
-create table telegram_chat_state (
-  chat_id bigint,
-  user_id uuid,
-  flow text,                    -- 'campaign_wizard'
-  step text,                    -- 'description' | 'duration' | 'channels' | ...
-  draft jsonb default '{}',     -- accumulated form data
-  updated_at timestamptz,
-  primary key (chat_id, user_id)
-);
-```
-TTL 30 phút (cron cleanup).
-
-### 2. AI extract cho Quick mode
-Trước khi insert goal trong `handleGenerate`, gọi Gemini Flash:
-```
-Input: prompt người dùng + danh sách kênh có connection
-Output JSON: { channels[], duration_days, cadence, per_week, suggested_name }
-```
-Fallback về defaults nếu fail. Log vào `clarification_context` để user biết AI đã suy luận gì.
-
-### 3. Inline keyboards
-Dùng `callback_query` của Telegram. Handler mới `handleCampaignWizardCallback` route theo `step` trong state, update `draft`, gửi câu hỏi tiếp theo.
-
-### 4. Confirmation card
-Dùng cùng template tóm tắt như Quick mode → user xem trước khi commit. Click "🚀 Tạo" mới insert goal + trigger pipeline (logic hiện tại giữ nguyên).
-
-### 5. Sửa từ Quick mode
-Sau message `✅ Goal "..." đã nhận`, thêm 2 nút:
-- `✏️ Sửa kênh/thời lượng` → vào Guided mode với `draft` đã prefill từ goal vừa tạo (update thay vì insert mới nếu pipeline chưa start)
-- `🗑️ Hủy` → soft-delete goal + cancel pipeline
-
-## Files thay đổi
+## File thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/migrations/<new>.sql` | Tạo `telegram_chat_state` + RLS service-role only |
-| `supabase/functions/telegram-webhook/index.ts` | + `handleCampaignWizardCallback`, + helpers `getDraft/setDraft/clearDraft`, + `extractCampaignParams()` gọi Gemini Flash, sửa `handleGenerate` để dùng AI extract + thêm nút Sửa |
-| `supabase/functions/_shared/telegram-keyboards.ts` (mới) | Builders cho 5 keyboard câu hỏi |
+| `supabase/functions/_shared/carousel-image-batch-payload.ts` (mới) | helpers `buildSeriesBible`, `buildSiblingsSummary`, `extractBrandColors` |
+| `supabase/functions/agent-creator-v2/index.ts` | rewrite `generateCarouselImages` → gọi `generate-carousel-images-batch`; bỏ hardcode preset/style/tool; tạo `generation_tasks` row; poll completion; gọi validate cuối |
+| `src/lib/carouselImageBatch.ts` | refactor nhỏ để dùng chung payload helpers (giữ behavior) |
 
 ## Test
 
-1. `/generate viết 10 bài Instagram cho clinic 30 ngày` → AI extract đúng IG + 30 ngày, không phải FB+Web/14
-2. `/campaign` → hỏi tuần tự 5 câu, mỗi câu reply qua nút bấm, cuối cùng confirm
-3. Quick mode → click "Sửa kênh" → vào Guided với draft đã có, đổi kênh → goal cập nhật
-4. Bỏ giữa chừng > 30 phút → state tự xóa, `/campaign` lại từ đầu
-5. Brand đang active được tự gắn vào draft, hiện ở step tóm tắt
+1. Tạo carousel thủ công topic X, brand A → ghi nhận: số ảnh, màu chủ đạo, `seamless_consistency_score`
+2. Tạo lại đúng topic X qua AI Agent (Goal Wizard / Telegram), cùng brand A
+3. So sánh:
+   - Cùng visual preset & carousel style (theo brand, không tùy `content_role`)
+   - Ảnh slides cùng tone màu brand
+   - `seamless_consistency_score` chênh lệch < 10
+   - `generation_tasks` có row `carousel_image` cho cả 2
+4. Edge case: agent với brand chưa set primary_color → fallback đúng từ `brand_guideline`
+5. Pipeline log: agent stage `creator` chỉ done khi batch xong (không done sớm khi ảnh chưa xong)
 
 ## Ước tính
-**2-3h** — 1 migration + 2 file edge function + 1 file helper. Không đụng schema `agent_goals`.
+**45–60 phút** — 1 file mới, 1 refactor lớn agent-creator-v2, 1 chỉnh nhỏ frontend lib.
 
