@@ -33,9 +33,9 @@ export function useTelegramBinding() {
   const [prefetchedDeeplink, setPrefetchedDeeplink] = useState<PrefetchedDeeplink | null>(null);
   const inflightRef = useRef<Promise<PrefetchedDeeplink | null> | null>(null);
 
-  const fetchBindings = useCallback(async () => {
+  const fetchBindings = useCallback(async (silent = false) => {
     if (!currentOrganization || !user) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = supabase as any;
