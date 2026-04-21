@@ -1,59 +1,93 @@
 
 
-# Fix: Nút "Link Account" trên default bot không hoạt động
+# Hoàn thiện 4 button "Thử ngay" trong welcome message Telegram
 
-## Nguyên nhân (đã xác định)
+## Hiện trạng
 
-Tại `telegram-webhook/index.ts` line 188-225, khi bot là **default bot** (`organizationId === null`), webhook cố rehydrate `organizationId` bằng cách lookup `telegram_chat_bindings` theo `chat_id`.
+Sau khi `/start` thành công, bot gửi 4 button đề xuất:
 
-Vấn đề: Khi user mới `/start` lần đầu và bấm "Link Account", **chưa hề có binding nào** → lookup trả null → webhook return sớm (line 221 `return okResponse()`) → **callback `confirm_link:*` không bao giờ tới được handler**.
+| Button | Callback | Tình trạng |
+|---|---|---|
+| 🚀 Tạo campaign đầu | `ux:welcome:generate` | ⚠️ Chỉ trả text "Gõ `/generate <mô tả>`" — không actionable, người mới bí |
+| 📊 Brand hiện tại | `ux:welcome:brand` | ✅ Mở brand switcher OK |
+| 💡 Xem ví dụ thực tế | `ux:welcome:examples` | ✅ List 7 ví dụ + nút "Thử" để chạy ngay |
+| 📚 Hướng dẫn 30s | `ux:welcome:tutorial` | ✅ 3-step interactive + Mini App |
 
-Đây là lý do user bấm "Link Account" và không có gì xảy ra (bot không phản hồi, không có toast, không có edit message).
-
-Logic hiện chỉ xử lý fallback cho `update.message` private chat (line 214: gửi onboarding text), nhưng **không xử lý callback_query** → silent drop.
+→ **3/4 đã tốt, chỉ cần fix nút "🚀 Tạo campaign đầu"** để biến nó thành launchpad đầy đủ thay vì câu chỉ dẫn cụt.
 
 ## Giải pháp
 
-### File: `supabase/functions/telegram-webhook/index.ts`
+### 1. Nâng cấp `ux:welcome:generate` thành "Quick Launchpad"
 
-Trước khi rehydrate qua `telegram_chat_bindings`, **ưu tiên rehydrate từ `telegram_pending_links`** nếu update là `callback_query` với data bắt đầu bằng `confirm_link:`. Bảng pending đã có `payload_org` từ lúc /start.
+Thay vì gửi text khô, **gợi ý 4 prompt khởi đầu phổ biến** (mỗi prompt là 1 nút bấm-là-chạy luôn) + 1 nút "Xem thêm ví dụ" + 1 nút "Brand đang dùng".
 
-Pseudo-code chèn vào block `if (botConfig.organizationId === null)`:
+**File:** `supabase/functions/telegram-webhook/index.ts` — block `case "generate":` (line 2351-2355)
+
+Thay handler hiện tại bằng:
 
 ```ts
-// NEW: callback confirm_link cần rehydrate từ pending_links (chưa có binding)
-const cbData = update.callback_query?.data || "";
-const cbChatId = update.callback_query?.message?.chat?.id;
-if (cbData.startsWith("confirm_link:") && cbChatId) {
-  const { data: pending } = await supabase
-    .from("telegram_pending_links")
-    .select("payload_org")
-    .eq("telegram_chat_id", cbChatId)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  if (pending?.payload_org) {
-    botConfig.organizationId = pending.payload_org;
-    // skip phần rehydrate qua bindings bên dưới
-  }
+case "generate": {
+  // 4 prompt phổ biến — pre-populate exampleCache để tái dùng cơ chế ux:ex:<idx>
+  const starterPrompts = [
+    { emoji: "🎁", title: "Campaign khuyến mãi cuối tháng", prompt: "Tạo campaign khuyến mãi cuối tháng cho thương hiệu của tôi, target khách hàng nữ 25-40" },
+    { emoji: "📱", title: "3 caption Facebook bán hàng", prompt: "Viết 3 caption Facebook bán hàng cho sản phẩm chủ lực, tone thân thiện vui vẻ" },
+    { emoji: "🎬", title: "5 idea content TikTok", prompt: "Cho 5 idea content TikTok cho thương hiệu, format storytime ngắn 30-60s" },
+    { emoji: "✉️", title: "Email ra mắt sản phẩm mới", prompt: "Viết email sequence 3 email ra mắt sản phẩm mới cho khách hàng cũ" },
+  ];
+  exampleCache.set(chatId, starterPrompts.map(p => p.prompt));
+
+  const lines = [
+    "✍️ *Tạo campaign đầu tiên*",
+    "",
+    "Bấm 1 mẫu dưới để chạy ngay, hoặc chat tự nhiên ý tưởng của bạn:",
+    "",
+    "_VD: \"tạo campaign Tết cho spa làm đẹp giảm 30%\"_",
+  ];
+  const keyboard = [
+    ...starterPrompts.map((p, idx) => [
+      { text: `${p.emoji} ${p.title}`, callback_data: `ux:ex:${idx}` },
+    ]),
+    [
+      { text: "💡 Xem thêm ví dụ", callback_data: "ux:welcome:examples" },
+      { text: "📊 Brand đang dùng", callback_data: "ux:welcome:brand" },
+    ],
+  ];
+
+  await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard: keyboard },
+  });
+  return;
 }
 ```
 
-Đặt **trước** đoạn `if (!isStartCmd) { ... }` hiện tại (line 195). Nếu pending hit, set `organizationId` rồi skip nhánh binding-lookup.
+**Tận dụng cơ chế sẵn có:**
+- Reuse `exampleCache` + handler `ux:ex:<idx>` → bấm là `handleGenerate()` chạy luôn (không cần code mới)
+- Reuse 2 callback `ux:welcome:examples` và `ux:welcome:brand` → cross-link giữa các flow
 
-## Thay đổi
+### 2. (Tùy chọn — recommended) Thêm "back to menu" cho `examples` và `tutorial:done`
+
+Sau khi user xong tutorial hoặc xem examples, thêm 1 dòng nút quay lại 4 nút welcome ban đầu để loop UX khép kín. Cần thêm callback mới `ux:welcome:menu` trả về 4 nút gốc.
+
+→ **Skip phần này nếu muốn tối giản** — flow chính đã hoạt động.
+
+## File thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/telegram-webhook/index.ts` | Thêm ~12 dòng rehydrate từ `telegram_pending_links` trước nhánh binding-lookup hiện có |
+| `supabase/functions/telegram-webhook/index.ts` | Thay block `case "generate":` (~5 dòng) bằng quick launchpad (~30 dòng) |
 
 ## Test E2E
-1. Tài khoản mới chưa link → vào `/agents/telegram` → bấm "Mở Telegram" → bấm Start trong bot → bấm "Link Account" → bot phản hồi "✅ Đã kết nối!" + edit message
-2. UI Flowa morph sang trạng thái "Đã kết nối" trong < 3s nhờ realtime
-3. Đã link → các callback khác (cw:edit, brand:switch...) vẫn chạy đúng vì binding hiện hữu nên rehydrate qua nhánh cũ
+
+1. `/start` bot → bấm "🚀 Tạo campaign đầu" → thấy 4 prompt mẫu + 2 cross-link (ví dụ/brand)
+2. Bấm 1 prompt → bot reply "🚀 Đang chạy: ..." → `handleGenerate` chạy đúng pipeline (đã có sẵn)
+3. Bấm "💡 Xem thêm ví dụ" → mở handler `examples` (7 prompt từ DB)
+4. Bấm "📊 Brand đang dùng" → mở brand switcher
+5. 3 button còn lại (`brand`, `examples`, `tutorial`) — không đụng, vẫn hoạt động như cũ
 
 ## Ước tính
-**3-5 phút** — sửa 1 file, ~12 dòng.
+**5 phút** — sửa 1 file, ~30 dòng, không cần migration / DB / shared module.
 
 ## Rủi ro
-Không. Chỉ thêm nhánh fallback cho 1 trường hợp duy nhất (callback `confirm_link` trên default bot khi chưa có binding). Logic hiện tại của các callback khác và bot BYOB không bị ảnh hưởng.
+Không. Tận dụng `exampleCache` + callback router `ux:ex:*` đã chạy ổn định. Không đổi schema, không đụng `_shared/`.
 
