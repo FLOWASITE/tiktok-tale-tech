@@ -1958,6 +1958,21 @@ async function handleConfirmLinkCallback(args: {
     return;
   }
 
+  // Ghost-binding cleanup: same Telegram user previously linked to a different
+  // (org, user) pair? Remove those rows so the bot only ever serves one Flowa
+  // account per Telegram user. Keeps current user's bindings (e.g. group chats).
+  const effectiveTgUserId = pending.telegram_user_id ?? fromTgId ?? null;
+  if (effectiveTgUserId) {
+    const { error: ghostErr } = await supabase
+      .from("telegram_chat_bindings")
+      .delete()
+      .eq("telegram_user_id", effectiveTgUserId)
+      .neq("user_id", pending.payload_uid);
+    if (ghostErr) {
+      console.warn("[telegram-webhook] ghost binding cleanup failed:", ghostErr);
+    }
+  }
+
   const { error: upsertErr } = await supabase
     .from("telegram_chat_bindings")
     .upsert({
@@ -1965,7 +1980,7 @@ async function handleConfirmLinkCallback(args: {
       user_id: pending.payload_uid,
       telegram_chat_id: chatId,
       chat_type: "private",
-      telegram_user_id: pending.telegram_user_id ?? fromTgId ?? null,
+      telegram_user_id: effectiveTgUserId,
       telegram_username: pending.telegram_username ?? null,
       is_active: true,
       linked_at: new Date().toISOString(),
