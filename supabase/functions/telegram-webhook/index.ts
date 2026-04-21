@@ -1330,16 +1330,37 @@ async function handleGenerateSingle(
     return;
   }
 
-  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+  // Resolve brand: active binding → org default → none
+  let brand: { id: string; brand_name: string; industry?: string | null } | null =
+    (await getActiveBrandContext(supabase, botConfig.organizationId, chatId)) as any;
+  if (!brand?.id) {
+    const fallback = await getDefaultBrandForOrg(supabase, botConfig.organizationId);
+    if (fallback) {
+      brand = fallback;
+      console.log(`[handleGenerateSingle] Using default brand fallback: ${brand.brand_name} (${brand.id})`);
+    }
+  }
+
   const channelLabel = channel.charAt(0).toUpperCase() + channel.slice(1);
 
+  // Clean prompt → topic. If empty after stripping (user only said "tạo bài đăng FB"),
+  // fall back to brand-driven generic topic so generate-multichannel doesn't get garbage.
+  const cleanedTopic = cleanTopicFromTelegramPrompt(prompt);
+  let effectiveTopic = cleanedTopic;
+  if (!effectiveTopic || effectiveTopic.length < 4) {
+    const brandHint = brand?.brand_name ? ` cho ${brand.brand_name}` : "";
+    effectiveTopic = `Bài đăng ${channelLabel}${brandHint}`;
+    console.log(`[handleGenerateSingle] Topic too short after cleaning, using brand-driven fallback: "${effectiveTopic}"`);
+  }
+
   await sendMessage(botConfig.botToken, chatId,
-    appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, activeBrand?.brand_name),
+    appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, brand?.brand_name),
     { parse_mode: "Markdown" });
 
   // Call generate-multichannel directly (bypass agent_goals)
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-multichannel`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
   try {
     const res = await fetch(url, {
@@ -1351,10 +1372,10 @@ async function handleGenerateSingle(
       },
       body: JSON.stringify({
         action: "create",
-        topic: prompt,
+        topic: effectiveTopic,
         channels: [channel],
         organizationId: botConfig.organizationId,
-        brandTemplateId: (activeBrand as any)?.id || null,
+        brandTemplateId: brand?.id || null,
         userId: binding.userId,
         qualityMode: "balanced",
         agentMode: true,
@@ -1383,11 +1404,19 @@ async function handleGenerateSingle(
     const channelText = (data?.[channelKey] || "") as string;
     const preview = channelText.slice(0, 220).trim() + (channelText.length > 220 ? "…" : "");
 
+    // 🎨 Fire-and-forget: generate brand image for this post (non-blocking)
+    if (contentId && channelText) {
+      generateImageForSinglePost(supabaseUrl, key, contentId, channel, brand?.id || null, channelText)
+        .catch((err) => console.warn("[handleGenerateSingle] image gen scheduling failed:", err));
+    }
+
     const lines: string[] = [
       `✅ *Đã tạo 1 bài cho ${channelLabel}*`,
+      brand?.brand_name ? `📌 Brand: ${escapeMd(brand.brand_name)}` : "",
+      contentId && channelText ? `🎨 _Đang tạo ảnh trong nền…_` : "",
       "",
       preview ? `_${escapeMd(preview)}_` : "_(Nội dung đã tạo, mở Mini App để xem chi tiết)_",
-    ];
+    ].filter(Boolean);
 
     const keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string }; url?: string }>> = [];
     if (contentId) {
@@ -1398,7 +1427,7 @@ async function handleGenerateSingle(
     }
 
     await sendMessage(botConfig.botToken, chatId,
-      appendBrandFooter(lines.join("\n"), activeBrand?.brand_name),
+      appendBrandFooter(lines.join("\n"), brand?.brand_name),
       {
         parse_mode: "Markdown",
         reply_markup: keyboard.length > 0 ? { inline_keyboard: keyboard } : undefined,
