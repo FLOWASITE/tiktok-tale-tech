@@ -9742,6 +9742,36 @@ export type Database = {
           },
         ]
       }
+      telegram_chat_state: {
+        Row: {
+          chat_id: number
+          created_at: string
+          draft: Json
+          flow: string
+          step: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          draft?: Json
+          flow: string
+          step: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          draft?: Json
+          flow?: string
+          step?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       telegram_example_prompts: {
         Row: {
           category: string
@@ -10831,6 +10861,7 @@ export type Database = {
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_old_checkpoints: { Args: never; Returns: number }
       cleanup_old_edge_metrics: { Args: never; Returns: number }
+      cleanup_stale_telegram_chat_state: { Args: never; Returns: number }
       cleanup_telegram_processed_updates: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       extract_doc_year: { Args: { doc_name: string }; Returns: string }
