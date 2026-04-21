@@ -45,8 +45,9 @@ QUY TẮC:
 export type ClassifyError = "credits_exhausted" | "rate_limit" | "unknown";
 
 export interface ClassifyResult {
-  intent: "chitchat" | "generate_campaign" | "status" | "help";
+  intent: "chitchat" | "generate_campaign" | "generate_single" | "status" | "help";
   prompt?: string;
+  channel?: string;
   reply?: string;
   error?: ClassifyError;
 }
