@@ -118,7 +118,7 @@ export default function TelegramApp() {
       <main className="flex-1 overflow-y-auto pb-20">
         {tab === 'dashboard' && <DashboardTab orgId={organizationId} userId={userId} />}
         {tab === 'create' && <CreateTab orgId={organizationId} userId={userId} onDone={() => setTab('dashboard')} />}
-        {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} />}
+        {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} autoOpenId={deepLinkApprovalId} onAutoOpened={() => setDeepLinkApprovalId(null)} />}
         {tab === 'scheduled' && <ScheduledTab orgId={organizationId} />}
         {tab === 'brands' && <BrandsTab orgId={organizationId} />}
       </main>
@@ -322,7 +322,7 @@ type ApprovalItem = {
 
 type ImageRow = { image_url: string; channel: string };
 
-function ApproveTab({ orgId, onScheduled }: { orgId: string; onScheduled: () => void }) {
+function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: string; onScheduled: () => void; autoOpenId?: string | null; onAutoOpened?: () => void }) {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
