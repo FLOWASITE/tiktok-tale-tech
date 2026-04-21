@@ -1,152 +1,117 @@
 
-# Fix: `/status` vẫn leak pipeline của brand khác
 
-## Vấn đề đã xác định
+# Telegram: gom nhiều step Goal Wizard vào 1 luồng chat
 
-DB hiện tại cho thấy:
+## Vấn đề
 
-- Chat `501332455` đang có `active_brand_template_id = 8dd69b10-17e1-4daf-968a-4ec8a241c858` (`Flowa - Agentic Content Marketing Platform`)
-- Brand này hiện **không có pipeline nào**
-- Toàn bộ pipeline của org đang nằm ở brand khác: `Thuế Hộ by TAF.vn`
+Trên app, tạo campaign đi qua 6 bước Wizard:
+1. Tên + mô tả
+2. Kênh
+3. Thời lượng + ngày bắt đầu
+4. Tần suất
+5. Autonomy + approval mode
+6. Brand + clarification context
 
-Nếu `/status` vẫn hiển thị các pipeline đó, thì logic live đang **không áp filter brand một cách thực sự** trên đường chạy hiện tại.
+Telegram `/generate <prompt>` hiện **bỏ qua hết**, hard-code:
+- channels = `["facebook","website"]`
+- duration = 14 ngày, cadence weekly×3
+- approval = `approve_plan`
+- brand = active brand
+- clarification = rỗng
 
-## Root cause khả dĩ nhất
+→ Campaign tạo từ Telegram thường sai kênh / sai thời lượng so với ý user.
 
-Có 2 điểm cần khóa lại để hết lỗi hẳn:
+## Mục tiêu
 
-1. `handleStatus` hiện filter pipeline bằng bước trung gian:
-   - lấy `goalIdsForBrand`
-   - rồi `.in("goal_id", goalIdsForBrand)`
+Giữ tinh thần "chat tự nhiên, không bắt user gõ form", nhưng cho phép **2 chế độ**:
 
-   Cách này dễ fail im lặng nếu:
-   - `activeBrandId` resolve sai ở runtime
-   - query goal trả rỗng nhưng code path không đi vào empty-state như kỳ vọng
-   - function live chưa dùng đúng code path mới
+### A. Quick mode (mặc định, giữ nguyên trải nghiệm hiện tại)
+`/generate viết 5 bài về spa làm đẹp tháng 5`
+→ AI tự suy luận channels/duration/frequency từ prompt (LLM extract), tạo luôn. User nhận tóm tắt + nút "Sửa".
 
-2. Thiếu log chẩn đoán ở `/status`, nên hiện chưa thấy được runtime thực tế đang resolve:
-   - brand nào
-   - goal ids nào
-   - query cuối trả bao nhiêu pipeline
+### B. Guided mode (khi user click "Sửa" hoặc gõ `/campaign`)
+Bot hỏi tuần tự bằng inline keyboard, mỗi câu 1 message ngắn. Lưu state ở `telegram_chat_state` (jsonb) theo `chat_id + user_id`.
 
-## Cách sửa
+## Flow Guided mode (5 câu hỏi)
 
-### 1. Siết chặt `/status` bằng query filter theo quan hệ goal-brand, không phụ thuộc prefetch list
+```
+Bot: 📝 Mô tả campaign?
+User: Viết content cho spa tháng 5
 
-Thay vì:
-- query `agent_goals` trước
-- rồi filter `agent_pipelines.goal_id IN (...)`
+Bot: 📅 Thời lượng?
+     [7 ngày] [14 ngày] [30 ngày] [Tùy chọn]
+User: [14 ngày]
 
-Sửa sang query pipeline kèm relation `agent_goals` và filter trực tiếp theo `agent_goals.brand_template_id`.
+Bot: 📢 Kênh nào? (chọn nhiều)
+     [✓ Facebook] [Instagram] [✓ Website] [TikTok] [LinkedIn]
+     [✅ Xong]
+User: [✅ Xong]
 
-Hướng làm:
-- `runningQ` và `recentQ` select thêm relation goal
-- chỉ lấy pipeline có `agent_goals.brand_template_id = activeBrandId`
-- nếu active brand có nhưng không match row nào thì trả empty-state rõ ràng
+Bot: ⚡ Tần suất?
+     [2 bài/tuần] [3 bài/tuần] [Hàng ngày]
 
-Lợi ích:
-- bỏ hẳn lớp trung gian `goalIdsForBrand`
-- giảm khả năng mismatch giữa brand → goals → pipelines
-- debug dễ hơn vì filter nằm ngay trên query cuối
+Bot: 🛡️ Chế độ duyệt?
+     [Duyệt kế hoạch] [Duyệt từng bài] [Tự động]
 
-### 2. Thêm logging bắt buộc trong `handleStatus`
-
-Thêm log cho mỗi lần `/status`:
-- `chatId`
-- `activeBrandId`
-- `activeBrandName`
-- số goal thuộc brand
-- số running/recent pipeline sau filter
-- có fallback sang org-wide hay không
-
-Ví dụ log cần có:
-```ts
-console.log("[handleStatus] scope", {
-  chatId,
-  orgId,
-  activeBrandId,
-  activeBrandName: activeBrand?.brand_name ?? null,
-});
-console.log("[handleStatus] result", {
-  runningCount: running.length,
-  recentCount: recent.length,
-  usedOrgWide: true,
-});
+Bot: ✅ Tóm tắt:
+     • 14 ngày, từ 21/04
+     • FB + Website, 3 bài/tuần
+     • Duyệt kế hoạch
+     • Brand: Flowa
+     [🚀 Tạo] [✏️ Sửa lại] [❌ Hủy]
 ```
 
-### 3. Làm empty-state quyết liệt hơn khi đang có active brand
+## Implementation
 
-Nếu đã có `activeBrandId`, tuyệt đối không được rơi về “show toàn org”.
+### 1. Bảng state mới
+```sql
+create table telegram_chat_state (
+  chat_id bigint,
+  user_id uuid,
+  flow text,                    -- 'campaign_wizard'
+  step text,                    -- 'description' | 'duration' | 'channels' | ...
+  draft jsonb default '{}',     -- accumulated form data
+  updated_at timestamptz,
+  primary key (chat_id, user_id)
+);
+```
+TTL 30 phút (cron cleanup).
 
-Khi brand hiện tại không có pipeline:
-- hiện:
-  - `🎨 Brand đang xem: <name>`
-  - `ℹ️ Brand này chưa có pipeline nào`
-  - `👉 /generate <mô tả> để tạo campaign đầu tiên`
+### 2. AI extract cho Quick mode
+Trước khi insert goal trong `handleGenerate`, gọi Gemini Flash:
+```
+Input: prompt người dùng + danh sách kênh có connection
+Output JSON: { channels[], duration_days, cadence, per_week, suggested_name }
+```
+Fallback về defaults nếu fail. Log vào `clarification_context` để user biết AI đã suy luận gì.
 
-Không render block pipeline org-wide trong case này.
+### 3. Inline keyboards
+Dùng `callback_query` của Telegram. Handler mới `handleCampaignWizardCallback` route theo `step` trong state, update `draft`, gửi câu hỏi tiếp theo.
 
-### 4. Kiểm tra lại `getActiveBrandContext` và `getActiveBrandId` dùng cùng một nguồn
+### 4. Confirmation card
+Dùng cùng template tóm tắt như Quick mode → user xem trước khi commit. Click "🚀 Tạo" mới insert goal + trigger pipeline (logic hiện tại giữ nguyên).
 
-Hiện có 2 helper:
-- `getActiveBrandId()`
-- `getActiveBrandContext()`
+### 5. Sửa từ Quick mode
+Sau message `✅ Goal "..." đã nhận`, thêm 2 nút:
+- `✏️ Sửa kênh/thời lượng` → vào Guided mode với `draft` đã prefill từ goal vừa tạo (update thay vì insert mới nếu pipeline chưa start)
+- `🗑️ Hủy` → soft-delete goal + cancel pipeline
 
-Sẽ đồng bộ để cả 2:
-- đọc cùng row `telegram_chat_bindings`
-- cùng fallback mặc định
-- cùng trả về brand hiện hành nhất quán
+## Files thay đổi
 
-Mục tiêu là tránh case:
-- `/brand` nhìn một brand
-- `/status` resolve brand khác
+| File | Thay đổi |
+|---|---|
+| `supabase/migrations/<new>.sql` | Tạo `telegram_chat_state` + RLS service-role only |
+| `supabase/functions/telegram-webhook/index.ts` | + `handleCampaignWizardCallback`, + helpers `getDraft/setDraft/clearDraft`, + `extractCampaignParams()` gọi Gemini Flash, sửa `handleGenerate` để dùng AI extract + thêm nút Sửa |
+| `supabase/functions/_shared/telegram-keyboards.ts` (mới) | Builders cho 5 keyboard câu hỏi |
 
-### 5. Xác minh sau sửa bằng dữ liệu thực tế của chat đang lỗi
+## Test
 
-Test đúng với chat đang báo lỗi:
-- chat `501332455`
-- active brand = `Flowa - Agentic Content Marketing Platform`
-- expected `/status` = không còn thấy pipeline của `Thuế Hộ by TAF.vn`
-
-## File thay đổi
-
-- `supabase/functions/telegram-webhook/index.ts`
-  - refactor `handleStatus`
-  - đồng bộ `getActiveBrandContext` / `getActiveBrandId`
-  - thêm runtime logs
-
-## Kết quả mong muốn
-
-### Case hiện tại
-- Active brand: `Flowa - Agentic Content Marketing Platform`
-- Brand này không có pipeline
-- `/status` phải trả:
-  - header brand đúng
-  - empty-state đúng
-  - không còn leak pipeline của `Thuế Hộ by TAF.vn`
-
-### Case đổi về brand có pipeline
-- Chuyển sang `Thuế Hộ by TAF.vn`
-- `/status` chỉ hiện pipeline của brand đó
-
-### Case chưa chọn brand
-- vẫn có thể fallback org-wide
-- nhưng phải hiện hint rõ ràng rằng đây là toàn org
-
-## Test sau implement
-
-1. `/brand` chọn `Flowa - Agentic Content Marketing Platform`
-2. Gõ `/status`
-3. Kiểm tra logs `telegram-webhook`:
-   - thấy đúng `activeBrandId = 8dd69b10-17e1-4daf-968a-4ec8a241c858`
-   - `runningCount = 0`, `recentCount = 0`
-4. Trên Telegram:
-   - không còn pipeline của `Thuế Hộ by TAF.vn`
-   - hiện message “brand chưa có pipeline”
-5. Đổi sang `Thuế Hộ by TAF.vn`
-6. Gõ lại `/status`
-7. Xác nhận chỉ hiện pipeline của brand này
+1. `/generate viết 10 bài Instagram cho clinic 30 ngày` → AI extract đúng IG + 30 ngày, không phải FB+Web/14
+2. `/campaign` → hỏi tuần tự 5 câu, mỗi câu reply qua nút bấm, cuối cùng confirm
+3. Quick mode → click "Sửa kênh" → vào Guided với draft đã có, đổi kênh → goal cập nhật
+4. Bỏ giữa chừng > 30 phút → state tự xóa, `/campaign` lại từ đầu
+5. Brand đang active được tự gắn vào draft, hiện ở step tóm tắt
 
 ## Ước tính
+**2-3h** — 1 migration + 2 file edge function + 1 file helper. Không đụng schema `agent_goals`.
 
-20–30 phút, chỉ cần sửa 1 file nhưng có thêm log chẩn đoán để khóa lỗi dứt điểm.
