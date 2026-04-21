@@ -451,7 +451,9 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
         setTimeout(tryOpen, 1000);
         return;
       }
-      toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ — kéo xuống để làm mới.');
+      toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ.', {
+        action: { label: 'Làm mới & thử lại', onClick: () => retryAutoOpen() },
+      });
       try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
       onAutoOpened?.();
     }
