@@ -39,10 +39,8 @@ const TOKEN_REFRESH_MS = 8 * 60 * 1000; // refresh 2 min before 10-min TTL
 export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultBot }: TelegramLinkCardProps) {
   const {
     binding,
-    groupBinding,
     loading,
     unlink,
-    unlinkGroup,
     ensureDeeplink,
     prefetchedDeeplink,
     setBinding,
@@ -50,7 +48,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
 
-  const [unlinkingGroup, setUnlinkingGroup] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [pinging, setPinging] = useState(false);
   const [prefetchError, setPrefetchError] = useState<string | null>(null);
