@@ -1,130 +1,208 @@
 
-# Fix: nút “Xem & duyệt” trong Telegram mở Mini App nhưng thiếu `organization_id`
+# Fix còn thiếu: Mini App đang fail vì `organizationId` bị rỗng khi đã có session sẵn
 
-## Vấn đề đã xác định
+## Vấn đề đã xác nhận từ code hiện tại
 
-Ảnh lỗi khớp đúng với logic hiện tại của `useTelegramWebApp`:
+Lỗi còn tồn tại dù backend `telegram-webapp-auth` đã có fallback default-bot, vì frontend vẫn có một nhánh fail riêng:
 
-- `src/hooks/useTelegramWebApp.ts` chỉ xác thực được khi URL có `?org=<uuid>` hoặc đã có `localStorage['flowa_tg_app_org']`
-- nếu không có `org`, hook trả lỗi:
-  - `Thiếu organization id. Mở từ menu bot Telegram.`
-- nút Telegram hiện tại mở Mini App bằng:
-```ts
-web_app: { url: `${MINI_APP_URL}#/multichannel/${contentId}` }
-```
-trong `supabase/functions/telegram-webhook/index.ts:1282-1285`
+- `src/hooks/useTelegramWebApp.ts`
+  - nếu `supabase.auth.getSession()` đã có session thì hook **return ngay**
+  - lúc đó `organizationId` chỉ lấy từ:
+    - `?org=...`
+    - `Telegram.WebApp.initDataUnsafe.start_param`
+    - `localStorage['flowa_tg_app_org']`
+- nếu cả 3 đều không có, state sẽ là:
+  - `authenticated: true`
+  - `userId: có`
+  - `organizationId: null`
 
-Do app dùng `BrowserRouter`, phần `#/multichannel/...` chỉ là fragment; query string không được set. Kết quả:
-- Mini App mở ra
-- `useTelegramWebApp()` không tìm thấy `org`
-- hiện card lỗi “Không xác thực được”
-
-Ngoài ra, nút menu bot và vài entry khác cũng đang trỏ tới bare URL `https://app.flowa.one/telegram-app` nên lần mở đầu tiên từ Telegram cũng có thể fail tương tự.
-
-## Cách sửa
-
-### 1) Luôn truyền `org` vào mọi URL Web App do bot tạo ra
-Tạo helper trong `telegram-webhook/index.ts` hoặc utility cục bộ kiểu:
+Trong khi `src/pages/TelegramApp.tsx` lại chặn bằng điều kiện:
 
 ```ts
-function buildMiniAppUrl(base: string, orgId: string, path?: string) {
-  const u = new URL(base);
-  u.searchParams.set("org", orgId);
-  if (path) u.hash = path.startsWith("#") ? path : `#${path}`;
-  return u.toString();
+if (!authenticated || !userId || !organizationId) {
+  // render "Không xác thực được"
 }
 ```
 
-Áp dụng cho:
-- nút `📝 Xem & duyệt`
-- nút `🚀 Mở Mini App`
-- mọi `web_app` keyboard khác trong `telegram-webhook`
+=> nghĩa là **không cần backend lỗi** vẫn hiện “Không xác thực được”.
 
-Ví dụ sửa:
-```ts
-web_app: { url: buildMiniAppUrl(MINI_APP_URL, botConfig.organizationId!, `/multichannel/${contentId}`) }
+Điều này cũng giải thích vì sao:
+- logs `telegram-webapp-auth` không có gì mới
+- checklist page có thể pass vài case backend nhưng người dùng vẫn lỗi thật trong Telegram
+- bug chỉ xuất hiện ở flow “đã có session sẵn + mở từ nút Xem & duyệt nhưng thiếu org context”
+
+## Cần build gì
+
+### 1) Sửa hook `useTelegramWebApp` để không early-return quá sớm
+File: `src/hooks/useTelegramWebApp.ts`
+
+Thay logic:
+- nếu đã có session nhưng **chưa có `candidateOrgId`**
+  - vẫn phải gọi `telegram-webapp-auth` với `init_data`
+  - lấy `organization_id` từ response
+  - **không cần** `verifyOtp` lại nếu session đã tồn tại
+- nếu đã có session và đã có `candidateOrgId`
+  - mới được return ngay
+- nếu chưa có session
+  - giữ flow hiện tại: invoke edge function → `verifyOtp`
+
+Mục tiêu:
+```text
+existing session + missing org
+→ still resolve org from backend
+→ organizationId được điền
+→ TelegramApp không còn tự block
 ```
 
-### 2) Sửa menu button để mở Mini App kèm `org`
-Trong `supabase/functions/telegram-bot-admin/index.ts`:
-- chỗ seed bot mới
-- chỗ action `set_menu_button`
+### 2) Tách rõ 2 bước trong hook: “resolve org” và “sign in”
+Thiết kế lại flow trong hook:
 
-Cần set:
-```ts
-https://app.flowa.one/telegram-app?org=<organization_id>
+```text
+A. Đọc initData + org candidate
+B. Kiểm tra session hiện tại
+C. Gọi telegram-webapp-auth khi cần lấy organization_id
+D. Nếu chưa có session thì mới verifyOtp
+E. Luôn dùng organization_id từ response làm source of truth
 ```
 
-Vì menu button là per-bot/per-org nên hoàn toàn phù hợp để embed org cố định.
+Quy tắc sau fix:
+- `payload.organization_id` luôn ưu tiên cao nhất
+- sau đó mới fallback `candidateOrgId`
+- lưu `resolvedOrg` vào `localStorage`
 
-### 3) Tăng độ bền ở client hook
-Cập nhật `src/hooks/useTelegramWebApp.ts` để resolve org theo thứ tự:
+### 3) Parse lỗi edge function đầy đủ thay vì chỉ hiện lỗi generic
+File: `src/hooks/useTelegramWebApp.ts`
 
-1. `?org=...`
-2. `Telegram.WebApp.initDataUnsafe.start_param` hoặc equivalent nếu Telegram cung cấp
-3. `localStorage['flowa_tg_app_org']`
+Hiện tại hook chỉ `throw error`, dễ mất JSON body của edge function khi `invoke()` trả non-2xx.
 
-Nếu Telegram SDK typings chưa có `start_param`, chỉ cần thêm optional field vào interface.  
-Mục tiêu: giảm phụ thuộc tuyệt đối vào localStorage và giúp deep link hoạt động ổn định hơn.
+Sẽ bổ sung pattern giống chỗ khác trong app:
+- đọc `error.context?.json()` nếu có
+- lấy ra:
+  - `error`
+  - `code`
+  - `status`
+- map thành message hiển thị chính xác hơn
 
-### 4) Sửa đường dẫn Web App cho các route hash hiện tại
-Hiện code đang dùng:
-```ts
-${MINI_APP_URL}#/multichannel/${contentId}
+Ví dụ:
+- `not_linked`
+- `ambiguous_org`
+- `invalid initData signature`
+- `initData expired`
+
+### 4) Hiển thị diagnostic rõ hơn trên `TelegramApp`
+File: `src/pages/TelegramApp.tsx`
+
+Giữ card lỗi hiện tại nhưng thêm:
+- thông điệp gốc từ hook
+- nếu có `organizationId === null` nhưng `authenticated === true`
+  - hiện riêng một thông báo kiểu:
+  - “Đã nhận session nhưng chưa resolve được workspace từ Telegram”
+- tránh gộp mọi case thành cùng một câu “Không xác thực được”
+
+Điều này giúp phân biệt:
+- lỗi Telegram initData
+- lỗi link bot
+- lỗi thiếu org context
+- lỗi session có sẵn nhưng chưa resolve org
+
+### 5) Nâng cấp checklist page để cover đúng bug thực tế
+File: `src/pages/AdminTelegramAuthCheck.tsx`
+
+Hiện checklist mới test raw edge function, nhưng **không test case gây lỗi thật** là:
+- đã có session sẵn
+- mở Mini App không có `org`
+- frontend tự fail vì `organizationId` null
+
+Sẽ thêm 2 bài test mới:
+
+#### Test A — Raw function response
+Giữ như hiện tại:
+- exact HTTP status
+- exact JSON body
+
+#### Test B — Hook-level simulated flow
+Mô phỏng logic frontend:
+- with existing session
+- without `?org`
+- without localStorage
+- with real `init_data`
+- verify rằng vẫn resolve được `organization_id`
+
+Checklist sau fix sẽ cho thấy rõ:
+```text
+Function OK
+Frontend flow OK
+Existing-session fallback OK
 ```
 
-Sau fix nên chuẩn hóa thành:
-```ts
-https://app.flowa.one/telegram-app?org=<org>#/multichannel/<id>
+### 6) Kiểm tra thêm nút “Xem & duyệt” sau khi auth xong
+File: `src/pages/TelegramApp.tsx`
+
+Nút trong bot đang mở Mini App với hash path:
+```text
+#/multichannel/<contentId>
 ```
 
-Như vậy:
-- query phục vụ auth/org resolution
-- hash phục vụ điều hướng nội bộ Mini App
+Nhưng `TelegramApp.tsx` hiện chưa đọc hash/path để auto mở đúng tab hay đúng content.
+Sau khi xử lý auth xong, sẽ thêm bước đọc route intent để:
+- ít nhất chuyển thẳng sang tab `approve`
+- hoặc lưu pending target để mở màn hình phù hợp
 
-### 5) Kiểm tra các chỗ mở Mini App khác để tránh lỗi lặp lại
-Rà lại các điểm sau:
-- `telegram-webhook/index.ts`
-- `telegram-bot-admin/index.ts`
-- `_shared/telegram-client.ts` với các keyboard có `web_app`
-- welcome/tutorial/brand-management buttons
+Mục tiêu:
+- không chỉ hết lỗi auth
+- mà còn vào đúng flow “xem & duyệt”
 
-Mục tiêu: không còn bất kỳ `web_app: { url: MINI_APP_URL }` trần nào khi context org là bắt buộc.
+## Files sẽ sửa
 
-## Files cần sửa
-
-- `supabase/functions/telegram-webhook/index.ts`
-- `supabase/functions/telegram-bot-admin/index.ts`
 - `src/hooks/useTelegramWebApp.ts`
-- có thể thêm chỉnh nhẹ ở `supabase/functions/_shared/telegram-client.ts` nếu muốn truyền vào URL đã được build sẵn từ caller
+- `src/pages/TelegramApp.tsx`
+- `src/pages/AdminTelegramAuthCheck.tsx`
 
-## Test E2E
+## Cách verify sau khi implement
 
-1. Telegram bot gửi bài đơn lẻ → bấm `📝 Xem & duyệt`
-   - mở Mini App vào đúng trang
-   - không còn lỗi `Thiếu organization id`
+### Case 1 — đúng bug hiện tại
+- user đã đăng nhập Flowa từ trước
+- mở Telegram Mini App bằng nút “Xem & duyệt”
+- URL không có `org`
+- expected:
+  - không còn hiện “Không xác thực được”
+  - hook vẫn resolve được `organization_id`
 
-2. Mở từ menu bot `🚀 Mở Flowa`
-   - Mini App vào được ngay từ lần đầu
-   - authenticate thành công, không cần dựa vào localStorage cũ
+### Case 2 — chưa có session
+- mở từ Telegram lần đầu
+- expected:
+  - edge function trả `token_hash`
+  - `verifyOtp` thành công
+  - vào app bình thường
 
-3. Đổi brand rồi bấm lại `Xem & duyệt`
-   - vẫn vào đúng org
-   - không quay về màn hình lỗi
+### Case 3 — chưa link bot
+- expected:
+  - hiện message rõ ràng yêu cầu `/start` trong DM
 
-4. User mới chưa từng mở Mini App trước đó
-   - bấm menu bot hoặc `Xem & duyệt`
-   - vẫn authenticate OK
+### Case 4 — nhiều org
+- expected:
+  - hiện lỗi `ambiguous_org` rõ ràng
+
+### Case 5 — checklist admin
+- `/admin/telegram-auth-check`
+- thấy:
+  - raw status
+  - raw body
+  - frontend-flow pass/fail
+  - existing-session fallback pass/fail
 
 ## Rủi ro
 
-Thấp. Đây là bug ghép URL/context, không đụng DB schema hay logic approve.  
-Phần cần cẩn thận nhất là chuẩn hóa URL builder để không làm hỏng hash route hiện có.
+Thấp đến trung bình:
+- không đụng DB schema
+- không đổi webhook logic
+- chủ yếu sửa flow frontend auth
+- phần cần cẩn thận nhất là tránh gọi `verifyOtp` lặp lại khi session đã tồn tại
 
 ## Kết quả mong đợi
 
-Khi người dùng nhấn nút “Xem và duyệt” trong Telegram:
-- Mini App mở đúng URL có `org`
-- `useTelegramWebApp()` xác thực được
-- không còn hiện “Không xác thực được”
-- vào thẳng flow xem/duyệt nội dung như mong muốn
+Sau khi sửa:
+- nút “Xem & duyệt” không còn rơi vào lỗi cũ
+- default-bot auth hoạt động cả khi user đã có session sẵn
+- app hiển thị đúng lỗi chi tiết nếu backend thực sự fail
+- checklist page phản ánh đúng cả backend lẫn frontend flow
