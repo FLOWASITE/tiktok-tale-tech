@@ -27,7 +27,7 @@ import {
   Send,
   QrCode,
   Bell,
-  Sparkles,
+  MoreHorizontal,
 } from 'lucide-react';
 
 interface TelegramLinkCardProps {
