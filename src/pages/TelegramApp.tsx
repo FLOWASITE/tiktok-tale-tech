@@ -581,9 +581,17 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       <div className="p-6 text-center">
         <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
         <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={onScheduled}>
-          <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
-        </Button>
+        <div className="flex flex-col gap-2 items-center mt-4">
+          <Button variant="default" size="sm" onClick={retryAutoOpen} disabled={retryingOpen}>
+            {retryingOpen
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              : <RefreshCw className="w-4 h-4 mr-2" />}
+            Làm mới & thử mở lại
+          </Button>
+          <Button variant="outline" size="sm" onClick={onScheduled}>
+            <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
+          </Button>
+        </div>
       </div>
     );
   }
@@ -591,6 +599,15 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   return (
     <>
       <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">{items.length} yêu cầu chờ duyệt</div>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={retryAutoOpen} disabled={retryingOpen}>
+            {retryingOpen
+              ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+            Làm mới & thử mở lại
+          </Button>
+        </div>
         {items.map((it) => (
           <Card key={it.id}>
             <CardContent className="pt-4 space-y-3">
