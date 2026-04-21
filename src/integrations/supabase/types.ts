@@ -9621,7 +9621,8 @@ export type Database = {
           group_chat_id: number | null
           id: string
           is_active: boolean
-          organization_id: string
+          is_default: boolean
+          organization_id: string | null
           updated_at: string
           webhook_secret: string
         }
@@ -9634,7 +9635,8 @@ export type Database = {
           group_chat_id?: number | null
           id?: string
           is_active?: boolean
-          organization_id: string
+          is_default?: boolean
+          organization_id?: string | null
           updated_at?: string
           webhook_secret: string
         }
@@ -9647,7 +9649,8 @@ export type Database = {
           group_chat_id?: number | null
           id?: string
           is_active?: boolean
-          organization_id?: string
+          is_default?: boolean
+          organization_id?: string | null
           updated_at?: string
           webhook_secret?: string
         }
@@ -10754,6 +10757,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      telegram_default_bot_public: {
+        Row: {
+          bot_username: string | null
+          is_active: boolean | null
+        }
+        Insert: {
+          bot_username?: string | null
+          is_active?: boolean | null
+        }
+        Update: {
+          bot_username?: string | null
+          is_active?: boolean | null
+        }
+        Relationships: []
       }
       v_cache_and_revision: {
         Row: {
