@@ -83,21 +83,23 @@ export function useTelegramBinding() {
           filter: `organization_id=eq.${currentOrganization.id}`,
         },
         () => {
-          fetchBindings();
+          fetchBindings(true);
         },
       )
       .subscribe();
 
-    // Fallback polling khi tab visible & chưa có binding (realtime có thể bị firewall chặn)
+    // Fallback polling (silent) chỉ khi CHƯA có binding — realtime là source of truth chính
     const poll = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchBindings();
-    }, 5000);
+      if (document.visibilityState === 'visible' && !binding) {
+        fetchBindings(true);
+      }
+    }, 15000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(poll);
     };
-  }, [currentOrganization, user, fetchBindings]);
+  }, [currentOrganization, user, fetchBindings, binding]);
 
   const generateDeeplink = useCallback(async (): Promise<{ deeplink: string; expires_in: number; bot_username?: string } | null> => {
     if (!currentOrganization) return null;
