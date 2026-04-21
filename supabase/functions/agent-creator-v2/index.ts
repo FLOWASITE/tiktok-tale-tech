@@ -700,7 +700,7 @@ async function routeCarousel(
     carouselStyle,
     visualPreset,
     slideCount,
-    aiTool: "ideogram",
+    // Drop hardcoded "ideogram" — let generate-carousel pick its own default.
     brandName: brief.brand_name || "Brand",
     brandGuideline: brief.brand_guideline || brief.unique_value_proposition || "",
     includeLogo: brief.include_logo ?? false,
@@ -725,9 +725,9 @@ async function routeCarousel(
     output: { ...carouselOutput, slides },
   };
 
-  // Phase 2: Generate actual images for each slide
+  // Phase 2: Generate actual images via the SAME batch pipeline as the manual flow
   if (carouselId && slides.length > 0) {
-    console.log(`[carousel] Phase 2: Generating images for ${slides.length} slides`);
+    console.log(`[carousel] Phase 2: Launching batch image generation for ${slides.length} slides`);
     const imageResults = await generateCarouselImages(
       supabaseUrl,
       serviceKey,
@@ -739,9 +739,18 @@ async function routeCarousel(
       carouselStyle,
       input.organization_id,
       userId,
+      brief,
+      targetChannel,
+      input.topic,
+      input.pipeline_id || null,
     );
     result.output.carousel_images = imageResults;
-    console.log(`[carousel] Images done: ${imageResults.success} ok, ${imageResults.failed} failed`);
+    console.log(
+      `[carousel] Batch done: ${imageResults.success}/${slides.length} ok` +
+        (imageResults.seamless_score !== null && imageResults.seamless_score !== undefined
+          ? `, seamless=${imageResults.seamless_score}`
+          : ""),
+    );
 
     if (imageResults.success === 0) {
       result.success = false;
