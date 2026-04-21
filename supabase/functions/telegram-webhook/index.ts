@@ -2525,6 +2525,56 @@ async function handleSettings(
 // =====================================================
 // UX callback router (welcome / help / tutorial / settings / examples)
 // =====================================================
+// =====================================================
+// single:* callback router — channel picker for /generate_single
+// =====================================================
+async function handleSingleCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, data } = args;
+  await answerCallback(botConfig.botToken, cbId).catch(() => {});
+
+  const parts = data.split(":");
+  const action = parts[1] || "";
+  const value = parts.slice(2).join(":");
+
+  if (action === "cancel") {
+    await sendMessage(botConfig.botToken, chatId, "❌ Đã huỷ. Cứ chat tiếp khi cần nhé.");
+    return;
+  }
+
+  if (action === "pick") {
+    const channel = value.toLowerCase();
+    if (!VALID_SINGLE_CHANNELS.includes(channel)) {
+      await sendMessage(botConfig.botToken, chatId, "Kênh không hợp lệ.");
+      return;
+    }
+    // Recover cached prompt
+    const { data: cached } = await supabase
+      .from("telegram_example_cache")
+      .select("prompt")
+      .eq("chat_id", chatId)
+      .eq("idx", SINGLE_PROMPT_CACHE_IDX)
+      .maybeSingle();
+    const prompt = (cached?.prompt as string) || "";
+    if (!prompt) {
+      await sendMessage(botConfig.botToken, chatId,
+        "Không tìm thấy yêu cầu trước đó. Gõ lại nhé, ví dụ: _viết 1 bài Facebook về spa_",
+        { parse_mode: "Markdown" });
+      return;
+    }
+    await handleGenerateSingle({
+      supabase, botConfig, chatId, telegramUserId: fromTgId, prompt, channel,
+    });
+  }
+}
+
 async function handleUxCallback(args: {
   // deno-lint-ignore no-explicit-any
   supabase: any;
