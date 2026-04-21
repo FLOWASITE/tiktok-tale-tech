@@ -9670,9 +9670,11 @@ export type Database = {
           chat_type: string
           created_at: string
           first_chat_hint_shown_at: string | null
+          group_fallback_count: number
           id: string
           is_active: boolean
           last_command_at: string | null
+          last_group_fallback_at: string | null
           last_quota_alert_at: string | null
           last_quota_alert_threshold: number | null
           linked_at: string
@@ -9691,9 +9693,11 @@ export type Database = {
           chat_type: string
           created_at?: string
           first_chat_hint_shown_at?: string | null
+          group_fallback_count?: number
           id?: string
           is_active?: boolean
           last_command_at?: string | null
+          last_group_fallback_at?: string | null
           last_quota_alert_at?: string | null
           last_quota_alert_threshold?: number | null
           linked_at?: string
@@ -9712,9 +9716,11 @@ export type Database = {
           chat_type?: string
           created_at?: string
           first_chat_hint_shown_at?: string | null
+          group_fallback_count?: number
           id?: string
           is_active?: boolean
           last_command_at?: string | null
+          last_group_fallback_at?: string | null
           last_quota_alert_at?: string | null
           last_quota_alert_threshold?: number | null
           linked_at?: string
