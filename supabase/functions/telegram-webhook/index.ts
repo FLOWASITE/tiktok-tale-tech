@@ -1298,6 +1298,7 @@ async function handleGenerateSingle(
   }
 }
 
+async function handleLinkGroup(
   ctx: HandlerCtx & { chatType: string; telegramUserId?: number },
 ): Promise<void> {
   const { supabase, botConfig, chatId, chatType, telegramUserId } = ctx;
