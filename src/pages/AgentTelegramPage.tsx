@@ -1,15 +1,24 @@
+import { useState } from 'react';
 import { TelegramBotConfigCard } from '@/components/agents/TelegramBotConfigCard';
 import { TelegramLinkCard } from '@/components/agents/TelegramLinkCard';
 import { ChatPreview } from '@/components/agents/ChatPreview';
 import { TelegramUseCases } from '@/components/agents/TelegramUseCases';
 import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { canManageMembers } from '@/types/organization';
 import { useTelegramBotConfig } from '@/hooks/useTelegramBotConfig';
 import { useTelegramBinding } from '@/hooks/useTelegramBinding';
 import { useDefaultTelegramBot } from '@/hooks/useDefaultTelegramBot';
-import { Send, Loader2, Settings2, Sparkles } from 'lucide-react';
+import { Send, Loader2, Sparkles } from 'lucide-react';
 
 export default function AgentTelegramPage() {
   const { currentRole } = useOrganizationContext();
@@ -17,6 +26,7 @@ export default function AgentTelegramPage() {
   const { config, loading: configLoading } = useTelegramBotConfig();
   const { defaultBot, loading: defaultLoading } = useDefaultTelegramBot();
   const { binding, loading: bindingLoading } = useTelegramBinding();
+  const [byobOpen, setByobOpen] = useState(false);
 
   const orgBotReady = !!config && config.is_active;
   const defaultBotReady = !!defaultBot && defaultBot.is_active;
@@ -35,6 +45,7 @@ export default function AgentTelegramPage() {
     : { label: 'Sẵn sàng kết nối', variant: 'outline' as const };
 
   const showOnboarding = !loadingAny && botReady && !userLinked;
+  const showWhiteLabelLink = isAdmin && botReady; // admin always sees option to switch / manage own bot
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto px-4 sm:px-6">
@@ -46,15 +57,41 @@ export default function AgentTelegramPage() {
           </div>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-semibold leading-tight truncate">Telegram Agent</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Chat AI Agent ngay trong Telegram. Setup &lt; 1 phút.
-            </p>
+            {showOnboarding && (
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Chat AI Agent ngay trong Telegram. Setup &lt; 1 phút.
+              </p>
+            )}
           </div>
         </div>
-        <Badge variant={overallStatus.variant} className="shrink-0 whitespace-nowrap">
-          {loadingAny && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-          {overallStatus.label}
-        </Badge>
+        <div className="flex items-center gap-2 shrink-0">
+          {showWhiteLabelLink && (
+            <Dialog open={byobOpen} onOpenChange={setByobOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-8 text-muted-foreground hover:text-primary"
+                >
+                  {orgBotReady ? 'Quản lý bot riêng' : 'Dùng bot riêng'}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Bot Telegram của tổ chức (white-label)</DialogTitle>
+                  <DialogDescription>
+                    Dùng bot riêng để giữ thương hiệu. Gỡ để quay về bot mặc định.
+                  </DialogDescription>
+                </DialogHeader>
+                <TelegramBotConfigCard />
+              </DialogContent>
+            </Dialog>
+          )}
+          <Badge variant={overallStatus.variant} className="whitespace-nowrap">
+            {loadingAny && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+            {overallStatus.label}
+          </Badge>
+        </div>
       </header>
 
       {/* Onboarding (first-time only) */}
@@ -83,53 +120,6 @@ export default function AgentTelegramPage() {
 
           <ChatPreview />
         </section>
-      )}
-
-      {/* Default-bot banner (compact 1-line) */}
-      {usingDefaultBot && (
-        <div className="rounded-lg border bg-primary/5 px-3 py-2.5 flex items-center gap-2 flex-wrap text-sm">
-          <Sparkles className="w-4 h-4 text-primary shrink-0" />
-          <span>
-            Đang dùng bot mặc định{' '}
-            <code className="text-xs bg-background border rounded px-1.5 py-0.5">
-              @{defaultBot?.bot_username}
-            </code>
-          </span>
-          {isAdmin && (
-            <Accordion type="single" collapsible className="w-full sm:w-auto sm:ml-auto">
-              <AccordionItem value="byob" className="border-0">
-                <AccordionTrigger className="py-0 text-xs text-primary hover:no-underline justify-end gap-1">
-                  Đổi bot riêng (white-label)
-                </AccordionTrigger>
-                <AccordionContent className="pt-3">
-                  <TelegramBotConfigCard />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          )}
-        </div>
-      )}
-
-      {/* Admin BYOB visible when org bot already configured */}
-      {isAdmin && orgBotReady && (
-        <Accordion type="single" collapsible>
-          <AccordionItem value="byob-active" className="border rounded-lg px-4">
-            <AccordionTrigger className="py-3 hover:no-underline">
-              <div className="flex items-center gap-2 text-left">
-                <Settings2 className="w-4 h-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm font-medium">Bot riêng của tổ chức (white-label)</div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    @{config?.bot_username} · gỡ để quay về bot mặc định
-                  </div>
-                </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2 pb-3">
-              <TelegramBotConfigCard />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
       )}
 
       {/* Link card — main action */}
