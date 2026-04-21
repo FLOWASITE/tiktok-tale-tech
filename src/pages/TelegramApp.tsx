@@ -27,22 +27,6 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Module-level session cache for approvals fetched directly by ID via the
-// deep-link fallback. Survives tab switches inside the same Mini App session
-// (cleared on full reload). TTL guards against stale rows after long idles.
-const APPROVAL_FETCH_CACHE = new Map<string, { item: ApprovalItem; status: string | null; cachedAt: number }>();
-const APPROVAL_FETCH_TTL_MS = 60_000; // 60s — long enough to cover tab toggles, short enough to refresh stale rows
-
-function readApprovalCache(id: string) {
-  const hit = APPROVAL_FETCH_CACHE.get(id);
-  if (!hit) return null;
-  if (Date.now() - hit.cachedAt > APPROVAL_FETCH_TTL_MS) {
-    APPROVAL_FETCH_CACHE.delete(id);
-    return null;
-  }
-  return hit;
-}
-
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
