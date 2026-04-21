@@ -241,7 +241,7 @@ export default function AdminTelegramAuthCheck() {
       {(passed > 0 || failed > 0) && (
         <div className="flex gap-2">
           <Badge variant="outline" className="gap-1">
-            <CheckCircle2 className="h-3 w-3 text-green-600" /> {passed} pass
+            <CheckCircle2 className="h-3 w-3 text-primary" /> {passed} pass
           </Badge>
           {failed > 0 && (
             <Badge variant="outline" className="gap-1">
@@ -260,7 +260,7 @@ export default function AdminTelegramAuthCheck() {
               check.status === "fail"
                 ? "border-destructive/50"
                 : check.status === "pass"
-                  ? "border-green-600/30"
+                  ? "border-primary/30"
                   : ""
             }
           >
@@ -269,7 +269,7 @@ export default function AdminTelegramAuthCheck() {
                 <div className="space-y-1 flex-1 min-w-0">
                   <CardTitle className="text-sm flex items-center gap-2">
                     {check.status === "running" && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                    {check.status === "pass" && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                    {check.status === "pass" && <CheckCircle2 className="h-4 w-4 text-primary" />}
                     {check.status === "fail" && <XCircle className="h-4 w-4 text-destructive" />}
                     {check.status === "pending" && <AlertCircle className="h-4 w-4 text-muted-foreground" />}
                     {check.name}
