@@ -3273,10 +3273,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                 .insert({
                   user_id: userId,
                   organization_id: organizationId || null,
-                  title: formData.topic.slice(0, 100),
+                  title: extractTitleFromChannels(channelResults, formData.topic),
                   topic: formData.topic,
-                  content_goal: contentGoal,
-                  selected_channels: channels,
                   brand_template_id: formData.brandTemplateId || null,
                   brand_voice_variant_id: formData.brandVoiceVariantId || null,
                   brand_name: brandName,
