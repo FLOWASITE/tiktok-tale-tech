@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check } from 'lucide-react';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
+import { toast } from 'sonner';
+import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check, CalendarClock, Eye, X as XIcon } from 'lucide-react';
 
-type Tab = 'dashboard' | 'create' | 'approve' | 'brands';
+type Tab = 'dashboard' | 'create' | 'approve' | 'scheduled' | 'brands';
 
 type TelegramMiniApp = {
   initDataUnsafe?: { user?: { id?: number } };
@@ -17,13 +19,18 @@ function getTelegramMiniApp(): TelegramMiniApp | undefined {
   return window.Telegram?.WebApp as TelegramMiniApp | undefined;
 }
 
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
 
-  // Read intent from hash route (e.g. #/multichannel/<id> from "Xem & duyệt" button).
-  // We don't have a real router inside the Mini App yet, so for now hash paths that
-  // mention approval flows just open the Approve tab.
   useEffect(() => {
     if (!authenticated) return;
     const hash = window.location.hash || '';
@@ -44,8 +51,6 @@ export default function TelegramApp() {
   }
 
   if (!authenticated || !userId || !organizationId) {
-    // Distinguish between (a) session OK but org chưa resolve, (b) thật sự fail auth,
-    // và (c) các lỗi backend cụ thể (not_linked, ambiguous_org, ...).
     const sessionOkButOrgMissing = authenticated && !!userId && !organizationId;
     const title = sessionOkButOrgMissing
       ? 'Chưa xác định được workspace'
@@ -92,7 +97,6 @@ export default function TelegramApp() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="px-4 pt-4 pb-3 border-b border-border bg-card">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
@@ -101,20 +105,20 @@ export default function TelegramApp() {
         </div>
       </header>
 
-      {/* Body */}
       <main className="flex-1 overflow-y-auto pb-20">
         {tab === 'dashboard' && <DashboardTab orgId={organizationId} userId={userId} />}
         {tab === 'create' && <CreateTab orgId={organizationId} userId={userId} onDone={() => setTab('dashboard')} />}
-        {tab === 'approve' && <ApproveTab orgId={organizationId} />}
+        {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} />}
+        {tab === 'scheduled' && <ScheduledTab orgId={organizationId} />}
         {tab === 'brands' && <BrandsTab orgId={organizationId} />}
       </main>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-4">
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-5">
         <NavBtn active={tab === 'dashboard'} icon={<LayoutDashboard className="w-5 h-5" />} label="Tổng quan" onClick={() => setTab('dashboard')} />
         <NavBtn active={tab === 'create'} icon={<Plus className="w-5 h-5" />} label="Tạo" onClick={() => setTab('create')} />
         <NavBtn active={tab === 'brands'} icon={<Palette className="w-5 h-5" />} label="Brand" onClick={() => setTab('brands')} />
         <NavBtn active={tab === 'approve'} icon={<CheckSquare className="w-5 h-5" />} label="Duyệt" onClick={() => setTab('approve')} />
+        <NavBtn active={tab === 'scheduled'} icon={<CalendarClock className="w-5 h-5" />} label="Lịch" onClick={() => setTab('scheduled')} />
       </nav>
     </div>
   );
@@ -124,7 +128,7 @@ function NavBtn({ active, icon, label, onClick }: { active: boolean; icon: React
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 py-3 text-xs ${active ? 'text-primary' : 'text-muted-foreground'}`}
+      className={`flex flex-col items-center gap-1 py-3 text-[11px] ${active ? 'text-primary' : 'text-muted-foreground'}`}
     >
       {icon}
       <span>{label}</span>
@@ -187,7 +191,7 @@ function DashboardTab({ orgId, userId }: { orgId: string; userId: string }) {
       <Card>
         <CardContent className="pt-4">
           <p className="text-sm text-muted-foreground">
-            👋 Bấm tab <strong>Tạo</strong> để khởi chạy campaign mới, hoặc <strong>Duyệt</strong> để xem các nội dung đang chờ.
+            👋 Bấm tab <strong>Tạo</strong> để khởi chạy campaign mới, <strong>Duyệt</strong> để xem nội dung chờ, hoặc <strong>Lịch</strong> để xem bài đã lên lịch.
           </p>
         </CardContent>
       </Card>
@@ -250,7 +254,6 @@ function CreateTab({ orgId, userId, onDone }: { orgId: string; userId: string; o
       if (error) throw error;
       setMsg('✅ Đã tạo. Pipeline sẽ chạy nền.');
       setTopic('');
-      // Best-effort trigger
       void supabase.functions.invoke('agent-pipeline', {
         body: { action: 'trigger_from_goal', goal_id: goal.id, organization_id: orgId },
       });
@@ -296,33 +299,137 @@ function CreateTab({ orgId, userId, onDone }: { orgId: string; userId: string; o
 }
 
 // ============= Approve =============
-function ApproveTab({ orgId }: { orgId: string }) {
-  const [items, setItems] = useState<Array<{ id: string; content_preview: string | null; created_at: string }>>([]);
+type ApprovalItem = {
+  id: string;
+  content_preview: string | null;
+  created_at: string;
+  pipeline_id: string;
+  content_id: string | null;
+  content_title: string | null;
+  scheduled_publish_at: string | null;
+  selected_channels: string[] | null;
+};
+
+type ImageRow = { image_url: string; channel: string };
+
+function ApproveTab({ orgId, onScheduled }: { orgId: string; onScheduled: () => void }) {
+  const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<ApprovalItem | null>(null);
+  const [previewImages, setPreviewImages] = useState<ImageRow[]>([]);
+  const [previewFullText, setPreviewFullText] = useState<string>('');
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   async function load() {
     setLoading(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
     const { data } = await sb.from('agent_approvals')
-      .select('id, content_preview, created_at')
+      .select('id, content_preview, created_at, pipeline_id, agent_pipelines!inner(content_id, content_title, scheduled_publish_at, multi_channel_contents(selected_channels))')
       .eq('organization_id', orgId)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(20);
-    setItems(data ?? []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: ApprovalItem[] = (data ?? []).map((r: any) => ({
+      id: r.id,
+      content_preview: r.content_preview,
+      created_at: r.created_at,
+      pipeline_id: r.pipeline_id,
+      content_id: r.agent_pipelines?.content_id ?? null,
+      content_title: r.agent_pipelines?.content_title ?? null,
+      scheduled_publish_at: r.agent_pipelines?.scheduled_publish_at ?? null,
+      selected_channels: r.agent_pipelines?.multi_channel_contents?.selected_channels ?? null,
+    }));
+    setItems(mapped);
     setLoading(false);
   }
   useEffect(() => { void load(); }, [orgId]);
 
+  async function openPreview(it: ApprovalItem) {
+    setPreviewItem(it);
+    setPreviewImages([]);
+    setPreviewFullText('');
+    if (!it.content_id) return;
+    setPreviewLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const [imgsRes, contentRes] = await Promise.all([
+        sb.from('channel_image_history')
+          .select('image_url, channel, is_selected, version')
+          .eq('content_id', it.content_id)
+          .order('version', { ascending: false })
+          .limit(20),
+        sb.from('multi_channel_contents')
+          .select('channel_versions')
+          .eq('id', it.content_id)
+          .maybeSingle(),
+      ]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imgs: ImageRow[] = (imgsRes.data ?? []).filter((r: any) => r.image_url);
+      // dedupe by channel preferring is_selected
+      const byChannel = new Map<string, ImageRow>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (imgsRes.data ?? []).forEach((r: any) => {
+        if (!r.image_url) return;
+        if (!byChannel.has(r.channel) || r.is_selected) {
+          byChannel.set(r.channel, { image_url: r.image_url, channel: r.channel });
+        }
+      });
+      setPreviewImages(Array.from(byChannel.values()).slice(0, 6));
+      // pull longest channel text as full preview
+      const cv = contentRes.data?.channel_versions || {};
+      let longest = '';
+      for (const k of Object.keys(cv)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const v: any = cv[k];
+        const txt = typeof v === 'string' ? v : (v?.content || v?.text || v?.body || '');
+        if (typeof txt === 'string' && txt.length > longest.length) longest = txt;
+      }
+      setPreviewFullText(longest || it.content_preview || '');
+    } catch (e) {
+      console.error('[telegram-app] preview load failed', e);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   async function act(id: string, action: 'approve' | 'reject') {
     setActing(id);
+    const target = items.find((x) => x.id === id);
     try {
-      await supabase.functions.invoke('agent-approve', {
+      const { data, error } = await supabase.functions.invoke('agent-approve', {
         body: { approval_id: id, action, notes: 'via Telegram Mini App' },
       });
+      if (error) throw error;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resp: any = data;
+      if (resp?.ok === false) throw new Error(resp.error || 'Lỗi không xác định');
+
       setItems((arr) => arr.filter((x) => x.id !== id));
+      setPreviewItem(null);
+
+      if (action === 'reject') {
+        toast.success('Đã từ chối — pipeline trả về sáng tạo');
+        return;
+      }
+
+      const sched = target?.scheduled_publish_at;
+      const channels = target?.selected_channels?.length ? ` • ${target.selected_channels.join(', ')}` : '';
+      if (sched) {
+        const when = formatDateTime(sched);
+        toast.success(`Đã duyệt. Sẽ đăng lúc ${when}${channels}`, {
+          action: { label: 'Xem lịch', onClick: () => onScheduled() },
+        });
+      } else {
+        toast.success(`Đã duyệt — pipeline tiếp tục${channels}`, {
+          action: { label: 'Xem lịch', onClick: () => onScheduled() },
+        });
+      }
+    } catch (e) {
+      toast.error('Lỗi: ' + (e instanceof Error ? e.message : 'Không xác định'));
     } finally {
       setActing(null);
     }
@@ -334,6 +441,200 @@ function ApproveTab({ orgId }: { orgId: string }) {
       <div className="p-6 text-center">
         <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
         <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={onScheduled}>
+          <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="p-4 space-y-3">
+        {items.map((it) => (
+          <Card key={it.id}>
+            <CardContent className="pt-4 space-y-3">
+              {it.content_title && (
+                <div className="text-xs font-medium text-foreground/80 line-clamp-1">{it.content_title}</div>
+              )}
+              <p className="text-sm whitespace-pre-line line-clamp-6">
+                {it.content_preview || '_Không có preview_'}
+              </p>
+              {it.scheduled_publish_at && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2 py-1.5 rounded">
+                  <CalendarClock className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    Sẽ đăng: {formatDateTime(it.scheduled_publish_at)}
+                    {it.selected_channels?.length ? ` • ${it.selected_channels.join(', ')}` : ''}
+                  </span>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  size="sm" variant="ghost"
+                  disabled={acting === it.id}
+                  onClick={() => openPreview(it)}
+                >
+                  <Eye className="w-4 h-4 mr-1" /> Xem
+                </Button>
+                <Button
+                  size="sm" variant="outline" className="flex-1"
+                  disabled={acting === it.id}
+                  onClick={() => act(it.id, 'reject')}
+                >
+                  ❌ Từ chối
+                </Button>
+                <Button
+                  size="sm" className="flex-1"
+                  disabled={acting === it.id}
+                  onClick={() => act(it.id, 'approve')}
+                >
+                  {acting === it.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '✅ Duyệt'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Drawer open={!!previewItem} onOpenChange={(o) => !o && setPreviewItem(null)}>
+        <DrawerContent className="max-h-[88vh]">
+          <DrawerHeader>
+            <DrawerTitle className="text-base line-clamp-2">
+              {previewItem?.content_title || 'Xem nội dung đầy đủ'}
+            </DrawerTitle>
+            {previewItem?.scheduled_publish_at && (
+              <DrawerDescription className="flex items-center gap-1.5">
+                <CalendarClock className="w-3.5 h-3.5" />
+                Sẽ đăng: {formatDateTime(previewItem.scheduled_publish_at)}
+                {previewItem.selected_channels?.length ? ` • ${previewItem.selected_channels.join(', ')}` : ''}
+              </DrawerDescription>
+            )}
+          </DrawerHeader>
+          <div className="px-4 pb-4 overflow-y-auto space-y-4">
+            {previewLoading && <Loading />}
+            {!previewLoading && previewImages.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {previewImages.map((img, i) => (
+                  <div key={i} className="space-y-1">
+                    <img src={img.image_url} alt={img.channel} className="w-full aspect-square object-cover rounded-md border border-border" loading="lazy" />
+                    <div className="text-[10px] text-muted-foreground capitalize">{img.channel}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!previewLoading && (
+              <div className="text-sm whitespace-pre-line text-foreground/90">
+                {previewFullText || '_Không có nội dung_'}
+              </div>
+            )}
+            {previewItem && (
+              <div className="flex gap-2 pt-2 sticky bottom-0 bg-background pb-2">
+                <Button
+                  variant="outline" className="flex-1"
+                  disabled={acting === previewItem.id}
+                  onClick={() => act(previewItem.id, 'reject')}
+                >
+                  ❌ Từ chối
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={acting === previewItem.id}
+                  onClick={() => act(previewItem.id, 'approve')}
+                >
+                  {acting === previewItem.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '✅ Duyệt'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
+// ============= Scheduled =============
+type ScheduleRow = {
+  id: string;
+  scheduled_at: string;
+  channel: string;
+  publish_status: string;
+  content_id: string;
+  title?: string | null;
+  thumbnail?: string | null;
+};
+
+function ScheduledTab({ orgId }: { orgId: string }) {
+  const [items, setItems] = useState<ScheduleRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const { data: schedules } = await sb.from('content_schedules')
+        .select('id, scheduled_at, channel, publish_status, content_id')
+        .eq('organization_id', orgId)
+        .in('publish_status', ['scheduled', 'publishing'])
+        .order('scheduled_at', { ascending: true })
+        .limit(50);
+      const rows: ScheduleRow[] = schedules ?? [];
+      const contentIds = Array.from(new Set(rows.map((r) => r.content_id).filter(Boolean)));
+      let titleMap = new Map<string, string>();
+      let imgMap = new Map<string, string>();
+      if (contentIds.length) {
+        const [titlesRes, imgsRes] = await Promise.all([
+          sb.from('multi_channel_contents').select('id, title').in('id', contentIds),
+          sb.from('channel_image_history').select('content_id, image_url, channel, is_selected').in('content_id', contentIds),
+        ]);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (titlesRes.data ?? []).forEach((r: any) => titleMap.set(r.id, r.title));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (imgsRes.data ?? []).forEach((r: any) => {
+          const k = `${r.content_id}::${r.channel}`;
+          if (!imgMap.has(k) || r.is_selected) imgMap.set(k, r.image_url);
+        });
+      }
+      setItems(rows.map((r) => ({
+        ...r,
+        title: titleMap.get(r.content_id) ?? null,
+        thumbnail: imgMap.get(`${r.content_id}::${r.channel}`) ?? null,
+      })));
+    } catch (e) {
+      console.error('[telegram-app] scheduled load failed', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, [orgId]);
+
+  async function cancel(id: string) {
+    setCancelling(id);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const { error } = await sb.from('content_schedules')
+        .update({ publish_status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      setItems((arr) => arr.filter((x) => x.id !== id));
+      toast.success('Đã huỷ lịch đăng');
+    } catch (e) {
+      toast.error('Không huỷ được: ' + (e instanceof Error ? e.message : 'Lỗi'));
+    } finally {
+      setCancelling(null);
+    }
+  }
+
+  if (loading) return <Loading />;
+  if (items.length === 0) {
+    return (
+      <div className="p-6 text-center">
+        <CalendarClock className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+        <p className="text-sm text-muted-foreground">Chưa có bài nào đang chờ đăng.</p>
       </div>
     );
   }
@@ -342,24 +643,32 @@ function ApproveTab({ orgId }: { orgId: string }) {
     <div className="p-4 space-y-3">
       {items.map((it) => (
         <Card key={it.id}>
-          <CardContent className="pt-4 space-y-3">
-            <p className="text-sm whitespace-pre-line line-clamp-6">
-              {it.content_preview || '_Không có preview_'}
-            </p>
-            <div className="flex gap-2">
+          <CardContent className="pt-4">
+            <div className="flex gap-3">
+              {it.thumbnail ? (
+                <img src={it.thumbnail} alt="" className="w-16 h-16 rounded-md object-cover border border-border shrink-0" loading="lazy" />
+              ) : (
+                <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center shrink-0">
+                  <CalendarClock className="w-6 h-6 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium line-clamp-2">{it.title || 'Bài viết'}</div>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <Badge variant="secondary" className="text-[10px] capitalize">{it.channel}</Badge>
+                  <span>{formatDateTime(it.scheduled_at)}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {it.publish_status === 'publishing' ? '⏳ Đang đăng…' : '🕒 Đã lên lịch'}
+                </div>
+              </div>
               <Button
-                size="sm" variant="outline" className="flex-1"
-                disabled={acting === it.id}
-                onClick={() => act(it.id, 'reject')}
+                size="sm" variant="ghost"
+                disabled={cancelling === it.id || it.publish_status === 'publishing'}
+                onClick={() => cancel(it.id)}
+                className="shrink-0"
               >
-                ❌ Từ chối
-              </Button>
-              <Button
-                size="sm" className="flex-1"
-                disabled={acting === it.id}
-                onClick={() => act(it.id, 'approve')}
-              >
-                {acting === it.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '✅ Duyệt'}
+                {cancelling === it.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XIcon className="w-4 h-4" />}
               </Button>
             </div>
           </CardContent>
