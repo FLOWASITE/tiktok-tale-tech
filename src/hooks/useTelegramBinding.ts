@@ -9,6 +9,7 @@ export interface TelegramBinding {
   organization_id: string;
   user_id: string | null;
   telegram_chat_id: number;
+  telegram_user_id: number | null;
   chat_type: 'private' | 'group' | 'supergroup';
   telegram_username: string | null;
   linked_at: string;
