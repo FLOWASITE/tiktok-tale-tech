@@ -10,6 +10,11 @@
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import {
+  extractBrandColorsFromTemplate,
+  buildSeriesBibleFromSlides,
+  buildSiblingsSummary,
+} from "../_shared/carousel-image-batch-payload.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
