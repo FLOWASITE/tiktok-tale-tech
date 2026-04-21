@@ -20,11 +20,13 @@ import {
   Loader2,
   Unlink,
   AlertCircle,
+  AlertTriangle,
   ExternalLink,
   Send,
   QrCode,
   Bell,
   MoreHorizontal,
+  RefreshCw,
 } from 'lucide-react';
 
 interface TelegramLinkCardProps {
