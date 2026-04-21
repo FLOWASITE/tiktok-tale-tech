@@ -90,11 +90,16 @@ export async function classifyIntent(
           properties: {
             intent: {
               type: "string",
-              enum: ["chitchat", "generate_campaign", "status", "help"],
+              enum: ["chitchat", "generate_campaign", "generate_single", "status", "help"],
             },
             prompt: {
               type: "string",
-              description: "Mô tả campaign (chỉ khi intent=generate_campaign)",
+              description: "Mô tả nội dung (bắt buộc khi intent=generate_campaign hoặc generate_single)",
+            },
+            channel: {
+              type: "string",
+              description: "Tên kênh lowercase (chỉ khi intent=generate_single). Để rỗng nếu user chưa chỉ định.",
+              enum: ["", "facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"],
             },
             reply: {
               type: "string",
