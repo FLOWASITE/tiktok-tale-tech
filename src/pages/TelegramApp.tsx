@@ -374,6 +374,17 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   const [previewLoading, setPreviewLoading] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const [retryingOpen, setRetryingOpen] = useState(false);
+  const [autoOpenStatus, setAutoOpenStatus] = useState<'idle' | 'searching' | 'success' | 'not_found'>('idle');
+  const [autoOpenStartedAt, setAutoOpenStartedAt] = useState<number | null>(null);
+  const [autoOpenAttempt, setAutoOpenAttempt] = useState(0);
+  const [autoOpenElapsedMs, setAutoOpenElapsedMs] = useState(0);
+
+  // Tick a 200ms timer while we're searching so the banner shows live elapsed seconds.
+  useEffect(() => {
+    if (autoOpenStatus !== 'searching' || !autoOpenStartedAt) return;
+    const t = setInterval(() => setAutoOpenElapsedMs(Date.now() - autoOpenStartedAt), 200);
+    return () => clearInterval(t);
+  }, [autoOpenStatus, autoOpenStartedAt]);
 
   async function load() {
     setLoading(true);
