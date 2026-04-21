@@ -239,11 +239,12 @@ export async function notifyApprovalNeeded(
     : "";
 
   const text = `🔔 *Cần duyệt nội dung*\n\n📝 ${title}${channelsLine}${scheduleLine}${preview}`;
+  const keyboard = approvalKeyboard(approvalId, opts.channels ?? null);
 
   if (targets.length > 0) {
     await pushMany(targets, text, {
       parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: approvalKeyboard(approvalId) },
+      reply_markup: { inline_keyboard: keyboard },
       disable_web_page_preview: true,
     });
     return;
@@ -272,7 +273,7 @@ export async function notifyApprovalNeeded(
 
   await pushMany(groupTargets, text + startLink, {
     parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: approvalKeyboard(approvalId) },
+    reply_markup: { inline_keyboard: keyboard },
     disable_web_page_preview: true,
   });
 }
