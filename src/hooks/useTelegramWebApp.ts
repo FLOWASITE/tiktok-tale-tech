@@ -82,56 +82,33 @@ export function useTelegramWebApp(): TelegramAppAuth {
       const startParam = wa.initDataUnsafe?.start_param;
       // start_param may carry "org_<uuid>" or raw uuid (depending on bot deep-link convention).
       const startParamOrg = startParam?.startsWith('org_') ? startParam.slice(4) : startParam;
-      const orgId = params.get('org') || startParamOrg || localStorage.getItem('flowa_tg_app_org');
-      if (!orgId) {
-        if (!cancelled) {
-          setState({
-            ready: true,
-            loading: false,
-            authenticated: false,
-            error: 'Thiếu organization id. Mở từ menu bot Telegram.',
-            userId: null,
-            organizationId: null,
-            webApp: wa,
-          });
-        }
-        return;
-      }
-      localStorage.setItem('flowa_tg_app_org', orgId);
+      const candidateOrgId = params.get('org') || startParamOrg || localStorage.getItem('flowa_tg_app_org');
 
-      // Already signed in? Skip exchange.
       const { data: existing } = await supabase.auth.getSession();
-      if (existing.session?.user?.id) {
-        if (!cancelled) {
-          setState({
-            ready: true,
-            loading: false,
-            authenticated: true,
-            error: null,
-            userId: existing.session.user.id,
-            organizationId: orgId,
-            webApp: wa,
-          });
-        }
-        return;
-      }
+      const existingUserId = existing.session?.user?.id ?? null;
 
       try {
         const { data, error } = await supabase.functions.invoke('telegram-webapp-auth', {
-          body: { init_data: wa.initData, organization_id: orgId },
+          body: { init_data: wa.initData, organization_id: candidateOrgId ?? undefined },
         });
         if (error) throw error;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const payload = data as any;
-        if (!payload?.token_hash || !payload?.email) {
+        if (!payload?.token_hash || !payload?.email || !payload?.organization_id) {
           throw new Error(payload?.error || 'Không nhận được token');
         }
-        const { error: vErr } = await supabase.auth.verifyOtp({
-          type: 'magiclink',
-          token_hash: payload.token_hash,
-          email: payload.email,
-        });
-        if (vErr) throw vErr;
+        if (!existingUserId || existingUserId !== payload.user_id) {
+          if (existingUserId && existingUserId !== payload.user_id) {
+            await supabase.auth.signOut();
+          }
+          const { error: vErr } = await supabase.auth.verifyOtp({
+            type: 'magiclink',
+            token_hash: payload.token_hash,
+            email: payload.email,
+          });
+          if (vErr) throw vErr;
+        }
+        localStorage.setItem('flowa_tg_app_org', payload.organization_id);
         if (!cancelled) {
           setState({
             ready: true,
@@ -139,7 +116,7 @@ export function useTelegramWebApp(): TelegramAppAuth {
             authenticated: true,
             error: null,
             userId: payload.user_id,
-            organizationId: orgId,
+            organizationId: payload.organization_id,
             webApp: wa,
           });
         }
@@ -152,7 +129,7 @@ export function useTelegramWebApp(): TelegramAppAuth {
             authenticated: false,
             error: msg,
             userId: null,
-            organizationId: orgId,
+            organizationId: candidateOrgId ?? null,
             webApp: wa,
           });
         }
