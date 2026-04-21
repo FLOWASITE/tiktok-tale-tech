@@ -234,11 +234,13 @@ export default function AdminTelegramAuthCheck() {
 
     // 7. Supabase session probe
     update(6, { status: "running" });
+    let hasExistingSession = false;
     {
       const start = performance.now();
       const { data, error } = await supabase.auth.getSession();
       const ms = Math.round(performance.now() - start);
       const userId = data.session?.user?.id ?? null;
+      hasExistingSession = !!userId;
       update(6, {
         status: error ? "fail" : "pass",
         actualStatus: error ? 500 : 200,
@@ -253,6 +255,48 @@ export default function AdminTelegramAuthCheck() {
           ? "Có session active → nhánh 'existing session' của hook sẽ chạy. Kiểm tra test 6 để chắc backend vẫn resolve được org."
           : "Chưa có session → hook sẽ verifyOtp bằng token_hash từ test 5.",
       });
+    }
+
+    // 8. verifyOtp với token_hash từ test 5 — bước fail thật sự gây "Không xác thực được"
+    update(7, { status: "running" });
+    if (!realInitData.trim()) {
+      update(7, { status: "pass", notes: "Skipped — không có real init_data." });
+    } else if (hasExistingSession) {
+      update(7, {
+        status: "pass",
+        notes: "Skipped — đã có session sẵn, hook sẽ KHÔNG gọi verifyOtp lại (đúng invariant).",
+      });
+    } else {
+      // Re-call function để lấy token_hash mới (đã consumed bởi attempt khác)
+      const r = await callAuth({ init_data: realInitData.trim() });
+      const body = r.body as { token_hash?: string; email?: string } | null;
+      if (!body?.token_hash) {
+        update(7, {
+          status: "fail",
+          actualStatus: r.status,
+          actualBody: r.body,
+          notes: "Function không trả token_hash — không thể test verifyOtp.",
+        });
+      } else {
+        const start = performance.now();
+        const { error: vErr } = await supabase.auth.verifyOtp({
+          type: "magiclink",
+          token_hash: body.token_hash,
+        });
+        const ms = Math.round(performance.now() - start);
+        const pass = !vErr;
+        update(7, {
+          status: pass ? "pass" : "fail",
+          actualStatus: pass ? 200 : 400,
+          actualBody: { error: vErr?.message ?? null, code: vErr?.code ?? null },
+          durationMs: ms,
+          notes: pass
+            ? "✓ verifyOtp thành công — Mini App sẽ vào được sau khi function trả token_hash."
+            : vErr?.message?.includes("token_hash and type")
+              ? "❌ Bug đã biết: payload verifyOtp có thừa field. Hook PHẢI chỉ truyền { type, token_hash } — KHÔNG có email."
+              : `❌ verifyOtp fail: ${vErr?.message ?? "unknown"}.`,
+        });
+      }
     }
 
     setRunning(false);
