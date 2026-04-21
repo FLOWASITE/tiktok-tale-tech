@@ -1,83 +1,112 @@
 
 
-# Tại sao "Chờ admin cấu hình bot"?
+# Hoàn thiện UI cài đặt Telegram ban đầu
 
-## Root cause (verified)
+## Phạm vi (đã chốt)
+1. Polish toàn bộ `/agents/telegram` (spacing, copy, mobile 707px)
+2. Thêm empty-state + onboarding tour cho user lần đầu
+3. Thêm preview chat sample để user thấy AI trả lời thế nào trước khi link
 
-Bảng `telegram_bot_configs` **không có column `is_default`**. Code khắp nơi (telegram-link-token, telegram-send-test, telegram-bot-admin) đang query `.eq("is_default", true)` → query luôn fail/empty → `defaultBot = null` → `botReady = false` → hiển thị "Chờ admin cấu hình".
+## Layout mới (mobile-first 707px → desktop)
 
-Hiện DB chỉ có 1 bot duy nhất `@Flowa123bot` thuộc org `bccfec38…`. User của org bạn đang xem **không phải org đó** → không có org bot, cũng không có default bot → bị chặn.
+```text
+┌──────────────────────────────────────────────────┐
+│ Header card (gọn lại)                            │
+│ [Send] Telegram Agent      [Sẵn sàng kết nối]   │
+│ Chat tự nhiên với AI từ Telegram. Setup < 1 phút.│
+└──────────────────────────────────────────────────┘
 
-Có 2 vấn đề chồng nhau:
-1. **Migration thiếu**: column `is_default` chưa được tạo + chưa có row sentinel `(organization_id=NULL, is_default=true)` cho default bot Flowa.
-2. **View `telegram_default_bot_public`** mà FE query để biết default bot → cũng không tồn tại hoặc rỗng.
+┌── ONBOARDING (chỉ hiện khi !userLinked) ────────┐
+│  ✨ 3 bước để bắt đầu                            │
+│  ① Bấm "Mở Telegram" → ② Start bot → ③ Chat     │
+│                                                  │
+│  ┌─ Preview: AI agent trả lời thế nào ─────────┐│
+│  │ 👤 "tạo campaign cho spa Tết"               ││
+│  │ 🤖 "Đã hiểu! Spa, dịp Tết, tone ấm áp.      ││
+│  │     Tạo 5 bài đa kênh trong 2 phút..."      ││
+│  │ 👤 "/status"                                ││
+│  │ 🤖 "Quota: 12/30 campaign tháng này"        ││
+│  └──────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────┘
 
-## Fix: 3 việc tuần tự
+[ Banner default-bot — giữ nguyên, refine copy ]
 
-### 1. Migration: thêm `is_default` + sentinel + view public
+[ TelegramLinkCard — đã có sẵn one-click button ]
 
-```sql
--- Add column
-ALTER TABLE telegram_bot_configs
-  ADD COLUMN IF NOT EXISTS is_default boolean NOT NULL DEFAULT false;
-
--- Unique index: chỉ 1 default global (org NULL + is_default true)
-CREATE UNIQUE INDEX IF NOT EXISTS telegram_bot_configs_one_default
-  ON telegram_bot_configs (is_default)
-  WHERE organization_id IS NULL AND is_default = true;
-
--- Promote existing Flowa123bot thành default global:
--- Copy bot_token_encrypted của Flowa123bot vào row sentinel mới (org=NULL)
-INSERT INTO telegram_bot_configs (
-  organization_id, is_default, bot_username, bot_token_encrypted, is_active
-)
-SELECT NULL, true, bot_username, bot_token_encrypted, true
-FROM telegram_bot_configs
-WHERE bot_username = 'Flowa123bot'
-ON CONFLICT DO NOTHING;
-
--- Public view: ai cũng đọc được tên bot default (không expose token)
-CREATE OR REPLACE VIEW telegram_default_bot_public AS
-SELECT bot_username, is_active
-FROM telegram_bot_configs
-WHERE organization_id IS NULL AND is_default = true AND is_active = true;
-
-GRANT SELECT ON telegram_default_bot_public TO anon, authenticated;
+┌── "Sau khi link, bạn có thể…" (thay COMMAND_GROUPS)─┐
+│  💬 Chat tự nhiên     "tạo bài Facebook bán kem"   │
+│  📊 Hỏi quota         "/status" hoặc "còn bao nhiêu"│
+│  🎯 Tạo campaign      "/generate" hoặc mô tả tự do  │
+│  ⏸  Quản lý pipeline  "/pause", "/resume"          │
+│                                                     │
+│  [▾ Xem tất cả lệnh]  ← accordion ẩn list cũ        │
+└─────────────────────────────────────────────────────┘
 ```
 
-### 2. RLS: cho authenticated user đọc cấu hình default
-Hiện chỉ org admin được SELECT. Sau migration, view public bypass được, nhưng `telegram-link-token` (service role) vẫn query bảng gốc → OK do dùng service key. Không cần đổi RLS gốc.
+## Thay đổi cụ thể
 
-### 3. UI fallback nhẹ trong lúc chờ config (optional)
-Khi `botReady=false` nhưng user là **member thường (không admin)** → hiển thị message rõ hơn:
-> "Tổ chức bạn chưa có bot Telegram. Flowa đang setup bot mặc định — thử lại sau ít phút, hoặc liên hệ admin nếu muốn dùng bot riêng."
+### A. `AgentTelegramPage.tsx`
+- **Header card**: bỏ `CardHeader` to → 1 row gọn `[icon] Title + Badge` ở phải, description 1 dòng. Tiết kiệm ~80px chiều cao.
+- **Onboarding section** (mới, chỉ render khi `!userLinked && !loadingAny`):
+  - 3 bước numbered horizontal pills (mobile: stack)
+  - `<ChatPreview />` component mới: 4 bubble mockup (user/bot xen kẽ), animation `animate-in fade-in slide-in-from-bottom-2` lệch 200ms mỗi bubble
+  - Background gradient `from-primary/5 via-transparent`
+- **Banner default-bot**: rút gọn còn 1 dòng `✨ Đang dùng @Flowa123bot (mặc định) · [Đổi bot riêng]` → click mở accordion BYOB
+- **"Sau khi link bạn có thể"**: thay block `COMMAND_GROUPS` cứng → 4 use-case cards có icon + ví dụ chat tự nhiên (ưu tiên), accordion ẩn full command list bên dưới
+- **StepSection**: bỏ luôn vì giờ chỉ còn 1 step thực sự (link). Gắn label "Bước cuối: kết nối tài khoản" inline thay vì step indicator rườm.
 
-Không thay đổi component logic, chỉ refine copy trong `TelegramLinkCard` line 195-200.
+### B. `TelegramLinkCard.tsx` — refine
+- Mobile 707px: nút primary đã full-width (giữ). Tăng `size="lg"` thành `h-12` để tap target rõ.
+- "Scan QR" + "@botname" hiện đang nằm chung row — trên 707px vẫn ổn nhưng thêm `flex-wrap` để safe.
+- State `prefetchError`: thêm icon AlertCircle bên trái, không chỉ text đỏ.
+- Connected state: avatar bot (placeholder Send icon trong vòng tròn primary) thay `CircleDot` cho nhận diện rõ hơn.
 
-## Files thay đổi
+### C. `ChatPreview.tsx` (component mới ~60 dòng)
+- 4 bubble cứng (không call API), styled như Telegram:
+  - User bubble: `bg-primary text-primary-foreground rounded-2xl rounded-br-sm` align right
+  - Bot bubble: `bg-muted rounded-2xl rounded-bl-sm` align left, prefix `🤖`
+- Sequence với `animation-delay` 0/200/400/600ms khi vào viewport (dùng `IntersectionObserver` 1 lần)
+- Mobile: bubble max-width 85%; desktop 70%
 
-| File | Loại |
+### D. Copy refinement (Vietnamese)
+| Hiện tại | Mới |
 |---|---|
-| `supabase/migrations/<timestamp>_telegram_default_bot.sql` | mới — add column, sentinel, view |
-| `src/components/agents/TelegramLinkCard.tsx` | tweak copy line 195-200 (optional) |
+| "Chat tự nhiên với AI Agent từ Telegram — không cần gõ lệnh, bot tự hiểu để tạo campaign, báo quota, tư vấn marketing." | "Chat AI Agent ngay trong Telegram. Tạo campaign, hỏi quota, lên lịch — không cần mở app." |
+| "Scan QR hoặc bấm 'Continue in Telegram' — kết nối < 1 phút." | "1 click → bấm Start trong Telegram → xong (< 30 giây)" |
+| "Cấu hình Bot Telegram (tùy chỉnh)" | "Bot riêng của tổ chức (white-label)" |
+| "Group tổ chức (tùy chọn)" | giữ |
 
-Không cần đụng:
-- Edge functions `telegram-link-token` / `telegram-send-test` / `telegram-bot-admin` — code đã query đúng `.eq("is_default", true)`, chỉ chờ column tồn tại
-- Hook `useDefaultTelegramBot` — đã query view public sẵn
+### E. Mobile responsive checklist
+- Viewport 707×662: header không wrap badge xuống dòng riêng
+- Onboarding 3-pill: stack vertical < 640px
+- ChatPreview: bubble không tràn, font 13px mobile / 14px desktop
+- Use-case grid: 1 col < 640px, 2 col ≥ 640px
+- Padding container: `px-4 sm:px-6` thay vì để default
+
+## File thay đổi
+
+| File | Loại | Mô tả |
+|---|---|---|
+| `src/pages/AgentTelegramPage.tsx` | refactor | Layout mới, onboarding, use-case cards |
+| `src/components/agents/TelegramLinkCard.tsx` | tweak | Avatar bot, error icon, h-12 button mobile |
+| `src/components/agents/ChatPreview.tsx` | mới | Mockup chat 4-bubble animated |
+| `src/components/agents/TelegramUseCases.tsx` | mới | 4 use-case cards thay COMMAND_GROUPS cũ |
 
 ## Test E2E
-
-1. Chạy migration → check `SELECT * FROM telegram_default_bot_public` ra 1 row `Flowa123bot, true`
-2. Vào `/agents` ở org KHÔNG phải `bccfec38…` (user thường) → banner "Đang dùng bot mặc định của Flowa @Flowa123bot" hiện
-3. Card link Telegram hiện nút "Mở Telegram → Start bot" (không còn "Chờ admin")
-4. Click → `?start=<token>` mở Telegram → Start → realtime morph sang "AI Agent đang lắng nghe" < 3s
-5. Click `Test ping` → nhận "🟢 Test từ Flowa..." trong DM
-6. Org `bccfec38…` (có bot riêng): vẫn dùng `Flowa123bot` của org, KHÔNG fallback default (priority đúng)
+1. `/agents/telegram` chưa link, viewport 707px → onboarding hiện, ChatPreview animate vào màn hình
+2. ChatPreview 4 bubble fade-in tuần tự < 1s
+3. Click "Mở Telegram" → Telegram open, sau Start → realtime morph sang connected state, onboarding ẩn
+4. Connected state: avatar bot + bot username + last activity rõ ràng
+5. Use-case cards 1 col mobile / 2 col tablet+
+6. Accordion "Xem tất cả lệnh" mở ra full COMMAND_GROUPS như cũ
+7. Banner default-bot 1 dòng, click "Đổi bot riêng" → accordion BYOB mở
+8. Default-bot không có (offline/admin xoá) → fallback message rõ ràng "Liên hệ admin"
 
 ## Ước tính
-**15–20 phút** — 1 migration nhỏ, optional copy tweak. Không động edge functions.
+**40-60 phút** — 2 component mới nhỏ, 1 page refactor, 1 card tweak. Không migration, không edge function.
 
 ## Rủi ro
-- **Token bot Flowa123bot phải hợp lệ để dùng làm default** — nếu org `bccfec38…` xoá bot này, sentinel global cũng mất token. → migration copy snapshot vào row sentinel riêng, nên độc lập với row org. An toàn.
-- Nếu Flowa muốn dùng bot KHÁC làm default (không phải Flowa123bot) → admin platform vào DB update `bot_token_encrypted` của row sentinel sau, không ảnh hưởng user.
+- ChatPreview hardcode tiếng Việt — i18n sau, nhưng marketing chỉ VN nên OK
+- IntersectionObserver fallback: nếu không support thì animate ngay khi mount (acceptable)
+- Bỏ StepSection có thể làm admin BYOB flow hơi mất context → bù lại bằng accordion label rõ "Bot riêng (white-label)"
 
