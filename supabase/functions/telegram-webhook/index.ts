@@ -2061,7 +2061,7 @@ async function handleCampaigns(
     inlineKeyboard.push([
       {
         text: `👁 ${name.slice(0, 25)}`,
-        url: `https://app.flowa.one/agent/goals/${c.id}`,
+        url: `https://app.flowa.one/agents`,
       },
     ]);
   }
