@@ -1,111 +1,130 @@
 
+# Fix: nút “Xem & duyệt” trong Telegram mở Mini App nhưng thiếu `organization_id`
 
-# Fix: Mini App "Không xác thực được" với bot mặc định Flowa
+## Vấn đề đã xác định
 
-## Nguyên nhân thực sự (đã xác nhận từ code)
+Ảnh lỗi khớp đúng với logic hiện tại của `useTelegramWebApp`:
 
-File `supabase/functions/telegram-webapp-auth/index.ts` (file hiện tại trong repo, lines 27–43):
+- `src/hooks/useTelegramWebApp.ts` chỉ xác thực được khi URL có `?org=<uuid>` hoặc đã có `localStorage['flowa_tg_app_org']`
+- nếu không có `org`, hook trả lỗi:
+  - `Thiếu organization id. Mở từ menu bot Telegram.`
+- nút Telegram hiện tại mở Mini App bằng:
+```ts
+web_app: { url: `${MINI_APP_URL}#/multichannel/${contentId}` }
+```
+trong `supabase/functions/telegram-webhook/index.ts:1282-1285`
+
+Do app dùng `BrowserRouter`, phần `#/multichannel/...` chỉ là fragment; query string không được set. Kết quả:
+- Mini App mở ra
+- `useTelegramWebApp()` không tìm thấy `org`
+- hiện card lỗi “Không xác thực được”
+
+Ngoài ra, nút menu bot và vài entry khác cũng đang trỏ tới bare URL `https://app.flowa.one/telegram-app` nên lần mở đầu tiên từ Telegram cũng có thể fail tương tự.
+
+## Cách sửa
+
+### 1) Luôn truyền `org` vào mọi URL Web App do bot tạo ra
+Tạo helper trong `telegram-webhook/index.ts` hoặc utility cục bộ kiểu:
 
 ```ts
-const orgId = String(body.organization_id || "").trim();
-if (!orgId) return json({ error: "organization_id is required" }, 400);
-
-const { data: cfg } = await supabase
-  .from("telegram_bot_configs")
-  .select("bot_token_encrypted, is_active")
-  .eq("organization_id", orgId)            // ← chỉ tìm BYOB row
-  .maybeSingle();
-if (!cfg || !cfg.is_active) {
-  return json({ error: "Bot chưa được cấu hình cho tổ chức này" }, 404);
+function buildMiniAppUrl(base: string, orgId: string, path?: string) {
+  const u = new URL(base);
+  u.searchParams.set("org", orgId);
+  if (path) u.hash = path.startsWith("#") ? path : `#${path}`;
+  return u.toString();
 }
 ```
 
-Bạn đang dùng **bot mặc định của Flowa**. Bot mặc định là **sentinel row** với `organization_id IS NULL` + `is_default = true`. Tổ chức của bạn không có BYOB row → query trả null → trả về 404 → Mini App hiển thị "Không xác thực được" (dù `?org=` đã được nhúng đúng vào URL từ lần fix trước).
+Áp dụng cho:
+- nút `📝 Xem & duyệt`
+- nút `🚀 Mở Mini App`
+- mọi `web_app` keyboard khác trong `telegram-webhook`
 
-Đây cũng là lý do các fix trước (truyền `?org=`, fallback `start_param`) không giải quyết được: vấn đề nằm ở chỗ edge function `telegram-webapp-auth` chưa biết cách dùng default bot, trong khi 2 edge khác (`telegram-link-token`, `telegram-send-test`) đều đã có fallback default bot.
-
-Note thêm: tóm tắt loop trước nói là đã "make `organization_id` optional và infer từ bindings" — nhưng file hiện tại trong repo không có những thay đổi đó. Có thể edit cũ chưa được lưu, hoặc đã bị overwrite. Lần này phải verify code thực tế sau khi sửa.
-
-## Giải pháp
-
-Sửa **một file** duy nhất: `supabase/functions/telegram-webapp-auth/index.ts`. Thêm logic giống `telegram-link-token`:
-
-### 1) Cho phép `organization_id` optional (infer từ Telegram user)
-
-- Nếu body có `organization_id` → dùng nó.
-- Nếu không → parse Telegram user từ `init_data` trước, sau đó tra `telegram_chat_bindings` theo `telegram_user_id` + `chat_type='private'` + `is_active=true` để suy ra org. Nếu user chỉ có 1 binding → dùng org đó. Nếu nhiều binding → trả lỗi yêu cầu mở từ menu bot có gắn `?org=`.
-
-### 2) Fallback bot config: BYOB → default sentinel
-
-Thay block tra cứu bot bằng pattern:
+Ví dụ sửa:
 ```ts
-let { data: cfg } = await supabase
-  .from("telegram_bot_configs")
-  .select("bot_token_encrypted, is_active")
-  .eq("organization_id", orgId)
-  .maybeSingle();
-
-if (!cfg || !cfg.is_active) {
-  const { data: defaultBot } = await supabase
-    .from("telegram_bot_configs")
-    .select("bot_token_encrypted, is_active")
-    .is("organization_id", null)
-    .eq("is_default", true)
-    .eq("is_active", true)
-    .maybeSingle();
-  cfg = defaultBot ?? null;
-}
-
-if (!cfg) {
-  return json({ error: "Không tìm thấy bot khả dụng cho tổ chức này" }, 404);
-}
+web_app: { url: buildMiniAppUrl(MINI_APP_URL, botConfig.organizationId!, `/multichannel/${contentId}`) }
 ```
 
-→ Khi tổ chức dùng bot mặc định, HMAC sẽ được verify bằng token của bot mặc định (đúng bot phát ra `init_data`).
+### 2) Sửa menu button để mở Mini App kèm `org`
+Trong `supabase/functions/telegram-bot-admin/index.ts`:
+- chỗ seed bot mới
+- chỗ action `set_menu_button`
 
-### 3) Thứ tự xử lý mới
+Cần set:
+```ts
+https://app.flowa.one/telegram-app?org=<organization_id>
+```
 
-Để có thể infer org từ `telegram_user_id`, cần parse user **trước** khi lookup bot:
+Vì menu button là per-bot/per-org nên hoàn toàn phù hợp để embed org cố định.
 
-1. Parse `init_data` → lấy `hash`, `auth_date`, `user.id`.
-2. Nếu có `organization_id` từ body → dùng nó. Nếu không → query `telegram_chat_bindings` theo `telegram_user_id` (private + active). 1 kết quả → dùng. 0 → 404. >1 → 409 yêu cầu chỉ định.
-3. Lookup bot config (BYOB → fallback default).
-4. Validate HMAC bằng token đã resolve.
-5. Check `auth_date` freshness (<24h).
-6. Lookup binding theo `(organization_id, telegram_user_id)` để lấy `user_id` → generate magic link → trả `token_hash` + `email` + `organization_id` về client.
+### 3) Tăng độ bền ở client hook
+Cập nhật `src/hooks/useTelegramWebApp.ts` để resolve org theo thứ tự:
 
-### 4) Frontend hook nhỏ
+1. `?org=...`
+2. `Telegram.WebApp.initDataUnsafe.start_param` hoặc equivalent nếu Telegram cung cấp
+3. `localStorage['flowa_tg_app_org']`
 
-Trong `src/hooks/useTelegramWebApp.ts`:
+Nếu Telegram SDK typings chưa có `start_param`, chỉ cần thêm optional field vào interface.  
+Mục tiêu: giảm phụ thuộc tuyệt đối vào localStorage và giúp deep link hoạt động ổn định hơn.
 
-- Bỏ early-return `"Thiếu organization id"` (cho phép gọi backend mà không có org).
-- Truyền `organization_id` chỉ khi có (URL hoặc localStorage).
-- Sau khi backend trả về, dùng `organization_id` từ response làm source-of-truth, lưu lại vào `localStorage` cho lần sau.
+### 4) Sửa đường dẫn Web App cho các route hash hiện tại
+Hiện code đang dùng:
+```ts
+${MINI_APP_URL}#/multichannel/${contentId}
+```
 
-### 5) Sau khi sửa: deploy + verify
+Sau fix nên chuẩn hóa thành:
+```ts
+https://app.flowa.one/telegram-app?org=<org>#/multichannel/<id>
+```
 
-- Deploy `telegram-webapp-auth`.
-- Mở Telegram → bấm "Xem & duyệt" → Mini App phải xác thực thành công.
-- Kiểm tra log `telegram-webapp-auth` để xác nhận không còn 404 "Bot chưa được cấu hình".
+Như vậy:
+- query phục vụ auth/org resolution
+- hash phục vụ điều hướng nội bộ Mini App
 
-## Files thay đổi
+### 5) Kiểm tra các chỗ mở Mini App khác để tránh lỗi lặp lại
+Rà lại các điểm sau:
+- `telegram-webhook/index.ts`
+- `telegram-bot-admin/index.ts`
+- `_shared/telegram-client.ts` với các keyboard có `web_app`
+- welcome/tutorial/brand-management buttons
 
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/telegram-webapp-auth/index.ts` | Thêm fallback default bot, infer org từ `telegram_user_id`, đảo thứ tự parse user trước lookup bot |
-| `src/hooks/useTelegramWebApp.ts` | Bỏ hard-block khi thiếu org; dùng org từ response làm sự thật |
+Mục tiêu: không còn bất kỳ `web_app: { url: MINI_APP_URL }` trần nào khi context org là bắt buộc.
 
-## Test
+## Files cần sửa
 
-1. Default bot (case của bạn): bấm "Xem & duyệt" → Mini App vào thẳng đúng bài, không lỗi.
-2. BYOB bot: vẫn hoạt động (BYOB row vẫn được match trước khi fallback).
-3. User chưa link bot trong DM: trả lỗi rõ ràng yêu cầu `/start` trước.
+- `supabase/functions/telegram-webhook/index.ts`
+- `supabase/functions/telegram-bot-admin/index.ts`
+- `src/hooks/useTelegramWebApp.ts`
+- có thể thêm chỉnh nhẹ ở `supabase/functions/_shared/telegram-client.ts` nếu muốn truyền vào URL đã được build sẵn từ caller
+
+## Test E2E
+
+1. Telegram bot gửi bài đơn lẻ → bấm `📝 Xem & duyệt`
+   - mở Mini App vào đúng trang
+   - không còn lỗi `Thiếu organization id`
+
+2. Mở từ menu bot `🚀 Mở Flowa`
+   - Mini App vào được ngay từ lần đầu
+   - authenticate thành công, không cần dựa vào localStorage cũ
+
+3. Đổi brand rồi bấm lại `Xem & duyệt`
+   - vẫn vào đúng org
+   - không quay về màn hình lỗi
+
+4. User mới chưa từng mở Mini App trước đó
+   - bấm menu bot hoặc `Xem & duyệt`
+   - vẫn authenticate OK
 
 ## Rủi ro
 
-Thấp. Mọi thay đổi additive: thêm fallback path mà không phá BYOB hiện có. HMAC vẫn được verify nghiêm bằng đúng token bot phát hành `init_data`.
+Thấp. Đây là bug ghép URL/context, không đụng DB schema hay logic approve.  
+Phần cần cẩn thận nhất là chuẩn hóa URL builder để không làm hỏng hash route hiện có.
 
-## Ước tính
+## Kết quả mong đợi
 
-5–10 phút.
-
+Khi người dùng nhấn nút “Xem và duyệt” trong Telegram:
+- Mini App mở đúng URL có `org`
+- `useTelegramWebApp()` xác thực được
+- không còn hiện “Không xác thực được”
+- vào thẳng flow xem/duyệt nội dung như mong muốn

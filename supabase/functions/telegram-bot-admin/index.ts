@@ -238,21 +238,7 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
       if (!result.ok) {
         return json({ error: `Telegram từ chối: ${result.description}` }, 400);
       }
-      const miniAppBase = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
-      let menuUrl = miniAppBase;
-      try {
-        const u = new URL(miniAppBase);
-        u.searchParams.set("org", organization_id);
-        menuUrl = u.toString();
-      } catch {
-        const sep = miniAppBase.includes("?") ? "&" : "?";
-        menuUrl = `${miniAppBase}${sep}org=${organization_id}`;
-      }
-      const menuResult = await setChatMenuButton(botToken, menuUrl, "🚀 Mở Flowa");
-      if (!menuResult.ok) {
-        console.warn("[telegram-bot-admin] sync_commands setChatMenuButton warning:", menuResult.description);
-      }
-      return json({ ok: true, menu_button_set: menuResult.ok, web_app_url: menuUrl });
+      return json({ ok: true });
     }
 
     if (action === "webhook_info") {
