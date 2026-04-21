@@ -556,8 +556,7 @@ async function handleStart(
   const bindingChatType = chatType === "private" ? "private" : chatType;
 
   // Default-bot collision: partial unique index prevents one private chat from
-  // binding to two active orgs. Detect + friendly-error before the upsert hits
-  // the DB constraint.
+  // binding to two active orgs. Detect + friendly-error before stashing pending.
   if (isDefaultBot && bindingChatType === "private") {
     const { data: collision } = await supabase
       .from("telegram_chat_bindings")
@@ -575,25 +574,54 @@ async function handleStart(
     }
   }
 
-  const { error } = await supabase
-    .from("telegram_chat_bindings")
-    .upsert({
-      organization_id: payload.org,
-      user_id: payload.uid,
-      telegram_chat_id: chatId,
-      chat_type: bindingChatType,
-      telegram_user_id: telegramUserId ?? null,
-      telegram_username: telegramUsername ?? null,
-      is_active: true,
-      linked_at: new Date().toISOString(),
-    }, { onConflict: "organization_id,telegram_chat_id" });
-
-  if (error) {
-    console.error("[telegram-webhook] upsert binding failed:", error);
+  // Group chats: keep legacy immediate-link behavior (no 2-step UX needed in groups).
+  if (bindingChatType !== "private") {
+    const { error } = await supabase
+      .from("telegram_chat_bindings")
+      .upsert({
+        organization_id: payload.org,
+        user_id: payload.uid,
+        telegram_chat_id: chatId,
+        chat_type: bindingChatType,
+        telegram_user_id: telegramUserId ?? null,
+        telegram_username: telegramUsername ?? null,
+        is_active: true,
+        linked_at: new Date().toISOString(),
+      }, { onConflict: "organization_id,telegram_chat_id" });
+    if (error) {
+      console.error("[telegram-webhook] upsert group binding failed:", error);
+      await sendMessage(botConfig.botToken, chatId, "❌ Không lưu được kết nối. Thử lại sau.");
+      return;
+    }
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "❌ Không lưu được kết nối. Thử lại sau.",
+      `🎉 Group đã kết nối với Flowa.`,
+      { parse_mode: "Markdown" },
+    );
+    botConfig.organizationId = payload.org;
+    return;
+  }
+
+  // Private chat: 2-step Manus-style flow. Stash pending + ask for confirmation.
+  const { error: pendingErr } = await supabase
+    .from("telegram_pending_links")
+    .upsert({
+      telegram_chat_id: chatId,
+      telegram_user_id: telegramUserId ?? null,
+      telegram_username: telegramUsername ?? null,
+      token,
+      payload_uid: payload.uid,
+      payload_org: payload.org,
+      expires_at: new Date(payload.exp * 1000).toISOString(),
+    }, { onConflict: "telegram_chat_id" });
+
+  if (pendingErr) {
+    console.error("[telegram-webhook] stash pending link failed:", pendingErr);
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      "❌ Không khởi tạo được kết nối. Thử lại sau.",
     );
     return;
   }
@@ -602,29 +630,21 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     [
-      `🎉 Chào ${telegramUsername ? "@" + telegramUsername : "bạn"}! Đã kết nối với Flowa.`,
+      "👋 *Chào mừng đến với Flowa!*",
       "",
-      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "Để tiếp tục, bạn cần liên kết tài khoản Telegram với Flowa.",
       "",
-      "👇 Thử ngay:",
+      "Bấm nút bên dưới để xác nhận. Link sẽ hết hạn sau 10 phút.",
     ].join("\n"),
     {
       parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "🔗 Link Account", callback_data: `confirm_link:${chatId}` },
+        ]],
+      },
     },
   );
-
-  // Mark onboarded (best-effort)
-  await supabase
-    .from("telegram_chat_bindings")
-    .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
-    .eq("organization_id", payload.org)
-    .eq("telegram_chat_id", chatId)
-    .then(() => {}, () => {});
-
-  // Rehydrate botConfig so any later handlers in this request see the right org
-  // (e.g. default bot's first post-/start command within the same update batch).
-  botConfig.organizationId = payload.org;
 }
 
 // ===== Helpers cho /status dashboard =====
