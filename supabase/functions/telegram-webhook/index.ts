@@ -22,16 +22,22 @@ const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.
  * and an optional hash path for in-app navigation (BrowserRouter ignores #-hash so query is needed).
  * If orgId is null/empty (e.g. default bot before binding), returns base URL untouched.
  */
+// Cache-busting version for Mini App URL — bump when shipping auth-flow changes
+// to force Telegram WebView to reload the latest bundle instead of cached HTML.
+const MINI_APP_VERSION = "tg-auth-v2";
+
 function buildMiniAppUrl(orgId: string | null | undefined, hashPath?: string): string {
   try {
     const u = new URL(MINI_APP_URL);
     if (orgId) u.searchParams.set("org", orgId);
+    u.searchParams.set("v", MINI_APP_VERSION);
     if (hashPath) u.hash = hashPath.startsWith("#") ? hashPath : `#${hashPath}`;
     return u.toString();
   } catch {
     // Fallback string concat if URL parsing fails
     const sep = MINI_APP_URL.includes("?") ? "&" : "?";
-    const base = orgId ? `${MINI_APP_URL}${sep}org=${orgId}` : MINI_APP_URL;
+    let base = orgId ? `${MINI_APP_URL}${sep}org=${orgId}` : MINI_APP_URL;
+    base = `${base}${base.includes("?") ? "&" : "?"}v=${MINI_APP_VERSION}`;
     return hashPath ? `${base}${hashPath.startsWith("#") ? hashPath : `#${hashPath}`}` : base;
   }
 }

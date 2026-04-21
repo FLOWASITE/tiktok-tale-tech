@@ -191,15 +191,21 @@ export default function AdminTelegramAuthCheck() {
     if (realInitData.trim()) {
       const r = await callAuth({ init_data: realInitData.trim() });
       const body = r.body as { token_hash?: string; email?: string; organization_id?: string } | null;
-      const pass = r.status === 200 && !!body?.token_hash && !!body?.email;
+      const hasEmail = !!body?.email;
+      // Pass condition: token_hash + organization_id present, AND email is OMITTED
+      // (compatibility patch — backend must not return email so old cached bundles
+      // don't trigger 'Only the token_hash and type should be provided' on /verify).
+      const pass = r.status === 200 && !!body?.token_hash && !!body?.organization_id && !hasEmail;
       update(4, {
         status: pass ? "pass" : "fail",
         actualStatus: r.status,
-        actualBody: r.body,
+        actualBody: { ...((r.body as object) || {}), has_email: hasEmail },
         durationMs: r.ms,
         notes: pass
-          ? `✓ token_hash + email nhận được, org=${body?.organization_id ?? "(null)"}`
-          : "Real init_data fail — xem body để biết lý do (HMAC mismatch / expired / bot config).",
+          ? `✓ token_hash + org=${body?.organization_id} nhận được, has_email=false (an toàn cho cả bundle cũ).`
+          : hasEmail
+            ? "❌ Backend VẪN trả email — bundle cũ trong Telegram sẽ tiếp tục lỗi 400 ở /verify. Cần deploy lại telegram-webapp-auth."
+            : "Real init_data fail — xem body để biết lý do (HMAC mismatch / expired / bot config).",
       });
     } else {
       update(4, { status: "pass", notes: "Skipped — không có init_data thật." });
