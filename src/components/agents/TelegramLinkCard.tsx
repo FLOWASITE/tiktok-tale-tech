@@ -20,11 +20,13 @@ import {
   Loader2,
   Unlink,
   AlertCircle,
+  AlertTriangle,
   ExternalLink,
   Send,
   QrCode,
   Bell,
   MoreHorizontal,
+  RefreshCw,
 } from 'lucide-react';
 
 interface TelegramLinkCardProps {
@@ -39,8 +41,10 @@ const TOKEN_REFRESH_MS = 8 * 60 * 1000; // refresh 2 min before 10-min TTL
 export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultBot }: TelegramLinkCardProps) {
   const {
     binding,
+    ghostBinding,
     loading,
     unlink,
+    unlinkAllForTelegramUser,
     ensureDeeplink,
     prefetchedDeeplink,
     setBinding,
@@ -172,6 +176,53 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
     }
   };
 
+  const handleSwitchWorkspace = async () => {
+    const fresh = await ensureDeeplink(true);
+    if (fresh?.url) {
+      window.open(fresh.url, '_blank', 'noopener,noreferrer');
+      toast({
+        title: 'Mở Telegram',
+        description: 'Bấm Start trong bot → workspace này sẽ thay thế kết nối cũ.',
+      });
+    }
+  };
+
+  const ghostBanner = ghostBinding ? (
+    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-foreground">
+            Telegram đang dùng workspace khác
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {ghostBinding.telegram_username ? `@${ghostBinding.telegram_username}` : 'Tài khoản Telegram của bạn'}
+            {' '}đang liên kết với{' '}
+            <span className="font-medium text-foreground">
+              {ghostBinding.organization_name ?? 'một workspace khác'}
+            </span>
+            . Bot sẽ trả lời theo workspace đó cho đến khi bạn chuyển.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 pl-6">
+        <Button size="sm" onClick={handleSwitchWorkspace} className="h-8 text-xs">
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+          Chuyển sang workspace này
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={unlinkAllForTelegramUser}
+          className="h-8 text-xs text-destructive hover:text-destructive"
+        >
+          <Unlink className="w-3.5 h-3.5 mr-1.5" />
+          Gỡ tất cả
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -207,6 +258,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
 
     return (
       <div className="space-y-4">
+        {ghostBanner}
         <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3">
           <div className="flex items-start gap-3">
             <div className="relative shrink-0">
@@ -278,6 +330,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   // === NOT-CONNECTED STATE — one-click ===
   return (
     <div className="space-y-4">
+      {ghostBanner}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">

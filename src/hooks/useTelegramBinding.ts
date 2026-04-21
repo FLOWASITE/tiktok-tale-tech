@@ -9,6 +9,7 @@ export interface TelegramBinding {
   organization_id: string;
   user_id: string | null;
   telegram_chat_id: number;
+  telegram_user_id: number | null;
   chat_type: 'private' | 'group' | 'supergroup';
   telegram_username: string | null;
   linked_at: string;
@@ -24,11 +25,20 @@ export interface PrefetchedDeeplink {
 
 const DEEPLINK_TTL_BUFFER_MS = 60_000; // refresh if < 60s left
 
+export interface GhostBinding {
+  telegram_chat_id: number;
+  telegram_user_id: number | null;
+  telegram_username: string | null;
+  organization_id: string;
+  organization_name: string | null;
+}
+
 export function useTelegramBinding() {
   const { currentOrganization } = useOrganizationContext();
   const { user } = useAuth();
   const [binding, setBinding] = useState<TelegramBinding | null>(null);
   const [groupBinding, setGroupBinding] = useState<TelegramBinding | null>(null);
+  const [ghostBinding, setGhostBinding] = useState<GhostBinding | null>(null);
   const [loading, setLoading] = useState(true);
   const [prefetchedDeeplink, setPrefetchedDeeplink] = useState<PrefetchedDeeplink | null>(null);
   const inflightRef = useRef<Promise<PrefetchedDeeplink | null> | null>(null);
@@ -58,6 +68,41 @@ export function useTelegramBinding() {
         .eq('is_active', true)
         .maybeSingle();
       setGroupBinding((group as TelegramBinding) ?? null);
+
+      // Ghost binding: same Telegram user is linked to ANOTHER user/org.
+      // We anchor on telegram_user_id from the current org's binding (if any),
+      // OR from any private binding owned by the current user (cross-org leak).
+      const anchorTgUserId =
+        (personal as TelegramBinding | null)?.telegram_user_id ??
+        null;
+
+      let ghostQuery = client
+        .from('telegram_chat_bindings')
+        .select('telegram_chat_id, telegram_user_id, telegram_username, organization_id, organizations(name)')
+        .eq('chat_type', 'private')
+        .eq('is_active', true)
+        .neq('user_id', user.id);
+
+      if (anchorTgUserId) {
+        ghostQuery = ghostQuery.eq('telegram_user_id', anchorTgUserId);
+      } else {
+        // No personal binding in this org → can't anchor reliably; skip.
+        setGhostBinding(null);
+        return;
+      }
+
+      const { data: ghost } = await ghostQuery.maybeSingle();
+      if (ghost) {
+        setGhostBinding({
+          telegram_chat_id: ghost.telegram_chat_id,
+          telegram_user_id: ghost.telegram_user_id,
+          telegram_username: ghost.telegram_username,
+          organization_id: ghost.organization_id,
+          organization_name: ghost.organizations?.name ?? null,
+        });
+      } else {
+        setGhostBinding(null);
+      }
     } catch (err) {
       console.error('[useTelegramBinding] fetch error:', err);
     } finally {
@@ -193,15 +238,41 @@ export function useTelegramBinding() {
     await fetchBindings();
   }, [groupBinding, fetchBindings]);
 
+  /**
+   * Hard reset: delete every binding for this Telegram user across ALL workspaces.
+   * Used when user wants a clean slate before re-linking.
+   */
+  const unlinkAllForTelegramUser = useCallback(async () => {
+    const tgUserId = binding?.telegram_user_id ?? ghostBinding?.telegram_user_id;
+    if (!tgUserId) {
+      toast({ title: 'Không tìm thấy', description: 'Không xác định được Telegram user.', variant: 'destructive' });
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('telegram_chat_bindings')
+      .delete()
+      .eq('telegram_user_id', tgUserId);
+    if (error) {
+      toast({ title: 'Lỗi', description: 'Không gỡ được. Thử lại sau.', variant: 'destructive' });
+      throw error;
+    }
+    toast({ title: 'Đã gỡ tất cả', description: 'Telegram đã được tách khỏi mọi workspace.' });
+    setPrefetchedDeeplink(null);
+    await fetchBindings();
+  }, [binding, ghostBinding, fetchBindings]);
+
   return {
     binding,
     groupBinding,
+    ghostBinding,
     loading,
     generateDeeplink,
     ensureDeeplink,
     prefetchedDeeplink,
     unlink,
     unlinkGroup,
+    unlinkAllForTelegramUser,
     refresh: fetchBindings,
     setBinding, // exposed so realtime subscribers in UI can morph state immediately
   };
