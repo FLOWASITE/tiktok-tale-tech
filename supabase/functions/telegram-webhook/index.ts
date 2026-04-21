@@ -1645,6 +1645,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // Campaign wizard callbacks: cw:<step>:<value>
+  if (data.startsWith("cw:") && chatId && fromTgId) {
+    await handleCampaignWizardCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
+
   // Format: apv:<a|r>:<approvalId>
   const m = /^apv:([ar]):(.+)$/.exec(data);
   if (!m || !chatId || !fromTgId) {
