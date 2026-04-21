@@ -837,8 +837,14 @@
       "adminVersions": "Version History",
       "flowaTeam": "Flowa Team",
       "agents": "AI Agents",
-      "telegramAgent": "Nhận Agent của bạn",
-      "slackAgent": "Slack"
+      "telegramAgent": "Nhận Agent của bạn"
+    },
+    "agentHub": {
+      "title": "Nhận Agent của bạn",
+      "subtitle": "Chọn nền tảng để chat với AI Agent",
+      "connected": "Đã kết nối",
+      "connect": "Kết nối",
+      "comingSoon": "Sắp ra mắt"
     },
     "userMenu": {
       "profile": "Hồ sơ cá nhân",

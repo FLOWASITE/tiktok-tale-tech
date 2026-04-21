@@ -837,8 +837,14 @@
       "adminVersions": "Version History",
       "flowaTeam": "Flowa Team",
       "agents": "AI Agents",
-      "telegramAgent": "Get your Agent",
-      "slackAgent": "Slack"
+      "telegramAgent": "Get your Agent"
+    },
+    "agentHub": {
+      "title": "Get your Agent",
+      "subtitle": "Choose a platform to chat with your AI Agent",
+      "connected": "Connected",
+      "connect": "Connect",
+      "comingSoon": "Coming soon"
     },
     "userMenu": {
       "profile": "Profile",
