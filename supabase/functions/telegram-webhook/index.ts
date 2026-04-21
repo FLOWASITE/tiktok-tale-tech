@@ -2233,12 +2233,12 @@ async function handleExamples(ctx: HandlerCtx): Promise<void> {
   lines.push("", "👉 Hoặc chat tự nhiên — mình hiểu tiếng Việt!");
 
   // Persist prompts to DB (survives worker recycles, 1h TTL)
-  const prompts = list.slice(0, 7).map((p) => p.prompt);
+  const promptTexts = list.slice(0, 7).map((p) => p.prompt);
   try {
     await supabase.from("telegram_example_cache").delete().eq("chat_id", chatId);
-    if (prompts.length > 0) {
+    if (promptTexts.length > 0) {
       await supabase.from("telegram_example_cache").insert(
-        prompts.map((prompt, idx) => ({ chat_id: chatId, idx, prompt })),
+        promptTexts.map((prompt, idx) => ({ chat_id: chatId, idx, prompt })),
       );
     }
   } catch (_e) { /* best-effort */ }
