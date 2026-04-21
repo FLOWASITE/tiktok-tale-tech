@@ -356,6 +356,8 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   const [previewImages, setPreviewImages] = useState<ImageRow[]>([]);
   const [previewFullText, setPreviewFullText] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [retryingOpen, setRetryingOpen] = useState(false);
 
   async function load() {
     setLoading(true);
