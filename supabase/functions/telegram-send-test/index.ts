@@ -93,9 +93,10 @@ Deno.serve(async (req) => {
 
     if (!botConfig?.bot_token_encrypted) {
       return json({
+        ok: false,
         error: "Bot Telegram của tổ chức đang tắt. Liên hệ admin.",
         code: "bot_inactive",
-      }, 404);
+      }, 200);
     }
 
     // 4. Decrypt + send
