@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 // Minimal Telegram WebApp typings — full SDK exposes more fields.
 interface TelegramWebApp {
   initData: string;
-  initDataUnsafe?: { user?: { id: number; first_name?: string; username?: string } };
+  initDataUnsafe?: { user?: { id: number; first_name?: string; username?: string }; start_param?: string };
   ready: () => void;
   expand: () => void;
   close: () => void;
@@ -77,8 +77,12 @@ export function useTelegramWebApp(): TelegramAppAuth {
       wa.expand();
 
       // Resolve organization_id — required to validate HMAC against the right bot.
+      // Order: ?org=... → Telegram start_param → localStorage cache.
       const params = new URLSearchParams(window.location.search);
-      const orgId = params.get('org') || localStorage.getItem('flowa_tg_app_org');
+      const startParam = wa.initDataUnsafe?.start_param;
+      // start_param may carry "org_<uuid>" or raw uuid (depending on bot deep-link convention).
+      const startParamOrg = startParam?.startsWith('org_') ? startParam.slice(4) : startParam;
+      const orgId = params.get('org') || startParamOrg || localStorage.getItem('flowa_tg_app_org');
       if (!orgId) {
         if (!cancelled) {
           setState({
