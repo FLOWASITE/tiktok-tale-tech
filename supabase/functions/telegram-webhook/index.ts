@@ -301,6 +301,16 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleGenerate({ supabase, botConfig, chatId, telegramUserId, prompt: args }));
         break;
+      case "/campaign":
+      case "/campaign_wizard":
+        if (chatType !== "private") {
+          await sendMessage(botConfig.botToken, chatId,
+            "⚠️ /campaign chỉ dùng trong DM với bot.");
+          break;
+        }
+        await safeReply(botConfig.botToken, chatId, traceId, () =>
+          startCampaignWizard({ supabase, botConfig, chatId, telegramUserId, initialPrompt: args }));
+        break;
       case "/cancel":
         await safeReply(botConfig.botToken, chatId, traceId, () =>
           handleCancel({ supabase, botConfig, chatId, telegramUserId }));
@@ -343,6 +353,15 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
             bs.page = 0;
             const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
             await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
+            break;
+          }
+          // Wizard description step: if user is mid-wizard awaiting description, capture text.
+          const wizState = telegramUserId
+            ? await getWizardState(supabase, chatId, telegramUserId)
+            : null;
+          if (wizState && wizState.flow === "campaign_wizard" && wizState.step === "description") {
+            await safeReply(botConfig.botToken, chatId, traceId, () =>
+              continueWizardWithDescription({ supabase, botConfig, chatId, telegramUserId: telegramUserId!, description: text }));
             break;
           }
           await safeReply(botConfig.botToken, chatId, traceId, () =>
@@ -860,20 +879,32 @@ async function handleGenerate(
 
   // Resolve active brand BEFORE goal insert so we can attach brand_template_id
   const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+
+  // AI-extract campaign params from prompt (channels, duration, frequency).
+  // Falls back to safe defaults if LLM fails.
+  const availableChannels = await getAvailableChannels(
+    supabase,
+    botConfig.organizationId,
+    (activeBrandGen as any)?.id ?? null,
+  );
+  const extracted = await extractCampaignParams(prompt, availableChannels);
+  console.log("[handleGenerate] AI extract:", extracted);
+
   const today = new Date();
-  const endDate = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const durationDays = extracted.duration_days;
+  const endDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
     .insert({
-      name: prompt.slice(0, 120),
+      name: (extracted.suggested_name || prompt).slice(0, 120),
       description: prompt,
       organization_id: botConfig.organizationId,
       created_by: binding.userId,
       target_topics: [],
-      target_channels: ["facebook", "website"],
-      frequency: { cadence: "weekly", per_week: 3 },
-      campaign_duration_days: 14,
+      target_channels: extracted.channels,
+      frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
+      campaign_duration_days: durationDays,
       campaign_start_date: today.toISOString().split("T")[0],
       campaign_end_date: endDate.toISOString().split("T")[0],
       brand_template_id: (activeBrandGen as any)?.id || null,
@@ -881,6 +912,7 @@ async function handleGenerate(
       approval_mode: "approve_plan",
       is_active: true,
       is_paused: false,
+      clarification_context: { telegram_ai_extracted: extracted },
     })
     .select("id, name")
     .single();
@@ -906,9 +938,14 @@ async function handleGenerate(
 
   // Await pipeline trigger with timeout, surface real status
   console.log("[handleGenerate] triggering pipeline for goal", goal.id);
-  const footerKb = activeBrandGen?.brand_name
-    ? { reply_markup: { inline_keyboard: buildBrandFooterKeyboard() } }
-    : undefined;
+  const editRow = [
+    { text: "✏️ Sửa kênh / thời lượng", callback_data: `cw:edit:${goal.id}` },
+    { text: "🗑️ Hủy goal", callback_data: `cw:cancel:${goal.id}` },
+  ];
+  const brandRow = activeBrandGen?.brand_name ? buildBrandFooterKeyboard() : [];
+  const footerKb = {
+    reply_markup: { inline_keyboard: [editRow, ...brandRow] },
+  };
 
   try {
     // agent-pipeline dispatches strategy in background and returns 202 quickly.
@@ -1635,6 +1672,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // Campaign wizard callbacks: cw:<step>:<value>
+  if (data.startsWith("cw:") && chatId && fromTgId) {
+    await handleCampaignWizardCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
+
   // Format: apv:<a|r>:<approvalId>
   const m = /^apv:([ar]):(.+)$/.exec(data);
   if (!m || !chatId || !fromTgId) {
@@ -2272,4 +2315,583 @@ async function handleBrandCallback(args: {
   }
 
   await answerCallback(botConfig.botToken, cbId).catch(() => {});
+}
+
+// =====================================================
+// Campaign Wizard (multi-step interactive flow)
+// =====================================================
+import {
+  buildDurationKeyboard,
+  buildChannelsKeyboard,
+  buildFrequencyKeyboard,
+  buildApprovalKeyboard,
+  buildConfirmKeyboard,
+  ALL_CHANNELS as CW_ALL_CHANNELS,
+} from "../_shared/telegram-keyboards.ts";
+
+type WizardStep =
+  | "description"
+  | "duration"
+  | "channels"
+  | "frequency"
+  | "approval"
+  | "confirm";
+
+interface WizardDraft {
+  description?: string;
+  duration_days?: number;
+  channels?: string[];
+  cadence?: "weekly" | "daily";
+  per_week?: number;
+  approval_mode?: "approve_plan" | "approve_each" | "full_auto";
+  brand_template_id?: string | null;
+  brand_name?: string | null;
+  available_channels?: string[];
+  edit_goal_id?: string | null;
+}
+
+interface WizardState {
+  chat_id: number;
+  user_id: string;
+  flow: string;
+  step: WizardStep;
+  draft: WizardDraft;
+}
+
+// deno-lint-ignore no-explicit-any
+async function getWizardState(supabase: any, chatId: number, telegramUserId: number): Promise<WizardState | null> {
+  // Resolve telegram user → app user via DM binding
+  const { data: dm } = await supabase
+    .from("telegram_chat_bindings")
+    .select("user_id")
+    .eq("telegram_user_id", telegramUserId)
+    .eq("chat_type", "private")
+    .maybeSingle();
+  if (!dm?.user_id) return null;
+  const { data } = await supabase
+    .from("telegram_chat_state")
+    .select("chat_id, user_id, flow, step, draft, updated_at")
+    .eq("chat_id", chatId)
+    .eq("user_id", dm.user_id)
+    .maybeSingle();
+  if (!data) return null;
+  // TTL guard — if older than 30min, treat as expired.
+  const updatedAt = new Date(data.updated_at).getTime();
+  if (Date.now() - updatedAt > 30 * 60 * 1000) {
+    await clearWizardState(supabase, chatId, dm.user_id);
+    return null;
+  }
+  return data as WizardState;
+}
+
+// deno-lint-ignore no-explicit-any
+async function setWizardState(supabase: any, chatId: number, userId: string, step: WizardStep, draft: WizardDraft) {
+  const { error } = await supabase
+    .from("telegram_chat_state")
+    .upsert({
+      chat_id: chatId,
+      user_id: userId,
+      flow: "campaign_wizard",
+      step,
+      draft,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "chat_id,user_id" });
+  if (error) console.error("[wizard] setState error:", error);
+}
+
+// deno-lint-ignore no-explicit-any
+async function clearWizardState(supabase: any, chatId: number, userId: string) {
+  await supabase
+    .from("telegram_chat_state")
+    .delete()
+    .eq("chat_id", chatId)
+    .eq("user_id", userId);
+}
+
+// Resolve which channels actually have an active connection for the brand/org.
+// deno-lint-ignore no-explicit-any
+async function getAvailableChannels(supabase: any, organizationId: string, brandTemplateId: string | null): Promise<string[]> {
+  try {
+    let q = supabase
+      .from("social_connections")
+      .select("platform, brand_template_id")
+      .eq("organization_id", organizationId)
+      .eq("is_active", true);
+    if (brandTemplateId) q = q.or(`brand_template_id.eq.${brandTemplateId},brand_template_id.is.null`);
+    const { data } = await q;
+    if (!data || data.length === 0) return [];
+    const set = new Set<string>();
+    for (const row of data as Array<{ platform: string }>) {
+      const p = String(row.platform || "").toLowerCase();
+      if (p) set.add(p);
+    }
+    return Array.from(set);
+  } catch (e) {
+    console.warn("[wizard] getAvailableChannels failed:", e);
+    return [];
+  }
+}
+
+// LLM extract for /generate Quick mode. Falls back to safe defaults.
+async function extractCampaignParams(prompt: string, availableChannels: string[]): Promise<{
+  channels: string[];
+  duration_days: number;
+  cadence: "weekly" | "daily";
+  per_week: number;
+  suggested_name: string;
+  reasoning?: string;
+}> {
+  const fallback = {
+    channels: availableChannels.length > 0
+      ? availableChannels.filter(c => ["facebook", "website", "instagram"].includes(c)).slice(0, 2) || ["facebook", "website"]
+      : ["facebook", "website"],
+    duration_days: 14,
+    cadence: "weekly" as const,
+    per_week: 3,
+    suggested_name: prompt.slice(0, 80),
+  };
+  // Ensure at least one channel
+  if (fallback.channels.length === 0) fallback.channels = ["facebook", "website"];
+
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) {
+    console.warn("[extractCampaignParams] no LOVABLE_API_KEY, using fallback");
+    return fallback;
+  }
+
+  try {
+    const sys = `Bạn trích xuất tham số campaign marketing từ mô tả tiếng Việt/Anh. Trả về JSON đúng schema. Nếu user không nói rõ, giữ default hợp lý.`;
+    const channelHint = availableChannels.length > 0
+      ? `Các kênh đang có connection: ${availableChannels.join(", ")}. Ưu tiên chọn từ danh sách này.`
+      : `Chỉ chọn từ: facebook, instagram, website, tiktok, linkedin, threads, x, zalo.`;
+    const user = `Mô tả: "${prompt}"\n\n${channelHint}\n\nTrả về JSON với:\n- channels: array tên kênh (lowercase)\n- duration_days: số ngày (1-90, default 14)\n- cadence: "weekly" hoặc "daily"\n- per_week: số bài mỗi tuần (1-7, default 3)\n- suggested_name: tên ngắn cho campaign (<80 chars)\n- reasoning: 1 câu giải thích`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: sys },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2,
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn("[extractCampaignParams] gateway failed:", res.status);
+      return fallback;
+    }
+    const json = await res.json();
+    const content = json?.choices?.[0]?.message?.content;
+    if (!content) return fallback;
+    const parsed = JSON.parse(content);
+
+    const ALLOWED = ["facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"];
+    const channels = Array.isArray(parsed.channels)
+      ? parsed.channels.map((c: string) => String(c).toLowerCase()).filter((c: string) => ALLOWED.includes(c))
+      : [];
+    const duration = Math.min(90, Math.max(1, Number(parsed.duration_days) || 14));
+    const cadence: "weekly" | "daily" = parsed.cadence === "daily" ? "daily" : "weekly";
+    const perWeek = Math.min(7, Math.max(1, Number(parsed.per_week) || 3));
+
+    return {
+      channels: channels.length > 0 ? channels : fallback.channels,
+      duration_days: duration,
+      cadence,
+      per_week: perWeek,
+      suggested_name: String(parsed.suggested_name || prompt).slice(0, 80),
+      reasoning: parsed.reasoning ? String(parsed.reasoning).slice(0, 200) : undefined,
+    };
+  } catch (e) {
+    console.warn("[extractCampaignParams] error:", e);
+    return fallback;
+  }
+}
+
+// Entry: /campaign command
+async function startCampaignWizard(ctx: HandlerCtx & { telegramUserId?: number; initialPrompt?: string }): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, initialPrompt } = ctx;
+  if (!telegramUserId) {
+    await sendMessage(botConfig.botToken, chatId, "❌ Không xác định được user.");
+    return;
+  }
+  const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. Hãy /start trong DM trước.");
+    return;
+  }
+  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+  const available = await getAvailableChannels(
+    supabase,
+    botConfig.organizationId,
+    (activeBrand as any)?.id ?? null,
+  );
+
+  const draft: WizardDraft = {
+    brand_template_id: (activeBrand as any)?.id ?? null,
+    brand_name: (activeBrand as any)?.brand_name ?? null,
+    available_channels: available,
+  };
+
+  if (initialPrompt && initialPrompt.trim().length > 0) {
+    draft.description = initialPrompt.trim();
+    await setWizardState(supabase, chatId, binding.userId, "duration", draft);
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `📅 *Campaign Wizard (2/5)*\n\n_Mô tả:_ ${initialPrompt.slice(0, 200)}\n\nChọn thời lượng campaign:`,
+      { parse_mode: "Markdown", reply_markup: buildDurationKeyboard() },
+    );
+  } else {
+    await setWizardState(supabase, chatId, binding.userId, "description", draft);
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `📝 *Campaign Wizard (1/5)*\n\nMô tả campaign bạn muốn tạo?\n_Ví dụ:_ "Viết content cho spa làm đẹp tháng 5"\n\n_(Gõ /cancel để hủy)_`,
+      { parse_mode: "Markdown" },
+    );
+  }
+}
+
+// Called when user types text in the description step.
+async function continueWizardWithDescription(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  telegramUserId: number;
+  description: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, description } = args;
+  const state = await getWizardState(supabase, chatId, telegramUserId);
+  if (!state) return;
+  state.draft.description = description.trim();
+  await setWizardState(supabase, chatId, state.user_id, "duration", state.draft);
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    `📅 *Campaign Wizard (2/5)*\n\nChọn thời lượng campaign:`,
+    { parse_mode: "Markdown", reply_markup: buildDurationKeyboard() },
+  );
+}
+
+// Build summary card for confirm step.
+function buildSummaryText(draft: WizardDraft): string {
+  const channels = (draft.channels || []).map(c => {
+    const m = CW_ALL_CHANNELS.find(x => x.id === c);
+    return m?.label || c;
+  }).join(", ") || "(chưa chọn)";
+  const freq = draft.cadence === "daily"
+    ? "Hàng ngày"
+    : `${draft.per_week ?? 3} bài/tuần`;
+  const approvalLabel = draft.approval_mode === "approve_each" ? "Duyệt từng bài"
+    : draft.approval_mode === "full_auto" ? "Tự động hoàn toàn"
+    : "Duyệt kế hoạch";
+  return [
+    `✅ *Tóm tắt campaign*`,
+    ``,
+    `📝 ${draft.description?.slice(0, 200) || "(không có mô tả)"}`,
+    `📅 ${draft.duration_days || 14} ngày`,
+    `📢 ${channels}`,
+    `⚡ ${freq}`,
+    `🛡️ ${approvalLabel}`,
+    `🎨 Brand: ${draft.brand_name || "(mặc định)"}`,
+    ``,
+    `Tạo campaign này?`,
+  ].join("\n");
+}
+
+// Main wizard callback handler
+async function handleCampaignWizardCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  const parts = data.split(":");
+  // cw:<step>:<value...>
+  const step = parts[1];
+  const value = parts.slice(2).join(":");
+
+  // Cancel — works without active state
+  if (step === "cancel") {
+    const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, fromTgId);
+    if (binding) await clearWizardState(supabase, chatId, binding.userId);
+    if (value && value !== "1") {
+      // cancel a specific goal (soft mark inactive)
+      await supabase.from("agent_goals").update({ is_active: false, is_paused: true }).eq("id", value);
+    }
+    await answerCallback(botConfig.botToken, cbId, "Đã hủy").catch(() => {});
+    if (messageId) {
+      await editMessageText(botConfig.botToken, chatId, messageId, "❌ Đã hủy wizard.").catch(() => {});
+    }
+    return;
+  }
+
+  // Edit — restart wizard prefilled from existing goal
+  if (step === "edit") {
+    const goalId = value;
+    const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, fromTgId);
+    if (!binding) {
+      await answerCallback(botConfig.botToken, cbId, "Chưa kết nối", true).catch(() => {});
+      return;
+    }
+    const { data: goal } = await supabase
+      .from("agent_goals")
+      .select("id, name, description, target_channels, frequency, campaign_duration_days, approval_mode, brand_template_id")
+      .eq("id", goalId)
+      .maybeSingle();
+    if (!goal) {
+      await answerCallback(botConfig.botToken, cbId, "Goal không tồn tại", true).catch(() => {});
+      return;
+    }
+    const { data: brand } = goal.brand_template_id ? await supabase
+      .from("brand_templates")
+      .select("brand_name")
+      .eq("id", goal.brand_template_id)
+      .maybeSingle() : { data: null };
+    const available = await getAvailableChannels(supabase, botConfig.organizationId, goal.brand_template_id);
+    const draft: WizardDraft = {
+      description: goal.description || goal.name,
+      duration_days: goal.campaign_duration_days || 14,
+      channels: Array.isArray(goal.target_channels) ? goal.target_channels : [],
+      cadence: (goal.frequency?.cadence === "daily") ? "daily" : "weekly",
+      per_week: Number(goal.frequency?.per_week) || 3,
+      approval_mode: goal.approval_mode || "approve_plan",
+      brand_template_id: goal.brand_template_id,
+      brand_name: (brand as any)?.brand_name || null,
+      available_channels: available,
+      edit_goal_id: goalId,
+    };
+    await setWizardState(supabase, chatId, binding.userId, "duration", draft);
+    await answerCallback(botConfig.botToken, cbId, "✏️ Vào chế độ sửa").catch(() => {});
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `✏️ *Sửa campaign* — đang sửa goal có sẵn.\n\n📅 Chọn lại thời lượng (hiện tại: ${draft.duration_days} ngày):`,
+      { parse_mode: "Markdown", reply_markup: buildDurationKeyboard() },
+    );
+    return;
+  }
+
+  // Other steps require active state
+  const state = await getWizardState(supabase, chatId, fromTgId);
+  if (!state) {
+    await answerCallback(botConfig.botToken, cbId, "Phiên wizard đã hết hạn. /campaign để bắt đầu lại.", true).catch(() => {});
+    return;
+  }
+  const draft = state.draft;
+
+  if (step === "duration") {
+    draft.duration_days = Math.min(90, Math.max(1, Number(value) || 14));
+    if (!draft.channels) draft.channels = [];
+    await setWizardState(supabase, chatId, state.user_id, "channels", draft);
+    await answerCallback(botConfig.botToken, cbId, `${draft.duration_days} ngày`).catch(() => {});
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `📢 *Campaign Wizard (3/5)*\n\nChọn kênh (chọn nhiều, bấm ✅ Xong khi xong):`,
+      { parse_mode: "Markdown", reply_markup: buildChannelsKeyboard(draft.channels, draft.available_channels) },
+    );
+    return;
+  }
+
+  if (step === "channels") {
+    draft.channels = draft.channels || [];
+    if (value === "__done") {
+      if (draft.channels.length === 0) {
+        await answerCallback(botConfig.botToken, cbId, "Chọn ít nhất 1 kênh", true).catch(() => {});
+        return;
+      }
+      await setWizardState(supabase, chatId, state.user_id, "frequency", draft);
+      await answerCallback(botConfig.botToken, cbId, `${draft.channels.length} kênh`).catch(() => {});
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        `⚡ *Campaign Wizard (4/5)*\n\nTần suất đăng:`,
+        { parse_mode: "Markdown", reply_markup: buildFrequencyKeyboard() },
+      );
+      return;
+    }
+    // toggle channel
+    const idx = draft.channels.indexOf(value);
+    if (idx >= 0) draft.channels.splice(idx, 1);
+    else draft.channels.push(value);
+    await setWizardState(supabase, chatId, state.user_id, "channels", draft);
+    await answerCallback(botConfig.botToken, cbId, draft.channels.includes(value) ? `+${value}` : `-${value}`).catch(() => {});
+    if (messageId) {
+      await editMessageReplyMarkup(botConfig.botToken, chatId, messageId, buildChannelsKeyboard(draft.channels, draft.available_channels))
+        .catch(() => {});
+    }
+    return;
+  }
+
+  if (step === "freq") {
+    // value = "weekly:3" or "daily:7"
+    const [cad, per] = value.split(":");
+    draft.cadence = cad === "daily" ? "daily" : "weekly";
+    draft.per_week = Math.min(7, Math.max(1, Number(per) || 3));
+    await setWizardState(supabase, chatId, state.user_id, "approval", draft);
+    await answerCallback(botConfig.botToken, cbId, "OK").catch(() => {});
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      `🛡️ *Campaign Wizard (5/5)*\n\nChế độ duyệt:`,
+      { parse_mode: "Markdown", reply_markup: buildApprovalKeyboard() },
+    );
+    return;
+  }
+
+  if (step === "approval") {
+    const allowed = ["approve_plan", "approve_each", "full_auto"];
+    draft.approval_mode = allowed.includes(value) ? value as any : "approve_plan";
+    await setWizardState(supabase, chatId, state.user_id, "confirm", draft);
+    await answerCallback(botConfig.botToken, cbId, "OK").catch(() => {});
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      buildSummaryText(draft),
+      { parse_mode: "Markdown", reply_markup: buildConfirmKeyboard() },
+    );
+    return;
+  }
+
+  if (step === "confirm") {
+    if (value === "edit") {
+      // Restart from duration with current draft
+      await setWizardState(supabase, chatId, state.user_id, "duration", draft);
+      await answerCallback(botConfig.botToken, cbId, "Sửa lại").catch(() => {});
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        `✏️ Sửa lại từ bước thời lượng:`,
+        { reply_markup: buildDurationKeyboard() },
+      );
+      return;
+    }
+    if (value === "go") {
+      await commitWizardGoal({ supabase, botConfig, chatId, state, cbId, messageId });
+      return;
+    }
+  }
+
+  await answerCallback(botConfig.botToken, cbId).catch(() => {});
+}
+
+async function commitWizardGoal(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  state: WizardState;
+  cbId: string;
+  messageId?: number;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, state, cbId, messageId } = args;
+  const draft = state.draft;
+
+  // Quota gate
+  const gate = await assertCanCreateGoal(supabase, botConfig.organizationId, state.user_id);
+  if (!gate.ok) {
+    await answerCallback(botConfig.botToken, cbId, "Hết quota").catch(() => {});
+    await sendMessage(botConfig.botToken, chatId, gate.message);
+    await clearWizardState(supabase, chatId, state.user_id);
+    return;
+  }
+
+  const today = new Date();
+  const duration = draft.duration_days || 14;
+  const endDate = new Date(today.getTime() + duration * 24 * 60 * 60 * 1000);
+
+  let goalId = draft.edit_goal_id || null;
+  let goalName = (draft.description || "Campaign").slice(0, 120);
+
+  const payload = {
+    name: goalName,
+    description: draft.description || "",
+    organization_id: botConfig.organizationId,
+    created_by: state.user_id,
+    target_topics: [],
+    target_channels: draft.channels || ["facebook", "website"],
+    frequency: { cadence: draft.cadence || "weekly", per_week: draft.per_week || 3 },
+    campaign_duration_days: duration,
+    campaign_start_date: today.toISOString().split("T")[0],
+    campaign_end_date: endDate.toISOString().split("T")[0],
+    brand_template_id: draft.brand_template_id || null,
+    autonomy_level: botConfig.defaultAutonomyLevel,
+    approval_mode: draft.approval_mode || "approve_plan",
+    is_active: true,
+    is_paused: false,
+    clarification_context: { telegram_wizard: true },
+  };
+
+  if (goalId) {
+    const { error } = await supabase.from("agent_goals").update(payload).eq("id", goalId);
+    if (error) {
+      console.error("[wizard] update goal failed:", error);
+      await answerCallback(botConfig.botToken, cbId, "Lỗi update", true).catch(() => {});
+      return;
+    }
+  } else {
+    const { data: goal, error } = await supabase
+      .from("agent_goals")
+      .insert(payload)
+      .select("id, name")
+      .single();
+    if (error || !goal) {
+      console.error("[wizard] insert goal failed:", error);
+      await answerCallback(botConfig.botToken, cbId, "Lỗi tạo goal", true).catch(() => {});
+      return;
+    }
+    goalId = goal.id;
+    goalName = goal.name;
+  }
+
+  await clearWizardState(supabase, chatId, state.user_id);
+  await answerCallback(botConfig.botToken, cbId, "🚀 Đang tạo...").catch(() => {});
+
+  if (messageId) {
+    await editMessageText(
+      botConfig.botToken,
+      chatId,
+      messageId,
+      `✅ Goal "${goalName}" đã ${draft.edit_goal_id ? "cập nhật" : "tạo"}.\nĐang khởi chạy pipeline trong nền...`,
+    ).catch(() => {});
+  }
+
+  // Trigger pipeline (fire-and-report-quickly)
+  try {
+    const r = await Promise.race([
+      triggerPipeline(goalId!, botConfig.organizationId),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 6000)),
+    ]) as { success?: boolean; error?: string; status?: number };
+    console.log("[wizard] pipeline result:", r);
+    if (r?.success === false && r?.error) {
+      await sendMessage(botConfig.botToken, chatId,
+        `⚠️ Goal lưu rồi nhưng trigger pipeline lỗi: ${String(r.error).slice(0, 120)}. Thử /status sau ít phút.`);
+    } else {
+      await sendMessage(botConfig.botToken, chatId,
+        `✅ Pipeline đang chạy. Dùng /status sau ~1 phút để xem tiến độ.`);
+    }
+  } catch (e) {
+    const msg = String((e as Error)?.message || e);
+    if (msg.includes("timeout")) {
+      await sendMessage(botConfig.botToken, chatId,
+        `✅ Goal đã lưu, hệ thống đang xử lý nền. Dùng /status sau 1-2 phút.`);
+    } else {
+      await sendMessage(botConfig.botToken, chatId,
+        `⚠️ Lỗi trigger pipeline: ${msg.slice(0, 100)}. Thử /status.`);
+    }
+  }
 }
