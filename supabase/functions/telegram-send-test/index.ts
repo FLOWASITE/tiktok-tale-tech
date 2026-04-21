@@ -67,9 +67,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!binding) {
       return json({
+        ok: false,
         error: "Bạn chưa link Telegram. Bấm 'Mở Telegram' ở trên để kết nối.",
         code: "not_linked",
-      }, 404);
+      }, 200);
     }
 
     // 3. Load bot config (BYOB first, then default)
@@ -92,9 +93,10 @@ Deno.serve(async (req) => {
 
     if (!botConfig?.bot_token_encrypted) {
       return json({
+        ok: false,
         error: "Bot Telegram của tổ chức đang tắt. Liên hệ admin.",
         code: "bot_inactive",
-      }, 404);
+      }, 200);
     }
 
     // 4. Decrypt + send
