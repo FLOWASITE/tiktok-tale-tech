@@ -2217,8 +2217,16 @@ async function handleExamples(ctx: HandlerCtx): Promise<void> {
   });
   lines.push("", "👉 Hoặc chat tự nhiên — mình hiểu tiếng Việt!");
 
-  // Stash prompts in memory by chat (best-effort, in-process cache)
-  exampleCache.set(chatId, list.slice(0, 7).map((p) => p.prompt));
+  // Persist prompts to DB (survives worker recycles, 1h TTL)
+  const prompts = list.slice(0, 7).map((p) => p.prompt);
+  try {
+    await supabase.from("telegram_example_cache").delete().eq("chat_id", chatId);
+    if (prompts.length > 0) {
+      await supabase.from("telegram_example_cache").insert(
+        prompts.map((prompt, idx) => ({ chat_id: chatId, idx, prompt })),
+      );
+    }
+  } catch (_e) { /* best-effort */ }
 
   await sendMessage(botConfig.botToken, chatId, lines.join("\n"), {
     parse_mode: "Markdown",
@@ -2226,7 +2234,13 @@ async function handleExamples(ctx: HandlerCtx): Promise<void> {
   });
 }
 
-const exampleCache = new Map<number, string[]>();
+// Static starter prompts for Quick Launchpad (no cache needed — always available)
+const STARTER_PROMPTS: Array<{ emoji: string; title: string; prompt: string }> = [
+  { emoji: "🎁", title: "Campaign khuyến mãi cuối tháng", prompt: "Tạo campaign khuyến mãi cuối tháng cho thương hiệu của tôi, target khách hàng nữ 25-40" },
+  { emoji: "📱", title: "3 caption Facebook bán hàng", prompt: "Viết 3 caption Facebook bán hàng cho sản phẩm chủ lực, tone thân thiện vui vẻ" },
+  { emoji: "🎬", title: "5 idea content TikTok", prompt: "Cho 5 idea content TikTok cho thương hiệu, format storytime ngắn 30-60s" },
+  { emoji: "✉️", title: "Email ra mắt sản phẩm mới", prompt: "Viết email sequence 3 email ra mắt sản phẩm mới cho khách hàng cũ" },
+];
 
 // =====================================================
 // /tutorial — 3-step interactive tutorial
