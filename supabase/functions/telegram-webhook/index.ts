@@ -879,20 +879,32 @@ async function handleGenerate(
 
   // Resolve active brand BEFORE goal insert so we can attach brand_template_id
   const activeBrandGen = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+
+  // AI-extract campaign params from prompt (channels, duration, frequency).
+  // Falls back to safe defaults if LLM fails.
+  const availableChannels = await getAvailableChannels(
+    supabase,
+    botConfig.organizationId,
+    (activeBrandGen as any)?.id ?? null,
+  );
+  const extracted = await extractCampaignParams(prompt, availableChannels);
+  console.log("[handleGenerate] AI extract:", extracted);
+
   const today = new Date();
-  const endDate = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const durationDays = extracted.duration_days;
+  const endDate = new Date(today.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
   const { data: goal, error: goalError } = await supabase
     .from("agent_goals")
     .insert({
-      name: prompt.slice(0, 120),
+      name: (extracted.suggested_name || prompt).slice(0, 120),
       description: prompt,
       organization_id: botConfig.organizationId,
       created_by: binding.userId,
       target_topics: [],
-      target_channels: ["facebook", "website"],
-      frequency: { cadence: "weekly", per_week: 3 },
-      campaign_duration_days: 14,
+      target_channels: extracted.channels,
+      frequency: { cadence: extracted.cadence, per_week: extracted.per_week },
+      campaign_duration_days: durationDays,
       campaign_start_date: today.toISOString().split("T")[0],
       campaign_end_date: endDate.toISOString().split("T")[0],
       brand_template_id: (activeBrandGen as any)?.id || null,
@@ -900,6 +912,7 @@ async function handleGenerate(
       approval_mode: "approve_plan",
       is_active: true,
       is_paused: false,
+      clarification_context: { telegram_ai_extracted: extracted },
     })
     .select("id, name")
     .single();
