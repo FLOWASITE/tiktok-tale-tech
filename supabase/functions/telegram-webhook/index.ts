@@ -215,7 +215,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
               await sendMessage(
                 botConfig.botToken,
                 peekChatId,
-                "👋 Chưa kết nối. Mở https://app.flowa.one/agent/telegram → Get started on Telegram để lấy link.",
+                "👋 Chưa kết nối. Mở https://app.flowa.one/agents/telegram → Get started on Telegram để lấy link.",
               );
             }
             return okResponse();
