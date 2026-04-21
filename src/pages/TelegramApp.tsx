@@ -9,8 +9,19 @@ import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Pal
 type Tab = 'dashboard' | 'create' | 'approve' | 'brands';
 
 export default function TelegramApp() {
-  const { ready, authenticated, loading, error, userId, organizationId } = useTelegramWebApp();
+  const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
+
+  // Read intent from hash route (e.g. #/multichannel/<id> from "Xem & duyệt" button).
+  // We don't have a real router inside the Mini App yet, so for now hash paths that
+  // mention approval flows just open the Approve tab.
+  useEffect(() => {
+    if (!authenticated) return;
+    const hash = window.location.hash || '';
+    if (/multichannel|approve|approval/i.test(hash)) {
+      setTab('approve');
+    }
+  }, [authenticated]);
 
   if (loading || !ready) {
     return (
@@ -24,22 +35,42 @@ export default function TelegramApp() {
   }
 
   if (!authenticated || !userId || !organizationId) {
+    // Distinguish between (a) session OK but org chưa resolve, (b) thật sự fail auth,
+    // và (c) các lỗi backend cụ thể (not_linked, ambiguous_org, ...).
+    const sessionOkButOrgMissing = authenticated && !!userId && !organizationId;
+    const title = sessionOkButOrgMissing
+      ? 'Chưa xác định được workspace'
+      : 'Không xác thực được';
+
+    let hint: string | null = null;
+    if (errorCode === 'not_linked') {
+      hint = 'Tài khoản Telegram chưa liên kết workspace. Hãy gõ /start trong DM với bot trước.';
+    } else if (errorCode === 'ambiguous_org') {
+      hint = 'Tài khoản đang liên kết nhiều workspace. Mở Mini App từ menu bot có gắn ?org=<id>.';
+    } else if (errorCode === 'no_init_data') {
+      hint = 'Hãy mở Mini App từ trong bot Telegram (không mở trực tiếp link).';
+    } else if (sessionOkButOrgMissing) {
+      hint = 'Đã đăng nhập Flowa nhưng chưa map được Telegram → workspace. Thử /start trong DM với bot.';
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Card className="max-w-sm w-full">
           <CardHeader>
             <div className="flex items-center gap-2 text-destructive">
               <AlertCircle className="w-5 h-5" />
-              <CardTitle className="text-lg">Không xác thực được</CardTitle>
+              <CardTitle className="text-lg">{title}</CardTitle>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {error || 'Hãy mở Mini App từ trong bot Telegram.'}
             </p>
-            <p className="text-xs text-muted-foreground mt-3">
-              Nếu bạn chưa link tài khoản: gõ <code className="text-foreground">/start</code> trong DM với bot trước.
-            </p>
+            {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+            <div className="text-[10px] text-muted-foreground/70 font-mono pt-2 border-t border-border space-y-0.5">
+              <div>auth: {String(authenticated)} · user: {userId ? '✓' : '✗'} · org: {organizationId ? '✓' : '✗'}</div>
+              {errorCode && <div>code: {errorCode}</div>}
+            </div>
           </CardContent>
         </Card>
       </div>
