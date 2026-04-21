@@ -1,73 +1,130 @@
 
+# Fix: nút “Xem & duyệt” trong Telegram mở Mini App nhưng thiếu `organization_id`
 
-# Fix: `derivedContentGoal is not defined` khi tạo bài đơn lẻ qua Telegram
+## Vấn đề đã xác định
 
-## Nguyên nhân (đã xác định từ log + code)
+Ảnh lỗi khớp đúng với logic hiện tại của `useTelegramWebApp`:
 
-Edge function `generate-multichannel` boot OK nhưng **crash runtime** với:
-```
-ReferenceError: derivedContentGoal is not defined
-at index.ts:3837:52 (compiled, thực tế line 3901)
-```
-
-Tại 3 chỗ trong `generate-multichannel/index.ts` (lines **3901, 4050, 4328**) code dùng:
+- `src/hooks/useTelegramWebApp.ts` chỉ xác thực được khi URL có `?org=<uuid>` hoặc đã có `localStorage['flowa_tg_app_org']`
+- nếu không có `org`, hook trả lỗi:
+  - `Thiếu organization id. Mở từ menu bot Telegram.`
+- nút Telegram hiện tại mở Mini App bằng:
 ```ts
-contentGoal: formData.contentGoal || derivedContentGoal,
+web_app: { url: `${MINI_APP_URL}#/multichannel/${contentId}` }
 ```
+trong `supabase/functions/telegram-webhook/index.ts:1282-1285`
 
-Nhưng biến đúng được khai báo ở **line 3465** là `contentGoal` (không phải `derivedContentGoal`):
+Do app dùng `BrowserRouter`, phần `#/multichannel/...` chỉ là fragment; query string không được set. Kết quả:
+- Mini App mở ra
+- `useTelegramWebApp()` không tìm thấy `org`
+- hiện card lỗi “Không xác thực được”
+
+Ngoài ra, nút menu bot và vài entry khác cũng đang trỏ tới bare URL `https://app.flowa.one/telegram-app` nên lần mở đầu tiên từ Telegram cũng có thể fail tương tự.
+
+## Cách sửa
+
+### 1) Luôn truyền `org` vào mọi URL Web App do bot tạo ra
+Tạo helper trong `telegram-webhook/index.ts` hoặc utility cục bộ kiểu:
+
 ```ts
-let contentGoal = formData.contentGoal || 'education';
-if (!formData.contentGoal && formData.targetJourneyStage) {
-  contentGoal = JOURNEY_TO_GOAL_MAP[formData.targetJourneyStage] || 'education';
+function buildMiniAppUrl(base: string, orgId: string, path?: string) {
+  const u = new URL(base);
+  u.searchParams.set("org", orgId);
+  if (path) u.hash = path.startsWith("#") ? path : `#${path}`;
+  return u.toString();
 }
 ```
 
-→ Khi Telegram bot gọi `generate-multichannel` (single post Facebook), function chạy đến block tính `dynamicMaxTokens` → đụng `derivedContentGoal` không tồn tại → throw → bot báo **"Tạo bài lỗi: derivedContentGoal is not defined"**.
+Áp dụng cho:
+- nút `📝 Xem & duyệt`
+- nút `🚀 Mở Mini App`
+- mọi `web_app` keyboard khác trong `telegram-webhook`
 
-Bug này tồn tại trên cả manual flow lẫn agent flow — chỉ chưa lộ vì các path khác may mắn không vào nhánh code đó. Telegram single-post là path **đầu tiên** trigger nó.
-
-## Giải pháp
-
-Đổi cả 3 reference `derivedContentGoal` → `contentGoal` (biến đã có sẵn trong cùng scope, line 3465).
-
-**File:** `supabase/functions/generate-multichannel/index.ts`
-
-3 chỗ cần sửa:
-
+Ví dụ sửa:
 ```ts
-// Line 3901
-contentGoal: formData.contentGoal || derivedContentGoal,
-// → 
-contentGoal: formData.contentGoal || contentGoal,
-
-// Line 4050 — same fix
-// Line 4328 — same fix
+web_app: { url: buildMiniAppUrl(MINI_APP_URL, botConfig.organizationId!, `/multichannel/${contentId}`) }
 ```
 
-Vì `formData.contentGoal || contentGoal` redundant (biến `contentGoal` đã được resolve từ `formData.contentGoal` ở line 3465), simplify thành:
+### 2) Sửa menu button để mở Mini App kèm `org`
+Trong `supabase/functions/telegram-bot-admin/index.ts`:
+- chỗ seed bot mới
+- chỗ action `set_menu_button`
 
+Cần set:
 ```ts
-contentGoal: contentGoal,
+https://app.flowa.one/telegram-app?org=<organization_id>
 ```
 
-→ rõ nghĩa hơn, không có biến undefined, không đổi behavior.
+Vì menu button là per-bot/per-org nên hoàn toàn phù hợp để embed org cố định.
 
-## Files thay đổi
+### 3) Tăng độ bền ở client hook
+Cập nhật `src/hooks/useTelegramWebApp.ts` để resolve org theo thứ tự:
 
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/generate-multichannel/index.ts` | Sửa 3 reference `derivedContentGoal` → `contentGoal` (lines 3901, 4050, 4328) |
+1. `?org=...`
+2. `Telegram.WebApp.initDataUnsafe.start_param` hoặc equivalent nếu Telegram cung cấp
+3. `localStorage['flowa_tg_app_org']`
+
+Nếu Telegram SDK typings chưa có `start_param`, chỉ cần thêm optional field vào interface.  
+Mục tiêu: giảm phụ thuộc tuyệt đối vào localStorage và giúp deep link hoạt động ổn định hơn.
+
+### 4) Sửa đường dẫn Web App cho các route hash hiện tại
+Hiện code đang dùng:
+```ts
+${MINI_APP_URL}#/multichannel/${contentId}
+```
+
+Sau fix nên chuẩn hóa thành:
+```ts
+https://app.flowa.one/telegram-app?org=<org>#/multichannel/<id>
+```
+
+Như vậy:
+- query phục vụ auth/org resolution
+- hash phục vụ điều hướng nội bộ Mini App
+
+### 5) Kiểm tra các chỗ mở Mini App khác để tránh lỗi lặp lại
+Rà lại các điểm sau:
+- `telegram-webhook/index.ts`
+- `telegram-bot-admin/index.ts`
+- `_shared/telegram-client.ts` với các keyboard có `web_app`
+- welcome/tutorial/brand-management buttons
+
+Mục tiêu: không còn bất kỳ `web_app: { url: MINI_APP_URL }` trần nào khi context org là bắt buộc.
+
+## Files cần sửa
+
+- `supabase/functions/telegram-webhook/index.ts`
+- `supabase/functions/telegram-bot-admin/index.ts`
+- `src/hooks/useTelegramWebApp.ts`
+- có thể thêm chỉnh nhẹ ở `supabase/functions/_shared/telegram-client.ts` nếu muốn truyền vào URL đã được build sẵn từ caller
 
 ## Test E2E
 
-1. Telegram → "TẠO 1 content cho kênh Facebook" → bot detect `generate_single` + channel=facebook → gọi `generate-multichannel` → **chạy thành công** → trả preview + link Mini App trong ~30s.
-2. Manual flow `/multichannel` → tạo bài Facebook bình thường → vẫn chạy OK (không regression).
-3. Agent campaign approve → chạy 6 bài → không lỗi runtime.
+1. Telegram bot gửi bài đơn lẻ → bấm `📝 Xem & duyệt`
+   - mở Mini App vào đúng trang
+   - không còn lỗi `Thiếu organization id`
 
-## Ước tính
-**2 phút** — sửa 3 token trong cùng 1 file.
+2. Mở từ menu bot `🚀 Mở Flowa`
+   - Mini App vào được ngay từ lần đầu
+   - authenticate thành công, không cần dựa vào localStorage cũ
+
+3. Đổi brand rồi bấm lại `Xem & duyệt`
+   - vẫn vào đúng org
+   - không quay về màn hình lỗi
+
+4. User mới chưa từng mở Mini App trước đó
+   - bấm menu bot hoặc `Xem & duyệt`
+   - vẫn authenticate OK
 
 ## Rủi ro
-Không. Chỉ rename biến về đúng tên trong scope, không đổi logic.
 
+Thấp. Đây là bug ghép URL/context, không đụng DB schema hay logic approve.  
+Phần cần cẩn thận nhất là chuẩn hóa URL builder để không làm hỏng hash route hiện có.
+
+## Kết quả mong đợi
+
+Khi người dùng nhấn nút “Xem và duyệt” trong Telegram:
+- Mini App mở đúng URL có `org`
+- `useTelegramWebApp()` xác thực được
+- không còn hiện “Không xác thực được”
+- vào thẳng flow xem/duyệt nội dung như mong muốn
