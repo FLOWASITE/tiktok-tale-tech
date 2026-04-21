@@ -10,6 +10,7 @@ export interface InlineButton {
   text: string;
   callback_data?: string; // <= 64 bytes
   url?: string;
+  web_app?: { url: string };
 }
 
 export type InlineKeyboard = InlineButton[][];
