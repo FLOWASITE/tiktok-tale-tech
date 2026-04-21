@@ -1436,6 +1436,20 @@ async function handleFreeChat(
         assistantReply = `[generate_campaign] ${prompt.slice(0, 200)}`;
         break;
       }
+      case "generate_single": {
+        const prompt = result.prompt?.trim() || text;
+        const channel = (result.channel || "").toLowerCase().trim();
+        await handleGenerateSingle({
+          supabase,
+          botConfig,
+          chatId,
+          telegramUserId,
+          prompt,
+          channel,
+        });
+        assistantReply = `[generate_single ch=${channel || "?"}] ${prompt.slice(0, 200)}`;
+        break;
+      }
       case "status": {
         await handleStatus({ supabase, botConfig, chatId });
         assistantReply = "[status]";
