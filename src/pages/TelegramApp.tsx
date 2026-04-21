@@ -421,6 +421,10 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
     let cancelled = false;
     let attempts = 0;
     const MAX_ATTEMPTS = 6; // 6 × 1s ≈ 6s
+    setAutoOpenStatus('searching');
+    setAutoOpenStartedAt(Date.now());
+    setAutoOpenAttempt(0);
+    setAutoOpenElapsedMs(0);
 
     async function tryOpen() {
       if (cancelled) return;
@@ -428,6 +432,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       const target = items.find((x) => x.id === autoOpenId);
       if (target) {
         await openPreview(target);
+        setAutoOpenStatus('success');
         try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
         onAutoOpened?.();
         return;
@@ -435,6 +440,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       // 2) If the list is still loading or empty, wait and retry.
       if (loading || (items.length === 0 && attempts < MAX_ATTEMPTS)) {
         attempts++;
+        setAutoOpenAttempt(attempts);
         setTimeout(tryOpen, 1000);
         return;
       }
@@ -444,6 +450,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       const cached = readApprovalCache(autoOpenId);
       if (cached) {
         await openPreview(cached.item);
+        setAutoOpenStatus('success');
         if (cached.status && cached.status !== 'pending') {
           toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
         }
@@ -474,6 +481,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
           };
           APPROVAL_FETCH_CACHE.set(autoOpenId, { item: hydrated, status: data.status ?? null, cachedAt: Date.now() });
           await openPreview(hydrated);
+          setAutoOpenStatus('success');
           if (data.status && data.status !== 'pending') {
             toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
           }
@@ -487,9 +495,11 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       // 4) Final fallback — keep the pending slot for next mount, then notify.
       if (attempts < MAX_ATTEMPTS) {
         attempts++;
+        setAutoOpenAttempt(attempts);
         setTimeout(tryOpen, 1000);
         return;
       }
+      setAutoOpenStatus('not_found');
       toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ.', {
         action: { label: 'Làm mới & thử lại', onClick: () => retryAutoOpen() },
       });
