@@ -938,9 +938,14 @@ async function handleGenerate(
 
   // Await pipeline trigger with timeout, surface real status
   console.log("[handleGenerate] triggering pipeline for goal", goal.id);
-  const footerKb = activeBrandGen?.brand_name
-    ? { reply_markup: { inline_keyboard: buildBrandFooterKeyboard() } }
-    : undefined;
+  const editRow = [
+    { text: "✏️ Sửa kênh / thời lượng", callback_data: `cw:edit:${goal.id}` },
+    { text: "🗑️ Hủy goal", callback_data: `cw:cancel:${goal.id}` },
+  ];
+  const brandRow = activeBrandGen?.brand_name ? buildBrandFooterKeyboard() : [];
+  const footerKb = {
+    reply_markup: { inline_keyboard: [editRow, ...brandRow] },
+  };
 
   try {
     // agent-pipeline dispatches strategy in background and returns 202 quickly.
