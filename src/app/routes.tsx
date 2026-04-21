@@ -68,6 +68,7 @@ import AppPricing from "@/pages/Pricing";
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
 const TelegramApp = lazy(() => import("@/pages/TelegramApp"));
+const AgentTelegramPage = lazy(() => import("@/pages/AgentTelegramPage"));
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
@@ -172,6 +173,7 @@ export function AppRoutes() {
       <Route path="/ad-copies" element={<ProtectedRoute><AppLayout><AdCopies /></AppLayout></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><AppLayout><ContentCalendar /></AppLayout></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><AppLayout><AgentDashboard /></AppLayout></ProtectedRoute>} />
+      <Route path="/agents/telegram" element={<ProtectedRoute><AppLayout><Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}><AgentTelegramPage /></Suspense></AppLayout></ProtectedRoute>} />
       
       <Route path="/agent-monitor" element={<ProtectedRoute><AppLayout><AgentMonitorPage /></AppLayout></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><AppLayout><Account /></AppLayout></ProtectedRoute>} />
