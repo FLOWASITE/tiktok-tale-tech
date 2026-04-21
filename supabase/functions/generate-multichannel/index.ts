@@ -356,6 +356,36 @@ const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
 };
 
+/**
+ * Extract a clean human-readable title from generated channel content.
+ * Used by streaming path where AI does not emit a dedicated title.
+ *
+ * Priority: first Markdown heading → first meaningful line → topic fallback.
+ */
+function extractTitleFromChannels(
+  channelResults: Record<string, string | null | undefined>,
+  topicFallback: string,
+): string {
+  const firstContent = Object.values(channelResults || {})
+    .find((c): c is string => typeof c === 'string' && c.trim().length > 0);
+  if (!firstContent) return (topicFallback || 'Bài đăng').slice(0, 100);
+
+  const lines = firstContent.split('\n').map(l => l.trim()).filter(Boolean);
+
+  for (const line of lines.slice(0, 5)) {
+    const m = line.match(/^#{1,3}\s+(.{4,120}?)\s*$/);
+    if (m && m[1]) return m[1].trim().slice(0, 100);
+  }
+
+  const first = lines[0]
+    ?.replace(/^[\p{Emoji_Presentation}\p{Emoji}\s\-•▶▪►★☆🎯✨📌💡🔥]+/u, '')
+    .replace(/^[*_~`]+/, '')
+    .trim();
+  if (first && first.length >= 8) return first.slice(0, 100);
+
+  return (topicFallback || 'Bài đăng').slice(0, 100);
+}
+
 function normalizeChannels(channels: string[]): string[] {
   return channels.map(ch => CHANNEL_ALIASES[ch] || ch);
 }
