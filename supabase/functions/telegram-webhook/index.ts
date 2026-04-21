@@ -2444,11 +2444,29 @@ async function handleUxCallback(args: {
     }
   }
 
+  if (group === "starter") {
+    const idx = parseInt(key, 10);
+    const prompt = STARTER_PROMPTS[idx]?.prompt;
+    if (!prompt) {
+      await sendMessage(botConfig.botToken, chatId, "Mẫu không hợp lệ, gõ /start để thử lại.");
+      return;
+    }
+    await sendMessage(botConfig.botToken, chatId, `🚀 *Đang chạy:*\n_${escapeMd(prompt)}_`, { parse_mode: "Markdown" });
+    await handleGenerate({ ...ctx, telegramUserId: fromTgId, prompt });
+    return;
+  }
+
   if (group === "ex") {
     const idx = parseInt(key, 10);
-    const cached = exampleCache.get(chatId);
-    if (cached && cached[idx]) {
-      const prompt = cached[idx];
+    const { data } = await supabase
+      .from("telegram_example_cache")
+      .select("prompt")
+      .eq("chat_id", chatId)
+      .eq("idx", idx)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (data?.prompt) {
+      const prompt = data.prompt as string;
       await sendMessage(botConfig.botToken, chatId, `🚀 *Đang chạy:*\n_${escapeMd(prompt)}_`, { parse_mode: "Markdown" });
       await handleGenerate({ ...ctx, telegramUserId: fromTgId, prompt });
       return;
