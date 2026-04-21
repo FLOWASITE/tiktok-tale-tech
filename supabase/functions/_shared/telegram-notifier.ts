@@ -141,19 +141,64 @@ export async function pushMany(
   await Promise.allSettled(targets.map((t) => sendOne(t, text, opts)));
 }
 
+// Channel emoji map for compact per-channel button labels.
+const CHANNEL_EMOJI: Record<string, string> = {
+  facebook: "📘",
+  instagram: "📸",
+  tiktok: "🎵",
+  linkedin: "💼",
+  twitter: "🐦",
+  x: "🐦",
+  threads: "🧵",
+  zalo: "💬",
+  website: "🌐",
+  blog: "📝",
+  youtube: "▶️",
+  google_business: "📍",
+};
+
+function channelButtonLabel(ch: string): string {
+  const key = (ch || "").toLowerCase();
+  const emoji = CHANNEL_EMOJI[key] ?? "📢";
+  // Capitalize first letter for nicer display
+  const name = ch.charAt(0).toUpperCase() + ch.slice(1);
+  return `${emoji} ${name}`;
+}
+
 // Convenience builder for an "approval needed" inline keyboard.
 // callback_data must stay <= 64 bytes — use short prefix + approval id.
-// Includes optional web_app deep-link to Mini App preview drawer.
-export function approvalKeyboard(approvalId: string): InlineKeyboard {
+// When `channels` is supplied, render per-channel approve buttons that open a
+// per-channel reschedule menu (apv:c:<id>:<idx>). Otherwise fall back to the
+// classic single-decision keyboard.
+export function approvalKeyboard(approvalId: string, channels?: string[] | null): InlineKeyboard {
   const miniAppUrl = `https://app.flowa.one/telegram-app?view=approve&id=${approvalId}&v=tg-auth-v2`;
-  return [
+  const rows: InlineKeyboard = [
     [{ text: "👁️ Xem chi tiết", web_app: { url: miniAppUrl } } as unknown as InlineButton],
-    [
-      { text: "✅ Duyệt ngay", callback_data: `apv:a:${approvalId}` },
-      { text: "❌ Từ chối", callback_data: `apv:r:${approvalId}` },
-    ],
-    [{ text: "📅 Duyệt & đổi lịch", callback_data: `apv:s:${approvalId}` }],
   ];
+
+  // Per-channel rows (only when 1+ channels — single channel still benefits
+  // from explicit per-channel scheduling UX).
+  if (channels && channels.length > 0) {
+    // Pair channels two-per-row to stay compact.
+    for (let i = 0; i < channels.length; i += 2) {
+      const row: InlineButton[] = [];
+      for (let j = i; j < Math.min(i + 2, channels.length); j++) {
+        row.push({
+          text: `✅ ${channelButtonLabel(channels[j])}`,
+          callback_data: `apv:c:${approvalId}:${j}`,
+        });
+      }
+      rows.push(row);
+    }
+  }
+
+  // Global actions
+  rows.push([
+    { text: "✅ Duyệt tất cả", callback_data: `apv:a:${approvalId}` },
+    { text: "❌ Từ chối", callback_data: `apv:r:${approvalId}` },
+  ]);
+  rows.push([{ text: "📅 Đổi lịch tất cả", callback_data: `apv:s:${approvalId}` }]);
+  return rows;
 }
 
 function formatVnDateTime(iso: string): string {
