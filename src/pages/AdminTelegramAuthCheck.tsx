@@ -77,16 +77,28 @@ const INITIAL_CHECKS: Omit<CheckResult, "status">[] = [
     expectedStatus: 401,
   },
   {
-    name: "4. Reject unlinked Telegram user",
+    name: "4. Reject unlinked Telegram user (org inference path)",
     description:
-      "init_data hợp lệ format (giả) với user.id chưa từng /start bot nào → phải trả 404 code='not_linked' (chứng tỏ flow infer org → binding lookup chạy đúng).",
+      "init_data hợp lệ format (giả) với user.id chưa từng /start bot nào → phải trả 404 code='not_linked'. Nếu nhận 401 nghĩa là HMAC check chạy TRƯỚC org inference (sai thứ tự).",
     expectedStatus: 404,
     expectedCode: "not_linked",
   },
   {
-    name: "5. Real init_data (optional)",
+    name: "5. Real init_data — full HMAC + magic link (optional)",
     description:
-      "Dán init_data thật từ Telegram WebApp (DevTools → window.Telegram.WebApp.initData) để verify HMAC + magic link end-to-end. Bỏ trống = skip.",
+      "Dán init_data thật từ window.Telegram.WebApp.initData để verify HMAC + magic link end-to-end. Bỏ trống = skip.",
+    expectedStatus: "any",
+  },
+  {
+    name: "6. Frontend flow simulation: existing session + missing org (optional)",
+    description:
+      "Mô phỏng đúng bug thực tế: gọi function CÓ init_data thật nhưng KHÔNG truyền organization_id. Pass khi response trả organization_id (nghĩa là backend tự infer được, frontend hết block 'Không xác thực được'). Cần real init_data ở ô bên trên.",
+    expectedStatus: 200,
+  },
+  {
+    name: "7. Current Supabase session probe",
+    description:
+      "Kiểm tra có session Supabase active không (dùng để phân biệt nhánh 'session có sẵn nhưng thiếu org' với 'chưa đăng nhập').",
     expectedStatus: "any",
   },
 ];
@@ -103,7 +115,6 @@ export default function AdminTelegramAuthCheck() {
     const next: CheckResult[] = INITIAL_CHECKS.map((c) => ({ ...c, status: "pending" }));
     setChecks([...next]);
 
-    // Helper to update one check
     const update = (idx: number, patch: Partial<CheckResult>) => {
       next[idx] = { ...next[idx], ...patch };
       setChecks([...next]);
@@ -113,9 +124,8 @@ export default function AdminTelegramAuthCheck() {
     update(0, { status: "running" });
     {
       const r = await callAuth({});
-      const pass = r.status === 400;
       update(0, {
-        status: pass ? "pass" : "fail",
+        status: r.status === 400 ? "pass" : "fail",
         actualStatus: r.status,
         actualBody: r.body,
         durationMs: r.ms,
@@ -127,9 +137,8 @@ export default function AdminTelegramAuthCheck() {
     {
       const initData = "user=" + encodeURIComponent(JSON.stringify({ id: 1 })) + "&auth_date=1";
       const r = await callAuth({ init_data: initData });
-      const pass = r.status === 401;
       update(1, {
-        status: pass ? "pass" : "fail",
+        status: r.status === 401 ? "pass" : "fail",
         actualStatus: r.status,
         actualBody: r.body,
         durationMs: r.ms,
@@ -141,16 +150,15 @@ export default function AdminTelegramAuthCheck() {
     {
       const initData = buildFakeInitData({ withUser: false });
       const r = await callAuth({ init_data: initData });
-      const pass = r.status === 401;
       update(2, {
-        status: pass ? "pass" : "fail",
+        status: r.status === 401 ? "pass" : "fail",
         actualStatus: r.status,
         actualBody: r.body,
         durationMs: r.ms,
       });
     }
 
-    // 4. unlinked user → expects 404 not_linked (org inference path)
+    // 4. unlinked user → expects 404 not_linked (org inference path executed)
     update(3, { status: "running" });
     {
       const initData = buildFakeInitData({ withUser: true });
@@ -164,12 +172,14 @@ export default function AdminTelegramAuthCheck() {
         durationMs: r.ms,
         notes:
           !pass && r.status === 401
-            ? "401 nghĩa là HMAC check đã chạy trước inference (sai thứ tự) — kiểm tra lại logic."
-            : undefined,
+            ? "401 = HMAC check chạy trước inference (sai thứ tự). Backend phải parse user.id → infer org TRƯỚC khi verify HMAC."
+            : !pass && r.status === 400
+              ? "400 = backend vẫn yêu cầu organization_id (chưa apply fallback default-bot)."
+              : undefined,
       });
     }
 
-    // 5. real init_data (optional)
+    // 5. real init_data (optional) — full HMAC + magic link path
     update(4, { status: "running" });
     if (realInitData.trim()) {
       const r = await callAuth({ init_data: realInitData.trim() });
@@ -185,9 +195,57 @@ export default function AdminTelegramAuthCheck() {
           : "Real init_data fail — xem body để biết lý do (HMAC mismatch / expired / bot config).",
       });
     } else {
-      update(4, {
+      update(4, { status: "pass", notes: "Skipped — không có init_data thật." });
+    }
+
+    // 6. Frontend flow simulation: real init_data WITHOUT organization_id
+    // This is the exact case that caused "Không xác thực được" cho default bot.
+    update(5, { status: "running" });
+    if (realInitData.trim()) {
+      const r = await callAuth({ init_data: realInitData.trim() }); // intentionally NO organization_id
+      const body = r.body as { organization_id?: string; code?: string; error?: string } | null;
+      const orgResolved = !!body?.organization_id;
+      const pass = r.status === 200 && orgResolved;
+      update(5, {
+        status: pass ? "pass" : "fail",
+        actualStatus: r.status,
+        actualBody: r.body,
+        durationMs: r.ms,
+        notes: pass
+          ? `✓ Backend tự infer được org=${body?.organization_id} mà không cần frontend gửi. Hook sẽ KHÔNG còn block ở "organizationId null".`
+          : body?.code === "ambiguous_org"
+            ? "ambiguous_org — user link nhiều workspace. Cần truyền ?org=<id> qua URL hoặc start_param."
+            : body?.code === "not_linked"
+              ? "not_linked — user chưa /start bot. Đây là lỗi hợp lệ, không phải bug Mini App."
+              : "Backend KHÔNG resolve được org → frontend sẽ hiện 'Không xác thực được'. Đây là bug cần fix ở edge function.",
+      });
+    } else {
+      update(5, {
         status: "pass",
-        notes: "Skipped — không có init_data thật.",
+        notes: "Skipped — cần real init_data ở ô trên để chạy test này.",
+      });
+    }
+
+    // 7. Supabase session probe
+    update(6, { status: "running" });
+    {
+      const start = performance.now();
+      const { data, error } = await supabase.auth.getSession();
+      const ms = Math.round(performance.now() - start);
+      const userId = data.session?.user?.id ?? null;
+      update(6, {
+        status: error ? "fail" : "pass",
+        actualStatus: error ? 500 : 200,
+        actualBody: {
+          has_session: !!userId,
+          user_id: userId,
+          email: data.session?.user?.email ?? null,
+          error: error?.message ?? null,
+        },
+        durationMs: ms,
+        notes: userId
+          ? "Có session active → nhánh 'existing session' của hook sẽ chạy. Kiểm tra test 6 để chắc backend vẫn resolve được org."
+          : "Chưa có session → hook sẽ verifyOtp bằng token_hash từ test 5.",
       });
     }
 
@@ -207,7 +265,7 @@ export default function AdminTelegramAuthCheck() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Telegram Auth Checklist</h1>
           <p className="text-sm text-muted-foreground">
-            End-to-end verification cho <code className="font-mono">telegram-webapp-auth</code> (default bot + BYOB).
+            End-to-end verification cho <code className="font-mono">telegram-webapp-auth</code> — backend response + frontend hook flow.
           </p>
         </div>
       </div>
@@ -217,7 +275,7 @@ export default function AdminTelegramAuthCheck() {
           <CardTitle className="text-base">Real init_data (optional)</CardTitle>
           <CardDescription>
             Trên Telegram (mobile/desktop), mở Mini App, bật DevTools, chạy{" "}
-            <code className="font-mono">window.Telegram.WebApp.initData</code> và paste vào đây để test full HMAC + magic link.
+            <code className="font-mono">window.Telegram.WebApp.initData</code> và paste vào đây để chạy test 5 và 6.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
