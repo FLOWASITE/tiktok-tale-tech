@@ -51,6 +51,10 @@ export default function TelegramApp() {
       hint = 'Hãy mở Mini App từ trong bot Telegram (không mở trực tiếp link).';
     } else if (sessionOkButOrgMissing) {
       hint = 'Đã đăng nhập Flowa nhưng chưa map được Telegram → workspace. Thử /start trong DM với bot.';
+    } else if (error && /token_hash and type|Only the token_hash/i.test(error)) {
+      hint = 'Đã resolve được Telegram nhưng không tạo được phiên đăng nhập (verifyOtp payload không hợp lệ). Báo admin reload Mini App.';
+    } else if (error && /verify|otp|expired|invalid token/i.test(error)) {
+      hint = 'Không tạo được phiên đăng nhập từ Telegram. Đóng Mini App và mở lại từ bot.';
     }
 
     return (
