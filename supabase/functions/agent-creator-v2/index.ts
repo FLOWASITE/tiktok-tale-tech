@@ -260,7 +260,15 @@ async function generateImagesForChannels(
   return { success, failed };
 }
 
-// ─── Helper: Generate carousel images (Phase 2) ───
+// ─── Helper: Generate carousel images via the SAME batch pipeline as manual flow ───
+//
+// Previously this function looped `generate-carousel-image` per slide, which
+// skipped: Series Bible, brand colors, previousImageUrl chain, siblings summary,
+// `generation_tasks` tracking, and post-batch seamless validation.
+//
+// New behavior: insert a `generation_tasks` row (so `CarouselGenerationTracker`
+// + `useBackgroundGeneration` pick it up just like manual), then fire
+// `generate-carousel-images-batch` and poll until completed/failed.
 
 async function generateCarouselImages(
   supabaseUrl: string,
@@ -273,85 +281,128 @@ async function generateCarouselImages(
   carouselStyle: string,
   organizationId: string,
   createdBy: string | null,
-): Promise<{ success: number; failed: number }> {
-  let successCount = 0;
-  let failedCount = 0;
-  const batchSize = 3;
-  let previousSceneDescription = "";
+  brief: BrandBrief,
+  platform: string,
+  carouselTopic: string,
+  pipelineId: string | null,
+): Promise<{ success: number; failed: number; taskId?: string; seamless_score?: number | null }> {
+  const brandColors = await extractBrandColorsFromTemplate(supabase, {
+    brandTemplateId: brandTemplateId || null,
+    brandGuideline: brief.brand_guideline || null,
+    primaryColor: brief.primary_color || null,
+    secondaryColors: brief.secondary_colors || null,
+    brandName: brief.brand_name || null,
+  });
 
-  for (let i = 0; i < slides.length; i += batchSize) {
-    const batch = slides.slice(i, i + batchSize);
-    const results = await Promise.allSettled(
-      batch.map((slide: any, batchIdx: number) => {
-        const slideNumber = i + batchIdx + 1;
-        return callFunction(supabaseUrl, serviceKey, "generate-carousel-image", {
-          carouselId,
-          slideNumber,
-          prompt: slide.fullPrompt || slide.designStyle || `Slide ${slideNumber}`,
-          brandTemplateId: brandTemplateId || undefined,
-          visualPreset,
-          carouselStyle,
-          totalSlides: slides.length,
-          seamlessContext: previousSceneDescription || undefined,
-        });
+  const seriesBible = buildSeriesBibleFromSlides(slides);
+  const siblingsSummary = buildSiblingsSummary(slides);
+
+  const inputParams = {
+    carouselId,
+    slides,
+    brandColors,
+    carouselStyle,
+    visualPreset,
+    platform,
+    carouselTopic,
+    seriesBible,
+    siblingsSummary,
+    userId: createdBy,
+    pipelineId, // for traceability
+    triggered_by: "agent-creator-v2",
+  };
+
+  // Create generation_tasks row so UI trackers see this batch
+  let taskId: string | null = null;
+  try {
+    const { data: task, error: taskErr } = await supabase
+      .from("generation_tasks")
+      .insert({
+        user_id: createdBy,
+        organization_id: organizationId,
+        task_type: "carousel_image",
+        status: "pending",
+        progress: 0,
+        input_params: inputParams,
       })
-    );
+      .select("id")
+      .single();
+    if (taskErr) throw taskErr;
+    taskId = task?.id || null;
+  } catch (err) {
+    console.warn("[carousel] Failed to create generation_tasks row, continuing without tracking:", err);
+  }
 
-    for (let idx = 0; idx < results.length; idx++) {
-      const slideNumber = i + idx + 1;
-      const slide = batch[idx];
-      const result = results[idx];
+  if (!taskId) {
+    return { success: 0, failed: slides.length };
+  }
 
-      if (result.status !== "fulfilled") {
-        console.warn(`[carousel] Image failed for slide ${slideNumber}:`, result.reason);
-        failedCount++;
-        continue;
-      }
+  // Fire the batch (background-safe — function returns immediately and processes in waitUntil)
+  try {
+    await callFunction(supabaseUrl, serviceKey, "generate-carousel-images-batch", {
+      ...inputParams,
+      taskId,
+    });
+  } catch (err) {
+    console.warn("[carousel] Batch invoke failed:", err);
+    // Mark task failed so trackers don't hang
+    await supabase
+      .from("generation_tasks")
+      .update({
+        status: "failed",
+        error_message: (err as Error)?.message || "batch invoke failed",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", taskId);
+    return { success: 0, failed: slides.length, taskId };
+  }
 
-      const output = result.value;
-      const imageUrl = output?.imageUrl || output?.backgroundUrl;
-      if (!imageUrl) {
-        console.warn(`[carousel] Missing imageUrl for slide ${slideNumber}`);
-        failedCount++;
-        continue;
-      }
+  // Poll until completion (max 5 minutes, every 3s)
+  const start = Date.now();
+  const timeoutMs = 5 * 60 * 1000;
+  const pollMs = 3000;
+  let finalStatus: string | null = null;
 
-      try {
-        await supabase
-          .from("carousel_images")
-          .update({ is_selected: false })
-          .eq("carousel_id", carouselId)
-          .eq("slide_number", slideNumber)
-          .eq("is_selected", true);
-
-        const { error: insertErr } = await supabase
-          .from("carousel_images")
-          .insert({
-            carousel_id: carouselId,
-            slide_number: slideNumber,
-            image_url: imageUrl,
-            prompt: slide?.fullPrompt || slide?.designStyle || null,
-            is_selected: true,
-            organization_id: organizationId,
-            created_by: createdBy || null,
-          });
-
-        if (insertErr) {
-          throw insertErr;
-        }
-
-        successCount++;
-        if (output?.sceneDescription) {
-          previousSceneDescription = output.sceneDescription;
-        }
-      } catch (dbErr) {
-        console.warn(`[carousel] Failed to persist image for slide ${slideNumber}:`, dbErr);
-        failedCount++;
-      }
+  while (Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, pollMs));
+    const { data: row } = await supabase
+      .from("generation_tasks")
+      .select("status, progress, error_message")
+      .eq("id", taskId)
+      .single();
+    if (!row) continue;
+    if (row.status === "completed" || row.status === "failed") {
+      finalStatus = row.status;
+      break;
     }
   }
 
-  return { success: successCount, failed: failedCount };
+  if (finalStatus !== "completed") {
+    console.warn(`[carousel] Batch did not complete in time (status=${finalStatus})`);
+  }
+
+  // Count actual selected images persisted
+  const { data: imgs } = await supabase
+    .from("carousel_images")
+    .select("slide_number")
+    .eq("carousel_id", carouselId)
+    .eq("is_selected", true);
+
+  const success = imgs?.length || 0;
+  const failed = Math.max(0, slides.length - success);
+
+  // Pull seamless score (batch already triggered validate-seamless-consistency)
+  let seamlessScore: number | null = null;
+  try {
+    const { data: car } = await supabase
+      .from("carousels")
+      .select("seamless_consistency_score")
+      .eq("id", carouselId)
+      .single();
+    seamlessScore = car?.seamless_consistency_score ?? null;
+  } catch { /* ignore */ }
+
+  return { success, failed, taskId, seamless_score: seamlessScore };
 }
 
 // ─── Route A: Multichannel ───
