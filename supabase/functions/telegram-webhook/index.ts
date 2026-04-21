@@ -2267,8 +2267,8 @@ async function handleExamples(ctx: HandlerCtx): Promise<void> {
 
 // Static starter prompts for Quick Launchpad (no cache needed — always available)
 const STARTER_PROMPTS: Array<{ emoji: string; title: string; prompt: string }> = [
+  { emoji: "📘", title: "1 bài Facebook giới thiệu sản phẩm", prompt: "Viết 1 bài Facebook giới thiệu sản phẩm chủ lực của thương hiệu, tone thân thiện, có CTA rõ ràng" },
   { emoji: "🎁", title: "Campaign khuyến mãi cuối tháng", prompt: "Tạo campaign khuyến mãi cuối tháng cho thương hiệu của tôi, target khách hàng nữ 25-40" },
-  { emoji: "📱", title: "3 caption Facebook bán hàng", prompt: "Viết 3 caption Facebook bán hàng cho sản phẩm chủ lực, tone thân thiện vui vẻ" },
   { emoji: "🎬", title: "5 idea content TikTok", prompt: "Cho 5 idea content TikTok cho thương hiệu, format storytime ngắn 30-60s" },
   { emoji: "✉️", title: "Email ra mắt sản phẩm mới", prompt: "Viết email sequence 3 email ra mắt sản phẩm mới cho khách hàng cũ" },
 ];
