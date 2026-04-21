@@ -1,85 +1,83 @@
 
 
-# Fix: Nút "Thử" trong /examples báo "đã hết hạn"
+# Fix: Telegram bot vẫn dùng brand của tài khoản cũ sau khi đổi tài khoản web
 
-## Nguyên nhân
+## Nguyên nhân (đã xác định qua DB)
 
-`exampleCache` (line 2229) là **`Map` in-process**. Edge function chạy serverless → mỗi invocation có thể vào worker khác, hoặc worker bị recycle sau vài chục giây idle. Khi user đọc `/examples` xong, ~1 phút sau bấm "Thử" → worker mới → cache rỗng → fallback "Ví dụ này đã hết hạn".
+Trong `telegram_chat_bindings` hiện có 2 binding tách biệt:
 
-Vấn đề tương tự sẽ xảy ra với **Quick Launchpad** (`ux:welcome:generate`) vì cũng dùng `exampleCache.set` + callback `ux:ex:<idx>` (line 2368).
+| telegram_chat_id | telegram_user_id | linked → user | Org | Brand |
+|---|---|---|---|---|
+| 8709703794 | 8709703794 | `duy@gmail.com` | TAF | (chưa set) |
+| 8002956073 | 8002956073 | `flowasite@gmail.com` | Flowa | Flowa Agentic |
+
+→ `telegram_user_id` của bạn trên Telegram là **8709703794** (chính là Telegram account `duy`). Khi bạn nhắn bot, bot tra `chat_id = 8709703794` → ra binding cũ của `duy@gmail.com` → load brand TAF, **bất kể bạn đăng nhập web bằng tài khoản nào**.
+
+Điều này đúng theo logic — Telegram bot không biết về session web. Nhưng UX hiện tại cho phép tình trạng "ghost binding" tồn tại mà user không thấy được.
+
+## 2 vấn đề cần sửa
+
+### Vấn đề A: Không có ràng buộc 1 Telegram user → 1 account
+DB hiện cho phép cùng `telegram_user_id` link đến nhiều `(organization_id, user_id)` khác nhau → Telegram chat của bạn có thể "thuộc về" 2 account web cùng lúc (bot chọn 1 cách deterministic theo chat_id, không phải theo session web).
+
+### Vấn đề B: UI Telegram không thấy "binding xung đột"
+Trang `/agents/telegram` chỉ query binding theo `currentOrganization.id` → khi login `flowasite@gmail.com` view org Flowa, bạn chỉ thấy binding chat `8002956073` (✅ Đã kết nối), **không thấy** chat `8709703794` đang link sang account khác.
 
 ## Giải pháp
 
-**Tách 2 luồng theo bản chất prompt:**
+### 1. Tự re-link khi `/start` từ chat đã có binding khác
 
-### 1. Launchpad (`ux:welcome:generate`) — prompts STATIC
-4 starter prompts là hardcoded → không cần cache. Đổi callback prefix sang `ux:starter:<idx>`, handler decode trực tiếp từ array hằng số ở module scope.
+**File:** `supabase/functions/telegram-webhook/index.ts` — trong `handleConfirmLink` (line ~1940-2000)
 
-### 2. `/examples` — prompts ĐỘNG (từ DB + fallback)
-Persist vào DB thay vì in-memory. Tạo bảng `telegram_example_cache`:
+Trước khi `upsert` binding mới, **delete mọi binding cũ có cùng `telegram_user_id` ở các org/user khác**:
 
-```sql
-CREATE TABLE telegram_example_cache (
-  chat_id BIGINT NOT NULL,
-  idx SMALLINT NOT NULL,
-  prompt TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '1 hour'),
-  PRIMARY KEY (chat_id, idx)
-);
-ALTER TABLE telegram_example_cache ENABLE ROW LEVEL SECURITY;
--- service-role only; không cần user policy
-CREATE INDEX idx_telegram_example_cache_expires ON telegram_example_cache(expires_at);
+```ts
+// Bước trước upsert: gỡ "ghost bindings" của cùng Telegram user ở account khác
+await supabase
+  .from("telegram_chat_bindings")
+  .delete()
+  .eq("telegram_user_id", telegramUserId)
+  .neq("user_id", pending.user_id);  // giữ binding cùng user (nếu có)
 ```
 
-Thêm cron cleanup mỗi giờ (xóa row hết hạn) — hoặc đơn giản: filter `expires_at > now()` khi đọc + cleanup khi insert mới cho chat đó.
+→ Lần sau bạn `/start` deeplink từ tab `flowasite@gmail.com`, binding cũ trỏ về `duy@gmail.com` tự bị gỡ → bot từ giờ trở thành "thuộc về" `flowasite@gmail.com`.
 
-### 3. Sửa code
+### 2. Hiện cảnh báo "ghost binding" trên trang /agents/telegram
 
-**File:** `supabase/functions/telegram-webhook/index.ts`
+**File mới truy vấn:** `src/hooks/useTelegramBinding.ts` — thêm query phụ tìm binding của cùng `telegram_user_id` thuộc org khác.
 
-- Khai báo `STARTER_PROMPTS` ở module scope (sau line 2229).
-- `case "generate":` (line 2349-2393): bỏ `exampleCache.set`, đổi keyboard sang `ux:starter:${idx}`.
-- `handleExamples` (line ~2220): thay `exampleCache.set(chatId, ...)` bằng upsert vào `telegram_example_cache` (delete-then-insert cho chat đó để reset TTL).
-- Callback router (line 2441-2452): thêm nhánh mới
-  ```ts
-  if (group === "starter") {
-    const idx = parseInt(key, 10);
-    const prompt = STARTER_PROMPTS[idx]?.prompt;
-    if (!prompt) return;
-    await sendMessage(...); 
-    await handleGenerate({ ..., prompt });
-    return;
-  }
-  ```
-- Sửa nhánh `if (group === "ex")` thành **async DB lookup** thay vì đọc Map:
-  ```ts
-  const { data } = await supabase
-    .from("telegram_example_cache")
-    .select("prompt")
-    .eq("chat_id", chatId).eq("idx", idx)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  if (data?.prompt) { /* run */ } else { /* "đã hết hạn" message */ }
-  ```
-- Xóa `const exampleCache = new Map(...)` (không dùng nữa).
+**File mới UI:** thêm 1 banner cảnh báo trong `TelegramLinkCard.tsx`:
+
+> ⚠️ Telegram của bạn (@{username}) đang được liên kết với 1 tài khoản/workspace khác (`{org_name}`). Bot sẽ trả lời theo workspace đó. Bấm "Chuyển sang workspace này" để re-link.
+
+Nút **"Chuyển sang workspace này"** → gọi edge function `telegram-link-token` (đã có) → user `/start` lại → handler ở bước 1 tự dọn binding cũ.
+
+→ User hiểu ngay vấn đề và self-fix trong 10 giây.
+
+### 3. Nút "Đăng xuất Telegram" (logout chủ động)
+
+Thêm vào `TelegramLinkCard.tsx` (khi đã link) nút phụ **"Gỡ kết nối khỏi tất cả workspace"** → gọi RPC mới hoặc xóa trực tiếp tất cả binding theo `telegram_user_id`. Hữu ích khi user muốn dứt khoát reset.
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/migrations/<ts>_telegram_example_cache.sql` | Tạo bảng + index + RLS |
-| `supabase/functions/telegram-webhook/index.ts` | Tách `STARTER_PROMPTS`, đổi launchpad sang `ux:starter:`, persist `/examples` qua DB, xóa Map |
+| `supabase/functions/telegram-webhook/index.ts` | Trong `handleConfirmLink`, delete ghost bindings cùng `telegram_user_id` trước khi upsert |
+| `src/hooks/useTelegramBinding.ts` | Thêm query tìm `ghostBinding` (cùng telegram_user_id, khác org/user) + return về |
+| `src/components/agents/TelegramLinkCard.tsx` | Thêm banner cảnh báo + nút "Chuyển sang workspace này" + nút "Gỡ tất cả" |
+
+**Không cần migration mới** — RLS hiện tại cho phép user xóa binding theo `auth.uid() = user_id` của chính họ, đủ cho flow này.
 
 ## Test E2E
 
-1. `/start` → bấm "🚀 Tạo campaign đầu" → bấm 1 starter → chạy ngay (không phụ thuộc cache, luôn OK kể cả sau 1 ngày)
-2. `/examples` → đợi 2 phút → bấm "Thử" → vẫn chạy (DB còn TTL 1h)
-3. `/examples` lần 2 → list mới ghi đè list cũ cho chat đó → bấm "Thử" idx 0 → chạy prompt mới
-4. Sau 1h không hoạt động → bấm "Thử" trên message cũ → vẫn báo "đã hết hạn" (graceful)
+1. Đăng nhập `flowasite@gmail.com` → vào `/agents/telegram` → thấy binding "✅ Đã kết nối" (chat 8002956073) **+ banner cảnh báo** vì Telegram user 8709703794 đang link sang TAF/duy.
+2. Bấm "Chuyển sang workspace này" → mở deeplink → `/start` → backend tự xóa binding TAF/duy → upsert binding mới flowasite@gmail.com/Flowa cho chat 8709703794.
+3. Trong Telegram chat lại với bot → bot dùng brand "Flowa Agentic" (không còn TAF).
+4. Đăng nhập `duy@gmail.com` lại → thấy binding TAF đã mất (đã bị gỡ ở bước 2) → muốn link lại thì bấm "Mở Telegram" như bình thường.
 
 ## Ước tính
-**8 phút** — 1 migration nhỏ + sửa 1 file ~40 dòng.
+**10-15 phút** — sửa 1 edge function + 1 hook + 1 component.
 
 ## Rủi ro
-Thấp. Bảng mới riêng biệt, không động schema hiện hữu. Service-role only nên không cần policy phức tạp. In-memory Map bị xóa nhưng đã thay bằng DB tin cậy hơn.
+Thấp. Logic delete trước khi upsert là idempotent. Banner UI chỉ hiển thị khi phát hiện xung đột, không ảnh hưởng flow chính.
 
