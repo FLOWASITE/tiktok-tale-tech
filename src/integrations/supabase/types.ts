@@ -9852,6 +9852,39 @@ export type Database = {
           },
         ]
       }
+      telegram_pending_links: {
+        Row: {
+          created_at: string
+          expires_at: string
+          payload_org: string
+          payload_uid: string
+          telegram_chat_id: number
+          telegram_user_id: number | null
+          telegram_username: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          payload_org: string
+          payload_uid: string
+          telegram_chat_id: number
+          telegram_user_id?: number | null
+          telegram_username?: string | null
+          token: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          payload_org?: string
+          payload_uid?: string
+          telegram_chat_id?: number
+          telegram_user_id?: number | null
+          telegram_username?: string | null
+          token?: string
+        }
+        Relationships: []
+      }
       telegram_processed_updates: {
         Row: {
           bot_config_id: string | null
