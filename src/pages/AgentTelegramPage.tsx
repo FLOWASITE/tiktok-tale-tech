@@ -129,9 +129,6 @@ export default function AgentTelegramPage() {
         botUsername={effectiveBotUsername}
         usingDefaultBot={usingDefaultBot}
       />
-
-      {/* Use cases + full command list */}
-      <TelegramUseCases />
     </div>
   );
 }
