@@ -3,8 +3,6 @@ import QRCode from 'qrcode';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -21,7 +19,6 @@ import { toast } from '@/hooks/use-toast';
 import {
   Loader2,
   Unlink,
-  Users,
   AlertCircle,
   ExternalLink,
   Send,
