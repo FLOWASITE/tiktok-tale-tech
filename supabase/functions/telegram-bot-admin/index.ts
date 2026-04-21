@@ -262,7 +262,17 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
 
     if (action === "set_menu_button") {
       const { web_app_url } = body as { web_app_url?: string };
-      const url = String(web_app_url || "https://app.flowa.one/telegram-app").trim();
+      const baseUrl = String(web_app_url || Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app").trim();
+      // Embed ?org=<organization_id> so the Mini App can authenticate immediately.
+      let url = baseUrl;
+      try {
+        const u = new URL(baseUrl);
+        u.searchParams.set("org", organization_id);
+        url = u.toString();
+      } catch {
+        const sep = baseUrl.includes("?") ? "&" : "?";
+        url = `${baseUrl}${sep}org=${organization_id}`;
+      }
       const { data: cfg, error: cfgErr } = await service
         .from("telegram_bot_configs")
         .select("bot_token_encrypted")
