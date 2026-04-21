@@ -176,6 +176,53 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
     }
   };
 
+  const handleSwitchWorkspace = async () => {
+    const fresh = await ensureDeeplink(true);
+    if (fresh?.url) {
+      window.open(fresh.url, '_blank', 'noopener,noreferrer');
+      toast({
+        title: 'Mở Telegram',
+        description: 'Bấm Start trong bot → workspace này sẽ thay thế kết nối cũ.',
+      });
+    }
+  };
+
+  const ghostBanner = ghostBinding ? (
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-foreground">
+            Telegram đang dùng workspace khác
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {ghostBinding.telegram_username ? `@${ghostBinding.telegram_username}` : 'Tài khoản Telegram của bạn'}
+            {' '}đang liên kết với{' '}
+            <span className="font-medium text-foreground">
+              {ghostBinding.organization_name ?? 'một workspace khác'}
+            </span>
+            . Bot sẽ trả lời theo workspace đó cho đến khi bạn chuyển.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 pl-6">
+        <Button size="sm" onClick={handleSwitchWorkspace} className="h-8 text-xs">
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+          Chuyển sang workspace này
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={unlinkAllForTelegramUser}
+          className="h-8 text-xs text-destructive hover:text-destructive"
+        >
+          <Unlink className="w-3.5 h-3.5 mr-1.5" />
+          Gỡ tất cả
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
