@@ -456,14 +456,16 @@ function helpText(): string {
   return [
     "📋 Lệnh hỗ trợ:",
     "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
-    "/generate <mô tả> — Tạo campaign mới (cần quyền can_create_goals)",
+    "/generate <mô tả> — Tạo *campaign* nhiều bài (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
     "/campaigns — Xem 5 campaign mới nhất",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
     "/link_group — (Admin, trong group) Kết nối group với tổ chức",
     "/help — Hiện danh sách này",
     "",
-    "💬 Hoặc chat tự nhiên — bot hiểu tiếng Việt!",
+    "💬 *Hoặc chat tự nhiên — bot hiểu tiếng Việt!*",
+    "• Tạo *1 bài lẻ*: _\"viết 1 bài Facebook về spa giảm 30%\"_",
+    "• Tạo *campaign*: _\"campaign 2 tuần cho spa, 3 bài/tuần\"_",
   ].join("\n");
 }
 
