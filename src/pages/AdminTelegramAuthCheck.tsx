@@ -301,7 +301,7 @@ export default function AdminTelegramAuthCheck() {
             ? "✓ Verify token_hash thành công — Mini App sẽ vào được sau khi function trả token_hash."
             : verifyError?.message?.includes("token_hash and type")
               ? "❌ /verify vẫn báo payload sai. Kiểm tra bundle đang chạy có phải bản mới không."
-              : `❌ verify token_hash fail: ${verifyError?.message ?? "unknown"}.",
+              : `❌ verify token_hash fail: ${verifyError?.message ?? "unknown"}.`,
         });
       }
     }
