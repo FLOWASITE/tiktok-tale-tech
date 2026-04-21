@@ -1,83 +1,46 @@
 
 
-# Thêm Slack vào sidebar (status: Soon)
+# Bỏ Welcome Modal onboarding
 
 ## Mục tiêu
-Sau khi thêm "Nhận Agent của bạn" (Telegram) vào sidebar, bổ sung thêm item **Slack** với badge "Soon" để báo trước tính năng sắp có. Click vào không điều hướng (hoặc dẫn tới placeholder), không bị highlight active sai.
+Loại bỏ popup "Chào mừng đến Flowa! 🎉" (WelcomeModal) hiển thị ở Dashboard sau khi đăng nhập.
 
 ## Thay đổi
 
-### 1. `src/components/AppSidebar.tsx`
-Mở rộng `agentItems` với type bổ sung `comingSoon?: boolean`:
+### 1. Tìm điểm gọi `startWithWelcome()` / render `<WelcomeModal>`
+Cần xác định nơi `CoachmarkProvider` được mount + nơi auto-trigger `startWithWelcome` (có thể trong `Dashboard.tsx` hoặc `AppLayout.tsx`). Plan: chặn modal hiển thị bằng 1 trong 2 cách:
 
-```tsx
-import { Bot, Send, Slack } from 'lucide-react';
-
-type MenuItem = {
-  title: string;
-  titleKey: string;
-  url: string;
-  icon: LucideIcon;
-  comingSoon?: boolean;
-};
-
-const agentItems: MenuItem[] = [
-  { title: 'AI Agents', titleKey: 'app.sidebar.agents', url: '/agents', icon: Bot },
-  { title: 'Nhận Agent của bạn', titleKey: 'app.sidebar.telegramAgent', url: '/agents/telegram', icon: Send },
-  { title: 'Slack', titleKey: 'app.sidebar.slackAgent', url: '#', icon: Slack, comingSoon: true },
-];
+**Cách A (khuyến nghị, ít invasive)**: Trong `CoachmarkContext.tsx`, sửa `startWithWelcome` thành no-op:
+```ts
+const startWithWelcome = useCallback(() => {
+  // Disabled — onboarding welcome modal removed per user request
+  return;
+}, []);
 ```
+→ Modal không bao giờ mở, code coachmark khác (manual `start()` từ help button) vẫn dùng được nếu sau này muốn bật lại.
 
-Render item: nếu `comingSoon` → wrap bằng `<button disabled>` thay vì `<NavLink>`, opacity-60, cursor-not-allowed, và hiện badge "Soon" bên phải (chỉ khi sidebar không collapsed):
+**Cách B (triệt để)**: Xóa hẳn `<WelcomeModal>` render trong `CoachmarkProvider` hoặc nơi mount + xóa export. Rủi ro cao hơn nếu có chỗ khác import.
 
-```tsx
-{item.comingSoon ? (
-  <SidebarMenuButton disabled className="opacity-60 cursor-not-allowed">
-    <item.icon className="mr-2 h-4 w-4" />
-    {!collapsed && (
-      <>
-        <span className="flex-1">{t(item.titleKey)}</span>
-        <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-medium">
-          Soon
-        </Badge>
-      </>
-    )}
-  </SidebarMenuButton>
-) : (
-  <SidebarMenuButton asChild>
-    <NavLink to={item.url} end ...>...</NavLink>
-  </SidebarMenuButton>
-)}
-```
+→ **Chọn cách A**.
 
-### 2. i18n — thêm key `app.sidebar.slackAgent`
-- `vi.json`: `"Slack"`
-- `en.json`: `"Slack"`
-- `th.json`: `"Slack"`
-
-(Tên brand giữ nguyên 3 ngôn ngữ.)
+### 2. Optional cleanup
+- Xóa localStorage key `coachmark-never-show` nếu user trước đó đã tick "Không hiển thị lại" — không cần, vì modal đã bị disable hoàn toàn.
+- Giữ nguyên `WelcomeModal.tsx` component file (không xóa) để dễ revert sau này.
 
 ## File thay đổi
 
 | File | Loại |
 |---|---|
-| `src/components/AppSidebar.tsx` | thêm item Slack + render branch comingSoon + import `Slack` icon + `Badge` |
-| `src/i18n/locales/vi.json` | thêm key |
-| `src/i18n/locales/en.json` | thêm key |
-| `src/i18n/locales/th.json` | thêm key |
+| `src/components/onboarding/CoachmarkContext.tsx` | sửa `startWithWelcome` thành no-op |
 
 ## Test E2E
-1. Reload → sidebar nhóm agents có 3 item: AI Agents, Nhận Agent của bạn, Slack
-2. Slack item: icon Slack (lucide), label + badge "Soon" bên phải, opacity giảm, không click được
-3. Hover Slack: không có hover bg đậm như item active (cursor not-allowed)
-4. Collapse sidebar → chỉ thấy icon Slack mờ, badge ẩn
-5. Mobile 707px: drawer hiển thị đúng, không trigger navigation khi tap
-6. Switch EN/TH: "Soon" badge giữ nguyên (universal label), chỉ cần dịch nếu muốn
+1. Logout → login lại → vào Dashboard → **không thấy popup "Chào mừng đến Flowa"**
+2. Các tính năng khác (sidebar, brand selector, agent dashboard) vẫn hoạt động bình thường
+3. Nếu có nút "Hướng dẫn" gọi trực tiếp `start()` (không qua `startWithWelcome`) → vẫn chạy coachmark tour như cũ
 
 ## Ước tính
-**5-7 phút** — 1 file component + 3 file i18n.
+**2 phút** — sửa 1 hàm.
 
 ## Rủi ro
-- Disabled `SidebarMenuButton` có thể vẫn focusable bằng keyboard → thêm `tabIndex={-1}` nếu muốn skip hoàn toàn. Acceptable mặc định.
-- Sau này khi launch Slack thật → chỉ cần đổi `comingSoon: false` + set `url: '/agents/slack'` + tạo route + page.
+Không có. Cách A reversible bằng cách restore lại logic cũ.
 
