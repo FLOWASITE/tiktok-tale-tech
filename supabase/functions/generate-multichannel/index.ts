@@ -3898,7 +3898,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     ): Promise<{ parsed: any; usage: { prompt_tokens: number; completion_tokens: number } | null; modelUsed: string }> => {
       const channelTools = buildToolsForChannels(channelsToGenerate);
       const dynamicMaxTokens = calculateTotalMaxTokens(channelsToGenerate, {
-        contentGoal: formData.contentGoal || derivedContentGoal,
+        contentGoal: contentGoal,
         qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
       });
       const effectiveMaxTokens = modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens);
