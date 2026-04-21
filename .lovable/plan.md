@@ -1,69 +1,85 @@
 
 
-# Fix: `/start` lần 2 hiện onboarding mơ hồ + instruction sai UI
+# Fix: Nút "Thử" trong /examples báo "đã hết hạn"
 
-## Nguyên nhân (đã xác định qua log + DB)
+## Nguyên nhân
 
-User `/start` lần 2 trong chat đã link → đúng ra phải hiện "👋 Chào @user! Tài khoản đã kết nối" (line 516-525 đã có sẵn).
+`exampleCache` (line 2229) là **`Map` in-process**. Edge function chạy serverless → mỗi invocation có thể vào worker khác, hoặc worker bị recycle sau vài chục giây idle. Khi user đọc `/examples` xong, ~1 phút sau bấm "Thử" → worker mới → cache rỗng → fallback "Ví dụ này đã hết hạn".
 
-Nhưng trong screenshot, chat `8709703794` **CHƯA hề có binding trong DB** (`telegram_chat_bindings` không có row nào cho chat này), nên rơi xuống nhánh onboarding (line 528) là **đúng logic**.
-
-→ Lỗi không phải ở routing, mà là **UX onboarding message hiện tại sai/lạc hậu**:
-- Hướng dẫn "*Bấm Tạo link kết nối*" — UI thực tế ở `/agents/telegram` không có nút tên này; nút thật là **"Mở Telegram"** (deeplink mang sẵn token).
-- Không có CTA inline → user phải copy link, mở browser, đăng nhập, navigate 3 cấp menu mới link được.
+Vấn đề tương tự sẽ xảy ra với **Quick Launchpad** (`ux:welcome:generate`) vì cũng dùng `exampleCache.set` + callback `ux:ex:<idx>` (line 2368).
 
 ## Giải pháp
 
-Sửa `handleStart` (line 527-543) — **chỉ thay text + thêm 1 inline button** dẫn thẳng đến trang link.
+**Tách 2 luồng theo bản chất prompt:**
 
-```ts
-await sendMessage(
-  botConfig.botToken,
-  chatId,
-  [
-    "👋 *Chào mừng đến với Flowa Bot!*",
-    "",
-    "Tài khoản Telegram này chưa được kết nối với Flowa.",
-    "",
-    "🔗 *Cách kết nối (30 giây):*",
-    "1. Bấm nút bên dưới để mở app Flowa",
-    "2. Đăng nhập (nếu chưa)",
-    "3. Bấm *Mở Telegram* — bot tự động link",
-    "",
-    "_Sau khi link xong, quay lại đây và chat tự nhiên._",
-  ].join("\n"),
-  {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🔗 Mở Flowa để kết nối", url: "https://app.flowa.one/agents/telegram" }],
-        [{ text: "❓ Hướng dẫn chi tiết", url: "https://help.flowa.one/telegram" }],
-      ],
-    },
-  },
+### 1. Launchpad (`ux:welcome:generate`) — prompts STATIC
+4 starter prompts là hardcoded → không cần cache. Đổi callback prefix sang `ux:starter:<idx>`, handler decode trực tiếp từ array hằng số ở module scope.
+
+### 2. `/examples` — prompts ĐỘNG (từ DB + fallback)
+Persist vào DB thay vì in-memory. Tạo bảng `telegram_example_cache`:
+
+```sql
+CREATE TABLE telegram_example_cache (
+  chat_id BIGINT NOT NULL,
+  idx SMALLINT NOT NULL,
+  prompt TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '1 hour'),
+  PRIMARY KEY (chat_id, idx)
 );
+ALTER TABLE telegram_example_cache ENABLE ROW LEVEL SECURITY;
+-- service-role only; không cần user policy
+CREATE INDEX idx_telegram_example_cache_expires ON telegram_example_cache(expires_at);
 ```
 
-**Lý do chọn giải pháp này thay vì fix routing:**
-- Behavior hiện tại của handler đã đúng (có check binding, có welcome-back). Chỉ message khi **chưa link** là vấn đề.
-- Inline button URL → 1 cú bấm là tới đúng trang, không lạc.
-- Khớp với UI thực tế của `/agents/telegram` (nút "Mở Telegram" deeplink).
+Thêm cron cleanup mỗi giờ (xóa row hết hạn) — hoặc đơn giản: filter `expires_at > now()` khi đọc + cleanup khi insert mới cho chat đó.
 
-## Thay đổi
+### 3. Sửa code
+
+**File:** `supabase/functions/telegram-webhook/index.ts`
+
+- Khai báo `STARTER_PROMPTS` ở module scope (sau line 2229).
+- `case "generate":` (line 2349-2393): bỏ `exampleCache.set`, đổi keyboard sang `ux:starter:${idx}`.
+- `handleExamples` (line ~2220): thay `exampleCache.set(chatId, ...)` bằng upsert vào `telegram_example_cache` (delete-then-insert cho chat đó để reset TTL).
+- Callback router (line 2441-2452): thêm nhánh mới
+  ```ts
+  if (group === "starter") {
+    const idx = parseInt(key, 10);
+    const prompt = STARTER_PROMPTS[idx]?.prompt;
+    if (!prompt) return;
+    await sendMessage(...); 
+    await handleGenerate({ ..., prompt });
+    return;
+  }
+  ```
+- Sửa nhánh `if (group === "ex")` thành **async DB lookup** thay vì đọc Map:
+  ```ts
+  const { data } = await supabase
+    .from("telegram_example_cache")
+    .select("prompt")
+    .eq("chat_id", chatId).eq("idx", idx)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+  if (data?.prompt) { /* run */ } else { /* "đã hết hạn" message */ }
+  ```
+- Xóa `const exampleCache = new Map(...)` (không dùng nữa).
+
+## Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/telegram-webhook/index.ts` | Sửa block onboarding (line 528-542): viết lại text + thêm 2 inline URL button |
+| `supabase/migrations/<ts>_telegram_example_cache.sql` | Tạo bảng + index + RLS |
+| `supabase/functions/telegram-webhook/index.ts` | Tách `STARTER_PROMPTS`, đổi launchpad sang `ux:starter:`, persist `/examples` qua DB, xóa Map |
 
 ## Test E2E
-1. User mới `/start` (chưa link, không token) → thấy message mới + 2 button "🔗 Mở Flowa để kết nối" và "❓ Hướng dẫn chi tiết"
-2. Bấm button → mở `/agents/telegram` → bấm "Mở Telegram" → quay lại bot tự động link → confirm
-3. Chat đã link `/start` → vẫn thấy welcome-back "👋 Chào @user!" như cũ (không đụng)
-4. `/start <token>` flow 2-step (Link Account button) — không đụng, vẫn chạy
+
+1. `/start` → bấm "🚀 Tạo campaign đầu" → bấm 1 starter → chạy ngay (không phụ thuộc cache, luôn OK kể cả sau 1 ngày)
+2. `/examples` → đợi 2 phút → bấm "Thử" → vẫn chạy (DB còn TTL 1h)
+3. `/examples` lần 2 → list mới ghi đè list cũ cho chat đó → bấm "Thử" idx 0 → chạy prompt mới
+4. Sau 1h không hoạt động → bấm "Thử" trên message cũ → vẫn báo "đã hết hạn" (graceful)
 
 ## Ước tính
-**3 phút** — sửa 1 file, ~15 dòng.
+**8 phút** — 1 migration nhỏ + sửa 1 file ~40 dòng.
 
 ## Rủi ro
-Không. Chỉ thay text + reply_markup; không động routing/DB.
+Thấp. Bảng mới riêng biệt, không động schema hiện hữu. Service-role only nên không cần policy phức tạp. In-memory Map bị xóa nhưng đã thay bằng DB tin cậy hơn.
 
