@@ -355,6 +355,15 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
             await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
             break;
           }
+          // Wizard description step: if user is mid-wizard awaiting description, capture text.
+          const wizState = telegramUserId
+            ? await getWizardState(supabase, chatId, telegramUserId)
+            : null;
+          if (wizState && wizState.flow === "campaign_wizard" && wizState.step === "description") {
+            await safeReply(botConfig.botToken, chatId, traceId, () =>
+              continueWizardWithDescription({ supabase, botConfig, chatId, telegramUserId: telegramUserId!, description: text }));
+            break;
+          }
           await safeReply(botConfig.botToken, chatId, traceId, () =>
             handleFreeChat({ supabase, botConfig, chatId, telegramUserId, text }));
         }
