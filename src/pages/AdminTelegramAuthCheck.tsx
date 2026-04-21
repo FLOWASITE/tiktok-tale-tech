@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Shield, CheckCircle2, XCircle, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { verifyMagicLinkTokenHash } from "@/lib/auth/verifyMagicLinkTokenHash";
 
 interface CheckResult {
   name: string;
@@ -104,7 +105,7 @@ const INITIAL_CHECKS: Omit<CheckResult, "status">[] = [
   {
     name: "8. verifyOtp với token_hash từ test 5 (optional)",
     description:
-      "Bước fail thật gây 'Không xác thực được': sau khi function trả token_hash, frontend phải gọi supabase.auth.verifyOtp({ type:'magiclink', token_hash }). Truyền thêm `email` sẽ bị Supabase trả 400 'Only the token_hash and type should be provided'. Skip nếu đã có session sẵn.",
+      "Bước fail thật gây 'Không xác thực được': sau khi function trả token_hash, frontend gọi /auth/v1/verify trực tiếp với payload tối thiểu { type:'magiclink', token_hash }, rồi setSession. Skip nếu đã có session sẵn.",
     expectedStatus: "any",
   },
 ];
@@ -253,11 +254,11 @@ export default function AdminTelegramAuthCheck() {
         durationMs: ms,
         notes: userId
           ? "Có session active → nhánh 'existing session' của hook sẽ chạy. Kiểm tra test 6 để chắc backend vẫn resolve được org."
-          : "Chưa có session → hook sẽ verifyOtp bằng token_hash từ test 5.",
+          : "Chưa có session → hook sẽ verify /auth/v1/verify bằng token_hash từ test 5.",
       });
     }
 
-    // 8. verifyOtp với token_hash từ test 5 — bước fail thật sự gây "Không xác thực được"
+    // 8. Verify token_hash từ test 5 — bước fail thật sự gây "Không xác thực được"
     update(7, { status: "running" });
     if (!realInitData.trim()) {
       update(7, { status: "pass", notes: "Skipped — không có real init_data." });
@@ -279,22 +280,28 @@ export default function AdminTelegramAuthCheck() {
         });
       } else {
         const start = performance.now();
-        const { error: vErr } = await supabase.auth.verifyOtp({
-          type: "magiclink",
-          token_hash: body.token_hash,
-        });
+        let verifyError: Error | null = null;
+        try {
+          await verifyMagicLinkTokenHash(body.token_hash);
+        } catch (err) {
+          verifyError = err instanceof Error ? err : new Error(String(err));
+        }
         const ms = Math.round(performance.now() - start);
-        const pass = !vErr;
+        const pass = !verifyError;
         update(7, {
           status: pass ? "pass" : "fail",
           actualStatus: pass ? 200 : 400,
-          actualBody: { error: vErr?.message ?? null, code: vErr?.code ?? null },
+          actualBody: {
+            error: verifyError?.message ?? null,
+            code: (verifyError as (Error & { code?: string }) | null)?.code ?? null,
+            status: (verifyError as (Error & { status?: number }) | null)?.status ?? null,
+          },
           durationMs: ms,
           notes: pass
-            ? "✓ verifyOtp thành công — Mini App sẽ vào được sau khi function trả token_hash."
-            : vErr?.message?.includes("token_hash and type")
-              ? "❌ Bug đã biết: payload verifyOtp có thừa field. Hook PHẢI chỉ truyền { type, token_hash } — KHÔNG có email."
-              : `❌ verifyOtp fail: ${vErr?.message ?? "unknown"}.`,
+            ? "✓ Verify token_hash thành công — Mini App sẽ vào được sau khi function trả token_hash."
+            : verifyError?.message?.includes("token_hash and type")
+              ? "❌ /verify vẫn báo payload sai. Kiểm tra bundle đang chạy có phải bản mới không."
+              : `❌ verify token_hash fail: ${verifyError?.message ?? "unknown"}.",
         });
       }
     }
