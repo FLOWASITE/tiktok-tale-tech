@@ -7,6 +7,7 @@ import { callAI } from "./ai-provider.ts";
 export type TelegramIntent =
   | { intent: "chitchat"; reply: string }
   | { intent: "generate_campaign"; prompt: string; reply?: string }
+  | { intent: "generate_single"; prompt: string; channel?: string; reply?: string }
   | { intent: "status"; reply?: string }
   | { intent: "help"; reply?: string };
 
