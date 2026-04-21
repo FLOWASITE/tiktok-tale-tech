@@ -30,10 +30,20 @@ function formatDateTime(iso: string | null | undefined): string {
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [deepLinkApprovalId, setDeepLinkApprovalId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authenticated) return;
+    const search = window.location.search || '';
     const hash = window.location.hash || '';
+    const params = new URLSearchParams(search);
+    const view = params.get('view');
+    const id = params.get('id');
+    if (view === 'approve') {
+      setTab('approve');
+      if (id) setDeepLinkApprovalId(id);
+      return;
+    }
     if (/multichannel|approve|approval/i.test(hash)) {
       setTab('approve');
     }
