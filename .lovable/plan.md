@@ -1,86 +1,94 @@
 
 
-# Tại sao sau khi duyệt không thấy nội dung và hình ảnh
+# Duyệt trực tiếp bằng nút trong Telegram — đã có sẵn, cần nâng cấp
 
-## Chẩn đoán chính xác
+## Trả lời ngắn
 
-Tôi đã check DB cho pipeline vừa duyệt (`165d279c...`):
+**Có. Đã có sẵn từ trước.** Mỗi khi pipeline tới bước duyệt, bot tự động đẩy push vào DM admin kèm 2 nút inline:
 
-- Content `e10e774e...` đã được tạo thành công từ 00:42 cùng ngày
-- Đã có **ảnh Facebook** tại `channel_image_history` (tạo 00:42:02)
-- Approval `5a18bd2a...` đã chuyển sang `approved` lúc 15:55:23
-- Pipeline đã chuyển `approval → publish`
-- Tạo 2 `content_schedules`: Facebook + Website, **scheduled_at = 2026-04-23 09:00**
-- Cả 2 schedule vẫn ở trạng thái `scheduled`, chưa published
+```text
+🔔 Cần duyệt nội dung
 
-Kết luận: **luồng duyệt đã chạy ĐÚNG**. Nội dung + ảnh đã có sẵn, và đã được đặt lịch đăng vào 2 ngày sau (23/04). Chưa có gì "mất" cả.
+📝 [Tiêu đề]
+[Preview 280 ký tự]
 
-## Vậy tại sao user cảm thấy "không thấy gì"?
-
-Đây là **vấn đề UX** trong `TelegramApp.tsx > ApproveTab`:
-
-1. Sau khi bấm "Duyệt", code chỉ chạy `setItems((arr) => arr.filter((x) => x.id !== id))` — xoá item khỏi list
-2. Không hiện thông báo "Đã duyệt xong, sẽ đăng lúc ngày/giờ X"
-3. Không link sang chỗ xem nội dung đã duyệt và ảnh
-4. Mini App không có tab "Đã duyệt / Lên lịch" để preview content + xem ảnh
-5. Nếu tất cả item đã duyệt xong → hiện "Không có nội dung nào chờ duyệt 🎉" → user tưởng "mất hết"
-
-Nội dung thực sự nằm ở trang web `app.flowa.one/multichannel/e10e774e...` và ảnh ở `channel_image_history`, nhưng Mini App không render những chỗ đó.
-
-## Kế hoạch fix
-
-### 1) Toast xác nhận sau khi duyệt
-File: `src/pages/TelegramApp.tsx` trong `ApproveTab.act()`
-
-Sau khi invoke `agent-approve`, đọc response:
-- Nếu có `scheduled_publish_at` → toast: "Đã duyệt. Sẽ đăng lúc {dd/MM HH:mm}"
-- Nếu publish ngay → toast: "Đã duyệt và đang đăng"
-- Nếu error → toast đỏ
-
-### 2) Thêm "Preview" trước khi duyệt
-Trong card mỗi approval, thêm nút "Xem đầy đủ" mở dialog/drawer hiện:
-- Nội dung full (text)
-- Ảnh cover từ `channel_image_history` (query theo `content_id` lấy từ `agent_approvals.agent_pipelines.content_id`)
-- Danh sách kênh sẽ đăng
-- Thời gian đã scheduled nếu có
-
-Query bổ sung trong `ApproveTab.load()`:
-```
-select id, content_preview, created_at,
-       agent_pipelines(content_id, content_title,
-         multi_channel_contents(channel_statuses, selected_channels),
-         scheduled_publish_at
-       )
-from agent_approvals
-```
-Và fetch `channel_image_history` theo `content_id` để hiện ảnh.
-
-### 3) Tab "Lên lịch" mới
-Thêm tab `scheduled` vào bottom nav. Hiện danh sách `content_schedules` của org với trạng thái `scheduled` hoặc `publishing`:
-- Tiêu đề bài, kênh, thời gian sẽ đăng
-- Thumbnail ảnh nếu có
-- Nút "Huỷ lịch" gọi update `publish_status = 'cancelled'`
-
-Giúp user thấy rõ: "Bài đã duyệt đang nằm ở đây, sẽ đăng vào ngày X".
-
-### 4) Hiện scheduled time ngay trong card approval
-Trước khi duyệt, nếu `agent_pipelines.scheduled_publish_at` đã set (từ Goal Wizard / Campaign Planner), hiện dòng nhỏ:
-
-```
-📅 Sẽ đăng: 23/04/2026 09:00 • Facebook, Website
+[ ✅ Duyệt ] [ ❌ Từ chối ]
 ```
 
-Để user biết approve bây giờ không có nghĩa là đăng ngay.
+Bấm nút → bot resolve Telegram user → app user → check role admin/owner → gọi `agent-approve` → chỉnh sửa message thành "✅ Đã duyệt — pipeline sẽ chuyển sang publish".
+
+**Tại sao bạn chưa thấy?** Push chỉ gửi cho admin/owner đã `/start` DM với bot. Nếu bạn chỉ kết nối qua group hoặc chưa từng /start trong DM, bot không gửi được push (Telegram cấm bot khởi tạo DM).
+
+## Tình trạng hiện tại trong code
+
+- `_shared/telegram-notifier.ts` → `approvalKeyboard()` + `notifyApprovalNeeded()` ✅
+- `agent-pipeline/index.ts` → tự gọi `notifyApprovalNeeded` khi tạo `agent_approvals` mới ✅
+- `telegram-webhook/index.ts` → handler `apv:a:` / `apv:r:` gọi `agent-approve` ✅
+- Permission check: chỉ `owner` / `admin` được duyệt từ Telegram ✅
+- Idempotent: nếu đã duyệt trước đó → toast "Đã được xử lý trước đó" ✅
+
+## Hạn chế cần fix
+
+1. **Message thiếu context**: không hiện kênh sẽ đăng, không hiện scheduled time → user duyệt mù
+2. **Không có nút "Xem chi tiết"**: muốn xem ảnh + nội dung đầy đủ phải mở Mini App thủ công
+3. **Không có nút "Duyệt & lên lịch"**: chỉ có duyệt-ngay, không thể chỉnh giờ đăng từ Telegram
+4. **Push chỉ vào DM admin**: nếu chưa /start, không nhận được — không có fallback group notify
+
+## Kế hoạch nâng cấp
+
+### A) Enrich message duyệt (file: `_shared/telegram-notifier.ts`)
+
+Mở rộng `notifyApprovalNeeded` nhận thêm `channels[]` + `scheduledAt`. Render:
+
+```text
+🔔 Cần duyệt nội dung
+
+📝 [Tiêu đề]
+📢 Facebook, Website
+📅 Sẽ đăng: 23/04/2026 09:00
+
+[Preview 200 ký tự]
+
+[ 👁️ Xem chi tiết ] ← mở Mini App tới approval id
+[ ✅ Duyệt ngay ] [ ❌ Từ chối ]
+[ 📅 Duyệt & đổi lịch ]
+```
+
+Nút "Xem chi tiết" dùng `web_app` button trỏ tới `https://app.flowa.one/telegram-app?view=approve&id=<approvalId>&v=tg-auth-v2` — TelegramApp deep-link để auto-open Preview Drawer của approval đó.
+
+### B) Bổ sung callback "đổi lịch" (file: `telegram-webhook/index.ts`)
+
+Thêm pattern `apv:s:<approvalId>` → bot gửi inline keyboard chọn nhanh:
+- Đăng ngay
+- +1 giờ / +3 giờ / Sáng mai 9h / Chiều mai 14h
+- Mở Mini App để chọn ngày tuỳ chỉnh
+
+Khi user bấm → gọi `agent-approve` với `scheduled_publish_at` tương ứng.
+
+### C) Pass thêm dữ liệu từ `agent-pipeline` (file: `agent-pipeline/index.ts`)
+
+Tại chỗ gọi `notifyApprovalNeeded`, query thêm:
+- `multi_channel_contents.selected_channels` (theo `pipeline.content_id`)
+- `pipeline.scheduled_publish_at`
+
+Pass xuống notifier để render đầy đủ.
+
+### D) Fallback group notify (optional)
+
+Nếu không resolve được DM target nào (admin chưa /start), gửi vào group đã link với org kèm câu: "👆 Admin chưa kết nối DM bot — vào https://t.me/<bot>?start=link để nhận push duyệt".
 
 ## Files sẽ sửa
 
-- `src/pages/TelegramApp.tsx` — thêm toast, preview drawer, tab Lên lịch, hiện scheduled_at
+- `supabase/functions/_shared/telegram-notifier.ts` — extend `approvalKeyboard` + `notifyApprovalNeeded` signature
+- `supabase/functions/agent-pipeline/index.ts` — query thêm channels/schedule, pass xuống notifier
+- `supabase/functions/telegram-webhook/index.ts` — handler `apv:s:` cho đổi lịch nhanh
+- `src/pages/TelegramApp.tsx` — đọc `?view=approve&id=` để auto-mở Preview Drawer của đúng approval
 
 ## Rủi ro
 
-Thấp. Không đụng `agent-approve`, không đổi schema, không đổi RLS. Chỉ cải thiện UX đọc dữ liệu có sẵn.
+Thấp. Tất cả là enrich UX trên flow đã hoạt động. Không đổi schema, không đổi RLS, không đổi logic `agent-approve`. Callback data vẫn dưới 64 bytes (Telegram limit).
 
-## Ngoài phạm vi
+## Cần xác nhận trước khi triển khai
 
-Nếu user muốn "duyệt xong đăng ngay lập tức", cần bỏ `scheduled_publish_at` của pipeline trước khi duyệt — việc này do Goal Wizard / Campaign quyết định, không phải bug. Có thể thêm toggle "Đăng ngay thay vì theo lịch" trong approve dialog ở lần sau nếu cần.
+Bạn có muốn cả 4 phần (A+B+C+D) không, hay chỉ A+C (enrich message + nút Xem chi tiết) cho gọn lần đầu?
 
