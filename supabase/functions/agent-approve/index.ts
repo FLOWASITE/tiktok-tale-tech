@@ -25,6 +25,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     let { approval_id, action, notes, reviewer_id, scheduled_publish_at } = body;
     const pipeline_id = body.pipeline_id;
+    // Optional: per-channel approval. When provided, action only applies to
+    // these channels. Pipeline only advances to publish once ALL target
+    // channels have been decided.
+    const channelsParam: string[] | undefined = Array.isArray(body.channels) && body.channels.length > 0
+      ? body.channels.map((c: string) => String(c).toLowerCase())
+      : undefined;
     if (!action) throw new Error("action required");
 
     // Fallback: resolve approval_id from pipeline_id if not provided
@@ -58,8 +64,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Idempotency: already decided
-    if ((approval as any).status && (approval as any).status !== "pending") {
+    // Idempotency: already decided (only when not in per-channel mode, or
+    // when the overall status is final and no pending channels remain).
+    if (!channelsParam && (approval as any).status && (approval as any).status !== "pending") {
       return new Response(
         JSON.stringify({
           ok: true,
@@ -75,6 +82,149 @@ Deno.serve(async (req) => {
     const pipeline = (approval as any).agent_pipelines;
 
     if (action === "approve") {
+      // ===== Per-channel approval branch =====
+      if (channelsParam && pipeline) {
+        const pipelineState = pipeline.pipeline_state || { stages: {} };
+        const meta = pipelineState.metadata || {};
+        const targetChannels: string[] = ((meta.target_channels || []) as string[])
+          .flatMap((c) => (c.includes(",") ? c.split(",").map((s: string) => s.trim()) : [c]))
+          .filter(Boolean)
+          .map((c: string) => (c === "blog" ? "website" : c.toLowerCase()));
+
+        if (targetChannels.length === 0) {
+          return new Response(
+            JSON.stringify({ ok: false, error: "Pipeline không có target_channels để duyệt riêng kênh.", code: "no_channels" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Validate all requested channels exist in target_channels
+        const invalid = channelsParam.filter((c) => !targetChannels.includes(c));
+        if (invalid.length > 0) {
+          return new Response(
+            JSON.stringify({ ok: false, error: `Kênh không hợp lệ: ${invalid.join(", ")}`, code: "invalid_channels" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Per-channel state map: { [channel]: { status, decided_at, scheduled_at, reviewer_id } }
+        const channelApprovals: Record<string, any> = { ...(meta.channel_approvals || {}) };
+        const newlyDecided: string[] = [];
+        for (const ch of channelsParam) {
+          if (channelApprovals[ch]?.status === "approved") continue; // idempotent skip
+          channelApprovals[ch] = {
+            status: "approved",
+            decided_at: now,
+            scheduled_at: scheduled_publish_at ?? null,
+            reviewer_id: reviewer_id || null,
+          };
+          newlyDecided.push(ch);
+        }
+
+        // Create content_schedules for newly-approved channels (if future-scheduled).
+        const scheduleIds: Record<string, string> = (meta.schedule_ids || {}) as Record<string, string>;
+        const effectiveSchedule = scheduled_publish_at || pipeline.scheduled_publish_at;
+        const isFutureSchedule = !!effectiveSchedule && new Date(effectiveSchedule) > new Date();
+
+        if (pipeline.content_id) {
+          for (const ch of newlyDecided) {
+            if (scheduleIds[ch]) continue; // already created
+            try {
+              if (isFutureSchedule) {
+                const { data: schedule } = await supabase
+                  .from("content_schedules")
+                  .insert({
+                    content_id: pipeline.content_id,
+                    channel: ch,
+                    organization_id: pipeline.organization_id,
+                    scheduled_at: effectiveSchedule,
+                    timezone: "Asia/Ho_Chi_Minh",
+                    publish_status: "scheduled",
+                    notes: `Per-channel approve: ${pipeline.content_title}`,
+                    created_by: reviewer_id || null,
+                  } as any)
+                  .select("id")
+                  .single();
+                if (schedule) scheduleIds[ch] = schedule.id;
+              }
+              // Immediate-publish channels: handled by per-channel publisher
+              // when we fire publish stage below (it reads channel_approvals).
+            } catch (e) {
+              console.warn(`[agent-approve] per-channel schedule insert failed (${ch}):`, e);
+            }
+          }
+        }
+
+        // Persist per-channel state
+        pipelineState.metadata = {
+          ...meta,
+          channel_approvals: channelApprovals,
+          schedule_ids: scheduleIds,
+        };
+        await supabase
+          .from("agent_pipelines")
+          .update({ pipeline_state: pipelineState } as any)
+          .eq("id", pipeline.id);
+
+        // Check if ALL channels have been decided → finalize approval row.
+        const pendingChannels = targetChannels.filter(
+          (c) => !["approved", "rejected"].includes(channelApprovals[c]?.status),
+        );
+        const allDone = pendingChannels.length === 0;
+
+        if (allDone) {
+          await supabase.from("agent_approvals").update({
+            status: "approved",
+            reviewer_id: reviewer_id || null,
+            reviewer_notes: notes || `Per-channel approval complete (${targetChannels.length} channels)`,
+            decided_at: now,
+          } as any).eq("id", approval_id);
+
+          // Advance pipeline to publish
+          if (pipeline.current_stage === "approval" && pipelineState.stages) {
+            pipelineState.stages.approval = { ...pipelineState.stages.approval, status: "completed", completed_at: now };
+            pipelineState.stages.publish = {
+              ...(pipelineState.stages.publish || {}),
+              status: isFutureSchedule ? "pending" : "in_progress",
+              started_at: now,
+              ...(isFutureSchedule ? { waiting_for: "scheduled_time" } : {}),
+            };
+            await supabase
+              .from("agent_pipelines")
+              .update({
+                current_stage: "publish",
+                pipeline_state: pipelineState,
+                stage_started_at: now,
+              } as any)
+              .eq("id", pipeline.id);
+
+            if (!isFutureSchedule) {
+              fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "publish");
+            }
+          }
+        }
+
+        await supabase.from("agent_pipeline_logs").insert({
+          pipeline_id: pipeline.id,
+          agent_name: "orchestrator",
+          action: "approval_granted_per_channel",
+          input_summary: `Approved channels: ${newlyDecided.join(", ")}`,
+          output_summary: allDone
+            ? `All ${targetChannels.length} channels decided → advancing to publish`
+            : `${pendingChannels.length} channels still pending: ${pendingChannels.join(", ")}`,
+        } as any);
+
+        return json({
+          success: true,
+          status: allDone ? "approved" : "partially_approved",
+          approved_channels: newlyDecided,
+          pending_channels: pendingChannels,
+          all_done: allDone,
+          next_stage: allDone ? "publish" : "approval",
+        });
+      }
+
+      // ===== Original approve-all branch =====
       // Update approval status
       await supabase.from("agent_approvals").update({
         status: "approved",
