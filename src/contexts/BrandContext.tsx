@@ -66,19 +66,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
       const allBrands = (data || []).map(transformDbResponse);
 
-      let list: BrandTemplate[];
-      if (fallbackOrganizationId) {
-        const orgBrands = allBrands.filter((brand) => brand.organization_id === fallbackOrganizationId);
-        if (orgBrands.length > 0) {
-          list = orgBrands;
-        } else {
-          const personalBrands = allBrands.filter((brand) => brand.user_id === user.id && !brand.organization_id);
-          list = personalBrands.length > 0 ? personalBrands : allBrands;
-        }
-      } else {
-        const personalBrands = allBrands.filter((brand) => brand.user_id === user.id && !brand.organization_id);
-        list = personalBrands.length > 0 ? personalBrands : allBrands;
-      }
+      // STRICT isolation: chỉ hiện brand thuộc org hiện tại.
+      // Nếu chưa có org context → chỉ hiện brand cá nhân (không có org).
+      // KHÔNG fallback sang allBrands để tránh leak brand từ org khác user là member.
+      const list: BrandTemplate[] = fallbackOrganizationId
+        ? allBrands.filter((brand) => brand.organization_id === fallbackOrganizationId)
+        : allBrands.filter((brand) => brand.user_id === user.id && !brand.organization_id);
 
       setBrands(list);
 
