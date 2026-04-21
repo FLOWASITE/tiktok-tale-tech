@@ -39,11 +39,98 @@ Deno.serve(withPerf({ functionName: "telegram-bot-admin" }, async (req) => {
     const body = await req.json();
     const { action, organization_id } = body as {
       action: string;
-      organization_id: string;
+      organization_id?: string;
     };
-    if (!organization_id) return json({ error: "Thiếu organization_id" }, 400);
 
     const service = getServiceClient();
+
+    // seed_default_bot: super-admin only, no org scope (sentinel row).
+    // Must be checked BEFORE the per-org member check.
+    if (action === "seed_default_bot") {
+      const allowlist = (Deno.env.get("FLOWA_SUPERADMIN_USER_IDS") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!allowlist.includes(user.id)) {
+        return json({ error: "Chỉ super-admin mới seed được default bot" }, 403);
+      }
+
+      const botToken = Deno.env.get("FLOWA_DEFAULT_BOT_TOKEN");
+      const botUsername = Deno.env.get("FLOWA_DEFAULT_BOT_USERNAME");
+      const webhookSecret = Deno.env.get("FLOWA_DEFAULT_BOT_WEBHOOK_SECRET");
+      if (!botToken || !botUsername || !webhookSecret) {
+        return json({
+          error: "Thiếu env: FLOWA_DEFAULT_BOT_TOKEN / FLOWA_DEFAULT_BOT_USERNAME / FLOWA_DEFAULT_BOT_WEBHOOK_SECRET",
+        }, 500);
+      }
+      const globalSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
+      if (!globalSecret) {
+        return json({ error: "TELEGRAM_WEBHOOK_SECRET chưa cấu hình" }, 500);
+      }
+
+      const encryptedToken = await encrypt(botToken);
+
+      // Upsert sentinel: organization_id IS NULL + is_default = true (unique index guarantees single row)
+      const { data: existing } = await service
+        .from("telegram_bot_configs")
+        .select("id")
+        .is("organization_id", null)
+        .eq("is_default", true)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updErr } = await service
+          .from("telegram_bot_configs")
+          .update({
+            bot_username: botUsername.replace(/^@/, ""),
+            bot_token_encrypted: encryptedToken,
+            webhook_secret: webhookSecret,
+            is_active: true,
+          })
+          .eq("id", (existing as { id: string }).id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await service
+          .from("telegram_bot_configs")
+          .insert({
+            organization_id: null,
+            is_default: true,
+            bot_username: botUsername.replace(/^@/, ""),
+            bot_token_encrypted: encryptedToken,
+            webhook_secret: webhookSecret,
+            default_autonomy_level: "human_in_loop",
+            is_active: true,
+            created_by: user.id,
+          });
+        if (insErr) throw insErr;
+      }
+
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const webhookUrl = `${supabaseUrl}/functions/v1/telegram-webhook/${webhookSecret}`;
+      const whResult = await setWebhook(botToken, webhookUrl, globalSecret, true);
+      if (!whResult.ok) {
+        return json({ error: `setWebhook từ chối: ${whResult.description}` }, 400);
+      }
+      const cmdResult = await setMyCommands(botToken);
+      if (!cmdResult.ok) {
+        console.warn("[telegram-bot-admin] seed setMyCommands warn:", cmdResult.description);
+      }
+      const miniAppUrl = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
+      const menuResult = await setChatMenuButton(botToken, miniAppUrl, "🚀 Mở Flowa");
+      if (!menuResult.ok) {
+        console.warn("[telegram-bot-admin] seed setChatMenuButton warn:", menuResult.description);
+      }
+
+      return json({
+        ok: true,
+        bot_username: botUsername,
+        webhook_url: webhookUrl,
+        commands_synced: cmdResult.ok,
+        menu_button_set: menuResult.ok,
+      });
+    }
+
+    if (!organization_id) return json({ error: "Thiếu organization_id" }, 400);
 
     // Verify caller is admin/owner of the org
     const { data: member } = await service

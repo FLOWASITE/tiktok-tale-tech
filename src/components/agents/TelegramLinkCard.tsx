@@ -3,46 +3,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTelegramBinding } from '@/hooks/useTelegramBinding';
-import { Loader2, Unlink, Users, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { Loader2, Unlink, Users, AlertCircle, Check, ExternalLink, Send } from 'lucide-react';
+import { TelegramConnectDialog } from '@/components/agents/TelegramConnectDialog';
 
 interface TelegramLinkCardProps {
   botReady: boolean;
   isAdmin: boolean;
   botUsername?: string;
+  usingDefaultBot?: boolean;
 }
 
-export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLinkCardProps) {
-  const { binding, groupBinding, loading, generateDeeplink, unlink, unlinkGroup } = useTelegramBinding();
-  const [deeplink, setDeeplink] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
+export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultBot }: TelegramLinkCardProps) {
+  const { binding, groupBinding, loading, unlink, unlinkGroup } = useTelegramBinding();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [unlinkingGroup, setUnlinkingGroup] = useState(false);
 
   const botDirectUrl = botUsername ? `https://t.me/${botUsername}` : null;
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    try {
-      const result = await generateDeeplink();
-      if (result) setDeeplink(result.deeplink);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleCopy = async () => {
-    if (!deeplink) return;
-    await navigator.clipboard.writeText(deeplink);
-    setCopied(true);
-    toast({ title: 'Đã copy link' });
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleUnlink = async () => {
-    await unlink();
-    setDeeplink(null);
-  };
 
   const handleUnlinkGroup = async () => {
     setUnlinkingGroup(true);
@@ -75,10 +51,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
     );
   }
 
-  const qrUrl = deeplink
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(deeplink)}`
-    : '';
-
   return (
     <div className="space-y-4">
       {/* Personal binding */}
@@ -88,12 +60,17 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
             <div className="space-y-0.5 min-w-0">
               <div className="text-sm font-medium flex items-center gap-2">
                 <Check className="w-4 h-4 text-primary" /> Đã kết nối
+                {usingDefaultBot && botUsername && (
+                  <Badge variant="secondary" className="text-[10px] font-normal">
+                    via @{botUsername}
+                  </Badge>
+                )}
               </div>
               <div className="text-xs text-muted-foreground truncate">
                 {binding.telegram_username ? `@${binding.telegram_username}` : `Chat ID: ${binding.telegram_chat_id}`}
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={handleUnlink}>
+            <Button size="sm" variant="outline" onClick={unlink}>
               <Unlink className="w-4 h-4 mr-1" /> Gỡ
             </Button>
           </div>
@@ -103,59 +80,33 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername }: TelegramLin
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {!deeplink && (
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={handleGenerate} disabled={generating}>
-                  {generating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Tạo link kết nối
-                </Button>
-                {botDirectUrl && (
-                  <Button asChild variant="ghost" size="sm">
-                    <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-3.5 h-3.5 mr-1" /> Xem bot @{botUsername}
-                    </a>
-                  </Button>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Link gắn tài khoản Telegram của bạn với Flowa để bot biết bạn là ai khi chat (quota, brand, quyền hạn).
-                Chỉ cần làm <span className="font-medium text-foreground">1 lần duy nhất</span> — sau đó nhắn bot bình thường.
-              </p>
-            </div>
-          )}
-          {deeplink && (
-            <div className="rounded-lg border bg-muted/40 p-4">
-              <div className="text-xs text-muted-foreground mb-3">
-                Link hết hạn sau 10 phút. Mở trên điện thoại hoặc scan QR:
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4 items-start">
-                <img
-                  src={qrUrl}
-                  alt="QR code Telegram"
-                  className="w-[140px] h-[140px] rounded border bg-white shrink-0 mx-auto sm:mx-0"
-                />
-                <div className="flex-1 space-y-2 w-full">
-                  <Button asChild size="sm" className="w-full sm:w-auto">
-                    <a href={deeplink} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-4 h-4 mr-1.5" /> Mở Telegram
-                    </a>
-                  </Button>
-                  <div className="flex gap-2">
-                    <code className="flex-1 text-xs bg-background border rounded px-2 py-1.5 truncate">
-                      {deeplink}
-                    </code>
-                    <Button size="icon" variant="outline" onClick={handleCopy} className="shrink-0">
-                      {copied ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="lg" onClick={() => setDialogOpen(true)}>
+              <Send className="w-4 h-4 mr-2" /> Get started on Telegram
+            </Button>
+            {botDirectUrl && (
+              <Button asChild variant="ghost" size="sm">
+                <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-3.5 h-3.5 mr-1" /> Xem @{botUsername}
+                </a>
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Kết nối &lt; 1 phút: scan QR hoặc bấm "Continue in Telegram". Chỉ cần làm{' '}
+            <span className="font-medium text-foreground">1 lần duy nhất</span>.
+            {usingDefaultBot && botUsername ? ` Dùng bot mặc định @${botUsername}.` : ''}
+          </p>
         </div>
       )}
+
+      <TelegramConnectDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        botUsername={botUsername}
+        usingDefaultBot={usingDefaultBot}
+      />
 
       {/* Group binding — collapsed by default */}
       <Accordion type="single" collapsible>

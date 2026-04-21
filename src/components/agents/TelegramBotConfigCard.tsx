@@ -159,6 +159,11 @@ export function TelegramBotConfigCard() {
   if (isFirstSetup) {
     return (
       <div className="space-y-4">
+        <div className="rounded-md border border-dashed bg-muted/40 p-3 text-xs text-muted-foreground">
+          Chỉ cần thiết nếu tổ chức muốn bot white-label riêng. Mặc định user có thể kết nối ngay
+          qua bot chung của Flowa mà không cần cấu hình ở đây.
+        </div>
+
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-2 flex-wrap text-sm">
           <span className="text-muted-foreground">
             Chưa có bot? Chat <code className="text-primary text-xs">/newbot</code> trong @BotFather để lấy token.

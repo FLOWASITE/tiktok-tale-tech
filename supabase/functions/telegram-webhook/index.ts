@@ -182,6 +182,44 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
 
     const update: TelegramUpdate = await req.json();
 
+    // Default bot rehydrate: sentinel row has organizationId = null.
+    // For all messages EXCEPT /start <token> (which carries its own org in payload),
+    // we look up telegram_chat_bindings by chat_id to know which org to act as.
+    if (botConfig.organizationId === null) {
+      const msgText: string = (update.message?.text || "").trim();
+      const isStartCmd = msgText.startsWith("/start");
+      if (!isStartCmd) {
+        const cbChatId = update.callback_query?.message?.chat?.id;
+        const msgChatId = update.message?.chat?.id;
+        const peekChatId = Number(cbChatId ?? msgChatId ?? 0);
+        if (peekChatId) {
+          const { data: binding } = await supabase
+            .from("telegram_chat_bindings")
+            .select("organization_id")
+            .eq("telegram_chat_id", peekChatId)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (binding?.organization_id) {
+            console.log("[telegram-webhook] default-bot rehydrate", {
+              chatId: peekChatId,
+              organization_id: binding.organization_id,
+            });
+            botConfig.organizationId = binding.organization_id as string;
+          } else {
+            // Not bound — private DM gets onboarding, groups/callback silently ignored
+            if (update.message?.chat?.type === "private") {
+              await sendMessage(
+                botConfig.botToken,
+                peekChatId,
+                "👋 Chưa kết nối. Mở https://app.flowa.one/agent/telegram → Get started on Telegram để lấy link.",
+              );
+            }
+            return okResponse();
+          }
+        }
+      }
+    }
+
     // Idempotency — fast in-memory check, then DB check
     if (typeof update.update_id === "number") {
       if (isDuplicateUpdateMem(update.update_id)) {
@@ -427,6 +465,7 @@ async function handleStart(
   },
 ): Promise<void> {
   const { supabase, botConfig, chatId, chatType, telegramUserId, telegramUsername, token } = ctx;
+  const isDefaultBot = botConfig.organizationId === null;
 
   if (!token) {
     console.log("[telegram-webhook] /start without token", {
@@ -434,16 +473,21 @@ async function handleStart(
       chatId,
       chatType,
       telegramUserId,
+      isDefaultBot,
     });
 
-    // Check if this chat is already linked → friendly welcome back
-    const { data: existing } = await supabase
+    // Check if this chat is already linked → friendly welcome back.
+    // For default bot (org=null), search by chat_id alone; partial unique
+    // on private chats guarantees at most one active binding.
+    let existingQuery = supabase
       .from("telegram_chat_bindings")
       .select("user_id, telegram_username")
-      .eq("organization_id", botConfig.organizationId)
       .eq("telegram_chat_id", chatId)
-      .eq("is_active", true)
-      .maybeSingle();
+      .eq("is_active", true);
+    if (!isDefaultBot) {
+      existingQuery = existingQuery.eq("organization_id", botConfig.organizationId);
+    }
+    const { data: existing } = await existingQuery.maybeSingle();
 
     if (existing?.user_id) {
       const who = existing.telegram_username ? `@${existing.telegram_username}` : "bạn";
@@ -494,7 +538,9 @@ async function handleStart(
     return;
   }
 
-  if (payload.org !== botConfig.organizationId) {
+  // BYOB bot: reject tokens for other orgs. Default bot (org=null) accepts any
+  // valid token — payload.org IS the target org.
+  if (!isDefaultBot && payload.org !== botConfig.organizationId) {
     await sendMessage(
       botConfig.botToken,
       chatId,
@@ -505,10 +551,30 @@ async function handleStart(
 
   const bindingChatType = chatType === "private" ? "private" : chatType;
 
+  // Default-bot collision: partial unique index prevents one private chat from
+  // binding to two active orgs. Detect + friendly-error before the upsert hits
+  // the DB constraint.
+  if (isDefaultBot && bindingChatType === "private") {
+    const { data: collision } = await supabase
+      .from("telegram_chat_bindings")
+      .select("organization_id")
+      .eq("telegram_chat_id", chatId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (collision && collision.organization_id !== payload.org) {
+      await sendMessage(
+        botConfig.botToken,
+        chatId,
+        "❌ Chat này đã kết nối với một tổ chức khác. Vào app.flowa.one → Agent → Telegram để gỡ trước rồi thử lại.",
+      );
+      return;
+    }
+  }
+
   const { error } = await supabase
     .from("telegram_chat_bindings")
     .upsert({
-      organization_id: botConfig.organizationId,
+      organization_id: payload.org,
       user_id: payload.uid,
       telegram_chat_id: chatId,
       chat_type: bindingChatType,
@@ -548,9 +614,13 @@ async function handleStart(
   await supabase
     .from("telegram_chat_bindings")
     .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
-    .eq("organization_id", botConfig.organizationId)
+    .eq("organization_id", payload.org)
     .eq("telegram_chat_id", chatId)
     .then(() => {}, () => {});
+
+  // Rehydrate botConfig so any later handlers in this request see the right org
+  // (e.g. default bot's first post-/start command within the same update batch).
+  botConfig.organizationId = payload.org;
 }
 
 // ===== Helpers cho /status dashboard =====

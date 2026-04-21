@@ -90,8 +90,9 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
       );
     }
 
-    // Load bot config for this org
-    const { data: botConfig, error: botError } = await service
+    // Load bot config: try BYOB first, fall back to Flowa default bot sentinel.
+    let usingDefaultBot = false;
+    let { data: botConfig, error: botError } = await service
       .from("telegram_bot_configs")
       .select("bot_username, is_active")
       .eq("organization_id", organizationId)
@@ -104,21 +105,29 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
         500,
       );
     }
+
+    if (!botConfig || !botConfig.is_active) {
+      const { data: defaultBot, error: defaultErr } = await service
+        .from("telegram_bot_configs")
+        .select("bot_username, is_active")
+        .is("organization_id", null)
+        .eq("is_default", true)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (defaultErr) {
+        console.error("[telegram-link-token] default bot query error:", defaultErr);
+      }
+      if (defaultBot) {
+        botConfig = defaultBot;
+        usingDefaultBot = true;
+      }
+    }
+
     if (!botConfig) {
       return json(
         {
-          error: "Tổ chức chưa cấu hình bot Telegram. Admin cần vào trang Agent → Telegram để thêm bot.",
+          error: "Chưa có bot Telegram khả dụng. Liên hệ admin hoặc dùng bot mặc định của Flowa.",
           code: "NO_BOT_CONFIG",
-          needs_admin_setup: true,
-        },
-        404,
-      );
-    }
-    if (!botConfig.is_active) {
-      return json(
-        {
-          error: "Bot Telegram của tổ chức đang bị tắt. Liên hệ admin để bật lại.",
-          code: "BOT_INACTIVE",
           needs_admin_setup: true,
         },
         404,
@@ -134,12 +143,19 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
     console.log("[telegram-link-token] generated compact token", {
       organizationId,
       bot: botConfig.bot_username,
+      using_default_bot: usingDefaultBot,
       tokenLength: token.length,
     });
 
     const deeplink = `https://t.me/${botConfig.bot_username}?start=${token}`;
 
-    return json({ token, deeplink, expires_in: 600 });
+    return json({
+      token,
+      deeplink,
+      expires_in: 600,
+      bot_username: botConfig.bot_username,
+      using_default_bot: usingDefaultBot,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[telegram-link-token] Unhandled error:", message, error);
