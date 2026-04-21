@@ -367,13 +367,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           tạo campaign, hỏi quota, kiểm tra pipeline, không cần mở app.
         </p>
       </div>
-
-      <GroupAccordion
-        groupBinding={groupBinding}
-        isAdmin={isAdmin}
-        unlinkingGroup={unlinkingGroup}
-        onUnlinkGroup={handleUnlinkGroup}
-      />
     </div>
   );
 }
