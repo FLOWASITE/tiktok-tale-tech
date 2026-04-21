@@ -579,6 +579,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       if (resp?.ok === false) throw new Error(resp.error || 'Lỗi không xác định');
 
       setItems((arr) => arr.filter((x) => x.id !== id));
+      APPROVAL_FETCH_CACHE.delete(id);
       setPreviewItem(null);
 
       if (action === 'reject') {
