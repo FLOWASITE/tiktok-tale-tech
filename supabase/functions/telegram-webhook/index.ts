@@ -1992,14 +1992,21 @@ async function handleCallbackQuery(args: {
     return;
   }
 
-  // Format: apv:<a|r>:<approvalId>
-  const m = /^apv:([ar]):(.+)$/.exec(data);
-  if (!m || !chatId || !fromTgId) {
+  // Format: apv:<a|r|s>:<approvalId>  OR  apv:sx:<approvalId>:<slot>
+  // a = approve now, r = reject, s = open reschedule menu, sx = execute reschedule slot
+  const mSchedExec = /^apv:sx:([^:]+):(now|1h|3h|tmr9|tmr14)$/.exec(data);
+  const mBase = /^apv:([ars]):(.+)$/.exec(data);
+  if (!mSchedExec && !mBase) {
     await answerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
     return;
   }
-  const action = m[1] === "a" ? "approve" : "reject";
-  const approvalId = m[2];
+  if (!chatId || !fromTgId) {
+    await answerCallback(botConfig.botToken, cbId, "Thiếu chat/user context.");
+    return;
+  }
+
+  const approvalId = mSchedExec ? mSchedExec[1] : mBase![2];
+  const subAction = mSchedExec ? "schedule_exec" : (mBase![1] === "a" ? "approve" : mBase![1] === "r" ? "reject" : "schedule_menu");
 
   // Resolve calling Telegram user → app user via DM binding
   const { data: dm } = await supabase
@@ -2026,19 +2033,73 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // Sub-action: open reschedule menu (no API call yet)
+  if (subAction === "schedule_menu") {
+    await answerCallback(botConfig.botToken, cbId);
+    if (messageId) {
+      const kb = {
+        inline_keyboard: [
+          [{ text: "🚀 Đăng ngay", callback_data: `apv:sx:${approvalId}:now` }],
+          [
+            { text: "+1 giờ", callback_data: `apv:sx:${approvalId}:1h` },
+            { text: "+3 giờ", callback_data: `apv:sx:${approvalId}:3h` },
+          ],
+          [
+            { text: "Mai 9h", callback_data: `apv:sx:${approvalId}:tmr9` },
+            { text: "Mai 14h", callback_data: `apv:sx:${approvalId}:tmr14` },
+          ],
+          [{ text: "« Quay lại", callback_data: `apv:a:${approvalId}` }],
+        ],
+      };
+      await editMessageText(
+        botConfig.botToken,
+        chatId,
+        messageId,
+        "📅 *Chọn thời điểm đăng:*",
+        { parse_mode: "Markdown", reply_markup: kb },
+      );
+    }
+    return;
+  }
+
+  // Compute scheduled_publish_at if subAction is schedule_exec
+  let scheduledPublishAt: string | null | undefined = undefined;
+  if (subAction === "schedule_exec") {
+    const slot = mSchedExec![2];
+    const now = new Date();
+    if (slot === "now") {
+      scheduledPublishAt = null; // publish immediately
+    } else if (slot === "1h") {
+      scheduledPublishAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+    } else if (slot === "3h") {
+      scheduledPublishAt = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
+    } else if (slot === "tmr9") {
+      const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
+      scheduledPublishAt = d.toISOString();
+    } else if (slot === "tmr14") {
+      const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(14, 0, 0, 0);
+      scheduledPublishAt = d.toISOString();
+    }
+  }
+
+  const apiAction = subAction === "reject" ? "reject" : "approve";
+
   // Call agent-approve
   try {
     const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/agent-approve`;
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const reqBody: Record<string, unknown> = {
+      approval_id: approvalId,
+      action: apiAction,
+      reviewer_id: dm.user_id,
+      notes: `via Telegram by tg_user=${fromTgId}${subAction === "schedule_exec" ? ` (slot=${mSchedExec![2]})` : ""}`,
+    };
+    if (scheduledPublishAt !== undefined) reqBody.scheduled_publish_at = scheduledPublishAt;
+
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        approval_id: approvalId,
-        action,
-        reviewer_id: dm.user_id,
-        notes: `via Telegram by tg_user=${fromTgId}`,
-      }),
+      body: JSON.stringify(reqBody),
     });
     const body = await res.json().catch(() => ({}));
 
@@ -2048,10 +2109,22 @@ async function handleCallbackQuery(args: {
       toast = "Đã được xử lý trước đó.";
       edited = `ℹ️ Yêu cầu này đã được ${body.status === "approved" ? "duyệt" : body.status} trước đó.`;
     } else if (body?.success) {
-      toast = action === "approve" ? "✅ Đã duyệt" : "❌ Đã từ chối";
-      edited = action === "approve"
-        ? `✅ *Đã duyệt* — pipeline sẽ chuyển sang publish.`
-        : `❌ *Đã từ chối* — pipeline sẽ tạo lại.`;
+      if (apiAction === "reject") {
+        toast = "❌ Đã từ chối";
+        edited = `❌ *Đã từ chối* — pipeline sẽ tạo lại.`;
+      } else if (scheduledPublishAt) {
+        const d = new Date(scheduledPublishAt);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const fmt = `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        toast = `✅ Đã duyệt — đăng lúc ${fmt}`;
+        edited = `✅ *Đã duyệt* — sẽ đăng lúc *${fmt}*.`;
+      } else if (scheduledPublishAt === null) {
+        toast = "✅ Đã duyệt — đang đăng";
+        edited = `✅ *Đã duyệt & đang đăng ngay*.`;
+      } else {
+        toast = "✅ Đã duyệt";
+        edited = `✅ *Đã duyệt* — pipeline sẽ chuyển sang publish.`;
+      }
     } else {
       toast = body?.error || "Có lỗi xảy ra.";
       edited = `⚠️ ${escMdNotif(toast)}`;
