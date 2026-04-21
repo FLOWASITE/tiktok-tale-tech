@@ -383,20 +383,81 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   }
   useEffect(() => { void load(); }, [orgId]);
 
-  // Deep-link auto-open: if URL had ?view=approve&id=, open that approval's preview drawer
+  // Deep-link auto-open with retry: handles cases where the list hasn't loaded
+  // yet, the approval is outside the recent window, or the realtime row is
+  // still propagating. We retry up to ~6s, then fall back to a direct fetch
+  // by ID, then finally surface a friendly toast and clear the pending slot.
   useEffect(() => {
-    if (!autoOpenId || loading || items.length === 0) return;
-    const target = items.find((x) => x.id === autoOpenId);
-    if (target) {
-      void openPreview(target);
-      onAutoOpened?.();
-    } else {
-      // Approval might already be processed or out of recent window
-      toast.info('Yêu cầu duyệt này không còn trong danh sách (có thể đã xử lý).');
+    if (!autoOpenId) return;
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 6; // 6 × 1s ≈ 6s
+
+    async function tryOpen() {
+      if (cancelled) return;
+      // 1) Check the already-loaded list first.
+      const target = items.find((x) => x.id === autoOpenId);
+      if (target) {
+        await openPreview(target);
+        try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
+        onAutoOpened?.();
+        return;
+      }
+      // 2) If the list is still loading or empty, wait and retry.
+      if (loading || (items.length === 0 && attempts < MAX_ATTEMPTS)) {
+        attempts++;
+        setTimeout(tryOpen, 1000);
+        return;
+      }
+      // 3) Not in the recent list — fetch directly by ID (might be older or
+      //    just-decided). If found, hydrate a temporary item and open preview.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sb = supabase as any;
+        const { data } = await sb
+          .from('agent_approvals')
+          .select('id, content_preview, created_at, pipeline_id, status, agent_pipelines!inner(content_id, content_title, scheduled_publish_at, multi_channel_contents(selected_channels))')
+          .eq('id', autoOpenId)
+          .eq('organization_id', orgId)
+          .maybeSingle();
+        if (cancelled) return;
+        if (data) {
+          const hydrated: ApprovalItem = {
+            id: data.id,
+            content_preview: data.content_preview,
+            created_at: data.created_at,
+            pipeline_id: data.pipeline_id,
+            content_id: data.agent_pipelines?.content_id ?? null,
+            content_title: data.agent_pipelines?.content_title ?? null,
+            scheduled_publish_at: data.agent_pipelines?.scheduled_publish_at ?? null,
+            selected_channels: data.agent_pipelines?.multi_channel_contents?.selected_channels ?? null,
+          };
+          await openPreview(hydrated);
+          if (data.status && data.status !== 'pending') {
+            toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
+          }
+          try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
+          onAutoOpened?.();
+          return;
+        }
+      } catch (e) {
+        console.warn('[telegram-app] direct fetch by id failed', e);
+      }
+      // 4) Final fallback — keep the pending slot for next mount, then notify.
+      if (attempts < MAX_ATTEMPTS) {
+        attempts++;
+        setTimeout(tryOpen, 1000);
+        return;
+      }
+      toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ — kéo xuống để làm mới.');
+      try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
       onAutoOpened?.();
     }
+
+    void tryOpen();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenId, loading, items.length]);
+  }, [autoOpenId, loading, items.length, orgId]);
 
   async function openPreview(it: ApprovalItem) {
     setPreviewItem(it);
