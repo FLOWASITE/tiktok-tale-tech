@@ -1193,6 +1193,93 @@ async function handleGenerate(
 const VALID_SINGLE_CHANNELS = ["facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"];
 const SINGLE_PROMPT_CACHE_IDX = 99; // dedicated slot in telegram_example_cache
 
+/**
+ * Strip Telegram command verbs from a free-chat prompt so it becomes a clean topic.
+ * Examples:
+ *   "tạo bài đăng FB về serum mới" → "serum mới"
+ *   "viết 1 post Instagram giới thiệu spa" → "giới thiệu spa"
+ *   "tạo bài đăng FB" → "" (empty → caller should fallback to brand-driven topic)
+ */
+function cleanTopicFromTelegramPrompt(raw: string): string {
+  if (!raw) return "";
+  let s = raw.trim();
+  // Strip leading command verbs + channel keywords + filler words
+  // Vietnamese + English combined; non-greedy chain
+  const stripPatterns: RegExp[] = [
+    /^(tạo|làm|viết|soạn|cho mình|giúp mình|generate|create|write|make)\s+/iu,
+    /^(1|một|a|an)\s+/iu,
+    /^(bài|post|content|caption|article|đoạn|nội dung)\s*(đăng|post)?\s*/iu,
+    /^(cho|trên|tại|on|for)\s+/iu,
+    /^(facebook|fb|fanpage|instagram|ig|tiktok|tt|twitter|x|tweet|linkedin|li|threads|youtube|yt|zalo|oa|website|web|blog|email|mail|google maps?|gmb)\s*/iu,
+    /^(về|chủ đề|topic|nội dung|về việc|about|on)\s+/iu,
+  ];
+  let prev = "";
+  while (prev !== s) {
+    prev = s;
+    for (const p of stripPatterns) s = s.replace(p, "").trim();
+  }
+  return s.trim();
+}
+
+/** Fallback: pick the org's most-recent brand template if no active brand. */
+// deno-lint-ignore no-explicit-any
+async function getDefaultBrandForOrg(supabase: any, organizationId: string): Promise<{ id: string; brand_name: string; industry: string | null } | null> {
+  try {
+    const { data } = await supabase
+      .from("brand_templates")
+      .select("id, brand_name, industry")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data || null;
+  } catch (e) {
+    console.warn("[handleGenerateSingle] default brand fetch failed:", e);
+    return null;
+  }
+}
+
+/** Fire-and-forget: generate a brand image for a freshly-created multi_channel_content. */
+async function generateImageForSinglePost(
+  supabaseUrl: string,
+  serviceKey: string,
+  contentId: string,
+  channel: string,
+  brandTemplateId: string | null,
+  channelText: string,
+): Promise<void> {
+  try {
+    const isShortText = channelText.length > 0 && channelText.length <= 120;
+    const imageContentType = isShortText ? "with_text" : "background_only";
+    const body: Record<string, unknown> = {
+      contentId,
+      channel,
+      brandTemplateId: brandTemplateId || undefined,
+      imageContentType,
+      contentSummary: channelText.slice(0, 500),
+    };
+    if (isShortText) body.textToInclude = channelText;
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/generate-brand-image`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceKey}`,
+        "apikey": serviceKey,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errTxt = await res.text().catch(() => "");
+      console.warn(`[handleGenerateSingle][image] non-OK ${res.status}: ${errTxt.slice(0, 200)}`);
+    } else {
+      console.log(`[handleGenerateSingle][image] generated for ${contentId}/${channel}`);
+    }
+  } catch (e) {
+    console.warn("[handleGenerateSingle][image] failed:", e);
+  }
+}
+
 async function handleGenerateSingle(
   ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string },
 ): Promise<void> {
