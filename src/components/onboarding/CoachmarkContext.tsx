@@ -41,11 +41,8 @@ export function CoachmarkProvider({
   }, [currentStep, isActive]);
 
   const startWithWelcome = useCallback(() => {
-    const neverShow = localStorage.getItem(NEVER_SHOW_KEY);
-    if (neverShow === 'true') {
-      return;
-    }
-    setShowWelcomeModal(true);
+    // Disabled — onboarding welcome modal removed per user request
+    return;
   }, []);
 
   const start = useCallback(() => {
