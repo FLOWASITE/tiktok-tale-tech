@@ -188,9 +188,9 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   };
 
   const ghostBanner = ghostBinding ? (
-    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <div className="flex items-start gap-2">
-        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+        <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-foreground">
             Telegram đang dùng workspace khác
