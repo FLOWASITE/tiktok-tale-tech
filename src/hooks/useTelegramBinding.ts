@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -16,12 +16,22 @@ export interface TelegramBinding {
   is_active: boolean;
 }
 
+export interface PrefetchedDeeplink {
+  url: string;
+  expiresAt: number; // epoch ms
+  botUsername?: string;
+}
+
+const DEEPLINK_TTL_BUFFER_MS = 60_000; // refresh if < 60s left
+
 export function useTelegramBinding() {
   const { currentOrganization } = useOrganizationContext();
   const { user } = useAuth();
   const [binding, setBinding] = useState<TelegramBinding | null>(null);
   const [groupBinding, setGroupBinding] = useState<TelegramBinding | null>(null);
   const [loading, setLoading] = useState(true);
+  const [prefetchedDeeplink, setPrefetchedDeeplink] = useState<PrefetchedDeeplink | null>(null);
+  const inflightRef = useRef<Promise<PrefetchedDeeplink | null> | null>(null);
 
   const fetchBindings = useCallback(async () => {
     if (!currentOrganization || !user) return;
@@ -59,13 +69,12 @@ export function useTelegramBinding() {
     fetchBindings();
   }, [fetchBindings]);
 
-  const generateDeeplink = useCallback(async (): Promise<{ deeplink: string; expires_in: number } | null> => {
+  const generateDeeplink = useCallback(async (): Promise<{ deeplink: string; expires_in: number; bot_username?: string } | null> => {
     if (!currentOrganization) return null;
     const { data, error } = await supabase.functions.invoke('telegram-link-token', {
       body: { organization_id: currentOrganization.id },
     });
 
-    // Try to extract structured error body even on non-2xx responses
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const errCtx = (error as any)?.context;
     let errorBody: { error?: string; code?: string; needs_admin_setup?: boolean } | null = null;
@@ -88,8 +97,38 @@ export function useTelegramBinding() {
       });
       return null;
     }
-    return data as { deeplink: string; expires_in: number };
+    return data as { deeplink: string; expires_in: number; bot_username?: string };
   }, [currentOrganization]);
+
+  /**
+   * Returns a fresh deeplink: cached if > 60s remaining, else generates new.
+   * Coalesces concurrent calls via inflightRef.
+   */
+  const ensureDeeplink = useCallback(async (force = false): Promise<PrefetchedDeeplink | null> => {
+    if (!force && prefetchedDeeplink && prefetchedDeeplink.expiresAt - Date.now() > DEEPLINK_TTL_BUFFER_MS) {
+      return prefetchedDeeplink;
+    }
+    if (inflightRef.current) return inflightRef.current;
+
+    const promise = (async () => {
+      const result = await generateDeeplink();
+      if (!result) return null;
+      const next: PrefetchedDeeplink = {
+        url: result.deeplink,
+        expiresAt: Date.now() + (result.expires_in ?? 600) * 1000,
+        botUsername: result.bot_username ?? result.deeplink.match(/t\.me\/([^/?]+)/i)?.[1],
+      };
+      setPrefetchedDeeplink(next);
+      return next;
+    })();
+
+    inflightRef.current = promise;
+    try {
+      return await promise;
+    } finally {
+      inflightRef.current = null;
+    }
+  }, [generateDeeplink, prefetchedDeeplink]);
 
   const unlink = useCallback(async () => {
     if (!binding) return;
@@ -103,6 +142,7 @@ export function useTelegramBinding() {
       throw error;
     }
     toast({ title: 'Đã gỡ', description: 'Đã gỡ kết nối Telegram' });
+    setPrefetchedDeeplink(null);
     await fetchBindings();
   }, [binding, fetchBindings]);
 
@@ -126,8 +166,11 @@ export function useTelegramBinding() {
     groupBinding,
     loading,
     generateDeeplink,
+    ensureDeeplink,
+    prefetchedDeeplink,
     unlink,
     unlinkGroup,
     refresh: fetchBindings,
+    setBinding, // exposed so realtime subscribers in UI can morph state immediately
   };
 }
