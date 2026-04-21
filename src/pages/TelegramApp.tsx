@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { toast } from 'sonner';
-import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check, CalendarClock, Eye, X as XIcon } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check, CalendarClock, Eye, X as XIcon, RefreshCw } from 'lucide-react';
 
 type Tab = 'dashboard' | 'create' | 'approve' | 'scheduled' | 'brands';
 
@@ -356,6 +356,8 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   const [previewImages, setPreviewImages] = useState<ImageRow[]>([]);
   const [previewFullText, setPreviewFullText] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [retryingOpen, setRetryingOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -449,7 +451,9 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
         setTimeout(tryOpen, 1000);
         return;
       }
-      toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ — kéo xuống để làm mới.');
+      toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ.', {
+        action: { label: 'Làm mới & thử lại', onClick: () => retryAutoOpen() },
+      });
       try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
       onAutoOpened?.();
     }
@@ -457,7 +461,31 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
     void tryOpen();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenId, loading, items.length, orgId]);
+  }, [autoOpenId, loading, items.length, orgId, retryNonce]);
+
+  // Manual retry — re-fetch the list and re-trigger the deep-link open flow.
+  // Restores the pending ID from sessionStorage if the parent has already
+  // cleared its prop after a previous failed attempt.
+  async function retryAutoOpen() {
+    setRetryingOpen(true);
+    try {
+      let id = autoOpenId;
+      if (!id) {
+        try { id = sessionStorage.getItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
+      }
+      await load();
+      if (id) {
+        try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
+        // Bumping the nonce re-runs the auto-open effect even when autoOpenId
+        // is unchanged (or was cleared by the parent).
+        setRetryNonce((n) => n + 1);
+      } else {
+        toast.info('Đã làm mới danh sách.');
+      }
+    } finally {
+      setRetryingOpen(false);
+    }
+  }
 
   async function openPreview(it: ApprovalItem) {
     setPreviewItem(it);
@@ -553,9 +581,17 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       <div className="p-6 text-center">
         <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
         <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={onScheduled}>
-          <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
-        </Button>
+        <div className="flex flex-col gap-2 items-center mt-4">
+          <Button variant="default" size="sm" onClick={retryAutoOpen} disabled={retryingOpen}>
+            {retryingOpen
+              ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              : <RefreshCw className="w-4 h-4 mr-2" />}
+            Làm mới & thử mở lại
+          </Button>
+          <Button variant="outline" size="sm" onClick={onScheduled}>
+            <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
+          </Button>
+        </div>
       </div>
     );
   }
@@ -563,6 +599,15 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   return (
     <>
       <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">{items.length} yêu cầu chờ duyệt</div>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={retryAutoOpen} disabled={retryingOpen}>
+            {retryingOpen
+              ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+            Làm mới & thử mở lại
+          </Button>
+        </div>
         {items.map((it) => (
           <Card key={it.id}>
             <CardContent className="pt-4 space-y-3">
