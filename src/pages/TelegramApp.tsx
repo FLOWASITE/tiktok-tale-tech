@@ -357,6 +357,21 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   }
   useEffect(() => { void load(); }, [orgId]);
 
+  // Deep-link auto-open: if URL had ?view=approve&id=, open that approval's preview drawer
+  useEffect(() => {
+    if (!autoOpenId || loading || items.length === 0) return;
+    const target = items.find((x) => x.id === autoOpenId);
+    if (target) {
+      void openPreview(target);
+      onAutoOpened?.();
+    } else {
+      // Approval might already be processed or out of recent window
+      toast.info('Yêu cầu duyệt này không còn trong danh sách (có thể đã xử lý).');
+      onAutoOpened?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenId, loading, items.length]);
+
   async function openPreview(it: ApprovalItem) {
     setPreviewItem(it);
     setPreviewImages([]);
