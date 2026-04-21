@@ -15,7 +15,7 @@ const corsHeaders = {
 
 interface Body {
   init_data: string;
-  organization_id: string;
+  organization_id?: string;
 }
 
 Deno.serve(withPerf({ functionName: "telegram-webapp-auth" }, async (req) => {
@@ -24,9 +24,8 @@ Deno.serve(withPerf({ functionName: "telegram-webapp-auth" }, async (req) => {
   try {
     const body = await req.json() as Body;
     const initData = String(body.init_data || "").trim();
-    const orgId = String(body.organization_id || "").trim();
+    const requestedOrgId = String(body.organization_id || "").trim();
     if (!initData) return json({ error: "init_data is required" }, 400);
-    if (!orgId) return json({ error: "organization_id is required" }, 400);
 
     const supabase = getServiceClient();
 
@@ -97,16 +96,44 @@ Deno.serve(withPerf({ functionName: "telegram-webapp-auth" }, async (req) => {
     } catch { /* ignore */ }
     if (!tgUser?.id) return json({ error: "no user in initData" }, 401);
 
-    // 5. Look up Flowa user via DM binding
-    const { data: binding } = await supabase
-      .from("telegram_chat_bindings")
-      .select("user_id")
-      .eq("organization_id", orgId)
-      .eq("telegram_user_id", tgUser.id)
-      .eq("chat_type", "private")
-      .eq("is_active", true)
-      .maybeSingle();
-    const userId = (binding as { user_id: string } | null)?.user_id;
+    // 5. Look up Flowa user via DM binding. If organization_id is absent, infer it
+    // from exactly one active private binding so old Mini App URLs still work.
+    let orgId = requestedOrgId;
+    let userId: string | null = null;
+    if (orgId) {
+      const { data: binding } = await supabase
+        .from("telegram_chat_bindings")
+        .select("user_id")
+        .eq("organization_id", orgId)
+        .eq("telegram_user_id", tgUser.id)
+        .eq("chat_type", "private")
+        .eq("is_active", true)
+        .maybeSingle();
+      userId = (binding as { user_id: string } | null)?.user_id ?? null;
+    } else {
+      const { data: bindings, error: bindingsErr } = await supabase
+        .from("telegram_chat_bindings")
+        .select("organization_id, user_id")
+        .eq("telegram_user_id", tgUser.id)
+        .eq("chat_type", "private")
+        .eq("is_active", true)
+        .limit(2);
+      if (bindingsErr) throw bindingsErr;
+      if (!bindings || bindings.length === 0) {
+        return json({
+          error: "Tài khoản Telegram chưa được liên kết. Hãy /start trong DM với bot trước.",
+          code: "not_linked",
+        }, 404);
+      }
+      if (bindings.length > 1) {
+        return json({
+          error: "Thiếu organization id. Hãy mở lại Mini App từ menu bot hoặc nút mới nhất.",
+          code: "missing_org_context",
+        }, 400);
+      }
+      orgId = (bindings[0] as { organization_id: string }).organization_id;
+      userId = (bindings[0] as { user_id: string }).user_id;
+    }
     if (!userId) {
       return json({
         error: "Tài khoản Telegram chưa được liên kết. Hãy /start trong DM với bot trước.",
