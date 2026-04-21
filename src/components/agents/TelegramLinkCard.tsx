@@ -131,11 +131,6 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
     };
   }, [user, currentOrganization, binding, setBinding]);
 
-  const handleUnlinkGroup = async () => {
-    setUnlinkingGroup(true);
-    try { await unlinkGroup(); } finally { setUnlinkingGroup(false); }
-  };
-
   const handleTestPing = async () => {
     if (!currentOrganization) return;
     setPinging(true);
