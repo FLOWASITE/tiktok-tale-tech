@@ -101,6 +101,12 @@ const INITIAL_CHECKS: Omit<CheckResult, "status">[] = [
       "Kiểm tra có session Supabase active không (dùng để phân biệt nhánh 'session có sẵn nhưng thiếu org' với 'chưa đăng nhập').",
     expectedStatus: "any",
   },
+  {
+    name: "8. verifyOtp với token_hash từ test 5 (optional)",
+    description:
+      "Bước fail thật gây 'Không xác thực được': sau khi function trả token_hash, frontend phải gọi supabase.auth.verifyOtp({ type:'magiclink', token_hash }). Truyền thêm `email` sẽ bị Supabase trả 400 'Only the token_hash and type should be provided'. Skip nếu đã có session sẵn.",
+    expectedStatus: "any",
+  },
 ];
 
 export default function AdminTelegramAuthCheck() {
