@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     if (body.campaign_id) {
       buttons.push({ text: "👁 Xem chi tiết", url: `https://app.flowa.one/campaigns/${body.campaign_id}` });
     } else if (body.pipeline_id) {
-      buttons.push({ text: "👁 Xem pipeline", url: `https://app.flowa.one/agent/pipelines/${body.pipeline_id}` });
+      buttons.push({ text: "👁 Xem pipeline", url: `https://app.flowa.one/agents` });
     }
 
     await pushMany([target], text, {

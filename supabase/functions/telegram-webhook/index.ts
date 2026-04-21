@@ -215,7 +215,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
               await sendMessage(
                 botConfig.botToken,
                 peekChatId,
-                "👋 Chưa kết nối. Mở https://app.flowa.one/agent/telegram → Get started on Telegram để lấy link.",
+                "👋 Chưa kết nối. Mở https://app.flowa.one/agents/telegram → Get started on Telegram để lấy link.",
               );
             }
             return okResponse();
@@ -2061,7 +2061,7 @@ async function handleCampaigns(
     inlineKeyboard.push([
       {
         text: `👁 ${name.slice(0, 25)}`,
-        url: `https://app.flowa.one/agent/goals/${c.id}`,
+        url: `https://app.flowa.one/agents`,
       },
     ]);
   }

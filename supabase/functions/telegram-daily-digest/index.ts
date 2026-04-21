@@ -101,7 +101,7 @@ Deno.serve(withPerf({ functionName: "telegram-daily-digest" }, async (req) => {
 
       const reply_markup = {
         inline_keyboard: pendingCount > 0
-          ? [[{ text: "📋 Duyệt ngay", url: "https://app.flowa.one/agent/approvals" }]]
+          ? [[{ text: "📋 Duyệt ngay", url: "https://app.flowa.one/agents" }]]
           : [[{ text: "📊 Mở dashboard", url: "https://app.flowa.one/dashboard" }]],
       };
 

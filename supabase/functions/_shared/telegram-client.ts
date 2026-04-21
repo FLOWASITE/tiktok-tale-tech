@@ -173,7 +173,7 @@ export function buildContextualHints(
     case "campaign_created":
       return [
         [
-          { text: "📋 Duyệt ngay", url: "https://app.flowa.one/agent/approvals" },
+          { text: "📋 Duyệt ngay", url: "https://app.flowa.one/agents" },
           { text: "📅 Lịch đăng", url: "https://app.flowa.one/calendar" },
         ],
       ];
