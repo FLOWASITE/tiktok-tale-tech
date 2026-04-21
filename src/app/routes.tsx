@@ -68,6 +68,7 @@ import AppPricing from "@/pages/Pricing";
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
 const TelegramApp = lazy(() => import("@/pages/TelegramApp"));
+const AdminTelegramAuthCheck = lazy(() => import("@/pages/AdminTelegramAuthCheck"));
 const AgentTelegramPage = lazy(() => import("@/pages/AgentTelegramPage"));
 const AgentChannelHubPage = lazy(() => import("@/pages/AgentChannelHubPage"));
 
@@ -209,6 +210,7 @@ export function AppRoutes() {
       <Route path="/admin/vouchers" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminVouchers /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/edge-functions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEdgeFunctions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/plans" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminPlans /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/telegram-auth-check" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminTelegramAuthCheck /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
 
       {/* Other */}
       <Route path="/access-denied" element={<AccessDenied />} />
