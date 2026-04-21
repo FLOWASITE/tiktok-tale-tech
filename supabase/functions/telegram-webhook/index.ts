@@ -186,6 +186,26 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     // For all messages EXCEPT /start <token> (which carries its own org in payload),
     // we look up telegram_chat_bindings by chat_id to know which org to act as.
     if (botConfig.organizationId === null) {
+      // Pre-rehydrate: confirm_link callback chưa có binding → lấy org từ pending_links
+      const cbDataPeek = update.callback_query?.data || "";
+      const cbChatIdPeek = update.callback_query?.message?.chat?.id;
+      if (cbDataPeek.startsWith("confirm_link:") && cbChatIdPeek) {
+        const { data: pending } = await supabase
+          .from("telegram_pending_links")
+          .select("payload_org")
+          .eq("telegram_chat_id", cbChatIdPeek)
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+        if (pending?.payload_org) {
+          console.log("[telegram-webhook] default-bot rehydrate via pending_links", {
+            chatId: cbChatIdPeek,
+            organization_id: pending.payload_org,
+          });
+          botConfig.organizationId = pending.payload_org as string;
+        }
+      }
+    }
+    if (botConfig.organizationId === null) {
       const msgText: string = (update.message?.text || "").trim();
       // Match only the literal /start command (optionally suffixed @bot, optionally
       // followed by args). "/start_foo" or "/startbar" must NOT skip rehydrate.
