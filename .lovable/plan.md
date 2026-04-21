@@ -1,169 +1,81 @@
 
 
-# Flow kết nối 2 bước kiểu Manus (Welcome → Confirm Link)
+# Fix: "Token không thuộc tổ chức của bot này"
 
-## Vấn đề hiện tại
-Flow hiện tại: User bấm "Mở Telegram" trên web → Telegram mở bot với `?start=<token>` → user bấm **Start** → bot **link ngay lập tức** + gửi welcome đã connected.
+## Root cause (verified bằng DB query)
 
-→ Thiếu bước xác nhận, user không cảm nhận được "đang link cái gì". Manus làm 2 bước: Start → welcome + nút **🔗 Link Account** → bấm nút mới link thật.
+Trong bảng `telegram_bot_configs` đang có **2 row dùng chung 1 bot vật lý `@Flowa123bot`**:
 
-## Flow mới (như screenshot Manus)
+| ID | organization_id | is_default | webhook_secret |
+|---|---|---|---|
+| `22d97d3b…` | NULL (sentinel mặc định) | true | `d2ca60…` |
+| `44fcece0…` | `bccfec38…` (Flowa nội bộ — BYOB) | false | `b9bbf8…` |
 
-```text
-[Web] User bấm "Mở Telegram"
-   │
-   ▼
-[Telegram] User bấm "Start"
-   │
-   ▼
-[Bot] 👋 Chào mừng đến với Flowa Bot!
-      Để tiếp tục, bạn cần liên kết tài khoản Telegram với Flowa.
-      Bấm nút bên dưới để bắt đầu. Link sẽ hết hạn sau 10 phút.
-      
-      [ 🔗 Link Account ]   ← inline button (callback_query)
-   │
-   ▼  user bấm nút
-   │
-[Bot] 🎉 Chào @user! Đã kết nối với Flowa.
-      [welcome keyboard như cũ]
+Telegram chỉ biết duy nhất 1 bot `@Flowa123bot` và webhook của nó hiện trỏ về path `…/b9bbf8…` (verified trong log: `path: "/telegram-webhook/b9bbf899..."`). Vì vậy mọi update đều rơi vào row BYOB của org `bccfec38`:
+
+- `botConfig.organizationId = bccfec38`
+- `isDefaultBot = false`
+- User từ org `f28873d2` (CÔNG TY TAF) tạo token với `payload.org = f28873d2`
+- Check `payload.org !== botConfig.organizationId` → reject với message "❌ Token không thuộc tổ chức của bot này"
+
+→ Default bot **không bao giờ** được dùng vì BYOB row của Flowa nội bộ đang "chiếm" webhook.
+
+## Fix
+
+**Xóa row BYOB trùng lặp** `44fcece0-9355-4d53-8078-641ff01b4618`. Org Flowa nội bộ (`bccfec38`) sẽ chuyển sang dùng bot mặc định như mọi org khác — chính xác là intent ban đầu của hệ thống "default bot for everyone, BYOB for white-label customers riêng".
+
+Sau đó **set lại webhook** trên Telegram cho `@Flowa123bot` về URL với secret default `d2ca600d…`:
+
+```
+https://rllyipiyuptkibqinotz.supabase.co/functions/v1/telegram-webhook/d2ca600d66328d395245fcf79eb6f689981a13f3ee017fa3
 ```
 
-## Thay đổi cụ thể
+## Ngăn tái diễn
 
-### `supabase/functions/telegram-webhook/index.ts`
-
-**1. `handleStart` (line 463-628)**: thay vì link ngay khi có token, **stash token vào DB** và gửi welcome + inline button.
-
-```ts
-// Sau khi verifyLinkToken thành công + check org collision:
-// KHÔNG upsert binding ngay. Stash pending link.
-await supabase.from("telegram_pending_links").upsert({
-  telegram_chat_id: chatId,
-  telegram_user_id: telegramUserId ?? null,
-  telegram_username: telegramUsername ?? null,
-  token,                        // signed token, sẽ verify lại khi confirm
-  payload_uid: payload.uid,
-  payload_org: payload.org,
-  expires_at: new Date(Date.now() + 10*60_000).toISOString(),
-}, { onConflict: "telegram_chat_id" });
-
-await sendMessage(botConfig.botToken, chatId, [
-  "👋 *Chào mừng đến với Flowa!*",
-  "",
-  "Để tiếp tục, bạn cần liên kết tài khoản Telegram với Flowa.",
-  "",
-  "Bấm nút bên dưới để xác nhận. Link này sẽ hết hạn sau 10 phút.",
-].join("\n"), {
-  parse_mode: "Markdown",
-  reply_markup: {
-    inline_keyboard: [[
-      { text: "🔗 Link Account", callback_data: `confirm_link:${chatId}` }
-    ]],
-  },
-});
-```
-
-**2. Thêm callback handler `confirm_link`** (vào switch xử lý `callback_query` đã có):
-
-```ts
-if (cbData.startsWith("confirm_link:")) {
-  // Lookup pending link by chat_id (+ optional telegram_user_id để chặn spoof)
-  const { data: pending } = await supabase
-    .from("telegram_pending_links")
-    .select("*")
-    .eq("telegram_chat_id", chatId)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  
-  if (!pending) {
-    await answerCallback(botConfig.botToken, cbId, 
-      "❌ Link đã hết hạn. Quay lại app để lấy link mới.", true);
-    return;
-  }
-  
-  // Re-verify token (defense in depth — token có thể đã bị revoke phía web)
-  try { await verifyLinkToken(pending.token); }
-  catch { 
-    await answerCallback(botConfig.botToken, cbId, "❌ Token không hợp lệ", true);
-    return;
-  }
-  
-  // Upsert binding (logic copy từ handleStart cũ)
-  await supabase.from("telegram_chat_bindings").upsert({...});
-  await supabase.from("telegram_pending_links").delete().eq("telegram_chat_id", chatId);
-  
-  // Edit message gốc để bỏ button + show success
-  await editMessageText(botConfig.botToken, chatId, msgId,
-    "✅ Đã kết nối thành công với Flowa!");
-  
-  // Gửi welcome keyboard riêng
-  await sendMessage(botConfig.botToken, chatId, 
-    `🎉 Chào ${pending.telegram_username ? "@"+pending.telegram_username : "bạn"}!...`,
-    { reply_markup: { inline_keyboard: buildWelcomeKeyboard() } });
-}
-```
-
-### Migration mới: `telegram_pending_links` table
+Thêm trigger DB chặn việc tạo BYOB row có `bot_username` trùng với default bot:
 
 ```sql
-CREATE TABLE public.telegram_pending_links (
-  telegram_chat_id BIGINT PRIMARY KEY,
-  telegram_user_id BIGINT,
-  telegram_username TEXT,
-  token TEXT NOT NULL,
-  payload_uid UUID NOT NULL,
-  payload_org UUID NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at TIMESTAMPTZ NOT NULL
-);
+CREATE OR REPLACE FUNCTION prevent_byob_collision_with_default_bot()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.organization_id IS NOT NULL AND NEW.is_default = false THEN
+    IF EXISTS (
+      SELECT 1 FROM telegram_bot_configs
+      WHERE organization_id IS NULL AND is_default = true
+        AND bot_username = NEW.bot_username AND id != NEW.id
+    ) THEN
+      RAISE EXCEPTION 'BYOB bot username "%" trùng với default bot. Mỗi BYOB phải dùng bot riêng (tạo bot mới qua @BotFather).', NEW.bot_username;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
 
-ALTER TABLE public.telegram_pending_links ENABLE ROW LEVEL SECURITY;
--- Service role only — user/anon không cần access
-CREATE POLICY "service role only" ON public.telegram_pending_links
-  FOR ALL TO service_role USING (true) WITH CHECK (true);
-
-CREATE INDEX idx_telegram_pending_links_expires ON public.telegram_pending_links(expires_at);
+CREATE TRIGGER trg_prevent_byob_default_collision
+  BEFORE INSERT OR UPDATE ON telegram_bot_configs
+  FOR EACH ROW EXECUTE FUNCTION prevent_byob_collision_with_default_bot();
 ```
 
-Optional: pg_cron job dọn rác mỗi giờ:
-```sql
-SELECT cron.schedule('cleanup-pending-telegram-links', '0 * * * *',
-  $$DELETE FROM public.telegram_pending_links WHERE expires_at < now()$$);
-```
-
-### Helper mới: `editMessageText` trong telegram-client (nếu chưa có)
-Check `_shared/telegram-client.ts` — nếu chưa có thì add wrapper gọi `/editMessageText`.
-
-## File thay đổi
+## Files thay đổi
 
 | File | Loại |
 |---|---|
-| `supabase/migrations/<ts>_telegram_pending_links.sql` | mới |
-| `supabase/functions/telegram-webhook/index.ts` | sửa `handleStart` + thêm callback `confirm_link` |
-| `supabase/functions/_shared/telegram-client.ts` | thêm `editMessageText` nếu chưa có |
+| `supabase/migrations/<ts>_remove_byob_collision_with_default_bot.sql` | mới — DELETE row + ADD trigger |
 
-Không động FE — UX phía web `/agents/telegram` giữ nguyên (đã có sẵn nút "Mở Telegram" + onboarding).
-
-## Tại sao 2-step tốt hơn
-
-- **UX rõ ràng**: user thấy bot welcome trước, biết "à đây là Flowa Bot", rồi mới chủ động bấm xác nhận → cảm giác kiểm soát
-- **Anti-confusion**: Telegram auto-fire `/start <token>` ngay khi mở deeplink, user nhiều khi chưa kịp đọc đã connected. 2-step bắt user đọc.
-- **Defense in depth**: nếu user mở deeplink nhầm chat (forward link cho người khác), người đó vẫn phải bấm xác nhận → vẫn có 1 lớp consent. Nếu muốn paranoid: stash thêm `telegram_user_id` ban đầu, callback chỉ accept nếu `cbq.from.id === pending.telegram_user_id`.
+Sau migration cần manual: gọi Telegram `setWebhook` về URL secret default. Có thể làm bằng 1-shot exec hoặc admin panel.
 
 ## Test E2E
-1. Vào `/agents/telegram` chưa link → bấm "Mở Telegram"
-2. Telegram mở bot → bấm Start → **chỉ thấy welcome + nút "🔗 Link Account"** (không tự link)
-3. Bấm nút → message update thành "✅ Đã kết nối thành công" + tin nhắn welcome keyboard mới gửi xuống
-4. Web FE realtime morph sang connected (như cũ)
-5. Edge case: chờ > 10 phút rồi mới bấm nút → toast "Link đã hết hạn"
-6. Edge case: bấm nút 2 lần → lần 2 báo "đã hết hạn" (vì đã delete pending) — acceptable
-7. BYOB bot vẫn hoạt động: token org A vào bot org B → vẫn bị reject ở `handleStart` trước khi stash
-8. Group chat: `/start` không có token vẫn show hướng dẫn cũ (không stash pending cho group)
+
+1. Apply migration → row `44fcece0…` bị xóa, trigger active
+2. Set webhook qua curl: `curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" -d "url=https://rllyipiyuptkibqinotz.supabase.co/functions/v1/telegram-webhook/d2ca600d…"`
+3. User org `f28873d2` (TAF) → `/agents/telegram` → "Mở Telegram" → bot welcome + nút "🔗 Link Account" (không còn lỗi)
+4. Bấm Link Account → "✅ Đã kết nối thành công"
+5. User org `bccfec38` (Flowa) → flow tương tự, dùng cùng bot mặc định
+6. Thử insert lại BYOB với username `Flowa123bot` qua admin → trigger reject với message rõ ràng
 
 ## Ước tính
-**25-35 phút** — 1 migration nhỏ, 1 callback handler mới, refactor `handleStart`. Không động FE.
+**5-10 phút** — 1 migration nhỏ + 1 lần gọi setWebhook thủ công.
 
 ## Rủi ro
-- Token đã verify ở step 1 nhưng user delay > 10min → re-verify ở step 2 sẽ fail (signed JWT TTL = 600s). → tăng pending expire = TTL của signed token (10 phút) cho đồng bộ; hoặc dùng pending expire ngắn hơn.
-- Nếu user mở deeplink mới khi đang có pending cũ → upsert overwrite pending bằng `onConflict telegram_chat_id` → behavior đúng (always lấy token mới nhất).
+- Org `bccfec38` đang có `telegram_chat_bindings` link với BYOB bot cũ → bindings vẫn còn nguyên (cùng `telegram_chat_id`, cùng `organization_id`), default bot resolve lại từ chat_id → vẫn hoạt động bình thường, không cần re-link.
+- Nếu sau này Flowa thực sự muốn whitelabel cho 1 enterprise customer → tạo bot Telegram MỚI qua BotFather (tên bot khác), trigger sẽ cho phép vì `bot_username` khác.
 
