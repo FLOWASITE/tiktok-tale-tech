@@ -1161,7 +1161,143 @@ async function handleGenerate(
   }
 }
 
-async function handleLinkGroup(
+// =====================================================
+// handleGenerateSingle — tạo NHANH 1 bài cho 1 kênh,
+// bypass agent_goals + campaign plan. Gọi thẳng generate-multichannel.
+// =====================================================
+const VALID_SINGLE_CHANNELS = ["facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"];
+const SINGLE_PROMPT_CACHE_IDX = 99; // dedicated slot in telegram_example_cache
+
+async function handleGenerateSingle(
+  ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string },
+): Promise<void> {
+  const { supabase, botConfig, chatId, telegramUserId, prompt, channel } = ctx;
+
+  if (!prompt) {
+    await sendMessage(botConfig.botToken, chatId,
+      "Bạn muốn viết về gì? VD: _viết 1 bài Facebook giới thiệu serum mới_",
+      { parse_mode: "Markdown" });
+    return;
+  }
+
+  const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
+  if (!binding) {
+    await sendMessage(botConfig.botToken, chatId,
+      "Chưa kết nối. Hãy /start trong DM với bot trước.");
+    return;
+  }
+
+  // No valid channel → cache prompt + show channel picker
+  if (!channel || !VALID_SINGLE_CHANNELS.includes(channel)) {
+    try {
+      await supabase.from("telegram_example_cache").delete()
+        .eq("chat_id", chatId).eq("idx", SINGLE_PROMPT_CACHE_IDX);
+      await supabase.from("telegram_example_cache").insert({
+        chat_id: chatId, idx: SINGLE_PROMPT_CACHE_IDX, prompt,
+      });
+    } catch (e) { console.warn("[handleGenerateSingle] cache prompt failed:", e); }
+
+    await sendMessage(botConfig.botToken, chatId,
+      `🤔 *Bạn muốn đăng kênh nào?*\n\n_"${escapeMd(prompt.slice(0, 120))}"_`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📘 Facebook", callback_data: "single:pick:facebook" },
+              { text: "📸 Instagram", callback_data: "single:pick:instagram" },
+            ],
+            [
+              { text: "🌐 Website", callback_data: "single:pick:website" },
+              { text: "🎵 TikTok", callback_data: "single:pick:tiktok" },
+            ],
+            [{ text: "❌ Hủy", callback_data: "single:cancel:1" }],
+          ],
+        },
+      });
+    return;
+  }
+
+  const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
+  const channelLabel = channel.charAt(0).toUpperCase() + channel.slice(1);
+
+  await sendMessage(botConfig.botToken, chatId,
+    appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, activeBrand?.brand_name),
+    { parse_mode: "Markdown" });
+
+  // Call generate-multichannel directly (bypass agent_goals)
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-multichannel`;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "apikey": key,
+      },
+      body: JSON.stringify({
+        action: "create",
+        topic: prompt,
+        channels: [channel],
+        organizationId: botConfig.organizationId,
+        brandTemplateId: (activeBrand as any)?.id || null,
+        userId: binding.userId,
+        qualityMode: "balanced",
+        agentMode: true,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({} as any));
+
+    if (!res.ok) {
+      const errStr = JSON.stringify(data).toLowerCase();
+      if (res.status === 402 || errStr.includes("credit") || errStr.includes("payment")) {
+        await sendMessage(botConfig.botToken, chatId,
+          `🤖 AI đang hết credits. Thử lại sau khi admin nạp thêm credit.`);
+      } else if (res.status === 429 || errStr.includes("rate")) {
+        await sendMessage(botConfig.botToken, chatId,
+          `⏳ AI đang quá tải. Thử lại sau 1-2 phút.`);
+      } else {
+        await sendMessage(botConfig.botToken, chatId,
+          `⚠️ Tạo bài lỗi: ${String(data?.error || res.statusText).slice(0, 150)}`);
+      }
+      return;
+    }
+
+    const contentId = data?.id || data?.content_id;
+    const channelKey = channel === "blog" ? "website_content" : `${channel}_content`;
+    const channelText = (data?.[channelKey] || "") as string;
+    const preview = channelText.slice(0, 220).trim() + (channelText.length > 220 ? "…" : "");
+
+    const lines: string[] = [
+      `✅ *Đã tạo 1 bài cho ${channelLabel}*`,
+      "",
+      preview ? `_${escapeMd(preview)}_` : "_(Nội dung đã tạo, mở Mini App để xem chi tiết)_",
+    ];
+
+    const keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string }; url?: string }>> = [];
+    if (contentId) {
+      keyboard.push([{
+        text: "📝 Xem & duyệt",
+        web_app: { url: `${MINI_APP_URL}#/multichannel/${contentId}` },
+      }]);
+    }
+
+    await sendMessage(botConfig.botToken, chatId,
+      appendBrandFooter(lines.join("\n"), activeBrand?.brand_name),
+      {
+        parse_mode: "Markdown",
+        reply_markup: keyboard.length > 0 ? { inline_keyboard: keyboard } : undefined,
+      });
+  } catch (e) {
+    console.error("[handleGenerateSingle] error:", e);
+    await sendMessage(botConfig.botToken, chatId,
+      `⚠️ Có lỗi khi tạo bài: ${String((e as Error)?.message || e).slice(0, 150)}. Thử lại nhé.`);
+  }
+}
+
   ctx: HandlerCtx & { chatType: string; telegramUserId?: number },
 ): Promise<void> {
   const { supabase, botConfig, chatId, chatType, telegramUserId } = ctx;
