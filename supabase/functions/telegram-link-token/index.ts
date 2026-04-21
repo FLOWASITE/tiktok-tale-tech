@@ -107,6 +107,7 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
     }
 
     if (!botConfig || !botConfig.is_active) {
+      const byobInactive = !!botConfig && !botConfig.is_active;
       const { data: defaultBot, error: defaultErr } = await service
         .from("telegram_bot_configs")
         .select("bot_username, is_active")
@@ -120,6 +121,19 @@ Deno.serve(withPerf({ functionName: "telegram-link-token" }, async (req) => {
       if (defaultBot) {
         botConfig = defaultBot;
         usingDefaultBot = true;
+      } else if (byobInactive) {
+        // BYOB present but disabled, no default bot available → don't expose
+        // the inactive BYOB bot; surface a clear error instead.
+        return json(
+          {
+            error: "Bot Telegram của tổ chức đang bị tắt và chưa có bot mặc định. Liên hệ admin.",
+            code: "BOT_INACTIVE",
+            needs_admin_setup: true,
+          },
+          404,
+        );
+      } else {
+        botConfig = null;
       }
     }
 

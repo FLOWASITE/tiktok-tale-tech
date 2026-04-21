@@ -187,7 +187,11 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
     // we look up telegram_chat_bindings by chat_id to know which org to act as.
     if (botConfig.organizationId === null) {
       const msgText: string = (update.message?.text || "").trim();
-      const isStartCmd = msgText.startsWith("/start");
+      // Match only the literal /start command (optionally suffixed @bot, optionally
+      // followed by args). "/start_foo" or "/startbar" must NOT skip rehydrate.
+      const firstToken = msgText.split(/\s+/)[0] || "";
+      const firstCmd = firstToken.split("@")[0];
+      const isStartCmd = firstCmd === "/start";
       if (!isStartCmd) {
         const cbChatId = update.callback_query?.message?.chat?.id;
         const msgChatId = update.message?.chat?.id;
