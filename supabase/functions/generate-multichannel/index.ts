@@ -3059,7 +3059,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               try {
                 // Prepare content object for critique (match normal mode structure)
                 const contentForCritique: Record<string, any> = {
-                  title: formData.topic.slice(0, 100),
+                  title: extractTitleFromChannels(channelResults, formData.topic),
                 };
                 for (const [ch, content] of Object.entries(channelResults)) {
                   contentForCritique[`${ch}_content`] = content;
