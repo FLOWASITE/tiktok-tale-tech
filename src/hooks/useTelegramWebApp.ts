@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { verifyMagicLinkTokenHash } from '@/lib/auth/verifyMagicLinkTokenHash';
 
 // Minimal Telegram WebApp typings — full SDK exposes more fields.
 interface TelegramWebApp {
@@ -156,20 +157,14 @@ export function useTelegramWebApp(): TelegramAppAuth {
         });
         if (error) throw error;
         const payload = (data || {}) as AuthPayload;
-        if (!payload.token_hash || !payload.email) {
+        if (!payload.token_hash) {
           throw new Error(payload.error || 'Không nhận được token từ máy chủ');
         }
 
         // Only verify OTP when no session exists yet. Re-verifying with an
         // already-active session would needlessly rotate the token.
         if (!existingUserId) {
-          // IMPORTANT: với token_hash flow, Supabase chỉ chấp nhận `token_hash` + `type`.
-          // Truyền thêm `email` sẽ bị reject với 400 "Only the token_hash and type should be provided".
-          const { error: vErr } = await supabase.auth.verifyOtp({
-            type: 'magiclink',
-            token_hash: payload.token_hash,
-          });
-          if (vErr) throw vErr;
+          await verifyMagicLinkTokenHash(payload.token_hash);
         }
 
         // Source of truth precedence: backend payload > URL/start_param/storage.

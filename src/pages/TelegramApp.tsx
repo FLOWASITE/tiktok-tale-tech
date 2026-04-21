@@ -8,6 +8,15 @@ import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Pal
 
 type Tab = 'dashboard' | 'create' | 'approve' | 'brands';
 
+type TelegramMiniApp = {
+  initDataUnsafe?: { user?: { id?: number } };
+  HapticFeedback?: { notificationOccurred?: (type: 'success' | 'error' | 'warning') => void };
+};
+
+function getTelegramMiniApp(): TelegramMiniApp | undefined {
+  return window.Telegram?.WebApp as TelegramMiniApp | undefined;
+}
+
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -52,7 +61,7 @@ export default function TelegramApp() {
     } else if (sessionOkButOrgMissing) {
       hint = 'Đã đăng nhập Flowa nhưng chưa map được Telegram → workspace. Thử /start trong DM với bot.';
     } else if (error && /token_hash and type|Only the token_hash/i.test(error)) {
-      hint = 'Đã resolve được Telegram nhưng không tạo được phiên đăng nhập (verifyOtp payload không hợp lệ). Báo admin reload Mini App.';
+      hint = 'Mini App đang chạy bundle cũ trong cache Telegram. Đóng hẳn Telegram/Mini App rồi mở lại từ bot.';
     } else if (error && /verify|otp|expired|invalid token/i.test(error)) {
       hint = 'Không tạo được phiên đăng nhập từ Telegram. Đóng Mini App và mở lại từ bot.';
     }
@@ -390,7 +399,7 @@ function BrandsTab({ orgId }: { orgId: string }) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
-      const tg = (window as any).Telegram?.WebApp;
+      const tg = getTelegramMiniApp();
       const chatIdRaw = tg?.initDataUnsafe?.user?.id;
       const [brandsRes, bindingRes] = await Promise.all([
         sb.from('brand_templates')
@@ -423,7 +432,7 @@ function BrandsTab({ orgId }: { orgId: string }) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
-      const tg = (window as any).Telegram?.WebApp;
+      const tg = getTelegramMiniApp();
       const chatIdRaw = tg?.initDataUnsafe?.user?.id;
       if (!chatIdRaw) throw new Error('Không tìm được Telegram chat ID');
       const { error } = await sb.from('telegram_chat_bindings')
@@ -480,7 +489,7 @@ function BrandsTab({ orgId }: { orgId: string }) {
               }`}
             >
               <div
-                className="w-10 h-10 rounded-md flex items-center justify-center text-sm font-bold text-white shrink-0"
+                className="w-10 h-10 rounded-md flex items-center justify-center text-sm font-bold text-primary-foreground shrink-0"
                 style={{ backgroundColor: b.primary_color || 'hsl(var(--muted))' }}
               >
                 {b.logo_url ? (
@@ -492,7 +501,7 @@ function BrandsTab({ orgId }: { orgId: string }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-sm truncate">{b.brand_name}</span>
-                  {b.is_default && <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                  {b.is_default && <Crown className="w-3.5 h-3.5 text-primary shrink-0" />}
                 </div>
                 {b.industry && b.industry.length > 0 && (
                   <div className="text-xs text-muted-foreground truncate">{b.industry.join(', ')}</div>
