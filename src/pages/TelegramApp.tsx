@@ -38,10 +38,36 @@ export default function TelegramApp() {
     const hash = window.location.hash || '';
     const params = new URLSearchParams(search);
     const view = params.get('view');
-    const id = params.get('id');
-    if (view === 'approve') {
+    let id = params.get('id') || params.get('approval_id') || params.get('approvalId');
+
+    // Telegram Mini App start_param fallback (e.g. tgWebAppStartParam=approve_<id>)
+    if (!id) {
+      const wa = getTelegramMiniApp() as unknown as { initDataUnsafe?: { start_param?: string } } | undefined;
+      const startParam = wa?.initDataUnsafe?.start_param;
+      if (startParam) {
+        const m = /^approve[_-]([0-9a-f-]{8,})$/i.exec(startParam);
+        if (m) id = m[1];
+      }
+    }
+    // Hash fallback (#approve/<id> or #approval=<id>)
+    if (!id && hash) {
+      const m = /(?:approve|approval)[/=]([0-9a-f-]{8,})/i.exec(hash);
+      if (m) id = m[1];
+    }
+    // sessionStorage retry slot — survives a page reload while keeping URL clean
+    if (!id) {
+      try {
+        const stashed = sessionStorage.getItem('flowa_tg_pending_approval');
+        if (stashed) id = stashed;
+      } catch { /* ignore */ }
+    }
+
+    if (view === 'approve' || id) {
       setTab('approve');
-      if (id) setDeepLinkApprovalId(id);
+      if (id) {
+        setDeepLinkApprovalId(id);
+        try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
+      }
       return;
     }
     if (/multichannel|approve|approval/i.test(hash)) {
