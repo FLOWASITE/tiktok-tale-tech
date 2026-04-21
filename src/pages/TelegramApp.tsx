@@ -348,6 +348,22 @@ type ApprovalItem = {
 
 type ImageRow = { image_url: string; channel: string };
 
+// Module-level session cache for approvals fetched directly by ID via the
+// deep-link fallback. Survives tab switches inside the same Mini App session
+// (cleared on full reload). TTL guards against stale rows after long idles.
+const APPROVAL_FETCH_CACHE = new Map<string, { item: ApprovalItem; status: string | null; cachedAt: number }>();
+const APPROVAL_FETCH_TTL_MS = 60_000; // 60s — long enough for tab toggles, short enough to refresh stale rows
+
+function readApprovalCache(id: string) {
+  const hit = APPROVAL_FETCH_CACHE.get(id);
+  if (!hit) return null;
+  if (Date.now() - hit.cachedAt > APPROVAL_FETCH_TTL_MS) {
+    APPROVAL_FETCH_CACHE.delete(id);
+    return null;
+  }
+  return hit;
+}
+
 function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: string; onScheduled: () => void; autoOpenId?: string | null; onAutoOpened?: () => void }) {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
