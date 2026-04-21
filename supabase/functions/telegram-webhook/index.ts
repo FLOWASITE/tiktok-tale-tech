@@ -556,8 +556,7 @@ async function handleStart(
   const bindingChatType = chatType === "private" ? "private" : chatType;
 
   // Default-bot collision: partial unique index prevents one private chat from
-  // binding to two active orgs. Detect + friendly-error before the upsert hits
-  // the DB constraint.
+  // binding to two active orgs. Detect + friendly-error before stashing pending.
   if (isDefaultBot && bindingChatType === "private") {
     const { data: collision } = await supabase
       .from("telegram_chat_bindings")
@@ -575,25 +574,54 @@ async function handleStart(
     }
   }
 
-  const { error } = await supabase
-    .from("telegram_chat_bindings")
-    .upsert({
-      organization_id: payload.org,
-      user_id: payload.uid,
-      telegram_chat_id: chatId,
-      chat_type: bindingChatType,
-      telegram_user_id: telegramUserId ?? null,
-      telegram_username: telegramUsername ?? null,
-      is_active: true,
-      linked_at: new Date().toISOString(),
-    }, { onConflict: "organization_id,telegram_chat_id" });
-
-  if (error) {
-    console.error("[telegram-webhook] upsert binding failed:", error);
+  // Group chats: keep legacy immediate-link behavior (no 2-step UX needed in groups).
+  if (bindingChatType !== "private") {
+    const { error } = await supabase
+      .from("telegram_chat_bindings")
+      .upsert({
+        organization_id: payload.org,
+        user_id: payload.uid,
+        telegram_chat_id: chatId,
+        chat_type: bindingChatType,
+        telegram_user_id: telegramUserId ?? null,
+        telegram_username: telegramUsername ?? null,
+        is_active: true,
+        linked_at: new Date().toISOString(),
+      }, { onConflict: "organization_id,telegram_chat_id" });
+    if (error) {
+      console.error("[telegram-webhook] upsert group binding failed:", error);
+      await sendMessage(botConfig.botToken, chatId, "❌ Không lưu được kết nối. Thử lại sau.");
+      return;
+    }
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "❌ Không lưu được kết nối. Thử lại sau.",
+      `🎉 Group đã kết nối với Flowa.`,
+      { parse_mode: "Markdown" },
+    );
+    botConfig.organizationId = payload.org;
+    return;
+  }
+
+  // Private chat: 2-step Manus-style flow. Stash pending + ask for confirmation.
+  const { error: pendingErr } = await supabase
+    .from("telegram_pending_links")
+    .upsert({
+      telegram_chat_id: chatId,
+      telegram_user_id: telegramUserId ?? null,
+      telegram_username: telegramUsername ?? null,
+      token,
+      payload_uid: payload.uid,
+      payload_org: payload.org,
+      expires_at: new Date(payload.exp * 1000).toISOString(),
+    }, { onConflict: "telegram_chat_id" });
+
+  if (pendingErr) {
+    console.error("[telegram-webhook] stash pending link failed:", pendingErr);
+    await sendMessage(
+      botConfig.botToken,
+      chatId,
+      "❌ Không khởi tạo được kết nối. Thử lại sau.",
     );
     return;
   }
@@ -602,29 +630,21 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     [
-      `🎉 Chào ${telegramUsername ? "@" + telegramUsername : "bạn"}! Đã kết nối với Flowa.`,
+      "👋 *Chào mừng đến với Flowa!*",
       "",
-      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "Để tiếp tục, bạn cần liên kết tài khoản Telegram với Flowa.",
       "",
-      "👇 Thử ngay:",
+      "Bấm nút bên dưới để xác nhận. Link sẽ hết hạn sau 10 phút.",
     ].join("\n"),
     {
       parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "🔗 Link Account", callback_data: `confirm_link:${chatId}` },
+        ]],
+      },
     },
   );
-
-  // Mark onboarded (best-effort)
-  await supabase
-    .from("telegram_chat_bindings")
-    .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
-    .eq("organization_id", payload.org)
-    .eq("telegram_chat_id", chatId)
-    .then(() => {}, () => {});
-
-  // Rehydrate botConfig so any later handlers in this request see the right org
-  // (e.g. default bot's first post-/start command within the same update batch).
-  botConfig.organizationId = payload.org;
 }
 
 // ===== Helpers cho /status dashboard =====
@@ -1752,6 +1772,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // 2-step link confirmation (Manus-style): confirm_link:<chatId>
+  if (data.startsWith("confirm_link:") && chatId) {
+    await handleConfirmLinkCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId });
+    return;
+  }
+
   // Format: apv:<a|r>:<approvalId>
   const m = /^apv:([ar]):(.+)$/.exec(data);
   if (!m || !chatId || !fromTgId) {
@@ -1827,6 +1853,142 @@ async function handleCallbackQuery(args: {
     console.error("[telegram-webhook] callback agent-approve failed:", e);
     await answerCallback(botConfig.botToken, cbId, "Lỗi hệ thống, thử lại.", true);
   }
+}
+
+// =====================================================
+// 2-step link confirmation handler — Manus-style
+// =====================================================
+async function handleConfirmLinkCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  messageId?: number;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId } = args;
+
+  const { data: pending, error: lookupErr } = await supabase
+    .from("telegram_pending_links")
+    .select("*")
+    .eq("telegram_chat_id", chatId)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+
+  if (lookupErr) {
+    console.error("[telegram-webhook] confirm_link lookup failed:", lookupErr);
+    await answerCallback(botConfig.botToken, cbId, "Lỗi hệ thống, thử lại.", true);
+    return;
+  }
+  if (!pending) {
+    await answerCallback(
+      botConfig.botToken,
+      cbId,
+      "❌ Link đã hết hạn. Quay lại app Flowa để lấy link mới.",
+      true,
+    );
+    if (messageId) {
+      await editMessageText(
+        botConfig.botToken,
+        chatId,
+        messageId,
+        "⌛ Link kết nối đã hết hạn. Quay lại app Flowa → Agent → Telegram để tạo link mới.",
+      );
+    }
+    return;
+  }
+
+  // Anti-spoof: only the same Telegram user who initiated /start can confirm
+  if (pending.telegram_user_id && fromTgId && Number(pending.telegram_user_id) !== fromTgId) {
+    await answerCallback(
+      botConfig.botToken,
+      cbId,
+      "❌ Chỉ người mở link mới xác nhận được.",
+      true,
+    );
+    return;
+  }
+
+  // Re-verify token (defense in depth)
+  try {
+    await verifyLinkToken(pending.token);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "invalid";
+    console.warn("[telegram-webhook] confirm_link token invalid:", msg);
+    await answerCallback(botConfig.botToken, cbId, "❌ Token không hợp lệ.", true);
+    if (messageId) {
+      await editMessageText(
+        botConfig.botToken,
+        chatId,
+        messageId,
+        `❌ Token không hợp lệ (${msg}). Quay lại app để lấy link mới.`,
+      );
+    }
+    return;
+  }
+
+  const { error: upsertErr } = await supabase
+    .from("telegram_chat_bindings")
+    .upsert({
+      organization_id: pending.payload_org,
+      user_id: pending.payload_uid,
+      telegram_chat_id: chatId,
+      chat_type: "private",
+      telegram_user_id: pending.telegram_user_id ?? fromTgId ?? null,
+      telegram_username: pending.telegram_username ?? null,
+      is_active: true,
+      linked_at: new Date().toISOString(),
+    }, { onConflict: "organization_id,telegram_chat_id" });
+
+  if (upsertErr) {
+    console.error("[telegram-webhook] confirm_link upsert failed:", upsertErr);
+    await answerCallback(botConfig.botToken, cbId, "❌ Không lưu được kết nối.", true);
+    return;
+  }
+
+  await supabase
+    .from("telegram_pending_links")
+    .delete()
+    .eq("telegram_chat_id", chatId);
+
+  await supabase
+    .from("telegram_chat_bindings")
+    .update({ onboarded_at: new Date().toISOString(), tutorial_step: 1 })
+    .eq("organization_id", pending.payload_org)
+    .eq("telegram_chat_id", chatId)
+    .then(() => {}, () => {});
+
+  await answerCallback(botConfig.botToken, cbId, "✅ Đã kết nối!");
+
+  if (messageId) {
+    await editMessageText(
+      botConfig.botToken,
+      chatId,
+      messageId,
+      "✅ *Đã kết nối thành công với Flowa!*",
+      { parse_mode: "Markdown" },
+    );
+  }
+
+  await sendMessage(
+    botConfig.botToken,
+    chatId,
+    [
+      `🎉 Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
+      "",
+      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "",
+      "👇 Thử ngay:",
+    ].join("\n"),
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buildWelcomeKeyboard() },
+    },
+  );
+
+  // Rehydrate botConfig so any later handlers in this request see the right org
+  botConfig.organizationId = pending.payload_org;
 }
 
 // =====================================================
