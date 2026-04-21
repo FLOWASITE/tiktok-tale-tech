@@ -176,7 +176,15 @@ export function AppRoutes() {
       <Route path="/agents" element={<ProtectedRoute><AppLayout><AgentDashboard /></AppLayout></ProtectedRoute>} />
       <Route path="/agents/channels" element={<ProtectedRoute><AppLayout><Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}><AgentChannelHubPage /></Suspense></AppLayout></ProtectedRoute>} />
       <Route path="/agents/telegram" element={<ProtectedRoute><AppLayout><Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}><AgentTelegramPage /></Suspense></AppLayout></ProtectedRoute>} />
-      
+
+      {/* Legacy /agent/* aliases — links cũ trong Telegram bot, email, notifications. Đừng xoá. */}
+      <Route path="/agent" element={<Navigate to="/agents" replace />} />
+      <Route path="/agent/telegram" element={<Navigate to="/agents/telegram" replace />} />
+      <Route path="/agent/channels" element={<Navigate to="/agents/channels" replace />} />
+      <Route path="/agent/approvals" element={<Navigate to="/agents" replace />} />
+      <Route path="/agent/pipelines/:id" element={<Navigate to="/agents" replace />} />
+      <Route path="/agent/goals/:id" element={<Navigate to="/agents" replace />} />
+
       <Route path="/agent-monitor" element={<ProtectedRoute><AppLayout><AgentMonitorPage /></AppLayout></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><AppLayout><Account /></AppLayout></ProtectedRoute>} />
 
