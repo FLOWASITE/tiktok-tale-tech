@@ -330,6 +330,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   // === NOT-CONNECTED STATE — one-click ===
   return (
     <div className="space-y-4">
+      {ghostBanner}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
