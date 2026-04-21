@@ -501,13 +501,15 @@ export async function verifyLinkToken(
 
 // =====================================================
 // Resolve bot config from path secret (multi-tenant webhook)
+// organizationId is null for the Flowa-operated default bot sentinel row;
+// callers must rehydrate it from telegram_chat_bindings in that case.
 // =====================================================
 // deno-lint-ignore no-explicit-any
 export async function resolveBotConfig(supabase: any, webhookSecret: string) {
   const { data, error } = await supabase
     .from("telegram_bot_configs")
     .select(
-      "id, organization_id, bot_username, bot_token_encrypted, default_autonomy_level, is_active",
+      "id, organization_id, bot_username, bot_token_encrypted, default_autonomy_level, is_active, is_default",
     )
     .eq("webhook_secret", webhookSecret)
     .eq("is_active", true)
@@ -519,10 +521,11 @@ export async function resolveBotConfig(supabase: any, webhookSecret: string) {
   const botToken = await decryptCredential(data.bot_token_encrypted);
   return {
     id: data.id as string,
-    organizationId: data.organization_id as string,
+    organizationId: (data.organization_id as string | null) ?? null,
     botUsername: data.bot_username as string,
     botToken,
     defaultAutonomyLevel: data.default_autonomy_level as string,
+    isDefault: (data.is_default as boolean | undefined) ?? false,
   };
 }
 

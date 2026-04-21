@@ -7,7 +7,8 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { canManageMembers } from '@/types/organization';
 import { useTelegramBotConfig } from '@/hooks/useTelegramBotConfig';
 import { useTelegramBinding } from '@/hooks/useTelegramBinding';
-import { Send, CheckCircle2, Loader2, Settings2 } from 'lucide-react';
+import { useDefaultTelegramBot } from '@/hooks/useDefaultTelegramBot';
+import { Send, CheckCircle2, Loader2, Settings2, Sparkles } from 'lucide-react';
 
 interface CommandRow {
   cmd: string;
@@ -81,12 +82,19 @@ export default function AgentTelegramPage() {
   const { currentRole } = useOrganizationContext();
   const isAdmin = currentRole ? canManageMembers(currentRole) : false;
   const { config, loading: configLoading } = useTelegramBotConfig();
+  const { defaultBot, loading: defaultLoading } = useDefaultTelegramBot();
   const { binding, loading: bindingLoading } = useTelegramBinding();
 
-  const botReady = !!config && config.is_active;
+  // Effective bot: org's own config if present, else Flowa default bot
+  const orgBotReady = !!config && config.is_active;
+  const defaultBotReady = !!defaultBot && defaultBot.is_active;
+  const effectiveBotUsername = orgBotReady ? config?.bot_username : defaultBot?.bot_username;
+  const usingDefaultBot = !orgBotReady && defaultBotReady;
+  const botReady = orgBotReady || defaultBotReady;
   const userLinked = !!binding;
 
-  const overallStatus = configLoading || bindingLoading
+  const loadingAny = configLoading || defaultLoading || bindingLoading;
+  const overallStatus = loadingAny
     ? { label: 'Đang tải…', variant: 'secondary' as const }
     : !botReady
     ? { label: 'Chưa cấu hình', variant: 'secondary' as const }
@@ -112,21 +120,66 @@ export default function AgentTelegramPage() {
               </div>
             </div>
             <Badge variant={overallStatus.variant}>
-              {configLoading && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+              {loadingAny && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
               {overallStatus.label}
             </Badge>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Step 1 — Admin bot config */}
-      {isAdmin && (
+      {/* Default-bot status banner (when in use) */}
+      {usingDefaultBot && (
+        <div className="rounded-lg border bg-primary/5 px-4 py-3 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium">
+              Đang dùng bot mặc định của Flowa
+              {defaultBot?.bot_username && (
+                <code className="ml-1 text-xs bg-background border rounded px-1.5 py-0.5">
+                  @{defaultBot.bot_username}
+                </code>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Không cần BotFather. Bạn có thể kết nối ngay — hoặc nếu muốn bot white-label riêng, xem{' '}
+              <span className="font-medium">Cấu hình bot tùy chỉnh</span> bên dưới.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Step 1 — Admin BYOB bot config (collapsed when default bot is in use) */}
+      {isAdmin && usingDefaultBot && !orgBotReady && (
+        <Accordion type="single" collapsible>
+          <AccordionItem value="byob" className="border rounded-lg px-4">
+            <AccordionTrigger className="py-3 hover:no-underline">
+              <div className="flex items-center gap-2 text-left">
+                <Settings2 className="w-4 h-4 text-muted-foreground" />
+                <div>
+                  <div className="text-sm font-medium">Bot tùy chỉnh (nâng cao)</div>
+                  <div className="text-xs text-muted-foreground font-normal">
+                    Bring your own bot — giữ branding riêng của tổ chức
+                  </div>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 pb-3">
+              <TelegramBotConfigCard />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
+
+      {/* Step 1 — Admin bot config (visible when BYOB already set up) */}
+      {isAdmin && orgBotReady && (
         <>
           <StepSection
             index={1}
-            title="Cấu hình Bot Telegram"
-            description="Tạo bot qua @BotFather rồi nhập token. Mỗi tổ chức 1 bot riêng."
-            done={botReady}
+            title="Cấu hình Bot Telegram (tùy chỉnh)"
+            description="Bot riêng của tổ chức. Gỡ cấu hình để quay về dùng bot mặc định của Flowa."
+            done={orgBotReady}
           >
             <TelegramBotConfigCard />
           </StepSection>
@@ -136,12 +189,17 @@ export default function AgentTelegramPage() {
 
       {/* Step 2 — Personal link */}
       <StepSection
-        index={isAdmin ? 2 : 1}
+        index={isAdmin && orgBotReady ? 2 : 1}
         title="Kết nối tài khoản Telegram cá nhân"
-        description="Sau khi link xong, chat tự nhiên với bot — không cần học lệnh."
+        description="Scan QR hoặc bấm 'Continue in Telegram' — kết nối < 1 phút."
         done={botReady && userLinked}
       >
-        <TelegramLinkCard botReady={botReady} isAdmin={isAdmin} botUsername={config?.bot_username} />
+        <TelegramLinkCard
+          botReady={botReady}
+          isAdmin={isAdmin}
+          botUsername={effectiveBotUsername}
+          usingDefaultBot={usingDefaultBot}
+        />
       </StepSection>
 
       {/* Bot commands */}
