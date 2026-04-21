@@ -529,16 +529,26 @@ async function handleStart(
       botConfig.botToken,
       chatId,
       [
-        "👋 Chào mừng đến với Flowa Bot!",
+        "👋 *Chào mừng đến với Flowa Bot!*",
         "",
-        "🔗 *Để kết nối tài khoản:*",
-        "1. Mở app Flowa: https://app.flowa.one",
-        "2. Vào *Agent → Telegram*",
-        "3. Bấm *Tạo link kết nối* → mở link hoặc scan QR",
+        "Tài khoản Telegram này chưa được kết nối với Flowa.",
         "",
-        "Sau khi link xong, bạn có thể chat tự nhiên với bot ngay.",
+        "🔗 *Cách kết nối (30 giây):*",
+        "1. Bấm nút bên dưới để mở app Flowa",
+        "2. Đăng nhập (nếu chưa)",
+        "3. Bấm *Mở Telegram* — bot tự động link",
+        "",
+        "_Sau khi link xong, quay lại đây và chat tự nhiên._",
       ].join("\n"),
-      { parse_mode: "Markdown" },
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔗 Mở Flowa để kết nối", url: "https://app.flowa.one/agents/telegram" }],
+            [{ text: "❓ Hướng dẫn chi tiết", url: "https://help.flowa.one/telegram" }],
+          ],
+        },
+      },
     );
     return;
   }
