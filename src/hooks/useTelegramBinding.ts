@@ -238,15 +238,41 @@ export function useTelegramBinding() {
     await fetchBindings();
   }, [groupBinding, fetchBindings]);
 
+  /**
+   * Hard reset: delete every binding for this Telegram user across ALL workspaces.
+   * Used when user wants a clean slate before re-linking.
+   */
+  const unlinkAllForTelegramUser = useCallback(async () => {
+    const tgUserId = binding?.telegram_user_id ?? ghostBinding?.telegram_user_id;
+    if (!tgUserId) {
+      toast({ title: 'Không tìm thấy', description: 'Không xác định được Telegram user.', variant: 'destructive' });
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('telegram_chat_bindings')
+      .delete()
+      .eq('telegram_user_id', tgUserId);
+    if (error) {
+      toast({ title: 'Lỗi', description: 'Không gỡ được. Thử lại sau.', variant: 'destructive' });
+      throw error;
+    }
+    toast({ title: 'Đã gỡ tất cả', description: 'Telegram đã được tách khỏi mọi workspace.' });
+    setPrefetchedDeeplink(null);
+    await fetchBindings();
+  }, [binding, ghostBinding, fetchBindings]);
+
   return {
     binding,
     groupBinding,
+    ghostBinding,
     loading,
     generateDeeplink,
     ensureDeeplink,
     prefetchedDeeplink,
     unlink,
     unlinkGroup,
+    unlinkAllForTelegramUser,
     refresh: fetchBindings,
     setBinding, // exposed so realtime subscribers in UI can morph state immediately
   };
