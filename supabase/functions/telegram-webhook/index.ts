@@ -1218,7 +1218,7 @@ function cleanTopicFromTelegramPrompt(raw: string): string {
     /^(1|một|a|an)\s+/iu,
     /^(bài|post|content|caption|article|đoạn|nội dung)\s*(đăng|post)?\s*/iu,
     /^(cho|trên|tại|on|for)\s+/iu,
-    /^(facebook|fb|fanpage|instagram|ig|tiktok|tt|twitter|x|tweet|linkedin|li|threads|youtube|yt|zalo|oa|website|web|blog|email|mail|google maps?|gmb)\s*/iu,
+    /^(facebook|fb|fanpage|instagram|ig|tiktok|tt|twitter|x|tweet|linkedin|li|threads|youtube|yt|zalo|oa|website|web|blog|email|mail|google maps?|gmb)(?=\s|$)/iu,
     /^(về|chủ đề|topic|nội dung|về việc|about|on)\s+/iu,
   ];
   let prev = "";
