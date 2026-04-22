@@ -111,8 +111,8 @@ export async function classifyIntent(
             },
             channel: {
               type: "string",
-              description: "Tên kênh lowercase (chỉ khi intent=generate_single). Để rỗng nếu user chưa chỉ định.",
-              enum: ["", "facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"],
+              description: "Channel key chuẩn lowercase (chỉ khi intent=generate_single). Để rỗng nếu user chưa chỉ định.",
+              enum: ["", "facebook", "instagram", "twitter", "linkedin", "tiktok", "threads", "youtube", "website", "zalo_oa", "google_maps", "email"],
             },
             reply: {
               type: "string",
