@@ -2,6 +2,29 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Channel } from '@/types/multichannel';
+import { emitReconnectNeeded } from '@/components/social/ReconnectBanner';
+
+const PLATFORM_LABELS: Record<string, string> = {
+  zalo_oa: 'Zalo OA',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  twitter: 'X (Twitter)',
+  threads: 'Threads',
+  google_maps: 'Google Business',
+  website: 'Website',
+};
+
+function isTokenExpiredError(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('token expired') ||
+    m.includes('please reconnect') ||
+    m.includes('needs_reauth') ||
+    m.includes('hết hạn') ||
+    m.includes('reauthor')
+  );
+}
 
 interface RetryPublishOptions {
   scheduleId: string;
@@ -107,16 +130,28 @@ export function useRetryPublish() {
       toast.success('Đăng bài thành công!');
       return { success: true };
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
+
       // Update schedule to failed
       await supabase
         .from('content_schedules')
-        .update({ 
+        .update({
           publish_status: 'failed',
-          publish_error: error instanceof Error ? error.message : 'Unknown error',
+          publish_error: errMsg,
         })
         .eq('id', scheduleId);
 
-      toast.error(`Thử lại thất bại: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
+      // Detect token-expired → surface in-app reconnect banner
+      if (isTokenExpiredError(errMsg)) {
+        emitReconnectNeeded({
+          platform: channel,
+          platformLabel: PLATFORM_LABELS[channel] || channel,
+          message: errMsg,
+        });
+        toast.error(`Kết nối ${PLATFORM_LABELS[channel] || channel} đã hết hạn. Vui lòng kết nối lại.`);
+      } else {
+        toast.error(`Thử lại thất bại: ${errMsg}`);
+      }
       return { success: false, error };
     } finally {
       setIsRetrying(null);
