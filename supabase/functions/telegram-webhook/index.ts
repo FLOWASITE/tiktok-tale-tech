@@ -1281,6 +1281,7 @@ async function generateImageForSinglePost(
   notify?: { botToken: string; chatId: number; orgId: string; titleForMsg: string },
 ): Promise<void> {
   let ok = false;
+  let failReason: "credits_exhausted" | "provider_error" | "unknown" | null = null;
   try {
     const isShortText = channelText.length > 0 && channelText.length <= 120;
     const imageContentType = isShortText ? "with_text" : "background_only";
@@ -1301,15 +1302,28 @@ async function generateImageForSinglePost(
         "apikey": serviceKey,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
     });
     if (!res.ok) {
       const errTxt = await res.text().catch(() => "");
+      failReason = "unknown";
       console.warn(`[handleGenerateSingle][image] non-OK ${res.status}: ${errTxt.slice(0, 200)}`);
     } else {
-      ok = true;
-      console.log(`[handleGenerateSingle][image] generated for ${contentId}/${channel}`);
+      const data: any = await res.json().catch(() => ({}));
+      if (data?.success === true && data?.imageUrl) {
+        ok = true;
+        console.log(`[handleGenerateSingle][image] generated for ${contentId}/${channel}`);
+      } else {
+        const code = data?.errorCode || "UNKNOWN";
+        const msg = (data?.error || "lỗi không xác định").toString();
+        failReason = code === "CREDITS_EXHAUSTED" ? "credits_exhausted"
+          : code === "PROVIDER_ERROR" ? "provider_error"
+          : "unknown";
+        console.warn(`[handleGenerateSingle][image] body says fail: code=${code}, reason=${failReason}, msg=${msg.slice(0, 150)}`);
+      }
     }
   } catch (e) {
+    failReason = "unknown";
     console.warn("[handleGenerateSingle][image] failed:", e);
   }
 
@@ -1319,31 +1333,33 @@ async function generateImageForSinglePost(
       const titleShort = notify.titleForMsg.length > 70
         ? notify.titleForMsg.slice(0, 70) + "…"
         : notify.titleForMsg;
+      const miniAppKb = {
+        inline_keyboard: [[{
+          text: "🖼 Mở Mini App",
+          web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
+        }]],
+      };
+      let text: string;
+      let kb = miniAppKb;
       if (ok) {
-        await sendMessage(notify.botToken, notify.chatId,
-          `🎨 *Ảnh đã sẵn sàng* cho bài _"${escapeMd(titleShort)}"_ — mở Mini App để xem.`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [[{
-                text: "👁 Xem ảnh",
-                web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
-              }]],
-            },
-          });
+        text = `🎨 *Ảnh đã sẵn sàng* cho bài _"${escapeMd(titleShort)}"_ — mở Mini App để xem.`;
+        kb = {
+          inline_keyboard: [[{
+            text: "👁 Xem ảnh",
+            web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
+          }]],
+        };
+      } else if (failReason === "credits_exhausted") {
+        text = `⚠️ *Hệ thống tạm hết quota ảnh AI hôm nay*\nBài _"${escapeMd(titleShort)}"_ đã có nội dung text, nhưng chưa có ảnh.\nLiên hệ admin để top-up, hoặc dùng "Tạo lại ảnh" trong Mini App sau.`;
+      } else if (failReason === "provider_error") {
+        text = `⏳ *Tạo ảnh chậm hơn dự kiến* cho bài _"${escapeMd(titleShort)}"_.\nBạn có thể bấm "Tạo lại ảnh" trong Mini App để thử lại.`;
       } else {
-        await sendMessage(notify.botToken, notify.chatId,
-          `⚠️ Ảnh chưa tạo được cho bài _"${escapeMd(titleShort)}"_. Bạn có thể bấm "Tạo lại ảnh" trong Mini App.`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [[{
-                text: "🖼 Mở Mini App",
-                web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
-              }]],
-            },
-          });
+        text = `⚠️ Ảnh chưa tạo được cho bài _"${escapeMd(titleShort)}"_. Bạn có thể bấm "Tạo lại ảnh" trong Mini App.`;
       }
+      await sendMessage(notify.botToken, notify.chatId, text, {
+        parse_mode: "Markdown",
+        reply_markup: kb,
+      });
     } catch (e) {
       console.warn("[handleGenerateSingle][image] notify failed:", e);
     }
