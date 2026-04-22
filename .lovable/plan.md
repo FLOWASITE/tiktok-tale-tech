@@ -1,70 +1,105 @@
 
 
-# Telegram → Title = Topic Suggestion từ AI
+# Telegram: Kết quả tạo bài rõ ràng & đầy đủ hơn
+
+## Vấn đề hiện tại
+
+Sau khi bot tạo xong 1 bài, message trả về chỉ có:
+```
+✅ Đã tạo 1 bài cho Facebook
+📌 Brand: <tên>
+🎨 Đang tạo ảnh trong nền…
+
+<preview 220 ký tự>
+```
+
+Thiếu: tiêu đề bài (chỉ thấy preview), độ dài thật, số hashtag, trạng thái ảnh khi xong, link mở web app (ngoài Mini App), không cho user "tạo lại / đổi kênh" nhanh.
 
 ## Mục tiêu
 
-Khi user chat trong Telegram tạo bài (ví dụ "tạo bài đăng FB"), thay vì để title bị suy ra từ raw message hoặc heading của content, hệ thống sẽ:
+Tin nhắn kết quả phải trả lời 4 câu hỏi user thường thắc mắc ngay khi nhận:
+1. **Tiêu đề là gì?** (topic AI sinh)
+2. **Bài dài bao nhiêu, có hashtag/CTA không?** (số liệu nhanh)
+3. **Ảnh có hay không?** (cập nhật khi xong, không chỉ "đang tạo")
+4. **Mở ở đâu để duyệt/đăng?** (Mini App + web app)
 
-1. Gọi **`topic-ai` action `suggest`** trước khi generate content
-2. Lấy **suggestion đầu tiên** (đã được tối ưu 80-300 ký tự, có hook, dựa trên brand + industry + recent topics)
-3. Dùng topic đó làm `topic` truyền vào `generate-multichannel` → cũng chính là **title** lưu vào `multi_channel_contents`
+## Thay đổi
 
-## Thay đổi cụ thể
+### 1. Format message kết quả mới (file `telegram-webhook/index.ts`, hàm `handleGenerateSingle` dòng 1488-1509)
 
-### File: `supabase/functions/telegram-webhook/index.ts`
+Layout mới:
+```
+✅ Bài Facebook đã sẵn sàng
 
-Trong `handleGenerateSingle` (sau khi resolve brand, trước khi gọi `generate-multichannel`):
+📝 <Tiêu đề (effectiveTopic, in đậm)>
+📌 Brand: <name> · 📍 <industry nếu có>
 
-1. **Thêm helper `suggestTopicFromAI(supabase, brand, channel, userPrompt)`**:
-   - POST `/functions/v1/topic-ai` body:
-     ```
-     { action: 'suggest', organizationId, brandTemplateId,
-       contentGoal: 'awareness',  // mặc định, hợp với social post
-       format: channel === 'website' ? 'blog' : 'social',
-       query: cleanedPrompt || undefined,           // hint cho AI
-       categoryHint: cleanedPrompt || undefined,    // ưu tiên category nếu user nói rõ chủ đề
-       skipWebSearch: true,        // nhanh — Telegram cần response < 40s
-       forceRefresh: false }
-     ```
-   - Parse `data.suggestions[0].topic` → trả về string
-   - Timeout 12s (AbortController). Nếu fail/timeout → return null → fallback logic cũ (`"Bài đăng <Channel> cho <Brand>"`)
+📊 ~<N> từ · <H> hashtag · <emoji có/không CTA>
+🎨 Ảnh: ⏳ đang tạo (sẽ báo khi xong)
 
-2. **Sửa block tính `effectiveTopic` (dòng 1346-1354)**:
-   - Logic mới (theo thứ tự ưu tiên):
-     - **B1** Gọi `suggestTopicFromAI` → nếu có kết quả ≥ 20 ký tự → dùng làm `effectiveTopic`
-     - **B2** Nếu fail → dùng `cleanedTopic` (nếu ≥ 4 ký tự)
-     - **B3** Nếu vẫn không có → fallback `"Bài đăng <Channel> cho <Brand>"`
-   - Log rõ source: `[handleGenerateSingle] Title source: ai_suggestion | cleaned_prompt | fallback`
+━━━━━━━━━
+<preview ~280 ký tự, italic>
+━━━━━━━━━
+```
 
-3. **UX message khi đang chờ**: vẫn giữ thông báo "🎯 Đang viết 1 bài cho *Facebook*… _Thường mất 20-40 giây_" (cộng thêm 3-8s cho topic-ai là chấp nhận được).
+Helper `summarizeContent(text)` trả về `{ wordCount, hashtagCount, hasCTA }`:
+- `wordCount`: đếm split theo whitespace
+- `hashtagCount`: regex `/#\w+/g`
+- `hasCTA`: regex tiếng Việt + EN: `/(inbox|nhắn|đặt lịch|đăng ký|liên hệ|click|tìm hiểu|xem thêm|gọi ngay|comment|dm me|order)/i`
 
-### File: `supabase/functions/generate-multichannel/index.ts`
+### 2. Inline keyboard 2 hàng (thay cho 1 nút duy nhất)
 
-- **Verify**: khi field `topic` được truyền từ Telegram (đã là AI-generated suggestion), logic `extractTitleFromChannels` hiện tại sẽ override bằng heading của content nếu có `#` heading. → Cần **skip extract** khi caller gắn flag `useTopicAsTitle: true`.
-- Thêm param `useTopicAsTitle?: boolean` vào request body. Khi `true` → dùng thẳng `topic` làm title, không parse content.
-- Telegram caller set `useTopicAsTitle: true` mặc định.
+```
+[📝 Xem & duyệt (Mini App)]  [🌐 Mở web]
+[🔄 Tạo bài khác]            [🎯 Đổi kênh]
+```
+
+- Nút "Mở web" → `https://app.flowa.one/multichannel/<id>` (URL button)
+- Nút "Tạo bài khác" → `callback_data=regen_single:<channel>` → reuse prompt cache, chạy lại với cùng brand+channel
+- Nút "Đổi kênh" → `callback_data=switch_channel:<contentId>` → bot reply menu nhanh chọn FB/IG/X/LinkedIn/TikTok
+
+### 3. Notify khi ảnh xong (push tiếp theo)
+
+Trong `generateImageForSinglePost` (dòng ~1241-1281), sau khi `generate-brand-image` trả về thành công, gửi thêm 1 message follow-up:
+```
+🎨 Ảnh cho bài "<tiêu đề>" đã sẵn sàng → mở Mini App để xem.
+```
+Kèm nút "👁 Xem ảnh" deep-link Mini App.
+
+Nếu ảnh fail (status không OK sau timeout) → gửi:
+```
+⚠️ Ảnh chưa tạo được. Bạn có thể bấm "Tạo lại ảnh" trong Mini App.
+```
+
+### 4. Status message lúc đang chờ (dòng 1430-1432) — thêm progress hint
+
+Hiện tại: `🎯 Đang viết 1 bài cho *Facebook*…\n_Thường mất 20-40 giây_`
+
+Mới:
+```
+🎯 Đang viết bài Facebook…
+🧠 Bước 1/3: Suy nghĩ chủ đề & dàn ý
+⏱ ~20-40 giây · Mình sẽ ping khi xong
+```
+
+(Optional) edit message này theo từng bước nếu khả thi — nếu không thì giữ static để tránh phức tạp.
 
 ## Files sẽ sửa
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/telegram-webhook/index.ts` | Thêm `suggestTopicFromAI()`, gọi trước `generate-multichannel`, gắn `useTopicAsTitle: true` |
-| `supabase/functions/generate-multichannel/index.ts` | Thêm support `useTopicAsTitle` flag; nếu `true` → dùng `topic` làm title, bỏ qua `extractTitleFromChannels` |
+| `supabase/functions/telegram-webhook/index.ts` | `summarizeContent()` helper; rewrite block 1488-1509 (message body + keyboard); update progress message 1430-1432; gửi follow-up khi ảnh xong/fail trong `generateImageForSinglePost` (1241-1281); thêm callback handler cho `regen_single` + `switch_channel` |
 
 ## Edge cases
 
-- **User cung cấp chủ đề rõ**: VD "viết bài Facebook về serum HA mới" → `cleanedPrompt = "serum HA mới"` → topic-ai sẽ generate title như *"Serum HA mới: 5 lý do làn da bạn cần thử ngay tuần này — review từ chuyên gia"* → đẹp hơn nhiều so với "Serum HA mới".
-- **User chỉ nói "tạo bài FB"**: `cleanedPrompt = ""` → topic-ai dùng brand industry + content_pillars sinh topic generic phù hợp brand → tránh title rỗng.
-- **topic-ai timeout/fail**: Fallback an toàn về logic cũ → không block flow tạo bài.
-- **Cache**: `topic-ai` đã có cache 4h theo `(industry, brandTemplateId, query, categoryHint)` → tránh gọi AI lặp khi user spam cùng prompt.
-
-## Rủi ro
-
-Thấp. Thêm 1 API call (~3-8s với cache hit ~50ms) trước generate-multichannel. Có timeout + fallback an toàn. Không thay đổi schema, không migration.
+- Bài rất ngắn (< 50 từ): vẫn show số liệu, không có separator nếu preview rỗng
+- Không tìm được CTA: bỏ icon CTA, hiển thị `📊 ~N từ · H hashtag`
+- `effectiveTopic` quá dài (>80 ký tự): truncate `…` trong title line, full vẫn lưu DB
+- Không có brand: bỏ dòng brand
+- Image gen fail: vẫn gửi message kết quả content trước, message ảnh độc lập
 
 ## Ngoài phạm vi
 
-- Cho user chọn 1 trong N suggestion qua inline keyboard (sẽ làm pha sau nếu cần).
-- Áp dụng pattern này cho campaign flow (multi-post) — campaign đã có strategy node lo phần đặt title.
+- Stream từng phần content qua Telegram (Telegram không hỗ trợ tốt edit nhiều lần liên tục — sẽ bị rate limit)
+- Gửi ảnh trực tiếp qua Telegram `sendPhoto` (sẽ làm pha sau, cần xử lý URL signed từ storage)
 
