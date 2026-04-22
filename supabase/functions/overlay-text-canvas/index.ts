@@ -6,6 +6,7 @@ import {
   getFooterLayoutProfile,
   getLayoutBehavior,
   getRatioProfile,
+  getSpacingTokens,
   getTextScaleTokens,
   resolveBlockWidth,
   resolveContentWidth,
@@ -13,6 +14,7 @@ import {
   type LayoutBehavior,
   type LogoMeta,
   type RatioProfile,
+  type SpacingTokens,
 } from "./layout-helpers.ts";
 
 const corsHeaders = {
@@ -304,29 +306,6 @@ interface StructuredOverlayRequest {
 function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
-
-function getSpacingTokens(ratioProfile: RatioProfile, theme: OverlayStyleTheme) {
-  const spacingScale = theme.spacingMultiplier < 1 ? 0.95 : theme.spacingMultiplier > 1.2 ? 1.05 : 1;
-  return {
-    sectionGap: Math.round(ratioProfile.sectionGap * spacingScale),
-    compactSectionGap: Math.round(ratioProfile.compactSectionGap * spacingScale),
-    inlineGap: Math.round(ratioProfile.inlineGap * spacingScale),
-    bannerPaddingX: Math.round(ratioProfile.bannerPaddingX * spacingScale),
-    bannerPaddingY: Math.round(ratioProfile.bannerPaddingY * spacingScale),
-    heroPadding: Math.round(ratioProfile.heroPadding * spacingScale),
-    cardGap: Math.round(ratioProfile.cardGap * spacingScale),
-    cardPaddingX: Math.round(ratioProfile.cardPaddingX * spacingScale),
-    cardPaddingY: Math.round(ratioProfile.cardPaddingY * spacingScale),
-    ribbonPaddingX: Math.round(ratioProfile.ribbonPaddingX * spacingScale),
-    ribbonPaddingY: Math.round(ratioProfile.ribbonPaddingY * spacingScale),
-    splitGap: Math.round(ratioProfile.splitGap * spacingScale),
-    splitPaddingX: Math.round(ratioProfile.splitPaddingX * spacingScale),
-    footerTopGap: Math.round(ratioProfile.footerTopGap * spacingScale),
-    leftColumnWidth: ratioProfile.leftColumnWidth,
-    rightColumnWidth: ratioProfile.rightColumnWidth,
-  };
-}
-
 
 function scaleFromMin(sizeBasis: number, multiplier: number, minPx: number, maxPx: number, ratioScale: number = 1): number {
   return clampNumber(Math.round(sizeBasis * multiplier * ratioScale), minPx, maxPx);
