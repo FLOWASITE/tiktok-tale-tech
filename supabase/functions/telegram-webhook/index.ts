@@ -1587,6 +1587,8 @@ async function handleGenerateSingle(
         qualityMode: "balanced",
         agentMode: true,
         useTopicAsTitle: true,
+        // Telegram /generate: user mong muốn bài MỚI mỗi lần gõ — bypass cache lookup.
+        skipCache: true,
       }),
     });
 
