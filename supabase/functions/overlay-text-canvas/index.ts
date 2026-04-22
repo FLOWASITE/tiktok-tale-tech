@@ -308,10 +308,25 @@ interface RatioProfile {
   ctaMaxWidth: string;
   footerMaxWidth: string;
   sectionGap: number;
+  compactSectionGap: number;
+  inlineGap: number;
   outerPadding: number;
   safeBottomMultiplier: number;
   fontScale: number;
   compactness: number;
+  bannerPaddingX: number;
+  bannerPaddingY: number;
+  heroPadding: number;
+  cardGap: number;
+  cardPaddingX: number;
+  cardPaddingY: number;
+  ribbonPaddingX: number;
+  ribbonPaddingY: number;
+  splitGap: number;
+  splitPaddingX: number;
+  footerTopGap: number;
+  leftColumnWidth: string;
+  rightColumnWidth: string;
 }
 
 interface FooterLayoutProfile {
@@ -348,10 +363,25 @@ function getRatioProfile(imageWidth: number, imageHeight: number): RatioProfile 
       ctaMaxWidth: '72%',
       footerMaxWidth: '86%',
       sectionGap: Math.round(sizeBasis * 0.024),
+      compactSectionGap: Math.round(sizeBasis * 0.018),
+      inlineGap: Math.round(sizeBasis * 0.012),
       outerPadding: Math.round(sizeBasis * 0.05),
       safeBottomMultiplier: 1.28,
       fontScale: 0.9,
       compactness: 1.18,
+      bannerPaddingX: Math.round(sizeBasis * 0.042),
+      bannerPaddingY: Math.round(sizeBasis * 0.02),
+      heroPadding: Math.round(sizeBasis * 0.034),
+      cardGap: Math.round(sizeBasis * 0.014),
+      cardPaddingX: Math.round(sizeBasis * 0.032),
+      cardPaddingY: Math.round(sizeBasis * 0.022),
+      ribbonPaddingX: Math.round(sizeBasis * 0.044),
+      ribbonPaddingY: Math.round(sizeBasis * 0.02),
+      splitGap: Math.round(sizeBasis * 0.022),
+      splitPaddingX: Math.round(sizeBasis * 0.04),
+      footerTopGap: Math.round(sizeBasis * 0.018),
+      leftColumnWidth: '100%',
+      rightColumnWidth: '100%',
     };
   }
 
@@ -365,10 +395,25 @@ function getRatioProfile(imageWidth: number, imageHeight: number): RatioProfile 
       ctaMaxWidth: '76%',
       footerMaxWidth: '90%',
       sectionGap: Math.round(sizeBasis * 0.026),
+      compactSectionGap: Math.round(sizeBasis * 0.02),
+      inlineGap: Math.round(sizeBasis * 0.013),
       outerPadding: Math.round(sizeBasis * 0.048),
       safeBottomMultiplier: 1.16,
       fontScale: 0.96,
       compactness: 1.08,
+      bannerPaddingX: Math.round(sizeBasis * 0.04),
+      bannerPaddingY: Math.round(sizeBasis * 0.018),
+      heroPadding: Math.round(sizeBasis * 0.03),
+      cardGap: Math.round(sizeBasis * 0.015),
+      cardPaddingX: Math.round(sizeBasis * 0.03),
+      cardPaddingY: Math.round(sizeBasis * 0.02),
+      ribbonPaddingX: Math.round(sizeBasis * 0.042),
+      ribbonPaddingY: Math.round(sizeBasis * 0.019),
+      splitGap: Math.round(sizeBasis * 0.02),
+      splitPaddingX: Math.round(sizeBasis * 0.038),
+      footerTopGap: Math.round(sizeBasis * 0.02),
+      leftColumnWidth: '100%',
+      rightColumnWidth: '100%',
     };
   }
 
@@ -382,10 +427,25 @@ function getRatioProfile(imageWidth: number, imageHeight: number): RatioProfile 
       ctaMaxWidth: '80%',
       footerMaxWidth: '92%',
       sectionGap: Math.round(sizeBasis * 0.028),
+      compactSectionGap: Math.round(sizeBasis * 0.021),
+      inlineGap: Math.round(sizeBasis * 0.014),
       outerPadding: Math.round(sizeBasis * 0.046),
       safeBottomMultiplier: 1.08,
       fontScale: 1,
       compactness: 1,
+      bannerPaddingX: Math.round(sizeBasis * 0.038),
+      bannerPaddingY: Math.round(sizeBasis * 0.018),
+      heroPadding: Math.round(sizeBasis * 0.028),
+      cardGap: Math.round(sizeBasis * 0.016),
+      cardPaddingX: Math.round(sizeBasis * 0.028),
+      cardPaddingY: Math.round(sizeBasis * 0.019),
+      ribbonPaddingX: Math.round(sizeBasis * 0.04),
+      ribbonPaddingY: Math.round(sizeBasis * 0.018),
+      splitGap: Math.round(sizeBasis * 0.018),
+      splitPaddingX: Math.round(sizeBasis * 0.036),
+      footerTopGap: Math.round(sizeBasis * 0.02),
+      leftColumnWidth: '100%',
+      rightColumnWidth: '100%',
     };
   }
 
@@ -398,10 +458,74 @@ function getRatioProfile(imageWidth: number, imageHeight: number): RatioProfile 
     ctaMaxWidth: 'max-content',
     footerMaxWidth: '94%',
     sectionGap: Math.round(sizeBasis * 0.03),
+    compactSectionGap: Math.round(sizeBasis * 0.022),
+    inlineGap: Math.round(sizeBasis * 0.015),
     outerPadding: Math.round(sizeBasis * 0.042),
     safeBottomMultiplier: 1,
     fontScale: 1.08,
     compactness: 0.92,
+    bannerPaddingX: Math.round(sizeBasis * 0.034),
+    bannerPaddingY: Math.round(sizeBasis * 0.016),
+    heroPadding: Math.round(sizeBasis * 0.026),
+    cardGap: Math.round(sizeBasis * 0.017),
+    cardPaddingX: Math.round(sizeBasis * 0.026),
+    cardPaddingY: Math.round(sizeBasis * 0.018),
+    ribbonPaddingX: Math.round(sizeBasis * 0.036),
+    ribbonPaddingY: Math.round(sizeBasis * 0.017),
+    splitGap: Math.round(sizeBasis * 0.022),
+    splitPaddingX: Math.round(sizeBasis * 0.034),
+    footerTopGap: Math.round(sizeBasis * 0.022),
+    leftColumnWidth: '55%',
+    rightColumnWidth: '45%',
+  };
+}
+
+function resolveWidthToken(imageWidth: number, token: string): number {
+  if (!token || token === 'max-content') return imageWidth;
+  if (token.endsWith('%')) {
+    const percent = Number.parseFloat(token);
+    return Number.isFinite(percent) ? imageWidth * (percent / 100) : imageWidth;
+  }
+  const numeric = Number.parseFloat(token);
+  return Number.isFinite(numeric) ? numeric : imageWidth;
+}
+
+function resolveContentWidth(imageWidth: number, ratioProfile: RatioProfile, extraLeft = 0, extraRight = 0): number {
+  const boundedByPadding = imageWidth - (ratioProfile.outerPadding * 2) - extraLeft - extraRight;
+  return Math.max(160, Math.min(resolveWidthToken(imageWidth, ratioProfile.contentMaxWidth), boundedByPadding));
+}
+
+function resolveBlockWidth(
+  imageWidth: number,
+  ratioProfile: RatioProfile,
+  maxWidthToken: string,
+  extraPadding = 0,
+  extraLeft = 0,
+  extraRight = 0,
+): number {
+  const contentWidth = resolveContentWidth(imageWidth, ratioProfile, extraLeft, extraRight);
+  return Math.max(120, Math.min(resolveWidthToken(imageWidth, maxWidthToken), contentWidth - (extraPadding * 2)));
+}
+
+function getSpacingTokens(ratioProfile: RatioProfile, theme: OverlayStyleTheme) {
+  const spacingScale = theme.spacingMultiplier < 1 ? 0.95 : theme.spacingMultiplier > 1.2 ? 1.05 : 1;
+  return {
+    sectionGap: Math.round(ratioProfile.sectionGap * spacingScale),
+    compactSectionGap: Math.round(ratioProfile.compactSectionGap * spacingScale),
+    inlineGap: Math.round(ratioProfile.inlineGap * spacingScale),
+    bannerPaddingX: Math.round(ratioProfile.bannerPaddingX * spacingScale),
+    bannerPaddingY: Math.round(ratioProfile.bannerPaddingY * spacingScale),
+    heroPadding: Math.round(ratioProfile.heroPadding * spacingScale),
+    cardGap: Math.round(ratioProfile.cardGap * spacingScale),
+    cardPaddingX: Math.round(ratioProfile.cardPaddingX * spacingScale),
+    cardPaddingY: Math.round(ratioProfile.cardPaddingY * spacingScale),
+    ribbonPaddingX: Math.round(ratioProfile.ribbonPaddingX * spacingScale),
+    ribbonPaddingY: Math.round(ratioProfile.ribbonPaddingY * spacingScale),
+    splitGap: Math.round(ratioProfile.splitGap * spacingScale),
+    splitPaddingX: Math.round(ratioProfile.splitPaddingX * spacingScale),
+    footerTopGap: Math.round(ratioProfile.footerTopGap * spacingScale),
+    leftColumnWidth: ratioProfile.leftColumnWidth,
+    rightColumnWidth: ratioProfile.rightColumnWidth,
   };
 }
 
