@@ -269,8 +269,8 @@ interface FormData {
   agentMode?: boolean; // Agent pipeline mode: use plain text generation (no tool calling)
   // Agent model override — fallback when no channel-specific config exists
   model_override?: string;
-  // When true, skip extractTitleFromChannels and use formData.topic directly as title.
-  // Used by Telegram flow where topic is an AI-suggested headline (already polished).
+  // When true, prioritize formData.topic as the bundle title.
+  // Used by flows where topic is already a polished headline.
   useTopicAsTitle?: boolean;
   // When true, skip cache LOOKUP and always regenerate fresh content.
   // Used by Telegram /generate where user expects a brand new post each time.
@@ -362,34 +362,62 @@ const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
 };
 
-/**
- * Extract a clean human-readable title from generated channel content.
- * Used by streaming path where AI does not emit a dedicated title.
- *
- * Priority: first Markdown heading → first meaningful line → topic fallback.
- */
-function extractTitleFromChannels(
-  channelResults: Record<string, string | null | undefined>,
-  topicFallback: string,
-): string {
-  const firstContent = Object.values(channelResults || {})
-    .find((c): c is string => typeof c === 'string' && c.trim().length > 0);
-  if (!firstContent) return (topicFallback || 'Bài đăng').slice(0, 100);
+const DEFAULT_BUNDLE_TITLE = 'Bài đăng';
+const TITLE_MAX_LENGTH = 100;
 
-  const lines = firstContent.split('\n').map(l => l.trim()).filter(Boolean);
+function sanitizeBundleTitleCandidate(value?: string | null): string {
+  if (typeof value !== 'string') return '';
 
-  for (const line of lines.slice(0, 5)) {
-    const m = line.match(/^#{1,3}\s+(.{4,120}?)\s*$/);
-    if (m && m[1]) return m[1].trim().slice(0, 100);
+  return value
+    .replace(/\r?\n+/g, ' ')
+    .replace(/^#{1,6}\s+/g, '')
+    .replace(/^[*_~`>\-•▶▪►★☆🎯✨📌💡🔥\s]+/u, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripChannelNamePrefix(value?: string | null): string {
+  let title = sanitizeBundleTitleCandidate(value);
+  if (!title) return '';
+
+  const prefixPatterns = [
+    /^(?:(?:bài\s+đăng|bài\s+viết|post|kênh|channel|nội\s+dung)\s+)?(?:facebook|instagram|linkedin|tiktok|threads|telegram|zalo(?:\s*oa)?|twitter|x(?:\/twitter)?|website|blog|email|youtube|google\s+maps|google\s+business\s+profile|gbp)(?:\s+(?:post|bài\s+đăng|bài\s+viết|channel|kênh|oa))?\s*[:\-|•–—]+\s*/iu,
+    /^(?:(?:bài\s+đăng|bài\s+viết|post|kênh|channel|nội\s+dung)\s+)?(?:facebook|instagram|linkedin|tiktok|threads|telegram|zalo(?:\s*oa)?|twitter|x(?:\/twitter)?|website|blog|email|youtube|google\s+maps|google\s+business\s+profile|gbp)\s+/iu,
+  ];
+
+  for (let i = 0; i < 5; i += 1) {
+    const next = prefixPatterns.reduce((current, pattern) => current.replace(pattern, ''), title).trim();
+    if (next === title) break;
+    title = next;
   }
 
-  const first = lines[0]
-    ?.replace(/^[\p{Emoji_Presentation}\p{Emoji}\s\-•▶▪►★☆🎯✨📌💡🔥]+/u, '')
-    .replace(/^[*_~`]+/, '')
+  return title
+    .replace(/^[\s:|•\-–—]+/u, '')
+    .replace(/\s+/g, ' ')
     .trim();
-  if (first && first.length >= 8) return first.slice(0, 100);
+}
 
-  return (topicFallback || 'Bài đăng').slice(0, 100);
+function resolveBundleTitle({
+  explicitTitle,
+  topic,
+  useTopicAsTitle,
+}: {
+  explicitTitle?: string | null;
+  topic?: string | null;
+  useTopicAsTitle?: boolean;
+}): string {
+  const cleanedTopic = stripChannelNamePrefix(topic);
+  const cleanedExplicitTitle = stripChannelNamePrefix(explicitTitle);
+
+  const prioritizedCandidates = useTopicAsTitle
+    ? [cleanedTopic, cleanedExplicitTitle]
+    : [cleanedTopic, cleanedExplicitTitle];
+
+  const preferred = prioritizedCandidates.find((candidate) => candidate.length >= 4)
+    || prioritizedCandidates.find(Boolean)
+    || DEFAULT_BUNDLE_TITLE;
+
+  return preferred.slice(0, TITLE_MAX_LENGTH);
 }
 
 function normalizeChannels(channels: string[]): string[] {
@@ -3190,7 +3218,10 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               try {
                 // Prepare content object for critique (match normal mode structure)
                 const contentForCritique: Record<string, any> = {
-                  title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
+                  title: resolveBundleTitle({
+                    topic: formData.topic,
+                    useTopicAsTitle: formData.useTopicAsTitle,
+                  }),
                 };
                 for (const [ch, content] of Object.entries(channelResults)) {
                   contentForCritique[`${ch}_content`] = content;
@@ -3404,7 +3435,10 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                 .insert(buildMultiChannelCreatePayload({
                   user_id: userId,
                   organization_id: organizationId || null,
-                  title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
+                  title: resolveBundleTitle({
+                    topic: formData.topic,
+                    useTopicAsTitle: formData.useTopicAsTitle,
+                  }),
                   topic: formData.topic,
                   content_goal: resolvedContentGoal,
                   content_role: resolvedContentRole,
@@ -3958,7 +3992,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             properties: {
               title: {
                 type: "string",
-                description: "Tiêu đề ngắn gọn cho bộ nội dung (dựa trên chủ đề)",
+                description: "Tiêu đề chung cho toàn bộ bộ nội dung đa kênh, trung tính theo chủ đề; không chứa tên kênh/platform và không copy dòng đầu của bất kỳ channel content nào",
               },
               ...channelProperties,
             },
@@ -4040,7 +4074,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             properties: {
               title: {
                 type: "string",
-                description: "Tiêu đề ngắn gọn cho bộ nội dung (dựa trên chủ đề)",
+                description: "Tiêu đề chung cho toàn bộ bộ nội dung đa kênh, trung tính theo chủ đề; không chứa tên kênh/platform và không copy dòng đầu của bất kỳ channel content nào",
               },
               ...channelProps,
             },
@@ -4751,6 +4785,12 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       throw err;
     }
 
+    generatedData.title = resolveBundleTitle({
+      explicitTitle: generatedData.title,
+      topic: formData.topic,
+      useTopicAsTitle: formData.useTopicAsTitle,
+    });
+
     console.log("Generated content:", generatedData.title);
 
     // ============================================
@@ -4947,6 +4987,11 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         });
 
         generatedData = critiqueLoop.finalContent;
+        generatedData.title = resolveBundleTitle({
+          explicitTitle: generatedData.title,
+          topic: formData.topic,
+          useTopicAsTitle: formData.useTopicAsTitle,
+        });
         critiqueResult = critiqueLoop.critiqueResult;
         wasRefined = critiqueLoop.wasRefined;
         refinementCount = critiqueLoop.refinementCount;
@@ -5371,7 +5416,11 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         .insert(buildMultiChannelCreatePayload({
           user_id: userId,
           organization_id: organizationId,
-          title: generatedData.title,
+          title: resolveBundleTitle({
+            explicitTitle: generatedData.title,
+            topic: formData.topic,
+            useTopicAsTitle: formData.useTopicAsTitle,
+          }),
           topic: formData.topic,
           industry: industry,
           content_goal: resolvedContentGoal,
