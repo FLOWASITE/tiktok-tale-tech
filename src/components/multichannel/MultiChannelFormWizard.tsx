@@ -545,10 +545,18 @@ export function MultiChannelFormWizard({
     loadExistingCoreContent();
   }, [initialData?.coreContentId]);
 
-  // Sync brand template
+  // Sync brand template — reset variant/product when brand changes to avoid cross-brand leakage
   useEffect(() => {
     if (brandTemplateId) {
-      setFormData(prev => ({ ...prev, brandTemplateId }));
+      setFormData(prev => {
+        if (prev.brandTemplateId === brandTemplateId) return prev;
+        return {
+          ...prev,
+          brandTemplateId,
+          brandVoiceVariantId: undefined,
+          productId: undefined,
+        };
+      });
     }
   }, [brandTemplateId]);
 
