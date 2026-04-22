@@ -1,70 +1,89 @@
 
 
-# Fix: Ảnh từ Telegram thiếu text, logo, footer
+# Telegram: Đăng ngay & Lên lịch trên các Social trực tiếp từ chat
 
-## Root cause
+## Hiện trạng (đã verify từ code)
 
-Manual flow (`useAutoImageGeneration`) tạo ảnh qua **pipeline 3 bước**:
-1. **Step 1** — `generate-brand-image` với `structuredElements/structuredTemplate/logoSafeZone` để AI render text chính xác và chừa chỗ cho logo
-2. **Step 2** — gọi `overlay-brand-logo` để composite logo PNG lên ảnh (post-processing, không phụ thuộc AI)
-3. **Step 3** — overlay SVG footer/CTA (Canvas) cho CTA + footer info
+Sau khi `/generate` xong, tin nhắn kết quả của bot chỉ có 4 nút: **Xem & duyệt** (Mini App), **Mở web**, **Tạo bài khác**, **Đổi kênh** (`telegram-webhook/index.ts` line 1662–1678).
 
-Telegram bot chỉ làm **Step 1** với body **tối thiểu** (`contentId, channel, brandTemplateId, imageContentType, contentSummary, textToInclude`):
-- Không truyền `structuredElements` → AI tự quyết, hay bỏ text hoặc sai dấu tiếng Việt
-- Không gọi `overlay-brand-logo` → **không có logo**
-- Không overlay footer SVG → **không có footer (SĐT, website, địa chỉ)**
-- Không truyền `promptMode` → mặc định `full` (OK), nhưng vẫn không đủ vì thiếu structured + post-processing
+Người dùng **không thể đăng/lên lịch trực tiếp từ Telegram** cho luồng `/generate` 1-bài-1-kênh — phải mở Mini App / web. Trong khi đó luồng **Agent approval** (apv:* callbacks) đã có đủ "Đăng ngay / +1h / +3h / Mai 9h / Mai 14h" — đây là pattern tham khảo trực tiếp.
 
-## Giải pháp
+Hạ tầng backend **đã sẵn sàng**:
+- `content_schedules` table (unique `(content_id, channel)`, status: scheduled/publishing/published/failed/cancelled)
+- `agent-pipeline` có cron poll due schedules → gọi `channel-publisher` → route `publish-{platform}`
+- `channel-publisher` đã centralize update status + Telegram notify success/fail
+- Token expiry → `ReconnectBanner` (vừa làm xong) sẽ trigger reconnect UX
 
-Tạo **shared helper** `composeBrandedImage` ở `_shared/branded-image-composer.ts` thực hiện đủ pipeline 3 bước, dùng chung cho cả manual và Telegram. Sau đó refactor `generateImageForSinglePost` trong `telegram-webhook` gọi helper này.
+→ Chỉ cần thêm **UI inline buttons** + **callback handler** trong `telegram-webhook`.
 
-### File mới: `supabase/functions/_shared/branded-image-composer.ts`
+## Phạm vi
 
-Export `composeBrandedImage({ supabaseUrl, serviceKey, contentId, channel, brandTemplateId, channelText, channelTitle? })` trả về `{ success, imageUrl, errorCode, error, steps }`.
+### 1. Thêm row nút "Đăng ngay / Lên lịch" vào message kết quả `/generate`
 
-Pipeline:
-1. **Read brand template** (logo_url, footer_info, image_style) qua service client
-2. **Step 1 — generate-brand-image** với body đầy đủ:
-   - `imageContentType: 'with_text'` nếu text ≤120 ký tự, ngược lại `background_only`
-   - `textToInclude`, `textPosition: 'center'`, `typographyStyle: 'modern'`
-   - `logoSafeZone: { position: 'bottom-right', sizePercent: 15 }` nếu có logo
-   - `promptMode: 'full'`
-   - `contentRole: 'sprout'` (an toàn cho social post Telegram)
-3. **Step 2 — overlay-brand-logo** (gọi nếu `brand.logo_url`):
-   - `imageUrl` từ step 1, `logoUrl: brand.logo_url`, `position: 'bottom-right'`, `sizePercent: 15`
-   - Nếu fail → fallback bỏ qua logo, tiếp tục với ảnh step 1 (không block)
-4. **Step 3 — footer overlay** (gọi nếu `brand.footer_info` có data):
-   - Dùng existing edge function `overlay-footer-svg` (hoặc tạo SVG trực tiếp trong helper bằng Canvas API/sharp nếu chưa có) — **phase này check trước**: nếu chưa tồn tại edge function footer độc lập, helper sẽ chỉ làm step 1+2, log warning để pha sau bổ sung
-5. Trả URL cuối + diagnostic log từng step
+File: `supabase/functions/telegram-webhook/index.ts` (~line 1662–1678 trong `handleGenerateSingle`)
 
-### Sửa `supabase/functions/telegram-webhook/index.ts`
+Thêm 1 row mới giữa "Xem & duyệt" và "Tạo bài khác":
 
-Trong `generateImageForSinglePost` (~line 1280-1336):
-- Thay block fetch trực tiếp `generate-brand-image` bằng `await composeBrandedImage(...)`
-- Map `result.success / result.errorCode` vào `ok` + `failReason` như cũ (giữ nguyên 3 case message)
-- Giữ AbortSignal.timeout 120s, giữ notify follow-up
+```
+[ 🚀 Đăng ngay ] [ 📅 Lên lịch ]
+```
 
-### Verify trước khi code
+Callback data:
+- `pub:now:<contentId>:<channel>` — đăng ngay
+- `pub:menu:<contentId>:<channel>` — mở submenu chọn slot
 
-Kiểm tra 2 thứ ở phase implement:
-1. `supabase/functions/overlay-brand-logo/index.ts` có exist + accept `imageUrl + logoUrl + position + sizePercent` (nếu khác signature thì adapt)
-2. Có edge function nào sẵn cho footer SVG không (search `overlay-footer`, `footer-svg`). Nếu không có → footer sẽ defer sang pha sau, helper chỉ render logo (đã giải quyết 2/3 vấn đề user nêu)
+### 2. Submenu "Lên lịch" — y hệt pattern apv:sx (đã có sẵn)
+
+Khi user bấm **📅 Lên lịch**, edit message thành:
+```
+📅 Chọn thời điểm đăng cho <Channel>:
+[ +1 giờ  ] [ +3 giờ  ]
+[ Mai 9h  ] [ Mai 14h ]
+[ Tuỳ chỉnh (Mini App) ]
+[ « Quay lại ]
+```
+
+Callback: `pub:at:<contentId>:<channel>:<slot>` với `slot ∈ {1h, 3h, tmr9, tmr14}`. Nút "Tuỳ chỉnh" deeplink Mini App `/multichannel/<id>` để dùng date/time picker đầy đủ (đã có).
+
+### 3. Callback router `pub:*`
+
+Thêm handler `handlePublishCallback(...)` trong `telegram-webhook/index.ts`, đăng ký ở chỗ `if (data.startsWith("single:"))` (~line 2348):
+
+```ts
+if (data.startsWith("pub:") && chatId) {
+  await handlePublishCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+  return;
+}
+```
+
+Logic handler:
+- **Permission check**: resolve `tg_user → user_id` qua `telegram_chat_bindings` (private) → check `organization_members.role ∈ {owner, admin, member}` (có thể đăng bài, không cần chỉ admin như approve agent).
+- **Action `now`**: gọi thẳng `channel-publisher` qua service-role với body `{ action: <publishAction>, contentId, channel }`. Map `channel → action` ngược lại của `ACTION_TO_CHANNEL` trong `channel-publisher` (zalo_oa→zalo, google_maps→google-business, website→blog/website, …).
+- **Action `at`**: insert/upsert vào `content_schedules` `(content_id, channel, organization_id, scheduled_at, publish_status='scheduled', notes='via Telegram by tg_user=…', created_by=user_id)` — cron poll trong `agent-pipeline` sẽ tự đăng đúng giờ.
+- **Edit message** xác nhận: `✅ Đã lên lịch đăng <Channel> lúc dd/MM HH:mm` hoặc `🚀 Đang đăng <Channel>…`.
+- **Token expired** (response chứa "Token expired" / "Reconnect"): edit thành `⚠️ Kết nối <Channel> đã hết hạn` + nút **🔗 Kết nối lại** deeplink `https://app.flowa.one/connections?platform=<channel>` (tương đồng `ReconnectBanner` làm cho web).
+
+### 4. Hỗ trợ kênh
+
+Chỉ hiện nút "Đăng ngay / Lên lịch" khi `channel` thuộc các kênh có thể publish trực tiếp từ Flowa:
+`facebook, instagram, linkedin, twitter, tiktok, threads, zalo_oa, google_maps, website` (có blog).
+
+Với kênh **chưa connect** (kiểm tra nhanh `social_connections` của brand): vẫn show nút nhưng khi bấm trả lỗi `❌ Chưa kết nối <Channel>` + nút deeplink connect.
 
 ## Files sửa
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/_shared/branded-image-composer.ts` | **NEW** — helper 3-step compose (read brand → generate-brand-image với full params + structured → overlay-brand-logo → footer if available) |
-| `supabase/functions/telegram-webhook/index.ts` | Refactor `generateImageForSinglePost` dùng `composeBrandedImage` thay vì gọi raw `generate-brand-image` |
+| `supabase/functions/telegram-webhook/index.ts` | (a) Thêm row "🚀 Đăng ngay / 📅 Lên lịch" vào keyboard ở `handleGenerateSingle` (~line 1662); (b) Đăng ký `pub:*` route ở callback dispatcher (~line 2348); (c) Thêm function `handlePublishCallback` mới (~150 dòng): permission check, slot menu, gọi `channel-publisher` cho `now`, insert `content_schedules` cho `at`, handle token-expired errors. |
 
 ## Rủi ro
 
-Thấp. Helper bọc cùng 1 edge function existing, giữ luồng fire-and-forget. Nếu logo/footer overlay fail → fallback dùng ảnh raw (giống ảnh hiện tại Telegram đang trả) → user **không thể tệ hơn** trạng thái bây giờ.
+Thấp. Không động đến `agent-pipeline` cron / `channel-publisher` / `publish-*`. Chỉ thêm entry point mới. Schedule dùng cùng table `content_schedules` mà manual web flow & cron đã xài từ trước → không drift logic.
 
 ## Ngoài phạm vi
 
-- Tạo edge function `overlay-footer-svg` mới nếu chưa có (defer pha sau, sẽ confirm khi implement)
-- Refactor manual flow `useAutoImageGeneration` cũng dùng chung helper này (defer — manual flow đã hoạt động, không cần đụng)
-- Cho user chọn vị trí logo/footer qua Telegram command (defer)
+- **Multi-channel select trong Telegram** (chọn nhiều kênh đăng cùng lúc cho 1 bài): defer — luồng `/generate` hiện 1-bài-1-kênh, multi-channel nên đi qua agent campaign hoặc Mini App.
+- **Date/time picker tuỳ ý** (chọn ngày giờ bất kỳ): defer — nút "Tuỳ chỉnh" mở Mini App đã đủ.
+- **Cancel scheduled publish từ Telegram**: defer — Mini App đã có; sau này thêm `pub:cancel:<scheduleId>` nếu cần.
+- **Recurring schedule**: defer.
 
