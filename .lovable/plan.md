@@ -1,83 +1,66 @@
 
 
-# Fix ảnh không có text/footer/logo khi đăng từ Telegram
+# Điều tra "Telegram báo mất kết nối nhưng UI vẫn xanh"
 
-## Nguyên nhân thực sự (đã verify trong code)
+## Tình trạng DB (đã verify)
 
-Resolver `channel-publisher/resolve-social-payload.ts` (lines 111-127) parse `channel_images[channelKey]` **chỉ khi nó là array** (`Array.isArray(imgs)`).
-
-Nhưng thực tế trong DB (verify từ `agent-pipeline/index.ts:258`, `generate-brand-image/index.ts:897-902`, `agent-creator-v2/index.ts:230-236`, `SocialPostCard.tsx:76`), shape là **single object**:
-
-```js
-channel_images = {
-  facebook: { url: "https://...image-with-logo-footer.jpg", ... },
-  instagram: { url: "...", ... }
-}
+```
+profiles:                 flowasite@gmail.com → user c618b2dc...
+organization_members:     2 orgs (Flowa owner, cTY zxx owner)
+telegram_chat_bindings:   1 row, is_active=true, org=Flowa,
+                          chat_id=8002956073, last_command_at=06:51 hôm nay
+telegram_bot_configs:     1 default bot Flowa123bot, is_active=true
 ```
 
-→ `Array.isArray({url:...})` = false → `mediaUrls` không được inject → `publish-facebook` chỉ nhận `content` text → đăng bài text-only, **không có ảnh** (mà ảnh chính là cái chứa logo + footer + text overlay đã render sẵn từ `generate-brand-image`).
+→ **DB nói: Đã kết nối.** UI hiển thị "Đã kết nối" là **đúng dữ liệu**.
 
-User nói "ảnh không có text/footer/logo" — thực ra là **không có ảnh nào cả**, post chỉ có text. Cảm giác như "ảnh trống không logo" vì FB hiển thị link preview hoặc nothing.
+→ Mismatch nằm ở phía **bot Telegram trả lời sai** ("Chưa kết nối") chứ không phải UI sai.
 
-Thêm: **test cũ pass nhưng sai shape** — mock dùng array `[{url:...}, "url2"]` thay vì object `{url:...}` như production. Test không bắt được lỗi này.
+## Các nguyên nhân có thể (theo xác suất)
 
-## Fix
+### 1. Rate limit free chat bị nhầm với "mất kết nối" (cao)
+`telegram-webhook` line 1940-1949: nếu user vượt `FREE_CHAT_LIMIT` tin/giờ, bot trả: `⏳ Bạn đã đạt giới hạn… Thử lại sau ~N phút`. User có thể hiểu nhầm = "mất kết nối".
 
-### 1. `supabase/functions/channel-publisher/resolve-social-payload.ts`
+### 2. Default-bot rehydrate chọn nhầm org (thấp nhưng có rủi ro)
+`telegram-webhook` line 271-288: khi `organizationId=NULL` (default bot), code lookup binding theo `telegram_user_id`, `.order(linked_at desc).limit(1)`. Hiện user chỉ có 1 binding nên OK. Nhưng nếu user **/start lại từ org khác** (cTY zxx) trong tương lai, binding mới sẽ override binding Flowa → bot route về cTY zxx, web đang chọn Flowa → mismatch.
 
-Mở rộng parser cho **3 shape** (production + legacy + bulletproof):
+### 3. `lookupUserBinding` không filter `chat_type='private'` (thấp)
+Line 1863-1869: query `telegram_chat_id = chatId AND organization_id = X AND is_active=true` — nếu chatId trùng giữa private DM và group, có thể trả nhầm row. Hiện DB không có conflict nhưng là rủi ro thiết kế.
 
-```ts
-const imgs = channelImages[socialMap.channelKey];
-const urls: string[] = [];
+### 4. Token Telegram bot bị rotate / Flowa123bot offline (rất thấp)
+Cần check edge function logs — nếu bot không nhận webhook update nào suốt session đó.
 
-if (Array.isArray(imgs)) {
-  // legacy array
-  for (const it of imgs) {
-    const u = typeof it === 'string' ? it : it?.url || it?.image_url;
-    if (typeof u === 'string' && u.trim()) urls.push(u);
-  }
-} else if (imgs && typeof imgs === 'object') {
-  // production: single object {url, ...}
-  const u = (imgs as any).url || (imgs as any).image_url;
-  if (typeof u === 'string' && u.trim()) urls.push(u);
-} else if (typeof imgs === 'string' && imgs.trim()) {
-  urls.push(imgs);
-}
+## Cần xác nhận từ user
 
-if (urls.length > 0) {
-  finalPayload.mediaUrls = urls;
-  if (!finalPayload.mediaUrl) finalPayload.mediaUrl = urls[0];
-}
-```
+Trước khi fix, tôi cần biết **bot trả lời chính xác câu gì** trong Telegram:
 
-### 2. `supabase/functions/channel-publisher/__tests__/resolve-social-payload.test.ts`
+- (a) `👋 Chưa kết nối. Mở https://app.flowa.one/agents/telegram…` → nguyên nhân #2 hoặc #3 (rehydrate/lookup miss)
+- (b) `⏳ Bạn đã đạt giới hạn N tin chat AI/giờ…` → nguyên nhân #1 (rate limit, không phải kết nối)
+- (c) `Chưa kết nối. /start trong DM trước.` → nguyên nhân #3 (lookupUserBinding miss trên 1 handler cụ thể)
+- (d) Bot không trả lời gì cả → token / webhook delivery issue
 
-Sửa test mock cho đúng production shape + thêm 2 cases regression:
+## Hành động kế tiếp
 
-| Test | channel_images shape | Expected mediaUrls |
-|---|---|---|
-| Existing 8 platforms | đổi sang `{[ck]: {url: '...jpg'}}` (object) | `['...jpg']` |
-| **NEW** Legacy array shape | `{[ck]: [{url:'a'}, 'b']}` | `['a','b']` |
-| **NEW** String shape | `{[ck]: 'https://x.jpg'}` | `['https://x.jpg']` |
-| **NEW** Empty/missing image | `{[ck]: null}` hoặc `{}` | `mediaUrls` undefined (không inject) |
+**Bước 1 (ngay):** Hỏi user screenshot/nội dung chính xác bot trả về.
 
-### 3. Verify chuỗi dữ liệu (không sửa, chỉ confirm)
+**Bước 2 (sau khi xác định):** Tùy nguyên nhân:
 
-- `generate-brand-image` tạo ảnh đã có logo + footer + text overlay → upload → save URL vào `channel_images[channel].url` ✓
-- `publish-facebook` nhận `mediaUrls` → đăng `single photo` với `caption=content` (lines 82-105) ✓
-- Sau fix, Telegram flow sẽ pass `mediaUrls=[<branded-image-url>]` xuống publish-facebook → FB post có cả ảnh (đã render logo+footer+text) lẫn caption text ✓
-
-## Files sửa
-
-| File | Thay đổi |
+| Nguyên nhân | Fix |
 |---|---|
-| `supabase/functions/channel-publisher/resolve-social-payload.ts` | Hỗ trợ 3 shape của `channel_images[channel]`: object `{url}` (production), array (legacy), string. |
-| `supabase/functions/channel-publisher/__tests__/resolve-social-payload.test.ts` | Sửa mock sang object shape; thêm tests cho array+string+empty. |
+| (a) Rehydrate org mismatch | Trong rehydrate (line 271-288), prefer binding của org user **đang active trên web** (lưu `last_active_org` vào `telegram_chat_bindings` hoặc query `organization_members` ưu tiên owner role + most recent activity). Hoặc đơn giản: nếu chỉ có 1 active binding cho `telegram_user_id` thì dùng nó (đã đúng); nếu nhiều thì gửi inline keyboard cho user chọn org. |
+| (b) Rate limit | Đổi message rate-limit cho rõ ràng hơn (đã rõ rồi), hoặc tăng limit cho user free. Confirm với user. |
+| (c) `lookupUserBinding` miss | Thêm filter `.eq('chat_type','private')` cho DM lookup; thêm fallback lookup theo `telegram_user_id` nếu chat_id miss (group chat case). |
+| (d) Webhook delivery | Check `edge_function_logs` cho `telegram-webhook` trong khung giờ user test. |
 
-## Sau fix
-Redeploy `channel-publisher` → Telegram "🚀 Đăng ngay" cho FB/IG/LinkedIn/Threads/Twitter/Zalo/GBP sẽ kèm ảnh branded (có logo, footer, text overlay).
+**Bước 3:** Thêm diagnostic logging chi tiết: log `binding lookup result` (organization_id, found?, resolved_by) ở mỗi handler để tracing tương lai.
+
+## Files có thể sửa (sau khi xác định nguyên nhân)
+
+| File | Thay đổi tiềm năng |
+|---|---|
+| `supabase/functions/telegram-webhook/index.ts` | Sửa rehydrate logic / lookupUserBinding filter / log chi tiết hơn |
+| `src/pages/AgentChannelHubPage.tsx` | (Nếu cần) thêm tooltip giải thích "Đã kết nối nghĩa là binding DB còn — nếu bot không phản hồi đúng, dùng /start lại" |
 
 ## Rủi ro
-Rất thấp. Chỉ mở rộng parser (more permissive), không thay đổi schema/auth/forward. Tests mới đảm bảo cover cả 3 shape.
+Trung bình. Sửa rehydrate / lookup logic có thể ảnh hưởng tất cả user dùng default bot — phải test kỹ multi-org case.
 
