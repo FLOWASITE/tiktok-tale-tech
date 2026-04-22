@@ -1378,6 +1378,17 @@ function buildStructuredElement(
     const cardFontSize = textTokens.cardTitleFont;
     const cardDescFontSize = textTokens.cardDescFont;
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
+    let cardsPaddingLeft = ratioProfile.outerPadding;
+    let cardsPaddingRight = ratioProfile.outerPadding;
+    if (logoInCenterArea && logoMeta) {
+      if (logoMeta.position === 'center-left') cardsPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'center-right') cardsPaddingRight = logoSafeWidth;
+      if (logoMeta.position === 'center') {
+        cardsPaddingLeft = logoSafeWidth;
+        cardsPaddingRight = logoSafeWidth;
+      }
+    }
+    const cardsAvailableWidth = resolveContentWidth(imageWidth, ratioProfile, cardsPaddingLeft, cardsPaddingRight);
     
     const cardElements = elements.cards.items.map((item, idx) => {
       const gradientAngle = idx % 2 === 0 ? '135deg' : '225deg';
@@ -1443,7 +1454,6 @@ function buildStructuredElement(
         resolvedCardBg.startsWith('rgba') || resolvedCardBg.startsWith('#') ? resolvedCardBg : theme.cardTextColor
       );
       // Fit label font to available card width (approx 70% of card width)
-      const cardsAvailableWidth = resolveContentWidth(imageWidth, ratioProfile, cardsPaddingLeft, cardsPaddingRight);
       const cardAvailWidth = isGrid
         ? Math.max(120, ((cardsAvailableWidth - spacingTokens.cardGap) / 2) - spacingTokens.cardPaddingX * 2)
         : Math.max(140, cardsAvailableWidth - spacingTokens.cardPaddingX * 2);
@@ -1511,18 +1521,6 @@ function buildStructuredElement(
         },
       };
     });
-
-    // Cards safe-area: avoid logo at center-left/center-right/center
-    let cardsPaddingLeft = ratioProfile.outerPadding;
-    let cardsPaddingRight = ratioProfile.outerPadding;
-    if (logoInCenterArea && logoMeta) {
-      if (logoMeta.position === 'center-left') cardsPaddingLeft = logoSafeWidth;
-      if (logoMeta.position === 'center-right') cardsPaddingRight = logoSafeWidth;
-      if (logoMeta.position === 'center') {
-        cardsPaddingLeft = logoSafeWidth;
-        cardsPaddingRight = logoSafeWidth;
-      }
-    }
 
     children.push({
       type: 'div',
