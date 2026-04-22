@@ -1593,10 +1593,10 @@ function buildStructuredElement(
     const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center')
       ? Math.round(logoSafeHeight * ratioProfile.safeBottomMultiplier)
       : 0;
-    const ctaFitWidth = resolveBlockWidth(imageWidth, ratioProfile, ratioProfile.ctaMaxWidth, ctaPaddingX, centerSafeLeft, centerSafeRight);
-    const ctaFontSize = fitTextWithRatio(elements.cta, ctaFitWidth, textTokens.ctaFont, 14, 30);
     const ctaPaddingY = textTokens.ctaPaddingY;
     const ctaPaddingX = textTokens.ctaPaddingX;
+    const ctaFitWidth = resolveBlockWidth(imageWidth, ratioProfile, ratioProfile.ctaMaxWidth, ctaPaddingX, centerSafeLeft, centerSafeRight);
+    const ctaFontSize = fitTextWithRatio(elements.cta, ctaFitWidth, textTokens.ctaFont, 14, 30);
 
     children.push({
       type: 'div',
