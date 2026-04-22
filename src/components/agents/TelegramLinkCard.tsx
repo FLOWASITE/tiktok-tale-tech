@@ -404,7 +404,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
               {deeplinkUrl ? (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Mở Telegram → Start bot
+                  Kết nối tài khoản & bắt đầu ngay
                 </>
               ) : (
                 <>
