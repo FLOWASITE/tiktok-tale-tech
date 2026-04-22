@@ -79,7 +79,21 @@ export interface DecomposedRequest {
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
   /** AI-suggested template ID based on content analysis */
-  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card' | 'education_infographic';
+  suggestedLayout?:
+    | 'poster'
+    | 'infographic'
+    | 'quote_card'
+    | 'feature_list'
+    | 'contact_card'
+    | 'education_infographic'
+    | 'comparison_card'
+    | 'timeline_steps'
+    | 'stat_spotlight'
+    | 'testimonial_card'
+    | 'product_spotlight'
+    | 'editorial_cover'
+    | 'problem_solution'
+    | 'checklist_card';
 }
 
 /** Strategic context passed to AI decomposition for smarter layout selection */
@@ -379,8 +393,27 @@ export function autoSelectTemplate(
   description: string,
   overlayConfig: StructuredOverlayConfig
 ): string {
+  const normalized = description.toLowerCase();
   // Has contact info (phone/email/address) + cards → education_infographic
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  const hasStepSignal = /\b(step|steps|quy trình|các bước|bước \d|hướng dẫn|timeline|lộ trình)\b/i.test(description);
+  const hasComparisonSignal = /\b(vs|versus|so sánh|before\s*after|trước\s*và\s*sau|đúng\s*và\s*sai|cũ\s*và\s*mới|a\/b)\b/i.test(description);
+  const hasStatSignal = /\b\d+[\d.,]*\s*(%|x|triệu|tỷ|k|m|nghìn)?\b/.test(normalized) && /\b(tăng|giảm|đạt|kpi|roi|roas|ctr|số liệu|thống kê|insight|data)\b/i.test(description);
+  const hasTestimonialSignal = /\b(review|testimonial|feedback|khách hàng|đánh giá|case study|phản hồi|chứng thực)\b/i.test(description);
+  const hasProductSignal = /\b(sản phẩm|dịch vụ|launch|ra mắt|usp|ưu điểm|benefit|công dụng|combo|gói dịch vụ)\b/i.test(description);
+  const hasChecklistSignal = /\b(checklist|check list|lưu ý|quick tips|tips|điều cần nhớ|cần biết|must-know)\b/i.test(description);
+  const hasProblemSolutionSignal = /\b(vấn đề|pain point|nỗi đau|giải pháp|solution|khắc phục|cách xử lý)\b/i.test(description);
+  const hasEditorialSignal = /\b(trend|xu hướng|góc nhìn|opinion|quan điểm|insight cá nhân|thought leadership|editorial)\b/i.test(description);
+
+  if (hasComparisonSignal) return 'comparison_card';
+  if (hasStepSignal) return 'timeline_steps';
+  if (hasTestimonialSignal) return 'testimonial_card';
+  if (hasChecklistSignal) return 'checklist_card';
+  if (hasProblemSolutionSignal) return 'problem_solution';
+  if (hasProductSignal && (overlayConfig.cards || overlayConfig.cta)) return 'product_spotlight';
+  if (hasEditorialSignal && (overlayConfig.headline || overlayConfig.heroText)) return 'editorial_cover';
+  if (hasStatSignal && overlayConfig.heroText) return 'stat_spotlight';
+
   if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
 
   // Has contact info + no cards → contact_card
