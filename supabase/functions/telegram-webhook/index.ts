@@ -1401,12 +1401,31 @@ async function handleGenerateSingle(
   // Clean prompt → topic. If empty after stripping (user only said "tạo bài đăng FB"),
   // fall back to brand-driven generic topic so generate-multichannel doesn't get garbage.
   const cleanedTopic = cleanTopicFromTelegramPrompt(prompt);
-  let effectiveTopic = cleanedTopic;
-  if (!effectiveTopic || effectiveTopic.length < 4) {
+
+  // B1: Try AI-suggested topic (polished, hook-style headline based on brand context).
+  // B2: Fallback to cleaned user prompt.
+  // B3: Fallback to brand-driven generic topic.
+  let effectiveTopic = "";
+  let titleSource: "ai_suggestion" | "cleaned_prompt" | "fallback" = "fallback";
+
+  const aiTopic = await suggestTopicFromAI(
+    botConfig.organizationId,
+    brand?.id || null,
+    channel,
+    cleanedTopic,
+  );
+  if (aiTopic && aiTopic.length >= 20) {
+    effectiveTopic = aiTopic;
+    titleSource = "ai_suggestion";
+  } else if (cleanedTopic && cleanedTopic.length >= 4) {
+    effectiveTopic = cleanedTopic;
+    titleSource = "cleaned_prompt";
+  } else {
     const brandHint = brand?.brand_name ? ` cho ${brand.brand_name}` : "";
     effectiveTopic = `Bài đăng ${channelLabel}${brandHint}`;
-    console.log(`[handleGenerateSingle] Topic too short after cleaning, using brand-driven fallback: "${effectiveTopic}"`);
+    titleSource = "fallback";
   }
+  console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
 
   await sendMessage(botConfig.botToken, chatId,
     appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, brand?.brand_name),
