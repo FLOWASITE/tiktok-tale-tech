@@ -23,11 +23,13 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const isInternalCall = !!serviceRoleKey && token === serviceRoleKey;
 
+    let userId: string | null = null;
     if (!isInternalCall) {
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !user) {
         throw new Error('Unauthorized');
       }
+      userId = user.id;
     }
 
     const body = await req.json();
@@ -68,17 +70,22 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
     // Determine if user can set is_public
     let finalIsPublic = false;
     if (is_public) {
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      
-      if (roleData) {
+      if (isInternalCall) {
+        // Internal call (e.g. from channel-publisher → Telegram flow) — trust caller
         finalIsPublic = true;
-      } else {
-        console.log('[publish-blog] User attempted is_public but lacks admin role');
+      } else if (userId) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        if (roleData) {
+          finalIsPublic = true;
+        } else {
+          console.log('[publish-blog] User attempted is_public but lacks admin role');
+        }
       }
     }
 
