@@ -737,7 +737,7 @@ async function handleStart(
       await sendMessage(
         botConfig.botToken,
         chatId,
-        `🎉 Chào ${who}! AI Marketing Agent đã sẵn sàng trên Telegram.\n\n💬 Cứ chat tự nhiên — ví dụ: "tạo campaign cho spa làm đẹp", "quota tháng này còn bao nhiêu?"\n\nBắt đầu thử ngay hoặc gõ /help để xem tất cả lệnh.`,
+        `Chào ${who}! AI Marketing Agent đã sẵn sàng trên Telegram.\n\nCứ chat tự nhiên, ví dụ: "tạo campaign cho spa làm đẹp" hoặc "quota tháng này còn bao nhiêu?"\n\nBắt đầu thử ngay hoặc gõ /help để xem tất cả lệnh.`,
         { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
       );
       return;
@@ -748,15 +748,15 @@ async function handleStart(
       botConfig.botToken,
       chatId,
       [
-        "🎉 *Chào bạn!*",
+        "*Chào bạn!*",
         "",
-        "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
+        "Mình là AI Marketing Agent — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
         "",
-        "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+        "Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
         "",
-        "🔗 *Cách kết nối:*",
+        "*Cách kết nối*",
         "1. Bấm nút bên dưới để mở app Flowa",
-        "2. Đăng nhập (nếu chưa)",
+        "2. Đăng nhập nếu cần",
         "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
         "*Bắt đầu thử ngay!*",
@@ -881,11 +881,9 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     [
-      "🎉 *Chào bạn!*",
+      "*Chào bạn!*",
       "",
-      "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
-      "",
-      "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+      "Mình là AI Marketing Agent — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
       "",
       "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
       "",
