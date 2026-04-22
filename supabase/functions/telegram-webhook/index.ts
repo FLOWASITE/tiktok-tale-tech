@@ -306,18 +306,18 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
                 botConfig.botToken,
                 peekChatId,
                 [
-                  "🎉 *Chào bạn!*",
+                  "*Chào bạn!*",
                   "",
-                  "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
+                  "Mình là AI Marketing Agent — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
                   "",
-                  "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+                  "Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
                   "",
-                  "🔗 *Cách kết nối:*",
+                  "*Cách kết nối*",
                   "1. Mở https://app.flowa.one/agents/telegram",
                   "2. Bấm *Kết nối tài khoản & bắt đầu ngay* để lấy link /start cá nhân",
                   "3. Mở link đó trong Telegram rồi bắt đầu chat với bot",
                   "",
-                  "💡 Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, có thể bạn đang chat từ chat_id khác. Hãy /start lại để rebind chat hiện tại.",
+                  "Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, bạn có thể đang chat ở chat khác. Hãy /start lại để liên kết đúng chat hiện tại.",
                   "",
                   "*Bắt đầu thử ngay!*",
                 ].join("\n"),
@@ -396,7 +396,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       if (chatType === "private") {
         await sendMessage(
           botConfig.botToken, chatId,
-          "🤖 Hiện bot chỉ hiểu tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
+          "Hiện bot đang hỗ trợ tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
         );
       }
       return okResponse();
@@ -545,25 +545,26 @@ function okResponse(): Response {
 
 function helpText(): string {
   return [
-    "📋 Lệnh hỗ trợ:",
-    "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
-    "/generate <mô tả> — Tạo *campaign* nhiều bài (cần quyền can_create_goals)",
+    "*Lệnh hỗ trợ*",
+    "/start <token> — Kết nối tài khoản từ app Flowa",
+    "/generate <mô tả> — Tạo campaign nhiều bài (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
     "/campaigns — Xem 5 campaign mới nhất",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
-    "/link_group — (Admin, trong group) Kết nối group với tổ chức",
-    "/help — Hiện danh sách này",
+    "/link_group — Admin dùng trong group để kết nối với tổ chức",
+    "/help — Xem danh sách này",
     "",
-    "💬 *Hoặc chat tự nhiên — bot hiểu tiếng Việt!*",
-    "• Tạo *1 bài lẻ*: _\"viết 1 bài Facebook về spa giảm 30%\"_",
-    "• *Bán hàng*: _\"Viết 1 bài Facebook về serum mới theo hướng bán hàng\"_",
-    "• *Xây thương hiệu*: _\"Tạo caption Instagram xây thương hiệu cho spa\"_",
-    "• *Tăng tương tác*: _\"Viết bài Facebook tăng tương tác cho fanpage\"_",
-    "• *Chia sẻ giá trị*: _\"Viết bài chia sẻ giá trị về chăm sóc da\"_",
-    "• *Kéo khách*: _\"Tạo bài kéo khách để lấy lead cho gói trị nám\"_",
-    "• Tạo *campaign*: _\"campaign 2 tuần cho spa, 3 bài/tuần\"_",
+    "*Ví dụ chat tự nhiên*",
+    "• Viết 1 bài Facebook về spa giảm 30%",
+    "• Viết 1 bài Facebook về serum mới theo hướng bán hàng",
+    "• Tạo caption Instagram xây thương hiệu cho spa",
+    "• Viết bài Facebook tăng tương tác cho fanpage",
+    "• Viết bài chia sẻ giá trị về chăm sóc da",
+    "• Tạo bài kéo khách để lấy lead cho gói trị nám",
+    "• Campaign 2 tuần cho spa, 3 bài/tuần",
     "",
-    "🌐 *11 kênh hỗ trợ*: Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, *Google Business*, Email.",
+    "*Kênh hỗ trợ*",
+    "• Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, Google Business, Email",
   ].join("\n");
 }
 
