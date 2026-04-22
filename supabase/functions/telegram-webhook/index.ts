@@ -1560,6 +1560,7 @@ async function suggestTopicFromAI(
   brandTemplateId: string | null,
   channel: string,
   cleanedPrompt: string,
+  writingGoal?: TelegramWritingGoal,
 ): Promise<string | null> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/topic-ai`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1582,9 +1583,9 @@ async function suggestTopicFromAI(
           action: "suggest",
           organizationId,
           brandTemplateId: brandTemplateId || undefined,
-          contentGoal: "awareness",
+          contentGoal: getStrategyFromWritingGoal(writingGoal).contentGoal || "awareness",
           format: channel === "website" || channel === "blog" ? "blog" : "social",
-          query: queryHint,
+          query: queryHint ? buildTelegramSinglePostPrompt(queryHint, writingGoal) : undefined,
           categoryHint: queryHint,
           skipWebSearch: true,
           forceRefresh,
@@ -1638,9 +1639,9 @@ async function suggestTopicFromAI(
 }
 
 async function handleGenerateSingle(
-  ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string },
+  ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string; writingGoal?: TelegramWritingGoal },
 ): Promise<void> {
-  const { supabase, botConfig, chatId, telegramUserId, prompt, channel } = ctx;
+  const { supabase, botConfig, chatId, telegramUserId, prompt, channel, writingGoal } = ctx;
 
   if (!prompt) {
     await sendMessage(botConfig.botToken, chatId,
@@ -1691,6 +1692,8 @@ async function handleGenerateSingle(
   // Clean prompt → topic. If empty after stripping (user only said "tạo bài đăng FB"),
   // fall back to brand-driven generic topic so generate-multichannel doesn't get garbage.
   const cleanedTopic = cleanTopicFromTelegramPrompt(prompt);
+  const resolvedWritingGoal = writingGoal || detectWritingGoal(prompt);
+  const strategy = getStrategyFromWritingGoal(resolvedWritingGoal);
 
   // B1: Try AI-suggested topic (polished, hook-style headline based on brand context).
   // B2: Fallback to cleaned user prompt.
@@ -1703,6 +1706,7 @@ async function handleGenerateSingle(
     brand?.id || null,
     channel,
     cleanedTopic,
+    resolvedWritingGoal,
   );
   if (aiTopic && aiTopic.length >= 12) {
     effectiveTopic = aiTopic;
@@ -1733,6 +1737,13 @@ async function handleGenerateSingle(
   // Defensive: ensure effectiveTopic is always a usable string
   effectiveTopic = String(effectiveTopic || "").trim() || "Bài viết mới";
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
+  console.log("[handleGenerateSingle] strategy", {
+    writing_goal: resolvedWritingGoal || null,
+    contentGoal: strategy.contentGoal || null,
+    contentRole: strategy.contentRole || null,
+    contentAngle: strategy.contentAngle || null,
+    channel,
+  });
 
   await sendMessage(botConfig.botToken, chatId,
     appendBrandFooter(
@@ -1756,11 +1767,14 @@ async function handleGenerateSingle(
       },
       body: JSON.stringify({
         action: "create",
-        topic: effectiveTopic,
+        topic: buildTelegramSinglePostPrompt(effectiveTopic, resolvedWritingGoal),
         channels: [channel],
         organizationId: botConfig.organizationId,
         brandTemplateId: brand?.id || null,
         userId: binding.userId,
+        contentGoal: strategy.contentGoal,
+        contentRole: strategy.contentRole,
+        contentAngle: strategy.contentAngle,
         qualityMode: "balanced",
         agentMode: true,
         useTopicAsTitle: true,
