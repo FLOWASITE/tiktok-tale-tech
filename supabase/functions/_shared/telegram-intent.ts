@@ -3,6 +3,7 @@
 // falls back to Lovable Gateway). Returns structured intent + error code.
 
 import { callAI } from "./ai-provider.ts";
+import { normalizeChannel } from "./telegram-channel-aliases.ts";
 
 export type TelegramIntent =
   | { intent: "chitchat"; reply: string }
@@ -22,9 +23,21 @@ NHIỆM VỤ: phân loại tin nhắn user thành 1 trong 5 intent và gọi too
 
 INTENTS:
 - "generate_single": user muốn TẠO NGAY 1 BÀI ĐƠN LẺ cho 1 kênh cụ thể (KHÔNG phải campaign nhiều bài).
-  Dấu hiệu: "tạo 1 bài/post/content cho [kênh]", "viết 1 bài Facebook về…", "1 caption Instagram", "single post", "viết cho tôi 1 bài [kênh]".
+  Dấu hiệu: "tạo 1 bài/post/content cho [kênh]", "viết 1 bài Facebook về…", "1 caption Instagram", "single post", "viết cho tôi 1 bài [kênh]", "đăng lên [kênh]".
   Trích "prompt" = mô tả nội dung bài (giữ nguyên ý user, có thể bỏ phần "tạo 1 bài cho").
-  Trích "channel" = tên kênh đã chuẩn hoá lowercase (facebook, instagram, website, tiktok, linkedin, threads, x, zalo). Nếu user KHÔNG nói rõ kênh → để channel="".
+  Trích "channel" = channel key chuẩn lowercase. KHÔNG dùng alias — convert hết về key chuẩn:
+    • facebook (alias: fb, fanpage)
+    • instagram (alias: ig, insta)
+    • twitter (alias: x, tweet, x.com)
+    • linkedin (alias: li)
+    • tiktok (alias: tt, tik tok)
+    • threads
+    • youtube (alias: yt)
+    • website (alias: web, blog, trang web)
+    • zalo_oa (alias: zalo, oa, zalo oa)
+    • google_maps (alias: gbp, gmb, gg business, google business, google my business, google maps)
+    • email (alias: mail, newsletter)
+  Nếu user KHÔNG nói rõ kênh → để channel="".
 
 - "generate_campaign": user muốn TẠO CHIẾN DỊCH NHIỀU BÀI theo lịch.
   Dấu hiệu: "campaign", "chiến dịch", "X bài/tuần", "kế hoạch 2 tuần", "nhiều idea", "3 bài Facebook" (số ≥2), "5 idea TikTok".
@@ -98,8 +111,8 @@ export async function classifyIntent(
             },
             channel: {
               type: "string",
-              description: "Tên kênh lowercase (chỉ khi intent=generate_single). Để rỗng nếu user chưa chỉ định.",
-              enum: ["", "facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"],
+              description: "Channel key chuẩn lowercase (chỉ khi intent=generate_single). Để rỗng nếu user chưa chỉ định.",
+              enum: ["", "facebook", "instagram", "twitter", "linkedin", "tiktok", "threads", "youtube", "website", "zalo_oa", "google_maps", "email"],
             },
             reply: {
               type: "string",
@@ -144,6 +157,10 @@ export async function classifyIntent(
 
     const args = JSON.parse(toolCall.function.arguments) as ClassifyResult;
     if (!args.intent) return fallback("unknown");
+    // Normalize channel để tự sửa nếu AI vẫn trả enum cũ (vd "x" → "twitter", "zalo" → "zalo_oa")
+    if (args.channel) {
+      args.channel = normalizeChannel(args.channel);
+    }
     return args;
   } catch (err) {
     console.error("[telegram-intent] classify failed:", err);
