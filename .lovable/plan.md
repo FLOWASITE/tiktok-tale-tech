@@ -1,239 +1,218 @@
 
-# Chuẩn hóa split-to-stack và section gap cho canvas chật
+# Thêm bộ QA regression cho layout mới trên 4 ratio để bắt overflow sớm
 
 ## Mục tiêu
-Điều chỉnh renderer để các layout có xu hướng `split` hoặc bố cục ngang sẽ tự chuyển sang dạng `stack / dọc / compact` khi canvas chật, đặc biệt cho:
+Tạo một bộ test có cấu trúc để khóa regression cho các layout mới:
+
+- `comparison_card`
+- `timeline_steps`
+- `checklist_card`
+- `product_spotlight`
+- `problem_solution`
+- `testimonial_card`
+- `stat_spotlight`
+- `contact_card`
+
+trên 4 tỉ lệ phổ biến:
 
 - `1:1`
+- `4:5`
+- `16:9`
 - `9:16`
 
-Kết quả mong muốn:
-- không cố giữ 2 cột khi chiều ngang không đủ
-- khoảng cách giữa các section gọn hơn nhưng vẫn readable
-- cards / hero / CTA / footer giữ nhịp dọc ổn định, không bị “rời” hoặc “kẹt”
+Mục tiêu chính là bắt sớm các lỗi:
+- overflow chữ
+- split giữ 2 cột sai ở canvas hẹp
+- card/grid không tự stack
+- CTA/headline/footer vượt content width
+- footer/logo safe-area bị phá
 
-## Hiện trạng đã xác nhận
-Trong `supabase/functions/overlay-text-canvas/index.ts` đã có nền tốt nhưng chưa khóa rule đủ chặt:
+## Hướng triển khai
 
-- `getRatioProfile(...)` đã có:
-  - `sectionGap`
-  - `compactSectionGap`
-  - `splitGap`
-  - `splitPaddingX`
-  - `leftColumnWidth/rightColumnWidth`
-- `split` hiện chỉ auto-fallback sang stack theo rule đơn giản:
-  - `const isPortraitOrSquare = imageWidth <= imageHeight`
-  - `const isSplit = request.layout === 'split' && !isPortraitOrSquare`
-- điều này nghĩa là:
-  - `1:1` đã rơi khỏi split, nhưng mới chỉ theo điều kiện thô
-  - `9:16` cũng không split, nhưng spacing dọc chưa được ép compact rõ ràng
-- cards hiện mới có rule:
-  - portrait/square → ép `vertical`
-- phần root layout vẫn dùng `gap: spacingTokens.sectionGap` chung
-- split row hiện hard-code:
-  - `flexDirection: 'row'`
-  - `alignItems: 'center'`
-  - left/right gap riêng
-- chưa có helper “canvas quá chật” để quyết định:
-  - khi nào split phải stack
-  - khi nào section gap phải compact
-  - khi nào cards ngang/grid phải dồn về vertical
+### 1) Tách các quyết định layout quan trọng thành pure helpers có thể test
+Trong `supabase/functions/overlay-text-canvas/index.ts`, chuẩn hóa và export nội bộ testable cho các phần đang quyết định overflow-risk:
 
-## Cách triển khai
+- `getRatioProfile(...)`
+- `getLayoutBehavior(...)`
+- `getFooterLayoutProfile(...)`
+- helper resolve width:
+  - `resolveContentWidth(...)`
+  - `resolveBlockWidth(...)`
+- helper text tokens:
+  - `getTextScaleTokens(...)`
 
-### 1) Tạo layout-density helper cho structured overlay
-Trong `supabase/functions/overlay-text-canvas/index.ts`, thêm helper chuyên quyết định hành vi bố cục theo độ chật thực tế, ví dụ:
+Nếu cần, tách sang file phụ kiểu:
+- `supabase/functions/overlay-text-canvas/layout-helpers.ts`
 
-- `getLayoutBehavior(imageWidth, imageHeight, ratioProfile, elements)`
-
-Helper nên trả về:
-- `forceStack: boolean`
-- `forceCompact: boolean`
-- `useCompactSectionGap: boolean`
-- `cardsShouldStack: boolean`
-- `heroShouldStack: boolean`
-- `splitAlign: 'center' | 'stretch'`
-- `rootJustify: 'center' | 'flex-start'`
-
-Rule gợi ý:
-- `9:16` → luôn `forceStack = true`, `forceCompact = true`
-- `1:1` → luôn `forceStack = true`, `useCompactSectionGap = true`
-- `4:5` → chỉ compact nếu nhiều section / nhiều cards / footer dài
-- `16:9` → giữ split ngang nếu không crowded
-
-Ngoài ratio, nên cộng thêm heuristic:
-- nhiều hơn 4 section
-- có cả `hero/headline + cards + cta + footer`
-- cards từ 3 item trở lên
-- có `summaryRibbon`
-
-### 2) Chuẩn hóa “split-to-stack” từ rule thô sang rule chính thức
-Thay đoạn:
-- `isPortraitOrSquare`
-- `isSplit = request.layout === 'split' && !isPortraitOrSquare`
-
-bằng rule dùng helper mới, ví dụ:
-- `shouldUseSplitRow = request.layout === 'split' && !layoutBehavior.forceStack`
+để test không phải phụ thuộc vào `Deno.serve`.
 
 Mục tiêu:
-- `1:1` luôn stack
-- `9:16` luôn stack
-- `4:5` có thể stack nếu nội dung dày
-- `16:9` mới thật sự giữ split ngang
+- test được logic mà không cần render ảnh thật
+- khóa trực tiếp các rule anti-overflow mới vừa refactor
 
-Điều này giúp toàn bộ template `split` như:
-- `infographic`
-- `comparison_card`
-- `problem_solution`
+### 2) Tạo fixture matrix cho từng layout mới
+Thêm bộ fixture chuẩn hóa, ví dụ file:
+- `supabase/functions/overlay-text-canvas/__tests__/layout-regression.fixtures.ts`
 
-không còn bị cố gắng giữ logic 2 cột ở canvas hẹp.
-
-### 3) Thêm compact section-gap profile cho canvas chật
-Hiện root layout đang dùng:
-- `gap: spacingTokens.sectionGap`
-
-Cần chuyển sang gap động:
-- `resolvedSectionGap = layoutBehavior.useCompactSectionGap ? spacingTokens.compactSectionGap : spacingTokens.sectionGap`
-
-Áp dụng nhất quán cho:
-- root container
-- split/stack wrapper
-- left column / right column
-- khoảng cách headline → cards
-- cards → ribbon
-- ribbon → CTA
-- CTA → footer
-
-Có thể bổ sung thêm token trong `RatioProfile` nếu cần:
-- `stackSectionGap`
-- `denseSectionGap`
-- `stackTopPadding`
-
-Nhưng ưu tiên tái dùng `sectionGap` + `compactSectionGap` trước để tránh phình API nội bộ.
-
-### 4) Chuẩn hóa cards về vertical/compact khi canvas chật
-Hiện cards chỉ ép `vertical` khi `imageWidth <= imageHeight`.
-
-Cần thay bằng behavior rõ hơn:
-- nếu `forceCompact` hoặc `cardsShouldStack`:
-  - `horizontal` → `vertical`
-  - `grid-2x2` trên `1:1` và `9:16` → `vertical` hoặc grid 1 cột
-- giảm:
-  - `cardGap`
-  - `cardPaddingX`
-  - `cardPaddingY`
-- fit text theo card width thực tế sau khi stack
-
-Mục tiêu:
-- square không còn grid/card ngang quá rộng
-- 9:16 không bị card bành ngang rồi ép text xuống dòng quá nhiều
-
-### 5) Chuẩn hóa split hero và các cụm ngang sang dạng dọc khi cần
-Ngoài split layout tổng thể, trong renderer còn có các cụm ngang như:
-- split hero (`number + label`)
-- row-based footer mode
-- card nội bộ với icon + text
-
-Cần thêm điều kiện compact:
-- `split hero` ở `1:1` và `9:16` nếu width quá chật thì:
-  - circle ở trên
-  - label xuống dưới
-  - canh giữa hoặc canh trái theo profile
-- margin/gap lấy từ `spacingTokens.inlineGap` / `compactSectionGap`
-
-Mục tiêu:
-- không còn hero ngang chiếm bề rộng quá lớn ở canvas hẹp
-- number block / side label không chạm mép hoặc tạo cảm giác mất cân đối
-
-### 6) Refactor split wrapper để khi stack dùng chung hệ spacing
-Trong block final layout của `buildStructuredElement(...)`, refactor phần:
-- `splitRow`
-- `leftChildren`
-- `rightChildren`
-
-thành wrapper thích ứng:
-
-#### Mode A — split row
-Dùng cho:
-- `16:9`
-- một số `4:5` chưa crowded
-
-Behavior:
-- `flexDirection: 'row'`
-- `gap: spacingTokens.splitGap`
-- left/right width theo ratio profile
-
-#### Mode B — forced stack
-Dùng cho:
-- toàn bộ `1:1`
-- toàn bộ `9:16`
-- `4:5` crowded
-
-Behavior:
-- `flexDirection: 'column'`
-- left/right width = `100%`
-- gap = `resolvedSectionGap`
-- padding ngang theo `splitPaddingX` nhưng clamp chặt hơn nếu tall
-- `alignItems: 'stretch'`
-
-Điểm quan trọng:
-- mode stack này không chỉ “không split”, mà phải là một bố cục dọc thật sự có nhịp riêng.
-
-### 7) Giữ tương thích ngược với contract hiện tại
-Không đổi payload từ client nếu không cần.
-
-Giữ nguyên:
+Mỗi fixture nên có:
+- `templateId`
 - `layout`
 - `elements`
-- `footerMode`
-- `colors`
-- `imageWidth/imageHeight`
+- text dài thực tế bằng tiếng Việt
+- optional `logoMeta`
+- expected behavior per ratio
 
-Chỉ đổi logic nội bộ trong renderer:
-- helper quyết định split/stack
-- resolved section gap
-- compact cards/hero behavior
-- adaptive split wrapper
+Nhóm fixture tối thiểu:
 
-`src/hooks/useAutoImageGeneration.ts` và `SimpleImageGenerator.tsx` nhiều khả năng chưa cần sửa, vì renderer đã có đủ `layout + imageWidth/imageHeight`.
+#### comparison_card
+- 2 card before/after với label dài
+- có CTA
 
-## Files cần sửa
+#### timeline_steps
+- 3-5 bước với mô tả dài
+- numbered cards
+
+#### checklist_card
+- 4 item ngắn + 1 CTA
+
+#### product_spotlight
+- headline + 3 benefit cards + CTA
+
+#### problem_solution
+- split-like content có headline + 3 cards + CTA
+
+#### testimonial_card
+- heroText + headline + CTA
+
+#### stat_spotlight
+- heroText dạng `92%` + headline + banner
+
+#### contact_card
+- headline + footer dài gồm phone/email/address/website
+
+### 3) Viết regression tests theo ma trận layout × ratio
+Thêm file test chính, ví dụ:
+- `supabase/functions/overlay-text-canvas/__tests__/layout-regression.test.ts`
+
+Cho mỗi fixture, loop qua 4 ratio:
+- `1080x1080`
+- `1080x1350`
+- `1920x1080`
+- `1080x1920`
+
+Các assert chính:
+
+#### A. Split-to-stack
+- `1:1` và `9:16`:
+  - `getLayoutBehavior(...).forceStack === true`
+- `4:5` crowded:
+  - stack khi dense
+- `16:9`:
+  - split vẫn được giữ cho case phù hợp
+
+#### B. Section gap / compactness
+- square/tall:
+  - `useCompactSectionGap === true`
+- landscape:
+  - không compact quá mức nếu content vừa
+
+#### C. Cards anti-overflow
+- layout có `horizontal` hoặc `grid-2x2`:
+  - narrow ratio phải chuyển effective behavior sang dọc/1 cột
+- `cardsShouldStack === true` cho:
+  - `comparison_card` ở `1:1`, `9:16`
+  - `product_spotlight` ở `9:16`
+  - `checklist/timeline` nếu text dài
+
+#### D. Width guards
+Với headline / CTA / ribbon / footer:
+- `resolveBlockWidth(...) <= resolveContentWidth(...)`
+- block width không âm / không vượt content width sau padding
+- các token `maxWidth` cho tall ratio nhỏ hơn landscape
+
+#### E. Footer behavior
+- `contact_card` và các case footer dài:
+  - `1:1` → `two-row` hoặc `vertical-compact`
+  - `9:16` → `vertical-compact`
+  - `16:9` → không bị ép vertical nếu không crowded
+- logo `bottom-center`:
+  - `minBottomClearance` tăng đúng
+  - không giữ `single-row` khi footer quá dài
+
+### 4) Thêm “content stress cases” để bắt overflow thật sớm
+Ngoài fixture bình thường, thêm nhóm stress cases với:
+- headline dài 70-100 ký tự
+- CTA dài
+- 4 cards có label + description dài
+- footer có address dài
+
+Mục tiêu:
+- test không chỉ pass với content đẹp
+- khóa đúng các case dễ vỡ ngoài production
+
+Nên có ít nhất:
+- `problem_solution` stress
+- `contact_card` stress
+- `comparison_card` stress
+- `timeline_steps` stress
+
+### 5) Thêm test cho auto-select + applyTemplate của layout mới
+Mở rộng file hiện có:
+- `src/lib/__tests__/hybridImageGenerator.test.ts`
+
+Bổ sung integration coverage cho từng layout mới để chắc rằng input mẫu đúng loại nội dung vẫn map sang đúng template:
+- comparison
+- timeline
+- checklist
+- product spotlight
+- problem solution
+- testimonial
+- stat
+- contact
+
+Mục tiêu:
+- đầu vào đúng template
+- renderer QA phía sau nhận đúng shape layout cần kiểm tra
+
+### 6) Nếu cần, thêm snapshot nhẹ cho tree layout thay vì pixel render
+Không cần QA ảnh nặng để khóa logic overflow. Ưu tiên snapshot các output quyết định:
+- `ratioProfile`
+- `layoutBehavior`
+- `footerLayoutProfile`
+- resolved widths / spacing tokens
+
+Nếu cần thêm một lớp nữa, tách builder-level payload nhỏ để assert:
+- split row vs column
+- effective card layout
+- section gap được resolve sang compact hay không
+
+Mục tiêu:
+- snapshot ổn định
+- ít brittle hơn snapshot SVG full
+
+## Files dự kiến sửa / thêm
 - `supabase/functions/overlay-text-canvas/index.ts`
-  - chính: thêm layout behavior helper, chuẩn hóa split-to-stack, compact section gap, cards/hero stacking logic
+  - export hoặc tách pure helpers để test được
+- `supabase/functions/overlay-text-canvas/__tests__/layout-regression.fixtures.ts`
+  - fixture matrix cho layout mới
+- `supabase/functions/overlay-text-canvas/__tests__/layout-regression.test.ts`
+  - test matrix layout × ratio × stress case
+- `src/lib/__tests__/hybridImageGenerator.test.ts`
+  - thêm auto-select/applyTemplate coverage cho các layout mới nếu còn thiếu
 
-## QA bắt buộc
+## Tiêu chí pass
+Bộ QA mới phải xác nhận được:
 
-### 1:1
-- template `infographic`, `comparison_card`, `problem_solution`
-- luôn render theo dạng dọc
-- cards không còn nằm 2 cột nếu text dài
-- headline / CTA / footer có gap gọn nhưng không dính nhau
-
-### 9:16
-- mọi layout split hoặc horizontal đều chuyển dọc/compact
-- hero split không bị quá ngang
-- cards xếp 1 cột rõ ràng
-- CTA + footer không ép phần trên bị nghẹt
-
-### 4:5
-- case ít nội dung có thể vẫn thoáng
-- case nhiều nội dung phải compact hơn
-- không bị nhảy spacing thất thường giữa các section
-
-### 16:9
-- split ngang vẫn hoạt động
-- gap đủ thoáng
-- regression không làm layout landscape bị “nén” quá mức
-
-### Regression
-- `banner_cards`, `hero_text`, `stack`, `simple` không xấu đi
-- footer adaptive hiện tại vẫn giữ đúng safe-area với logo
-- các layout mới như `testimonial_card`, `timeline_steps`, `contact_card` vẫn sạch
+- `1:1` và `9:16` không giữ split sai ngữ cảnh
+- layout mới không để card/grid ngang ở canvas chật
+- `headline / CTA / footer` luôn fit trong width đã resolve
+- footer dài tự hạ về `two-row` hoặc `vertical-compact`
+- `16:9` không bị compact quá đà
+- auto-select vẫn map đúng template cho input mẫu thực tế
 
 ## Kết quả mong muốn
-Sau khi cập nhật:
+Sau khi thêm bộ test:
 
-- `1:1` và `9:16` luôn ưu tiên bố cục dọc/compact khi canvas chật
-- split layout không còn cố giữ 2 cột sai ngữ cảnh
-- section gap được chuẩn hóa theo mật độ nội dung thay vì dùng 1 nhịp cố định
-- các layout mới ổn định hơn rõ rệt, giảm tràn chữ và lệch nhịp trên canvas hẹp
+- mọi layout mới đều có regression coverage rõ ràng trên 4 ratio
+- mỗi lần refactor spacing / font / footer / split logic đều bị chặn sớm nếu gây overflow
+- team có một “safety net” đúng với các template social hiện tại, thay vì chỉ test logic chọn template
