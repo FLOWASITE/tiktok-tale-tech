@@ -1,10 +1,27 @@
 // ============================================================
 // Branded Image Composer — shared helper
-// Pipeline: generate-brand-image → overlay-logo-canvas → (footer TBD)
-// Used by Telegram webhook (and reusable for other server-side flows)
+// MIRRORS the manual /multichannel pipeline (useAutoImageGeneration) bit-for-bit:
+//   STEP A — decompose-image-request → backgroundPrompt + overlayConfig
+//   STEP B — applyTemplate (auto-select) → structuredElements/colors/template
+//   STEP C — generate-brand-image with imageContentType='with_text' + structuredElements
+//            (generate-brand-image's overlayMode is implicitly ai_render when structured*
+//             fields are present — AI bakes headline + footer + cards into the image)
+//   STEP D — overlay-logo-canvas
+//
+// No more `background_only` fallback. No more "footer DEFERRED". No bespoke logic.
+// Used by Telegram webhook (and any future server-side flow that needs the
+// same visual output as App /multichannel).
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  applyTemplate,
+  autoSelectTemplate,
+  buildFooterItemsFromBrand,
+  decomposeRequest,
+  type DecomposedRequest,
+  type StructuredOverlayConfig,
+} from "./hybrid-image-utils.ts";
 
 export type LogoPosition =
   | "top-left" | "top-center" | "top-right"
@@ -25,15 +42,18 @@ export interface ComposeBrandedImageParams {
   generateTimeoutMs?: number;
   /** Override timeout for the logo overlay step. Default 30s. */
   overlayTimeoutMs?: number;
+  /** Override timeout for the decompose step. Default 30s. */
+  decomposeTimeoutMs?: number;
 }
 
 export interface ComposeStepResult {
-  step: "generate" | "overlay-logo" | "overlay-footer";
+  step: "decompose" | "generate" | "overlay-logo" | "overlay-footer";
   ok: boolean;
   durationMs: number;
   errorCode?: string;
   error?: string;
   imageUrl?: string;
+  meta?: Record<string, unknown>;
 }
 
 export interface ComposeBrandedImageResult {
@@ -66,8 +86,15 @@ const VALID_POSITIONS = new Set<LogoPosition>([
 
 const VALID_STYLES = new Set<LogoStyle>(["clean", "shadow", "glass", "pill", "subtle"]);
 
+/** Channel → optimal aspect ratio (mirrors useAutoImageGeneration getAspectRatioForChannel) */
+function aspectRatioForChannel(channel: string): "16:9" | "1:1" | "9:16" | "4:5" {
+  if (channel === "tiktok") return "9:16";
+  if (channel === "instagram" || channel === "threads") return "1:1";
+  if (channel === "youtube") return "16:9";
+  return "16:9"; // facebook, linkedin, default
+}
+
 function autoLogoPosition(channel: string): LogoPosition {
-  // Match autoSelectLogoPosition heuristics from useAutoImageGeneration
   if (channel === "tiktok") return "top-right";
   if (channel === "instagram") return "bottom-right";
   if (channel === "facebook") return "bottom-right";
@@ -83,6 +110,15 @@ function normalizePosition(raw: string | null | undefined, channel: string): Log
 function normalizeStyle(raw: string | null | undefined): LogoStyle {
   if (!raw) return "shadow";
   return VALID_STYLES.has(raw as LogoStyle) ? (raw as LogoStyle) : "shadow";
+}
+
+/** First sentence (≤80 chars) — used as headline & textToInclude */
+function extractHeadline(text: string): string {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return "";
+  // Split on sentence-ending punctuation or newline.
+  const firstChunk = trimmed.split(/[.!?\n]/)[0]?.trim() || trimmed;
+  return firstChunk.slice(0, 80);
 }
 
 async function fetchBrand(
@@ -108,13 +144,98 @@ async function fetchBrand(
   }
 }
 
+/**
+ * STEP A — call decompose-image-request via service-key. Falls back to local regex
+ * decomposeRequest on any failure (mirrors decomposeRequestWithAI's catch path).
+ */
+async function decomposeViaEdge(params: {
+  supabaseUrl: string;
+  serviceKey: string;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  topic?: string;
+  imageStyle?: string;
+  timeoutMs: number;
+}): Promise<{ result: DecomposedRequest; usedFallback: boolean; durationMs: number; error?: string }> {
+  const t0 = Date.now();
+  const fallback = (errMsg?: string) => ({
+    result: decomposeRequest(params.description, params.primaryColor, params.secondaryColor),
+    usedFallback: true,
+    durationMs: Date.now() - t0,
+    error: errMsg,
+  });
+
+  try {
+    const res = await fetch(`${params.supabaseUrl}/functions/v1/decompose-image-request`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${params.serviceKey}`,
+        "apikey": params.serviceKey,
+      },
+      body: JSON.stringify({
+        description: params.description,
+        primaryColor: params.primaryColor,
+        secondaryColor: params.secondaryColor,
+        context: {
+          contentRole: "sprout",
+          topic: params.topic,
+          textToInclude: params.description,
+        },
+        imageStyle: params.imageStyle,
+      }),
+      signal: AbortSignal.timeout(params.timeoutMs),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      return fallback(`HTTP ${res.status}: ${txt.slice(0, 200)}`);
+    }
+
+    const data: any = await res.json().catch(() => null);
+    if (!data || data.errorCode || (data.error && !data.backgroundPrompt) || !data.backgroundPrompt?.description || !data.overlayConfig) {
+      return fallback(data?.errorCode || data?.error || "incomplete decompose response");
+    }
+
+    const overlayConfig: StructuredOverlayConfig = {
+      colors: data.overlayConfig.colors || { primary: params.primaryColor, secondary: params.secondaryColor, text: "#FFFFFF" },
+      ...(data.overlayConfig.banner ? { banner: data.overlayConfig.banner } : {}),
+      ...(data.overlayConfig.heroText ? { heroText: data.overlayConfig.heroText } : {}),
+      ...(data.overlayConfig.headline ? { headline: data.overlayConfig.headline } : {}),
+      ...(data.overlayConfig.cards ? { cards: data.overlayConfig.cards } : {}),
+      ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
+      ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
+      ...(data.overlayConfig.summaryRibbon ? { summaryRibbon: data.overlayConfig.summaryRibbon } : {}),
+    };
+
+    return {
+      result: {
+        backgroundPrompt: {
+          description: data.backgroundPrompt.description,
+          colorScheme: data.backgroundPrompt.colorScheme || `Primary: ${params.primaryColor}, Secondary: ${params.secondaryColor}`,
+          mood: data.backgroundPrompt.mood || "professional, modern",
+          elements: data.backgroundPrompt.elements || [],
+        },
+        overlayConfig,
+        suggestedLayout: data.suggestedLayout || undefined,
+      },
+      usedFallback: false,
+      durationMs: Date.now() - t0,
+    };
+  } catch (e) {
+    return fallback(e instanceof Error ? e.message : String(e));
+  }
+}
+
 export async function composeBrandedImage(
   params: ComposeBrandedImageParams,
 ): Promise<ComposeBrandedImageResult> {
   const {
-    supabaseUrl, serviceKey, contentId, channel, brandTemplateId, channelText,
+    supabaseUrl, serviceKey, contentId, channel, brandTemplateId, channelText, channelTitle,
     generateTimeoutMs = 120_000,
     overlayTimeoutMs = 30_000,
+    decomposeTimeoutMs = 30_000,
   } = params;
 
   const steps: ComposeStepResult[] = [];
@@ -134,32 +255,91 @@ export async function composeBrandedImage(
     ? brand.logo_opacity
     : 100;
 
-  // 1) STEP 1 — generate base image with full params
-  const isShortText = channelText.length > 0 && channelText.length <= 120;
-  const imageContentType = isShortText ? "with_text" : "background_only";
+  const primaryColor = brand?.primary_color || "#DC2626";
+  const secondaryColor = brand?.secondary_color || "#FFFFFF";
+
+  // ===== STEP A — Decompose =====
+  const decompose = await decomposeViaEdge({
+    supabaseUrl, serviceKey,
+    description: channelText,
+    primaryColor, secondaryColor,
+    topic: channelTitle,
+    imageStyle: brand?.image_style_preset || undefined,
+    timeoutMs: decomposeTimeoutMs,
+  });
+  steps.push({
+    step: "decompose",
+    ok: !decompose.usedFallback,
+    durationMs: decompose.durationMs,
+    error: decompose.error,
+    meta: { usedFallback: decompose.usedFallback },
+  });
+
+  let decomposed = decompose.result;
+
+  // Inject brand footer_info if AI/regex didn't surface one
+  const brandFooterItems = buildFooterItemsFromBrand(brand?.footer_info);
+  if (brandFooterItems.length > 0) {
+    const existing = decomposed.overlayConfig.footer?.items || [];
+    if (existing.length === 0) {
+      decomposed = {
+        ...decomposed,
+        overlayConfig: {
+          ...decomposed.overlayConfig,
+          footer: { items: brandFooterItems },
+        },
+      };
+    }
+  }
+
+  // ===== STEP B — Apply template (auto-select) =====
+  const overlayTemplate = autoSelectTemplate(channelText, decomposed.overlayConfig);
+  const templated = applyTemplate(overlayTemplate, decomposed, channelText, primaryColor);
+
+  // After template-apply, re-inject brand footer if applyTemplate left a placeholder
+  let overlayConfig = templated.overlayConfig;
+  if (brandFooterItems.length > 0) {
+    const currentItems = overlayConfig.footer?.items || [];
+    const onlyPlaceholder = currentItems.length === 1 && /Liên hệ để được tư vấn/i.test(currentItems[0]?.text || "");
+    if (currentItems.length === 0 || onlyPlaceholder) {
+      overlayConfig = { ...overlayConfig, footer: { items: brandFooterItems } };
+    }
+  }
+
+  // ===== STEP C — Generate base image with full structured payload =====
+  const headline = extractHeadline(channelText);
+  const channelAspectRatio = aspectRatioForChannel(channel);
 
   const genBody: Record<string, unknown> = {
     contentId,
     channel,
     brandTemplateId: brandTemplateId || undefined,
-    contentSummary: channelText.slice(0, 500),
-    imageContentType,
-    promptMode: "full",
+    contentSummary: decomposed.backgroundPrompt.description,
+    aspectRatio: channelAspectRatio,
+    imageStylePreset: brand?.image_style_preset || undefined,
     contentRole: "sprout",
+    contentAngle: "educational",
+    hookMessage: headline || undefined,
+    imageContentType: "with_text",
+    textToInclude: headline || undefined,
+    textPosition: "center",
+    typographyStyle: "modern",
+    promptMode: "full",
+    // Structured payload (triggers AI bake-in inside generate-brand-image)
+    structuredElements: {
+      ...(overlayConfig.banner ? { banner: overlayConfig.banner } : {}),
+      ...(overlayConfig.heroText ? { heroText: overlayConfig.heroText } : {}),
+      ...(overlayConfig.cards ? { cards: overlayConfig.cards } : {}),
+      ...(overlayConfig.headline ? { headline: overlayConfig.headline } : {}),
+      ...(overlayConfig.cta ? { cta: overlayConfig.cta } : {}),
+      ...(overlayConfig.footer ? { footer: overlayConfig.footer } : {}),
+      ...(overlayConfig.summaryRibbon ? { summaryRibbon: overlayConfig.summaryRibbon } : {}),
+    },
+    structuredColors: overlayConfig.colors,
+    structuredTemplate: overlayTemplate,
   };
-  if (isShortText) {
-    genBody.textToInclude = channelText;
-    genBody.textPosition = "center";
-    genBody.typographyStyle = "modern";
-  }
-  if (brand?.image_style_preset) {
-    genBody.imageStylePreset = brand.image_style_preset;
-  }
   if (logoUrl) {
-    genBody.logoSafeZone = {
-      position: logoPosition,
-      sizePercent: logoSizePercent,
-    };
+    genBody.logoSafeZone = { position: logoPosition, sizePercent: logoSizePercent };
   }
 
   const t1 = Date.now();
@@ -188,7 +368,19 @@ export async function composeBrandedImage(
       const data: any = await res.json().catch(() => ({}));
       if (data?.success === true && data?.imageUrl) {
         baseImageUrl = data.imageUrl;
-        steps.push({ step: "generate", ok: true, durationMs: dur, imageUrl: baseImageUrl });
+        steps.push({
+          step: "generate",
+          ok: true,
+          durationMs: dur,
+          imageUrl: baseImageUrl,
+          meta: {
+            template: overlayTemplate,
+            hasFooter: !!overlayConfig.footer,
+            footerItems: overlayConfig.footer?.items?.length || 0,
+            cards: overlayConfig.cards?.items?.length || 0,
+            headlineLen: headline.length,
+          },
+        });
       } else {
         const code = (data?.errorCode || "UNKNOWN") as string;
         genErrorCode = code === "CREDITS_EXHAUSTED" ? "CREDITS_EXHAUSTED"
@@ -211,7 +403,7 @@ export async function composeBrandedImage(
 
   let finalImageUrl = baseImageUrl;
 
-  // 2) STEP 2 — overlay logo (canvas) — non-blocking
+  // ===== STEP D — Overlay logo (canvas) — non-blocking =====
   if (logoUrl) {
     const t2 = Date.now();
     try {
@@ -260,21 +452,10 @@ export async function composeBrandedImage(
     console.log("[branded-image-composer] no brand.logo_url, skipping logo overlay");
   }
 
-  // 3) STEP 3 — footer overlay (DEFERRED: no standalone server-side footer SVG function exists yet)
-  // Manual flow uses a client-side Canvas/Satori path that is not portable to edge runtime.
-  // Phase 2: extract that into `overlay-footer-canvas` edge function and wire it here.
-  if (brand?.footer_info && Object.keys(brand.footer_info || {}).length > 0) {
-    console.log("[branded-image-composer] footer_info present but server-side footer overlay is not yet implemented — deferred");
-  }
-
-  // Persist final URL onto multi_channel_contents.image_url so Mini App reads correct asset
-  // generate-brand-image already wrote step1 URL; overlay-logo-canvas may also persist its own.
-  // To be safe, upsert again if the URL changed in step 2.
+  // Persist final URL onto multi_channel_contents.image_url
   if (finalImageUrl !== baseImageUrl) {
     try {
       const supabase = createClient(supabaseUrl, serviceKey);
-      // Update the channel-specific image in multi_channel_contents.channel_versions if structured that way,
-      // OR fall back to the legacy image_url column.
       const { error: updErr } = await supabase
         .from("multi_channel_contents")
         .update({ image_url: finalImageUrl, updated_at: new Date().toISOString() })
