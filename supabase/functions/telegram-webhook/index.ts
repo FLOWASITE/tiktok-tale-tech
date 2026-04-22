@@ -1218,7 +1218,7 @@ function cleanTopicFromTelegramPrompt(raw: string): string {
     /^(1|một|a|an)\s+/iu,
     /^(bài|post|content|caption|article|đoạn|nội dung)\s*(đăng|post)?\s*/iu,
     /^(cho|trên|tại|on|for)\s+/iu,
-    /^(facebook|fb|fanpage|instagram|ig|tiktok|tt|twitter|x|tweet|linkedin|li|threads|youtube|yt|zalo|oa|website|web|blog|email|mail|google maps?|gmb)\s*/iu,
+    /^(facebook|fb|fanpage|instagram|ig|tiktok|tt|twitter|x|tweet|linkedin|li|threads|youtube|yt|zalo|oa|website|web|blog|email|mail|google maps?|gmb)(?=\s|$)/iu,
     /^(về|chủ đề|topic|nội dung|về việc|about|on)\s+/iu,
   ];
   let prev = "";
@@ -1350,47 +1350,74 @@ async function suggestTopicFromAI(
 ): Promise<string | null> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/topic-ai`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12_000);
+  const startedAt = Date.now();
 
-  try {
-    const queryHint = cleanedPrompt && cleanedPrompt.length >= 3 ? cleanedPrompt : undefined;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${key}`,
-        "apikey": key,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        action: "suggest",
-        organizationId,
-        brandTemplateId: brandTemplateId || undefined,
-        contentGoal: "awareness",
-        format: channel === "website" || channel === "blog" ? "blog" : "social",
-        query: queryHint,
-        categoryHint: queryHint,
-        skipWebSearch: true,
-        forceRefresh: false,
-      }),
-    });
-    clearTimeout(timer);
+  const callOnce = async (forceRefresh: boolean, timeoutMs: number): Promise<string | null> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const queryHint = cleanedPrompt && cleanedPrompt.length >= 3 ? cleanedPrompt : undefined;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${key}`,
+          "apikey": key,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          action: "suggest",
+          organizationId,
+          brandTemplateId: brandTemplateId || undefined,
+          contentGoal: "awareness",
+          format: channel === "website" || channel === "blog" ? "blog" : "social",
+          query: queryHint,
+          categoryHint: queryHint,
+          skipWebSearch: true,
+          forceRefresh,
+        }),
+      });
+      clearTimeout(timer);
 
-    if (!res.ok) {
-      console.warn(`[suggestTopicFromAI] non-OK ${res.status}`);
+      if (!res.ok) {
+        console.warn(`[suggestTopicFromAI] non-OK status=${res.status} forceRefresh=${forceRefresh}`);
+        return null;
+      }
+      const data = await res.json().catch(() => ({} as any));
+      const suggestions = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      if (suggestions.length === 0) {
+        console.warn(`[suggestTopicFromAI] empty_suggestions forceRefresh=${forceRefresh}`);
+        return null;
+      }
+      const first = suggestions[0];
+      const topic = (first?.topic || first?.title || "").toString().trim();
+      if (topic.length < 12) {
+        console.warn(`[suggestTopicFromAI] topic_too_short len=${topic.length} value="${topic}"`);
+        return null;
+      }
+      return topic.slice(0, 280);
+    } catch (e) {
+      clearTimeout(timer);
+      console.warn(`[suggestTopicFromAI] failed (forceRefresh=${forceRefresh}):`, (e as Error)?.message || e);
       return null;
     }
-    const data = await res.json().catch(() => ({} as any));
-    const first = Array.isArray(data?.suggestions) ? data.suggestions[0] : null;
-    const topic = (first?.topic || first?.title || "").toString().trim();
-    if (topic.length >= 20) return topic.slice(0, 280);
-    return null;
-  } catch (e) {
-    clearTimeout(timer);
-    console.warn("[suggestTopicFromAI] failed:", (e as Error)?.message || e);
-    return null;
+  };
+
+  // Attempt 1: cached path (forceRefresh=false), 18s timeout
+  const first = await callOnce(false, 18_000);
+  if (first) return first;
+
+  // Attempt 2: only if we still have budget left (>= 8s remaining of an 18s window)
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < 10_000) {
+    console.log(`[suggestTopicFromAI] retrying with forceRefresh=true (elapsed=${elapsed}ms)`);
+    const remaining = Math.max(8_000, 18_000 - elapsed);
+    const second = await callOnce(true, remaining);
+    if (second) return second;
+  } else {
+    console.log(`[suggestTopicFromAI] skipping retry, no budget left (elapsed=${elapsed}ms)`);
   }
+  return null;
 }
 
 async function handleGenerateSingle(
@@ -1460,15 +1487,29 @@ async function handleGenerateSingle(
     channel,
     cleanedTopic,
   );
-  if (aiTopic && aiTopic.length >= 20) {
+  if (aiTopic && aiTopic.length >= 12) {
     effectiveTopic = aiTopic;
     titleSource = "ai_suggestion";
   } else if (cleanedTopic && cleanedTopic.length >= 4) {
     effectiveTopic = cleanedTopic;
     titleSource = "cleaned_prompt";
   } else {
-    const brandHint = brand?.brand_name ? ` cho ${brand.brand_name}` : "";
-    effectiveTopic = `Bài đăng ${channelLabel}${brandHint}`;
+    // Brand-driven heuristic — KHÔNG dùng "Bài đăng <Channel> cho <Brand>" nữa
+    const truncBrand = (brand?.brand_name || "").trim().slice(0, 40);
+    const industry = (brand?.industry || "").trim();
+    const templates: string[] = [];
+    if (industry) {
+      templates.push(`${industry}: Bí quyết & xu hướng đáng chú ý`);
+      if (truncBrand) {
+        templates.push(`Cập nhật mới nhất về ${industry} cho thương hiệu ${truncBrand}`);
+      }
+    }
+    if (truncBrand) {
+      templates.push(`Cập nhật mới từ ${truncBrand}`);
+      templates.push(`${truncBrand} — bài viết mới đáng đọc`);
+    }
+    if (templates.length === 0) templates.push("Bài viết mới");
+    effectiveTopic = templates[Math.floor(Math.random() * templates.length)];
     titleSource = "fallback";
   }
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
@@ -1558,6 +1599,7 @@ async function handleGenerateSingle(
       `✅ *Bài ${channelLabel} đã sẵn sàng*`,
       "",
       `📝 *${escapeMd(displayTitle)}*`,
+      titleSource === "fallback" ? `_💡 Tiêu đề tạm — bạn có thể đổi trên Mini App_` : "",
       brandLine,
       "",
       statsLine,
