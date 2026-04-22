@@ -1,215 +1,214 @@
 
-# Cập nhật footer overlay để tự wrap theo ratio và né logo/mép
+# Refactor font scaling theo `min(width,height)` + ratio profile cho headline / CTA / footer
 
 ## Mục tiêu
-Nâng `footer` trong `overlay-text-canvas` để:
+Chuẩn hóa toàn bộ logic scale + clamp để các block chữ quan trọng:
 
-- tự chọn giữa:
-  - `2 hàng` cho khung vuông / portrait vừa
-  - `vertical compact` cho khung hẹp / footer dài / logo chiếm chỗ
-- không đè lên logo ở các vị trí đáy
-- không chạm mép trái/phải
-- vẫn giữ pipeline hiện tại: AI render phần chính, canvas render footer
+- `headline`
+- `CTA`
+- `footer`
+
+giữ kích thước đúng và ổn định trên 4 tỉ lệ chính:
+
+- `1:1`
+- `4:5`
+- `16:9`
+- `9:16`
+
+đồng thời:
+- không bị quá to ở portrait/tall
+- không bị quá bé ở landscape
+- không chạm mép / không đè logo
+- nhất quán giữa các layout mới và cũ
 
 ## Hiện trạng đã xác nhận
-Có 2 điểm đang làm footer dễ vỡ:
+Trong `supabase/functions/overlay-text-canvas/index.ts` hiện đã có nền tảng tốt nhưng còn chưa đồng bộ:
 
-1. `SimpleImageGenerator.tsx`
-- đang luôn gửi `footerOverlay.layout = 'simple'`
-- chưa có hint nào cho wrap mode theo ratio
+- `footer` đã bắt đầu scale theo `Math.min(imageWidth, imageHeight)` thông qua `getFooterLayoutProfile(...)`
+- nhưng nhiều block khác vẫn scale theo `imageWidth`, ví dụ:
+  - banner text
+  - hero text
+  - headline
+  - CTA
+  - card description
+  - summary ribbon
+- hiện đang có nhiều công thức rời rạc như:
+  - `Math.round(imageWidth * 0.035)` cho headline
+  - `Math.round(imageWidth * 0.025)` cho CTA
+  - `Math.round(imageWidth * 0.03)` cho banner
+- điều này làm:
+  - `9:16` dễ bị chữ to/chật bất thường
+  - `16:9` có block bị nhỏ hơn mong muốn
+  - các block không cùng “hệ scale” nên nhìn thiếu cân đối
 
-2. `supabase/functions/overlay-text-canvas/index.ts`
-- footer hiện render bằng 1 thanh ngang:
-  - `display: flex`
-  - `justifyContent: center`
-  - `gap: 16`
-  - không có `flexWrap`
-  - không có mode `two-row` hay `vertical compact`
-- safe-area mới chỉ tăng `paddingLeft/paddingRight` theo `logoMeta.position === bottom-left/right`
-- chưa có logic:
-  - đo mật độ footer theo ratio
-  - đổi layout khi khung là `1:1`, `4:5`, `9:16`
-  - tăng đáy an toàn khi logo ở `bottom-center`
+## Hướng triển khai
 
-## Cách triển khai
+### 1) Tạo ratio profile dùng chung cho structured overlay
+Trong `supabase/functions/overlay-text-canvas/index.ts`, thêm helper kiểu:
 
-### 1) Thêm footer ratio profile trong `overlay-text-canvas`
-Trong `supabase/functions/overlay-text-canvas/index.ts`, tạo helper chuyên cho footer, ví dụ:
+- `getRatioProfile(imageWidth, imageHeight)`
 
-- `getFooterLayoutProfile(imageWidth, imageHeight, footerItems, logoMeta)`
-
-Profile nên trả về:
-- `mode`: `'single-row' | 'two-row' | 'vertical-compact'`
-- `fontSize`
-- `itemGap`
-- `rowGap`
-- `paddingX`
-- `paddingY`
-- `maxItemWidth`
-- `justifyContent`
-- `alignItems`
-- `allowWrap`
-- `minBottomClearance`
+Profile nên trả về các flag + token dùng chung:
+- `kind`: `'landscape' | 'square' | 'portrait' | 'tall'`
+- `sizeBasis`: `Math.min(imageWidth, imageHeight)`
+- `contentMaxWidth`
+- `headlineMaxWidth`
+- `ctaMaxWidth`
+- `footerMaxWidth`
+- `sectionGap`
+- `outerPadding`
+- `safeBottomMultiplier`
+- `fontScale`
+- `compactness`
 
 Rule gợi ý:
-- `16:9`:
-  - ưu tiên `single-row`
-  - nếu text dài hoặc có 4 items thì chuyển `two-row`
-- `1:1`:
-  - mặc định `two-row`
-  - nếu item dài + logo ở đáy thì `vertical-compact`
-- `4:5`:
-  - ưu tiên `two-row`
-  - nếu address/email dài thì `vertical-compact`
-- `9:16`:
-  - ưu tiên `vertical-compact`
-  - chỉ dùng `two-row` khi footer ngắn
+- `16:9` → fontScale hơi tăng, spacing thoáng
+- `1:1` → trung tính, ưu tiên cân bằng
+- `4:5` → giảm nhẹ chiều ngang, tăng compactness
+- `9:16` → siết font + width mạnh nhất
 
-### 2) Tính “footer crowding” thay vì chỉ nhìn ratio
-Ngoài ratio, thêm heuristic theo độ dài thực tế:
+### 2) Tạo bộ utility scale/clamp thống nhất
+Thay vì nhiều `Math.round(imageWidth * x)` rải rác, thêm các helper chung:
 
-- tổng số ký tự footer
-- item dài nhất
-- số item
-- có `address` dài hay không
-- logo ở vùng đáy hay không
+- `scaleFromMin(sizeBasis, ratio, minPx, maxPx)`
+- `fitTextWithRatio(text, maxWidth, baseSize, minPx, maxPx)`
+- `getTextScaleTokens(ratioProfile, theme, elementCount)`
 
-Ví dụ:
-- `totalChars > ngưỡng`
-- hoặc `longestItem > ngưỡng`
-- hoặc `logo.position` nằm ở `bottom-*`
-thì footer phải hạ từ `single-row` xuống `two-row` hoặc `vertical-compact`.
+Ví dụ tokens:
+- `bannerFont`
+- `heroFont`
+- `headlineFont`
+- `ctaFont`
+- `footerFont`
+- `cardTitleFont`
+- `cardDescFont`
+- `ribbonFont`
 
-Điều này giúp cùng là `4:5` nhưng footer ngắn vẫn 2 hàng đẹp, footer dài thì tự chuyển dọc gọn.
+Mục tiêu:
+- mọi block text đi qua cùng một lớp scale/clamp
+- dễ tune theo ratio mà không sửa từng đoạn rời rạc
 
-### 3) Sửa safe-area cho logo ở toàn bộ vùng đáy
-Hiện tại footer chỉ né `bottom-left` và `bottom-right`.
+### 3) Refactor riêng cho headline
+Hiện `headline` đang dùng:
+- `fontSize: Math.round(imageWidth * 0.035)`
+- `maxWidth: '85%'`
 
-Cần mở rộng:
-- `bottom-left` → tăng `paddingLeft`
-- `bottom-right` → tăng `paddingRight`
-- `bottom-center` → tăng:
-  - `paddingBottom` hoặc `minHeight`
-  - khoảng cách nội dung footer với vùng giữa đáy
-  - nếu cần, ép mode `two-row` / `vertical-compact`
+Cần đổi sang:
+- base theo `sizeBasis = min(width,height)`
+- clamp theo ratio profile
+- fit theo `headlineMaxWidth`
+- padding container cũng scale theo `sizeBasis`
 
-Với `bottom-center`, không nên chỉ tăng CTA phía trên; footer cũng phải biết vùng giữa đáy đang bị logo chiếm.
+Kết quả mong muốn:
+- `16:9`: headline đủ lớn, không bị lọt thỏm
+- `1:1`, `4:5`: headline cân đối, không đụng mép
+- `9:16`: headline không bị phình ngang hoặc quá đậm so với canvas
 
-### 4) Refactor render footer từ “1 hàng cứng” sang “adaptive block”
-Đổi block footer hiện tại thành container thích ứng:
+### 4) Refactor riêng cho CTA
+Hiện CTA đang dùng:
+- `fontSize: Math.round(imageWidth * 0.025)`
+- `padding: '12px 32px'`
 
-#### Mode A — single-row
-Dùng cho:
-- `16:9`
-- footer ngắn
-- logo không chiếm quá nhiều không gian đáy
+Cần đổi sang:
+- font theo `sizeBasis` + ratio clamp
+- padding ngang/dọc theo profile
+- width tối đa hoặc horizontal padding phù hợp từng ratio
+- vẫn giữ safe-area với `bottom-center logo`
 
-Behavior:
-- 1 hàng ngang
-- item spacing nhỏ hơn hiện tại
-- mỗi item có `maxWidth`
-- text wrap nội bộ nếu cần
+Rule gợi ý:
+- `16:9`: CTA rộng hơn, text hơi lớn hơn
+- `1:1`, `4:5`: compact vừa phải
+- `9:16`: CTA không quá rộng, font nhỏ hơn 1 nấc, padding dọc gọn hơn
 
-#### Mode B — two-row
-Dùng cho:
-- `1:1`, `4:5`
-- hoặc footer trung bình/dài
+### 5) Chuẩn hóa footer vào cùng hệ scale
+`footer` hiện đã có `getFooterLayoutProfile(...)`, nhưng vẫn cần đồng bộ thêm:
 
-Behavior:
-- `flexWrap: 'wrap'`
-- item rộng khoảng `45%` hoặc theo tính toán profile
-- canh giữa
-- row gap nhỏ
-- address dài có thể chiếm full width nếu cần
+- font footer phải dựa trên cùng `sizeBasis`
+- ngưỡng clamp nên bám ratio profile, không đứng riêng
+- icon size trong footer đi theo `footerFont`
+- paddingX / paddingY / bottomClearance cũng bám ratio profile
 
-#### Mode C — vertical-compact
-Dùng cho:
-- `9:16`
-- footer dài
-- logo ở vùng đáy
-- contact-heavy layout
+Mục tiêu:
+- footer không bị “một hệ scale riêng” lệch so với headline/CTA
+- khi xuống `two-row` hoặc `vertical-compact`, nhìn vẫn đồng bộ toàn layout
 
-Behavior:
-- `flexDirection: 'column'`
-- `alignItems: 'flex-start'` hoặc `'center'` tùy ratio
-- mỗi item là một dòng riêng
-- font nhỏ hơn một nấc
-- spacing dọc chặt hơn nhưng vẫn rõ ràng
+### 6) Áp dụng hệ scale mới cho các block liên quan để tránh lệch tổng thể
+Dù mục tiêu chính là `headline / CTA / footer`, để output không bị lệch nhịp cần refactor thêm các block sát cạnh:
 
-### 5) Chuẩn hóa thứ tự và ưu tiên item footer
-Để footer compact hơn, chuẩn hóa thứ tự hiển thị:
-- phone
-- website
-- email
-- address
+- `banner`
+- `heroText`
+- `summaryRibbon`
+- `cardDescFontSize`
+- số trong numbered cards / hero circle label
 
-Nếu cần chế độ compact:
-- address xuống dòng cuối
-- address có thể dùng width lớn hơn / full width
-- item quan trọng giữ ở dòng đầu
+Ít nhất các block này cần chuyển từ `imageWidth * x` sang:
+- `sizeBasis`
+- clamp theo ratio profile
 
-Điều này giảm nguy cơ một address dài làm vỡ toàn bộ footer.
-
-### 6) Cập nhật typing để hỗ trợ footer mode rõ ràng
-Trong `src/hooks/useAutoImageGeneration.ts`:
-- mở rộng `footerOverlay` typing để cho phép metadata nhẹ nếu cần, ví dụ:
-  - `footerMode?: 'auto' | 'single-row' | 'two-row' | 'vertical-compact'`
-
-Trong `SimpleImageGenerator.tsx`:
-- giữ mặc định `footerMode: 'auto'`
-- vẫn để backend renderer tự quyết theo `imageWidth/imageHeight + logoMeta + footer text`
-
-Nếu không muốn tăng schema nhiều, có thể không truyền field mới và để function tự suy hoàn toàn. Nhưng tốt nhất nên thêm `auto` để contract rõ ràng.
+Nếu không, headline/CTA/footer đúng nhưng các block còn lại vẫn có thể mất cân đối.
 
 ### 7) Giữ tương thích ngược
-Không đổi behavior của:
-- simple text overlay cũ
-- structured overlay khác ngoài footer
-- manual image pipeline hiện tại
+Không đổi contract API hiện tại nếu không cần.
 
-Chỉ thay phần render `elements.footer`:
-- input cũ vẫn dùng được
-- nếu client chưa truyền mode mới thì mặc định `auto`
+Giữ nguyên:
+- `footerMode`
+- `layout`
+- `elements`
+- `colors`
+- `imageWidth/imageHeight`
+
+Chỉ refactor nội bộ renderer:
+- thay công thức scale
+- gom logic vào helper/profile
+- không làm vỡ pipeline hiện tại:
+  - AI render phần chính
+  - logo overlay
+  - footer/text canvas
+
+### 8) QA bắt buộc theo từng ratio
+Sau khi implement cần test ít nhất các case sau:
+
+#### 16:9
+- infographic có banner + headline + CTA + footer
+- CTA không bị nhỏ
+- headline không quá mỏng so với canvas
+
+#### 1:1
+- testimonial / stat / checklist
+- headline và CTA cân giữa
+- footer 2 hàng vẫn readable
+
+#### 4:5
+- timeline / product spotlight / problem-solution
+- headline không đụng mép
+- CTA không chiếm quá nhiều chiều ngang
+- footer không kéo layout quá cao
+
+#### 9:16
+- contact-heavy / testimonial / stat spotlight
+- headline không quá to
+- CTA vẫn rõ nhưng compact
+- footer vertical compact vẫn đồng bộ font scale
+
+#### Regression
+- brand không có footer
+- footer chỉ 1 item
+- simple/manual overlay cũ không bị ảnh hưởng xấu
+- layout mới như `comparison_card`, `timeline_steps`, `testimonial_card`, `contact_card` vẫn sạch
 
 ## Files cần sửa
 - `supabase/functions/overlay-text-canvas/index.ts`
-  - chính: adaptive footer layout, crowding heuristics, logo-safe handling
+  - chính: ratio profile + scale utilities + refactor font sizing/clamp cho headline/CTA/footer và các block liên quan
 - `src/hooks/useAutoImageGeneration.ts`
-  - typing cho footer overlay nếu thêm `footerMode`
+  - chỉ sửa nếu cần bổ sung metadata/logging cho ratio profile; ưu tiên không đổi contract
 - `src/components/multichannel/SimpleImageGenerator.tsx`
-  - truyền `footerMode: 'auto'` trong `footerOverlay`
-
-## QA bắt buộc sau khi implement
-
-### Ratio 16:9
-- footer 2–3 item ngắn → 1 hàng
-- footer 4 item hoặc có address → tự xuống 2 hàng
-- logo `bottom-right` không đè website/email
-
-### Ratio 1:1
-- footer mặc định 2 hàng ổn định
-- không chạm mép trái/phải
-- logo `bottom-left/right` không cắn vào item đầu/cuối
-
-### Ratio 4:5
-- footer contact-heavy → 2 hàng hoặc vertical compact
-- address dài không làm tràn ngang
-- CTA phía trên không đè footer
-
-### Ratio 9:16
-- footer dài → vertical compact
-- giữ readable, không bị ép 1 hàng
-- logo `bottom-center` không chồng lên footer
-
-### Regression
-- brand không có footer → skip bình thường
-- footer chỉ 1 item → không bị render quá cao
-- layout mới như `testimonial_card`, `timeline_steps`, `contact_card` vẫn render sạch
+  - chỉ sửa nếu cần truyền thêm hint; nhiều khả năng không bắt buộc
 
 ## Kết quả mong muốn
-Sau khi cập nhật:
+Sau khi refactor:
 
-- footer tự thích nghi đúng theo `1:1`, `4:5`, `16:9`, `9:16`
-- footer dài sẽ tự xuống `2 hàng` hoặc `vertical compact`
-- logo ở vùng đáy không còn đè footer
-- footer không chạm mép và giữ được độ đọc tốt trên các layout social mới
+- mọi text block quan trọng đều scale theo `min(width,height)` thay vì lệ thuộc `imageWidth`
+- `headline / CTA / footer` có clamp đúng theo từng ratio
+- `1:1`, `4:5`, `16:9`, `9:16` đều giữ nhịp chữ nhất quán
+- layout mới không còn cảm giác block này quá to nhưng block kia quá nhỏ
+- logo safe-area và footer adaptive hiện tại vẫn tiếp tục hoạt động ổn định
