@@ -184,3 +184,80 @@ Deno.test("two users in same org: B's confirm cleanup must not match A's private
     "User B's stale private binding to old Flowa account MUST be cleaned",
   );
 });
+
+Deno.test("reconnect cleanup only deletes stale private rows for the current user in the same org", () => {
+  const rows = [
+    {
+      id: "row-a-private",
+      telegram_chat_id: 1001,
+      telegram_user_id: 11111,
+      user_id: "user-a-uuid",
+      organization_id: "org-flowa",
+      chat_type: "private",
+    },
+    {
+      id: "row-b-private-old",
+      telegram_chat_id: 2001,
+      telegram_user_id: 22222,
+      user_id: "user-b-uuid",
+      organization_id: "org-flowa",
+      chat_type: "private",
+    },
+    {
+      id: "row-b-private-current",
+      telegram_chat_id: 2002,
+      telegram_user_id: 22222,
+      user_id: "user-b-uuid",
+      organization_id: "org-flowa",
+      chat_type: "private",
+    },
+    {
+      id: "row-b-other-org",
+      telegram_chat_id: 3001,
+      telegram_user_id: 22222,
+      user_id: "user-b-uuid",
+      organization_id: "org-other",
+      chat_type: "private",
+    },
+  ];
+
+  const pendingOrg = "org-flowa";
+  const pendingUser = "user-b-uuid";
+  const currentChatId = 2002;
+
+  const survivors = rows.filter((r) => {
+    const matches =
+      r.organization_id === pendingOrg &&
+      r.user_id === pendingUser &&
+      r.chat_type === "private" &&
+      r.telegram_chat_id !== currentChatId;
+    return !matches;
+  });
+
+  assertEquals(survivors.length, 3);
+  assertEquals(survivors.some((r) => r.id === "row-a-private"), true);
+  assertEquals(survivors.some((r) => r.id === "row-b-private-current"), true);
+  assertEquals(survivors.some((r) => r.id === "row-b-other-org"), true);
+  assertEquals(survivors.some((r) => r.id === "row-b-private-old"), false);
+});
+
+Deno.test("default-bot rehydrate prefers chat_id binding over telegram_user_id fallback", () => {
+  const chatBinding = {
+    organization_id: "org-user-b",
+    linked_at: "2026-04-22T10:00:00.000Z",
+  };
+  const userBinding = {
+    organization_id: "org-user-a",
+    linked_at: "2026-04-22T09:00:00.000Z",
+  };
+
+  const binding = chatBinding?.organization_id ? chatBinding : userBinding;
+  const resolvedBy = chatBinding?.organization_id
+    ? "chat_id"
+    : userBinding?.organization_id
+    ? "telegram_user_id"
+    : null;
+
+  assertEquals(binding.organization_id, "org-user-b");
+  assertEquals(resolvedBy, "chat_id");
+});
