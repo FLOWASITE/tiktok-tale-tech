@@ -1,181 +1,126 @@
 
-# Dọn lại toàn bộ copy Telegram cho gọn, dễ đọc hơn
+# Sửa lỗi “Không tạo được nội dung thủ công” do thiếu `content_goal` khi lưu `multi_channel_contents`
 
-## Mục tiêu
-Làm toàn bộ phần text Telegram bớt rối mắt, nhất quán hơn, đặc biệt ở các message dạng status/onboarding/reconnect:
+## Vấn đề đã xác định
+Lỗi trong screenshot là:
 
-- bỏ tình trạng “vừa có bullet vừa có icon” trong cùng 1 dòng
-- giảm icon trang trí thừa ở các dòng nội dung
-- giữ icon chỉ ở level tiêu đề/section khi thực sự cần
-- wording ngắn hơn, quét mắt dễ hơn trên mobile
-
-## Vấn đề đang thấy
-Từ screenshot và code hiện tại, phần Telegram đang bị rối vì:
-
-1. **Header/section có icon, nhưng từng bullet con vẫn có thêm icon**
-   - ví dụ `• 🎨 Brand đang xem`
-   - vừa bullet vừa emoji nên nhìn nặng mắt
-
-2. **Status message dùng quá nhiều marker khác nhau**
-   - `📊`, `👤`, `📈`, `🚀`, `✅`, `💡`, `👉`, `•`
-   - mỗi section một kiểu, thiếu hệ thống thị giác rõ ràng
-
-3. **Một số câu dài, nhiều vế**
-   - nhất là onboarding / reconnect / not-connected
-   - mobile Telegram nhìn bị đặc chữ
-
-## Phạm vi cần đồng bộ
-
-### 1) Status message trong bot
-File: `supabase/functions/telegram-webhook/index.ts`
-
-Hiện `handleStatus()` đang render kiểu:
-- section có icon
-- các dòng con bắt đầu bằng `•`
-- có dòng lại thêm icon bên trong bullet
-
-Sẽ format lại theo nguyên tắc:
-
-#### Cấu trúc mới
 ```text
-Trạng thái Flowa — Tháng 4/2026
-
-Tài khoản
-• Tổ chức: ...
-• Gói: ...
-• Quyền agent: ...
-• Brand đang xem: ...
-
-Sử dụng tháng này
-• Pipeline (toàn org): ...
-• Còn ... lượt
-
-Pipeline đang chạy (4)
-• ...
-• ...
+null value in column "content_goal" of relation "multi_channel_contents" violates ...
 ```
 
-#### Quy tắc áp dụng
-- giữ tối đa **1 icon cho dòng tiêu đề lớn** hoặc bỏ luôn nếu không cần
-- **mọi dòng bullet con chỉ là `•` + text**, không chèn thêm emoji
-- bỏ các icon trong bullet như:
-  - `• 🎨 Brand đang xem` → `• Brand đang xem`
-  - `• ♾️ Không giới hạn` → `• Không giới hạn` hoặc gộp thành câu gọn hơn
-- giữ câu ngắn, tách section rõ bằng dòng trống
+Qua code hiện tại, nguyên nhân nằm ở `supabase/functions/generate-multichannel/index.ts`:
 
-### 2) Help text
-File: `supabase/functions/telegram-webhook/index.ts`
+- Nhánh insert **non-streaming** đã có:
+  - `content_goal: formData.contentGoal || 'engagement'`
+- Nhưng nhánh insert **streaming-mode** tại khoảng dòng `3277-3311` đang insert vào `multi_channel_contents` mà **không set `content_goal`**
+- Bảng `multi_channel_contents` đang yêu cầu `content_goal` là bắt buộc, nên luồng tạo thủ công bị fail ở bước lưu DB
+- Screenshot progress 95% cũng khớp với việc AI đã tạo xong nội dung nhưng fail ở bước persistence
 
-`helpText()` hiện có nhiều dòng ví dụ mở bằng `•`, phần này ổn hơn status nhưng vẫn cần tinh gọn:
+## Mục tiêu sửa
+Đảm bảo mọi luồng tạo nội dung thủ công đều luôn có strategy tối thiểu trước khi insert:
 
-- bỏ icon nếu đã có tiêu đề section
-- tách rõ:
-  - Lệnh chính
-  - Ví dụ chat tự nhiên
-  - Kênh hỗ trợ
-- dùng wording ngắn hơn, ít dấu nhấn markdown thừa
-
-Định hướng:
-```text
-Lệnh hỗ trợ
-/start <token> — Kết nối tài khoản
-/status — Xem quota tháng này
-...
-
-Ví dụ chat tự nhiên
-• Viết 1 bài Facebook về spa giảm 30%
-• Tạo caption Instagram xây thương hiệu cho spa
-...
-```
-
-### 3) Onboarding / not-linked / reconnect messages
-File: `supabase/functions/telegram-webhook/index.ts`
-
-Các message này đang đúng positioning, nhưng vẫn hơi nhiều icon và câu hơi dày.
-
-Sẽ đồng bộ theo format:
-- 1 dòng chào
-- 1 đoạn giá trị ngắn
-- 1 block hướng dẫn 2–3 bước
-- 1 CTA cuối
-
-Ví dụ hướng:
-```text
-Chào bạn!
-
-Mình là AI Marketing Agent, trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.
-
-Cách kết nối:
-1. Mở app Flowa
-2. Bấm “Kết nối tài khoản & bắt đầu ngay”
-3. Quay lại Telegram và chat với bot
-
-Bắt đầu thử ngay!
-```
-
-Quy tắc:
-- không dùng icon ở từng dòng step nếu đã đánh số
-- giữ tối đa 1 icon ở câu chào nếu cần
-- message reconnect/not-linked dùng cùng cấu trúc wording để nhất quán
-
-### 4) Telegram link card trong app
-File: `src/components/agents/TelegramLinkCard.tsx`
-
-Card hiện đã đúng positioning nhưng vẫn có vài chỗ có thể “dọn copy” để đồng bộ với bot:
-
-- bỏ icon trong title text nếu title đã có icon ở phần visual card
-  - `🎉 Chào bạn!` có thể đổi thành `Chào bạn!`
-- footer note gọn hơn, bớt cảm giác slogan chồng slogan
-- connected state note/reconnect note ngắn hơn, ít nhấn mạnh lặp
-
-Định hướng:
-- **UI icon để ở component icon**
-- **text thuần để đọc nhanh**
-- tránh “icon trong text + icon component” cùng lúc
+- `content_goal`
+- `selected_channels`
+- các field chiến lược liên quan nếu cần đồng bộ (`content_role`, `content_angle`)
 
 ## Cách triển khai
 
-### A. Thiết lập quy chuẩn copy Telegram
-Áp dụng chung cho mọi message:
+### 1) Chuẩn hóa strategy sớm trong `generate-multichannel`
+Trong `supabase/functions/generate-multichannel/index.ts`:
 
-- **Title/section:** không quá 1 icon
-- **Bullet lines:** chỉ dùng `•`, không kèm emoji
-- **Steps:** dùng số `1. 2. 3.`, không thêm icon
-- **CTA:** giữ đúng câu `Bắt đầu thử ngay`
-- **Tone:** ngắn, rõ, ít khoa trương
+- Sau khi parse `formData`, tạo một bước chuẩn hóa dùng chung:
+  - `resolvedContentGoal`
+  - `resolvedContentRole`
+  - `resolvedContentAngle`
+  - `resolvedSelectedChannels`
 
-### B. Refactor các text builder trong webhook
-Trong `telegram-webhook/index.ts`:
-- sửa `handleStatus()` để render text theo format sạch hơn
-- sửa `helpText()` theo cấu trúc rõ hơn
-- rà lại toàn bộ message:
-  - not linked
-  - onboarding
-  - reconnect guidance
-  - success/welcome
-  - fallback invalid command
+Ưu tiên:
+1. giá trị user gửi lên
+2. giá trị derive từ `targetJourneyStage` / existing content / core content
+3. fallback an toàn (`education` hoặc giá trị đang được hệ thống dùng nhất quán)
 
-### C. Đồng bộ frontend card
-Trong `TelegramLinkCard.tsx`:
-- bỏ icon bên trong copy nếu UI đã có icon riêng
-- rút gọn note ở trạng thái connected / not connected
-- giữ CTA button hiện tại, không đổi logic
+Mục tiêu là tránh mỗi nhánh insert/update tự fallback khác nhau.
 
-## Files sẽ sửa
-- `supabase/functions/telegram-webhook/index.ts`
-- `src/components/agents/TelegramLinkCard.tsx`
+### 2) Vá nhánh insert của streaming-mode
+Ở block insert `multi_channel_contents` quanh dòng `3277+`, bổ sung ít nhất:
 
-## Không đổi
-- logic binding/reconnect
-- deep link flow
-- quyền / phân quyền / DB
-- positioning “AI Marketing Agent”
-- CTA cuối “Bắt đầu thử ngay”
+- `content_goal: resolvedContentGoal`
+- `selected_channels: resolvedSelectedChannels`
 
-## Kết quả mong muốn
-Sau khi làm xong, mọi copy Telegram sẽ:
+Và đồng bộ thêm nếu schema/logic hiện dùng:
+- `content_role: resolvedContentRole || null`
+- `content_angle: resolvedContentAngle || null`
 
-- sạch và dễ quét mắt hơn trên mobile
-- không còn kiểu “bullet + emoji” chồng nhau
-- đồng bộ giữa bot và card trong app
-- vẫn giữ được branding “AI Marketing Agent”, nhưng nhìn chuyên nghiệp hơn và bớt rối
+Như vậy streaming-mode sẽ lưu metadata giống non-streaming hơn, không còn fail vì null bắt buộc.
+
+### 3) Đồng bộ fallback giữa streaming và non-streaming
+Hiện có dấu hiệu fallback không nhất quán:
+- nhiều chỗ derive `education`
+- một chỗ insert fallback `engagement`
+
+Sẽ chuẩn hóa để cả 2 nhánh dùng cùng một nguồn truth, tránh:
+- UI/manual mode ra một kiểu
+- Telegram/agent mode ra một kiểu
+- DB saved row thiếu field ở một nhánh nhưng không thiếu ở nhánh khác
+
+### 4) Rà lại các luồng insert/update khác của `multi_channel_contents`
+Kiểm tra nhanh các chỗ:
+- create mới
+- expand mode
+- regenerate mode
+- single-channel mode
+- streaming persistence
+
+Mục tiêu:
+- chỗ nào insert row mới thì phải luôn có `content_goal`
+- nếu bảng còn bắt buộc `selected_channels`, cũng phải được set đầy đủ
+- update path không được vô tình làm mất `content_goal`
+
+## Files cần sửa
+- `supabase/functions/generate-multichannel/index.ts`
+
+## Không cần sửa
+- DB schema
+- frontend component progress UI
+- Telegram webhook
+- `src/integrations/supabase/types.ts`
+
+## QA sau khi implement
+
+### Case 1 — Tạo nội dung thủ công từ UI
+Thử tạo 1 bài thủ công với 1 kênh (ví dụ Facebook)
+
+Kỳ vọng:
+- không còn lỗi `null value in column "content_goal"`
+- tiến trình chạy xong và lưu được row mới
+
+### Case 2 — Tạo thủ công nhiều kênh
+Thử 2–3 kênh
+
+Kỳ vọng:
+- row `multi_channel_contents` được tạo thành công
+- `selected_channels` và `content_goal` có giá trị hợp lệ
+
+### Case 3 — Streaming path
+Chạy đúng luồng đang gây lỗi trong screenshot
+
+Kỳ vọng:
+- không fail ở mốc 90–95%
+- sau khi AI tạo xong, persistence hoàn tất
+
+### Case 4 — Non-streaming path
+Xác nhận luồng cũ vẫn hoạt động
+
+Kỳ vọng:
+- không regression
+- content goal vẫn được lưu đúng
+
+### Case 5 — Existing strategy missing from request
+Tạo bài mà request không gửi rõ `contentGoal`
+
+Kỳ vọng:
+- hệ thống tự derive/fallback
+- DB vẫn có `content_goal` hợp lệ
+
+## Kết quả sau khi sửa
+Luồng tạo nội dung thủ công sẽ không còn bị fail ở bước lưu dữ liệu. Nội dung tạo xong sẽ được persist thành công vào `multi_channel_contents`, thay vì dừng ở 95% do thiếu `content_goal`.
