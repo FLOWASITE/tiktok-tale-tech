@@ -1,222 +1,288 @@
 
-# Khôi phục đúng pipeline ảnh thủ công theo ý bạn
+# Mở rộng bộ layout social image ngoài các layout hiện tại
 
-## Pipeline mục tiêu đã chốt
-Flow manual multi-channel cần chạy đúng thứ tự này:
+## Hiện trạng
+Hệ thống hiện đã có các layout:
+- `poster`
+- `infographic`
+- `quote_card`
+- `feature_list`
+- `contact_card`
+- `education_infographic`
 
+Các layout này đã đủ cho nhiều case, nhưng vẫn thiếu một số pattern social rất mạnh cho feed hiện đại, đặc biệt cho:
+- before/after hoặc so sánh
+- step-by-step / timeline
+- product spotlight
+- số liệu nổi bật / stat card
+- testimonial / social proof
+- editorial minimal / magazine cover
+
+## Mục tiêu
+Mở rộng thư viện layout để AI có nhiều “khung” phù hợp hơn khi render ảnh social, thay vì chủ yếu xoay quanh poster/infographic/contact-card.
+
+## Bộ layout nên bổ sung
+
+### 1) Comparison Card
+Phù hợp:
+- before vs after
+- sai vs đúng
+- cũ vs mới
+- lựa chọn A/B
+
+Cấu trúc:
 ```text
-1) generate-brand-image
-   - AI quyết định layout phù hợp: infographic / poster / contact-card / ...
-   - AI render phần text chính ngay trong prompt / ảnh
-2) overlay-logo-canvas
-   - thêm logo sau khi ảnh base đã xong
-   - hoặc cho AI chừa safe-zone / tự chọn vị trí logo phù hợp
-3) overlay-text-canvas
-   - chỉ dùng cho footer
-   - không dùng để render toàn bộ text chính nữa
+Header
+Left block | Right block
+Bottom takeaway / CTA
 ```
 
-## Vấn đề hiện tại trong code
-Code hiện đang bị lệch so với flow bạn muốn ở 3 điểm:
+Nên dùng cho:
+- Facebook, LinkedIn, Instagram feed
 
-1. `MultiChannelViewer.tsx` đang mở `SimpleImageGenerator`
-   - component này tự bật hybrid theo logic riêng
-   - dễ làm behavior manual flow bị đổi ngoài ý muốn
+### 2) Timeline / Step Flow
+Phù hợp:
+- quy trình
+- 3–5 bước
+- hành trình khách hàng
+- hướng dẫn từng bước
 
-2. `src/hooks/useAutoImageGeneration.ts`
-   - mặc định đang ép `overlayMode = 'ai_render'`
-   - nhưng khi không có `structuredOverlay` thì footer bằng `overlay-text-canvas` không còn là bước tách riêng rõ ràng
-   - Step 3/4 hiện đang lẫn giữa text chính và structured overlay
-
-3. `SimpleImageGenerator.tsx`
-   - đang auto bật `useHybridMode` khi `promptMode === 'full'` hoặc content bị coi là complex
-   - tức là AI layout bị kích hoạt theo heuristic, không phải đúng contract rõ ràng của manual flow
-
-## Mục tiêu implement
-Chuẩn hóa manual multi-channel image generation thành một contract cố định:
-
-- text chính: AI render trong `generate-brand-image`
-- layout chính: AI tự chọn từ decomposition/template
-- logo: đi qua `overlay-logo-canvas` sau cùng của base image
-- footer: luôn đi qua `overlay-text-canvas` dạng structured footer-only
-- không dùng canvas để vẽ lại headline/body chính nữa
-
-## Cách sửa
-
-### 1) Khóa manual viewer vào một “AI layout + logo canvas + footer canvas” flow rõ ràng
-Trong `src/components/MultiChannelViewer.tsx` và generator component đang được gọi:
-
-- giữ generator hiện tại nếu muốn sửa ít nhất, hoặc đổi lại generator wrapper nếu cần
-- nhưng behavior phải được khóa như sau cho manual flow:
-  - `promptMode = 'full'`
-  - `imageContentType = 'with_text'`
-  - `overlayMode = 'ai_render'`
-  - luôn cho phép AI chọn layout phù hợp
-  - footer không bị bake chung với phần text chính
-
-Mục tiêu:
-- user bấm tạo ảnh thủ công là vào đúng flow bạn vừa mô tả
-- không còn ambiguity giữa classic / simple / unified
-
-### 2) Tách “structured content cho AI” và “footer cho canvas”
-Trong `src/components/multichannel/SimpleImageGenerator.tsx`:
-
-- vẫn dùng decomposition + `applyTemplate(...)` để AI quyết định layout
-- nhưng khi build payload:
-  - phần headline / heroText / banner / cards / CTA được gửi vào `generate-brand-image`
-  - phần `footer` tách ra khỏi payload AI render
-- tạo 2 payload:
-  - `aiStructuredOverlay` = layout chính cho AI bake
-  - `footerOverlay` = footer-only cho `overlay-text-canvas`
-
-Kết quả:
-- AI vẫn tự quyết định poster/infographic/contact-card
-- footer luôn ổn định bằng overlay canvas, không bị AI render sai
-
-### 3) Sửa `useAutoImageGeneration.ts` để pipeline chạy đúng 4 bước cố định
-Refactor `generateWithRetry()` thành flow này:
-
+Cấu trúc:
 ```text
-STEP 1: generate-brand-image
-  - overlayMode = ai_render
-  - structuredElements = banner / heroText / cards / headline / cta
-  - KHÔNG gửi footer vào đây
-  - có logoSafeZone nếu cần
-
-STEP 2: overlay-logo-canvas
-  - thêm logo sau khi có base image
-  - nếu logoPosition = auto thì resolve theo channel
-  - vẫn cho AI safe-zone để tránh đè text
-
-STEP 3: bỏ simple text overlay mặc định
-  - không dùng overlay-text-canvas cho text chính nữa
-
-STEP 4: overlay-text-canvas cho footer-only
-  - structured request chỉ chứa footer
-  - layout đơn giản/stack hoặc footer-only block
+Banner
+Step 1
+Step 2
+Step 3
+Footer / CTA
 ```
 
-Cần sửa rõ các nhánh:
-- bỏ nhánh default dùng canvas cho full text chính trong manual flow
-- giữ `overlay-text-canvas` chỉ cho footer structured overlay
-- nếu không có footer thì Step 4 skip
+Nên dùng cho:
+- educational content, B2B, health/beauty guidance
 
-### 4) Chuẩn hóa logic “AI quyết định layout”
-Trong `SimpleImageGenerator.tsx`:
+### 3) Stat Spotlight
+Phù hợp:
+- một con số lớn
+- KPI
+- insight/data
+- research finding
 
-- giữ `decomposeRequestWithAI(...)`
-- giữ `applyTemplate(...)`
-- giữ `overlayTemplate = 'auto'` làm mặc định
-- nhưng phải đổi semantics:
-  - `auto` nghĩa là AI chọn layout phù hợp
-  - không phải UI heuristic tự ép mode một cách mơ hồ
+Cấu trúc:
+```text
+Small banner
+Big hero number
+Short explanation
+CTA / source line
+```
 
-Nếu user không chọn template cụ thể:
-- AI được chọn giữa `poster`, `infographic`, `quote_card`, `feature_list`, `contact_card`, `education_infographic`
-- output của `applyTemplate` là nguồn layout chính cho `generate-brand-image`
+Nên dùng cho:
+- LinkedIn, Facebook, industry updates, data-led content
 
-### 5) Footer luôn lấy từ brand/footer info và render bằng canvas
-Trong `SimpleImageGenerator.tsx` + `useAutoImageGeneration.ts`:
+### 4) Product Spotlight
+Phù hợp:
+- giới thiệu sản phẩm/dịch vụ
+- launch
+- USP chính
+- key benefits
 
-- khi brand có `footer_info`, build `footerOverlay`
-- nếu AI decomposition không có footer thì inject footer từ brand
-- nhưng footer chỉ đưa cho `overlay-text-canvas`, không gửi cho AI render
+Cấu trúc:
+```text
+Hero visual center
+Headline
+2–4 benefit bullets
+CTA
+```
 
-Mục tiêu:
-- footer ổn định, đúng phone / website / email / address
-- không bị sai dấu, méo layout, hay mất hẳn như khi bake bằng model ảnh
+Nên dùng cho:
+- Instagram, Facebook ads, TikTok thumbnail-style visual
 
-### 6) Logo: hỗ trợ 2 cách như bạn muốn
-Giữ cả hai cơ chế:
+### 5) Testimonial / Social Proof
+Phù hợp:
+- feedback khách hàng
+- review nổi bật
+- trust building
+- case proof
 
-- `overlay-logo-canvas` là bước chèn logo thật sau khi ảnh base hoàn tất
-- `logoSafeZone` gửi vào `generate-brand-image` để AI chừa vùng sạch
+Cấu trúc:
+```text
+Quote / testimonial
+Author / role
+Proof chips / badges
+CTA or brand line
+```
 
-Logic:
-- nếu brand chọn `logo_position = auto`:
-  - frontend/hook resolve vị trí tối ưu theo channel
-  - vẫn truyền safe-zone tương ứng cho AI
-- sau đó `overlay-logo-canvas` đặt logo đúng vị trí đó
+Nên dùng cho:
+- Facebook, LinkedIn, clinic/service brands
 
-Kết quả:
-- AI không đè text vào vùng logo
-- logo thật vẫn sắc nét, ổn định, không phụ thuộc model ảnh
+### 6) Editorial Cover
+Phù hợp:
+- thought leadership
+- trend/opinion
+- personal brand
+- announcement cao cấp
 
-### 7) Không để “simple text overlay” phá flow manual nữa
-Trong `useAutoImageGeneration.ts`:
+Cấu trúc:
+```text
+Large title
+Subheading
+Minimal accent label
+Very clean composition
+```
 
-- nhánh Step 3 hiện tại:
-  - `if (!isAiRenderMode && useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay)`
-- sẽ không còn là đường mặc định cho manual multichannel
-- chỉ giữ nó như fallback phụ / legacy path, không phải default path của viewer manual
+Nên dùng cho:
+- LinkedIn, Threads, Instagram high-end brand feed
 
-Mục tiêu:
-- text chính không còn bị canvas render lại ngoài ý muốn
-- manual flow bám đúng AI-render text chính + canvas-footer
+### 7) Problem → Solution
+Phù hợp:
+- pain point marketing
+- objection handling
+- conversion content
 
-## Files cần sửa
-- `src/components/MultiChannelViewer.tsx`
-- `src/components/multichannel/SimpleImageGenerator.tsx`
-- `src/hooks/useAutoImageGeneration.ts`
+Cấu trúc:
+```text
+Pain statement
+Solution block
+3 support bullets
+CTA
+```
 
-## Có thể cần sửa thêm
-- `src/hooks/useAutoImagePipeline.ts`
-  - nếu auto image sau khi generate multichannel cũng cần đồng bộ cùng contract này
-- `supabase/functions/_shared/branded-image-composer.ts`
-  - để Telegram / server-side parity khớp với manual flow mới
-  - đặc biệt tách footer ra khỏi phần AI bake nếu muốn parity tuyệt đối
+Nên dùng cho:
+- sales content, educational promotion, lead-gen creatives
 
-## Không cần sửa
-- database schema
-- `generate-multichannel`
-- title generation
-- `src/integrations/supabase/client.ts`
-- `src/integrations/supabase/types.ts`
+### 8) Checklist / Quick Tips
+Phù hợp:
+- list ngắn
+- save-worthy tips
+- “5 điều cần nhớ”
 
-## QA bắt buộc sau khi implement
+Cấu trúc:
+```text
+Banner
+Checklist items with icons/checks
+Mini summary
+CTA
+```
 
-### Case 1 — Manual default
-Tạo ảnh thủ công cho Facebook / Instagram / LinkedIn.
+Nên dùng cho:
+- Instagram, Facebook, Zalo OA
 
-Kỳ vọng:
-- AI tự chọn layout phù hợp
-- text chính nằm trong ảnh do AI render
-- logo được chèn sau bằng `overlay-logo-canvas`
-- footer xuất hiện bằng `overlay-text-canvas`
+## Ưu tiên triển khai
+Nếu muốn mở rộng nhưng vẫn gọn, nên làm theo 2 phase.
 
-### Case 2 — Contact-heavy content
-Nội dung có phone / website / email / address.
+### Phase 1 — High impact
+Thêm 4 layout trước:
+- `comparison_card`
+- `timeline_steps`
+- `stat_spotlight`
+- `testimonial_card`
 
-Kỳ vọng:
-- AI lo poster/contact-card phần chính
-- footer dưới cùng vẫn là canvas overlay rõ nét, đúng dữ liệu brand
+Lý do:
+- tăng độ phủ use case rõ nhất
+- ít trùng với layout hiện có
+- rất hợp social image
 
-### Case 3 — Infographic-like content
-Nội dung dạng giáo dục/listicle.
+### Phase 2 — Brand/aesthetic expansion
+Thêm tiếp:
+- `product_spotlight`
+- `editorial_cover`
+- `problem_solution`
+- `checklist_card`
 
-Kỳ vọng:
-- AI có thể chọn infographic / feature_list / education layout
-- footer vẫn không bị bake sai
+## Cách implement
 
-### Case 4 — Logo auto
-Brand để `logo_position = auto`.
+### 1) Mở rộng template config
+Cập nhật `src/config/overlayTemplates.ts`:
+- thêm template mới
+- thêm mô tả ngắn, icon, required slots, defaults
+- giữ tương thích với hệ layout hiện tại (`stack`, `split`, `banner_cards`, `hero_text`, `simple`) hoặc bổ sung layout enum nếu thật sự cần
 
-Kỳ vọng:
-- AI chừa vùng logo qua safe-zone
-- logo thật được overlay đúng vị trí tối ưu theo channel
+### 2) Mở rộng structured overlay schema nếu cần
+Rà lại:
+- `src/lib/hybridImageGenerator.ts`
+- `supabase/functions/_shared/hybrid-image-utils.ts`
+- `supabase/functions/generate-brand-image/index.ts`
 
-### Case 5 — Regression
-Mở lại content cũ đã từng tạo ảnh thủ công.
+Để hỗ trợ thêm các slot mới nếu cần, ví dụ:
+- `comparison`
+- `steps`
+- `quoteSource`
+- `proofBadges`
+- `statLabel`
 
-Kỳ vọng:
-- ra behavior đúng contract mới đã chốt
-- không còn cảnh text/logo/footer bị chạy lẫn mode
+Nếu chưa muốn tăng schema complexity, có thể map layout mới vào slot cũ:
+- comparison dùng `cards`
+- stat spotlight dùng `heroText + headline`
+- testimonial dùng `heroText + footer`
+- timeline dùng `cards` dạng vertical numbered
+
+### 3) Nâng logic AI chọn layout
+Trong flow decomposition / auto-select:
+- mở rộng `suggestedLayout`
+- bổ sung heuristic mapping theo keyword:
+  - “so sánh”, “vs”, “before after” → `comparison_card`
+  - “bước”, “quy trình”, “step” → `timeline_steps`
+  - “%”, “tăng”, “giảm”, “số liệu” → `stat_spotlight`
+  - “review”, “khách hàng”, “testimonial” → `testimonial_card`
+
+### 4) Cập nhật UI picker
+Cập nhật `OverlayTemplatePicker.tsx`:
+- nhóm layout theo mục đích thay vì danh sách phẳng nếu số lượng tăng
+- gợi ý label ngắn, dễ hiểu cho user không kỹ thuật
+
+Ví dụ nhóm:
+- Chuyển đổi: Poster, Product, Problem/Solution
+- Giáo dục: Infographic, Timeline, Checklist
+- Niềm tin: Testimonial, Contact
+- Cá tính thương hiệu: Editorial, Quote
+
+### 5) Đồng bộ prompt/render contract
+Vì flow hiện tại là:
+- AI render text chính + layout
+- logo canvas
+- footer canvas
+
+Nên mỗi layout mới cần định nghĩa rõ:
+- phần nào do AI bake
+- phần nào luôn để footer canvas xử lý
+- vùng safe-zone cho logo
+
+## Mapping đề xuất theo kênh
+
+### Facebook
+- poster
+- comparison_card
+- testimonial_card
+- checklist_card
+
+### Instagram
+- product_spotlight
+- quote_card
+- editorial_cover
+- stat_spotlight
+
+### LinkedIn
+- stat_spotlight
+- editorial_cover
+- timeline_steps
+- infographic
+
+### Zalo OA / Telegram
+- contact_card
+- checklist_card
+- feature_list
+- problem_solution
+
+## QA cần làm
+- kiểm tra AI auto-select có chọn đúng template theo content type
+- kiểm tra layout mới không làm mất logo/footer
+- test nội dung dài tiếng Việt để tránh text overflow
+- test 3 nhóm nội dung:
+  - educational
+  - promotional
+  - social proof
+- test trên ít nhất Facebook / Instagram / LinkedIn
 
 ## Kết quả mong muốn
-Sau khi sửa, ảnh đa kênh thủ công sẽ đúng ý bạn:
-
-- `generate-brand-image` lo background + text chính + layout
-- `overlay-logo-canvas` lo logo thật
-- `overlay-text-canvas` chỉ lo footer
-- AI được quyền chọn infographic/poster/contact-card/layout phù hợp
-- footer vẫn ổn định, chính xác, không bị AI phá
+Sau khi mở rộng, hệ thống sẽ có bộ layout social “đúng ngữ cảnh” hơn:
+- không chỉ dừng ở poster/infographic cơ bản
+- AI chọn layout sát intent nội dung hơn
+- ảnh social nhìn đa dạng hơn nhưng vẫn bám pipeline hiện tại: AI layout + logo canvas + footer canvas
