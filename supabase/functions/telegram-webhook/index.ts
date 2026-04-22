@@ -1112,11 +1112,11 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const monthLabel = `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
 
   const lines: string[] = [];
-  lines.push(`📊 *Trạng thái Flowa* — ${monthLabel}`);
+  lines.push(`*Trạng thái Flowa* — ${monthLabel}`);
   lines.push("");
 
   // Account section
-  lines.push("👤 *Tài khoản*");
+  lines.push("*Tài khoản*");
   if (orgName) lines.push(`• Tổ chức: ${escapeMd(orgName)}`);
   const planTxt = planLabel(sub?.plan_type);
   const renew = formatVnDate(sub?.current_period_end);
@@ -1125,20 +1125,21 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     lines.push(`• Quyền agent: ${escapeMd(autonomyLabel(quota.maxAutonomyLevel))}`);
   }
   if (activeBrand?.brand_name) {
-    lines.push(`• 🎨 Brand đang xem: ${escapeMd(activeBrand.brand_name)}`);
+    lines.push(`• Brand đang xem: ${escapeMd(activeBrand.brand_name)}`);
   }
   lines.push("");
 
   // Usage section
-  lines.push("📈 *Sử dụng tháng này*");
+  lines.push("*Sử dụng tháng này*");
   if (!quota?.ok) {
     lines.push(`• ${escapeMd(quota?.message || "Không lấy được hạn mức")}`);
   } else if (quota.monthlyLimit === null) {
-    lines.push(`• Pipeline (toàn org): ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
+    lines.push(`• Pipeline (toàn org): ${quota.pipelinesUsed}`);
+    lines.push("• Không giới hạn");
   } else {
     const used = quota.pipelinesUsed;
     const limit = quota.monthlyLimit;
-    lines.push(`• Pipeline (toàn org): ${used}/${limit}  ${formatProgressBar(used, limit)}`);
+    lines.push(`• Pipeline (toàn org): ${used}/${limit} ${formatProgressBar(used, limit)}`);
     const remaining = Math.max(0, limit - used);
     lines.push(`• Còn ${remaining} lượt`);
   }
@@ -1146,13 +1147,13 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
 
   // Brand active but has no pipeline at all (no goals OR goals exist but no pipelines yet)
   if (activeBrandId && running.length === 0 && recent.length === 0) {
-    lines.push(`ℹ️ Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
-    lines.push("👉 /generate <mô tả> để tạo campaign đầu tiên.");
+    lines.push(`Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
+    lines.push("• Dùng /generate <mô tả> để tạo campaign đầu tiên.");
     lines.push("");
   } else {
     // Running pipelines
     if (running.length > 0) {
-      lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
+      lines.push(`*Pipeline đang chạy* (${running.length})`);
       for (const p of running) {
         const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
         const stg = stageLabel(p.current_stage);
@@ -1164,7 +1165,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
 
     // Recently completed
     if (recent.length > 0) {
-      lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
+      lines.push(`*Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
       for (const p of recent) {
         const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
         lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
@@ -1178,22 +1179,22 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (quota?.ok && quota.monthlyLimit !== null && quota.monthlyLimit > 0) {
     const pct = (quota.pipelinesUsed / quota.monthlyLimit) * 100;
     if (pct >= 90) {
-      hints.push("⚠️ Sắp hết quota tháng này — cân nhắc nâng cấp gói để tiếp tục");
+      hints.push("Sắp hết quota tháng này — cân nhắc nâng cấp gói để tiếp tục");
     } else if (pct >= 60) {
-      hints.push(`⚠️ Đã dùng ${Math.round(pct)}% quota — cân nhắc upgrade nếu cần thêm`);
+      hints.push(`Đã dùng ${Math.round(pct)}% quota — cân nhắc nâng cấp nếu cần thêm`);
     } else if ((sub?.plan_type || "free") === "free") {
-      hints.push("💎 Bạn đang dùng gói Free — upgrade để mở khoá thêm tính năng");
+      hints.push("Bạn đang dùng gói Free — cân nhắc nâng cấp để mở thêm tính năng");
     }
   }
   if (!activeBrandId) {
-    hints.push("💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó");
+    hints.push("Dùng /brand để chọn brand, rồi /status sẽ chỉ hiển thị pipeline của brand đó");
   }
   if (running.length === 0 && !(activeBrandId && running.length === 0 && recent.length === 0)) {
-    hints.push("👉 /generate <mô tả> để tạo campaign mới");
+    hints.push("Dùng /generate <mô tả> để tạo campaign mới");
   }
   if (hints.length > 0) {
-    lines.push("💡 *Gợi ý*");
-    for (const h of hints) lines.push(h);
+    lines.push("*Gợi ý*");
+    for (const h of hints) lines.push(`• ${h}`);
   }
 
   // Footer with brand badge + one-tap "Đổi brand" button
