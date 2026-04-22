@@ -3,6 +3,7 @@
 // falls back to Lovable Gateway). Returns structured intent + error code.
 
 import { callAI } from "./ai-provider.ts";
+import { normalizeChannel } from "./telegram-channel-aliases.ts";
 
 export type TelegramIntent =
   | { intent: "chitchat"; reply: string }
