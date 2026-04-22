@@ -1453,6 +1453,7 @@ async function handleGenerateSingle(
         userId: binding.userId,
         qualityMode: "balanced",
         agentMode: true,
+        useTopicAsTitle: true,
       }),
     });
 
