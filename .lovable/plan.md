@@ -1,59 +1,83 @@
 
 
-# Fix nút "🚀 Đăng FB" trên Telegram → 400 "connectionId and content are required"
+# Fix ảnh không có text/footer/logo khi đăng từ Telegram
 
-## Nguyên nhân
+## Nguyên nhân thực sự (đã verify trong code)
 
-`telegram-webhook` gọi `channel-publisher` chỉ với `{ action: 'facebook', contentId, channel }`. Block resolve payload trong `channel-publisher/index.ts` (lines 71-133) **chỉ chạy cho `website/blog/flowa_blog`** → với `facebook` (và mọi social khác) function forward thẳng payload thiếu xuống `publish-facebook` → `publish-facebook` throw `connectionId and content are required` → 400.
+Resolver `channel-publisher/resolve-social-payload.ts` (lines 111-127) parse `channel_images[channelKey]` **chỉ khi nó là array** (`Array.isArray(imgs)`).
 
-Log xác nhận:
+Nhưng thực tế trong DB (verify từ `agent-pipeline/index.ts:258`, `generate-brand-image/index.ts:897-902`, `agent-creator-v2/index.ts:230-236`, `SocialPostCard.tsx:76`), shape là **single object**:
+
+```js
+channel_images = {
+  facebook: { url: "https://...image-with-logo-footer.jpg", ... },
+  instagram: { url: "...", ... }
+}
 ```
-[channel-publisher] routing action="facebook" → publish-facebook
-publish-facebook: accepted internal service-role invocation
-Facebook publish error: Error: connectionId and content are required
-```
+
+→ `Array.isArray({url:...})` = false → `mediaUrls` không được inject → `publish-facebook` chỉ nhận `content` text → đăng bài text-only, **không có ảnh** (mà ảnh chính là cái chứa logo + footer + text overlay đã render sẵn từ `generate-brand-image`).
+
+User nói "ảnh không có text/footer/logo" — thực ra là **không có ảnh nào cả**, post chỉ có text. Cảm giác như "ảnh trống không logo" vì FB hiển thị link preview hoặc nothing.
+
+Thêm: **test cũ pass nhưng sai shape** — mock dùng array `[{url:...}, "url2"]` thay vì object `{url:...}` như production. Test không bắt được lỗi này.
 
 ## Fix
 
-### `supabase/functions/channel-publisher/index.ts`
+### 1. `supabase/functions/channel-publisher/resolve-social-payload.ts`
 
-Mở rộng block resolve payload cho **tất cả social channels** (`facebook`, `instagram`, `linkedin`, `twitter`, `threads`, `tiktok`, `zalo`, `google-business`), không chỉ website/blog.
+Mở rộng parser cho **3 shape** (production + legacy + bulletproof):
 
-**Logic resolve cho social channel:**
-1. Nếu thiếu `connectionId` HOẶC `content` VÀ có `contentId`:
-   - Query `multi_channel_contents` lấy column tương ứng (`facebook_content`, `instagram_content`, …) + `organization_id` + `brand_template_id` + `media_urls`/`channel_images`.
-   - Map `action` → DB platform (`facebook`→`facebook`, `zalo`→`zalo_oa`, `google-business`→`google_business`, `twitter`→`twitter`, …) + content column.
-   - Query `social_connections` filter `platform` + `is_active=true` + `organization_id` (+ `brand_template_id` nếu có) → lấy `id`.
-   - Inject vào `finalPayload`: `connectionId`, `content`, optionally `mediaUrls` (parse từ `channel_images[channel]`).
-2. Nếu không tìm thấy connection → trả về error đặc biệt để Telegram hiện nút "🔗 Kết nối lại" (đã có sẵn pattern `pubIsTokenExpiredError` — dùng message `"Chưa kết nối <platform>. Vui lòng kết nối lại."` để bot match heuristic, hoặc thêm `errorCode: 'NO_CONNECTION'`).
-3. Nếu không tìm thấy `<channel>_content` → fallback dùng cột chung (vd `facebook_content` rỗng → thử dùng `content` field gốc của `multi_channel_contents` nếu tồn tại, hoặc trả lỗi rõ ràng "Bài chưa có nội dung cho FB").
+```ts
+const imgs = channelImages[socialMap.channelKey];
+const urls: string[] = [];
 
-### Bảng mapping mới (trong `channel-publisher`)
+if (Array.isArray(imgs)) {
+  // legacy array
+  for (const it of imgs) {
+    const u = typeof it === 'string' ? it : it?.url || it?.image_url;
+    if (typeof u === 'string' && u.trim()) urls.push(u);
+  }
+} else if (imgs && typeof imgs === 'object') {
+  // production: single object {url, ...}
+  const u = (imgs as any).url || (imgs as any).image_url;
+  if (typeof u === 'string' && u.trim()) urls.push(u);
+} else if (typeof imgs === 'string' && imgs.trim()) {
+  urls.push(imgs);
+}
 
-| action | DB platform | Content column |
+if (urls.length > 0) {
+  finalPayload.mediaUrls = urls;
+  if (!finalPayload.mediaUrl) finalPayload.mediaUrl = urls[0];
+}
+```
+
+### 2. `supabase/functions/channel-publisher/__tests__/resolve-social-payload.test.ts`
+
+Sửa test mock cho đúng production shape + thêm 2 cases regression:
+
+| Test | channel_images shape | Expected mediaUrls |
 |---|---|---|
-| facebook | facebook | facebook_content |
-| instagram | instagram | instagram_content |
-| linkedin | linkedin | linkedin_content |
-| twitter | twitter | twitter_content |
-| threads | threads | threads_content |
-| tiktok | tiktok | tiktok_content |
-| zalo | zalo_oa | zalo_content |
-| google-business | google_business | google_business_content (fallback `content`) |
+| Existing 8 platforms | đổi sang `{[ck]: {url: '...jpg'}}` (object) | `['...jpg']` |
+| **NEW** Legacy array shape | `{[ck]: [{url:'a'}, 'b']}` | `['a','b']` |
+| **NEW** String shape | `{[ck]: 'https://x.jpg'}` | `['https://x.jpg']` |
+| **NEW** Empty/missing image | `{[ck]: null}` hoặc `{}` | `mediaUrls` undefined (không inject) |
 
-### Cập nhật heuristic token-expired ở Telegram (optional, nhỏ)
+### 3. Verify chuỗi dữ liệu (không sửa, chỉ confirm)
 
-`pubIsTokenExpiredError` (trong `telegram-webhook`) hiện đã match `"chưa kết nối"` / `"please reconnect"` (đối chiếu `useRetryPublish.ts`). Đảm bảo error message từ `channel-publisher` chứa `"chưa kết nối"` để bot tự hiện nút Kết nối lại.
+- `generate-brand-image` tạo ảnh đã có logo + footer + text overlay → upload → save URL vào `channel_images[channel].url` ✓
+- `publish-facebook` nhận `mediaUrls` → đăng `single photo` với `caption=content` (lines 82-105) ✓
+- Sau fix, Telegram flow sẽ pass `mediaUrls=[<branded-image-url>]` xuống publish-facebook → FB post có cả ảnh (đã render logo+footer+text) lẫn caption text ✓
 
 ## Files sửa
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/channel-publisher/index.ts` | Mở rộng resolve block cho tất cả social actions; thêm channel→column map; lookup `social_connections` theo platform+org+brand; inject `connectionId` + `content` (+ `mediaUrls` nếu có); error rõ ràng khi thiếu connection / content. |
+| `supabase/functions/channel-publisher/resolve-social-payload.ts` | Hỗ trợ 3 shape của `channel_images[channel]`: object `{url}` (production), array (legacy), string. |
+| `supabase/functions/channel-publisher/__tests__/resolve-social-payload.test.ts` | Sửa mock sang object shape; thêm tests cho array+string+empty. |
 
 ## Sau fix
-Redeploy `channel-publisher` → test lại trên Telegram nút "🚀 Đăng ngay" cho FB/IG/LinkedIn/Threads/Twitter/Zalo/GBP.
+Redeploy `channel-publisher` → Telegram "🚀 Đăng ngay" cho FB/IG/LinkedIn/Threads/Twitter/Zalo/GBP sẽ kèm ảnh branded (có logo, footer, text overlay).
 
 ## Rủi ro
-Thấp. Chỉ thêm logic resolve, không động vào auth/forward path. Các caller cũ (UI web, scheduler) đã gửi đầy đủ `connectionId`+`content` → block resolve sẽ skip.
+Rất thấp. Chỉ mở rộng parser (more permissive), không thay đổi schema/auth/forward. Tests mới đảm bảo cover cả 3 shape.
 
