@@ -4086,3 +4086,324 @@ async function commitWizardGoal(args: {
     }
   }
 }
+
+// ============================================================================
+// pub:* — Đăng ngay / Lên lịch trực tiếp từ Telegram cho luồng /generate
+// pub:now:<contentId>:<channel>            → publish immediately
+// pub:menu:<contentId>:<channel>           → open slot picker
+// pub:at:<contentId>:<channel>:<slot>      → schedule (slot ∈ 1h|3h|tmr9|tmr14)
+// pub:back:<contentId>:<channel>           → close submenu
+// ============================================================================
+
+const PUB_CHANNEL_TO_ACTION: Record<string, string> = {
+  facebook: "facebook",
+  instagram: "instagram",
+  linkedin: "linkedin",
+  twitter: "twitter",
+  tiktok: "tiktok",
+  threads: "threads",
+  zalo_oa: "zalo",
+  google_maps: "google-business",
+  website: "website",
+};
+
+const PUB_CHANNEL_LABELS: Record<string, string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  twitter: "X (Twitter)",
+  tiktok: "TikTok",
+  threads: "Threads",
+  zalo_oa: "Zalo OA",
+  google_maps: "Google Business",
+  website: "Website",
+};
+
+function pubChannelLabel(ch: string): string {
+  return PUB_CHANNEL_LABELS[ch] || ch;
+}
+
+function pubResolveSlotIso(slot: string): string | null {
+  const now = new Date();
+  if (slot === "1h") return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  if (slot === "3h") return new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
+  if (slot === "tmr9") {
+    const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
+    return d.toISOString();
+  }
+  if (slot === "tmr14") {
+    const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(14, 0, 0, 0);
+    return d.toISOString();
+  }
+  return null;
+}
+
+function pubFormatVnTime(iso: string): string {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${hh}:${mi}`;
+}
+
+function pubIsTokenExpiredError(msg: string): boolean {
+  const s = String(msg || "").toLowerCase();
+  return s.includes("token expired") || s.includes("reconnect") ||
+         s.includes("hết hạn") || s.includes("not connected") ||
+         s.includes("chưa kết nối") || s.includes("invalid_token");
+}
+
+async function handlePublishCallback(args: {
+  // deno-lint-ignore no-explicit-any
+  supabase: any;
+  botConfig: HandlerCtx["botConfig"];
+  chatId: number;
+  fromTgId?: number;
+  cbId: string;
+  messageId?: number;
+  data: string;
+}): Promise<void> {
+  const { supabase, botConfig, chatId, fromTgId, cbId, messageId, data } = args;
+  // Parse: pub:<sub>:<contentId>:<channel>[:<slot>]
+  const parts = data.split(":");
+  const sub = parts[1];
+  const contentId = parts[2];
+  const channel = parts[3];
+  const slot = parts[4];
+
+  if (!sub || !contentId || !channel) {
+    await answerCallback(botConfig.botToken, cbId, "Dữ liệu không hợp lệ.");
+    return;
+  }
+  if (!fromTgId) {
+    await answerCallback(botConfig.botToken, cbId, "Thiếu user context.");
+    return;
+  }
+
+  const label = pubChannelLabel(channel);
+  const action = PUB_CHANNEL_TO_ACTION[channel];
+  if (!action) {
+    await answerCallback(botConfig.botToken, cbId, `Kênh ${label} chưa hỗ trợ đăng từ Telegram.`);
+    return;
+  }
+
+  // ---- Permission: TG user → app user → org member (any role) ----
+  const { data: dm } = await supabase
+    .from("telegram_chat_bindings")
+    .select("user_id")
+    .eq("organization_id", botConfig.organizationId)
+    .eq("telegram_user_id", fromTgId)
+    .eq("chat_type", "private")
+    .maybeSingle();
+  if (!dm?.user_id) {
+    await answerCallback(botConfig.botToken, cbId, "Bạn chưa link Flowa. Gõ /start trong DM bot trước.");
+    return;
+  }
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", botConfig.organizationId)
+    .eq("user_id", dm.user_id)
+    .maybeSingle();
+  if (!member?.role || !["owner", "admin", "member"].includes(member.role)) {
+    await answerCallback(botConfig.botToken, cbId, "Bạn không có quyền đăng bài cho org này.");
+    return;
+  }
+
+  // ---- Submenu: chọn slot ----
+  if (sub === "menu") {
+    const miniAppCustom = buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`);
+    const kb = {
+      inline_keyboard: [
+        [
+          { text: "+1 giờ", callback_data: `pub:at:${contentId}:${channel}:1h` },
+          { text: "+3 giờ", callback_data: `pub:at:${contentId}:${channel}:3h` },
+        ],
+        [
+          { text: "Mai 9h", callback_data: `pub:at:${contentId}:${channel}:tmr9` },
+          { text: "Mai 14h", callback_data: `pub:at:${contentId}:${channel}:tmr14` },
+        ],
+        [{ text: "🕐 Tuỳ chỉnh (Mini App)", web_app: { url: miniAppCustom } }],
+        [{ text: "« Quay lại", callback_data: `pub:back:${contentId}:${channel}` }],
+      ],
+    };
+    if (messageId) {
+      await editMessageText(
+        botConfig.botToken, chatId, messageId,
+        `📅 *Chọn thời điểm đăng ${label}:*`,
+        { parse_mode: "Markdown", reply_markup: kb },
+      ).catch(async () => {
+        await sendMessage(botConfig.botToken, chatId, `📅 Chọn thời điểm đăng ${label}:`, { reply_markup: kb });
+      });
+    }
+    await answerCallback(botConfig.botToken, cbId, "");
+    return;
+  }
+
+  // ---- Back: restore action row ----
+  if (sub === "back") {
+    const kb = {
+      inline_keyboard: [[
+        { text: "🚀 Đăng ngay", callback_data: `pub:now:${contentId}:${channel}` },
+        { text: "📅 Lên lịch", callback_data: `pub:menu:${contentId}:${channel}` },
+      ]],
+    };
+    if (messageId) {
+      await editMessageReplyMarkup(botConfig.botToken, chatId, messageId, kb).catch(() => {});
+    }
+    await answerCallback(botConfig.botToken, cbId, "");
+    return;
+  }
+
+  // ---- Schedule (insert into content_schedules; cron will pick it up) ----
+  if (sub === "at") {
+    const iso = pubResolveSlotIso(slot || "");
+    if (!iso) {
+      await answerCallback(botConfig.botToken, cbId, "Slot không hợp lệ.");
+      return;
+    }
+    try {
+      // Upsert by (content_id, channel) — replace any prior schedule for this channel
+      const { data: existing } = await supabase
+        .from("content_schedules")
+        .select("id")
+        .eq("content_id", contentId)
+        .eq("channel", channel)
+        .maybeSingle();
+      const payload = {
+        content_id: contentId,
+        channel,
+        organization_id: botConfig.organizationId,
+        scheduled_at: iso,
+        timezone: "Asia/Ho_Chi_Minh",
+        publish_status: "scheduled",
+        notes: `via Telegram (tg_user=${fromTgId})`,
+        created_by: dm.user_id,
+        updated_at: new Date().toISOString(),
+      };
+      if (existing?.id) {
+        await supabase.from("content_schedules").update(payload).eq("id", existing.id);
+      } else {
+        await supabase.from("content_schedules").insert(payload);
+      }
+      const when = pubFormatVnTime(iso);
+      if (messageId) {
+        await editMessageText(
+          botConfig.botToken, chatId, messageId,
+          `✅ Đã lên lịch đăng *${label}* lúc *${when}* (giờ VN).\n_Bot sẽ ping khi đăng xong._`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[
+                { text: "📝 Mở bài", web_app: { url: buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`) } },
+              ]],
+            },
+          },
+        ).catch(() => {});
+      }
+      await answerCallback(botConfig.botToken, cbId, `Đã lên lịch ${when}`);
+    } catch (e) {
+      console.error("[pub:at] error:", e);
+      await answerCallback(botConfig.botToken, cbId, "Lỗi lưu lịch. Thử lại.");
+    }
+    return;
+  }
+
+  // ---- Now: invoke channel-publisher directly ----
+  if (sub === "now") {
+    if (messageId) {
+      await editMessageText(
+        botConfig.botToken, chatId, messageId,
+        `🚀 *Đang đăng ${label}…*\n_Vui lòng chờ vài giây._`,
+        { parse_mode: "Markdown" },
+      ).catch(() => {});
+    }
+    await answerCallback(botConfig.botToken, cbId, "Đang đăng…");
+
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const resp = await fetch(`${supabaseUrl}/functions/v1/channel-publisher`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+          apikey: serviceKey,
+        },
+        body: JSON.stringify({ action, contentId, content_id: contentId, channel }),
+      });
+      const text = await resp.text();
+      let parsed: Record<string, unknown> | null = null;
+      try { parsed = JSON.parse(text); } catch { /* ignore */ }
+      const ok = resp.ok && parsed?.success === true;
+      const errMsg = (parsed?.error as string | undefined) || (!resp.ok ? `HTTP ${resp.status}` : "");
+      const postUrl = ok
+        ? ((parsed?.data as { postUrl?: string } | undefined)?.postUrl || (parsed?.postUrl as string | undefined))
+        : undefined;
+
+      if (ok) {
+        const kb = postUrl
+          ? { inline_keyboard: [[{ text: `🔗 Mở bài trên ${label}`, url: postUrl }]] }
+          : undefined;
+        if (messageId) {
+          await editMessageText(
+            botConfig.botToken, chatId, messageId,
+            `✅ *Đã đăng ${label}* thành công.`,
+            { parse_mode: "Markdown", reply_markup: kb },
+          ).catch(() => {});
+        }
+        return;
+      }
+
+      // Token expired → reconnect deeplink
+      if (pubIsTokenExpiredError(errMsg)) {
+        const reconnectUrl = `https://app.flowa.one/connections?platform=${encodeURIComponent(channel)}`;
+        if (messageId) {
+          await editMessageText(
+            botConfig.botToken, chatId, messageId,
+            `⚠️ Kết nối *${label}* đã hết hạn hoặc chưa kết nối.\nBấm nút bên dưới để kết nối lại rồi thử đăng lại.`,
+            {
+              parse_mode: "Markdown",
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: `🔗 Kết nối lại ${label}`, url: reconnectUrl }],
+                  [{ text: "🔁 Thử đăng lại", callback_data: `pub:now:${contentId}:${channel}` }],
+                ],
+              },
+            },
+          ).catch(() => {});
+        }
+        return;
+      }
+
+      // Generic failure
+      if (messageId) {
+        await editMessageText(
+          botConfig.botToken, chatId, messageId,
+          `❌ Đăng *${label}* thất bại: ${String(errMsg || "Unknown error").slice(0, 200)}`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[
+                { text: "🔁 Thử lại", callback_data: `pub:now:${contentId}:${channel}` },
+                { text: "📅 Lên lịch", callback_data: `pub:menu:${contentId}:${channel}` },
+              ]],
+            },
+          },
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.error("[pub:now] error:", e);
+      if (messageId) {
+        await editMessageText(
+          botConfig.botToken, chatId, messageId,
+          `❌ Lỗi gọi service đăng bài: ${String((e as Error)?.message || e).slice(0, 150)}`,
+        ).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  await answerCallback(botConfig.botToken, cbId, "Hành động không hợp lệ.");
+}
