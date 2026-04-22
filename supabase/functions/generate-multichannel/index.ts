@@ -4785,6 +4785,12 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       throw err;
     }
 
+    generatedData.title = resolveBundleTitle({
+      explicitTitle: generatedData.title,
+      topic: formData.topic,
+      useTopicAsTitle: formData.useTopicAsTitle,
+    });
+
     console.log("Generated content:", generatedData.title);
 
     // ============================================
@@ -4981,6 +4987,11 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         });
 
         generatedData = critiqueLoop.finalContent;
+        generatedData.title = resolveBundleTitle({
+          explicitTitle: generatedData.title,
+          topic: formData.topic,
+          useTopicAsTitle: formData.useTopicAsTitle,
+        });
         critiqueResult = critiqueLoop.critiqueResult;
         wasRefined = critiqueLoop.wasRefined;
         refinementCount = critiqueLoop.refinementCount;
@@ -5405,7 +5416,11 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         .insert(buildMultiChannelCreatePayload({
           user_id: userId,
           organization_id: organizationId,
-          title: generatedData.title,
+          title: resolveBundleTitle({
+            explicitTitle: generatedData.title,
+            topic: formData.topic,
+            useTopicAsTitle: formData.useTopicAsTitle,
+          }),
           topic: formData.topic,
           industry: industry,
           content_goal: resolvedContentGoal,
