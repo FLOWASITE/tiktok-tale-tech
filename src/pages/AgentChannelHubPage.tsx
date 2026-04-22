@@ -104,13 +104,25 @@ export default function AgentChannelHubPage() {
 
               <div className="shrink-0 flex items-center gap-2">
                 {ch.status === 'connected' && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15 border-emerald-500/20 gap-1"
-                  >
-                    <Check className="w-3 h-3" />
-                    {t('agentHub.connected', { defaultValue: 'Đã kết nối' })}
-                  </Badge>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15 border-emerald-500/20 gap-1 cursor-help"
+                        >
+                          <Check className="w-3 h-3" />
+                          {t('agentHub.connected', { defaultValue: 'Đã kết nối' })}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+                        {t('agentHub.connectedHint', {
+                          defaultValue:
+                            'Tài khoản của bạn đã được liên kết với bot. Nếu bot không phản hồi đúng trong Telegram, hãy mở chat bot và gõ /start để làm mới liên kết.',
+                        })}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 {ch.status === 'connect' && (
                   <Button
