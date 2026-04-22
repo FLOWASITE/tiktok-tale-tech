@@ -291,6 +291,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
             console.log("[telegram-webhook] default-bot rehydrate", {
               chatId: peekChatId,
               telegram_user_id: peekTgUserId || null,
+              chat_type: peekChatType,
               resolved_by: resolvedBy,
               organization_id: binding.organization_id,
             });
@@ -1919,6 +1920,7 @@ async function lookupUserBinding(
         organization_id: organizationId,
         chat_id: chatId,
         telegram_user_id: telegramUserId,
+        chat_type: "private",
         resolved_by: "telegram_user_id_dm_fallback",
       });
       return { userId: dm.user_id };
