@@ -1599,6 +1599,7 @@ async function handleGenerateSingle(
       `✅ *Bài ${channelLabel} đã sẵn sàng*`,
       "",
       `📝 *${escapeMd(displayTitle)}*`,
+      titleSource === "fallback" ? `_💡 Tiêu đề tạm — bạn có thể đổi trên Mini App_` : "",
       brandLine,
       "",
       statsLine,
