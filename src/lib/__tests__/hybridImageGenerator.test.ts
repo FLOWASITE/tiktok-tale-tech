@@ -138,6 +138,43 @@ describe('autoSelectTemplate', () => {
     });
     expect(autoSelectTemplate(desc, config)).toBe('testimonial_card');
   });
+
+  it('selects checklist_card for checklist-oriented content', () => {
+    const desc = 'Checklist trước liệu trình: những điều cần nhớ để da ổn định hơn';
+    const config = makeConfig({
+      cards: {
+        items: [{ label: 'A' }, { label: 'B' }, { label: 'C' }, { label: 'D' }],
+        layout: 'vertical',
+      },
+      cta: 'Lưu lại ngay',
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('checklist_card');
+  });
+
+  it('selects problem_solution for pain-point framing', () => {
+    const desc = 'Vấn đề da kích ứng kéo dài và giải pháp phục hồi tối giản cho người bận rộn';
+    const config = makeConfig({
+      headline: 'Vấn đề → Giải pháp',
+      cards: {
+        items: [{ label: 'Pain point' }, { label: 'Giải pháp' }, { label: 'Lộ trình' }],
+        layout: 'vertical',
+      },
+      cta: 'Nhận tư vấn',
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('problem_solution');
+  });
+
+  it('selects product_spotlight for product launch content', () => {
+    const desc = 'Ra mắt sản phẩm mới với 3 ưu điểm nổi bật cho da nhạy cảm';
+    const config = makeConfig({
+      cards: {
+        items: [{ label: 'Ưu điểm 1' }, { label: 'Ưu điểm 2' }, { label: 'Ưu điểm 3' }],
+        layout: 'horizontal',
+      },
+      cta: 'Xem sản phẩm',
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('product_spotlight');
+  });
 });
 
 // ============================================================
@@ -282,6 +319,70 @@ describe('applyTemplate', () => {
     });
   });
 
+  describe('new template coverage', () => {
+    it('comparison_card keeps horizontal cards and adds CTA', () => {
+      const result = applyTemplate('comparison_card', makeDecomposed(), description);
+      expect(result.overlayConfig.cards).toBeDefined();
+      expect(result.overlayConfig.cards!.layout).toBe('horizontal');
+      expect(result.overlayConfig.cta).toBeDefined();
+    });
+
+    it('timeline_steps ensures numbered vertical cards with CTA', () => {
+      const result = applyTemplate('timeline_steps', makeDecomposed(), description);
+      expect(result.overlayConfig.cards).toBeDefined();
+      expect(result.overlayConfig.cards!.layout).toBe('vertical');
+      expect(result.overlayConfig.cards!.items.every((item) => typeof item.number === 'number')).toBe(true);
+      expect(result.overlayConfig.cta).toBeDefined();
+    });
+
+    it('checklist_card ensures numbered cards and CTA', () => {
+      const result = applyTemplate('checklist_card', makeDecomposed(), description);
+      expect(result.overlayConfig.cards).toBeDefined();
+      expect(result.overlayConfig.cards!.layout).toBe('vertical');
+      expect(result.overlayConfig.cards!.items.every((item) => typeof item.number === 'number')).toBe(true);
+      expect(result.overlayConfig.cta).toBeDefined();
+    });
+
+    it('product_spotlight keeps horizontal cards and CTA', () => {
+      const result = applyTemplate('product_spotlight', makeDecomposed(), description);
+      expect(result.overlayConfig.banner).toBeDefined();
+      expect(result.overlayConfig.cards!.layout).toBe('horizontal');
+      expect(result.overlayConfig.cta).toBeDefined();
+    });
+
+    it('problem_solution ensures vertical cards and CTA', () => {
+      const result = applyTemplate('problem_solution', makeDecomposed(), description);
+      expect(result.overlayConfig.headline).toBeDefined();
+      expect(result.overlayConfig.cards).toBeDefined();
+      expect(result.overlayConfig.cards!.layout).toBe('vertical');
+      expect(result.overlayConfig.cta).toBeDefined();
+    });
+
+    it('testimonial_card preserves hero/headline/cta shape', () => {
+      const result = applyTemplate('testimonial_card', makeDecomposed(), description);
+      expect(result.overlayConfig.heroText).toBeDefined();
+      expect(result.overlayConfig.headline).toBeDefined();
+      expect(result.overlayConfig.cta).toBeDefined();
+    });
+
+    it('stat_spotlight ensures banner + heroText + headline', () => {
+      const result = applyTemplate('stat_spotlight', makeDecomposed(), description);
+      expect(result.overlayConfig.banner).toBeDefined();
+      expect(result.overlayConfig.heroText).toBeDefined();
+      expect(result.overlayConfig.headline).toBeDefined();
+    });
+
+    it('contact_card injects footer from contact-rich description', () => {
+      const result = applyTemplate(
+        'contact_card',
+        makeDecomposed(),
+        'Liên hệ: 0909123456. Email: test@example.com. Địa chỉ 123 Nguyễn Huệ Quận 1. Website flowa.one',
+      );
+      expect(result.overlayConfig.footer).toBeDefined();
+      expect(result.overlayConfig.footer!.items.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
   it('returns original when template is auto', () => {
     const decomposed = makeDecomposed({ headline: 'Test' });
     const result = applyTemplate('auto', decomposed, description);
@@ -367,5 +468,58 @@ describe('autoSelectTemplate → applyTemplate integration', () => {
     const result = applyTemplate(selectedTemplate, decomposed, desc);
     expect(result.overlayConfig.banner).toBeDefined();
     expect(result.overlayConfig.cta).toBeDefined();
+  });
+
+  it('auto-selects and applies checklist_card for checklist content', () => {
+    const desc = 'Checklist trước liệu trình: điều cần nhớ để da không bị quá tải';
+    const decomposed = makeDecomposed({
+      cards: {
+        items: [{ label: 'A' }, { label: 'B' }, { label: 'C' }, { label: 'D' }],
+        layout: 'vertical',
+      },
+      cta: 'Lưu ngay',
+    });
+
+    const selectedTemplate = autoSelectTemplate(desc, decomposed.overlayConfig);
+    expect(selectedTemplate).toBe('checklist_card');
+
+    const result = applyTemplate(selectedTemplate, decomposed, desc);
+    expect(result.overlayConfig.cards!.items.every((item) => typeof item.number === 'number')).toBe(true);
+  });
+
+  it('auto-selects and applies problem_solution for pain-point content', () => {
+    const desc = 'Vấn đề da đỏ kéo dài và giải pháp phục hồi an toàn';
+    const decomposed = makeDecomposed({
+      cards: {
+        items: [{ label: 'Đỏ da' }, { label: 'Routine tối giản' }, { label: 'Theo dõi tiến triển' }],
+        layout: 'vertical',
+      },
+      cta: 'Nhận lộ trình',
+    });
+
+    const selectedTemplate = autoSelectTemplate(desc, decomposed.overlayConfig);
+    expect(selectedTemplate).toBe('problem_solution');
+
+    const result = applyTemplate(selectedTemplate, decomposed, desc);
+    expect(result.overlayConfig.cards!.layout).toBe('vertical');
+    expect(result.overlayConfig.cta).toBeDefined();
+  });
+
+  it('auto-selects and applies product_spotlight for launch content', () => {
+    const desc = 'Ra mắt sản phẩm mới với ưu điểm khóa ẩm và phục hồi';
+    const decomposed = makeDecomposed({
+      cards: {
+        items: [{ label: 'Khóa ẩm' }, { label: 'Phục hồi' }, { label: 'Dịu nhẹ' }],
+        layout: 'horizontal',
+      },
+      cta: 'Khám phá ngay',
+    });
+
+    const selectedTemplate = autoSelectTemplate(desc, decomposed.overlayConfig);
+    expect(selectedTemplate).toBe('product_spotlight');
+
+    const result = applyTemplate(selectedTemplate, decomposed, desc);
+    expect(result.overlayConfig.cards!.layout).toBe('horizontal');
+    expect(result.overlayConfig.banner).toBeDefined();
   });
 });
