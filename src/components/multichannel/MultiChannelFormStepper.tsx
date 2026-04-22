@@ -57,6 +57,7 @@ import {
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useTopicRefinement, RefinedTopic } from '@/hooks/useTopicRefinement';
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
@@ -247,7 +248,21 @@ export function MultiChannelFormStepper({
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
-  // Auto-select default template
+  // Sync with global brand context (header switcher)
+  const { currentBrand } = useCurrentBrand();
+  useEffect(() => {
+    if (currentBrand?.id && currentBrand.id !== formData.brandTemplateId) {
+      setFormData(prev => ({
+        ...prev,
+        brandTemplateId: currentBrand.id,
+        brandVoiceVariantId: undefined,
+        productId: undefined,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBrand?.id]);
+
+  // Auto-select default template (fallback when no global brand)
   useEffect(() => {
     if (templatesLoading || templates.length === 0 || formData.brandTemplateId) return;
     const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
