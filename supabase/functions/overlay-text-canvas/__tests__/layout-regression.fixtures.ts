@@ -51,8 +51,8 @@ export const LAYOUT_REGRESSION_FIXTURES: LayoutRegressionFixture[] = [
     },
     expectations: {
       square: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
-      portrait: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
-      landscape: { forceStack: false, useCompactSectionGap: true, cardsShouldStack: false },
+      portrait: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: true },
+      landscape: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: false },
       tall: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
     },
   },
@@ -175,8 +175,8 @@ export const LAYOUT_REGRESSION_FIXTURES: LayoutRegressionFixture[] = [
     },
     expectations: {
       square: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
-      portrait: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: true },
-      landscape: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: false },
+      portrait: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
+      landscape: { forceStack: false, useCompactSectionGap: true, cardsShouldStack: true },
       tall: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
     },
   },
