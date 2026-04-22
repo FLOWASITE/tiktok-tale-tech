@@ -1,141 +1,121 @@
 
+# Có, làm được: 2 user trong cùng 1 tổ chức có thể dùng Telegram song song
 
-# Sửa "2 user Telegram khác nhau cùng org không vào được cùng lúc"
+## Mục tiêu
+Đảm bảo mỗi user trong cùng workspace có **private binding riêng** với bot, để cả 2 người có thể:
+- chat DM với bot cùng lúc
+- bot nhận diện đúng từng user
+- không ai bị “đá” binding của người kia khi reconnect hoặc confirm link
 
-## Tình trạng
+## Tình trạng hiện tại trong code
+Qua code hiện có, nền tảng này **đã gần đúng**:
+- `telegram-webhook` đã rehydrate theo `chat_id`, rồi fallback `telegram_user_id + chat_type='private'`
+- `lookupUserBinding()` đã ưu tiên private binding đúng org
+- `useTelegramBinding()` đã đọc binding theo `organization_id + user_id + chat_type='private'`
+- Ghost cleanup trong `handleConfirmLinkCallback` hiện đã có `chat_type='private'`, tức là **không còn xóa lan sang group binding**
 
-Hiện DB có 1 binding duy nhất (User A — flowasite). User B trong cùng org Flowa không link được, hoặc link xong vẫn bị bot báo "Chưa kết nối".
+Điều đó nghĩa là về nguyên tắc, **2 user khác Telegram trong cùng org phải cùng dùng được**.
 
-## 3 root causes đã xác định trong code
+## Vấn đề còn phải xử lý dứt điểm
+Khả năng cao lỗi còn lại nằm ở dữ liệu/runtime hơn là business rule:
+1. Có binding cũ/stale của một trong hai user
+2. Một user đang chat ở `chat_id` khác với row binding hiện hành
+3. Có race khi confirm/reconnect khiến row mới chưa trở thành binding mà bot đang rehydrate tới
+4. Có query `.maybeSingle()` ở nhánh phụ nào đó vẫn giả định chỉ có 1 row trong tình huống thực tế
 
-### Cause #1 — Ghost cleanup quá rộng (KHÔNG scope `chat_type`)
-`telegram-webhook/index.ts` line 2843-2856 trong `handleConfirmLinkCallback`:
+## Cách xử lý dứt điểm
 
-```ts
-.delete()
-.eq("telegram_user_id", effectiveTgUserId)
-.neq("user_id", pending.payload_uid);
-```
+### 1) Khóa invariant rõ ràng cho mô hình multi-user same-org
+Giữ rule chuẩn:
+- 1 Telegram user chỉ map tới 1 Flowa account ở DM
+- nhưng 1 organization có thể có **nhiều private bindings**, miễn là khác `user_id` và khác `telegram_chat_id`
 
-Vấn đề: `effectiveTgUserId` ở đây fallback về `fromTgId` — Telegram user của người vừa bấm Link Account. Nếu User B bấm xác nhận từ chat của họ, query này xóa **mọi binding khác của Telegram-user B** trên toàn hệ thống, kể cả group bindings hay binding ở org khác. Hợp lý cho ý đồ "1 Telegram user ↔ 1 Flowa account", **nhưng**:
+Kiểm tra lại các unique/index và các nhánh upsert để bảo đảm:
+- không có logic app-level nào vô tình cưỡng ép “1 org chỉ có 1 user Telegram”
+- không có cleanup nào xóa binding của user khác cùng org
 
-- Không scope `chat_type='private'` → có thể xóa nhầm group bindings của user khác.
-- Không scope `organization_id` → nếu User A và User B trong cùng 1 group đã bind, có thể bị xóa ngược.
+### 2) Audit toàn bộ luồng confirm/reconnect theo “per-user private binding”
+Rà kỹ trong `supabase/functions/telegram-webhook/index.ts`:
+- `handleStart`
+- `handleConfirmLinkCallback`
+- `lookupUserBinding`
+- default-bot rehydrate đầu `Deno.serve`
 
-### Cause #2 — Default-bot collision check chặn nhầm user thứ 2 trong cùng org
-Line 697-714 trong `handleStart`:
+Mục tiêu:
+- mọi lookup DM phải dựa trên `chat_id` hoặc `telegram_user_id + organization_id + chat_type='private'`
+- mọi cleanup chỉ được phép động vào:
+  - chính Telegram user đang relink
+  - hoặc chính `(organization_id, user_id)` đang reconnect
+- tuyệt đối không ảnh hưởng active private binding của user khác cùng org
 
-```ts
-if (isDefaultBot && bindingChatType === "private") {
-  const { data: collision } = await supabase
-    .from("telegram_chat_bindings")
-    .select("organization_id")
-    .eq("telegram_chat_id", chatId)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (collision && collision.organization_id !== payload.org) { … reject … }
-}
-```
+### 3) Thêm regression test thật cho case 2 user cùng org
+Bộ test cần cover đúng case user đang gặp:
 
-Logic này dùng `.maybeSingle()` → nếu User A và User B vô tình share Telegram chat (hiếm) hoặc query trả 2 row sẽ throw. Nhưng **vấn đề thật**: nó chỉ check khác org, **không có gì sai logic ở case 2 user khác Telegram cùng org** — nên đây chỉ là noise. **BỎ QUA cause #2** cho lần sửa này.
+#### Case A
+- User A đã linked DM vào org Flowa
+- User B linked DM vào cùng org Flowa
+- Kết quả:
+  - A còn active
+  - B active
+  - bot trả lời được cho cả A và B
 
-### Cause #3 — Stale cleanup ở line 2858-2869 thiếu scope `is_active`
-```ts
-.delete()
-.eq("organization_id", pending.payload_org)
-.eq("user_id", pending.payload_uid)
-.eq("chat_type", "private")
-.neq("telegram_chat_id", chatId)
-```
+#### Case B
+- User B reconnect từ chat mới
+- Kết quả:
+  - chỉ row cũ của B bị dọn
+  - A không bị ảnh hưởng
 
-Đây là cleanup khi User B reconnect → xóa các private binding cũ của chính User B. Đúng intent. Nhưng **không filter `is_active=true`** → nếu User B từng có binding inactive với chat_id khác, vẫn delete (hơi rộng, nhưng không gây lỗi cross-user). **Để nguyên**.
+#### Case C
+- Có group binding trong org
+- User B confirm lại
+- Kết quả:
+  - group binding vẫn còn
+  - private bindings của A/B vẫn đúng
 
-### Cause #4 (THỰC SỰ — nguyên nhân chính) — Default bot rehydrate prefer chỉ 1 binding theo `chat_id`
+#### Case D
+- Non-`/start` message sau khi link
+- Rehydrate phải resolve đúng org theo `chat_id`
+- Không fallback sai sang user khác
 
-Line 257-280 ở `Deno.serve`:
+### 4) Tăng log chẩn đoán để bắt đúng lỗi thực tế
+Thêm log rõ cho các điểm:
+- trước và sau ghost cleanup
+- trước và sau stale cleanup
+- rehydrate resolved by `chat_id` hay `telegram_user_id`
+- `organization_id`, `user_id`, `telegram_user_id`, `telegram_chat_id`, `chat_type`
 
-```ts
-const { data: chatBinding } = await supabase
-  .from("telegram_chat_bindings")
-  .select("organization_id, linked_at")
-  .eq("telegram_chat_id", peekChatId)
-  .eq("is_active", true)
-  .order("linked_at", { ascending: false })
-  .limit(1)
-  .maybeSingle();
-```
+Mục tiêu: nếu vẫn lỗi, nhìn log sẽ biết ngay:
+- user bị miss vì chat_id khác
+- hay row bị cleanup
+- hay query trả sai binding
 
-Logic này resolve theo `telegram_chat_id` — đúng cho User A và User B vì 2 chat_id khác nhau. **Không có vấn đề.**
+### 5) Thêm recovery UX rõ hơn cho user thứ 2
+UI hiện đã có hướng reconnect. Cần đảm bảo flow recovery này đủ rõ:
+- nếu bot báo “Chưa kết nối” nhưng UI xanh:
+  - user bấm `Kết nối lại`
+  - hệ thống tạo deeplink `/start` mới
+  - chỉ refresh binding của chính user hiện tại
+  - không đụng người còn lại trong cùng org
 
-→ Tóm lại: code đường happy-path cho 2 user cùng org **đáng lẽ phải work**. Vấn đề thực tế đến từ **Cause #1** — khi User B confirm link, ghost cleanup có thể xóa nhầm row đang được upsert race-condition, hoặc xóa group binding cũ của User A khiến UI User A báo "Chưa kết nối".
+## Files cần rà/sửa
+- `supabase/functions/telegram-webhook/index.ts`
+- `supabase/functions/telegram-webhook/__tests__/multi-user-same-org.test.ts`
+- `src/hooks/useTelegramBinding.ts` (chỉ nếu phát hiện conflict/reconnect flow còn rộng quá)
+- `src/components/agents/TelegramLinkCard.tsx` (chỉ nếu cần làm rõ recovery UX)
 
-## Cách sửa
-
-### Fix A — Siết ghost cleanup (`telegram-webhook` line 2843-2856)
-
-Thêm 2 filter:
-- `chat_type = 'private'` — chỉ ảnh hưởng private DM bindings
-- (giữ nguyên `neq user_id`)
-
-```ts
-.delete()
-.eq("telegram_user_id", effectiveTgUserId)
-.eq("chat_type", "private")          // ← thêm
-.neq("user_id", pending.payload_uid);
-```
-
-Lý do: ý đồ "1 Telegram user ↔ 1 Flowa account" chỉ cần áp dụng cho private DM (mỗi Telegram user chỉ chat DM với bot dưới danh nghĩa 1 Flowa user). Group bindings không có khái niệm "1 Telegram user ↔ 1 Flowa user" vì nhiều người trong group cùng chat. Group bindings phải được giữ nguyên.
-
-### Fix B — Verify business rule có cho phép 2 user cùng org link không
-
-`uq_tg_bindings_active_private_org_user` là UNIQUE `(organization_id, user_id)` WHERE private+active. Đúng cho phép 2 user khác nhau cùng org có 2 binding → **DB không chặn**.
-
-`telegram_chat_bindings_organization_id_telegram_chat_id_key` là UNIQUE `(organization_id, telegram_chat_id)`. Cho phép 2 chat_id khác trong cùng org → **DB không chặn**.
-
-→ DB layer OK. Chỉ cần fix application layer.
-
-### Fix C — Test regression
-Tạo `supabase/functions/telegram-webhook/__tests__/multi-user-same-org.test.ts`:
-
-1. Setup: User A đã có private binding `(orgFlowa, userA, chatA, tgUserA)`.
-2. User B `/start` → confirm link với `(orgFlowa, userB, chatB, tgUserB)`.
-3. Assert sau confirm:
-   - Binding của User A vẫn `is_active=true` (không bị xóa).
-   - Binding mới của User B tồn tại với `is_active=true`.
-   - DB có đúng 2 row private active trong org Flowa.
-4. Edge case: User A có thêm group binding `(orgFlowa, NULL, chatGroup, tgUserA)`. Sau khi User B confirm, group binding vẫn còn.
-
-### Fix D — Reset state hiện tại để verify thủ công
-Sau khi deploy fix A:
-1. User B mở `/agents/telegram` → bấm "Get started on Telegram".
-2. Confirm trong bot.
-3. Mở SQL dashboard → expect 2 rows private active trong org Flowa với 2 user_id và 2 chat_id khác nhau.
-4. User A gõ `/help` từ chat của họ → bot trả lời cho User A.
-5. User B gõ `/help` từ chat của họ → bot trả lời cho User B.
-
-## Files sẽ sửa
-
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/telegram-webhook/index.ts` | Thêm `.eq("chat_type", "private")` vào ghost cleanup line 2848-2852. |
-| `supabase/functions/telegram-webhook/__tests__/multi-user-same-org.test.ts` | (Mới) 4 test case multi-user same-org parity. |
-
-KHÔNG động:
-- DB schema (đã đúng)
-- `useTelegramBinding` (logic đúng — chỉ filter theo user.id hiện tại)
-- `lookupUserBinding` (đã prefer private + scope đúng org)
-- Rehydrate logic (đã resolve đúng theo chat_id)
-
-## Rủi ro
-
-- **Rất thấp**: chỉ thêm 1 filter để cleanup chính xác hơn, không thay đổi flow chính.
-- Test regression covers cả group binding để đảm bảo không gây side-effect.
+## Kết quả mong muốn sau khi xong
+Trong cùng một tổ chức:
+- User A có thể chat Telegram với bot
+- User B có thể chat Telegram với bot cùng lúc
+- reconnect của B không làm A mất kết nối
+- bot luôn nhận diện đúng người theo DM binding riêng
 
 ## QA sau implement
-
-1. User A: mở chat với bot → gõ `/help` → bot trả `/help` cho User A.
-2. User B: mở app → `/agents/telegram` → bấm "Get started on Telegram" → confirm trong bot của User B.
-3. User B gõ `/help` → bot trả `/help` cho User B.
-4. User A gõ `/status` → bot vẫn nhận diện đúng User A (binding của A không bị xóa).
-5. Check DB: 2 row active private trong `telegram_chat_bindings` cho org Flowa với 2 user_id khác nhau.
-
+1. User A link thành công, gửi `/help`
+2. User B link thành công trong cùng org, gửi `/help`
+3. Xác nhận cả A và B đều được bot trả lời
+4. User B reconnect từ chat mới
+5. A vẫn chat bình thường
+6. Kiểm tra DB:
+   - có 2 row `private + active` trong cùng org
+   - mỗi row có `user_id`, `telegram_chat_id`, `telegram_user_id` riêng
