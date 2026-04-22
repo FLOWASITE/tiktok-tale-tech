@@ -304,8 +304,19 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
               await sendMessage(
                 botConfig.botToken,
                 peekChatId,
-                "👋 Chưa kết nối. Mở https://app.flowa.one/agents/telegram → Get started on Telegram để lấy link.",
+                "👋 Chưa kết nối tài khoản Flowa với chat này.\n\n" +
+                  "🔗 *Cách kết nối:*\n" +
+                  "1️⃣ Mở https://app.flowa.one/agents/telegram\n" +
+                  "2️⃣ Bấm \"Get started on Telegram\" để lấy link /start cá nhân\n" +
+                  "3️⃣ Mở link đó trong Telegram → bot sẽ tự kết nối\n\n" +
+                  "💡 Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, " +
+                  "có thể bạn đang chat từ chat_id khác. Hãy /start lại để rebind chat hiện tại.",
               );
+              console.warn("[telegram-webhook] onboarding sent — chat_id not bound", {
+                chat_id: peekChatId,
+                telegram_user_id: peekTgUserId || null,
+                chat_type: peekChatType,
+              });
             }
             return okResponse();
           }
