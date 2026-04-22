@@ -2,6 +2,7 @@ import satori from "https://esm.sh/satori@0.10.14?bundle";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  getBottomCenterLogoSafeArea,
   getFooterLayoutProfile,
   getLayoutBehavior,
   getRatioProfile,
@@ -1296,9 +1297,7 @@ function buildStructuredElement(
   // CTA button
   if (elements.cta) {
     // CTA safe-area: avoid logo at bottom-center
-    const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center')
-      ? Math.round(logoSafeHeight * ratioProfile.safeBottomMultiplier)
-      : 0;
+    const ctaMarginBottom = getBottomCenterLogoSafeArea(imageWidth, imageHeight, logoMeta).ctaMarginBottom;
     const ctaPaddingY = textTokens.ctaPaddingY;
     const ctaPaddingX = textTokens.ctaPaddingX;
     const ctaFitWidth = resolveBlockWidth(imageWidth, ratioProfile, ratioProfile.ctaMaxWidth, ctaPaddingX, centerSafeLeft, centerSafeRight);
@@ -1409,9 +1408,10 @@ function buildStructuredElement(
       if (logoMeta.position === 'bottom-left') footerPaddingLeft = Math.max(footerPaddingLeft, logoSafeWidth);
       if (logoMeta.position === 'bottom-right') footerPaddingRight = Math.max(footerPaddingRight, logoSafeWidth);
       if (logoMeta.position === 'bottom-center') {
+        const logoSafeArea = getBottomCenterLogoSafeArea(imageWidth, imageHeight, logoMeta, footerLayout);
         footerPaddingLeft = Math.max(footerPaddingLeft, 28);
         footerPaddingRight = Math.max(footerPaddingRight, 28);
-        footerPaddingBottom = Math.max(footerPaddingBottom, footerLayout.minBottomClearance + Math.round(logoSafeHeight * 0.55));
+        footerPaddingBottom = Math.max(footerPaddingBottom, logoSafeArea.footerMinPaddingBottom);
       }
     }
 

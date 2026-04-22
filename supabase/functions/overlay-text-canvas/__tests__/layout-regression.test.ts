@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getBottomCenterLogoSafeArea,
   getFooterLayoutProfile,
   getLayoutBehavior,
   getRatioProfile,
@@ -96,5 +97,27 @@ describe('overlay-text-canvas width and token guards', () => {
 
     expect(getFooterLayoutProfile(1080, 1080, footerItems, logoMeta).mode).not.toBe('single-row');
     expect(getFooterLayoutProfile(1080, 1920, footerItems, logoMeta).mode).toBe('vertical-compact');
+  });
+
+  it('bottom-center logo keeps CTA and footer safe-area separated across all footer modes', () => {
+    const logoMeta = { position: 'bottom-center', sizePercent: 16, padding: 24 };
+    const footerItems = [
+      { icon: 'phone', text: '0909 123 456' },
+      { icon: 'mail', text: 'hello@flowa.one' },
+      { icon: 'globe', text: 'flowa.one' },
+      { icon: 'map-pin', text: '123 Nguyễn Huệ, Quận 1, TP.HCM' },
+    ];
+
+    for (const ratio of Object.values(COMMON_RATIOS)) {
+      for (const requestedMode of ['single-row', 'two-row', 'vertical-compact'] as const) {
+        const footerProfile = getFooterLayoutProfile(ratio.width, ratio.height, footerItems, logoMeta, requestedMode);
+        const safeArea = getBottomCenterLogoSafeArea(ratio.width, ratio.height, logoMeta, footerProfile);
+
+        expect(safeArea.ctaMarginBottom).toBeGreaterThanOrEqual(safeArea.logoSafeHeight);
+        expect(safeArea.footerMinTextClearance).toBeGreaterThanOrEqual(footerProfile.minBottomClearance);
+        expect(safeArea.footerMinPaddingBottom).toBeGreaterThanOrEqual(footerProfile.paddingBottom);
+        expect(safeArea.footerMinPaddingBottom).toBeGreaterThanOrEqual(safeArea.footerMinTextClearance + Math.round(safeArea.logoSafeHeight * 0.55));
+      }
+    }
   });
 });
