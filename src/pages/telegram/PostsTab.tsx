@@ -210,7 +210,8 @@ export function PostsTab({ orgId, brandId, onGoConnections, autoOpenContentId, o
           <div className="px-4 pb-4 overflow-y-auto space-y-4">
             {preview?.selected_channels?.map((ch) => {
               const text = getChannelText(preview, ch);
-              if (!text) return null;
+              const imgs = getChannelImages(preview, ch);
+              if (!text && imgs.length === 0) return null;
               const action = CHANNEL_PUBLISH_ACTION[ch];
               const key = `${preview.id}::${ch}`;
               return (
@@ -220,10 +221,21 @@ export function PostsTab({ orgId, brandId, onGoConnections, autoOpenContentId, o
                       {CHANNEL_EMOJI[ch] ?? '•'} {CHANNEL_LABEL[ch] ?? ch}
                     </Badge>
                   </div>
-                  <div className="text-sm whitespace-pre-line text-foreground/90 max-h-48 overflow-y-auto rounded-md border border-border p-2 bg-muted/30">
-                    {text}
-                  </div>
-                  {action && (
+                  {imgs.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {imgs.map((src, i) => (
+                        <a key={`${ch}-img-${i}`} href={src} target="_blank" rel="noopener noreferrer" className="block">
+                          <img src={src} alt="" loading="lazy" className="w-full h-32 object-cover rounded-md border border-border" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {text && (
+                    <div className="text-sm whitespace-pre-line text-foreground/90 max-h-48 overflow-y-auto rounded-md border border-border p-2 bg-muted/30">
+                      {text}
+                    </div>
+                  )}
+                  {action && text && (
                     <Button
                       size="sm" className="w-full"
                       disabled={publishingKey === key}
