@@ -112,14 +112,26 @@ export async function resolveSocialPayload(input: ResolveInput): Promise<Resolve
     const channelImages = mccRow.channel_images as Record<string, any> | null;
     if (channelImages && typeof channelImages === 'object') {
       const imgs = channelImages[socialMap.channelKey];
-      if (Array.isArray(imgs) && imgs.length > 0) {
-        const urls = imgs
-          .map((it: any) => (typeof it === 'string' ? it : it?.url || it?.image_url))
-          .filter((u: any) => typeof u === 'string' && u.trim());
-        if (urls.length > 0) {
-          finalPayload.mediaUrls = urls;
-          if (!finalPayload.mediaUrl) finalPayload.mediaUrl = urls[0];
+      const urls: string[] = [];
+
+      if (Array.isArray(imgs)) {
+        // Legacy: array of strings or {url}/{image_url} objects
+        for (const it of imgs) {
+          const u = typeof it === 'string' ? it : it?.url || it?.image_url;
+          if (typeof u === 'string' && u.trim()) urls.push(u);
         }
+      } else if (imgs && typeof imgs === 'object') {
+        // Production: single object {url, ...} from generate-brand-image
+        const u = (imgs as any).url || (imgs as any).image_url;
+        if (typeof u === 'string' && u.trim()) urls.push(u);
+      } else if (typeof imgs === 'string' && imgs.trim()) {
+        // Bulletproof: bare URL string
+        urls.push(imgs);
+      }
+
+      if (urls.length > 0) {
+        finalPayload.mediaUrls = urls;
+        if (!finalPayload.mediaUrl) finalPayload.mediaUrl = urls[0];
       }
     }
   } catch {
