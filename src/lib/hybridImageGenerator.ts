@@ -79,7 +79,21 @@ export interface DecomposedRequest {
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
   /** AI-suggested template ID based on content analysis */
-  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card' | 'education_infographic';
+  suggestedLayout?:
+    | 'poster'
+    | 'infographic'
+    | 'quote_card'
+    | 'feature_list'
+    | 'contact_card'
+    | 'education_infographic'
+    | 'comparison_card'
+    | 'timeline_steps'
+    | 'stat_spotlight'
+    | 'testimonial_card'
+    | 'product_spotlight'
+    | 'editorial_cover'
+    | 'problem_solution'
+    | 'checklist_card';
 }
 
 /** Strategic context passed to AI decomposition for smarter layout selection */
@@ -379,8 +393,28 @@ export function autoSelectTemplate(
   description: string,
   overlayConfig: StructuredOverlayConfig
 ): string {
+  const normalized = description.toLowerCase();
+  const hasAny = (terms: string[]) => terms.some((term) => normalized.includes(term));
   // Has contact info (phone/email/address) + cards → education_infographic
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  const hasStepSignal = hasAny(['quy trình', 'các bước', 'bước ', 'hướng dẫn', 'timeline', 'lộ trình', 'step ', 'steps ']);
+  const hasComparisonSignal = hasAny(['so sánh', 'before after', 'before/after', 'trước và sau', 'đúng và sai', 'cũ và mới', 'versus', ' a/b', 'vs ']);
+  const hasStatSignal = /\d+[\d.,]*\s*(%|x|triệu|tỷ|k|m|nghìn)?/.test(normalized) && hasAny(['tăng', 'giảm', 'đạt', 'kpi', 'roi', 'roas', 'ctr', 'số liệu', 'thống kê', 'insight', 'data', 'tỷ lệ']);
+  const hasTestimonialSignal = hasAny(['review', 'testimonial', 'feedback', 'khách hàng', 'đánh giá', 'case study', 'phản hồi', 'chứng thực']);
+  const hasProductSignal = hasAny(['sản phẩm', 'launch', 'ra mắt', 'usp', 'ưu điểm', 'benefit', 'công dụng', 'combo', 'gói dịch vụ']);
+  const hasChecklistSignal = hasAny(['checklist', 'check list', 'lưu ý', 'quick tips', 'tips', 'điều cần nhớ', 'cần biết', 'must-know']);
+  const hasProblemSolutionSignal = hasAny(['vấn đề', 'pain point', 'nỗi đau', 'giải pháp', 'solution', 'khắc phục', 'cách xử lý']);
+  const hasEditorialSignal = hasAny(['trend', 'xu hướng', 'góc nhìn', 'opinion', 'quan điểm', 'insight cá nhân', 'thought leadership', 'editorial']);
+
+  if (hasComparisonSignal) return 'comparison_card';
+  if (hasStatSignal && overlayConfig.heroText) return 'stat_spotlight';
+  if (hasStepSignal) return 'timeline_steps';
+  if (hasTestimonialSignal) return 'testimonial_card';
+  if (hasChecklistSignal) return 'checklist_card';
+  if (hasProblemSolutionSignal) return 'problem_solution';
+  if (hasProductSignal && (overlayConfig.cards || overlayConfig.cta)) return 'product_spotlight';
+  if (hasEditorialSignal && (overlayConfig.headline || overlayConfig.heroText)) return 'editorial_cover';
+
   if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
 
   // Has contact info + no cards → contact_card

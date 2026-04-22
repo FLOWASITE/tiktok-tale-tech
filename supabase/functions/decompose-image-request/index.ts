@@ -163,6 +163,14 @@ ${contentAngle ? `- Góc tiếp cận: ${contentAngle}` : ''}
 ${topic ? `- Chủ đề gốc: ${topic}` : ''}${styleHint}
 
 CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
+- Nội dung so sánh, before/after, A/B, đúng/sai → "comparison_card" (2 cột đối chiếu + CTA)
+- Nội dung quy trình, step-by-step, timeline, hướng dẫn → "timeline_steps" (cards dọc đánh số + CTA)
+- Nội dung số liệu/KPI/research insight có con số nổi bật → "stat_spotlight" (hero number lớn + headline ngắn)
+- Nội dung review/chứng thực/case study khách hàng → "testimonial_card" (quote/review nổi bật + trust CTA)
+- Nội dung ra mắt sản phẩm/dịch vụ/USP chính → "product_spotlight" (headline + benefits + CTA)
+- Nội dung thought leadership/trend/opinion/personal brand → "editorial_cover" (headline tối giản, sang trọng)
+- Nội dung pain point → giải pháp → "problem_solution" (nêu vấn đề + bullet giải pháp + CTA)
+- Nội dung checklist/quick tips/save-worthy → "checklist_card" (danh sách dọc dễ scan)
 - Nội dung giáo dục/kiến thức có nhiều điểm + có thông tin liên hệ → "education_infographic" (banner + cards đánh số + ribbon tóm tắt + CTA + footer liên hệ)
 - Nội dung giáo dục/kiến thức có nhiều điểm (education, sprout, educational) → "infographic" (chia đôi: hero trái + cards phải)
 - Nội dung cảm xúc/nhận diện thương hiệu (awareness, seed, storytelling) → "quote_card" (hero text lớn, cảm xúc)
@@ -219,6 +227,28 @@ Output:
 - cta: "Gọi ngay 0901234567"
 - footer: [{icon: "📞", text: "0901234567"}]
 
+VÍ DỤ 4:
+Input: "Before after điều trị nám: da đều màu hơn sau 8 tuần, giảm 65% sắc tố" 
+Output:
+- suggestedLayout: "comparison_card"
+- banner: "BEFORE / AFTER"
+- cards: [{icon: "⬅️", label: "Trước điều trị", description: "Sắc tố đậm, da xỉn màu"}, {icon: "➡️", label: "Sau 8 tuần", description: "Da sáng hơn, giảm 65% sắc tố"}]
+
+VÍ DỤ 5:
+Input: "3 bước chăm da sau laser để phục hồi nhanh, giảm đỏ rát và giữ kết quả lâu hơn"
+Output:
+- suggestedLayout: "timeline_steps"
+- banner: "3 BƯỚC PHỤC HỒI"
+- cards: [{icon: "🧼", number: 1, label: "Làm sạch dịu nhẹ"}, {icon: "💧", number: 2, label: "Phục hồi cấp ẩm"}, {icon: "🛡️", number: 3, label: "Chống nắng kỹ"}]
+
+VÍ DỤ 6:
+Input: "92% khách hàng quay lại sau liệu trình đầu tiên nhờ quy trình cá nhân hóa"
+Output:
+- suggestedLayout: "stat_spotlight"
+- banner: "TỶ LỆ QUAY LẠI"
+- heroText: "92%"
+- headline: "Khách hàng quay lại sau liệu trình đầu tiên"
+
 QUY TẮC:
 - ĐỌC KỸ nội dung bài viết để hiểu ý chính, KHÔNG chỉ copy nguyên văn
 - Banner phải IN HOA, 2-4 từ, phản ánh ĐÚNG chủ đề
@@ -249,7 +279,7 @@ Secondary color: ${secondaryColor}`;
           properties: {
             suggestedLayout: {
               type: "string",
-              enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card", "education_infographic"],
+              enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card", "education_infographic", "comparison_card", "timeline_steps", "stat_spotlight", "testimonial_card", "product_spotlight", "editorial_cover", "problem_solution", "checklist_card"],
               description: "Best layout template based on content analysis and strategic context",
             },
             backgroundPrompt: {
