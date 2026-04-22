@@ -1,121 +1,98 @@
 
-# Có, làm được: 2 user trong cùng 1 tổ chức có thể dùng Telegram song song
+# Viết lại lời giới thiệu Telegram theo copy mới
 
 ## Mục tiêu
-Đảm bảo mỗi user trong cùng workspace có **private binding riêng** với bot, để cả 2 người có thể:
-- chat DM với bot cùng lúc
-- bot nhận diện đúng từng user
-- không ai bị “đá” binding của người kia khi reconnect hoặc confirm link
+Đồng bộ phần giới thiệu/CTA theo thông điệp mới, để user thấy bot hấp dẫn và rõ giá trị hơn ngay từ lần đầu tương tác:
 
-## Tình trạng hiện tại trong code
-Qua code hiện có, nền tảng này **đã gần đúng**:
-- `telegram-webhook` đã rehydrate theo `chat_id`, rồi fallback `telegram_user_id + chat_type='private'`
-- `lookupUserBinding()` đã ưu tiên private binding đúng org
-- `useTelegramBinding()` đã đọc binding theo `organization_id + user_id + chat_type='private'`
-- Ghost cleanup trong `handleConfirmLinkCallback` hiện đã có `chat_type='private'`, tức là **không còn xóa lan sang group binding**
+- “🎉 Chào bạn!”
+- “Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.”
+- “👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.”
+- “Bắt đầu thử ngay!”
 
-Điều đó nghĩa là về nguyên tắc, **2 user khác Telegram trong cùng org phải cùng dùng được**.
+## Những chỗ cần cập nhật
 
-## Vấn đề còn phải xử lý dứt điểm
-Khả năng cao lỗi còn lại nằm ở dữ liệu/runtime hơn là business rule:
-1. Có binding cũ/stale của một trong hai user
-2. Một user đang chat ở `chat_id` khác với row binding hiện hành
-3. Có race khi confirm/reconnect khiến row mới chưa trở thành binding mà bot đang rehydrate tới
-4. Có query `.maybeSingle()` ở nhánh phụ nào đó vẫn giả định chỉ có 1 row trong tình huống thực tế
+### 1) Card kết nối Telegram trong app
+File: `src/components/agents/TelegramLinkCard.tsx`
 
-## Cách xử lý dứt điểm
+Cập nhật phần copy ở trạng thái chưa kết nối:
+- thay title ngắn hiện tại “Kết nối Telegram để chat AI Agent”
+- thay đoạn mô tả “1 click → bấm Start...”
+- thay dòng footer mô tả phía dưới card
 
-### 1) Khóa invariant rõ ràng cho mô hình multi-user same-org
-Giữ rule chuẩn:
-- 1 Telegram user chỉ map tới 1 Flowa account ở DM
-- nhưng 1 organization có thể có **nhiều private bindings**, miễn là khác `user_id` và khác `telegram_chat_id`
+Mục tiêu là biến card này thành phần giới thiệu rõ lợi ích, không chỉ là hướng dẫn kỹ thuật.
 
-Kiểm tra lại các unique/index và các nhánh upsert để bảo đảm:
-- không có logic app-level nào vô tình cưỡng ép “1 org chỉ có 1 user Telegram”
-- không có cleanup nào xóa binding của user khác cùng org
+### 2) Tin nhắn onboarding khi user chat bot nhưng chưa link
+File: `supabase/functions/telegram-webhook/index.ts`
 
-### 2) Audit toàn bộ luồng confirm/reconnect theo “per-user private binding”
-Rà kỹ trong `supabase/functions/telegram-webhook/index.ts`:
-- `handleStart`
-- `handleConfirmLinkCallback`
-- `lookupUserBinding`
-- default-bot rehydrate đầu `Deno.serve`
+Có 2 cụm copy đang dùng cho onboarding:
+- nhánh default-bot rehydrate fail (đoạn “Chưa kết nối tài khoản Flowa với chat này...”)
+- nhánh `/start` hoặc not-linked flow (đoạn “Chào mừng đến với Flowa Bot!...”)
 
-Mục tiêu:
-- mọi lookup DM phải dựa trên `chat_id` hoặc `telegram_user_id + organization_id + chat_type='private'`
-- mọi cleanup chỉ được phép động vào:
-  - chính Telegram user đang relink
-  - hoặc chính `(organization_id, user_id)` đang reconnect
-- tuyệt đối không ảnh hưởng active private binding của user khác cùng org
+Cần viết lại để:
+- mở đầu bằng lời chào mới
+- giới thiệu bot bằng đúng positioning “AI Marketing Agent”
+- giữ hướng dẫn kết nối rõ ràng
+- kết bằng CTA mạnh hơn kiểu “Bắt đầu thử ngay”
 
-### 3) Thêm regression test thật cho case 2 user cùng org
-Bộ test cần cover đúng case user đang gặp:
+## Cách triển khai
 
-#### Case A
-- User A đã linked DM vào org Flowa
-- User B linked DM vào cùng org Flowa
-- Kết quả:
-  - A còn active
-  - B active
-  - bot trả lời được cho cả A và B
+### A. App card: ưu tiên copy marketing + vẫn giữ hành động rõ
+Trong `TelegramLinkCard.tsx`:
+- phần heading đổi sang lời giới thiệu thân thiện hơn
+- phần body mô tả giá trị bot theo đúng copy user cung cấp
+- CTA chính vẫn giữ nút hiện tại “Kết nối tài khoản & bắt đầu ngay” vì đã mạnh và phù hợp
+- phần note cuối card đổi sang thông điệp action-oriented thay vì chỉ mô tả tính năng rời rạc
 
-#### Case B
-- User B reconnect từ chat mới
-- Kết quả:
-  - chỉ row cũ của B bị dọn
-  - A không bị ảnh hưởng
+Định hướng hiển thị:
+```text
+🎉 Chào bạn!
 
-#### Case C
-- Có group binding trong org
-- User B confirm lại
-- Kết quả:
-  - group binding vẫn còn
-  - private bindings của A/B vẫn đúng
+Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.
 
-#### Case D
-- Non-`/start` message sau khi link
-- Rehydrate phải resolve đúng org theo `chat_id`
-- Không fallback sai sang user khác
+👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.
+```
 
-### 4) Tăng log chẩn đoán để bắt đúng lỗi thực tế
-Thêm log rõ cho các điểm:
-- trước và sau ghost cleanup
-- trước và sau stale cleanup
-- rehydrate resolved by `chat_id` hay `telegram_user_id`
-- `organization_id`, `user_id`, `telegram_user_id`, `telegram_chat_id`, `chat_type`
+### B. Bot onboarding message: giữ cấu trúc Telegram-friendly
+Trong `telegram-webhook/index.ts`:
+- viết lại message not-linked thành 3 phần:
+  1. Greeting + giới thiệu giá trị
+  2. Hướng dẫn kết nối 2–3 bước
+  3. CTA cuối “Bắt đầu thử ngay”
 
-Mục tiêu: nếu vẫn lỗi, nhìn log sẽ biết ngay:
-- user bị miss vì chat_id khác
-- hay row bị cleanup
-- hay query trả sai binding
+Vì Telegram hiển thị tốt với message ngắn, sẽ format lại để:
+- dễ đọc trên mobile
+- không quá dài
+- vẫn giữ các bước thao tác cụ thể
 
-### 5) Thêm recovery UX rõ hơn cho user thứ 2
-UI hiện đã có hướng reconnect. Cần đảm bảo flow recovery này đủ rõ:
-- nếu bot báo “Chưa kết nối” nhưng UI xanh:
-  - user bấm `Kết nối lại`
-  - hệ thống tạo deeplink `/start` mới
-  - chỉ refresh binding của chính user hiện tại
-  - không đụng người còn lại trong cùng org
+Ví dụ cấu trúc:
+```text
+🎉 Chào bạn!
 
-## Files cần rà/sửa
+Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.
+
+👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.
+
+🔗 Cách kết nối:
+1. Mở app Flowa
+2. Bấm “Kết nối tài khoản & bắt đầu ngay”
+3. Quay lại Telegram và chat với bot
+
+Bắt đầu thử ngay!
+```
+
+## Files sẽ sửa
+- `src/components/agents/TelegramLinkCard.tsx`
 - `supabase/functions/telegram-webhook/index.ts`
-- `supabase/functions/telegram-webhook/__tests__/multi-user-same-org.test.ts`
-- `src/hooks/useTelegramBinding.ts` (chỉ nếu phát hiện conflict/reconnect flow còn rộng quá)
-- `src/components/agents/TelegramLinkCard.tsx` (chỉ nếu cần làm rõ recovery UX)
 
-## Kết quả mong muốn sau khi xong
-Trong cùng một tổ chức:
-- User A có thể chat Telegram với bot
-- User B có thể chat Telegram với bot cùng lúc
-- reconnect của B không làm A mất kết nối
-- bot luôn nhận diện đúng người theo DM binding riêng
+## Lưu ý triển khai
+- Giữ nguyên logic hiện có, chỉ thay copy/UI text
+- Không đổi flow deeplink, reconnect, binding
+- Giữ tone “thân thiện nhưng hook”, đúng ngữ cảnh Telegram/mobile
+- Nếu cùng một ý xuất hiện ở nhiều nơi, dùng wording đồng bộ để tránh mỗi chỗ nói một kiểu
 
-## QA sau implement
-1. User A link thành công, gửi `/help`
-2. User B link thành công trong cùng org, gửi `/help`
-3. Xác nhận cả A và B đều được bot trả lời
-4. User B reconnect từ chat mới
-5. A vẫn chat bình thường
-6. Kiểm tra DB:
-   - có 2 row `private + active` trong cùng org
-   - mỗi row có `user_id`, `telegram_chat_id`, `telegram_user_id` riêng
+## Kết quả sau khi làm xong
+User sẽ thấy cùng một thông điệp giới thiệu ở cả:
+- card kết nối trong app
+- message bot khi chưa liên kết
+
+Nhờ đó onboarding rõ hơn, mạnh hơn và nhất quán hơn, thay vì thiên về kỹ thuật như hiện tại.
