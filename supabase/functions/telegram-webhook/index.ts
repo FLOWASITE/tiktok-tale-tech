@@ -1860,34 +1860,61 @@ async function lookupUserBinding(
   chatId: number,
   telegramUserId?: number,
 ): Promise<{ userId: string } | null> {
-  const { data: binding, error } = await supabase
+  // Primary lookup: chat_id + org. Multiple rows possible if same chatId exists
+  // for both private DM and a group — prefer private. Order by chat_type so 'private' < 'group'.
+  const { data: bindings, error } = await supabase
     .from("telegram_chat_bindings")
     .select("user_id, chat_type")
     .eq("organization_id", organizationId)
     .eq("telegram_chat_id", chatId)
     .eq("is_active", true)
-    .maybeSingle();
+    .order("chat_type", { ascending: true });
 
   if (error) throw error;
 
+  const binding =
+    (bindings || []).find((b: any) => b.chat_type === "private") ||
+    (bindings || [])[0] ||
+    null;
+
   // Private chat: use the user directly
   if (binding?.user_id && binding.chat_type === "private") {
+    console.log("[telegram-webhook] lookupUserBinding hit", {
+      organization_id: organizationId,
+      chat_id: chatId,
+      resolved_by: "private_chat_id",
+    });
     return { userId: binding.user_id };
   }
 
-  // Group chat: need to resolve the calling Telegram user -> app user via their DM binding
-  if (binding && !binding.user_id && telegramUserId) {
+  // Group chat or DM lookup miss: resolve calling Telegram user -> app user via their DM binding
+  if (telegramUserId) {
     const { data: dm, error: dmError } = await supabase
       .from("telegram_chat_bindings")
       .select("user_id")
       .eq("organization_id", organizationId)
       .eq("telegram_user_id", telegramUserId)
       .eq("chat_type", "private")
+      .eq("is_active", true)
       .maybeSingle();
     if (dmError) throw dmError;
-    if (dm?.user_id) return { userId: dm.user_id };
+    if (dm?.user_id) {
+      console.log("[telegram-webhook] lookupUserBinding hit", {
+        organization_id: organizationId,
+        chat_id: chatId,
+        telegram_user_id: telegramUserId,
+        resolved_by: "telegram_user_id_dm_fallback",
+      });
+      return { userId: dm.user_id };
+    }
   }
 
+  console.warn("[telegram-webhook] lookupUserBinding miss", {
+    organization_id: organizationId,
+    chat_id: chatId,
+    telegram_user_id: telegramUserId ?? null,
+    rows_found: bindings?.length ?? 0,
+  });
   return null;
 }
 
