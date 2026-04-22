@@ -1291,48 +1291,31 @@ async function generateImageForSinglePost(
   let ok = false;
   let failReason: "credits_exhausted" | "provider_error" | "unknown" | null = null;
   try {
-    const isShortText = channelText.length > 0 && channelText.length <= 120;
-    const imageContentType = isShortText ? "with_text" : "background_only";
-    const body: Record<string, unknown> = {
+    const result = await composeBrandedImage({
+      supabaseUrl,
+      serviceKey,
       contentId,
       channel,
-      brandTemplateId: brandTemplateId || undefined,
-      imageContentType,
-      contentSummary: channelText.slice(0, 500),
-    };
-    if (isShortText) body.textToInclude = channelText;
-
-    const res = await fetch(`${supabaseUrl}/functions/v1/generate-brand-image`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-        "apikey": serviceKey,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
+      brandTemplateId,
+      channelText,
+      generateTimeoutMs: 120_000,
+      overlayTimeoutMs: 30_000,
     });
-    if (!res.ok) {
-      const errTxt = await res.text().catch(() => "");
-      failReason = "unknown";
-      console.warn(`[handleGenerateSingle][image] non-OK ${res.status}: ${errTxt.slice(0, 200)}`);
+    if (result.success && result.imageUrl) {
+      ok = true;
+      const stepSummary = result.steps.map((s) => `${s.step}:${s.ok ? "ok" : "fail"}(${s.durationMs}ms)`).join(" → ");
+      console.log(`[handleGenerateSingle][image] composed for ${contentId}/${channel} | ${stepSummary}`);
     } else {
-      const data: any = await res.json().catch(() => ({}));
-      if (data?.success === true && data?.imageUrl) {
-        ok = true;
-        console.log(`[handleGenerateSingle][image] generated for ${contentId}/${channel}`);
-      } else {
-        const code = data?.errorCode || "UNKNOWN";
-        const msg = (data?.error || "lỗi không xác định").toString();
-        failReason = code === "CREDITS_EXHAUSTED" ? "credits_exhausted"
-          : code === "PROVIDER_ERROR" ? "provider_error"
-          : "unknown";
-        console.warn(`[handleGenerateSingle][image] body says fail: code=${code}, reason=${failReason}, msg=${msg.slice(0, 150)}`);
-      }
+      const code = result.errorCode || "UNKNOWN";
+      failReason = code === "CREDITS_EXHAUSTED" ? "credits_exhausted"
+        : code === "PROVIDER_ERROR" ? "provider_error"
+        : "unknown";
+      const stepSummary = result.steps.map((s) => `${s.step}:${s.ok ? "ok" : "fail"}`).join(" → ");
+      console.warn(`[handleGenerateSingle][image] compose failed code=${code} reason=${failReason} steps=[${stepSummary}] err=${(result.error || "").slice(0, 150)}`);
     }
   } catch (e) {
     failReason = "unknown";
-    console.warn("[handleGenerateSingle][image] failed:", e);
+    console.warn("[handleGenerateSingle][image] composer threw:", e);
   }
 
   // Follow-up ping so user knows the image status (independent of content message).
