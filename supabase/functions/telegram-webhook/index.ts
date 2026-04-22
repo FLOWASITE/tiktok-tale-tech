@@ -1590,8 +1590,13 @@ async function handleGenerateSingle(
       : (rawChannelVal && typeof rawChannelVal === "object"
           ? String((rawChannelVal as any).vi || (rawChannelVal as any).en || (rawChannelVal as any).text || "")
           : "");
-    const previewRaw = channelText.slice(0, 280).trim();
-    const preview = previewRaw + (channelText.length > 280 ? "…" : "");
+    // Show much more of the content (Telegram limit ~4096 chars per message; reserve ~1000 for headers/buttons)
+    const CONTENT_PREVIEW_LIMIT = 2800;
+    const fullContentRaw = channelText.trim();
+    const isTruncated = fullContentRaw.length > CONTENT_PREVIEW_LIMIT;
+    const fullContent = isTruncated
+      ? fullContentRaw.slice(0, CONTENT_PREVIEW_LIMIT).trim() + "…"
+      : fullContentRaw;
 
     // Stats line
     const stats = summarizeContent(channelText);
@@ -1629,8 +1634,18 @@ async function handleGenerateSingle(
       contentId && channelText ? `🎨 Ảnh: ⏳ đang tạo (sẽ báo khi xong)` : "",
     ].filter(Boolean);
 
-    if (preview) {
-      lines.push("", "━━━━━━━━━", `_${escapeMd(preview)}_`, "━━━━━━━━━");
+    if (fullContent) {
+      lines.push(
+        "",
+        "━━━━━━━━━━━━━━━",
+        `📄 *Nội dung đã tạo:*`,
+        "",
+        escapeMd(fullContent),
+        "━━━━━━━━━━━━━━━",
+      );
+      if (isTruncated) {
+        lines.push(`_✂️ Đã rút gọn — xem đầy đủ trên Mini App / web_`);
+      }
     }
 
     const keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string }; url?: string }>> = [];
