@@ -347,6 +347,26 @@ export async function notifyPipelineCompleted(
   await pushMany([target], text, { parse_mode: "Markdown" });
 }
 
+// Notify when a scheduled post transitions scheduled → publishing.
+// Lightweight progress signal so users see the lifecycle in Telegram.
+export async function notifyPublishStarted(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  organizationId: string,
+  userId: string | null,
+  contentTitle: string,
+  opts?: { channel?: string },
+): Promise<void> {
+  const targets = userId
+    ? [await resolveUserTarget(supabase, organizationId, userId)].filter(Boolean) as PushTarget[]
+    : await resolveAdminTargets(supabase, organizationId);
+  if (targets.length === 0) return;
+  const title = escapeMd(contentTitle.slice(0, 80));
+  const channelTag = opts?.channel ? ` _(${escapeMd(opts.channel)})_` : "";
+  const text = `🔄 Đang đăng *${title}*${channelTag}…`;
+  await pushMany(targets, text, { parse_mode: "Markdown", disable_web_page_preview: true });
+}
+
 // Notify on publish success/failure.
 // If channel + postUrl provided, surface it as a clickable inline button.
 export async function notifyPublishResult(
