@@ -3218,7 +3218,10 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               try {
                 // Prepare content object for critique (match normal mode structure)
                 const contentForCritique: Record<string, any> = {
-                  title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
+                  title: resolveBundleTitle({
+                    topic: formData.topic,
+                    useTopicAsTitle: formData.useTopicAsTitle,
+                  }),
                 };
                 for (const [ch, content] of Object.entries(channelResults)) {
                   contentForCritique[`${ch}_content`] = content;
@@ -3432,7 +3435,10 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                 .insert(buildMultiChannelCreatePayload({
                   user_id: userId,
                   organization_id: organizationId || null,
-                  title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
+                  title: resolveBundleTitle({
+                    topic: formData.topic,
+                    useTopicAsTitle: formData.useTopicAsTitle,
+                  }),
                   topic: formData.topic,
                   content_goal: resolvedContentGoal,
                   content_role: resolvedContentRole,
@@ -3986,7 +3992,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             properties: {
               title: {
                 type: "string",
-                description: "Tiêu đề ngắn gọn cho bộ nội dung (dựa trên chủ đề)",
+                description: "Tiêu đề chung cho toàn bộ bộ nội dung đa kênh, trung tính theo chủ đề; không chứa tên kênh/platform và không copy dòng đầu của bất kỳ channel content nào",
               },
               ...channelProperties,
             },
@@ -4068,7 +4074,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             properties: {
               title: {
                 type: "string",
-                description: "Tiêu đề ngắn gọn cho bộ nội dung (dựa trên chủ đề)",
+                description: "Tiêu đề chung cho toàn bộ bộ nội dung đa kênh, trung tính theo chủ đề; không chứa tên kênh/platform và không copy dòng đầu của bất kỳ channel content nào",
               },
               ...channelProps,
             },
