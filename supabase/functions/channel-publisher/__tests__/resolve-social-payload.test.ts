@@ -96,8 +96,9 @@ describe('resolveSocialPayload — payload contract for "🚀 Đăng ngay"', () 
           organization_id: 'org-1',
           brand_template_id: 'brand-1',
           [contentColumn]: `Hello from ${action}`,
+          // PRODUCTION shape: single object {url} written by generate-brand-image
           channel_images: {
-            [channelKey]: [{ url: `https://cdn.test/${action}-1.jpg` }, `https://cdn.test/${action}-2.jpg`],
+            [channelKey]: { url: `https://cdn.test/${action}-branded.jpg` },
           },
         } as Row,
         connectionId: `conn-${action}`,
@@ -114,13 +115,79 @@ describe('resolveSocialPayload — payload contract for "🚀 Đăng ngay"', () 
       expect(result.payload.connectionId).toBe(`conn-${action}`);
       expect(result.payload.content).toBe(`Hello from ${action}`);
       expect(result.payload.organization_id).toBe('org-1');
-      expect(result.payload.mediaUrls).toEqual([
-        `https://cdn.test/${action}-1.jpg`,
-        `https://cdn.test/${action}-2.jpg`,
-      ]);
-      expect(result.payload.mediaUrl).toBe(`https://cdn.test/${action}-1.jpg`);
+      expect(result.payload.mediaUrls).toEqual([`https://cdn.test/${action}-branded.jpg`]);
+      expect(result.payload.mediaUrl).toBe(`https://cdn.test/${action}-branded.jpg`);
     });
   }
+
+  // -------- Regression: 3 supported channel_images shapes --------
+  describe('channel_images shape parsing (regression)', () => {
+    it('production shape: single object {url} → mediaUrls=[url]', async () => {
+      const supabase = buildSupabase({
+        contentRow: {
+          id: 'mcc-1',
+          organization_id: 'org-1',
+          facebook_content: 'hi',
+          channel_images: { facebook: { url: 'https://cdn.test/branded.jpg', meta: 'x' } },
+        },
+        connectionId: 'c',
+      });
+      const r = await resolveSocialPayload({ action: 'facebook', payload: { contentId: 'mcc-1' }, supabase });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.payload.mediaUrls).toEqual(['https://cdn.test/branded.jpg']);
+      expect(r.payload.mediaUrl).toBe('https://cdn.test/branded.jpg');
+    });
+
+    it('legacy array shape: [{url}, "string"] → mediaUrls=[a,b]', async () => {
+      const supabase = buildSupabase({
+        contentRow: {
+          id: 'mcc-1',
+          organization_id: 'org-1',
+          facebook_content: 'hi',
+          channel_images: { facebook: [{ url: 'https://cdn.test/a.jpg' }, 'https://cdn.test/b.jpg'] },
+        },
+        connectionId: 'c',
+      });
+      const r = await resolveSocialPayload({ action: 'facebook', payload: { contentId: 'mcc-1' }, supabase });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.payload.mediaUrls).toEqual(['https://cdn.test/a.jpg', 'https://cdn.test/b.jpg']);
+    });
+
+    it('bare string shape: "https://x.jpg" → mediaUrls=[url]', async () => {
+      const supabase = buildSupabase({
+        contentRow: {
+          id: 'mcc-1',
+          organization_id: 'org-1',
+          facebook_content: 'hi',
+          channel_images: { facebook: 'https://cdn.test/bare.jpg' },
+        },
+        connectionId: 'c',
+      });
+      const r = await resolveSocialPayload({ action: 'facebook', payload: { contentId: 'mcc-1' }, supabase });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.payload.mediaUrls).toEqual(['https://cdn.test/bare.jpg']);
+    });
+
+    it('empty/missing image: null → mediaUrls undefined (no inject)', async () => {
+      const supabase = buildSupabase({
+        contentRow: {
+          id: 'mcc-1',
+          organization_id: 'org-1',
+          facebook_content: 'hi',
+          channel_images: { facebook: null },
+        },
+        connectionId: 'c',
+      });
+      const r = await resolveSocialPayload({ action: 'facebook', payload: { contentId: 'mcc-1' }, supabase });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.payload.mediaUrls).toBeUndefined();
+      expect(r.payload.mediaUrl).toBeUndefined();
+    });
+  });
 
   // -------- Error: no active connection --------
   it('returns NO_CONNECTION with vietnamese message when social_connections row missing', async () => {
