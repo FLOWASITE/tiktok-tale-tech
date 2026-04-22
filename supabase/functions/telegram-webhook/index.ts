@@ -566,6 +566,34 @@ function telegramCopy(lines: string[]): string {
   return normalizeTelegramCopy(lines.join("\n"));
 }
 
+async function sendMessage(
+  botToken: string,
+  chatId: number,
+  text: string,
+  options?: Parameters<typeof rawSendMessage>[3],
+) {
+  return rawSendMessage(botToken, chatId, normalizeTelegramCopy(text), options);
+}
+
+async function editMessageText(
+  botToken: string,
+  chatId: number,
+  messageId: number,
+  text: string,
+  options?: Parameters<typeof rawEditMessageText>[4],
+) {
+  return rawEditMessageText(botToken, chatId, messageId, normalizeTelegramCopy(text), options);
+}
+
+async function answerCallback(
+  botToken: string,
+  callbackQueryId: string,
+  text: string,
+  showAlert?: boolean,
+) {
+  return rawAnswerCallback(botToken, callbackQueryId, normalizeTelegramCopy(text), showAlert);
+}
+
 function helpText(): string {
   return telegramCopy([
     "*Lệnh hỗ trợ*",
