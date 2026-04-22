@@ -275,6 +275,7 @@ interface LogoMeta {
 interface StructuredOverlayRequest {
   baseImageUrl: string;
   layout: 'banner_cards' | 'hero_text' | 'simple' | 'split';
+  footerMode?: 'auto' | 'single-row' | 'two-row' | 'vertical-compact';
   elements: {
     banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
     heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
@@ -292,6 +293,87 @@ interface StructuredOverlayRequest {
   channel?: string;
   organizationId?: string;
   logoMeta?: LogoMeta;
+}
+
+type FooterLayoutMode = 'single-row' | 'two-row' | 'vertical-compact';
+
+interface FooterLayoutProfile {
+  mode: FooterLayoutMode;
+  fontSize: number;
+  itemGap: number;
+  rowGap: number;
+  paddingX: number;
+  paddingY: number;
+  paddingBottom: number;
+  maxItemWidth: string;
+  justifyContent: 'center' | 'flex-start';
+  alignItems: 'center' | 'flex-start';
+  flexDirection: 'row' | 'column';
+  allowWrap: boolean;
+  minBottomClearance: number;
+}
+
+function getFooterLayoutProfile(
+  imageWidth: number,
+  imageHeight: number,
+  footerItems: Array<{ icon?: string; text: string }>,
+  logoMeta?: LogoMeta,
+  requestedMode: 'auto' | FooterLayoutMode = 'auto',
+): FooterLayoutProfile {
+  const ratio = imageWidth / Math.max(imageHeight, 1);
+  const isTall = ratio <= 0.62;
+  const isPortrait = ratio > 0.62 && ratio < 0.9;
+  const isSquare = ratio >= 0.9 && ratio <= 1.1;
+  const isLandscape = ratio > 1.1;
+  const logoPosition = logoMeta?.position || '';
+  const bottomCenterLogo = logoPosition === 'bottom-center';
+  const logoInBottomArea = logoPosition.startsWith('bottom');
+  const totalChars = footerItems.reduce((sum, item) => sum + (item.text?.trim().length || 0), 0);
+  const longestItem = footerItems.reduce((max, item) => Math.max(max, item.text?.trim().length || 0), 0);
+  const hasLongAddress = footerItems.some((item) => item.icon === 'map-pin' && (item.text?.trim().length || 0) > 26);
+  const isCrowded = totalChars > 56 || longestItem > 22 || footerItems.length >= 4;
+  const isVeryCrowded = totalChars > 88 || longestItem > 34 || (hasLongAddress && logoInBottomArea);
+
+  let mode: FooterLayoutMode;
+  if (requestedMode !== 'auto') {
+    mode = requestedMode;
+  } else if (isTall) {
+    mode = 'vertical-compact';
+  } else if (isSquare || isPortrait) {
+    mode = isVeryCrowded || bottomCenterLogo ? 'vertical-compact' : 'two-row';
+  } else {
+    mode = isCrowded ? 'two-row' : 'single-row';
+  }
+
+  if (mode === 'single-row' && (isVeryCrowded || bottomCenterLogo)) {
+    mode = isLandscape && !isTall ? 'two-row' : 'vertical-compact';
+  }
+  if (mode === 'two-row' && isTall && (isVeryCrowded || hasLongAddress)) {
+    mode = 'vertical-compact';
+  }
+
+  const sizeBasis = Math.min(imageWidth, imageHeight);
+  const fontSize = mode === 'vertical-compact'
+    ? Math.max(12, Math.round(sizeBasis * 0.015))
+    : mode === 'two-row'
+      ? Math.max(12, Math.round(sizeBasis * 0.0165))
+      : Math.max(12, Math.round(sizeBasis * 0.0175));
+
+  return {
+    mode,
+    fontSize,
+    itemGap: mode === 'single-row' ? 12 : mode === 'two-row' ? 10 : 8,
+    rowGap: mode === 'vertical-compact' ? 6 : 8,
+    paddingX: mode === 'vertical-compact' ? 18 : 24,
+    paddingY: mode === 'vertical-compact' ? 8 : 10,
+    paddingBottom: bottomCenterLogo ? Math.max(12, Math.round(sizeBasis * 0.018)) : 0,
+    maxItemWidth: mode === 'single-row' ? '42%' : mode === 'two-row' ? '48%' : '100%',
+    justifyContent: mode === 'vertical-compact' ? 'flex-start' : 'center',
+    alignItems: mode === 'vertical-compact' ? 'flex-start' : 'center',
+    flexDirection: mode === 'vertical-compact' ? 'column' : 'row',
+    allowWrap: mode === 'two-row',
+    minBottomClearance: bottomCenterLogo ? Math.max(24, Math.round(sizeBasis * 0.04)) : Math.max(12, Math.round(sizeBasis * 0.018)),
+  };
 }
 
 function isStructuredRequest(body: any): body is StructuredOverlayRequest {
@@ -1255,42 +1337,82 @@ function buildStructuredElement(
 
   // Footer contact bar
   if (elements.footer && elements.footer.items.length > 0) {
-    const footerFontSize = Math.round(imageWidth * (isEducationInfographic ? 0.022 : 0.018));
-    const footerItems = elements.footer.items.map(item => ({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-        },
-        children: [
-          ...(item.icon ? [{
-            type: 'span',
-            props: { style: { fontSize: footerFontSize * 1.1 }, children: item.icon },
-          }] : []),
-          {
-            type: 'span',
-            props: {
-              style: {
-                color: bannerTextColor,
-                fontSize: footerFontSize,
-                fontFamily,
-                fontWeight: 400,
-              },
-              children: item.text,
-            },
+    const footerLayout = getFooterLayoutProfile(
+      imageWidth,
+      imageHeight,
+      elements.footer.items,
+      logoMeta,
+      request.footerMode || 'auto',
+    );
+    const footerFontSize = isEducationInfographic
+      ? Math.max(footerLayout.fontSize, 13)
+      : footerLayout.fontSize;
+    const normalizedFooterItems = [...elements.footer.items].sort((a, b) => {
+      const order = ['phone', 'globe', 'mail', 'map-pin'];
+      return order.indexOf(a.icon || '') - order.indexOf(b.icon || '');
+    });
+    const footerItems = normalizedFooterItems.map(item => {
+      const isAddress = item.icon === 'map-pin';
+      return {
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: footerLayout.alignItems,
+            justifyContent: footerLayout.justifyContent,
+            gap: 4,
+            width: footerLayout.mode === 'vertical-compact'
+              ? '100%'
+              : footerLayout.mode === 'two-row' && isAddress
+                ? '100%'
+                : footerLayout.maxItemWidth,
+            maxWidth: footerLayout.mode === 'single-row'
+              ? footerLayout.maxItemWidth
+              : '100%',
+            flexWrap: 'nowrap',
           },
-        ],
-      },
-    }));
+          children: [
+            ...(item.icon ? [{
+              type: 'span',
+              props: {
+                style: { fontSize: Math.round(footerFontSize * 1.08), lineHeight: 1 },
+                children: item.icon,
+              },
+            }] : []),
+            {
+              type: 'span',
+              props: {
+                style: {
+                  color: bannerTextColor,
+                  fontSize: footerFontSize,
+                  fontFamily,
+                  fontWeight: 400,
+                  lineHeight: 1.35,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                  textAlign: footerLayout.mode === 'vertical-compact' ? 'left' : 'center',
+                  flex: 1,
+                },
+                children: item.text,
+              },
+            },
+          ],
+        },
+      };
+    });
 
-    // Footer safe-area: avoid logo at bottom-left/bottom-right
-    let footerPaddingLeft = 24;
-    let footerPaddingRight = 24;
+    let footerPaddingLeft = footerLayout.paddingX;
+    let footerPaddingRight = footerLayout.paddingX;
+    let footerPaddingBottom = footerLayout.paddingBottom;
     if (logoInBottomArea && logoMeta) {
-      if (logoMeta.position === 'bottom-left') footerPaddingLeft = logoSafeWidth;
-      if (logoMeta.position === 'bottom-right') footerPaddingRight = logoSafeWidth;
+      if (logoMeta.position === 'bottom-left') footerPaddingLeft = Math.max(footerPaddingLeft, logoSafeWidth);
+      if (logoMeta.position === 'bottom-right') footerPaddingRight = Math.max(footerPaddingRight, logoSafeWidth);
+      if (logoMeta.position === 'bottom-center') {
+        footerPaddingLeft = Math.max(footerPaddingLeft, 28);
+        footerPaddingRight = Math.max(footerPaddingRight, 28);
+        footerPaddingBottom = Math.max(footerPaddingBottom, footerLayout.minBottomClearance + Math.round(logoSafeHeight * 0.55));
+      }
     }
 
     children.push({
@@ -1298,12 +1420,15 @@ function buildStructuredElement(
       props: {
         style: {
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 16,
+          flexDirection: footerLayout.flexDirection,
+          alignItems: footerLayout.alignItems,
+          justifyContent: footerLayout.justifyContent,
+          flexWrap: footerLayout.allowWrap ? 'wrap' : 'nowrap',
+          gap: `${footerLayout.rowGap}px ${footerLayout.itemGap}px`,
           backgroundColor: theme.bannerBg,
-          padding: `8px ${footerPaddingRight}px 8px ${footerPaddingLeft}px`,
+          padding: `${footerLayout.paddingY}px ${footerPaddingRight}px ${footerPaddingBottom + footerLayout.paddingY}px ${footerPaddingLeft}px`,
           width: '100%',
+          boxSizing: 'border-box',
           borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
           marginTop: 'auto',
         },

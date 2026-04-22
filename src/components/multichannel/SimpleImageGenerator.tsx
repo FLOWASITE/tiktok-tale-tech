@@ -542,6 +542,7 @@ export function SimpleImageGenerator({
     if (footerItems.length === 0) return undefined;
     return {
       layout: 'simple' as const,
+      footerMode: 'auto' as const,
       elements: {
         footer: {
           items: footerItems,

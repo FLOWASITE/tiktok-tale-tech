@@ -83,6 +83,7 @@ export interface AutoGenerateOptions {
   };
   footerOverlay?: {
     layout: 'simple' | 'stack';
+    footerMode?: 'auto' | 'single-row' | 'two-row' | 'vertical-compact';
     elements: {
       footer: {
         items: { icon?: string; text: string }[];
@@ -361,6 +362,7 @@ export function useAutoImageGeneration() {
           const step4Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Canvas)`, {
             layout: finalStructuredOverlay.layout,
+              footerMode: (finalStructuredOverlay as any).footerMode,
             hasBanner: !!(finalStructuredOverlay as any).elements.banner,
             hasHeroText: !!(finalStructuredOverlay as any).elements.heroText,
             cardCount: (finalStructuredOverlay as any).elements.cards?.items?.length || 0,
@@ -378,6 +380,7 @@ export function useAutoImageGeneration() {
             body: {
               baseImageUrl: finalImageUrl,
               layout: finalStructuredOverlay.layout,
+              footerMode: (finalStructuredOverlay as any).footerMode,
               elements: finalStructuredOverlay.elements,
               colors: finalStructuredOverlay.colors,
               imageStyle: imageStylePreset,
