@@ -543,8 +543,31 @@ function okResponse(): Response {
   });
 }
 
+function normalizeTelegramCopy(text: string): string {
+  if (!text) return text;
+
+  const bulletPrefix = /^(\s*)(?:[•●◦▪▫‣⁃\-–—*]|\d+[.)])\s+/;
+  const leadingEmoji = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]+/u;
+
+  return text
+    .split("\n")
+    .map((line) => {
+      const match = line.match(bulletPrefix);
+      if (!match) return line;
+
+      const indent = match[1] ?? "";
+      const content = line.slice(match[0].length).replace(leadingEmoji, "").trim();
+      return content ? `${indent}• ${content}` : "•";
+    })
+    .join("\n");
+}
+
+function telegramCopy(lines: string[]): string {
+  return normalizeTelegramCopy(lines.join("\n"));
+}
+
 function helpText(): string {
-  return [
+  return telegramCopy([
     "*Lệnh hỗ trợ*",
     "/start <token> — Kết nối tài khoản từ app Flowa",
     "/generate <mô tả> — Tạo campaign nhiều bài (cần quyền can_create_goals)",
@@ -565,7 +588,7 @@ function helpText(): string {
     "",
     "*Kênh hỗ trợ*",
     "• Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, Google Business, Email",
-  ].join("\n");
+  ]);
 }
 
 type TelegramWritingGoal = "sales" | "branding" | "engagement" | "value" | "lead";
