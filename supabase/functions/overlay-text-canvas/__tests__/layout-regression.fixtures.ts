@@ -51,8 +51,8 @@ export const LAYOUT_REGRESSION_FIXTURES: LayoutRegressionFixture[] = [
     },
     expectations: {
       square: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
-      portrait: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: true },
-      landscape: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: false },
+      portrait: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
+      landscape: { forceStack: false, useCompactSectionGap: true, cardsShouldStack: false },
       tall: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true },
     },
   },
@@ -217,8 +217,8 @@ export const LAYOUT_REGRESSION_FIXTURES: LayoutRegressionFixture[] = [
     },
     expectations: {
       square: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true, allowedFooterModes: ['two-row', 'vertical-compact'] },
-      portrait: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: true, allowedFooterModes: ['vertical-compact'] },
-      landscape: { forceStack: false, useCompactSectionGap: false, cardsShouldStack: false, allowedFooterModes: ['two-row'] },
+      portrait: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true, allowedFooterModes: ['vertical-compact'] },
+      landscape: { forceStack: false, useCompactSectionGap: true, cardsShouldStack: false, allowedFooterModes: ['two-row'] },
       tall: { forceStack: true, useCompactSectionGap: true, cardsShouldStack: true, allowedFooterModes: ['vertical-compact'] },
     },
   },
