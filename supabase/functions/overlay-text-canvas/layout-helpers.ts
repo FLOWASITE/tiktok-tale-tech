@@ -54,6 +54,14 @@ export interface FooterLayoutProfile {
   minBottomClearance: number;
 }
 
+export interface BottomCenterLogoSafeArea {
+  logoSafeWidth: number;
+  logoSafeHeight: number;
+  ctaMarginBottom: number;
+  footerMinPaddingBottom: number;
+  footerMinTextClearance: number;
+}
+
 export interface LayoutBehavior {
   forceStack: boolean;
   forceCompact: boolean;
@@ -311,6 +319,39 @@ export function getLayoutBehavior(
 
 function scaleFromMin(sizeBasis: number, multiplier: number, minPx: number, maxPx: number, ratioScale: number = 1): number {
   return clampNumber(Math.round(sizeBasis * multiplier * ratioScale), minPx, maxPx);
+}
+
+export function getBottomCenterLogoSafeArea(
+  imageWidth: number,
+  imageHeight: number,
+  logoMeta?: LogoMeta,
+  footerLayout?: Pick<FooterLayoutProfile, 'paddingBottom' | 'minBottomClearance'>,
+): BottomCenterLogoSafeArea {
+  if (logoMeta?.position !== 'bottom-center') {
+    return {
+      logoSafeWidth: 0,
+      logoSafeHeight: 0,
+      ctaMarginBottom: 0,
+      footerMinPaddingBottom: footerLayout?.paddingBottom ?? 0,
+      footerMinTextClearance: footerLayout?.minBottomClearance ?? 0,
+    };
+  }
+
+  const ratioProfile = getRatioProfile(imageWidth, imageHeight);
+  const logoSafeWidth = Math.ceil(imageWidth * (logoMeta.sizePercent / 100)) + (logoMeta.padding * 2);
+  const logoSafeHeight = Math.ceil(imageWidth * (logoMeta.sizePercent / 100) * 0.75) + (logoMeta.padding * 2);
+  const footerMinTextClearance = footerLayout?.minBottomClearance
+    ?? scaleFromMin(ratioProfile.sizeBasis, 0.04, 24, 52, ratioProfile.safeBottomMultiplier);
+  const footerBasePadding = footerLayout?.paddingBottom
+    ?? scaleFromMin(ratioProfile.sizeBasis, 0.018, 12, 24, ratioProfile.safeBottomMultiplier);
+
+  return {
+    logoSafeWidth,
+    logoSafeHeight,
+    ctaMarginBottom: Math.round(logoSafeHeight * ratioProfile.safeBottomMultiplier),
+    footerMinTextClearance,
+    footerMinPaddingBottom: Math.max(footerBasePadding, footerMinTextClearance + Math.round(logoSafeHeight * 0.55)),
+  };
 }
 
 export function getTextScaleTokens(
