@@ -904,7 +904,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Chưa kết nối. Mở app Flowa để lấy link /start.",
+      "Chưa kết nối với AI Marketing Agent. Mở app Flowa, bấm “Kết nối tài khoản & bắt đầu ngay” rồi quay lại Telegram. Bắt đầu thử ngay!",
     );
     return;
   }
@@ -1137,7 +1137,7 @@ async function handleGenerate(
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Chưa kết nối. Hãy /start trong DM với bot trước (mở app Flowa để lấy link).",
+      "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM với bot sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!",
     );
     return;
   }
@@ -1554,7 +1554,7 @@ async function handleGenerateSingle(
   const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
   if (!binding) {
     await sendMessage(botConfig.botToken, chatId,
-      "Chưa kết nối. Hãy /start trong DM với bot trước.");
+      "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM với bot sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
     return;
   }
 
