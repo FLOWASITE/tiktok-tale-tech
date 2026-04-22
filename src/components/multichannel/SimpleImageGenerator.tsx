@@ -51,7 +51,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
 import { NEGATIVE_PROMPT_DEFAULTS } from '@/lib/imagePromptDefaults';
-import type { BrandFooterInfo } from '@/components/BrandForm';
+
+interface BrandFooterInfo {
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+}
 
 // Map frontend Channel to V3 ChannelKey
 function toChannelKey(ch: Channel): ChannelKey {
@@ -249,8 +255,8 @@ export function SimpleImageGenerator({
   const [bgEditorOpen, setBgEditorOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
-  const [useHybridMode, setUseHybridMode] = useState(false);
-  const [overlayMode, setOverlayMode] = useState<'satori' | 'ai_render'>('satori');
+  const [useHybridMode] = useState(true);
+  const [overlayMode] = useState<'satori' | 'ai_render'>('ai_render');
   const [overlayTemplate, setOverlayTemplate] = useState<string>('auto');
 
   // Hooks
