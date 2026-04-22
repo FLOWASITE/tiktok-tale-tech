@@ -291,6 +291,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
             console.log("[telegram-webhook] default-bot rehydrate", {
               chatId: peekChatId,
               telegram_user_id: peekTgUserId || null,
+              chat_type: peekChatType,
               resolved_by: resolvedBy,
               organization_id: binding.organization_id,
             });
@@ -875,9 +876,14 @@ function stageProgressPct(stage?: string | null): number {
 }
 
 async function handleStatus(ctx: HandlerCtx): Promise<void> {
-  const { supabase, botConfig, chatId } = ctx;
+  const { supabase, botConfig, chatId, telegramUserId } = ctx;
 
-  const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId);
+  const binding = await lookupUserBinding(
+    supabase,
+    botConfig.organizationId,
+    chatId,
+    telegramUserId,
+  );
   if (!binding) {
     await sendMessage(
       botConfig.botToken,
@@ -1914,6 +1920,7 @@ async function lookupUserBinding(
         organization_id: organizationId,
         chat_id: chatId,
         telegram_user_id: telegramUserId,
+        chat_type: "private",
         resolved_by: "telegram_user_id_dm_fallback",
       });
       return { userId: dm.user_id };
@@ -2844,15 +2851,38 @@ async function handleConfirmLinkCallback(args: {
   // (org, user) pair? Remove those rows so the bot only ever serves one Flowa
   // account per Telegram user. Keeps current user's bindings (e.g. group chats).
   const effectiveTgUserId = pending.telegram_user_id ?? fromTgId ?? null;
+  console.log("[telegram-webhook] confirm_link cleanup start", {
+    organization_id: pending.payload_org,
+    user_id: pending.payload_uid,
+    current_chat_id: chatId,
+    telegram_user_id: effectiveTgUserId,
+    chat_type: "private",
+  });
   if (effectiveTgUserId) {
-    const { error: ghostErr } = await supabase
+    const { data: ghostRows, error: ghostErr } = await supabase
       .from("telegram_chat_bindings")
       .delete()
       .eq("telegram_user_id", effectiveTgUserId)
       .eq("chat_type", "private")
-      .neq("user_id", pending.payload_uid);
+      .neq("user_id", pending.payload_uid)
+      .select("id, organization_id, user_id, telegram_chat_id");
     if (ghostErr) {
       console.warn("[telegram-webhook] ghost binding cleanup failed:", ghostErr);
+    } else if (ghostRows && ghostRows.length > 0) {
+      console.log("[telegram-webhook] confirm_link cleaned ghost private bindings", {
+        telegram_user_id: effectiveTgUserId,
+        preserved_user_id: pending.payload_uid,
+        deleted_count: ghostRows.length,
+        deleted_rows: ghostRows.map((row: {
+          organization_id: string;
+          user_id: string | null;
+          telegram_chat_id: number;
+        }) => ({
+          organization_id: row.organization_id,
+          user_id: row.user_id,
+          telegram_chat_id: row.telegram_chat_id,
+        })),
+      });
     }
   }
 
