@@ -1001,7 +1001,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Chưa kết nối với AI Marketing Agent. Mở app Flowa, bấm “Kết nối tài khoản & bắt đầu ngay” rồi quay lại Telegram. Bắt đầu thử ngay!",
+      "Chưa kết nối với AI Marketing Agent. Mở app Flowa, bấm “Kết nối tài khoản & bắt đầu ngay”, rồi quay lại Telegram. Bắt đầu thử ngay!",
     );
     return;
   }
@@ -1235,7 +1235,7 @@ async function handleGenerate(
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM với bot sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!",
+      "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!",
     );
     return;
   }
@@ -3088,11 +3088,11 @@ async function handleConfirmLinkCallback(args: {
     botConfig.botToken,
     chatId,
     [
-      `🎉 Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
+      `Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
       "",
       "Mình là *AI Marketing Agent* — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
       "",
-      "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+      "Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
       "",
       "*Bắt đầu thử ngay!*",
     ].join("\n"),
