@@ -2361,6 +2361,12 @@ async function handleCallbackQuery(args: {
     return;
   }
 
+  // Publish/schedule from Telegram: pub:now|menu|at|back:<contentId>:<channel>[:<slot>]
+  if (data.startsWith("pub:") && chatId) {
+    await handlePublishCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
+    return;
+  }
+
   // Campaign wizard callbacks: cw:<step>:<value>
   if (data.startsWith("cw:") && chatId && fromTgId) {
     await handleCampaignWizardCallback({ supabase, botConfig, chatId, fromTgId, cbId, messageId, data });
