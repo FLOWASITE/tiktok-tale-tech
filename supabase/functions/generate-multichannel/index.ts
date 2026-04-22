@@ -460,6 +460,71 @@ function resolveStrategy(formData: FormData) {
   };
 }
 
+const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
+  'id',
+  'user_id',
+  'organization_id',
+  'title',
+  'topic',
+  'industry',
+  'content_goal',
+  'content_role',
+  'selected_channels',
+  'brand_template_id',
+  'brand_voice_variant_id',
+  'brand_name',
+  'brand_guideline',
+  'primary_color',
+  'status',
+  'industry_template_version',
+  'critique_score',
+  'critique_details',
+  'was_refined',
+  'refinement_count',
+  'needs_manual_review',
+  'selected_hooks',
+  'global_hook',
+  'core_content_id',
+  'channel_statuses',
+  'channel_images',
+  'content_calendar_color',
+  'deadline',
+  'hook_evaluations',
+  'priority',
+  'tags',
+  'website_content',
+  'website_seo_data',
+  'facebook_content',
+  'instagram_content',
+  'twitter_content',
+  'google_maps_content',
+  'linkedin_content',
+  'email_content',
+  'youtube_content',
+  'zalo_oa_content',
+  'telegram_content',
+  'tiktok_content',
+  'threads_content',
+  'created_at',
+  'updated_at',
+]);
+
+function sanitizeMultiChannelPayload(payload: Record<string, any>) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key, value]) => (
+      MULTI_CHANNEL_CONTENT_COLUMNS.has(key) && value !== undefined
+    )),
+  );
+}
+
+function buildMultiChannelCreatePayload(payload: Record<string, any>) {
+  return sanitizeMultiChannelPayload(payload);
+}
+
+function buildMultiChannelUpdatePayload(payload: Record<string, any>) {
+  return sanitizeMultiChannelPayload(payload);
+}
+
 // Brand Voice label mappings
 const brandPositioningLabels: Record<string, string> = {
   business: "Doanh nghiệp",
@@ -2404,7 +2469,7 @@ Nội dung sẵn sàng đăng ngay.`;
               const columnName = CHANNEL_COLUMN_MAP[channel];
               const { data: updatedContent, error: updateError } = await supabase
                 .from('multi_channel_contents')
-                .update({ [columnName]: generatedContent })
+                .update(buildMultiChannelUpdatePayload({ [columnName]: generatedContent }))
                 .eq('id', contentId)
                 .select()
                 .single();
@@ -2565,7 +2630,7 @@ Nội dung sẵn sàng đăng ngay.`;
       const columnName = CHANNEL_COLUMN_MAP[channel];
       const { data: updatedContent, error: updateError } = await supabase
         .from('multi_channel_contents')
-        .update({ [columnName]: newContent })
+        .update(buildMultiChannelUpdatePayload({ [columnName]: newContent }))
         .eq('id', contentId)
         .select()
         .single();
@@ -3308,7 +3373,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               
               const result = await supabase
                 .from('multi_channel_contents')
-                .update(updatePayload)
+                .update(buildMultiChannelUpdatePayload(updatePayload))
                 .eq('id', formData.contentId)
                 .select()
                 .single();
@@ -3336,7 +3401,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               // Insert new content
               const result = await supabase
                 .from('multi_channel_contents')
-                .insert({
+                .insert(buildMultiChannelCreatePayload({
                   user_id: userId,
                   organization_id: organizationId || null,
                   title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
@@ -3371,7 +3436,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   telegram_content: channelResults.telegram || null,
                   tiktok_content: channelResults.tiktok || null,
                   threads_content: channelResults.threads || null,
-                })
+                }))
                 .select()
                 .single();
               
@@ -5276,7 +5341,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       
       const result = await supabase
         .from('multi_channel_contents')
-        .update(updatePayload)
+        .update(buildMultiChannelUpdatePayload(updatePayload))
         .eq('id', formData.contentId)
         .select()
         .single();
@@ -5303,7 +5368,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       } else {
       const result = await supabase
         .from("multi_channel_contents")
-        .insert({
+        .insert(buildMultiChannelCreatePayload({
           user_id: userId,
           organization_id: organizationId,
           title: generatedData.title,
@@ -5346,7 +5411,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           telegram_content: (generatedData.telegram_content && generatedData.telegram_content.length > 0) ? generatedData.telegram_content : null,
           tiktok_content: (generatedData.tiktok_content && generatedData.tiktok_content.length > 0) ? generatedData.tiktok_content : null,
           threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
-        })
+        }))
         .select()
         .single();
       
