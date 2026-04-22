@@ -1,101 +1,73 @@
 
 
-# Fix: Telegram báo "ảnh sẵn sàng" nhưng thực tế ảnh KHÔNG được tạo
+# Fix `(...||"").trim is not a function` trong telegram-webhook
 
-## Root cause (đã xác nhận từ logs)
+## Root cause
 
-```
-[generate-brand-image] GeminiGen timeout 60s
-[poyo-generator] Insufficient credits (embedded 402)
-[generate-brand-image] PoYo fallback also failed: POYO_CREDITS_EXHAUSTED
-→ generate-brand-image trả HTTP 200 + {success: false, errorCode: 'CREDITS_EXHAUSTED'}
+Stack trace `trace=ca4e4a8e` chỉ vào `handleGenerateSingle`, lỗi `((intermediate value) || "").trim is not a function`. Trong code có nhiều chỗ pattern `(x || "").trim()` — nếu `x` là **object** (vd `brand.brand_name` lưu dạng i18n `{vi, en}`), thì `x || ""` trả về object (truthy) → `.trim()` không tồn tại → crash.
 
-[handleGenerateSingle][image] generated for cf9e85e3.../facebook  ← LOG NHẦM
-→ User nhận message "🎨 Ảnh đã sẵn sàng" nhưng KHÔNG có ảnh
-```
+Các điểm rủi ro trong `handleGenerateSingle`:
+- Line 1530: `(brand?.brand_name || "").trim()` ← nghi can chính
+- Line 1531: `(brand?.industry || "").trim()`
+- Line 165, 240, 345: `(message.text || "").trim()` — Telegram message.text luôn string nên an toàn
 
-**2 vấn đề tách biệt**:
-1. **Bug trong telegram-webhook**: chỉ check `res.ok` (HTTP 200), không parse body để check `data.success`. Vì `generate-brand-image` cố ý trả 200 với `{success: false}` cho mọi lỗi provider, telegram bot nhầm tưởng OK.
-2. **Hết credits PoYo + GeminiGen chậm**: cần báo cho user lý do thực sự để biết action tiếp theo (top-up / chờ).
+`suggestTopicFromAI` cũng vừa fail (`The signal has been aborted` — timeout 18s) → rơi vào nhánh fallback ở line 1528-1546 → đụng `brand.brand_name.trim()` → crash.
 
-## Fix (1 file, ~25 dòng)
+## Fix (1 file, ~6 dòng)
 
-File: `supabase/functions/telegram-webhook/index.ts`, hàm `generateImageForSinglePost` (~1272-1351)
+File: `supabase/functions/telegram-webhook/index.ts`
 
-### 1. Parse response body để check `success` thực sự
+### 1. Thêm helper `toSafeString` (gần `escapeMd`, line ~720)
 
 ```ts
-let ok = false;
-let failReason: string | null = null;
-try {
-  // ... fetch generate-brand-image
-  if (!res.ok) {
-    failReason = `HTTP ${res.status}`;
-    console.warn(`[image] non-OK ${res.status}: ${errTxt.slice(0, 200)}`);
-  } else {
-    const data = await res.json().catch(() => ({}));
-    if (data?.success === true && data?.imageUrl) {
-      ok = true;
-      console.log(`[image] generated for ${contentId}/${channel}`);
-    } else {
-      // Parse errorCode để báo user thân thiện
-      const code = data?.errorCode || "UNKNOWN";
-      const msg = data?.error || "lỗi không xác định";
-      failReason = code === "CREDITS_EXHAUSTED" ? "credits_exhausted"
-        : code === "PROVIDER_ERROR" ? "provider_error"
-        : "unknown";
-      console.warn(`[image] body says fail: code=${code}, msg=${msg.slice(0,150)}`);
-    }
-  }
-} catch (e) {
-  failReason = "exception";
-  console.warn("[image] failed:", e);
+function toSafeString(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  // object/array — try i18n fields
+  const anyV = v as any;
+  return String(anyV.vi || anyV.en || anyV.text || anyV.name || "");
 }
 ```
 
-### 2. Message Telegram đúng theo lý do fail
+### 2. Thay `(x || "").trim()` bằng `toSafeString(x).trim()` ở line 1530-1531
 
-Block notify (~1334-1346), thay 1 message generic bằng 3 case:
+```ts
+const truncBrand = toSafeString(brand?.brand_name).trim().slice(0, 40);
+const industry = toSafeString(brand?.industry).trim();
+```
 
-- **`credits_exhausted`**: 
-  ```
-  ⚠️ Hệ thống tạm hết quota ảnh AI hôm nay
-  Bài _"<title>"_ đã có nội dung text, nhưng chưa có ảnh.
-  Liên hệ admin để top-up, hoặc dùng "Tạo lại ảnh" trong Mini App sau.
-  [🖼 Mở Mini App]
-  ```
-- **`provider_error`** (timeout, API lỗi):
-  ```
-  ⏳ Tạo ảnh chậm hơn dự kiến cho bài _"<title>"_
-  Bạn có thể bấm "Tạo lại ảnh" trong Mini App để thử lại.
-  [🖼 Mở Mini App]
-  ```
-- **`unknown`** / `HTTP xxx`: giữ message "⚠️ Ảnh chưa tạo được..." như cũ.
-- **Success**: giữ "🎨 Ảnh đã sẵn sàng..." như cũ.
+### 3. Audit thêm 2 chỗ rủi ro tương tự trong cùng function
 
-### 3. (Optional, an toàn) Tăng timeout fetch generate-brand-image
+- Line 1611: `channelText.trim()` — đã safe (line 1604-1608 coerce object→string rồi)
+- Line 1548: `String(effectiveTopic || "").trim()` — đã safe (đã coerce trước đó)
+- Các `appendBrandFooter(... brand?.brand_name ...)` (line 1554, 1657, …): pass object vào → bên trong `appendBrandFooter` có thể crash. **Bọc lại bằng `toSafeString(brand?.brand_name)`** ở mọi callsite trong `handleGenerateSingle`.
 
-Hiện tại fetch không có AbortController → có thể treo. Vì là fire-and-forget nên không gấp, nhưng nên thêm `AbortSignal.timeout(120_000)` (120s) để chắc chắn release resource khi `generate-brand-image` đã chạy >90s.
+### 4. Tăng timeout `suggestTopicFromAI` từ 18s → 25s (giảm fallback)
 
-## Note về root cause hệ thống (ngoài phạm vi fix Telegram)
+Hiện tại budget 18s khiến AI hay timeout → rơi vào fallback (chỗ vừa crash). Tăng lên 25s — vẫn an toàn so với edge function wall-clock 60s.
 
-- **PoYo hết credits** → cần admin top-up (không fix trong code được)
-- **GeminiGen timeout 60s liên tục với `status=0`** → có thể tài khoản GeminiGen có vấn đề (queue dài, hết credit ngầm). Đề xuất pha sau: thêm log lý do GeminiGen trả status=0 mãi (xem response body khi timeout). Hiện tại chỉ log `status=0` nhưng không log error field nào kèm theo.
-- **Confirm credit status**: user nên kiểm tra dashboard PoYo (`api.poyo.ai`) và GeminiGen (`api.geminigen.ai`) để top-up nếu thực sự cạn.
+### 5. Log thêm để chắc chắn root cause
+
+Trong block fallback (sau line 1528), log:
+```ts
+console.log(`[handleGenerateSingle] fallback brand types: name=${typeof brand?.brand_name}, industry=${typeof brand?.industry}, value=${JSON.stringify({n: brand?.brand_name, i: brand?.industry}).slice(0,200)}`);
+```
+
+→ Lần chạy tiếp theo confirm có phải `brand_templates.brand_name` đang lưu i18n object không. Nếu đúng → pha sau migrate normalize về string ở DB layer.
 
 ## Files sửa
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/telegram-webhook/index.ts` | Hàm `generateImageForSinglePost`: (a) parse JSON body để check `data.success` + `data.imageUrl` thay vì chỉ `res.ok`; (b) phân loại 3 fail reason để gửi message đúng cho user; (c) thêm AbortSignal.timeout 120s cho fetch. |
+| `supabase/functions/telegram-webhook/index.ts` | (a) Thêm `toSafeString` helper; (b) thay `(brand?.brand_name||"").trim()` và `(brand?.industry||"").trim()` ở line 1530-1531; (c) bọc `toSafeString` quanh `brand?.brand_name` trong các `appendBrandFooter` callsites; (d) tăng timeout `suggestTopicFromAI` 18s→25s; (e) thêm debug log trong fallback. |
 
 ## Rủi ro
 
-Rất thấp. Defensive parsing + UX message rõ ràng hơn. User sẽ biết chính xác **tại sao** ảnh không được tạo (hết credits vs timeout) thay vì bị lừa "ảnh sẵn sàng" rồi vào Mini App không thấy gì.
+Rất thấp. Defensive coercion + tăng timeout không đổi luồng. User sẽ tạo bài Telegram được ngay sau deploy, kể cả khi `brand_name` là object i18n.
 
 ## Ngoài phạm vi
 
-- Top-up credits PoYo / GeminiGen (cần user thao tác trên provider dashboard)
-- Tăng timeout GeminiGen từ 60s → 90s (đã có history quyết định 60s vì edge function wall-clock 150s — không nên tăng)
-- Thêm "Tạo lại ảnh" command qua Telegram (defer)
+- Migrate schema `brand_templates.brand_name` từ jsonb i18n về plain text (defer — cần audit toàn app)
+- Telegram lỗi 18s timeout AI → đã có thông báo "đang viết… 20-40s" cho user (UX OK)
 
