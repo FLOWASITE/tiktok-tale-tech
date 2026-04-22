@@ -117,12 +117,15 @@ export default function MultiChannelCreate() {
     },
   });
 
-  // Sync with global brand context when it changes (and no local override)
+  // Sync with global brand context whenever it changes (header switcher → form)
   useEffect(() => {
-    if (currentBrand && !selectedBrandId) {
+    if (currentBrand?.id && currentBrand.id !== selectedBrandId) {
       setSelectedBrandId(currentBrand.id);
+      // Reset voice variant — variants belong to the previous brand
+      setSelectedVoiceVariantId(undefined);
     }
-  }, [currentBrand, selectedBrandId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBrand?.id]);
 
   // Auto-select default brand
   useEffect(() => {
