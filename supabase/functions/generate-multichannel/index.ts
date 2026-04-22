@@ -269,6 +269,9 @@ interface FormData {
   agentMode?: boolean; // Agent pipeline mode: use plain text generation (no tool calling)
   // Agent model override — fallback when no channel-specific config exists
   model_override?: string;
+  // When true, skip extractTitleFromChannels and use formData.topic directly as title.
+  // Used by Telegram flow where topic is an AI-suggested headline (already polished).
+  useTopicAsTitle?: boolean;
 }
 
 // ============================================
