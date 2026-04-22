@@ -10,6 +10,7 @@ import { QuickSearch } from '@/components/QuickSearch';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
 import { MobileSidebarTrigger } from '@/components/MobileSidebarTrigger';
+import { ReconnectBanner } from '@/components/social/ReconnectBanner';
 
 
 import { useAutoLanguage } from '@/hooks/useAutoLanguage';
@@ -50,6 +51,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               <UserAvatar />
             </div>
           </header>
+
+          <ReconnectBanner />
 
           {/* Main Content - contain: layout isolates from sidebar animations */}
           <main className="flex-1 min-w-0 max-w-full overflow-x-hidden p-4 sm:p-6" style={{ contain: 'layout' }}>
