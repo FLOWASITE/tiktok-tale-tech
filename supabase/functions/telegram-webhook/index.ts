@@ -3088,6 +3088,59 @@ async function handleSingleCallback(args: {
     await handleGenerateSingle({
       supabase, botConfig, chatId, telegramUserId: fromTgId, prompt, channel,
     });
+    return;
+  }
+
+  // 🔄 Tạo bài khác — cùng channel + cùng prompt cache
+  if (action === "regen") {
+    const channel = value.toLowerCase();
+    if (!VALID_SINGLE_CHANNELS.includes(channel)) {
+      await sendMessage(botConfig.botToken, chatId, "Kênh không hợp lệ.");
+      return;
+    }
+    const { data: cached } = await supabase
+      .from("telegram_example_cache")
+      .select("prompt")
+      .eq("chat_id", chatId)
+      .eq("idx", SINGLE_PROMPT_CACHE_IDX)
+      .maybeSingle();
+    const prompt = (cached?.prompt as string) || `tạo bài đăng ${channel}`;
+    await sendMessage(botConfig.botToken, chatId,
+      `🔄 Đang tạo bài *${channel}* mới với cùng yêu cầu…`,
+      { parse_mode: "Markdown" });
+    await handleGenerateSingle({
+      supabase, botConfig, chatId, telegramUserId: fromTgId, prompt, channel,
+    });
+    return;
+  }
+
+  // 🎯 Đổi kênh — show menu để chọn channel khác cho cùng prompt cache
+  if (action === "switch") {
+    const contentId = value;
+    // Re-cache last prompt is not needed; user reuses cached prompt.
+    await sendMessage(botConfig.botToken, chatId,
+      `🎯 *Chọn kênh khác để tạo lại bài:*`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📘 Facebook", callback_data: "single:regen:facebook" },
+              { text: "📸 Instagram", callback_data: "single:regen:instagram" },
+            ],
+            [
+              { text: "🐦 X", callback_data: "single:regen:x" },
+              { text: "💼 LinkedIn", callback_data: "single:regen:linkedin" },
+            ],
+            [
+              { text: "🎵 TikTok", callback_data: "single:regen:tiktok" },
+              { text: "🌐 Website", callback_data: "single:regen:website" },
+            ],
+            [{ text: "❌ Bỏ qua", callback_data: "single:cancel:1" }],
+          ],
+        },
+      });
+    return;
   }
 }
 
