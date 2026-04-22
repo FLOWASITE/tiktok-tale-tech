@@ -939,7 +939,7 @@ async function handleStart(
       "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
       "",
       "*Bắt đầu thử ngay!*",
-    ]),
+    ],
     {
       parse_mode: "Markdown",
       reply_markup: {
