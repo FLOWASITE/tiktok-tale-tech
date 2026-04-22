@@ -3283,7 +3283,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               
               // Build update payload with new channel contents
               const updatePayload: Record<string, any> = {
-                selected_channels: [...existingChannels, ...channels],
+                selected_channels: [...new Set([...existingChannels, ...resolvedSelectedChannels])],
                 critique_score: critiqueResult?.overall_score || null,
                 critique_details: critiqueResult || null,
                 was_refined: wasRefined,
@@ -3341,6 +3341,10 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   organization_id: organizationId || null,
                   title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
                   topic: formData.topic,
+                  content_goal: resolvedContentGoal,
+                  content_angle: resolvedContentAngle,
+                  content_role: resolvedContentRole,
+                  selected_channels: resolvedSelectedChannels,
                   brand_template_id: formData.brandTemplateId || null,
                   brand_voice_variant_id: formData.brandVoiceVariantId || null,
                   brand_name: brandName,
@@ -5239,7 +5243,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       
       // Build update payload with new channel contents
       const updatePayload: Record<string, any> = {
-        selected_channels: [...existingChannels, ...formData.channels],
+        selected_channels: [...new Set([...existingChannels, ...resolvedSelectedChannels])],
         critique_score: critiqueResult?.overall_score || null,
         critique_details: critiqueResult || null,
         was_refined: wasRefined,
@@ -5306,8 +5310,10 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           title: generatedData.title,
           topic: formData.topic,
           industry: industry,
-          content_goal: formData.contentGoal || 'engagement',
-          selected_channels: formData.channels,
+          content_goal: resolvedContentGoal,
+          content_angle: resolvedContentAngle,
+          content_role: resolvedContentRole,
+          selected_channels: resolvedSelectedChannels,
           brand_template_id: formData.brandTemplateId || null,
           brand_voice_variant_id: formData.brandVoiceVariantId || null,
           brand_name: brandName,
@@ -5325,8 +5331,6 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           global_hook: formData.globalHook || null,
           // Core Content Layer - link to parent Core Content
           core_content_id: formData.coreContentId || null,
-          // Content Role for orchestration flow (seed/sprout/harvest)
-          content_role: formData.contentRole || null,
           website_content: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content?.content || null 
             : generatedData.website_content || null,
