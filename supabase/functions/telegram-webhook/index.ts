@@ -1487,15 +1487,29 @@ async function handleGenerateSingle(
     channel,
     cleanedTopic,
   );
-  if (aiTopic && aiTopic.length >= 20) {
+  if (aiTopic && aiTopic.length >= 12) {
     effectiveTopic = aiTopic;
     titleSource = "ai_suggestion";
   } else if (cleanedTopic && cleanedTopic.length >= 4) {
     effectiveTopic = cleanedTopic;
     titleSource = "cleaned_prompt";
   } else {
-    const brandHint = brand?.brand_name ? ` cho ${brand.brand_name}` : "";
-    effectiveTopic = `Bài đăng ${channelLabel}${brandHint}`;
+    // Brand-driven heuristic — KHÔNG dùng "Bài đăng <Channel> cho <Brand>" nữa
+    const truncBrand = (brand?.brand_name || "").trim().slice(0, 40);
+    const industry = (brand?.industry || "").trim();
+    const templates: string[] = [];
+    if (industry) {
+      templates.push(`${industry}: Bí quyết & xu hướng đáng chú ý`);
+      if (truncBrand) {
+        templates.push(`Cập nhật mới nhất về ${industry} cho thương hiệu ${truncBrand}`);
+      }
+    }
+    if (truncBrand) {
+      templates.push(`Cập nhật mới từ ${truncBrand}`);
+      templates.push(`${truncBrand} — bài viết mới đáng đọc`);
+    }
+    if (templates.length === 0) templates.push("Bài viết mới");
+    effectiveTopic = templates[Math.floor(Math.random() * templates.length)];
     titleSource = "fallback";
   }
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
