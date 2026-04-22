@@ -1767,7 +1767,7 @@ async function handleGenerateSingle(
       },
       body: JSON.stringify({
         action: "create",
-        topic: buildTelegramSinglePostPrompt(effectiveTopic, resolvedWritingGoal),
+        topic: effectiveTopic,
         channels: [channel],
         organizationId: botConfig.organizationId,
         brandTemplateId: brand?.id || null,
