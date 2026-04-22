@@ -272,6 +272,9 @@ interface FormData {
   // When true, skip extractTitleFromChannels and use formData.topic directly as title.
   // Used by Telegram flow where topic is an AI-suggested headline (already polished).
   useTopicAsTitle?: boolean;
+  // When true, skip cache LOOKUP and always regenerate fresh content.
+  // Used by Telegram /generate where user expects a brand new post each time.
+  skipCache?: boolean;
 }
 
 // ============================================
@@ -4520,6 +4523,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           },
           ttlDays,
           generateFn: generateAgentContent,
+          skipCache: formData.skipCache === true,
         });
 
         generatedData = postProcessAgentSEO(agentCacheResult.data);
@@ -4596,6 +4600,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         ttlDays,
         generateFn: generateWithRetry,
         validateFn: validateCachedData,
+        skipCache: formData.skipCache === true,
       });
 
       generatedData = cacheResult.data;
