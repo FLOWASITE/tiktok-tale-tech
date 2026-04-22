@@ -127,7 +127,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             setBinding(row as TelegramBinding);
             toast({
               title: 'Kết nối thành công',
-              description: 'AI Marketing Agent đã sẵn sàng trên Telegram. Bắt đầu thử ngay.',
+              description: 'AI Marketing Agent đã sẵn sàng trên Telegram.',
             });
           }
         },
@@ -186,7 +186,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
       window.open(fresh.url, '_blank', 'noopener,noreferrer');
       toast({
         title: 'Mở Telegram',
-          description: 'Bấm Start trong bot để chuyển workspace và bắt đầu thử ngay.',
+        description: 'Bấm Start trong bot để chuyển sang workspace này.',
       });
     }
   };
@@ -215,7 +215,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             <span className="font-medium text-foreground">
               {ghostBinding.organization_name ?? 'một workspace khác'}
             </span>
-            . Bot sẽ trả lời theo workspace đó cho đến khi bạn chuyển.
+            . Bot hiện sẽ trả lời theo workspace đó cho đến khi bạn chuyển lại.
           </p>
         </div>
       </div>
@@ -352,14 +352,14 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           {hasBindingConflict && (
             <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-foreground flex items-start gap-2">
               <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
-              <span>
-                Phát hiện nhiều liên kết chat cũ. Bấm <strong>Kết nối lại</strong> để dọn và bind đúng chat hiện tại.
-              </span>
+                <span>
+                  Phát hiện liên kết chat cũ. Bấm <strong>Kết nối lại</strong> để làm mới đúng chat hiện tại.
+                </span>
             </div>
           )}
 
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Nếu AI Marketing Agent báo <em>chưa kết nối</em>, bấm <strong>Kết nối lại</strong> để làm mới liên kết chat hiện tại và bắt đầu thử ngay.
+            Nếu bot báo <em>chưa kết nối</em>, bấm <strong>Kết nối lại</strong> để làm mới liên kết chat hiện tại.
           </p>
         </div>
 
@@ -377,7 +377,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             <Send className="w-4 h-4 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">🎉 Chào bạn!</div>
+            <div className="text-sm font-medium">Chào bạn!</div>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.
               {usingDefaultBot && resolvedBotUsername && ` Hiện bạn sẽ chat qua bot mặc định @${resolvedBotUsername}.`}
@@ -429,7 +429,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
                 <canvas ref={canvasRef} className="block" />
               </div>
               <p className="text-[11px] text-muted-foreground mt-2 max-w-[200px]">
-                Mở Telegram trên điện thoại, scan QR để kết nối AI Marketing Agent nhanh hơn.
+                Mở Telegram trên điện thoại rồi scan QR để kết nối nhanh hơn.
               </p>
             </PopoverContent>
           </Popover>
@@ -445,7 +445,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
         </div>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-2.5">
-          👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu. Bắt đầu thử ngay!
+          Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu. Bắt đầu thử ngay!
         </p>
       </div>
     </div>

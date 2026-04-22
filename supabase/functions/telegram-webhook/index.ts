@@ -306,18 +306,18 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
                 botConfig.botToken,
                 peekChatId,
                 [
-                  "🎉 *Chào bạn!*",
+                  "*Chào bạn!*",
                   "",
-                  "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
+                  "Mình là AI Marketing Agent — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
                   "",
-                  "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+                  "Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
                   "",
-                  "🔗 *Cách kết nối:*",
+                  "*Cách kết nối*",
                   "1. Mở https://app.flowa.one/agents/telegram",
                   "2. Bấm *Kết nối tài khoản & bắt đầu ngay* để lấy link /start cá nhân",
                   "3. Mở link đó trong Telegram rồi bắt đầu chat với bot",
                   "",
-                  "💡 Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, có thể bạn đang chat từ chat_id khác. Hãy /start lại để rebind chat hiện tại.",
+                  "Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, bạn có thể đang chat ở chat khác. Hãy /start lại để liên kết đúng chat hiện tại.",
                   "",
                   "*Bắt đầu thử ngay!*",
                 ].join("\n"),
@@ -396,7 +396,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       if (chatType === "private") {
         await sendMessage(
           botConfig.botToken, chatId,
-          "🤖 Hiện bot chỉ hiểu tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
+          "Hiện bot đang hỗ trợ tin nhắn text. Gõ /help để xem các lệnh có sẵn.",
         );
       }
       return okResponse();
@@ -545,25 +545,26 @@ function okResponse(): Response {
 
 function helpText(): string {
   return [
-    "📋 Lệnh hỗ trợ:",
-    "/start <token> — Kết nối tài khoản (lấy token từ app Flowa)",
-    "/generate <mô tả> — Tạo *campaign* nhiều bài (cần quyền can_create_goals)",
+    "*Lệnh hỗ trợ*",
+    "/start <token> — Kết nối tài khoản từ app Flowa",
+    "/generate <mô tả> — Tạo campaign nhiều bài (cần quyền can_create_goals)",
     "/status — Xem quota pipeline tháng này",
     "/campaigns — Xem 5 campaign mới nhất",
     "/brand [tên] — Xem hoặc đổi brand đang active cho phiên chat",
-    "/link_group — (Admin, trong group) Kết nối group với tổ chức",
-    "/help — Hiện danh sách này",
+    "/link_group — Admin dùng trong group để kết nối với tổ chức",
+    "/help — Xem danh sách này",
     "",
-    "💬 *Hoặc chat tự nhiên — bot hiểu tiếng Việt!*",
-    "• Tạo *1 bài lẻ*: _\"viết 1 bài Facebook về spa giảm 30%\"_",
-    "• *Bán hàng*: _\"Viết 1 bài Facebook về serum mới theo hướng bán hàng\"_",
-    "• *Xây thương hiệu*: _\"Tạo caption Instagram xây thương hiệu cho spa\"_",
-    "• *Tăng tương tác*: _\"Viết bài Facebook tăng tương tác cho fanpage\"_",
-    "• *Chia sẻ giá trị*: _\"Viết bài chia sẻ giá trị về chăm sóc da\"_",
-    "• *Kéo khách*: _\"Tạo bài kéo khách để lấy lead cho gói trị nám\"_",
-    "• Tạo *campaign*: _\"campaign 2 tuần cho spa, 3 bài/tuần\"_",
+    "*Ví dụ chat tự nhiên*",
+    "• Viết 1 bài Facebook về spa giảm 30%",
+    "• Viết 1 bài Facebook về serum mới theo hướng bán hàng",
+    "• Tạo caption Instagram xây thương hiệu cho spa",
+    "• Viết bài Facebook tăng tương tác cho fanpage",
+    "• Viết bài chia sẻ giá trị về chăm sóc da",
+    "• Tạo bài kéo khách để lấy lead cho gói trị nám",
+    "• Campaign 2 tuần cho spa, 3 bài/tuần",
     "",
-    "🌐 *11 kênh hỗ trợ*: Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, *Google Business*, Email.",
+    "*Kênh hỗ trợ*",
+    "• Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, Google Business, Email",
   ].join("\n");
 }
 
@@ -736,7 +737,7 @@ async function handleStart(
       await sendMessage(
         botConfig.botToken,
         chatId,
-        `🎉 Chào ${who}! AI Marketing Agent đã sẵn sàng trên Telegram.\n\n💬 Cứ chat tự nhiên — ví dụ: "tạo campaign cho spa làm đẹp", "quota tháng này còn bao nhiêu?"\n\nBắt đầu thử ngay hoặc gõ /help để xem tất cả lệnh.`,
+        `Chào ${who}! AI Marketing Agent đã sẵn sàng trên Telegram.\n\nCứ chat tự nhiên, ví dụ: "tạo campaign cho spa làm đẹp" hoặc "quota tháng này còn bao nhiêu?"\n\nBắt đầu thử ngay hoặc gõ /help để xem tất cả lệnh.`,
         { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
       );
       return;
@@ -747,15 +748,15 @@ async function handleStart(
       botConfig.botToken,
       chatId,
       [
-        "🎉 *Chào bạn!*",
+        "*Chào bạn!*",
         "",
-        "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
+        "Mình là AI Marketing Agent — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
         "",
-        "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+        "Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
         "",
-        "🔗 *Cách kết nối:*",
+        "*Cách kết nối*",
         "1. Bấm nút bên dưới để mở app Flowa",
-        "2. Đăng nhập (nếu chưa)",
+        "2. Đăng nhập nếu cần",
         "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
         "*Bắt đầu thử ngay!*",
@@ -880,11 +881,9 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     [
-      "🎉 *Chào bạn!*",
+      "*Chào bạn!*",
       "",
-      "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
-      "",
-      "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+      "Mình là AI Marketing Agent — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
       "",
       "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
       "",
@@ -1002,7 +1001,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Chưa kết nối với AI Marketing Agent. Mở app Flowa, bấm “Kết nối tài khoản & bắt đầu ngay” rồi quay lại Telegram. Bắt đầu thử ngay!",
+      "Chưa kết nối với AI Marketing Agent. Mở app Flowa, bấm “Kết nối tài khoản & bắt đầu ngay”, rồi quay lại Telegram. Bắt đầu thử ngay!",
     );
     return;
   }
@@ -1113,11 +1112,11 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   const monthLabel = `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
 
   const lines: string[] = [];
-  lines.push(`📊 *Trạng thái Flowa* — ${monthLabel}`);
+  lines.push(`*Trạng thái Flowa* — ${monthLabel}`);
   lines.push("");
 
   // Account section
-  lines.push("👤 *Tài khoản*");
+  lines.push("*Tài khoản*");
   if (orgName) lines.push(`• Tổ chức: ${escapeMd(orgName)}`);
   const planTxt = planLabel(sub?.plan_type);
   const renew = formatVnDate(sub?.current_period_end);
@@ -1126,20 +1125,21 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
     lines.push(`• Quyền agent: ${escapeMd(autonomyLabel(quota.maxAutonomyLevel))}`);
   }
   if (activeBrand?.brand_name) {
-    lines.push(`• 🎨 Brand đang xem: ${escapeMd(activeBrand.brand_name)}`);
+    lines.push(`• Brand đang xem: ${escapeMd(activeBrand.brand_name)}`);
   }
   lines.push("");
 
   // Usage section
-  lines.push("📈 *Sử dụng tháng này*");
+  lines.push("*Sử dụng tháng này*");
   if (!quota?.ok) {
     lines.push(`• ${escapeMd(quota?.message || "Không lấy được hạn mức")}`);
   } else if (quota.monthlyLimit === null) {
-    lines.push(`• Pipeline (toàn org): ${quota.pipelinesUsed} · ♾️ Không giới hạn`);
+    lines.push(`• Pipeline (toàn org): ${quota.pipelinesUsed}`);
+    lines.push("• Không giới hạn");
   } else {
     const used = quota.pipelinesUsed;
     const limit = quota.monthlyLimit;
-    lines.push(`• Pipeline (toàn org): ${used}/${limit}  ${formatProgressBar(used, limit)}`);
+    lines.push(`• Pipeline (toàn org): ${used}/${limit} ${formatProgressBar(used, limit)}`);
     const remaining = Math.max(0, limit - used);
     lines.push(`• Còn ${remaining} lượt`);
   }
@@ -1147,13 +1147,13 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
 
   // Brand active but has no pipeline at all (no goals OR goals exist but no pipelines yet)
   if (activeBrandId && running.length === 0 && recent.length === 0) {
-    lines.push(`ℹ️ Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
-    lines.push("👉 /generate <mô tả> để tạo campaign đầu tiên.");
+    lines.push(`Brand "${escapeMd(activeBrand?.brand_name || "")}" chưa có pipeline nào.`);
+    lines.push("• Dùng /generate <mô tả> để tạo campaign đầu tiên.");
     lines.push("");
   } else {
     // Running pipelines
     if (running.length > 0) {
-      lines.push(`🚀 *Pipeline đang chạy* (${running.length})`);
+      lines.push(`*Pipeline đang chạy* (${running.length})`);
       for (const p of running) {
         const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
         const stg = stageLabel(p.current_stage);
@@ -1165,7 +1165,7 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
 
     // Recently completed
     if (recent.length > 0) {
-      lines.push(`✅ *Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
+      lines.push(`*Hoàn tất gần đây* (${recent.length} trong 7 ngày)`);
       for (const p of recent) {
         const title = escapeMd((p.content_title || "Không tên").slice(0, 60));
         lines.push(`• "${title}" — ${formatRelativeTime(p.completed_at)}`);
@@ -1179,22 +1179,22 @@ async function handleStatus(ctx: HandlerCtx): Promise<void> {
   if (quota?.ok && quota.monthlyLimit !== null && quota.monthlyLimit > 0) {
     const pct = (quota.pipelinesUsed / quota.monthlyLimit) * 100;
     if (pct >= 90) {
-      hints.push("⚠️ Sắp hết quota tháng này — cân nhắc nâng cấp gói để tiếp tục");
+      hints.push("Sắp hết quota tháng này — cân nhắc nâng cấp gói để tiếp tục");
     } else if (pct >= 60) {
-      hints.push(`⚠️ Đã dùng ${Math.round(pct)}% quota — cân nhắc upgrade nếu cần thêm`);
+      hints.push(`Đã dùng ${Math.round(pct)}% quota — cân nhắc nâng cấp nếu cần thêm`);
     } else if ((sub?.plan_type || "free") === "free") {
-      hints.push("💎 Bạn đang dùng gói Free — upgrade để mở khoá thêm tính năng");
+      hints.push("Bạn đang dùng gói Free — cân nhắc nâng cấp để mở thêm tính năng");
     }
   }
   if (!activeBrandId) {
-    hints.push("💡 Mẹo: dùng /brand để chọn brand → /status sẽ chỉ show pipeline của brand đó");
+    hints.push("Dùng /brand để chọn brand, rồi /status sẽ chỉ hiển thị pipeline của brand đó");
   }
   if (running.length === 0 && !(activeBrandId && running.length === 0 && recent.length === 0)) {
-    hints.push("👉 /generate <mô tả> để tạo campaign mới");
+    hints.push("Dùng /generate <mô tả> để tạo campaign mới");
   }
   if (hints.length > 0) {
-    lines.push("💡 *Gợi ý*");
-    for (const h of hints) lines.push(h);
+    lines.push("*Gợi ý*");
+    for (const h of hints) lines.push(`• ${h}`);
   }
 
   // Footer with brand badge + one-tap "Đổi brand" button
@@ -1235,7 +1235,7 @@ async function handleGenerate(
     await sendMessage(
       botConfig.botToken,
       chatId,
-      "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM với bot sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!",
+      "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!",
     );
     return;
   }
@@ -1653,7 +1653,7 @@ async function handleGenerateSingle(
   const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
   if (!binding) {
     await sendMessage(botConfig.botToken, chatId,
-      "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM với bot sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
+      "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!");
     return;
   }
 
@@ -2280,7 +2280,7 @@ async function handleBrand(
     telegramUserId,
   );
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!");
     return;
   }
 
@@ -3088,11 +3088,11 @@ async function handleConfirmLinkCallback(args: {
     botConfig.botToken,
     chatId,
     [
-      `🎉 Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
+      `Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
       "",
       "Mình là *AI Marketing Agent* — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
       "",
-      "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+      "Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
       "",
       "*Bắt đầu thử ngay!*",
     ].join("\n"),
@@ -3121,7 +3121,7 @@ async function handleCampaigns(
     telegramUserId,
   );
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!");
     return;
   }
 
@@ -3204,7 +3204,7 @@ async function handleCancel(
     telegramUserId,
   );
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!");
     return;
   }
 
@@ -3389,7 +3389,7 @@ async function handleSettings(
 
   const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!");
     return;
   }
 
@@ -4002,7 +4002,7 @@ async function startCampaignWizard(ctx: HandlerCtx & { telegramUserId?: number; 
   }
   const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa, rồi quay lại Telegram và gõ /start. Bắt đầu thử ngay!");
     return;
   }
   const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
@@ -4123,7 +4123,7 @@ async function handleCampaignWizardCallback(args: {
     const goalId = value;
     const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, fromTgId);
     if (!binding) {
-      await answerCallback(botConfig.botToken, cbId, "Chưa kết nối với AI Marketing Agent. Mở app để liên kết và bắt đầu thử ngay.", true).catch(() => {});
+      await answerCallback(botConfig.botToken, cbId, "Chưa kết nối với AI Marketing Agent. Mở app Flowa để liên kết rồi bắt đầu thử ngay.", true).catch(() => {});
       return;
     }
     const { data: goal } = await supabase
