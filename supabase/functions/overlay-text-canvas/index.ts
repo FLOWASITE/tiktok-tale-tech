@@ -297,6 +297,23 @@ interface StructuredOverlayRequest {
 
 type FooterLayoutMode = 'single-row' | 'two-row' | 'vertical-compact';
 
+type RatioKind = 'landscape' | 'square' | 'portrait' | 'tall';
+
+interface RatioProfile {
+  kind: RatioKind;
+  ratio: number;
+  sizeBasis: number;
+  contentMaxWidth: string;
+  headlineMaxWidth: string;
+  ctaMaxWidth: string;
+  footerMaxWidth: string;
+  sectionGap: number;
+  outerPadding: number;
+  safeBottomMultiplier: number;
+  fontScale: number;
+  compactness: number;
+}
+
 interface FooterLayoutProfile {
   mode: FooterLayoutMode;
   fontSize: number;
@@ -313,6 +330,126 @@ interface FooterLayoutProfile {
   minBottomClearance: number;
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getRatioProfile(imageWidth: number, imageHeight: number): RatioProfile {
+  const ratio = imageWidth / Math.max(imageHeight, 1);
+  const sizeBasis = Math.min(imageWidth, imageHeight);
+
+  if (ratio <= 0.62) {
+    return {
+      kind: 'tall',
+      ratio,
+      sizeBasis,
+      contentMaxWidth: '82%',
+      headlineMaxWidth: '78%',
+      ctaMaxWidth: '72%',
+      footerMaxWidth: '86%',
+      sectionGap: Math.round(sizeBasis * 0.024),
+      outerPadding: Math.round(sizeBasis * 0.05),
+      safeBottomMultiplier: 1.28,
+      fontScale: 0.9,
+      compactness: 1.18,
+    };
+  }
+
+  if (ratio < 0.9) {
+    return {
+      kind: 'portrait',
+      ratio,
+      sizeBasis,
+      contentMaxWidth: '86%',
+      headlineMaxWidth: '82%',
+      ctaMaxWidth: '76%',
+      footerMaxWidth: '90%',
+      sectionGap: Math.round(sizeBasis * 0.026),
+      outerPadding: Math.round(sizeBasis * 0.048),
+      safeBottomMultiplier: 1.16,
+      fontScale: 0.96,
+      compactness: 1.08,
+    };
+  }
+
+  if (ratio <= 1.1) {
+    return {
+      kind: 'square',
+      ratio,
+      sizeBasis,
+      contentMaxWidth: '88%',
+      headlineMaxWidth: '84%',
+      ctaMaxWidth: '80%',
+      footerMaxWidth: '92%',
+      sectionGap: Math.round(sizeBasis * 0.028),
+      outerPadding: Math.round(sizeBasis * 0.046),
+      safeBottomMultiplier: 1.08,
+      fontScale: 1,
+      compactness: 1,
+    };
+  }
+
+  return {
+    kind: 'landscape',
+    ratio,
+    sizeBasis,
+    contentMaxWidth: '90%',
+    headlineMaxWidth: '86%',
+    ctaMaxWidth: 'max-content',
+    footerMaxWidth: '94%',
+    sectionGap: Math.round(sizeBasis * 0.03),
+    outerPadding: Math.round(sizeBasis * 0.042),
+    safeBottomMultiplier: 1,
+    fontScale: 1.08,
+    compactness: 0.92,
+  };
+}
+
+function scaleFromMin(sizeBasis: number, multiplier: number, minPx: number, maxPx: number, ratioScale: number = 1): number {
+  return clampNumber(Math.round(sizeBasis * multiplier * ratioScale), minPx, maxPx);
+}
+
+function fitTextWithRatio(
+  text: string,
+  maxWidth: number,
+  baseSize: number,
+  minPx: number,
+  maxPx: number,
+): number {
+  return clampNumber(fitTextToWidth(text, maxWidth, baseSize, minPx), minPx, maxPx);
+}
+
+function getTextScaleTokens(
+  ratioProfile: RatioProfile,
+  theme: OverlayStyleTheme,
+  elementCount: number,
+  isEducationInfographic: boolean,
+) {
+  const densityModifier = elementCount >= 5 ? 0.96 : 1;
+  const themeModifier = theme.spacingMultiplier < 1 ? 1.04 : theme.spacingMultiplier > 1.2 ? 0.95 : 1;
+  const scale = ratioProfile.fontScale * densityModifier * themeModifier;
+  const sizeBasis = ratioProfile.sizeBasis;
+
+  return {
+    bannerFont: scaleFromMin(sizeBasis, isEducationInfographic ? 0.036 : 0.029, 14, 34, scale),
+    heroFont: scaleFromMin(sizeBasis, 0.072, 24, 88, scale),
+    heroCircle: scaleFromMin(sizeBasis, 0.17, 88, 180, ratioProfile.kind === 'tall' ? 0.92 : 1),
+    heroSplitCircle: scaleFromMin(sizeBasis, 0.14, 72, 140, ratioProfile.kind === 'tall' ? 0.94 : 1),
+    heroSideFont: scaleFromMin(sizeBasis, 0.05, 18, 54, scale),
+    headlineFont: scaleFromMin(sizeBasis, 0.04, 18, 48, scale),
+    headlinePaddingY: scaleFromMin(sizeBasis, 0.018, 12, 22, ratioProfile.compactness <= 1 ? 1 : 0.95),
+    headlinePaddingX: scaleFromMin(sizeBasis, 0.038, 20, 40, ratioProfile.compactness <= 1 ? 1 : 0.94),
+    ctaFont: scaleFromMin(sizeBasis, 0.027, 14, 30, scale),
+    ctaPaddingY: scaleFromMin(sizeBasis, 0.016, 10, 18, ratioProfile.kind === 'tall' ? 0.92 : 1),
+    ctaPaddingX: scaleFromMin(sizeBasis, 0.04, 20, 42, ratioProfile.kind === 'landscape' ? 1.08 : 0.96),
+    cardTitleFont: scaleFromMin(sizeBasis, isEducationInfographic && elementCount >= 5 ? 0.024 : 0.027, 14, 30, scale),
+    cardDescFont: scaleFromMin(sizeBasis, 0.017, 12, 22, ratioProfile.kind === 'tall' ? 0.94 : 1),
+    cardNumberSize: scaleFromMin(sizeBasis, 0.046, 26, 56, ratioProfile.kind === 'landscape' ? 1.06 : 1),
+    ribbonFont: scaleFromMin(sizeBasis, 0.025, 14, 30, scale),
+    footerFont: scaleFromMin(sizeBasis, 0.017, 12, 20, ratioProfile.kind === 'tall' ? 0.92 : scale),
+  };
+}
+
 function getFooterLayoutProfile(
   imageWidth: number,
   imageHeight: number,
@@ -320,7 +457,8 @@ function getFooterLayoutProfile(
   logoMeta?: LogoMeta,
   requestedMode: 'auto' | FooterLayoutMode = 'auto',
 ): FooterLayoutProfile {
-  const ratio = imageWidth / Math.max(imageHeight, 1);
+  const ratioProfile = getRatioProfile(imageWidth, imageHeight);
+  const ratio = ratioProfile.ratio;
   const isTall = ratio <= 0.62;
   const isPortrait = ratio > 0.62 && ratio < 0.9;
   const isSquare = ratio >= 0.9 && ratio <= 1.1;
@@ -352,27 +490,29 @@ function getFooterLayoutProfile(
     mode = 'vertical-compact';
   }
 
-  const sizeBasis = Math.min(imageWidth, imageHeight);
+  const sizeBasis = ratioProfile.sizeBasis;
   const fontSize = mode === 'vertical-compact'
-    ? Math.max(12, Math.round(sizeBasis * 0.015))
+    ? scaleFromMin(sizeBasis, 0.015, 12, 18, ratioProfile.kind === 'tall' ? 0.9 : ratioProfile.fontScale * 0.95)
     : mode === 'two-row'
-      ? Math.max(12, Math.round(sizeBasis * 0.0165))
-      : Math.max(12, Math.round(sizeBasis * 0.0175));
+      ? scaleFromMin(sizeBasis, 0.0165, 12, 19, ratioProfile.fontScale)
+      : scaleFromMin(sizeBasis, 0.0175, 12, 20, ratioProfile.fontScale);
 
   return {
     mode,
     fontSize,
-    itemGap: mode === 'single-row' ? 12 : mode === 'two-row' ? 10 : 8,
-    rowGap: mode === 'vertical-compact' ? 6 : 8,
-    paddingX: mode === 'vertical-compact' ? 18 : 24,
-    paddingY: mode === 'vertical-compact' ? 8 : 10,
-    paddingBottom: bottomCenterLogo ? Math.max(12, Math.round(sizeBasis * 0.018)) : 0,
+    itemGap: mode === 'single-row' ? scaleFromMin(sizeBasis, 0.014, 10, 16, 1) : mode === 'two-row' ? scaleFromMin(sizeBasis, 0.012, 8, 14, 1) : scaleFromMin(sizeBasis, 0.01, 6, 12, 1),
+    rowGap: mode === 'vertical-compact' ? scaleFromMin(sizeBasis, 0.008, 5, 10, 1) : scaleFromMin(sizeBasis, 0.01, 6, 12, 1),
+    paddingX: mode === 'vertical-compact' ? scaleFromMin(sizeBasis, 0.022, 16, 26, 1) : scaleFromMin(sizeBasis, 0.03, 20, 34, 1),
+    paddingY: mode === 'vertical-compact' ? scaleFromMin(sizeBasis, 0.01, 7, 11, 1) : scaleFromMin(sizeBasis, 0.013, 9, 14, 1),
+    paddingBottom: bottomCenterLogo ? scaleFromMin(sizeBasis, 0.018, 12, 24, ratioProfile.safeBottomMultiplier) : 0,
     maxItemWidth: mode === 'single-row' ? '42%' : mode === 'two-row' ? '48%' : '100%',
     justifyContent: mode === 'vertical-compact' ? 'flex-start' : 'center',
     alignItems: mode === 'vertical-compact' ? 'flex-start' : 'center',
     flexDirection: mode === 'vertical-compact' ? 'column' : 'row',
     allowWrap: mode === 'two-row',
-    minBottomClearance: bottomCenterLogo ? Math.max(24, Math.round(sizeBasis * 0.04)) : Math.max(12, Math.round(sizeBasis * 0.018)),
+    minBottomClearance: bottomCenterLogo
+      ? scaleFromMin(sizeBasis, 0.04, 24, 52, ratioProfile.safeBottomMultiplier)
+      : scaleFromMin(sizeBasis, 0.018, 12, 24, 1),
   };
 }
 
