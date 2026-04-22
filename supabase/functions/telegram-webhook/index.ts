@@ -14,6 +14,12 @@ import {
   signLinkToken,
   type BrandLite,
 } from "../_shared/telegram-client.ts";
+import {
+  SUPPORTED_TG_CHANNELS,
+  normalizeChannel,
+  extractChannelFromText,
+  buildChannelPickerKeyboard,
+} from "../_shared/telegram-channel-aliases.ts";
 
 const MINI_APP_URL = Deno.env.get("TELEGRAM_MINIAPP_URL") || "https://app.flowa.one/telegram-app";
 
@@ -491,6 +497,8 @@ function helpText(): string {
     "💬 *Hoặc chat tự nhiên — bot hiểu tiếng Việt!*",
     "• Tạo *1 bài lẻ*: _\"viết 1 bài Facebook về spa giảm 30%\"_",
     "• Tạo *campaign*: _\"campaign 2 tuần cho spa, 3 bài/tuần\"_",
+    "",
+    "🌐 *11 kênh hỗ trợ*: Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, *Google Business*, Email.",
   ].join("\n");
 }
 
@@ -1190,7 +1198,7 @@ async function handleGenerate(
 // handleGenerateSingle — tạo NHANH 1 bài cho 1 kênh,
 // bypass agent_goals + campaign plan. Gọi thẳng generate-multichannel.
 // =====================================================
-const VALID_SINGLE_CHANNELS = ["facebook", "instagram", "website", "tiktok", "linkedin", "threads", "x", "zalo"];
+const VALID_SINGLE_CHANNELS: readonly string[] = SUPPORTED_TG_CHANNELS;
 const SINGLE_PROMPT_CACHE_IDX = 99; // dedicated slot in telegram_example_cache
 
 /**
@@ -1415,22 +1423,10 @@ async function handleGenerateSingle(
     } catch (e) { console.warn("[handleGenerateSingle] cache prompt failed:", e); }
 
     await sendMessage(botConfig.botToken, chatId,
-      `🤔 *Bạn muốn đăng kênh nào?*\n\n_"${escapeMd(prompt.slice(0, 120))}"_`,
+      `🤔 *Bạn muốn đăng kênh nào?*\n\n_"${escapeMd(prompt.slice(0, 120))}"_\n\nChọn 1 trong 11 kênh:`,
       {
         parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "📘 Facebook", callback_data: "single:pick:facebook" },
-              { text: "📸 Instagram", callback_data: "single:pick:instagram" },
-            ],
-            [
-              { text: "🌐 Website", callback_data: "single:pick:website" },
-              { text: "🎵 TikTok", callback_data: "single:pick:tiktok" },
-            ],
-            [{ text: "❌ Hủy", callback_data: "single:cancel:1" }],
-          ],
-        },
+        reply_markup: buildChannelPickerKeyboard("single:pick"),
       });
     return;
   }
@@ -1880,7 +1876,10 @@ async function handleFreeChat(
       }
       case "generate_single": {
         const prompt = result.prompt?.trim() || text;
-        const channel = (result.channel || "").toLowerCase().trim();
+        // Ưu tiên channel AI trả về (đã được normalize trong classifyIntent),
+        // fallback regex extract từ raw user message để bắt "Gg business" / "yt" mà AI miss.
+        let channel = normalizeChannel(result.channel);
+        if (!channel) channel = extractChannelFromText(text);
         await handleGenerateSingle({
           supabase,
           botConfig,
@@ -3066,8 +3065,8 @@ async function handleSingleCallback(args: {
   }
 
   if (action === "pick") {
-    const channel = value.toLowerCase();
-    if (!VALID_SINGLE_CHANNELS.includes(channel)) {
+    const channel = normalizeChannel(value);
+    if (!channel) {
       await sendMessage(botConfig.botToken, chatId, "Kênh không hợp lệ.");
       return;
     }
@@ -3093,8 +3092,8 @@ async function handleSingleCallback(args: {
 
   // 🔄 Tạo bài khác — cùng channel + cùng prompt cache
   if (action === "regen") {
-    const channel = value.toLowerCase();
-    if (!VALID_SINGLE_CHANNELS.includes(channel)) {
+    const channel = normalizeChannel(value);
+    if (!channel) {
       await sendMessage(botConfig.botToken, chatId, "Kênh không hợp lệ.");
       return;
     }
@@ -3114,31 +3113,13 @@ async function handleSingleCallback(args: {
     return;
   }
 
-  // 🎯 Đổi kênh — show menu để chọn channel khác cho cùng prompt cache
+  // 🎯 Đổi kênh — show menu 11 nút để chọn channel khác cho cùng prompt cache
   if (action === "switch") {
-    const contentId = value;
-    // Re-cache last prompt is not needed; user reuses cached prompt.
     await sendMessage(botConfig.botToken, chatId,
       `🎯 *Chọn kênh khác để tạo lại bài:*`,
       {
         parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "📘 Facebook", callback_data: "single:regen:facebook" },
-              { text: "📸 Instagram", callback_data: "single:regen:instagram" },
-            ],
-            [
-              { text: "🐦 X", callback_data: "single:regen:x" },
-              { text: "💼 LinkedIn", callback_data: "single:regen:linkedin" },
-            ],
-            [
-              { text: "🎵 TikTok", callback_data: "single:regen:tiktok" },
-              { text: "🌐 Website", callback_data: "single:regen:website" },
-            ],
-            [{ text: "❌ Bỏ qua", callback_data: "single:cancel:1" }],
-          ],
-        },
+        reply_markup: buildChannelPickerKeyboard("single:regen"),
       });
     return;
   }
