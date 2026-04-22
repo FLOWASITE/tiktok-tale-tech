@@ -4151,7 +4151,8 @@ function pubIsTokenExpiredError(msg: string): boolean {
   const s = String(msg || "").toLowerCase();
   return s.includes("token expired") || s.includes("reconnect") ||
          s.includes("hết hạn") || s.includes("not connected") ||
-         s.includes("chưa kết nối") || s.includes("invalid_token");
+         s.includes("chưa kết nối") || s.includes("invalid_token") ||
+         s.includes("no_connection");
 }
 
 async function handlePublishCallback(args: {

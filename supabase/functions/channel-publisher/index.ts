@@ -62,9 +62,75 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
     console.log(`[channel-publisher] routing action="${action}" → ${functionName}`);
 
     // For flowa_blog, inject is_public = true into payload
-    const finalPayload = action === 'flowa_blog' 
+    let finalPayload: Record<string, unknown> = action === 'flowa_blog' 
       ? { ...payload, is_public: true } 
-      : payload;
+      : { ...payload };
+
+    // Resolve missing payload for website/blog when called from Telegram (only contentId provided)
+    const contentIdForResolve = (payload as Record<string, unknown>).contentId || (payload as Record<string, unknown>).content_id;
+    if (
+      ['website', 'blog', 'flowa_blog'].includes(action) &&
+      typeof contentIdForResolve === 'string' &&
+      !finalPayload.connectionId &&
+      (!finalPayload.title || !finalPayload.content)
+    ) {
+      try {
+        const supabase = getServiceClient();
+        const { data: mcc } = await supabase
+          .from('multi_channel_contents')
+          .select('title, website_content, organization_id, brand_template_id, featured_image_url, seo_data')
+          .eq('id', contentIdForResolve)
+          .maybeSingle();
+
+        if (!mcc?.website_content) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Content not found or missing website body' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // For blog/flowa_blog, no connection lookup needed (uses internal blog_posts)
+        if (action === 'website') {
+          let connQuery = supabase
+            .from('social_connections')
+            .select('id')
+            .eq('platform', 'website')
+            .eq('is_active', true)
+            .eq('organization_id', mcc.organization_id);
+          if (mcc.brand_template_id) {
+            connQuery = connQuery.eq('brand_template_id', mcc.brand_template_id);
+          }
+          const { data: conn } = await connQuery.maybeSingle();
+
+          if (!conn?.id) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: 'Chưa kết nối website cho brand này',
+                errorCode: 'NO_CONNECTION',
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          finalPayload.connectionId = conn.id;
+          finalPayload.status = finalPayload.status || 'publish';
+        }
+
+        finalPayload.title = mcc.title;
+        finalPayload.content = mcc.website_content;
+        if (mcc.featured_image_url) finalPayload.featuredImageUrl = mcc.featured_image_url;
+        if (mcc.seo_data) finalPayload.seoData = mcc.seo_data;
+        if (mcc.organization_id) finalPayload.organization_id = mcc.organization_id;
+
+        console.log(`[channel-publisher] resolved payload for ${action}/${contentIdForResolve}: connectionId=${finalPayload.connectionId ?? 'n/a'}`);
+      } catch (resolveErr) {
+        console.error('[channel-publisher] payload resolve error:', resolveErr);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Không tải được nội dung để đăng' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
       method: 'POST',
