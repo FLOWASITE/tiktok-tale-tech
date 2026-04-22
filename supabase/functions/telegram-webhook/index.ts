@@ -2217,6 +2217,7 @@ async function handleFreeChat(
         // fallback regex extract từ raw user message để bắt "Gg business" / "yt" mà AI miss.
         let channel = normalizeChannel(result.channel);
         if (!channel) channel = extractChannelFromText(text);
+        const writingGoal = result.writing_goal || detectWritingGoal(text);
         await handleGenerateSingle({
           supabase,
           botConfig,
@@ -2224,8 +2225,9 @@ async function handleFreeChat(
           telegramUserId,
           prompt,
           channel,
+          writingGoal,
         });
-        assistantReply = `[generate_single ch=${channel || "?"}] ${prompt.slice(0, 200)}`;
+        assistantReply = `[generate_single ch=${channel || "?"} goal=${writingGoal || "default"}] ${prompt.slice(0, 200)}`;
         break;
       }
       case "status": {
