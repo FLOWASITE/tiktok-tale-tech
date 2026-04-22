@@ -20,9 +20,14 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const isInternalCall = !!serviceRoleKey && token === serviceRoleKey;
+
+    if (!isInternalCall) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        throw new Error('Unauthorized');
+      }
     }
 
     const body = await req.json();
