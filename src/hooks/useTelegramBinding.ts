@@ -39,6 +39,7 @@ export function useTelegramBinding() {
   const [binding, setBinding] = useState<TelegramBinding | null>(null);
   const [groupBinding, setGroupBinding] = useState<TelegramBinding | null>(null);
   const [ghostBinding, setGhostBinding] = useState<GhostBinding | null>(null);
+  const [hasBindingConflict, setHasBindingConflict] = useState(false);
   const [loading, setLoading] = useState(true);
   const [prefetchedDeeplink, setPrefetchedDeeplink] = useState<PrefetchedDeeplink | null>(null);
   const inflightRef = useRef<Promise<PrefetchedDeeplink | null> | null>(null);
@@ -50,15 +51,21 @@ export function useTelegramBinding() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const client = supabase as any;
 
-      const { data: personal } = await client
+      // Fetch ALL active private bindings for this user/org. After the unique-index
+      // migration there should only ever be 1, but we tolerate stale duplicates
+      // gracefully (pick newest, surface conflict flag) so UI can self-heal.
+      const { data: personalRows } = await client
         .from('telegram_chat_bindings')
         .select('*')
         .eq('organization_id', currentOrganization.id)
         .eq('user_id', user.id)
         .eq('chat_type', 'private')
         .eq('is_active', true)
-        .maybeSingle();
-      setBinding((personal as TelegramBinding) ?? null);
+        .order('linked_at', { ascending: false });
+      const personalList = (personalRows as TelegramBinding[] | null) ?? [];
+      const personal = personalList[0] ?? null;
+      setBinding(personal);
+      setHasBindingConflict(personalList.length > 1);
 
       const { data: group } = await client
         .from('telegram_chat_bindings')
@@ -239,6 +246,61 @@ export function useTelegramBinding() {
   }, [groupBinding, fetchBindings]);
 
   /**
+   * Reconnect flow: deactivate any active private bindings for the current
+   * (org, user) pair, clear cached deeplink, then open a fresh /start deeplink
+   * so Telegram rebinds the current chat. Used when bot says "Chưa kết nối"
+   * but UI shows connected (stale chat_id binding).
+   */
+  const reconnectCurrentWorkspace = useCallback(async (): Promise<boolean> => {
+    if (!currentOrganization || !user) return false;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = supabase as any;
+      const { error: clearErr } = await client
+        .from('telegram_chat_bindings')
+        .delete()
+        .eq('organization_id', currentOrganization.id)
+        .eq('user_id', user.id)
+        .eq('chat_type', 'private');
+      if (clearErr) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không xóa được liên kết cũ. Thử lại sau.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      setBinding(null);
+      setHasBindingConflict(false);
+      setPrefetchedDeeplink(null);
+      const fresh = await ensureDeeplink(true);
+      if (!fresh?.url) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không tạo được link mới. Thử lại sau.',
+          variant: 'destructive',
+        });
+        await fetchBindings();
+        return false;
+      }
+      window.open(fresh.url, '_blank', 'noopener,noreferrer');
+      toast({
+        title: 'Mở Telegram',
+        description: 'Bấm Start trong bot để hoàn tất kết nối lại.',
+      });
+      return true;
+    } catch (err) {
+      console.error('[useTelegramBinding] reconnect error:', err);
+      toast({
+        title: 'Lỗi',
+        description: 'Không kết nối lại được. Thử lại sau.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  }, [currentOrganization, user, ensureDeeplink, fetchBindings]);
+
+  /**
    * Hard reset: delete every binding for this Telegram user across ALL workspaces.
    * Used when user wants a clean slate before re-linking.
    */
@@ -266,6 +328,7 @@ export function useTelegramBinding() {
     binding,
     groupBinding,
     ghostBinding,
+    hasBindingConflict,
     loading,
     generateDeeplink,
     ensureDeeplink,
@@ -273,6 +336,7 @@ export function useTelegramBinding() {
     unlink,
     unlinkGroup,
     unlinkAllForTelegramUser,
+    reconnectCurrentWorkspace,
     refresh: fetchBindings,
     setBinding, // exposed so realtime subscribers in UI can morph state immediately
   };
