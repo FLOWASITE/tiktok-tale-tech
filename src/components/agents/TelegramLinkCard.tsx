@@ -350,8 +350,8 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           </div>
 
           {hasBindingConflict && (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs text-foreground flex items-start gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-foreground flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
               <span>
                 Phát hiện nhiều liên kết chat cũ. Bấm <strong>Kết nối lại</strong> để dọn và bind đúng chat hiện tại.
               </span>
