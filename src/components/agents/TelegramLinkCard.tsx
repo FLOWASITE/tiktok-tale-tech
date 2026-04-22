@@ -42,15 +42,19 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   const {
     binding,
     ghostBinding,
+    hasBindingConflict,
     loading,
     unlink,
     unlinkAllForTelegramUser,
+    reconnectCurrentWorkspace,
     ensureDeeplink,
     prefetchedDeeplink,
     setBinding,
   } = useTelegramBinding();
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
+
+  const [reconnecting, setReconnecting] = useState(false);
 
   const [qrOpen, setQrOpen] = useState(false);
   const [pinging, setPinging] = useState(false);
