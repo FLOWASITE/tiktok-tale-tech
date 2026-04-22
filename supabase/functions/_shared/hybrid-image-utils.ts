@@ -69,7 +69,7 @@ export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
   layout?: "stack" | "split" | "banner_cards" | "hero_text" | "simple";
-  suggestedLayout?: "poster" | "infographic" | "quote_card" | "feature_list" | "contact_card" | "education_infographic";
+  suggestedLayout?: "poster" | "infographic" | "quote_card" | "feature_list" | "contact_card" | "education_infographic" | "comparison_card" | "timeline_steps" | "stat_spotlight" | "testimonial_card" | "product_spotlight" | "editorial_cover" | "problem_solution" | "checklist_card";
 }
 
 // ----- Template registry (mirrors src/config/overlayTemplates.ts) -----
@@ -134,6 +134,73 @@ const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     defaults: {
       banner: { position: "top" },
       cards: { layout: "vertical", minCount: 3, numbered: true },
+    },
+  },
+  {
+    id: "comparison_card",
+    layout: "split",
+    requiredSlots: ["banner", "cards", "cta"],
+    defaults: {
+      banner: { position: "top" },
+      cards: { layout: "horizontal", minCount: 2 },
+    },
+  },
+  {
+    id: "timeline_steps",
+    layout: "banner_cards",
+    requiredSlots: ["banner", "cards", "cta"],
+    defaults: {
+      banner: { position: "top" },
+      cards: { layout: "vertical", minCount: 3, numbered: true },
+    },
+  },
+  {
+    id: "stat_spotlight",
+    layout: "hero_text",
+    requiredSlots: ["banner", "heroText", "headline"],
+    defaults: {
+      banner: { position: "top" },
+      heroText: { fontSize: "3xl", effect: "gradient" },
+    },
+  },
+  {
+    id: "product_spotlight",
+    layout: "stack",
+    requiredSlots: ["banner", "headline", "cards", "cta"],
+    defaults: {
+      banner: { position: "top" },
+      cards: { layout: "horizontal", minCount: 3 },
+    },
+  },
+  {
+    id: "testimonial_card",
+    layout: "hero_text",
+    requiredSlots: ["heroText", "headline", "cta"],
+    defaults: {
+      heroText: { fontSize: "2xl", effect: "gradient" },
+    },
+  },
+  {
+    id: "editorial_cover",
+    layout: "stack",
+    requiredSlots: ["headline"],
+    defaults: {},
+  },
+  {
+    id: "problem_solution",
+    layout: "split",
+    requiredSlots: ["headline", "cards", "cta"],
+    defaults: {
+      cards: { layout: "vertical", minCount: 3 },
+    },
+  },
+  {
+    id: "checklist_card",
+    layout: "banner_cards",
+    requiredSlots: ["banner", "cards", "cta"],
+    defaults: {
+      banner: { position: "top" },
+      cards: { layout: "vertical", minCount: 4, numbered: true },
     },
   },
 ];
@@ -335,7 +402,26 @@ export function autoSelectTemplate(
   description: string,
   overlayConfig: StructuredOverlayConfig,
 ): string {
+  const normalized = description.toLowerCase();
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  const hasStepSignal = /\b(step|steps|quy trình|các bước|bước \d|hướng dẫn|timeline|lộ trình)\b/i.test(description);
+  const hasComparisonSignal = /\b(vs|versus|so sánh|before\s*after|trước\s*và\s*sau|đúng\s*và\s*sai|cũ\s*và\s*mới|a\/b)\b/i.test(description);
+  const hasStatSignal = /\b\d+[\d.,]*\s*(%|x|triệu|tỷ|k|m|nghìn)?\b/.test(normalized) && /\b(tăng|giảm|đạt|kpi|roi|roas|ctr|số liệu|thống kê|insight|data)\b/i.test(description);
+  const hasTestimonialSignal = /\b(review|testimonial|feedback|khách hàng|đánh giá|case study|phản hồi|chứng thực)\b/i.test(description);
+  const hasProductSignal = /\b(sản phẩm|dịch vụ|launch|ra mắt|usp|ưu điểm|benefit|công dụng|combo|gói dịch vụ)\b/i.test(description);
+  const hasChecklistSignal = /\b(checklist|check list|lưu ý|quick tips|tips|điều cần nhớ|cần biết|must-know)\b/i.test(description);
+  const hasProblemSolutionSignal = /\b(vấn đề|pain point|nỗi đau|giải pháp|solution|khắc phục|cách xử lý)\b/i.test(description);
+  const hasEditorialSignal = /\b(trend|xu hướng|góc nhìn|opinion|quan điểm|insight cá nhân|thought leadership|editorial)\b/i.test(description);
+
+  if (hasComparisonSignal) return "comparison_card";
+  if (hasStepSignal) return "timeline_steps";
+  if (hasTestimonialSignal) return "testimonial_card";
+  if (hasChecklistSignal) return "checklist_card";
+  if (hasProblemSolutionSignal) return "problem_solution";
+  if (hasProductSignal && (overlayConfig.cards || overlayConfig.cta)) return "product_spotlight";
+  if (hasEditorialSignal && (overlayConfig.headline || overlayConfig.heroText)) return "editorial_cover";
+  if (hasStatSignal && overlayConfig.heroText) return "stat_spotlight";
+
   if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return "education_infographic";
   if (hasContactInfo && !overlayConfig.cards) return "contact_card";
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return "infographic";
