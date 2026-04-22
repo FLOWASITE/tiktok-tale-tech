@@ -48,6 +48,12 @@ interface CacheParams<T> {
   ttlDays: number;
   generateFn: () => Promise<T>;  // Returns validated AI response
   validateFn?: (data: T) => boolean;  // Optional validation - if returns false, invalidate cache and regenerate
+  /**
+   * When true, skip cache LOOKUP (always regenerate) but still STORE the fresh
+   * result so subsequent normal calls can hit it. Use for Telegram bot where
+   * user expects a fresh post on every /generate.
+   */
+  skipCache?: boolean;
 }
 
 // ============================================
@@ -269,16 +275,20 @@ export async function withCache<T>(params: CacheParams<T>): Promise<CachedResult
     versions: params.versions,
   });
   
-  console.log(`Cache lookup: ${params.functionName} (${params.scope})`);
-  
-  // 1. Check cache
-  const cached = await lookupCache<T>(
+  if (params.skipCache) {
+    console.log(`Cache SKIPPED (forced fresh): ${params.functionName} (${params.scope})`);
+  } else {
+    console.log(`Cache lookup: ${params.functionName} (${params.scope})`);
+  }
+
+  // 1. Check cache (unless explicitly skipped)
+  const cached = params.skipCache ? null : await lookupCache<T>(
     supabase,
     cacheKey,
     params.scope,
     params.organizationId
   );
-  
+
   if (cached !== null) {
     // Validate cached data if validateFn provided
     if (params.validateFn && !params.validateFn(cached)) {
