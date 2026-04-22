@@ -1478,7 +1478,10 @@ async function handleGenerateSingle(
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
 
   await sendMessage(botConfig.botToken, chatId,
-    appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, brand?.brand_name),
+    appendBrandFooter(
+      `🎯 *Đang viết bài ${channelLabel}…*\n🧠 Bước 1/3: Suy nghĩ chủ đề & dàn ý\n⏱ ~20-40 giây · Mình sẽ ping khi xong`,
+      brand?.brand_name,
+    ),
     { parse_mode: "Markdown" });
 
   // Call generate-multichannel directly (bypass agent_goals)
@@ -1527,28 +1530,64 @@ async function handleGenerateSingle(
     const contentId = data?.id || data?.content_id;
     const channelKey = channel === "blog" ? "website_content" : `${channel}_content`;
     const channelText = (data?.[channelKey] || "") as string;
-    const preview = channelText.slice(0, 220).trim() + (channelText.length > 220 ? "…" : "");
+    const previewRaw = channelText.slice(0, 280).trim();
+    const preview = previewRaw + (channelText.length > 280 ? "…" : "");
 
-    // 🎨 Fire-and-forget: generate brand image for this post (non-blocking)
+    // Stats line
+    const stats = summarizeContent(channelText);
+    const ctaIcon = stats.hasCTA ? "✅ có CTA" : "⚠️ chưa rõ CTA";
+    const statsLine = stats.wordCount > 0
+      ? `📊 ~${stats.wordCount} từ · ${stats.hashtagCount} hashtag · ${ctaIcon}`
+      : "";
+
+    // Truncate title for display only (DB keeps full)
+    const displayTitle = effectiveTopic.length > 80
+      ? effectiveTopic.slice(0, 80) + "…"
+      : effectiveTopic;
+
+    // 🎨 Fire-and-forget: generate brand image + ping user when done
     if (contentId && channelText) {
-      generateImageForSinglePost(supabaseUrl, key, contentId, channel, brand?.id || null, channelText)
-        .catch((err) => console.warn("[handleGenerateSingle] image gen scheduling failed:", err));
+      generateImageForSinglePost(
+        supabaseUrl, key, contentId, channel, brand?.id || null, channelText,
+        { botToken: botConfig.botToken, chatId, orgId: botConfig.organizationId, titleForMsg: effectiveTopic },
+      ).catch((err) => console.warn("[handleGenerateSingle] image gen scheduling failed:", err));
     }
 
+    const brandLineParts: string[] = [];
+    if (brand?.brand_name) brandLineParts.push(`📌 Brand: ${escapeMd(brand.brand_name)}`);
+    if (brand?.industry) brandLineParts.push(`📍 ${escapeMd(brand.industry)}`);
+    const brandLine = brandLineParts.join(" · ");
+
     const lines: string[] = [
-      `✅ *Đã tạo 1 bài cho ${channelLabel}*`,
-      brand?.brand_name ? `📌 Brand: ${escapeMd(brand.brand_name)}` : "",
-      contentId && channelText ? `🎨 _Đang tạo ảnh trong nền…_` : "",
+      `✅ *Bài ${channelLabel} đã sẵn sàng*`,
       "",
-      preview ? `_${escapeMd(preview)}_` : "_(Nội dung đã tạo, mở Mini App để xem chi tiết)_",
+      `📝 *${escapeMd(displayTitle)}*`,
+      brandLine,
+      "",
+      statsLine,
+      contentId && channelText ? `🎨 Ảnh: ⏳ đang tạo (sẽ báo khi xong)` : "",
     ].filter(Boolean);
+
+    if (preview) {
+      lines.push("", "━━━━━━━━━", `_${escapeMd(preview)}_`, "━━━━━━━━━");
+    }
 
     const keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string }; url?: string }>> = [];
     if (contentId) {
-      keyboard.push([{
-        text: "📝 Xem & duyệt",
-        web_app: { url: buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`) },
-      }]);
+      keyboard.push([
+        {
+          text: "📝 Xem & duyệt",
+          web_app: { url: buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`) },
+        },
+        {
+          text: "🌐 Mở web",
+          url: `https://app.flowa.one/multichannel/${contentId}`,
+        },
+      ]);
+      keyboard.push([
+        { text: "🔄 Tạo bài khác", callback_data: `single:regen:${channel}` },
+        { text: "🎯 Đổi kênh", callback_data: `single:switch:${contentId}` },
+      ]);
     }
 
     await sendMessage(botConfig.botToken, chatId,
