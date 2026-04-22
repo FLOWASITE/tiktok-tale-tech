@@ -713,6 +713,14 @@ async function handleStart(
 }
 
 // ===== Helpers cho /status dashboard =====
+function toSafeString(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  const anyV = v as any;
+  return String(anyV.vi || anyV.en || anyV.text || anyV.name || "");
+}
+
 function escapeMd(s: unknown): string {
   if (s == null) return "";
   let str: string;
@@ -1435,15 +1443,15 @@ async function suggestTopicFromAI(
     }
   };
 
-  // Attempt 1: cached path (forceRefresh=false), 18s timeout
-  const first = await callOnce(false, 18_000);
+  // Attempt 1: cached path (forceRefresh=false), 25s timeout
+  const first = await callOnce(false, 25_000);
   if (first) return first;
 
-  // Attempt 2: only if we still have budget left (>= 8s remaining of an 18s window)
+  // Attempt 2: only if we still have budget left
   const elapsed = Date.now() - startedAt;
-  if (elapsed < 10_000) {
+  if (elapsed < 15_000) {
     console.log(`[suggestTopicFromAI] retrying with forceRefresh=true (elapsed=${elapsed}ms)`);
-    const remaining = Math.max(8_000, 18_000 - elapsed);
+    const remaining = Math.max(8_000, 25_000 - elapsed);
     const second = await callOnce(true, remaining);
     if (second) return second;
   } else {
@@ -1527,8 +1535,9 @@ async function handleGenerateSingle(
     titleSource = "cleaned_prompt";
   } else {
     // Brand-driven heuristic — KHÔNG dùng "Bài đăng <Channel> cho <Brand>" nữa
-    const truncBrand = (brand?.brand_name || "").trim().slice(0, 40);
-    const industry = (brand?.industry || "").trim();
+    console.log(`[handleGenerateSingle] fallback brand types: name=${typeof brand?.brand_name}, industry=${typeof brand?.industry}, value=${JSON.stringify({n: brand?.brand_name, i: brand?.industry}).slice(0,200)}`);
+    const truncBrand = toSafeString(brand?.brand_name).trim().slice(0, 40);
+    const industry = toSafeString(brand?.industry).trim();
     const templates: string[] = [];
     if (industry) {
       templates.push(`${industry}: Bí quyết & xu hướng đáng chú ý`);
@@ -1551,7 +1560,7 @@ async function handleGenerateSingle(
   await sendMessage(botConfig.botToken, chatId,
     appendBrandFooter(
       `🎯 *Đang viết bài ${channelLabel}…*\n🧠 Bước 1/3: Suy nghĩ chủ đề & dàn ý\n⏱ ~20-40 giây · Mình sẽ ping khi xong`,
-      brand?.brand_name,
+      toSafeString(brand?.brand_name),
     ),
     { parse_mode: "Markdown" });
 
@@ -1683,7 +1692,7 @@ async function handleGenerateSingle(
     }
 
     await sendMessage(botConfig.botToken, chatId,
-      appendBrandFooter(lines.join("\n"), brand?.brand_name),
+      appendBrandFooter(lines.join("\n"), toSafeString(brand?.brand_name)),
       {
         parse_mode: "Markdown",
         reply_markup: keyboard.length > 0 ? { inline_keyboard: keyboard } : undefined,
