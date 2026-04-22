@@ -1,288 +1,215 @@
 
-# Mở rộng bộ layout social image ngoài các layout hiện tại
-
-## Hiện trạng
-Hệ thống hiện đã có các layout:
-- `poster`
-- `infographic`
-- `quote_card`
-- `feature_list`
-- `contact_card`
-- `education_infographic`
-
-Các layout này đã đủ cho nhiều case, nhưng vẫn thiếu một số pattern social rất mạnh cho feed hiện đại, đặc biệt cho:
-- before/after hoặc so sánh
-- step-by-step / timeline
-- product spotlight
-- số liệu nổi bật / stat card
-- testimonial / social proof
-- editorial minimal / magazine cover
+# Cập nhật footer overlay để tự wrap theo ratio và né logo/mép
 
 ## Mục tiêu
-Mở rộng thư viện layout để AI có nhiều “khung” phù hợp hơn khi render ảnh social, thay vì chủ yếu xoay quanh poster/infographic/contact-card.
+Nâng `footer` trong `overlay-text-canvas` để:
 
-## Bộ layout nên bổ sung
+- tự chọn giữa:
+  - `2 hàng` cho khung vuông / portrait vừa
+  - `vertical compact` cho khung hẹp / footer dài / logo chiếm chỗ
+- không đè lên logo ở các vị trí đáy
+- không chạm mép trái/phải
+- vẫn giữ pipeline hiện tại: AI render phần chính, canvas render footer
 
-### 1) Comparison Card
-Phù hợp:
-- before vs after
-- sai vs đúng
-- cũ vs mới
-- lựa chọn A/B
+## Hiện trạng đã xác nhận
+Có 2 điểm đang làm footer dễ vỡ:
 
-Cấu trúc:
-```text
-Header
-Left block | Right block
-Bottom takeaway / CTA
-```
+1. `SimpleImageGenerator.tsx`
+- đang luôn gửi `footerOverlay.layout = 'simple'`
+- chưa có hint nào cho wrap mode theo ratio
 
-Nên dùng cho:
-- Facebook, LinkedIn, Instagram feed
+2. `supabase/functions/overlay-text-canvas/index.ts`
+- footer hiện render bằng 1 thanh ngang:
+  - `display: flex`
+  - `justifyContent: center`
+  - `gap: 16`
+  - không có `flexWrap`
+  - không có mode `two-row` hay `vertical compact`
+- safe-area mới chỉ tăng `paddingLeft/paddingRight` theo `logoMeta.position === bottom-left/right`
+- chưa có logic:
+  - đo mật độ footer theo ratio
+  - đổi layout khi khung là `1:1`, `4:5`, `9:16`
+  - tăng đáy an toàn khi logo ở `bottom-center`
 
-### 2) Timeline / Step Flow
-Phù hợp:
-- quy trình
-- 3–5 bước
-- hành trình khách hàng
-- hướng dẫn từng bước
+## Cách triển khai
 
-Cấu trúc:
-```text
-Banner
-Step 1
-Step 2
-Step 3
-Footer / CTA
-```
+### 1) Thêm footer ratio profile trong `overlay-text-canvas`
+Trong `supabase/functions/overlay-text-canvas/index.ts`, tạo helper chuyên cho footer, ví dụ:
 
-Nên dùng cho:
-- educational content, B2B, health/beauty guidance
+- `getFooterLayoutProfile(imageWidth, imageHeight, footerItems, logoMeta)`
 
-### 3) Stat Spotlight
-Phù hợp:
-- một con số lớn
-- KPI
-- insight/data
-- research finding
+Profile nên trả về:
+- `mode`: `'single-row' | 'two-row' | 'vertical-compact'`
+- `fontSize`
+- `itemGap`
+- `rowGap`
+- `paddingX`
+- `paddingY`
+- `maxItemWidth`
+- `justifyContent`
+- `alignItems`
+- `allowWrap`
+- `minBottomClearance`
 
-Cấu trúc:
-```text
-Small banner
-Big hero number
-Short explanation
-CTA / source line
-```
+Rule gợi ý:
+- `16:9`:
+  - ưu tiên `single-row`
+  - nếu text dài hoặc có 4 items thì chuyển `two-row`
+- `1:1`:
+  - mặc định `two-row`
+  - nếu item dài + logo ở đáy thì `vertical-compact`
+- `4:5`:
+  - ưu tiên `two-row`
+  - nếu address/email dài thì `vertical-compact`
+- `9:16`:
+  - ưu tiên `vertical-compact`
+  - chỉ dùng `two-row` khi footer ngắn
 
-Nên dùng cho:
-- LinkedIn, Facebook, industry updates, data-led content
+### 2) Tính “footer crowding” thay vì chỉ nhìn ratio
+Ngoài ratio, thêm heuristic theo độ dài thực tế:
 
-### 4) Product Spotlight
-Phù hợp:
-- giới thiệu sản phẩm/dịch vụ
-- launch
-- USP chính
-- key benefits
+- tổng số ký tự footer
+- item dài nhất
+- số item
+- có `address` dài hay không
+- logo ở vùng đáy hay không
 
-Cấu trúc:
-```text
-Hero visual center
-Headline
-2–4 benefit bullets
-CTA
-```
+Ví dụ:
+- `totalChars > ngưỡng`
+- hoặc `longestItem > ngưỡng`
+- hoặc `logo.position` nằm ở `bottom-*`
+thì footer phải hạ từ `single-row` xuống `two-row` hoặc `vertical-compact`.
 
-Nên dùng cho:
-- Instagram, Facebook ads, TikTok thumbnail-style visual
+Điều này giúp cùng là `4:5` nhưng footer ngắn vẫn 2 hàng đẹp, footer dài thì tự chuyển dọc gọn.
 
-### 5) Testimonial / Social Proof
-Phù hợp:
-- feedback khách hàng
-- review nổi bật
-- trust building
-- case proof
+### 3) Sửa safe-area cho logo ở toàn bộ vùng đáy
+Hiện tại footer chỉ né `bottom-left` và `bottom-right`.
 
-Cấu trúc:
-```text
-Quote / testimonial
-Author / role
-Proof chips / badges
-CTA or brand line
-```
+Cần mở rộng:
+- `bottom-left` → tăng `paddingLeft`
+- `bottom-right` → tăng `paddingRight`
+- `bottom-center` → tăng:
+  - `paddingBottom` hoặc `minHeight`
+  - khoảng cách nội dung footer với vùng giữa đáy
+  - nếu cần, ép mode `two-row` / `vertical-compact`
 
-Nên dùng cho:
-- Facebook, LinkedIn, clinic/service brands
+Với `bottom-center`, không nên chỉ tăng CTA phía trên; footer cũng phải biết vùng giữa đáy đang bị logo chiếm.
 
-### 6) Editorial Cover
-Phù hợp:
-- thought leadership
-- trend/opinion
-- personal brand
-- announcement cao cấp
+### 4) Refactor render footer từ “1 hàng cứng” sang “adaptive block”
+Đổi block footer hiện tại thành container thích ứng:
 
-Cấu trúc:
-```text
-Large title
-Subheading
-Minimal accent label
-Very clean composition
-```
+#### Mode A — single-row
+Dùng cho:
+- `16:9`
+- footer ngắn
+- logo không chiếm quá nhiều không gian đáy
 
-Nên dùng cho:
-- LinkedIn, Threads, Instagram high-end brand feed
+Behavior:
+- 1 hàng ngang
+- item spacing nhỏ hơn hiện tại
+- mỗi item có `maxWidth`
+- text wrap nội bộ nếu cần
 
-### 7) Problem → Solution
-Phù hợp:
-- pain point marketing
-- objection handling
-- conversion content
+#### Mode B — two-row
+Dùng cho:
+- `1:1`, `4:5`
+- hoặc footer trung bình/dài
 
-Cấu trúc:
-```text
-Pain statement
-Solution block
-3 support bullets
-CTA
-```
+Behavior:
+- `flexWrap: 'wrap'`
+- item rộng khoảng `45%` hoặc theo tính toán profile
+- canh giữa
+- row gap nhỏ
+- address dài có thể chiếm full width nếu cần
 
-Nên dùng cho:
-- sales content, educational promotion, lead-gen creatives
+#### Mode C — vertical-compact
+Dùng cho:
+- `9:16`
+- footer dài
+- logo ở vùng đáy
+- contact-heavy layout
 
-### 8) Checklist / Quick Tips
-Phù hợp:
-- list ngắn
-- save-worthy tips
-- “5 điều cần nhớ”
+Behavior:
+- `flexDirection: 'column'`
+- `alignItems: 'flex-start'` hoặc `'center'` tùy ratio
+- mỗi item là một dòng riêng
+- font nhỏ hơn một nấc
+- spacing dọc chặt hơn nhưng vẫn rõ ràng
 
-Cấu trúc:
-```text
-Banner
-Checklist items with icons/checks
-Mini summary
-CTA
-```
+### 5) Chuẩn hóa thứ tự và ưu tiên item footer
+Để footer compact hơn, chuẩn hóa thứ tự hiển thị:
+- phone
+- website
+- email
+- address
 
-Nên dùng cho:
-- Instagram, Facebook, Zalo OA
+Nếu cần chế độ compact:
+- address xuống dòng cuối
+- address có thể dùng width lớn hơn / full width
+- item quan trọng giữ ở dòng đầu
 
-## Ưu tiên triển khai
-Nếu muốn mở rộng nhưng vẫn gọn, nên làm theo 2 phase.
+Điều này giảm nguy cơ một address dài làm vỡ toàn bộ footer.
 
-### Phase 1 — High impact
-Thêm 4 layout trước:
-- `comparison_card`
-- `timeline_steps`
-- `stat_spotlight`
-- `testimonial_card`
+### 6) Cập nhật typing để hỗ trợ footer mode rõ ràng
+Trong `src/hooks/useAutoImageGeneration.ts`:
+- mở rộng `footerOverlay` typing để cho phép metadata nhẹ nếu cần, ví dụ:
+  - `footerMode?: 'auto' | 'single-row' | 'two-row' | 'vertical-compact'`
 
-Lý do:
-- tăng độ phủ use case rõ nhất
-- ít trùng với layout hiện có
-- rất hợp social image
+Trong `SimpleImageGenerator.tsx`:
+- giữ mặc định `footerMode: 'auto'`
+- vẫn để backend renderer tự quyết theo `imageWidth/imageHeight + logoMeta + footer text`
 
-### Phase 2 — Brand/aesthetic expansion
-Thêm tiếp:
-- `product_spotlight`
-- `editorial_cover`
-- `problem_solution`
-- `checklist_card`
+Nếu không muốn tăng schema nhiều, có thể không truyền field mới và để function tự suy hoàn toàn. Nhưng tốt nhất nên thêm `auto` để contract rõ ràng.
 
-## Cách implement
+### 7) Giữ tương thích ngược
+Không đổi behavior của:
+- simple text overlay cũ
+- structured overlay khác ngoài footer
+- manual image pipeline hiện tại
 
-### 1) Mở rộng template config
-Cập nhật `src/config/overlayTemplates.ts`:
-- thêm template mới
-- thêm mô tả ngắn, icon, required slots, defaults
-- giữ tương thích với hệ layout hiện tại (`stack`, `split`, `banner_cards`, `hero_text`, `simple`) hoặc bổ sung layout enum nếu thật sự cần
+Chỉ thay phần render `elements.footer`:
+- input cũ vẫn dùng được
+- nếu client chưa truyền mode mới thì mặc định `auto`
 
-### 2) Mở rộng structured overlay schema nếu cần
-Rà lại:
-- `src/lib/hybridImageGenerator.ts`
-- `supabase/functions/_shared/hybrid-image-utils.ts`
-- `supabase/functions/generate-brand-image/index.ts`
+## Files cần sửa
+- `supabase/functions/overlay-text-canvas/index.ts`
+  - chính: adaptive footer layout, crowding heuristics, logo-safe handling
+- `src/hooks/useAutoImageGeneration.ts`
+  - typing cho footer overlay nếu thêm `footerMode`
+- `src/components/multichannel/SimpleImageGenerator.tsx`
+  - truyền `footerMode: 'auto'` trong `footerOverlay`
 
-Để hỗ trợ thêm các slot mới nếu cần, ví dụ:
-- `comparison`
-- `steps`
-- `quoteSource`
-- `proofBadges`
-- `statLabel`
+## QA bắt buộc sau khi implement
 
-Nếu chưa muốn tăng schema complexity, có thể map layout mới vào slot cũ:
-- comparison dùng `cards`
-- stat spotlight dùng `heroText + headline`
-- testimonial dùng `heroText + footer`
-- timeline dùng `cards` dạng vertical numbered
+### Ratio 16:9
+- footer 2–3 item ngắn → 1 hàng
+- footer 4 item hoặc có address → tự xuống 2 hàng
+- logo `bottom-right` không đè website/email
 
-### 3) Nâng logic AI chọn layout
-Trong flow decomposition / auto-select:
-- mở rộng `suggestedLayout`
-- bổ sung heuristic mapping theo keyword:
-  - “so sánh”, “vs”, “before after” → `comparison_card`
-  - “bước”, “quy trình”, “step” → `timeline_steps`
-  - “%”, “tăng”, “giảm”, “số liệu” → `stat_spotlight`
-  - “review”, “khách hàng”, “testimonial” → `testimonial_card`
+### Ratio 1:1
+- footer mặc định 2 hàng ổn định
+- không chạm mép trái/phải
+- logo `bottom-left/right` không cắn vào item đầu/cuối
 
-### 4) Cập nhật UI picker
-Cập nhật `OverlayTemplatePicker.tsx`:
-- nhóm layout theo mục đích thay vì danh sách phẳng nếu số lượng tăng
-- gợi ý label ngắn, dễ hiểu cho user không kỹ thuật
+### Ratio 4:5
+- footer contact-heavy → 2 hàng hoặc vertical compact
+- address dài không làm tràn ngang
+- CTA phía trên không đè footer
 
-Ví dụ nhóm:
-- Chuyển đổi: Poster, Product, Problem/Solution
-- Giáo dục: Infographic, Timeline, Checklist
-- Niềm tin: Testimonial, Contact
-- Cá tính thương hiệu: Editorial, Quote
+### Ratio 9:16
+- footer dài → vertical compact
+- giữ readable, không bị ép 1 hàng
+- logo `bottom-center` không chồng lên footer
 
-### 5) Đồng bộ prompt/render contract
-Vì flow hiện tại là:
-- AI render text chính + layout
-- logo canvas
-- footer canvas
-
-Nên mỗi layout mới cần định nghĩa rõ:
-- phần nào do AI bake
-- phần nào luôn để footer canvas xử lý
-- vùng safe-zone cho logo
-
-## Mapping đề xuất theo kênh
-
-### Facebook
-- poster
-- comparison_card
-- testimonial_card
-- checklist_card
-
-### Instagram
-- product_spotlight
-- quote_card
-- editorial_cover
-- stat_spotlight
-
-### LinkedIn
-- stat_spotlight
-- editorial_cover
-- timeline_steps
-- infographic
-
-### Zalo OA / Telegram
-- contact_card
-- checklist_card
-- feature_list
-- problem_solution
-
-## QA cần làm
-- kiểm tra AI auto-select có chọn đúng template theo content type
-- kiểm tra layout mới không làm mất logo/footer
-- test nội dung dài tiếng Việt để tránh text overflow
-- test 3 nhóm nội dung:
-  - educational
-  - promotional
-  - social proof
-- test trên ít nhất Facebook / Instagram / LinkedIn
+### Regression
+- brand không có footer → skip bình thường
+- footer chỉ 1 item → không bị render quá cao
+- layout mới như `testimonial_card`, `timeline_steps`, `contact_card` vẫn render sạch
 
 ## Kết quả mong muốn
-Sau khi mở rộng, hệ thống sẽ có bộ layout social “đúng ngữ cảnh” hơn:
-- không chỉ dừng ở poster/infographic cơ bản
-- AI chọn layout sát intent nội dung hơn
-- ảnh social nhìn đa dạng hơn nhưng vẫn bám pipeline hiện tại: AI layout + logo canvas + footer canvas
+Sau khi cập nhật:
+
+- footer tự thích nghi đúng theo `1:1`, `4:5`, `16:9`, `9:16`
+- footer dài sẽ tự xuống `2 hàng` hoặc `vertical compact`
+- logo ở vùng đáy không còn đè footer
+- footer không chạm mép và giữ được độ đọc tốt trên các layout social mới
