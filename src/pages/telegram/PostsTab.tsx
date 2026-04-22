@@ -58,6 +58,31 @@ export function PostsTab({ orgId, brandId, onGoConnections, autoOpenContentId, o
 
   useEffect(() => { void load(); }, [load]);
 
+  // Deep-link: auto-open preview drawer for a specific content ID (e.g. "Xem ảnh" from bot).
+  // Fetch the row directly so it works even when not in the recent-20 list.
+  useEffect(() => {
+    if (!autoOpenContentId) return;
+    let cancelled = false;
+    void (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const { data, error } = await sb.from('multi_channel_contents')
+        .select('id, title, selected_channels, status, channel_statuses, channel_versions, channel_images, created_at')
+        .eq('id', autoOpenContentId)
+        .eq('organization_id', orgId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        toast.error('Không tìm thấy bài viết — có thể thuộc workspace khác.');
+        onAutoOpened?.();
+        return;
+      }
+      setPreview(data as PostRow);
+      onAutoOpened?.();
+    })();
+    return () => { cancelled = true; };
+  }, [autoOpenContentId, orgId, onAutoOpened]);
+
   async function publish(post: PostRow, channel: string) {
     const action = CHANNEL_PUBLISH_ACTION[channel];
     if (!action) {
