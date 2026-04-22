@@ -50,9 +50,13 @@ export function QuickPostTab({ orgId, userId, brandId, brandName, onGoConnection
         body: {
           action: 'generate',
           topic: topic.trim(),
+          channels: [channel],
           selected_channels: [channel],
+          brandTemplateId: brandId,
           brand_template_id: brandId,
           organization_id: orgId,
+          contentGoal: 'engagement',
+          content_goal: 'engagement',
         },
       });
       if (error) throw error;
