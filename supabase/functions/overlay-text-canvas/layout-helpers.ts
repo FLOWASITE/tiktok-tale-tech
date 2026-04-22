@@ -105,6 +105,34 @@ export interface ThemeSpacingInput {
   spacingMultiplier: number;
 }
 
+export interface SpacingTokens {
+  sectionGap: number;
+  compactSectionGap: number;
+  inlineGap: number;
+  bannerPaddingX: number;
+  bannerPaddingY: number;
+  heroPadding: number;
+  cardGap: number;
+  cardPaddingX: number;
+  cardPaddingY: number;
+  denseCardPaddingX: number;
+  denseCardPaddingY: number;
+  ribbonPaddingX: number;
+  ribbonPaddingY: number;
+  ribbonAccentGap: number;
+  ribbonAccentWidth: number;
+  splitGap: number;
+  splitPaddingX: number;
+  footerTopGap: number;
+  footerItemGap: number;
+  footerRowGap: number;
+  footerPaddingX: number;
+  footerPaddingY: number;
+  footerEdgeInset: number;
+  leftColumnWidth: string;
+  rightColumnWidth: string;
+}
+
 export const TEST_THEME: ThemeSpacingInput = {
   spacingMultiplier: 1,
 };
@@ -317,6 +345,45 @@ export function getLayoutBehavior(
   };
 }
 
+export function getSpacingTokens(ratioProfile: RatioProfile, theme: ThemeSpacingInput): SpacingTokens {
+  const spacingScale = theme.spacingMultiplier < 1 ? 0.95 : theme.spacingMultiplier > 1.2 ? 1.05 : 1;
+  const sectionGap = Math.round(ratioProfile.sectionGap * spacingScale);
+  const compactSectionGap = Math.round(ratioProfile.compactSectionGap * spacingScale);
+  const inlineGap = Math.round(ratioProfile.inlineGap * spacingScale);
+  const bannerPaddingX = Math.round(ratioProfile.bannerPaddingX * spacingScale);
+  const bannerPaddingY = Math.round(ratioProfile.bannerPaddingY * spacingScale);
+  const cardPaddingX = Math.round(ratioProfile.cardPaddingX * spacingScale);
+  const cardPaddingY = Math.round(ratioProfile.cardPaddingY * spacingScale);
+
+  return {
+    sectionGap,
+    compactSectionGap,
+    inlineGap,
+    bannerPaddingX,
+    bannerPaddingY,
+    heroPadding: Math.round(ratioProfile.heroPadding * spacingScale),
+    cardGap: Math.round(ratioProfile.cardGap * spacingScale),
+    cardPaddingX,
+    cardPaddingY,
+    denseCardPaddingX: Math.max(cardPaddingX, Math.round(cardPaddingX * 1.18)),
+    denseCardPaddingY: Math.max(cardPaddingY, Math.round(cardPaddingY * 1.12)),
+    ribbonPaddingX: Math.round(ratioProfile.ribbonPaddingX * spacingScale),
+    ribbonPaddingY: Math.round(ratioProfile.ribbonPaddingY * spacingScale),
+    ribbonAccentGap: Math.max(6, Math.round(inlineGap * 0.7)),
+    ribbonAccentWidth: Math.max(3, Math.round(inlineGap * 0.4)),
+    splitGap: Math.round(ratioProfile.splitGap * spacingScale),
+    splitPaddingX: Math.round(ratioProfile.splitPaddingX * spacingScale),
+    footerTopGap: Math.round(ratioProfile.footerTopGap * spacingScale),
+    footerItemGap: Math.max(4, Math.round(inlineGap * 0.5)),
+    footerRowGap: Math.max(5, Math.round(compactSectionGap * 0.42)),
+    footerPaddingX: Math.max(16, Math.round(bannerPaddingX * 0.72)),
+    footerPaddingY: Math.max(7, Math.round(bannerPaddingY * 0.72)),
+    footerEdgeInset: Math.max(24, Math.round(bannerPaddingX * 0.75)),
+    leftColumnWidth: ratioProfile.leftColumnWidth,
+    rightColumnWidth: ratioProfile.rightColumnWidth,
+  };
+}
+
 function scaleFromMin(sizeBasis: number, multiplier: number, minPx: number, maxPx: number, ratioScale: number = 1): number {
   return clampNumber(Math.round(sizeBasis * multiplier * ratioScale), minPx, maxPx);
 }
@@ -391,8 +458,10 @@ export function getFooterLayoutProfile(
   footerItems: Array<{ icon?: string; text: string }>,
   logoMeta?: LogoMeta,
   requestedMode: 'auto' | FooterLayoutMode = 'auto',
+  spacingMultiplier = 1,
 ): FooterLayoutProfile {
   const ratioProfile = getRatioProfile(imageWidth, imageHeight);
+  const spacingTokens = getSpacingTokens(ratioProfile, { spacingMultiplier });
   const ratio = ratioProfile.ratio;
   const isTall = ratio <= 0.62;
   const isPortrait = ratio > 0.62 && ratio < 0.9;
@@ -435,10 +504,20 @@ export function getFooterLayoutProfile(
   return {
     mode,
     fontSize,
-    itemGap: mode === 'single-row' ? scaleFromMin(sizeBasis, 0.014, 10, 16, 1) : mode === 'two-row' ? scaleFromMin(sizeBasis, 0.012, 8, 14, 1) : scaleFromMin(sizeBasis, 0.01, 6, 12, 1),
-    rowGap: mode === 'vertical-compact' ? scaleFromMin(sizeBasis, 0.008, 5, 10, 1) : scaleFromMin(sizeBasis, 0.01, 6, 12, 1),
-    paddingX: mode === 'vertical-compact' ? scaleFromMin(sizeBasis, 0.022, 16, 26, 1) : scaleFromMin(sizeBasis, 0.03, 20, 34, 1),
-    paddingY: mode === 'vertical-compact' ? scaleFromMin(sizeBasis, 0.01, 7, 11, 1) : scaleFromMin(sizeBasis, 0.013, 9, 14, 1),
+    itemGap: mode === 'single-row'
+      ? spacingTokens.inlineGap
+      : mode === 'two-row'
+        ? Math.max(8, spacingTokens.footerItemGap)
+        : spacingTokens.footerItemGap,
+    rowGap: mode === 'vertical-compact'
+      ? spacingTokens.footerRowGap
+      : Math.max(6, Math.round(spacingTokens.footerRowGap * 1.12)),
+    paddingX: mode === 'vertical-compact'
+      ? spacingTokens.footerPaddingX
+      : Math.max(20, spacingTokens.footerPaddingX + Math.round(spacingTokens.inlineGap * 0.35)),
+    paddingY: mode === 'vertical-compact'
+      ? spacingTokens.footerPaddingY
+      : Math.max(9, spacingTokens.footerPaddingY + Math.round(spacingTokens.footerRowGap * 0.3)),
     paddingBottom: bottomCenterLogo ? scaleFromMin(sizeBasis, 0.018, 12, 24, ratioProfile.safeBottomMultiplier) : 0,
     maxItemWidth: mode === 'single-row' ? '42%' : mode === 'two-row' ? '48%' : '100%',
     justifyContent: mode === 'vertical-compact' ? 'flex-start' : 'center',
