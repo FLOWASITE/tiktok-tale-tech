@@ -247,23 +247,60 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
       if (!isStartCmd) {
         const cbChatId = update.callback_query?.message?.chat?.id;
         const msgChatId = update.message?.chat?.id;
+        const peekChatType = update.callback_query?.message?.chat?.type ?? update.message?.chat?.type;
+        const peekTgUserId = Number(update.callback_query?.from?.id ?? update.message?.from?.id ?? 0);
         const peekChatId = Number(cbChatId ?? msgChatId ?? 0);
         if (peekChatId) {
-          const { data: binding } = await supabase
+          let binding: { organization_id: string | null } | null = null;
+          let resolvedBy: "chat_id" | "telegram_user_id" | null = null;
+
+          const { data: chatBinding, error: chatBindingError } = await supabase
             .from("telegram_chat_bindings")
-            .select("organization_id")
+            .select("organization_id, linked_at")
             .eq("telegram_chat_id", peekChatId)
             .eq("is_active", true)
+            .order("linked_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
+
+          if (chatBinding?.organization_id) {
+            binding = chatBinding;
+            resolvedBy = "chat_id";
+          }
+
+          if (!binding?.organization_id && peekChatType === "private" && peekTgUserId) {
+            const { data: userBinding, error: userBindingError } = await supabase
+              .from("telegram_chat_bindings")
+              .select("organization_id, linked_at")
+              .eq("telegram_user_id", peekTgUserId)
+              .eq("chat_type", "private")
+              .eq("is_active", true)
+              .order("linked_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (userBinding?.organization_id) {
+              binding = userBinding;
+              resolvedBy = "telegram_user_id";
+            } else if (userBindingError) {
+              console.warn("[telegram-webhook] default-bot rehydrate lookup by telegram_user_id failed:", userBindingError);
+            }
+          }
+
           if (binding?.organization_id) {
             console.log("[telegram-webhook] default-bot rehydrate", {
               chatId: peekChatId,
+              telegram_user_id: peekTgUserId || null,
+              resolved_by: resolvedBy,
               organization_id: binding.organization_id,
             });
             botConfig.organizationId = binding.organization_id as string;
           } else {
+            if (chatBindingError) {
+              console.warn("[telegram-webhook] default-bot rehydrate lookup by chat_id failed:", chatBindingError);
+            }
             // Not bound — private DM gets onboarding, groups/callback silently ignored
-            if (update.message?.chat?.type === "private") {
+            if (peekChatType === "private") {
               await sendMessage(
                 botConfig.botToken,
                 peekChatId,
@@ -541,13 +578,38 @@ async function handleStart(
     // on private chats guarantees at most one active binding.
     let existingQuery = supabase
       .from("telegram_chat_bindings")
-      .select("user_id, telegram_username")
+      .select("user_id, telegram_username, linked_at")
       .eq("telegram_chat_id", chatId)
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .order("linked_at", { ascending: false })
+      .limit(1);
     if (!isDefaultBot) {
       existingQuery = existingQuery.eq("organization_id", botConfig.organizationId);
     }
-    const { data: existing } = await existingQuery.maybeSingle();
+    const { data: existingByChat, error: existingByChatError } = await existingQuery.maybeSingle();
+
+    let existing = existingByChat;
+    if (!existing?.user_id && isDefaultBot && telegramUserId) {
+      const { data: existingByUser, error: existingByUserError } = await supabase
+        .from("telegram_chat_bindings")
+        .select("user_id, telegram_username, linked_at")
+        .eq("telegram_user_id", telegramUserId)
+        .eq("chat_type", "private")
+        .eq("is_active", true)
+        .order("linked_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingByUser?.user_id) {
+        existing = existingByUser;
+      } else if (existingByUserError) {
+        console.warn("[telegram-webhook] /start existing binding lookup by telegram_user_id failed:", existingByUserError);
+      }
+    }
+
+    if (existingByChatError) {
+      console.warn("[telegram-webhook] /start existing binding lookup by chat_id failed:", existingByChatError);
+    }
 
     if (existing?.user_id) {
       const who = existing.telegram_username ? `@${existing.telegram_username}` : "bạn";
