@@ -134,6 +134,19 @@ export function PostsTab({ orgId, brandId, onGoConnections, autoOpenContentId, o
     return v?.content || v?.text || v?.body || '';
   }
 
+  function getChannelImages(post: PostRow, channel: string): string[] {
+    const imgs = post.channel_images || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v: any = (imgs as any)[channel];
+    if (!v) return [];
+    if (typeof v === 'string') return [v];
+    if (Array.isArray(v)) {
+      return v.map((it) => (typeof it === 'string' ? it : it?.url)).filter((u): u is string => !!u);
+    }
+    if (typeof v === 'object' && v.url) return [v.url];
+    return [];
+  }
+
   if (loading) return <Loading />;
   if (items.length === 0) {
     return (
