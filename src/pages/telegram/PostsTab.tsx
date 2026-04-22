@@ -15,6 +15,8 @@ type Props = {
   orgId: string;
   brandId: string | null;
   onGoConnections: () => void;
+  autoOpenContentId?: string | null;
+  onAutoOpened?: () => void;
 };
 
 type PostRow = {
@@ -28,7 +30,7 @@ type PostRow = {
   created_at: string;
 };
 
-export function PostsTab({ orgId, brandId, onGoConnections }: Props) {
+export function PostsTab({ orgId, brandId, onGoConnections, autoOpenContentId, onAutoOpened }: Props) {
   const [items, setItems] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<PostRow | null>(null);
@@ -55,6 +57,31 @@ export function PostsTab({ orgId, brandId, onGoConnections }: Props) {
   }, [orgId, brandId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Deep-link: auto-open preview drawer for a specific content ID (e.g. "Xem ảnh" from bot).
+  // Fetch the row directly so it works even when not in the recent-20 list.
+  useEffect(() => {
+    if (!autoOpenContentId) return;
+    let cancelled = false;
+    void (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const { data, error } = await sb.from('multi_channel_contents')
+        .select('id, title, selected_channels, status, channel_statuses, channel_versions, channel_images, created_at')
+        .eq('id', autoOpenContentId)
+        .eq('organization_id', orgId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        toast.error('Không tìm thấy bài viết — có thể thuộc workspace khác.');
+        onAutoOpened?.();
+        return;
+      }
+      setPreview(data as PostRow);
+      onAutoOpened?.();
+    })();
+    return () => { cancelled = true; };
+  }, [autoOpenContentId, orgId, onAutoOpened]);
 
   async function publish(post: PostRow, channel: string) {
     const action = CHANNEL_PUBLISH_ACTION[channel];
@@ -105,6 +132,19 @@ export function PostsTab({ orgId, brandId, onGoConnections }: Props) {
     const v: any = (cv as any)[channel];
     if (typeof v === 'string') return v;
     return v?.content || v?.text || v?.body || '';
+  }
+
+  function getChannelImages(post: PostRow, channel: string): string[] {
+    const imgs = post.channel_images || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v: any = (imgs as any)[channel];
+    if (!v) return [];
+    if (typeof v === 'string') return [v];
+    if (Array.isArray(v)) {
+      return v.map((it) => (typeof it === 'string' ? it : it?.url)).filter((u): u is string => !!u);
+    }
+    if (typeof v === 'object' && v.url) return [v.url];
+    return [];
   }
 
   if (loading) return <Loading />;
@@ -183,7 +223,8 @@ export function PostsTab({ orgId, brandId, onGoConnections }: Props) {
           <div className="px-4 pb-4 overflow-y-auto space-y-4">
             {preview?.selected_channels?.map((ch) => {
               const text = getChannelText(preview, ch);
-              if (!text) return null;
+              const imgs = getChannelImages(preview, ch);
+              if (!text && imgs.length === 0) return null;
               const action = CHANNEL_PUBLISH_ACTION[ch];
               const key = `${preview.id}::${ch}`;
               return (
@@ -193,10 +234,21 @@ export function PostsTab({ orgId, brandId, onGoConnections }: Props) {
                       {CHANNEL_EMOJI[ch] ?? '•'} {CHANNEL_LABEL[ch] ?? ch}
                     </Badge>
                   </div>
-                  <div className="text-sm whitespace-pre-line text-foreground/90 max-h-48 overflow-y-auto rounded-md border border-border p-2 bg-muted/30">
-                    {text}
-                  </div>
-                  {action && (
+                  {imgs.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {imgs.map((src, i) => (
+                        <a key={`${ch}-img-${i}`} href={src} target="_blank" rel="noopener noreferrer" className="block">
+                          <img src={src} alt="" loading="lazy" className="w-full h-32 object-cover rounded-md border border-border" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {text && (
+                    <div className="text-sm whitespace-pre-line text-foreground/90 max-h-48 overflow-y-auto rounded-md border border-border p-2 bg-muted/30">
+                      {text}
+                    </div>
+                  )}
+                  {action && text && (
                     <Button
                       size="sm" className="w-full"
                       disabled={publishingKey === key}
