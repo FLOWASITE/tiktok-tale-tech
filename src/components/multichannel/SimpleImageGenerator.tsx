@@ -4,8 +4,6 @@ import { ComplexityWarning } from './ComplexityWarning';
 import { decomposeRequest, decomposeRequestWithAI, applyTemplate, autoSelectTemplate } from '@/lib/hybridImageGenerator';
 import { OverlayTemplatePicker } from './OverlayTemplatePicker';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -51,6 +49,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
 import { NEGATIVE_PROMPT_DEFAULTS } from '@/lib/imagePromptDefaults';
+
+interface BrandFooterInfo {
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+}
 
 // Map frontend Channel to V3 ChannelKey
 function toChannelKey(ch: Channel): ChannelKey {
@@ -200,6 +205,17 @@ function getBestOverlayText(content: MultiChannelContent, channel: Channel): str
   return content.topic?.slice(0, 100) || '';
 }
 
+function buildFooterItems(footerInfo?: BrandFooterInfo | null) {
+  if (!footerInfo) return [];
+  const items = [
+    footerInfo.phone ? { icon: 'phone', text: footerInfo.phone } : null,
+    footerInfo.website ? { icon: 'globe', text: footerInfo.website } : null,
+    footerInfo.email ? { icon: 'mail', text: footerInfo.email } : null,
+    footerInfo.address ? { icon: 'map-pin', text: footerInfo.address } : null,
+  ].filter(Boolean);
+  return items as { icon?: string; text: string }[];
+}
+
 // ─── Component ────────────────────────────────────────────────────
 export function SimpleImageGenerator({
   open, onOpenChange, content,
@@ -237,8 +253,8 @@ export function SimpleImageGenerator({
   const [bgEditorOpen, setBgEditorOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
-  const [useHybridMode, setUseHybridMode] = useState(false);
-  const [overlayMode, setOverlayMode] = useState<'satori' | 'ai_render'>('satori');
+  const [useHybridMode] = useState(true);
+  const [overlayMode] = useState<'satori' | 'ai_render'>('ai_render');
   const [overlayTemplate, setOverlayTemplate] = useState<string>('auto');
 
   // Hooks
@@ -404,27 +420,11 @@ export function SimpleImageGenerator({
   }, [content, selectedChannels]);
 
 
-  // Complexity analysis for hybrid mode auto-detection
+  // Complexity analysis for UI hints only
   const complexityAnalysis = useMemo(() => {
     const summaryText = Object.values(contentSummaries).join(' ');
     return analyzeContentComplexity(summaryText + ' ' + textToInclude);
   }, [contentSummaries, textToInclude]);
-
-  // Auto-enable hybrid mode when complexity is high OR when "Để AI lo" mode
-  useEffect(() => {
-    if (complexityAnalysis.score === 'complex') {
-      setUseHybridMode(true);
-    }
-  }, [complexityAnalysis.score]);
-
-  useEffect(() => {
-    if (promptMode === 'full') {
-      setUseHybridMode(true);
-      setOverlayMode('ai_render');
-    } else {
-      setOverlayMode('satori');
-    }
-  }, [promptMode]);
 
   useEffect(() => {
     if (!isNegativePromptCustomized) {
@@ -524,11 +524,42 @@ export function SimpleImageGenerator({
     return () => { cancelled = true; };
   }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate, selectedChannels, content, contentRole, contentGoal, contentAngle]);
 
+  const footerItems = useMemo(
+    () => buildFooterItems((brandTemplate?.footer_info as BrandFooterInfo | null) || null),
+    [brandTemplate?.footer_info]
+  );
+
+  const aiStructuredOverlay = useMemo(() => {
+    if (!hybridOverlay) return undefined;
+    const { footer, ...restElements } = hybridOverlay.elements || {};
+    return {
+      ...hybridOverlay,
+      elements: restElements,
+    };
+  }, [hybridOverlay]);
+
+  const footerOverlay = useMemo(() => {
+    if (footerItems.length === 0) return undefined;
+    return {
+      layout: 'simple' as const,
+      elements: {
+        footer: {
+          items: footerItems,
+        },
+      },
+      colors: hybridOverlay?.colors || {
+        primary: brandPrimaryColor || '#DC2626',
+        secondary: '#FFFFFF',
+        text: '#FFFFFF',
+      },
+    };
+  }, [footerItems, hybridOverlay?.colors, brandPrimaryColor]);
+
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
     channels: selectedChannels,
-    contentSummaries: useHybridMode && hybridBackgroundPrompt
+    contentSummaries: hybridBackgroundPrompt
       ? Object.fromEntries(selectedChannels.map(ch => [ch, hybridBackgroundPrompt])) as Record<string, string>
       : contentSummaries,
     includeLogo: includeLogo && !!brandLogoUrl,
@@ -553,13 +584,14 @@ export function SimpleImageGenerator({
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
     promptMode,
-    structuredOverlay: hybridOverlay,
-    overlayMode: useHybridMode ? overlayMode : undefined,
-    structuredTemplate: useHybridMode ? overlayTemplate : undefined,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt, useHybridMode,
+    structuredOverlay: aiStructuredOverlay,
+    footerOverlay,
+    overlayMode,
+    structuredTemplate: overlayTemplate,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay, overlayMode, overlayTemplate, v3Suggestions]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, aiStructuredOverlay, footerOverlay, overlayMode, overlayTemplate, v3Suggestions]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
@@ -957,46 +989,19 @@ export function SimpleImageGenerator({
             />
             <ComplexityWarning analysis={complexityAnalysis} />
 
-            {/* Hybrid mode toggle — shown when complexity is moderate or complex */}
-            {complexityAnalysis.score !== 'simple' && (
-              <div className="space-y-2">
-                <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
-                  <Checkbox
-                    checked={useHybridMode}
-                    onCheckedChange={(checked) => setUseHybridMode(checked === true)}
-                    className="mt-0.5"
-                  />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
-                    <p className="text-xs text-muted-foreground">
-                      AI tạo nền visual, text/cards được render chính xác bằng engine riêng
-                    </p>
-                  </div>
-                </label>
-
-                {useHybridMode && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium text-foreground">🧪 AI tự render text</p>
-                      <p className="text-xs text-muted-foreground">
-                        AI vẽ text trực tiếp trong ảnh (thử nghiệm — chữ Việt có thể bị sai)
-                      </p>
-                    </div>
-                    <Switch
-                      checked={overlayMode === 'ai_render'}
-                      onCheckedChange={(checked) => setOverlayMode(checked ? 'ai_render' : 'satori')}
-                    />
-                  </div>
-                )}
-
-                {useHybridMode && (
-                  <OverlayTemplatePicker
-                    value={overlayTemplate}
-                    onChange={setOverlayTemplate}
-                  />
-                )}
+            <div className="space-y-2">
+              <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+                <p className="text-sm font-medium text-foreground">Pipeline manual đã khóa theo flow cũ của bạn</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  AI render text chính và chọn layout, logo đi qua canvas, footer đi qua canvas riêng.
+                </p>
               </div>
-            )}
+
+              <OverlayTemplatePicker
+                value={overlayTemplate}
+                onChange={setOverlayTemplate}
+              />
+            </div>
 
             <Button
               onClick={handleGenerate}

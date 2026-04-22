@@ -81,6 +81,15 @@ export interface AutoGenerateOptions {
     };
     colors: { primary: string; secondary: string; text: string };
   };
+  footerOverlay?: {
+    layout: 'simple' | 'stack';
+    elements: {
+      footer: {
+        items: { icon?: string; text: string }[];
+      };
+    };
+    colors: { primary: string; secondary: string; text: string };
+  };
   // Overlay mode: 'satori' (default, programmatic) or 'ai_render' (AI renders text directly)
   overlayMode?: 'satori' | 'ai_render';
   // Template ID for AI layout guidance in ai_render mode
@@ -144,7 +153,8 @@ export function useAutoImageGeneration() {
       // Prompt mode
       promptMode,
       // Structured overlay for complex layouts
-      structuredOverlay,
+        structuredOverlay,
+        footerOverlay,
     } = options;
     
     // Resolve 'auto' logo position to channel-specific optimal position
@@ -345,16 +355,17 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
         }
 
-        // Step 4: Structured multi-block overlay (Satori) — ONLY in satori mode
-        // In ai_render mode (default), AI already rendered text directly → skip
-        if (!isAiRenderMode && structuredOverlay) {
+        // Step 4: Footer overlay always uses canvas; structured full overlay only in satori mode
+        const finalStructuredOverlay = isAiRenderMode ? footerOverlay : structuredOverlay;
+        if (finalStructuredOverlay) {
           const step4Start = Date.now();
-          console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Satori)`, {
-            layout: structuredOverlay.layout,
-            hasBanner: !!structuredOverlay.elements.banner,
-            hasHeroText: !!structuredOverlay.elements.heroText,
-            cardCount: structuredOverlay.elements.cards?.items?.length || 0,
-            hasCta: !!structuredOverlay.elements.cta,
+          console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Canvas)`, {
+            layout: finalStructuredOverlay.layout,
+            hasBanner: !!(finalStructuredOverlay as any).elements.banner,
+            hasHeroText: !!(finalStructuredOverlay as any).elements.heroText,
+            cardCount: (finalStructuredOverlay as any).elements.cards?.items?.length || 0,
+            hasCta: !!(finalStructuredOverlay as any).elements.cta,
+            hasFooter: !!(finalStructuredOverlay as any).elements.footer,
             hasLogoMeta: includeLogo && logoUrl && !logoFailed,
           });
           
@@ -366,9 +377,9 @@ export function useAutoImageGeneration() {
           const { data: structData, error: structError } = await invokeWithTimeout<any>('overlay-text-canvas', {
             body: {
               baseImageUrl: finalImageUrl,
-              layout: structuredOverlay.layout,
-              elements: structuredOverlay.elements,
-              colors: structuredOverlay.colors,
+              layout: finalStructuredOverlay.layout,
+              elements: finalStructuredOverlay.elements,
+              colors: finalStructuredOverlay.colors,
               imageStyle: imageStylePreset,
               imageWidth: imgW,
               imageHeight: imgH,
@@ -392,7 +403,7 @@ export function useAutoImageGeneration() {
             console.log(`[Pipeline:${channel}] ✓ STEP 4 OK (${step4Duration}ms)`);
           }
         } else {
-          const skipReason = isAiRenderMode ? 'ai_render mode (text baked in)' : 'no structured overlay';
+          const skipReason = isAiRenderMode ? 'no footer overlay' : 'no structured overlay';
           console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — ${skipReason}`);
         }
 
