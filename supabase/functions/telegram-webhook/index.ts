@@ -4009,7 +4009,7 @@ async function handleCampaignWizardCallback(args: {
     const goalId = value;
     const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, fromTgId);
     if (!binding) {
-      await answerCallback(botConfig.botToken, cbId, "Chưa kết nối", true).catch(() => {});
+      await answerCallback(botConfig.botToken, cbId, "Chưa kết nối với AI Marketing Agent. Mở app để liên kết và bắt đầu thử ngay.", true).catch(() => {});
       return;
     }
     const { data: goal } = await supabase
@@ -4537,7 +4537,7 @@ async function handlePublishCallback(args: {
         if (messageId) {
           await editMessageText(
             botConfig.botToken, chatId, messageId,
-            `⚠️ Kết nối *${label}* đã hết hạn hoặc chưa kết nối.\nBấm nút bên dưới để kết nối lại rồi thử đăng lại.`,
+            `⚠️ Kết nối *${label}* đã hết hạn hoặc chưa kết nối.\nBấm nút bên dưới để kết nối lại với AI Marketing Agent rồi bắt đầu thử ngay.`,
             {
               parse_mode: "Markdown",
               reply_markup: {
