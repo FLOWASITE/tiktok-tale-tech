@@ -3,7 +3,7 @@ import {
   assertCanCreateGoal,
   resolveBotConfig,
   sendChatAction,
-  sendMessage,
+  sendMessage as rawSendMessage,
   verifyLinkToken,
   buildWelcomeKeyboard,
   buildHelpKeyboard,
@@ -48,7 +48,7 @@ function buildMiniAppUrl(orgId: string | null | undefined, hashPath?: string): s
   }
 }
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
-import { answerCallback, editMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+import { answerCallback as rawAnswerCallback, editMessageText as rawEditMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
 import { composeBrandedImage } from "../_shared/branded-image-composer.ts";
 
 type ActiveBrandContext = BrandContext & { id: string };
@@ -320,7 +320,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
                   "Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, bạn có thể đang chat ở chat khác. Hãy /start lại để liên kết đúng chat hiện tại.",
                   "",
                   "*Bắt đầu thử ngay!*",
-                ].join("\n"),
+                ]),
                 { parse_mode: "Markdown" },
               );
               console.warn("[telegram-webhook] onboarding sent — chat_id not bound", {
@@ -543,8 +543,59 @@ function okResponse(): Response {
   });
 }
 
+function normalizeTelegramCopy(text: string): string {
+  if (!text) return text;
+
+  const bulletPrefix = /^(\s*)(?:[•●◦▪▫‣⁃\-–—*]|\d+[.)])\s+/;
+  const leadingEmoji = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]+/u;
+
+  return text
+    .split("\n")
+    .map((line) => {
+      const match = line.match(bulletPrefix);
+      if (!match) return line;
+
+      const indent = match[1] ?? "";
+      const content = line.slice(match[0].length).replace(leadingEmoji, "").trim();
+      return content ? `${indent}• ${content}` : "•";
+    })
+    .join("\n");
+}
+
+function telegramCopy(lines: string[]): string {
+  return normalizeTelegramCopy(lines.join("\n"));
+}
+
+async function sendMessage(
+  botToken: string,
+  chatId: number,
+  text: string,
+  options?: Parameters<typeof rawSendMessage>[3],
+) {
+  return rawSendMessage(botToken, chatId, normalizeTelegramCopy(text), options);
+}
+
+async function editMessageText(
+  botToken: string,
+  chatId: number,
+  messageId: number,
+  text: string,
+  options?: Parameters<typeof rawEditMessageText>[4],
+) {
+  return rawEditMessageText(botToken, chatId, messageId, normalizeTelegramCopy(text), options);
+}
+
+async function answerCallback(
+  botToken: string,
+  callbackQueryId: string,
+  text: string,
+  showAlert?: boolean,
+) {
+  return rawAnswerCallback(botToken, callbackQueryId, normalizeTelegramCopy(text), showAlert);
+}
+
 function helpText(): string {
-  return [
+  return telegramCopy([
     "*Lệnh hỗ trợ*",
     "/start <token> — Kết nối tài khoản từ app Flowa",
     "/generate <mô tả> — Tạo campaign nhiều bài (cần quyền can_create_goals)",
@@ -565,7 +616,7 @@ function helpText(): string {
     "",
     "*Kênh hỗ trợ*",
     "• Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, Google Business, Email",
-  ].join("\n");
+  ]);
 }
 
 type TelegramWritingGoal = "sales" | "branding" | "engagement" | "value" | "lead";
@@ -760,7 +811,7 @@ async function handleStart(
         "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
         "*Bắt đầu thử ngay!*",
-      ].join("\n"),
+      ]),
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -888,7 +939,7 @@ async function handleStart(
       "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
       "",
       "*Bắt đầu thử ngay!*",
-    ].join("\n"),
+    ]),
     {
       parse_mode: "Markdown",
       reply_markup: {
