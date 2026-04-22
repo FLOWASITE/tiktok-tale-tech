@@ -1,157 +1,222 @@
 
-# Bỏ prefix tên kênh khỏi title và không dùng dòng đầu channel content làm title nữa
+# Khôi phục đúng pipeline ảnh thủ công theo ý bạn
 
-## Vấn đề đã xác định
-Trong `supabase/functions/generate-multichannel/index.ts` hiện có 2 nguồn gây ra title xấu:
+## Pipeline mục tiêu đã chốt
+Flow manual multi-channel cần chạy đúng thứ tự này:
 
-1. **Streaming path**
-   - `extractTitleFromChannels()` đang lấy:
-     - Markdown heading đầu tiên, hoặc
-     - dòng meaningful đầu tiên của channel content
-   - nên rất dễ bị dính prefix như `Facebook:`, `Instagram -`, `LinkedIn`, v.v.
+```text
+1) generate-brand-image
+   - AI quyết định layout phù hợp: infographic / poster / contact-card / ...
+   - AI render phần text chính ngay trong prompt / ảnh
+2) overlay-logo-canvas
+   - thêm logo sau khi ảnh base đã xong
+   - hoặc cho AI chừa safe-zone / tự chọn vị trí logo phù hợp
+3) overlay-text-canvas
+   - chỉ dùng cho footer
+   - không dùng để render toàn bộ text chính nữa
+```
 
-2. **Non-streaming path**
-   - tool schema hiện vẫn yêu cầu AI trả về field `title`
-   - nếu prompt/channel output bị “nhiễm” nhãn kênh, AI có thể trả title kiểu `Facebook ...`
+## Vấn đề hiện tại trong code
+Code hiện đang bị lệch so với flow bạn muốn ở 3 điểm:
 
-## Mục tiêu
-- Loại hoàn toàn prefix tên kênh khỏi title lưu trong `multi_channel_contents`
-- Không còn dùng “dòng đầu của channel content” làm title thô
-- Title phải là **bundle title độc lập**, ưu tiên từ:
-  1. `formData.topic` nếu đã đủ tốt
-  2. title AI trả riêng cho bundle
-  3. fallback an toàn đã được sanitize
+1. `MultiChannelViewer.tsx` đang mở `SimpleImageGenerator`
+   - component này tự bật hybrid theo logic riêng
+   - dễ làm behavior manual flow bị đổi ngoài ý muốn
 
-## Cách triển khai
+2. `src/hooks/useAutoImageGeneration.ts`
+   - mặc định đang ép `overlayMode = 'ai_render'`
+   - nhưng khi không có `structuredOverlay` thì footer bằng `overlay-text-canvas` không còn là bước tách riêng rõ ràng
+   - Step 3/4 hiện đang lẫn giữa text chính và structured overlay
 
-### 1) Thay `extractTitleFromChannels()` bằng cơ chế title độc lập
-Trong `supabase/functions/generate-multichannel/index.ts`:
+3. `SimpleImageGenerator.tsx`
+   - đang auto bật `useHybridMode` khi `promptMode === 'full'` hoặc content bị coi là complex
+   - tức là AI layout bị kích hoạt theo heuristic, không phải đúng contract rõ ràng của manual flow
 
-- Ngừng logic:
-  - lấy heading đầu tiên từ channel content
-  - lấy dòng đầu tiên từ channel content
-- Thay bằng helper mới, ví dụ:
-  - `stripChannelNamePrefix(title: string)`
-  - `resolveBundleTitle({ explicitTitle, topic, useTopicAsTitle })`
+## Mục tiêu implement
+Chuẩn hóa manual multi-channel image generation thành một contract cố định:
 
-Nguyên tắc:
-- `explicitTitle` = title AI trả riêng cho bundle
-- `topic` = fallback chính
-- không đọc raw line từ `facebook_content`, `linkedin_content`, ...
+- text chính: AI render trong `generate-brand-image`
+- layout chính: AI tự chọn từ decomposition/template
+- logo: đi qua `overlay-logo-canvas` sau cùng của base image
+- footer: luôn đi qua `overlay-text-canvas` dạng structured footer-only
+- không dùng canvas để vẽ lại headline/body chính nữa
 
-### 2) Chuẩn hóa hàm loại prefix tên kênh
-Tạo helper sanitize title để xóa các mẫu phổ biến ở đầu chuỗi, ví dụ:
+## Cách sửa
 
-- `Facebook: ...`
-- `Facebook - ...`
-- `Instagram | ...`
-- `LinkedIn Post: ...`
-- `Bài đăng Facebook: ...`
-- `Post Facebook ...`
-- `Kênh Facebook: ...`
-- `X/Twitter: ...`
-- `Threads: ...`
-- `Zalo OA: ...`
-- `Telegram: ...`
-- `TikTok: ...`
+### 1) Khóa manual viewer vào một “AI layout + logo canvas + footer canvas” flow rõ ràng
+Trong `src/components/MultiChannelViewer.tsx` và generator component đang được gọi:
 
-Helper cần:
-- ignore case
-- xử lý dấu `:`, `-`, `|`, `•`
-- xử lý cả tiếng Việt lẫn English label
-- chạy lặp nhiều lần nếu title có nhiều prefix lồng nhau
-
-### 3) Streaming path: dùng topic/title riêng, không dùng channel text
-Hiện có 2 chỗ dùng `extractTitleFromChannels(channelResults, formData.topic)`:
-- block critique `contentForCritique.title`
-- block insert DB `title`
-
-Sẽ đổi sang:
-- `resolveBundleTitle({ explicitTitle: null, topic: formData.topic, useTopicAsTitle: formData.useTopicAsTitle })`
-
-Tức là:
-- nếu `useTopicAsTitle` → giữ topic đã sanitize
-- nếu không → vẫn ưu tiên topic đã sanitize, không lấy từ dòng đầu channel content nữa
-
-### 4) Non-streaming path: giữ title AI riêng nhưng sanitize chặt
-Ở non-streaming path, `generatedData.title` vẫn có thể giữ lại vì đây là field title độc lập do model trả về.
-
-Nhưng trước khi:
-- log
-- critique
-- insert/update DB
-
-sẽ chạy qua:
-- `stripChannelNamePrefix(...)`
-- trim / collapse spaces
-- fallback về `formData.topic` nếu title sau khi sanitize bị rỗng hoặc quá ngắn
-
-### 5) Cập nhật prompt/schema để title là “bundle title”, không phải title của kênh đầu tiên
-Trong tool schema hiện có:
-- `title: "Tiêu đề ngắn gọn cho bộ nội dung (dựa trên chủ đề)"`
-
-Sẽ siết rõ hơn mô tả:
-- title là **tiêu đề chung cho cả bộ nội dung đa kênh**
-- **không được chứa tên kênh/platform**
-- **không copy nguyên dòng đầu của bất kỳ channel content nào**
-- phải là tiêu đề trung tính, dùng được cho toàn bộ bundle
-
-Nếu cần, bổ sung rule trong prompt:
-- cấm prefix như Facebook / Instagram / LinkedIn / TikTok / Threads / Telegram / Zalo / X / Twitter / Website / Blog / Email / YouTube
-
-### 6) Áp dụng sanitize ở mọi chỗ persist title
-Rà lại toàn file `generate-multichannel/index.ts` để đảm bảo mọi nơi ghi `title` vào `multi_channel_contents` đều đi qua cùng một helper:
-- streaming create
-- non-streaming create
-- regenerate/update nếu có đụng title
-- dedup return path nếu có rebuild title
+- giữ generator hiện tại nếu muốn sửa ít nhất, hoặc đổi lại generator wrapper nếu cần
+- nhưng behavior phải được khóa như sau cho manual flow:
+  - `promptMode = 'full'`
+  - `imageContentType = 'with_text'`
+  - `overlayMode = 'ai_render'`
+  - luôn cho phép AI chọn layout phù hợp
+  - footer không bị bake chung với phần text chính
 
 Mục tiêu:
-- chỉ có **một source of truth** cho title normalization
+- user bấm tạo ảnh thủ công là vào đúng flow bạn vừa mô tả
+- không còn ambiguity giữa classic / simple / unified
 
-## File cần sửa
-- `supabase/functions/generate-multichannel/index.ts`
+### 2) Tách “structured content cho AI” và “footer cho canvas”
+Trong `src/components/multichannel/SimpleImageGenerator.tsx`:
+
+- vẫn dùng decomposition + `applyTemplate(...)` để AI quyết định layout
+- nhưng khi build payload:
+  - phần headline / heroText / banner / cards / CTA được gửi vào `generate-brand-image`
+  - phần `footer` tách ra khỏi payload AI render
+- tạo 2 payload:
+  - `aiStructuredOverlay` = layout chính cho AI bake
+  - `footerOverlay` = footer-only cho `overlay-text-canvas`
+
+Kết quả:
+- AI vẫn tự quyết định poster/infographic/contact-card
+- footer luôn ổn định bằng overlay canvas, không bị AI render sai
+
+### 3) Sửa `useAutoImageGeneration.ts` để pipeline chạy đúng 4 bước cố định
+Refactor `generateWithRetry()` thành flow này:
+
+```text
+STEP 1: generate-brand-image
+  - overlayMode = ai_render
+  - structuredElements = banner / heroText / cards / headline / cta
+  - KHÔNG gửi footer vào đây
+  - có logoSafeZone nếu cần
+
+STEP 2: overlay-logo-canvas
+  - thêm logo sau khi có base image
+  - nếu logoPosition = auto thì resolve theo channel
+  - vẫn cho AI safe-zone để tránh đè text
+
+STEP 3: bỏ simple text overlay mặc định
+  - không dùng overlay-text-canvas cho text chính nữa
+
+STEP 4: overlay-text-canvas cho footer-only
+  - structured request chỉ chứa footer
+  - layout đơn giản/stack hoặc footer-only block
+```
+
+Cần sửa rõ các nhánh:
+- bỏ nhánh default dùng canvas cho full text chính trong manual flow
+- giữ `overlay-text-canvas` chỉ cho footer structured overlay
+- nếu không có footer thì Step 4 skip
+
+### 4) Chuẩn hóa logic “AI quyết định layout”
+Trong `SimpleImageGenerator.tsx`:
+
+- giữ `decomposeRequestWithAI(...)`
+- giữ `applyTemplate(...)`
+- giữ `overlayTemplate = 'auto'` làm mặc định
+- nhưng phải đổi semantics:
+  - `auto` nghĩa là AI chọn layout phù hợp
+  - không phải UI heuristic tự ép mode một cách mơ hồ
+
+Nếu user không chọn template cụ thể:
+- AI được chọn giữa `poster`, `infographic`, `quote_card`, `feature_list`, `contact_card`, `education_infographic`
+- output của `applyTemplate` là nguồn layout chính cho `generate-brand-image`
+
+### 5) Footer luôn lấy từ brand/footer info và render bằng canvas
+Trong `SimpleImageGenerator.tsx` + `useAutoImageGeneration.ts`:
+
+- khi brand có `footer_info`, build `footerOverlay`
+- nếu AI decomposition không có footer thì inject footer từ brand
+- nhưng footer chỉ đưa cho `overlay-text-canvas`, không gửi cho AI render
+
+Mục tiêu:
+- footer ổn định, đúng phone / website / email / address
+- không bị sai dấu, méo layout, hay mất hẳn như khi bake bằng model ảnh
+
+### 6) Logo: hỗ trợ 2 cách như bạn muốn
+Giữ cả hai cơ chế:
+
+- `overlay-logo-canvas` là bước chèn logo thật sau khi ảnh base hoàn tất
+- `logoSafeZone` gửi vào `generate-brand-image` để AI chừa vùng sạch
+
+Logic:
+- nếu brand chọn `logo_position = auto`:
+  - frontend/hook resolve vị trí tối ưu theo channel
+  - vẫn truyền safe-zone tương ứng cho AI
+- sau đó `overlay-logo-canvas` đặt logo đúng vị trí đó
+
+Kết quả:
+- AI không đè text vào vùng logo
+- logo thật vẫn sắc nét, ổn định, không phụ thuộc model ảnh
+
+### 7) Không để “simple text overlay” phá flow manual nữa
+Trong `useAutoImageGeneration.ts`:
+
+- nhánh Step 3 hiện tại:
+  - `if (!isAiRenderMode && useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay)`
+- sẽ không còn là đường mặc định cho manual multichannel
+- chỉ giữ nó như fallback phụ / legacy path, không phải default path của viewer manual
+
+Mục tiêu:
+- text chính không còn bị canvas render lại ngoài ý muốn
+- manual flow bám đúng AI-render text chính + canvas-footer
+
+## Files cần sửa
+- `src/components/MultiChannelViewer.tsx`
+- `src/components/multichannel/SimpleImageGenerator.tsx`
+- `src/hooks/useAutoImageGeneration.ts`
+
+## Có thể cần sửa thêm
+- `src/hooks/useAutoImagePipeline.ts`
+  - nếu auto image sau khi generate multichannel cũng cần đồng bộ cùng contract này
+- `supabase/functions/_shared/branded-image-composer.ts`
+  - để Telegram / server-side parity khớp với manual flow mới
+  - đặc biệt tách footer ra khỏi phần AI bake nếu muốn parity tuyệt đối
 
 ## Không cần sửa
-- DB schema
-- frontend form
-- UI viewer
-- Telegram webhook
+- database schema
+- `generate-multichannel`
+- title generation
+- `src/integrations/supabase/client.ts`
 - `src/integrations/supabase/types.ts`
 
-## QA sau khi implement
+## QA bắt buộc sau khi implement
 
-### Case 1 — Streaming manual multi-channel
-Tạo nội dung thủ công 2–3 kênh.
-
-Kỳ vọng:
-- title không còn bắt đầu bằng `Facebook`, `Instagram`, `LinkedIn`, ...
-- title không bị lấy từ dòng đầu của channel content
-
-### Case 2 — Non-streaming multi-channel
-Chạy luồng non-streaming.
+### Case 1 — Manual default
+Tạo ảnh thủ công cho Facebook / Instagram / LinkedIn.
 
 Kỳ vọng:
-- nếu AI trả `Facebook: ...` thì prefix bị strip trước khi lưu DB
+- AI tự chọn layout phù hợp
+- text chính nằm trong ảnh do AI render
+- logo được chèn sau bằng `overlay-logo-canvas`
+- footer xuất hiện bằng `overlay-text-canvas`
 
-### Case 3 — Topic-based fallback
-Tạo bài với topic chuẩn.
-
-Kỳ vọng:
-- title ra từ topic đã sanitize
-- không phụ thuộc nội dung của kênh đầu tiên
-
-### Case 4 — Weird prefixes
-Test các title như:
-- `Facebook: Bí quyết chăm da...`
-- `LinkedIn - Xu hướng AI...`
-- `Bài đăng Instagram: ...`
+### Case 2 — Contact-heavy content
+Nội dung có phone / website / email / address.
 
 Kỳ vọng:
-- lưu thành title sạch, chỉ còn nội dung chủ đề
+- AI lo poster/contact-card phần chính
+- footer dưới cùng vẫn là canvas overlay rõ nét, đúng dữ liệu brand
+
+### Case 3 — Infographic-like content
+Nội dung dạng giáo dục/listicle.
+
+Kỳ vọng:
+- AI có thể chọn infographic / feature_list / education layout
+- footer vẫn không bị bake sai
+
+### Case 4 — Logo auto
+Brand để `logo_position = auto`.
+
+Kỳ vọng:
+- AI chừa vùng logo qua safe-zone
+- logo thật được overlay đúng vị trí tối ưu theo channel
+
+### Case 5 — Regression
+Mở lại content cũ đã từng tạo ảnh thủ công.
+
+Kỳ vọng:
+- ra behavior đúng contract mới đã chốt
+- không còn cảnh text/logo/footer bị chạy lẫn mode
 
 ## Kết quả mong muốn
-Sau khi sửa:
-- title của bộ nội dung đa kênh sẽ là title trung tính, sạch, không chứa prefix platform
-- hệ thống không còn dùng dòng đầu/heading của channel content làm title thô nữa
-- streaming và non-streaming đều cho ra title nhất quán hơn
+Sau khi sửa, ảnh đa kênh thủ công sẽ đúng ý bạn:
+
+- `generate-brand-image` lo background + text chính + layout
+- `overlay-logo-canvas` lo logo thật
+- `overlay-text-canvas` chỉ lo footer
+- AI được quyền chọn infographic/poster/contact-card/layout phù hợp
+- footer vẫn ổn định, chính xác, không bị AI phá
