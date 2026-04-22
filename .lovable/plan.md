@@ -1,73 +1,70 @@
 
 
-# Fix `(...||"").trim is not a function` trong telegram-webhook
+# Fix: Ảnh từ Telegram thiếu text, logo, footer
 
 ## Root cause
 
-Stack trace `trace=ca4e4a8e` chỉ vào `handleGenerateSingle`, lỗi `((intermediate value) || "").trim is not a function`. Trong code có nhiều chỗ pattern `(x || "").trim()` — nếu `x` là **object** (vd `brand.brand_name` lưu dạng i18n `{vi, en}`), thì `x || ""` trả về object (truthy) → `.trim()` không tồn tại → crash.
+Manual flow (`useAutoImageGeneration`) tạo ảnh qua **pipeline 3 bước**:
+1. **Step 1** — `generate-brand-image` với `structuredElements/structuredTemplate/logoSafeZone` để AI render text chính xác và chừa chỗ cho logo
+2. **Step 2** — gọi `overlay-brand-logo` để composite logo PNG lên ảnh (post-processing, không phụ thuộc AI)
+3. **Step 3** — overlay SVG footer/CTA (Canvas) cho CTA + footer info
 
-Các điểm rủi ro trong `handleGenerateSingle`:
-- Line 1530: `(brand?.brand_name || "").trim()` ← nghi can chính
-- Line 1531: `(brand?.industry || "").trim()`
-- Line 165, 240, 345: `(message.text || "").trim()` — Telegram message.text luôn string nên an toàn
+Telegram bot chỉ làm **Step 1** với body **tối thiểu** (`contentId, channel, brandTemplateId, imageContentType, contentSummary, textToInclude`):
+- Không truyền `structuredElements` → AI tự quyết, hay bỏ text hoặc sai dấu tiếng Việt
+- Không gọi `overlay-brand-logo` → **không có logo**
+- Không overlay footer SVG → **không có footer (SĐT, website, địa chỉ)**
+- Không truyền `promptMode` → mặc định `full` (OK), nhưng vẫn không đủ vì thiếu structured + post-processing
 
-`suggestTopicFromAI` cũng vừa fail (`The signal has been aborted` — timeout 18s) → rơi vào nhánh fallback ở line 1528-1546 → đụng `brand.brand_name.trim()` → crash.
+## Giải pháp
 
-## Fix (1 file, ~6 dòng)
+Tạo **shared helper** `composeBrandedImage` ở `_shared/branded-image-composer.ts` thực hiện đủ pipeline 3 bước, dùng chung cho cả manual và Telegram. Sau đó refactor `generateImageForSinglePost` trong `telegram-webhook` gọi helper này.
 
-File: `supabase/functions/telegram-webhook/index.ts`
+### File mới: `supabase/functions/_shared/branded-image-composer.ts`
 
-### 1. Thêm helper `toSafeString` (gần `escapeMd`, line ~720)
+Export `composeBrandedImage({ supabaseUrl, serviceKey, contentId, channel, brandTemplateId, channelText, channelTitle? })` trả về `{ success, imageUrl, errorCode, error, steps }`.
 
-```ts
-function toSafeString(v: unknown): string {
-  if (v == null) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  // object/array — try i18n fields
-  const anyV = v as any;
-  return String(anyV.vi || anyV.en || anyV.text || anyV.name || "");
-}
-```
+Pipeline:
+1. **Read brand template** (logo_url, footer_info, image_style) qua service client
+2. **Step 1 — generate-brand-image** với body đầy đủ:
+   - `imageContentType: 'with_text'` nếu text ≤120 ký tự, ngược lại `background_only`
+   - `textToInclude`, `textPosition: 'center'`, `typographyStyle: 'modern'`
+   - `logoSafeZone: { position: 'bottom-right', sizePercent: 15 }` nếu có logo
+   - `promptMode: 'full'`
+   - `contentRole: 'sprout'` (an toàn cho social post Telegram)
+3. **Step 2 — overlay-brand-logo** (gọi nếu `brand.logo_url`):
+   - `imageUrl` từ step 1, `logoUrl: brand.logo_url`, `position: 'bottom-right'`, `sizePercent: 15`
+   - Nếu fail → fallback bỏ qua logo, tiếp tục với ảnh step 1 (không block)
+4. **Step 3 — footer overlay** (gọi nếu `brand.footer_info` có data):
+   - Dùng existing edge function `overlay-footer-svg` (hoặc tạo SVG trực tiếp trong helper bằng Canvas API/sharp nếu chưa có) — **phase này check trước**: nếu chưa tồn tại edge function footer độc lập, helper sẽ chỉ làm step 1+2, log warning để pha sau bổ sung
+5. Trả URL cuối + diagnostic log từng step
 
-### 2. Thay `(x || "").trim()` bằng `toSafeString(x).trim()` ở line 1530-1531
+### Sửa `supabase/functions/telegram-webhook/index.ts`
 
-```ts
-const truncBrand = toSafeString(brand?.brand_name).trim().slice(0, 40);
-const industry = toSafeString(brand?.industry).trim();
-```
+Trong `generateImageForSinglePost` (~line 1280-1336):
+- Thay block fetch trực tiếp `generate-brand-image` bằng `await composeBrandedImage(...)`
+- Map `result.success / result.errorCode` vào `ok` + `failReason` như cũ (giữ nguyên 3 case message)
+- Giữ AbortSignal.timeout 120s, giữ notify follow-up
 
-### 3. Audit thêm 2 chỗ rủi ro tương tự trong cùng function
+### Verify trước khi code
 
-- Line 1611: `channelText.trim()` — đã safe (line 1604-1608 coerce object→string rồi)
-- Line 1548: `String(effectiveTopic || "").trim()` — đã safe (đã coerce trước đó)
-- Các `appendBrandFooter(... brand?.brand_name ...)` (line 1554, 1657, …): pass object vào → bên trong `appendBrandFooter` có thể crash. **Bọc lại bằng `toSafeString(brand?.brand_name)`** ở mọi callsite trong `handleGenerateSingle`.
-
-### 4. Tăng timeout `suggestTopicFromAI` từ 18s → 25s (giảm fallback)
-
-Hiện tại budget 18s khiến AI hay timeout → rơi vào fallback (chỗ vừa crash). Tăng lên 25s — vẫn an toàn so với edge function wall-clock 60s.
-
-### 5. Log thêm để chắc chắn root cause
-
-Trong block fallback (sau line 1528), log:
-```ts
-console.log(`[handleGenerateSingle] fallback brand types: name=${typeof brand?.brand_name}, industry=${typeof brand?.industry}, value=${JSON.stringify({n: brand?.brand_name, i: brand?.industry}).slice(0,200)}`);
-```
-
-→ Lần chạy tiếp theo confirm có phải `brand_templates.brand_name` đang lưu i18n object không. Nếu đúng → pha sau migrate normalize về string ở DB layer.
+Kiểm tra 2 thứ ở phase implement:
+1. `supabase/functions/overlay-brand-logo/index.ts` có exist + accept `imageUrl + logoUrl + position + sizePercent` (nếu khác signature thì adapt)
+2. Có edge function nào sẵn cho footer SVG không (search `overlay-footer`, `footer-svg`). Nếu không có → footer sẽ defer sang pha sau, helper chỉ render logo (đã giải quyết 2/3 vấn đề user nêu)
 
 ## Files sửa
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/telegram-webhook/index.ts` | (a) Thêm `toSafeString` helper; (b) thay `(brand?.brand_name||"").trim()` và `(brand?.industry||"").trim()` ở line 1530-1531; (c) bọc `toSafeString` quanh `brand?.brand_name` trong các `appendBrandFooter` callsites; (d) tăng timeout `suggestTopicFromAI` 18s→25s; (e) thêm debug log trong fallback. |
+| `supabase/functions/_shared/branded-image-composer.ts` | **NEW** — helper 3-step compose (read brand → generate-brand-image với full params + structured → overlay-brand-logo → footer if available) |
+| `supabase/functions/telegram-webhook/index.ts` | Refactor `generateImageForSinglePost` dùng `composeBrandedImage` thay vì gọi raw `generate-brand-image` |
 
 ## Rủi ro
 
-Rất thấp. Defensive coercion + tăng timeout không đổi luồng. User sẽ tạo bài Telegram được ngay sau deploy, kể cả khi `brand_name` là object i18n.
+Thấp. Helper bọc cùng 1 edge function existing, giữ luồng fire-and-forget. Nếu logo/footer overlay fail → fallback dùng ảnh raw (giống ảnh hiện tại Telegram đang trả) → user **không thể tệ hơn** trạng thái bây giờ.
 
 ## Ngoài phạm vi
 
-- Migrate schema `brand_templates.brand_name` từ jsonb i18n về plain text (defer — cần audit toàn app)
-- Telegram lỗi 18s timeout AI → đã có thông báo "đang viết… 20-40s" cho user (UX OK)
+- Tạo edge function `overlay-footer-svg` mới nếu chưa có (defer pha sau, sẽ confirm khi implement)
+- Refactor manual flow `useAutoImageGeneration` cũng dùng chung helper này (defer — manual flow đã hoạt động, không cần đụng)
+- Cho user chọn vị trí logo/footer qua Telegram command (defer)
 
