@@ -2849,6 +2849,7 @@ async function handleConfirmLinkCallback(args: {
       .from("telegram_chat_bindings")
       .delete()
       .eq("telegram_user_id", effectiveTgUserId)
+      .eq("chat_type", "private")
       .neq("user_id", pending.payload_uid);
     if (ghostErr) {
       console.warn("[telegram-webhook] ghost binding cleanup failed:", ghostErr);
