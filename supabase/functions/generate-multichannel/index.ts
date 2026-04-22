@@ -405,6 +405,61 @@ const JOURNEY_TO_GOAL_MAP: Record<JourneyStage, string> = {
   loyalty: 'engagement', // Giữ chân, tương tác
 };
 
+const GOAL_TO_ANGLE_MAP: Record<string, string> = {
+  awareness: 'storytelling',
+  education: 'educational',
+  expertise: 'educational',
+  engagement: 'qa_faq',
+  conversion: 'promotional',
+};
+
+const GOAL_TO_ROLE_MAP: Record<string, ContentRole> = {
+  awareness: 'seed',
+  education: 'sprout',
+  expertise: 'sprout',
+  engagement: 'sprout',
+  conversion: 'harvest',
+};
+
+function resolveStrategy(formData: FormData) {
+  const resolvedContentGoal = formData.contentGoal
+    || (formData.targetJourneyStage ? JOURNEY_TO_GOAL_MAP[formData.targetJourneyStage] : undefined)
+    || 'education';
+
+  const resolvedContentAngle = formData.contentAngle
+    || GOAL_TO_ANGLE_MAP[resolvedContentGoal]
+    || 'educational';
+
+  const strategyCheck = validateStrategy(
+    resolvedContentGoal,
+    resolvedContentAngle,
+    formData.contentRole
+  );
+
+  const resolvedContentRole = formData.contentRole
+    || strategyCheck.suggestedRole
+    || GOAL_TO_ROLE_MAP[resolvedContentGoal]
+    || 'sprout';
+
+  const resolvedSelectedChannels = normalizeChannels(
+    (formData.channels && formData.channels.length > 0)
+      ? formData.channels
+      : (formData.newChannels && formData.newChannels.length > 0)
+        ? formData.newChannels
+        : formData.channel
+          ? [formData.channel]
+          : []
+  );
+
+  return {
+    resolvedContentGoal,
+    resolvedContentAngle,
+    resolvedContentRole,
+    resolvedSelectedChannels,
+    strategyCheck,
+  };
+}
+
 // Brand Voice label mappings
 const brandPositioningLabels: Record<string, string> = {
   business: "Doanh nghiệp",
@@ -1534,15 +1589,23 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
       }
     }
 
+    const {
+      resolvedContentGoal,
+      resolvedContentAngle,
+      resolvedContentRole,
+      resolvedSelectedChannels,
+      strategyCheck: strategyValidation,
+    } = resolveStrategy(formData);
+
+    formData.contentGoal = resolvedContentGoal;
+    formData.contentAngle = resolvedContentAngle;
+    formData.contentRole = resolvedContentRole;
+    formData.channels = resolvedSelectedChannels;
+
     // ============================================
     // STRATEGY VALIDATION LAYER (P0)
     // Detect Goal-Angle-Role conflicts and prepare prompt adjustments
     // ============================================
-    const strategyValidation = validateStrategy(
-      formData.contentGoal,
-      formData.contentAngle,
-      formData.contentRole
-    );
     
     if (strategyValidation.conflicts.length > 0) {
       console.log(`[strategy-validation] Detected ${strategyValidation.conflicts.length} conflicts:`,
@@ -2536,10 +2599,7 @@ Nội dung sẵn sàng đăng ngay.`;
       const targetAudience = await detectTargetAudience(industryArray, supabase);
       
       // Derive contentGoal
-      let contentGoal = formData.contentGoal || 'education';
-      if (!formData.contentGoal && formData.targetJourneyStage) {
-        contentGoal = JOURNEY_TO_GOAL_MAP[formData.targetJourneyStage] || 'education';
-      }
+      const contentGoal = resolvedContentGoal;
       
       // NEW: Build Smart Context for enhanced generation
       const qualityMode = normalizeQualityMode(formData.qualityMode);
@@ -3496,11 +3556,10 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
     console.log("Target audience detected:", targetAudience);
 
     // Derive contentGoal from journeyStage if not provided
-    let contentGoal = formData.contentGoal || 'education'; // Default fallback
-    if (!formData.contentGoal && formData.targetJourneyStage) {
-      contentGoal = JOURNEY_TO_GOAL_MAP[formData.targetJourneyStage] || 'education';
-      console.log("Content goal auto-derived from journey stage:", formData.targetJourneyStage, "→", contentGoal);
-    }
+      const contentGoal = resolvedContentGoal;
+      if (!formData.contentGoal && formData.targetJourneyStage) {
+        console.log("Content goal auto-derived from journey stage:", formData.targetJourneyStage, "→", contentGoal);
+      }
 
     // NEW: Build Smart Context for enhanced generation
     const qualityMode = normalizeQualityMode(formData.qualityMode);
