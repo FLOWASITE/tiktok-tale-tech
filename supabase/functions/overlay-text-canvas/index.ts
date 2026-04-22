@@ -758,7 +758,6 @@ function buildStructuredElement(
   const children: any[] = [];
   const fontFamily = hasCustomFont ? theme.fontFamily : 'sans-serif';
   const headingFontFamily = hasCustomFont ? (theme.headingFontFamily || theme.fontFamily) : 'sans-serif';
-  const sp = theme.spacingMultiplier; // spacing multiplier
   const ratioProfile = getRatioProfile(imageWidth, imageHeight);
   const spacingTokens = getSpacingTokens(ratioProfile, theme);
 
@@ -1194,11 +1193,11 @@ function buildStructuredElement(
           style: {
             display: 'flex',
             alignItems: 'center',
-            gap: hasNumberedCards ? spacingTokens.inlineGap : Math.max(6, spacingTokens.inlineGap - 2),
+            gap: hasNumberedCards ? spacingTokens.inlineGap : spacingTokens.footerItemGap,
             background: cardGradient,
             borderRadius: theme.borderRadius,
             padding: hasNumberedCards
-              ? `${Math.max(spacingTokens.cardPaddingY, Math.round(12 * sp))}px ${Math.max(spacingTokens.cardPaddingX, Math.round(18 * sp))}px`
+              ? `${spacingTokens.denseCardPaddingY}px ${spacingTokens.denseCardPaddingX}px`
               : `${spacingTokens.cardPaddingY}px ${spacingTokens.cardPaddingX}px`,
             boxShadow: theme.cardBoxShadow || '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
             ...(isGrid ? { width: '48%' } : { flex: '1' }),
@@ -1239,17 +1238,17 @@ function buildStructuredElement(
           background: `linear-gradient(135deg, ${ribbonBg}, ${ribbonBg}bb)`,
           padding: `${spacingTokens.ribbonPaddingY}px ${spacingTokens.ribbonPaddingX}px`,
           width: ribbonWidth,
-          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
+          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : Math.max(6, spacingTokens.inlineGap),
           maxWidth: ratioProfile.contentMaxWidth,
           marginTop: resolvedSectionGap,
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-          borderLeft: `5px solid ${colors.secondary || '#FFFFFF'}`,
+          borderLeft: `${spacingTokens.ribbonAccentWidth}px solid ${colors.secondary || '#FFFFFF'}`,
         },
         children: [
           {
             type: 'span',
             props: {
-              style: { fontSize: ribbonFontSize * 1.1, marginRight: 8 },
+              style: { fontSize: ribbonFontSize * 1.1, marginRight: spacingTokens.ribbonAccentGap },
               children: '📌',
             },
           },
@@ -1321,6 +1320,7 @@ function buildStructuredElement(
       elements.footer.items,
       logoMeta,
       request.footerMode || 'auto',
+      theme.spacingMultiplier,
     );
     const footerFontSize = isEducationInfographic
       ? Math.max(footerLayout.fontSize, textTokens.footerFont)
@@ -1338,7 +1338,7 @@ function buildStructuredElement(
             display: 'flex',
             alignItems: footerLayout.alignItems,
             justifyContent: footerLayout.justifyContent,
-            gap: 4,
+            gap: spacingTokens.footerItemGap,
             width: footerLayout.mode === 'vertical-compact'
               ? '100%'
               : footerLayout.mode === 'two-row' && isAddress
@@ -1388,8 +1388,8 @@ function buildStructuredElement(
       if (logoMeta.position === 'bottom-right') footerPaddingRight = Math.max(footerPaddingRight, logoSafeWidth);
       if (logoMeta.position === 'bottom-center') {
         const logoSafeArea = getBottomCenterLogoSafeArea(imageWidth, imageHeight, logoMeta, footerLayout);
-        footerPaddingLeft = Math.max(footerPaddingLeft, 28);
-        footerPaddingRight = Math.max(footerPaddingRight, 28);
+        footerPaddingLeft = Math.max(footerPaddingLeft, spacingTokens.footerEdgeInset);
+        footerPaddingRight = Math.max(footerPaddingRight, spacingTokens.footerEdgeInset);
         footerPaddingBottom = Math.max(footerPaddingBottom, logoSafeArea.footerMinPaddingBottom);
       }
     }
