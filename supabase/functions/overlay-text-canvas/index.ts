@@ -1409,7 +1409,7 @@ function buildStructuredElement(
           backgroundColor: theme.headlineBg,
           borderRadius: theme.borderRadius,
           maxWidth: ratioProfile.headlineMaxWidth,
-          marginTop: spacingTokens.compactSectionGap,
+          marginTop: resolvedSectionGap,
         },
         children: {
           type: 'span',
@@ -1433,7 +1433,7 @@ function buildStructuredElement(
   // Cards grid — responsive: force vertical on portrait, use min(w,h) for font scaling
   if (elements.cards && elements.cards.items.length > 0) {
     // Auto-override card layout based on aspect ratio
-    const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
+    const effectiveCardLayout = layoutBehavior.cardsShouldStack ? 'vertical' : elements.cards.layout;
     const isGrid = effectiveCardLayout === 'grid-2x2';
     const cardFontSize = textTokens.cardTitleFont;
     const cardDescFontSize = textTokens.cardDescFont;
@@ -1589,7 +1589,7 @@ function buildStructuredElement(
           display: 'flex',
           flexWrap: isGrid ? 'wrap' : 'nowrap',
           gap: spacingTokens.cardGap,
-          padding: `${spacingTokens.compactSectionGap}px ${cardsPaddingRight}px ${spacingTokens.compactSectionGap}px ${cardsPaddingLeft}px`,
+          padding: `${resolvedSectionGap}px ${cardsPaddingRight}px ${resolvedSectionGap}px ${cardsPaddingLeft}px`,
           justifyContent: 'center',
           maxWidth: ratioProfile.contentMaxWidth,
         },
@@ -1615,7 +1615,7 @@ function buildStructuredElement(
           width: ribbonWidth,
           borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
           maxWidth: ratioProfile.contentMaxWidth,
-          marginTop: spacingTokens.compactSectionGap,
+          marginTop: resolvedSectionGap,
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
           borderLeft: `5px solid ${colors.secondary || '#FFFFFF'}`,
         },
@@ -1668,7 +1668,7 @@ function buildStructuredElement(
           padding: `${ctaPaddingY}px ${ctaPaddingX}px`,
           backgroundColor: colors.primary,
           borderRadius: theme.ctaBorderRadius ?? (theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0),
-          marginTop: spacingTokens.compactSectionGap,
+          marginTop: resolvedSectionGap,
           boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 2px 6px ${colors.primary}66`,
           maxWidth: ratioProfile.ctaMaxWidth,
           ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
