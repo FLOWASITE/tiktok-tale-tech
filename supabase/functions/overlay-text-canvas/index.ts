@@ -1153,15 +1153,16 @@ function buildStructuredElement(
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
   const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer, elements.summaryRibbon].filter(Boolean).length;
+  const layoutBehavior = getLayoutBehavior(imageWidth, imageHeight, ratioProfile, elements);
+  const resolvedSectionGap = layoutBehavior.useCompactSectionGap ? spacingTokens.compactSectionGap : spacingTokens.sectionGap;
   const textTokens = getTextScaleTokens(ratioProfile, theme, elementCount, isEducationInfographic);
   // Don't strip CTA for education_infographic — it's designed for dense layouts
   if (elementCount >= 6 && elements.cta && !isEducationInfographic) {
     delete elements.cta;
   }
 
-  // Determine if split layout — auto-convert to stack for portrait/square
-  const isPortraitOrSquare = imageWidth <= imageHeight;
-  const isSplit = request.layout === 'split' && !isPortraitOrSquare; // fallback to stack on portrait
+  // Determine if split layout — auto-convert to stack when canvas is crowded
+  const shouldUseSplitRow = request.layout === 'split' && !layoutBehavior.forceStack;
 
   // Determine banner text color based on contrast validation
   const bannerTextColor = getContrastTextColor(theme.bannerBg);
@@ -1287,15 +1288,17 @@ function buildStructuredElement(
       const sideLabel = splitHeroMatch[2];
       const circleDiameter = textTokens.heroSplitCircle;
       const circleTextColor = getContrastTextColor(colors.primary);
-      const sideFontSize = fitTextWithRatio(sideLabel, Math.max(120, heroAvailableWidth - circleDiameter - spacingTokens.splitGap), textTokens.heroSideFont, 16, 54);
+      const heroInlineGap = layoutBehavior.heroShouldStack ? spacingTokens.inlineGap : spacingTokens.splitGap;
+      const sideFontSize = fitTextWithRatio(sideLabel, Math.max(120, heroAvailableWidth - (layoutBehavior.heroShouldStack ? 0 : circleDiameter) - heroInlineGap), textTokens.heroSideFont, 16, 54);
       children.push({
         type: 'div',
         props: {
           style: {
             display: 'flex',
+            flexDirection: layoutBehavior.heroShouldStack ? 'column' : 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: spacingTokens.splitGap,
+            gap: heroInlineGap,
             padding: `${spacingTokens.heroPadding}px`,
             flexGrow: 1,
             maxWidth: ratioProfile.contentMaxWidth,
@@ -1341,6 +1344,7 @@ function buildStructuredElement(
                   textShadow: theme.heroTextShadow,
                   textTransform: 'uppercase',
                   letterSpacing: '0.02em',
+                  textAlign: layoutBehavior.heroShouldStack ? 'center' : 'left',
                 },
                 children: sideLabel,
               },
