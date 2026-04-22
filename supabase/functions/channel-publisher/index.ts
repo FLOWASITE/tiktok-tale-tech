@@ -68,6 +68,115 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
 
     // Resolve missing payload for website/blog when called from Telegram (only contentId provided)
     const contentIdForResolve = (payload as Record<string, unknown>).contentId || (payload as Record<string, unknown>).content_id;
+
+    // === Resolve for SOCIAL channels (FB/IG/LinkedIn/Twitter/Threads/TikTok/Zalo/GBP) ===
+    // Map: action → { dbPlatform, contentColumn }
+    const SOCIAL_RESOLVE_MAP: Record<string, { dbPlatform: string; contentColumn: string; channelKey: string }> = {
+      facebook: { dbPlatform: 'facebook', contentColumn: 'facebook_content', channelKey: 'facebook' },
+      instagram: { dbPlatform: 'instagram', contentColumn: 'instagram_content', channelKey: 'instagram' },
+      linkedin: { dbPlatform: 'linkedin', contentColumn: 'linkedin_content', channelKey: 'linkedin' },
+      twitter: { dbPlatform: 'twitter', contentColumn: 'twitter_content', channelKey: 'twitter' },
+      threads: { dbPlatform: 'threads', contentColumn: 'threads_content', channelKey: 'threads' },
+      tiktok: { dbPlatform: 'tiktok', contentColumn: 'tiktok_content', channelKey: 'tiktok' },
+      zalo: { dbPlatform: 'zalo_oa', contentColumn: 'zalo_content', channelKey: 'zalo_oa' },
+      'google-business': { dbPlatform: 'google_business', contentColumn: 'google_business_content', channelKey: 'google_maps' },
+    };
+
+    const socialMap = SOCIAL_RESOLVE_MAP[action];
+    if (
+      socialMap &&
+      typeof contentIdForResolve === 'string' &&
+      (!finalPayload.connectionId || !finalPayload.content)
+    ) {
+      try {
+        const supabase = getServiceClient();
+        // Select all possible content columns + meta. Use generic select to support fallback.
+        const { data: mcc, error: mccErr } = await supabase
+          .from('multi_channel_contents')
+          .select('*')
+          .eq('id', contentIdForResolve)
+          .maybeSingle();
+
+        if (mccErr || !mcc) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Không tìm thấy nội dung' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const mccRow = mcc as Record<string, any>;
+        const channelContent =
+          mccRow[socialMap.contentColumn] ||
+          mccRow.content ||
+          '';
+
+        if (!channelContent || typeof channelContent !== 'string' || !channelContent.trim()) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Bài chưa có nội dung cho ${socialMap.dbPlatform}. Vui lòng tạo nội dung kênh này trước.`,
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Lookup connection
+        if (!finalPayload.connectionId) {
+          let connQuery = supabase
+            .from('social_connections')
+            .select('id')
+            .eq('platform', socialMap.dbPlatform)
+            .eq('is_active', true)
+            .eq('organization_id', mccRow.organization_id);
+          if (mccRow.brand_template_id) {
+            connQuery = connQuery.eq('brand_template_id', mccRow.brand_template_id);
+          }
+          const { data: conn } = await connQuery.limit(1).maybeSingle();
+
+          if (!conn?.id) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Chưa kết nối ${socialMap.dbPlatform}. Vui lòng kết nối lại.`,
+                errorCode: 'NO_CONNECTION',
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          finalPayload.connectionId = conn.id;
+        }
+
+        finalPayload.content = channelContent;
+
+        // Resolve media URLs from channel_images[channelKey] if present
+        try {
+          const channelImages = mccRow.channel_images as Record<string, any> | null;
+          if (channelImages && typeof channelImages === 'object') {
+            const imgs = channelImages[socialMap.channelKey];
+            if (Array.isArray(imgs) && imgs.length > 0) {
+              const urls = imgs
+                .map((it: any) => (typeof it === 'string' ? it : it?.url || it?.image_url))
+                .filter((u: any) => typeof u === 'string' && u.trim());
+              if (urls.length > 0) {
+                finalPayload.mediaUrls = urls;
+                if (!finalPayload.mediaUrl) finalPayload.mediaUrl = urls[0];
+              }
+            }
+          }
+        } catch (_imgErr) { /* non-fatal */ }
+
+        if (mccRow.organization_id) finalPayload.organization_id = mccRow.organization_id;
+
+        console.log(`[channel-publisher] resolved social payload for ${action}/${contentIdForResolve}: connectionId=${finalPayload.connectionId}, contentLen=${channelContent.length}, media=${Array.isArray(finalPayload.mediaUrls) ? (finalPayload.mediaUrls as string[]).length : 0}`);
+      } catch (resolveErr) {
+        console.error('[channel-publisher] social payload resolve error:', resolveErr);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Không tải được nội dung để đăng' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     if (
       ['website', 'blog', 'flowa_blog'].includes(action) &&
       typeof contentIdForResolve === 'string' &&
