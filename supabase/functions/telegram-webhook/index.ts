@@ -305,13 +305,23 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
               await sendMessage(
                 botConfig.botToken,
                 peekChatId,
-                "👋 Chưa kết nối tài khoản Flowa với chat này.\n\n" +
-                  "🔗 *Cách kết nối:*\n" +
-                  "1️⃣ Mở https://app.flowa.one/agents/telegram\n" +
-                  "2️⃣ Bấm \"Get started on Telegram\" để lấy link /start cá nhân\n" +
-                  "3️⃣ Mở link đó trong Telegram → bot sẽ tự kết nối\n\n" +
-                  "💡 Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, " +
-                  "có thể bạn đang chat từ chat_id khác. Hãy /start lại để rebind chat hiện tại.",
+                [
+                  "🎉 *Chào bạn!*",
+                  "",
+                  "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
+                  "",
+                  "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+                  "",
+                  "🔗 *Cách kết nối:*",
+                  "1. Mở https://app.flowa.one/agents/telegram",
+                  "2. Bấm *Kết nối tài khoản & bắt đầu ngay* để lấy link /start cá nhân",
+                  "3. Mở link đó trong Telegram rồi bắt đầu chat với bot",
+                  "",
+                  "💡 Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, có thể bạn đang chat từ chat_id khác. Hãy /start lại để rebind chat hiện tại.",
+                  "",
+                  "*Bắt đầu thử ngay!*",
+                ].join("\n"),
+                { parse_mode: "Markdown" },
               );
               console.warn("[telegram-webhook] onboarding sent — chat_id not bound", {
                 chat_id: peekChatId,
@@ -639,16 +649,18 @@ async function handleStart(
       botConfig.botToken,
       chatId,
       [
-        "👋 *Chào mừng đến với Flowa Bot!*",
+        "🎉 *Chào bạn!*",
         "",
-        "Tài khoản Telegram này chưa được kết nối với Flowa.",
+        "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
         "",
-        "🔗 *Cách kết nối (30 giây):*",
+        "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+        "",
+        "🔗 *Cách kết nối:*",
         "1. Bấm nút bên dưới để mở app Flowa",
         "2. Đăng nhập (nếu chưa)",
-        "3. Bấm *Mở Telegram* — bot tự động link",
+        "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
-        "_Sau khi link xong, quay lại đây và chat tự nhiên._",
+        "*Bắt đầu thử ngay!*",
       ].join("\n"),
       {
         parse_mode: "Markdown",

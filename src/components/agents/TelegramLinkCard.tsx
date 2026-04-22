@@ -377,10 +377,10 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             <Send className="w-4 h-4 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">Kết nối Telegram để chat AI Agent</div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              1 click → bấm Start trong Telegram → xong.
-              {usingDefaultBot && resolvedBotUsername && ` Dùng bot mặc định @${resolvedBotUsername}.`}
+            <div className="text-sm font-medium">🎉 Chào bạn!</div>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.
+              {usingDefaultBot && resolvedBotUsername && ` Hiện bạn sẽ chat qua bot mặc định @${resolvedBotUsername}.`}
             </p>
           </div>
         </div>
@@ -445,8 +445,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
         </div>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed border-t pt-2.5">
-          Sau khi Start: chat tự nhiên với AI Agent ngay trong Telegram —
-          tạo campaign, hỏi quota, kiểm tra pipeline, không cần mở app.
+          👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu. Bắt đầu thử ngay!
         </p>
       </div>
     </div>
