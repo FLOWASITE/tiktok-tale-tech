@@ -3373,7 +3373,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               
               const result = await supabase
                 .from('multi_channel_contents')
-                .update(updatePayload)
+                .update(buildMultiChannelUpdatePayload(updatePayload))
                 .eq('id', formData.contentId)
                 .select()
                 .single();
@@ -3401,7 +3401,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               // Insert new content
               const result = await supabase
                 .from('multi_channel_contents')
-                .insert({
+                .insert(buildMultiChannelCreatePayload({
                   user_id: userId,
                   organization_id: organizationId || null,
                   title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
@@ -3436,7 +3436,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   telegram_content: channelResults.telegram || null,
                   tiktok_content: channelResults.tiktok || null,
                   threads_content: channelResults.threads || null,
-                })
+                }))
                 .select()
                 .single();
               
