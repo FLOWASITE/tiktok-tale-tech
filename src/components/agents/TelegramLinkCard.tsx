@@ -127,7 +127,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             setBinding(row as TelegramBinding);
             toast({
               title: 'Kết nối thành công',
-              description: 'AI Agent đã sẵn sàng trong Telegram.',
+              description: 'AI Marketing Agent đã sẵn sàng trên Telegram. Bắt đầu thử ngay.',
             });
           }
         },
@@ -186,7 +186,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
       window.open(fresh.url, '_blank', 'noopener,noreferrer');
       toast({
         title: 'Mở Telegram',
-        description: 'Bấm Start trong bot → workspace này sẽ thay thế kết nối cũ.',
+          description: 'Bấm Start trong bot để chuyển workspace và bắt đầu thử ngay.',
       });
     }
   };
@@ -283,7 +283,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium flex flex-wrap items-center gap-x-2">
-                <span>AI Agent đang lắng nghe</span>
+                <span>AI Marketing Agent đang lắng nghe</span>
                 {resolvedBotUsername && (
                   <span className="text-primary">trên @{resolvedBotUsername}</span>
                 )}
@@ -359,7 +359,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
           )}
 
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Nếu bot báo <em>chưa kết nối</em>, bấm <strong>Kết nối lại</strong> để làm mới liên kết chat hiện tại.
+            Nếu AI Marketing Agent báo <em>chưa kết nối</em>, bấm <strong>Kết nối lại</strong> để làm mới liên kết chat hiện tại và bắt đầu thử ngay.
           </p>
         </div>
 
@@ -429,7 +429,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
                 <canvas ref={canvasRef} className="block" />
               </div>
               <p className="text-[11px] text-muted-foreground mt-2 max-w-[200px]">
-                Mở Telegram trên điện thoại, scan QR để bind nhanh.
+                Mở Telegram trên điện thoại, scan QR để kết nối AI Marketing Agent nhanh hơn.
               </p>
             </PopoverContent>
           </Popover>

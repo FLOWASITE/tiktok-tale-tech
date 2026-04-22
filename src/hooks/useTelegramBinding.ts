@@ -286,7 +286,7 @@ export function useTelegramBinding() {
       window.open(fresh.url, '_blank', 'noopener,noreferrer');
       toast({
         title: 'Mở Telegram',
-        description: 'Bấm Start trong bot để hoàn tất kết nối lại.',
+        description: 'Bấm Start trong bot để hoàn tất kết nối lại và bắt đầu thử ngay.',
       });
       return true;
     } catch (err) {
