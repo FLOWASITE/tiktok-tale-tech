@@ -713,8 +713,20 @@ async function handleStart(
 }
 
 // ===== Helpers cho /status dashboard =====
-function escapeMd(s: string): string {
-  return (s || "").replace(/([_*\[\]`])/g, "\\$1");
+function escapeMd(s: unknown): string {
+  if (s == null) return "";
+  let str: string;
+  if (typeof s === "string") str = s;
+  else if (typeof s === "number" || typeof s === "boolean") str = String(s);
+  else {
+    try {
+      const anyS = s as any;
+      str = anyS.vi || anyS.en || anyS.text || JSON.stringify(s);
+    } catch {
+      str = "";
+    }
+  }
+  return String(str || "").replace(/([_*\[\]`])/g, "\\$1");
 }
 
 function formatProgressBar(used: number, limit: number): string {
@@ -1390,7 +1402,11 @@ async function suggestTopicFromAI(
         return null;
       }
       const first = suggestions[0];
-      const topic = (first?.topic || first?.title || "").toString().trim();
+      console.log(`[suggestTopicFromAI] first.topic type=${typeof first?.topic}, value=${JSON.stringify(first?.topic)?.slice(0, 200)}`);
+      const rawTopic = first?.topic ?? first?.title ?? "";
+      const topic = (typeof rawTopic === "string"
+        ? rawTopic
+        : (rawTopic?.vi || rawTopic?.en || "")).toString().trim();
       if (topic.length < 12) {
         console.warn(`[suggestTopicFromAI] topic_too_short len=${topic.length} value="${topic}"`);
         return null;
@@ -1512,6 +1528,8 @@ async function handleGenerateSingle(
     effectiveTopic = templates[Math.floor(Math.random() * templates.length)];
     titleSource = "fallback";
   }
+  // Defensive: ensure effectiveTopic is always a usable string
+  effectiveTopic = String(effectiveTopic || "").trim() || "Bài viết mới";
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
 
   await sendMessage(botConfig.botToken, chatId,
@@ -1566,7 +1584,12 @@ async function handleGenerateSingle(
 
     const contentId = data?.id || data?.content_id;
     const channelKey = channel === "blog" ? "website_content" : `${channel}_content`;
-    const channelText = (data?.[channelKey] || "") as string;
+    const rawChannelVal = data?.[channelKey];
+    const channelText = typeof rawChannelVal === "string"
+      ? rawChannelVal
+      : (rawChannelVal && typeof rawChannelVal === "object"
+          ? String((rawChannelVal as any).vi || (rawChannelVal as any).en || (rawChannelVal as any).text || "")
+          : "");
     const previewRaw = channelText.slice(0, 280).trim();
     const preview = previewRaw + (channelText.length > 280 ? "…" : "");
 
