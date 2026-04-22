@@ -638,7 +638,7 @@ async function handleStart(
       await sendMessage(
         botConfig.botToken,
         chatId,
-        `👋 Chào ${who}! Tài khoản đã được kết nối với Flowa.\n\n💬 Cứ chat tự nhiên — ví dụ: "tạo campaign cho spa làm đẹp", "quota tháng này còn bao nhiêu?"\n\nGõ /help để xem tất cả lệnh.`,
+        `🎉 Chào ${who}! AI Marketing Agent đã sẵn sàng trên Telegram.\n\n💬 Cứ chat tự nhiên — ví dụ: "tạo campaign cho spa làm đẹp", "quota tháng này còn bao nhiêu?"\n\nBắt đầu thử ngay hoặc gõ /help để xem tất cả lệnh.`,
         { reply_markup: chatType === "private" ? QUICK_KEYBOARD : undefined },
       );
       return;
@@ -782,17 +782,21 @@ async function handleStart(
     botConfig.botToken,
     chatId,
     [
-      "👋 *Chào mừng đến với Flowa!*",
+      "🎉 *Chào bạn!*",
       "",
-      "Để tiếp tục, bạn cần liên kết tài khoản Telegram với Flowa.",
+      "Mình là AI Marketing Agent – trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
       "",
-      "Bấm nút bên dưới để xác nhận. Link sẽ hết hạn sau 10 phút.",
+      "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+      "",
+      "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
+      "",
+      "*Bắt đầu thử ngay!*",
     ].join("\n"),
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [[
-          { text: "🔗 Link Account", callback_data: `confirm_link:${chatId}` },
+          { text: "🔗 Kết nối tài khoản & bắt đầu ngay", callback_data: `confirm_link:${chatId}` },
         ]],
       },
     },
