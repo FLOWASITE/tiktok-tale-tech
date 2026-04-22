@@ -1078,6 +1078,7 @@ function buildStructuredElement(
   const headingFontFamily = hasCustomFont ? (theme.headingFontFamily || theme.fontFamily) : 'sans-serif';
   const sp = theme.spacingMultiplier; // spacing multiplier
   const ratioProfile = getRatioProfile(imageWidth, imageHeight);
+  const spacingTokens = getSpacingTokens(ratioProfile, theme);
 
   // === Smart Density: reduce visual clutter ===
   // Detect education_infographic mode (has summaryRibbon = dense layout designed for it)
@@ -1115,12 +1116,15 @@ function buildStructuredElement(
   const logoInCenterArea = logoMeta && (logoMeta.position === 'center-left' || logoMeta.position === 'center-right' || logoMeta.position === 'center');
   const logoSafeWidth = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100)) + (logoMeta.padding * 2) : 0;
   const logoSafeHeight = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100) * 0.75) + (logoMeta.padding * 2) : 0;
+  const centerSafeLeft = logoInCenterArea && logoMeta && (logoMeta.position === 'center-left' || logoMeta.position === 'center') ? logoSafeWidth : 0;
+  const centerSafeRight = logoInCenterArea && logoMeta && (logoMeta.position === 'center-right' || logoMeta.position === 'center') ? logoSafeWidth : 0;
+  const baseContentWidth = resolveContentWidth(imageWidth, ratioProfile, centerSafeLeft, centerSafeRight);
 
   // Banner (top or bottom)
   if (elements.banner) {
     // Determine banner safe-area padding based on logo position
-    let bannerPaddingLeft = 24;
-    let bannerPaddingRight = 24;
+    let bannerPaddingLeft = spacingTokens.bannerPaddingX;
+    let bannerPaddingRight = spacingTokens.bannerPaddingX;
     const bannerIsTop = elements.banner.position !== 'bottom';
 
     if (bannerIsTop && logoInTopArea && logoMeta) {
@@ -1140,7 +1144,7 @@ function buildStructuredElement(
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: theme.bannerBg,
-          padding: `${Math.round(12 * sp)}px ${bannerPaddingRight}px ${Math.round(12 * sp)}px ${bannerPaddingLeft}px`,
+          padding: `${spacingTokens.bannerPaddingY}px ${bannerPaddingRight}px ${spacingTokens.bannerPaddingY}px ${bannerPaddingLeft}px`,
           width: '100%',
           borderRadius: theme.borderRadius > 0 ? `${theme.borderRadius}px ${theme.borderRadius}px 0 0` : '0',
           boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -1150,7 +1154,7 @@ function buildStructuredElement(
           props: {
             style: {
               color: bannerTextColor,
-              fontSize: fitTextWithRatio(elements.banner.text, imageWidth - bannerPaddingLeft - bannerPaddingRight - 48, textTokens.bannerFont, 14, 34),
+              fontSize: fitTextWithRatio(elements.banner.text, resolveContentWidth(imageWidth, ratioProfile, bannerPaddingLeft, bannerPaddingRight), textTokens.bannerFont, 14, 34),
               fontFamily,
               fontWeight: theme.fontWeight,
               letterSpacing: theme.bannerLetterSpacing || '0.05em',
@@ -1168,7 +1172,8 @@ function buildStructuredElement(
   if (elements.heroText) {
     const sizeMap = { xl: 0.9, '2xl': 1, '3xl': 1.18 };
     const baseFontSize = clampNumber(Math.round(textTokens.heroFont * (sizeMap[elements.heroText.fontSize] || 1)), 24, 96);
-    const fontSize = fitTextWithRatio(elements.heroText.text.trim(), imageWidth * 0.75, baseFontSize, 18, 96);
+    const heroAvailableWidth = resolveBlockWidth(imageWidth, ratioProfile, ratioProfile.contentMaxWidth, spacingTokens.heroPadding, centerSafeLeft, centerSafeRight);
+    const fontSize = fitTextWithRatio(elements.heroText.text.trim(), heroAvailableWidth, baseFontSize, 18, 96);
     const heroTrimmed = elements.heroText.text.trim();
     // Expanded hero matching: pure numbers, numbers with % or +, decimal numbers
     const isNumericHero = /^\d+(\.\d+)?[%+]?$/.test(heroTrimmed);
@@ -1186,7 +1191,7 @@ function buildStructuredElement(
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px',
+            padding: `${spacingTokens.heroPadding}px`,
             flexGrow: 1,
           },
           children: {
@@ -1226,7 +1231,7 @@ function buildStructuredElement(
       const sideLabel = splitHeroMatch[2];
       const circleDiameter = textTokens.heroSplitCircle;
       const circleTextColor = getContrastTextColor(colors.primary);
-      const sideFontSize = fitTextWithRatio(sideLabel, imageWidth * 0.45, textTokens.heroSideFont, 16, 54);
+      const sideFontSize = fitTextWithRatio(sideLabel, Math.max(120, heroAvailableWidth - circleDiameter - spacingTokens.splitGap), textTokens.heroSideFont, 16, 54);
       children.push({
         type: 'div',
         props: {
@@ -1234,9 +1239,10 @@ function buildStructuredElement(
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 16,
-            padding: '20px',
+            gap: spacingTokens.splitGap,
+            padding: `${spacingTokens.heroPadding}px`,
             flexGrow: 1,
+            maxWidth: ratioProfile.contentMaxWidth,
           },
           children: [
             {
@@ -1295,11 +1301,12 @@ function buildStructuredElement(
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px',
+            padding: `${spacingTokens.heroPadding}px`,
             flexGrow: 1,
+            maxWidth: ratioProfile.contentMaxWidth,
             ...(logoInCenterArea && logoMeta ? {
-              paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
-              paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+              paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : spacingTokens.heroPadding,
+              paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : spacingTokens.heroPadding,
             } : {}),
           },
           children: {
@@ -1322,7 +1329,15 @@ function buildStructuredElement(
 
   // Headline
   if (elements.headline) {
-    const headlineFontSize = fitTextWithRatio(elements.headline, imageWidth * 0.8, textTokens.headlineFont, 18, 48);
+    const headlineFitWidth = resolveBlockWidth(
+      imageWidth,
+      ratioProfile,
+      ratioProfile.headlineMaxWidth,
+      textTokens.headlinePaddingX,
+      centerSafeLeft,
+      centerSafeRight,
+    );
+    const headlineFontSize = fitTextWithRatio(elements.headline, headlineFitWidth, textTokens.headlineFont, 18, 48);
     children.push({
       type: 'div',
       props: {
@@ -1334,6 +1349,7 @@ function buildStructuredElement(
           backgroundColor: theme.headlineBg,
           borderRadius: theme.borderRadius,
           maxWidth: ratioProfile.headlineMaxWidth,
+          marginTop: spacingTokens.compactSectionGap,
         },
         children: {
           type: 'span',
@@ -1427,7 +1443,10 @@ function buildStructuredElement(
         resolvedCardBg.startsWith('rgba') || resolvedCardBg.startsWith('#') ? resolvedCardBg : theme.cardTextColor
       );
       // Fit label font to available card width (approx 70% of card width)
-      const cardAvailWidth = isGrid ? imageWidth * 0.35 : imageWidth * 0.6;
+      const cardsAvailableWidth = resolveContentWidth(imageWidth, ratioProfile, cardsPaddingLeft, cardsPaddingRight);
+      const cardAvailWidth = isGrid
+        ? Math.max(120, ((cardsAvailableWidth - spacingTokens.cardGap) / 2) - spacingTokens.cardPaddingX * 2)
+        : Math.max(140, cardsAvailableWidth - spacingTokens.cardPaddingX * 2);
       const fittedCardFontSize = fitTextToWidth(item.label, cardAvailWidth, cardFontSize, 12);
       
       const textChildren: any[] = [{
@@ -1454,7 +1473,7 @@ function buildStructuredElement(
               fontFamily,
               fontWeight: 400,
               opacity: 0.7,
-              marginTop: 2,
+              marginTop: Math.max(2, Math.round(spacingTokens.inlineGap * 0.5)),
             },
             children: item.description,
           },
@@ -1479,10 +1498,12 @@ function buildStructuredElement(
           style: {
             display: 'flex',
             alignItems: 'center',
-            gap: hasNumberedCards ? 12 : 8,
+            gap: hasNumberedCards ? spacingTokens.inlineGap : Math.max(6, spacingTokens.inlineGap - 2),
             background: cardGradient,
             borderRadius: theme.borderRadius,
-            padding: hasNumberedCards ? `${Math.round(14 * sp)}px ${Math.round(20 * sp)}px` : `${Math.round(10 * sp)}px ${Math.round(16 * sp)}px`,
+            padding: hasNumberedCards
+              ? `${Math.max(spacingTokens.cardPaddingY, Math.round(12 * sp))}px ${Math.max(spacingTokens.cardPaddingX, Math.round(18 * sp))}px`
+              : `${spacingTokens.cardPaddingY}px ${spacingTokens.cardPaddingX}px`,
             boxShadow: theme.cardBoxShadow || '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
             ...(isGrid ? { width: '48%' } : { flex: '1' }),
           },
@@ -1492,8 +1513,8 @@ function buildStructuredElement(
     });
 
     // Cards safe-area: avoid logo at center-left/center-right/center
-    let cardsPaddingLeft = 24;
-    let cardsPaddingRight = 24;
+    let cardsPaddingLeft = ratioProfile.outerPadding;
+    let cardsPaddingRight = ratioProfile.outerPadding;
     if (logoInCenterArea && logoMeta) {
       if (logoMeta.position === 'center-left') cardsPaddingLeft = logoSafeWidth;
       if (logoMeta.position === 'center-right') cardsPaddingRight = logoSafeWidth;
@@ -1509,10 +1530,10 @@ function buildStructuredElement(
         style: {
           display: 'flex',
           flexWrap: isGrid ? 'wrap' : 'nowrap',
-          gap: 8,
-          padding: `12px ${cardsPaddingRight}px 12px ${cardsPaddingLeft}px`,
+          gap: spacingTokens.cardGap,
+          padding: `${spacingTokens.compactSectionGap}px ${cardsPaddingRight}px ${spacingTokens.compactSectionGap}px ${cardsPaddingLeft}px`,
           justifyContent: 'center',
-          ...(isGrid ? { maxWidth: '80%' } : {}),
+          maxWidth: ratioProfile.contentMaxWidth,
         },
         children: cardElements,
       },
