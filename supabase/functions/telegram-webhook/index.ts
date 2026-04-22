@@ -2855,6 +2855,31 @@ async function handleConfirmLinkCallback(args: {
     }
   }
 
+  // Stale-binding cleanup: same (org, user) but different chat_id from a
+  // previous Telegram session. Without this, the partial unique index added by
+  // migration uq_tg_bindings_active_private_org_user would reject the upsert
+  // and the user could not "reconnect" to refresh their chat binding.
+  const { data: staleRows, error: staleErr } = await supabase
+    .from("telegram_chat_bindings")
+    .delete()
+    .eq("organization_id", pending.payload_org)
+    .eq("user_id", pending.payload_uid)
+    .eq("chat_type", "private")
+    .neq("telegram_chat_id", chatId)
+    .select("id, telegram_chat_id");
+  if (staleErr) {
+    console.warn("[telegram-webhook] stale binding cleanup failed:", staleErr);
+  } else if (staleRows && staleRows.length > 0) {
+    console.log("[telegram-webhook] confirm_link cleaned stale private bindings", {
+      organization_id: pending.payload_org,
+      user_id: pending.payload_uid,
+      current_chat_id: chatId,
+      stale_count: staleRows.length,
+      stale_chat_ids: staleRows.map((r: { telegram_chat_id: number }) => r.telegram_chat_id),
+      resolved_by: "reconnect_cleanup",
+    });
+  }
+
   const { error: upsertErr } = await supabase
     .from("telegram_chat_bindings")
     .upsert({

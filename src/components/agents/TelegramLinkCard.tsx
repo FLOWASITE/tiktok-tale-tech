@@ -42,15 +42,19 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
   const {
     binding,
     ghostBinding,
+    hasBindingConflict,
     loading,
     unlink,
     unlinkAllForTelegramUser,
+    reconnectCurrentWorkspace,
     ensureDeeplink,
     prefetchedDeeplink,
     setBinding,
   } = useTelegramBinding();
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
+
+  const [reconnecting, setReconnecting] = useState(false);
 
   const [qrOpen, setQrOpen] = useState(false);
   const [pinging, setPinging] = useState(false);
@@ -187,6 +191,16 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
     }
   };
 
+  const handleReconnect = async () => {
+    if (reconnecting) return;
+    setReconnecting(true);
+    try {
+      await reconnectCurrentWorkspace();
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
   const ghostBanner = ghostBinding ? (
     <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <div className="flex items-start gap-2">
@@ -291,7 +305,7 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {botDirectUrl && (
               <Button asChild size="sm">
                 <a href={botDirectUrl} target="_blank" rel="noopener noreferrer">
@@ -299,6 +313,19 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
                 </a>
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReconnect}
+              disabled={reconnecting}
+            >
+              {reconnecting ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Kết nối lại
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="icon" variant="ghost" className="h-9 w-9" aria-label="Tùy chọn khác">
@@ -321,6 +348,19 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+
+          {hasBindingConflict && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-foreground flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+              <span>
+                Phát hiện nhiều liên kết chat cũ. Bấm <strong>Kết nối lại</strong> để dọn và bind đúng chat hiện tại.
+              </span>
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Nếu bot báo <em>chưa kết nối</em>, bấm <strong>Kết nối lại</strong> để làm mới liên kết chat hiện tại.
+          </p>
         </div>
 
       </div>
