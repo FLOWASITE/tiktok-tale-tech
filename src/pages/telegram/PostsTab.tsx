@@ -15,6 +15,8 @@ type Props = {
   orgId: string;
   brandId: string | null;
   onGoConnections: () => void;
+  autoOpenContentId?: string | null;
+  onAutoOpened?: () => void;
 };
 
 type PostRow = {
@@ -28,7 +30,7 @@ type PostRow = {
   created_at: string;
 };
 
-export function PostsTab({ orgId, brandId, onGoConnections }: Props) {
+export function PostsTab({ orgId, brandId, onGoConnections, autoOpenContentId, onAutoOpened }: Props) {
   const [items, setItems] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<PostRow | null>(null);
