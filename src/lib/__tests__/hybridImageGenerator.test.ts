@@ -88,7 +88,7 @@ describe('autoSelectTemplate', () => {
     expect(autoSelectTemplate(desc, config)).toBe('contact_card');
   });
 
-  it('prefers infographic over contact_card when cards exist', () => {
+  it('prefers education_infographic over contact_card when cards and contact info both exist', () => {
     const desc = 'Call 0909123456, email test@company.com';
     const config = makeConfig({
       cards: {
@@ -96,8 +96,7 @@ describe('autoSelectTemplate', () => {
         layout: 'grid-2x2',
       },
     });
-    // Even though contact info exists, cards take priority
-    expect(autoSelectTemplate(desc, config)).toBe('infographic');
+    expect(autoSelectTemplate(desc, config)).toBe('education_infographic');
   });
 
   it('selects comparison_card for before/after content', () => {
