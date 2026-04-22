@@ -1794,7 +1794,7 @@ function buildStructuredElement(
 
   // === Build final layout ===
   // If split layout: banner top, [hero left | cards right], footer bottom
-  if (isSplit && (elements.heroText || elements.headline) && elements.cards) {
+  if (shouldUseSplitRow && (elements.heroText || elements.headline) && elements.cards) {
     // Extract banner and footer from children (they stay full-width)
     const bannerEl = elements.banner ? children.shift() : null;
     const footerEl = elements.footer ? children.pop() : null;
@@ -1822,19 +1822,19 @@ function buildStructuredElement(
       props: {
         style: {
           display: 'flex',
-          flexDirection: 'row',
+          flexDirection: layoutBehavior.forceStack ? 'column' : 'row',
           flexGrow: 1,
           width: '100%',
-          gap: spacingTokens.splitGap,
-          padding: `${spacingTokens.compactSectionGap}px ${spacingTokens.splitPaddingX}px`,
-          alignItems: 'center',
+          gap: layoutBehavior.forceStack ? resolvedSectionGap : spacingTokens.splitGap,
+          padding: `${resolvedSectionGap}px ${spacingTokens.splitPaddingX}px`,
+          alignItems: layoutBehavior.splitAlign,
         },
         children: [
           {
             type: 'div',
             props: {
               style: {
-                display: 'flex', flexDirection: 'column', width: spacingTokens.leftColumnWidth, gap: spacingTokens.sectionGap, justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', width: layoutBehavior.forceStack ? '100%' : spacingTokens.leftColumnWidth, gap: resolvedSectionGap, justifyContent: 'center',
                 ...(logoMeta && logoMeta.position === 'center-left' ? { paddingLeft: logoSafeWidth } : {}),
               },
               children: leftChildren.length === 1 ? leftChildren[0] : leftChildren,
@@ -1844,7 +1844,7 @@ function buildStructuredElement(
             type: 'div',
             props: {
               style: {
-                display: 'flex', flexDirection: 'column', width: spacingTokens.rightColumnWidth, gap: spacingTokens.compactSectionGap, justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', width: layoutBehavior.forceStack ? '100%' : spacingTokens.rightColumnWidth, gap: resolvedSectionGap, justifyContent: 'center',
                 ...(logoMeta && logoMeta.position === 'center-right' ? { paddingRight: logoSafeWidth } : {}),
               },
               children: rightChildren.length === 1 ? rightChildren[0] : rightChildren,
@@ -1885,8 +1885,8 @@ function buildStructuredElement(
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: elements.banner ? 'flex-start' : 'center',
-        gap: spacingTokens.sectionGap,
+        justifyContent: elements.banner ? 'flex-start' : layoutBehavior.rootJustify,
+        gap: resolvedSectionGap,
         backgroundImage: `url(${baseImageUrl})`,
         backgroundSize: `${imageWidth}px ${imageHeight}px`,
         backgroundPosition: 'center',
