@@ -1,54 +1,111 @@
 
 
-# Mở rộng badge gợi ý chủ đề để hiển thị đầy đủ tiêu đề
+# Sửa lỗi Gợi ý chủ đề không khớp Brand đang chọn
 
-## Vấn đề hiện tại
+## Nguyên nhân (đã verify trong code)
 
-Mỗi gợi ý chủ đề render dạng pill chip ngang (`flex-wrap gap-1.5`) với `max-w-[560px]` + `truncate`. Tiêu đề tiếng Việt dài 80–150 ký tự bị cắt thành "Những thay đổi trong quy định về bảo hiểm xã hội và thuế TNCN năm 2026: Doanh n…" — user phải hover tooltip mới đọc được.
+`src/pages/MultiChannelCreate.tsx` line 120–125:
+```ts
+useEffect(() => {
+  if (currentBrand && !selectedBrandId) {     // ← chỉ chạy khi selectedBrandId rỗng
+    setSelectedBrandId(currentBrand.id);
+  }
+}, [currentBrand, selectedBrandId]);
+```
 
-## Thay đổi đề xuất
+Hệ quả:
+1. Lần đầu vào `/multichannel/new`, `selectedBrandId` được set theo `currentBrand` ✅
+2. User đổi brand ở **header switcher toàn cục** → `BrandContext.currentBrand` đổi ✅
+3. Nhưng vì `selectedBrandId` đã có giá trị (brand cũ), effect KHÔNG chạy lại → `selectedBrandId` giữ brand cũ ❌
+4. `MultiChannelFormWizard` nhận `brandTemplateId={selectedBrandId}` (brand cũ) → `useEnhancedTopicSuggestions({brandTemplateId})` gọi `topic-ai` với brand cũ → backend cache key chứa brand cũ, TTL 24h → tiếp tục trả gợi ý của brand cũ ngay cả khi force refresh.
 
-### 1. Đổi layout chip → row card full-width
+Cùng anti-pattern xuất hiện ở `MultiChannelFormStepper.tsx` line 251–257: auto-set default template nhưng KHÔNG sync lại khi `currentBrand` đổi (script form, các flow khác có thể dính tương tự).
 
-File: `src/components/TopicSuggestionPanel.tsx` (~line 984–1024)
+Backend (`topic-ai`) đã filter đúng theo brand nhận được — log `[filterByBrandAndGoal] Brand: "Thuế Hộ by TAF.vn"` cho thấy nó nhận brand nào thì filter brand đó. Vấn đề 100% ở frontend gửi sai brand ID.
 
-- **Container**: `flex flex-wrap gap-1.5` → `flex flex-col gap-1.5` (1 chủ đề / 1 hàng, full width của parent).
-- **Chip**: `inline-flex … rounded-full` → `flex w-full items-start … rounded-xl` để chip giãn theo chiều ngang container và **wrap text 2 dòng** thay vì truncate.
-- **Tiêu đề**: bỏ `truncate max-w-[560px]`, thay bằng:
-  ```
-  className="flex-1 text-xs xs:text-sm leading-snug line-clamp-2"
-  ```
-  (vẫn giới hạn 2 dòng để tránh chip cao bất thường nếu có outlier 300 ký tự, nhưng đủ để hiện ~140–180 ký tự thay vì ~70).
-- **Font size**: `text-[10px] xs:text-xs` → `text-xs xs:text-sm` (rõ ràng hơn, dễ đọc).
-- **Padding**: `px-2 xs:px-2.5 py-1 xs:py-1.5` → `px-3 py-2` (badge "to" hơn theo yêu cầu).
-- **Icon category**: giữ `w-4 h-4` nhưng align `mt-0.5 shrink-0` để align top khi text 2 dòng.
-- **Action buttons hover** (Bookmark/ThumbsUp/Down): chuyển từ `hidden group-hover:flex` inline sau text → `absolute top-1.5 right-1.5` để không chiếm chỗ của tiêu đề khi hover.
-- **Score / Engagement / Seasonal badges**: gom thành 1 row nhỏ bên dưới tiêu đề (`flex items-center gap-1 mt-1`) thay vì inline cuối — tránh đẩy tiêu đề.
+## Fix
 
-### 2. Giữ tương thích
+### 1. `src/pages/MultiChannelCreate.tsx` — sync 2 chiều với BrandContext
 
-- Click handler, `ensureSelectedTopic`, `disabled state`, tooltip, savedTopics, feedback — không đổi.
-- Vẫn show `title={suggestion.topic}` để tooltip native HTML có full text khi text quá 2 dòng vẫn bị clamp.
-- `showEnhancedInfo` flag giữ nguyên, chỉ thay đổi vị trí render meta badges.
+Đổi effect line 120–125 thành sync mỗi khi `currentBrand.id` đổi:
 
-### 3. Responsive
+```ts
+useEffect(() => {
+  if (currentBrand?.id && currentBrand.id !== selectedBrandId) {
+    setSelectedBrandId(currentBrand.id);
+    // Reset voice variant vì variant thuộc brand cũ
+    setSelectedVoiceVariantId(undefined);
+  }
+}, [currentBrand?.id]);  // bỏ selectedBrandId khỏi deps để tránh loop
+```
 
-- Mobile (`<640px`): row height tự động wrap 2 dòng, font `text-xs`.
-- Desktop: `text-sm` 2 dòng, comfortable reading width 100% container (~700–900px tuỳ form layout).
+→ Khi user switch brand ở header, form tự động cập nhật + reset voice variant không hợp lệ.
 
-## File sửa
+### 2. `src/components/multichannel/MultiChannelFormWizard.tsx` — sync formData khi prop đổi
+
+Effect line 548–553 hiện tại đã sync `brandTemplateId` từ prop vào `formData`. Bổ sung reset voice variant khi brand đổi:
+
+```ts
+useEffect(() => {
+  if (brandTemplateId && brandTemplateId !== formData.brandTemplateId) {
+    setFormData(prev => ({
+      ...prev,
+      brandTemplateId,
+      brandVoiceVariantId: undefined,  // reset variant cũ
+      productId: undefined,             // reset product cũ
+    }));
+  }
+}, [brandTemplateId]);
+```
+
+### 3. `src/components/multichannel/MultiChannelFormStepper.tsx` — sync với `currentBrand`
+
+Component này tự quản brand không qua prop, cần đọc `useCurrentBrand()` và sync:
+
+```ts
+import { useCurrentBrand } from '@/contexts/BrandContext';
+const { currentBrand } = useCurrentBrand();
+
+useEffect(() => {
+  if (currentBrand?.id && currentBrand.id !== formData.brandTemplateId) {
+    setFormData(prev => ({
+      ...prev,
+      brandTemplateId: currentBrand.id,
+      brandVoiceVariantId: undefined,
+      productId: undefined,
+    }));
+  }
+}, [currentBrand?.id]);
+```
+
+Giữ logic auto-select default template như fallback khi không có `currentBrand`.
+
+### 4. Backend cache key — bonus defense
+
+`supabase/functions/topic-ai/index.ts` line 200, cache key đã chứa `brandTemplateId` nên không có vấn đề poisoning. Không cần sửa. Nhưng để chắc chắn user thấy kết quả mới ngay khi đổi brand, frontend `useTopicAI` đã có `useEffect` watch `brandTemplateId` (line 919–945) tự refetch khi prop đổi → fix #1+#2 sẽ trigger refetch tự động.
+
+## Files sửa
 
 | File | Thay đổi |
 |---|---|
-| `src/components/TopicSuggestionPanel.tsx` | Refactor block chip render (line ~984–1095): đổi container thành column, chip thành row card full-width, tiêu đề `line-clamp-2 text-sm`, action buttons absolute, meta badges xuống dòng. |
+| `src/pages/MultiChannelCreate.tsx` | Sửa effect line 120–125: sync `selectedBrandId` mỗi khi `currentBrand.id` đổi (không chỉ khi rỗng); reset voice variant. |
+| `src/components/multichannel/MultiChannelFormWizard.tsx` | Sửa effect line 548–553: khi prop `brandTemplateId` đổi, reset thêm `brandVoiceVariantId` + `productId` để tránh dùng dữ liệu brand cũ. |
+| `src/components/multichannel/MultiChannelFormStepper.tsx` | Import `useCurrentBrand`; thêm effect sync `currentBrand.id` → `formData.brandTemplateId` (kèm reset variant/product); giữ auto-select default làm fallback. |
+
+## Test sau khi sửa
+
+1. Vào `/multichannel/new` với Brand A → gợi ý đúng A
+2. Đổi sang Brand B ở header switcher → form/topic suggestions tự refetch + filter cho B (xem log `[filterByBrandAndGoal] Brand: "B"`)
+3. Voice variant + product reset về placeholder
+4. Đổi lại Brand A → gợi ý A (cache hit, instant)
 
 ## Ngoài phạm vi
 
-- Không đổi data flow, AI suggestion engine, scoring, history popover (Kho chủ đề).
-- Không thay đổi styling của Kho chủ đề popover (đã có view list/grid riêng).
-- Không đổi mobile breakpoints khác.
+- Không động đến backend `topic-ai` (logic filter đã đúng).
+- Không sửa các form khác (script, carousel, ad-copy) trong phạm vi này — nếu user báo cùng triệu chứng ở form khác sẽ apply cùng pattern sau.
+- Không clear cache `ai_response_cache` thủ công — entries cũ sẽ tự expire sau 24h hoặc bị overwrite khi key mới khớp.
 
 ## Rủi ro
 
-Thấp. Chỉ thay class Tailwind + cấu trúc div trong cùng 1 component. Không ảnh hưởng logic.
+Thấp. Effect chỉ trigger khi `currentBrand.id` thực sự đổi (so sánh với state hiện tại). Reset variant/product là hành vi mong đợi vì chúng thuộc brand cũ — user phải chọn lại cho đúng brand mới.
 
