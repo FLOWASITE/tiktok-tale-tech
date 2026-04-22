@@ -191,6 +191,16 @@ export function TelegramLinkCard({ botReady, isAdmin, botUsername, usingDefaultB
     }
   };
 
+  const handleReconnect = async () => {
+    if (reconnecting) return;
+    setReconnecting(true);
+    try {
+      await reconnectCurrentWorkspace();
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
   const ghostBanner = ghostBinding ? (
     <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
       <div className="flex items-start gap-2">
