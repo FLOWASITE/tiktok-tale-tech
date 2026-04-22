@@ -1337,42 +1337,82 @@ function buildStructuredElement(
 
   // Footer contact bar
   if (elements.footer && elements.footer.items.length > 0) {
-    const footerFontSize = Math.round(imageWidth * (isEducationInfographic ? 0.022 : 0.018));
-    const footerItems = elements.footer.items.map(item => ({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-        },
-        children: [
-          ...(item.icon ? [{
-            type: 'span',
-            props: { style: { fontSize: footerFontSize * 1.1 }, children: item.icon },
-          }] : []),
-          {
-            type: 'span',
-            props: {
-              style: {
-                color: bannerTextColor,
-                fontSize: footerFontSize,
-                fontFamily,
-                fontWeight: 400,
-              },
-              children: item.text,
-            },
+    const footerLayout = getFooterLayoutProfile(
+      imageWidth,
+      imageHeight,
+      elements.footer.items,
+      logoMeta,
+      request.footerMode || 'auto',
+    );
+    const footerFontSize = isEducationInfographic
+      ? Math.max(footerLayout.fontSize, 13)
+      : footerLayout.fontSize;
+    const normalizedFooterItems = [...elements.footer.items].sort((a, b) => {
+      const order = ['phone', 'globe', 'mail', 'map-pin'];
+      return order.indexOf(a.icon || '') - order.indexOf(b.icon || '');
+    });
+    const footerItems = normalizedFooterItems.map(item => {
+      const isAddress = item.icon === 'map-pin';
+      return {
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: footerLayout.alignItems,
+            justifyContent: footerLayout.justifyContent,
+            gap: 4,
+            width: footerLayout.mode === 'vertical-compact'
+              ? '100%'
+              : footerLayout.mode === 'two-row' && isAddress
+                ? '100%'
+                : footerLayout.maxItemWidth,
+            maxWidth: footerLayout.mode === 'single-row'
+              ? footerLayout.maxItemWidth
+              : '100%',
+            flexWrap: 'nowrap',
           },
-        ],
-      },
-    }));
+          children: [
+            ...(item.icon ? [{
+              type: 'span',
+              props: {
+                style: { fontSize: Math.round(footerFontSize * 1.08), lineHeight: 1 },
+                children: item.icon,
+              },
+            }] : []),
+            {
+              type: 'span',
+              props: {
+                style: {
+                  color: bannerTextColor,
+                  fontSize: footerFontSize,
+                  fontFamily,
+                  fontWeight: 400,
+                  lineHeight: 1.35,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
+                  textAlign: footerLayout.mode === 'vertical-compact' ? 'left' : 'center',
+                  flex: 1,
+                },
+                children: item.text,
+              },
+            },
+          ],
+        },
+      };
+    });
 
-    // Footer safe-area: avoid logo at bottom-left/bottom-right
-    let footerPaddingLeft = 24;
-    let footerPaddingRight = 24;
+    let footerPaddingLeft = footerLayout.paddingX;
+    let footerPaddingRight = footerLayout.paddingX;
+    let footerPaddingBottom = footerLayout.paddingBottom;
     if (logoInBottomArea && logoMeta) {
-      if (logoMeta.position === 'bottom-left') footerPaddingLeft = logoSafeWidth;
-      if (logoMeta.position === 'bottom-right') footerPaddingRight = logoSafeWidth;
+      if (logoMeta.position === 'bottom-left') footerPaddingLeft = Math.max(footerPaddingLeft, logoSafeWidth);
+      if (logoMeta.position === 'bottom-right') footerPaddingRight = Math.max(footerPaddingRight, logoSafeWidth);
+      if (logoMeta.position === 'bottom-center') {
+        footerPaddingLeft = Math.max(footerPaddingLeft, 28);
+        footerPaddingRight = Math.max(footerPaddingRight, 28);
+        footerPaddingBottom = Math.max(footerPaddingBottom, footerLayout.minBottomClearance + Math.round(logoSafeHeight * 0.55));
+      }
     }
 
     children.push({
@@ -1380,12 +1420,15 @@ function buildStructuredElement(
       props: {
         style: {
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 16,
+          flexDirection: footerLayout.flexDirection,
+          alignItems: footerLayout.alignItems,
+          justifyContent: footerLayout.justifyContent,
+          flexWrap: footerLayout.allowWrap ? 'wrap' : 'nowrap',
+          gap: `${footerLayout.rowGap}px ${footerLayout.itemGap}px`,
           backgroundColor: theme.bannerBg,
-          padding: `8px ${footerPaddingRight}px 8px ${footerPaddingLeft}px`,
+          padding: `${footerLayout.paddingY}px ${footerPaddingRight}px ${footerPaddingBottom + footerLayout.paddingY}px ${footerPaddingLeft}px`,
           width: '100%',
+          boxSizing: 'border-box',
           borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
           marginTop: 'auto',
         },
