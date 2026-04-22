@@ -1,39 +1,59 @@
 
 
-# Fix `user is not defined` trong `channel-publisher` resolve flow
+# Fix nút "🚀 Đăng FB" trên Telegram → 400 "connectionId and content are required"
 
-## Nguyên nhân thực sự
+## Nguyên nhân
 
-Lỗi log gắn `channel-publisher/index.ts` nhưng thực ra đến từ block resolve payload mà tôi vừa thêm ở plan trước. Trong `channel-publisher/index.ts`, đoạn fatten payload cho `website/blog/flowa_blog` query bảng `social_connections` với filter `organization_id = mcc.organization_id`. Nhưng nếu code path nào đó còn reference `user.id` (vd để filter connection theo `user_id` thay vì `organization_id`) trong scope không có `user` → ReferenceError.
+`telegram-webhook` gọi `channel-publisher` chỉ với `{ action: 'facebook', contentId, channel }`. Block resolve payload trong `channel-publisher/index.ts` (lines 71-133) **chỉ chạy cho `website/blog/flowa_blog`** → với `facebook` (và mọi social khác) function forward thẳng payload thiếu xuống `publish-facebook` → `publish-facebook` throw `connectionId and content are required` → 400.
 
-`publish-blog` đã fix ở turn trước (hoist `userId`). Lỗi hiện tại là **`channel-publisher` cũng có cùng pattern** ở nhánh resolve mới thêm.
+Log xác nhận:
+```
+[channel-publisher] routing action="facebook" → publish-facebook
+publish-facebook: accepted internal service-role invocation
+Facebook publish error: Error: connectionId and content are required
+```
 
 ## Fix
 
 ### `supabase/functions/channel-publisher/index.ts`
 
-Trong block resolve cho `website/blog/flowa_blog`:
-- Bỏ mọi reference đến `user` / `user.id` (internal flow từ Telegram không có user context).
-- Connection lookup chỉ dựa vào `organization_id` + `brand_template_id` từ `multi_channel_contents` (đã đúng trong plan, chỉ cần verify không sót `user.id` nào).
-- Nếu cần author info cho `publish-blog`, dùng `author_name` mặc định (`'Flowa Team'` hoặc lấy từ `mcc.created_by` profile nếu có) thay vì `user.id`.
+Mở rộng block resolve payload cho **tất cả social channels** (`facebook`, `instagram`, `linkedin`, `twitter`, `threads`, `tiktok`, `zalo`, `google-business`), không chỉ website/blog.
 
-### Verify các publish-* khác
+**Logic resolve cho social channel:**
+1. Nếu thiếu `connectionId` HOẶC `content` VÀ có `contentId`:
+   - Query `multi_channel_contents` lấy column tương ứng (`facebook_content`, `instagram_content`, …) + `organization_id` + `brand_template_id` + `media_urls`/`channel_images`.
+   - Map `action` → DB platform (`facebook`→`facebook`, `zalo`→`zalo_oa`, `google-business`→`google_business`, `twitter`→`twitter`, …) + content column.
+   - Query `social_connections` filter `platform` + `is_active=true` + `organization_id` (+ `brand_template_id` nếu có) → lấy `id`.
+   - Inject vào `finalPayload`: `connectionId`, `content`, optionally `mediaUrls` (parse từ `channel_images[channel]`).
+2. Nếu không tìm thấy connection → trả về error đặc biệt để Telegram hiện nút "🔗 Kết nối lại" (đã có sẵn pattern `pubIsTokenExpiredError` — dùng message `"Chưa kết nối <platform>. Vui lòng kết nối lại."` để bot match heuristic, hoặc thêm `errorCode: 'NO_CONNECTION'`).
+3. Nếu không tìm thấy `<channel>_content` → fallback dùng cột chung (vd `facebook_content` rỗng → thử dùng `content` field gốc của `multi_channel_contents` nếu tồn tại, hoặc trả lỗi rõ ràng "Bài chưa có nội dung cho FB").
 
-Đọc lại `publish-threads`, `publish-zalo`, `publish-google-business`, `publish-website` để confirm pattern hoist `userId` đã apply đúng (giống `publish-blog`), không còn `user.id` lủng lẳng ngoài block `if (!isInternalCall)`.
+### Bảng mapping mới (trong `channel-publisher`)
+
+| action | DB platform | Content column |
+|---|---|---|
+| facebook | facebook | facebook_content |
+| instagram | instagram | instagram_content |
+| linkedin | linkedin | linkedin_content |
+| twitter | twitter | twitter_content |
+| threads | threads | threads_content |
+| tiktok | tiktok | tiktok_content |
+| zalo | zalo_oa | zalo_content |
+| google-business | google_business | google_business_content (fallback `content`) |
+
+### Cập nhật heuristic token-expired ở Telegram (optional, nhỏ)
+
+`pubIsTokenExpiredError` (trong `telegram-webhook`) hiện đã match `"chưa kết nối"` / `"please reconnect"` (đối chiếu `useRetryPublish.ts`). Đảm bảo error message từ `channel-publisher` chứa `"chưa kết nối"` để bot tự hiện nút Kết nối lại.
 
 ## Files sửa
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/channel-publisher/index.ts` | Loại bỏ mọi reference `user`/`user.id` trong block resolve payload; chỉ dùng `organization_id` + `brand_template_id` từ `multi_channel_contents`. |
-| `supabase/functions/publish-website/index.ts` | Verify + hoist `userId` giống `publish-blog` nếu chưa. |
-| `supabase/functions/publish-threads/index.ts` | Verify + hoist `userId` giống `publish-blog` nếu chưa. |
-| `supabase/functions/publish-zalo/index.ts` | Verify + hoist `userId` giống `publish-blog` nếu chưa. |
-| `supabase/functions/publish-google-business/index.ts` | Verify + hoist `userId` giống `publish-blog` nếu chưa. |
+| `supabase/functions/channel-publisher/index.ts` | Mở rộng resolve block cho tất cả social actions; thêm channel→column map; lookup `social_connections` theo platform+org+brand; inject `connectionId` + `content` (+ `mediaUrls` nếu có); error rõ ràng khi thiếu connection / content. |
 
 ## Sau fix
-Redeploy 5 functions trên → test lại Telegram "🚀 Đăng ngay" cho Website/Blog.
+Redeploy `channel-publisher` → test lại trên Telegram nút "🚀 Đăng ngay" cho FB/IG/LinkedIn/Threads/Twitter/Zalo/GBP.
 
 ## Rủi ro
-Thấp. Chỉ đụng scope variable, không thay đổi logic auth hay payload structure.
+Thấp. Chỉ thêm logic resolve, không động vào auth/forward path. Các caller cũ (UI web, scheduler) đã gửi đầy đủ `connectionId`+`content` → block resolve sẽ skip.
 
