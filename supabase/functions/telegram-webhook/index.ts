@@ -2166,7 +2166,7 @@ async function handleBrand(
     telegramUserId,
   );
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
     return;
   }
 
@@ -2976,9 +2976,11 @@ async function handleConfirmLinkCallback(args: {
     [
       `🎉 Chào ${pending.telegram_username ? "@" + pending.telegram_username : "bạn"}!`,
       "",
-      "Mình là *AI Marketing Agent* — tạo content, quản campaign, theo dõi quota từ Telegram.",
+      "Mình là *AI Marketing Agent* — trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.",
       "",
-      "👇 Thử ngay:",
+      "👉 Tối ưu quy trình marketing nhanh chóng, dễ sử dụng, phù hợp cho cả người mới bắt đầu.",
+      "",
+      "*Bắt đầu thử ngay!*",
     ].join("\n"),
     {
       parse_mode: "Markdown",
@@ -3005,7 +3007,7 @@ async function handleCampaigns(
     telegramUserId,
   );
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
     return;
   }
 
@@ -3088,7 +3090,7 @@ async function handleCancel(
     telegramUserId,
   );
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
     return;
   }
 
@@ -3886,7 +3888,7 @@ async function startCampaignWizard(ctx: HandlerCtx & { telegramUserId?: number; 
   }
   const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. Hãy /start trong DM trước.");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
     return;
   }
   const activeBrand = await getActiveBrandContext(supabase, botConfig.organizationId, chatId);
