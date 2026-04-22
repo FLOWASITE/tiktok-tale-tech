@@ -1,105 +1,159 @@
 
 
-# Telegram: Kết quả tạo bài rõ ràng & đầy đủ hơn
+# Telegram hiểu đầy đủ kênh: thêm Google Business + đồng bộ với hệ thống
 
-## Vấn đề hiện tại
+## Vấn đề
 
-Sau khi bot tạo xong 1 bài, message trả về chỉ có:
+User gõ "Tạo 1 bài đăng lên Gg business" → bot không hiểu vì:
+
+1. **Intent classifier** (`_shared/telegram-intent.ts`) enum `channel` chỉ có 8 giá trị: `facebook, instagram, website, tiktok, linkedin, threads, x, zalo` → **không có `google_business`**, không có `youtube`, không có alias "gg business / gbp / google maps".
+2. **Handler** (`telegram-webhook/index.ts` dòng 1193) `VALID_SINGLE_CHANNELS` cũng thiếu các kênh tương tự.
+3. **Channel picker** (callback `single:switch`) không list các kênh mới → user không có cách nào chọn lại.
+
+Hệ quả: AI bị ép enum trả `channel=""` → hoặc rơi xuống fast-fallback (FB/IG/TikTok hardcoded), hoặc chitchat.
+
+## Đối chiếu hệ thống thực tế
+
+Hệ thống đang hỗ trợ **12 kênh** (theo `src/utils/channelColors.ts` + `channel-publisher`):
+
+| Channel key (DB) | Tên hiển thị | Publish action | Có trong Telegram hiện tại? |
+|---|---|---|---|
+| facebook | Facebook | `facebook` | ✅ |
+| instagram | Instagram | `instagram` | ✅ |
+| twitter | X (Twitter) | `twitter` | ✅ (`x`) |
+| linkedin | LinkedIn | `linkedin` | ✅ |
+| tiktok | TikTok | `tiktok` | ✅ |
+| threads | Threads | `threads` | ✅ |
+| website | Website / Blog | `website` / `blog` | ✅ |
+| zalo_oa | Zalo OA | `zalo` | ✅ (`zalo`) |
+| **youtube** | YouTube | (chưa publish) | ❌ thiếu |
+| **google_maps** | Google Business | `google-business` | ❌ **thiếu** |
+| **email** | Email | (chưa publish) | ❌ thiếu |
+| **telegram** | Telegram | (n/a) | ❌ skip (không tự đăng vào chính nó) |
+
+## Kế hoạch sửa
+
+### 1. Tạo bảng alias chuẩn hoá kênh (single source of truth)
+
+File mới: `supabase/functions/_shared/telegram-channel-aliases.ts`
+
+```ts
+// Map mọi cách user gọi → channel key chuẩn (khớp với generate-multichannel)
+export const CHANNEL_ALIASES: Record<string, string> = {
+  // Facebook
+  fb: 'facebook', facebook: 'facebook', fanpage: 'facebook', 'face book': 'facebook',
+  // Instagram
+  ig: 'instagram', insta: 'instagram', instagram: 'instagram',
+  // X / Twitter
+  x: 'twitter', twitter: 'twitter', tweet: 'twitter', 'x.com': 'twitter',
+  // LinkedIn
+  li: 'linkedin', linkedin: 'linkedin', 'linked in': 'linkedin',
+  // TikTok
+  tt: 'tiktok', tiktok: 'tiktok', 'tik tok': 'tiktok',
+  // Threads
+  threads: 'threads', thread: 'threads',
+  // YouTube
+  yt: 'youtube', youtube: 'youtube', 'you tube': 'youtube',
+  // Website / Blog
+  web: 'website', website: 'website', blog: 'website', 'trang web': 'website',
+  // Zalo OA
+  zalo: 'zalo_oa', oa: 'zalo_oa', 'zalo oa': 'zalo_oa',
+  // Google Business (key mới quan trọng)
+  gbp: 'google_maps', 'gg business': 'google_maps', 'google business': 'google_maps',
+  'google my business': 'google_maps', 'google maps': 'google_maps', gmb: 'google_maps',
+  // Email
+  email: 'email', mail: 'email', newsletter: 'email',
+};
+
+export const SUPPORTED_TG_CHANNELS = [
+  'facebook','instagram','twitter','linkedin','tiktok','threads',
+  'youtube','website','zalo_oa','google_maps','email',
+] as const;
+
+export function normalizeChannel(input: string | undefined | null): string {
+  if (!input) return '';
+  const k = input.toLowerCase().trim();
+  return CHANNEL_ALIASES[k] || (SUPPORTED_TG_CHANNELS.includes(k as any) ? k : '');
+}
+
+export function extractChannelFromText(text: string): string {
+  const t = text.toLowerCase();
+  // Ưu tiên match cụm dài trước (vd "google business" trước "google")
+  const sortedKeys = Object.keys(CHANNEL_ALIASES).sort((a,b) => b.length - a.length);
+  for (const alias of sortedKeys) {
+    const re = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (re.test(t)) return CHANNEL_ALIASES[alias];
+  }
+  return '';
+}
 ```
-✅ Đã tạo 1 bài cho Facebook
-📌 Brand: <tên>
-🎨 Đang tạo ảnh trong nền…
 
-<preview 220 ký tự>
-```
+### 2. Cập nhật intent classifier
 
-Thiếu: tiêu đề bài (chỉ thấy preview), độ dài thật, số hashtag, trạng thái ảnh khi xong, link mở web app (ngoài Mini App), không cho user "tạo lại / đổi kênh" nhanh.
+File: `supabase/functions/_shared/telegram-intent.ts`
 
-## Mục tiêu
+- Mở rộng enum `channel` trong tool schema lên đủ **11 kênh** chuẩn:
+  ```
+  ["", "facebook","instagram","twitter","linkedin","tiktok","threads",
+   "youtube","website","zalo_oa","google_maps","email"]
+  ```
+- Sửa system prompt — thêm rõ:
+  > "Channel chuẩn (lowercase): facebook, instagram, twitter (alias: x, tweet), linkedin, tiktok, threads, youtube (alias: yt), website (alias: blog, web), zalo_oa (alias: zalo, oa), google_maps (alias: gbp, gg business, google business, gmb), email."
+- Sau khi nhận về `args.channel` từ AI → chạy thêm `normalizeChannel()` để tự sửa nếu AI viết sai (vd `x` → `twitter`).
 
-Tin nhắn kết quả phải trả lời 4 câu hỏi user thường thắc mắc ngay khi nhận:
-1. **Tiêu đề là gì?** (topic AI sinh)
-2. **Bài dài bao nhiêu, có hashtag/CTA không?** (số liệu nhanh)
-3. **Ảnh có hay không?** (cập nhật khi xong, không chỉ "đang tạo")
-4. **Mở ở đâu để duyệt/đăng?** (Mini App + web app)
+### 3. Cập nhật handler & channel picker
 
-## Thay đổi
+File: `supabase/functions/telegram-webhook/index.ts`
 
-### 1. Format message kết quả mới (file `telegram-webhook/index.ts`, hàm `handleGenerateSingle` dòng 1488-1509)
+- **Dòng 1193**: thay `VALID_SINGLE_CHANNELS` bằng import `SUPPORTED_TG_CHANNELS`.
+- **Dòng 1881-1893** (route `generate_single`): chạy `normalizeChannel(result.channel)` trước khi gọi `handleGenerateSingle`. Nếu vẫn rỗng → fallback `extractChannelFromText(text)` (regex match từ raw user message — bắt được "Gg business" ngay cả khi AI miss).
+- **`handleGenerateSingle`** (~1388): khi map sang publish action cho `generateImageForSinglePost`, dùng cùng channel key chuẩn.
+- **Inline keyboard `single:switch`** (callback handler ~3047): thêm hàng nút cho các kênh mới — bố trí 3 hàng × 4 nút:
+  ```
+  [📘 Facebook] [📸 IG] [🐦 X] [💼 LinkedIn]
+  [🎵 TikTok] [🧵 Threads] [📺 YouTube] [🌐 Website]
+  [💬 Zalo OA] [📍 Google Business] [✉️ Email]
+  ```
 
-Layout mới:
-```
-✅ Bài Facebook đã sẵn sàng
+### 4. UX message khi user gõ "tạo bài [kênh chưa support hoặc gõ sai]"
 
-📝 <Tiêu đề (effectiveTopic, in đậm)>
-📌 Brand: <name> · 📍 <industry nếu có>
+- Nếu `extractChannelFromText` trả `''` và AI cũng trả rỗng → bot reply:
+  ```
+  🤔 Mình chưa nhận ra kênh bạn muốn đăng. Chọn nhanh 1 kênh nhé:
+  [inline keyboard 11 nút như trên]
+  ```
+- Cache lại `prompt` vào `telegram_example_cache` để khi user bấm nút channel sẽ chạy `handleGenerateSingle` với prompt đó.
 
-📊 ~<N> từ · <H> hashtag · <emoji có/không CTA>
-🎨 Ảnh: ⏳ đang tạo (sẽ báo khi xong)
+### 5. Verify channel-publisher đã map đúng
 
-━━━━━━━━━
-<preview ~280 ký tự, italic>
-━━━━━━━━━
-```
+Đã có trong `channel-publisher/index.ts`:
+- `'google-business' → publish-google-business` ✅
+- `ACTION_TO_CHANNEL: 'google-business' → 'google_maps'` ✅
 
-Helper `summarizeContent(text)` trả về `{ wordCount, hashtagCount, hasCTA }`:
-- `wordCount`: đếm split theo whitespace
-- `hashtagCount`: regex `/#\w+/g`
-- `hasCTA`: regex tiếng Việt + EN: `/(inbox|nhắn|đặt lịch|đăng ký|liên hệ|click|tìm hiểu|xem thêm|gọi ngay|comment|dm me|order)/i`
+→ Khi `multi_channel_contents` lưu `selected_channels: ['google_maps']`, frontend Multichannel page và publish flow đã hỗ trợ sẵn. Chỉ cần Telegram truyền đúng key này xuống `generate-multichannel`.
 
-### 2. Inline keyboard 2 hàng (thay cho 1 nút duy nhất)
+### 6. Lệnh `/help` cập nhật danh sách kênh
 
-```
-[📝 Xem & duyệt (Mini App)]  [🌐 Mở web]
-[🔄 Tạo bài khác]            [🎯 Đổi kênh]
-```
-
-- Nút "Mở web" → `https://app.flowa.one/multichannel/<id>` (URL button)
-- Nút "Tạo bài khác" → `callback_data=regen_single:<channel>` → reuse prompt cache, chạy lại với cùng brand+channel
-- Nút "Đổi kênh" → `callback_data=switch_channel:<contentId>` → bot reply menu nhanh chọn FB/IG/X/LinkedIn/TikTok
-
-### 3. Notify khi ảnh xong (push tiếp theo)
-
-Trong `generateImageForSinglePost` (dòng ~1241-1281), sau khi `generate-brand-image` trả về thành công, gửi thêm 1 message follow-up:
-```
-🎨 Ảnh cho bài "<tiêu đề>" đã sẵn sàng → mở Mini App để xem.
-```
-Kèm nút "👁 Xem ảnh" deep-link Mini App.
-
-Nếu ảnh fail (status không OK sau timeout) → gửi:
-```
-⚠️ Ảnh chưa tạo được. Bạn có thể bấm "Tạo lại ảnh" trong Mini App.
-```
-
-### 4. Status message lúc đang chờ (dòng 1430-1432) — thêm progress hint
-
-Hiện tại: `🎯 Đang viết 1 bài cho *Facebook*…\n_Thường mất 20-40 giây_`
-
-Mới:
-```
-🎯 Đang viết bài Facebook…
-🧠 Bước 1/3: Suy nghĩ chủ đề & dàn ý
-⏱ ~20-40 giây · Mình sẽ ping khi xong
-```
-
-(Optional) edit message này theo từng bước nếu khả thi — nếu không thì giữ static để tránh phức tạp.
+Bổ sung dòng "Mình hỗ trợ 11 kênh: Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, **Google Business**, Email."
 
 ## Files sẽ sửa
 
 | File | Thay đổi |
-|------|----------|
-| `supabase/functions/telegram-webhook/index.ts` | `summarizeContent()` helper; rewrite block 1488-1509 (message body + keyboard); update progress message 1430-1432; gửi follow-up khi ảnh xong/fail trong `generateImageForSinglePost` (1241-1281); thêm callback handler cho `regen_single` + `switch_channel` |
+|---|---|
+| `supabase/functions/_shared/telegram-channel-aliases.ts` | **Mới** — alias map + `normalizeChannel()` + `extractChannelFromText()` |
+| `supabase/functions/_shared/telegram-intent.ts` | Mở rộng enum channel lên 11; cập nhật system prompt; chạy normalize ở output |
+| `supabase/functions/telegram-webhook/index.ts` | Dùng `SUPPORTED_TG_CHANNELS`; chạy normalize + extract fallback ở route `generate_single`; mở rộng channel picker `single:switch` lên 11 nút; thêm bước "ask for channel" khi không detect được; cập nhật `/help` |
 
 ## Edge cases
 
-- Bài rất ngắn (< 50 từ): vẫn show số liệu, không có separator nếu preview rỗng
-- Không tìm được CTA: bỏ icon CTA, hiển thị `📊 ~N từ · H hashtag`
-- `effectiveTopic` quá dài (>80 ký tự): truncate `…` trong title line, full vẫn lưu DB
-- Không có brand: bỏ dòng brand
-- Image gen fail: vẫn gửi message kết quả content trước, message ảnh độc lập
+- **User gõ "Gg business"**: `extractChannelFromText` regex `\bgg business\b` → `google_maps` ✅
+- **User gõ chỉ "tạo bài đăng" không kênh**: AI trả `channel=""` → bot show keyboard 11 kênh thay vì đoán đại
+- **User chưa kết nối Google Business**: vẫn tạo content lưu DB (giống flow web hiện tại). Lúc publish mới check connection — đó là behavior nhất quán, không thay đổi ở pha này
+- **AI vẫn trả enum cũ (`x`, `zalo`)**: `normalizeChannel` tự convert sang `twitter`, `zalo_oa`
 
 ## Ngoài phạm vi
 
-- Stream từng phần content qua Telegram (Telegram không hỗ trợ tốt edit nhiều lần liên tục — sẽ bị rate limit)
-- Gửi ảnh trực tiếp qua Telegram `sendPhoto` (sẽ làm pha sau, cần xử lý URL signed từ storage)
+- Build edge function `publish-youtube`, `publish-email` (chưa có) — chỉ thêm vào danh sách "tạo bài", chưa publish được
+- UI inline keyboard chọn brand trước khi tạo (đề cập pha trước, vẫn defer)
+- Hiển thị icon kênh thật (SVG) trong Telegram — Telegram chỉ hỗ trợ emoji trên button text
 
