@@ -21,6 +21,7 @@ export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
   const [deepLinkApprovalId, setDeepLinkApprovalId] = useState<string | null>(null);
+  const [deepLinkContentId, setDeepLinkContentId] = useState<string | null>(null);
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
   const [activeBrandName, setActiveBrandName] = useState<string | null>(null);
   const [brandSheetOpen, setBrandSheetOpen] = useState(false);
@@ -125,6 +126,15 @@ export default function TelegramApp() {
       } catch { /* ignore */ }
     }
 
+    // Deep-link to a specific multichannel content (e.g. "Xem ảnh" button from Telegram bot)
+    // → open Posts tab and auto-show the preview drawer for that content.
+    const mcMatch = /multichannel[/=]([0-9a-f-]{8,})/i.exec(hash);
+    if (mcMatch) {
+      setTab('posts');
+      setDeepLinkContentId(mcMatch[1]);
+      return;
+    }
+
     if (view === 'approve' || id) {
       setTab('approve');
       if (id) {
@@ -133,7 +143,7 @@ export default function TelegramApp() {
       }
       return;
     }
-    if (/multichannel|approve|approval/i.test(hash)) {
+    if (/approve|approval/i.test(hash)) {
       setTab('approve');
     }
   }, [authenticated]);
@@ -215,7 +225,7 @@ export default function TelegramApp() {
       <main className="flex-1 overflow-y-auto pb-20 flex flex-col">
         {tab === 'dashboard' && <DashboardTab orgId={organizationId} />}
         {tab === 'create' && <CreateTabSwitch orgId={organizationId} userId={userId} brandId={activeBrandId} brandName={activeBrandName} onGoConnections={() => setTab('connections')} />}
-        {tab === 'posts' && <PostsTab orgId={organizationId} brandId={activeBrandId} onGoConnections={() => setTab('connections')} />}
+        {tab === 'posts' && <PostsTab orgId={organizationId} brandId={activeBrandId} onGoConnections={() => setTab('connections')} autoOpenContentId={deepLinkContentId} onAutoOpened={() => setDeepLinkContentId(null)} />}
         {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} autoOpenId={deepLinkApprovalId} onAutoOpened={() => setDeepLinkApprovalId(null)} />}
         {tab === 'scheduled' && <ScheduledTab orgId={organizationId} />}
         {tab === 'inbox' && <InboxTab orgId={organizationId} userId={userId} brandId={activeBrandId} />}
