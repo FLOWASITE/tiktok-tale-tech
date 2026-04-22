@@ -1,126 +1,148 @@
 
-# Sửa lỗi “Không tạo được nội dung thủ công” do thiếu `content_goal` khi lưu `multi_channel_contents`
+# Sửa dứt điểm lỗi “không tạo được nội dung đa kênh thủ công”
 
 ## Vấn đề đã xác định
-Lỗi trong screenshot là:
+Luồng tạo nội dung hiện không còn fail vì thiếu `content_goal` nữa, mà đang fail ở bước lưu DB với lỗi mới:
 
 ```text
-null value in column "content_goal" of relation "multi_channel_contents" violates ...
+Could not find the 'content_angle' column of 'multi_channel_contents' in the schema cache
 ```
 
-Qua code hiện tại, nguyên nhân nằm ở `supabase/functions/generate-multichannel/index.ts`:
-
-- Nhánh insert **non-streaming** đã có:
-  - `content_goal: formData.contentGoal || 'engagement'`
-- Nhưng nhánh insert **streaming-mode** tại khoảng dòng `3277-3311` đang insert vào `multi_channel_contents` mà **không set `content_goal`**
-- Bảng `multi_channel_contents` đang yêu cầu `content_goal` là bắt buộc, nên luồng tạo thủ công bị fail ở bước lưu DB
-- Screenshot progress 95% cũng khớp với việc AI đã tạo xong nội dung nhưng fail ở bước persistence
-
-## Mục tiêu sửa
-Đảm bảo mọi luồng tạo nội dung thủ công đều luôn có strategy tối thiểu trước khi insert:
+## Nguyên nhân gốc
+Trong `supabase/functions/generate-multichannel/index.ts` đã có thay đổi mới để insert:
 
 - `content_goal`
+- `content_angle`
+- `content_role`
 - `selected_channels`
-- các field chiến lược liên quan nếu cần đồng bộ (`content_role`, `content_angle`)
+
+Nhưng schema thật của bảng `multi_channel_contents` hiện chỉ có:
+
+- `content_goal`
+- `content_role`
+- `selected_channels`
+
+và **không có `content_angle`**.
+
+Dấu hiệu xác nhận:
+- log của `generate-multichannel` báo lỗi `PGRST204` với `content_angle`
+- `src/integrations/supabase/types.ts` của `multi_channel_contents` không có field `content_angle`
+- migration hiện có chỉ thêm `content_role`, không có migration nào thêm `content_angle` cho bảng này
+
+## Hướng sửa đúng
+Không đụng DB ngay. Sửa function để:
+- vẫn resolve `content_angle` cho prompt/AI logic nội bộ nếu cần
+- nhưng **không ghi `content_angle` vào `multi_channel_contents`**
+
+Đây là cách an toàn nhất vì:
+- khớp với schema thật đang chạy
+- không cần migration mới
+- giải quyết trực tiếp lỗi đang chặn tạo nội dung thủ công
 
 ## Cách triển khai
 
-### 1) Chuẩn hóa strategy sớm trong `generate-multichannel`
+### 1) Gỡ `content_angle` khỏi mọi payload ghi vào `multi_channel_contents`
 Trong `supabase/functions/generate-multichannel/index.ts`:
 
-- Sau khi parse `formData`, tạo một bước chuẩn hóa dùng chung:
-  - `resolvedContentGoal`
-  - `resolvedContentRole`
-  - `resolvedContentAngle`
-  - `resolvedSelectedChannels`
+#### Streaming create path
+Ở block insert `multi_channel_contents` quanh đoạn `3337+`:
+- giữ:
+  - `content_goal: resolvedContentGoal`
+  - `content_role: resolvedContentRole`
+  - `selected_channels: resolvedSelectedChannels`
+- bỏ:
+  - `content_angle: resolvedContentAngle`
 
-Ưu tiên:
-1. giá trị user gửi lên
-2. giá trị derive từ `targetJourneyStage` / existing content / core content
-3. fallback an toàn (`education` hoặc giá trị đang được hệ thống dùng nhất quán)
+#### Non-streaming create path
+Ở block insert quanh đoạn `5305+`:
+- giữ:
+  - `content_goal`
+  - `content_role`
+  - `selected_channels`
+- bỏ:
+  - `content_angle`
 
-Mục tiêu là tránh mỗi nhánh insert/update tự fallback khác nhau.
+### 2) Giữ `resolveStrategy()` nhưng chỉ dùng `content_angle` cho generation logic
+Hàm `resolveStrategy(formData)` vẫn nên giữ:
+- `resolvedContentGoal`
+- `resolvedContentAngle`
+- `resolvedContentRole`
+- `resolvedSelectedChannels`
 
-### 2) Vá nhánh insert của streaming-mode
-Ở block insert `multi_channel_contents` quanh dòng `3277+`, bổ sung ít nhất:
+Nhưng dùng như sau:
+- `resolvedContentGoal` + `resolvedContentRole` + `resolvedSelectedChannels` để persist DB
+- `resolvedContentAngle` chỉ dùng cho:
+  - prompt building
+  - strategy validation
+  - AI generation / critique context
+  - logging nội bộ nếu cần
 
-- `content_goal: resolvedContentGoal`
-- `selected_channels: resolvedSelectedChannels`
-
-Và đồng bộ thêm nếu schema/logic hiện dùng:
-- `content_role: resolvedContentRole || null`
-- `content_angle: resolvedContentAngle || null`
-
-Như vậy streaming-mode sẽ lưu metadata giống non-streaming hơn, không còn fail vì null bắt buộc.
-
-### 3) Đồng bộ fallback giữa streaming và non-streaming
-Hiện có dấu hiệu fallback không nhất quán:
-- nhiều chỗ derive `education`
-- một chỗ insert fallback `engagement`
-
-Sẽ chuẩn hóa để cả 2 nhánh dùng cùng một nguồn truth, tránh:
-- UI/manual mode ra một kiểu
-- Telegram/agent mode ra một kiểu
-- DB saved row thiếu field ở một nhánh nhưng không thiếu ở nhánh khác
-
-### 4) Rà lại các luồng insert/update khác của `multi_channel_contents`
-Kiểm tra nhanh các chỗ:
-- create mới
-- expand mode
-- regenerate mode
-- single-channel mode
-- streaming persistence
+### 3) Rà lại toàn file để không còn chỗ nào ghi `content_angle` vào `multi_channel_contents`
+Kiểm tra toàn bộ các luồng:
+- create
+- streaming create
+- expand
+- regenerate
+- dedup return path
+- any update payload liên quan
 
 Mục tiêu:
-- chỗ nào insert row mới thì phải luôn có `content_goal`
-- nếu bảng còn bắt buộc `selected_channels`, cũng phải được set đầy đủ
-- update path không được vô tình làm mất `content_goal`
+- không còn `.insert()` / `.update()` nào trên `multi_channel_contents` chứa `content_angle`
+
+### 4) Chuẩn hóa metadata tối thiểu cần persist
+Để tránh lặp bug kiểu cũ, mọi create path của `multi_channel_contents` phải luôn có ít nhất:
+- `content_goal`
+- `content_role` nếu resolve được
+- `selected_channels`
+
+Không ép lưu `content_angle` nếu bảng không có cột này.
 
 ## Files cần sửa
 - `supabase/functions/generate-multichannel/index.ts`
 
 ## Không cần sửa
-- DB schema
-- frontend component progress UI
+- database schema
+- migration
+- frontend form
 - Telegram webhook
 - `src/integrations/supabase/types.ts`
 
 ## QA sau khi implement
 
-### Case 1 — Tạo nội dung thủ công từ UI
-Thử tạo 1 bài thủ công với 1 kênh (ví dụ Facebook)
+### Case 1 — Manual single-channel
+Tạo 1 bài thủ công với 1 kênh.
 
 Kỳ vọng:
-- không còn lỗi `null value in column "content_goal"`
-- tiến trình chạy xong và lưu được row mới
+- không còn lỗi `content_angle`
+- row được tạo thành công
 
-### Case 2 — Tạo thủ công nhiều kênh
-Thử 2–3 kênh
+### Case 2 — Manual multi-channel
+Tạo 2–3 kênh.
 
 Kỳ vọng:
-- row `multi_channel_contents` được tạo thành công
-- `selected_channels` và `content_goal` có giá trị hợp lệ
+- lưu được `multi_channel_contents`
+- `content_goal`, `content_role`, `selected_channels` hợp lệ
 
 ### Case 3 — Streaming path
-Chạy đúng luồng đang gây lỗi trong screenshot
+Chạy đúng luồng đang fail ở 90–95%.
 
 Kỳ vọng:
-- không fail ở mốc 90–95%
-- sau khi AI tạo xong, persistence hoàn tất
+- không fail ở bước persistence
+- task hoàn tất và trả content id
 
 ### Case 4 — Non-streaming path
-Xác nhận luồng cũ vẫn hoạt động
+Chạy luồng không stream.
 
 Kỳ vọng:
 - không regression
-- content goal vẫn được lưu đúng
+- vẫn lưu được bình thường
 
-### Case 5 — Existing strategy missing from request
-Tạo bài mà request không gửi rõ `contentGoal`
+### Case 5 — Missing strategy from request
+Tạo bài không gửi rõ `contentGoal`.
 
 Kỳ vọng:
-- hệ thống tự derive/fallback
-- DB vẫn có `content_goal` hợp lệ
+- hệ thống tự resolve fallback
+- DB vẫn lưu được vì có `content_goal`
 
 ## Kết quả sau khi sửa
-Luồng tạo nội dung thủ công sẽ không còn bị fail ở bước lưu dữ liệu. Nội dung tạo xong sẽ được persist thành công vào `multi_channel_contents`, thay vì dừng ở 95% do thiếu `content_goal`.
+Tạo nội dung đa kênh thủ công sẽ hoạt động lại bình thường. Function vẫn dùng được `content_angle` trong phần AI/strategy, nhưng sẽ không còn ghi vào bảng `multi_channel_contents` khi schema hiện tại không hỗ trợ cột đó.
