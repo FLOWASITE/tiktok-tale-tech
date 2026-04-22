@@ -49,6 +49,7 @@ function buildMiniAppUrl(orgId: string | null | undefined, hashPath?: string): s
 }
 import { classifyIntent, type ChatHistoryItem, type BrandContext } from "../_shared/telegram-intent.ts";
 import { answerCallback, editMessageText, editMessageReplyMarkup, escapeMd as escMdNotif, notifyQuotaThreshold } from "../_shared/telegram-notifier.ts";
+import { composeBrandedImage } from "../_shared/branded-image-composer.ts";
 
 type ActiveBrandContext = BrandContext & { id: string };
 
