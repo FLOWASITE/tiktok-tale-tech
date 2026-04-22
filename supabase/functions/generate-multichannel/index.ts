@@ -5341,7 +5341,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       
       const result = await supabase
         .from('multi_channel_contents')
-        .update(updatePayload)
+        .update(buildMultiChannelUpdatePayload(updatePayload))
         .eq('id', formData.contentId)
         .select()
         .single();
@@ -5368,7 +5368,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       } else {
       const result = await supabase
         .from("multi_channel_contents")
-        .insert({
+        .insert(buildMultiChannelCreatePayload({
           user_id: userId,
           organization_id: organizationId,
           title: generatedData.title,
@@ -5411,7 +5411,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           telegram_content: (generatedData.telegram_content && generatedData.telegram_content.length > 0) ? generatedData.telegram_content : null,
           tiktok_content: (generatedData.tiktok_content && generatedData.tiktok_content.length > 0) ? generatedData.tiktok_content : null,
           threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
-        })
+        }))
         .select()
         .single();
       
