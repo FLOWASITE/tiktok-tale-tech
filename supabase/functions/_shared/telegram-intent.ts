@@ -157,6 +157,10 @@ export async function classifyIntent(
 
     const args = JSON.parse(toolCall.function.arguments) as ClassifyResult;
     if (!args.intent) return fallback("unknown");
+    // Normalize channel để tự sửa nếu AI vẫn trả enum cũ (vd "x" → "twitter", "zalo" → "zalo_oa")
+    if (args.channel) {
+      args.channel = normalizeChannel(args.channel);
+    }
     return args;
   } catch (err) {
     console.error("[telegram-intent] classify failed:", err);
