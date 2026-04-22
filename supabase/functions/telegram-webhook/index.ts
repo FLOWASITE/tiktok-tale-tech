@@ -1239,7 +1239,18 @@ async function getDefaultBrandForOrg(supabase: any, organizationId: string): Pro
   }
 }
 
-/** Fire-and-forget: generate a brand image for a freshly-created multi_channel_content. */
+/** Quick stats about a generated post for the Telegram summary card. */
+function summarizeContent(text: string): { wordCount: number; hashtagCount: number; hasCTA: boolean } {
+  const t = (text || "").trim();
+  if (!t) return { wordCount: 0, hashtagCount: 0, hasCTA: false };
+  const wordCount = t.split(/\s+/).filter(Boolean).length;
+  const hashtagCount = (t.match(/#\w+/g) || []).length;
+  const hasCTA = /(inbox|nhắn|đặt lịch|đăng ký|liên hệ|click|tìm hiểu|xem thêm|gọi ngay|comment|dm me|order|mua ngay|truy cập|theo dõi)/i.test(t);
+  return { wordCount, hashtagCount, hasCTA };
+}
+
+/** Fire-and-forget: generate a brand image for a freshly-created multi_channel_content.
+ *  When done (success or fail), pings the user with a follow-up Telegram message. */
 async function generateImageForSinglePost(
   supabaseUrl: string,
   serviceKey: string,
@@ -1247,7 +1258,9 @@ async function generateImageForSinglePost(
   channel: string,
   brandTemplateId: string | null,
   channelText: string,
+  notify?: { botToken: string; chatId: number; orgId: string; titleForMsg: string },
 ): Promise<void> {
+  let ok = false;
   try {
     const isShortText = channelText.length > 0 && channelText.length <= 120;
     const imageContentType = isShortText ? "with_text" : "background_only";
@@ -1273,10 +1286,47 @@ async function generateImageForSinglePost(
       const errTxt = await res.text().catch(() => "");
       console.warn(`[handleGenerateSingle][image] non-OK ${res.status}: ${errTxt.slice(0, 200)}`);
     } else {
+      ok = true;
       console.log(`[handleGenerateSingle][image] generated for ${contentId}/${channel}`);
     }
   } catch (e) {
     console.warn("[handleGenerateSingle][image] failed:", e);
+  }
+
+  // Follow-up ping so user knows the image status (independent of content message).
+  if (notify) {
+    try {
+      const titleShort = notify.titleForMsg.length > 70
+        ? notify.titleForMsg.slice(0, 70) + "…"
+        : notify.titleForMsg;
+      if (ok) {
+        await sendMessage(notify.botToken, notify.chatId,
+          `🎨 *Ảnh đã sẵn sàng* cho bài _"${escapeMd(titleShort)}"_ — mở Mini App để xem.`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "👁 Xem ảnh",
+                web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
+              }]],
+            },
+          });
+      } else {
+        await sendMessage(notify.botToken, notify.chatId,
+          `⚠️ Ảnh chưa tạo được cho bài _"${escapeMd(titleShort)}"_. Bạn có thể bấm "Tạo lại ảnh" trong Mini App.`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "🖼 Mở Mini App",
+                web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
+              }]],
+            },
+          });
+      }
+    } catch (e) {
+      console.warn("[handleGenerateSingle][image] notify failed:", e);
+    }
   }
 }
 
