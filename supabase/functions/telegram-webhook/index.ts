@@ -3275,7 +3275,7 @@ async function handleSettings(
 
   const binding = await lookupUserBinding(supabase, botConfig.organizationId, chatId, telegramUserId);
   if (!binding) {
-    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối. /start trong DM trước.");
+    await sendMessage(botConfig.botToken, chatId, "Chưa kết nối với AI Marketing Agent. Hãy /start trong DM sau khi bấm “Kết nối tài khoản & bắt đầu ngay” trong app Flowa. Bắt đầu thử ngay!");
     return;
   }
 
