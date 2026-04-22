@@ -409,7 +409,7 @@ export function autoSelectTemplate(
   const hasComparisonSignal = hasAny(['so sánh', 'before after', 'before/after', 'trước và sau', 'đúng và sai', 'cũ và mới', 'versus', ' a/b', 'vs ']);
   const hasStatSignal = /\d+[\d.,]*\s*(%|x|triệu|tỷ|k|m|nghìn)?/.test(normalized) && hasAny(['tăng', 'giảm', 'đạt', 'kpi', 'roi', 'roas', 'ctr', 'số liệu', 'thống kê', 'insight', 'data', 'tỷ lệ']);
   const hasTestimonialSignal = hasAny(['review', 'testimonial', 'feedback', 'khách hàng', 'đánh giá', 'case study', 'phản hồi', 'chứng thực']);
-  const hasProductSignal = hasAny(['sản phẩm', 'dịch vụ', 'launch', 'ra mắt', 'usp', 'ưu điểm', 'benefit', 'công dụng', 'combo', 'gói dịch vụ']);
+  const hasProductSignal = hasAny(['sản phẩm', 'launch', 'ra mắt', 'usp', 'ưu điểm', 'benefit', 'công dụng', 'combo', 'gói dịch vụ']);
   const hasChecklistSignal = hasAny(['checklist', 'check list', 'lưu ý', 'quick tips', 'tips', 'điều cần nhớ', 'cần biết', 'must-know']);
   const hasProblemSolutionSignal = hasAny(['vấn đề', 'pain point', 'nỗi đau', 'giải pháp', 'solution', 'khắc phục', 'cách xử lý']);
   const hasEditorialSignal = hasAny(['trend', 'xu hướng', 'góc nhìn', 'opinion', 'quan điểm', 'insight cá nhân', 'thought leadership', 'editorial']);
