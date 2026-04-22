@@ -345,6 +345,16 @@ interface FooterLayoutProfile {
   minBottomClearance: number;
 }
 
+interface LayoutBehavior {
+  forceStack: boolean;
+  forceCompact: boolean;
+  useCompactSectionGap: boolean;
+  cardsShouldStack: boolean;
+  heroShouldStack: boolean;
+  splitAlign: 'center' | 'stretch';
+  rootJustify: 'center' | 'flex-start';
+}
+
 function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -526,6 +536,52 @@ function getSpacingTokens(ratioProfile: RatioProfile, theme: OverlayStyleTheme) 
     footerTopGap: Math.round(ratioProfile.footerTopGap * spacingScale),
     leftColumnWidth: ratioProfile.leftColumnWidth,
     rightColumnWidth: ratioProfile.rightColumnWidth,
+  };
+}
+
+function getLayoutBehavior(
+  imageWidth: number,
+  imageHeight: number,
+  ratioProfile: RatioProfile,
+  elements: StructuredOverlayRequest['elements'],
+): LayoutBehavior {
+  const cardsCount = elements.cards?.items?.length || 0;
+  const footerTextLength = elements.footer?.items?.reduce((sum, item) => sum + (item.text?.trim().length || 0), 0) || 0;
+  const heroLength = elements.heroText?.text?.trim().length || 0;
+  const headlineLength = elements.headline?.trim().length || 0;
+  const sectionCount = [
+    elements.banner,
+    elements.heroText,
+    elements.headline,
+    elements.cards,
+    elements.summaryRibbon,
+    elements.cta,
+    elements.footer,
+  ].filter(Boolean).length;
+
+  const hasDenseStack = !!(elements.heroText && elements.cards && elements.cta && elements.footer);
+  const hasSummaryRibbon = !!elements.summaryRibbon;
+  const narrowCanvas = imageWidth <= Math.round(imageHeight * 0.92) || imageWidth < 920;
+  const crowdedContent = sectionCount > 4 || cardsCount >= 3 || footerTextLength > 64 || heroLength > 24 || headlineLength > 72 || hasDenseStack || hasSummaryRibbon;
+  const veryCrowded = sectionCount >= 5 || cardsCount >= 4 || footerTextLength > 96 || (heroLength > 18 && headlineLength > 48);
+
+  const forceStack = ratioProfile.kind === 'square'
+    || ratioProfile.kind === 'tall'
+    || (ratioProfile.kind === 'portrait' && crowdedContent)
+    || (narrowCanvas && veryCrowded);
+  const forceCompact = ratioProfile.kind === 'tall'
+    || ratioProfile.kind === 'square'
+    || (ratioProfile.kind === 'portrait' && crowdedContent)
+    || (narrowCanvas && crowdedContent);
+
+  return {
+    forceStack,
+    forceCompact,
+    useCompactSectionGap: forceCompact || crowdedContent,
+    cardsShouldStack: forceCompact || ratioProfile.kind !== 'landscape' || cardsCount >= 3,
+    heroShouldStack: forceCompact || ratioProfile.kind !== 'landscape' || heroLength > 20,
+    splitAlign: forceStack ? 'stretch' : 'center',
+    rootJustify: forceCompact ? 'flex-start' : 'center',
   };
 }
 
@@ -1097,15 +1153,16 @@ function buildStructuredElement(
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
   const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer, elements.summaryRibbon].filter(Boolean).length;
+  const layoutBehavior = getLayoutBehavior(imageWidth, imageHeight, ratioProfile, elements);
+  const resolvedSectionGap = layoutBehavior.useCompactSectionGap ? spacingTokens.compactSectionGap : spacingTokens.sectionGap;
   const textTokens = getTextScaleTokens(ratioProfile, theme, elementCount, isEducationInfographic);
   // Don't strip CTA for education_infographic — it's designed for dense layouts
   if (elementCount >= 6 && elements.cta && !isEducationInfographic) {
     delete elements.cta;
   }
 
-  // Determine if split layout — auto-convert to stack for portrait/square
-  const isPortraitOrSquare = imageWidth <= imageHeight;
-  const isSplit = request.layout === 'split' && !isPortraitOrSquare; // fallback to stack on portrait
+  // Determine if split layout — auto-convert to stack when canvas is crowded
+  const shouldUseSplitRow = request.layout === 'split' && !layoutBehavior.forceStack;
 
   // Determine banner text color based on contrast validation
   const bannerTextColor = getContrastTextColor(theme.bannerBg);
@@ -1231,15 +1288,17 @@ function buildStructuredElement(
       const sideLabel = splitHeroMatch[2];
       const circleDiameter = textTokens.heroSplitCircle;
       const circleTextColor = getContrastTextColor(colors.primary);
-      const sideFontSize = fitTextWithRatio(sideLabel, Math.max(120, heroAvailableWidth - circleDiameter - spacingTokens.splitGap), textTokens.heroSideFont, 16, 54);
+      const heroInlineGap = layoutBehavior.heroShouldStack ? spacingTokens.inlineGap : spacingTokens.splitGap;
+      const sideFontSize = fitTextWithRatio(sideLabel, Math.max(120, heroAvailableWidth - (layoutBehavior.heroShouldStack ? 0 : circleDiameter) - heroInlineGap), textTokens.heroSideFont, 16, 54);
       children.push({
         type: 'div',
         props: {
           style: {
             display: 'flex',
+            flexDirection: layoutBehavior.heroShouldStack ? 'column' : 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: spacingTokens.splitGap,
+            gap: heroInlineGap,
             padding: `${spacingTokens.heroPadding}px`,
             flexGrow: 1,
             maxWidth: ratioProfile.contentMaxWidth,
@@ -1285,6 +1344,7 @@ function buildStructuredElement(
                   textShadow: theme.heroTextShadow,
                   textTransform: 'uppercase',
                   letterSpacing: '0.02em',
+                  textAlign: layoutBehavior.heroShouldStack ? 'center' : 'left',
                 },
                 children: sideLabel,
               },
@@ -1349,7 +1409,7 @@ function buildStructuredElement(
           backgroundColor: theme.headlineBg,
           borderRadius: theme.borderRadius,
           maxWidth: ratioProfile.headlineMaxWidth,
-          marginTop: spacingTokens.compactSectionGap,
+          marginTop: resolvedSectionGap,
         },
         children: {
           type: 'span',
@@ -1373,7 +1433,7 @@ function buildStructuredElement(
   // Cards grid — responsive: force vertical on portrait, use min(w,h) for font scaling
   if (elements.cards && elements.cards.items.length > 0) {
     // Auto-override card layout based on aspect ratio
-    const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
+    const effectiveCardLayout = layoutBehavior.cardsShouldStack ? 'vertical' : elements.cards.layout;
     const isGrid = effectiveCardLayout === 'grid-2x2';
     const cardFontSize = textTokens.cardTitleFont;
     const cardDescFontSize = textTokens.cardDescFont;
@@ -1529,7 +1589,7 @@ function buildStructuredElement(
           display: 'flex',
           flexWrap: isGrid ? 'wrap' : 'nowrap',
           gap: spacingTokens.cardGap,
-          padding: `${spacingTokens.compactSectionGap}px ${cardsPaddingRight}px ${spacingTokens.compactSectionGap}px ${cardsPaddingLeft}px`,
+          padding: `${resolvedSectionGap}px ${cardsPaddingRight}px ${resolvedSectionGap}px ${cardsPaddingLeft}px`,
           justifyContent: 'center',
           maxWidth: ratioProfile.contentMaxWidth,
         },
@@ -1555,7 +1615,7 @@ function buildStructuredElement(
           width: ribbonWidth,
           borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
           maxWidth: ratioProfile.contentMaxWidth,
-          marginTop: spacingTokens.compactSectionGap,
+          marginTop: resolvedSectionGap,
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
           borderLeft: `5px solid ${colors.secondary || '#FFFFFF'}`,
         },
@@ -1608,7 +1668,7 @@ function buildStructuredElement(
           padding: `${ctaPaddingY}px ${ctaPaddingX}px`,
           backgroundColor: colors.primary,
           borderRadius: theme.ctaBorderRadius ?? (theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0),
-          marginTop: spacingTokens.compactSectionGap,
+          marginTop: resolvedSectionGap,
           boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 2px 6px ${colors.primary}66`,
           maxWidth: ratioProfile.ctaMaxWidth,
           ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
@@ -1734,7 +1794,7 @@ function buildStructuredElement(
 
   // === Build final layout ===
   // If split layout: banner top, [hero left | cards right], footer bottom
-  if (isSplit && (elements.heroText || elements.headline) && elements.cards) {
+  if (shouldUseSplitRow && (elements.heroText || elements.headline) && elements.cards) {
     // Extract banner and footer from children (they stay full-width)
     const bannerEl = elements.banner ? children.shift() : null;
     const footerEl = elements.footer ? children.pop() : null;
@@ -1762,19 +1822,19 @@ function buildStructuredElement(
       props: {
         style: {
           display: 'flex',
-          flexDirection: 'row',
+          flexDirection: layoutBehavior.forceStack ? 'column' : 'row',
           flexGrow: 1,
           width: '100%',
-          gap: spacingTokens.splitGap,
-          padding: `${spacingTokens.compactSectionGap}px ${spacingTokens.splitPaddingX}px`,
-          alignItems: 'center',
+          gap: layoutBehavior.forceStack ? resolvedSectionGap : spacingTokens.splitGap,
+          padding: `${resolvedSectionGap}px ${spacingTokens.splitPaddingX}px`,
+          alignItems: layoutBehavior.splitAlign,
         },
         children: [
           {
             type: 'div',
             props: {
               style: {
-                display: 'flex', flexDirection: 'column', width: spacingTokens.leftColumnWidth, gap: spacingTokens.sectionGap, justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', width: layoutBehavior.forceStack ? '100%' : spacingTokens.leftColumnWidth, gap: resolvedSectionGap, justifyContent: 'center',
                 ...(logoMeta && logoMeta.position === 'center-left' ? { paddingLeft: logoSafeWidth } : {}),
               },
               children: leftChildren.length === 1 ? leftChildren[0] : leftChildren,
@@ -1784,7 +1844,7 @@ function buildStructuredElement(
             type: 'div',
             props: {
               style: {
-                display: 'flex', flexDirection: 'column', width: spacingTokens.rightColumnWidth, gap: spacingTokens.compactSectionGap, justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', width: layoutBehavior.forceStack ? '100%' : spacingTokens.rightColumnWidth, gap: resolvedSectionGap, justifyContent: 'center',
                 ...(logoMeta && logoMeta.position === 'center-right' ? { paddingRight: logoSafeWidth } : {}),
               },
               children: rightChildren.length === 1 ? rightChildren[0] : rightChildren,
@@ -1825,8 +1885,8 @@ function buildStructuredElement(
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: elements.banner ? 'flex-start' : 'center',
-        gap: spacingTokens.sectionGap,
+        justifyContent: elements.banner ? 'flex-start' : layoutBehavior.rootJustify,
+        gap: resolvedSectionGap,
         backgroundImage: `url(${baseImageUrl})`,
         backgroundSize: `${imageWidth}px ${imageHeight}px`,
         backgroundPosition: 'center',
