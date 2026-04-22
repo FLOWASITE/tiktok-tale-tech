@@ -8,7 +8,7 @@ import { normalizeChannel } from "./telegram-channel-aliases.ts";
 export type TelegramIntent =
   | { intent: "chitchat"; reply: string }
   | { intent: "generate_campaign"; prompt: string; reply?: string }
-  | { intent: "generate_single"; prompt: string; channel?: string; reply?: string }
+  | { intent: "generate_single"; prompt: string; channel?: string; writing_goal?: "sales" | "branding" | "engagement" | "value" | "lead"; reply?: string }
   | { intent: "status"; reply?: string }
   | { intent: "help"; reply?: string };
 
@@ -38,6 +38,13 @@ INTENTS:
     • google_maps (alias: gbp, gmb, gg business, google business, google my business, google maps)
     • email (alias: mail, newsletter)
   Nếu user KHÔNG nói rõ kênh → để channel="".
+  Có thể trích thêm "writing_goal" nếu user nói rõ mục tiêu/giọng viết của bài. Chỉ dùng 1 trong 5 giá trị:
+    • sales = bán hàng, chốt đơn, ưu đãi, mua ngay, CTA chuyển đổi
+    • branding = xây thương hiệu, tăng nhận diện, ghi nhớ thương hiệu, positioning
+    • engagement = tăng tương tác, kéo comment, thảo luận, phản hồi
+    • value = chia sẻ giá trị, kiến thức, tips, hướng dẫn, giáo dục
+    • lead = kéo khách, lấy lead, inbox, đăng ký, để lại thông tin, tư vấn
+  Nếu user không nói rõ mục tiêu/giọng viết → bỏ qua writing_goal.
 
 - "generate_campaign": user muốn TẠO CHIẾN DỊCH NHIỀU BÀI theo lịch.
   Dấu hiệu: "campaign", "chiến dịch", "X bài/tuần", "kế hoạch 2 tuần", "nhiều idea", "3 bài Facebook" (số ≥2), "5 idea TikTok".
@@ -61,6 +68,7 @@ export interface ClassifyResult {
   intent: "chitchat" | "generate_campaign" | "generate_single" | "status" | "help";
   prompt?: string;
   channel?: string;
+  writing_goal?: "sales" | "branding" | "engagement" | "value" | "lead";
   reply?: string;
   error?: ClassifyError;
 }
@@ -114,6 +122,11 @@ export async function classifyIntent(
               description: "Channel key chuẩn lowercase (chỉ khi intent=generate_single). Để rỗng nếu user chưa chỉ định.",
               enum: ["", "facebook", "instagram", "twitter", "linkedin", "tiktok", "threads", "youtube", "website", "zalo_oa", "google_maps", "email"],
             },
+            writing_goal: {
+              type: "string",
+              description: "Mục tiêu/giọng viết cho bài đơn lẻ. Chỉ dùng khi intent=generate_single và user nói rõ.",
+              enum: ["sales", "branding", "engagement", "value", "lead"],
+            },
             reply: {
               type: "string",
               description: "Lời trả lời tự nhiên (bắt buộc khi intent=chitchat)",
@@ -160,6 +173,9 @@ export async function classifyIntent(
     // Normalize channel để tự sửa nếu AI vẫn trả enum cũ (vd "x" → "twitter", "zalo" → "zalo_oa")
     if (args.channel) {
       args.channel = normalizeChannel(args.channel);
+    }
+    if (args.writing_goal && !["sales", "branding", "engagement", "value", "lead"].includes(args.writing_goal)) {
+      delete args.writing_goal;
     }
     return args;
   } catch (err) {
