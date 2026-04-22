@@ -269,6 +269,9 @@ interface FormData {
   agentMode?: boolean; // Agent pipeline mode: use plain text generation (no tool calling)
   // Agent model override — fallback when no channel-specific config exists
   model_override?: string;
+  // When true, skip extractTitleFromChannels and use formData.topic directly as title.
+  // Used by Telegram flow where topic is an AI-suggested headline (already polished).
+  useTopicAsTitle?: boolean;
 }
 
 // ============================================
@@ -3059,7 +3062,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               try {
                 // Prepare content object for critique (match normal mode structure)
                 const contentForCritique: Record<string, any> = {
-                  title: extractTitleFromChannels(channelResults, formData.topic),
+                  title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
                 };
                 for (const [ch, content] of Object.entries(channelResults)) {
                   contentForCritique[`${ch}_content`] = content;
@@ -3273,7 +3276,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                 .insert({
                   user_id: userId,
                   organization_id: organizationId || null,
-                  title: extractTitleFromChannels(channelResults, formData.topic),
+                  title: formData.useTopicAsTitle ? (formData.topic || 'Bài đăng').slice(0, 100) : extractTitleFromChannels(channelResults, formData.topic),
                   topic: formData.topic,
                   brand_template_id: formData.brandTemplateId || null,
                   brand_voice_variant_id: formData.brandVoiceVariantId || null,

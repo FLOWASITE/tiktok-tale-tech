@@ -1280,6 +1280,61 @@ async function generateImageForSinglePost(
   }
 }
 
+/**
+ * Call topic-ai (action: suggest) to get a polished headline-style topic
+ * based on brand context. Returns null on timeout/failure (caller falls back).
+ */
+async function suggestTopicFromAI(
+  organizationId: string,
+  brandTemplateId: string | null,
+  channel: string,
+  cleanedPrompt: string,
+): Promise<string | null> {
+  const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/topic-ai`;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+
+  try {
+    const queryHint = cleanedPrompt && cleanedPrompt.length >= 3 ? cleanedPrompt : undefined;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${key}`,
+        "apikey": key,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        action: "suggest",
+        organizationId,
+        brandTemplateId: brandTemplateId || undefined,
+        contentGoal: "awareness",
+        format: channel === "website" || channel === "blog" ? "blog" : "social",
+        query: queryHint,
+        categoryHint: queryHint,
+        skipWebSearch: true,
+        forceRefresh: false,
+      }),
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      console.warn(`[suggestTopicFromAI] non-OK ${res.status}`);
+      return null;
+    }
+    const data = await res.json().catch(() => ({} as any));
+    const first = Array.isArray(data?.suggestions) ? data.suggestions[0] : null;
+    const topic = (first?.topic || first?.title || "").toString().trim();
+    if (topic.length >= 20) return topic.slice(0, 280);
+    return null;
+  } catch (e) {
+    clearTimeout(timer);
+    console.warn("[suggestTopicFromAI] failed:", (e as Error)?.message || e);
+    return null;
+  }
+}
+
 async function handleGenerateSingle(
   ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string },
 ): Promise<void> {
@@ -1346,12 +1401,31 @@ async function handleGenerateSingle(
   // Clean prompt → topic. If empty after stripping (user only said "tạo bài đăng FB"),
   // fall back to brand-driven generic topic so generate-multichannel doesn't get garbage.
   const cleanedTopic = cleanTopicFromTelegramPrompt(prompt);
-  let effectiveTopic = cleanedTopic;
-  if (!effectiveTopic || effectiveTopic.length < 4) {
+
+  // B1: Try AI-suggested topic (polished, hook-style headline based on brand context).
+  // B2: Fallback to cleaned user prompt.
+  // B3: Fallback to brand-driven generic topic.
+  let effectiveTopic = "";
+  let titleSource: "ai_suggestion" | "cleaned_prompt" | "fallback" = "fallback";
+
+  const aiTopic = await suggestTopicFromAI(
+    botConfig.organizationId,
+    brand?.id || null,
+    channel,
+    cleanedTopic,
+  );
+  if (aiTopic && aiTopic.length >= 20) {
+    effectiveTopic = aiTopic;
+    titleSource = "ai_suggestion";
+  } else if (cleanedTopic && cleanedTopic.length >= 4) {
+    effectiveTopic = cleanedTopic;
+    titleSource = "cleaned_prompt";
+  } else {
     const brandHint = brand?.brand_name ? ` cho ${brand.brand_name}` : "";
     effectiveTopic = `Bài đăng ${channelLabel}${brandHint}`;
-    console.log(`[handleGenerateSingle] Topic too short after cleaning, using brand-driven fallback: "${effectiveTopic}"`);
+    titleSource = "fallback";
   }
+  console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
 
   await sendMessage(botConfig.botToken, chatId,
     appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, brand?.brand_name),
@@ -1379,6 +1453,7 @@ async function handleGenerateSingle(
         userId: binding.userId,
         qualityMode: "balanced",
         agentMode: true,
+        useTopicAsTitle: true,
       }),
     });
 
