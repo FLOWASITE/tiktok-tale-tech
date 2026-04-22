@@ -320,7 +320,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
                   "Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, bạn có thể đang chat ở chat khác. Hãy /start lại để liên kết đúng chat hiện tại.",
                   "",
                   "*Bắt đầu thử ngay!*",
-                ]),
+                ],
                 { parse_mode: "Markdown" },
               );
               console.warn("[telegram-webhook] onboarding sent — chat_id not bound", {
@@ -811,7 +811,7 @@ async function handleStart(
         "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
         "*Bắt đầu thử ngay!*",
-      ]),
+      ],
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -939,7 +939,7 @@ async function handleStart(
       "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
       "",
       "*Bắt đầu thử ngay!*",
-    ]),
+    ],
     {
       parse_mode: "Markdown",
       reply_markup: {
