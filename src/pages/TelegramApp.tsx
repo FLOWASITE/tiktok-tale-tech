@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +27,7 @@ export default function TelegramApp() {
   const [brandSheetOpen, setBrandSheetOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [expiredCount, setExpiredCount] = useState(0);
+  const lastProcessedDeepLinkRef = useRef<string>('');
 
   // Load active brand from telegram_chat_bindings + name
   const refreshActiveBrand = useCallback(async () => {
@@ -98,14 +99,40 @@ export default function TelegramApp() {
     void countExpiredConnections(organizationId, activeBrandId).then(setExpiredCount);
   }, [organizationId, activeBrandId, tab]);
 
-  // Deep link to approval
-  useEffect(() => {
+  const clearConsumedHash = useCallback(() => {
+    if (!window.location.hash) return;
+    try {
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const applyDeepLinkFromLocation = useCallback(() => {
     if (!authenticated) return;
+
     const search = window.location.search || '';
     const hash = window.location.hash || '';
+    const pathname = window.location.pathname || '';
     const params = new URLSearchParams(search);
     const view = params.get('view');
     let id = params.get('id') || params.get('approval_id') || params.get('approvalId');
+
+    const hashMcMatch = /(?:^|[#/])multichannel[/=]([0-9a-f-]{8,})/i.exec(hash);
+    const pathMcMatch = /\/telegram-app(?:\/.*)?\/multichannel\/([0-9a-f-]{8,})/i.exec(pathname)
+      || /\/multichannel\/([0-9a-f-]{8,})/i.exec(pathname);
+    const mcId = hashMcMatch?.[1] || pathMcMatch?.[1] || null;
+
+    if (mcId) {
+      const marker = `mc:${mcId}`;
+      if (lastProcessedDeepLinkRef.current !== marker) {
+        lastProcessedDeepLinkRef.current = marker;
+        setTab('posts');
+        setDeepLinkContentId(mcId);
+      }
+      clearConsumedHash();
+      return;
+    }
 
     if (!id) {
       const wa = getTelegramMiniApp() as unknown as { initDataUnsafe?: { start_param?: string } } | undefined;
@@ -126,27 +153,52 @@ export default function TelegramApp() {
       } catch { /* ignore */ }
     }
 
-    // Deep-link to a specific multichannel content (e.g. "Xem ảnh" button from Telegram bot)
-    // → open Posts tab and auto-show the preview drawer for that content.
-    const mcMatch = /multichannel[/=]([0-9a-f-]{8,})/i.exec(hash);
-    if (mcMatch) {
-      setTab('posts');
-      setDeepLinkContentId(mcMatch[1]);
+    if (view === 'approve' || id) {
+      const marker = id ? `approval:${id}` : 'approve:view';
+      if (lastProcessedDeepLinkRef.current !== marker) {
+        lastProcessedDeepLinkRef.current = marker;
+        setTab('approve');
+        if (id) {
+          setDeepLinkApprovalId(id);
+          try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
+        }
+      }
+      clearConsumedHash();
       return;
     }
 
-    if (view === 'approve' || id) {
-      setTab('approve');
-      if (id) {
-        setDeepLinkApprovalId(id);
-        try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
-      }
-      return;
-    }
     if (/approve|approval/i.test(hash)) {
+      lastProcessedDeepLinkRef.current = 'approve:hash';
       setTab('approve');
+      clearConsumedHash();
     }
-  }, [authenticated]);
+  }, [authenticated, clearConsumedHash]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+
+    const run = () => {
+      applyDeepLinkFromLocation();
+    };
+
+    const onVisible = () => {
+      if (!document.hidden) {
+        lastProcessedDeepLinkRef.current = '';
+        run();
+      }
+    };
+
+    run();
+    window.addEventListener('hashchange', run);
+    window.addEventListener('focus', run);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      window.removeEventListener('hashchange', run);
+      window.removeEventListener('focus', run);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [authenticated, applyDeepLinkFromLocation]);
 
   if (loading || !ready) {
     return (
