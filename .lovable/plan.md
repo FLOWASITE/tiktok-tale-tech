@@ -1,128 +1,141 @@
 
 
-# Telegram tạo ảnh = copy y nguyên pipeline thủ công
+# Sửa "2 user Telegram khác nhau cùng org không vào được cùng lúc"
 
-## Nguyên tắc bất di bất dịch
+## Tình trạng
 
-**Composer KHÔNG được tự đẻ ra logic riêng nào.** Mọi thứ phải dùng đúng các block đã có trong manual flow `useAutoImageGeneration` + `SimpleImageGenerator` (file `src/hooks/useAutoImageGeneration.ts` + `src/components/multichannel/SimpleImageGenerator.tsx`).
+Hiện DB có 1 binding duy nhất (User A — flowasite). User B trong cùng org Flowa không link được, hoặc link xong vẫn bị bot báo "Chưa kết nối".
 
-Manual flow làm 3 bước, theo thứ tự cố định:
+## 3 root causes đã xác định trong code
 
-1. **Decompose**: gọi edge function `decompose-image-request` → trả về `backgroundPrompt` + `overlayConfig` (chứa banner/heroText/cards/headline/cta/footer/colors).
-2. **Apply template**: chọn template (auto theo content) → ra payload `structuredElements + structuredColors + structuredTemplate + layout` chuẩn.
-3. **Generate**: gọi `generate-brand-image` với:
-   - `overlayMode='ai_render'`
-   - `imageContentType='with_text'`
-   - `structuredElements`, `structuredColors`, `structuredTemplate`
-   - `logoSafeZone`
-   - rồi `overlay-logo-canvas` để dán logo.
+### Cause #1 — Ghost cleanup quá rộng (KHÔNG scope `chat_type`)
+`telegram-webhook/index.ts` line 2843-2856 trong `handleConfirmLinkCallback`:
 
-→ Footer hiện trên ảnh là do **AI bake-in** vì `structuredElements.footer.items` được gửi sang generate-brand-image. Không có bước Satori footer riêng.
-
-## Cái sai của composer hiện tại
-
-`branded-image-composer.ts` đang:
-- Gửi `imageContentType='with_text'` chỉ khi text ≤120 ký tự, ngược lại `background_only` → mất chữ.
-- Không gọi `decompose-image-request`, không build `structuredElements/structuredColors/structuredTemplate` → AI không có dữ liệu footer/headline/cta để render → mất footer + headline.
-- Có comment "footer DEFERRED" → tự đẻ logic riêng, không khớp manual.
-- Không gửi `overlayMode='ai_render'` → ngay cả khi có structuredElements cũng bị bỏ qua.
-
-## Cách fix duy nhất: rewrite `branded-image-composer.ts` mirror y hệt manual
-
-### File `supabase/functions/_shared/branded-image-composer.ts`
-
-Viết lại theo đúng 3 step của manual:
-
-**Step A — Decompose (mới)**
-- Gọi `${supabaseUrl}/functions/v1/decompose-image-request` với:
-  - `description = channelText` (full, không cắt 120)
-  - `primaryColor = brand.primary_color || '#DC2626'`
-  - `secondaryColor = brand.secondary_color || '#FFFFFF'`
-  - `context = { contentRole: 'sprout', topic: channelTitle, textToInclude: channelText }`
-  - `imageStyle = brand.image_style_preset`
-- Nhận `{ backgroundPrompt, overlayConfig, suggestedLayout }`.
-- Fallback nếu decompose fail: build `overlayConfig` tối thiểu từ `brand.footer_info` + headline = câu đầu của `channelText` (≤80 chars), giống nhánh catch của manual.
-
-**Step B — Apply template (mới)**
-- Gọi đúng helper `applyTemplate` đã có trong `src/lib/hybridImageGenerator.ts`. Vì composer chạy ở Deno edge và file kia là client, ta **port nguyên helper sang `_shared/hybrid-image-utils.ts`** (copy 1:1, không sửa logic) hoặc import qua URL nếu phù hợp. Lý do port: bảo đảm cùng output với manual.
-- Template chọn:
-  - `overlayTemplate = autoSelectTemplate(channelText, overlayConfig)` y hệt manual.
-- Output:
-  ```
-  { backgroundPrompt, overlayConfig, layout }
-  ```
-- **Inject brand footer**: nếu `overlayConfig.footer` rỗng mà `brand.footer_info` có dữ liệu → đổ `brand.footer_info` (phone/website/address/email) vào `overlayConfig.footer.items` đúng shape mà `generate-brand-image` đợi (đây là điểm manual flow đã làm gián tiếp qua decompose/template; khi text ngắn không có footer, composer cần đảm bảo footer brand luôn được gửi).
-
-**Step C — Generate base image**
-Gọi `generate-brand-image` với payload **đồng nhất manual**:
+```ts
+.delete()
+.eq("telegram_user_id", effectiveTgUserId)
+.neq("user_id", pending.payload_uid);
 ```
-{
-  contentId,
-  channel,
-  brandTemplateId,
-  contentSummary: backgroundPrompt.description,   // KHÔNG phải channelText thô
-  aspectRatio: <kênh chuẩn>,
-  imageStylePreset: brand.image_style_preset,
-  contentRole: 'sprout',
-  contentAngle: 'educational',
-  hookMessage: <câu đầu channelText, ≤80 chars>,
-  imageContentType: 'with_text',
-  textToInclude: <hookMessage>,        // không gửi cả 500 chars
-  textPosition: 'center',
-  typographyStyle: 'modern',
-  promptMode: 'full',
-  structuredElements: overlayConfig (banner/heroText/cards/headline/cta/footer/summaryRibbon),
-  structuredColors: overlayConfig.colors,
-  structuredTemplate: overlayTemplate,
-  logoSafeZone: { position, sizePercent } nếu có logo,
+
+Vấn đề: `effectiveTgUserId` ở đây fallback về `fromTgId` — Telegram user của người vừa bấm Link Account. Nếu User B bấm xác nhận từ chat của họ, query này xóa **mọi binding khác của Telegram-user B** trên toàn hệ thống, kể cả group bindings hay binding ở org khác. Hợp lý cho ý đồ "1 Telegram user ↔ 1 Flowa account", **nhưng**:
+
+- Không scope `chat_type='private'` → có thể xóa nhầm group bindings của user khác.
+- Không scope `organization_id` → nếu User A và User B trong cùng 1 group đã bind, có thể bị xóa ngược.
+
+### Cause #2 — Default-bot collision check chặn nhầm user thứ 2 trong cùng org
+Line 697-714 trong `handleStart`:
+
+```ts
+if (isDefaultBot && bindingChatType === "private") {
+  const { data: collision } = await supabase
+    .from("telegram_chat_bindings")
+    .select("organization_id")
+    .eq("telegram_chat_id", chatId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (collision && collision.organization_id !== payload.org) { … reject … }
 }
 ```
-→ Đây là payload **bit-for-bit** giống `useAutoImageGeneration` line 199-227 (với `overlayMode='ai_render'` mặc định ở generate-brand-image).
 
-**Step D — Overlay logo**
-Giữ nguyên call `overlay-logo-canvas` hiện có (đã đúng manual).
+Logic này dùng `.maybeSingle()` → nếu User A và User B vô tình share Telegram chat (hiếm) hoặc query trả 2 row sẽ throw. Nhưng **vấn đề thật**: nó chỉ check khác org, **không có gì sai logic ở case 2 user khác Telegram cùng org** — nên đây chỉ là noise. **BỎ QUA cause #2** cho lần sửa này.
 
-**Bỏ hoàn toàn** "STEP 3 footer overlay TBD" và mọi nhánh `background_only`. Nếu decompose fail và fallback overlayConfig vẫn rỗng → vẫn gửi `imageContentType='with_text'` + headline + footer brand (không bao giờ rơi về `background_only`).
+### Cause #3 — Stale cleanup ở line 2858-2869 thiếu scope `is_active`
+```ts
+.delete()
+.eq("organization_id", pending.payload_org)
+.eq("user_id", pending.payload_uid)
+.eq("chat_type", "private")
+.neq("telegram_chat_id", chatId)
+```
 
-### File mới `supabase/functions/_shared/hybrid-image-utils.ts`
+Đây là cleanup khi User B reconnect → xóa các private binding cũ của chính User B. Đúng intent. Nhưng **không filter `is_active=true`** → nếu User B từng có binding inactive với chat_id khác, vẫn delete (hơi rộng, nhưng không gây lỗi cross-user). **Để nguyên**.
 
-- Port 1:1 từ `src/lib/hybridImageGenerator.ts` các hàm: `applyTemplate`, `autoSelectTemplate`, `decomposeRequest` (fallback local), types `StructuredOverlayConfig`, `DecomposedRequest`.
-- Không thay đổi logic, chỉ chuyển sang Deno-compatible (bỏ React imports nếu có, dùng `export` ESM).
-- Một file shared duy nhất, dùng được cả cho composer Telegram và bất cứ edge function nào sau này muốn dùng pipeline thủ công.
+### Cause #4 (THỰC SỰ — nguyên nhân chính) — Default bot rehydrate prefer chỉ 1 binding theo `chat_id`
 
-### File `supabase/functions/decompose-image-request/index.ts`
+Line 257-280 ở `Deno.serve`:
 
-Không sửa. Manual đã gọi qua `decomposeRequestWithAI` từ frontend; ta chỉ cần edge function này tồn tại và nhận POST. Nếu nó hiện chỉ accept JWT, đảm bảo composer gọi với `serviceKey` (Bearer + apikey) là OK vì server-to-server.
+```ts
+const { data: chatBinding } = await supabase
+  .from("telegram_chat_bindings")
+  .select("organization_id, linked_at")
+  .eq("telegram_chat_id", peekChatId)
+  .eq("is_active", true)
+  .order("linked_at", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+```
 
-→ Cần verify trong implement step: file này có `verify_jwt = false` hoặc accept service key.
+Logic này resolve theo `telegram_chat_id` — đúng cho User A và User B vì 2 chat_id khác nhau. **Không có vấn đề.**
+
+→ Tóm lại: code đường happy-path cho 2 user cùng org **đáng lẽ phải work**. Vấn đề thực tế đến từ **Cause #1** — khi User B confirm link, ghost cleanup có thể xóa nhầm row đang được upsert race-condition, hoặc xóa group binding cũ của User A khiến UI User A báo "Chưa kết nối".
+
+## Cách sửa
+
+### Fix A — Siết ghost cleanup (`telegram-webhook` line 2843-2856)
+
+Thêm 2 filter:
+- `chat_type = 'private'` — chỉ ảnh hưởng private DM bindings
+- (giữ nguyên `neq user_id`)
+
+```ts
+.delete()
+.eq("telegram_user_id", effectiveTgUserId)
+.eq("chat_type", "private")          // ← thêm
+.neq("user_id", pending.payload_uid);
+```
+
+Lý do: ý đồ "1 Telegram user ↔ 1 Flowa account" chỉ cần áp dụng cho private DM (mỗi Telegram user chỉ chat DM với bot dưới danh nghĩa 1 Flowa user). Group bindings không có khái niệm "1 Telegram user ↔ 1 Flowa user" vì nhiều người trong group cùng chat. Group bindings phải được giữ nguyên.
+
+### Fix B — Verify business rule có cho phép 2 user cùng org link không
+
+`uq_tg_bindings_active_private_org_user` là UNIQUE `(organization_id, user_id)` WHERE private+active. Đúng cho phép 2 user khác nhau cùng org có 2 binding → **DB không chặn**.
+
+`telegram_chat_bindings_organization_id_telegram_chat_id_key` là UNIQUE `(organization_id, telegram_chat_id)`. Cho phép 2 chat_id khác trong cùng org → **DB không chặn**.
+
+→ DB layer OK. Chỉ cần fix application layer.
+
+### Fix C — Test regression
+Tạo `supabase/functions/telegram-webhook/__tests__/multi-user-same-org.test.ts`:
+
+1. Setup: User A đã có private binding `(orgFlowa, userA, chatA, tgUserA)`.
+2. User B `/start` → confirm link với `(orgFlowa, userB, chatB, tgUserB)`.
+3. Assert sau confirm:
+   - Binding của User A vẫn `is_active=true` (không bị xóa).
+   - Binding mới của User B tồn tại với `is_active=true`.
+   - DB có đúng 2 row private active trong org Flowa.
+4. Edge case: User A có thêm group binding `(orgFlowa, NULL, chatGroup, tgUserA)`. Sau khi User B confirm, group binding vẫn còn.
+
+### Fix D — Reset state hiện tại để verify thủ công
+Sau khi deploy fix A:
+1. User B mở `/agents/telegram` → bấm "Get started on Telegram".
+2. Confirm trong bot.
+3. Mở SQL dashboard → expect 2 rows private active trong org Flowa với 2 user_id và 2 chat_id khác nhau.
+4. User A gõ `/help` từ chat của họ → bot trả lời cho User A.
+5. User B gõ `/help` từ chat của họ → bot trả lời cho User B.
 
 ## Files sẽ sửa
 
 | File | Thay đổi |
 |---|---|
-| `supabase/functions/_shared/branded-image-composer.ts` | Rewrite: thêm Step A decompose + Step B apply template + bỏ ngưỡng 120 chars + bỏ comment "footer DEFERRED" + payload generate-brand-image copy 1:1 manual. |
-| `supabase/functions/_shared/hybrid-image-utils.ts` | (Mới) Port `applyTemplate`, `autoSelectTemplate`, `decomposeRequest` fallback từ `src/lib/hybridImageGenerator.ts`. |
-| `supabase/functions/_shared/__tests__/branded-image-composer.test.ts` | (Mới) 3 test: (a) payload gửi generate-brand-image phải có `structuredElements.footer.items` khi brand có footer_info; (b) `imageContentType` luôn = `'with_text'`; (c) `textToInclude` ≤80 chars dù channelText 500 chars. |
+| `supabase/functions/telegram-webhook/index.ts` | Thêm `.eq("chat_type", "private")` vào ghost cleanup line 2848-2852. |
+| `supabase/functions/telegram-webhook/__tests__/multi-user-same-org.test.ts` | (Mới) 4 test case multi-user same-org parity. |
 
 KHÔNG động:
-- `telegram-webhook/index.ts` (composer là source of truth)
-- `generate-brand-image/index.ts` (đã hỗ trợ structuredElements sẵn cho manual)
-- `overlay-logo-canvas/index.ts`
-- `decompose-image-request/index.ts` (chỉ verify auth)
-
-## QA sau implement
-
-1. Test bot Telegram: `/post facebook <topic>` → xem ảnh trả về.
-2. Compare 1-1 với ảnh tạo cùng brand+topic từ App `/multichannel`:
-   - ✅ Headline baked-in (AI render)
-   - ✅ Logo đúng vị trí
-   - ✅ Footer bar (phone/website/address/email) hiện trong ảnh
-   - ✅ Style preset = brand setting
-3. Brand không có `footer_info` → ảnh có headline + logo, không có footer bar (giống App).
-4. Caption 1000+ chars → AI chỉ render headline 80 chars, không bị chen.
+- DB schema (đã đúng)
+- `useTelegramBinding` (logic đúng — chỉ filter theo user.id hiện tại)
+- `lookupUserBinding` (đã prefer private + scope đúng org)
+- Rehydrate logic (đã resolve đúng theo chat_id)
 
 ## Rủi ro
 
-- **Thấp**: Chỉ port helper sẵn có sang shared, không viết logic mới.
-- **Trung bình**: `decompose-image-request` có thể yêu cầu auth khác → cần verify trong lúc implement, nếu fail thì dùng nhánh fallback `decomposeRequest` local (đã port).
+- **Rất thấp**: chỉ thêm 1 filter để cleanup chính xác hơn, không thay đổi flow chính.
+- Test regression covers cả group binding để đảm bảo không gây side-effect.
+
+## QA sau implement
+
+1. User A: mở chat với bot → gõ `/help` → bot trả `/help` cho User A.
+2. User B: mở app → `/agents/telegram` → bấm "Get started on Telegram" → confirm trong bot của User B.
+3. User B gõ `/help` → bot trả `/help` cho User B.
+4. User A gõ `/status` → bot vẫn nhận diện đúng User A (binding của A không bị xóa).
+5. Check DB: 2 row active private trong `telegram_chat_bindings` cho org Flowa với 2 user_id khác nhau.
 
