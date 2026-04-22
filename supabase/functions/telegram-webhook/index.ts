@@ -556,10 +556,108 @@ function helpText(): string {
     "",
     "💬 *Hoặc chat tự nhiên — bot hiểu tiếng Việt!*",
     "• Tạo *1 bài lẻ*: _\"viết 1 bài Facebook về spa giảm 30%\"_",
+    "• *Bán hàng*: _\"Viết 1 bài Facebook về serum mới theo hướng bán hàng\"_",
+    "• *Xây thương hiệu*: _\"Tạo caption Instagram xây thương hiệu cho spa\"_",
+    "• *Tăng tương tác*: _\"Viết bài Facebook tăng tương tác cho fanpage\"_",
+    "• *Chia sẻ giá trị*: _\"Viết bài chia sẻ giá trị về chăm sóc da\"_",
+    "• *Kéo khách*: _\"Tạo bài kéo khách để lấy lead cho gói trị nám\"_",
     "• Tạo *campaign*: _\"campaign 2 tuần cho spa, 3 bài/tuần\"_",
     "",
     "🌐 *11 kênh hỗ trợ*: Facebook, Instagram, X, LinkedIn, TikTok, Threads, YouTube, Website, Zalo OA, *Google Business*, Email.",
   ].join("\n");
+}
+
+type TelegramWritingGoal = "sales" | "branding" | "engagement" | "value" | "lead";
+
+function detectWritingGoal(raw: string): TelegramWritingGoal | undefined {
+  const text = (raw || "").toLowerCase();
+  if (!text) return undefined;
+
+  if (/(lấy lead|tao lead|tạo lead|kéo khách|kiếm khách|thu lead|đăng ký|để lại thông tin|để lại sdt|để lại số điện thoại|inbox tư vấn|inbox ngay|book lịch tư vấn)/i.test(text)) {
+    return "lead";
+  }
+  if (/(bán hàng|chốt đơn|chốt sale|mua ngay|ưu đãi|khuyến mãi|khuyen mai|flash sale|đặt mua|đặt hàng|chốt khách)/i.test(text)) {
+    return "sales";
+  }
+  if (/(xây thương hiệu|thuong hieu|nhận diện|nhan dien|ghi nhớ thương hiệu|branding|positioning|định vị)/i.test(text)) {
+    return "branding";
+  }
+  if (/(tăng tương tác|tuong tac|comment|bình luận|binh luan|thảo luận|thaoluan|engagement|viral)/i.test(text)) {
+    return "engagement";
+  }
+  if (/(chia sẻ giá trị|chia se gia tri|kiến thức|kien thuc|tips|mẹo|meo|hướng dẫn|huong dan|giáo dục|giao duc|educational)/i.test(text)) {
+    return "value";
+  }
+  return undefined;
+}
+
+function getStrategyFromWritingGoal(writingGoal?: TelegramWritingGoal): {
+  contentGoal?: string;
+  contentRole?: "seed" | "sprout" | "harvest";
+  contentAngle?: "educational" | "storytelling" | "promotional" | "social_proof" | "qa_faq";
+  promptHint?: string;
+} {
+  switch (writingGoal) {
+    case "sales":
+      return {
+        contentGoal: "conversion",
+        contentRole: "harvest",
+        contentAngle: "promotional",
+        promptHint: "Ưu tiên lợi ích rõ ràng, CTA chốt hành động, nhưng vẫn tự nhiên và đáng tin.",
+      };
+    case "branding":
+      return {
+        contentGoal: "awareness",
+        contentRole: "seed",
+        contentAngle: "storytelling",
+        promptHint: "Ưu tiên cảm nhận thương hiệu, độ nhớ, câu chuyện và sự đồng cảm hơn là chốt sale trực diện.",
+      };
+    case "engagement":
+      return {
+        contentGoal: "engagement",
+        contentRole: "sprout",
+        contentAngle: "qa_faq",
+        promptHint: "Ưu tiên mở thảo luận, đặt câu hỏi, kéo bình luận/chia sẻ và tạo phản hồi tự nhiên.",
+      };
+    case "value":
+      return {
+        contentGoal: "education",
+        contentRole: "sprout",
+        contentAngle: "educational",
+        promptHint: "Ưu tiên chia sẻ kiến thức hữu ích, dễ áp dụng, giọng chuyên gia nhưng dễ hiểu.",
+      };
+    case "lead":
+      return {
+        contentGoal: "conversion",
+        contentRole: "harvest",
+        contentAngle: "social_proof",
+        promptHint: "Ưu tiên tạo nhu cầu tư vấn/inbox/đăng ký, dẫn dắt để lấy thông tin khách hàng mà không bị gượng ép.",
+      };
+    default:
+      return {};
+  }
+}
+
+function buildTelegramSinglePostPrompt(baseTopic: string, writingGoal?: TelegramWritingGoal): string {
+  const goalLabelMap: Record<TelegramWritingGoal, string> = {
+    sales: "Bán hàng",
+    branding: "Xây thương hiệu",
+    engagement: "Tăng tương tác",
+    value: "Chia sẻ giá trị",
+    lead: "Kéo khách / tạo lead",
+  };
+  const strategy = getStrategyFromWritingGoal(writingGoal);
+  const lines = [
+    baseTopic,
+    "",
+    "[Telegram single-post brief]",
+    writingGoal ? `- Mục tiêu bài viết: ${goalLabelMap[writingGoal]}` : "- Mục tiêu bài viết: linh hoạt theo ngữ cảnh user, không mặc định bán hàng.",
+    strategy.promptHint ? `- Định hướng chiến lược: ${strategy.promptHint}` : "",
+    "- Tránh viết theo công thức rập khuôn hoặc hook kiểu '90%...', 'đa số mọi người...' lặp lại.",
+    "- Ưu tiên đa dạng cách mở bài: câu hỏi, insight trái chiều, tình huống thực tế, lỗi thường gặp, checklist ngắn, before/after, mini story, góc nhìn chuyên gia.",
+    "- Giữ giọng viết tự nhiên, khác biệt, đúng ngữ cảnh Việt Nam; không tạo cảm giác template hoá.",
+  ].filter(Boolean);
+  return lines.join("\n");
 }
 
 interface HandlerCtx {
@@ -1462,6 +1560,7 @@ async function suggestTopicFromAI(
   brandTemplateId: string | null,
   channel: string,
   cleanedPrompt: string,
+  writingGoal?: TelegramWritingGoal,
 ): Promise<string | null> {
   const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/topic-ai`;
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1484,9 +1583,9 @@ async function suggestTopicFromAI(
           action: "suggest",
           organizationId,
           brandTemplateId: brandTemplateId || undefined,
-          contentGoal: "awareness",
+          contentGoal: getStrategyFromWritingGoal(writingGoal).contentGoal || "awareness",
           format: channel === "website" || channel === "blog" ? "blog" : "social",
-          query: queryHint,
+          query: queryHint ? buildTelegramSinglePostPrompt(queryHint, writingGoal) : undefined,
           categoryHint: queryHint,
           skipWebSearch: true,
           forceRefresh,
@@ -1540,9 +1639,9 @@ async function suggestTopicFromAI(
 }
 
 async function handleGenerateSingle(
-  ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string },
+  ctx: HandlerCtx & { telegramUserId?: number; prompt: string; channel: string; writingGoal?: TelegramWritingGoal },
 ): Promise<void> {
-  const { supabase, botConfig, chatId, telegramUserId, prompt, channel } = ctx;
+  const { supabase, botConfig, chatId, telegramUserId, prompt, channel, writingGoal } = ctx;
 
   if (!prompt) {
     await sendMessage(botConfig.botToken, chatId,
@@ -1593,6 +1692,8 @@ async function handleGenerateSingle(
   // Clean prompt → topic. If empty after stripping (user only said "tạo bài đăng FB"),
   // fall back to brand-driven generic topic so generate-multichannel doesn't get garbage.
   const cleanedTopic = cleanTopicFromTelegramPrompt(prompt);
+  const resolvedWritingGoal = writingGoal || detectWritingGoal(prompt);
+  const strategy = getStrategyFromWritingGoal(resolvedWritingGoal);
 
   // B1: Try AI-suggested topic (polished, hook-style headline based on brand context).
   // B2: Fallback to cleaned user prompt.
@@ -1605,6 +1706,7 @@ async function handleGenerateSingle(
     brand?.id || null,
     channel,
     cleanedTopic,
+    resolvedWritingGoal,
   );
   if (aiTopic && aiTopic.length >= 12) {
     effectiveTopic = aiTopic;
@@ -1635,6 +1737,13 @@ async function handleGenerateSingle(
   // Defensive: ensure effectiveTopic is always a usable string
   effectiveTopic = String(effectiveTopic || "").trim() || "Bài viết mới";
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
+  console.log("[handleGenerateSingle] strategy", {
+    writing_goal: resolvedWritingGoal || null,
+    contentGoal: strategy.contentGoal || null,
+    contentRole: strategy.contentRole || null,
+    contentAngle: strategy.contentAngle || null,
+    channel,
+  });
 
   await sendMessage(botConfig.botToken, chatId,
     appendBrandFooter(
@@ -1663,6 +1772,9 @@ async function handleGenerateSingle(
         organizationId: botConfig.organizationId,
         brandTemplateId: brand?.id || null,
         userId: binding.userId,
+        contentGoal: strategy.contentGoal,
+        contentRole: strategy.contentRole,
+        contentAngle: strategy.contentAngle,
         qualityMode: "balanced",
         agentMode: true,
         useTopicAsTitle: true,
@@ -2105,6 +2217,7 @@ async function handleFreeChat(
         // fallback regex extract từ raw user message để bắt "Gg business" / "yt" mà AI miss.
         let channel = normalizeChannel(result.channel);
         if (!channel) channel = extractChannelFromText(text);
+        const writingGoal = result.writing_goal || detectWritingGoal(text);
         await handleGenerateSingle({
           supabase,
           botConfig,
@@ -2112,8 +2225,9 @@ async function handleFreeChat(
           telegramUserId,
           prompt,
           channel,
+          writingGoal,
         });
-        assistantReply = `[generate_single ch=${channel || "?"}] ${prompt.slice(0, 200)}`;
+        assistantReply = `[generate_single ch=${channel || "?"} goal=${writingGoal || "default"}] ${prompt.slice(0, 200)}`;
         break;
       }
       case "status": {
