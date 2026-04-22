@@ -1,131 +1,128 @@
 
-# Sửa luồng Telegram khi UI báo “Đã kết nối” nhưng bot vẫn nói “Chưa kết nối”
 
-## Vấn đề đã xác định
+# Telegram tạo ảnh = copy y nguyên pipeline thủ công
 
-Có 3 điểm đang tạo cảm giác “mở chat vẫn không được”:
+## Nguyên tắc bất di bất dịch
 
-1. `TelegramLinkCard` ở trạng thái đã kết nối chỉ mở `https://t.me/<bot>` bằng nút **Mở chat**.  
-   Điều này **không tạo lại deeplink `/start` có token**, nên không thể tự sửa binding bị stale.
+**Composer KHÔNG được tự đẻ ra logic riêng nào.** Mọi thứ phải dùng đúng các block đã có trong manual flow `useAutoImageGeneration` + `SimpleImageGenerator` (file `src/hooks/useAutoImageGeneration.ts` + `src/components/multichannel/SimpleImageGenerator.tsx`).
 
-2. `telegram-webhook` khi confirm link private chat chỉ dọn “ghost binding” của **user khác**, nhưng **không dọn binding private cũ của chính cùng user trong cùng workspace**.  
-   Kết quả: có thể tồn tại nhiều active binding cho cùng user/workspace theo các `chat_id` khác nhau.
+Manual flow làm 3 bước, theo thứ tự cố định:
 
-3. `useTelegramBinding` đang `.maybeSingle()` trên active private binding của user trong org, tức là đang giả định luôn chỉ có 1 row. Khi dữ liệu bị stale/trùng, UI có thể vẫn xanh nhưng không phản ánh binding thực sự bot đang dùng.
+1. **Decompose**: gọi edge function `decompose-image-request` → trả về `backgroundPrompt` + `overlayConfig` (chứa banner/heroText/cards/headline/cta/footer/colors).
+2. **Apply template**: chọn template (auto theo content) → ra payload `structuredElements + structuredColors + structuredTemplate + layout` chuẩn.
+3. **Generate**: gọi `generate-brand-image` với:
+   - `overlayMode='ai_render'`
+   - `imageContentType='with_text'`
+   - `structuredElements`, `structuredColors`, `structuredTemplate`
+   - `logoSafeZone`
+   - rồi `overlay-logo-canvas` để dán logo.
 
-## Cách sửa
+→ Footer hiện trên ảnh là do **AI bake-in** vì `structuredElements.footer.items` được gửi sang generate-brand-image. Không có bước Satori footer riêng.
 
-### 1) Thêm luồng “Kết nối lại” rõ ràng trên UI
-Mục tiêu: user không phải đoán rằng phải gỡ rồi kết nối lại.
+## Cái sai của composer hiện tại
 
-**File: `src/components/agents/TelegramLinkCard.tsx`**
-- Ở trạng thái `binding` tồn tại, thêm action rõ ràng:
-  - `Mở chat`
-  - `Kết nối lại`
-  - `Gỡ kết nối`
-- `Kết nối lại` sẽ là CTA recovery chính, không ẩn trong menu `...`.
-- Thêm note nhỏ:
-  - “Nếu bot báo chưa kết nối, bấm Kết nối lại để làm mới liên kết chat hiện tại.”
+`branded-image-composer.ts` đang:
+- Gửi `imageContentType='with_text'` chỉ khi text ≤120 ký tự, ngược lại `background_only` → mất chữ.
+- Không gọi `decompose-image-request`, không build `structuredElements/structuredColors/structuredTemplate` → AI không có dữ liệu footer/headline/cta để render → mất footer + headline.
+- Có comment "footer DEFERRED" → tự đẻ logic riêng, không khớp manual.
+- Không gửi `overlayMode='ai_render'` → ngay cả khi có structuredElements cũng bị bỏ qua.
 
-### 2) Thêm helper reset + deeplink mới trong hook
-**File: `src/hooks/useTelegramBinding.ts`**
-- Thay query personal binding từ `maybeSingle()` sang:
-  - `select('*')`
-  - filter active/private/current org/current user
-  - order `linked_at desc`
-  - chọn row mới nhất làm binding chính
-- Nếu có >1 row active:
-  - set cờ `hasBindingConflict`
-  - ưu tiên row mới nhất
-- Thêm helper mới, ví dụ:
-  - `reconnectCurrentWorkspace()`
-- Flow của helper:
-  1. Xóa toàn bộ active private bindings của `currentOrganization.id + user.id`
-  2. clear state local (`binding`, `prefetchedDeeplink`)
-  3. tạo deeplink mới bằng `ensureDeeplink(true)`
-  4. mở Telegram với deeplink mới
+## Cách fix duy nhất: rewrite `branded-image-composer.ts` mirror y hệt manual
 
-Như vậy user bấm một nút là ra đúng flow “gỡ + kết nối lại”.
+### File `supabase/functions/_shared/branded-image-composer.ts`
 
-### 3) Dọn stale private bindings ở backend khi confirm link
-**File: `supabase/functions/telegram-webhook/index.ts`**
+Viết lại theo đúng 3 step của manual:
 
-Trong nhánh confirm link private chat:
-- Trước khi `upsert` binding mới, dọn các row active private cũ của:
-  - cùng `organization_id = pending.payload_org`
-  - cùng `user_id = pending.payload_uid`
-  - `chat_type = 'private'`
-  - khác `telegram_chat_id` hiện tại
-- Giữ cleanup “ghost binding” hiện có cho trường hợp Telegram user đang gắn với account khác.
-- Bổ sung log rõ ràng:
-  - số row stale đã cleanup
-  - org/user/chat hiện tại
-  - resolved path (`chat_id`, `telegram_user_id`, `reconnect`)
+**Step A — Decompose (mới)**
+- Gọi `${supabaseUrl}/functions/v1/decompose-image-request` với:
+  - `description = channelText` (full, không cắt 120)
+  - `primaryColor = brand.primary_color || '#DC2626'`
+  - `secondaryColor = brand.secondary_color || '#FFFFFF'`
+  - `context = { contentRole: 'sprout', topic: channelTitle, textToInclude: channelText }`
+  - `imageStyle = brand.image_style_preset`
+- Nhận `{ backgroundPrompt, overlayConfig, suggestedLayout }`.
+- Fallback nếu decompose fail: build `overlayConfig` tối thiểu từ `brand.footer_info` + headline = câu đầu của `channelText` (≤80 chars), giống nhánh catch của manual.
 
-Mục tiêu là mỗi user trong mỗi workspace chỉ còn **1 active private binding đúng chat hiện tại**.
+**Step B — Apply template (mới)**
+- Gọi đúng helper `applyTemplate` đã có trong `src/lib/hybridImageGenerator.ts`. Vì composer chạy ở Deno edge và file kia là client, ta **port nguyên helper sang `_shared/hybrid-image-utils.ts`** (copy 1:1, không sửa logic) hoặc import qua URL nếu phù hợp. Lý do port: bảo đảm cùng output với manual.
+- Template chọn:
+  - `overlayTemplate = autoSelectTemplate(channelText, overlayConfig)` y hệt manual.
+- Output:
+  ```
+  { backgroundPrompt, overlayConfig, layout }
+  ```
+- **Inject brand footer**: nếu `overlayConfig.footer` rỗng mà `brand.footer_info` có dữ liệu → đổ `brand.footer_info` (phone/website/address/email) vào `overlayConfig.footer.items` đúng shape mà `generate-brand-image` đợi (đây là điểm manual flow đã làm gián tiếp qua decompose/template; khi text ngắn không có footer, composer cần đảm bảo footer brand luôn được gửi).
 
-### 4) Khóa invariant ở database để không tái diễn
-**Database migration mới**
-- Thêm partial unique index:
-
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS uq_tg_bindings_active_private_org_user
-ON public.telegram_chat_bindings (organization_id, user_id)
-WHERE chat_type = 'private' AND user_id IS NOT NULL AND is_active = true;
+**Step C — Generate base image**
+Gọi `generate-brand-image` với payload **đồng nhất manual**:
 ```
+{
+  contentId,
+  channel,
+  brandTemplateId,
+  contentSummary: backgroundPrompt.description,   // KHÔNG phải channelText thô
+  aspectRatio: <kênh chuẩn>,
+  imageStylePreset: brand.image_style_preset,
+  contentRole: 'sprout',
+  contentAngle: 'educational',
+  hookMessage: <câu đầu channelText, ≤80 chars>,
+  imageContentType: 'with_text',
+  textToInclude: <hookMessage>,        // không gửi cả 500 chars
+  textPosition: 'center',
+  typographyStyle: 'modern',
+  promptMode: 'full',
+  structuredElements: overlayConfig (banner/heroText/cards/headline/cta/footer/summaryRibbon),
+  structuredColors: overlayConfig.colors,
+  structuredTemplate: overlayTemplate,
+  logoSafeZone: { position, sizePercent } nếu có logo,
+}
+```
+→ Đây là payload **bit-for-bit** giống `useAutoImageGeneration` line 199-227 (với `overlayMode='ai_render'` mặc định ở generate-brand-image).
 
-Tác dụng:
-- ngăn cùng một user trong cùng workspace có nhiều active private binding
-- khớp đúng business rule hiện tại của UI/hook
+**Step D — Overlay logo**
+Giữ nguyên call `overlay-logo-canvas` hiện có (đã đúng manual).
 
-Lưu ý:
-- không đụng group bindings (`user_id IS NULL`)
-- không đổi RLS hiện có
+**Bỏ hoàn toàn** "STEP 3 footer overlay TBD" và mọi nhánh `background_only`. Nếu decompose fail và fallback overlayConfig vẫn rỗng → vẫn gửi `imageContentType='with_text'` + headline + footer brand (không bao giờ rơi về `background_only`).
 
-## Test cần thêm
+### File mới `supabase/functions/_shared/hybrid-image-utils.ts`
 
-### Backend
-Tạo test regression cho `telegram-webhook` hoặc extract helper để test riêng:
-1. Có binding private cũ cùng org+user → confirm link mới phải xóa row cũ
-2. Có ghost binding user khác cùng `telegram_user_id` → vẫn cleanup đúng
-3. Sau reconnect chỉ còn 1 active private binding cho org+user
+- Port 1:1 từ `src/lib/hybridImageGenerator.ts` các hàm: `applyTemplate`, `autoSelectTemplate`, `decomposeRequest` (fallback local), types `StructuredOverlayConfig`, `DecomposedRequest`.
+- Không thay đổi logic, chỉ chuyển sang Deno-compatible (bỏ React imports nếu có, dùng `export` ESM).
+- Một file shared duy nhất, dùng được cả cho composer Telegram và bất cứ edge function nào sau này muốn dùng pipeline thủ công.
 
-### Frontend
-Test cho `TelegramLinkCard`:
-1. Khi đang connected phải hiện nút `Kết nối lại`
-2. Khi `hasBindingConflict=true` phải hiện warning recovery
-3. Bấm `Kết nối lại` gọi đúng helper recovery flow
+### File `supabase/functions/decompose-image-request/index.ts`
 
-## Kết quả sau khi làm xong
+Không sửa. Manual đã gọi qua `decomposeRequestWithAI` từ frontend; ta chỉ cần edge function này tồn tại và nhận POST. Nếu nó hiện chỉ accept JWT, đảm bảo composer gọi với `serviceKey` (Bearer + apikey) là OK vì server-to-server.
 
-User có 2 cách rõ ràng:
-- `Mở chat` để vào bot
-- `Kết nối lại` để refresh binding nếu bot báo “Chưa kết nối”
-
-Đồng thời hệ thống backend + DB sẽ đảm bảo:
-- không còn nhiều active private bindings cho cùng user/workspace
-- UI xanh sẽ phản ánh đúng binding hiện hành
-- reconnect sẽ thực sự sửa lỗi, không chỉ mở bot như hiện tại
+→ Cần verify trong implement step: file này có `verify_jwt = false` hoặc accept service key.
 
 ## Files sẽ sửa
 
-- `src/hooks/useTelegramBinding.ts`
-- `src/components/agents/TelegramLinkCard.tsx`
-- `supabase/functions/telegram-webhook/index.ts`
-- `supabase/functions/telegram-webhook/__tests__/*` hoặc helper test tương ứng
-- `supabase/migrations/<new_migration>.sql`
+| File | Thay đổi |
+|---|---|
+| `supabase/functions/_shared/branded-image-composer.ts` | Rewrite: thêm Step A decompose + Step B apply template + bỏ ngưỡng 120 chars + bỏ comment "footer DEFERRED" + payload generate-brand-image copy 1:1 manual. |
+| `supabase/functions/_shared/hybrid-image-utils.ts` | (Mới) Port `applyTemplate`, `autoSelectTemplate`, `decomposeRequest` fallback từ `src/lib/hybridImageGenerator.ts`. |
+| `supabase/functions/_shared/__tests__/branded-image-composer.test.ts` | (Mới) 3 test: (a) payload gửi generate-brand-image phải có `structuredElements.footer.items` khi brand có footer_info; (b) `imageContentType` luôn = `'with_text'`; (c) `textToInclude` ≤80 chars dù channelText 500 chars. |
 
-## Rủi ro
-Thấp đến trung bình:
-- Thay đổi an toàn vì chỉ siết invariant cho private binding
-- Cần test kỹ case multi-org + default bot để không làm hỏng flow “switch workspace”
+KHÔNG động:
+- `telegram-webhook/index.ts` (composer là source of truth)
+- `generate-brand-image/index.ts` (đã hỗ trợ structuredElements sẵn cho manual)
+- `overlay-logo-canvas/index.ts`
+- `decompose-image-request/index.ts` (chỉ verify auth)
 
 ## QA sau implement
-1. Tạo trạng thái stale binding
-2. Vào `/agents/telegram`
-3. Bấm `Kết nối lại`
-4. Telegram mở deeplink `/start` mới
-5. Confirm/start xong:
-   - bot trả lời bình thường
-   - DB chỉ còn 1 active private binding cho user trong workspace
-   - UI vẫn hiện đúng “Đã kết nối”
+
+1. Test bot Telegram: `/post facebook <topic>` → xem ảnh trả về.
+2. Compare 1-1 với ảnh tạo cùng brand+topic từ App `/multichannel`:
+   - ✅ Headline baked-in (AI render)
+   - ✅ Logo đúng vị trí
+   - ✅ Footer bar (phone/website/address/email) hiện trong ảnh
+   - ✅ Style preset = brand setting
+3. Brand không có `footer_info` → ảnh có headline + logo, không có footer bar (giống App).
+4. Caption 1000+ chars → AI chỉ render headline 80 chars, không bị chen.
+
+## Rủi ro
+
+- **Thấp**: Chỉ port helper sẵn có sang shared, không viết logic mới.
+- **Trung bình**: `decompose-image-request` có thể yêu cầu auth khác → cần verify trong lúc implement, nếu fail thì dùng nhánh fallback `decomposeRequest` local (đã port).
+
