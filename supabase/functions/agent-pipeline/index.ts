@@ -204,12 +204,29 @@ async function processDirectContentSchedule(
   try {
     const { data: content, error: contentError } = await supabase
       .from("multi_channel_contents")
-      .select(`id, organization_id, brand_template_id, ${config.contentColumn}, channel_images, title`)
+      .select(`id, organization_id, brand_template_id, created_by, ${config.contentColumn}, channel_images, title`)
       .eq("id", schedule.content_id)
       .maybeSingle();
 
     if (contentError || !content) {
       throw new Error("Multi-channel content not found");
+    }
+
+    // Notify Telegram: scheduled → publishing
+    try {
+      const { notifyPublishStarted } = await import("../_shared/telegram-notifier.ts");
+      const orgId = (content as any).organization_id || schedule.organization_id;
+      if (orgId) {
+        await notifyPublishStarted(
+          supabase,
+          orgId,
+          (content as any).created_by ?? null,
+          (content as any).title || "Bài đăng",
+          { channel: schedule.channel },
+        );
+      }
+    } catch (notifErr) {
+      console.warn("[agent-pipeline] notifyPublishStarted failed (non-fatal):", notifErr);
     }
 
     const contentText = String((content as any)[config.contentColumn] || "").trim();
