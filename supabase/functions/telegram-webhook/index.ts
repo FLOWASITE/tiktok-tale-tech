@@ -1671,6 +1671,17 @@ async function handleGenerateSingle(
           url: `https://app.flowa.one/multichannel/${contentId}`,
         },
       ]);
+      // Publish row — only for channels Flowa can publish to directly
+      const PUBLISHABLE_CHANNELS = new Set([
+        "facebook", "instagram", "linkedin", "twitter", "tiktok",
+        "threads", "zalo_oa", "google_maps", "website",
+      ]);
+      if (PUBLISHABLE_CHANNELS.has(channel)) {
+        keyboard.push([
+          { text: "🚀 Đăng ngay", callback_data: `pub:now:${contentId}:${channel}` },
+          { text: "📅 Lên lịch", callback_data: `pub:menu:${contentId}:${channel}` },
+        ]);
+      }
       keyboard.push([
         { text: "🔄 Tạo bài khác", callback_data: `single:regen:${channel}` },
         { text: "🎯 Đổi kênh", callback_data: `single:switch:${contentId}` },
