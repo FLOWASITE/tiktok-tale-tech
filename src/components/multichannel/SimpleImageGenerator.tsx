@@ -51,6 +51,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
 import { NEGATIVE_PROMPT_DEFAULTS } from '@/lib/imagePromptDefaults';
+import type { BrandFooterInfo } from '@/components/BrandForm';
 
 // Map frontend Channel to V3 ChannelKey
 function toChannelKey(ch: Channel): ChannelKey {
@@ -198,6 +199,17 @@ function getBestOverlayText(content: MultiChannelContent, channel: Channel): str
     return s.length > 100 ? s.slice(0, 97) + '...' : s;
   }
   return content.topic?.slice(0, 100) || '';
+}
+
+function buildFooterItems(footerInfo?: BrandFooterInfo | null) {
+  if (!footerInfo) return [];
+  const items = [
+    footerInfo.phone ? { icon: 'phone', text: footerInfo.phone } : null,
+    footerInfo.website ? { icon: 'globe', text: footerInfo.website } : null,
+    footerInfo.email ? { icon: 'mail', text: footerInfo.email } : null,
+    footerInfo.address ? { icon: 'map-pin', text: footerInfo.address } : null,
+  ].filter(Boolean);
+  return items as { icon?: string; text: string }[];
 }
 
 // ─── Component ────────────────────────────────────────────────────
@@ -404,27 +416,11 @@ export function SimpleImageGenerator({
   }, [content, selectedChannels]);
 
 
-  // Complexity analysis for hybrid mode auto-detection
+  // Complexity analysis for UI hints only
   const complexityAnalysis = useMemo(() => {
     const summaryText = Object.values(contentSummaries).join(' ');
     return analyzeContentComplexity(summaryText + ' ' + textToInclude);
   }, [contentSummaries, textToInclude]);
-
-  // Auto-enable hybrid mode when complexity is high OR when "Để AI lo" mode
-  useEffect(() => {
-    if (complexityAnalysis.score === 'complex') {
-      setUseHybridMode(true);
-    }
-  }, [complexityAnalysis.score]);
-
-  useEffect(() => {
-    if (promptMode === 'full') {
-      setUseHybridMode(true);
-      setOverlayMode('ai_render');
-    } else {
-      setOverlayMode('satori');
-    }
-  }, [promptMode]);
 
   useEffect(() => {
     if (!isNegativePromptCustomized) {
@@ -524,11 +520,42 @@ export function SimpleImageGenerator({
     return () => { cancelled = true; };
   }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate, selectedChannels, content, contentRole, contentGoal, contentAngle]);
 
+  const footerItems = useMemo(
+    () => buildFooterItems((brandTemplate?.footer_info as BrandFooterInfo | null) || null),
+    [brandTemplate?.footer_info]
+  );
+
+  const aiStructuredOverlay = useMemo(() => {
+    if (!hybridOverlay) return undefined;
+    const { footer, ...restElements } = hybridOverlay.elements || {};
+    return {
+      ...hybridOverlay,
+      elements: restElements,
+    };
+  }, [hybridOverlay]);
+
+  const footerOverlay = useMemo(() => {
+    if (footerItems.length === 0) return undefined;
+    return {
+      layout: 'simple' as const,
+      elements: {
+        footer: {
+          items: footerItems,
+        },
+      },
+      colors: hybridOverlay?.colors || {
+        primary: brandPrimaryColor || '#DC2626',
+        secondary: '#FFFFFF',
+        text: '#FFFFFF',
+      },
+    };
+  }, [footerItems, hybridOverlay?.colors, brandPrimaryColor]);
+
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
     channels: selectedChannels,
-    contentSummaries: useHybridMode && hybridBackgroundPrompt
+    contentSummaries: hybridBackgroundPrompt
       ? Object.fromEntries(selectedChannels.map(ch => [ch, hybridBackgroundPrompt])) as Record<string, string>
       : contentSummaries,
     includeLogo: includeLogo && !!brandLogoUrl,
@@ -553,13 +580,14 @@ export function SimpleImageGenerator({
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
     promptMode,
-    structuredOverlay: hybridOverlay,
-    overlayMode: useHybridMode ? overlayMode : undefined,
-    structuredTemplate: useHybridMode ? overlayTemplate : undefined,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt, useHybridMode,
+    structuredOverlay: aiStructuredOverlay,
+    footerOverlay,
+    overlayMode,
+    structuredTemplate: overlayTemplate,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay, overlayMode, overlayTemplate, v3Suggestions]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, aiStructuredOverlay, footerOverlay, overlayMode, overlayTemplate, v3Suggestions]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
