@@ -953,6 +953,7 @@ function buildStructuredElement(
   const fontFamily = hasCustomFont ? theme.fontFamily : 'sans-serif';
   const headingFontFamily = hasCustomFont ? (theme.headingFontFamily || theme.fontFamily) : 'sans-serif';
   const sp = theme.spacingMultiplier; // spacing multiplier
+  const ratioProfile = getRatioProfile(imageWidth, imageHeight);
 
   // === Smart Density: reduce visual clutter ===
   // Detect education_infographic mode (has summaryRibbon = dense layout designed for it)
@@ -971,6 +972,7 @@ function buildStructuredElement(
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
   const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer, elements.summaryRibbon].filter(Boolean).length;
+  const textTokens = getTextScaleTokens(ratioProfile, theme, elementCount, isEducationInfographic);
   // Don't strip CTA for education_infographic — it's designed for dense layouts
   if (elementCount >= 6 && elements.cta && !isEducationInfographic) {
     delete elements.cta;
@@ -1024,7 +1026,7 @@ function buildStructuredElement(
           props: {
             style: {
               color: bannerTextColor,
-              fontSize: fitTextToWidth(elements.banner.text, imageWidth - bannerPaddingLeft - bannerPaddingRight - 48, Math.round(imageWidth * (isEducationInfographic ? 0.04 : 0.03)), 14),
+              fontSize: fitTextWithRatio(elements.banner.text, imageWidth - bannerPaddingLeft - bannerPaddingRight - 48, textTokens.bannerFont, 14, 34),
               fontFamily,
               fontWeight: theme.fontWeight,
               letterSpacing: theme.bannerLetterSpacing || '0.05em',
@@ -1040,9 +1042,9 @@ function buildStructuredElement(
 
   // Hero text (large centered text or number circle)
   if (elements.heroText) {
-    const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
-    const baseFontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
-    const fontSize = fitTextToWidth(elements.heroText.text.trim(), imageWidth * 0.75, baseFontSize, 18);
+    const sizeMap = { xl: 0.9, '2xl': 1, '3xl': 1.18 };
+    const baseFontSize = clampNumber(Math.round(textTokens.heroFont * (sizeMap[elements.heroText.fontSize] || 1)), 24, 96);
+    const fontSize = fitTextWithRatio(elements.heroText.text.trim(), imageWidth * 0.75, baseFontSize, 18, 96);
     const heroTrimmed = elements.heroText.text.trim();
     // Expanded hero matching: pure numbers, numbers with % or +, decimal numbers
     const isNumericHero = /^\d+(\.\d+)?[%+]?$/.test(heroTrimmed);
@@ -1051,7 +1053,7 @@ function buildStructuredElement(
     
     if (isNumericHero) {
       // Hero Number Circle: large styled circle with number inside
-      const circleDiameter = Math.round(imageWidth * 0.15);
+      const circleDiameter = textTokens.heroCircle;
       const circleTextColor = getContrastTextColor(colors.primary);
       children.push({
         type: 'div',
@@ -1082,7 +1084,7 @@ function buildStructuredElement(
                 props: {
                   style: {
                     color: circleTextColor,
-                    fontSize: fitTextToWidth(heroTrimmed, circleDiameter * 0.7, Math.round(circleDiameter * 0.6), 16),
+                      fontSize: fitTextWithRatio(heroTrimmed, circleDiameter * 0.7, Math.round(circleDiameter * 0.6), 16, Math.round(circleDiameter * 0.64)),
                     fontFamily,
                     fontWeight: 700,
                     textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
@@ -1098,9 +1100,9 @@ function buildStructuredElement(
       // Split hero: number in circle + side label (e.g. "3 THAY ĐỔI")
       const circleNum = splitHeroMatch[1];
       const sideLabel = splitHeroMatch[2];
-      const circleDiameter = Math.round(imageWidth * 0.12);
+      const circleDiameter = textTokens.heroSplitCircle;
       const circleTextColor = getContrastTextColor(colors.primary);
-      const sideFontSize = fitTextToWidth(sideLabel, imageWidth * 0.45, Math.round(imageWidth * 0.05), 16);
+      const sideFontSize = fitTextWithRatio(sideLabel, imageWidth * 0.45, textTokens.heroSideFont, 16, 54);
       children.push({
         type: 'div',
         props: {
@@ -1148,7 +1150,7 @@ function buildStructuredElement(
                 style: {
                   color: colors.primary,
                   fontSize: sideFontSize,
-                  fontFamily,
+                  fontFamily: headingFontFamily,
                   fontWeight: 700,
                   textShadow: theme.heroTextShadow,
                   textTransform: 'uppercase',
@@ -1182,7 +1184,7 @@ function buildStructuredElement(
               style: {
                 color: colors.primary,
                 fontSize,
-                fontFamily,
+                  fontFamily: headingFontFamily,
                 fontWeight: theme.fontWeight >= 600 ? 700 : 600,
                 textShadow: theme.heroTextShadow,
               },
@@ -1196,6 +1198,7 @@ function buildStructuredElement(
 
   // Headline
   if (elements.headline) {
+    const headlineFontSize = fitTextWithRatio(elements.headline, imageWidth * 0.8, textTokens.headlineFont, 18, 48);
     children.push({
       type: 'div',
       props: {
@@ -1203,18 +1206,18 @@ function buildStructuredElement(
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '16px 32px',
+          padding: `${textTokens.headlinePaddingY}px ${textTokens.headlinePaddingX}px`,
           backgroundColor: theme.headlineBg,
           borderRadius: theme.borderRadius,
-          maxWidth: '85%',
+          maxWidth: ratioProfile.headlineMaxWidth,
         },
         children: {
           type: 'span',
           props: {
             style: {
               color: colors.text || '#FFFFFF',
-              fontSize: Math.round(imageWidth * 0.035),
-              fontFamily,
+              fontSize: headlineFontSize,
+              fontFamily: headingFontFamily,
               fontWeight: theme.fontWeight,
               textAlign: 'center',
               lineHeight: 1.4,
@@ -1232,9 +1235,8 @@ function buildStructuredElement(
     // Auto-override card layout based on aspect ratio
     const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
     const isGrid = effectiveCardLayout === 'grid-2x2';
-    const fontBase = Math.min(imageWidth, imageHeight); // scale by smaller dimension
-    const cardFontSize = Math.max(Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025)), 14);
-    const cardDescFontSize = Math.max(Math.round(imageWidth * 0.015), 12);
+    const cardFontSize = textTokens.cardTitleFont;
+    const cardDescFontSize = textTokens.cardDescFont;
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
     const cardElements = elements.cards.items.map((item, idx) => {
@@ -1249,7 +1251,7 @@ function buildStructuredElement(
 
       if (hasNumberedCards && item.number != null) {
         // Large numbered circle
-        const numSize = Math.round(imageWidth * 0.04);
+        const numSize = textTokens.cardNumberSize;
         cardChildren.push({
           type: 'div',
           props: {
@@ -1395,7 +1397,7 @@ function buildStructuredElement(
 
   // Summary ribbon (between cards and CTA) — enhanced visual
   if (elements.summaryRibbon) {
-    const ribbonFontSize = Math.round(imageWidth * 0.024);
+    const ribbonFontSize = textTokens.ribbonFont;
     const ribbonBg = elements.summaryRibbon.bgColor || colors.primary;
     children.push({
       type: 'div',
@@ -1405,7 +1407,7 @@ function buildStructuredElement(
           alignItems: 'center',
           justifyContent: 'center',
           background: `linear-gradient(135deg, ${ribbonBg}, ${ribbonBg}bb)`,
-          padding: '14px 32px',
+          padding: `${scaleFromMin(ratioProfile.sizeBasis, 0.018, 12, 18)}px ${scaleFromMin(ratioProfile.sizeBasis, 0.04, 24, 40)}px`,
           width: '90%',
           borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
           marginTop: 10,
@@ -1443,7 +1445,12 @@ function buildStructuredElement(
   // CTA button
   if (elements.cta) {
     // CTA safe-area: avoid logo at bottom-center
-    const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center') ? logoSafeHeight : 0;
+    const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center')
+      ? Math.round(logoSafeHeight * ratioProfile.safeBottomMultiplier)
+      : 0;
+    const ctaFontSize = fitTextWithRatio(elements.cta, imageWidth * 0.7, textTokens.ctaFont, 14, 30);
+    const ctaPaddingY = textTokens.ctaPaddingY;
+    const ctaPaddingX = textTokens.ctaPaddingX;
 
     children.push({
       type: 'div',
@@ -1452,11 +1459,12 @@ function buildStructuredElement(
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '12px 32px',
+          padding: `${ctaPaddingY}px ${ctaPaddingX}px`,
           backgroundColor: colors.primary,
           borderRadius: theme.ctaBorderRadius ?? (theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0),
           marginTop: 8,
           boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 2px 6px ${colors.primary}66`,
+          maxWidth: ratioProfile.ctaMaxWidth,
           ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
         },
         children: {
@@ -1464,7 +1472,7 @@ function buildStructuredElement(
           props: {
             style: {
               color: getContrastTextColor(colors.primary),
-              fontSize: Math.round(imageWidth * 0.025),
+              fontSize: ctaFontSize,
               fontFamily,
               fontWeight: theme.fontWeight,
             },
@@ -1485,8 +1493,8 @@ function buildStructuredElement(
       request.footerMode || 'auto',
     );
     const footerFontSize = isEducationInfographic
-      ? Math.max(footerLayout.fontSize, 13)
-      : footerLayout.fontSize;
+      ? Math.max(footerLayout.fontSize, textTokens.footerFont)
+      : clampNumber(footerLayout.fontSize, 12, textTokens.footerFont + 2);
     const normalizedFooterItems = [...elements.footer.items].sort((a, b) => {
       const order = ['phone', 'globe', 'mail', 'map-pin'];
       return order.indexOf(a.icon || '') - order.indexOf(b.icon || '');
@@ -1568,6 +1576,7 @@ function buildStructuredElement(
           backgroundColor: theme.bannerBg,
           padding: `${footerLayout.paddingY}px ${footerPaddingRight}px ${footerPaddingBottom + footerLayout.paddingY}px ${footerPaddingLeft}px`,
           width: '100%',
+          maxWidth: ratioProfile.footerMaxWidth,
           boxSizing: 'border-box',
           borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
           marginTop: 'auto',
