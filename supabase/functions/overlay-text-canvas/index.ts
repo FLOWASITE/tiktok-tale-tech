@@ -345,6 +345,16 @@ interface FooterLayoutProfile {
   minBottomClearance: number;
 }
 
+interface LayoutBehavior {
+  forceStack: boolean;
+  forceCompact: boolean;
+  useCompactSectionGap: boolean;
+  cardsShouldStack: boolean;
+  heroShouldStack: boolean;
+  splitAlign: 'center' | 'stretch';
+  rootJustify: 'center' | 'flex-start';
+}
+
 function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -526,6 +536,52 @@ function getSpacingTokens(ratioProfile: RatioProfile, theme: OverlayStyleTheme) 
     footerTopGap: Math.round(ratioProfile.footerTopGap * spacingScale),
     leftColumnWidth: ratioProfile.leftColumnWidth,
     rightColumnWidth: ratioProfile.rightColumnWidth,
+  };
+}
+
+function getLayoutBehavior(
+  imageWidth: number,
+  imageHeight: number,
+  ratioProfile: RatioProfile,
+  elements: StructuredOverlayRequest['elements'],
+): LayoutBehavior {
+  const cardsCount = elements.cards?.items?.length || 0;
+  const footerTextLength = elements.footer?.items?.reduce((sum, item) => sum + (item.text?.trim().length || 0), 0) || 0;
+  const heroLength = elements.heroText?.text?.trim().length || 0;
+  const headlineLength = elements.headline?.trim().length || 0;
+  const sectionCount = [
+    elements.banner,
+    elements.heroText,
+    elements.headline,
+    elements.cards,
+    elements.summaryRibbon,
+    elements.cta,
+    elements.footer,
+  ].filter(Boolean).length;
+
+  const hasDenseStack = !!(elements.heroText && elements.cards && elements.cta && elements.footer);
+  const hasSummaryRibbon = !!elements.summaryRibbon;
+  const narrowCanvas = imageWidth <= Math.round(imageHeight * 0.92) || imageWidth < 920;
+  const crowdedContent = sectionCount > 4 || cardsCount >= 3 || footerTextLength > 64 || heroLength > 24 || headlineLength > 72 || hasDenseStack || hasSummaryRibbon;
+  const veryCrowded = sectionCount >= 5 || cardsCount >= 4 || footerTextLength > 96 || (heroLength > 18 && headlineLength > 48);
+
+  const forceStack = ratioProfile.kind === 'square'
+    || ratioProfile.kind === 'tall'
+    || (ratioProfile.kind === 'portrait' && crowdedContent)
+    || (narrowCanvas && veryCrowded);
+  const forceCompact = ratioProfile.kind === 'tall'
+    || ratioProfile.kind === 'square'
+    || (ratioProfile.kind === 'portrait' && crowdedContent)
+    || (narrowCanvas && crowdedContent);
+
+  return {
+    forceStack,
+    forceCompact,
+    useCompactSectionGap: forceCompact || crowdedContent,
+    cardsShouldStack: forceCompact || ratioProfile.kind !== 'landscape' || cardsCount >= 3,
+    heroShouldStack: forceCompact || ratioProfile.kind !== 'landscape' || heroLength > 20,
+    splitAlign: forceStack ? 'stretch' : 'center',
+    rootJustify: forceCompact ? 'flex-start' : 'center',
   };
 }
 
