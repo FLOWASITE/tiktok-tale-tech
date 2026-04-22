@@ -1542,6 +1542,7 @@ function buildStructuredElement(
   if (elements.summaryRibbon) {
     const ribbonFontSize = textTokens.ribbonFont;
     const ribbonBg = elements.summaryRibbon.bgColor || colors.primary;
+    const ribbonWidth = resolveBlockWidth(imageWidth, ratioProfile, ratioProfile.contentMaxWidth, spacingTokens.ribbonPaddingX, centerSafeLeft, centerSafeRight);
     children.push({
       type: 'div',
       props: {
@@ -1550,10 +1551,11 @@ function buildStructuredElement(
           alignItems: 'center',
           justifyContent: 'center',
           background: `linear-gradient(135deg, ${ribbonBg}, ${ribbonBg}bb)`,
-          padding: `${scaleFromMin(ratioProfile.sizeBasis, 0.018, 12, 18)}px ${scaleFromMin(ratioProfile.sizeBasis, 0.04, 24, 40)}px`,
-          width: '90%',
+          padding: `${spacingTokens.ribbonPaddingY}px ${spacingTokens.ribbonPaddingX}px`,
+          width: ribbonWidth,
           borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
-          marginTop: 10,
+          maxWidth: ratioProfile.contentMaxWidth,
+          marginTop: spacingTokens.compactSectionGap,
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
           borderLeft: `5px solid ${colors.secondary || '#FFFFFF'}`,
         },
@@ -1591,7 +1593,8 @@ function buildStructuredElement(
     const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center')
       ? Math.round(logoSafeHeight * ratioProfile.safeBottomMultiplier)
       : 0;
-    const ctaFontSize = fitTextWithRatio(elements.cta, imageWidth * 0.7, textTokens.ctaFont, 14, 30);
+    const ctaFitWidth = resolveBlockWidth(imageWidth, ratioProfile, ratioProfile.ctaMaxWidth, ctaPaddingX, centerSafeLeft, centerSafeRight);
+    const ctaFontSize = fitTextWithRatio(elements.cta, ctaFitWidth, textTokens.ctaFont, 14, 30);
     const ctaPaddingY = textTokens.ctaPaddingY;
     const ctaPaddingX = textTokens.ctaPaddingX;
 
@@ -1605,7 +1608,7 @@ function buildStructuredElement(
           padding: `${ctaPaddingY}px ${ctaPaddingX}px`,
           backgroundColor: colors.primary,
           borderRadius: theme.ctaBorderRadius ?? (theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0),
-          marginTop: 8,
+          marginTop: spacingTokens.compactSectionGap,
           boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 2px 6px ${colors.primary}66`,
           maxWidth: ratioProfile.ctaMaxWidth,
           ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
@@ -1722,7 +1725,7 @@ function buildStructuredElement(
           maxWidth: ratioProfile.footerMaxWidth,
           boxSizing: 'border-box',
           borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
-          marginTop: 'auto',
+          marginTop: elements.cta ? spacingTokens.footerTopGap : 'auto',
         },
         children: footerItems,
       },
@@ -1762,8 +1765,8 @@ function buildStructuredElement(
           flexDirection: 'row',
           flexGrow: 1,
           width: '100%',
-          gap: 12,
-          padding: '12px 24px',
+          gap: spacingTokens.splitGap,
+          padding: `${spacingTokens.compactSectionGap}px ${spacingTokens.splitPaddingX}px`,
           alignItems: 'center',
         },
         children: [
@@ -1771,7 +1774,7 @@ function buildStructuredElement(
             type: 'div',
             props: {
               style: {
-                display: 'flex', flexDirection: 'column', width: '55%', gap: 12, justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', width: spacingTokens.leftColumnWidth, gap: spacingTokens.sectionGap, justifyContent: 'center',
                 ...(logoMeta && logoMeta.position === 'center-left' ? { paddingLeft: logoSafeWidth } : {}),
               },
               children: leftChildren.length === 1 ? leftChildren[0] : leftChildren,
@@ -1781,7 +1784,7 @@ function buildStructuredElement(
             type: 'div',
             props: {
               style: {
-                display: 'flex', flexDirection: 'column', width: '45%', gap: 8, justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', width: spacingTokens.rightColumnWidth, gap: spacingTokens.compactSectionGap, justifyContent: 'center',
                 ...(logoMeta && logoMeta.position === 'center-right' ? { paddingRight: logoSafeWidth } : {}),
               },
               children: rightChildren.length === 1 ? rightChildren[0] : rightChildren,
@@ -1823,6 +1826,7 @@ function buildStructuredElement(
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: elements.banner ? 'flex-start' : 'center',
+        gap: spacingTokens.sectionGap,
         backgroundImage: `url(${baseImageUrl})`,
         backgroundSize: `${imageWidth}px ${imageHeight}px`,
         backgroundPosition: 'center',
