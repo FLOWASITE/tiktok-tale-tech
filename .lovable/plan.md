@@ -1,255 +1,181 @@
 
-# Tối ưu prompt Telegram để bài viết bớt rập khuôn và có “giọng viết” rõ hơn
+# Dọn lại toàn bộ copy Telegram cho gọn, dễ đọc hơn
 
 ## Mục tiêu
-Cải thiện luồng chat trực tiếp trên Telegram để khi user nói “tạo bài viết”, hệ thống không còn đẻ ra nội dung na ná nhau, không lặp kiểu hook “90%…”, và có thêm một lớp định hướng rõ về **mục tiêu/giọng viết** như:
+Làm toàn bộ phần text Telegram bớt rối mắt, nhất quán hơn, đặc biệt ở các message dạng status/onboarding/reconnect:
 
-- Bán hàng
-- Xây thương hiệu
-- Tăng tương tác
-- Chia sẻ giá trị
-- Kéo khách (tạo lead)
+- bỏ tình trạng “vừa có bullet vừa có icon” trong cùng 1 dòng
+- giảm icon trang trí thừa ở các dòng nội dung
+- giữ icon chỉ ở level tiêu đề/section khi thực sự cần
+- wording ngắn hơn, quét mắt dễ hơn trên mobile
 
-## Vấn đề đã xác định trong code hiện tại
+## Vấn đề đang thấy
+Từ screenshot và code hiện tại, phần Telegram đang bị rối vì:
 
-### 1) Telegram single-post đang gọi `generate-multichannel` quá “trần”
-Trong `supabase/functions/telegram-webhook/index.ts`, hàm `handleGenerateSingle()` hiện chỉ gửi:
-- `topic`
-- `channels`
-- `organizationId`
-- `brandTemplateId`
-- `userId`
-- `qualityMode`
-- `agentMode`
-- `useTopicAsTitle`
-- `skipCache`
+1. **Header/section có icon, nhưng từng bullet con vẫn có thêm icon**
+   - ví dụ `• 🎨 Brand đang xem`
+   - vừa bullet vừa emoji nên nhìn nặng mắt
 
-Nhưng **không truyền**:
-- `contentGoal`
-- `contentAngle`
-- `contentRole`
+2. **Status message dùng quá nhiều marker khác nhau**
+   - `📊`, `👤`, `📈`, `🚀`, `✅`, `💡`, `👉`, `•`
+   - mỗi section một kiểu, thiếu hệ thống thị giác rõ ràng
 
-Kết quả là downstream phải tự default, nên output dễ bị đồng dạng.
+3. **Một số câu dài, nhiều vế**
+   - nhất là onboarding / reconnect / not-connected
+   - mobile Telegram nhìn bị đặc chữ
 
-### 2) Intent classifier chưa hiểu “giọng viết/mục tiêu bài”
-`supabase/functions/_shared/telegram-intent.ts` hiện chỉ phân loại:
-- `generate_single`
-- `generate_campaign`
-- `status`
-- `help`
-- `chitchat`
+## Phạm vi cần đồng bộ
 
-Với `generate_single`, nó mới trích:
-- `prompt`
-- `channel`
+### 1) Status message trong bot
+File: `supabase/functions/telegram-webhook/index.ts`
 
-Chưa có trường nào cho:
-- mục tiêu bài viết
-- tone/mode mong muốn
-- style viết theo intent kinh doanh
+Hiện `handleStatus()` đang render kiểu:
+- section có icon
+- các dòng con bắt đầu bằng `•`
+- có dòng lại thêm icon bên trong bullet
 
-### 3) Help/onboarding chưa dạy user cách ra lệnh tốt hơn
-`helpText()` trong `telegram-webhook/index.ts` mới dạy user kiểu:
-- “viết 1 bài Facebook về...”
-- “campaign 2 tuần...”
+Sẽ format lại theo nguyên tắc:
 
-Chưa gợi ý user có thể nói:
-- “viết theo hướng bán hàng”
-- “theo kiểu xây thương hiệu”
-- “mục tiêu tăng tương tác”
-- “viết để kéo lead”
+#### Cấu trúc mới
+```text
+Trạng thái Flowa — Tháng 4/2026
+
+Tài khoản
+• Tổ chức: ...
+• Gói: ...
+• Quyền agent: ...
+• Brand đang xem: ...
+
+Sử dụng tháng này
+• Pipeline (toàn org): ...
+• Còn ... lượt
+
+Pipeline đang chạy (4)
+• ...
+• ...
+```
+
+#### Quy tắc áp dụng
+- giữ tối đa **1 icon cho dòng tiêu đề lớn** hoặc bỏ luôn nếu không cần
+- **mọi dòng bullet con chỉ là `•` + text**, không chèn thêm emoji
+- bỏ các icon trong bullet như:
+  - `• 🎨 Brand đang xem` → `• Brand đang xem`
+  - `• ♾️ Không giới hạn` → `• Không giới hạn` hoặc gộp thành câu gọn hơn
+- giữ câu ngắn, tách section rõ bằng dòng trống
+
+### 2) Help text
+File: `supabase/functions/telegram-webhook/index.ts`
+
+`helpText()` hiện có nhiều dòng ví dụ mở bằng `•`, phần này ổn hơn status nhưng vẫn cần tinh gọn:
+
+- bỏ icon nếu đã có tiêu đề section
+- tách rõ:
+  - Lệnh chính
+  - Ví dụ chat tự nhiên
+  - Kênh hỗ trợ
+- dùng wording ngắn hơn, ít dấu nhấn markdown thừa
+
+Định hướng:
+```text
+Lệnh hỗ trợ
+/start <token> — Kết nối tài khoản
+/status — Xem quota tháng này
+...
+
+Ví dụ chat tự nhiên
+• Viết 1 bài Facebook về spa giảm 30%
+• Tạo caption Instagram xây thương hiệu cho spa
+...
+```
+
+### 3) Onboarding / not-linked / reconnect messages
+File: `supabase/functions/telegram-webhook/index.ts`
+
+Các message này đang đúng positioning, nhưng vẫn hơi nhiều icon và câu hơi dày.
+
+Sẽ đồng bộ theo format:
+- 1 dòng chào
+- 1 đoạn giá trị ngắn
+- 1 block hướng dẫn 2–3 bước
+- 1 CTA cuối
+
+Ví dụ hướng:
+```text
+Chào bạn!
+
+Mình là AI Marketing Agent, trợ lý giúp bạn tạo nội dung, xây dựng và quản lý campaign, đồng thời theo dõi hiệu quả ngay trên Telegram.
+
+Cách kết nối:
+1. Mở app Flowa
+2. Bấm “Kết nối tài khoản & bắt đầu ngay”
+3. Quay lại Telegram và chat với bot
+
+Bắt đầu thử ngay!
+```
+
+Quy tắc:
+- không dùng icon ở từng dòng step nếu đã đánh số
+- giữ tối đa 1 icon ở câu chào nếu cần
+- message reconnect/not-linked dùng cùng cấu trúc wording để nhất quán
+
+### 4) Telegram link card trong app
+File: `src/components/agents/TelegramLinkCard.tsx`
+
+Card hiện đã đúng positioning nhưng vẫn có vài chỗ có thể “dọn copy” để đồng bộ với bot:
+
+- bỏ icon trong title text nếu title đã có icon ở phần visual card
+  - `🎉 Chào bạn!` có thể đổi thành `Chào bạn!`
+- footer note gọn hơn, bớt cảm giác slogan chồng slogan
+- connected state note/reconnect note ngắn hơn, ít nhấn mạnh lặp
+
+Định hướng:
+- **UI icon để ở component icon**
+- **text thuần để đọc nhanh**
+- tránh “icon trong text + icon component” cùng lúc
 
 ## Cách triển khai
 
-## 1) Thêm lớp “writing goal” cho Telegram single-post
-Mở rộng intent/result cho Telegram để `generate_single` có thể mang thêm metadata:
+### A. Thiết lập quy chuẩn copy Telegram
+Áp dụng chung cho mọi message:
 
-- `writing_goal`: một trong
-  - `sales`
-  - `branding`
-  - `engagement`
-  - `value`
-  - `lead`
+- **Title/section:** không quá 1 icon
+- **Bullet lines:** chỉ dùng `•`, không kèm emoji
+- **Steps:** dùng số `1. 2. 3.`, không thêm icon
+- **CTA:** giữ đúng câu `Bắt đầu thử ngay`
+- **Tone:** ngắn, rõ, ít khoa trương
 
-Không sửa DB, chỉ bổ sung dữ liệu điều hướng trong edge flow.
+### B. Refactor các text builder trong webhook
+Trong `telegram-webhook/index.ts`:
+- sửa `handleStatus()` để render text theo format sạch hơn
+- sửa `helpText()` theo cấu trúc rõ hơn
+- rà lại toàn bộ message:
+  - not linked
+  - onboarding
+  - reconnect guidance
+  - success/welcome
+  - fallback invalid command
 
-### Mapping đề xuất
-Để tận dụng pipeline sẵn có của `generate-multichannel`, map sang chiến lược hiện hữu:
+### C. Đồng bộ frontend card
+Trong `TelegramLinkCard.tsx`:
+- bỏ icon bên trong copy nếu UI đã có icon riêng
+- rút gọn note ở trạng thái connected / not connected
+- giữ CTA button hiện tại, không đổi logic
 
-- `sales` → `contentGoal: "conversion"` + `contentRole: "harvest"` + `contentAngle: "promotional"`
-- `branding` → `contentGoal: "awareness"` + `contentRole: "seed"` + `contentAngle: "storytelling"`
-- `engagement` → `contentGoal: "engagement"` + `contentRole: "sprout"` + `contentAngle: "qa_faq"`
-- `value` → `contentGoal: "education"` + `contentRole: "sprout"` + `contentAngle: "educational"`
-- `lead` → `contentGoal: "conversion"` + `contentRole: "harvest"` + `contentAngle: "social_proof"` hoặc `promotional`
-
-Mục tiêu là **không viết logic generate mới**, chỉ bơm đúng tham số vào pipeline đã có.
-
-## 2) Nâng cấp prompt của intent classifier
-Trong `supabase/functions/_shared/telegram-intent.ts`:
-
-### Bổ sung rule nhận diện
-Classifier cần hiểu các cụm như:
-- “viết theo kiểu bán hàng”
-- “theo hướng xây thương hiệu”
-- “để tăng tương tác”
-- “chia sẻ giá trị”
-- “để kéo khách / lấy lead”
-
-### Mở rộng tool schema
-Với `generate_single`, cho phép trả thêm:
-- `writing_goal`
-
-### Rule ưu tiên
-- Nếu user nói rõ mục tiêu viết → phải trích đúng `writing_goal`
-- Nếu user không nói → để trống, sau đó webhook tự fallback hợp lý
-- Không đổi intent chỉ vì có `writing_goal`; đây là metadata đi kèm `generate_single`
-
-## 3) Thêm heuristic fallback ở `handleGenerateSingle()`
-Trong `supabase/functions/telegram-webhook/index.ts`:
-
-### Nhận thêm `writingGoal`
-Mở rộng `handleGenerateSingle()` để nhận:
-- `writingGoal?: "sales" | "branding" | "engagement" | "value" | "lead"`
-
-### Fallback khi classifier không trích được
-Nếu AI không trả `writing_goal`, thêm một lớp fallback nhẹ từ raw text:
-- có “bán”, “chốt đơn”, “mua ngay”, “ưu đãi” → `sales`
-- có “thương hiệu”, “nhận diện”, “ghi nhớ” → `branding`
-- có “comment”, “tương tác”, “thảo luận” → `engagement`
-- có “kiến thức”, “giá trị”, “chia sẻ”, “tips” → `value`
-- có “lead”, “đăng ký”, “inbox”, “để lại thông tin” → `lead`
-
-### Truyền xuống `generate-multichannel`
-Khi gọi function, bổ sung:
-- `contentGoal`
-- `contentRole`
-- `contentAngle`
-
-Đây là thay đổi quan trọng nhất để output bớt generic.
-
-## 4) Giảm pattern lặp kiểu “90%...”
-Không cần đụng shared global prompt. Chỉ cần siết trong Telegram flow:
-
-### Ở bước tạo topic AI (`suggestTopicFromAI`) hoặc trước khi generate
-Bổ sung chỉ dẫn riêng cho Telegram single-post:
-- tránh mở bài theo công thức số liệu sáo mòn lặp lại
-- không mặc định dùng pattern “90% người…”
-- ưu tiên đa dạng hook:
-  - câu hỏi
-  - insight trái chiều
-  - tình huống thực tế
-  - before/after
-  - lỗi thường gặp
-  - checklist ngắn
-  - góc nhìn chuyên gia
-  - mini story
-
-### Mục tiêu
-Không cấm tuyệt đối hook số liệu, nhưng **không cho dùng mặc định lặp đi lặp lại**.
-
-## 5) Cập nhật help text để user biết cách ra lệnh mới
-Trong `helpText()` của `telegram-webhook/index.ts`, thêm ví dụ rõ:
-
-- “Viết 1 bài Facebook về serum mới theo hướng bán hàng”
-- “Tạo caption Instagram xây thương hiệu cho spa”
-- “Viết bài tăng tương tác cho fanpage”
-- “Viết bài chia sẻ giá trị về chăm sóc da”
-- “Tạo bài kéo khách để lấy lead cho gói trị nám”
-
-Mục tiêu là dạy user cách điều khiển output bằng câu tự nhiên, không cần form.
-
-## 6) Logging chẩn đoán để đánh giá prompt mới
-Thêm log gọn trong Telegram webhook:
-- `writing_goal`
-- mapped `contentGoal`
-- mapped `contentRole`
-- mapped `contentAngle`
-
-Giúp debug nhanh khi user nói “em đã chọn bán hàng mà bài vẫn thiên branding”.
-
-## Files cần sửa
-- `supabase/functions/_shared/telegram-intent.ts`
+## Files sẽ sửa
 - `supabase/functions/telegram-webhook/index.ts`
+- `src/components/agents/TelegramLinkCard.tsx`
 
-## Không cần sửa
-- DB schema
-- frontend card/UI
-- `generate-multichannel` core logic
-- shared `_shared/content-agent.ts` và các prompt dùng toàn hệ thống
+## Không đổi
+- logic binding/reconnect
+- deep link flow
+- quyền / phân quyền / DB
+- positioning “AI Marketing Agent”
+- CTA cuối “Bắt đầu thử ngay”
 
-## Kết quả mong muốn sau khi xong
-Khi user chat Telegram kiểu:
-- “Viết 1 bài Facebook bán hàng cho serum trị mụn”
-- “Tạo bài Instagram theo hướng xây thương hiệu”
-- “Viết post tăng tương tác cho spa”
-- “Viết bài chia sẻ giá trị về chống nắng”
-- “Tạo bài kéo khách để lấy lead”
+## Kết quả mong muốn
+Sau khi làm xong, mọi copy Telegram sẽ:
 
-thì bot sẽ:
-1. hiểu đúng mục tiêu bài viết
-2. map sang strategy phù hợp
-3. tạo nội dung khác nhau rõ rệt theo intent
-4. giảm đáng kể tình trạng bài nào cũng cùng một khung và cùng pattern “90%...”
-
-## QA sau implement
-
-### Case 1 — Bán hàng
-Input:
-`Viết 1 bài Facebook bán hàng cho serum trị mụn`
-
-Kỳ vọng:
-- có CTA rõ hơn
-- thiên chuyển đổi
-- không viết kiểu giáo dục chung chung
-
-### Case 2 — Xây thương hiệu
-Input:
-`Tạo 1 caption Instagram xây thương hiệu cho spa`
-
-Kỳ vọng:
-- tone mềm hơn
-- tăng nhận diện/thấu cảm
-- không push chốt sale quá sớm
-
-### Case 3 — Tăng tương tác
-Input:
-`Viết bài Facebook tăng tương tác về thói quen skincare sai lầm`
-
-Kỳ vọng:
-- có câu hỏi/kêu gọi bình luận
-- mở bài kích thích thảo luận
-- không quá quảng cáo
-
-### Case 4 — Chia sẻ giá trị
-Input:
-`Viết bài chia sẻ giá trị về cách chọn serum cho da nhạy cảm`
-
-Kỳ vọng:
-- thiên kiến thức
-- có cấu trúc hữu ích
-- giọng chuyên gia, ít bán hàng
-
-### Case 5 — Kéo khách / lead
-Input:
-`Tạo bài kéo khách cho liệu trình trị nám, mục tiêu lấy lead`
-
-Kỳ vọng:
-- CTA tạo inbox/đăng ký/tư vấn
-- vẫn hợp lý, không spam
-- khác rõ với mode “sales” thuần
-
-### Case 6 — Không chỉ định mục tiêu
-Input:
-`Viết 1 bài Facebook về serum mới`
-
-Kỳ vọng:
-- vẫn generate được bình thường
-- fallback hợp lý
-- không lỗi nếu thiếu `writing_goal`
-
-### Case 7 — Chống lặp hook
-Tạo 5 bài liên tiếp với 5 prompt khác nhau trên Telegram.
-
-Kỳ vọng:
-- không bị bài nào cũng mở bằng pattern “90%…”
-- hook đa dạng hơn giữa các bài
+- sạch và dễ quét mắt hơn trên mobile
+- không còn kiểu “bullet + emoji” chồng nhau
+- đồng bộ giữa bot và card trong app
+- vẫn giữ được branding “AI Marketing Agent”, nhưng nhìn chuyên nghiệp hơn và bớt rối
