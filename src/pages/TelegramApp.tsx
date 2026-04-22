@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTelegramWebApp } from '@/hooks/useTelegramWebApp';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,32 +6,98 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { toast } from 'sonner';
-import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Crown, Check, CalendarClock, Eye, X as XIcon, RefreshCw } from 'lucide-react';
+import { Loader2, LayoutDashboard, Plus, CheckSquare, AlertCircle, Sparkles, Palette, Bell, CalendarClock, Eye, X as XIcon, RefreshCw, FileText, Inbox, AlertTriangle } from 'lucide-react';
+import { Loading, formatDateTime, getTelegramMiniApp } from './telegram/shared';
+import { BrandSwitcherSheet } from './telegram/BrandSwitcherSheet';
+import { QuickPostTab } from './telegram/QuickPostTab';
+import { PostsTab } from './telegram/PostsTab';
+import { ConnectionsTab, countExpiredConnections } from './telegram/ConnectionsTab';
+import { InboxTab } from './telegram/InboxTab';
 
-type Tab = 'dashboard' | 'create' | 'approve' | 'scheduled' | 'brands';
-
-type TelegramMiniApp = {
-  initDataUnsafe?: { user?: { id?: number } };
-  HapticFeedback?: { notificationOccurred?: (type: 'success' | 'error' | 'warning') => void };
-};
-
-function getTelegramMiniApp(): TelegramMiniApp | undefined {
-  return window.Telegram?.WebApp as TelegramMiniApp | undefined;
-}
-
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+type Tab = 'dashboard' | 'create' | 'posts' | 'approve' | 'scheduled' | 'inbox' | 'connections';
+type CreateMode = 'quick' | 'campaign';
 
 export default function TelegramApp() {
   const { ready, authenticated, loading, error, errorCode, userId, organizationId } = useTelegramWebApp();
   const [tab, setTab] = useState<Tab>('dashboard');
   const [deepLinkApprovalId, setDeepLinkApprovalId] = useState<string | null>(null);
+  const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
+  const [activeBrandName, setActiveBrandName] = useState<string | null>(null);
+  const [brandSheetOpen, setBrandSheetOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [expiredCount, setExpiredCount] = useState(0);
 
+  // Load active brand from telegram_chat_bindings + name
+  const refreshActiveBrand = useCallback(async () => {
+    if (!organizationId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const tg = getTelegramMiniApp();
+    const chatIdRaw = tg?.initDataUnsafe?.user?.id;
+    let brandId: string | null = null;
+    if (chatIdRaw) {
+      const { data } = await sb.from('telegram_chat_bindings')
+        .select('active_brand_template_id')
+        .eq('organization_id', organizationId)
+        .eq('telegram_chat_id', chatIdRaw)
+        .maybeSingle();
+      brandId = data?.active_brand_template_id ?? null;
+    }
+    if (!brandId) {
+      // fallback to default brand
+      const { data } = await sb.from('brand_templates')
+        .select('id, brand_name')
+        .eq('organization_id', organizationId)
+        .is('deleted_at', null)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        brandId = data.id;
+        setActiveBrandName(data.brand_name);
+      }
+    } else {
+      const { data } = await sb.from('brand_templates').select('brand_name').eq('id', brandId).maybeSingle();
+      setActiveBrandName(data?.brand_name ?? null);
+    }
+    setActiveBrandId(brandId);
+  }, [organizationId]);
+
+  useEffect(() => { void refreshActiveBrand(); }, [refreshActiveBrand]);
+
+  // Notification unread count
+  const refreshUnread = useCallback(async () => {
+    if (!userId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const { count } = await sb.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .is('read_at', null);
+    setUnreadCount(count ?? 0);
+  }, [userId]);
+
+  useEffect(() => { void refreshUnread(); }, [refreshUnread, tab]);
+
+  // Realtime: bump unread on insert
+  useEffect(() => {
+    if (!userId) return;
+    const ch = supabase.channel('mini-app-bell')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${userId}`,
+      }, () => setUnreadCount((n) => n + 1))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId]);
+
+  // Expired connections count
+  useEffect(() => {
+    if (!organizationId) return;
+    void countExpiredConnections(organizationId, activeBrandId).then(setExpiredCount);
+  }, [organizationId, activeBrandId, tab]);
+
+  // Deep link to approval
   useEffect(() => {
     if (!authenticated) return;
     const search = window.location.search || '';
@@ -40,7 +106,6 @@ export default function TelegramApp() {
     const view = params.get('view');
     let id = params.get('id') || params.get('approval_id') || params.get('approvalId');
 
-    // Telegram Mini App start_param fallback (e.g. tgWebAppStartParam=approve_<id>)
     if (!id) {
       const wa = getTelegramMiniApp() as unknown as { initDataUnsafe?: { start_param?: string } } | undefined;
       const startParam = wa?.initDataUnsafe?.start_param;
@@ -49,12 +114,10 @@ export default function TelegramApp() {
         if (m) id = m[1];
       }
     }
-    // Hash fallback (#approve/<id> or #approval=<id>)
     if (!id && hash) {
       const m = /(?:approve|approval)[/=]([0-9a-f-]{8,})/i.exec(hash);
       if (m) id = m[1];
     }
-    // sessionStorage retry slot — survives a page reload while keeping URL clean
     if (!id) {
       try {
         const stashed = sessionStorage.getItem('flowa_tg_pending_approval');
@@ -88,24 +151,12 @@ export default function TelegramApp() {
 
   if (!authenticated || !userId || !organizationId) {
     const sessionOkButOrgMissing = authenticated && !!userId && !organizationId;
-    const title = sessionOkButOrgMissing
-      ? 'Chưa xác định được workspace'
-      : 'Không xác thực được';
-
+    const title = sessionOkButOrgMissing ? 'Chưa xác định được workspace' : 'Không xác thực được';
     let hint: string | null = null;
-    if (errorCode === 'not_linked') {
-      hint = 'Tài khoản Telegram chưa liên kết workspace. Hãy gõ /start trong DM với bot trước.';
-    } else if (errorCode === 'ambiguous_org') {
-      hint = 'Tài khoản đang liên kết nhiều workspace. Mở Mini App từ menu bot có gắn ?org=<id>.';
-    } else if (errorCode === 'no_init_data') {
-      hint = 'Hãy mở Mini App từ trong bot Telegram (không mở trực tiếp link).';
-    } else if (sessionOkButOrgMissing) {
-      hint = 'Đã đăng nhập Flowa nhưng chưa map được Telegram → workspace. Thử /start trong DM với bot.';
-    } else if (error && /token_hash and type|Only the token_hash/i.test(error)) {
-      hint = 'Bạn đang mở Mini App từ cache cũ của Telegram. Backend đã được vá để tương thích — hãy đóng hẳn Mini App (vuốt xuống/Close), rồi bấm lại nút "Xem & duyệt" hoặc menu Mở Flowa mới.';
-    } else if (error && /verify|otp|expired|invalid token/i.test(error)) {
-      hint = 'Không tạo được phiên đăng nhập từ Telegram. Đóng Mini App và mở lại từ bot.';
-    }
+    if (errorCode === 'not_linked') hint = 'Tài khoản Telegram chưa liên kết workspace. Hãy gõ /start trong DM với bot trước.';
+    else if (errorCode === 'ambiguous_org') hint = 'Tài khoản đang liên kết nhiều workspace. Mở Mini App từ menu bot có gắn ?org=<id>.';
+    else if (errorCode === 'no_init_data') hint = 'Hãy mở Mini App từ trong bot Telegram (không mở trực tiếp link).';
+    else if (sessionOkButOrgMissing) hint = 'Đã đăng nhập Flowa nhưng chưa map được Telegram → workspace. Thử /start trong DM với bot.';
 
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -117,14 +168,8 @@ export default function TelegramApp() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {error || 'Hãy mở Mini App từ trong bot Telegram.'}
-            </p>
+            <p className="text-sm text-muted-foreground">{error || 'Hãy mở Mini App từ trong bot Telegram.'}</p>
             {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-            <div className="text-[10px] text-muted-foreground/70 font-mono pt-2 border-t border-border space-y-0.5">
-              <div>auth: {String(authenticated)} · user: {userId ? '✓' : '✗'} · org: {organizationId ? '✓' : '✗'}</div>
-              {errorCode && <div>code: {errorCode}</div>}
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -133,53 +178,115 @@ export default function TelegramApp() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="px-4 pt-4 pb-3 border-b border-border bg-card">
+      <header className="px-3 pt-3 pb-2 border-b border-border bg-card sticky top-0 z-10">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h1 className="font-semibold text-lg">Flowa</h1>
-          <Badge variant="secondary" className="ml-auto text-xs">Mini App</Badge>
+          <Sparkles className="w-5 h-5 text-primary shrink-0" />
+          <h1 className="font-semibold text-base">Flowa</h1>
+          <button
+            onClick={() => setBrandSheetOpen(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-md bg-muted hover:bg-accent text-xs max-w-[140px]"
+          >
+            <Palette className="w-3 h-3 text-primary shrink-0" />
+            <span className="truncate">{activeBrandName || 'Chọn brand'}</span>
+          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button onClick={() => setTab('inbox')} className="relative p-1.5 rounded-md hover:bg-accent">
+              <Bell className="w-4 h-4 text-muted-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <Badge variant="secondary" className="text-[10px]">Mini</Badge>
+          </div>
         </div>
+        {expiredCount > 0 && tab !== 'connections' && (
+          <button
+            onClick={() => setTab('connections')}
+            className="mt-2 w-full flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/15"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span className="flex-1 text-left">{expiredCount} kết nối hết hạn — bấm để xử lý</span>
+          </button>
+        )}
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-20">
-        {tab === 'dashboard' && <DashboardTab orgId={organizationId} userId={userId} />}
-        {tab === 'create' && <CreateTab orgId={organizationId} userId={userId} onDone={() => setTab('dashboard')} />}
+      <main className="flex-1 overflow-y-auto pb-20 flex flex-col">
+        {tab === 'dashboard' && <DashboardTab orgId={organizationId} />}
+        {tab === 'create' && <CreateTabSwitch orgId={organizationId} userId={userId} brandId={activeBrandId} brandName={activeBrandName} onGoConnections={() => setTab('connections')} />}
+        {tab === 'posts' && <PostsTab orgId={organizationId} brandId={activeBrandId} onGoConnections={() => setTab('connections')} />}
         {tab === 'approve' && <ApproveTab orgId={organizationId} onScheduled={() => setTab('scheduled')} autoOpenId={deepLinkApprovalId} onAutoOpened={() => setDeepLinkApprovalId(null)} />}
         {tab === 'scheduled' && <ScheduledTab orgId={organizationId} />}
-        {tab === 'brands' && <BrandsTab orgId={organizationId} />}
+        {tab === 'inbox' && <InboxTab orgId={organizationId} userId={userId} brandId={activeBrandId} />}
+        {tab === 'connections' && <ConnectionsTab orgId={organizationId} brandId={activeBrandId} />}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-5">
-        <NavBtn active={tab === 'dashboard'} icon={<LayoutDashboard className="w-5 h-5" />} label="Tổng quan" onClick={() => setTab('dashboard')} />
-        <NavBtn active={tab === 'create'} icon={<Plus className="w-5 h-5" />} label="Tạo" onClick={() => setTab('create')} />
-        <NavBtn active={tab === 'brands'} icon={<Palette className="w-5 h-5" />} label="Brand" onClick={() => setTab('brands')} />
-        <NavBtn active={tab === 'approve'} icon={<CheckSquare className="w-5 h-5" />} label="Duyệt" onClick={() => setTab('approve')} />
-        <NavBtn active={tab === 'scheduled'} icon={<CalendarClock className="w-5 h-5" />} label="Lịch" onClick={() => setTab('scheduled')} />
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-border bg-card grid grid-cols-6">
+        <NavBtn active={tab === 'dashboard'} icon={<LayoutDashboard className="w-4 h-4" />} label="Tổng quan" onClick={() => setTab('dashboard')} />
+        <NavBtn active={tab === 'create'} icon={<Plus className="w-4 h-4" />} label="Tạo" onClick={() => setTab('create')} />
+        <NavBtn active={tab === 'posts'} icon={<FileText className="w-4 h-4" />} label="Bài viết" onClick={() => setTab('posts')} />
+        <NavBtn active={tab === 'approve'} icon={<CheckSquare className="w-4 h-4" />} label="Duyệt" onClick={() => setTab('approve')} />
+        <NavBtn active={tab === 'scheduled'} icon={<CalendarClock className="w-4 h-4" />} label="Lịch" onClick={() => setTab('scheduled')} />
+        <NavBtn active={tab === 'inbox'} icon={<Inbox className="w-4 h-4" />} label="Hộp thư" onClick={() => setTab('inbox')} badge={unreadCount} />
       </nav>
+
+      <BrandSwitcherSheet
+        open={brandSheetOpen}
+        onOpenChange={setBrandSheetOpen}
+        orgId={organizationId}
+        activeBrandId={activeBrandId}
+        onActiveBrandChange={() => { void refreshActiveBrand(); }}
+      />
     </div>
   );
 }
 
-function NavBtn({ active, icon, label, onClick }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void }) {
+function NavBtn({ active, icon, label, onClick, badge }: { active: boolean; icon: React.ReactNode; label: string; onClick: () => void; badge?: number }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 py-3 text-[11px] ${active ? 'text-primary' : 'text-muted-foreground'}`}
+      className={`relative flex flex-col items-center gap-0.5 py-2 text-[10px] ${active ? 'text-primary' : 'text-muted-foreground'}`}
     >
       {icon}
       <span>{label}</span>
+      {badge && badge > 0 && (
+        <span className="absolute top-1 right-2 bg-destructive text-destructive-foreground text-[8px] rounded-full w-3.5 h-3.5 flex items-center justify-center font-medium">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
     </button>
   );
 }
 
-// ============= Dashboard =============
-function DashboardTab({ orgId, userId }: { orgId: string; userId: string }) {
-  const [data, setData] = useState<{
-    pendingApprovals: number;
-    runningPipelines: number;
-    completedThisMonth: number;
-    plan: string;
-  } | null>(null);
+// =============== Create switcher (Quick / Campaign) ===============
+function CreateTabSwitch({ orgId, userId, brandId, brandName, onGoConnections }: { orgId: string; userId: string; brandId: string | null; brandName: string | null; onGoConnections: () => void }) {
+  const [mode, setMode] = useState<CreateMode>('quick');
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-1 p-3 border-b border-border bg-card">
+        <button
+          onClick={() => setMode('quick')}
+          className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'quick' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+        >
+          ⚡ Bài nhanh
+        </button>
+        <button
+          onClick={() => setMode('campaign')}
+          className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'campaign' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+        >
+          🎯 Campaign
+        </button>
+      </div>
+      {mode === 'quick' && <QuickPostTab orgId={orgId} userId={userId} brandId={brandId} brandName={brandName} onGoConnections={onGoConnections} />}
+      {mode === 'campaign' && <CampaignTab orgId={orgId} userId={userId} brandId={brandId} />}
+    </div>
+  );
+}
+
+// =============== Dashboard ===============
+function DashboardTab({ orgId }: { orgId: string }) {
+  const [data, setData] = useState<{ pendingApprovals: number; runningPipelines: number; completedThisMonth: number; plan: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -191,12 +298,9 @@ function DashboardTab({ orgId, userId }: { orgId: string; userId: string }) {
         monthStart.setUTCDate(1);
         monthStart.setUTCHours(0, 0, 0, 0);
         const [pending, running, done, sub] = await Promise.all([
-          sb.from('agent_approvals').select('id', { count: 'exact', head: true })
-            .eq('organization_id', orgId).eq('status', 'pending'),
-          sb.from('agent_pipelines').select('id', { count: 'exact', head: true })
-            .eq('organization_id', orgId).is('completed_at', null),
-          sb.from('agent_pipelines').select('id', { count: 'exact', head: true })
-            .eq('organization_id', orgId).gte('completed_at', monthStart.toISOString()),
+          sb.from('agent_approvals').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('status', 'pending'),
+          sb.from('agent_pipelines').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).is('completed_at', null),
+          sb.from('agent_pipelines').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).gte('completed_at', monthStart.toISOString()),
           sb.from('subscriptions').select('plan_type').eq('organization_id', orgId).eq('status', 'active').maybeSingle(),
         ]);
         setData({
@@ -211,7 +315,7 @@ function DashboardTab({ orgId, userId }: { orgId: string; userId: string }) {
         setLoading(false);
       }
     })();
-  }, [orgId, userId]);
+  }, [orgId]);
 
   if (loading) return <Loading />;
   if (!data) return <div className="p-4 text-sm text-muted-foreground">Không tải được dữ liệu.</div>;
@@ -227,7 +331,7 @@ function DashboardTab({ orgId, userId }: { orgId: string; userId: string }) {
       <Card>
         <CardContent className="pt-4">
           <p className="text-sm text-muted-foreground">
-            👋 Bấm tab <strong>Tạo</strong> để khởi chạy campaign mới, <strong>Duyệt</strong> để xem nội dung chờ, hoặc <strong>Lịch</strong> để xem bài đã lên lịch.
+            👋 Bấm <strong>Tạo</strong> → Bài nhanh để post 1 bài/1 kênh, hoặc Campaign cho chiến dịch dài hạn.
           </p>
         </CardContent>
       </Card>
@@ -246,31 +350,17 @@ function StatCard({ label, value, highlight }: { label: string; value: number | 
   );
 }
 
-// ============= Create =============
-function CreateTab({ orgId, userId, onDone }: { orgId: string; userId: string; onDone: () => void }) {
-  const [brands, setBrands] = useState<Array<{ id: string; brand_name: string }>>([]);
-  const [brandId, setBrandId] = useState<string>('');
+// =============== Campaign (preserved) ===============
+function CampaignTab({ orgId, userId, brandId }: { orgId: string; userId: string; brandId: string | null }) {
   const [topic, setTopic] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
-      const { data } = await sb.from('brand_templates').select('id, brand_name').eq('organization_id', orgId);
-      setBrands(data ?? []);
-      if (data?.[0]) setBrandId(data[0].id);
-    })();
-  }, [orgId]);
 
   async function submit() {
     if (!topic.trim()) {
-      setMsg('Nhập mô tả trước nhé.');
+      toast.error('Nhập mô tả trước nhé.');
       return;
     }
     setSubmitting(true);
-    setMsg(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
@@ -288,14 +378,13 @@ function CreateTab({ orgId, userId, onDone }: { orgId: string; userId: string; o
         is_active: true,
       }).select('id').single();
       if (error) throw error;
-      setMsg('✅ Đã tạo. Pipeline sẽ chạy nền.');
+      toast.success('✅ Đã tạo. Pipeline sẽ chạy nền.');
       setTopic('');
       void supabase.functions.invoke('agent-pipeline', {
         body: { action: 'trigger_from_goal', goal_id: goal.id, organization_id: orgId },
       });
-      setTimeout(onDone, 1200);
     } catch (e) {
-      setMsg('❌ ' + (e instanceof Error ? e.message : 'Lỗi'));
+      toast.error('❌ ' + (e instanceof Error ? e.message : 'Lỗi'));
     } finally {
       setSubmitting(false);
     }
@@ -303,25 +392,13 @@ function CreateTab({ orgId, userId, onDone }: { orgId: string; userId: string; o
 
   return (
     <div className="p-4 space-y-4">
-      <h2 className="font-semibold">Tạo campaign nhanh</h2>
       <div>
-        <label className="text-sm text-muted-foreground">Brand</label>
-        <select
-          value={brandId}
-          onChange={(e) => setBrandId(e.target.value)}
-          className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          {brands.length === 0 && <option value="">— Chưa có brand —</option>}
-          {brands.map((b) => <option key={b.id} value={b.id}>{b.brand_name}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="text-sm text-muted-foreground">Mô tả campaign</label>
+        <label className="text-xs text-muted-foreground">Mô tả campaign</label>
         <textarea
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          rows={4}
-          placeholder="VD: tạo campaign Tết cho spa làm đẹp, target nữ 25-40"
+          rows={5}
+          placeholder="VD: campaign Tết cho spa làm đẹp, target nữ 25-40, 10 bài đa kênh"
           className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
@@ -329,12 +406,11 @@ function CreateTab({ orgId, userId, onDone }: { orgId: string; userId: string; o
         {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
         Tạo & chạy
       </Button>
-      {msg && <p className="text-sm text-center text-muted-foreground">{msg}</p>}
     </div>
   );
 }
 
-// ============= Approve =============
+// =============== Approve (preserved from original) ===============
 type ApprovalItem = {
   id: string;
   content_preview: string | null;
@@ -345,15 +421,10 @@ type ApprovalItem = {
   scheduled_publish_at: string | null;
   selected_channels: string[] | null;
 };
-
 type ImageRow = { image_url: string; channel: string };
 
-// Module-level session cache for approvals fetched directly by ID via the
-// deep-link fallback. Survives tab switches inside the same Mini App session
-// (cleared on full reload). TTL guards against stale rows after long idles.
 const APPROVAL_FETCH_CACHE = new Map<string, { item: ApprovalItem; status: string | null; cachedAt: number }>();
-const APPROVAL_FETCH_TTL_MS = 60_000; // 60s — long enough for tab toggles, short enough to refresh stale rows
-
+const APPROVAL_FETCH_TTL_MS = 60_000;
 function readApprovalCache(id: string) {
   const hit = APPROVAL_FETCH_CACHE.get(id);
   if (!hit) return null;
@@ -374,17 +445,6 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   const [previewLoading, setPreviewLoading] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const [retryingOpen, setRetryingOpen] = useState(false);
-  const [autoOpenStatus, setAutoOpenStatus] = useState<'idle' | 'searching' | 'success' | 'not_found'>('idle');
-  const [autoOpenStartedAt, setAutoOpenStartedAt] = useState<number | null>(null);
-  const [autoOpenAttempt, setAutoOpenAttempt] = useState(0);
-  const [autoOpenElapsedMs, setAutoOpenElapsedMs] = useState(0);
-
-  // Tick a 200ms timer while we're searching so the banner shows live elapsed seconds.
-  useEffect(() => {
-    if (autoOpenStatus !== 'searching' || !autoOpenStartedAt) return;
-    const t = setInterval(() => setAutoOpenElapsedMs(Date.now() - autoOpenStartedAt), 200);
-    return () => clearInterval(t);
-  }, [autoOpenStatus, autoOpenStartedAt]);
 
   async function load() {
     setLoading(true);
@@ -412,48 +472,29 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   }
   useEffect(() => { void load(); }, [orgId]);
 
-  // Deep-link auto-open with retry: handles cases where the list hasn't loaded
-  // yet, the approval is outside the recent window, or the realtime row is
-  // still propagating. We retry up to ~6s, then fall back to a direct fetch
-  // by ID, then finally surface a friendly toast and clear the pending slot.
   useEffect(() => {
     if (!autoOpenId) return;
     let cancelled = false;
     let attempts = 0;
-    const MAX_ATTEMPTS = 6; // 6 × 1s ≈ 6s
-    setAutoOpenStatus('searching');
-    setAutoOpenStartedAt(Date.now());
-    setAutoOpenAttempt(0);
-    setAutoOpenElapsedMs(0);
+    const MAX_ATTEMPTS = 6;
 
     async function tryOpen() {
       if (cancelled) return;
-      // 1) Check the already-loaded list first.
       const target = items.find((x) => x.id === autoOpenId);
       if (target) {
         await openPreview(target);
-        setAutoOpenStatus('success');
         try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
         onAutoOpened?.();
         return;
       }
-      // 2) If the list is still loading or empty, wait and retry.
       if (loading || (items.length === 0 && attempts < MAX_ATTEMPTS)) {
         attempts++;
-        setAutoOpenAttempt(attempts);
         setTimeout(tryOpen, 1000);
         return;
       }
-      // 3) Not in the recent list — check session cache, else fetch directly
-      //    by ID (might be older or just-decided). Cache hits avoid repeated
-      //    network round-trips when the user toggles tabs.
       const cached = readApprovalCache(autoOpenId);
       if (cached) {
         await openPreview(cached.item);
-        setAutoOpenStatus('success');
-        if (cached.status && cached.status !== 'pending') {
-          toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
-        }
         try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
         onAutoOpened?.();
         return;
@@ -461,8 +502,7 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sb = supabase as any;
-        const { data } = await sb
-          .from('agent_approvals')
+        const { data } = await sb.from('agent_approvals')
           .select('id, content_preview, created_at, pipeline_id, status, agent_pipelines!inner(content_id, content_title, scheduled_publish_at, multi_channel_contents(selected_channels))')
           .eq('id', autoOpenId)
           .eq('organization_id', orgId)
@@ -481,10 +521,6 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
           };
           APPROVAL_FETCH_CACHE.set(autoOpenId, { item: hydrated, status: data.status ?? null, cachedAt: Date.now() });
           await openPreview(hydrated);
-          setAutoOpenStatus('success');
-          if (data.status && data.status !== 'pending') {
-            toast.info('Yêu cầu này đã được xử lý — đang xem ở chế độ chỉ đọc.');
-          }
           try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
           onAutoOpened?.();
           return;
@@ -492,17 +528,12 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       } catch (e) {
         console.warn('[telegram-app] direct fetch by id failed', e);
       }
-      // 4) Final fallback — keep the pending slot for next mount, then notify.
       if (attempts < MAX_ATTEMPTS) {
         attempts++;
-        setAutoOpenAttempt(attempts);
         setTimeout(tryOpen, 1000);
         return;
       }
-      setAutoOpenStatus('not_found');
-      toast.info('Không tìm thấy yêu cầu duyệt này. Có thể đã được xử lý hoặc chưa đồng bộ.', {
-        action: { label: 'Làm mới & thử lại', onClick: () => retryAutoOpen() },
-      });
+      toast.info('Không tìm thấy yêu cầu duyệt này.');
       try { sessionStorage.removeItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
       onAutoOpened?.();
     }
@@ -512,27 +543,11 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenId, loading, items.length, orgId, retryNonce]);
 
-  // Manual retry — re-fetch the list and re-trigger the deep-link open flow.
-  // Restores the pending ID from sessionStorage if the parent has already
-  // cleared its prop after a previous failed attempt.
   async function retryAutoOpen() {
     setRetryingOpen(true);
     try {
-      let id = autoOpenId;
-      if (!id) {
-        try { id = sessionStorage.getItem('flowa_tg_pending_approval'); } catch { /* ignore */ }
-      }
-      // Force a fresh DB hit on the next auto-open attempt.
-      if (id) APPROVAL_FETCH_CACHE.delete(id);
       await load();
-      if (id) {
-        try { sessionStorage.setItem('flowa_tg_pending_approval', id); } catch { /* ignore */ }
-        // Bumping the nonce re-runs the auto-open effect even when autoOpenId
-        // is unchanged (or was cleared by the parent).
-        setRetryNonce((n) => n + 1);
-      } else {
-        toast.info('Đã làm mới danh sách.');
-      }
+      setRetryNonce((n) => n + 1);
     } finally {
       setRetryingOpen(false);
     }
@@ -548,29 +563,16 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
       const [imgsRes, contentRes] = await Promise.all([
-        sb.from('channel_image_history')
-          .select('image_url, channel, is_selected, version')
-          .eq('content_id', it.content_id)
-          .order('version', { ascending: false })
-          .limit(20),
-        sb.from('multi_channel_contents')
-          .select('channel_versions')
-          .eq('id', it.content_id)
-          .maybeSingle(),
+        sb.from('channel_image_history').select('image_url, channel, is_selected, version').eq('content_id', it.content_id).order('version', { ascending: false }).limit(20),
+        sb.from('multi_channel_contents').select('channel_versions').eq('id', it.content_id).maybeSingle(),
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const imgs: ImageRow[] = (imgsRes.data ?? []).filter((r: any) => r.image_url);
-      // dedupe by channel preferring is_selected
       const byChannel = new Map<string, ImageRow>();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (imgsRes.data ?? []).forEach((r: any) => {
         if (!r.image_url) return;
-        if (!byChannel.has(r.channel) || r.is_selected) {
-          byChannel.set(r.channel, { image_url: r.image_url, channel: r.channel });
-        }
+        if (!byChannel.has(r.channel) || r.is_selected) byChannel.set(r.channel, { image_url: r.image_url, channel: r.channel });
       });
       setPreviewImages(Array.from(byChannel.values()).slice(0, 6));
-      // pull longest channel text as full preview
       const cv = contentRes.data?.channel_versions || {};
       let longest = '';
       for (const k of Object.keys(cv)) {
@@ -580,8 +582,6 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
         if (typeof txt === 'string' && txt.length > longest.length) longest = txt;
       }
       setPreviewFullText(longest || it.content_preview || '');
-    } catch (e) {
-      console.error('[telegram-app] preview load failed', e);
     } finally {
       setPreviewLoading(false);
     }
@@ -598,27 +598,18 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const resp: any = data;
       if (resp?.ok === false) throw new Error(resp.error || 'Lỗi không xác định');
-
       setItems((arr) => arr.filter((x) => x.id !== id));
       APPROVAL_FETCH_CACHE.delete(id);
       setPreviewItem(null);
-
       if (action === 'reject') {
         toast.success('Đã từ chối — pipeline trả về sáng tạo');
         return;
       }
-
       const sched = target?.scheduled_publish_at;
-      const channels = target?.selected_channels?.length ? ` • ${target.selected_channels.join(', ')}` : '';
       if (sched) {
-        const when = formatDateTime(sched);
-        toast.success(`Đã duyệt. Sẽ đăng lúc ${when}${channels}`, {
-          action: { label: 'Xem lịch', onClick: () => onScheduled() },
-        });
+        toast.success(`Đã duyệt. Sẽ đăng lúc ${formatDateTime(sched)}`, { action: { label: 'Xem lịch', onClick: onScheduled } });
       } else {
-        toast.success(`Đã duyệt — pipeline tiếp tục${channels}`, {
-          action: { label: 'Xem lịch', onClick: () => onScheduled() },
-        });
+        toast.success('Đã duyệt — pipeline tiếp tục', { action: { label: 'Xem lịch', onClick: onScheduled } });
       }
     } catch (e) {
       toast.error('Lỗi: ' + (e instanceof Error ? e.message : 'Không xác định'));
@@ -627,113 +618,49 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
     }
   }
 
-  const autoOpenBanner = (autoOpenStatus === 'searching' || autoOpenStatus === 'not_found') && (
-    <div className={`mx-4 mt-3 rounded-md border p-3 text-xs flex items-start gap-2 ${
-      autoOpenStatus === 'not_found'
-        ? 'border-destructive/40 bg-destructive/5 text-destructive'
-        : 'border-primary/30 bg-primary/5 text-foreground'
-    }`}>
-      {autoOpenStatus === 'searching'
-        ? <Loader2 className="w-4 h-4 animate-spin shrink-0 mt-0.5 text-primary" />
-        : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
-      <div className="flex-1 min-w-0">
-        <div className="font-medium">
-          {autoOpenStatus === 'searching'
-            ? 'Đang mở yêu cầu duyệt…'
-            : 'Không tìm thấy yêu cầu duyệt'}
-        </div>
-        <div className="text-muted-foreground mt-0.5">
-          {autoOpenStatus === 'searching'
-            ? `Đang tìm theo deep-link · lần ${Math.max(autoOpenAttempt, 1)}/6 · ${(autoOpenElapsedMs / 1000).toFixed(1)}s`
-            : 'Có thể đã được xử lý hoặc chưa đồng bộ.'}
-        </div>
-      </div>
-      {autoOpenStatus === 'not_found' && (
-        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs shrink-0" onClick={retryAutoOpen} disabled={retryingOpen}>
-          {retryingOpen
-            ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-            : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
-          Thử lại
-        </Button>
-      )}
-    </div>
-  );
-
-  if (loading) return <>{autoOpenBanner}<Loading /></>;
+  if (loading) return <Loading />;
   if (items.length === 0) {
     return (
-      <>
-        {autoOpenBanner}
-        <div className="p-6 text-center">
-          <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
-          <div className="flex flex-col gap-2 items-center mt-4">
-            <Button variant="default" size="sm" onClick={retryAutoOpen} disabled={retryingOpen}>
-              {retryingOpen
-                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                : <RefreshCw className="w-4 h-4 mr-2" />}
-              Làm mới & thử mở lại
-            </Button>
-            <Button variant="outline" size="sm" onClick={onScheduled}>
-              <CalendarClock className="w-4 h-4 mr-2" /> Xem bài đã lên lịch
-            </Button>
-          </div>
-        </div>
-      </>
+      <div className="p-6 text-center">
+        <CheckSquare className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+        <p className="text-sm text-muted-foreground">Không có nội dung nào chờ duyệt 🎉</p>
+        <Button variant="default" size="sm" onClick={retryAutoOpen} disabled={retryingOpen} className="mt-3">
+          {retryingOpen ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+          Làm mới
+        </Button>
+      </div>
     );
   }
 
   return (
     <>
-      {autoOpenBanner}
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-xs text-muted-foreground">{items.length} yêu cầu chờ duyệt</div>
           <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={retryAutoOpen} disabled={retryingOpen}>
-            {retryingOpen
-              ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-              : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
-            Làm mới & thử mở lại
+            {retryingOpen ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1" />}
+            Làm mới
           </Button>
         </div>
         {items.map((it) => (
           <Card key={it.id}>
             <CardContent className="pt-4 space-y-3">
-              {it.content_title && (
-                <div className="text-xs font-medium text-foreground/80 line-clamp-1">{it.content_title}</div>
-              )}
-              <p className="text-sm whitespace-pre-line line-clamp-6">
-                {it.content_preview || '_Không có preview_'}
-              </p>
+              {it.content_title && <div className="text-xs font-medium text-foreground/80 line-clamp-1">{it.content_title}</div>}
+              <p className="text-sm whitespace-pre-line line-clamp-6">{it.content_preview || '_Không có preview_'}</p>
               {it.scheduled_publish_at && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 px-2 py-1.5 rounded">
                   <CalendarClock className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">
-                    Sẽ đăng: {formatDateTime(it.scheduled_publish_at)}
-                    {it.selected_channels?.length ? ` • ${it.selected_channels.join(', ')}` : ''}
-                  </span>
+                  <span className="truncate">Sẽ đăng: {formatDateTime(it.scheduled_publish_at)}{it.selected_channels?.length ? ` • ${it.selected_channels.join(', ')}` : ''}</span>
                 </div>
               )}
               <div className="flex gap-2">
-                <Button
-                  size="sm" variant="ghost"
-                  disabled={acting === it.id}
-                  onClick={() => openPreview(it)}
-                >
+                <Button size="sm" variant="ghost" disabled={acting === it.id} onClick={() => openPreview(it)}>
                   <Eye className="w-4 h-4 mr-1" /> Xem
                 </Button>
-                <Button
-                  size="sm" variant="outline" className="flex-1"
-                  disabled={acting === it.id}
-                  onClick={() => act(it.id, 'reject')}
-                >
+                <Button size="sm" variant="outline" className="flex-1" disabled={acting === it.id} onClick={() => act(it.id, 'reject')}>
                   ❌ Từ chối
                 </Button>
-                <Button
-                  size="sm" className="flex-1"
-                  disabled={acting === it.id}
-                  onClick={() => act(it.id, 'approve')}
-                >
+                <Button size="sm" className="flex-1" disabled={acting === it.id} onClick={() => act(it.id, 'approve')}>
                   {acting === it.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '✅ Duyệt'}
                 </Button>
               </div>
@@ -745,14 +672,11 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
       <Drawer open={!!previewItem} onOpenChange={(o) => !o && setPreviewItem(null)}>
         <DrawerContent className="max-h-[88vh]">
           <DrawerHeader>
-            <DrawerTitle className="text-base line-clamp-2">
-              {previewItem?.content_title || 'Xem nội dung đầy đủ'}
-            </DrawerTitle>
+            <DrawerTitle className="text-base line-clamp-2">{previewItem?.content_title || 'Xem nội dung đầy đủ'}</DrawerTitle>
             {previewItem?.scheduled_publish_at && (
               <DrawerDescription className="flex items-center gap-1.5">
                 <CalendarClock className="w-3.5 h-3.5" />
                 Sẽ đăng: {formatDateTime(previewItem.scheduled_publish_at)}
-                {previewItem.selected_channels?.length ? ` • ${previewItem.selected_channels.join(', ')}` : ''}
               </DrawerDescription>
             )}
           </DrawerHeader>
@@ -769,24 +693,12 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
               </div>
             )}
             {!previewLoading && (
-              <div className="text-sm whitespace-pre-line text-foreground/90">
-                {previewFullText || '_Không có nội dung_'}
-              </div>
+              <div className="text-sm whitespace-pre-line text-foreground/90">{previewFullText || '_Không có nội dung_'}</div>
             )}
             {previewItem && (
               <div className="flex gap-2 pt-2 sticky bottom-0 bg-background pb-2">
-                <Button
-                  variant="outline" className="flex-1"
-                  disabled={acting === previewItem.id}
-                  onClick={() => act(previewItem.id, 'reject')}
-                >
-                  ❌ Từ chối
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={acting === previewItem.id}
-                  onClick={() => act(previewItem.id, 'approve')}
-                >
+                <Button variant="outline" className="flex-1" disabled={acting === previewItem.id} onClick={() => act(previewItem.id, 'reject')}>❌ Từ chối</Button>
+                <Button className="flex-1" disabled={acting === previewItem.id} onClick={() => act(previewItem.id, 'approve')}>
                   {acting === previewItem.id ? <Loader2 className="w-4 h-4 animate-spin" /> : '✅ Duyệt'}
                 </Button>
               </div>
@@ -798,16 +710,8 @@ function ApproveTab({ orgId, onScheduled, autoOpenId, onAutoOpened }: { orgId: s
   );
 }
 
-// ============= Scheduled =============
-type ScheduleRow = {
-  id: string;
-  scheduled_at: string;
-  channel: string;
-  publish_status: string;
-  content_id: string;
-  title?: string | null;
-  thumbnail?: string | null;
-};
+// =============== Scheduled (preserved) ===============
+type ScheduleRow = { id: string; scheduled_at: string; channel: string; publish_status: string; content_id: string; title?: string | null; thumbnail?: string | null };
 
 function ScheduledTab({ orgId }: { orgId: string }) {
   const [items, setItems] = useState<ScheduleRow[]>([]);
@@ -827,8 +731,8 @@ function ScheduledTab({ orgId }: { orgId: string }) {
         .limit(50);
       const rows: ScheduleRow[] = schedules ?? [];
       const contentIds = Array.from(new Set(rows.map((r) => r.content_id).filter(Boolean)));
-      let titleMap = new Map<string, string>();
-      let imgMap = new Map<string, string>();
+      const titleMap = new Map<string, string>();
+      const imgMap = new Map<string, string>();
       if (contentIds.length) {
         const [titlesRes, imgsRes] = await Promise.all([
           sb.from('multi_channel_contents').select('id, title').in('id', contentIds),
@@ -842,18 +746,11 @@ function ScheduledTab({ orgId }: { orgId: string }) {
           if (!imgMap.has(k) || r.is_selected) imgMap.set(k, r.image_url);
         });
       }
-      setItems(rows.map((r) => ({
-        ...r,
-        title: titleMap.get(r.content_id) ?? null,
-        thumbnail: imgMap.get(`${r.content_id}::${r.channel}`) ?? null,
-      })));
-    } catch (e) {
-      console.error('[telegram-app] scheduled load failed', e);
+      setItems(rows.map((r) => ({ ...r, title: titleMap.get(r.content_id) ?? null, thumbnail: imgMap.get(`${r.content_id}::${r.channel}`) ?? null })));
     } finally {
       setLoading(false);
     }
   }
-
   useEffect(() => { void load(); }, [orgId]);
 
   async function cancel(id: string) {
@@ -861,9 +758,7 @@ function ScheduledTab({ orgId }: { orgId: string }) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
-      const { error } = await sb.from('content_schedules')
-        .update({ publish_status: 'cancelled', updated_at: new Date().toISOString() })
-        .eq('id', id);
+      const { error } = await sb.from('content_schedules').update({ publish_status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
       setItems((arr) => arr.filter((x) => x.id !== id));
       toast.success('Đã huỷ lịch đăng');
@@ -907,172 +802,13 @@ function ScheduledTab({ orgId }: { orgId: string }) {
                   {it.publish_status === 'publishing' ? '⏳ Đang đăng…' : '🕒 Đã lên lịch'}
                 </div>
               </div>
-              <Button
-                size="sm" variant="ghost"
-                disabled={cancelling === it.id || it.publish_status === 'publishing'}
-                onClick={() => cancel(it.id)}
-                className="shrink-0"
-              >
+              <Button size="sm" variant="ghost" disabled={cancelling === it.id || it.publish_status === 'publishing'} onClick={() => cancel(it.id)} className="shrink-0">
                 {cancelling === it.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XIcon className="w-4 h-4" />}
               </Button>
             </div>
           </CardContent>
         </Card>
       ))}
-    </div>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="p-8 text-center">
-      <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
-    </div>
-  );
-}
-
-// ============= Brands =============
-type BrandRow = {
-  id: string;
-  brand_name: string;
-  is_default: boolean | null;
-  primary_color: string | null;
-  industry: string[] | null;
-  logo_url: string | null;
-};
-
-function BrandsTab({ orgId }: { orgId: string }) {
-  const [brands, setBrands] = useState<BrandRow[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [switching, setSwitching] = useState<string | null>(null);
-  const [filter, setFilter] = useState('');
-
-  async function load() {
-    setLoading(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
-      const tg = getTelegramMiniApp();
-      const chatIdRaw = tg?.initDataUnsafe?.user?.id;
-      const [brandsRes, bindingRes] = await Promise.all([
-        sb.from('brand_templates')
-          .select('id, brand_name, is_default, primary_color, industry, logo_url')
-          .eq('organization_id', orgId)
-          .is('deleted_at', null)
-          .order('is_default', { ascending: false })
-          .order('brand_name', { ascending: true }),
-        chatIdRaw
-          ? sb.from('telegram_chat_bindings')
-              .select('active_brand_template_id')
-              .eq('organization_id', orgId)
-              .eq('telegram_chat_id', chatIdRaw)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
-      setBrands(brandsRes.data ?? []);
-      setActiveId(bindingRes.data?.active_brand_template_id ?? null);
-    } catch (e) {
-      console.error('[telegram-app] brands load failed', e);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { void load(); }, [orgId]);
-
-  async function switchTo(brandId: string) {
-    setSwitching(brandId);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
-      const tg = getTelegramMiniApp();
-      const chatIdRaw = tg?.initDataUnsafe?.user?.id;
-      if (!chatIdRaw) throw new Error('Không tìm được Telegram chat ID');
-      const { error } = await sb.from('telegram_chat_bindings')
-        .update({ active_brand_template_id: brandId })
-        .eq('organization_id', orgId)
-        .eq('telegram_chat_id', chatIdRaw);
-      if (error) throw error;
-      setActiveId(brandId);
-      tg?.HapticFeedback?.notificationOccurred?.('success');
-    } catch (e) {
-      console.error('[telegram-app] switch brand failed', e);
-    } finally {
-      setSwitching(null);
-    }
-  }
-
-  if (loading) return <Loading />;
-  if (brands.length === 0) {
-    return (
-      <div className="p-6 text-center">
-        <Palette className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">Tổ chức chưa có brand nào.</p>
-      </div>
-    );
-  }
-
-  const filtered = filter
-    ? brands.filter((b) => b.brand_name.toLowerCase().includes(filter.toLowerCase()))
-    : brands;
-
-  return (
-    <div className="p-4 space-y-3">
-      <div>
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="🔍 Tìm brand…"
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-      <div className="space-y-2">
-        {filtered.map((b) => {
-          const isActive = b.id === activeId;
-          return (
-            <button
-              key={b.id}
-              disabled={switching !== null}
-              onClick={() => switchTo(b.id)}
-              className={`w-full text-left rounded-lg border p-3 flex items-center gap-3 transition-colors ${
-                isActive
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border bg-card hover:bg-accent/50'
-              }`}
-            >
-              <div
-                className="w-10 h-10 rounded-md flex items-center justify-center text-sm font-bold text-primary-foreground shrink-0"
-                style={{ backgroundColor: b.primary_color || 'hsl(var(--muted))' }}
-              >
-                {b.logo_url ? (
-                  <img src={b.logo_url} alt={b.brand_name} className="w-full h-full rounded-md object-cover" />
-                ) : (
-                  b.brand_name.charAt(0).toUpperCase()
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-sm truncate">{b.brand_name}</span>
-                  {b.is_default && <Crown className="w-3.5 h-3.5 text-primary shrink-0" />}
-                </div>
-                {b.industry && b.industry.length > 0 && (
-                  <div className="text-xs text-muted-foreground truncate">{b.industry.join(', ')}</div>
-                )}
-              </div>
-              {switching === b.id ? (
-                <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-              ) : isActive ? (
-                <Check className="w-5 h-5 text-primary shrink-0" />
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-      {filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-6">Không khớp brand nào.</p>
-      )}
     </div>
   );
 }
