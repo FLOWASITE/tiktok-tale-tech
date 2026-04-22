@@ -1239,7 +1239,18 @@ async function getDefaultBrandForOrg(supabase: any, organizationId: string): Pro
   }
 }
 
-/** Fire-and-forget: generate a brand image for a freshly-created multi_channel_content. */
+/** Quick stats about a generated post for the Telegram summary card. */
+function summarizeContent(text: string): { wordCount: number; hashtagCount: number; hasCTA: boolean } {
+  const t = (text || "").trim();
+  if (!t) return { wordCount: 0, hashtagCount: 0, hasCTA: false };
+  const wordCount = t.split(/\s+/).filter(Boolean).length;
+  const hashtagCount = (t.match(/#\w+/g) || []).length;
+  const hasCTA = /(inbox|nhắn|đặt lịch|đăng ký|liên hệ|click|tìm hiểu|xem thêm|gọi ngay|comment|dm me|order|mua ngay|truy cập|theo dõi)/i.test(t);
+  return { wordCount, hashtagCount, hasCTA };
+}
+
+/** Fire-and-forget: generate a brand image for a freshly-created multi_channel_content.
+ *  When done (success or fail), pings the user with a follow-up Telegram message. */
 async function generateImageForSinglePost(
   supabaseUrl: string,
   serviceKey: string,
@@ -1247,7 +1258,9 @@ async function generateImageForSinglePost(
   channel: string,
   brandTemplateId: string | null,
   channelText: string,
+  notify?: { botToken: string; chatId: number; orgId: string; titleForMsg: string },
 ): Promise<void> {
+  let ok = false;
   try {
     const isShortText = channelText.length > 0 && channelText.length <= 120;
     const imageContentType = isShortText ? "with_text" : "background_only";
@@ -1273,10 +1286,47 @@ async function generateImageForSinglePost(
       const errTxt = await res.text().catch(() => "");
       console.warn(`[handleGenerateSingle][image] non-OK ${res.status}: ${errTxt.slice(0, 200)}`);
     } else {
+      ok = true;
       console.log(`[handleGenerateSingle][image] generated for ${contentId}/${channel}`);
     }
   } catch (e) {
     console.warn("[handleGenerateSingle][image] failed:", e);
+  }
+
+  // Follow-up ping so user knows the image status (independent of content message).
+  if (notify) {
+    try {
+      const titleShort = notify.titleForMsg.length > 70
+        ? notify.titleForMsg.slice(0, 70) + "…"
+        : notify.titleForMsg;
+      if (ok) {
+        await sendMessage(notify.botToken, notify.chatId,
+          `🎨 *Ảnh đã sẵn sàng* cho bài _"${escapeMd(titleShort)}"_ — mở Mini App để xem.`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "👁 Xem ảnh",
+                web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
+              }]],
+            },
+          });
+      } else {
+        await sendMessage(notify.botToken, notify.chatId,
+          `⚠️ Ảnh chưa tạo được cho bài _"${escapeMd(titleShort)}"_. Bạn có thể bấm "Tạo lại ảnh" trong Mini App.`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[{
+                text: "🖼 Mở Mini App",
+                web_app: { url: buildMiniAppUrl(notify.orgId, `/multichannel/${contentId}`) },
+              }]],
+            },
+          });
+      }
+    } catch (e) {
+      console.warn("[handleGenerateSingle][image] notify failed:", e);
+    }
   }
 }
 
@@ -1428,7 +1478,10 @@ async function handleGenerateSingle(
   console.log(`[handleGenerateSingle] Title source: ${titleSource} → "${effectiveTopic}"`);
 
   await sendMessage(botConfig.botToken, chatId,
-    appendBrandFooter(`🎯 Đang viết 1 bài cho *${channelLabel}*…\n_Thường mất 20-40 giây_`, brand?.brand_name),
+    appendBrandFooter(
+      `🎯 *Đang viết bài ${channelLabel}…*\n🧠 Bước 1/3: Suy nghĩ chủ đề & dàn ý\n⏱ ~20-40 giây · Mình sẽ ping khi xong`,
+      brand?.brand_name,
+    ),
     { parse_mode: "Markdown" });
 
   // Call generate-multichannel directly (bypass agent_goals)
@@ -1477,28 +1530,64 @@ async function handleGenerateSingle(
     const contentId = data?.id || data?.content_id;
     const channelKey = channel === "blog" ? "website_content" : `${channel}_content`;
     const channelText = (data?.[channelKey] || "") as string;
-    const preview = channelText.slice(0, 220).trim() + (channelText.length > 220 ? "…" : "");
+    const previewRaw = channelText.slice(0, 280).trim();
+    const preview = previewRaw + (channelText.length > 280 ? "…" : "");
 
-    // 🎨 Fire-and-forget: generate brand image for this post (non-blocking)
+    // Stats line
+    const stats = summarizeContent(channelText);
+    const ctaIcon = stats.hasCTA ? "✅ có CTA" : "⚠️ chưa rõ CTA";
+    const statsLine = stats.wordCount > 0
+      ? `📊 ~${stats.wordCount} từ · ${stats.hashtagCount} hashtag · ${ctaIcon}`
+      : "";
+
+    // Truncate title for display only (DB keeps full)
+    const displayTitle = effectiveTopic.length > 80
+      ? effectiveTopic.slice(0, 80) + "…"
+      : effectiveTopic;
+
+    // 🎨 Fire-and-forget: generate brand image + ping user when done
     if (contentId && channelText) {
-      generateImageForSinglePost(supabaseUrl, key, contentId, channel, brand?.id || null, channelText)
-        .catch((err) => console.warn("[handleGenerateSingle] image gen scheduling failed:", err));
+      generateImageForSinglePost(
+        supabaseUrl, key, contentId, channel, brand?.id || null, channelText,
+        { botToken: botConfig.botToken, chatId, orgId: botConfig.organizationId, titleForMsg: effectiveTopic },
+      ).catch((err) => console.warn("[handleGenerateSingle] image gen scheduling failed:", err));
     }
 
+    const brandLineParts: string[] = [];
+    if (brand?.brand_name) brandLineParts.push(`📌 Brand: ${escapeMd(brand.brand_name)}`);
+    if (brand?.industry) brandLineParts.push(`📍 ${escapeMd(brand.industry)}`);
+    const brandLine = brandLineParts.join(" · ");
+
     const lines: string[] = [
-      `✅ *Đã tạo 1 bài cho ${channelLabel}*`,
-      brand?.brand_name ? `📌 Brand: ${escapeMd(brand.brand_name)}` : "",
-      contentId && channelText ? `🎨 _Đang tạo ảnh trong nền…_` : "",
+      `✅ *Bài ${channelLabel} đã sẵn sàng*`,
       "",
-      preview ? `_${escapeMd(preview)}_` : "_(Nội dung đã tạo, mở Mini App để xem chi tiết)_",
+      `📝 *${escapeMd(displayTitle)}*`,
+      brandLine,
+      "",
+      statsLine,
+      contentId && channelText ? `🎨 Ảnh: ⏳ đang tạo (sẽ báo khi xong)` : "",
     ].filter(Boolean);
+
+    if (preview) {
+      lines.push("", "━━━━━━━━━", `_${escapeMd(preview)}_`, "━━━━━━━━━");
+    }
 
     const keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string }; url?: string }>> = [];
     if (contentId) {
-      keyboard.push([{
-        text: "📝 Xem & duyệt",
-        web_app: { url: buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`) },
-      }]);
+      keyboard.push([
+        {
+          text: "📝 Xem & duyệt",
+          web_app: { url: buildMiniAppUrl(botConfig.organizationId, `/multichannel/${contentId}`) },
+        },
+        {
+          text: "🌐 Mở web",
+          url: `https://app.flowa.one/multichannel/${contentId}`,
+        },
+      ]);
+      keyboard.push([
+        { text: "🔄 Tạo bài khác", callback_data: `single:regen:${channel}` },
+        { text: "🎯 Đổi kênh", callback_data: `single:switch:${contentId}` },
+      ]);
     }
 
     await sendMessage(botConfig.botToken, chatId,
@@ -2999,6 +3088,59 @@ async function handleSingleCallback(args: {
     await handleGenerateSingle({
       supabase, botConfig, chatId, telegramUserId: fromTgId, prompt, channel,
     });
+    return;
+  }
+
+  // 🔄 Tạo bài khác — cùng channel + cùng prompt cache
+  if (action === "regen") {
+    const channel = value.toLowerCase();
+    if (!VALID_SINGLE_CHANNELS.includes(channel)) {
+      await sendMessage(botConfig.botToken, chatId, "Kênh không hợp lệ.");
+      return;
+    }
+    const { data: cached } = await supabase
+      .from("telegram_example_cache")
+      .select("prompt")
+      .eq("chat_id", chatId)
+      .eq("idx", SINGLE_PROMPT_CACHE_IDX)
+      .maybeSingle();
+    const prompt = (cached?.prompt as string) || `tạo bài đăng ${channel}`;
+    await sendMessage(botConfig.botToken, chatId,
+      `🔄 Đang tạo bài *${channel}* mới với cùng yêu cầu…`,
+      { parse_mode: "Markdown" });
+    await handleGenerateSingle({
+      supabase, botConfig, chatId, telegramUserId: fromTgId, prompt, channel,
+    });
+    return;
+  }
+
+  // 🎯 Đổi kênh — show menu để chọn channel khác cho cùng prompt cache
+  if (action === "switch") {
+    const contentId = value;
+    // Re-cache last prompt is not needed; user reuses cached prompt.
+    await sendMessage(botConfig.botToken, chatId,
+      `🎯 *Chọn kênh khác để tạo lại bài:*`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📘 Facebook", callback_data: "single:regen:facebook" },
+              { text: "📸 Instagram", callback_data: "single:regen:instagram" },
+            ],
+            [
+              { text: "🐦 X", callback_data: "single:regen:x" },
+              { text: "💼 LinkedIn", callback_data: "single:regen:linkedin" },
+            ],
+            [
+              { text: "🎵 TikTok", callback_data: "single:regen:tiktok" },
+              { text: "🌐 Website", callback_data: "single:regen:website" },
+            ],
+            [{ text: "❌ Bỏ qua", callback_data: "single:cancel:1" }],
+          ],
+        },
+      });
+    return;
   }
 }
 
