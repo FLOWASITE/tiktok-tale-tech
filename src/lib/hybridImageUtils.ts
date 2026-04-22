@@ -71,6 +71,22 @@ export interface StructuredOverlayConfig {
 export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
+  layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
+  suggestedLayout?:
+    | 'poster'
+    | 'infographic'
+    | 'quote_card'
+    | 'feature_list'
+    | 'contact_card'
+    | 'education_infographic'
+    | 'comparison_card'
+    | 'timeline_steps'
+    | 'stat_spotlight'
+    | 'testimonial_card'
+    | 'product_spotlight'
+    | 'editorial_cover'
+    | 'problem_solution'
+    | 'checklist_card';
 }
 
 export function extractFooterItemsFromText(description: string): OverlayFooterItem[] {

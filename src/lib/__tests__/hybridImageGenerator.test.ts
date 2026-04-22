@@ -99,6 +99,46 @@ describe('autoSelectTemplate', () => {
     // Even though contact info exists, cards take priority
     expect(autoSelectTemplate(desc, config)).toBe('infographic');
   });
+
+  it('selects comparison_card for before/after content', () => {
+    const desc = 'Before after điều trị nám: da sáng hơn sau 8 tuần';
+    const config = makeConfig({
+      cards: {
+        items: [{ label: 'Trước' }, { label: 'Sau' }],
+        layout: 'horizontal',
+      },
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('comparison_card');
+  });
+
+  it('selects timeline_steps for step-by-step content', () => {
+    const desc = '3 bước chăm da sau laser để phục hồi nhanh';
+    const config = makeConfig({
+      cards: {
+        items: [{ label: 'Bước 1' }, { label: 'Bước 2' }, { label: 'Bước 3' }],
+        layout: 'vertical',
+      },
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('timeline_steps');
+  });
+
+  it('selects stat_spotlight for KPI/stat-heavy content', () => {
+    const desc = 'Tăng 92% tỷ lệ quay lại nhờ quy trình cá nhân hóa';
+    const config = makeConfig({
+      heroText: { text: '92%', fontSize: '3xl', effect: 'gradient' },
+      headline: 'Tỷ lệ quay lại tăng mạnh',
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('stat_spotlight');
+  });
+
+  it('selects testimonial_card for social-proof content', () => {
+    const desc = 'Review khách hàng: feedback sau 3 buổi điều trị';
+    const config = makeConfig({
+      heroText: { text: 'RẤT HÀI LÒNG', fontSize: '2xl', effect: 'gradient' },
+      headline: 'Khách hàng nói gì?',
+    });
+    expect(autoSelectTemplate(desc, config)).toBe('testimonial_card');
+  });
 });
 
 // ============================================================
