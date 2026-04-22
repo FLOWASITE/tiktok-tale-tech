@@ -275,6 +275,7 @@ interface LogoMeta {
 interface StructuredOverlayRequest {
   baseImageUrl: string;
   layout: 'banner_cards' | 'hero_text' | 'simple' | 'split';
+  footerMode?: 'auto' | 'single-row' | 'two-row' | 'vertical-compact';
   elements: {
     banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
     heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
@@ -292,6 +293,87 @@ interface StructuredOverlayRequest {
   channel?: string;
   organizationId?: string;
   logoMeta?: LogoMeta;
+}
+
+type FooterLayoutMode = 'single-row' | 'two-row' | 'vertical-compact';
+
+interface FooterLayoutProfile {
+  mode: FooterLayoutMode;
+  fontSize: number;
+  itemGap: number;
+  rowGap: number;
+  paddingX: number;
+  paddingY: number;
+  paddingBottom: number;
+  maxItemWidth: string;
+  justifyContent: 'center' | 'flex-start';
+  alignItems: 'center' | 'flex-start';
+  flexDirection: 'row' | 'column';
+  allowWrap: boolean;
+  minBottomClearance: number;
+}
+
+function getFooterLayoutProfile(
+  imageWidth: number,
+  imageHeight: number,
+  footerItems: Array<{ icon?: string; text: string }>,
+  logoMeta?: LogoMeta,
+  requestedMode: 'auto' | FooterLayoutMode = 'auto',
+): FooterLayoutProfile {
+  const ratio = imageWidth / Math.max(imageHeight, 1);
+  const isTall = ratio <= 0.62;
+  const isPortrait = ratio > 0.62 && ratio < 0.9;
+  const isSquare = ratio >= 0.9 && ratio <= 1.1;
+  const isLandscape = ratio > 1.1;
+  const logoPosition = logoMeta?.position || '';
+  const bottomCenterLogo = logoPosition === 'bottom-center';
+  const logoInBottomArea = logoPosition.startsWith('bottom');
+  const totalChars = footerItems.reduce((sum, item) => sum + (item.text?.trim().length || 0), 0);
+  const longestItem = footerItems.reduce((max, item) => Math.max(max, item.text?.trim().length || 0), 0);
+  const hasLongAddress = footerItems.some((item) => item.icon === 'map-pin' && (item.text?.trim().length || 0) > 26);
+  const isCrowded = totalChars > 56 || longestItem > 22 || footerItems.length >= 4;
+  const isVeryCrowded = totalChars > 88 || longestItem > 34 || (hasLongAddress && logoInBottomArea);
+
+  let mode: FooterLayoutMode;
+  if (requestedMode !== 'auto') {
+    mode = requestedMode;
+  } else if (isTall) {
+    mode = 'vertical-compact';
+  } else if (isSquare || isPortrait) {
+    mode = isVeryCrowded || bottomCenterLogo ? 'vertical-compact' : 'two-row';
+  } else {
+    mode = isCrowded ? 'two-row' : 'single-row';
+  }
+
+  if (mode === 'single-row' && (isVeryCrowded || bottomCenterLogo)) {
+    mode = isLandscape && !isTall ? 'two-row' : 'vertical-compact';
+  }
+  if (mode === 'two-row' && isTall && (isVeryCrowded || hasLongAddress)) {
+    mode = 'vertical-compact';
+  }
+
+  const sizeBasis = Math.min(imageWidth, imageHeight);
+  const fontSize = mode === 'vertical-compact'
+    ? Math.max(12, Math.round(sizeBasis * 0.015))
+    : mode === 'two-row'
+      ? Math.max(12, Math.round(sizeBasis * 0.0165))
+      : Math.max(12, Math.round(sizeBasis * 0.0175));
+
+  return {
+    mode,
+    fontSize,
+    itemGap: mode === 'single-row' ? 12 : mode === 'two-row' ? 10 : 8,
+    rowGap: mode === 'vertical-compact' ? 6 : 8,
+    paddingX: mode === 'vertical-compact' ? 18 : 24,
+    paddingY: mode === 'vertical-compact' ? 8 : 10,
+    paddingBottom: bottomCenterLogo ? Math.max(12, Math.round(sizeBasis * 0.018)) : 0,
+    maxItemWidth: mode === 'single-row' ? '42%' : mode === 'two-row' ? '48%' : '100%',
+    justifyContent: mode === 'vertical-compact' ? 'flex-start' : 'center',
+    alignItems: mode === 'vertical-compact' ? 'flex-start' : 'center',
+    flexDirection: mode === 'vertical-compact' ? 'column' : 'row',
+    allowWrap: mode === 'two-row',
+    minBottomClearance: bottomCenterLogo ? Math.max(24, Math.round(sizeBasis * 0.04)) : Math.max(12, Math.round(sizeBasis * 0.018)),
+  };
 }
 
 function isStructuredRequest(body: any): body is StructuredOverlayRequest {
