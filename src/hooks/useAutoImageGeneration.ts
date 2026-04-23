@@ -81,6 +81,19 @@ export interface AutoGenerateOptions {
     };
     colors: { primary: string; secondary: string; text: string };
   };
+  fullStructuredOverlay?: {
+    layout: 'banner_cards' | 'hero_text' | 'simple' | 'split' | 'stack';
+    elements: {
+      banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+      heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
+      cards?: { items: { icon?: string; label: string; number?: number }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+      headline?: string;
+      cta?: string;
+      footer?: { items: { icon?: string; text: string }[] };
+      summaryRibbon?: { text: string; bgColor?: string };
+    };
+    colors: { primary: string; secondary: string; text: string };
+  };
   footerOverlay?: {
     layout: 'simple' | 'stack';
     footerMode?: 'auto' | 'single-row' | 'two-row' | 'vertical-compact';
@@ -93,6 +106,7 @@ export interface AutoGenerateOptions {
   };
   // Overlay mode: 'satori' (default, programmatic) or 'ai_render' (AI renders text directly)
   overlayMode?: 'satori' | 'ai_render';
+  fallbackStrategy?: 'none' | 'text_only' | 'structured' | 'full';
   // Template ID for AI layout guidance in ai_render mode
   structuredTemplate?: string;
 }
@@ -154,8 +168,10 @@ export function useAutoImageGeneration() {
       // Prompt mode
       promptMode,
       // Structured overlay for complex layouts
-        structuredOverlay,
-        footerOverlay,
+      structuredOverlay,
+      fullStructuredOverlay,
+      footerOverlay,
+      fallbackStrategy = 'full',
     } = options;
     
     // Resolve 'auto' logo position to channel-specific optimal position
@@ -196,6 +212,7 @@ export function useAutoImageGeneration() {
           effectiveContentType,
           promptMode: promptMode || 'full',
           hasStructuredOverlay: !!structuredOverlay,
+          hasFullStructuredOverlay: !!fullStructuredOverlay,
           hasStructuredTemplate: !!options.structuredTemplate,
         });
 
@@ -250,6 +267,8 @@ export function useAutoImageGeneration() {
         console.log(`[Pipeline:${channel}] ✓ STEP 1 OK (${step1Duration}ms)`, {
           model: imageData.modelUsed || 'unknown',
           imageUrlLength: imageData.imageUrl?.length || 0,
+          recommendedOverlayMode: imageData.recommendedOverlayMode,
+          fallbackRecommended: imageData.fallbackRecommended,
         });
 
         let finalImageUrl = imageData.imageUrl;
@@ -308,9 +327,26 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
         }
 
-        // Step 3: Overlay text using canvas (Satori) — ONLY in satori mode
-        // In ai_render mode (default), AI already rendered text directly → skip
-        if (!isAiRenderMode && useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay) {
+        const backendRequestedFallback = imageData.fallbackRecommended === true || (isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render');
+        const hasFallbackFooter = !!footerOverlay?.elements?.footer?.items?.length;
+        const shouldFallbackStructured = fallbackStrategy !== 'none' && !!(fullStructuredOverlay || structuredOverlay || footerOverlay) && (backendRequestedFallback || !isAiRenderMode);
+        const shouldFallbackText = fallbackStrategy !== 'none' && useCanvasFallback && imageContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (backendRequestedFallback || !isAiRenderMode);
+
+        console.log(`[Pipeline:${channel}] 🔎 FALLBACK CHECK`, {
+          backendRequestedFallback,
+          fallbackStrategy,
+          recommendedOverlayMode: imageData.recommendedOverlayMode || 'ai_render',
+          hasFallbackFooter,
+          shouldFallbackText,
+          shouldFallbackStructured,
+        });
+
+        if (!backendRequestedFallback && isAiRenderMode) {
+          console.log(`[Pipeline:${channel}] ✅ NO FALLBACK — AI render accepted`);
+        }
+
+        // Step 3: Overlay text using canvas (Satori) when fallback is required
+        if (shouldFallbackText) {
           const step3Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
             textLength: channelText.length,
@@ -352,12 +388,13 @@ export function useAutoImageGeneration() {
             console.log(`[Pipeline:${channel}] ✓ STEP 3 OK (${step3Duration}ms)`);
           }
         } else {
-          const skipReason = isAiRenderMode ? 'ai_render mode' : structuredOverlay ? 'structured overlay active' : !useCanvasFallback ? 'canvas fallback disabled' : 'no text';
+          const skipReason = !useCanvasFallback ? 'canvas fallback disabled' : !channelText ? 'no text' : (fullStructuredOverlay || structuredOverlay) ? 'structured overlay active' : isAiRenderMode ? 'ai_render accepted' : 'no fallback needed';
           console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
         }
 
-        // Step 4: Footer overlay always uses canvas; structured full overlay only in satori mode
-        const finalStructuredOverlay = isAiRenderMode ? footerOverlay : structuredOverlay;
+        const finalStructuredOverlay = !isAiRenderMode
+          ? (fullStructuredOverlay || structuredOverlay || footerOverlay)
+          : (shouldFallbackStructured ? (fullStructuredOverlay || structuredOverlay || footerOverlay) : undefined);
         if (finalStructuredOverlay) {
           const step4Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Canvas)`, {
