@@ -551,6 +551,7 @@ export function useAutoImageGeneration() {
           shouldFallbackText ? 'text overlay fallback bật' : null,
           !backendRequestedFallback && isAiRenderMode ? 'AI accepted by backend hint' : null,
           textSuppressedBecauseTooLong ? 'text too long, auto downgraded to background_only' : null,
+          textSuppressedBecauseLanguageMismatch ? `language mismatch (${detectedLanguage} != ${brandLanguage}), auto downgraded to background_only` : null,
           !isAiRenderMode ? 'satori forced mode' : null,
         ].filter(Boolean) as string[];
         const fallbackReason = fallbackReasons.join(' • ');
