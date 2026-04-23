@@ -24,6 +24,7 @@ import {
   type PromptMode,
 } from "../_shared/image-prompt-builder.ts";
 import { applyTextBudgetsToOverlay, buildAiRenderPlan, formatRenderSpecBrief } from "../image-render-spec.ts";
+import { getOutputLanguage } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,6 +97,22 @@ function isOverlayTextAcceptable(input?: string | null): boolean {
   if (text.length > OVERLAY_TEXT_LIMITS.maxChars) return false;
   if (text.split(/\s+/).filter(Boolean).length > OVERLAY_TEXT_LIMITS.maxWords) return false;
   return true;
+}
+
+function detectOverlayTextLanguage(input?: string | null): 'vi' | 'th' | 'en' | 'unknown' {
+  const text = normalizeOverlayText(input);
+  if (!text) return 'unknown';
+  if (/[\u0E00-\u0E7F]/u.test(text)) return 'th';
+  if (/[ăâđêôơưĂÂĐÊÔƠƯàáạảãằắặẳẵầấậẩẫèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/u.test(text)) return 'vi';
+  if (/[A-Za-z]/.test(text)) return 'en';
+  return 'unknown';
+}
+
+function doesOverlayTextMatchBrandLanguage(input: string | null | undefined, brandLanguage?: string | null): boolean {
+  if (!brandLanguage) return true;
+  const detectedLanguage = detectOverlayTextLanguage(input);
+  if (detectedLanguage === 'unknown') return false;
+  return detectedLanguage === brandLanguage;
 }
 
 // Default model fallback (used when config not available)
