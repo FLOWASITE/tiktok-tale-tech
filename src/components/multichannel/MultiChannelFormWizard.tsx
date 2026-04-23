@@ -105,6 +105,7 @@ import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormS
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
+import { resolveOverlayText } from '@/lib/imageOverlayText';
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { ImageStreamingGrid } from '@/components/multichannel/streaming/ImageStreamingGrid';
@@ -157,7 +158,7 @@ interface MultiChannelFormWizardProps {
   onTopicHistoryIdChange?: (id: string | undefined) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
   // Step 5: Image generation
-  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw'; imageContentType?: 'with_text' | 'background_only'; structuredTemplate?: string }) => void;
+  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw'; imageContentType?: 'with_text' | 'background_only'; structuredTemplate?: string; hooks?: { selectedHooks?: MultiChannelSelectedHook[]; globalHook?: MultiChannelFormData['globalHook'] } }) => void;
   imagePhase?: string;
   imageProgress?: Record<string, string>;
   imageProgressTimes?: Record<string, number>;
@@ -939,14 +940,27 @@ export function MultiChannelFormWizard({
       formData.channels.forEach(ch => {
         channelTexts[ch] = getChannelText(ch);
       });
+      const hasAnyShortOverlayText = formData.channels.some((channel) => {
+        const resolved = resolveOverlayText({
+          channel,
+          channelContent: channelTexts[channel],
+          selectedHooks: formData.selectedHooks,
+          globalHook: formData.globalHook,
+        });
+        return !!resolved.text;
+      });
       onStartImagePipeline(formData.channels, channelTexts, {
         contentGoal: formData.contentGoal,
         contentRole: formData.contentRole,
         contentAngle: formData.contentAngle,
         topic: formData.topic,
         promptMode,
-        imageContentType: 'with_text',
+        imageContentType: hasAnyShortOverlayText ? 'with_text' : 'background_only',
         structuredTemplate: 'auto',
+        hooks: {
+          selectedHooks: formData.selectedHooks,
+          globalHook: formData.globalHook,
+        },
       });
     }
   }, [currentStep, imageMode, imagePhase, generationComplete]);
@@ -2198,14 +2212,27 @@ export function MultiChannelFormWizard({
                               formData.channels.forEach(ch => {
                                 channelTexts[ch] = getChannelText(ch);
                               });
+                              const hasAnyShortOverlayText = formData.channels.some((channel) => {
+                                const resolved = resolveOverlayText({
+                                  channel,
+                                  channelContent: channelTexts[channel],
+                                  selectedHooks: formData.selectedHooks,
+                                  globalHook: formData.globalHook,
+                                });
+                                return !!resolved.text;
+                              });
                               onStartImagePipeline(formData.channels, channelTexts, {
                                 contentGoal: formData.contentGoal,
                                 contentRole: formData.contentRole,
                                 contentAngle: formData.contentAngle,
                                 topic: formData.topic,
                                 promptMode,
-                                imageContentType: 'with_text',
+                                imageContentType: hasAnyShortOverlayText ? 'with_text' : 'background_only',
                                 structuredTemplate: 'auto',
+                                hooks: {
+                                  selectedHooks: formData.selectedHooks,
+                                  globalHook: formData.globalHook,
+                                },
                               });
                             }
                           }}
