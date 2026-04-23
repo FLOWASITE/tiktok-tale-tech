@@ -619,6 +619,13 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     let imageUrlFromPoyo: string | null = null;
     let modelUsed: string = primaryModel;
     let totalAttempts: number = 1;
+    const recommendedOverlayMode = structuredElements?.footer && !structuredElements?.headline && !structuredElements?.heroText && !structuredElements?.cards
+      ? 'hybrid_footer'
+      : structuredElements
+        ? 'ai_render'
+        : 'satori';
+    const hasTextInstruction = Boolean(textToInclude || structuredElements?.headline || structuredElements?.heroText?.text || structuredElements?.banner?.text || structuredElements?.cta || structuredElements?.cards?.items?.length);
+    const hasFooterInstruction = Boolean(structuredElements?.footer?.items?.length || footerInfo?.phone || footerInfo?.website || footerInfo?.address || footerInfo?.email);
 
     // Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix
     if (isPoyoModel(primaryModel)) {
@@ -966,6 +973,12 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           secondary: brandContext.brandColors?.secondary,
         },
         aiRender: aiRenderPlan,
+        recommendedOverlayMode,
+        fallbackRecommended: recommendedOverlayMode !== 'ai_render',
+        aiRenderPlanSummary: aiRenderPlan ? formatRenderSpecBrief(aiRenderPlan.renderSpec) : null,
+        usedStructuredElements: Boolean(structuredElements),
+        hasTextInstruction,
+        hasFooterInstruction,
         modelUsed,
         attempts: totalAttempts,
       }),
