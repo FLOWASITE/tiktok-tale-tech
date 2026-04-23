@@ -141,6 +141,7 @@ export function useSocialImageGeneration() {
     channel,
     aspectRatio = '1:1',
     brandTemplateId,
+    organizationId,
     imageStylePreset,
     negativePrompt,
     contentRole,
