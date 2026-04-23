@@ -3,7 +3,7 @@
  * Extracted to allow unit testing without Supabase client dependency.
  */
 
-import { getTemplateById, type OverlayTemplate } from '@/config/overlayTemplates';
+import { getTemplateById } from '@/config/overlayTemplates';
 
 export interface BackgroundPrompt {
   description: string;
@@ -74,6 +74,7 @@ export interface DecomposedRequest {
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
   renderSpec?: Record<string, unknown>;
   layoutBehavior?: Record<string, unknown>;
+  templateInstruction?: Record<string, unknown>;
   suggestedLayout?:
     | 'poster'
     | 'infographic'
@@ -284,7 +285,9 @@ export function decomposeRequest(
  */
 export function autoSelectTemplate(
   description: string,
-  overlayConfig: StructuredOverlayConfig
+  overlayConfig: StructuredOverlayConfig,
+  channel?: string,
+  aspectRatio?: string
 ): string {
   const normalized = description.toLowerCase();
   const hasAny = (terms: string[]) => terms.some((term) => normalized.includes(term));
@@ -297,22 +300,25 @@ export function autoSelectTemplate(
   const hasChecklistSignal = hasAny(['checklist', 'check list', 'lưu ý', 'quick tips', 'tips', 'điều cần nhớ', 'cần biết', 'must-know']);
   const hasProblemSolutionSignal = hasAny(['vấn đề', 'pain point', 'nỗi đau', 'giải pháp', 'solution', 'khắc phục', 'cách xử lý']);
   const hasEditorialSignal = hasAny(['trend', 'xu hướng', 'góc nhìn', 'opinion', 'quan điểm', 'insight cá nhân', 'thought leadership', 'editorial']);
+  const isTall = aspectRatio === '9:16' || aspectRatio === '4:5';
+  const isWide = aspectRatio === '16:9';
+  const socialContext = `${channel || ''}:${aspectRatio || ''}`;
 
-  if (hasComparisonSignal) return 'comparison_card';
+  if (hasComparisonSignal) return isWide ? 'comparison_card' : 'comparison_card';
   if (hasStatSignal && overlayConfig.heroText) return 'stat_spotlight';
   if (hasStepSignal) return 'timeline_steps';
   if (hasTestimonialSignal) return 'testimonial_card';
   if (hasChecklistSignal) return 'checklist_card';
   if (hasProblemSolutionSignal) return 'problem_solution';
   if (hasProductSignal && (overlayConfig.cards || overlayConfig.cta)) return 'product_spotlight';
-  if (hasEditorialSignal && (overlayConfig.headline || overlayConfig.heroText)) return 'editorial_cover';
+  if (hasEditorialSignal && (overlayConfig.headline || overlayConfig.heroText)) return isTall ? 'quote_card' : 'editorial_cover';
 
-  if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
+  if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return isTall ? 'contact_card' : 'education_infographic';
   if (hasContactInfo && !overlayConfig.cards) return 'contact_card';
-  if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return 'infographic';
-  if (overlayConfig.cards && overlayConfig.cards.items.length >= 2) return 'feature_list';
+  if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return isTall ? 'timeline_steps' : 'infographic';
+  if (overlayConfig.cards && overlayConfig.cards.items.length >= 2) return isTall ? 'checklist_card' : 'feature_list';
   if (overlayConfig.heroText && !overlayConfig.cards) return 'quote_card';
-  if (overlayConfig.headline || overlayConfig.cta) return 'poster';
+  if ((overlayConfig.headline || overlayConfig.cta) && false) return 'poster';
   return 'poster';
 }
 
@@ -403,5 +409,6 @@ export function applyTemplate(
     layout: template.layout,
     renderSpec: decomposed.renderSpec,
     layoutBehavior: decomposed.layoutBehavior,
+    templateInstruction: decomposed.templateInstruction,
   };
 }
