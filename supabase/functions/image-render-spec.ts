@@ -633,8 +633,7 @@ export function formatRenderSpecBrief(spec: RenderSpecSummary): string {
     `- Footer budget: ${spec.footerBudget} chars`,
     `- Safe zones: top ${Math.round(spec.safeZones.top * 100)}%, bottom ${Math.round(spec.safeZones.bottom * 100)}%, left ${Math.round(spec.safeZones.left * 100)}%, right ${Math.round(spec.safeZones.right * 100)}%`,
     `- Preferred logo positions: ${spec.preferredLogoPositions.join(', ')}`,
-  ].join('
-');
+  ].join('\n');
 }
 
 export function formatTemplateInstructionBrief(templateInstruction: TemplateInstructionContract, ratioVariant: RatioRenderVariant): string {
@@ -649,6 +648,5 @@ export function formatTemplateInstructionBrief(templateInstruction: TemplateInst
     `- CTA rule: ${templateInstruction.ctaRule}`,
     `- Footer rule: ${templateInstruction.footerRule}`,
     `- Logo avoidance: ${templateInstruction.logoAvoidanceRule}`,
-  ].join('
-');
+  ].join('\n');
 }
