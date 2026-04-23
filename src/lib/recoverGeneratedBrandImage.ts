@@ -9,6 +9,14 @@ export interface RecoveredBrandImage {
   source: 'history' | 'content_json';
 }
 
+type ImageGenerationTaskStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'unknown';
+
+export interface BrandImageRecoveryStatus {
+  image: RecoveredBrandImage | null;
+  taskStatus: ImageGenerationTaskStatus;
+  taskId?: string | null;
+}
+
 const RECOVERABLE_IMAGE_ERROR_PATTERN = /timed out|timeout|request failed before receiving a response|network error|failed to fetch|504|aborted|clone failed/i;
 
 export function isRecoverableBrandImageError(message: string | null | undefined): boolean {
@@ -55,6 +63,40 @@ async function fetchRecoveredImage(contentId: string, channel: Channel): Promise
   return null;
 }
 
+async function fetchImageTaskStatus(contentId: string, channel: Channel): Promise<{ status: ImageGenerationTaskStatus; taskId?: string | null }> {
+  const { data } = await supabase
+    .from('generation_tasks')
+    .select('id, status')
+    .eq('task_type', 'image_generation')
+    .contains('input_params', { contentId, channel })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data?.status) {
+    return { status: 'unknown', taskId: data?.id ?? null };
+  }
+
+  if (data.status === 'pending' || data.status === 'generating' || data.status === 'completed' || data.status === 'failed') {
+    return { status: data.status, taskId: data.id };
+  }
+
+  return { status: 'unknown', taskId: data.id };
+}
+
+export async function getBrandImageRecoveryStatus(contentId: string, channel: Channel): Promise<BrandImageRecoveryStatus> {
+  const [image, task] = await Promise.all([
+    fetchRecoveredImage(contentId, channel),
+    fetchImageTaskStatus(contentId, channel),
+  ]);
+
+  return {
+    image,
+    taskStatus: task.status,
+    taskId: task.taskId,
+  };
+}
+
 export async function waitForRecoveredBrandImage(
   contentId: string,
   channel: Channel,
@@ -64,9 +106,13 @@ export async function waitForRecoveredBrandImage(
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() <= deadline) {
-    const recovered = await fetchRecoveredImage(contentId, channel);
-    if (recovered?.imageUrl) {
-      return recovered;
+    const status = await getBrandImageRecoveryStatus(contentId, channel);
+    if (status.image?.imageUrl) {
+      return status.image;
+    }
+
+    if (status.taskStatus === 'failed') {
+      return null;
     }
 
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
