@@ -15,6 +15,7 @@ import { suggestImageStylesV3 } from '@/lib/imageSuggestionEngine';
 import type { ChannelKey, ContentGoal, ContentAngle, ContentRole, Industry } from '@/config/visualScoringConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { resolveOverlayText } from '@/lib/imageOverlayText';
 
 export type PipelinePhase = 'idle' | 'preparing' | 'generating_images' | 'complete' | 'error';
 
@@ -38,6 +39,22 @@ interface AutoImagePipelineOptions {
   brandIndustry?: string[];
   /** Whether to auto-save images to DB immediately */
   autoSave?: boolean;
+}
+
+interface PipelineHookData {
+  selectedHooks?: Array<{
+    channel: Channel;
+    opening_line: string;
+    hook_type?: string;
+    psychology?: string;
+    text_overlay?: string;
+  }>;
+  globalHook?: {
+    opening_line: string;
+    hook_type?: string;
+    psychology?: string;
+    text_overlay?: string;
+  };
 }
 
 function buildFooterItems(footerInfo?: BrandFooterInfo | null) {
@@ -97,7 +114,8 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       topic?: string;
       promptMode?: 'full' | 'brand_only' | 'raw';
       imageContentType?: 'with_text' | 'background_only';
-        structuredTemplate?: string;
+      structuredTemplate?: string;
+      hooks?: PipelineHookData;
     }
   ) => {
     if (!brandTemplateId || channels.length === 0) {
@@ -174,12 +192,26 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       // - raw: NO logo, NO brand styling, pure AI generation
       const shouldIncludeLogo = mode !== 'raw' && !!brandLogoUrl;
       const footerItems = buildFooterItems(brandFooterInfo);
-      const textEnabled = (contentMeta.imageContentType || 'with_text') === 'with_text';
-      const textsPerChannel = textEnabled
-        ? Object.fromEntries(
-            channels.map((channel) => [channel, channelTexts[channel] || ''])
-          ) as Record<Channel, string>
-        : undefined;
+      const overlayTextResults = channels.map((channel) => {
+        const resolved = resolveOverlayText({
+          channel,
+          channelContent: channelTexts[channel] || contentMeta.topic || '',
+          selectedHooks: contentMeta.hooks?.selectedHooks,
+          globalHook: contentMeta.hooks?.globalHook,
+        });
+
+        return [channel, resolved] as const;
+      });
+
+      const textsPerChannel = Object.fromEntries(
+        overlayTextResults
+          .filter(([, resolved]) => !!resolved.text)
+          .map(([channel, resolved]) => [channel, resolved.text])
+      ) as Record<Channel, string>;
+      const hasAnyOverlayText = Object.keys(textsPerChannel).length > 0;
+      const uniqueOverlayTexts = [...new Set(Object.values(textsPerChannel))];
+      const effectiveImageContentType = hasAnyOverlayText ? 'with_text' : 'background_only';
+      const sharedTextToInclude = uniqueOverlayTexts.length === 1 ? uniqueOverlayTexts[0] : undefined;
       const footerOverlay = footerItems.length > 0
         ? {
             layout: 'simple' as const,
@@ -213,11 +245,10 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         includeLogo: shouldIncludeLogo,
         logoPosition: 'auto',
         logoUrl: shouldIncludeLogo ? (brandLogoUrl || undefined) : undefined,
-        // Content type: full mode defaults to with_text, others should receive from caller
-        imageContentType: contentMeta.imageContentType || 'with_text',
-        textToInclude: textEnabled ? channels.map((channel) => channelTexts[channel] || '').find(Boolean) : undefined,
-        textsPerChannel,
-        useCanvasFallback: textEnabled ? true : undefined,
+        imageContentType: effectiveImageContentType,
+        textToInclude: sharedTextToInclude,
+        textsPerChannel: hasAnyOverlayText ? textsPerChannel : undefined,
+        useCanvasFallback: hasAnyOverlayText ? true : undefined,
         // Default to ai_render mode — AI renders text directly, no Satori overlay needed
         overlayMode: 'ai_render',
         fallbackStrategy: 'full',
