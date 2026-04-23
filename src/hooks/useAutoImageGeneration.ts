@@ -134,10 +134,20 @@ export interface RenderDebugStep {
   details?: string[];
 }
 
+export interface RenderDebugProviderInfo {
+  provider?: string;
+  fallbackProvider?: string;
+  fallbackTried?: boolean;
+  providerTimeout?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
 export interface RenderDebugInfo {
   overlayMode: 'satori' | 'ai_render';
   fallbackStrategy: 'none' | 'text_only' | 'structured' | 'full';
   recommendedOverlayMode?: string;
+  providerInfo?: RenderDebugProviderInfo;
   backendRequestedFallback: boolean;
   fallbackReason: string;
   shouldFallbackText: boolean;
@@ -209,6 +219,7 @@ export function useAutoImageGeneration() {
     
     // Get text for this specific channel: prioritize channel-specific, fallback to shared
     const channelText = textsPerChannel?.[channel] || textToInclude;
+    let lastDebugSteps: RenderDebugStep[] = [];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -225,6 +236,7 @@ export function useAutoImageGeneration() {
         const overlayMode = options.overlayMode || 'ai_render';
         const isAiRenderMode = overlayMode === 'ai_render';
         const debugSteps: RenderDebugStep[] = [];
+        lastDebugSteps = debugSteps;
         const effectiveContentType = isAiRenderMode 
           ? (imageContentType || 'with_text')
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
@@ -285,9 +297,49 @@ export function useAutoImageGeneration() {
         clearTimeout(slowWarningTimer);
         const step1Duration = Date.now() - startTime;
 
+        let providerInfo: RenderDebugProviderInfo = {
+          provider: imageData?.provider,
+          fallbackProvider: imageData?.fallbackProvider,
+          fallbackTried: imageData?.fallbackTried,
+          providerTimeout: imageData?.providerTimeout,
+          errorCode: imageData?.errorCode,
+          errorMessage: imageData?.error,
+        };
+
         if (imageError || !imageData?.success) {
+          const step1FailureMessage = imageData?.providerTimeout
+            ? 'Provider tạo ảnh bị timeout'
+            : imageData?.errorCode === 'PROVIDER_ERROR'
+              ? 'Provider tạo ảnh thất bại'
+              : imageData?.errorCode === 'CREDITS_EXHAUSTED'
+                ? 'Provider tạo ảnh đã hết credits'
+                : imageError?.message || imageData?.error || 'Failed to generate image';
+
           console.error(`[Pipeline:${channel}] ✗ STEP 1 FAILED (${step1Duration}ms):`, imageError || imageData?.error);
-          throw new Error(imageData?.error || imageError?.message || 'Failed to generate image');
+          debugSteps.push({
+            id: 'step1',
+            label: 'STEP 1 — AI/base render',
+            status: 'failed',
+            summary: step1FailureMessage,
+            durationMs: step1Duration,
+            details: [
+              providerInfo.provider ? `provider=${providerInfo.provider}` : null,
+              providerInfo.providerTimeout ? 'provider timeout=yes' : null,
+              providerInfo.fallbackTried !== undefined ? `fallbackTried=${providerInfo.fallbackTried ? 'yes' : 'no'}` : null,
+              providerInfo.fallbackProvider ? `fallbackProvider=${providerInfo.fallbackProvider}` : null,
+              providerInfo.errorCode ? `errorCode=${providerInfo.errorCode}` : null,
+              imageData?.error || imageError?.message || null,
+            ].filter(Boolean) as string[],
+          });
+
+          toast.error(`${channel}: ${step1FailureMessage}`, {
+            description: providerInfo.fallbackTried
+              ? `Provider chính: ${providerInfo.provider || 'unknown'} • fallback: ${providerInfo.fallbackProvider || 'unknown'}`
+              : providerInfo.provider || imageData?.error || imageError?.message,
+            duration: 7000,
+          });
+
+          throw new Error(imageData?.error || imageError?.message || step1FailureMessage);
         }
         
         console.log(`[Pipeline:${channel}] ✓ STEP 1 OK (${step1Duration}ms)`, {
@@ -306,7 +358,9 @@ export function useAutoImageGeneration() {
             `overlayMode=${overlayMode}`,
             `effectiveContentType=${effectiveContentType}`,
             `recommended=${imageData.recommendedOverlayMode || 'ai_render'}`,
-          ],
+            providerInfo.provider ? `provider=${providerInfo.provider}` : null,
+            providerInfo.fallbackTried ? `fallback=${providerInfo.fallbackProvider || 'yes'}` : null,
+          ].filter(Boolean) as string[],
         });
 
         let finalImageUrl = imageData.imageUrl;
@@ -585,6 +639,7 @@ export function useAutoImageGeneration() {
             overlayMode,
             fallbackStrategy,
             recommendedOverlayMode: imageData.recommendedOverlayMode,
+            providerInfo,
             backendRequestedFallback,
             fallbackReason,
             shouldFallbackText,
@@ -600,7 +655,7 @@ export function useAutoImageGeneration() {
                     : includeLogo && logoUrl
                       ? 'logo_only'
                       : 'ai_only',
-            steps: debugSteps,
+            steps: lastDebugSteps,
             generatedAt: new Date().toISOString(),
           },
         };
@@ -612,6 +667,30 @@ export function useAutoImageGeneration() {
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
+
+        const failureDebug: GeneratedImage = {
+          channel,
+          imageUrl: '',
+          prompt: contentSummaries[channel] || `Content for ${channel}`,
+          generatedAt: new Date().toISOString(),
+          aspectRatio: channelAspectRatio,
+          promptMode: promptMode || 'full',
+          renderDebug: {
+            overlayMode: options.overlayMode || 'ai_render',
+            fallbackStrategy: options.fallbackStrategy || 'full',
+            providerInfo: {
+              errorMessage: errMsg,
+            },
+            backendRequestedFallback: false,
+            fallbackReason: errMsg,
+            shouldFallbackText: false,
+            shouldFallbackStructured: false,
+            finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
+            steps: lastDebugSteps,
+            generatedAt: new Date().toISOString(),
+          },
+        };
+        setGeneratedImages(prev => ({ ...prev, [channel]: failureDebug }));
         
         if (attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);

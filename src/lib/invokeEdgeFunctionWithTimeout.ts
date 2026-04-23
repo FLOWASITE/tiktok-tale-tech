@@ -23,6 +23,14 @@ interface InvokeResult<T = unknown> {
   error: Error | null;
 }
 
+function buildFetchContextMessage(functionName: string, err: unknown): string {
+  if (err instanceof TypeError) {
+    return `${functionName} request failed before receiving a response. This is usually a network/CORS interruption or the function runtime stopped unexpectedly.`;
+  }
+
+  return err instanceof Error ? err.message : String(err);
+}
+
 function isUnauthorizedResponse(status: number, body: string): boolean {
   return status === 401 && /unauthorized|auth session missing|invalid token|expired session|session/i.test(body);
 }
@@ -113,9 +121,10 @@ export async function invokeWithTimeout<T = unknown>(
       };
     }
 
-    return {
-      data: null,
-      error: err instanceof Error ? err : new Error(String(err)),
-    };
+      const baseMessage = buildFetchContextMessage(functionName, err);
+      return {
+        data: null,
+        error: new Error(`Edge Function request failed: ${baseMessage}`),
+      };
   }
 }

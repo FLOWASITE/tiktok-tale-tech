@@ -69,6 +69,14 @@ interface GenerateImageRequest {
   logoSafeZone?: { position: string; sizePercent: number };
 }
 
+interface ProviderDebugPayload {
+  provider?: string;
+  providerTimeout?: boolean;
+  fallbackTried?: boolean;
+  fallbackProvider?: string;
+  errorCode?: string;
+}
+
 // Default model fallback (used when config not available)
 const DEFAULT_IMAGE_MODELS = {
   primary: "google/gemini-3-pro-image-preview",
@@ -619,6 +627,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     let imageUrlFromPoyo: string | null = null;
     let modelUsed: string = primaryModel;
     let totalAttempts: number = 1;
+    const providerDebug: ProviderDebugPayload = {};
     const recommendedOverlayMode = structuredElements?.footer && !structuredElements?.headline && !structuredElements?.heroText && !structuredElements?.cards
       ? 'hybrid_footer'
       : structuredElements
@@ -626,9 +635,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         : 'satori';
     const hasTextInstruction = Boolean(textToInclude || structuredElements?.headline || structuredElements?.heroText?.text || structuredElements?.banner?.text || structuredElements?.cta || structuredElements?.cards?.items?.length);
     const hasFooterInstruction = Boolean(structuredElements?.footer?.items?.length || footerInfo?.phone || footerInfo?.website || footerInfo?.address || footerInfo?.email);
+    const geminiGenMaxAttempts = structuredElements || textToInclude || imageContentType === 'with_text' ? 33 : 24;
 
     // Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix
     if (isPoyoModel(primaryModel)) {
+      providerDebug.provider = 'poyo';
       const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
       if (!POYO_API_KEY) {
         return new Response(
@@ -682,6 +693,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         }
       }
     } else if (isGeminiGenModel(primaryModel)) {
+      providerDebug.provider = 'geminigen';
       const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
       if (!GEMINIGEN_API_KEY) {
         return new Response(
@@ -696,15 +708,20 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           prompt: enhancedPrompt,
           model: primaryModel,
           aspectRatio: mapAspectRatioToGeminiGen(finalAspectRatio),
+          maxAttempts: geminiGenMaxAttempts,
         }, GEMINIGEN_API_KEY);
         modelUsed = primaryModel;
       } catch (geminiGenErr) {
         const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
         console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
+        providerDebug.providerTimeout = errMsg.includes('timeout');
+        providerDebug.fallbackTried = true;
+        providerDebug.fallbackProvider = 'poyo';
+        providerDebug.errorCode = 'PROVIDER_ERROR';
 
         if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
           return new Response(
-            JSON.stringify({ success: false, error: errMsg, errorCode: 'PROVIDER_ERROR', provider: 'geminigen', fallback: false }),
+            JSON.stringify({ success: false, error: errMsg, errorCode: 'PROVIDER_ERROR', provider: 'geminigen', providerTimeout: providerDebug.providerTimeout, fallbackTried: false, fallbackProvider: null, fallback: false }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -713,7 +730,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         const POYO_KEY_FALLBACK = Deno.env.get('POYO_API_KEY');
         if (!POYO_KEY_FALLBACK) {
           return new Response(
-            JSON.stringify({ success: false, error: `GeminiGen failed and POYO_API_KEY not configured: ${errMsg}`, errorCode: 'PROVIDER_ERROR' }),
+            JSON.stringify({ success: false, error: `GeminiGen failed and POYO_API_KEY not configured: ${errMsg}`, errorCode: 'PROVIDER_ERROR', provider: 'geminigen', providerTimeout: providerDebug.providerTimeout, fallbackTried: false, fallbackProvider: null }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -736,12 +753,17 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
                 ? 'Hết credits ở cả GeminiGen và PoYo. Vui lòng nạp thêm credits cho provider tạo ảnh.'
                 : `GeminiGen and PoYo fallback both failed: ${errMsg}`,
               errorCode: isCredits ? 'CREDITS_EXHAUSTED' : 'PROVIDER_ERROR',
+              provider: 'geminigen',
+              providerTimeout: providerDebug.providerTimeout,
+              fallbackTried: true,
+              fallbackProvider: 'poyo',
             }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
       }
     } else if (isKieModel(primaryModel)) {
+      providerDebug.provider = 'kie';
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
         return new Response(
@@ -979,6 +1001,10 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         usedStructuredElements: Boolean(structuredElements),
         hasTextInstruction,
         hasFooterInstruction,
+        provider: providerDebug.provider,
+        providerTimeout: providerDebug.providerTimeout ?? false,
+        fallbackTried: providerDebug.fallbackTried ?? false,
+        fallbackProvider: providerDebug.fallbackProvider ?? null,
         modelUsed,
         attempts: totalAttempts,
       }),
