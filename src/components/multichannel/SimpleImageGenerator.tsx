@@ -49,6 +49,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
 import { NEGATIVE_PROMPT_DEFAULTS } from '@/lib/imagePromptDefaults';
+import { resolveOverlayText } from '@/lib/imageOverlayText';
 
 interface BrandFooterInfo {
   phone?: string;
@@ -180,12 +181,6 @@ function getHookForChannel(content: MultiChannelContent, channel: Channel) {
 }
 
 function getBestOverlayText(content: MultiChannelContent, channel: Channel): string {
-  const sh = content.selected_hooks; const gh = content.global_hook;
-  const ch = sh?.find(h => h.channel === channel);
-  if (ch?.text_overlay) return ch.text_overlay;
-  if (gh?.text_overlay) return gh.text_overlay;
-  if (ch?.opening_line) return ch.opening_line;
-  if (gh?.opening_line) return gh.opening_line;
   const map: Partial<Record<Channel, string | null>> = {
     facebook: content.facebook_content, instagram: content.instagram_content,
     twitter: content.twitter_content, linkedin: content.linkedin_content,
@@ -194,15 +189,13 @@ function getBestOverlayText(content: MultiChannelContent, channel: Channel): str
     zalo_oa: content.zalo_oa_content, telegram: content.telegram_content,
     email: content.email_content, google_maps: content.google_maps_content,
   };
-  const raw = map[channel];
-  if (raw) {
-    const clean = raw.replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\n+/g, ' ').trim();
-    const first = clean.match(/^[^.!?]+[.!?]/);
-    const s = first ? first[0] : clean.slice(0, 100);
-    return s.length > 100 ? s.slice(0, 97) + '...' : s;
-  }
-  return content.topic?.slice(0, 100) || '';
+
+  return resolveOverlayText({
+    channel,
+    channelContent: map[channel] || content.topic || '',
+    selectedHooks: content.selected_hooks,
+    globalHook: content.global_hook,
+  }).text || '';
 }
 
 function buildFooterItems(footerInfo?: BrandFooterInfo | null) {

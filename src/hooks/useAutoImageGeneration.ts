@@ -3,6 +3,7 @@ import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
+import { isValidOverlayText, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
@@ -165,6 +166,13 @@ export interface RenderDebugInfo {
     footerOverlay: boolean;
     textsPerChannel: boolean;
   };
+  overlayText: {
+    source: OverlayTextSource;
+    length: number;
+    mode: 'with_text' | 'background_only';
+    suppressedBecauseTooLong: boolean;
+    reason?: string;
+  };
   finalPath: 'ai_only' | 'logo_only' | 'text_fallback' | 'structured_fallback' | 'text_and_structured_fallback' | 'satori_forced';
   steps: RenderDebugStep[];
   generatedAt: string;
@@ -231,7 +239,11 @@ export function useAutoImageGeneration() {
     const channelHook = hookMessages?.[channel];
     
     // Get text for this specific channel: prioritize channel-specific, fallback to shared
-    const channelText = textsPerChannel?.[channel] || textToInclude;
+    const rawChannelText = textsPerChannel?.[channel] || textToInclude;
+    const overlayTextSource: OverlayTextSource = textsPerChannel?.[channel] ? 'text_overlay' : textToInclude ? 'opening_line' : 'suppressed';
+    const overlayTextLength = rawChannelText?.trim().length || 0;
+    const textSuppressedBecauseTooLong = !!rawChannelText && !isValidOverlayText(rawChannelText);
+    const channelText = textSuppressedBecauseTooLong ? undefined : rawChannelText;
     let lastDebugSteps: RenderDebugStep[] = [];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -251,7 +263,7 @@ export function useAutoImageGeneration() {
         const debugSteps: RenderDebugStep[] = [];
         lastDebugSteps = debugSteps;
         const effectiveContentType = isAiRenderMode 
-          ? (imageContentType || 'with_text')
+          ? ((imageContentType === 'with_text' && channelText) ? 'with_text' : 'background_only')
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
         
         console.log(`[Pipeline:${channel}] ▶ STEP 1/4 — Generate base image`, {
@@ -504,7 +516,7 @@ export function useAutoImageGeneration() {
         const requiredBranding = {
           logo: !!(includeLogo && logoUrl),
           footer: hasFallbackFooter,
-          text: imageContentType === 'with_text' && !!channelText,
+          text: effectiveContentType === 'with_text' && !!channelText,
           structured: !!(fullStructuredOverlay || structuredOverlay),
         };
         const payloadPresence = {
@@ -517,7 +529,7 @@ export function useAutoImageGeneration() {
         const frontendForcedStructuredFallback = isAiRenderMode && (requiredBranding.footer || hasRequiredStructuredBranding);
         const frontendForcedTextFallback = isAiRenderMode && requiredBranding.text && !!useCanvasFallback && !structuredOverlay && !fullStructuredOverlay;
         const shouldFallbackStructured = fallbackStrategy !== 'none' && hasStructuredInput && (!isAiRenderMode || backendRequestedFallback || frontendForcedStructuredFallback);
-        const shouldFallbackText = fallbackStrategy !== 'none' && !!useCanvasFallback && imageContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (!isAiRenderMode || backendRequestedFallback || frontendForcedTextFallback);
+        const shouldFallbackText = fallbackStrategy !== 'none' && !!useCanvasFallback && effectiveContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (!isAiRenderMode || backendRequestedFallback || frontendForcedTextFallback);
         const fallbackReasons = [
           imageData.fallbackRecommended === true ? 'backend yêu cầu fallback' : null,
           isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render'
@@ -529,6 +541,7 @@ export function useAutoImageGeneration() {
           shouldFallbackStructured ? 'structured overlay fallback bật' : null,
           shouldFallbackText ? 'text overlay fallback bật' : null,
           !backendRequestedFallback && isAiRenderMode ? 'AI accepted by backend hint' : null,
+          textSuppressedBecauseTooLong ? 'text too long, auto downgraded to background_only' : null,
           !isAiRenderMode ? 'satori forced mode' : null,
         ].filter(Boolean) as string[];
         const fallbackReason = fallbackReasons.join(' • ');
@@ -726,6 +739,13 @@ export function useAutoImageGeneration() {
             shouldFallbackStructured,
             requiredBranding,
             payloadPresence,
+            overlayText: {
+              source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
+              length: overlayTextLength,
+              mode: effectiveContentType,
+              suppressedBecauseTooLong: textSuppressedBecauseTooLong,
+              reason: textSuppressedBecauseTooLong ? 'text too long' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+            },
             finalPath: !isAiRenderMode
               ? 'satori_forced'
               : shouldFallbackText && shouldFallbackStructured
@@ -770,7 +790,7 @@ export function useAutoImageGeneration() {
             requiredBranding: {
               logo: !!(includeLogo && logoUrl),
               footer: !!footerOverlay?.elements?.footer?.items?.length,
-              text: imageContentType === 'with_text' && !!channelText,
+               text: effectiveContentType === 'with_text' && !!channelText,
               structured: !!(fullStructuredOverlay || structuredOverlay),
             },
             payloadPresence: {
@@ -779,6 +799,13 @@ export function useAutoImageGeneration() {
               footerOverlay: !!footerOverlay,
               textsPerChannel: !!textsPerChannel,
             },
+             overlayText: {
+               source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
+               length: overlayTextLength,
+               mode: effectiveContentType,
+               suppressedBecauseTooLong: textSuppressedBecauseTooLong,
+               reason: textSuppressedBecauseTooLong ? 'text too long' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+             },
             finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
             steps: lastDebugSteps,
             generatedAt: new Date().toISOString(),
