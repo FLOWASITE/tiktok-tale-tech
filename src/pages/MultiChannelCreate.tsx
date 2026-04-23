@@ -31,7 +31,7 @@ interface LocationState {
   personaId?: string;
 }
 
-type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
+type GenerationState = 'idle' | 'generating' | 'recovering' | 'complete' | 'error';
 
 export default function MultiChannelCreate() {
   const navigate = useNavigate();
@@ -109,6 +109,11 @@ export default function MultiChannelCreate() {
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
+      if (event.step === 'recovering_background') {
+        setGenerationState('recovering');
+      } else if (event.step === 'recovered_complete') {
+        setGenerationState('complete');
+      }
     },
     onComplete: () => {
       // Don't set to complete here - wait for result

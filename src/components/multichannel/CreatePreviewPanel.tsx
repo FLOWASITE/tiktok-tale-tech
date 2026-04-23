@@ -23,7 +23,7 @@ import { ImageGenerationStatus, GeneratedImage } from '@/hooks/useAutoImageGener
 import { PipelinePhase } from '@/hooks/useAutoImagePipeline';
 import { cn } from '@/lib/utils';
 
-type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
+type GenerationState = 'idle' | 'generating' | 'recovering' | 'complete' | 'error';
 
 interface CreatePreviewPanelProps {
   state: GenerationState;
@@ -246,8 +246,8 @@ export function CreatePreviewPanel({
     );
   }
 
-  // State 3: Generating Text
-  if (state === 'generating') {
+  // State 3: Generating / Recovering Text
+  if (state === 'generating' || state === 'recovering') {
     return (
       <div className="h-full flex flex-col">
         <AIGenerationProgress
@@ -262,6 +262,11 @@ export function CreatePreviewPanel({
           currentChannel={currentChannel}
           streamingTexts={streamingTexts}
         />
+        {state === 'recovering' && (
+          <div className="mt-4 rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            Kết nối stream bị gián đoạn, hệ thống đang hoàn tất ở nền và tự khôi phục kết quả.
+          </div>
+        )}
       </div>
     );
   }

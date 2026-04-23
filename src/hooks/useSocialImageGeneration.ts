@@ -288,6 +288,14 @@ export function useSocialImageGeneration() {
       toast.success('Đã tạo ảnh thành công!');
       return imageUrl;
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (contentId && channel && isRecoverableBrandImageError(errMsg)) {
+        const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 20_000, pollIntervalMs: 2_500 });
+        if (recovered?.imageUrl) {
+          toast.success('Ảnh đã hoàn tất ở nền và được khôi phục tự động');
+          return recovered.imageUrl;
+        }
+      }
       console.error('[useSocialImageGeneration] Unexpected error:', err);
       toast.error('Lỗi không xác định khi tạo ảnh');
       return null;

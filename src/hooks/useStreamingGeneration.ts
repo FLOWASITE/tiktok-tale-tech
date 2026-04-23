@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isRecoverableMultichannelError, waitForRecoveredMultichannel } from '@/lib/recoverGeneratedMultichannel';
 
 export interface ChannelContentPreview {
   channel: string;
@@ -31,6 +32,7 @@ export interface ProgressEvent {
   channelContents?: ChannelContentPreview[];
   // Streaming text for typewriter effect
   streamingChunk?: StreamingTextChunk;
+  recoverySource?: 'background_task' | 'recent_content';
 }
 
 interface UseStreamingGenerationOptions {
@@ -56,6 +58,49 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const abortReasonRef = useRef<AbortReason>(null);
   // Synchronous guard to prevent double-submit (ref updates immediately, unlike state)
   const generatingRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
+
+  const recoverFromTask = useCallback(async (params: {
+    taskId: string;
+    userId?: string | null;
+    organizationId?: string | null;
+    topic?: string | null;
+    reason: string;
+  }) => {
+    const recovered = await waitForRecoveredMultichannel({
+      taskId: params.taskId,
+      userId: params.userId,
+      organizationId: params.organizationId,
+      topic: params.topic,
+    });
+
+    if (recovered.content) {
+      const recoverySource = recovered.source === 'recent_content' ? 'recent_content' : 'background_task';
+      const recoveryMessage = recoverySource === 'recent_content'
+        ? 'Stream bị ngắt, đã nối lại từ nội dung vừa lưu.'
+        : 'Stream bị ngắt, đã khôi phục từ background task.';
+
+      const recoveryEvent: ProgressEvent = {
+        type: 'result',
+        progress: 100,
+        step: recovered.task?.status === 'completed' ? 'recovered_complete' : 'recovering_background',
+        message: recoveryMessage,
+        data: recovered.content,
+        recoverySource,
+      };
+
+      setProgress(recoveryEvent);
+      options.onProgress?.(recoveryEvent);
+      options.onComplete?.(recovered.content);
+      return recovered.content;
+    }
+
+    if (recovered.task?.status === 'failed') {
+      throw new Error(recovered.task.error_message || params.reason);
+    }
+
+    throw new Error(params.reason);
+  }, [options]);
 
   // Watchdog timeout in ms - cancel if no events received for this duration
   // Increased to 150s to handle slow AI models and buffering without false positives
@@ -99,6 +144,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       // Get current user's access token for authentication
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      userIdRef.current = session?.user?.id ?? null;
 
       if (!accessToken || !session?.user?.id) {
         throw new Error('Vui lòng đăng nhập để tạo nội dung');
@@ -218,6 +264,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               generatingRef.current = false;
               await reader.cancel();
               setIsGenerating(false);
+              setCurrentTaskId(null);
               setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
               return result;
             }
@@ -248,6 +295,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 generatingRef.current = false;
                 await reader.cancel();
                 setIsGenerating(false);
+                setCurrentTaskId(null);
                 setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
                 return result;
               } else if (event.type === 'error') {
@@ -285,6 +333,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       generatingRef.current = false;
 
       setIsGenerating(false);
+      setCurrentTaskId(null);
       setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
       
       return result;
@@ -292,6 +341,33 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       // Clear watchdog timer on error
       cleanupTimers();
       generatingRef.current = false;
+
+      if (
+        taskId &&
+        error instanceof Error &&
+        abortReasonRef.current !== 'user' &&
+        abortReasonRef.current !== 'replaced' &&
+        (error.name === 'AbortError' || isRecoverableMultichannelError(error.message))
+      ) {
+        try {
+          const recoveredResult = await recoverFromTask({
+            taskId,
+            userId: userIdRef.current,
+            organizationId: formData.organization_id,
+            topic: formData.topic,
+            reason: error.message || 'Kết nối stream bị ngắt trước khi nhận kết quả',
+          });
+          setIsGenerating(false);
+          setCurrentTaskId(null);
+          generatingRef.current = false;
+          return recoveredResult;
+        } catch (recoveryError) {
+          const recoveryMessage = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
+          if (error.name !== 'AbortError') {
+            setProgress({ type: 'progress', step: 'recovery_failed', progress: 0, message: recoveryMessage });
+          }
+        }
+      }
 
       if (error instanceof Error && error.name === 'AbortError') {
         const reason = abortReasonRef.current;
@@ -319,6 +395,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     abortReasonRef.current = 'user';
     cleanupTimers();
     generatingRef.current = false;
+    userIdRef.current = null;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsGenerating(false);
@@ -344,6 +421,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       }
       cleanupTimers();
       generatingRef.current = false;
+      userIdRef.current = null;
       streamingTextsRef.current = {};
     };
   }, [cleanupTimers]);
