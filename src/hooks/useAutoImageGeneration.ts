@@ -219,6 +219,7 @@ export function useAutoImageGeneration() {
     
     // Get text for this specific channel: prioritize channel-specific, fallback to shared
     const channelText = textsPerChannel?.[channel] || textToInclude;
+    let lastDebugSteps: RenderDebugStep[] = [];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -235,6 +236,7 @@ export function useAutoImageGeneration() {
         const overlayMode = options.overlayMode || 'ai_render';
         const isAiRenderMode = overlayMode === 'ai_render';
         const debugSteps: RenderDebugStep[] = [];
+        lastDebugSteps = debugSteps;
         const effectiveContentType = isAiRenderMode 
           ? (imageContentType || 'with_text')
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
@@ -653,7 +655,7 @@ export function useAutoImageGeneration() {
                     : includeLogo && logoUrl
                       ? 'logo_only'
                       : 'ai_only',
-            steps: debugSteps,
+            steps: lastDebugSteps,
             generatedAt: new Date().toISOString(),
           },
         };
