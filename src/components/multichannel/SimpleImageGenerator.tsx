@@ -195,6 +195,7 @@ function getBestOverlayText(content: MultiChannelContent, channel: Channel): str
     channelContent: map[channel] || content.topic || '',
     selectedHooks: content.selected_hooks,
     globalHook: content.global_hook,
+    brandCountryCode: (content as any).country_code,
   }).text || '';
 }
 
@@ -275,7 +276,7 @@ export function SimpleImageGenerator({
       if (!content?.brand_template_id) return null;
       const { data } = await supabase
         .from('brand_templates')
-        .select('industry, tone_of_voice, image_style, formality_level, footer_info')
+        .select('industry, tone_of_voice, image_style, formality_level, footer_info, country_code')
         .eq('id', content.brand_template_id)
         .single();
       return data;
@@ -597,6 +598,7 @@ export function SimpleImageGenerator({
     contentRole: promptMode === 'full' ? (contentRole || 'sprout') : undefined,
     contentAngle: promptMode === 'full' ? (contentAngle || 'educational') : undefined,
     hookMessages: promptMode === 'full' ? hookMessages : undefined,
+    brandCountryCode: (brandTemplate?.country_code as string | undefined) || (content as any).country_code,
     imageContentType,
     textToInclude: imageContentType === 'with_text' && useSharedText ? textToInclude : undefined,
     textsPerChannel: imageContentType === 'with_text' && !useSharedText ? textsPerChannel : undefined,
