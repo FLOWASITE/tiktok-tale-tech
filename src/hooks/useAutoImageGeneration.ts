@@ -686,7 +686,7 @@ export function useAutoImageGeneration() {
             shouldFallbackText: false,
             shouldFallbackStructured: false,
             finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
-            steps: debugSteps,
+            steps: lastDebugSteps,
             generatedAt: new Date().toISOString(),
           },
         };
