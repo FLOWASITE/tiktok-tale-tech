@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
+import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
 import { detectOverlayTextLanguage, doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { toast } from 'sonner';
@@ -296,8 +297,17 @@ export function useAutoImageGeneration() {
           });
         }, 60_000);
 
+        const taskId = await createImageGenerationTask({
+          contentId,
+          channel,
+          brandTemplateId,
+          organizationId: undefined,
+          source: 'auto',
+        });
+
         let { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
           body: {
+            taskId,
             contentId,
             channel,
             contentSummary: contentSummaries[channel] || `Content for ${channel}`,
@@ -344,7 +354,7 @@ export function useAutoImageGeneration() {
           const recoverableErrorMessage = imageError?.message || imageData?.error || '';
           if (contentId && isRecoverableBrandImageError(recoverableErrorMessage)) {
             console.warn(`[Pipeline:${channel}] Attempting recovery from persisted image after request failure...`, recoverableErrorMessage);
-            const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 20_000, pollIntervalMs: 2_500 });
+            const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 120_000, pollIntervalMs: 3_000 });
 
             if (recovered?.imageUrl) {
               console.log(`[Pipeline:${channel}] ✓ RECOVERED persisted image from ${recovered.source}`);
