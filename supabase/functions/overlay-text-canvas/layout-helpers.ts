@@ -285,6 +285,7 @@ export function getLayoutBehavior(
 
   const hasDenseStack = !!(elements.heroText && elements.cards && elements.cta && elements.footer);
   const hasSummaryRibbon = !!elements.summaryRibbon;
+  const hasHeroHeadlineCtaCombo = !!(elements.heroText && elements.headline && elements.cta && !elements.cards);
   const narrowCanvas = imageWidth <= Math.round(imageHeight * 0.92) || imageWidth < 920;
   const crowdedContent = sectionCount > 4 || cardsCount >= 3 || footerTextLength > 64 || heroLength > 24 || headlineLength > 72 || hasDenseStack || hasSummaryRibbon;
   const veryCrowded = sectionCount >= 5 || cardsCount >= 4 || footerTextLength > 96 || (heroLength > 18 && headlineLength > 48);
@@ -302,7 +303,12 @@ export function getLayoutBehavior(
     forceStack,
     forceCompact,
     useCompactSectionGap: forceCompact || crowdedContent,
-    cardsShouldStack: forceCompact || ratioProfile.kind !== 'landscape' || cardsCount >= 3,
+    cardsShouldStack:
+      forceCompact
+      || ratioProfile.kind !== 'landscape'
+      || cardsCount >= 4
+      || (cardsCount >= 3 && (footerTextLength > 0 || hasSummaryRibbon))
+      || hasHeroHeadlineCtaCombo,
     heroShouldStack: forceCompact || ratioProfile.kind !== 'landscape' || heroLength > 20,
     splitAlign: forceStack ? 'stretch' : 'center',
     rootJustify: forceCompact ? 'flex-start' : 'center',
