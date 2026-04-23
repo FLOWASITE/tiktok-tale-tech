@@ -3,7 +3,7 @@ import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
-import { isValidOverlayText, type OverlayTextSource } from '@/lib/imageOverlayText';
+import { doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
@@ -47,6 +47,7 @@ export interface AutoGenerateOptions {
   brandTemplateId: string;
   channels: Channel[];
   contentSummaries: Record<Channel, string>;
+  brandCountryCode?: string;
   includeLogo?: boolean;
   logoPosition?: LogoPosition;
   logoUrl?: string;
@@ -170,6 +171,9 @@ export interface RenderDebugInfo {
     source: OverlayTextSource;
     length: number;
     mode: 'with_text' | 'background_only';
+    detectedLanguage?: OverlayTextDetectedLanguage;
+    brandLanguage?: string;
+    languageMatch: boolean;
     suppressedBecauseTooLong: boolean;
     reason?: string;
   };
