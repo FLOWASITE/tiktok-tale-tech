@@ -3,8 +3,9 @@ import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
-import { isValidOverlayText, type OverlayTextSource } from '@/lib/imageOverlayText';
+import { detectOverlayTextLanguage, doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { toast } from 'sonner';
+import { getUILanguageFromCountry } from '@/utils/countryLanguageMap';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
 export type LogoPosition = 
@@ -47,6 +48,7 @@ export interface AutoGenerateOptions {
   brandTemplateId: string;
   channels: Channel[];
   contentSummaries: Record<Channel, string>;
+  brandCountryCode?: string;
   includeLogo?: boolean;
   logoPosition?: LogoPosition;
   logoUrl?: string;
@@ -170,6 +172,9 @@ export interface RenderDebugInfo {
     source: OverlayTextSource;
     length: number;
     mode: 'with_text' | 'background_only';
+    detectedLanguage?: OverlayTextDetectedLanguage;
+    brandLanguage?: string;
+    languageMatch: boolean;
     suppressedBecauseTooLong: boolean;
     reason?: string;
   };
@@ -212,7 +217,7 @@ export function useAutoImageGeneration() {
     maxRetries = 1
   ): Promise<GeneratedImage | null> => {
     const { 
-      contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl,
+      contentId, brandTemplateId, contentSummaries, brandCountryCode, includeLogo, logoPosition, logoUrl,
       logoStyle = 'shadow', logoSizePercent = 15, logoOpacity = 100,
       aspectRatio = '16:9', imageStylePreset, negativePrompt,
       // Strategic context for more relevant images
@@ -240,10 +245,14 @@ export function useAutoImageGeneration() {
     
     // Get text for this specific channel: prioritize channel-specific, fallback to shared
     const rawChannelText = textsPerChannel?.[channel] || textToInclude;
+    const brandLanguage = getUILanguageFromCountry(brandCountryCode);
     const overlayTextSource: OverlayTextSource = textsPerChannel?.[channel] ? 'text_overlay' : textToInclude ? 'opening_line' : 'suppressed';
     const overlayTextLength = rawChannelText?.trim().length || 0;
+    const detectedLanguage = detectOverlayTextLanguage(rawChannelText);
+    const languageMatch = !!rawChannelText && doesOverlayTextMatchBrandLanguage(rawChannelText, brandLanguage);
     const textSuppressedBecauseTooLong = !!rawChannelText && !isValidOverlayText(rawChannelText);
-    const channelText = textSuppressedBecauseTooLong ? undefined : rawChannelText;
+    const textSuppressedBecauseLanguageMismatch = !!rawChannelText && !languageMatch;
+    const channelText = textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? undefined : rawChannelText;
     let lastDebugSteps: RenderDebugStep[] = [];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -542,6 +551,7 @@ export function useAutoImageGeneration() {
           shouldFallbackText ? 'text overlay fallback bật' : null,
           !backendRequestedFallback && isAiRenderMode ? 'AI accepted by backend hint' : null,
           textSuppressedBecauseTooLong ? 'text too long, auto downgraded to background_only' : null,
+          textSuppressedBecauseLanguageMismatch ? `language mismatch (${detectedLanguage} != ${brandLanguage}), auto downgraded to background_only` : null,
           !isAiRenderMode ? 'satori forced mode' : null,
         ].filter(Boolean) as string[];
         const fallbackReason = fallbackReasons.join(' • ');
@@ -740,11 +750,14 @@ export function useAutoImageGeneration() {
             requiredBranding,
             payloadPresence,
             overlayText: {
-              source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
+              source: textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? 'suppressed' : overlayTextSource,
               length: overlayTextLength,
               mode: effectiveContentType,
+              detectedLanguage,
+              brandLanguage,
+              languageMatch,
               suppressedBecauseTooLong: textSuppressedBecauseTooLong,
-              reason: textSuppressedBecauseTooLong ? 'text too long' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+              reason: textSuppressedBecauseTooLong ? 'text too long' : textSuppressedBecauseLanguageMismatch ? 'language mismatch' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
             },
             finalPath: !isAiRenderMode
               ? 'satori_forced'
@@ -802,11 +815,14 @@ export function useAutoImageGeneration() {
               textsPerChannel: !!textsPerChannel,
             },
              overlayText: {
-               source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
+               source: textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? 'suppressed' : overlayTextSource,
                length: overlayTextLength,
                mode: failedOverlayMode,
+               detectedLanguage,
+               brandLanguage,
+               languageMatch,
                suppressedBecauseTooLong: textSuppressedBecauseTooLong,
-               reason: textSuppressedBecauseTooLong ? 'text too long' : failedOverlayMode === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+               reason: textSuppressedBecauseTooLong ? 'text too long' : textSuppressedBecauseLanguageMismatch ? 'language mismatch' : failedOverlayMode === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
              },
             finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
             steps: lastDebugSteps,

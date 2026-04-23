@@ -50,6 +50,9 @@ export function RenderDebugTimeline({ debug, className }: RenderDebugTimelinePro
           <p>Source: {debug.overlayText.source}</p>
           <p>Length: {debug.overlayText.length}</p>
           <p>Mode: {debug.overlayText.mode}</p>
+          <p>Brand language: {debug.overlayText.brandLanguage || 'unknown'}</p>
+          <p>Detected language: {debug.overlayText.detectedLanguage || 'unknown'}</p>
+          <p>Language match: {debug.overlayText.languageMatch ? 'yes' : 'no'}</p>
           <p>Suppressed: {debug.overlayText.suppressedBecauseTooLong ? 'yes' : 'no'}</p>
           {debug.overlayText.reason && <p>Reason: {debug.overlayText.reason}</p>}
         </div>

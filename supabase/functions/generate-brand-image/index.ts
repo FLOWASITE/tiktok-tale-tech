@@ -24,6 +24,7 @@ import {
   type PromptMode,
 } from "../_shared/image-prompt-builder.ts";
 import { applyTextBudgetsToOverlay, buildAiRenderPlan, formatRenderSpecBrief } from "../image-render-spec.ts";
+import { getOutputLanguage } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,6 +97,22 @@ function isOverlayTextAcceptable(input?: string | null): boolean {
   if (text.length > OVERLAY_TEXT_LIMITS.maxChars) return false;
   if (text.split(/\s+/).filter(Boolean).length > OVERLAY_TEXT_LIMITS.maxWords) return false;
   return true;
+}
+
+function detectOverlayTextLanguage(input?: string | null): 'vi' | 'th' | 'en' | 'unknown' {
+  const text = normalizeOverlayText(input);
+  if (!text) return 'unknown';
+  if (/[\u0E00-\u0E7F]/u.test(text)) return 'th';
+  if (/[ăâđêôơưĂÂĐÊÔƠƯàáạảãằắặẳẵầấậẩẫèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/u.test(text)) return 'vi';
+  if (/[A-Za-z]/.test(text)) return 'en';
+  return 'unknown';
+}
+
+function doesOverlayTextMatchBrandLanguage(input: string | null | undefined, brandLanguage?: string | null): boolean {
+  if (!brandLanguage) return true;
+  const detectedLanguage = detectOverlayTextLanguage(input);
+  if (detectedLanguage === 'unknown') return false;
+  return detectedLanguage === brandLanguage;
 }
 
 // Default model fallback (used when config not available)
@@ -442,10 +459,6 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
     const normalizedTextToInclude = normalizeOverlayText(textToInclude);
     const textSuppressedBecauseTooLong = !!normalizedTextToInclude && !isOverlayTextAcceptable(normalizedTextToInclude);
-    const effectiveImageContentType: ImageContentType = imageContentType === 'with_text' && !textSuppressedBecauseTooLong && normalizedTextToInclude
-      ? 'with_text'
-      : 'background_only';
-    const effectiveTextToInclude = effectiveImageContentType === 'with_text' ? normalizedTextToInclude : undefined;
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
     console.log(`[generate-brand-image] Image content type: ${effectiveImageContentType}`);
@@ -498,6 +511,14 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.error("[generate-brand-image] Brand template not found:", brandError);
       throw new Error("Brand template not found");
     }
+
+    const brandLanguage = getOutputLanguage(brandTemplate.country_code as string | undefined);
+    const detectedOverlayLanguage = detectOverlayTextLanguage(normalizedTextToInclude);
+    const textSuppressedBecauseLanguageMismatch = !!normalizedTextToInclude && !doesOverlayTextMatchBrandLanguage(normalizedTextToInclude, brandLanguage);
+    const effectiveImageContentType: ImageContentType = imageContentType === 'with_text' && !textSuppressedBecauseTooLong && !textSuppressedBecauseLanguageMismatch && normalizedTextToInclude
+      ? 'with_text'
+      : 'background_only';
+    const effectiveTextToInclude = effectiveImageContentType === 'with_text' ? normalizedTextToInclude : undefined;
 
     // Auto-select style if not provided
     let finalImageStylePreset = imageStylePreset;
@@ -1031,6 +1052,9 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         hasFooterInstruction,
         effectiveImageContentType,
         textSuppressedBecauseTooLong,
+        textSuppressedBecauseLanguageMismatch,
+        detectedOverlayLanguage,
+        brandLanguage,
         provider: providerDebug.provider,
         providerTimeout: providerDebug.providerTimeout ?? false,
         fallbackTried: providerDebug.fallbackTried ?? false,

@@ -141,6 +141,7 @@ interface BrandTemplate {
   id: string;
   name: string;
   brand_name: string;
+  country_code?: string | null;
   tone_of_voice?: string[];
   formality_level?: string;
   channel_overrides?: Record<string, unknown>;
@@ -158,7 +159,7 @@ interface MultiChannelFormWizardProps {
   onTopicHistoryIdChange?: (id: string | undefined) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
   // Step 5: Image generation
-  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw'; imageContentType?: 'with_text' | 'background_only'; structuredTemplate?: string; hooks?: { selectedHooks?: MultiChannelSelectedHook[]; globalHook?: MultiChannelFormData['globalHook'] } }) => void;
+  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw'; imageContentType?: 'with_text' | 'background_only'; structuredTemplate?: string; brandCountryCode?: string; hooks?: { selectedHooks?: MultiChannelSelectedHook[]; globalHook?: MultiChannelFormData['globalHook'] } }) => void;
   imagePhase?: string;
   imageProgress?: Record<string, string>;
   imageProgressTimes?: Record<string, number>;
@@ -946,8 +947,9 @@ export function MultiChannelFormWizard({
           channelContent: channelTexts[channel],
           selectedHooks: formData.selectedHooks,
           globalHook: formData.globalHook,
+          brandCountryCode: brandTemplate?.country_code,
         });
-        return !!resolved.text;
+        return !!resolved.text && resolved.languageMatch;
       });
       onStartImagePipeline(formData.channels, channelTexts, {
         contentGoal: formData.contentGoal,
@@ -956,6 +958,7 @@ export function MultiChannelFormWizard({
         topic: formData.topic,
         promptMode,
         imageContentType: hasAnyShortOverlayText ? 'with_text' : 'background_only',
+        brandCountryCode: brandTemplate?.country_code || undefined,
         structuredTemplate: 'auto',
         hooks: {
           selectedHooks: formData.selectedHooks,
@@ -2218,8 +2221,9 @@ export function MultiChannelFormWizard({
                                   channelContent: channelTexts[channel],
                                   selectedHooks: formData.selectedHooks,
                                   globalHook: formData.globalHook,
+                                  brandCountryCode: brandTemplate?.country_code,
                                 });
-                                return !!resolved.text;
+                                return !!resolved.text && resolved.languageMatch;
                               });
                               onStartImagePipeline(formData.channels, channelTexts, {
                                 contentGoal: formData.contentGoal,
@@ -2228,6 +2232,7 @@ export function MultiChannelFormWizard({
                                 topic: formData.topic,
                                 promptMode,
                                 imageContentType: hasAnyShortOverlayText ? 'with_text' : 'background_only',
+                                brandCountryCode: brandTemplate?.country_code || undefined,
                                 structuredTemplate: 'auto',
                                 hooks: {
                                   selectedHooks: formData.selectedHooks,
