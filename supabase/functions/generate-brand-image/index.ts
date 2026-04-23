@@ -621,17 +621,23 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.error("[generate-brand-image] Brand template not found:", brandError);
       throw new Error("Brand template not found");
     }
+    console.log(`[generate-brand-image] step=brand_loaded brand=${brandTemplateId}`);
 
+    // === OVERLAY RUNTIME RESOLUTION (single block — avoid TDZ) ===
+    // All overlay-related variables MUST be resolved here before any prompt builder runs.
     const brandLanguage = getOutputLanguage(brandTemplate.country_code as string | undefined);
     const detectedOverlayLanguage = detectOverlayTextLanguage(normalizedTextToInclude);
-    const textSuppressedBecauseLanguageMismatch = !!normalizedTextToInclude && !doesOverlayTextMatchBrandLanguage(normalizedTextToInclude, brandLanguage);
-    const effectiveImageContentType: ImageContentType = imageContentType === 'with_text' && !textSuppressedBecauseTooLong && !textSuppressedBecauseLanguageMismatch && normalizedTextToInclude
-      ? 'with_text'
-      : 'background_only';
-    const effectiveTextToInclude = effectiveImageContentType === 'with_text' ? normalizedTextToInclude : undefined;
+    const textSuppressedBecauseLanguageMismatch =
+      !!normalizedTextToInclude && !doesOverlayTextMatchBrandLanguage(normalizedTextToInclude, brandLanguage);
+    const overlayHasUsableText =
+      imageContentType === 'with_text' &&
+      !textSuppressedBecauseTooLong &&
+      !textSuppressedBecauseLanguageMismatch &&
+      !!normalizedTextToInclude;
+    const effectiveImageContentType: ImageContentType = overlayHasUsableText ? 'with_text' : 'background_only';
+    const effectiveTextToInclude: string | undefined = overlayHasUsableText ? normalizedTextToInclude : undefined;
 
-    console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
-    console.log(`[generate-brand-image] Image content type: ${effectiveImageContentType}`);
+    console.log(`[generate-brand-image] step=overlay_resolved channel=${channel} contentId=${contentId} promptMode=${promptMode || 'full'} type=${effectiveImageContentType} brandLang=${brandLanguage} detectedLang=${detectedOverlayLanguage || 'n/a'} suppressed_long=${textSuppressedBecauseTooLong} suppressed_lang=${textSuppressedBecauseLanguageMismatch}`);
     if (effectiveImageContentType === 'with_text' && effectiveTextToInclude) {
       console.log(`[generate-brand-image] Text to include: "${effectiveTextToInclude.slice(0, 50)}..."`);
     }
