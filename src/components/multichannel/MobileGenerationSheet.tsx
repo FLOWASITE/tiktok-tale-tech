@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from '@/hooks/use-toast';
 
-type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
+type GenerationState = 'idle' | 'generating' | 'recovering' | 'complete' | 'error';
 
 interface MobileGenerationSheetProps {
   open: boolean;
@@ -65,7 +65,7 @@ export function MobileGenerationSheet({
 }: MobileGenerationSheetProps) {
   const isMobile = useIsMobile();
   const progressPercent = sseProgress?.progress ?? 0;
-  const isGenerating = generationState === 'generating';
+  const isGenerating = generationState === 'generating' || generationState === 'recovering';
   const isComplete = generationState === 'complete';
   const isError = generationState === 'error';
 
@@ -91,7 +91,8 @@ export function MobileGenerationSheet({
 
   // Determine title
   const getTitle = () => {
-    if (isGenerating) return 'AI đang tạo nội dung...';
+    if (generationState === 'recovering') return 'Đang hoàn tất ở nền...';
+    if (generationState === 'generating') return 'AI đang tạo nội dung...';
     if (isComplete && isImageGenerating) return 'Đang tạo ảnh AI... 🎨';
     if (isComplete && isFullyComplete) return 'Tạo thành công! 🎉';
     if (isError) return 'Có lỗi xảy ra';

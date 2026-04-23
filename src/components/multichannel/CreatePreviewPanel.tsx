@@ -23,7 +23,7 @@ import { ImageGenerationStatus, GeneratedImage } from '@/hooks/useAutoImageGener
 import { PipelinePhase } from '@/hooks/useAutoImagePipeline';
 import { cn } from '@/lib/utils';
 
-type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
+type GenerationState = 'idle' | 'generating' | 'recovering' | 'complete' | 'error';
 
 interface CreatePreviewPanelProps {
   state: GenerationState;
