@@ -501,10 +501,15 @@ function structuredElementsToPromptText(
   return parts.join('\n');
 }
 
+// Build marker — bump this string to force a clean redeploy and prove runtime is on the latest bundle.
+const BUILD_MARKER = '2026-04-23-fix-tdz-v2';
+
 Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  console.log(`[generate-brand-image] build marker: ${BUILD_MARKER}`);
 
   const traceId = generateTraceId();
   const startTime = performance.now();
