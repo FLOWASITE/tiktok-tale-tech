@@ -23,6 +23,7 @@ import {
   type FooterInfo,
   type PromptMode,
 } from "../_shared/image-prompt-builder.ts";
+import { applyTextBudgetsToOverlay, buildAiRenderPlan, formatRenderSpecBrief } from "../image-render-spec.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -574,8 +575,21 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     });
 
     // AI Render mode: append structured text instructions to prompt
+    let aiRenderPlan = undefined;
     if (structuredElements) {
-      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors, structuredTemplate, logoSafeZone);
+      aiRenderPlan = buildAiRenderPlan({
+        channel,
+        aspectRatio: finalAspectRatio,
+        suggestedLayout: structuredTemplate,
+        overlay: structuredElements,
+        logoSafeZone,
+      });
+      const budgetedElements = applyTextBudgetsToOverlay(structuredElements, aiRenderPlan.renderSpec);
+      const structuredText = [
+        `\n\n## CHANNEL-AWARE AI RENDER BRIEF:\n${formatRenderSpecBrief(aiRenderPlan.renderSpec)}`,
+        `\n## LAYOUT BEHAVIOR:\n- Mode: ${aiRenderPlan.layoutBehavior.aiLayoutMode}\n- Density: ${aiRenderPlan.layoutBehavior.densityMode}\n- Text priority: ${aiRenderPlan.layoutBehavior.textStrategy}\n- CTA strategy: ${aiRenderPlan.layoutBehavior.ctaStrategy}\n- Footer strategy: ${aiRenderPlan.layoutBehavior.footerStrategy}\n- Logo protection: ${aiRenderPlan.layoutBehavior.logoProtection}\n- If layout becomes crowded, remove card descriptions first, then shorten footer, and preserve hero/headline/CTA accuracy.`,
+        structuredElementsToPromptText(budgetedElements, structuredColors, structuredTemplate, logoSafeZone),
+      ].join('\n');
       enhancedPrompt += structuredText;
       console.log(`[generate-brand-image] AI Render mode: appended structured text instructions (${structuredText.length} chars)`);
     }
@@ -951,6 +965,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           primary: brandContext.brandColors?.primary,
           secondary: brandContext.brandColors?.secondary,
         },
+        aiRender: aiRenderPlan,
         modelUsed,
         attempts: totalAttempts,
       }),

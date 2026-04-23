@@ -178,7 +178,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'horizontal', minCount: 3 },
     },
-    aiRender: { preferredRatios: ['4:5', '16:9', '1:1'], narrowAdaptation: 'stack', maxCards: 3, heroPolicy: 'optional', ctaPolicy: 'required', footerPolicy: 'optional' as never },
+    aiRender: { preferredRatios: ['4:5', '16:9', '1:1'], narrowAdaptation: 'stack', maxCards: 3, heroPolicy: 'optional', ctaPolicy: 'required', footerPolicy: 'compact' },
   },
   {
     id: 'testimonial_card',
