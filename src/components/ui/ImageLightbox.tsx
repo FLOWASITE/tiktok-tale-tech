@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, ChevronLeft, ChevronRight, Download, Palette, RefreshCw, ZoomIn, ZoomOut, Type } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download, Palette, RefreshCw, ZoomIn, ZoomOut, Type, Bug } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { RenderDebugInfo } from "@/hooks/useAutoImageGeneration";
+import { RenderDebugTimeline } from "@/components/ui/RenderDebugTimeline";
 
 export interface LightboxImage {
   imageUrl: string;
@@ -12,6 +14,7 @@ export interface LightboxImage {
   channelLabel: string;
   aspectRatio?: string;
   modelUsed?: string;
+  renderDebug?: RenderDebugInfo;
 }
 
 interface ImageLightboxProps {
@@ -38,6 +41,7 @@ export function ImageLightbox({
   onRetry,
 }: ImageLightboxProps) {
   const [zoom, setZoom] = useState(1);
+  const [showDebug, setShowDebug] = useState(false);
   const current = images[currentIndex];
   const hasMultiple = images.length > 1;
 
@@ -51,6 +55,10 @@ export function ImageLightbox({
 
   // Reset zoom on image change
   useEffect(() => { setZoom(1); }, [currentIndex]);
+
+  useEffect(() => {
+    setShowDebug(Boolean(current?.renderDebug));
+  }, [currentIndex, current?.renderDebug, open]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -116,7 +124,8 @@ export function ImageLightbox({
           </div>
 
           {/* Image area */}
-          <div className="relative z-10 flex-1 flex items-center justify-center min-h-0 px-4 touch-manipulation">
+          <div className="relative z-10 flex-1 min-h-0 overflow-y-auto px-4 pb-4 touch-manipulation">
+            <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col items-center justify-center gap-4">
             {/* Prev button */}
             {hasMultiple && currentIndex > 0 && (
               <Button
@@ -129,18 +138,26 @@ export function ImageLightbox({
               </Button>
             )}
 
-            <motion.img
-              key={current.imageUrl}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              src={current.imageUrl}
-              alt={current.channelLabel}
-              className="max-w-[90vw] max-h-[70vh] object-contain rounded-lg select-none"
-              style={{ transform: `scale(${zoom})`, transition: "transform 0.2s ease" }}
-              draggable={false}
-            />
+              <motion.img
+                key={current.imageUrl}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                src={current.imageUrl}
+                alt={current.channelLabel}
+                className="max-w-[90vw] max-h-[70vh] object-contain rounded-lg select-none"
+                style={{ transform: `scale(${zoom})`, transition: "transform 0.2s ease" }}
+                draggable={false}
+              />
+
+              {showDebug && current.renderDebug && (
+                <RenderDebugTimeline
+                  debug={current.renderDebug}
+                  className="w-full max-w-3xl border-white/10 bg-black/65 text-white"
+                />
+              )}
+            </div>
 
             {/* Next button */}
             {hasMultiple && currentIndex < images.length - 1 && (
@@ -156,7 +173,7 @@ export function ImageLightbox({
           </div>
 
           {/* Bottom toolbar */}
-          <div className="relative z-10 flex items-center justify-center gap-2 px-4 py-3">
+          <div className="relative z-10 flex flex-wrap items-center justify-center gap-2 px-4 py-3">
             {/* Zoom controls */}
             <Button
               size="sm"
@@ -181,6 +198,21 @@ export function ImageLightbox({
             </Button>
 
             <div className="w-px h-5 bg-white/20 mx-1" />
+
+            {current.renderDebug && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "text-white/70 hover:text-white hover:bg-white/10",
+                  showDebug && "bg-white/10 text-white"
+                )}
+                onClick={() => setShowDebug((value) => !value)}
+              >
+                <Bug className="w-4 h-4 mr-1.5" />
+                Render debug
+              </Button>
+            )}
 
             {onDownload && (
               <Button
