@@ -749,11 +749,14 @@ export function useAutoImageGeneration() {
             requiredBranding,
             payloadPresence,
             overlayText: {
-              source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
+              source: textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? 'suppressed' : overlayTextSource,
               length: overlayTextLength,
               mode: effectiveContentType,
+              detectedLanguage,
+              brandLanguage,
+              languageMatch,
               suppressedBecauseTooLong: textSuppressedBecauseTooLong,
-              reason: textSuppressedBecauseTooLong ? 'text too long' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+              reason: textSuppressedBecauseTooLong ? 'text too long' : textSuppressedBecauseLanguageMismatch ? 'language mismatch' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
             },
             finalPath: !isAiRenderMode
               ? 'satori_forced'
@@ -811,11 +814,14 @@ export function useAutoImageGeneration() {
               textsPerChannel: !!textsPerChannel,
             },
              overlayText: {
-               source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
+               source: textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? 'suppressed' : overlayTextSource,
                length: overlayTextLength,
                mode: failedOverlayMode,
+               detectedLanguage,
+               brandLanguage,
+               languageMatch,
                suppressedBecauseTooLong: textSuppressedBecauseTooLong,
-               reason: textSuppressedBecauseTooLong ? 'text too long' : failedOverlayMode === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+               reason: textSuppressedBecauseTooLong ? 'text too long' : textSuppressedBecauseLanguageMismatch ? 'language mismatch' : failedOverlayMode === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
              },
             finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
             steps: lastDebugSteps,
