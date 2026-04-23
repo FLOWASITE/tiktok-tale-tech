@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Channel } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
+import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
 import { toast } from 'sonner';
 import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
 
@@ -193,6 +194,15 @@ export function useSocialImageGeneration() {
       });
 
       if (error) {
+        if (contentId && channel && isRecoverableBrandImageError(error.message)) {
+          const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 20_000, pollIntervalMs: 2_500 });
+          if (recovered?.imageUrl) {
+            console.warn('[useSocialImageGeneration] Request failed but recovered persisted image:', recovered.source);
+            toast.success('Ảnh đã hoàn tất ở nền và được khôi phục tự động');
+            return recovered.imageUrl;
+          }
+        }
+
         console.error('[useSocialImageGeneration] Function error:', error);
         
         if (error.message?.includes('429')) {

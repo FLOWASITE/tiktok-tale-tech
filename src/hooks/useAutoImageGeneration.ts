@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
+import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
 import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
@@ -317,6 +318,49 @@ export function useAutoImageGeneration() {
           errorCode: imageData?.errorCode,
           errorMessage: imageData?.error,
         };
+
+        if (imageError || !imageData?.success) {
+          const recoverableErrorMessage = imageError?.message || imageData?.error || '';
+          if (contentId && isRecoverableBrandImageError(recoverableErrorMessage)) {
+            console.warn(`[Pipeline:${channel}] Attempting recovery from persisted image after request failure...`, recoverableErrorMessage);
+            const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 20_000, pollIntervalMs: 2_500 });
+
+            if (recovered?.imageUrl) {
+              console.log(`[Pipeline:${channel}] ✓ RECOVERED persisted image from ${recovered.source}`);
+              providerInfo = {
+                ...providerInfo,
+                errorMessage: recoverableErrorMessage,
+              };
+              debugSteps.push({
+                id: 'step1',
+                label: 'STEP 1 — AI/base render',
+                status: 'success',
+                summary: `Request bị cắt nhưng đã khôi phục ảnh đã lưu (${recovered.source})`,
+                durationMs: Date.now() - startTime,
+                details: [
+                  providerInfo.provider ? `provider=${providerInfo.provider}` : null,
+                  `recoveredFrom=${recovered.source}`,
+                  recoverableErrorMessage,
+                ].filter(Boolean) as string[],
+              });
+
+              imageData = {
+                ...(imageData || {}),
+                success: true,
+                imageUrl: recovered.imageUrl,
+                prompt: imageData?.prompt || recovered.prompt || contentSummaries[channel] || `Content for ${channel}`,
+                aspectRatio: imageData?.aspectRatio || recovered.aspectRatio || channelAspectRatio,
+                recommendedOverlayMode: imageData?.recommendedOverlayMode,
+                fallbackRecommended: imageData?.fallbackRecommended,
+                modelUsed: imageData?.modelUsed,
+                provider: imageData?.provider || providerInfo.provider,
+                providerTimeout: imageData?.providerTimeout || false,
+                fallbackTried: imageData?.fallbackTried || false,
+                fallbackProvider: imageData?.fallbackProvider || null,
+              };
+            }
+          }
+        }
 
         if (imageError || !imageData?.success) {
           const step1FailureMessage = imageData?.providerTimeout
