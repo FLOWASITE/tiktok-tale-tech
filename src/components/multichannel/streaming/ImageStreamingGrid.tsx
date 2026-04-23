@@ -81,6 +81,7 @@ export function ImageStreamingGrid({
       channelLabel: getChannelLabel(ch),
       aspectRatio: generatedImages[ch].aspectRatio,
       modelUsed: generatedImages[ch].modelUsed,
+      renderDebug: generatedImages[ch].renderDebug,
     }));
 
   const openLightbox = (channel: Channel) => {
