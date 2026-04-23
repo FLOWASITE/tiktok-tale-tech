@@ -6,7 +6,7 @@ export interface RecoveredBrandImage {
   prompt?: string | null;
   aspectRatio?: string | null;
   generatedAt?: string | null;
-  source: 'history' | 'content_json';
+  source: 'history' | 'content_json' | 'task_result';
 }
 
 type ImageGenerationTaskStatus = 'pending' | 'generating' | 'completed' | 'failed' | 'unknown';
@@ -24,7 +24,7 @@ export function isRecoverableBrandImageError(message: string | null | undefined)
 }
 
 async function fetchRecoveredImage(contentId: string, channel: Channel): Promise<RecoveredBrandImage | null> {
-  const [{ data: historyRow }, { data: contentRow }] = await Promise.all([
+  const [{ data: historyRow }, { data: contentRow }, { data: taskRow }] = await Promise.all([
     supabase
       .from('channel_image_history')
       .select('image_url, prompt, aspect_ratio, created_at')
@@ -38,6 +38,15 @@ async function fetchRecoveredImage(contentId: string, channel: Channel): Promise
       .from('multi_channel_contents')
       .select('channel_images')
       .eq('id', contentId)
+      .maybeSingle(),
+    supabase
+      .from('generation_tasks')
+      .select('result_metadata, completed_at')
+      .eq('task_type', 'image_generation')
+      .eq('status', 'completed')
+      .contains('input_params', { contentId, channel })
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
 
@@ -57,6 +66,17 @@ async function fetchRecoveredImage(contentId: string, channel: Channel): Promise
       imageUrl: contentImage.url,
       aspectRatio: contentImage.aspectRatio || null,
       source: 'content_json',
+    };
+  }
+
+  const taskResult = taskRow?.result_metadata as { imageUrl?: string; prompt?: string | null; aspectRatio?: string | null } | null;
+  if (taskResult?.imageUrl) {
+    return {
+      imageUrl: taskResult.imageUrl,
+      prompt: taskResult.prompt ?? null,
+      aspectRatio: taskResult.aspectRatio ?? null,
+      generatedAt: taskRow?.completed_at ?? null,
+      source: 'task_result',
     };
   }
 
