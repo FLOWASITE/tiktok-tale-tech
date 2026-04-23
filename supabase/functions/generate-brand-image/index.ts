@@ -527,6 +527,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     }
 
     const {
+      taskId,
       contentId,
       channel,
       contentSummary,
@@ -556,6 +557,13 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       // Logo safe zone for AI render mode
       logoSafeZone,
     }: GenerateImageRequest = await req.json();
+
+    await updateImageTaskStatus(supabase, taskId, {
+      status: 'generating',
+      progress: 10,
+      progress_message: 'Image request accepted',
+      started_at: new Date().toISOString(),
+    });
 
     const normalizedTextToInclude = normalizeOverlayText(textToInclude);
     const textSuppressedBecauseTooLong = !!normalizedTextToInclude && !isOverlayTextAcceptable(normalizedTextToInclude);
@@ -1053,58 +1061,24 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     }
 
     // Persistence is recovery-critical: keep it alive even if client disconnects.
-    const historySavePromise = (async () => {
-      try {
-        await supabase
-          .from("channel_image_history")
-          .update({ is_selected: false })
-          .eq("content_id", contentId)
-          .eq("channel", channel);
-
-        await supabase
-          .from("channel_image_history")
-          .insert({
-            content_id: contentId,
-            channel: channel,
-            image_url: imageUrl,
-            prompt: enhancedPrompt,
-            aspect_ratio: finalAspectRatio,
-            is_selected: true,
-            organization_id: brandTemplate.organization_id,
-            created_by: userId,
-          });
-        console.log("[generate-brand-image] Saved to channel_image_history");
-
-        // Sync channel_images JSON column so MultiChannelViewer can display the image
-        if (contentId && channel) {
-          try {
-            const { data: currentContent } = await supabase
-              .from("multi_channel_contents")
-              .select("channel_images")
-              .eq("id", contentId)
-              .single();
-
-            const currentImages = (currentContent?.channel_images as Record<string, any>) || {};
-            currentImages[channel] = {
-              url: imageUrl,
-              provider: modelUsed,
-              aspectRatio: finalAspectRatio,
-            };
-
-            await supabase
-              .from("multi_channel_contents")
-              .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
-              .eq("id", contentId);
-
-            console.log(`[generate-brand-image] Synced channel_images for ${channel}`);
-          } catch (syncErr) {
-            console.warn("[generate-brand-image] channel_images sync error:", syncErr);
-          }
-        }
-      } catch (historyErr) {
-        console.error("[generate-brand-image] History save error:", historyErr);
-      }
-    })();
+    const historySavePromise = persistGeneratedImage(supabase, {
+      taskId,
+      contentId,
+      channel,
+      imageUrl,
+      prompt: enhancedPrompt,
+      aspectRatio: finalAspectRatio,
+      modelUsed,
+      organizationId: brandTemplate.organization_id,
+      userId,
+    }).catch((historyErr) => {
+      console.error('[generate-brand-image] History save error:', historyErr);
+      return updateImageTaskStatus(supabase, taskId, {
+        status: 'failed',
+        progress_message: historyErr instanceof Error ? historyErr.message : 'Persistence failed',
+        completed_at: new Date().toISOString(),
+      });
+    });
 
     if ('waitUntil' in EdgeRuntime) {
       EdgeRuntime.waitUntil(historySavePromise);
@@ -1137,6 +1111,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     return new Response(
       JSON.stringify({
         success: true,
+        taskId,
         imageUrl,
         prompt: enhancedPrompt,
         aspectRatio: finalAspectRatio,
@@ -1185,6 +1160,14 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     } catch {}
 
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    try {
+      const reqBody = await req.clone().json().catch(() => null) as { taskId?: string } | null;
+      await updateImageTaskStatus(createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!), reqBody?.taskId, {
+        status: 'failed',
+        progress_message: errorMessage,
+        completed_at: new Date().toISOString(),
+      });
+    } catch {}
     const is402 = errorMessage.includes('402') || (error as any)?.statusCode === 402;
     const is429 = errorMessage.includes('429') || (error as any)?.statusCode === 429;
     const errorCode = is402 ? 'CREDITS_EXHAUSTED' : is429 ? 'RATE_LIMIT' : 'UNKNOWN';
