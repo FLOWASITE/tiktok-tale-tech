@@ -44,6 +44,27 @@ export function RenderDebugTimeline({ debug, className }: RenderDebugTimelinePro
         <p className="text-sm leading-6 text-foreground">{debug.fallbackReason || 'AI render accepted, không cần fallback.'}</p>
       </div>
 
+      {debug.providerInfo && (
+        <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <p className="uppercase tracking-wide">Provider</p>
+            <p className="mt-1 text-sm text-foreground">{debug.providerInfo.provider || 'unknown'}</p>
+            {debug.providerInfo.fallbackProvider && (
+              <p className="mt-1">fallback → {debug.providerInfo.fallbackProvider}</p>
+            )}
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <p className="uppercase tracking-wide">Status</p>
+            <p className="mt-1 text-sm text-foreground">
+              {debug.providerInfo.providerTimeout ? 'Timeout provider' : debug.providerInfo.errorCode || 'ok'}
+            </p>
+            {debug.providerInfo.fallbackTried !== undefined && (
+              <p className="mt-1">fallback tried: {debug.providerInfo.fallbackTried ? 'yes' : 'no'}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 space-y-3">
         {debug.steps.map((step, index) => (
           <div key={step.id} className="flex gap-3">
