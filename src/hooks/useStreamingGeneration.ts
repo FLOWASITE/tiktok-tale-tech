@@ -395,6 +395,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     abortReasonRef.current = 'user';
     cleanupTimers();
     generatingRef.current = false;
+    userIdRef.current = null;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsGenerating(false);
@@ -420,6 +421,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       }
       cleanupTimers();
       generatingRef.current = false;
+      userIdRef.current = null;
       streamingTextsRef.current = {};
     };
   }, [cleanupTimers]);
