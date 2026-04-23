@@ -466,7 +466,16 @@ export function SimpleImageGenerator({
     setIsDecomposing(true);
 
     const resolvedImageStyle = imageStyle !== 'auto' ? imageStyle : (v3Suggestions[0]?.style as string | undefined);
-    decomposeRequestWithAI(aiInput, brandPrimaryColor || '#DC2626', '#FFFFFF', decomposeContext, resolvedImageStyle)
+    decomposeRequestWithAI(
+      aiInput,
+      brandPrimaryColor || '#DC2626',
+      '#FFFFFF',
+      decomposeContext,
+      resolvedImageStyle,
+      firstChannel,
+      aspectRatio === 'auto' ? CHANNEL_OPTIMAL_ASPECT_RATIO[firstChannel] : aspectRatio,
+      includeLogo && brandLogoUrl ? { position: logoPosition, sizePercent: logoSize } : undefined,
+    )
       .then((decomposed) => {
         if (cancelled) return;
         // Use AI-suggested layout when in auto mode, fallback to heuristic

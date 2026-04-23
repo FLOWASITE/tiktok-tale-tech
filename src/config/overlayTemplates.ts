@@ -22,6 +22,14 @@ export interface OverlayTemplate {
     heroText?: { fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
     cards?: { layout: 'grid-2x2' | 'horizontal' | 'vertical'; minCount: number; numbered?: boolean };
   };
+  aiRender?: {
+    preferredRatios: Array<'1:1' | '4:5' | '16:9' | '9:16'>;
+    narrowAdaptation: 'stack' | 'compact' | 'reduce_cards';
+    maxCards: number;
+    heroPolicy: 'none' | 'optional' | 'required';
+    ctaPolicy: 'none' | 'optional' | 'required';
+    footerPolicy: 'none' | 'compact' | 'contact_bar';
+  };
 }
 
 export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
@@ -46,6 +54,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     defaults: {
       banner: { position: 'top' },
     },
+    aiRender: { preferredRatios: ['16:9', '4:5', '1:1'], narrowAdaptation: 'compact', maxCards: 1, heroPolicy: 'none', ctaPolicy: 'required', footerPolicy: 'none' },
   },
   {
     id: 'infographic',
@@ -60,6 +69,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       heroText: { fontSize: '3xl', effect: 'gradient' },
       cards: { layout: 'grid-2x2', minCount: 4 },
     },
+    aiRender: { preferredRatios: ['16:9', '4:5', '1:1'], narrowAdaptation: 'reduce_cards', maxCards: 4, heroPolicy: 'required', ctaPolicy: 'none', footerPolicy: 'none' },
   },
   {
     id: 'quote_card',
@@ -73,6 +83,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'bottom' },
       heroText: { fontSize: '3xl', effect: 'gradient' },
     },
+    aiRender: { preferredRatios: ['1:1', '4:5', '16:9'], narrowAdaptation: 'compact', maxCards: 0, heroPolicy: 'required', ctaPolicy: 'none', footerPolicy: 'none' },
   },
   {
     id: 'feature_list',
@@ -86,6 +97,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'vertical', minCount: 3 },
     },
+    aiRender: { preferredRatios: ['4:5', '1:1', '9:16'], narrowAdaptation: 'stack', maxCards: 4, heroPolicy: 'optional', ctaPolicy: 'optional', footerPolicy: 'none' },
   },
   {
     id: 'contact_card',
@@ -96,6 +108,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     layout: 'stack',
     requiredSlots: ['headline', 'footer'],
     defaults: {},
+    aiRender: { preferredRatios: ['1:1', '4:5', '16:9'], narrowAdaptation: 'compact', maxCards: 0, heroPolicy: 'optional', ctaPolicy: 'optional', footerPolicy: 'contact_bar' },
   },
   {
     id: 'education_infographic',
@@ -109,6 +122,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'vertical', minCount: 3, numbered: true },
     },
+    aiRender: { preferredRatios: ['4:5', '1:1', '9:16'], narrowAdaptation: 'reduce_cards', maxCards: 4, heroPolicy: 'optional', ctaPolicy: 'required', footerPolicy: 'contact_bar' },
   },
   {
     id: 'comparison_card',
@@ -122,6 +136,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'horizontal', minCount: 2 },
     },
+    aiRender: { preferredRatios: ['16:9', '1:1', '9:16'], narrowAdaptation: 'stack', maxCards: 2, heroPolicy: 'none', ctaPolicy: 'required', footerPolicy: 'none' },
   },
   {
     id: 'timeline_steps',
@@ -135,6 +150,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'vertical', minCount: 3, numbered: true },
     },
+    aiRender: { preferredRatios: ['4:5', '9:16', '1:1'], narrowAdaptation: 'reduce_cards', maxCards: 4, heroPolicy: 'none', ctaPolicy: 'required', footerPolicy: 'none' },
   },
   {
     id: 'stat_spotlight',
@@ -148,6 +164,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       heroText: { fontSize: '3xl', effect: 'gradient' },
     },
+    aiRender: { preferredRatios: ['1:1', '4:5', '16:9'], narrowAdaptation: 'compact', maxCards: 0, heroPolicy: 'required', ctaPolicy: 'optional', footerPolicy: 'compact' },
   },
   {
     id: 'product_spotlight',
@@ -161,6 +178,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'horizontal', minCount: 3 },
     },
+    aiRender: { preferredRatios: ['4:5', '16:9', '1:1'], narrowAdaptation: 'stack', maxCards: 3, heroPolicy: 'optional', ctaPolicy: 'required', footerPolicy: 'compact' },
   },
   {
     id: 'testimonial_card',
@@ -173,6 +191,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     defaults: {
       heroText: { fontSize: '2xl', effect: 'gradient' },
     },
+    aiRender: { preferredRatios: ['1:1', '4:5', '16:9'], narrowAdaptation: 'compact', maxCards: 0, heroPolicy: 'required', ctaPolicy: 'optional', footerPolicy: 'none' },
   },
   {
     id: 'editorial_cover',
@@ -183,6 +202,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     layout: 'stack',
     requiredSlots: ['headline'],
     defaults: {},
+    aiRender: { preferredRatios: ['16:9', '1:1', '4:5'], narrowAdaptation: 'compact', maxCards: 0, heroPolicy: 'optional', ctaPolicy: 'none', footerPolicy: 'none' },
   },
   {
     id: 'problem_solution',
@@ -195,6 +215,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     defaults: {
       cards: { layout: 'vertical', minCount: 3 },
     },
+    aiRender: { preferredRatios: ['16:9', '4:5', '1:1'], narrowAdaptation: 'stack', maxCards: 3, heroPolicy: 'optional', ctaPolicy: 'required', footerPolicy: 'compact' },
   },
   {
     id: 'checklist_card',
@@ -208,6 +229,7 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
       banner: { position: 'top' },
       cards: { layout: 'vertical', minCount: 4, numbered: true },
     },
+    aiRender: { preferredRatios: ['1:1', '4:5', '9:16'], narrowAdaptation: 'reduce_cards', maxCards: 4, heroPolicy: 'none', ctaPolicy: 'required', footerPolicy: 'none' },
   },
 ];
 

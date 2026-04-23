@@ -78,6 +78,8 @@ export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
+  renderSpec?: Record<string, unknown>;
+  layoutBehavior?: Record<string, unknown>;
   /** AI-suggested template ID based on content analysis */
   suggestedLayout?:
     | 'poster'
@@ -114,7 +116,10 @@ export async function decomposeRequestWithAI(
   primaryColor: string = '#DC2626',
   secondaryColor: string = '#FFFFFF',
   context?: DecomposeContext,
-  imageStyle?: string
+   imageStyle?: string,
+   channel?: string,
+   aspectRatio?: string,
+   logoSafeZone?: { position?: string; sizePercent?: number }
 ): Promise<DecomposedRequest> {
   try {
     console.log('[HybridImageGen] Using AI decomposition via Gemini Flash...', {
@@ -126,7 +131,7 @@ export async function decomposeRequestWithAI(
     });
     
     const { data, error } = await supabase.functions.invoke('decompose-image-request', {
-      body: { description, primaryColor, secondaryColor, context, imageStyle },
+      body: { description, primaryColor, secondaryColor, context, imageStyle, channel, aspectRatio, logoSafeZone },
     });
 
     if (error) {
@@ -163,6 +168,8 @@ export async function decomposeRequestWithAI(
         ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
         ...(data.overlayConfig.summaryRibbon ? { summaryRibbon: data.overlayConfig.summaryRibbon } : {}),
       },
+      renderSpec: data.renderSpec || undefined,
+      layoutBehavior: data.layoutBehavior || undefined,
       suggestedLayout: data.suggestedLayout || undefined,
     };
 
