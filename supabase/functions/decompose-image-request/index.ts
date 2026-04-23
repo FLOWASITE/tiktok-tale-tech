@@ -3,6 +3,7 @@ import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { applyTextBudgetsToOverlay, buildAiRenderPlan } from "../image-render-spec.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -124,7 +125,7 @@ Deno.serve(withPerf({ functionName: 'decompose-image-request', slowThresholdMs: 
   const startTime = performance.now();
 
   try {
-    const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context, imageStyle } = await req.json();
+    const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context, imageStyle, channel, aspectRatio, logoSafeZone } = await req.json();
 
     if (!description || typeof description !== "string") {
       return new Response(JSON.stringify({ error: "Missing description" }), {
@@ -483,7 +484,15 @@ Secondary color: ${secondaryColor}`;
 
     // Validate and fix overlay fields
     const validatedOverlay = validateOverlay(parsed.overlayConfig || {}, primaryColor);
-    const layout = determineLayout(validatedOverlay);
+    const aiRenderPlan = buildAiRenderPlan({
+      channel,
+      aspectRatio,
+      suggestedLayout: parsed.suggestedLayout || null,
+      overlay: validatedOverlay,
+      logoSafeZone,
+    });
+    const budgetedOverlay = applyTextBudgetsToOverlay(validatedOverlay, aiRenderPlan.renderSpec);
+    const layout = determineLayout(budgetedOverlay);
 
     const result = {
       suggestedLayout: parsed.suggestedLayout || null,
@@ -492,7 +501,7 @@ Secondary color: ${secondaryColor}`;
         colorScheme: `Primary: ${primaryColor}, Secondary: ${secondaryColor}`,
       },
       overlayConfig: {
-        ...validatedOverlay,
+        ...budgetedOverlay,
         layout,
         colors: {
           primary: primaryColor,
@@ -500,6 +509,8 @@ Secondary color: ${secondaryColor}`;
           text: "#FFFFFF",
         },
       },
+      renderSpec: aiRenderPlan.renderSpec,
+      layoutBehavior: aiRenderPlan.layoutBehavior,
     };
 
     console.log('[decompose-image-request] suggestedLayout:', result.suggestedLayout, 'detectedLayout:', layout);
