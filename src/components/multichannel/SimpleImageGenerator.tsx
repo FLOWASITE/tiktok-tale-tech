@@ -570,6 +570,8 @@ export function SimpleImageGenerator({
     };
   }, [footerItems, hybridOverlay?.colors, brandPrimaryColor]);
 
+  const fallbackStrategy: 'full' | 'none' = overlayMode === 'ai_render' ? 'full' : 'none';
+
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
@@ -603,12 +605,12 @@ export function SimpleImageGenerator({
     fullStructuredOverlay,
     footerOverlay,
     overlayMode,
-    fallbackStrategy: (overlayMode === 'ai_render' ? 'full' : 'none') as const,
+    fallbackStrategy,
     structuredTemplate: overlayTemplate,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, aiStructuredOverlay, fullStructuredOverlay, footerOverlay, overlayMode, overlayTemplate, v3Suggestions]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, aiStructuredOverlay, fullStructuredOverlay, footerOverlay, overlayMode, fallbackStrategy, overlayTemplate, v3Suggestions]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
