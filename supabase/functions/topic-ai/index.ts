@@ -112,6 +112,58 @@ interface TopicAIRequest {
   temperature?: number;        // from ai_agent_model_configs
 }
 
+// ========== Topic AI model safety ==========
+const TOPIC_AI_ALLOWED_MODELS = new Set([
+  'openai/gpt-5-mini',
+  'openai/gpt-5',
+  'openai/gpt-5-nano',
+  'openai/gpt-5.2',
+  'google/gemini-2.5-pro',
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
+  'google/gemini-2.5-flash-image',
+  'google/gemini-3-flash-preview',
+  'google/gemini-3-pro-image-preview',
+  'google/gemini-3.1-pro-preview',
+  'google/gemini-3.1-flash-image-preview',
+]);
+
+const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
+  'google/gemini-3.1-flash-lite-preview': 'google/gemini-2.5-flash-lite',
+};
+
+function sanitizeTopicAIModel(model: string | undefined | null, fallbackModel = 'google/gemini-2.5-flash'): string {
+  const rawModel = model?.trim();
+  if (!rawModel) return fallbackModel;
+
+  const normalizedModel = TOPIC_AI_MODEL_ALIASES[rawModel] ?? rawModel;
+  if (TOPIC_AI_ALLOWED_MODELS.has(normalizedModel)) {
+    if (normalizedModel !== rawModel) {
+      console.warn(`[topic-ai] Remapped unsupported model ${rawModel} -> ${normalizedModel}`);
+    }
+    return normalizedModel;
+  }
+
+  console.warn(`[topic-ai] Unsupported model ${rawModel}, fallback -> ${fallbackModel}`);
+  return fallbackModel;
+}
+
+async function buildTopicAIOverrides(
+  organizationId: string | undefined,
+  requestedModel: string | undefined,
+  temperature: number | undefined,
+  fallbackModel = 'google/gemini-2.5-flash',
+) {
+  const config = await getAIConfig('topic-ai', organizationId);
+  const effectiveRequestedModel = requestedModel || config.model;
+  const modelOverride = sanitizeTopicAIModel(effectiveRequestedModel, fallbackModel);
+
+  return {
+    modelOverride,
+    ...(typeof temperature === 'number' ? { temperatureOverride: temperature } : {}),
+  };
+}
+
 // ========== Main Handler ==========
 Deno.serve(withPerf({ functionName: 'topic-ai', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
@@ -276,15 +328,13 @@ async function handleSuggest(
   });
 
   // Call AI with metrics tracking
-  const config = await getAIConfig('topic-ai', organizationId);
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
     userId: params._userId,
     brandTemplateId,
     actionType: 'suggest',
-    ...(params.model_override && { modelOverride: params.model_override }),
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash')),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -324,7 +374,7 @@ async function handleSuggest(
         userId: params._userId,
         brandTemplateId,
         actionType: 'suggest_repair',
-        ...(params.model_override && { modelOverride: params.model_override }),
+        ...(await buildTopicAIOverrides(organizationId, params.model_override, undefined, 'google/gemini-2.5-flash-lite')),
         messages: [
           { role: 'system', content: repairSystem },
           { role: 'user', content: repairUser },
@@ -539,8 +589,7 @@ RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.
     userId: params._userId,
     brandTemplateId,
     actionType: 'refine',
-    modelOverride: params.model_override || 'google/gemini-2.5-pro',
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-pro')),
     messages: [{ role: 'user', content: finalPrompt }],
   });
 
@@ -669,8 +718,7 @@ What should we learn from this to improve future recommendations? Respond in Vie
     userId: params._userId,
     brandTemplateId,
     actionType: action,
-    ...(params.model_override && { modelOverride: params.model_override }),
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash')),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -857,8 +905,7 @@ Analyze and generate a list of NEW trending topics.`;
     organizationId,
     userId: params._userId,
     actionType: 'trending',
-    ...(params.model_override && { modelOverride: params.model_override }),
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash')),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -1026,8 +1073,7 @@ Trả về JSON: {
     userId: params._userId,
     brandTemplateId,
     actionType: action,
-    ...(params.model_override && { modelOverride: params.model_override }),
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash')),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -1114,8 +1160,7 @@ CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
       },
       { role: 'user', content: prompt }
     ],
-    modelOverride: params.model_override || 'google/gemini-2.5-flash-lite',
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash-lite')),
   });
 
   if (!result.success) {
@@ -1173,13 +1218,11 @@ Trả về JSON:
       userId: params._userId,
       brandTemplateId,
       actionType: 'suggest_audience',
-      ...(params.model_override && { modelOverride: params.model_override }),
-      ...(params.temperature && { temperatureOverride: params.temperature }),
+      ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash-lite')),
       messages: [
         { role: 'system', content: 'Bạn là Content Strategist chuyên phân tích đối tượng mục tiêu cho nội dung marketing.' },
         { role: 'user', content: prompt }
       ],
-      modelOverride: 'google/gemini-2.5-flash-lite',
     });
 
     if (!result.success) {
@@ -1320,8 +1363,7 @@ Trả về JSON:
       { role: 'system', content: 'Bạn là Content Strategist chuyên nghiệp, giỏi phân tích target audience và matching content với personas.' },
       { role: 'user', content: prompt }
     ],
-    modelOverride: params.model_override || 'google/gemini-2.5-flash',
-    ...(params.temperature && { temperatureOverride: params.temperature }),
+    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash')),
   });
 
   if (!result.success) {
