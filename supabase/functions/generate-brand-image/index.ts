@@ -459,10 +459,6 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
     const normalizedTextToInclude = normalizeOverlayText(textToInclude);
     const textSuppressedBecauseTooLong = !!normalizedTextToInclude && !isOverlayTextAcceptable(normalizedTextToInclude);
-    const effectiveImageContentType: ImageContentType = imageContentType === 'with_text' && !textSuppressedBecauseTooLong && normalizedTextToInclude
-      ? 'with_text'
-      : 'background_only';
-    const effectiveTextToInclude = effectiveImageContentType === 'with_text' ? normalizedTextToInclude : undefined;
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
     console.log(`[generate-brand-image] Image content type: ${effectiveImageContentType}`);
@@ -515,6 +511,14 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.error("[generate-brand-image] Brand template not found:", brandError);
       throw new Error("Brand template not found");
     }
+
+    const brandLanguage = getOutputLanguage(brandTemplate.country_code as string | undefined);
+    const detectedOverlayLanguage = detectOverlayTextLanguage(normalizedTextToInclude);
+    const textSuppressedBecauseLanguageMismatch = !!normalizedTextToInclude && !doesOverlayTextMatchBrandLanguage(normalizedTextToInclude, brandLanguage);
+    const effectiveImageContentType: ImageContentType = imageContentType === 'with_text' && !textSuppressedBecauseTooLong && !textSuppressedBecauseLanguageMismatch && normalizedTextToInclude
+      ? 'with_text'
+      : 'background_only';
+    const effectiveTextToInclude = effectiveImageContentType === 'with_text' ? normalizedTextToInclude : undefined;
 
     // Auto-select style if not provided
     let finalImageStylePreset = imageStylePreset;
