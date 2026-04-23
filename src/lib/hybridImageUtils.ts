@@ -302,7 +302,6 @@ export function autoSelectTemplate(
   const hasEditorialSignal = hasAny(['trend', 'xu hướng', 'góc nhìn', 'opinion', 'quan điểm', 'insight cá nhân', 'thought leadership', 'editorial']);
   const isTall = aspectRatio === '9:16' || aspectRatio === '4:5';
   const isWide = aspectRatio === '16:9';
-  const socialContext = `${channel || ''}:${aspectRatio || ''}`;
 
   if (hasComparisonSignal) return isWide ? 'comparison_card' : 'comparison_card';
   if (hasStatSignal && overlayConfig.heroText) return 'stat_spotlight';
@@ -318,7 +317,7 @@ export function autoSelectTemplate(
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return isTall ? 'timeline_steps' : 'infographic';
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 2) return isTall ? 'checklist_card' : 'feature_list';
   if (overlayConfig.heroText && !overlayConfig.cards) return 'quote_card';
-  if ((overlayConfig.headline || overlayConfig.cta) && false) return 'poster';
+  if ((overlayConfig.headline || overlayConfig.cta) && channel === 'linkedin' && isWide) return 'editorial_cover';
   return 'poster';
 }
 
