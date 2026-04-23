@@ -952,8 +952,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.log("[generate-brand-image] Image uploaded:", imageUrl);
     }
 
-    // === OPTIMIZATION: Non-blocking history save (fire-and-forget, saves ~300ms) ===
-    // History is non-critical; don't block response on it
+    // Persistence is recovery-critical: keep it alive even if client disconnects.
     const historySavePromise = (async () => {
       try {
         await supabase
@@ -1007,9 +1006,11 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       }
     })();
 
-    // Use waitUntil pattern: respond immediately, let history save finish in background
-    // Deno edge functions keep running after response is sent
-    historySavePromise.catch(() => {});
+    if ('waitUntil' in EdgeRuntime) {
+      EdgeRuntime.waitUntil(historySavePromise);
+    } else {
+      historySavePromise.catch(() => {});
+    }
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
