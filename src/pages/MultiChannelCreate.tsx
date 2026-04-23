@@ -96,6 +96,7 @@ export default function MultiChannelCreate() {
     brandPrimaryColor: selectedTemplate?.primary_color,
     brandFooterInfo: (selectedTemplate?.footer_info as Record<string, string> | null) || null,
     brandIndustry: selectedTemplate?.industry_template_id ? [selectedTemplate.industry_template_id] : undefined,
+    brandCountryCode: selectedTemplate?.country_code || null,
     autoSave: true,
   });
 

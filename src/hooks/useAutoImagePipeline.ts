@@ -37,6 +37,8 @@ interface AutoImagePipelineOptions {
   brandFooterInfo?: BrandFooterInfo | null;
   /** Brand industry for V3 scoring */
   brandIndustry?: string[];
+  /** Brand country code for overlay language matching */
+  brandCountryCode?: string | null;
   /** Whether to auto-save images to DB immediately */
   autoSave?: boolean;
 }
@@ -87,7 +89,7 @@ function extractContentSummary(channelContent: string): string {
 }
 
 export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
-  const { brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, autoSave = true } = options;
+  const { brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, autoSave = true } = options;
   
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [imageResults, setImageResults] = useState<{ successful: Channel[]; failed: Channel[] } | null>(null);
@@ -115,6 +117,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       promptMode?: 'full' | 'brand_only' | 'raw';
       imageContentType?: 'with_text' | 'background_only';
       structuredTemplate?: string;
+      brandCountryCode?: string;
       hooks?: PipelineHookData;
     }
   ) => {
