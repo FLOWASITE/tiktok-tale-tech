@@ -603,7 +603,7 @@ export function SimpleImageGenerator({
     fullStructuredOverlay,
     footerOverlay,
     overlayMode,
-    fallbackStrategy: overlayMode === 'ai_render' ? 'full' : 'none',
+    fallbackStrategy: (overlayMode === 'ai_render' ? 'full' : 'none') as const,
     structuredTemplate: overlayTemplate,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
