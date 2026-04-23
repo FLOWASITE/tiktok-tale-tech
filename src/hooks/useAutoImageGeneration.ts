@@ -358,8 +358,7 @@ export function useAutoImageGeneration() {
             `recommended=${imageData.recommendedOverlayMode || 'ai_render'}`,
             providerInfo.provider ? `provider=${providerInfo.provider}` : null,
             providerInfo.fallbackTried ? `fallback=${providerInfo.fallbackProvider || 'yes'}` : null,
-          ],
-            .filter(Boolean) as string[],
+          ].filter(Boolean) as string[],
         });
 
         let finalImageUrl = imageData.imageUrl;
