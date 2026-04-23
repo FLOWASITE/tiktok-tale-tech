@@ -295,7 +295,7 @@ export function useAutoImageGeneration() {
         clearTimeout(slowWarningTimer);
         const step1Duration = Date.now() - startTime;
 
-        const providerInfo: RenderDebugProviderInfo = {
+        let providerInfo: RenderDebugProviderInfo = {
           provider: imageData?.provider,
           fallbackProvider: imageData?.fallbackProvider,
           fallbackTried: imageData?.fallbackTried,
@@ -665,6 +665,30 @@ export function useAutoImageGeneration() {
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
+
+        const failureDebug: GeneratedImage = {
+          channel,
+          imageUrl: '',
+          prompt: contentSummaries[channel] || `Content for ${channel}`,
+          generatedAt: new Date().toISOString(),
+          aspectRatio: channelAspectRatio,
+          promptMode: promptMode || 'full',
+          renderDebug: {
+            overlayMode: options.overlayMode || 'ai_render',
+            fallbackStrategy: options.fallbackStrategy || 'full',
+            providerInfo: {
+              errorMessage: errMsg,
+            },
+            backendRequestedFallback: false,
+            fallbackReason: errMsg,
+            shouldFallbackText: false,
+            shouldFallbackStructured: false,
+            finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
+            steps: debugSteps,
+            generatedAt: new Date().toISOString(),
+          },
+        };
+        setGeneratedImages(prev => ({ ...prev, [channel]: failureDebug }));
         
         if (attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);
