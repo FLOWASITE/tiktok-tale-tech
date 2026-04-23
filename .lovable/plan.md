@@ -1,334 +1,231 @@
 
-# Phát triển AI render theo hướng AI-first nhưng vẫn giữ guardrail brand và anti-overflow
+# Nâng cấp layout instruction theo hướng AI-first, sâu hơn cho template + auto-select
 
 ## Mục tiêu
-Nâng cấp hệ thống tạo ảnh để AI render thông minh hơn trên tất cả kênh, với 4 ưu tiên chính:
+Nâng cấp hệ thống `layout instruction` để AI render ra bố cục ổn định hơn, đặc biệt ở 3 hướng bạn ưu tiên:
 
-- bố cục thông minh hơn theo từng social
-- text tiếng Việt chính xác hơn
-- logo / footer / brand giữ ổn định hơn
-- template phong phú hơn nhưng vẫn nhất quán
+- rule sâu hơn cho từng template
+- text fitting / hierarchy / anti-overflow tốt hơn
+- logo / CTA / footer / brand consistency chặt hơn
 
-Hướng triển khai sẽ là:
-- AI-first cho việc dựng bố cục và text
-- renderer tiếp tục đóng vai trò guardrail/fallback cho safe-area, logo, footer, overflow và regression
+Phạm vi sẽ bao gồm:
+- tất cả template hiện có
+- logic `auto-select / suggestedLayout`
+- prompt composer + strategist + fallback metadata + regression tests
 
 ## Hiện trạng đã xác nhận
-Pipeline hiện tại đã có nền tảng tốt:
+Hệ thống đã có nền tốt nhưng instruction còn khá “mỏng” ở lớp cuối:
 
-- `useAutoImagePipeline.ts` đang mặc định `overlayMode: 'ai_render'`
-- `useAutoImageGeneration.ts`:
-  - tự map ratio theo channel
-  - tự chọn vị trí logo theo channel
-  - truyền `structuredElements`, `structuredTemplate`, `logoSafeZone` sang `generate-brand-image`
-  - chỉ dùng `overlay-text-canvas` khi chạy mode Satori / footer overlay / fallback
-- `generate-brand-image/index.ts`:
-  - đã có `structuredElementsToPromptText(...)`
-  - đã có một số layout instruction cho AI render
-  - đã truyền color scheme, text checklist, logo safe-zone vào prompt
-- `decompose-image-request/index.ts`:
-  - đã có logic AI chọn `suggestedLayout`
-  - đã hiểu các layout mới: `comparison_card`, `timeline_steps`, `checklist_card`, `product_spotlight`, `problem_solution`, `testimonial_card`, `stat_spotlight`, `contact_card`
-- `overlay-text-canvas`:
-  - đã có ratio profile, spacing token, layout behavior, footer safe-area logic
-  - phù hợp làm lớp kiểm soát ổn định chứ không nên bỏ đi hoàn toàn
+- `decompose-image-request/index.ts`
+  - đã chọn `suggestedLayout`
+  - đã có ví dụ cho một số layout mới
+  - đã trả `renderSpec` + `layoutBehavior`
+- `generate-brand-image/index.ts`
+  - vẫn đang dùng `structuredElementsToPromptText(...)`
+  - `layoutInstructions` hiện mới có vài template cơ bản (`poster`, `infographic`, `quote_card`, `feature_list`, `contact_card`)
+  - phần rule vẫn thiên về mô tả block, chưa phải instruction framework đầy đủ cho mọi template
+- `image-render-spec.ts`
+  - đã có `renderSpec`, `densityMode`, `cta/footer strategy`, `confidence/fallback`
+  - nhưng chưa encode template-specific instruction depth
+- `overlayTemplates.ts`
+  - đã có metadata `aiRender`
+  - nhưng mới là contract tĩnh, chưa được đẩy mạnh vào prompt builder
+- `channelImageConfig.ts`
+  - đã có channel renderSpec
+  - nhưng chưa được dùng để sinh instruction giàu ngữ cảnh theo channel
 
-Vấn đề hiện tại là AI render mới ở mức “nhận instruction”, chưa thành một hệ thống channel-aware hoàn chỉnh:
-- layout instruction cho AI còn ít
-- chưa có prompt contract riêng theo từng ratio/channel
-- chưa có text-fit / hierarchy budget rõ cho AI
-- logo / footer / CTA an toàn chủ yếu đang mạnh ở renderer fallback hơn là trong AI-first flow
-- chưa có QA AI-render regression riêng theo channel × template × ratio
+## Những gì sẽ được build
 
-## Hướng kiến trúc đề xuất
-Xây 3 lớp rõ ràng:
+### 1) Chuẩn hóa instruction framework cho mọi template
+Tạo một framework instruction thống nhất thay vì chỉ map `templateId -> 1 câu LAYOUT`.
 
-### 1) Layer A — Social Render Spec
-Một lớp spec thống nhất cho từng channel/ration để AI biết:
-- tỷ lệ ưu tiên
-- vùng UI cần tránh
-- logo safe-zone
-- footer safe-zone
-- text density budget
-- layout bias: split / stack / compact / editorial / CTA-heavy
+Mỗi template sẽ có bộ rule riêng gồm:
+- semantic purpose
+- visual priority
+- section order
+- ratio adaptation
+- max card count
+- hero/headline coexist rule
+- CTA style rule
+- footer behavior
+- text reduction order khi canvas chật
+- logo avoidance rule
 
-Lớp này là “ngôn ngữ chung” giữa:
-- frontend generator
-- `decompose-image-request`
-- `generate-brand-image`
-- renderer fallback
-
-### 2) Layer B — AI Layout Composer
-Thay vì chỉ đẩy raw `structuredElements`, bổ sung bước chuẩn hóa trước khi prompt:
-- resolve template theo intent + channel
-- resolve hierarchy:
-  - banner
-  - hero
-  - headline
-  - cards
-  - ribbon
-  - CTA
-  - footer
-- resolve density:
-  - minimal / balanced / dense
-- resolve AI layout mode:
-  - hero-led
-  - stacked-cards
-  - split-editorial
-  - footer-contact
-  - stat-focus
-
-AI sẽ được prompt bằng một layout brief chặt hơn, không chỉ là danh sách text.
-
-### 3) Layer C — Verification + Guardrails
-Sau AI render:
-- nếu output thuộc mode AI-first nhưng có risk cao:
-  - footer dài
-  - logo bottom-center
-  - 9:16 text-heavy
-  - comparison/timeline nhiều text
-thì hệ thống có thể:
-- hạ fallback sang hybrid / renderer overlay cho footer hoặc toàn bộ text
-- hoặc re-prompt bằng compact variant trước khi trả kết quả
-
-## Cách triển khai chi tiết
-
-### 1) Tạo social render spec dùng chung cho toàn hệ thống
-Tạo một module spec mới cho AI render, ví dụ:
-- `channelRenderSpec`
-- `templateRenderSpec`
-- `ratioRenderSpec`
-
-Nội dung mỗi spec nên có:
-
-- `preferredAspectRatio`
-- `safeZones`
-  - top
-  - bottom
-  - left/right
-  - UI keep-clear vùng TikTok / feed crop / thumbnail crop
-- `maxTextDensity`
-- `headlineBudget`
-- `ctaBudget`
-- `footerBudget`
-- `preferredLogoPositions`
-- `layoutBias`
-- `fallbackThresholds`
-
-Ví dụ định hướng:
-- TikTok `9:16`
-  - ưu tiên vertical compact
-  - bottom clear mạnh
-  - CTA ngắn
-  - footer cực gọn hoặc tránh dùng
-- Instagram `4:5`
-  - headline trung bình
-  - card stack hợp lý
-  - footer chỉ khi contact thật sự cần
-- Facebook / LinkedIn `16:9`
-  - cho phép split/editorial nhiều hơn
-  - footer row/two-row an toàn hơn
-- Threads / Telegram `1:1`
-  - ưu tiên compact vertical
-  - text density thấp-trung bình
-
-Mục tiêu:
-- AI render không còn “một prompt cho mọi social”
-
-### 2) Nâng `decompose-image-request` thành layout strategist cho AI-first
-Hiện function này đã biết chọn template. Cần nâng thêm 4 phần:
-
-#### a. Chọn `suggestedLayout` theo channel + ratio + content intent
-Không chỉ theo nội dung, mà thêm channel sensitivity:
-- cùng `comparison_card` nhưng:
-  - 16:9 → split/editorial
-  - 1:1 → stacked comparison
-  - 9:16 → compact vertical comparison
-
-#### b. Trả thêm `layoutBehavior`
-Bổ sung output như:
-- `densityMode: minimal | balanced | dense`
-- `textStrategy: hero_first | headline_first | card_first`
-- `footerStrategy: none | compact | contact_bar`
-- `ctaStrategy: hidden | inline | primary_button`
-- `logoProtection: low | medium | high`
-
-#### c. Rút gọn text thông minh cho AI render
-Bổ sung rule để:
-- banner luôn cực ngắn
-- hero chỉ là stat / keyword
-- headline một ý
-- card label ngắn hơn cho ratio hẹp
-- footer contact được ưu tiên rút gọn trước
-
-#### d. Sinh variant prompt theo ratio
-Ví dụ cùng một content decomposition nhưng có:
-- `wideVariant`
-- `squareVariant`
-- `tallVariant`
-
-Mục tiêu:
-- AI nhận instruction tương ứng canvas thực tế, không phải chỉ layout ID chung chung
-
-### 3) Mở rộng `generate-brand-image` thành AI render composer thật sự
-Hiện `structuredElementsToPromptText(...)` mới là prompt expander. Cần refactor thành composer có cấu trúc hơn.
-
-#### a. Thay `structuredElementsToPromptText` bằng prompt builder đa tầng
-Nên build prompt theo block:
-
-- Channel brief
-- Ratio brief
-- Template brief
-- Hierarchy brief
-- Typography brief
-- Brand brief
-- Logo safe-zone brief
-- Footer safe-zone brief
-- Text verification checklist
-- Failure rule:
-  - nếu không render chính xác thì bỏ bớt text phụ, không phá hero/headline
-
-#### b. Mở rộng layout instruction cho toàn bộ template mới
-Hiện mới có vài template instruction cơ bản. Cần thêm rules riêng cho:
+Áp dụng cho toàn bộ nhóm:
+- `poster`
+- `infographic`
+- `quote_card`
+- `feature_list`
+- `contact_card`
+- `education_infographic`
 - `comparison_card`
 - `timeline_steps`
-- `checklist_card`
-- `product_spotlight`
-- `problem_solution`
-- `testimonial_card`
 - `stat_spotlight`
-- `contact_card`
+- `testimonial_card`
+- `product_spotlight`
 - `editorial_cover`
-- `education_infographic`
+- `problem_solution`
+- `checklist_card`
 
-Mỗi template cần mô tả:
-- hierarchy
-- số khối tối đa
-- hướng stack theo ratio
-- cách đặt CTA
-- cách xử lý footer
-- khi nào giảm card count
+### 2) Nâng `generate-brand-image` từ prompt expander thành layout instruction composer
+Refactor `structuredElementsToPromptText(...)` để không còn chỉ là:
+- list text blocks
+- vài câu layout instruction rời rạc
 
-#### c. Bổ sung text accuracy protocol cho tiếng Việt
-Tăng độ chính xác text bằng các lớp rule:
-- normalize Unicode trước khi gửi prompt
-- checklist theo block:
-  - banner
-  - hero
-  - headline
-  - cards
-  - CTA
-  - footer
-- yêu cầu “copy exactly”
-- thêm priority rule:
-  - ưu tiên đúng banner/headline/CTA trước text phụ
-- nếu quá dài:
-  - bỏ description card trước
-  - sau đó rút footer
-  - không phá hero/headline
+Thay bằng prompt builder nhiều lớp:
 
-#### d. Bổ sung brand-lock rules
-AI render phải giữ:
-- màu primary / secondary đúng vai trò
-- style tone theo template
-- logo area tuyệt đối trống
-- footer style nhất quán với brand
+#### Block A — Channel brief
+- channel + ratio + safe-zones
+- density budget
+- logo safe-zone
+- social UI keep-clear
 
-### 4) Nâng cấp logic logo / footer / CTA trong AI-first flow
-Hiện safe-area mạnh ở renderer hơn AI path. Cần đưa guardrail đó sang AI-first rõ ràng hơn.
+#### Block B — Template instruction
+- luật riêng cho template đang chọn
+- wide / square / tall adaptation
+- card arrangement
+- stack vs split bias
 
-#### Logo
-Chuẩn hóa `logoSafeZone` thành spec chi tiết hơn:
-- position
-- safe width/height
-- keep-clear margin
-- no-text / no-card / no-CTA zone
+#### Block C — Hierarchy instruction
+- element nào là primary / secondary / tertiary
+- cấm các tổ hợp xung đột như hero + headline quá dài + footer dày ở ratio hẹp
 
-#### CTA
-Thêm CTA placement rule theo ratio:
-- 9:16: CTA compact, không dính footer
-- 1:1: CTA centered compact
-- 16:9: CTA có thể inline hoặc button-style
-- nếu footer dài → CTA phải rút ngắn hoặc đẩy lên trên
+#### Block D — Text fitting protocol
+- copy exactly cho tiếng Việt
+- ưu tiên giữ `banner / hero / headline / CTA`
+- giảm `description -> footer -> card count` theo thứ tự
+- không ép giữ full text nếu làm vỡ layout
 
-#### Footer
-Tạo AI footer rules tương thích với renderer:
-- `single-row`
-- `two-row`
-- `vertical-compact`
+#### Block E — Brand & footer safety
+- logo clear zone
+- CTA spacing to footer
+- footer mode (`none / compact / contact_bar`)
+- bottom-center logo protection
 
-Với AI-first:
-- footer không phải lúc nào cũng render đầy đủ
-- nếu channel/ration hẹp thì chọn footer strategy tự động:
-  - none
-  - compact
-  - stacked
-- `contact_card` và content có info liên hệ mới ưu tiên footer rõ
+### 3) Đưa metadata từ `overlayTemplates.ts` vào instruction thật sự
+Hiện `aiRender` mới chủ yếu là config thụ động. Sẽ nâng thành nguồn cho prompt builder:
 
-### 5) Thêm cơ chế “AI render confidence” và auto fallback
-Cần thêm quyết định runtime:
-- khi nào tin AI render hoàn toàn
-- khi nào dùng hybrid
-- khi nào fallback renderer-first
-
-Ví dụ fallback trigger:
-- `9:16` + footer dài
-- `comparison_card` nhiều description
-- `education_infographic` nhiều hơn 4 cards
-- `bottom-center logo` + CTA + footer đồng thời
-- text tiếng Việt dài / nhiều dấu / nhiều số liệu
+- `preferredRatios`
+- `narrowAdaptation`
+- `maxCards`
+- `heroPolicy`
+- `ctaPolicy`
+- `footerPolicy`
 
 Kết quả:
-- hệ thống vẫn AI-first, nhưng không mạo hiểm ở case khó
+- template instruction không còn hard-code riêng lẻ trong function
+- template contract và prompt behavior đồng bộ
 
-### 6) Chuẩn hóa template system cho AI render
-Hiện template đã xuất hiện ở decomposition và UI, nhưng cần đồng bộ thành contract thật sự.
+### 4) Nâng auto-select trong `decompose-image-request`
+`decompose-image-request` sẽ được nâng từ “chọn layout hợp nội dung” thành “layout strategist” sâu hơn.
 
-Mỗi template nên có:
-- semantic purpose
-- allowed elements
-- preferred ratios
-- narrow-ratio adaptation
-- max cards
-- hero policy
-- cta policy
-- footer policy
-- AI prompt snippet
-- fallback renderer mapping
+Bổ sung:
+- rule chọn template theo content intent + channel + ratio
+- cùng một nội dung nhưng ra layout variant khác nhau:
+  - `comparison_card`
+    - `16:9` → split/editorial
+    - `1:1` → stacked comparison
+    - `9:16` → compact vertical comparison
+  - `timeline_steps`
+    - tall → giảm card count trước
+    - wide → cho step spacing thoáng hơn
+  - `testimonial_card`
+    - ưu tiên quote + trust signal
+    - CTA nhẹ hơn conversion layout
+  - `contact_card`
+    - footer/contact bar là primary block, không chỉ là phần phụ
 
-Ví dụ:
-- `stat_spotlight`
-  - hero number là trung tâm
-  - headline tối đa 1 dòng
-  - CTA optional
-  - footer thường compact
-- `comparison_card`
-  - 16:9 có thể split
-  - 1:1, 9:16 luôn stacked
-  - card description bị cắt trước nếu chật
-- `testimonial_card`
-  - quote/review là chính
-  - CTA nhẹ
-  - footer rất tiết chế
+Bổ sung output consistency:
+- `suggestedLayout`
+- `layoutBehavior`
+- text budget đã truncate hợp ratio
+- fallback hints đúng ngữ cảnh
 
-### 7) QA regression riêng cho AI render
-Bổ sung một lớp regression ngoài renderer logic hiện có.
+### 5) Tăng chiều sâu text fitting instruction
+Nâng luật fit text cho AI render để chống overflow sớm hơn:
 
-#### Coverage chính
-- channel × ratio × template
-- text accuracy tiếng Việt
-- safe-area cho logo / CTA / footer
-- density / stacking đúng ngữ cảnh
-- brand color consistency
+- headline budget theo ratio/template
+- hero text budget riêng cho `stat_spotlight`, `quote_card`, `testimonial_card`
+- card label/description budget riêng theo template
+- footer item budget theo footer mode
+- CTA ngắn hơn khi:
+  - tall canvas
+  - bottom-center logo
+  - dense layout
+- explicit line-break preference:
+  - headline không quá nhiều nhịp
+  - card label ưu tiên ngắn, scan nhanh
+  - footer không biến thành đoạn văn
 
-#### Matrix tối thiểu
-4 ratio:
+### 6) Nâng brand/logo/footer instruction
+Thêm rule cụ thể cho AI render để tránh xung đột branding:
+
+#### Logo
+- safe zone không chỉ “clear area”
+- cấm text, card, CTA, ribbon chạm vào vùng logo
+- tăng mức nghiêm ngặt cho `bottom-center`
+
+#### CTA
+- `primary_button` chỉ dùng khi ratio đủ rộng hoặc conversion rõ
+- tall ratio ưu tiên CTA inline/compact
+- CTA không được nằm trong footer band
+
+#### Footer
+- mapping rõ giữa `footerStrategy` và instruction:
+  - `none`
+  - `compact`
+  - `contact_bar`
+- contact footer chỉ giữ dữ liệu cốt lõi
+- footer dài sẽ ưu tiên giảm item / shorten item trước khi ảnh hưởng headline hoặc CTA
+
+### 7) Chuẩn hóa instruction cho mode auto
+Với `structuredTemplate = auto`, hệ thống sẽ không chỉ “để AI tự đoán”.
+
+Sẽ thêm:
+- auto prompt contract dựa trên `suggestedLayout + renderSpec + layoutBehavior`
+- luật buộc AI chọn một visual hierarchy rõ
+- explicit fallback when uncertainty high:
+  - dense content
+  - too many cards
+  - long footer
+  - bottom-center logo + CTA
+  - narrow ratio
+
+## File sẽ cần chỉnh
+
+### Backend
+- `supabase/functions/generate-brand-image/index.ts`
+  - refactor prompt builder
+  - thay `layoutInstructions` mỏng bằng template instruction framework
+- `supabase/functions/decompose-image-request/index.ts`
+  - nâng logic chọn layout + ratio/channel-aware strategist
+- `supabase/functions/image-render-spec.ts`
+  - mở rộng spec cho template behavior, text-fit priority, fallback thresholds
+
+### Shared frontend config
+- `src/config/overlayTemplates.ts`
+  - bổ sung contract cho instruction framework
+- `src/config/channelImageConfig.ts`
+  - tận dụng renderSpec mạnh hơn cho prompt composition
+- `src/lib/hybridImageGenerator.ts`
+  - đồng bộ type cho metadata instruction / layout behavior
+- `src/hooks/useAutoImageGeneration.ts`
+  - nhận và truyền đủ metadata để AI-first flow nhất quán hơn
+
+### Tests
+- test strategist cho `suggestedLayout`
+- test prompt/instruction snapshot theo template × ratio
+- test text budget / footer mode / logo safe-area
+- test auto mode mapping đúng template trong input thực tế
+
+## Regression coverage sẽ thêm
+Ít nhất cho 4 ratio:
 - `1:1`
 - `4:5`
 - `16:9`
 - `9:16`
 
-Template:
+Và nhóm layout:
 - `comparison_card`
 - `timeline_steps`
 - `checklist_card`
@@ -337,109 +234,39 @@ Template:
 - `testimonial_card`
 - `stat_spotlight`
 - `contact_card`
+- cộng thêm nhóm cũ để tránh regression chéo
 
-#### Assert cần có
-- template-to-layout mapping đúng
-- narrow ratio không giữ split sai
-- footer strategy đúng với tall/square
-- CTA không chạm logo/footer
-- text block budget không vượt ngưỡng
-- brand colors / logo zone được preserve
+Các assert chính:
+- split không bị giữ sai ở canvas hẹp
+- text reduction order đúng
+- CTA/footer không xâm phạm logo safe-area
+- footer mode map đúng theo ratio
+- auto-select vẫn chọn template hợp ngữ cảnh
+- prompt instruction đủ sâu cho từng template
 
-Nếu có thể, thêm snapshot payload AI brief thay vì snapshot ảnh thuần để test bền hơn.
+## Thứ tự triển khai
+### Phase 1 — Template instruction framework
+- tạo instruction contract thống nhất cho mọi template
+- đồng bộ từ `overlayTemplates.ts` sang prompt builder
 
-## File/phần hệ thống cần chỉnh
-### Backend / Edge functions
-- `supabase/functions/decompose-image-request/index.ts`
-  - nâng role từ content decomposition thành layout strategist theo channel/ratio
-- `supabase/functions/generate-brand-image/index.ts`
-  - refactor prompt builder cho AI render
-  - thêm channel-aware / template-aware / safe-area-aware prompt composer
+### Phase 2 — Composer refactor
+- thay `structuredElementsToPromptText` bằng builder đa tầng
+- thêm channel brief + template brief + hierarchy brief + text-fit protocol
 
-### Shared frontend logic
-- `src/config/channelImageConfig.ts`
-  - bổ sung render-spec metadata, không chỉ aspect ratio và style
-- `src/lib/hybridImageGenerator.ts`
-  - đồng bộ contract template / layout behavior / footer strategy
-- `src/hooks/useAutoImageGeneration.ts`
-  - truyền thêm render behavior / confidence / fallback hints
-- `src/hooks/useAutoImagePipeline.ts`
-  - giữ default AI-first nhưng thêm fallback policy rõ ràng
-- `src/components/multichannel/SimpleImageGenerator.tsx`
-  - nếu cần, expose thêm control cho AI render level / template behavior preview
+### Phase 3 — Strategist upgrade
+- nâng `decompose-image-request` để auto-select theo content + ratio + channel
+- gắn chặt với `layoutBehavior`
 
-### Renderer guardrail
-- `supabase/functions/overlay-text-canvas/index.ts`
-- `supabase/functions/overlay-text-canvas/layout-helpers.ts`
-
-Phần này không cần trở thành primary renderer, nhưng phải là lớp backup/QA contract cho:
-- spacing
-- footer modes
-- logo safe-area
-- overflow prevention
-
-### Tests
-- regression test cho prompt composer / layout strategist
-- mở rộng bộ test template × ratio hiện có
-- thêm safe-area checks cho AI-first decision layer
-
-## Thứ tự triển khai đề xuất
-### Phase 1 — Chuẩn hóa spec và contract
-- tạo social render spec
-- tạo template render contract
-- thêm density/footer/logo strategy object
-- đồng bộ input/output giữa decomposition và generation
-
-### Phase 2 — Nâng AI layout composer
-- refactor prompt builder trong `generate-brand-image`
-- thêm channel-aware + ratio-aware instructions
-- thêm Vietnamese text accuracy protocol
-- thêm logo/footer safe-area prompt rules
-
-### Phase 3 — AI fallback intelligence
-- thêm confidence/fallback rules
-- route case khó sang hybrid / renderer-backed mode
-- giữ trải nghiệm AI-first nhưng ổn định hơn
-
-### Phase 4 — QA regression
-- thêm test matrix cho AI render spec
-- test template behavior cho 4 ratio
-- test CTA/footer/logo safe-area
-- test brand consistency và text budget
+### Phase 4 — Guardrail + regression
+- thêm test snapshot/payload cho instruction
+- thêm regression cho safe-area, CTA, footer, overflow risk
 
 ## Kết quả mong muốn
-Sau khi triển khai:
+Sau khi nâng cấp:
 
-- AI render sẽ thật sự khác nhau theo từng social, không còn generic
-- layout tự thích nghi tốt hơn theo `1:1`, `4:5`, `16:9`, `9:16`
-- text tiếng Việt chính xác và có thứ tự ưu tiên khi canvas chật
-- logo / CTA / footer không phá nhau kể cả AI-first
-- template mới có luật rõ ràng cho cả prompt lẫn fallback
-- toàn hệ thống vẫn giữ được độ ổn định nhờ renderer guardrail và regression suite
-
-## Chi tiết kỹ thuật
-```text
-User content
-  -> decompose-image-request
-       -> suggestedTemplate
-       -> layoutBehavior
-       -> density/footer/logo strategy
-  -> generate-brand-image
-       -> social render spec
-       -> template render contract
-       -> AI render prompt composer
-       -> AI-first image output
-  -> verification layer
-       -> accept if safe
-       -> retry compact variant if risky
-       -> fallback hybrid/renderer when needed
-```
-
-```text
-Ưu tiên channel-aware AI render:
-TikTok 9:16        -> compact vertical, bottom UI clear, short CTA, minimal footer
-Instagram 4:5     -> strong headline/cards, balanced density, compact footer
-Facebook 16:9     -> split/editorial allowed, richer footer, wider CTA
-LinkedIn 16:9     -> professional editorial, restrained colors, info-first
-Threads/Telegram 1:1 -> stacked compact, low-medium density, footer very concise
-```
+- mỗi template có instruction riêng, không còn generic
+- mode `auto` chọn layout ổn định hơn và có lý do rõ hơn
+- AI render hiểu tốt hơn khi nào split, khi nào stack, khi nào compact
+- text tiếng Việt fit tốt hơn trên ratio hẹp
+- logo / CTA / footer giữ brand consistency tốt hơn
+- mọi refactor tiếp theo sẽ khó làm vỡ layout vì đã có regression suite bám vào instruction + behavior
