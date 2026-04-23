@@ -549,8 +549,18 @@ export function SimpleImageGenerator({
 
   const fullStructuredOverlay = useMemo(() => {
     if (!hybridOverlay) return undefined;
-    return hybridOverlay;
-  }, [hybridOverlay]);
+    const hasFooter = !!hybridOverlay.elements?.footer?.items?.length;
+    if (hasFooter || footerItems.length === 0) return hybridOverlay;
+    return {
+      ...hybridOverlay,
+      elements: {
+        ...hybridOverlay.elements,
+        footer: {
+          items: footerItems,
+        },
+      },
+    };
+  }, [hybridOverlay, footerItems]);
 
   const footerOverlay = useMemo(() => {
     if (footerItems.length === 0) return undefined;

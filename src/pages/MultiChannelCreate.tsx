@@ -93,6 +93,8 @@ export default function MultiChannelCreate() {
   const imagePipeline = useAutoImagePipeline({
     brandTemplateId: selectedBrandId,
     brandLogoUrl: selectedTemplate?.logo_url,
+    brandPrimaryColor: selectedTemplate?.primary_color,
+    brandFooterInfo: (selectedTemplate?.footer_info as Record<string, string> | null) || null,
     brandIndustry: selectedTemplate?.industry_template_id ? [selectedTemplate.industry_template_id] : undefined,
     autoSave: true,
   });

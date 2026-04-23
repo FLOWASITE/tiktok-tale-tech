@@ -152,6 +152,18 @@ export interface RenderDebugInfo {
   fallbackReason: string;
   shouldFallbackText: boolean;
   shouldFallbackStructured: boolean;
+  requiredBranding: {
+    logo: boolean;
+    footer: boolean;
+    text: boolean;
+    structured: boolean;
+  };
+  payloadPresence: {
+    structuredOverlay: boolean;
+    fullStructuredOverlay: boolean;
+    footerOverlay: boolean;
+    textsPerChannel: boolean;
+  };
   finalPath: 'ai_only' | 'logo_only' | 'text_fallback' | 'structured_fallback' | 'text_and_structured_fallback' | 'satori_forced';
   steps: RenderDebugStep[];
   generatedAt: string;
@@ -443,16 +455,36 @@ export function useAutoImageGeneration() {
 
         const backendRequestedFallback = imageData.fallbackRecommended === true || (isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render');
         const hasFallbackFooter = !!footerOverlay?.elements?.footer?.items?.length;
-        const shouldFallbackStructured = fallbackStrategy !== 'none' && !!(fullStructuredOverlay || structuredOverlay || footerOverlay) && (backendRequestedFallback || !isAiRenderMode);
-        const shouldFallbackText = fallbackStrategy !== 'none' && useCanvasFallback && imageContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (backendRequestedFallback || !isAiRenderMode);
+        const hasStructuredInput = !!(fullStructuredOverlay || structuredOverlay || footerOverlay);
+        const hasChannelSpecificText = !!textsPerChannel?.[channel]?.trim();
+        const requiredBranding = {
+          logo: !!(includeLogo && logoUrl),
+          footer: hasFallbackFooter,
+          text: imageContentType === 'with_text' && !!channelText,
+          structured: !!(fullStructuredOverlay || structuredOverlay),
+        };
+        const payloadPresence = {
+          structuredOverlay: !!structuredOverlay,
+          fullStructuredOverlay: !!fullStructuredOverlay,
+          footerOverlay: !!footerOverlay,
+          textsPerChannel: !!textsPerChannel,
+        };
+        const hasRequiredStructuredBranding = requiredBranding.structured || requiredBranding.text;
+        const frontendForcedStructuredFallback = isAiRenderMode && (requiredBranding.footer || hasRequiredStructuredBranding);
+        const frontendForcedTextFallback = isAiRenderMode && requiredBranding.text && !!useCanvasFallback && !structuredOverlay && !fullStructuredOverlay;
+        const shouldFallbackStructured = fallbackStrategy !== 'none' && hasStructuredInput && (!isAiRenderMode || backendRequestedFallback || frontendForcedStructuredFallback);
+        const shouldFallbackText = fallbackStrategy !== 'none' && !!useCanvasFallback && imageContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (!isAiRenderMode || backendRequestedFallback || frontendForcedTextFallback);
         const fallbackReasons = [
           imageData.fallbackRecommended === true ? 'backend yêu cầu fallback' : null,
           isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render'
             ? `recommendedOverlayMode=${imageData.recommendedOverlayMode}`
             : null,
+          frontendForcedStructuredFallback && requiredBranding.footer ? 'frontend ép structured fallback vì footer bắt buộc' : null,
+          frontendForcedStructuredFallback && hasRequiredStructuredBranding && !requiredBranding.footer ? 'frontend ép structured fallback vì branding bắt buộc' : null,
+          frontendForcedTextFallback ? 'frontend ép text fallback vì channel text bắt buộc' : null,
           shouldFallbackStructured ? 'structured overlay fallback bật' : null,
           shouldFallbackText ? 'text overlay fallback bật' : null,
-          !backendRequestedFallback && isAiRenderMode ? 'AI render accepted' : null,
+          !backendRequestedFallback && isAiRenderMode ? 'AI accepted by backend hint' : null,
           !isAiRenderMode ? 'satori forced mode' : null,
         ].filter(Boolean) as string[];
         const fallbackReason = fallbackReasons.join(' • ');
@@ -462,12 +494,16 @@ export function useAutoImageGeneration() {
           fallbackStrategy,
           recommendedOverlayMode: imageData.recommendedOverlayMode || 'ai_render',
           hasFallbackFooter,
+          hasStructuredInput,
+          requiredBranding,
+          payloadPresence,
+          hasChannelSpecificText,
           shouldFallbackText,
           shouldFallbackStructured,
         });
 
         if (!backendRequestedFallback && isAiRenderMode) {
-          console.log(`[Pipeline:${channel}] ✅ NO FALLBACK — AI render accepted`);
+          console.log(`[Pipeline:${channel}] ✅ NO FALLBACK — AI accepted by backend hint`);
         }
 
         // Step 3: Overlay text using canvas (Satori) when fallback is required
@@ -644,6 +680,8 @@ export function useAutoImageGeneration() {
             fallbackReason,
             shouldFallbackText,
             shouldFallbackStructured,
+            requiredBranding,
+            payloadPresence,
             finalPath: !isAiRenderMode
               ? 'satori_forced'
               : shouldFallbackText && shouldFallbackStructured
@@ -685,6 +723,18 @@ export function useAutoImageGeneration() {
             fallbackReason: errMsg,
             shouldFallbackText: false,
             shouldFallbackStructured: false,
+            requiredBranding: {
+              logo: !!(includeLogo && logoUrl),
+              footer: !!footerOverlay?.elements?.footer?.items?.length,
+              text: imageContentType === 'with_text' && !!channelText,
+              structured: !!(fullStructuredOverlay || structuredOverlay),
+            },
+            payloadPresence: {
+              structuredOverlay: !!structuredOverlay,
+              fullStructuredOverlay: !!fullStructuredOverlay,
+              footerOverlay: !!footerOverlay,
+              textsPerChannel: !!textsPerChannel,
+            },
             finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
             steps: lastDebugSteps,
             generatedAt: new Date().toISOString(),

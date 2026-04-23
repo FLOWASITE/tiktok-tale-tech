@@ -18,15 +18,36 @@ import { toast } from 'sonner';
 
 export type PipelinePhase = 'idle' | 'preparing' | 'generating_images' | 'complete' | 'error';
 
+interface BrandFooterInfo {
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+}
+
 interface AutoImagePipelineOptions {
   /** Brand template ID for brand-aware generation */
   brandTemplateId?: string;
   /** Brand logo URL for overlay */
   brandLogoUrl?: string | null;
+  /** Brand primary color for footer fallback styling */
+  brandPrimaryColor?: string | null;
+  /** Brand footer info for deterministic footer fallback */
+  brandFooterInfo?: BrandFooterInfo | null;
   /** Brand industry for V3 scoring */
   brandIndustry?: string[];
   /** Whether to auto-save images to DB immediately */
   autoSave?: boolean;
+}
+
+function buildFooterItems(footerInfo?: BrandFooterInfo | null) {
+  if (!footerInfo) return [];
+  return [
+    footerInfo.phone ? { icon: 'phone', text: footerInfo.phone } : null,
+    footerInfo.website ? { icon: 'globe', text: footerInfo.website } : null,
+    footerInfo.email ? { icon: 'mail', text: footerInfo.email } : null,
+    footerInfo.address ? { icon: 'map-pin', text: footerInfo.address } : null,
+  ].filter(Boolean) as { icon?: string; text: string }[];
 }
 
 // Map frontend Channel to V3 ChannelKey
@@ -49,7 +70,7 @@ function extractContentSummary(channelContent: string): string {
 }
 
 export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
-  const { brandTemplateId, brandLogoUrl, brandIndustry, autoSave = true } = options;
+  const { brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, autoSave = true } = options;
   
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [imageResults, setImageResults] = useState<{ successful: Channel[]; failed: Channel[] } | null>(null);
@@ -76,6 +97,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       topic?: string;
       promptMode?: 'full' | 'brand_only' | 'raw';
       imageContentType?: 'with_text' | 'background_only';
+        structuredTemplate?: string;
     }
   ) => {
     if (!brandTemplateId || channels.length === 0) {
@@ -151,6 +173,29 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       // - brand_only: brand colors + logo, no strategic AI directives
       // - raw: NO logo, NO brand styling, pure AI generation
       const shouldIncludeLogo = mode !== 'raw' && !!brandLogoUrl;
+      const footerItems = buildFooterItems(brandFooterInfo);
+      const textEnabled = (contentMeta.imageContentType || 'with_text') === 'with_text';
+      const textsPerChannel = textEnabled
+        ? Object.fromEntries(
+            channels.map((channel) => [channel, channelTexts[channel] || ''])
+          ) as Record<Channel, string>
+        : undefined;
+      const footerOverlay = footerItems.length > 0
+        ? {
+            layout: 'simple' as const,
+            footerMode: 'auto' as const,
+            elements: {
+              footer: {
+                items: footerItems,
+              },
+            },
+            colors: {
+              primary: brandPrimaryColor || '#DC2626',
+              secondary: '#FFFFFF',
+              text: '#FFFFFF',
+            },
+          }
+        : undefined;
 
       const genOptions: AutoGenerateOptions = {
         contentId,
@@ -170,9 +215,14 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         logoUrl: shouldIncludeLogo ? (brandLogoUrl || undefined) : undefined,
         // Content type: full mode defaults to with_text, others should receive from caller
         imageContentType: contentMeta.imageContentType || 'with_text',
+        textToInclude: textEnabled ? channels.map((channel) => channelTexts[channel] || '').find(Boolean) : undefined,
+        textsPerChannel,
+        useCanvasFallback: textEnabled ? true : undefined,
         // Default to ai_render mode — AI renders text directly, no Satori overlay needed
         overlayMode: 'ai_render',
         fallbackStrategy: 'full',
+        footerOverlay,
+        structuredTemplate: contentMeta.structuredTemplate,
       };
 
       // Save callback - persists image to multi_channel_contents.channel_images
@@ -226,7 +276,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       setPhase('error');
       toast.error('Lỗi tự động tạo ảnh');
     }
-  }, [brandTemplateId, brandIndustry, autoSave, autoImageGen]);
+  }, [brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, autoSave, autoImageGen]);
 
   const cancelPipeline = useCallback(() => {
     abortRef.current = true;
