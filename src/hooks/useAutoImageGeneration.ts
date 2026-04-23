@@ -152,6 +152,18 @@ export interface RenderDebugInfo {
   fallbackReason: string;
   shouldFallbackText: boolean;
   shouldFallbackStructured: boolean;
+  requiredBranding: {
+    logo: boolean;
+    footer: boolean;
+    text: boolean;
+    structured: boolean;
+  };
+  payloadPresence: {
+    structuredOverlay: boolean;
+    fullStructuredOverlay: boolean;
+    footerOverlay: boolean;
+    textsPerChannel: boolean;
+  };
   finalPath: 'ai_only' | 'logo_only' | 'text_fallback' | 'structured_fallback' | 'text_and_structured_fallback' | 'satori_forced';
   steps: RenderDebugStep[];
   generatedAt: string;
