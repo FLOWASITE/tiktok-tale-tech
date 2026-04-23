@@ -275,7 +275,7 @@ export function useAutoImageGeneration() {
           });
         }, 60_000);
 
-        const { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
+        let { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
           body: {
             contentId,
             channel,
