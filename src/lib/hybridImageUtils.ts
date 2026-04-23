@@ -72,6 +72,8 @@ export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
+  renderSpec?: Record<string, unknown>;
+  layoutBehavior?: Record<string, unknown>;
   suggestedLayout?:
     | 'poster'
     | 'infographic'
@@ -398,5 +400,8 @@ export function applyTemplate(
   return {
     backgroundPrompt: decomposed.backgroundPrompt,
     overlayConfig: overlay,
+    layout: template.layout,
+    renderSpec: decomposed.renderSpec,
+    layoutBehavior: decomposed.layoutBehavior,
   };
 }
