@@ -157,7 +157,7 @@ interface MultiChannelFormWizardProps {
   onTopicHistoryIdChange?: (id: string | undefined) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
   // Step 5: Image generation
-  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw' }) => void;
+  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw'; imageContentType?: 'with_text' | 'background_only'; structuredTemplate?: string }) => void;
   imagePhase?: string;
   imageProgress?: Record<string, string>;
   imageProgressTimes?: Record<string, number>;
@@ -945,6 +945,8 @@ export function MultiChannelFormWizard({
         contentAngle: formData.contentAngle,
         topic: formData.topic,
         promptMode,
+        imageContentType: 'with_text',
+        structuredTemplate: 'auto',
       });
     }
   }, [currentStep, imageMode, imagePhase, generationComplete]);
@@ -2202,6 +2204,8 @@ export function MultiChannelFormWizard({
                                 contentAngle: formData.contentAngle,
                                 topic: formData.topic,
                                 promptMode,
+                                imageContentType: 'with_text',
+                                structuredTemplate: 'auto',
                               });
                             }
                           }}
