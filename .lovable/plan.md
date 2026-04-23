@@ -1,130 +1,182 @@
 
-Mục tiêu: xác định đúng nguyên nhân tạo ảnh bị lỗi và sửa để flow không chết ở bước generate ảnh chính.
+Mục tiêu: sửa đúng chỗ để ảnh vừa tạo luôn có đủ dữ liệu fallback cần thiết, đồng thời làm Render Debug Timeline phản ánh chính xác vì sao ảnh vẫn ra “trần” không có footer/logo/text.
 
-1. Nguyên nhân chính đã thấy từ code + logs
-- Lỗi không nằm ở `overlay-logo-canvas` hay `overlay-text-canvas`.
-- Điểm hỏng chính là `generate-brand-image`.
-- Edge logs đang báo rất rõ:
-  - `GeminiGen.ai failed: GeminiGen generation timeout after 60s`
-- File gây ra timeout:
-  - `supabase/functions/_shared/geminigen-image-generator.ts`
-  - hiện `pollTask(..., maxAttempts = 20)` với `pollInterval = 3000`
-  - tức chỉ chờ tối đa `60s`
-- Trong khi ảnh thực tế của flow này thường lâu hơn, nhất là nhánh `ai_render` có prompt dài + structured instructions.
-- Hệ quả:
-  - `generate-brand-image` fail ở provider chính
-  - frontend nhận lỗi kiểu chung chung (`network error` / `Failed to fetch`) nên nhìn như lỗi mạng, nhưng gốc là timeout provider
+1. Kết luận nguyên nhân hiện tại
+- Có 2 nguyên nhân gốc đang chồng lên nhau:
 
-2. Vì sao UI đang báo lỗi mơ hồ
-- `src/lib/invokeEdgeFunctionWithTimeout.ts` chỉ bọc fetch trực tiếp và trả `Error(...)` rất generic.
-- Khi function fail hoặc mạng đứt giữa chừng, UI chỉ thấy:
-  - `Failed to fetch`
-  - `network error`
-- Hook `src/hooks/useAutoImageGeneration.ts` hiện ném lỗi Step 1 ngay khi `generate-brand-image` fail, nên toàn pipeline dừng trước khi kịp tới fallback canvas.
+- Nguyên nhân A: auto pipeline không truyền đủ dữ liệu overlay
+  - File: `src/hooks/useAutoImagePipeline.ts`
+  - Hiện chỉ truyền:
+    - `imageContentType`
+    - `overlayMode: 'ai_render'`
+    - `fallbackStrategy: 'full'`
+  - Nhưng lại không truyền:
+    - `textToInclude` / `textsPerChannel`
+    - `useCanvasFallback`
+    - `structuredOverlay`
+    - `fullStructuredOverlay`
+    - `footerOverlay`
+    - `structuredTemplate`
+  - Kết quả:
+    - nhánh auto-create ở `MultiChannelCreate` thực tế không có nguyên liệu để Step 3/4 fallback chạy
+    - nên dù `fallbackStrategy='full'`, ảnh vẫn có thể ra chỉ là output AI thuần
 
-3. Việc cần sửa ở backend để hết lỗi gốc
-- File: `supabase/functions/_shared/geminigen-image-generator.ts`
-- Tăng polling budget cho GeminiGen:
-  - nâng `maxAttempts` mặc định từ `20` lên mức phù hợp hơn cho flow article image, ví dụ `30-33`
-  - vẫn giữ `pollInterval = 3000`
-- Mục tiêu:
-  - tăng cửa sổ chờ từ `60s` lên `90-99s`
-  - khớp với comment trong file đang nói chính `generate-brand-image` cần ~80-90s
-- Đồng thời log rõ hơn:
-  - model
-  - uuid
-  - số lần poll
-  - tổng thời gian trước timeout
+- Nguyên nhân B: manual hybrid decomposition đang không sinh footer/headline đủ mạnh
+  - Console hiện báo:
+    - `hasOverlayBanner: false`
+    - `hasHeroText: false`
+    - `hasFooter: false`
+  - Nghĩa là `decompose-image-request` vừa trả về overlay rất nghèo
+  - Trong `SimpleImageGenerator.tsx`, `fullStructuredOverlay` phụ thuộc `hybridOverlay`
+  - Nếu `hybridOverlay` không có footer thì Step 4 không có gì đáng kể để vẽ, trừ khi `footerOverlay` được fallback đúng lúc
 
-4. Đồng bộ `generate-brand-image` để gọi GeminiGen với budget đúng
-- File: `supabase/functions/generate-brand-image/index.ts`
-- Ở nhánh:
-  - `isGeminiGenModel(primaryModel)`
-- Sửa call:
-  - truyền `maxAttempts` tường minh vào `generateImageViaGeminiGen(...)`
-- Khuyến nghị:
-  - với `ai_render` + `structuredElements` hoặc `textToInclude`, cho budget cao hơn
-  - với ảnh nền đơn giản thì có thể giữ thấp hơn nếu muốn
-- Kết quả:
-  - không phụ thuộc default ngầm
-  - dễ tune theo mode ảnh
-
-5. Giữ fallback provider nhưng phân loại lỗi tốt hơn
-- File: `supabase/functions/generate-brand-image/index.ts`
-- Hiện sau khi GeminiGen timeout có fallback sang PoYo.
-- Cần giữ fallback này, nhưng chuẩn hóa payload trả về để frontend biết:
-  - provider nào timeout
-  - đã fallback hay chưa
-  - fallback có fail tiếp không
-- Thêm metadata response khi success/fail:
-  - `provider`
-  - `providerTimeout: boolean`
-  - `fallbackTried: boolean`
-  - `fallbackProvider`
-  - `errorCode`
-- Mục tiêu:
-  - debug timeline và UI biết chính xác hỏng ở provider nào
-
-6. Sửa frontend để hiện đúng lỗi thay vì “network error”
-- File: `src/lib/invokeEdgeFunctionWithTimeout.ts`
-- Cần cải thiện phần lỗi fetch:
-  - nếu fetch ném lỗi, trả lỗi có `cause/context` rõ hơn
-  - preserve status/body khi có response lỗi
+2. Điểm nghẽn logic khiến fallback không chạy dù user kỳ vọng có footer
 - File: `src/hooks/useAutoImageGeneration.ts`
-- Ở Step 1:
-  - log thêm provider metadata từ backend
-  - nếu fail do timeout/provider error, toast phải nói đúng:
-    - timeout provider tạo ảnh
-    - fallback provider thất bại
-    - hay lỗi mạng thật
-- Mục tiêu:
-  - user không còn nhìn thấy lỗi giả dạng “mạng” trong khi thực tế là provider timeout
+- Đoạn hiện tại:
+```ts
+const backendRequestedFallback =
+  imageData.fallbackRecommended === true ||
+  (isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render');
 
-7. Tích hợp nguyên nhân này vào Render Debug Timeline
-- File: `src/hooks/useAutoImageGeneration.ts`
-- File: `src/components/ui/RenderDebugTimeline.tsx`
-- Bổ sung step details cho STEP 1:
-  - provider chính
-  - timeout hay không
-  - fallback provider có chạy hay không
-  - lý do Step 1 fail nếu fail
-- Nếu ảnh fail hoàn toàn:
-  - vẫn nên lưu `renderDebug` tạm cho channel lỗi để timeline/debug panel còn xem được nguyên nhân
-- Mục tiêu:
-  - bấm vào ảnh hoặc trạng thái lỗi là thấy ngay:
-```text
-STEP 1 — GeminiGen timeout after 60s
-fallback to PoYo — failed/succeeded
-STEP 2/3/4 — skipped because base image missing
+const shouldFallbackStructured =
+  fallbackStrategy !== 'none' &&
+  !!(fullStructuredOverlay || structuredOverlay || footerOverlay) &&
+  (backendRequestedFallback || !isAiRenderMode);
 ```
+- Vấn đề:
+  - nếu backend trả `recommendedOverlayMode='ai_render'`
+  - thì frontend coi như “AI render accepted”
+  - dù AI thực tế không vẽ footer/text như mong muốn
+- Với response hiện tại của `generate-brand-image`, backend chỉ nhìn “có structuredElements hay không”, không xác minh output thực sự có footer/text.
 
-8. Kiểm tra secondary issue đang gây nhiễu
-- Console còn có warning accessibility:
-  - `DialogContent requires a DialogTitle`
-  - `Missing Description`
-- Đây không phải nguyên nhân ảnh fail.
-- Có thể sửa riêng sau, nhưng không ưu tiên cho bug hiện tại.
+3. Việc cần sửa ở auto pipeline để ảnh vừa tạo có thể fallback thật
+- File: `src/hooks/useAutoImagePipeline.ts`
+- Bổ sung xây dựng payload fallback từ dữ liệu sẵn có:
+  - map `channelTexts` thành `textsPerChannel`
+  - nếu `imageContentType === 'with_text'`, truyền:
+    - `textsPerChannel`
+    - `useCanvasFallback: true`
+  - tạo `footerOverlay` tối thiểu từ brand hiện tại nếu có footer info
+  - nếu chưa có `structuredOverlay` giàu dữ liệu, ít nhất phải truyền `footerOverlay`
+- Mục tiêu:
+  - auto pipeline không còn là nhánh “ai_render nhưng tay trắng”
+  - khi AI không vẽ text/footer, Step 3/4 có dữ liệu để cứu
 
-9. File cần sửa
-- `supabase/functions/_shared/geminigen-image-generator.ts`
-- `supabase/functions/generate-brand-image/index.ts`
-- `src/lib/invokeEdgeFunctionWithTimeout.ts`
-- `src/hooks/useAutoImageGeneration.ts`
-- `src/components/ui/RenderDebugTimeline.tsx`
+4. Việc cần sửa ở manual generator để footer luôn có fallback cứng
+- File: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Giữ:
+  - `aiStructuredOverlay` cho prompt AI-first
+  - `fullStructuredOverlay` cho canvas fallback
+- Sửa thêm:
+  - nếu `hybridOverlay.elements.footer` trống nhưng brand có `footer_info`, merge `footerOverlay` vào `fullStructuredOverlay`
+  - không để `fullStructuredOverlay` bị “thiếu footer” chỉ vì decompose không sinh ra
+- Kết quả:
+  - AI vẫn được thử render native
+  - nhưng canvas luôn có footer data tối thiểu để render khi cần
 
-10. Tiêu chí nghiệm thu
-- Tạo ảnh không còn fail sớm ở mốc 60s khi dùng GeminiGen.
-- Nếu provider chính chậm:
-  - hoặc chờ đủ và thành công
-  - hoặc fallback provider chạy rõ ràng
-- UI không còn chỉ báo `network error` cho case timeout provider.
-- Render Debug Timeline hiển thị được:
-  - provider chính
-  - timeout/fallback reason
-  - step nào đã chạy / bị skip
-- Khi bug tái diễn, có thể nhìn timeline để biết chính xác:
+5. Nới điều kiện fallback ở frontend để không phụ thuộc hoàn toàn vào backend hint
+- File: `src/hooks/useAutoImageGeneration.ts`
+- Hiện tại fallback structured chỉ bật khi:
+  - backend yêu cầu fallback
+  - hoặc đang ở `satori`
+- Cần đổi thành heuristic mạnh hơn trong `ai_render`:
+  - nếu có `footerOverlay` hoặc `fullStructuredOverlay`
+  - và `imageContentType === 'with_text'` hoặc có footer brand bắt buộc
+  - thì Step 4 được phép chạy ngay cả khi backend vẫn nói `ai_render`
+- Đề xuất phân lớp:
 ```text
-provider timeout
-hay fallback provider fail
-hay overlay fail
+shouldFallbackStructured =
+  hasAnyStructuredFallback &&
+  (
+    !isAiRenderMode
+    || backendRequestedFallback
+    || hasRequiredFooter
+    || hasRequiredStructuredBranding
+  )
+```
+- `hasRequiredFooter`:
+  - `footerOverlay?.elements.footer.items.length > 0`
+- `hasRequiredStructuredBranding`:
+  - có headline / banner / heroText / CTA bắt buộc từ input frontend
+- Mục tiêu:
+  - frontend tự bảo vệ được case “AI accepted nhưng render thiếu”
+
+6. Sửa logic “accepted” để debug timeline nói đúng sự thật
+- File: `src/hooks/useAutoImageGeneration.ts`
+- Hiện log đang có thể ra:
+  - `NO FALLBACK — AI render accepted`
+- nhưng user vẫn thấy ảnh không có footer/logo/text
+- Cần thay thành reason phân biệt:
+  - `AI accepted by backend hint`
+  - `Frontend forced structured fallback due to required footer`
+  - `Frontend forced text fallback due to required channel text`
+- Đồng thời lưu thêm flags trong `renderDebug`:
+  - `requiredLogo: boolean`
+  - `requiredFooter: boolean`
+  - `requiredText: boolean`
+  - `hasStructuredInput: boolean`
+- Kết quả:
+  - timeline không còn gây hiểu lầm “accepted” khi ảnh thực tế thiếu thành phần bắt buộc
+
+7. Sửa hiển thị debug để thấy ngay tại sao thiếu logo/footer
+- File: `src/components/ui/RenderDebugTimeline.tsx`
+- Bổ sung section “Required branding”:
+  - Logo required: yes/no
+  - Footer required: yes/no
+  - Text required: yes/no
+- Bổ sung section “Input overlay payload”:
+  - `structuredOverlay`: yes/no
+  - `fullStructuredOverlay`: yes/no
+  - `footerOverlay`: yes/no
+- Bổ sung hiển thị riêng Step 2 outcome nổi bật:
+  - `logo overlay success / failed / skipped`
+- Mục tiêu:
+  - chỉ cần mở debug là biết:
+    - không có footer vì payload không được truyền
+    - hay có truyền nhưng Step 4 bị skip
+    - hay logo overlay bị fail
+
+8. Đồng bộ auto flow với manual flow
+- File: `src/pages/MultiChannelCreate.tsx`
+- `onStartImagePipeline` hiện chỉ gọi `startPipeline(...)`
+- Cần mở rộng `contentMeta` hoặc hook signature để auto flow nhận đủ input render:
+  - text per channel
+  - brand footer info nếu cần
+  - structured template/layout nếu có
+- Nếu không muốn tăng coupling quá mạnh:
+  - tạo shared helper build overlay payload dùng chung cho:
+    - `SimpleImageGenerator`
+    - `useAutoImagePipeline`
+- Kết quả:
+  - ảnh tạo tự động và ảnh tạo tay không còn lệch behavior nghiêm trọng
+
+9. Điểm cần giữ nguyên
+- Vẫn giữ `ai_render` là mặc định
+- Vẫn giữ Step 2 logo overlay bằng canvas
+- Không đổi database schema
+- Không sửa file auto-generated
+- Không chuyển toàn bộ hệ thống sang Satori-only
+
+10. File cần sửa
+- `src/hooks/useAutoImagePipeline.ts`
+- `src/hooks/useAutoImageGeneration.ts`
+- `src/components/multichannel/SimpleImageGenerator.tsx`
+- `src/components/ui/RenderDebugTimeline.tsx`
+- Có thể thêm shared helper mới nếu muốn tái sử dụng build overlay payload giữa auto/manual flow
+
+11. Tiêu chí nghiệm thu
+- Với ảnh vừa tạo từ auto pipeline:
+  - nếu brand có logo -> Step 2 chạy và debug hiển thị rõ success/failed
+  - nếu brand có footer info -> Step 4 không còn bị skip vì thiếu payload
+  - nếu AI không vẽ text/footer -> canvas fallback tự chạy
+- Debug timeline phải trả lời được 3 câu:
+  - có truyền footer/logo/text requirement vào pipeline không?
+  - backend có khuyên fallback không?
+  - frontend có tự ép fallback vì branding bắt buộc không?
+- Trường hợp user đang thấy hiện tại phải chuyển thành dạng debug như:
+```text
+STEP 1 — AI render primary
+STEP 2 — Logo overlay: success / failed / skipped
+FALLBACK CHECK — backend accepted, frontend forced fallback due to required footer
+STEP 4 — Structured fallback: success
 ```
