@@ -19,6 +19,21 @@ import { toast } from 'sonner';
 import { Channel } from '@/types/multichannel';
 import { useAIErrorHandler } from './useAIErrorHandler';
 
+const AUXILIARY_HOOK_TIMEOUT_MS = 25_000;
+
+async function invokeHookGenerator(payload: Record<string, unknown>, timeoutMs = AUXILIARY_HOOK_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await supabase.functions.invoke('generate-hooks', {
+      body: payload,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ============== TYPES ==============
 export interface GeneratedHook {
   id?: string;
@@ -208,15 +223,13 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     setQuickError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
-        body: {
-          topic,
-          brandVoice,
-          count: 3,
-          platform: 'tiktok',
-          organizationId,
-          brandTemplateId,
-        },
+      const { data, error: fnError } = await invokeHookGenerator({
+        topic,
+        brandVoice,
+        count: 3,
+        platform: 'tiktok',
+        organizationId,
+        brandTemplateId,
       });
 
       if (quickPendingRef.current !== quickCacheKey) {
@@ -232,8 +245,8 @@ export function useHookAI(options: UseHookAIOptions = {}) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
-      console.error('[useHookAI.quickSuggestions] Error:', err);
-      setQuickError(err instanceof Error ? err.message : 'Không thể tạo gợi ý hook');
+      console.warn('[useHookAI.quickSuggestions] Auxiliary hook request failed silently:', err instanceof Error ? err.message : err);
+      setQuickError(null);
       setQuickSuggestions([]);
     } finally {
       if (quickPendingRef.current === quickCacheKey) {
@@ -304,16 +317,14 @@ export function useHookAI(options: UseHookAIOptions = {}) {
 
     try {
       // Generate hooks for ALL selected channels (no limit)
-      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
-        body: {
-          topic,
-          brandVoice,
-          count: channels.length,
-          platforms: channels,
-          multiChannel: true,
-          organizationId,
-          brandTemplateId,
-        },
+      const { data, error: fnError } = await invokeHookGenerator({
+        topic,
+        brandVoice,
+        count: channels.length,
+        platforms: channels,
+        multiChannel: true,
+        organizationId,
+        brandTemplateId,
       });
 
       if (mcPendingRef.current !== multiChannelCacheKey) {
@@ -340,8 +351,8 @@ export function useHookAI(options: UseHookAIOptions = {}) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
-      console.error('[useHookAI.multiChannel] Error:', err);
-      setMultiChannelError(err instanceof Error ? err.message : 'Không thể tạo hook');
+      console.warn('[useHookAI.multiChannel] Auxiliary multi-channel hook request failed silently:', err instanceof Error ? err.message : err);
+      setMultiChannelError(null);
       setMultiChannelHooks([]);
     } finally {
       if (mcPendingRef.current === multiChannelCacheKey) {
