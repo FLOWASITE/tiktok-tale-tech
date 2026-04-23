@@ -58,6 +58,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
   const abortReasonRef = useRef<AbortReason>(null);
   // Synchronous guard to prevent double-submit (ref updates immediately, unlike state)
   const generatingRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
   const recoverFromTask = useCallback(async (params: {
     taskId: string;
@@ -143,6 +144,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       // Get current user's access token for authentication
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      userIdRef.current = session?.user?.id ?? null;
 
       if (!accessToken || !session?.user?.id) {
         throw new Error('Vui lòng đăng nhập để tạo nội dung');
@@ -262,6 +264,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               generatingRef.current = false;
               await reader.cancel();
               setIsGenerating(false);
+              setCurrentTaskId(null);
               setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
               return result;
             }
@@ -292,6 +295,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
                 generatingRef.current = false;
                 await reader.cancel();
                 setIsGenerating(false);
+                setCurrentTaskId(null);
                 setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
                 return result;
               } else if (event.type === 'error') {
@@ -329,6 +333,7 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       generatingRef.current = false;
 
       setIsGenerating(false);
+      setCurrentTaskId(null);
       setProgress({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
       
       return result;
@@ -337,17 +342,24 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       cleanupTimers();
       generatingRef.current = false;
 
-      if (taskId && error instanceof Error && (error.name === 'AbortError' || isRecoverableMultichannelError(error.message))) {
+      if (
+        taskId &&
+        error instanceof Error &&
+        abortReasonRef.current !== 'user' &&
+        abortReasonRef.current !== 'replaced' &&
+        (error.name === 'AbortError' || isRecoverableMultichannelError(error.message))
+      ) {
         try {
           const recoveredResult = await recoverFromTask({
             taskId,
-            userId: formData.user_id,
+            userId: userIdRef.current,
             organizationId: formData.organization_id,
             topic: formData.topic,
             reason: error.message || 'Kết nối stream bị ngắt trước khi nhận kết quả',
           });
           setIsGenerating(false);
           setCurrentTaskId(null);
+          generatingRef.current = false;
           return recoveredResult;
         } catch (recoveryError) {
           const recoveryMessage = recoveryError instanceof Error ? recoveryError.message : String(recoveryError);
