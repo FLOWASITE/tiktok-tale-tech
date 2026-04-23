@@ -172,6 +172,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         imageContentType: contentMeta.imageContentType || 'with_text',
         // Default to ai_render mode — AI renders text directly, no Satori overlay needed
         overlayMode: 'ai_render',
+        fallbackStrategy: 'full',
       };
 
       // Save callback - persists image to multi_channel_contents.channel_images

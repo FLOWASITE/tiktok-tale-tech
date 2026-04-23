@@ -547,6 +547,11 @@ export function SimpleImageGenerator({
     };
   }, [hybridOverlay]);
 
+  const fullStructuredOverlay = useMemo(() => {
+    if (!hybridOverlay) return undefined;
+    return hybridOverlay;
+  }, [hybridOverlay]);
+
   const footerOverlay = useMemo(() => {
     if (footerItems.length === 0) return undefined;
     return {
@@ -595,13 +600,15 @@ export function SimpleImageGenerator({
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
     promptMode,
     structuredOverlay: aiStructuredOverlay,
+    fullStructuredOverlay,
     footerOverlay,
     overlayMode,
+    fallbackStrategy: overlayMode === 'ai_render' ? 'full' : 'none',
     structuredTemplate: overlayTemplate,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, aiStructuredOverlay, footerOverlay, overlayMode, overlayTemplate, v3Suggestions]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, aiStructuredOverlay, fullStructuredOverlay, footerOverlay, overlayMode, overlayTemplate, v3Suggestions]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
