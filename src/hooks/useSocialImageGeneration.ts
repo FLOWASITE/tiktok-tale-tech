@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Channel } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
+import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
 import { toast } from 'sonner';
 import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
@@ -171,8 +172,17 @@ export function useSocialImageGeneration() {
         : imageContentType;
 
       // Call generate-brand-image with enhanced params
+      const taskId = await createImageGenerationTask({
+        contentId,
+        channel,
+        brandTemplateId,
+        organizationId,
+        source: 'manual',
+      });
+
       const { data, error } = await invokeWithTimeout<any>('generate-brand-image', {
         body: {
+          taskId,
           contentId,
           channel,
           contentSummary: prompt,
@@ -195,7 +205,7 @@ export function useSocialImageGeneration() {
 
       if (error) {
         if (contentId && channel && isRecoverableBrandImageError(error.message)) {
-          const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 20_000, pollIntervalMs: 2_500 });
+          const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 120_000, pollIntervalMs: 3_000 });
           if (recovered?.imageUrl) {
             console.warn('[useSocialImageGeneration] Request failed but recovered persisted image:', recovered.source);
             toast.success('Ảnh đã hoàn tất ở nền và được khôi phục tự động');
@@ -290,7 +300,7 @@ export function useSocialImageGeneration() {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       if (contentId && channel && isRecoverableBrandImageError(errMsg)) {
-        const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 20_000, pollIntervalMs: 2_500 });
+        const recovered = await waitForRecoveredBrandImage(contentId, channel, { timeoutMs: 120_000, pollIntervalMs: 3_000 });
         if (recovered?.imageUrl) {
           toast.success('Ảnh đã hoàn tất ở nền và được khôi phục tự động');
           return recovered.imageUrl;
