@@ -24,6 +24,16 @@ export interface ChannelImageSpec {
   visualDirections: string[];
   /** Elements to avoid */
   avoidElements: string[];
+  /** AI-first render spec for channel-aware layout planning */
+  renderSpec: {
+    safeZones: { top: number; right: number; bottom: number; left: number };
+    preferredLogoPositions: string[];
+    textDensityBudget: number;
+    headlineBudget: number;
+    ctaBudget: number;
+    footerBudget: number;
+    layoutBias: 'hero-led' | 'stacked-cards' | 'split-editorial' | 'footer-contact' | 'stat-focus';
+  };
 }
 
 /**
@@ -46,6 +56,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Loading speed conscious - not overly complex',
     ],
     avoidElements: ['busy patterns that interfere with text', 'too many focal points'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['top-left', 'bottom-right'],
+      textDensityBudget: 0.62,
+      headlineBudget: 72,
+      ctaBudget: 24,
+      footerBudget: 72,
+      layoutBias: 'split-editorial',
+    },
   },
   youtube: {
     size: '1280x720',
@@ -61,6 +80,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Leave space for title overlay on left/right',
     ],
     avoidElements: ['small details', 'low contrast', 'complex backgrounds', 'text that competes with YouTube title'],
+    renderSpec: {
+      safeZones: { top: 0.08, right: 0.06, bottom: 0.12, left: 0.08 },
+      preferredLogoPositions: ['top-left', 'top-right'],
+      textDensityBudget: 0.58,
+      headlineBudget: 54,
+      ctaBudget: 20,
+      footerBudget: 52,
+      layoutBias: 'hero-led',
+    },
   },
   
   // Social Media
@@ -78,6 +106,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Leave space in corners for reaction buttons',
     ],
     avoidElements: ['small text', 'complex details that get lost at small sizes'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['bottom-right', 'top-left'],
+      textDensityBudget: 0.66,
+      headlineBudget: 70,
+      ctaBudget: 26,
+      footerBudget: 74,
+      layoutBias: 'split-editorial',
+    },
   },
   instagram: {
     size: '1080x1350',
@@ -93,6 +130,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Strong visual hierarchy with one clear focal point',
     ],
     avoidElements: ['busy backgrounds', 'multiple competing focal points', 'dark muddy colors'],
+    renderSpec: {
+      safeZones: { top: 0.08, right: 0.08, bottom: 0.14, left: 0.08 },
+      preferredLogoPositions: ['bottom-right', 'top-right'],
+      textDensityBudget: 0.52,
+      headlineBudget: 54,
+      ctaBudget: 22,
+      footerBudget: 58,
+      layoutBias: 'hero-led',
+    },
   },
   tiktok: {
     size: '1080x1920',
@@ -108,6 +154,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Trend-aware aesthetics (neon, gradients, duotone)',
     ],
     avoidElements: ['horizontal compositions', 'small details', 'muted colors', 'text in bottom area'],
+    renderSpec: {
+      safeZones: { top: 0.1, right: 0.08, bottom: 0.22, left: 0.08 },
+      preferredLogoPositions: ['top-right', 'top-left'],
+      textDensityBudget: 0.42,
+      headlineBudget: 42,
+      ctaBudget: 18,
+      footerBudget: 44,
+      layoutBias: 'stacked-cards',
+    },
   },
   threads: {
     size: '1080x1080',
@@ -123,6 +178,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Works well with follow-up replies in mind',
     ],
     avoidElements: ['overly commercial look', 'stock photo aesthetic'],
+    renderSpec: {
+      safeZones: { top: 0.08, right: 0.08, bottom: 0.14, left: 0.08 },
+      preferredLogoPositions: ['bottom-right', 'top-right'],
+      textDensityBudget: 0.5,
+      headlineBudget: 50,
+      ctaBudget: 20,
+      footerBudget: 52,
+      layoutBias: 'stacked-cards',
+    },
   },
   twitter: {
     size: '1600x900',
@@ -138,6 +202,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Conversation-starting visual hook',
     ],
     avoidElements: ['complex details', 'subtle gradients', 'low contrast elements'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['bottom-right', 'top-left'],
+      textDensityBudget: 0.62,
+      headlineBudget: 60,
+      ctaBudget: 24,
+      footerBudget: 68,
+      layoutBias: 'hero-led',
+    },
   },
   linkedin: {
     size: '1200x627',
@@ -154,6 +227,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Business context imagery (office, meeting, presentation)',
     ],
     avoidElements: ['casual imagery', 'overly playful elements', 'bright neon colors', 'memes'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['bottom-right', 'top-left'],
+      textDensityBudget: 0.64,
+      headlineBudget: 68,
+      ctaBudget: 24,
+      footerBudget: 78,
+      layoutBias: 'split-editorial',
+    },
   },
   
   // Direct Channels
@@ -171,6 +253,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Works with or without images loading',
     ],
     avoidElements: ['heavy gradients', 'complex animations', 'too many colors', 'small text'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['top-left', 'bottom-right'],
+      textDensityBudget: 0.56,
+      headlineBudget: 56,
+      ctaBudget: 22,
+      footerBudget: 54,
+      layoutBias: 'hero-led',
+    },
   },
   zalo_oa: {
     size: '1280x720',
@@ -188,6 +279,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Banner format 16:9 ratio for Zalo OA article cover',
     ],
     avoidElements: ['Western-centric imagery', 'overly complex compositions', 'culturally insensitive elements'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['bottom-right', 'top-right'],
+      textDensityBudget: 0.58,
+      headlineBudget: 58,
+      ctaBudget: 22,
+      footerBudget: 60,
+      layoutBias: 'hero-led',
+    },
   },
   telegram: {
     size: '1080x1080',
@@ -203,6 +303,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Brand consistent for channel identity',
     ],
     avoidElements: ['low resolution', 'too much text', 'complex infographics'],
+    renderSpec: {
+      safeZones: { top: 0.08, right: 0.08, bottom: 0.14, left: 0.08 },
+      preferredLogoPositions: ['bottom-right', 'top-right'],
+      textDensityBudget: 0.5,
+      headlineBudget: 50,
+      ctaBudget: 20,
+      footerBudget: 52,
+      layoutBias: 'stacked-cards',
+    },
   },
   google_maps: {
     size: '720x720',
@@ -218,6 +327,15 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       'Good lighting that shows space clearly',
     ],
     avoidElements: ['obvious AI artifacts', 'generic stock imagery', 'misleading representations'],
+    renderSpec: {
+      safeZones: { top: 0.08, right: 0.08, bottom: 0.12, left: 0.08 },
+      preferredLogoPositions: ['bottom-right', 'top-right'],
+      textDensityBudget: 0.46,
+      headlineBudget: 40,
+      ctaBudget: 18,
+      footerBudget: 42,
+      layoutBias: 'footer-contact',
+    },
   },
 };
 
