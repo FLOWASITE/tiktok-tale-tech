@@ -32,6 +32,7 @@ const corsHeaders = {
 };
 
 interface GenerateImageRequest {
+  taskId?: string;
   contentId: string;
   channel: string;
   contentSummary: string;
@@ -78,6 +79,18 @@ interface ProviderDebugPayload {
   errorCode?: string;
 }
 
+interface PersistencePayload {
+  taskId?: string;
+  contentId: string;
+  channel: string;
+  imageUrl: string;
+  prompt: string;
+  aspectRatio: string;
+  modelUsed: string;
+  organizationId?: string | null;
+  userId?: string | null;
+}
+
 const OVERLAY_TEXT_LIMITS = {
   maxChars: 68,
   maxWords: 12,
@@ -113,6 +126,93 @@ function doesOverlayTextMatchBrandLanguage(input: string | null | undefined, bra
   const detectedLanguage = detectOverlayTextLanguage(input);
   if (detectedLanguage === 'unknown') return false;
   return detectedLanguage === brandLanguage;
+}
+
+async function updateImageTaskStatus(
+  supabase: ReturnType<typeof createClient>,
+  taskId: string | undefined,
+  patch: Record<string, unknown>,
+) {
+  if (!taskId) return;
+
+  try {
+    await supabase
+      .from('generation_tasks')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', taskId);
+  } catch (error) {
+    console.warn('[generate-brand-image] Failed to update generation task:', error);
+  }
+}
+
+async function persistGeneratedImage(
+  supabase: ReturnType<typeof createClient>,
+  payload: PersistencePayload,
+) {
+  const {
+    taskId,
+    contentId,
+    channel,
+    imageUrl,
+    prompt,
+    aspectRatio,
+    modelUsed,
+    organizationId,
+    userId,
+  } = payload;
+
+  await supabase
+    .from('channel_image_history')
+    .update({ is_selected: false })
+    .eq('content_id', contentId)
+    .eq('channel', channel);
+
+  await supabase
+    .from('channel_image_history')
+    .insert({
+      content_id: contentId,
+      channel,
+      image_url: imageUrl,
+      prompt,
+      aspect_ratio: aspectRatio,
+      is_selected: true,
+      organization_id: organizationId,
+      created_by: userId,
+    });
+
+  const { data: currentContent } = await supabase
+    .from('multi_channel_contents')
+    .select('channel_images')
+    .eq('id', contentId)
+    .single();
+
+  const currentImages = (currentContent?.channel_images as Record<string, any>) || {};
+  currentImages[channel] = {
+    url: imageUrl,
+    provider: modelUsed,
+    aspectRatio,
+  };
+
+  await supabase
+    .from('multi_channel_contents')
+    .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
+    .eq('id', contentId);
+
+  await updateImageTaskStatus(supabase, taskId, {
+    status: 'completed',
+    progress: 100,
+    progress_message: 'Image generated and persisted',
+    completed_at: new Date().toISOString(),
+    result_type: 'channel_image_history',
+    result_metadata: {
+      imageUrl,
+      aspectRatio,
+      channel,
+      contentId,
+      prompt,
+      modelUsed,
+    },
+  });
 }
 
 // Default model fallback (used when config not available)
