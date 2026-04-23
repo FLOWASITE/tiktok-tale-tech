@@ -508,6 +508,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
   const traceId = generateTraceId();
   const startTime = performance.now();
+  let requestBody: GenerateImageRequest | null = null;
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -525,6 +526,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     if (!userId) {
       console.warn("[generate-brand-image] WARNING: userId is undefined — image will have NULL created_by!");
     }
+
+    requestBody = await req.json();
 
     const {
       taskId,
@@ -556,7 +559,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       structuredTemplate,
       // Logo safe zone for AI render mode
       logoSafeZone,
-    }: GenerateImageRequest = await req.json();
+    }: GenerateImageRequest = requestBody;
 
     await updateImageTaskStatus(supabase, taskId, {
       status: 'generating',
@@ -1161,8 +1164,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     try {
-      const reqBody = await req.clone().json().catch(() => null) as { taskId?: string } | null;
-      await updateImageTaskStatus(createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!), reqBody?.taskId, {
+      await updateImageTaskStatus(createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!), requestBody?.taskId, {
         status: 'failed',
         progress_message: errorMessage,
         completed_at: new Date().toISOString(),
