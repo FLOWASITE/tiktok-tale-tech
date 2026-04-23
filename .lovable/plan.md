@@ -1,142 +1,158 @@
 
-Mục tiêu: đảm bảo hook/text ngắn trên ảnh luôn theo ngôn ngữ của brand, không bị lệch sang tiếng của nội dung gốc hay UI.
+Mục tiêu: làm cho luồng tạo nội dung đa kênh và tạo ảnh nền chịu lỗi tốt hơn khi mạng/Edge Function bị ngắt giữa chừng, để UI không báo fail giả khi backend vẫn đang xử lý hoặc đã lưu kết quả.
 
-1. Kết luận hiện tại
-- `src/lib/imageOverlayText.ts` chỉ chọn text từ:
-  - `selectedHooks[channel].text_overlay`
-  - `globalHook.text_overlay`
-  - `opening_line`
-  - hoặc `trimmed_summary` từ `channelContent`
-- Nhưng helper này không biết brand đang dùng ngôn ngữ nào.
-- `src/components/multichannel/MultiChannelFormWizard.tsx` và `src/hooks/useAutoImagePipeline.ts` chỉ kiểm tra “có short text hay không”, chưa kiểm tra “text đó có đúng ngôn ngữ brand không”.
-- Backend `supabase/functions/generate-brand-image/index.ts` có nhận `country_code` để tối ưu render/localization, nhưng chỉ áp dụng sau khi text đã được chọn; nó không sửa việc chọn sai ngôn ngữ ở frontend.
+1. Kết luận nguyên nhân hiện tại
+- Có 3 điểm hỏng chính đang chồng nhau:
+  1) `src/hooks/useStreamingGeneration.ts`
+     - tạo `generation_tasks` trước khi gọi `generate-multichannel`
+     - nhưng nếu stream bị `Failed to fetch`, `network error`, watchdog abort, hoặc proxy cắt kết nối, UI fail ngay
+     - hook này chưa tận dụng `generation_tasks.result_id` để tự khôi phục kết quả đã tạo ở nền
+  2) `supabase/functions/generate-brand-image/index.ts`
+     - đã cố save `channel_image_history` kiểu fire-and-forget
+     - nhưng chỉ comment “waitUntil pattern”, chưa dùng `EdgeRuntime.waitUntil(...)` thật
+     - nếu response kết thúc sớm hoặc runtime bị cắt, ảnh có thể đã generate xong nhưng chưa persist đủ để frontend recover
+  3) `src/hooks/ai/useHookAI.ts`
+     - `quickSuggestions` và `multiChannel` đang gọi `generate-hooks` trực tiếp
+     - khi mạng chập chờn sẽ log lỗi dày đặc, làm trải nghiệm “AI đang hay bị lỗi” dù đây không phải luồng chính tạo nội dung
 
-2. Rủi ro đang xảy ra
-- Nếu `selectedHooks` hoặc `globalHook` được tạo bằng ngôn ngữ khác brand, ảnh vẫn render text sai ngôn ngữ.
-- Nếu fallback sang `trimmed_summary`, text trên ảnh sẽ bám theo nội dung channel hiện có, không nhất thiết theo ngôn ngữ brand.
-- Debug hiện chỉ cho biết source/length, chưa cho biết text có “khớp ngôn ngữ brand” hay không.
+2. Hướng sửa tổng thể
+- Không coi lỗi transport là lỗi business ngay lập tức.
+- Với tạo nội dung:
+  - ưu tiên stream để UX nhanh
+  - nếu stream hỏng, fallback sang “recover từ background task/result đã lưu”
+- Với tạo ảnh:
+  - đảm bảo backend persist chắc chắn sau khi có ảnh
+  - frontend chỉ fail thật khi polling/recovery cũng không thấy kết quả
+- Với hook/phụ trợ:
+  - degrade gracefully, không làm hỏng luồng chính
 
-3. Nguồn chuẩn để xác định ngôn ngữ brand
-- Ưu tiên dùng `brandTemplate.country_code`.
-- Map `country_code -> output language` bằng cùng logic hiện có:
-  - frontend: `src/utils/countryLanguageMap.ts`
-  - backend/shared: `supabase/functions/_shared/country-language-map.ts`
-- Quy ước:
-  - `VN -> vi`
-  - `TH -> th`
-  - còn lại fallback `en` hoặc mapping hiện có của project
+3. Sửa recovery cho tạo nội dung đa kênh
+- File: `src/hooks/useStreamingGeneration.ts`
+- Thêm lớp recovery sau các case:
+  - `AbortError`
+  - `TypeError: Failed to fetch`
+  - `network error`
+  - stream đóng trước khi nhận `result`
+- Nếu đã có `taskId`, hook sẽ:
+  - poll `generation_tasks`
+  - nếu `status = completed` và có `result_id` -> fetch `multi_channel_contents`
+  - trả kết quả về như một success bình thường
+- Nếu task vẫn `pending/generating`:
+  - giữ trạng thái “đang xử lý nền”
+  - dùng polling ngắn để chờ thay vì báo fail ngay
+- Nếu task `failed`:
+  - mới báo lỗi thật
 
-4. Sửa helper chọn overlay text theo ngôn ngữ brand
-- File: `src/lib/imageOverlayText.ts`
-- Mở rộng `ResolveOverlayTextInput` thêm:
-  - `brandLanguage?: string`
-  - `brandCountryCode?: string`
-- Thêm lớp đánh giá text candidate:
-  - detect ngôn ngữ thô theo script/heuristic
-  - `vi`: có dấu tiếng Việt / ký tự `đ, ă, â, ê, ô, ơ, ư`
-  - `th`: có ký tự Thai Unicode
-  - `en`: ASCII Latin là chủ đạo
-- Quy tắc chọn:
-  1. ưu tiên candidate ngắn + đúng ngôn ngữ brand
-  2. nếu candidate ngắn nhưng sai ngôn ngữ → không dùng ngay
-  3. chỉ fallback `trimmed_summary` nếu summary cũng khớp ngôn ngữ brand
-  4. nếu không có text đúng ngôn ngữ brand → suppress và downgrade `background_only`
-- Bổ sung metadata mới trong result:
-  - `languageMatch: boolean`
-  - `detectedLanguage?: string`
-  - `reason` thêm case như:
-    - `language_mismatch`
-    - `no_short_hook_in_brand_language`
-
-5. Sửa auto flow để không render hook sai ngôn ngữ
-- File: `src/components/multichannel/MultiChannelFormWizard.tsx`
-- Khi gọi `resolveOverlayText`, truyền `brandTemplate?.country_code`.
-- `hasAnyShortOverlayText` chỉ tính là `true` nếu:
-  - text hợp lệ
-  - và match ngôn ngữ brand
-- Kết quả:
-  - nếu content có text ngắn nhưng sai ngôn ngữ brand, pipeline sẽ chọn `background_only` thay vì render sai.
-
-6. Sửa pipeline truyền đúng context ngôn ngữ
-- File: `src/hooks/useAutoImagePipeline.ts`
-- Khi build `overlayTextResults`, truyền `brandCountryCode` hoặc `brandLanguage`.
-- Chỉ đưa text vào:
-  - `textsPerChannel`
-  - `sharedTextToInclude`
-  nếu text match ngôn ngữ brand.
-- Nếu không channel nào có text đúng ngôn ngữ brand:
-  - `effectiveImageContentType = 'background_only'`
-  - `useCanvasFallback` không bật cho main headline text
-- Điều này giữ footer/logo bình thường nhưng chặn hook sai ngôn ngữ.
-
-7. Sửa manual flow để đồng bộ với auto flow
-- File: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Manual generator hiện có `countryCode` cho prompt preview, nhưng cần dùng chính country đó khi chọn overlay text.
-- Áp dụng cùng helper/logic để:
-  - manual và auto đều chọn short hook theo brand language
-  - không còn case manual đúng mà auto sai, hoặc ngược lại
-
-8. Tăng guard ở `useAutoImageGeneration.ts`
-- File: `src/hooks/useAutoImageGeneration.ts`
-- Hiện hook chỉ validate độ dài bằng `isValidOverlayText`.
-- Cần bổ sung guard theo metadata từ resolver:
-  - nếu `languageMatch === false` thì coi như `channelText = undefined`
-  - `effectiveContentType` tự downgrade sang `background_only`
-- Đồng thời mở rộng `RenderDebugInfo.overlayText`:
-  - `detectedLanguage?: string`
-  - `brandLanguage?: string`
-  - `languageMatch?: boolean`
-
-9. Cập nhật debug UI để nhìn ra lỗi ngay
-- File: `src/components/ui/RenderDebugTimeline.tsx`
-- Bổ sung dưới mục “Overlay text”:
-  - Brand language: `vi/th/en/...`
-  - Detected language: `vi/th/en/...`
-  - Language match: yes/no
-  - Reason nếu bị suppress vì lệch ngôn ngữ
+4. Thêm helper recovery riêng cho multichannel
+- Tạo helper mới, ví dụ:
+  - `src/lib/recoverGeneratedMultichannel.ts`
+- Chức năng:
+  - detect recoverable transport errors
+  - poll `generation_tasks`
+  - fetch `multi_channel_contents` theo `result_id`
+  - fallback cuối cùng: tìm content mới nhất cùng user/topic trong cửa sổ thời gian ngắn để bắt case task update chậm
 - Mục tiêu:
-  - bấm vào ảnh là biết text bị bỏ vì quá dài hay vì sai ngôn ngữ brand.
+  - dùng chung cho `useStreamingGeneration` và các chỗ gọi `generate-multichannel` non-stream nếu cần
 
-10. Tăng lớp bảo vệ ở backend
+5. Dùng background task đúng nghĩa trong UI tạo nội dung
+- File: `src/pages/MultiChannelCreate.tsx`
+- Khi `streamGenerate(...)` không trả result ngay nhưng recovery tìm thấy content:
+  - vẫn set `generatedContentId`
+  - vẫn chuyển `generationState` sang `complete`
+  - vẫn cho Step 5 hoạt động bình thường
+- Khi task vẫn đang chạy:
+  - chuyển UI sang trạng thái “đang hoàn tất ở nền”
+  - tránh reset về error quá sớm
+
+6. Làm hook gợi ý không phá UX chính
+- File: `src/hooks/ai/useHookAI.ts`
+- Với `quickSuggestions` và `multiChannel`:
+  - thêm timeout/retry nhẹ hoặc silent degradation
+  - nếu lỗi fetch thì chỉ clear suggestion + log gọn
+  - không bắn chuỗi lỗi gây cảm giác toàn bộ hệ thống hỏng
+- Mục tiêu:
+  - hook generator là phụ trợ, không làm người dùng tưởng “ko tạo được nội dung”
+
+7. Sửa persistence cho ảnh nền ở backend
 - File: `supabase/functions/generate-brand-image/index.ts`
-- Backend hiện đã có `country_code`, nhưng chưa xác minh `textToInclude` có khớp ngôn ngữ market không.
-- Thêm normalize/guard trước khi build prompt:
-  - nếu `textToInclude` không khớp language mong muốn từ `country_code`
-  - bỏ `textToInclude`
-  - downgrade `imageContentType` sang `background_only`
+- Đổi phần save history/json sync từ “fire-and-forget promise” sang:
+  - `EdgeRuntime.waitUntil(...)` thật
+  - hoặc await persistence tối thiểu trước response cho các dữ liệu recovery-critical
+- Dữ liệu cần đảm bảo có:
+  - `channel_image_history.is_selected = true`
+  - `multi_channel_contents.channel_images[channel]`
+- Như vậy frontend recovery hiện có (`recoverGeneratedBrandImage.ts`) mới đáng tin cậy
+
+8. Tăng recovery cho ảnh nền ở frontend
+- File: `src/hooks/useAutoImageGeneration.ts`
+- Chuẩn hóa các case recoverable:
+  - timeout
+  - 504
+  - aborted / clone failed
+  - network/fetch interruption
+- Sau lỗi recoverable:
+  - poll `channel_image_history` + `multi_channel_contents.channel_images`
+  - nếu thấy ảnh thì tiếp tục flow như success
+  - timeline/debug phải ghi rõ “request failed but image recovered from persisted result”
+
+9. Giảm fail giả trong manual image flow
+- File: `src/hooks/useSocialImageGeneration.ts`
+- Đồng bộ logic recovery với auto flow:
+  - nếu request lỗi nhưng ảnh đã persist -> trả imageUrl luôn
+  - toast thành công kiểu “ảnh đã hoàn tất ở nền”
 - Mục tiêu:
-  - kể cả frontend truyền nhầm, backend vẫn không ép AI render sai ngôn ngữ.
+  - manual và auto không lệch hành vi
 
-11. Cách xử lý trường hợp thiếu hook đúng ngôn ngữ
-- Không auto dịch hook trong bước này nếu chưa có luồng dịch chuẩn của project.
-- Hành vi an toàn:
-  - không có hook ngắn đúng ngôn ngữ brand → không render main text
-  - vẫn giữ visual sạch + logo + footer
-- Điều này tốt hơn render hook sai ngôn ngữ lên ảnh.
+10. Làm debug trả lời đúng “hỏng ở đâu”
+- File: `src/components/ui/RenderDebugTimeline.tsx`
+- Bổ sung trạng thái recovery:
+  - request interrupted
+  - recovered from history
+  - recovered from content json
+  - persistence missing
+- Với content generation, thêm hiển thị trạng thái background task ở UI đang dùng Step 4/5 hoặc panel liên quan:
+  - streaming live
+  - stream interrupted
+  - resumed from background task
+  - task failed thật
 
-12. File cần sửa
-- `src/lib/imageOverlayText.ts`
-- `src/components/multichannel/MultiChannelFormWizard.tsx`
-- `src/hooks/useAutoImagePipeline.ts`
-- `src/hooks/useAutoImageGeneration.ts`
-- `src/components/multichannel/SimpleImageGenerator.tsx`
-- `src/components/ui/RenderDebugTimeline.tsx`
+11. File cần sửa
+- `src/hooks/useStreamingGeneration.ts`
+- `src/pages/MultiChannelCreate.tsx`
+- `src/hooks/ai/useHookAI.ts`
+- `src/lib/recoverGeneratedMultichannel.ts` (mới)
 - `supabase/functions/generate-brand-image/index.ts`
+- `src/hooks/useAutoImageGeneration.ts`
+- `src/hooks/useSocialImageGeneration.ts`
+- `src/components/ui/RenderDebugTimeline.tsx`
 
-13. Tiêu chí nghiệm thu
-- Brand `country_code = VN`:
-  - hook/text ngắn trên ảnh phải là tiếng Việt hoặc bị suppress
-- Brand `country_code = TH`:
-  - hook/text ngắn trên ảnh phải là tiếng Thái hoặc bị suppress
-- Brand `country_code = US/SG/...`:
-  - hook/text ngắn trên ảnh phải là tiếng Anh hoặc bị suppress
-- Không còn case:
+12. Tiêu chí nghiệm thu
+- Tạo nội dung:
+  - nếu stream bị ngắt nhưng backend đã lưu `multi_channel_contents`, UI vẫn tự khôi phục và hoàn tất
+  - không còn fail giả chỉ vì `Failed to fetch` hoặc `network error`
+- Tạo ảnh nền:
+  - nếu request bị cắt sau khi ảnh đã generate xong, ảnh vẫn xuất hiện lại nhờ recovery
+  - không còn case “backend làm xong nhưng UI báo fail”
+- Hook gợi ý:
+  - lỗi gợi ý không làm luồng chính bị kẹt hoặc spam lỗi
+- Debug phải phân biệt rõ:
 ```text
-brand VN nhưng ảnh render headline EN
-brand TH nhưng ảnh render headline VI
+stream/network interrupted
+hay backend task failed thật
+hay image generated nhưng persistence thiếu
+hay provider tạo ảnh fail thật
 ```
-- Render Debug Timeline phải trả lời được:
-  - ngôn ngữ brand là gì?
-  - text được detect là ngôn ngữ gì?
-  - có match không?
-  - nếu không match thì ảnh đã downgrade sang `background_only` chưa?
+
+13. Chi tiết kỹ thuật
+- Mẫu xử lý nên dùng:
+  - optimistic streaming + durable task/result recovery
+  - transport error != generation failed
+- Recovery content:
+  - nguồn chính: `generation_tasks.result_id -> multi_channel_contents`
+- Recovery image:
+  - nguồn chính: `channel_image_history`
+  - nguồn phụ: `multi_channel_contents.channel_images`
+- Backend ảnh:
+  - dùng `EdgeRuntime.waitUntil` đúng chỗ cho persistence hậu response
+- Frontend:
+  - chỉ show error cuối cùng sau khi polling recovery thất bại
