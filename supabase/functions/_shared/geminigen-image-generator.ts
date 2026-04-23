@@ -13,9 +13,11 @@ export interface GeminiGenGenerateParams {
   inputImage?: string;     // URL for image editing mode
   resolution?: '1K' | '2K' | '4K';
   style?: string;          // 'None', '3D Render', 'Photorealistic', 'Anime General', etc.
-  maxAttempts?: number;    // Override default poll attempts (default 20 = 60s).
-                           // Carousel uses ~33 (~99s) to match generate-brand-image's success budget.
+  maxAttempts?: number;    // Override default poll attempts (default 33 = 99s).
+                           // generate-brand-image typically needs ~80-90s for complex renders.
 }
+
+const DEFAULT_POLL_ATTEMPTS = 33;
 
 /**
  * Strip the 'geminigen/' prefix to get the raw model name for API
@@ -118,9 +120,8 @@ async function submitTask(params: GeminiGenGenerateParams, apiKey: string): Prom
  * Poll GeminiGen.ai until image is ready
  * status: 1=processing, 2=completed, 3=failed
  */
-async function pollTask(uuid: string, apiKey: string, maxAttempts = 20): Promise<string> {
-  // Default: 20 × 3s = 60s. Caller may override (e.g. carousel uses 33 ≈ 99s
-  // because generate-brand-image proved GeminiGen needs ~80-90s to render).
+async function pollTask(uuid: string, apiKey: string, maxAttempts = DEFAULT_POLL_ATTEMPTS): Promise<string> {
+  // Default: 33 × 3s = 99s because generate-brand-image commonly needs 80-90s.
   const pollInterval = 3000;
 
   console.log(`[geminigen] Starting poll: uuid=${uuid}, max=${maxAttempts * pollInterval / 1000}s`);
@@ -183,7 +184,9 @@ async function pollTask(uuid: string, apiKey: string, maxAttempts = 20): Promise
     }
   }
 
-  throw new Error(`GeminiGen generation timeout after ${maxAttempts * pollInterval / 1000}s for uuid=${uuid}`);
+  const timeoutSeconds = maxAttempts * pollInterval / 1000;
+  console.error(`[geminigen] Timeout after ${timeoutSeconds}s: uuid=${uuid}, attempts=${maxAttempts}`);
+  throw new Error(`GeminiGen generation timeout after ${timeoutSeconds}s for uuid=${uuid}`);
 }
 
 /**
@@ -197,7 +200,7 @@ export async function generateImageViaGeminiGen(
     throw new Error('GEMINIGEN_API_KEY not configured. Please add it in project secrets.');
   }
 
-  console.log(`[geminigen] Starting generation: model=${params.model}, ratio=${params.aspectRatio || '1:1'}, maxAttempts=${params.maxAttempts ?? 20}`);
+  console.log(`[geminigen] Starting generation: model=${params.model}, ratio=${params.aspectRatio || '1:1'}, maxAttempts=${params.maxAttempts ?? DEFAULT_POLL_ATTEMPTS}`);
 
   const uuid = await submitTask(params, apiKey);
   const imageUrl = await pollTask(uuid, apiKey, params.maxAttempts);
