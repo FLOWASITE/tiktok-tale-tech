@@ -3,8 +3,9 @@ import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
-import { doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
+import { detectOverlayTextLanguage, doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
 import { toast } from 'sonner';
+import { getUILanguageFromCountry } from '@/utils/countryLanguageMap';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
 export type LogoPosition = 
@@ -216,7 +217,7 @@ export function useAutoImageGeneration() {
     maxRetries = 1
   ): Promise<GeneratedImage | null> => {
     const { 
-      contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl,
+      contentId, brandTemplateId, contentSummaries, brandCountryCode, includeLogo, logoPosition, logoUrl,
       logoStyle = 'shadow', logoSizePercent = 15, logoOpacity = 100,
       aspectRatio = '16:9', imageStylePreset, negativePrompt,
       // Strategic context for more relevant images
@@ -244,10 +245,14 @@ export function useAutoImageGeneration() {
     
     // Get text for this specific channel: prioritize channel-specific, fallback to shared
     const rawChannelText = textsPerChannel?.[channel] || textToInclude;
+    const brandLanguage = getUILanguageFromCountry(brandCountryCode);
     const overlayTextSource: OverlayTextSource = textsPerChannel?.[channel] ? 'text_overlay' : textToInclude ? 'opening_line' : 'suppressed';
     const overlayTextLength = rawChannelText?.trim().length || 0;
+    const detectedLanguage = detectOverlayTextLanguage(rawChannelText);
+    const languageMatch = !!rawChannelText && doesOverlayTextMatchBrandLanguage(rawChannelText, brandLanguage);
     const textSuppressedBecauseTooLong = !!rawChannelText && !isValidOverlayText(rawChannelText);
-    const channelText = textSuppressedBecauseTooLong ? undefined : rawChannelText;
+    const textSuppressedBecauseLanguageMismatch = !!rawChannelText && !languageMatch;
+    const channelText = textSuppressedBecauseTooLong || textSuppressedBecauseLanguageMismatch ? undefined : rawChannelText;
     let lastDebugSteps: RenderDebugStep[] = [];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
