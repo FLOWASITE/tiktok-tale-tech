@@ -770,6 +770,8 @@ export function useAutoImageGeneration() {
         const errMsg = err instanceof Error ? err.message : String(err);
         console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
 
+        const failedOverlayMode = imageContentType === 'with_text' && channelText ? 'with_text' : 'background_only';
+
         const failureDebug: GeneratedImage = {
           channel,
           imageUrl: '',
@@ -790,7 +792,7 @@ export function useAutoImageGeneration() {
             requiredBranding: {
               logo: !!(includeLogo && logoUrl),
               footer: !!footerOverlay?.elements?.footer?.items?.length,
-               text: effectiveContentType === 'with_text' && !!channelText,
+               text: failedOverlayMode === 'with_text' && !!channelText,
               structured: !!(fullStructuredOverlay || structuredOverlay),
             },
             payloadPresence: {
@@ -802,9 +804,9 @@ export function useAutoImageGeneration() {
              overlayText: {
                source: textSuppressedBecauseTooLong ? 'suppressed' : overlayTextSource,
                length: overlayTextLength,
-               mode: effectiveContentType,
+               mode: failedOverlayMode,
                suppressedBecauseTooLong: textSuppressedBecauseTooLong,
-               reason: textSuppressedBecauseTooLong ? 'text too long' : effectiveContentType === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
+               reason: textSuppressedBecauseTooLong ? 'text too long' : failedOverlayMode === 'background_only' && !rawChannelText ? 'no short hook available' : undefined,
              },
             finalPath: options.overlayMode === 'satori' ? 'satori_forced' : 'ai_only',
             steps: lastDebugSteps,

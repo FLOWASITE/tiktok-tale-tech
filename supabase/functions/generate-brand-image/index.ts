@@ -77,6 +77,27 @@ interface ProviderDebugPayload {
   errorCode?: string;
 }
 
+const OVERLAY_TEXT_LIMITS = {
+  maxChars: 68,
+  maxWords: 12,
+} as const;
+
+function normalizeOverlayText(input?: string | null): string {
+  if (!input) return '';
+  return input
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isOverlayTextAcceptable(input?: string | null): boolean {
+  const text = normalizeOverlayText(input);
+  if (!text) return false;
+  if (text.length > OVERLAY_TEXT_LIMITS.maxChars) return false;
+  if (text.split(/\s+/).filter(Boolean).length > OVERLAY_TEXT_LIMITS.maxWords) return false;
+  return true;
+}
+
 // Default model fallback (used when config not available)
 const DEFAULT_IMAGE_MODELS = {
   primary: "google/gemini-3-pro-image-preview",
@@ -419,10 +440,17 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       logoSafeZone,
     }: GenerateImageRequest = await req.json();
 
+    const normalizedTextToInclude = normalizeOverlayText(textToInclude);
+    const textSuppressedBecauseTooLong = !!normalizedTextToInclude && !isOverlayTextAcceptable(normalizedTextToInclude);
+    const effectiveImageContentType: ImageContentType = imageContentType === 'with_text' && !textSuppressedBecauseTooLong && normalizedTextToInclude
+      ? 'with_text'
+      : 'background_only';
+    const effectiveTextToInclude = effectiveImageContentType === 'with_text' ? normalizedTextToInclude : undefined;
+
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
-    console.log(`[generate-brand-image] Image content type: ${imageContentType || 'background_only'}`);
-    if (imageContentType === 'with_text' && textToInclude) {
-      console.log(`[generate-brand-image] Text to include: "${textToInclude.slice(0, 50)}..."`);
+    console.log(`[generate-brand-image] Image content type: ${effectiveImageContentType}`);
+    if (effectiveImageContentType === 'with_text' && effectiveTextToInclude) {
+      console.log(`[generate-brand-image] Text to include: "${effectiveTextToInclude.slice(0, 50)}..."`);
     }
 
     // === OPTIMIZATION: Parallel DB queries (saves ~1s per channel) ===
@@ -570,8 +598,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       hookMessage: finalHookMessage,
       hookType: finalHookType,
       // NEW: Pass text-in-image params for Social Graphics
-      imageContentType,
-      textToInclude,
+      imageContentType: effectiveImageContentType,
+      textToInclude: effectiveTextToInclude,
       textPosition,
       typographyStyle,
       // Country-specific character appearance
@@ -604,14 +632,14 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
     // AI Render mode enhancement: when text is included but no structured elements,
     // add Vietnamese text accuracy instructions to ensure correct diacritics
-    if (imageContentType === 'with_text' && textToInclude && !structuredElements) {
+    if (effectiveImageContentType === 'with_text' && effectiveTextToInclude && !structuredElements) {
       enhancedPrompt += `\n\n## CRITICAL TEXT RENDERING RULES:
 - Render the following text EXACTLY as provided — DO NOT modify, rephrase, or omit any word
 - Vietnamese diacritics (sắc, huyền, hỏi, ngã, nặng) MUST be rendered PERFECTLY — every accent mark matters
-- Text to render: "${textToInclude}"
+- Text to render: "${effectiveTextToInclude}"
 - Use clean sans-serif typography with proper spacing and high contrast
 - Text must be crisp, fully readable, and well-positioned within the composition`;
-      console.log(`[generate-brand-image] AI Render: added Vietnamese text accuracy rules for "${textToInclude.slice(0, 40)}..."`);
+      console.log(`[generate-brand-image] AI Render: added Vietnamese text accuracy rules for "${effectiveTextToInclude.slice(0, 40)}..."`);
     }
 
     console.log("[generate-brand-image] Starting image generation...");
@@ -633,9 +661,9 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       : structuredElements
         ? 'ai_render'
         : 'satori';
-    const hasTextInstruction = Boolean(textToInclude || structuredElements?.headline || structuredElements?.heroText?.text || structuredElements?.banner?.text || structuredElements?.cta || structuredElements?.cards?.items?.length);
+    const hasTextInstruction = Boolean(effectiveTextToInclude || structuredElements?.headline || structuredElements?.heroText?.text || structuredElements?.banner?.text || structuredElements?.cta || structuredElements?.cards?.items?.length);
     const hasFooterInstruction = Boolean(structuredElements?.footer?.items?.length || footerInfo?.phone || footerInfo?.website || footerInfo?.address || footerInfo?.email);
-    const geminiGenMaxAttempts = structuredElements || textToInclude || imageContentType === 'with_text' ? 33 : 24;
+    const geminiGenMaxAttempts = structuredElements || effectiveTextToInclude || effectiveImageContentType === 'with_text' ? 33 : 24;
 
     // Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix
     if (isPoyoModel(primaryModel)) {
@@ -1001,6 +1029,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         usedStructuredElements: Boolean(structuredElements),
         hasTextInstruction,
         hasFooterInstruction,
+        effectiveImageContentType,
+        textSuppressedBecauseTooLong,
         provider: providerDebug.provider,
         providerTimeout: providerDebug.providerTimeout ?? false,
         fallbackTried: providerDebug.fallbackTried ?? false,
