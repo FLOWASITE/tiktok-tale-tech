@@ -120,6 +120,31 @@ export interface GeneratedImage {
   logoOverlayFailed?: boolean;
   modelUsed?: string;
   promptMode?: 'full' | 'brand_only' | 'raw';
+  renderDebug?: RenderDebugInfo;
+}
+
+export type RenderDebugStepStatus = 'success' | 'failed' | 'skipped';
+
+export interface RenderDebugStep {
+  id: 'step1' | 'step2' | 'step3' | 'step4';
+  label: string;
+  status: RenderDebugStepStatus;
+  summary: string;
+  durationMs?: number;
+  details?: string[];
+}
+
+export interface RenderDebugInfo {
+  overlayMode: 'satori' | 'ai_render';
+  fallbackStrategy: 'none' | 'text_only' | 'structured' | 'full';
+  recommendedOverlayMode?: string;
+  backendRequestedFallback: boolean;
+  fallbackReason: string;
+  shouldFallbackText: boolean;
+  shouldFallbackStructured: boolean;
+  finalPath: 'ai_only' | 'logo_only' | 'text_fallback' | 'structured_fallback' | 'text_and_structured_fallback' | 'satori_forced';
+  steps: RenderDebugStep[];
+  generatedAt: string;
 }
 
 export interface ChannelProgress {
@@ -199,6 +224,7 @@ export function useAutoImageGeneration() {
         // Determine rendering mode — default to ai_render (AI renders text directly)
         const overlayMode = options.overlayMode || 'ai_render';
         const isAiRenderMode = overlayMode === 'ai_render';
+        const debugSteps: RenderDebugStep[] = [];
         const effectiveContentType = isAiRenderMode 
           ? (imageContentType || 'with_text')
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
@@ -270,6 +296,18 @@ export function useAutoImageGeneration() {
           recommendedOverlayMode: imageData.recommendedOverlayMode,
           fallbackRecommended: imageData.fallbackRecommended,
         });
+        debugSteps.push({
+          id: 'step1',
+          label: 'STEP 1 — AI/base render',
+          status: 'success',
+          summary: isAiRenderMode ? 'AI render primary đã chạy' : 'Base image cho canvas pipeline đã chạy',
+          durationMs: step1Duration,
+          details: [
+            `overlayMode=${overlayMode}`,
+            `effectiveContentType=${effectiveContentType}`,
+            `recommended=${imageData.recommendedOverlayMode || 'ai_render'}`,
+          ],
+        });
 
         let finalImageUrl = imageData.imageUrl;
         let logoFailed = false;
@@ -314,6 +352,14 @@ export function useAutoImageGeneration() {
           if (overlayError || !overlayData?.success) {
             console.warn(`[Pipeline:${channel}] ✗ STEP 2 FAILED (${step2Duration}ms):`, overlayError?.message || overlayData?.error);
             logoFailed = true;
+            debugSteps.push({
+              id: 'step2',
+              label: 'STEP 2 — Logo overlay',
+              status: 'failed',
+              summary: 'Canvas logo overlay lỗi, giữ ảnh gốc',
+              durationMs: step2Duration,
+              details: [overlayError?.message || overlayData?.error || 'unknown error'],
+            });
             setLogoOverlayFailures(prev => ({ ...prev, [channel]: true }));
             toast.warning(`${channel}: Không thể thêm logo, sử dụng ảnh gốc`, {
               description: 'Bạn có thể thử tạo lại để thêm logo',
@@ -322,15 +368,40 @@ export function useAutoImageGeneration() {
           } else {
             finalImageUrl = overlayData.imageUrl;
             console.log(`[Pipeline:${channel}] ✓ STEP 2 OK (${step2Duration}ms)`);
+            debugSteps.push({
+              id: 'step2',
+              label: 'STEP 2 — Logo overlay',
+              status: 'success',
+              summary: 'Canvas logo overlay đã chạy',
+              durationMs: step2Duration,
+              details: [`position=${resolvedLogoPosition}`, `style=${logoStyle || 'shadow'}`],
+            });
           }
         } else {
           console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
+          debugSteps.push({
+            id: 'step2',
+            label: 'STEP 2 — Logo overlay',
+            status: 'skipped',
+            summary: 'Bỏ qua vì không có logo cấu hình',
+          });
         }
 
         const backendRequestedFallback = imageData.fallbackRecommended === true || (isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render');
         const hasFallbackFooter = !!footerOverlay?.elements?.footer?.items?.length;
         const shouldFallbackStructured = fallbackStrategy !== 'none' && !!(fullStructuredOverlay || structuredOverlay || footerOverlay) && (backendRequestedFallback || !isAiRenderMode);
         const shouldFallbackText = fallbackStrategy !== 'none' && useCanvasFallback && imageContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (backendRequestedFallback || !isAiRenderMode);
+        const fallbackReasons = [
+          imageData.fallbackRecommended === true ? 'backend yêu cầu fallback' : null,
+          isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render'
+            ? `recommendedOverlayMode=${imageData.recommendedOverlayMode}`
+            : null,
+          shouldFallbackStructured ? 'structured overlay fallback bật' : null,
+          shouldFallbackText ? 'text overlay fallback bật' : null,
+          !backendRequestedFallback && isAiRenderMode ? 'AI render accepted' : null,
+          !isAiRenderMode ? 'satori forced mode' : null,
+        ].filter(Boolean) as string[];
+        const fallbackReason = fallbackReasons.join(' • ');
 
         console.log(`[Pipeline:${channel}] 🔎 FALLBACK CHECK`, {
           backendRequestedFallback,
@@ -379,6 +450,14 @@ export function useAutoImageGeneration() {
           const step3Duration = Date.now() - step3Start;
           if (textError || !textData?.success) {
             console.warn(`[Pipeline:${channel}] ✗ STEP 3 FAILED (${step3Duration}ms):`, textError?.message || textData?.error);
+            debugSteps.push({
+              id: 'step3',
+              label: 'STEP 3 — Text fallback',
+              status: 'failed',
+              summary: 'Canvas text fallback lỗi, giữ ảnh hiện tại',
+              durationMs: step3Duration,
+              details: [textError?.message || textData?.error || 'unknown error'],
+            });
             toast.warning(`${channel}: Text overlay thất bại, sử dụng ảnh gốc`, {
               description: 'AI không thể render text chính xác',
               duration: 5000,
@@ -386,10 +465,24 @@ export function useAutoImageGeneration() {
           } else {
             finalImageUrl = textData.imageUrl;
             console.log(`[Pipeline:${channel}] ✓ STEP 3 OK (${step3Duration}ms)`);
+            debugSteps.push({
+              id: 'step3',
+              label: 'STEP 3 — Text fallback',
+              status: 'success',
+              summary: 'Canvas text fallback đã chạy',
+              durationMs: step3Duration,
+              details: [`position=${textPosition || 'center'}`, `typography=${typographyStyle || 'modern'}`],
+            });
           }
         } else {
           const skipReason = !useCanvasFallback ? 'canvas fallback disabled' : !channelText ? 'no text' : (fullStructuredOverlay || structuredOverlay) ? 'structured overlay active' : isAiRenderMode ? 'ai_render accepted' : 'no fallback needed';
           console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
+          debugSteps.push({
+            id: 'step3',
+            label: 'STEP 3 — Text fallback',
+            status: 'skipped',
+            summary: `Bỏ qua vì ${skipReason}`,
+          });
         }
 
         const finalStructuredOverlay = !isAiRenderMode
@@ -437,14 +530,39 @@ export function useAutoImageGeneration() {
           const step4Duration = Date.now() - step4Start;
           if (structError || !structData?.success) {
             console.warn(`[Pipeline:${channel}] ✗ STEP 4 FAILED (${step4Duration}ms):`, structError?.message || structData?.error);
+            debugSteps.push({
+              id: 'step4',
+              label: 'STEP 4 — Structured fallback',
+              status: 'failed',
+              summary: 'Structured canvas fallback lỗi, giữ ảnh hiện tại',
+              durationMs: step4Duration,
+              details: [structError?.message || structData?.error || 'unknown error'],
+            });
             toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
           } else {
             finalImageUrl = structData.imageUrl;
             console.log(`[Pipeline:${channel}] ✓ STEP 4 OK (${step4Duration}ms)`);
+            debugSteps.push({
+              id: 'step4',
+              label: 'STEP 4 — Structured fallback',
+              status: 'success',
+              summary: 'Structured canvas fallback đã chạy',
+              durationMs: step4Duration,
+              details: [
+                `layout=${finalStructuredOverlay.layout}`,
+                `footer=${(finalStructuredOverlay as any).elements.footer ? 'yes' : 'no'}`,
+              ],
+            });
           }
         } else {
           const skipReason = isAiRenderMode ? 'no footer overlay' : 'no structured overlay';
           console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — ${skipReason}`);
+          debugSteps.push({
+            id: 'step4',
+            label: 'STEP 4 — Structured fallback',
+            status: 'skipped',
+            summary: `Bỏ qua vì ${skipReason}`,
+          });
         }
 
         // Finalize
@@ -463,6 +581,28 @@ export function useAutoImageGeneration() {
           logoOverlayFailed: logoFailed,
           modelUsed,
           promptMode: promptMode || 'full',
+          renderDebug: {
+            overlayMode,
+            fallbackStrategy,
+            recommendedOverlayMode: imageData.recommendedOverlayMode,
+            backendRequestedFallback,
+            fallbackReason,
+            shouldFallbackText,
+            shouldFallbackStructured,
+            finalPath: !isAiRenderMode
+              ? 'satori_forced'
+              : shouldFallbackText && shouldFallbackStructured
+                ? 'text_and_structured_fallback'
+                : shouldFallbackStructured
+                  ? 'structured_fallback'
+                  : shouldFallbackText
+                    ? 'text_fallback'
+                    : includeLogo && logoUrl
+                      ? 'logo_only'
+                      : 'ai_only',
+            steps: debugSteps,
+            generatedAt: new Date().toISOString(),
+          },
         };
 
         setProgress(prev => ({ ...prev, [channel]: 'done' }));
