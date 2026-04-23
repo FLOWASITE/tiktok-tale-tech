@@ -134,10 +134,20 @@ export interface RenderDebugStep {
   details?: string[];
 }
 
+export interface RenderDebugProviderInfo {
+  provider?: string;
+  fallbackProvider?: string;
+  fallbackTried?: boolean;
+  providerTimeout?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
 export interface RenderDebugInfo {
   overlayMode: 'satori' | 'ai_render';
   fallbackStrategy: 'none' | 'text_only' | 'structured' | 'full';
   recommendedOverlayMode?: string;
+  providerInfo?: RenderDebugProviderInfo;
   backendRequestedFallback: boolean;
   fallbackReason: string;
   shouldFallbackText: boolean;
@@ -285,9 +295,49 @@ export function useAutoImageGeneration() {
         clearTimeout(slowWarningTimer);
         const step1Duration = Date.now() - startTime;
 
+        const providerInfo: RenderDebugProviderInfo = {
+          provider: imageData?.provider,
+          fallbackProvider: imageData?.fallbackProvider,
+          fallbackTried: imageData?.fallbackTried,
+          providerTimeout: imageData?.providerTimeout,
+          errorCode: imageData?.errorCode,
+          errorMessage: imageData?.error,
+        };
+
         if (imageError || !imageData?.success) {
+          const step1FailureMessage = imageData?.providerTimeout
+            ? 'Provider tạo ảnh bị timeout'
+            : imageData?.errorCode === 'PROVIDER_ERROR'
+              ? 'Provider tạo ảnh thất bại'
+              : imageData?.errorCode === 'CREDITS_EXHAUSTED'
+                ? 'Provider tạo ảnh đã hết credits'
+                : imageError?.message || imageData?.error || 'Failed to generate image';
+
           console.error(`[Pipeline:${channel}] ✗ STEP 1 FAILED (${step1Duration}ms):`, imageError || imageData?.error);
-          throw new Error(imageData?.error || imageError?.message || 'Failed to generate image');
+          debugSteps.push({
+            id: 'step1',
+            label: 'STEP 1 — AI/base render',
+            status: 'failed',
+            summary: step1FailureMessage,
+            durationMs: step1Duration,
+            details: [
+              providerInfo.provider ? `provider=${providerInfo.provider}` : null,
+              providerInfo.providerTimeout ? 'provider timeout=yes' : null,
+              providerInfo.fallbackTried !== undefined ? `fallbackTried=${providerInfo.fallbackTried ? 'yes' : 'no'}` : null,
+              providerInfo.fallbackProvider ? `fallbackProvider=${providerInfo.fallbackProvider}` : null,
+              providerInfo.errorCode ? `errorCode=${providerInfo.errorCode}` : null,
+              imageData?.error || imageError?.message || null,
+            ].filter(Boolean) as string[],
+          });
+
+          toast.error(`${channel}: ${step1FailureMessage}`, {
+            description: providerInfo.fallbackTried
+              ? `Provider chính: ${providerInfo.provider || 'unknown'} • fallback: ${providerInfo.fallbackProvider || 'unknown'}`
+              : providerInfo.provider || imageData?.error || imageError?.message,
+            duration: 7000,
+          });
+
+          throw new Error(imageData?.error || imageError?.message || step1FailureMessage);
         }
         
         console.log(`[Pipeline:${channel}] ✓ STEP 1 OK (${step1Duration}ms)`, {
@@ -306,7 +356,10 @@ export function useAutoImageGeneration() {
             `overlayMode=${overlayMode}`,
             `effectiveContentType=${effectiveContentType}`,
             `recommended=${imageData.recommendedOverlayMode || 'ai_render'}`,
+            providerInfo.provider ? `provider=${providerInfo.provider}` : null,
+            providerInfo.fallbackTried ? `fallback=${providerInfo.fallbackProvider || 'yes'}` : null,
           ],
+            .filter(Boolean) as string[],
         });
 
         let finalImageUrl = imageData.imageUrl;
@@ -585,6 +638,7 @@ export function useAutoImageGeneration() {
             overlayMode,
             fallbackStrategy,
             recommendedOverlayMode: imageData.recommendedOverlayMode,
+            providerInfo,
             backendRequestedFallback,
             fallbackReason,
             shouldFallbackText,
