@@ -65,6 +65,27 @@ export function RenderDebugTimeline({ debug, className }: RenderDebugTimelinePro
         </div>
       )}
 
+      <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <p className="uppercase tracking-wide">Required branding</p>
+          <div className="mt-2 space-y-1">
+            <p>Logo: {debug.requiredBranding.logo ? 'yes' : 'no'}</p>
+            <p>Footer: {debug.requiredBranding.footer ? 'yes' : 'no'}</p>
+            <p>Text: {debug.requiredBranding.text ? 'yes' : 'no'}</p>
+            <p>Structured: {debug.requiredBranding.structured ? 'yes' : 'no'}</p>
+          </div>
+        </div>
+        <div className="rounded-md border border-border bg-muted/30 p-3">
+          <p className="uppercase tracking-wide">Input overlay payload</p>
+          <div className="mt-2 space-y-1">
+            <p>structuredOverlay: {debug.payloadPresence.structuredOverlay ? 'yes' : 'no'}</p>
+            <p>fullStructuredOverlay: {debug.payloadPresence.fullStructuredOverlay ? 'yes' : 'no'}</p>
+            <p>footerOverlay: {debug.payloadPresence.footerOverlay ? 'yes' : 'no'}</p>
+            <p>textsPerChannel: {debug.payloadPresence.textsPerChannel ? 'yes' : 'no'}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="mt-4 space-y-3">
         {debug.steps.map((step, index) => (
           <div key={step.id} className="flex gap-3">
