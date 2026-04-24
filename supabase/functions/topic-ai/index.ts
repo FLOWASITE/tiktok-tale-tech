@@ -112,7 +112,7 @@ interface TopicAIRequest {
   temperature?: number;        // from ai_agent_model_configs
 }
 
-// ========== Topic AI model safety (v2 - Qwen3 supported) ==========
+// ========== Topic AI model safety (v3 - DashScope alias normalization) ==========
 const TOPIC_AI_ALLOWED_MODELS = new Set([
   // Lovable Gateway - text models
   'openai/gpt-5-mini',
@@ -124,15 +124,6 @@ const TOPIC_AI_ALLOWED_MODELS = new Set([
   'google/gemini-2.5-flash-lite',
   'google/gemini-3-flash-preview',
   'google/gemini-3.1-pro-preview',
-  // DashScope (Alibaba) - Qwen3 series
-  'qwen3-max',
-  'qwen3-plus',
-  'qwen3-turbo',
-  'qwen3-flash',
-  'qwen3-long',
-  'qwen3-vl-max',
-  'qwen3-vl-plus',
-  'qwen3-coder-plus',
   'qwen-max-latest',
   'qwen-plus-latest',
   // DashScope - legacy Qwen
@@ -140,10 +131,20 @@ const TOPIC_AI_ALLOWED_MODELS = new Set([
   'qwen-max',
   'qwen-turbo',
   'qwen-long',
+  'qwen-vl-max',
+  'qwen-vl-plus',
 ]);
 
 const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
   'google/gemini-3.1-flash-lite-preview': 'google/gemini-2.5-flash-lite',
+  'qwen3-plus': 'qwen-plus',
+  'qwen3-max': 'qwen-max',
+  'qwen3-turbo': 'qwen-turbo',
+  'qwen3-long': 'qwen-long',
+  'qwen3-vl-max': 'qwen-vl-max',
+  'qwen3-vl-plus': 'qwen-vl-plus',
+  'qwen3-flash': 'qwen-turbo',
+  'qwen3-coder-plus': 'qwen-plus',
 };
 
 // Pick a sensible fallback that matches the requested model's provider family
