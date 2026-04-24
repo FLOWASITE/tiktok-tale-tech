@@ -36,6 +36,8 @@ interface TopicIdeaHubProps {
   disabled?: boolean;
   showEnhancedInfo?: boolean;
   showNavigateToTopics?: boolean;
+  error?: string | null;
+  errorCode?: AIErrorCode | null;
 }
 
 export function TopicIdeaHub({
@@ -53,6 +55,8 @@ export function TopicIdeaHub({
   disabled = false,
   showEnhancedInfo = true,
   showNavigateToTopics = false,
+  error,
+  errorCode,
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
