@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel, isLovableAIModel } from '@/hooks/useAIConfig';
+import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel, isLovableAIModel, isDashScopeModel } from '@/hooks/useAIConfig';
 import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, Turtle, Clock } from 'lucide-react';
 
 interface InlineModelPickerProps {
@@ -24,7 +24,7 @@ interface PresetItem {
 }
 
 const isGeminigenModel = (id: string) => id.startsWith('geminigen/');
-const isDashScopeModel = (id: string) => ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'].includes(id);
+// isDashScopeModel imported from useAIConfig — covers qwen-, qwen2*, qwen3* prefixes
 const isOpenRouterModel = (id: string) => {
   const info = getModelInfo(id);
   return info.provider === 'openrouter';
