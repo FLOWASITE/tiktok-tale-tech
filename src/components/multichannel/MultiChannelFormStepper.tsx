@@ -293,6 +293,8 @@ export function MultiChannelFormStepper({
     source: suggestionsSource,
     isLoading: suggestionsLoading,
     isEnhancing: suggestionsEnhancing,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
