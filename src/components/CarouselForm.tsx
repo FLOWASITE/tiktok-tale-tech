@@ -319,6 +319,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           showEnhancedInfo={true}
           brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
           contentGoal="education"
+          error={suggestionsError}
+          errorCode={suggestionsErrorCode}
         />
       </section>
 
