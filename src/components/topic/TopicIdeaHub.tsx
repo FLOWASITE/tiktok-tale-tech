@@ -3,10 +3,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { TopicCreditsAlert } from '@/components/topic/TopicCreditsAlert';
 import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
+import type { AIErrorCode } from '@/hooks/ai/types';
 
 const QUICK_ACTIONS = [
   { icon: Flame, label: 'Viral tuần này' },
@@ -34,6 +36,8 @@ interface TopicIdeaHubProps {
   disabled?: boolean;
   showEnhancedInfo?: boolean;
   showNavigateToTopics?: boolean;
+  error?: string | null;
+  errorCode?: AIErrorCode | null;
 }
 
 export function TopicIdeaHub({
@@ -51,6 +55,8 @@ export function TopicIdeaHub({
   disabled = false,
   showEnhancedInfo = true,
   showNavigateToTopics = false,
+  error,
+  errorCode,
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
@@ -146,6 +152,20 @@ export function TopicIdeaHub({
                 </button>
               )}
             </div>
+
+            {(errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT') && (
+              <TopicCreditsAlert
+                errorCode={errorCode}
+                errorMessage={error || undefined}
+                onRetry={errorCode === 'RATE_LIMIT' ? onRefresh : undefined}
+                className="mb-2"
+              />
+            )}
+            {error && errorCode !== 'CREDITS_EXHAUSTED' && errorCode !== 'RATE_LIMIT' && (
+              <div className="mb-2 p-2 rounded bg-destructive/10 text-destructive text-xs">
+                {error}
+              </div>
+            )}
 
             <MemoizedSuggestionPanel
               suggestions={suggestions}

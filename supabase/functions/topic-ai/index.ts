@@ -114,6 +114,7 @@ interface TopicAIRequest {
 
 // ========== Topic AI model safety ==========
 const TOPIC_AI_ALLOWED_MODELS = new Set([
+  // Lovable Gateway - text models
   'openai/gpt-5-mini',
   'openai/gpt-5',
   'openai/gpt-5-nano',
@@ -121,16 +122,38 @@ const TOPIC_AI_ALLOWED_MODELS = new Set([
   'google/gemini-2.5-pro',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-flash-lite',
-  'google/gemini-2.5-flash-image',
   'google/gemini-3-flash-preview',
-  'google/gemini-3-pro-image-preview',
   'google/gemini-3.1-pro-preview',
-  'google/gemini-3.1-flash-image-preview',
+  // DashScope (Alibaba) - Qwen3 series
+  'qwen3-max',
+  'qwen3-plus',
+  'qwen3-turbo',
+  'qwen3-flash',
+  'qwen3-long',
+  'qwen3-vl-max',
+  'qwen3-vl-plus',
+  'qwen3-coder-plus',
+  'qwen-max-latest',
+  'qwen-plus-latest',
+  // DashScope - legacy Qwen
+  'qwen-plus',
+  'qwen-max',
+  'qwen-turbo',
+  'qwen-long',
 ]);
 
 const TOPIC_AI_MODEL_ALIASES: Record<string, string> = {
   'google/gemini-3.1-flash-lite-preview': 'google/gemini-2.5-flash-lite',
 };
+
+// Pick a sensible fallback that matches the requested model's provider family
+// to avoid silently switching the user from DashScope -> Lovable Gateway.
+function pickFallbackForModel(rawModel: string, defaultFallback: string): string {
+  const m = rawModel.toLowerCase();
+  if (m.startsWith('qwen')) return 'qwen-plus'; // DashScope family fallback
+  if (m.startsWith('openai/')) return 'openai/gpt-5-mini';
+  return defaultFallback; // google/gemini-* etc.
+}
 
 function sanitizeTopicAIModel(model: string | undefined | null, fallbackModel = 'google/gemini-2.5-flash'): string {
   const rawModel = model?.trim();
@@ -144,8 +167,9 @@ function sanitizeTopicAIModel(model: string | undefined | null, fallbackModel = 
     return normalizedModel;
   }
 
-  console.warn(`[topic-ai] Unsupported model ${rawModel}, fallback -> ${fallbackModel}`);
-  return fallbackModel;
+  const familyFallback = pickFallbackForModel(rawModel, fallbackModel);
+  console.warn(`[topic-ai] Unsupported model ${rawModel}, fallback -> ${familyFallback}`);
+  return familyFallback;
 }
 
 async function buildTopicAIOverrides(

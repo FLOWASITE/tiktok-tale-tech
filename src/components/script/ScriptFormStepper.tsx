@@ -173,6 +173,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     suggestions: enhancedSuggestions,
     source: suggestionsSource,
     isLoading: suggestionsLoading,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
@@ -484,6 +486,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   showEnhancedInfo={true}
                   brandTemplateId={formData.brandTemplateId}
                   contentGoal={scriptContentGoal}
+                  error={suggestionsError}
+                  errorCode={suggestionsErrorCode}
                 />
 
                 {formData.topic.trim().length >= 20 && (

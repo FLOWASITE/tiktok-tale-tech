@@ -155,6 +155,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     suggestions: enhancedSuggestions,
     source: suggestionsSource,
     isEnhancing: suggestionsLoading,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
@@ -317,6 +319,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           showEnhancedInfo={true}
           brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
           contentGoal="education"
+          error={suggestionsError}
+          errorCode={suggestionsErrorCode}
         />
       </section>
 

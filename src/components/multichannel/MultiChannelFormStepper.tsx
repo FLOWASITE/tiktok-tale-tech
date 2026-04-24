@@ -293,6 +293,8 @@ export function MultiChannelFormStepper({
     source: suggestionsSource,
     isLoading: suggestionsLoading,
     isEnhancing: suggestionsEnhancing,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
@@ -563,6 +565,8 @@ export function MultiChannelFormStepper({
                   showEnhancedInfo
                   contentGoal={formData.contentGoal}
                   brandTemplateId={formData.brandTemplateId}
+                  error={suggestionsError}
+                  errorCode={suggestionsErrorCode}
                 />
 
                 {/* Topic Refinement */}

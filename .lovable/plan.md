@@ -1,61 +1,98 @@
+## Kết luận nguyên nhân
+`topic-ai` hiện không tạo được topic dù đã set `qwen3-plus` vì có xung đột logic nội bộ:
 
+1. `ai-config` resolve đúng model:
+   - log: `[ai-config] topic-ai: resolved model=qwen3-plus source=individual`
+2. Nhưng ngay trong `supabase/functions/topic-ai/index.ts`, hàm `sanitizeTopicAIModel()` đang dùng allowlist cứng và **không chứa Qwen3 / DashScope models**.
+3. Kết quả: `qwen3-plus` bị xem là unsupported và bị đổi sang `google/gemini-2.5-flash`:
+   - log: `[topic-ai] Unsupported model qwen3-plus, fallback -> google/gemini-2.5-flash`
+4. Sau đó `ai-provider` route model Gemini sang **Lovable Gateway**:
+   - log: `[ai-provider] Primary provider: lovable`
+5. Lovable Gateway đang hết credits nên trả 402:
+   - log: `[ai-provider] Lovable Gateway error: 402 Not enough credits`
 
-## Mục tiêu
-Bổ sung các model Qwen thế hệ mới (Qwen3 / Qwen3.5 / Qwen-VL mới / Qwen-Coder) cho provider DashScope (Alibaba Cloud), để admin có thể chọn trong:
-- AI Management → Functions / Agents / Channels / Group overrides
-- Bộ lọc provider "DashScope" trong `ModelSelector` và `InlineModelPicker`
+Ngoài ra còn lỗi phụ:
+- Perplexity web search đang 401 quota exceeded.
+- UI `TopicIdeaHub` không truyền/hiển thị `errorCode`, nên người dùng chỉ thấy “không có kết quả” thay vì biết rõ là model bị fallback sai hoặc provider hết credits.
 
-## Model sẽ thêm (DashScope native, gọi qua endpoint OpenAI-compatible đã sẵn)
-Theo dòng Qwen mới nhất Alibaba đã phát hành trên DashScope International:
+## Plan triển khai
 
-Text / Reasoning
-- `qwen3-max` — flagship Qwen3, suy luận mạnh, đa ngôn ngữ
-- `qwen3-plus` — cân bằng chất lượng / chi phí, thay thế dần `qwen-plus`
-- `qwen3-turbo` — rẻ, nhanh, batch
-- `qwen3-flash` — nhanh nhất, dùng cho classification / quick suggestions
-- `qwen-plus-latest` — alias luôn trỏ bản plus mới nhất (giữ tương thích cũ)
-- `qwen-max-latest` — alias bản max mới nhất
+### 1. Sửa `topic-ai` để chấp nhận Qwen3 đúng cách
+File: `supabase/functions/topic-ai/index.ts`
+- Bổ sung các model DashScope mới vào `TOPIC_AI_ALLOWED_MODELS`, tối thiểu:
+  - `qwen3-max`
+  - `qwen3-plus`
+  - `qwen3-turbo`
+  - `qwen3-flash`
+  - `qwen3-long`
+  - `qwen3-vl-max`
+  - `qwen3-vl-plus`
+  - `qwen3-coder-plus`
+  - alias `qwen-plus-latest`, `qwen-max-latest` nếu cần
+- Giữ alias remap cho model Gemini preview cũ.
+- Đảm bảo khi admin chọn `qwen3-plus`, `buildTopicAIOverrides()` trả lại đúng `modelOverride='qwen3-plus'`, không ép fallback sang Gemini nữa.
 
-Long context
-- `qwen3-long` — context dài kế nhiệm `qwen-long`
+### 2. Làm cho fallback an toàn hơn
+File: `supabase/functions/topic-ai/index.ts`
+- Điều chỉnh `sanitizeTopicAIModel()` để fallback hợp ngữ cảnh:
+  - nếu model là DashScope hợp lệ thì giữ nguyên
+  - chỉ fallback về Gemini khi model thật sự không hợp lệ
+- Tránh tình trạng “admin chọn model A nhưng function silently đổi sang model B của provider khác”.
 
-Multimodal (Vision)
-- `qwen3-vl-max` — VL thế hệ mới
-- `qwen3-vl-plus` — VL nhẹ hơn, rẻ hơn
+### 3. Giữ topic generation hoạt động dù Perplexity hết quota
+File: `supabase/functions/topic-ai/index.ts`
+- Khi industry search / Q&A mining trả 401 quota exceeded:
+  - không coi toàn bộ request là failure
+  - bỏ qua web search enrichment
+  - vẫn generate topic từ brand context + persona + product + recent topics
+- Gắn cờ nội bộ kiểu `webSearchSkipped` để prompt không phụ thuộc vào dữ liệu trend rỗng.
 
-Code
-- `qwen3-coder-plus` — chuyên code, thay cho dùng GPT-5-codex khi cần tiết kiệm
+### 4. Hiển thị lỗi rõ ngay tại TopicIdeaHub
+Files:
+- `src/components/topic/TopicIdeaHub.tsx`
+- các nơi gọi `TopicIdeaHub`:
+  - `src/components/multichannel/MultiChannelFormStepper.tsx`
+  - `src/components/script/ScriptFormStepper.tsx`
+  - `src/components/CarouselForm.tsx`
+  - và nơi khác nếu có
+- `src/components/TopicSuggestionPanel.tsx` nếu cần
 
-Lưu ý: tất cả đều khớp prefix `qwen-` / `qwen3` đã có trong `MODEL_TYPE_PATTERNS` của `ai-provider.ts`, nên backend KHÔNG cần đổi routing — tự động đi qua DashScope.
+Cập nhật để:
+- truyền `error` + `errorCode` từ `useTopicAI().suggestions`
+- hiển thị `TopicCreditsAlert` hoặc banner lỗi tương ứng ngay trong hub
+- tránh trạng thái im lặng “0 suggestions” khi thật ra provider/model đang lỗi
 
-## File cần sửa
+### 5. Đồng bộ logic model giữa admin config và edge function
+Mục tiêu là tránh lặp logic ở 2 nơi:
+- UI/admin đã cho chọn `qwen3-plus`
+- edge function cũng phải hiểu model đó là hợp lệ
 
-1. `src/types/aiProvider.ts`
-   - Cập nhật mảng `models` cho entry `dashscope` trong `AI_PROVIDERS`
-   - Cập nhật `description` (liệt kê Qwen3 series)
+Nếu cần, tôi sẽ chuẩn hóa rule để `topic-ai` dùng cùng tập model DashScope đã khai báo ở lớp config thay vì tự giữ allowlist cứng bị lệch version.
 
-2. `src/hooks/useAIConfig.ts`
-   - `MODELS_BY_TYPE.text` — thêm các model text/reasoning Qwen3
-   - `MODELS_BY_TYPE.image` (nếu có VL được dùng cho image-understanding) — thêm `qwen3-vl-*`
-   - `MODEL_INFO` (block từ dòng ~692) — thêm metadata cho từng model mới: `shortName`, `description`, `speed`, `quality`, `cost`, `bestFor`, `provider: 'dashscope'`
-   - Đánh dấu `qwen3-plus` là `isRecommended: true` thay cho `qwen-plus` (giữ qwen-plus nhưng bỏ recommend, để không phá org đang dùng)
-   - Cập nhật `DASHSCOPE_MODEL_PREFIXES` — bổ sung `'qwen3'` để regex catch
-   - Cập nhật mảng `dashscope` trong `MODELS_BY_PROVIDER` (dòng 1370) — thêm full danh sách model mới
+## Technical details
+```text
+Admin AI config
+  -> ai-config resolves qwen3-plus
+  -> topic-ai sanitizeTopicAIModel()
+     -> CURRENT: reject qwen3-plus, fallback to gemini
+     -> FIXED: accept qwen3-plus
+  -> ai-provider detects provider
+     -> CURRENT after fallback: lovable
+     -> FIXED: dashscope
+  -> call DashScope directly
+```
 
-3. `src/components/admin/ai/InlineModelPicker.tsx`
-   - `isDashScopeModel` đang hardcode list cũ (dòng 27) → đổi sang dùng helper `isDashScopeModel` từ `useAIConfig` (đã export sẵn) để tránh phải maintain 2 chỗ. Đồng thời tự động nhận model mới.
-
-4. `supabase/functions/_shared/ai-provider.ts`
-   - `MODEL_TYPE_PATTERNS` — bổ sung `"qwen3": "dashscope"` để chắc chắn route đúng (hiện chỉ có `qwen-` và `qwen2`).
-   - Không cần sửa logic call vì endpoint giữ nguyên.
+### Files sẽ sửa
+- `supabase/functions/topic-ai/index.ts`
+- `src/components/topic/TopicIdeaHub.tsx`
+- `src/components/multichannel/MultiChannelFormStepper.tsx`
+- `src/components/script/ScriptFormStepper.tsx`
+- `src/components/CarouselForm.tsx`
+- có thể thêm 1-2 file hook/UI liên quan nếu cần truyền `errorCode`
 
 ## Tiêu chí nghiệm thu
-
-- Vào AI Management → Functions / Channels → ô "Override model" lọc theo provider DashScope thấy đầy đủ:
-  - qwen3-max, qwen3-plus, qwen3-turbo, qwen3-flash, qwen3-long, qwen3-vl-max, qwen3-vl-plus, qwen3-coder-plus, qwen-plus-latest, qwen-max-latest
-  - cùng 5 model cũ (giữ tương thích).
-- Mỗi model mới có badge speed/quality/cost và mô tả tiếng Việt.
-- Khi chọn `qwen3-plus` cho channel `instagram`, request thực sự đi qua DashScope (`https://dashscope-intl.aliyuncs.com/...`), không rớt sang Lovable Gateway.
-- `InlineModelPicker` (chip-style picker) cũng hiển thị nhóm DashScope với đầy đủ model mới.
-- Group override "Text" trong `/admin/ai` có thể đổi default từ `qwen-plus` → `qwen3-plus` mà không lỗi runtime.
-
+- Trong log `topic-ai` không còn dòng:
+  - `Unsupported model qwen3-plus, fallback -> google/gemini-2.5-flash`
+- Khi chọn `qwen3-plus` cho `topic-ai`, log thể hiện provider là DashScope, không phải Lovable.
+- Dù Perplexity hết quota, topic-ai vẫn trả được danh sách chủ đề từ brand context.
+- Nếu provider thật sự lỗi/hết credits, UI hiển thị cảnh báo rõ ràng ngay trong Topic Idea Hub, không im lặng trống kết quả.

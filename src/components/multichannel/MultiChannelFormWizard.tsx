@@ -628,6 +628,8 @@ export function MultiChannelFormWizard({
     source: suggestionsSource,
     isLoading: isSuggestionsLoading,
     isEnhancing: isSuggestionsEnhancing,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
@@ -1240,6 +1242,8 @@ export function MultiChannelFormWizard({
                 showEnhancedInfo
                 contentGoal={formData.contentGoal}
                 brandTemplateId={formData.brandTemplateId}
+                error={suggestionsError}
+                errorCode={suggestionsErrorCode}
               />
 
               {/* ===== DYNAMIC ZONE - Refinement when topic is long enough ===== */}
