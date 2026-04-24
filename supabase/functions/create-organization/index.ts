@@ -18,7 +18,7 @@ function slugify(input: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'create-organization' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'create-organization' }, async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

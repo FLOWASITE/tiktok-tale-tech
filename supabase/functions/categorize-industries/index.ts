@@ -181,7 +181,7 @@ function classifyIndustry(industryCode: string, nameVi: string | null): Category
   return bestMatch
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'categorize-industries' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'categorize-industries' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }

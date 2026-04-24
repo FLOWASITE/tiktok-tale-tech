@@ -1338,7 +1338,7 @@ async function processSource(
   return stats;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'auto-crawl-regulations', slowThresholdMs: 120000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'auto-crawl-regulations', slowThresholdMs: 120000 }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

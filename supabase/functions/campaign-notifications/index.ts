@@ -13,7 +13,7 @@ interface CampaignGoal {
   current: number;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'campaign-notifications' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'campaign-notifications' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

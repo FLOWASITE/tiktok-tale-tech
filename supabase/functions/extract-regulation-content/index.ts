@@ -223,7 +223,7 @@ Be conservative with confidence scores - only high scores for clearly stated inf
   }
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'extract-regulation-content', slowThresholdMs: 30000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'extract-regulation-content', slowThresholdMs: 30000 }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

@@ -51,7 +51,7 @@ interface ReparseResult {
   }>;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'reparse-with-quality', slowThresholdMs: 120000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'reparse-with-quality', slowThresholdMs: 120000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

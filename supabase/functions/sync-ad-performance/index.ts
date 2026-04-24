@@ -14,7 +14,7 @@ interface SyncRequest {
   forceSync?: boolean;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'sync-ad-performance' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'sync-ad-performance' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

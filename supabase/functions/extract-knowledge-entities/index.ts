@@ -435,7 +435,7 @@ async function extractTerms(
   };
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'extract-knowledge-entities', slowThresholdMs: 30000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'extract-knowledge-entities', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

@@ -71,7 +71,7 @@ function calculateDiscount(voucher: VoucherRecord, amount: number): number {
   return Math.min(voucher.discount_value, amount);
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

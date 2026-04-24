@@ -101,7 +101,7 @@ Be specific and actionable. Focus on practical content creation implications.`;
   }
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'analyze-regulation-impact', slowThresholdMs: 30000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'analyze-regulation-impact', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
