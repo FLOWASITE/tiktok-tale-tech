@@ -103,9 +103,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
   {
     id: 'dashscope',
     name: 'DashScope (Alibaba Cloud)',
-    description: 'Qwen Plus, Qwen Max, Qwen Turbo, Qwen VL, Qwen Long',
+    description: 'Qwen3 Max/Plus/Turbo/Flash, Qwen3-VL, Qwen3-Coder, Qwen3-Long + legacy Qwen',
     getKeyUrl: 'https://dashscope.console.aliyun.com/',
-    models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'],
+    models: [
+      // Qwen3 series (latest)
+      'qwen3-max', 'qwen3-plus', 'qwen3-turbo', 'qwen3-flash', 'qwen3-long',
+      'qwen3-vl-max', 'qwen3-vl-plus', 'qwen3-coder-plus',
+      'qwen-max-latest', 'qwen-plus-latest',
+      // Legacy (backward compat)
+      'qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long',
+    ],
     icon: '☁️',
   },
   {

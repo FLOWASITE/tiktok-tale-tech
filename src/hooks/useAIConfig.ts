@@ -141,7 +141,18 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'openai/gpt-5',
     'openai/gpt-5-mini',
     'openai/gpt-5-nano',
-    // DashScope (Alibaba Cloud)
+    // DashScope (Alibaba Cloud) — Qwen3 series (latest)
+    'qwen3-max',
+    'qwen3-plus',
+    'qwen3-turbo',
+    'qwen3-flash',
+    'qwen3-long',
+    'qwen3-vl-max',
+    'qwen3-vl-plus',
+    'qwen3-coder-plus',
+    'qwen-max-latest',
+    'qwen-plus-latest',
+    // DashScope — legacy Qwen (giữ tương thích)
     'qwen-plus',
     'qwen-max',
     'qwen-turbo',
@@ -218,6 +229,10 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'geminigen/nano-banana-pro',
     'geminigen/nano-banana-2',
     'geminigen/imagen-4',
+    // DashScope Vision-Language (multimodal image understanding)
+    'qwen3-vl-max',
+    'qwen3-vl-plus',
+    'qwen-vl-max',
   ],
   'image-direct': [
     'google/gemini-3-pro-image-preview',
@@ -689,51 +704,142 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Photorealistic', 'High fidelity'],
     provider: 'geminigen',
   },
-  // DashScope (Alibaba Cloud) Models
-  'qwen-plus': {
-    shortName: 'Qwen Plus',
-    description: 'Cân bằng tốc độ & chất lượng, đa ngôn ngữ',
-    speed: 'medium',
-    quality: 'high',
-    cost: 'low',
-    bestFor: ['Nội dung đa ngôn ngữ', 'Chat', 'Phân tích'],
-    provider: 'dashscope',
-    isRecommended: true,
-  },
-  'qwen-max': {
-    shortName: 'Qwen Max',
-    description: 'Mạnh nhất Qwen, suy luận phức tạp',
+  // DashScope (Alibaba Cloud) — Qwen3 series (latest, recommended)
+  'qwen3-max': {
+    shortName: 'Qwen3 Max',
+    description: 'Flagship Qwen3, suy luận mạnh nhất, đa ngôn ngữ',
     speed: 'slow',
     quality: 'premium',
     cost: 'medium',
-    bestFor: ['Suy luận phức tạp', 'Nội dung cao cấp', 'Chiến lược'],
+    bestFor: ['Suy luận phức tạp', 'Nội dung cao cấp', 'Chiến lược', 'Đa ngôn ngữ'],
     provider: 'dashscope',
   },
-  'qwen-turbo': {
-    shortName: 'Qwen Turbo',
-    description: 'Nhanh nhất, chi phí thấp nhất',
+  'qwen3-plus': {
+    shortName: 'Qwen3 Plus',
+    description: 'Cân bằng chất lượng & chi phí — kế nhiệm qwen-plus',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Nội dung đa ngôn ngữ', 'Chat', 'Phân tích', 'Marketing'],
+    provider: 'dashscope',
+    isRecommended: true,
+  },
+  'qwen3-turbo': {
+    shortName: 'Qwen3 Turbo',
+    description: 'Nhanh, rẻ — phù hợp batch & tác vụ thông thường',
     speed: 'fast',
     quality: 'standard',
     cost: 'low',
-    bestFor: ['Tác vụ đơn giản', 'Batch processing', 'Chi phí thấp'],
+    bestFor: ['Batch processing', 'Tác vụ thường', 'Chi phí thấp'],
     provider: 'dashscope',
   },
-  'qwen-vl-max': {
-    shortName: 'Qwen VL Max',
-    description: 'Vision-Language, phân tích hình ảnh',
+  'qwen3-flash': {
+    shortName: 'Qwen3 Flash',
+    description: 'Nhanh nhất Qwen3 — classification, quick suggestions',
+    speed: 'fast',
+    quality: 'standard',
+    cost: 'low',
+    bestFor: ['Classification', 'Gợi ý nhanh', 'Real-time'],
+    provider: 'dashscope',
+  },
+  'qwen3-long': {
+    shortName: 'Qwen3 Long',
+    description: 'Context cực dài thế hệ mới — kế nhiệm qwen-long',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Tài liệu dài', 'Tóm tắt', 'Research'],
+    provider: 'dashscope',
+  },
+  'qwen3-vl-max': {
+    shortName: 'Qwen3 VL Max',
+    description: 'Vision-Language thế hệ mới, phân tích hình ảnh cao cấp',
     speed: 'medium',
     quality: 'premium',
     cost: 'medium',
     bestFor: ['Phân tích hình ảnh', 'Multimodal', 'OCR'],
     provider: 'dashscope',
   },
+  'qwen3-vl-plus': {
+    shortName: 'Qwen3 VL Plus',
+    description: 'VL nhẹ hơn, rẻ hơn cho image understanding',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Phân tích hình ảnh nhanh', 'Multimodal'],
+    provider: 'dashscope',
+  },
+  'qwen3-coder-plus': {
+    shortName: 'Qwen3 Coder Plus',
+    description: 'Chuyên code — thay GPT-5-codex khi cần tiết kiệm',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Code generation', 'Code review', 'Refactor'],
+    provider: 'dashscope',
+  },
+  'qwen-max-latest': {
+    shortName: 'Qwen Max (latest)',
+    description: 'Alias luôn trỏ bản Qwen Max mới nhất',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Suy luận phức tạp', 'Auto-update'],
+    provider: 'dashscope',
+  },
+  'qwen-plus-latest': {
+    shortName: 'Qwen Plus (latest)',
+    description: 'Alias luôn trỏ bản Qwen Plus mới nhất',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Nội dung', 'Chat', 'Auto-update'],
+    provider: 'dashscope',
+  },
+  // DashScope — legacy Qwen models (giữ tương thích, không recommend nữa)
+  'qwen-plus': {
+    shortName: 'Qwen Plus (legacy)',
+    description: 'Bản cũ — khuyến nghị chuyển sang qwen3-plus',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Nội dung đa ngôn ngữ', 'Chat', 'Phân tích'],
+    provider: 'dashscope',
+  },
+  'qwen-max': {
+    shortName: 'Qwen Max (legacy)',
+    description: 'Bản cũ — khuyến nghị chuyển sang qwen3-max',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Suy luận phức tạp', 'Nội dung cao cấp'],
+    provider: 'dashscope',
+  },
+  'qwen-turbo': {
+    shortName: 'Qwen Turbo (legacy)',
+    description: 'Bản cũ — khuyến nghị chuyển sang qwen3-turbo',
+    speed: 'fast',
+    quality: 'standard',
+    cost: 'low',
+    bestFor: ['Tác vụ đơn giản', 'Batch processing'],
+    provider: 'dashscope',
+  },
+  'qwen-vl-max': {
+    shortName: 'Qwen VL Max (legacy)',
+    description: 'Bản cũ — khuyến nghị chuyển sang qwen3-vl-max',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Phân tích hình ảnh', 'Multimodal'],
+    provider: 'dashscope',
+  },
   'qwen-long': {
-    shortName: 'Qwen Long',
-    description: 'Context cực dài, xử lý tài liệu',
+    shortName: 'Qwen Long (legacy)',
+    description: 'Bản cũ — khuyến nghị chuyển sang qwen3-long',
     speed: 'medium',
     quality: 'high',
     cost: 'medium',
-    bestFor: ['Tài liệu dài', 'Tóm tắt', 'Research'],
+    bestFor: ['Tài liệu dài', 'Tóm tắt'],
     provider: 'dashscope',
   },
   // OpenRouter Models
@@ -1198,8 +1304,8 @@ export const isPoyoModel = (modelId: string): boolean => {
   return modelId.startsWith('poyo/');
 };
 
-// DashScope model prefixes
-export const DASHSCOPE_MODEL_PREFIXES = ['qwen-', 'qwen2'];
+// DashScope model prefixes (covers qwen-, qwen2*, qwen3*)
+export const DASHSCOPE_MODEL_PREFIXES = ['qwen-', 'qwen2', 'qwen3'];
 
 // Check if a model is a DashScope model
 export const isDashScopeModel = (modelId: string): boolean => {
@@ -1367,7 +1473,14 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   perplexity: ['sonar-pro', 'sonar'],
   kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
   poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine', 'poyo/veo-3', 'poyo/veo-3-fast', 'poyo/sora-2'],
-  dashscope: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'],
+  dashscope: [
+    // Qwen3 series (latest)
+    'qwen3-max', 'qwen3-plus', 'qwen3-turbo', 'qwen3-flash', 'qwen3-long',
+    'qwen3-vl-max', 'qwen3-vl-plus', 'qwen3-coder-plus',
+    'qwen-max-latest', 'qwen-plus-latest',
+    // Legacy
+    'qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long',
+  ],
   geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4', 'geminigen/veo-3', 'geminigen/veo-3-fast', 'geminigen/veo-3.1', 'geminigen/veo-3.1-fast', 'geminigen/veo-2', 'geminigen/sora-2', 'geminigen/tts-v1'],
   custom: ['elevenlabs/music-v1', 'minimax/video-01'],
 };

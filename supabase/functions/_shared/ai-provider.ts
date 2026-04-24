@@ -43,8 +43,9 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "gemini-": "gemini",           // Direct Gemini (without prefix)
   
   // DashScope models (Alibaba Cloud - OpenAI-compatible)
-  "qwen-": "dashscope",           // qwen-plus, qwen-max, qwen-turbo (DashScope native)
+  "qwen-": "dashscope",           // qwen-plus, qwen-max, qwen-turbo, qwen-*-latest (DashScope native)
   "qwen2": "dashscope",           // qwen2.5-*, qwen2-* (DashScope native)
+  "qwen3": "dashscope",           // qwen3-max/plus/turbo/flash/long/vl-*/coder-* (DashScope native)
   
   // OpenRouter models (200+ third-party models)
   "openrouter/": "openrouter",   // OpenRouter explicit prefix
