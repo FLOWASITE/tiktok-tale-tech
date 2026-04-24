@@ -155,6 +155,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     suggestions: enhancedSuggestions,
     source: suggestionsSource,
     isEnhancing: suggestionsLoading,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
