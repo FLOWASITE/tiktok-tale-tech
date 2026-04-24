@@ -197,10 +197,17 @@ export function useHookAI(options: UseHookAIOptions = {}) {
   const quickCacheKey = `${topic}-${brandVoiceKey}`;
   const quickPendingRef = useRef<string | null>(null);
   const quickAbortRef = useRef<AbortController | null>(null);
+  const quickFailureCountRef = useRef(0);
+  const quickCooldownUntilRef = useRef(0);
 
   const fetchQuickSuggestions = useCallback(async () => {
     if (!topic.trim() || topic.length < 10) {
       setQuickSuggestions([]);
+      return;
+    }
+
+    // Cooldown after repeated failures (e.g. Lovable Gateway 402 / circuit OPEN)
+    if (Date.now() < quickCooldownUntilRef.current) {
       return;
     }
 
@@ -241,11 +248,18 @@ export function useHookAI(options: UseHookAIOptions = {}) {
       const hooks = data?.hooks || [];
       setQuickSuggestions(hooks);
       quickSuggestionCache.set(quickCacheKey, hooks);
+      quickFailureCountRef.current = 0;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
-      console.warn('[useHookAI.quickSuggestions] Auxiliary hook request failed silently:', err instanceof Error ? err.message : err);
+      quickFailureCountRef.current += 1;
+      // After 3 consecutive failures, back off for 5 minutes and stop logging
+      if (quickFailureCountRef.current >= 3) {
+        quickCooldownUntilRef.current = Date.now() + 5 * 60 * 1000;
+      } else {
+        console.warn('[useHookAI.quickSuggestions] Auxiliary hook request failed silently:', err instanceof Error ? err.message : err);
+      }
       setQuickError(null);
       setQuickSuggestions([]);
     } finally {
