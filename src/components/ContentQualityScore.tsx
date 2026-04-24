@@ -116,8 +116,12 @@ function QualityWarningBanner({
   onRequestReview?: () => void;
 }) {
   const needsManualReview = critiqueDetails?.needs_manual_review;
-  const errorCount = critiqueDetails?.issues?.filter(i => i.severity === 'error').length || 0;
-  
+  const passed = critiqueDetails?.passed ?? (score >= 80);
+  // Only treat issues as real "errors" when content failed OR explicit manual review.
+  // Otherwise they're improvement suggestions, not blocking errors.
+  const errorIssues = critiqueDetails?.issues?.filter(i => i.severity === 'error') || [];
+  const errorCount = (!passed || needsManualReview) ? errorIssues.length : 0;
+
   // Score < 60: Critical warning
   if (score < 60 || needsManualReview) {
     return (
