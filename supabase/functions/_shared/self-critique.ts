@@ -413,18 +413,34 @@ export function parseCritiqueResult(aiResponse: string): CritiqueResult {
     // Recalculate overall score from individual scores
     const calculatedScore = Object.values(scores).reduce((a, b) => a + b, 0);
     
-    const result: CritiqueResult = {
-      overall_score: calculatedScore,
-      passed: calculatedScore >= CRITIQUE_CONFIG.PASS_THRESHOLD,
-      quality_tier: getQualityTier(calculatedScore),
-      scores,
-      issues: (parsed.issues || []).map((i: any) => ({
-        category: mapCategory(i.category) || 'structure',
-        severity: i.severity || 'warning',
+    const passed = calculatedScore >= CRITIQUE_CONFIG.PASS_THRESHOLD;
+
+    // Severity normalization:
+    // `severity: error` should be reserved for true compliance/forbidden-word violations.
+    // Quality nits (weak CTA, generic hook, structure) are suggestions — not errors —
+    // especially when the content has already passed (>= PASS_THRESHOLD).
+    const HARD_ERROR_CATEGORIES = new Set(['compliance', 'forbidden']);
+    const normalizedIssues = (parsed.issues || []).map((i: any) => {
+      const category = mapCategory(i.category) || 'structure';
+      const rawSeverity = i.severity || 'warning';
+      const severity = rawSeverity === 'error' && passed && !HARD_ERROR_CATEGORIES.has(category)
+        ? 'warning'
+        : rawSeverity;
+      return {
+        category,
+        severity,
         description: i.description || 'Unknown issue',
         location: i.location,
         suggestion: i.suggestion,
-      })),
+      };
+    });
+
+    const result: CritiqueResult = {
+      overall_score: calculatedScore,
+      passed,
+      quality_tier: getQualityTier(calculatedScore),
+      scores,
+      issues: normalizedIssues,
       suggestions: parsed.suggestions || [],
       strengths: parsed.strengths || [],
       needs_manual_review: false,

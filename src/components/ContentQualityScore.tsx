@@ -116,8 +116,12 @@ function QualityWarningBanner({
   onRequestReview?: () => void;
 }) {
   const needsManualReview = critiqueDetails?.needs_manual_review;
-  const errorCount = critiqueDetails?.issues?.filter(i => i.severity === 'error').length || 0;
-  
+  const passed = critiqueDetails?.passed ?? (score >= 80);
+  // Only treat issues as real "errors" when content failed OR explicit manual review.
+  // Otherwise they're improvement suggestions, not blocking errors.
+  const errorIssues = critiqueDetails?.issues?.filter(i => i.severity === 'error') || [];
+  const errorCount = (!passed || needsManualReview) ? errorIssues.length : 0;
+
   // Score < 60: Critical warning
   if (score < 60 || needsManualReview) {
     return (
@@ -250,21 +254,25 @@ export function ContentQualityScore({
                   Đã được AI tối ưu {refinementCount > 0 ? `${refinementCount}x` : ''}
                 </p>
               )}
-              {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (
-                <p className={cn(
-                  "text-xs",
-                  critiqueDetails.issues.some(i => i.severity === 'error') ? 'text-red-500' : 'text-yellow-500'
-                )}>
-                  {critiqueDetails.issues.filter(i => i.severity === 'error').length > 0 
-                    ? `❌ ${critiqueDetails.issues.filter(i => i.severity === 'error').length} lỗi`
-                    : ''
-                  }
-                  {critiqueDetails.issues.filter(i => i.severity === 'warning').length > 0 
-                    ? ` ⚠️ ${critiqueDetails.issues.filter(i => i.severity === 'warning').length} cảnh báo`
-                    : ''
-                  }
-                </p>
-              )}
+              {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (() => {
+                const passed = critiqueDetails.passed ?? (score >= 80);
+                const realErrors = (!passed || critiqueDetails.needs_manual_review)
+                  ? critiqueDetails.issues.filter(i => i.severity === 'error').length
+                  : 0;
+                const downgradedErrors = (!passed || critiqueDetails.needs_manual_review)
+                  ? 0
+                  : critiqueDetails.issues.filter(i => i.severity === 'error').length;
+                const warnings = critiqueDetails.issues.filter(i => i.severity === 'warning').length + downgradedErrors;
+                return (
+                  <p className={cn(
+                    "text-xs",
+                    realErrors > 0 ? 'text-red-500' : 'text-yellow-500'
+                  )}>
+                    {realErrors > 0 ? `❌ ${realErrors} lỗi` : ''}
+                    {warnings > 0 ? `${realErrors > 0 ? ' ' : ''}💡 ${warnings} gợi ý` : ''}
+                  </p>
+                );
+              })()}
             </div>
           </TooltipContent>
         </Tooltip>
@@ -448,35 +456,42 @@ export function ContentQualityScore({
       )}
 
       {/* Issues */}
-      {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-yellow-500 uppercase tracking-wider">
-            Cần lưu ý ({critiqueDetails.issues.length})
-          </p>
-          <ul className="text-xs text-muted-foreground space-y-1">
-            {critiqueDetails.issues.slice(0, 5).map((issue, i) => (
-              <li key={i} className="flex items-start gap-1">
-                {issue.severity === 'error' ? (
-                  <XCircle className="w-3 h-3 text-red-500 mt-0.5 shrink-0" />
-                ) : (
-                  <AlertTriangle className={cn(
-                    "w-3 h-3 mt-0.5 shrink-0",
-                    issue.severity === 'warning' ? 'text-yellow-500' : 'text-blue-500'
-                  )} />
-                )}
-                <div>
-                  <span className={issue.severity === 'error' ? 'text-red-600' : ''}>
-                    {issue.description}
-                  </span>
-                  {issue.suggestion && (
-                    <p className="text-muted-foreground/70 mt-0.5">→ {issue.suggestion}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (() => {
+        const passed = critiqueDetails.passed ?? false;
+        const showAsErrors = !passed || critiqueDetails.needs_manual_review;
+        return (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-yellow-500 uppercase tracking-wider">
+              {showAsErrors ? `Cần lưu ý (${critiqueDetails.issues.length})` : `Gợi ý cải thiện (${critiqueDetails.issues.length})`}
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              {critiqueDetails.issues.slice(0, 5).map((issue, i) => {
+                const renderAsError = showAsErrors && issue.severity === 'error';
+                return (
+                  <li key={i} className="flex items-start gap-1">
+                    {renderAsError ? (
+                      <XCircle className="w-3 h-3 text-red-500 mt-0.5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className={cn(
+                        "w-3 h-3 mt-0.5 shrink-0",
+                        issue.severity === 'warning' || (showAsErrors === false && issue.severity === 'error') ? 'text-yellow-500' : 'text-blue-500'
+                      )} />
+                    )}
+                    <div>
+                      <span className={renderAsError ? 'text-red-600' : ''}>
+                        {issue.description}
+                      </span>
+                      {issue.suggestion && (
+                        <p className="text-muted-foreground/70 mt-0.5">→ {issue.suggestion}</p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })()}
     </div>
   );
 }
