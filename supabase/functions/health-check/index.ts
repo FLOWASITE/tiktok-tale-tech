@@ -76,7 +76,7 @@ async function checkAI(): Promise<HealthCheck> {
   }
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'health-check' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'health-check' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
