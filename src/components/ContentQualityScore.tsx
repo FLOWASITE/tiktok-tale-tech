@@ -489,8 +489,9 @@ export function ContentQualityScore({
                 );
               })}
             </ul>
-        </div>
-      )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
