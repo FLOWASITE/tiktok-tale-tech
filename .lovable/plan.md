@@ -1,75 +1,61 @@
 
 
-## Nguyên nhân thật sự (KHÔNG phải tôi vừa sửa gì)
+## Mục tiêu
+Bổ sung các model Qwen thế hệ mới (Qwen3 / Qwen3.5 / Qwen-VL mới / Qwen-Coder) cho provider DashScope (Alibaba Cloud), để admin có thể chọn trong:
+- AI Management → Functions / Agents / Channels / Group overrides
+- Bộ lọc provider "DashScope" trong `ModelSelector` và `InlineModelPicker`
 
-Tôi kiểm tra DB và phát hiện cấu hình đang xung đột giữa 2 tầng override:
+## Model sẽ thêm (DashScope native, gọi qua endpoint OpenAI-compatible đã sẵn)
+Theo dòng Qwen mới nhất Alibaba đã phát hành trên DashScope International:
 
-### Cấu hình hiện tại trong DB
+Text / Reasoning
+- `qwen3-max` — flagship Qwen3, suy luận mạnh, đa ngôn ngữ
+- `qwen3-plus` — cân bằng chất lượng / chi phí, thay thế dần `qwen-plus`
+- `qwen3-turbo` — rẻ, nhanh, batch
+- `qwen3-flash` — nhanh nhất, dùng cho classification / quick suggestions
+- `qwen-plus-latest` — alias luôn trỏ bản plus mới nhất (giữ tương thích cũ)
+- `qwen-max-latest` — alias bản max mới nhất
 
-**Bảng `ai_channel_model_configs` (per-channel, ưu tiên cao nhất):**
-| Channel | model_override | Tạo lúc |
-|---|---|---|
-| facebook | `qwen-max` (DashScope) | 2026-01-04 |
-| **instagram** | **`anthropic/claude-3.5-haiku`** (Lovable Gateway) | **2026-01-04** |
-| threads | `qwen-plus` (DashScope) | 2026-03-26 |
-| linkedin | `moonshotai/kimi-k2` (OpenRouter) | 2026-01-06 |
-| ... | ... | ... |
+Long context
+- `qwen3-long` — context dài kế nhiệm `qwen-long`
 
-**Bảng `ai_function_group_configs` (group-level, ưu tiên thấp hơn):**
-- text → `qwen-plus`
+Multimodal (Vision)
+- `qwen3-vl-max` — VL thế hệ mới
+- `qwen3-vl-plus` — VL nhẹ hơn, rẻ hơn
 
-### Tại sao instagram lại đi Lovable Gateway
+Code
+- `qwen3-coder-plus` — chuyên code, thay cho dùng GPT-5-codex khi cần tiết kiệm
 
-- Instagram trong DB từ **04/01/2026** đã được set `model_override = anthropic/claude-3.5-haiku`. Đây là model của Anthropic chạy qua Lovable Gateway.
-- Theo logic ưu tiên trong `ai-config.ts` + `streaming-handler.ts` (dòng 271-272):
-  ```
-  channelConfig?.model ?? context.defaultModel
-  ```
-  → khi có channel override, nó BỎ QUA group override `qwen-plus`.
-- Vì vậy instagram đi Lovable Gateway → Lovable hết credits → 402.
-- Facebook may mắn vì channel override là `qwen-max` (DashScope) nên có user API key → chạy được.
-
-### Tôi KHÔNG có sửa gì gây ra việc này
-- Bản ghi instagram updated_at = `2026-01-04 09:39:47` — không có thay đổi gần đây.
-- Trong các phiên làm việc gần đây, tôi chỉ sửa: `length-validator.ts`, `self-critique.ts`, `ai-hook-evaluator.ts`, `ContentQualityScore.tsx`, `useHookAI.ts`, `generate-brand-image/index.ts`. KHÔNG đụng vào bảng `ai_channel_model_configs`.
-- Cảm giác "trước đây instagram đi qua dashscope/qwen-plus" có thể đến từ thời điểm bảng channel configs CHƯA có row instagram, lúc đó nó fallback xuống group `text = qwen-plus` (DashScope). Sau khi row instagram được thêm 04/01, channel override thắng → đi Lovable Gateway.
-
----
-
-## Hướng xử lý (cần user duyệt)
-
-### A. Sửa cấu hình data (nhanh nhất)
-Tạo migration update row instagram trong `ai_channel_model_configs`:
-- Đổi `model_override` từ `anthropic/claude-3.5-haiku` → `qwen-plus`
-- Để đồng bộ với group text override mà user đang dùng
-- Hoặc nếu user muốn instagram đi Claude thật, cần nạp credits Lovable Gateway
-
-### B. Sửa logic ưu tiên (an toàn hơn lâu dài)
-File: `supabase/functions/_shared/streaming-handler.ts` (dòng 271-272)
-- Khi channel override model trỏ sang provider đang **OPEN circuit breaker** hoặc đã 402 trong 5 phút gần đây → tự động fallback xuống group override (`qwen-plus` DashScope) thay vì cứng đầu retry Lovable Gateway.
-- Emit warning log `[channel-routing] instagram override claude-3.5-haiku skipped: gateway credits exhausted, falling back to qwen-plus`.
-
-### C. UI cảnh báo cho admin
-File: `src/hooks/useChannelModelConfig.ts` + page admin tương ứng
-- Khi channel override model thuộc Lovable Gateway và Lovable đang hết credits → hiện badge vàng "⚠ Model này yêu cầu Lovable Gateway credits, hiện đã hết. Nội dung sẽ fallback DashScope."
-
-### D. Dập 402 spam từ `generate-campaign-strategy`
-Log cũng cho thấy `generate-campaign-strategy` mỗi lần đều thử Lovable Gateway trước rồi mới fallback DashScope → tốn 1 round-trip vô ích mỗi request.
-- File: `supabase/functions/generate-campaign-strategy/index.ts`
-- Khi đã có user dashscope key + Lovable đã 402 trong cooldown → bỏ qua Lovable, đi thẳng DashScope.
-
----
+Lưu ý: tất cả đều khớp prefix `qwen-` / `qwen3` đã có trong `MODEL_TYPE_PATTERNS` của `ai-provider.ts`, nên backend KHÔNG cần đổi routing — tự động đi qua DashScope.
 
 ## File cần sửa
-- Migration mới: update `ai_channel_model_configs` cho instagram (và rà các row khác có model thuộc Lovable Gateway như `youtube` đang dùng `gemini-2.5-flash-lite`)
-- `supabase/functions/_shared/streaming-handler.ts` — provider-aware fallback
-- `supabase/functions/_shared/ai-provider.ts` — expose circuit breaker state cho streaming-handler
-- `supabase/functions/generate-campaign-strategy/index.ts` — skip Lovable khi cooldown
-- `src/hooks/useChannelModelConfig.ts` + admin page — UI warning
+
+1. `src/types/aiProvider.ts`
+   - Cập nhật mảng `models` cho entry `dashscope` trong `AI_PROVIDERS`
+   - Cập nhật `description` (liệt kê Qwen3 series)
+
+2. `src/hooks/useAIConfig.ts`
+   - `MODELS_BY_TYPE.text` — thêm các model text/reasoning Qwen3
+   - `MODELS_BY_TYPE.image` (nếu có VL được dùng cho image-understanding) — thêm `qwen3-vl-*`
+   - `MODEL_INFO` (block từ dòng ~692) — thêm metadata cho từng model mới: `shortName`, `description`, `speed`, `quality`, `cost`, `bestFor`, `provider: 'dashscope'`
+   - Đánh dấu `qwen3-plus` là `isRecommended: true` thay cho `qwen-plus` (giữ qwen-plus nhưng bỏ recommend, để không phá org đang dùng)
+   - Cập nhật `DASHSCOPE_MODEL_PREFIXES` — bổ sung `'qwen3'` để regex catch
+   - Cập nhật mảng `dashscope` trong `MODELS_BY_PROVIDER` (dòng 1370) — thêm full danh sách model mới
+
+3. `src/components/admin/ai/InlineModelPicker.tsx`
+   - `isDashScopeModel` đang hardcode list cũ (dòng 27) → đổi sang dùng helper `isDashScopeModel` từ `useAIConfig` (đã export sẵn) để tránh phải maintain 2 chỗ. Đồng thời tự động nhận model mới.
+
+4. `supabase/functions/_shared/ai-provider.ts`
+   - `MODEL_TYPE_PATTERNS` — bổ sung `"qwen3": "dashscope"` để chắc chắn route đúng (hiện chỉ có `qwen-` và `qwen2`).
+   - Không cần sửa logic call vì endpoint giữ nguyên.
 
 ## Tiêu chí nghiệm thu
-- Chọn FB + IG → **cả 2 đi DashScope** (qwen-max + qwen-plus), không kênh nào còn rớt sang Lovable Gateway.
-- Log không còn `[ai-provider] Lovable Gateway error: 402` từ multichannel/campaign-strategy.
-- Admin UI hiển thị rõ row nào đang dùng Lovable Gateway model + cảnh báo nếu hết credits.
-- Người dùng có thể 1-click "Reset instagram về group default (qwen-plus)" trong admin.
+
+- Vào AI Management → Functions / Channels → ô "Override model" lọc theo provider DashScope thấy đầy đủ:
+  - qwen3-max, qwen3-plus, qwen3-turbo, qwen3-flash, qwen3-long, qwen3-vl-max, qwen3-vl-plus, qwen3-coder-plus, qwen-plus-latest, qwen-max-latest
+  - cùng 5 model cũ (giữ tương thích).
+- Mỗi model mới có badge speed/quality/cost và mô tả tiếng Việt.
+- Khi chọn `qwen3-plus` cho channel `instagram`, request thực sự đi qua DashScope (`https://dashscope-intl.aliyuncs.com/...`), không rớt sang Lovable Gateway.
+- `InlineModelPicker` (chip-style picker) cũng hiển thị nhóm DashScope với đầy đủ model mới.
+- Group override "Text" trong `/admin/ai` có thể đổi default từ `qwen-plus` → `qwen3-plus` mà không lỗi runtime.
 
