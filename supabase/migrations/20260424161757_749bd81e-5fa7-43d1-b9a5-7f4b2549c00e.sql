@@ -1,0 +1,1 @@
+UPDATE public.ai_function_configs SET model_override = 'qwen-plus', updated_at = now() WHERE function_name = 'topic-ai' AND model_override = 'qwen3-plus';
