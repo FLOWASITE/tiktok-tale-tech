@@ -4,7 +4,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.Deno.serve(withPerf({ functionName: 'fetch-news-url' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'fetch-news-url' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

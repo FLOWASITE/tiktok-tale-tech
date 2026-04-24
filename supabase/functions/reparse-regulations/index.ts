@@ -80,7 +80,7 @@ function hasHtmlLayoutArtifacts(text: string | null): boolean {
   return matchCount >= 2;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'reparse-regulations', slowThresholdMs: 120000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'reparse-regulations', slowThresholdMs: 120000 }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

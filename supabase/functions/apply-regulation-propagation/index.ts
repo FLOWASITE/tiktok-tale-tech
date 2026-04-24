@@ -22,7 +22,7 @@ interface AffectedRule {
   suggested_change?: string;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'apply-regulation-propagation' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'apply-regulation-propagation' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

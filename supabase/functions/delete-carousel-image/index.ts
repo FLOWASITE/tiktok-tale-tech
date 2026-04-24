@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.Deno.serve(withPerf({ functionName: 'delete-carousel-image', slowThresholdMs: 30000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'delete-carousel-image', slowThresholdMs: 30000 }, async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

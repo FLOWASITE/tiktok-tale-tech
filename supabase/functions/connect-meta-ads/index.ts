@@ -19,7 +19,7 @@ interface ConnectRequest {
   connectionId?: string;
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'connect-meta-ads' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'connect-meta-ads' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

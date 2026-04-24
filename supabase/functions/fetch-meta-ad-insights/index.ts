@@ -18,7 +18,7 @@ interface FetchInsightsRequest {
   };
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'fetch-meta-ad-insights' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'fetch-meta-ad-insights' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

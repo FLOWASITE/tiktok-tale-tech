@@ -23,7 +23,7 @@ async function hmacSHA512(secret: string, data: string): Promise<string> {
     .join('');
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'vnpay-callback' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'vnpay-callback' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
