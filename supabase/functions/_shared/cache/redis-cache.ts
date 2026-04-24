@@ -19,7 +19,7 @@ export async function getRedis(): Promise<any | null> {
   }
 
   try {
-    const { Redis } = await import('npm:@upstash/redis@1.34.3');
+    const { Redis } = await import('https://esm.sh/@upstash/redis@1.34.3');
     redisClient = new Redis({ url, token });
     console.log('[RedisCache] Connected');
     return redisClient;
