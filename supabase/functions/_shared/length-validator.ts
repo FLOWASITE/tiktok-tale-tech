@@ -59,6 +59,28 @@ export const CHANNEL_LENGTH_CONFIGS: Record<string, ChannelLengthConfig> = {
 export const HIGH_PRIORITY_CHANNELS = ['website', 'facebook', 'linkedin', 'youtube', 'email'];
 
 /**
+ * HARD platform limits — content beyond these will be rejected by the platform itself.
+ * Anything within hard limit is acceptable; only over-hard-limit is a real "fail".
+ * Numeric units match each channel's `length_unit` ('words' or 'chars').
+ */
+export const CHANNEL_HARD_LIMITS: Record<string, number> = {
+  // Word-based channels: hard limit ≈ 4x ideal max (gives room for longform without false-fails)
+  website: 4000,
+  facebook: 2000,        // ~63k chars in practice
+  instagram: 600,        // ~2200 chars
+  twitter: 350,          // platform char-limit handled separately
+  google_maps: 300,
+  linkedin: 1500,        // ~3000 chars
+  email: 1500,
+  youtube: 1500,
+  zalo_oa: 400,
+  telegram: 1000,
+  tiktok: 500,
+  // Char-based channels
+  threads: 500,
+};
+
+/**
  * Count words in text (Vietnamese-aware)
  */
 export function countWords(text: string): number {
@@ -230,19 +252,31 @@ export function validateLength(
   const toleranceThreshold = minRequired * (1 - tolerance / 100);
   
   // Determine compliance level
+  // Philosophy: only flag as 'error' when content violates the platform's HARD limit.
+  // Going over the "ideal" max but under hard-limit is just a soft "acceptable" signal —
+  // longform Facebook posts (1000+ words) are perfectly valid and should not be flagged
+  // as compliance failures.
+  const hardLimit = CHANNEL_HARD_LIMITS[channel] ?? maxAllowed * 4;
   let complianceLevel: LengthValidationResult['complianceLevel'];
   let isValid: boolean;
-  
-  if (actualLength >= minRequired && actualLength <= maxAllowed) {
+
+  if (actualLength > hardLimit) {
+    // Truly broken — exceeds platform hard limit
+    complianceLevel = 'error';
+    isValid = false;
+  } else if (actualLength >= minRequired && actualLength <= maxAllowed) {
     complianceLevel = 'optimal';
     isValid = true;
-  } else if (actualLength >= toleranceThreshold && actualLength <= maxAllowed * 1.1) {
+  } else if (actualLength >= toleranceThreshold && actualLength <= hardLimit) {
+    // Slightly under min OR over ideal max but under hard limit → acceptable
     complianceLevel = 'acceptable';
     isValid = true;
-  } else if (actualLength >= toleranceThreshold * 0.8 || overflow <= maxAllowed * 0.2) {
+  } else if (actualLength >= toleranceThreshold * 0.8) {
+    // Significantly under min — quality warning, not a hard fail
     complianceLevel = 'warning';
     isValid = false;
   } else {
+    // Way too short — barely any content
     complianceLevel = 'error';
     isValid = false;
   }
