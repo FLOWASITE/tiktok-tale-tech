@@ -3,10 +3,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { TopicCreditsAlert } from '@/components/topic/TopicCreditsAlert';
 import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
+import type { AIErrorCode } from '@/hooks/ai/types';
 
 const QUICK_ACTIONS = [
   { icon: Flame, label: 'Viral tuần này' },
