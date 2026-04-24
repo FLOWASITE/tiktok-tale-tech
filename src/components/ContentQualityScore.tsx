@@ -456,33 +456,39 @@ export function ContentQualityScore({
       )}
 
       {/* Issues */}
-      {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-yellow-500 uppercase tracking-wider">
-            Cần lưu ý ({critiqueDetails.issues.length})
-          </p>
-          <ul className="text-xs text-muted-foreground space-y-1">
-            {critiqueDetails.issues.slice(0, 5).map((issue, i) => (
-              <li key={i} className="flex items-start gap-1">
-                {issue.severity === 'error' ? (
-                  <XCircle className="w-3 h-3 text-red-500 mt-0.5 shrink-0" />
-                ) : (
-                  <AlertTriangle className={cn(
-                    "w-3 h-3 mt-0.5 shrink-0",
-                    issue.severity === 'warning' ? 'text-yellow-500' : 'text-blue-500'
-                  )} />
-                )}
-                <div>
-                  <span className={issue.severity === 'error' ? 'text-red-600' : ''}>
-                    {issue.description}
-                  </span>
-                  {issue.suggestion && (
-                    <p className="text-muted-foreground/70 mt-0.5">→ {issue.suggestion}</p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+      {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (() => {
+        const passed = critiqueDetails.passed ?? false;
+        const showAsErrors = !passed || critiqueDetails.needs_manual_review;
+        return (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-yellow-500 uppercase tracking-wider">
+              {showAsErrors ? `Cần lưu ý (${critiqueDetails.issues.length})` : `Gợi ý cải thiện (${critiqueDetails.issues.length})`}
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              {critiqueDetails.issues.slice(0, 5).map((issue, i) => {
+                const renderAsError = showAsErrors && issue.severity === 'error';
+                return (
+                  <li key={i} className="flex items-start gap-1">
+                    {renderAsError ? (
+                      <XCircle className="w-3 h-3 text-red-500 mt-0.5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className={cn(
+                        "w-3 h-3 mt-0.5 shrink-0",
+                        issue.severity === 'warning' || (showAsErrors === false && issue.severity === 'error') ? 'text-yellow-500' : 'text-blue-500'
+                      )} />
+                    )}
+                    <div>
+                      <span className={renderAsError ? 'text-red-600' : ''}>
+                        {issue.description}
+                      </span>
+                      {issue.suggestion && (
+                        <p className="text-muted-foreground/70 mt-0.5">→ {issue.suggestion}</p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
         </div>
       )}
     </div>
