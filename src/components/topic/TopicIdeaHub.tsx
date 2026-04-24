@@ -153,6 +153,20 @@ export function TopicIdeaHub({
               )}
             </div>
 
+            {(errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT') && (
+              <TopicCreditsAlert
+                errorCode={errorCode}
+                errorMessage={error || undefined}
+                onRetry={errorCode === 'RATE_LIMIT' ? onRefresh : undefined}
+                className="mb-2"
+              />
+            )}
+            {error && errorCode !== 'CREDITS_EXHAUSTED' && errorCode !== 'RATE_LIMIT' && (
+              <div className="mb-2 p-2 rounded bg-destructive/10 text-destructive text-xs">
+                {error}
+              </div>
+            )}
+
             <MemoizedSuggestionPanel
               suggestions={suggestions}
               source={source}
