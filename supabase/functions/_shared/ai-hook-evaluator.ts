@@ -5,6 +5,9 @@
 
 import { callAI } from './ai-provider.ts';
 import { HOOK_CRITERIA } from './critique-criteria.ts';
+import { isCircuitOpen } from './circuit-breaker.ts';
+
+const HOOK_EVAL_MODEL = 'google/gemini-2.5-flash-lite';
 
 export interface HookScore {
   overall: number;          // 1-10
@@ -121,6 +124,16 @@ Trả về JSON:
 
 CHỈ TRẢ VỀ JSON.`;
 
+  // Short-circuit if breaker is OPEN for this model — avoids spamming Lovable Gateway
+  // with 402 (out of credits) calls when we already know it will fail.
+  try {
+    if (await isCircuitOpen(HOOK_EVAL_MODEL)) {
+      return null;
+    }
+  } catch {
+    // breaker check is best-effort; if it errors, proceed normally
+  }
+
   try {
     const result = await callAI({
       functionName: 'evaluate-hook',
@@ -129,7 +142,7 @@ CHỈ TRẢ VỀ JSON.`;
         { role: 'system', content: 'Bạn là chuyên gia đánh giá hook/headline cho social media. Đánh giá nghiêm khắc và thực tế.' },
         { role: 'user', content: prompt },
       ],
-      modelOverride: 'google/gemini-2.5-flash-lite', // Fast, cheap
+      modelOverride: HOOK_EVAL_MODEL, // Fast, cheap
     });
 
     if (result.success && result.data?.choices?.[0]?.message?.content) {
