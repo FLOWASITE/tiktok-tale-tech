@@ -1242,6 +1242,8 @@ export function MultiChannelFormWizard({
                 showEnhancedInfo
                 contentGoal={formData.contentGoal}
                 brandTemplateId={formData.brandTemplateId}
+                error={suggestionsError}
+                errorCode={suggestionsErrorCode}
               />
 
               {/* ===== DYNAMIC ZONE - Refinement when topic is long enough ===== */}
