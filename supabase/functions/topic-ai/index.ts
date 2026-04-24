@@ -112,7 +112,7 @@ interface TopicAIRequest {
   temperature?: number;        // from ai_agent_model_configs
 }
 
-// ========== Topic AI model safety ==========
+// ========== Topic AI model safety (v2 - Qwen3 supported) ==========
 const TOPIC_AI_ALLOWED_MODELS = new Set([
   // Lovable Gateway - text models
   'openai/gpt-5-mini',
