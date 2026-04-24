@@ -254,21 +254,25 @@ export function ContentQualityScore({
                   Đã được AI tối ưu {refinementCount > 0 ? `${refinementCount}x` : ''}
                 </p>
               )}
-              {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (
-                <p className={cn(
-                  "text-xs",
-                  critiqueDetails.issues.some(i => i.severity === 'error') ? 'text-red-500' : 'text-yellow-500'
-                )}>
-                  {critiqueDetails.issues.filter(i => i.severity === 'error').length > 0 
-                    ? `❌ ${critiqueDetails.issues.filter(i => i.severity === 'error').length} lỗi`
-                    : ''
-                  }
-                  {critiqueDetails.issues.filter(i => i.severity === 'warning').length > 0 
-                    ? ` ⚠️ ${critiqueDetails.issues.filter(i => i.severity === 'warning').length} cảnh báo`
-                    : ''
-                  }
-                </p>
-              )}
+              {critiqueDetails?.issues && critiqueDetails.issues.length > 0 && (() => {
+                const passed = critiqueDetails.passed ?? (score >= 80);
+                const realErrors = (!passed || critiqueDetails.needs_manual_review)
+                  ? critiqueDetails.issues.filter(i => i.severity === 'error').length
+                  : 0;
+                const downgradedErrors = (!passed || critiqueDetails.needs_manual_review)
+                  ? 0
+                  : critiqueDetails.issues.filter(i => i.severity === 'error').length;
+                const warnings = critiqueDetails.issues.filter(i => i.severity === 'warning').length + downgradedErrors;
+                return (
+                  <p className={cn(
+                    "text-xs",
+                    realErrors > 0 ? 'text-red-500' : 'text-yellow-500'
+                  )}>
+                    {realErrors > 0 ? `❌ ${realErrors} lỗi` : ''}
+                    {warnings > 0 ? `${realErrors > 0 ? ' ' : ''}💡 ${warnings} gợi ý` : ''}
+                  </p>
+                );
+              })()}
             </div>
           </TooltipContent>
         </Tooltip>
