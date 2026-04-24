@@ -1022,12 +1022,27 @@ export function createRateLimitResponse(): Response {
 
 /**
  * Create credits exhausted error response
+ *
+ * IMPORTANT: returns HTTP 200 (not 402) so that `supabase.functions.invoke()`
+ * on the client does NOT throw a FunctionsHttpError (which bubbles up as an
+ * uncaught runtime error and causes a blank screen).
+ *
+ * Frontend handlers (useAIErrorHandler, parseEdgeFunctionError, TopicCreditsAlert)
+ * inspect the JSON body and the `errorCode` field — they don't need a 4xx status
+ * to render the "credits exhausted" UI.
  */
 export function createCreditsExhaustedResponse(): Response {
-  return createErrorResponse(
-    'AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.',
-    402,
-    'CREDITS_EXHAUSTED'
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: 'AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.',
+      errorCode: 'CREDITS_EXHAUSTED',
+      fallback: true,
+    }),
+    {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
   );
 }
 
