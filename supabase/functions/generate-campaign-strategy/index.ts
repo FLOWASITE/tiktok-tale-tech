@@ -333,9 +333,9 @@ Deno.serve(async (req) => {
         primaryError.includes("Not enough credits");
 
       const fallbackModel =
-        strategyFallbackModel || (strategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+        strategyFallbackModel || (activeStrategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
 
-      if (isCreditsError && fallbackModel && fallbackModel !== strategyModel) {
+      if (isCreditsError && fallbackModel && fallbackModel !== activeStrategyModel) {
         console.warn(`[generate-campaign-strategy] Primary model credits exhausted, retrying with fallback model: ${fallbackModel}`);
         const fallbackResult = await callAIWithMetrics(supabase, {
           functionName: 'generate-campaign-strategy',
