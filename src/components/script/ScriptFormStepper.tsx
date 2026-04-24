@@ -486,6 +486,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   showEnhancedInfo={true}
                   brandTemplateId={formData.brandTemplateId}
                   contentGoal={scriptContentGoal}
+                  error={suggestionsError}
+                  errorCode={suggestionsErrorCode}
                 />
 
                 {formData.topic.trim().length >= 20 && (
