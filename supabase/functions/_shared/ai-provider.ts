@@ -129,14 +129,14 @@ const LOVABLE_MODEL_PATTERNS = ["google/gemini-", "openai/gpt-5", "sonar"];
 /**
  * Check if model is supported by Lovable Gateway
  */
-function isLovableCompatibleModel(model: string): boolean {
+export function isLovableCompatibleModel(model: string): boolean {
   return LOVABLE_MODEL_PATTERNS.some(pattern => model.startsWith(pattern));
 }
 
 /**
- * Get provider from model name
+ * Get provider from model name (exported for routing/fallback decisions)
  */
-function getProviderFromModel(model: string): string {
+export function getProviderFromModel(model: string): string {
   // Check explicit prefixes first
   for (const [prefix, provider] of Object.entries(MODEL_TO_PROVIDER)) {
     if (model.startsWith(prefix)) {
