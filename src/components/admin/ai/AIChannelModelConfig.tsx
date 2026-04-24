@@ -218,8 +218,14 @@ export function AIChannelModelConfig({ organizationId }: AIChannelModelConfigPro
                             <div className="flex items-center gap-2 cursor-help">
                               <ProviderIndicator provider={modelInfo.provider} />
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium">
+                                <span className="text-sm font-medium flex items-center gap-1.5">
                                   {modelInfo.provider === 'dashscope' ? '☁️ ' : ''}{modelInfo.shortName}
+                                  {isCustomized && modelInfo.provider === 'lovable' && (
+                                    <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400 text-[10px] px-1 py-0 gap-0.5">
+                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                      Lovable Gateway
+                                    </Badge>
+                                  )}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
                                   {isCustomized ? (
@@ -241,6 +247,11 @@ export function AIChannelModelConfig({ organizationId }: AIChannelModelConfigPro
                               <p className="font-semibold">{modelInfo.shortName}</p>
                               <p className="text-sm">{modelInfo.description}</p>
                               <p className="text-[10px] font-mono text-muted-foreground">{displayModel}</p>
+                              {isCustomized && modelInfo.provider === 'lovable' && (
+                                <p className="text-[11px] text-amber-600 dark:text-amber-400 pt-1 border-t mt-1">
+                                  ⚠ Model này dùng Lovable Gateway credits. Khi hết credits, kênh sẽ tự fallback về model mặc định (qwen-plus / DashScope).
+                                </p>
+                              )}
                             </div>
                           </TooltipContent>
                         </Tooltip>
