@@ -628,6 +628,8 @@ export function MultiChannelFormWizard({
     source: suggestionsSource,
     isLoading: isSuggestionsLoading,
     isEnhancing: isSuggestionsEnhancing,
+    error: suggestionsError,
+    errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
