@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics, getProviderFromModel } from "../_shared/ai-provider.ts";
+import { isCircuitOpen } from "../_shared/circuit-breaker.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -223,13 +224,36 @@ Deno.serve(async (req) => {
       existingTitles,
     });
 
-    // Call AI via callAIWithMetrics — routes to correct provider based on model prefix
-    console.log(`[generate-campaign-strategy] Calling AI with model: ${strategyModel}`);
+    // Call AI via callAIWithMetrics — routes to correct provider based on model prefix.
+    // Provider-aware short-circuit: if the configured strategyModel goes to Lovable Gateway
+    // and that gateway's circuit is OPEN (e.g. recent 402 'Not enough credits'), skip it
+    // and use the dashscope fallback (qwen-plus) directly to avoid a wasted round-trip.
+    let activeStrategyModel = strategyModel;
+    try {
+      const strategyProvider = getProviderFromModel(strategyModel);
+      const fallbackCandidate =
+        strategyFallbackModel || (strategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+      if (
+        (strategyProvider === "lovable" || strategyProvider === "openrouter") &&
+        fallbackCandidate &&
+        fallbackCandidate !== strategyModel &&
+        (await isCircuitOpen(strategyModel))
+      ) {
+        console.warn(
+          `[generate-campaign-strategy] ${strategyModel} (${strategyProvider}) circuit OPEN — skipping straight to fallback ${fallbackCandidate}`
+        );
+        activeStrategyModel = fallbackCandidate;
+      }
+    } catch (err) {
+      console.warn(`[generate-campaign-strategy] circuit check failed:`, err);
+    }
+
+    console.log(`[generate-campaign-strategy] Calling AI with model: ${activeStrategyModel}`);
     let aiResult = await callAIWithMetrics(supabase, {
       functionName: 'generate-campaign-strategy',
       organizationId: organization_id,
       actionType: 'strategy',
-      modelOverride: strategyModel,
+      modelOverride: activeStrategyModel,
       ...(strategyTemperature && { temperatureOverride: strategyTemperature }),
       messages: [
         { role: "system", content: systemPrompt },
@@ -309,9 +333,9 @@ Deno.serve(async (req) => {
         primaryError.includes("Not enough credits");
 
       const fallbackModel =
-        strategyFallbackModel || (strategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+        strategyFallbackModel || (activeStrategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
 
-      if (isCreditsError && fallbackModel && fallbackModel !== strategyModel) {
+      if (isCreditsError && fallbackModel && fallbackModel !== activeStrategyModel) {
         console.warn(`[generate-campaign-strategy] Primary model credits exhausted, retrying with fallback model: ${fallbackModel}`);
         const fallbackResult = await callAIWithMetrics(supabase, {
           functionName: 'generate-campaign-strategy',

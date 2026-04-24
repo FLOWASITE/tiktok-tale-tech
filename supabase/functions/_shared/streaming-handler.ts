@@ -10,7 +10,8 @@
  * - Marketing Frameworks
  */
 
-import { callAI, iterateStreamDeltas } from "./ai-provider.ts";
+import { callAI, iterateStreamDeltas, getProviderFromModel } from "./ai-provider.ts";
+import { isCircuitOpen } from "./circuit-breaker.ts";
 import { formatFooterInfo, type FooterInfo } from "./channel-prompt-builder.ts";
 import { calculateChannelMaxTokens } from "./dynamic-tokens.ts";
 import { 
@@ -269,8 +270,27 @@ export async function generateChannelStreaming(
   
   // Get model config - use nullish coalescing for speed
   const channelConfig = context.channelModelConfigs.get(channel);
-  const effectiveModel = channelConfig?.model ?? context.defaultModel;
-  const effectiveTemperature = channelConfig?.temperature ?? context.defaultTemperature;
+  let effectiveModel = channelConfig?.model ?? context.defaultModel;
+  let effectiveTemperature = channelConfig?.temperature ?? context.defaultTemperature;
+
+  // Provider-aware fallback: if the channel-specific override targets a provider
+  // whose circuit is currently OPEN (e.g. Lovable Gateway after 402 'Not enough credits'),
+  // fall back to the group/default model so we don't waste a round-trip on a known-bad path.
+  if (channelConfig?.model && channelConfig.model !== context.defaultModel) {
+    try {
+      const overrideProvider = getProviderFromModel(channelConfig.model);
+      const isCloudProvider = overrideProvider === "lovable" || overrideProvider === "openrouter";
+      if (isCloudProvider && (await isCircuitOpen(channelConfig.model))) {
+        console.warn(
+          `[channel-routing] ${channel} override "${channelConfig.model}" (${overrideProvider}) circuit OPEN — falling back to "${context.defaultModel}"`
+        );
+        effectiveModel = context.defaultModel;
+        effectiveTemperature = context.defaultTemperature;
+      }
+    } catch (err) {
+      console.warn(`[channel-routing] fallback check failed for ${channel}:`, err);
+    }
+  }
   
   // Get channel optimization for token adjustment
   const channelOpt = context.channelOptimizations?.[channel];
