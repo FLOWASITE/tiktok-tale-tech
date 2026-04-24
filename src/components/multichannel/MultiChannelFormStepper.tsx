@@ -565,6 +565,8 @@ export function MultiChannelFormStepper({
                   showEnhancedInfo
                   contentGoal={formData.contentGoal}
                   brandTemplateId={formData.brandTemplateId}
+                  error={suggestionsError}
+                  errorCode={suggestionsErrorCode}
                 />
 
                 {/* Topic Refinement */}
