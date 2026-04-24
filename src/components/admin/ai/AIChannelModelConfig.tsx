@@ -21,7 +21,7 @@ import {
   Settings, Check, X, RotateCcw, Sparkles, Zap, Star,
   Facebook, Instagram, Linkedin, Youtube, Twitter, Globe, 
   Mail, Send, MapPin, MessageCircle, AtSign, Music2,
-  Gauge, Lightbulb, Target, DollarSign, Hash
+  Gauge, Lightbulb, Target, DollarSign, Hash, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
