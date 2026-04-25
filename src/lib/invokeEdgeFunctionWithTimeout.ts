@@ -67,9 +67,26 @@ export async function invokeWithTimeout<T = unknown>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  // Detect transient Supabase Edge Runtime errors (cold-start / recycle 503s)
+  const isTransientRuntimeError = (status: number, body: string): boolean => {
+    if (status !== 503 && status !== 502 && status !== 504) return false;
+    return /SUPABASE_EDGE_RUNTIME_ERROR|temporarily unavailable|BOOT_ERROR|WORKER_LIMIT/i.test(body);
+  };
+
   try {
     let response = await invokeRequest(token, controller.signal);
     let responseText = await response.text();
+
+    // Retry once on transient runtime errors (function is recycling)
+    let transientRetries = 0;
+    while (isTransientRuntimeError(response.status, responseText) && transientRetries < 2) {
+      transientRetries++;
+      const backoffMs = 800 * transientRetries;
+      console.warn(`[invokeWithTimeout] ${functionName} hit transient ${response.status}, retrying in ${backoffMs}ms (attempt ${transientRetries}/2)`);
+      await new Promise((r) => setTimeout(r, backoffMs));
+      response = await invokeRequest(token, controller.signal);
+      responseText = await response.text();
+    }
 
     if (token && isUnauthorizedResponse(response.status, responseText)) {
       const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
