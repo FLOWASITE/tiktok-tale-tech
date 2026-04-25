@@ -10,6 +10,7 @@ import { BlackboardClient, buildBlackboardContext } from "../supervisor/blackboa
 import { withRetry, withTimeout, isRetryableError, createCircuitBreaker } from "../error-utils.ts";
 import { callAI } from "../ai-provider.ts";
 import { AgentConfig, getAgentTools } from "../supervisor/agent-registry.ts";
+import { streamToText } from "../stream-utils.ts";
 
 export interface AgentTask {
   userMessage: string;
@@ -112,8 +113,8 @@ export async function executeAgent(
               retryOn: isRetryableError,
             }
           ),
-          agentConfig.timeoutMs,
-          `${agentName} timed out after ${agentConfig.timeoutMs}ms`
+          agentConfig.timeoutMs ?? 60000,
+          `${agentName} timed out after ${agentConfig.timeoutMs ?? 60000}ms`
         );
       });
 
@@ -244,7 +245,7 @@ export async function executeAgent(
         errorMessage: `Critical tool failure: ${failedTools}`,
         toolsUsed: toolResults.map(t => t.tool_name),
         durationMs: Date.now() - startTime,
-        modelUsed: agentConfig.defaultModel,
+        modelUsed: agentConfig.defaultModel ?? 'unknown',
       });
 
       return {
@@ -266,7 +267,7 @@ export async function executeAgent(
       outputSummary: finalContent.slice(0, 200),
       toolsUsed: toolResults.map(t => t.tool_name),
       durationMs: Date.now() - startTime,
-      modelUsed: agentConfig.defaultModel,
+      modelUsed: agentConfig.defaultModel ?? 'unknown',
     });
 
     return {
@@ -287,7 +288,7 @@ export async function executeAgent(
       status: 'failed',
       errorMessage: errorMsg,
       durationMs: Date.now() - startTime,
-      modelUsed: agentConfig.defaultModel,
+      modelUsed: agentConfig.defaultModel ?? 'unknown',
     });
 
     return {

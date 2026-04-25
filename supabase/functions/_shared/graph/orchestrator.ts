@@ -993,7 +993,7 @@ export async function orchestrateWorkflow(
   const cachedPlan = memoryCache.get<GraphPlan>(cacheKey);
   if (cachedPlan) {
     console.log(`[Orchestrator] Plan cache HIT: ${cacheKey}`);
-    let plan = { ...cachedPlan, fastPath: false, fromPlanCache: true };
+    let plan: GraphPlan = { ...cachedPlan, fastPath: false, fromPlanCache: true };
     plan = await applySemanticTopicOverride(state.userMessage, plan, options, supabaseClient);
     return plan;
   }

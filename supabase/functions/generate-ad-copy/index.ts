@@ -226,7 +226,7 @@ function checkCharLimits(text: string | null, field: string, limits: CharLimitCo
 // AI Metrics Logging with Cost
 // ============================================
 import { estimateCost } from "../_shared/cost-estimator.ts";
-import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withPerf } from "../_shared/middleware/perf.ts";
 
 async function logAIMetrics(
   supabase: any,

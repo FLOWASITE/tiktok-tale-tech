@@ -13,6 +13,11 @@ export interface AgentConfig {
   temperature?: number;
   maxTokens?: number;
   tools?: string[];
+  defaultModel?: string;
+  maxTurns?: number;
+  forceToolUse?: boolean;
+  maxRetries?: number;
+  timeoutMs?: number;
 }
 
 export function getAgentTools(_agentName: string, _tools?: string[]): ToolDefinition[] {

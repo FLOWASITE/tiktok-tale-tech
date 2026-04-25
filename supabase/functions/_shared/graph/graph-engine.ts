@@ -671,7 +671,7 @@ export async function runOrchestrator(
   // Inject conversation history for multi-turn context
   if (options.conversationHistory?.length) {
     state.messages = [
-      ...options.conversationHistory.map(m => ({ role: m.role, content: m.content })),
+      ...options.conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant' | 'system' | 'tool', content: m.content })),
       ...state.messages,
     ];
   }
