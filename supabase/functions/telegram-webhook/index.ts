@@ -320,7 +320,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
                   "Nếu UI web báo *Đã kết nối* mà bot vẫn nói câu này, bạn có thể đang chat ở chat khác. Hãy /start lại để liên kết đúng chat hiện tại.",
                   "",
                   "*Bắt đầu thử ngay!*",
-                ],
+                ].join("\n"),
                 { parse_mode: "Markdown" },
               );
               console.warn("[telegram-webhook] onboarding sent — chat_id not bound", {
@@ -717,10 +717,11 @@ interface HandlerCtx {
   supabase: any;
   botConfig: {
     id: string;
-    organizationId: string;
+    organizationId: string | null;
     botUsername: string;
     botToken: string;
     defaultAutonomyLevel: string;
+    isDefault?: boolean;
   };
   chatId: number;
 }
