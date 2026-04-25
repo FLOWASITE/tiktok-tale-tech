@@ -60,6 +60,8 @@ export default function Gallery() {
         )}
       </div>
 
+      <MediaRetentionNotice storageKey="media-retention-gallery" />
+
       {/* Stats Cards */}
       {!loading && !contentIdParam && (
         <div className="grid grid-cols-3 gap-4">
