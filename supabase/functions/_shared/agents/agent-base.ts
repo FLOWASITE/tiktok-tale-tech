@@ -10,6 +10,7 @@ import { BlackboardClient, buildBlackboardContext } from "../supervisor/blackboa
 import { withRetry, withTimeout, isRetryableError, createCircuitBreaker } from "../error-utils.ts";
 import { callAI } from "../ai-provider.ts";
 import { AgentConfig, getAgentTools } from "../supervisor/agent-registry.ts";
+import { streamToText } from "../stream-utils.ts";
 
 export interface AgentTask {
   userMessage: string;
