@@ -926,19 +926,22 @@ export function MultiChannelFormWizard({
     }
   }, [generationComplete, currentStep]);
 
-  // Auto-trigger image pipeline when entering Step 5 in auto mode
-  const autoImageTriggeredRef = useRef(false);
+  // Auto-trigger image pipeline when entering Step 5 in auto mode.
+  // Guard via module-level Set keyed by contentId — survives StrictMode double-mount,
+  // wizard remount (key={location.key}), and rapid prop flicker. Prevents duplicate
+  // generate-brand-image calls (root cause of "ảnh tạo 2 lần" bug).
   useEffect(() => {
     if (
       currentStep === 5 &&
       imageMode === 'auto' &&
       imagePhase === 'idle' &&
       generationComplete &&
-      !autoImageTriggeredRef.current &&
+      generatedContentIdProp &&
+      !AUTO_IMAGE_TRIGGERED_CONTENT_IDS.has(generatedContentIdProp) &&
       getChannelText &&
       onStartImagePipeline
     ) {
-      autoImageTriggeredRef.current = true;
+      AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
       const channelTexts: Record<string, string> = {};
       formData.channels.forEach(ch => {
         channelTexts[ch] = getChannelText(ch);
