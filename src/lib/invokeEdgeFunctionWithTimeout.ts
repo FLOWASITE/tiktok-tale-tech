@@ -91,12 +91,13 @@ export async function invokeWithTimeout<T = unknown>(
 
     // Retry on either HTTP transient runtime errors OR network "Failed to fetch" (worker dropped connection)
     while (
-      transientRetries < 2 &&
+      transientRetries < 4 &&
       ('networkError' in attempt ||
         isTransientRuntimeError(attempt.response.status, attempt.responseText))
     ) {
       transientRetries++;
-      const backoffMs = 800 * transientRetries;
+      // Exponential backoff with jitter: 600ms, 1200ms, 2400ms, 4800ms (+random 0-300ms)
+      const backoffMs = 600 * Math.pow(2, transientRetries - 1) + Math.floor(Math.random() * 300);
       const reason = 'networkError' in attempt
         ? 'network failure'
         : `${attempt.response.status}`;
