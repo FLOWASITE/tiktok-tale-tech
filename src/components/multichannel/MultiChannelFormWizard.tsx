@@ -971,7 +971,7 @@ export function MultiChannelFormWizard({
         },
       });
     }
-  }, [currentStep, imageMode, imagePhase, generationComplete]);
+  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp]);
 
   // Resume from background tasks on mount
   useEffect(() => {
