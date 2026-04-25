@@ -8,6 +8,7 @@ import { VideoGeneration, VIDEO_PROVIDER_CONFIG, VideoGenerationStatus } from '@
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 
 interface VideoGalleryProps {
   scriptId?: string;
