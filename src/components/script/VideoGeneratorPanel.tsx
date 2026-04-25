@@ -11,6 +11,7 @@ import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG, GEMINIGEN_VI
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { Script } from '@/types/script';
 import { StoryboardScene } from '@/types/storyboard';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 
 interface VideoGeneratorPanelProps {
   script?: Script;
