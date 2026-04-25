@@ -5,7 +5,7 @@ import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
 import { toast } from 'sonner';
-import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
+import { CHANNEL_IMAGE_CONFIG, CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
 
 export interface GeneratedChannelImage {
   channel: Channel;
@@ -139,7 +139,7 @@ export function useSocialImageGeneration() {
     prompt,
     contentId,
     channel,
-    aspectRatio = '1:1',
+    aspectRatio,
     brandTemplateId,
     organizationId,
     imageStylePreset,
@@ -161,8 +161,16 @@ export function useSocialImageGeneration() {
       setGenerating(channel);
     }
 
+    // Auto-resolve aspect ratio per channel when caller doesn't override.
+    // This ensures Instagram = 4:5, TikTok = 9:16, etc. — matching what each
+    // channel mockup expects, instead of always defaulting to 1:1.
+    const resolvedAspectRatio =
+      aspectRatio
+      ?? (channel ? CHANNEL_OPTIMAL_ASPECT_RATIO[channel] : undefined)
+      ?? '1:1';
+
     try {
-      console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'} via generate-brand-image`);
+      console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'} via generate-brand-image (aspect=${resolvedAspectRatio})`);
       console.log(`[useSocialImageGeneration] Image content type: ${imageContentType || 'background_only'}`);
       console.log(`[useSocialImageGeneration] Canvas fallback: ${useCanvasFallback}`);
 
@@ -189,7 +197,7 @@ export function useSocialImageGeneration() {
           force: true, // Manual regenerate — bypass cached-return + dedupe in edge function
           contentSummary: prompt,
           brandTemplateId,
-          aspectRatio,
+          aspectRatio: resolvedAspectRatio,
           imageStylePreset,
           negativePrompt,
           contentRole,
