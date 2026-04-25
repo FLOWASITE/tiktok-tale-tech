@@ -806,7 +806,7 @@ async function handleStart(
         "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
         "*Bắt đầu thử ngay!*",
-      ],
+      ].join("\n"),
       {
         parse_mode: "Markdown",
         reply_markup: {
