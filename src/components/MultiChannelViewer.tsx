@@ -1073,7 +1073,10 @@ export function MultiChannelViewer({
           )}
         </DialogHeader>
 
-        {showTeamPanel ? (
+        <div className="px-6 pt-2">
+          <MediaRetentionNotice storageKey="media-retention-multichannel" />
+        </div>
+
           <div className="p-6 space-y-6">
             <TeamWorkPanel 
               contentId={content.id} 
