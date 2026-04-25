@@ -566,12 +566,51 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       logoSafeZone,
     }: GenerateImageRequest = requestBody as GenerateImageRequest;
 
-    // === Layer 3 dedupe: chặn duplicate request cho cùng (contentId, channel) trong 60s ===
-    // Bảo vệ cuối cùng nếu Layer 1 (FormWizard guard) và Layer 2 (hook in-flight ref) đều bị bypass.
-    // Vd: user có 2 tab mở, hoặc browser retry nhanh do network blip.
-    if (contentId && channel) {
+    // === Layer A: Cached return ===
+    // Nếu multi_channel_contents.channel_images[channel].url đã tồn tại VÀ task hiện tại
+    // không phải manual regenerate (force=false), trả về URL có sẵn — không tạo mới.
+    // Điều này chặn case: user reload trang sau khi pipeline đã chạy xong → wizard
+    // re-trigger pipeline → request đến đây → ta phát hiện ảnh đã có và return luôn.
+    const isForceRegenerate = (requestBody as any)?.force === true;
+    if (contentId && channel && !isForceRegenerate) {
       try {
-        const dedupeWindowStart = new Date(Date.now() - 60_000).toISOString();
+        const { data: existingContent } = await supabase
+          .from('multi_channel_contents')
+          .select('channel_images')
+          .eq('id', contentId)
+          .maybeSingle();
+        const cachedUrl = (existingContent?.channel_images as Record<string, { url?: string; aspectRatio?: string }> | null)?.[channel]?.url;
+        if (cachedUrl) {
+          console.log(`[generate-brand-image] ✅ CACHED: returning existing image for content=${contentId} channel=${channel}`);
+          if (taskId) {
+            await supabase
+              .from('generation_tasks')
+              .update({
+                status: 'completed',
+                progress: 100,
+                error_message: 'Cached — image already exists',
+                completed_at: new Date().toISOString(),
+                result_metadata: { imageUrl: cachedUrl, cached: true },
+              })
+              .eq('id', taskId);
+          }
+          return new Response(
+            JSON.stringify({ success: true, imageUrl: cachedUrl, cached: true }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (cacheErr) {
+        console.warn('[generate-brand-image] Cached-return check failed (non-fatal):', cacheErr);
+      }
+    }
+
+    // === Layer B: In-flight dedupe ===
+    // Chặn duplicate request cho cùng (contentId, channel) trong 30 phút.
+    // Window dài (30m) vì auto-pipeline có thể chạy ~90s và user có thể reload nhiều lần.
+    // Manual regenerate dùng force=true để bypass.
+    if (contentId && channel && !isForceRegenerate) {
+      try {
+        const dedupeWindowStart = new Date(Date.now() - 30 * 60_000).toISOString();
         const { data: recentTasks } = await supabase
           .from('generation_tasks')
           .select('id, status, created_at')
@@ -585,7 +624,6 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         const otherActive = (recentTasks || []).filter((t: any) => t.id !== taskId);
         if (otherActive.length > 0) {
           console.warn(`[generate-brand-image] ⛔ DEDUPE: existing in-flight task ${otherActive[0].id} for content=${contentId} channel=${channel} — rejecting duplicate`);
-          // Mark this duplicate task as failed (so it doesn't sit forever as 'pending')
           if (taskId) {
             await supabase
               .from('generation_tasks')
@@ -607,10 +645,10 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           );
         }
       } catch (dedupeErr) {
-        // Non-fatal — nếu dedupe check fail thì cứ chạy bình thường (fail-open)
         console.warn('[generate-brand-image] Dedupe check failed (non-fatal):', dedupeErr);
       }
     }
+
 
     await updateImageTaskStatus(supabase, taskId, {
       status: 'generating',
