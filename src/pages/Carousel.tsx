@@ -9,6 +9,7 @@ import { CarouselGenerationTracker } from '@/components/carousel/CarouselGenerat
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
