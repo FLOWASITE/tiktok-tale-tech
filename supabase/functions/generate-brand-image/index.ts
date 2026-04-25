@@ -129,7 +129,7 @@ function doesOverlayTextMatchBrandLanguage(input: string | null | undefined, bra
 }
 
 async function updateImageTaskStatus(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   taskId: string | undefined,
   patch: Record<string, unknown>,
 ) {
@@ -146,7 +146,7 @@ async function updateImageTaskStatus(
 }
 
 async function persistGeneratedImage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   payload: PersistencePayload,
 ) {
   const {
