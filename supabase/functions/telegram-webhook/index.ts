@@ -715,14 +715,8 @@ function buildTelegramSinglePostPrompt(baseTopic: string, writingGoal?: Telegram
 interface HandlerCtx {
   // deno-lint-ignore no-explicit-any
   supabase: any;
-  botConfig: {
-    id: string;
-    organizationId: string | null;
-    botUsername: string;
-    botToken: string;
-    defaultAutonomyLevel: string;
-    isDefault?: boolean;
-  };
+  // deno-lint-ignore no-explicit-any
+  botConfig: any;
   chatId: number;
 }
 
