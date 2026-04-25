@@ -321,6 +321,11 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       console.error('[AutoImagePipeline] ❌ PIPELINE ERROR:', err instanceof Error ? err.message : err);
       setPhase('error');
       toast.error('Lỗi tự động tạo ảnh');
+    } finally {
+      // Clear in-flight guard regardless of success/failure
+      if (inFlightContentIdRef.current === contentId) {
+        inFlightContentIdRef.current = null;
+      }
     }
   }, [brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, autoSave, autoImageGen]);
 
