@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -932,21 +933,53 @@ export function MultiChannelFormWizard({
   }, [generationComplete, currentStep]);
 
   // Auto-trigger image pipeline when entering Step 5 in auto mode.
-  // Guard via module-level Set keyed by contentId — survives StrictMode double-mount,
-  // wizard remount (key={location.key}), and rapid prop flicker. Prevents duplicate
-  // generate-brand-image calls (root cause of "ảnh tạo 2 lần" bug).
+  // Guards (3 layers, in order):
+  //   1. Module-level Set keyed by contentId — survives StrictMode double-mount + wizard remount
+  //   2. DB pre-check — skip if multi_channel_contents.channel_images already has URLs for ALL channels
+  //      (prevents re-generation on page reload after pipeline already finished)
+  //   3. Server-side dedupe in generate-brand-image (60s window for 'auto' source)
   useEffect(() => {
     if (
-      currentStep === 5 &&
-      imageMode === 'auto' &&
-      imagePhase === 'idle' &&
-      generationComplete &&
-      generatedContentIdProp &&
-      !AUTO_IMAGE_TRIGGERED_CONTENT_IDS.has(generatedContentIdProp) &&
-      getChannelText &&
-      onStartImagePipeline
+      currentStep !== 5 ||
+      imageMode !== 'auto' ||
+      imagePhase !== 'idle' ||
+      !generationComplete ||
+      !generatedContentIdProp ||
+      AUTO_IMAGE_TRIGGERED_CONTENT_IDS.has(generatedContentIdProp) ||
+      !getChannelText ||
+      !onStartImagePipeline
     ) {
-      AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
+      return;
+    }
+
+    let cancelled = false;
+    AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
+
+    (async () => {
+      // Layer 2: DB pre-check — if all channels already have persisted images, skip pipeline entirely
+      try {
+        const { data: existing } = await supabase
+          .from('multi_channel_contents')
+          .select('channel_images')
+          .eq('id', generatedContentIdProp)
+          .maybeSingle();
+
+        const channelImages = (existing?.channel_images as Record<string, { url?: string } | undefined> | null) || null;
+        if (channelImages) {
+          const allChannelsHaveImage = formData.channels.every(
+            (ch) => !!channelImages[ch]?.url
+          );
+          if (allChannelsHaveImage) {
+            console.log('[AutoImageTrigger] ⏭️  Skipping — all channels already have persisted images for', generatedContentIdProp);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[AutoImageTrigger] DB pre-check failed (continuing):', err);
+      }
+
+      if (cancelled) return;
+
       const channelTexts: Record<string, string> = {};
       formData.channels.forEach(ch => {
         channelTexts[ch] = getChannelText(ch);
@@ -975,7 +1008,9 @@ export function MultiChannelFormWizard({
           globalHook: formData.globalHook,
         },
       });
-    }
+    })();
+
+    return () => { cancelled = true; };
   }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp]);
 
   // Resume from background tasks on mount
