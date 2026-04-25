@@ -256,6 +256,11 @@ interface GeneratedCoreContent {
   };
 }
 
+// Module-level guard: persists across StrictMode double-mount, wizard remount
+// (key={location.key}), and rapid prop flicker. Prevents duplicate
+// generate-brand-image calls per contentId.
+const AUTO_IMAGE_TRIGGERED_CONTENT_IDS = new Set<string>();
+
 export function MultiChannelFormWizard({ 
   brandTemplateId,
   brandTemplate,
