@@ -58,7 +58,7 @@ async function getAppSecret(): Promise<string | null> {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

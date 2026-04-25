@@ -1094,8 +1094,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       });
     });
 
-    if ('waitUntil' in EdgeRuntime) {
-      EdgeRuntime.waitUntil(historySavePromise);
+    if (typeof (globalThis as any).EdgeRuntime !== 'undefined' && 'waitUntil' in (globalThis as any).EdgeRuntime) {
+      (globalThis as any).EdgeRuntime.waitUntil(historySavePromise);
     } else {
       historySavePromise.catch(() => {});
     }
