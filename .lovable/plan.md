@@ -1,73 +1,57 @@
-## 🎯 Mục tiêu
-Tự động xóa ảnh và video cũ hơn **7 ngày** để tiết kiệm dung lượng storage, đồng thời **thông báo cho user** biết về chính sách này.
+## 🎯 Vấn đề hiện tại
+
+`cleanup-old-media/index.ts` queue mọi `image_url` vào `filesByBucket` mà **không khử trùng**. Khi nhiều bản ghi (đã xác minh có 10 cặp trong `carousel_images`) cùng tham chiếu một file:
+
+1. **Lần 1**: `storage.remove([path])` xóa file thật → OK.
+2. **Lần 2**: `storage.remove([path])` lại path cùng tên → trả về error "Object not found" → bị đẩy vào `summary.errors` → log nhiễu, làm tưởng có lỗi thật.
+3. **Đếm sai**: `storage_files_removed += chunk.length` cộng cả path đã xóa rồi → số liệu phình ảo.
+
+**Rủi ro phụ**: file vừa bị xóa do bước 1 (channel_image_history `is_selected=false`) có thể vẫn được tham chiếu bởi 1 bản ghi `is_selected=true` khác cùng URL → mất ảnh user đang dùng. (Hiện tại trong DB chưa thấy case này nhưng nên phòng ngừa.)
 
 ---
 
-## 🛠️ Backend: Edge Function + Cron
+## 🛠️ Giải pháp — sửa duy nhất `supabase/functions/cleanup-old-media/index.ts`
 
-### 1. Tạo Edge Function `cleanup-old-media`
-Chạy mỗi ngày lúc 03:00 UTC, quét và xóa:
-
-| Bảng | Điều kiện xóa |
-|---|---|
-| `channel_image_history` | `created_at < now() - 7 days` AND `is_selected = false` |
-| `carousel_images` | `created_at < now() - 7 days` AND `is_selected = false` |
-| `video_generations` | `created_at < now() - 7 days` AND `status IN ('completed','failed')` |
-
-**Logic:**
-- Xóa file trong storage bucket trước (`carousel-images`, etc.) bằng cách parse URL.
-- Sau đó xóa record trong DB.
-- Log tổng số xóa + dung lượng giải phóng vào console.
-- Giữ lại ảnh `is_selected = true` (ảnh user đang dùng) — **vĩnh viễn**, không xóa.
-
-> **Lưu ý:** Đã có sẵn function `cleanup-old-images` cũ (default 30 ngày, dry-run). Tôi sẽ tạo function mới `cleanup-old-media` để bao gồm cả video, hard-code 7 ngày, không cần dry-run.
-
-### 2. Schedule cron job
-Dùng `pg_cron` + `pg_net` chạy hàng ngày:
-```sql
-select cron.schedule(
-  'cleanup-old-media-daily',
-  '0 3 * * *',  -- 03:00 UTC mỗi ngày
-  $$ select net.http_post(...) $$
-);
+### 1. Dùng `Set` per-bucket thay cho `Array` để tự khử trùng
+```ts
+const filesByBucket: Record<string, Set<string>> = {};
+const queueDelete = (url) => {
+  const parsed = parseStorageUrl(url);
+  if (!parsed) return;
+  (filesByBucket[parsed.bucket] ??= new Set()).add(parsed.path);
+};
 ```
 
----
+### 2. Thu thập "URL được giữ lại" trước khi xóa storage
+Trước vòng `storage.remove`, query thêm 1 lượt các URL **đang được tham chiếu bởi bản ghi không bị xóa** (chủ yếu `is_selected=true` hoặc record < 7 ngày):
 
-## 📢 Frontend: Thông báo cho user
+```ts
+const protectedUrls = new Set<string>();
+// channel_image_history: is_selected=true HOẶC created_at >= cutoff
+const { data: keep1 } = await supabase
+  .from('channel_image_history')
+  .select('image_url')
+  .or(`is_selected.eq.true,created_at.gte.${cutoff}`);
+keep1?.forEach(r => r.image_url && protectedUrls.add(r.image_url));
 
-### Vị trí hiển thị (3 chỗ — minimal, không phiền):
+// carousel_images: tương tự
+// video_generations: status NOT IN ('completed','failed') HOẶC created_at >= cutoff
+```
 
-**A. Banner nhỏ trong View Content Đa kênh + Carousel**
-- Text: *"💡 Ảnh và video tự động xóa sau 7 ngày. Tải về nếu muốn giữ lại."*
-- Style: 1 dòng `text-xs text-muted-foreground` + icon Info, dismissable (lưu `localStorage`).
+Sau đó loại path đang được protect khỏi `filesByBucket` trước khi remove. Điều này đảm bảo: nếu cùng `image_url` được dùng bởi 2 records (1 cũ `is_selected=false`, 1 mới `is_selected=true`), file sẽ **không** bị xóa khỏi storage — chỉ record cũ trong DB bị xóa.
 
-**B. Tooltip ở nút "Tạo ảnh AI" / "Tạo video"**
-- Hover hiện: *"Lưu ý: Ảnh/video sẽ tự động xóa sau 7 ngày."*
+### 3. Đếm chính xác `storage_files_removed`
+Chỉ cộng số file remove **thành công** (response không có per-file error), không cộng nguyên `chunk.length`.
 
-**C. Footer note ở dialog Image/Video Generator**
-- 1 dòng cuối dialog: *"⏰ Media cũ hơn 7 ngày sẽ được dọn dẹp tự động."*
-
-### Optional: thông báo lần đầu (toast)
-Lần đầu user vào trang Content/Carousel sau khi deploy, hiện toast giới thiệu policy 1 lần (lưu flag `localStorage`).
+### 4. Filter "Object not found" khỏi `summary.errors`
+Đây là noise hợp lệ (đã xóa rồi từ run trước, hoặc race condition) — log warn thay vì error.
 
 ---
 
 ## 📁 Files affected
-
-**New:**
-- `supabase/functions/cleanup-old-media/index.ts` — edge function chính
-- Migration SQL — schedule pg_cron job
-
-**Edited:**
-- `src/components/MultiChannelViewer.tsx` — thêm banner notice
-- `src/components/carousel/CarouselViewer.tsx` (hoặc tương đương) — thêm banner notice  
-- `src/components/multichannel/SimpleImageGenerator.tsx` — footer note
-- `src/components/VideoGenerationDialog.tsx` (nếu có) — footer note
-
----
+- `supabase/functions/cleanup-old-media/index.ts` (chỉnh sửa — auto-redeploy qua Lovable Cloud)
 
 ## ✅ Kết quả
-- Storage được dọn dẹp tự động → tiết kiệm chi phí.
-- Ảnh user đang dùng (`is_selected=true`) **không bao giờ bị xóa**.
-- User được thông báo rõ ràng ở 3 điểm chạm — không cần đọc docs.
+- 0 lần gọi `storage.remove` trùng path → log sạch, đếm đúng.
+- File user đang dùng (`is_selected=true`) **tuyệt đối** không bị xóa nhầm dù record cũ trùng URL bị dọn.
+- Backward compatible — không đổi schema, không đổi cron, không đổi response shape.
