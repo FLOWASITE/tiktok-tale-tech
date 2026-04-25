@@ -60,12 +60,11 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
       (filesByBucket[parsed.bucket] ??= new Set()).add(parsed.path);
     };
 
-    // 1) channel_image_history — keep is_selected=true forever
+    // 1) channel_image_history — xóa TẤT CẢ >7 ngày (kể cả is_selected=true)
     {
       const { data, error } = await supabase
         .from("channel_image_history")
         .select("id, image_url")
-        .eq("is_selected", false)
         .lt("created_at", cutoff)
         .limit(1000);
       if (error) summary.errors.push(`channel_image_history fetch: ${error.message}`);
