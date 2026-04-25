@@ -129,7 +129,7 @@ function doesOverlayTextMatchBrandLanguage(input: string | null | undefined, bra
 }
 
 async function updateImageTaskStatus(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   taskId: string | undefined,
   patch: Record<string, unknown>,
 ) {
@@ -146,7 +146,7 @@ async function updateImageTaskStatus(
 }
 
 async function persistGeneratedImage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   payload: PersistencePayload,
 ) {
   const {
@@ -564,7 +564,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       structuredTemplate,
       // Logo safe zone for AI render mode
       logoSafeZone,
-    }: GenerateImageRequest = requestBody;
+    }: GenerateImageRequest = requestBody as GenerateImageRequest;
 
     await updateImageTaskStatus(supabase, taskId, {
       status: 'generating',
@@ -1094,8 +1094,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       });
     });
 
-    if ('waitUntil' in EdgeRuntime) {
-      EdgeRuntime.waitUntil(historySavePromise);
+    if (typeof (globalThis as any).EdgeRuntime !== 'undefined' && 'waitUntil' in (globalThis as any).EdgeRuntime) {
+      (globalThis as any).EdgeRuntime.waitUntil(historySavePromise);
     } else {
       historySavePromise.catch(() => {});
     }

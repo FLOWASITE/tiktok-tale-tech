@@ -1293,7 +1293,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         traceId, functionName: 'generate-carousel-image', userId, totalDurationMs,
         aiCallDurationMs: totalDurationMs, inputTokensEstimated: inputTokens, outputTokensEstimated: 0,
         estimatedCostUsd, modelsUsed: { image: imageModel }, hadError: false,
-        usedFallback, fallbackModel: fallbackFromModel,
+        usedFallback, fallbackModel: fallbackFromModel ?? undefined,
         contextSources: [], contentId: carouselId, actionType: 'image_generation',
       }).catch(() => {});
 
@@ -1337,7 +1337,7 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
       modelsUsed: { image: model },
       hadError: false,
       usedFallback,
-      fallbackModel: fallbackFromModel,
+      fallbackModel: fallbackFromModel ?? undefined,
       contextSources: [],
       contentId: carouselId,
       actionType: 'image_generation',
@@ -1406,6 +1406,7 @@ function buildBackgroundPrompt(
     previousSceneDescription?: string | null;
     sequencePosition?: number;
     totalInSequence?: number;
+    siblingSlidesSummary?: string | null;
   } | null,
   dbTokens?: any | null,
   brandColors?: { textColor?: string; backgroundColor?: string } | null,

@@ -805,15 +805,15 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
       // Check if it's a service role call with userId in body (agent-creator-v2 pattern)
-      if (formData.userId) {
-        userId = formData.userId;
+      if ((formData as any).userId) {
+        userId = (formData as any).userId;
       } else {
         const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
           global: { headers: { Authorization: authHeader } },
         });
-        const { data, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-        if (!claimsError && data?.claims?.sub) {
-          userId = data.claims.sub as string;
+        const { data: userData, error: userErr } = await supabaseAuth.auth.getUser(token);
+        if (!userErr && userData?.user?.id) {
+          userId = userData.user.id;
         }
       }
     }
@@ -1232,7 +1232,7 @@ Follow the carousel style guidelines strictly.`;
             return parsed;
           }
         } catch (e) {
-          console.warn('[generate-carousel] Content text fallback parse failed:', e.message);
+          console.warn('[generate-carousel] Content text fallback parse failed:', e instanceof Error ? e.message : String(e));
         }
       }
 

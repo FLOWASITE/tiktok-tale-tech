@@ -1,3 +1,4 @@
+const startTime = performance.now(); const traceId = crypto.randomUUID();
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
