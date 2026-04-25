@@ -564,7 +564,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       structuredTemplate,
       // Logo safe zone for AI render mode
       logoSafeZone,
-    }: GenerateImageRequest = requestBody;
+    }: GenerateImageRequest = requestBody as GenerateImageRequest;
 
     await updateImageTaskStatus(supabase, taskId, {
       status: 'generating',

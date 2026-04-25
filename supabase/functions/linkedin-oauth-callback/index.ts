@@ -65,8 +65,8 @@ Deno.serve(withPerf({ functionName: 'linkedin-oauth-callback' }, async (req) => 
     const supabase = getServiceClient();
 
     // Get frontend URL for redirect
-    const frontendUrl = supabaseUrl.includes('supabase.co') 
-      ? supabaseUrl.replace('.supabase.co', '.lovable.app').replace('/functions/v1', '')
+    const frontendUrl = Deno.env.get("SUPABASE_URL")!.includes('supabase.co') 
+      ? Deno.env.get("SUPABASE_URL")!.replace('.supabase.co', '.lovable.app').replace('/functions/v1', '')
       : 'http://localhost:5173';
 
     // Handle OAuth errors
@@ -118,7 +118,7 @@ Deno.serve(withPerf({ functionName: 'linkedin-oauth-callback' }, async (req) => 
       return Response.redirect(redirectUrl.toString(), 302);
     }
 
-    const redirectUri = `${supabaseUrl}/functions/v1/linkedin-oauth-callback`;
+    const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/linkedin-oauth-callback`;
 
     // Exchange code for access token
     console.log('Exchanging code for access token...');
@@ -265,8 +265,8 @@ Deno.serve(withPerf({ functionName: 'linkedin-oauth-callback' }, async (req) => 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const frontendUrl = supabaseUrl.includes('supabase.co') 
-      ? supabaseUrl.replace('.supabase.co', '.lovable.app').replace('/functions/v1', '')
+    const frontendUrl = Deno.env.get("SUPABASE_URL")!.includes('supabase.co') 
+      ? Deno.env.get("SUPABASE_URL")!.replace('.supabase.co', '.lovable.app').replace('/functions/v1', '')
       : 'http://localhost:5173';
 
     const redirectUrl = new URL('/auth/linkedin/callback', frontendUrl);
