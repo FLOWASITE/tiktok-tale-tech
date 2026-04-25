@@ -353,6 +353,8 @@ export default function MultiChannel() {
       </Button>
 
       <div className="p-3 sm:p-4 lg:p-6 space-y-4">
+        <MediaRetentionNotice storageKey="media-retention-multichannel-page" />
+
         {/* Hero Section with Stats */}
         <MultiChannelHeroSection
           contents={contents}
