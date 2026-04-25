@@ -335,6 +335,8 @@ const CarouselPage = () => {
   return (
     <div className="min-h-screen relative bg-gradient-to-b from-background via-background to-muted/20">
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <MediaRetentionNotice storageKey="media-retention-carousel-page" />
+
         {/* Hero Section */}
         <CarouselHeroSection
           carousels={carousels}
