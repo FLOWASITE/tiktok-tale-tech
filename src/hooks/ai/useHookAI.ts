@@ -18,20 +18,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Channel } from '@/types/multichannel';
 import { useAIErrorHandler } from './useAIErrorHandler';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 
 const AUXILIARY_HOOK_TIMEOUT_MS = 25_000;
 
-async function invokeHookGenerator(payload: Record<string, unknown>, timeoutMs = AUXILIARY_HOOK_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await supabase.functions.invoke('generate-hooks', {
-      body: payload,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+async function invokeHookGenerator<T = any>(payload: Record<string, unknown>, timeoutMs = AUXILIARY_HOOK_TIMEOUT_MS) {
+  return invokeWithTimeout<T>('generate-hooks', {
+    body: payload,
+    timeoutMs,
+  });
 }
 
 // ============== TYPES ==============
