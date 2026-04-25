@@ -109,6 +109,7 @@ export function VideoGallery({ scriptId, storyboardId, sceneNumber }: VideoGalle
   return (
     <ScrollArea className="h-[400px]">
       <div className="space-y-3 pr-4">
+        <MediaRetentionNotice variant="inline" />
         {filteredGenerations.map((generation) => (
           <VideoCard
             key={generation.id}
