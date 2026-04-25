@@ -1,98 +1,118 @@
-## Kết luận nguyên nhân
-`topic-ai` hiện không tạo được topic dù đã set `qwen3-plus` vì có xung đột logic nội bộ:
+# 🐛 Vấn đề: Ảnh trên Nội dung đa kênh tạo 2 lần
 
-1. `ai-config` resolve đúng model:
-   - log: `[ai-config] topic-ai: resolved model=qwen3-plus source=individual`
-2. Nhưng ngay trong `supabase/functions/topic-ai/index.ts`, hàm `sanitizeTopicAIModel()` đang dùng allowlist cứng và **không chứa Qwen3 / DashScope models**.
-3. Kết quả: `qwen3-plus` bị xem là unsupported và bị đổi sang `google/gemini-2.5-flash`:
-   - log: `[topic-ai] Unsupported model qwen3-plus, fallback -> google/gemini-2.5-flash`
-4. Sau đó `ai-provider` route model Gemini sang **Lovable Gateway**:
-   - log: `[ai-provider] Primary provider: lovable`
-5. Lovable Gateway đang hết credits nên trả 402:
-   - log: `[ai-provider] Lovable Gateway error: 402 Not enough credits`
+## 🔍 Nguyên nhân (đã xác định qua edge function logs)
 
-Ngoài ra còn lỗi phụ:
-- Perplexity web search đang 401 quota exceeded.
-- UI `TopicIdeaHub` không truyền/hiển thị `errorCode`, nên người dùng chỉ thấy “không có kết quả” thay vì biết rõ là model bị fallback sai hoặc provider hết credits.
+**Bằng chứng từ Supabase analytics** — function `generate-brand-image` (ID `153f8798-...`):
+```
+POST 200  execution=88298ms  timestamp=1777098589399  ← gọi lần 2
+POST 200  execution=87521ms  timestamp=1777098588622  ← gọi lần 1 (cách 778ms)
+OPTIONS 200 ×2 (preflight cũng đôi)
+```
+→ Browser fire **2 request gần như đồng thời** cho cùng 1 channel, cách nhau <1 giây. Cả 2 đều chạy ~88s và đều thành công, gây tốn 2× credit.
 
-## Plan triển khai
+**Root cause** nằm ở `MultiChannelFormWizard.tsx:929-971`:
 
-### 1. Sửa `topic-ai` để chấp nhận Qwen3 đúng cách
-File: `supabase/functions/topic-ai/index.ts`
-- Bổ sung các model DashScope mới vào `TOPIC_AI_ALLOWED_MODELS`, tối thiểu:
-  - `qwen3-max`
-  - `qwen3-plus`
-  - `qwen3-turbo`
-  - `qwen3-flash`
-  - `qwen3-long`
-  - `qwen3-vl-max`
-  - `qwen3-vl-plus`
-  - `qwen3-coder-plus`
-  - alias `qwen-plus-latest`, `qwen-max-latest` nếu cần
-- Giữ alias remap cho model Gemini preview cũ.
-- Đảm bảo khi admin chọn `qwen3-plus`, `buildTopicAIOverrides()` trả lại đúng `modelOverride='qwen3-plus'`, không ép fallback sang Gemini nữa.
-
-### 2. Làm cho fallback an toàn hơn
-File: `supabase/functions/topic-ai/index.ts`
-- Điều chỉnh `sanitizeTopicAIModel()` để fallback hợp ngữ cảnh:
-  - nếu model là DashScope hợp lệ thì giữ nguyên
-  - chỉ fallback về Gemini khi model thật sự không hợp lệ
-- Tránh tình trạng “admin chọn model A nhưng function silently đổi sang model B của provider khác”.
-
-### 3. Giữ topic generation hoạt động dù Perplexity hết quota
-File: `supabase/functions/topic-ai/index.ts`
-- Khi industry search / Q&A mining trả 401 quota exceeded:
-  - không coi toàn bộ request là failure
-  - bỏ qua web search enrichment
-  - vẫn generate topic từ brand context + persona + product + recent topics
-- Gắn cờ nội bộ kiểu `webSearchSkipped` để prompt không phụ thuộc vào dữ liệu trend rỗng.
-
-### 4. Hiển thị lỗi rõ ngay tại TopicIdeaHub
-Files:
-- `src/components/topic/TopicIdeaHub.tsx`
-- các nơi gọi `TopicIdeaHub`:
-  - `src/components/multichannel/MultiChannelFormStepper.tsx`
-  - `src/components/script/ScriptFormStepper.tsx`
-  - `src/components/CarouselForm.tsx`
-  - và nơi khác nếu có
-- `src/components/TopicSuggestionPanel.tsx` nếu cần
-
-Cập nhật để:
-- truyền `error` + `errorCode` từ `useTopicAI().suggestions`
-- hiển thị `TopicCreditsAlert` hoặc banner lỗi tương ứng ngay trong hub
-- tránh trạng thái im lặng “0 suggestions” khi thật ra provider/model đang lỗi
-
-### 5. Đồng bộ logic model giữa admin config và edge function
-Mục tiêu là tránh lặp logic ở 2 nơi:
-- UI/admin đã cho chọn `qwen3-plus`
-- edge function cũng phải hiểu model đó là hợp lệ
-
-Nếu cần, tôi sẽ chuẩn hóa rule để `topic-ai` dùng cùng tập model DashScope đã khai báo ở lớp config thay vì tự giữ allowlist cứng bị lệch version.
-
-## Technical details
-```text
-Admin AI config
-  -> ai-config resolves qwen3-plus
-  -> topic-ai sanitizeTopicAIModel()
-     -> CURRENT: reject qwen3-plus, fallback to gemini
-     -> FIXED: accept qwen3-plus
-  -> ai-provider detects provider
-     -> CURRENT after fallback: lovable
-     -> FIXED: dashscope
-  -> call DashScope directly
+```tsx
+const autoImageTriggeredRef = useRef(false);
+useEffect(() => {
+  if (
+    currentStep === 5 &&
+    imageMode === 'auto' &&
+    imagePhase === 'idle' &&
+    generationComplete &&
+    !autoImageTriggeredRef.current && ...
+  ) {
+    autoImageTriggeredRef.current = true;
+    onStartImagePipeline(...);
+  }
+}, [currentStep, imageMode, imagePhase, generationComplete]);
 ```
 
-### Files sẽ sửa
-- `supabase/functions/topic-ai/index.ts`
-- `src/components/topic/TopicIdeaHub.tsx`
-- `src/components/multichannel/MultiChannelFormStepper.tsx`
-- `src/components/script/ScriptFormStepper.tsx`
-- `src/components/CarouselForm.tsx`
-- có thể thêm 1-2 file hook/UI liên quan nếu cần truyền `errorCode`
+Có guard `autoImageTriggeredRef` nhưng **vẫn double-fire** vì:
+1. **React StrictMode bật** (`src/main.tsx:8`) → trong dev, mọi `useEffect` chạy 2 lần (mount → unmount → mount). Lần unmount middle KHÔNG reset ref nhưng cũng không gọi cleanup → lần mount thứ 2 ref đã `=true`, OK.
+2. **NHƯNG**: deps `[currentStep, imageMode, imagePhase, generationComplete]` — khi `startPipeline` được gọi, nó set `imagePhase: 'idle' → 'preparing'`. Effect chạy lại, fail check `imagePhase === 'idle'`. Tốt.
+3. **Vấn đề thật**: giữa lúc `onStartImagePipeline` được gọi (sync) và lúc state `imagePhase` thực sự update sang `'preparing'` (async, batched), **effect có thể bị schedule chạy lần nữa** từ một thay đổi prop khác (vd `generationComplete` flicker, hoặc `currentStep` re-render do parent). Ref đã `=true` nên đáng lẽ block, NHƯNG nếu component bị **remount hoàn toàn** (ví dụ `key={location.key}` ở `MultiChannelCreate.tsx:326` hoặc StrictMode strict re-mount) thì `useRef` reset về `false` → fire lần 2.
+4. Bằng chứng `key={location.key}` ở dòng 326 — nếu router push lại location (ví dụ sau khi `setGeneratedContentId`), wizard remount → ref reset → fire 2 lần.
 
-## Tiêu chí nghiệm thu
-- Trong log `topic-ai` không còn dòng:
-  - `Unsupported model qwen3-plus, fallback -> google/gemini-2.5-flash`
-- Khi chọn `qwen3-plus` cho `topic-ai`, log thể hiện provider là DashScope, không phải Lovable.
-- Dù Perplexity hết quota, topic-ai vẫn trả được danh sách chủ đề từ brand context.
-- Nếu provider thật sự lỗi/hết credits, UI hiển thị cảnh báo rõ ràng ngay trong Topic Idea Hub, không im lặng trống kết quả.
+## ✅ Giải pháp (3 layer phòng vệ)
+
+### Layer 1 — Persist guard ngoài component lifecycle
+Trong `MultiChannelFormWizard.tsx`, thay `useRef` (bị reset khi remount) bằng guard dựa trên **`generatedContentId` đã trigger**:
+
+```tsx
+// Top of component
+const triggeredContentIdsRef = useRef(new Set<string>());
+
+useEffect(() => {
+  if (currentStep === 5 && imageMode === 'auto' && imagePhase === 'idle' &&
+      generationComplete && getChannelText && onStartImagePipeline &&
+      generatedContentIdProp &&
+      !triggeredContentIdsRef.current.has(generatedContentIdProp)) {
+    triggeredContentIdsRef.current.add(generatedContentIdProp);
+    // ... gọi onStartImagePipeline
+  }
+}, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp]);
+```
+Vì `generatedContentIdProp` ổn định (UUID), set sẽ tồn tại qua mỗi lần mount mới của cùng phiên. Để chống cả case remount toàn bộ, lift Set lên **module-level** (`const TRIGGERED = new Set<string>()`) — guard trường tồn cả page navigation.
+
+### Layer 2 — Idempotency ở `useAutoImagePipeline.startPipeline`
+Trong `src/hooks/useAutoImagePipeline.ts:108`, thêm `inFlightRef` chống concurrent calls cùng `contentId`:
+
+```tsx
+const inFlightContentIdRef = useRef<string | null>(null);
+
+const startPipeline = useCallback(async (contentId, channels, ...) => {
+  if (inFlightContentIdRef.current === contentId) {
+    console.warn('[AutoImagePipeline] Already in-flight for', contentId, '— skipping duplicate');
+    return;
+  }
+  inFlightContentIdRef.current = contentId;
+  try {
+    // ... existing logic
+  } finally {
+    inFlightContentIdRef.current = null;
+  }
+}, [...]);
+```
+
+### Layer 3 — Server-side dedupe trong `generate-brand-image`
+Trong `supabase/functions/generate-brand-image/index.ts`, ngay đầu handler, check **active task** cho cùng `(contentId, channel)` trong 60s gần đây:
+
+```ts
+const { data: recentTask } = await supabase
+  .from('generation_tasks')
+  .select('id, status, created_at')
+  .eq('task_type', 'image_generation')
+  .contains('input_params', { contentId, channel })
+  .in('status', ['pending', 'generating'])
+  .gte('created_at', new Date(Date.now() - 60_000).toISOString())
+  .neq('id', taskId) // exclude bản thân
+  .limit(1)
+  .maybeSingle();
+
+if (recentTask) {
+  return new Response(JSON.stringify({
+    success: false,
+    error: 'duplicate_request',
+    message: `Đã có request đang chạy cho ${channel} (task ${recentTask.id})`,
+  }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+```
+
+Frontend đã có `isRecoverableBrandImageError` + `waitForRecoveredBrandImage` (xem `useAutoImageGeneration.ts:355-360`) → khi nhận 409, sẽ tự poll và lấy ảnh từ task đầu tiên, không tạo trùng.
+
+## 📁 Files cần sửa
+1. **`src/components/multichannel/MultiChannelFormWizard.tsx`** — đổi guard sang Set theo `contentId`, lift module-level
+2. **`src/hooks/useAutoImagePipeline.ts`** — thêm `inFlightContentIdRef` ở `startPipeline`
+3. **`supabase/functions/generate-brand-image/index.ts`** — thêm server-side dedupe check sau khi parse `contentId/channel`
+
+## 🧪 Cách verify sau khi fix
+1. Tạo content đa kênh mới → check edge function logs: chỉ 1 POST `generate-brand-image` per channel.
+2. Console log `[AutoImagePipeline] 🎬 PIPELINE INIT` chỉ xuất hiện **1 lần** per `contentId`.
+3. Nếu user bấm Retry — chấp nhận; chỉ chặn duplicate trong 60s đầu.
+4. Trong dev với StrictMode, vẫn không double-fire.
+
+## ⚠️ Lưu ý
+- KHÔNG tắt StrictMode (cần để bắt bug).
+- Server-side dedupe chỉ chặn trong 60s — không ảnh hưởng manual regenerate vài phút sau.
+- `generation_tasks` đã có column `input_params` JSONB chứa `{contentId, channel, ...}` (xem `src/lib/imageGenerationTasks.ts:30-35`).
