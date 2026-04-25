@@ -272,8 +272,8 @@ async function handleSuggest(
   // Phase 4: Enhanced cache key with context hash + query hash for unique results per query
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets (reduced from 8h for freshness)
   const contextHash = hashContextData(brandContext);
-  const queryHash = query ? hashContextData({ q: query }) : 'no-query';
-  const categoryHash = categoryHint ? hashContextData({ cat: categoryHint }) : 'no-cat';
+  const queryHash = query ? hashContextData({ q: query } as any) : 'no-query';
+  const categoryHash = categoryHint ? hashContextData({ cat: categoryHint } as any) : 'no-cat';
   const cacheKey = `topic-suggestions-v14-flex-80-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
   
   // Parallel: Check cache + fetch learning context simultaneously
@@ -584,7 +584,7 @@ ${brandContext.industryContext.forbiddenTerms?.length ? `Forbidden Terms: ${bran
   }
 
   // Inject date context to prevent outdated year references
-  const lang = brandContext?.languageCode || 'vi';
+  const lang = (brandContext as any)?.languageCode || 'vi';
   const dateContext = buildLocalizedDateContext(lang);
   promptParts.push(dateContext);
 
