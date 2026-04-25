@@ -566,6 +566,52 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       logoSafeZone,
     }: GenerateImageRequest = requestBody as GenerateImageRequest;
 
+    // === Layer 3 dedupe: chặn duplicate request cho cùng (contentId, channel) trong 60s ===
+    // Bảo vệ cuối cùng nếu Layer 1 (FormWizard guard) và Layer 2 (hook in-flight ref) đều bị bypass.
+    // Vd: user có 2 tab mở, hoặc browser retry nhanh do network blip.
+    if (contentId && channel) {
+      try {
+        const dedupeWindowStart = new Date(Date.now() - 60_000).toISOString();
+        const { data: recentTasks } = await supabase
+          .from('generation_tasks')
+          .select('id, status, created_at')
+          .eq('task_type', 'image_generation')
+          .contains('input_params', { contentId, channel })
+          .in('status', ['pending', 'generating'])
+          .gte('created_at', dedupeWindowStart)
+          .order('created_at', { ascending: true })
+          .limit(2);
+
+        const otherActive = (recentTasks || []).filter((t: any) => t.id !== taskId);
+        if (otherActive.length > 0) {
+          console.warn(`[generate-brand-image] ⛔ DEDUPE: existing in-flight task ${otherActive[0].id} for content=${contentId} channel=${channel} — rejecting duplicate`);
+          // Mark this duplicate task as failed (so it doesn't sit forever as 'pending')
+          if (taskId) {
+            await supabase
+              .from('generation_tasks')
+              .update({
+                status: 'failed',
+                error_message: `Duplicate request — task ${otherActive[0].id} đã chạy trước đó`,
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', taskId);
+          }
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'duplicate_request',
+              message: `Đã có request đang xử lý cho ${channel} (task ${otherActive[0].id}). Vui lòng đợi.`,
+              activeTaskId: otherActive[0].id,
+            }),
+            { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (dedupeErr) {
+        // Non-fatal — nếu dedupe check fail thì cứ chạy bình thường (fail-open)
+        console.warn('[generate-brand-image] Dedupe check failed (non-fatal):', dedupeErr);
+      }
+    }
+
     await updateImageTaskStatus(supabase, taskId, {
       status: 'generating',
       progress: 10,
