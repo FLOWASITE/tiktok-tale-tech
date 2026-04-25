@@ -504,7 +504,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
             bs.awaitingSearch = false;
             bs.filter = text.slice(0, 50);
             bs.page = 0;
-            const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+            const brands = await fetchOrgBrands(supabase, botConfig.organizationId as string);
             await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
             break;
           }
