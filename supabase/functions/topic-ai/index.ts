@@ -110,6 +110,8 @@ interface TopicAIRequest {
   // Agent pipeline model override
   model_override?: string;     // from ai_agent_model_configs
   temperature?: number;        // from ai_agent_model_configs
+  // Internal: user id passthrough for metrics
+  _userId?: string;
 }
 
 // ========== Topic AI model safety (v3 - DashScope alias normalization) ==========
@@ -504,6 +506,18 @@ async function handleRefine(
   } catch (err) {
     console.warn('[topic-ai:refine] Failed to fetch prompt from registry, using hardcoded');
   }
+
+  // Goal-Locked Angles: Map each contentGoal to allowed/forbidden angles (declared early for use in basePrompt)
+  const allAngles = ['practical', 'controversial', 'educational', 'storytelling', 'solution', 'sales', 'data'];
+  const goalAngles: Record<string, string[]> = {
+    conversion: ['sales', 'solution', 'practical'],
+    education: ['educational', 'practical', 'data'],
+    awareness: ['storytelling', 'controversial', 'data'],
+    engagement: ['controversial', 'storytelling', 'practical'],
+    expertise: ['data', 'educational', 'solution'],
+  };
+  const allowedAngles = contentGoal ? (goalAngles[contentGoal] || ['practical', 'sales', 'educational']) : allAngles;
+  const forbiddenAngles = allAngles.filter(a => !allowedAngles.includes(a));
 
   // Build prompt
   const promptParts: string[] = [];
