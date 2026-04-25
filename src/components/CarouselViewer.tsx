@@ -1,5 +1,6 @@
 import { Carousel, CarouselStatus, CarouselSlide, CarouselStyleType, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
   Dialog,
