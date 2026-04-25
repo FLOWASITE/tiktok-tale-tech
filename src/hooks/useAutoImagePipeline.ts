@@ -94,6 +94,9 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [imageResults, setImageResults] = useState<{ successful: Channel[]; failed: Channel[] } | null>(null);
   const abortRef = useRef(false);
+  // Idempotency guard: chặn concurrent calls cho cùng contentId.
+  // Bảo vệ tầng 2 cho trường hợp Layer 1 bị bypass (vd manual trigger nhanh tay).
+  const inFlightContentIdRef = useRef<string | null>(null);
 
   const autoImageGen = useAutoImageGeneration();
 
