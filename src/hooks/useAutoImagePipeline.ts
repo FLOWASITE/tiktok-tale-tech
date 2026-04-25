@@ -129,6 +129,13 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       return;
     }
 
+    // Idempotency: skip nếu đã có pipeline đang chạy cho cùng contentId
+    if (inFlightContentIdRef.current === contentId) {
+      console.warn('[AutoImagePipeline] ⛔ Already in-flight for contentId:', contentId, '— skipping duplicate call');
+      return;
+    }
+    inFlightContentIdRef.current = contentId;
+
     abortRef.current = false;
     setPhase('preparing');
     // Only reset results when generating all channels; preserve existing results for single-channel manual triggers
