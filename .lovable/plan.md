@@ -1,75 +1,73 @@
-## 🎯 Vấn đề
-Trong **View Content Đa kênh**, ảnh tạo cho **Instagram** (và một số kênh khác như TikTok, YouTube) **không đúng tỉ lệ tối ưu**:
-- Mockup Instagram render khung `aspect-[4/5]` với `object-cover` (chuẩn IG Feed)
-- Nhưng pipeline tạo ảnh trả về ảnh `1:1` → bị crop top/bottom, mất bố cục, trông "không tối ưu"
+## 🎯 Mục tiêu
+Tự động xóa ảnh và video cũ hơn **7 ngày** để tiết kiệm dung lượng storage, đồng thời **thông báo cho user** biết về chính sách này.
 
-## 🔍 Root cause (đã verify từ code)
+---
 
-**File:** `src/hooks/useSocialImageGeneration.ts` line 142
+## 🛠️ Backend: Edge Function + Cron
 
-```ts
-const generateImage = useCallback(async ({
-  ...
-  aspectRatio = '1:1',   // ❌ Default cứng, không theo channel
-  ...
-})
+### 1. Tạo Edge Function `cleanup-old-media`
+Chạy mỗi ngày lúc 03:00 UTC, quét và xóa:
+
+| Bảng | Điều kiện xóa |
+|---|---|
+| `channel_image_history` | `created_at < now() - 7 days` AND `is_selected = false` |
+| `carousel_images` | `created_at < now() - 7 days` AND `is_selected = false` |
+| `video_generations` | `created_at < now() - 7 days` AND `status IN ('completed','failed')` |
+
+**Logic:**
+- Xóa file trong storage bucket trước (`carousel-images`, etc.) bằng cách parse URL.
+- Sau đó xóa record trong DB.
+- Log tổng số xóa + dung lượng giải phóng vào console.
+- Giữ lại ảnh `is_selected = true` (ảnh user đang dùng) — **vĩnh viễn**, không xóa.
+
+> **Lưu ý:** Đã có sẵn function `cleanup-old-images` cũ (default 30 ngày, dry-run). Tôi sẽ tạo function mới `cleanup-old-media` để bao gồm cả video, hard-code 7 ngày, không cần dry-run.
+
+### 2. Schedule cron job
+Dùng `pg_cron` + `pg_net` chạy hàng ngày:
+```sql
+select cron.schedule(
+  'cleanup-old-media-daily',
+  '0 3 * * *',  -- 03:00 UTC mỗi ngày
+  $$ select net.http_post(...) $$
+);
 ```
 
-- Caller (manual regenerate) không truyền `aspectRatio` → luôn nhận `'1:1'`
-- Body request gửi tới `generate-brand-image` đã có `aspectRatio: '1:1'` → fallback `getChannelAspectRatio(channel)` ở edge function (line 790) **không kích hoạt** vì giá trị đã truthy
-- Kết quả: Instagram nhận ảnh `1:1` thay vì `4:5`; tương tự TikTok có thể nhận `1:1` thay vì `9:16` nếu caller khác cũng dính
+---
 
-**Bằng chứng:**
-- `src/config/channelImageConfig.ts:369` — `CHANNEL_OPTIMAL_ASPECT_RATIO` đã định nghĩa đúng (`instagram: '4:5'`, `tiktok: '9:16'`, `youtube: '16:9'`...)
-- `src/components/preview/ChannelMockupFrame.tsx:521,637` — Instagram mockup khung `aspect-[4/5]`
-- `supabase/functions/generate-brand-image/index.ts:790` — fallback `getChannelAspectRatio(channel)` chỉ chạy khi `aspectRatio` falsy
+## 📢 Frontend: Thông báo cho user
 
-## 🔧 Giải pháp (2 lớp phòng thủ)
+### Vị trí hiển thị (3 chỗ — minimal, không phiền):
 
-### Layer 1 — Frontend hook auto-resolve theo channel
-Sửa `src/hooks/useSocialImageGeneration.ts`:
-- Bỏ default cứng `aspectRatio = '1:1'`
-- Nếu caller không truyền `aspectRatio` **VÀ** có `channel`, tự động lookup `CHANNEL_OPTIMAL_ASPECT_RATIO[channel]`
-- Chỉ fallback `'1:1'` khi cả hai đều thiếu (ảnh generic không gắn channel)
+**A. Banner nhỏ trong View Content Đa kênh + Carousel**
+- Text: *"💡 Ảnh và video tự động xóa sau 7 ngày. Tải về nếu muốn giữ lại."*
+- Style: 1 dòng `text-xs text-muted-foreground` + icon Info, dismissable (lưu `localStorage`).
 
-```ts
-import { CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
+**B. Tooltip ở nút "Tạo ảnh AI" / "Tạo video"**
+- Hover hiện: *"Lưu ý: Ảnh/video sẽ tự động xóa sau 7 ngày."*
 
-const generateImage = useCallback(async ({
-  ...
-  aspectRatio,         // không default
-  channel,
-  ...
-}) => {
-  const resolvedAspectRatio =
-    aspectRatio
-    ?? (channel ? CHANNEL_OPTIMAL_ASPECT_RATIO[channel] : undefined)
-    ?? '1:1';
-  // ... gửi resolvedAspectRatio thay vì aspectRatio
-});
-```
+**C. Footer note ở dialog Image/Video Generator**
+- 1 dòng cuối dialog: *"⏰ Media cũ hơn 7 ngày sẽ được dọn dẹp tự động."*
 
-### Layer 2 — Backend defensive (đã có sẵn, chỉ verify)
-`supabase/functions/generate-brand-image/index.ts:790` đã có:
-```ts
-const finalAspectRatio = aspectRatio || getChannelAspectRatio(channel as Channel);
-```
-→ Giữ nguyên. Đây là safety net cho trường hợp client cũ/khác chưa update.
+### Optional: thông báo lần đầu (toast)
+Lần đầu user vào trang Content/Carousel sau khi deploy, hiện toast giới thiệu policy 1 lần (lưu flag `localStorage`).
 
-### Layer 3 — Verify caller chính của manual regenerate
-Tìm tất cả nơi gọi `generateImage(...)` với `channel` nhưng không truyền `aspectRatio` để confirm Layer 1 fix triệt để (sẽ làm trong implementation).
+---
 
-## 📊 Tác động
-- ✅ Instagram: ảnh sinh ra đúng `4:5` (Portrait Feed) — không còn bị crop
-- ✅ TikTok: `9:16` Vertical — đúng chuẩn Reels/TikTok feed
-- ✅ YouTube/Facebook/LinkedIn/Twitter: `16:9` Landscape
-- ✅ Threads/Telegram/Google Maps: `1:1` Square
-- ✅ Không ảnh hưởng caller đã truyền `aspectRatio` tường minh (Wizard/SimpleImageGenerator vẫn override được)
+## 📁 Files affected
 
-## 📁 Files sẽ sửa
-- `src/hooks/useSocialImageGeneration.ts` — bỏ default cứng + auto-resolve theo channel
+**New:**
+- `supabase/functions/cleanup-old-media/index.ts` — edge function chính
+- Migration SQL — schedule pg_cron job
 
-## ⚠️ Lưu ý
-- Ảnh **đã sinh** (cached trong `multi_channel_contents.channel_images`) sẽ vẫn ở tỉ lệ cũ. User cần bấm "Tạo lại ảnh" (force regenerate) cho Instagram để ảnh mới đúng `4:5`.
-- Không cần migration DB.
-- Không cần redeploy edge function (Layer 2 đã sẵn).
+**Edited:**
+- `src/components/MultiChannelViewer.tsx` — thêm banner notice
+- `src/components/carousel/CarouselViewer.tsx` (hoặc tương đương) — thêm banner notice  
+- `src/components/multichannel/SimpleImageGenerator.tsx` — footer note
+- `src/components/VideoGenerationDialog.tsx` (nếu có) — footer note
+
+---
+
+## ✅ Kết quả
+- Storage được dọn dẹp tự động → tiết kiệm chi phí.
+- Ảnh user đang dùng (`is_selected=true`) **không bao giờ bị xóa**.
+- User được thông báo rõ ràng ở 3 điểm chạm — không cần đọc docs.
