@@ -87,7 +87,7 @@ Deno.serve(withPerf({ functionName: 'generate-music', slowThresholdMs: 30000 }, 
 
     // Get audio as buffer
     const audioBuffer = await response.arrayBuffer();
-    const base64Audio = base64Encode(new Uint8Array(audioBuffer));
+    const base64Audio = base64Encode(new Uint8Array(audioBuffer) as unknown as ArrayBuffer);
 
     console.log("[generate-music] Music generated successfully, size:", audioBuffer.byteLength);
 

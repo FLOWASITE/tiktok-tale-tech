@@ -1287,10 +1287,8 @@ async function detectTargetAudience(
  * Build current date context section for system prompt
  * Ensures AI knows the current date/year (Vietnam timezone)
  */
-function buildDateContextSection(): string {
 function buildDateContextSection(lang?: string): string {
   return buildLocalizedDateContext(lang || 'vi');
-}
 }
 
 const getSystemPrompt = (
