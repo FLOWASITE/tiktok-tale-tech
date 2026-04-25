@@ -13,6 +13,8 @@ interface CleanupSummary {
   carousel_images_deleted: number;
   videos_deleted: number;
   storage_files_removed: number;
+  storage_files_skipped_protected: number;
+  storage_files_skipped_missing: number;
   errors: string[];
 }
 
@@ -43,17 +45,19 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
       carousel_images_deleted: 0,
       videos_deleted: 0,
       storage_files_removed: 0,
+      storage_files_skipped_protected: 0,
+      storage_files_skipped_missing: 0,
       errors: [],
     };
 
     console.log(`[cleanup-old-media] Cutoff: ${cutoff} (older than ${RETENTION_DAYS} days)`);
 
-    // Group storage deletions by bucket for batch removal
-    const filesByBucket: Record<string, string[]> = {};
+    // Use Set per-bucket to auto-dedupe paths
+    const filesByBucket: Record<string, Set<string>> = {};
     const queueDelete = (url: string | null | undefined) => {
       const parsed = parseStorageUrl(url);
       if (!parsed) return;
-      (filesByBucket[parsed.bucket] ??= []).push(parsed.path);
+      (filesByBucket[parsed.bucket] ??= new Set()).add(parsed.path);
     };
 
     // 1) channel_image_history — keep is_selected=true forever
@@ -113,15 +117,80 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
       }
     }
 
-    // 4) Batch remove files from storage per bucket
-    for (const [bucket, paths] of Object.entries(filesByBucket)) {
-      if (!paths.length) continue;
+    // 4) Build "protected URL" set from records that survived (still referenced).
+    // If ANY surviving record references the same URL, we skip the storage delete
+    // for that path to avoid breaking ảnh user đang dùng.
+    const protectedPaths: Record<string, Set<string>> = {};
+    const addProtected = (url: string | null | undefined) => {
+      const parsed = parseStorageUrl(url);
+      if (!parsed) return;
+      (protectedPaths[parsed.bucket] ??= new Set()).add(parsed.path);
+    };
+
+    if (Object.keys(filesByBucket).length > 0) {
+      const [keepCh, keepCar, keepVid] = await Promise.all([
+        supabase
+          .from("channel_image_history")
+          .select("image_url")
+          .or(`is_selected.eq.true,created_at.gte.${cutoff}`)
+          .not("image_url", "is", null)
+          .limit(10000),
+        supabase
+          .from("carousel_images")
+          .select("image_url")
+          .or(`is_selected.eq.true,created_at.gte.${cutoff}`)
+          .not("image_url", "is", null)
+          .limit(10000),
+        supabase
+          .from("video_generations")
+          .select("video_url, thumbnail_url")
+          .or(`status.not.in.(completed,failed),created_at.gte.${cutoff}`)
+          .limit(10000),
+      ]);
+
+      if (keepCh.error) summary.errors.push(`protect channel_image_history: ${keepCh.error.message}`);
+      else keepCh.data?.forEach((r: { image_url: string | null }) => addProtected(r.image_url));
+
+      if (keepCar.error) summary.errors.push(`protect carousel_images: ${keepCar.error.message}`);
+      else keepCar.data?.forEach((r: { image_url: string | null }) => addProtected(r.image_url));
+
+      if (keepVid.error) summary.errors.push(`protect video_generations: ${keepVid.error.message}`);
+      else
+        keepVid.data?.forEach((r: { video_url: string | null; thumbnail_url: string | null }) => {
+          addProtected(r.video_url);
+          addProtected(r.thumbnail_url);
+        });
+    }
+
+    // 5) Batch remove files from storage per bucket — dedupe + protect
+    for (const [bucket, pathSet] of Object.entries(filesByBucket)) {
+      const protectedSet = protectedPaths[bucket] ?? new Set<string>();
+      const toRemove: string[] = [];
+      for (const p of pathSet) {
+        if (protectedSet.has(p)) {
+          summary.storage_files_skipped_protected++;
+        } else {
+          toRemove.push(p);
+        }
+      }
+      if (!toRemove.length) continue;
+
       // chunk by 100
-      for (let i = 0; i < paths.length; i += 100) {
-        const chunk = paths.slice(i, i + 100);
-        const { error } = await supabase.storage.from(bucket).remove(chunk);
-        if (error) summary.errors.push(`storage[${bucket}]: ${error.message}`);
-        else summary.storage_files_removed += chunk.length;
+      for (let i = 0; i < toRemove.length; i += 100) {
+        const chunk = toRemove.slice(i, i + 100);
+        const { data: removed, error } = await supabase.storage.from(bucket).remove(chunk);
+        if (error) {
+          // "Object not found" is benign noise — race with prior run or stale URL
+          const msg = error.message || "";
+          if (/not found/i.test(msg)) {
+            summary.storage_files_skipped_missing += chunk.length;
+            console.warn(`[cleanup-old-media] storage[${bucket}] missing (benign):`, msg);
+          } else {
+            summary.errors.push(`storage[${bucket}]: ${msg}`);
+          }
+        }
+        // Count actually-removed by response length, not by request length
+        if (removed) summary.storage_files_removed += removed.length;
       }
     }
 
