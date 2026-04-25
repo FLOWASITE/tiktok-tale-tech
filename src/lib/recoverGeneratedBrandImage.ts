@@ -17,7 +17,7 @@ export interface BrandImageRecoveryStatus {
   taskId?: string | null;
 }
 
-const RECOVERABLE_IMAGE_ERROR_PATTERN = /timed out|timeout|request failed before receiving a response|network error|failed to fetch|504|aborted|clone failed/i;
+const RECOVERABLE_IMAGE_ERROR_PATTERN = /timed out|timeout|request failed before receiving a response|network error|failed to fetch|504|aborted|clone failed|duplicate_request|409/i;
 
 export function isRecoverableBrandImageError(message: string | null | undefined): boolean {
   return !!message && RECOVERABLE_IMAGE_ERROR_PATTERN.test(message);
