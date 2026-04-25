@@ -130,13 +130,13 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
         supabase
           .from("channel_image_history")
           .select("image_url")
-          .or(`is_selected.eq.true,created_at.gte.${cutoff}`)
+          .gte("created_at", cutoff)
           .not("image_url", "is", null)
           .limit(10000),
         supabase
           .from("carousel_images")
           .select("image_url")
-          .or(`is_selected.eq.true,created_at.gte.${cutoff}`)
+          .gte("created_at", cutoff)
           .not("image_url", "is", null)
           .limit(10000),
         supabase
