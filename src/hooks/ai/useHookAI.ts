@@ -132,16 +132,14 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     try {
       console.log('[useHookAI.generator] Generating hooks for:', genTopic);
       
-      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
-        body: {
-          topic: genTopic,
-          brandVoice: genBrandVoice,
-          platform,
-          duration,
-          count,
-          organizationId: genOptions.organizationId,
-          brandTemplateId: genOptions.brandTemplateId,
-        },
+      const { data, error: fnError } = await invokeHookGenerator({
+        topic: genTopic,
+        brandVoice: genBrandVoice,
+        platform,
+        duration,
+        count,
+        organizationId: genOptions.organizationId,
+        brandTemplateId: genOptions.brandTemplateId,
       });
 
       if (fnError) {
@@ -407,14 +405,12 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     try {
       console.log('[useHookAI.multiChannel] Regenerating hook for:', channel);
       
-      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
-        body: {
-          topic,
-          brandVoice,
-          platforms: [channel], // Single channel
-          organizationId,
-          brandTemplateId,
-        },
+      const { data, error: fnError } = await invokeHookGenerator({
+        topic,
+        brandVoice,
+        platforms: [channel], // Single channel
+        organizationId,
+        brandTemplateId,
       });
 
       if (fnError) throw fnError;
