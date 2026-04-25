@@ -430,7 +430,7 @@ Only return the JSON, no other text.`;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const userId = null as string | null;
+    const userId: string | undefined = undefined;
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-sample-text',

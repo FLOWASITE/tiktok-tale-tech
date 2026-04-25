@@ -152,6 +152,12 @@ Deno.serve(async (req): Promise<Response> => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Fallback (should be unreachable due to type validation above)
+    return new Response(JSON.stringify({ error: "Unhandled type" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     console.error("[instagram-webhooks] Error:", e);
     return new Response(JSON.stringify({ error: "Internal server error" }), {

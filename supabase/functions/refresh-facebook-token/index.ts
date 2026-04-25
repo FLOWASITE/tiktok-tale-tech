@@ -1,6 +1,5 @@
 import { decryptCredential, encrypt as encryptGCM } from "../_shared/crypto.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { decryptCredential, encrypt as encryptGCM } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
