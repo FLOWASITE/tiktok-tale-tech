@@ -8,6 +8,7 @@ import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
 import { MultiChannelHeroSection } from '@/components/multichannel/MultiChannelHeroSection';
 import { ChannelGroupView } from '@/components/multichannel/ChannelGroupView';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
