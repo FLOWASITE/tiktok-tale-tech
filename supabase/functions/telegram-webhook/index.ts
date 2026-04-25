@@ -717,7 +717,7 @@ interface HandlerCtx {
   supabase: any;
   botConfig: {
     id: string;
-    organizationId: string;
+    organizationId: string | null;
     botUsername: string;
     botToken: string;
     defaultAutonomyLevel: string;
