@@ -17,7 +17,9 @@ export interface GeminiGenGenerateParams {
                            // generate-brand-image typically needs ~80-90s for complex renders.
 }
 
-const DEFAULT_POLL_ATTEMPTS = 33;
+// 50 × 3s = 150s. Nano Banana Pro thường mất 80-120s, cần buffer cho 4K/complex prompt.
+// Vẫn nằm trong giới hạn Edge Function runtime (~400s soft limit).
+const DEFAULT_POLL_ATTEMPTS = 50;
 
 /**
  * Strip the 'geminigen/' prefix to get the raw model name for API
