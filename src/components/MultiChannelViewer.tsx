@@ -1077,6 +1077,7 @@ export function MultiChannelViewer({
           <MediaRetentionNotice storageKey="media-retention-multichannel" />
         </div>
 
+        {showTeamPanel ? (
           <div className="p-6 space-y-6">
             <TeamWorkPanel 
               contentId={content.id} 
