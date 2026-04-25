@@ -9,6 +9,7 @@ import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChannelImageHistory } from '@/components/multichannel/ChannelImageHistory';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -1072,6 +1073,10 @@ export function MultiChannelViewer({
             </div>
           )}
         </DialogHeader>
+
+        <div className="px-6 pt-2">
+          <MediaRetentionNotice storageKey="media-retention-multichannel" />
+        </div>
 
         {showTeamPanel ? (
           <div className="p-6 space-y-6">

@@ -1,5 +1,6 @@
 import { Carousel, CarouselStatus, CarouselSlide, CarouselStyleType, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
   Dialog,
@@ -1012,6 +1013,10 @@ export function CarouselViewer({
             </div>
           </div>
         </DialogHeader>
+
+        <div className="px-3 xs:px-5 pt-2">
+          <MediaRetentionNotice storageKey="media-retention-carousel" />
+        </div>
 
         <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 xs:px-5 pt-1.5">
