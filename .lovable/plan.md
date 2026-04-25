@@ -1,57 +1,51 @@
-## 🎯 Vấn đề hiện tại
+## Vấn đề
+`MediaRetentionNotice` đã có nhưng chỉ xuất hiện ở 2 nơi sâu trong UI:
+- Dialog `MultiChannelViewer` (sau khi mở 1 content)
+- Dialog `CarouselViewer` (sau khi mở 1 carousel)
 
-`cleanup-old-media/index.ts` queue mọi `image_url` vào `filesByBucket` mà **không khử trùng**. Khi nhiều bản ghi (đã xác minh có 10 cặp trong `carousel_images`) cùng tham chiếu một file:
+Hệ quả: ở các trang list (`/multi-channel`, `/carousel`, `/gallery`, `/script-new`...), trong panel sinh ảnh/video inline, và trong toast sau khi tạo media — user **không hề thấy** policy. Ngoài ra notice là dismissable vĩnh viễn qua `localStorage` → 1 lần đóng là biến mất mãi.
 
-1. **Lần 1**: `storage.remove([path])` xóa file thật → OK.
-2. **Lần 2**: `storage.remove([path])` lại path cùng tên → trả về error "Object not found" → bị đẩy vào `summary.errors` → log nhiễu, làm tưởng có lỗi thật.
-3. **Đếm sai**: `storage_files_removed += chunk.length` cộng cả path đã xóa rồi → số liệu phình ảo.
+## Mục tiêu
+Đảm bảo user gặp thông báo "Ảnh & video tự xóa sau 7 ngày, tải về nếu muốn giữ" ở **đúng thời điểm họ tạo/xem media**, không cần mở dialog mới thấy.
 
-**Rủi ro phụ**: file vừa bị xóa do bước 1 (channel_image_history `is_selected=false`) có thể vẫn được tham chiếu bởi 1 bản ghi `is_selected=true` khác cùng URL → mất ảnh user đang dùng. (Hiện tại trong DB chưa thấy case này nhưng nên phòng ngừa.)
+## Thay đổi đề xuất
 
----
+### 1. Thêm notice ở các trang list & hub media
+Hiển thị banner `MediaRetentionNotice` (variant `banner`) ở header của các trang sau:
+- `src/pages/MultiChannel.tsx` — list nội dung đa kênh
+- `src/pages/Carousel.tsx` — list carousel
+- `src/pages/Gallery.tsx` — thư viện ảnh tổng
+- `src/pages/ScriptNew.tsx` — workspace script + video
 
-## 🛠️ Giải pháp — sửa duy nhất `supabase/functions/cleanup-old-media/index.ts`
+Mỗi trang dùng `storageKey` riêng (vd. `media-retention-gallery`) để dismiss độc lập.
 
-### 1. Dùng `Set` per-bucket thay cho `Array` để tự khử trùng
-```ts
-const filesByBucket: Record<string, Set<string>> = {};
-const queueDelete = (url) => {
-  const parsed = parseStorageUrl(url);
-  if (!parsed) return;
-  (filesByBucket[parsed.bucket] ??= new Set()).add(parsed.path);
-};
-```
+### 2. Thêm inline notice trong panel sinh ảnh/video
+Dùng variant `inline` (1 dòng nhỏ, không dismissable) ngay dưới nút "Tạo ảnh"/"Tạo video":
+- `src/components/multichannel/SimpleImageGenerator.tsx`
+- `src/components/multichannel/UnifiedImageGenerator.tsx`
+- `src/components/script/VideoGeneratorPanel.tsx`
+- `src/components/script/VideoGallery.tsx`
 
-### 2. Thu thập "URL được giữ lại" trước khi xóa storage
-Trước vòng `storage.remove`, query thêm 1 lượt các URL **đang được tham chiếu bởi bản ghi không bị xóa** (chủ yếu `is_selected=true` hoặc record < 7 ngày):
+Vì là inline footnote chứ không phải banner, không cho dismiss → luôn nhắc user mỗi lần thao tác.
 
-```ts
-const protectedUrls = new Set<string>();
-// channel_image_history: is_selected=true HOẶC created_at >= cutoff
-const { data: keep1 } = await supabase
-  .from('channel_image_history')
-  .select('image_url')
-  .or(`is_selected.eq.true,created_at.gte.${cutoff}`);
-keep1?.forEach(r => r.image_url && protectedUrls.add(r.image_url));
+### 3. Thêm dòng nhắc trong toast khi tạo media thành công
+Bổ sung 1 dòng `description` ngắn vào toast success của các flow:
+- Tạo ảnh đa kênh
+- Tạo carousel images batch
+- Tạo video
 
-// carousel_images: tương tự
-// video_generations: status NOT IN ('completed','failed') HOẶC created_at >= cutoff
-```
+Ví dụ: `toast({ title: "Đã tạo ảnh", description: "Tự xóa sau 7 ngày — tải về nếu cần giữ." })`
 
-Sau đó loại path đang được protect khỏi `filesByBucket` trước khi remove. Điều này đảm bảo: nếu cùng `image_url` được dùng bởi 2 records (1 cũ `is_selected=false`, 1 mới `is_selected=true`), file sẽ **không** bị xóa khỏi storage — chỉ record cũ trong DB bị xóa.
+### 4. Cập nhật `MediaRetentionNotice` cho variant inline rõ hơn
+Hiện `variant="inline"` đã tồn tại nhưng chỉ hiện khi chưa dismissed. Tách logic: variant `inline` **bỏ qua** `localStorage`, luôn render (vì là footnote nhỏ, không cần dismiss). Variant `banner` giữ nguyên cơ chế dismiss.
 
-### 3. Đếm chính xác `storage_files_removed`
-Chỉ cộng số file remove **thành công** (response không có per-file error), không cộng nguyên `chunk.length`.
+## Files sẽ chỉnh sửa
+- `src/components/MediaRetentionNotice.tsx` — inline luôn render, banner giữ dismiss
+- `src/pages/MultiChannel.tsx`, `src/pages/Carousel.tsx`, `src/pages/Gallery.tsx`, `src/pages/ScriptNew.tsx` — thêm banner ở header
+- `src/components/multichannel/SimpleImageGenerator.tsx`, `UnifiedImageGenerator.tsx` — thêm inline notice
+- `src/components/script/VideoGeneratorPanel.tsx`, `VideoGallery.tsx` — thêm inline notice
+- Toast success trong các hook tạo ảnh/video (xác định cụ thể khi implement)
 
-### 4. Filter "Object not found" khỏi `summary.errors`
-Đây là noise hợp lệ (đã xóa rồi từ run trước, hoặc race condition) — log warn thay vì error.
-
----
-
-## 📁 Files affected
-- `supabase/functions/cleanup-old-media/index.ts` (chỉnh sửa — auto-redeploy qua Lovable Cloud)
-
-## ✅ Kết quả
-- 0 lần gọi `storage.remove` trùng path → log sạch, đếm đúng.
-- File user đang dùng (`is_selected=true`) **tuyệt đối** không bị xóa nhầm dù record cũ trùng URL bị dọn.
-- Backward compatible — không đổi schema, không đổi cron, không đổi response shape.
+## Không thay đổi
+- Edge function `cleanup-old-media` và cron schedule — đang chạy ổn.
+- Logic dismiss của banner ở 2 dialog viewer hiện có.
