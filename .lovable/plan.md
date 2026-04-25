@@ -1,51 +1,28 @@
-## Vấn đề
-`MediaRetentionNotice` đã có nhưng chỉ xuất hiện ở 2 nơi sâu trong UI:
-- Dialog `MultiChannelViewer` (sau khi mở 1 content)
-- Dialog `CarouselViewer` (sau khi mở 1 carousel)
+# Cleanup 7 ngày: xóa cả ảnh đang dùng
 
-Hệ quả: ở các trang list (`/multi-channel`, `/carousel`, `/gallery`, `/script-new`...), trong panel sinh ảnh/video inline, và trong toast sau khi tạo media — user **không hề thấy** policy. Ngoài ra notice là dismissable vĩnh viễn qua `localStorage` → 1 lần đóng là biến mất mãi.
+## Thay đổi
+Hiện tại `cleanup-old-media` bảo vệ ảnh `is_selected = true` (ảnh đã chọn cho bài đăng). Theo yêu cầu mới: **mọi ảnh/video > 7 ngày đều bị xóa**, không chừa ảnh đang dùng.
 
-## Mục tiêu
-Đảm bảo user gặp thông báo "Ảnh & video tự xóa sau 7 ngày, tải về nếu muốn giữ" ở **đúng thời điểm họ tạo/xem media**, không cần mở dialog mới thấy.
+## Sửa `supabase/functions/cleanup-old-media/index.ts`
 
-## Thay đổi đề xuất
+### 1. Bỏ filter `is_selected = false` khi quét xóa
+- `channel_image_history`: xóa cả selected lẫn unselected nếu `created_at < cutoff`
+- `carousel_images`: tương tự
+- `video_generations`: giữ nguyên (chỉ xóa completed/failed >7 ngày — vì pending/processing chưa xong)
 
-### 1. Thêm notice ở các trang list & hub media
-Hiển thị banner `MediaRetentionNotice` (variant `banner`) ở header của các trang sau:
-- `src/pages/MultiChannel.tsx` — list nội dung đa kênh
-- `src/pages/Carousel.tsx` — list carousel
-- `src/pages/Gallery.tsx` — thư viện ảnh tổng
-- `src/pages/ScriptNew.tsx` — workspace script + video
+### 2. Cập nhật protected set — chỉ giữ ảnh "còn trong 7 ngày"
+Bỏ điều kiện `is_selected.eq.true` khỏi query protect. Chỉ URL của record có `created_at >= cutoff` (tức là vừa tạo gần đây và sẽ tiếp tục tồn tại trong DB) mới được protect khỏi storage.remove. Điều này tránh xóa file storage mà DB record kia (cùng URL, mới tạo) vẫn đang trỏ tới.
 
-Mỗi trang dùng `storageKey` riêng (vd. `media-retention-gallery`) để dismiss độc lập.
+### 3. Giữ nguyên
+- Logic dedupe URL theo bucket (Set)
+- Chunked remove 100 files
+- Error handling "Object not found" → warning
+- `MediaRetentionNotice` UI (giữ wording hiện tại, không đổi tone)
 
-### 2. Thêm inline notice trong panel sinh ảnh/video
-Dùng variant `inline` (1 dòng nhỏ, không dismissable) ngay dưới nút "Tạo ảnh"/"Tạo video":
-- `src/components/multichannel/SimpleImageGenerator.tsx`
-- `src/components/multichannel/UnifiedImageGenerator.tsx`
-- `src/components/script/VideoGeneratorPanel.tsx`
-- `src/components/script/VideoGallery.tsx`
+## Hệ quả
+- Bài đăng publish trước đó >7 ngày sẽ mất ảnh hiển thị → user phải re-upload nếu muốn giữ. UI đã cảnh báo "tải về nếu muốn giữ".
+- Carousel slides đã chọn cũng bị xóa sau 7 ngày.
+- Cron schedule và edge function khác: không đụng tới.
 
-Vì là inline footnote chứ không phải banner, không cho dismiss → luôn nhắc user mỗi lần thao tác.
-
-### 3. Thêm dòng nhắc trong toast khi tạo media thành công
-Bổ sung 1 dòng `description` ngắn vào toast success của các flow:
-- Tạo ảnh đa kênh
-- Tạo carousel images batch
-- Tạo video
-
-Ví dụ: `toast({ title: "Đã tạo ảnh", description: "Tự xóa sau 7 ngày — tải về nếu cần giữ." })`
-
-### 4. Cập nhật `MediaRetentionNotice` cho variant inline rõ hơn
-Hiện `variant="inline"` đã tồn tại nhưng chỉ hiện khi chưa dismissed. Tách logic: variant `inline` **bỏ qua** `localStorage`, luôn render (vì là footnote nhỏ, không cần dismiss). Variant `banner` giữ nguyên cơ chế dismiss.
-
-## Files sẽ chỉnh sửa
-- `src/components/MediaRetentionNotice.tsx` — inline luôn render, banner giữ dismiss
-- `src/pages/MultiChannel.tsx`, `src/pages/Carousel.tsx`, `src/pages/Gallery.tsx`, `src/pages/ScriptNew.tsx` — thêm banner ở header
-- `src/components/multichannel/SimpleImageGenerator.tsx`, `UnifiedImageGenerator.tsx` — thêm inline notice
-- `src/components/script/VideoGeneratorPanel.tsx`, `VideoGallery.tsx` — thêm inline notice
-- Toast success trong các hook tạo ảnh/video (xác định cụ thể khi implement)
-
-## Không thay đổi
-- Edge function `cleanup-old-media` và cron schedule — đang chạy ổn.
-- Logic dismiss của banner ở 2 dialog viewer hiện có.
+## File chỉnh
+- `supabase/functions/cleanup-old-media/index.ts` — bỏ `.eq("is_selected", false)` ở 2 query xóa, bỏ `is_selected.eq.true` ở 3 query protect.
