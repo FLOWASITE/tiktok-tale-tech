@@ -1195,6 +1195,9 @@ export function SimpleImageGenerator({
             {viewMode === 'preview' && 'Kiểm tra và lưu ảnh'}
           </DialogDescription>
         </DialogHeader>
+        <div className="px-1 pb-1">
+          <MediaRetentionNotice variant="inline" />
+        </div>
         {bodyContent}
         {bgEditor}
       </DialogContent>
