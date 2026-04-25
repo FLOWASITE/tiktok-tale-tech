@@ -18,20 +18,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Channel } from '@/types/multichannel';
 import { useAIErrorHandler } from './useAIErrorHandler';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 
 const AUXILIARY_HOOK_TIMEOUT_MS = 25_000;
 
-async function invokeHookGenerator(payload: Record<string, unknown>, timeoutMs = AUXILIARY_HOOK_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    return await supabase.functions.invoke('generate-hooks', {
-      body: payload,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+async function invokeHookGenerator<T = any>(payload: Record<string, unknown>, timeoutMs = AUXILIARY_HOOK_TIMEOUT_MS) {
+  return invokeWithTimeout<T>('generate-hooks', {
+    body: payload,
+    timeoutMs,
+  });
 }
 
 // ============== TYPES ==============
@@ -137,16 +132,14 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     try {
       console.log('[useHookAI.generator] Generating hooks for:', genTopic);
       
-      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
-        body: {
-          topic: genTopic,
-          brandVoice: genBrandVoice,
-          platform,
-          duration,
-          count,
-          organizationId: genOptions.organizationId,
-          brandTemplateId: genOptions.brandTemplateId,
-        },
+      const { data, error: fnError } = await invokeHookGenerator({
+        topic: genTopic,
+        brandVoice: genBrandVoice,
+        platform,
+        duration,
+        count,
+        organizationId: genOptions.organizationId,
+        brandTemplateId: genOptions.brandTemplateId,
       });
 
       if (fnError) {
@@ -412,14 +405,12 @@ export function useHookAI(options: UseHookAIOptions = {}) {
     try {
       console.log('[useHookAI.multiChannel] Regenerating hook for:', channel);
       
-      const { data, error: fnError } = await supabase.functions.invoke('generate-hooks', {
-        body: {
-          topic,
-          brandVoice,
-          platforms: [channel], // Single channel
-          organizationId,
-          brandTemplateId,
-        },
+      const { data, error: fnError } = await invokeHookGenerator({
+        topic,
+        brandVoice,
+        platforms: [channel], // Single channel
+        organizationId,
+        brandTemplateId,
       });
 
       if (fnError) throw fnError;
