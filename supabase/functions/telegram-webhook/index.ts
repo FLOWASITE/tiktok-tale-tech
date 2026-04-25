@@ -588,10 +588,10 @@ async function editMessageText(
 async function answerCallback(
   botToken: string,
   callbackQueryId: string,
-  text: string,
+  text?: string,
   showAlert?: boolean,
 ) {
-  return rawAnswerCallback(botToken, callbackQueryId, normalizeTelegramCopy(text), showAlert);
+  return rawAnswerCallback(botToken, callbackQueryId, text ? normalizeTelegramCopy(text) : "", showAlert);
 }
 
 function helpText(): string {
