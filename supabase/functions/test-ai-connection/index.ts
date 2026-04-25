@@ -46,7 +46,7 @@ Deno.serve(withPerf({ functionName: 'test-ai-connection' }, async (req) => {
         testResult = await testPoyo(apiKey);
         break;
       case 'geminigen':
-        testResult = await testGeminiGen(apiKey);
+        testResult = await testGemini(apiKey);
         break;
       default:
         return new Response(

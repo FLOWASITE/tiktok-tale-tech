@@ -110,6 +110,8 @@ interface TopicAIRequest {
   // Agent pipeline model override
   model_override?: string;     // from ai_agent_model_configs
   temperature?: number;        // from ai_agent_model_configs
+  // Internal: user id passthrough for metrics
+  _userId?: string;
 }
 
 // ========== Topic AI model safety (v3 - DashScope alias normalization) ==========
@@ -272,8 +274,8 @@ async function handleSuggest(
   // Phase 4: Enhanced cache key with context hash + query hash for unique results per query
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets (reduced from 8h for freshness)
   const contextHash = hashContextData(brandContext);
-  const queryHash = query ? hashContextData({ q: query }) : 'no-query';
-  const categoryHash = categoryHint ? hashContextData({ cat: categoryHint }) : 'no-cat';
+  const queryHash = query ? hashContextData({ q: query } as any) : 'no-query';
+  const categoryHash = categoryHint ? hashContextData({ cat: categoryHint } as any) : 'no-cat';
   const cacheKey = `topic-suggestions-v14-flex-80-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
   
   // Parallel: Check cache + fetch learning context simultaneously
@@ -505,6 +507,18 @@ async function handleRefine(
     console.warn('[topic-ai:refine] Failed to fetch prompt from registry, using hardcoded');
   }
 
+  // Goal-Locked Angles: Map each contentGoal to allowed/forbidden angles (declared early for use in basePrompt)
+  const allAngles = ['practical', 'controversial', 'educational', 'storytelling', 'solution', 'sales', 'data'];
+  const goalAngles: Record<string, string[]> = {
+    conversion: ['sales', 'solution', 'practical'],
+    education: ['educational', 'practical', 'data'],
+    awareness: ['storytelling', 'controversial', 'data'],
+    engagement: ['controversial', 'storytelling', 'practical'],
+    expertise: ['data', 'educational', 'solution'],
+  };
+  const allowedAngles = contentGoal ? (goalAngles[contentGoal] || ['practical', 'sales', 'educational']) : allAngles;
+  const forbiddenAngles = allAngles.filter(a => !allowedAngles.includes(a));
+
   // Build prompt
   const promptParts: string[] = [];
   const basePrompt = systemPrompt || `You are a professional Content Strategist. Improve a raw topic into 3 better, more specific, more engaging versions.
@@ -531,16 +545,7 @@ The refined topics MUST be about the SAME subject/industry as the raw topic.
 ✅ RIGHT: Raw="yoga cho người mới" → Refined="3 bài tập yoga đơn giản ai cũng làm được ngay tại nhà" (same subject, education angle)`);
 
   // Goal-Locked Angles: Map each contentGoal to allowed/forbidden angles
-  const allAngles = ['practical', 'controversial', 'educational', 'storytelling', 'solution', 'sales', 'data'];
-  const goalAngles: Record<string, string[]> = {
-    conversion: ['sales', 'solution', 'practical'],
-    education: ['educational', 'practical', 'data'],
-    awareness: ['storytelling', 'controversial', 'data'],
-    engagement: ['controversial', 'storytelling', 'practical'],
-    expertise: ['data', 'educational', 'solution'],
-  };
-  const allowedAngles = contentGoal ? (goalAngles[contentGoal] || ['practical', 'sales', 'educational']) : allAngles;
-  const forbiddenAngles = allAngles.filter(a => !allowedAngles.includes(a));
+  // (allAngles/goalAngles/allowedAngles/forbiddenAngles already declared above)
 
   // Inject content goal linked to raw topic
   if (contentGoal) {
@@ -584,7 +589,7 @@ ${brandContext.industryContext.forbiddenTerms?.length ? `Forbidden Terms: ${bran
   }
 
   // Inject date context to prevent outdated year references
-  const lang = brandContext?.languageCode || 'vi';
+  const lang = (brandContext as any)?.languageCode || 'vi';
   const dateContext = buildLocalizedDateContext(lang);
   promptParts.push(dateContext);
 
