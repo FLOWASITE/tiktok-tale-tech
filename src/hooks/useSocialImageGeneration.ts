@@ -186,6 +186,7 @@ export function useSocialImageGeneration() {
           taskId,
           contentId,
           channel,
+          force: true, // Manual regenerate — bypass cached-return + dedupe in edge function
           contentSummary: prompt,
           brandTemplateId,
           aspectRatio,
