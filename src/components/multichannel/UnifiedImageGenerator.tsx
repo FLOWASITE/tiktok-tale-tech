@@ -724,6 +724,10 @@ export function UnifiedImageGenerator({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="px-1">
+          <MediaRetentionNotice variant="inline" />
+        </div>
+
         <div className="flex-1 overflow-hidden">
           {/* Setup Mode - Split Panel Layout */}
           {viewMode === 'setup' && (
