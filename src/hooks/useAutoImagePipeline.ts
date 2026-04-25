@@ -94,6 +94,9 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [imageResults, setImageResults] = useState<{ successful: Channel[]; failed: Channel[] } | null>(null);
   const abortRef = useRef(false);
+  // Idempotency guard: chặn concurrent calls cho cùng contentId.
+  // Bảo vệ tầng 2 cho trường hợp Layer 1 bị bypass (vd manual trigger nhanh tay).
+  const inFlightContentIdRef = useRef<string | null>(null);
 
   const autoImageGen = useAutoImageGeneration();
 
@@ -125,6 +128,13 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       console.warn('[AutoImagePipeline] Missing brandTemplateId or channels');
       return;
     }
+
+    // Idempotency: skip nếu đã có pipeline đang chạy cho cùng contentId
+    if (inFlightContentIdRef.current === contentId) {
+      console.warn('[AutoImagePipeline] ⛔ Already in-flight for contentId:', contentId, '— skipping duplicate call');
+      return;
+    }
+    inFlightContentIdRef.current = contentId;
 
     abortRef.current = false;
     setPhase('preparing');
@@ -311,6 +321,11 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       console.error('[AutoImagePipeline] ❌ PIPELINE ERROR:', err instanceof Error ? err.message : err);
       setPhase('error');
       toast.error('Lỗi tự động tạo ảnh');
+    } finally {
+      // Clear in-flight guard regardless of success/failure
+      if (inFlightContentIdRef.current === contentId) {
+        inFlightContentIdRef.current = null;
+      }
     }
   }, [brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, autoSave, autoImageGen]);
 
