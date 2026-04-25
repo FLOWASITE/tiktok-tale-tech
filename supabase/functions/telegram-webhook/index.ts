@@ -504,7 +504,7 @@ Deno.serve(withPerf({ functionName: "telegram-webhook" }, async (req) => {
             bs.awaitingSearch = false;
             bs.filter = text.slice(0, 50);
             bs.page = 0;
-            const brands = await fetchOrgBrands(supabase, botConfig.organizationId);
+            const brands = await fetchOrgBrands(supabase, botConfig.organizationId as string);
             await renderBrandSwitcher({ supabase, botConfig, chatId, brands });
             break;
           }
@@ -588,10 +588,10 @@ async function editMessageText(
 async function answerCallback(
   botToken: string,
   callbackQueryId: string,
-  text: string,
+  text?: string,
   showAlert?: boolean,
 ) {
-  return rawAnswerCallback(botToken, callbackQueryId, normalizeTelegramCopy(text), showAlert);
+  return rawAnswerCallback(botToken, callbackQueryId, text ? normalizeTelegramCopy(text) : "", showAlert);
 }
 
 function helpText(): string {
@@ -715,14 +715,8 @@ function buildTelegramSinglePostPrompt(baseTopic: string, writingGoal?: Telegram
 interface HandlerCtx {
   // deno-lint-ignore no-explicit-any
   supabase: any;
-  botConfig: {
-    id: string;
-    organizationId: string;
-    botUsername: string;
-    botToken: string;
-    defaultAutonomyLevel: string;
-    isDefault?: boolean;
-  };
+  // deno-lint-ignore no-explicit-any
+  botConfig: any;
   chatId: number;
 }
 
@@ -812,7 +806,7 @@ async function handleStart(
         "3. Bấm *Kết nối tài khoản & bắt đầu ngay* rồi quay lại Telegram để chat với bot",
         "",
         "*Bắt đầu thử ngay!*",
-      ],
+      ].join("\n"),
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -940,7 +934,7 @@ async function handleStart(
       "Bấm nút bên dưới để xác nhận liên kết. Link sẽ hết hạn sau 10 phút.",
       "",
       "*Bắt đầu thử ngay!*",
-    ],
+    ].join("\n"),
     {
       parse_mode: "Markdown",
       reply_markup: {
