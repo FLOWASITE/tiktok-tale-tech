@@ -33,6 +33,7 @@ import { CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
 import { cn } from '@/lib/utils';
 import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 import { ImageChannelPicker } from './ImageChannelPicker';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
 import { ImageSettingsSummary } from './ImageSettingsSummary';
 import { PromptPreview } from './PromptPreview';
@@ -1195,6 +1196,9 @@ export function SimpleImageGenerator({
             {viewMode === 'preview' && 'Kiểm tra và lưu ảnh'}
           </DialogDescription>
         </DialogHeader>
+        <div className="px-1 pb-1">
+          <MediaRetentionNotice variant="inline" />
+        </div>
         {bodyContent}
         {bgEditor}
       </DialogContent>

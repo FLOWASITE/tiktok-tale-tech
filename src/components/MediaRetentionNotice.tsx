@@ -3,21 +3,39 @@ import { Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MediaRetentionNoticeProps {
-  /** localStorage key — pass distinct key per surface to allow per-surface dismissal */
+  /** localStorage key — pass distinct key per surface to allow per-surface dismissal. Only used by `banner` variant. */
   storageKey?: string;
   className?: string;
+  /** `banner` = dismissable card; `inline` = small footnote that always renders */
   variant?: "banner" | "inline";
 }
 
+const MESSAGE = "Ảnh và video tự động xóa sau 7 ngày. Tải về nếu muốn giữ lại.";
+
 /**
  * Thông báo policy: ảnh/video tự động xóa sau 7 ngày.
- * Dismissable, lưu trạng thái vào localStorage.
+ * - `banner`: dismissable, lưu trạng thái vào localStorage
+ * - `inline`: footnote nhỏ, luôn hiển thị (không dismiss)
  */
 export function MediaRetentionNotice({
   storageKey = "media-retention-notice-dismissed",
   className,
   variant = "banner",
 }: MediaRetentionNoticeProps) {
+  // Inline variant always renders, no dismiss state needed
+  if (variant === "inline") {
+    return (
+      <p className={cn("text-xs text-muted-foreground flex items-center gap-1.5", className)}>
+        <Info className="h-3 w-3 shrink-0" />
+        <span>{MESSAGE}</span>
+      </p>
+    );
+  }
+
+  return <DismissableBanner storageKey={storageKey} className={className} />;
+}
+
+function DismissableBanner({ storageKey, className }: { storageKey: string; className?: string }) {
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
@@ -30,15 +48,6 @@ export function MediaRetentionNotice({
     localStorage.setItem(storageKey, "1");
     setDismissed(true);
   };
-
-  if (variant === "inline") {
-    return (
-      <p className={cn("text-xs text-muted-foreground flex items-center gap-1.5", className)}>
-        <Info className="h-3 w-3 shrink-0" />
-        <span>Ảnh & video tự động xóa sau 7 ngày. Tải về nếu muốn giữ lại.</span>
-      </p>
-    );
-  }
 
   return (
     <div

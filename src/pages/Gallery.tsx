@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Image as ImageIcon, Layers, Share2, ArrowLeft } from 'lucide-react';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { Button } from '@/components/ui/button';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 
 export default function Gallery() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,6 +59,8 @@ export default function Gallery() {
           </>
         )}
       </div>
+
+      <MediaRetentionNotice storageKey="media-retention-gallery" />
 
       {/* Stats Cards */}
       {!loading && !contentIdParam && (

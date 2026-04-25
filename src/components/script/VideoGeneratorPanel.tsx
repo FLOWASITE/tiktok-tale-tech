@@ -11,6 +11,7 @@ import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG, GEMINIGEN_VI
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { Script } from '@/types/script';
 import { StoryboardScene } from '@/types/storyboard';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 
 interface VideoGeneratorPanelProps {
   script?: Script;
@@ -225,6 +226,7 @@ export function VideoGeneratorPanel({
         <div className="text-[10px] text-muted-foreground space-y-1 pt-2 border-t">
           <p>🎬 {providerConfig.label}: {providerConfig.description}</p>
           <p>⏱️ Thời gian tạo: 1-5 phút tùy provider</p>
+          <MediaRetentionNotice variant="inline" className="text-[10px] pt-1" />
         </div>
       </CardContent>
     </Card>

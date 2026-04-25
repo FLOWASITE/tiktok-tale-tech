@@ -9,6 +9,7 @@ import { CarouselGenerationTracker } from '@/components/carousel/CarouselGenerat
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
@@ -335,6 +336,8 @@ const CarouselPage = () => {
   return (
     <div className="min-h-screen relative bg-gradient-to-b from-background via-background to-muted/20">
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <MediaRetentionNotice storageKey="media-retention-carousel-page" />
+
         {/* Hero Section */}
         <CarouselHeroSection
           carousels={carousels}

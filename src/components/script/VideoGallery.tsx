@@ -8,6 +8,7 @@ import { VideoGeneration, VIDEO_PROVIDER_CONFIG, VideoGenerationStatus } from '@
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 
 interface VideoGalleryProps {
   scriptId?: string;
@@ -108,6 +109,7 @@ export function VideoGallery({ scriptId, storyboardId, sceneNumber }: VideoGalle
   return (
     <ScrollArea className="h-[400px]">
       <div className="space-y-3 pr-4">
+        <MediaRetentionNotice variant="inline" />
         {filteredGenerations.map((generation) => (
           <VideoCard
             key={generation.id}

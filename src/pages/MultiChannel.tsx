@@ -8,6 +8,7 @@ import { MultiChannelViewer } from '@/components/MultiChannelViewer';
 import { MultiChannelFilters, DateRange } from '@/components/MultiChannelFilters';
 import { MultiChannelHeroSection } from '@/components/multichannel/MultiChannelHeroSection';
 import { ChannelGroupView } from '@/components/multichannel/ChannelGroupView';
+import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
 import { BulkActionsBar } from '@/components/BulkActionsBar';
 import { BulkScheduleDialog } from '@/components/BulkScheduleDialog';
 import { CardLoadingSkeleton } from '@/components/ContentGeneratingSkeleton';
@@ -353,6 +354,8 @@ export default function MultiChannel() {
       </Button>
 
       <div className="p-3 sm:p-4 lg:p-6 space-y-4">
+        <MediaRetentionNotice storageKey="media-retention-multichannel-page" />
+
         {/* Hero Section with Stats */}
         <MultiChannelHeroSection
           contents={contents}
