@@ -532,7 +532,7 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.warn("[generate-brand-image] WARNING: userId is undefined — image will have NULL created_by!");
     }
 
-    requestBody = await req.json();
+    requestBody = await req.json() as GenerateImageRequest;
 
     const {
       taskId,
