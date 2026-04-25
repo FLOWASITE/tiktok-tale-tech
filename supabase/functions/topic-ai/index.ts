@@ -545,16 +545,7 @@ The refined topics MUST be about the SAME subject/industry as the raw topic.
 ✅ RIGHT: Raw="yoga cho người mới" → Refined="3 bài tập yoga đơn giản ai cũng làm được ngay tại nhà" (same subject, education angle)`);
 
   // Goal-Locked Angles: Map each contentGoal to allowed/forbidden angles
-  const allAngles = ['practical', 'controversial', 'educational', 'storytelling', 'solution', 'sales', 'data'];
-  const goalAngles: Record<string, string[]> = {
-    conversion: ['sales', 'solution', 'practical'],
-    education: ['educational', 'practical', 'data'],
-    awareness: ['storytelling', 'controversial', 'data'],
-    engagement: ['controversial', 'storytelling', 'practical'],
-    expertise: ['data', 'educational', 'solution'],
-  };
-  const allowedAngles = contentGoal ? (goalAngles[contentGoal] || ['practical', 'sales', 'educational']) : allAngles;
-  const forbiddenAngles = allAngles.filter(a => !allowedAngles.includes(a));
+  // (allAngles/goalAngles/allowedAngles/forbiddenAngles already declared above)
 
   // Inject content goal linked to raw topic
   if (contentGoal) {

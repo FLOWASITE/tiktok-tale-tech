@@ -1,6 +1,8 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential, encrypt } from "../_shared/crypto.ts";
 
+const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
