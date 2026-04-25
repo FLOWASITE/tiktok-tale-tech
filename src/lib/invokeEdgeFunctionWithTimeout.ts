@@ -73,20 +73,45 @@ export async function invokeWithTimeout<T = unknown>(
     return /SUPABASE_EDGE_RUNTIME_ERROR|temporarily unavailable|BOOT_ERROR|WORKER_LIMIT/i.test(body);
   };
 
-  try {
-    let response = await invokeRequest(token, controller.signal);
-    let responseText = await response.text();
+  // Helper: attempt fetch + read body, returning null on network error so caller can retry
+  const tryRequest = async (tok: string | null): Promise<{ response: Response; responseText: string } | { networkError: unknown }> => {
+    try {
+      const response = await invokeRequest(tok, controller.signal);
+      const responseText = await response.text();
+      return { response, responseText };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      return { networkError: err };
+    }
+  };
 
-    // Retry once on transient runtime errors (function is recycling)
+  try {
+    let attempt = await tryRequest(token);
     let transientRetries = 0;
-    while (isTransientRuntimeError(response.status, responseText) && transientRetries < 2) {
+
+    // Retry on either HTTP transient runtime errors OR network "Failed to fetch" (worker dropped connection)
+    while (
+      transientRetries < 2 &&
+      ('networkError' in attempt ||
+        isTransientRuntimeError(attempt.response.status, attempt.responseText))
+    ) {
       transientRetries++;
       const backoffMs = 800 * transientRetries;
-      console.warn(`[invokeWithTimeout] ${functionName} hit transient ${response.status}, retrying in ${backoffMs}ms (attempt ${transientRetries}/2)`);
+      const reason = 'networkError' in attempt
+        ? 'network failure'
+        : `${attempt.response.status}`;
+      console.warn(`[invokeWithTimeout] ${functionName} hit transient ${reason}, retrying in ${backoffMs}ms (attempt ${transientRetries}/2)`);
       await new Promise((r) => setTimeout(r, backoffMs));
-      response = await invokeRequest(token, controller.signal);
-      responseText = await response.text();
+      attempt = await tryRequest(token);
     }
+
+    // If still a network error after retries, surface it
+    if ('networkError' in attempt) {
+      throw attempt.networkError;
+    }
+
+    let response = attempt.response;
+    let responseText = attempt.responseText;
 
     if (token && isUnauthorizedResponse(response.status, responseText)) {
       const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
