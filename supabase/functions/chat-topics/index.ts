@@ -104,8 +104,8 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
                 organizationId: organizationId || undefined,
                 maxExecutionMs: 55000,
                 conversationHistory: checkpointState.messages?.map((m: any) => ({ role: m.role, content: m.content })),
-                onEvent: (event) => {
-                  sseWriter.write(event).catch(() => {});
+                onEvent: (event: any) => {
+                  sseWriter.write(event as any).catch(() => {});
                 },
                 supabaseClient: supabase,
                 completedNodes,
@@ -331,7 +331,7 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
           hadError,
           errorType,
           errorMessage,
-          modelsUsed: { default: model, graphEngine: true },
+          modelsUsed: { default: model, graphEngine: 'true' },
           estimatedCostUsd,
         }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
       }
