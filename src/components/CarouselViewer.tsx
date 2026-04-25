@@ -1013,6 +1013,10 @@ export function CarouselViewer({
           </div>
         </DialogHeader>
 
+        <div className="px-3 xs:px-5 pt-2">
+          <MediaRetentionNotice storageKey="media-retention-carousel" />
+        </div>
+
         <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 xs:px-5 pt-1.5">
             <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
