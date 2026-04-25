@@ -1034,7 +1034,7 @@ function stageProgressPct(stage?: string | null): number {
   return Math.round(((idx + 1) / STAGE_ORDER.length) * 100);
 }
 
-async function handleStatus(ctx: HandlerCtx): Promise<void> {
+async function handleStatus(ctx: HandlerCtx & { telegramUserId?: number }): Promise<void> {
   const { supabase, botConfig, chatId, telegramUserId } = ctx;
 
   const binding = await lookupUserBinding(
@@ -3330,11 +3330,11 @@ async function handleExamples(ctx: HandlerCtx): Promise<void> {
   if (list.length === 0) {
     // Fallback hardcoded examples nếu chưa seed DB
     const fallback = [
-      { title: "Campaign Black Friday cho thẩm mỹ viện", prompt: "Tạo campaign Black Friday giảm 30% cho dịch vụ thẩm mỹ viện, target nữ 25-40 tuổi", emoji: "🎁" },
-      { title: "3 caption Facebook bán mỹ phẩm", prompt: "Viết 3 caption Facebook bán kem dưỡng da cho da khô, tone thân thiện", emoji: "💄" },
-      { title: "Phân tích campaign tuần", prompt: "Phân tích hiệu quả các campaign tuần này, gợi ý cải thiện", emoji: "📊" },
-      { title: "Idea content TikTok", prompt: "Cho 5 idea content TikTok cho spa làm đẹp, format storytime", emoji: "🎬" },
-      { title: "Email sequence ra mắt sản phẩm", prompt: "Viết email sequence 5 email ra mắt sản phẩm serum mới", emoji: "✉️" },
+      { title: "Campaign Black Friday cho thẩm mỹ viện", prompt: "Tạo campaign Black Friday giảm 30% cho dịch vụ thẩm mỹ viện, target nữ 25-40 tuổi", emoji: "🎁", category: null },
+      { title: "3 caption Facebook bán mỹ phẩm", prompt: "Viết 3 caption Facebook bán kem dưỡng da cho da khô, tone thân thiện", emoji: "💄", category: null },
+      { title: "Phân tích campaign tuần", prompt: "Phân tích hiệu quả các campaign tuần này, gợi ý cải thiện", emoji: "📊", category: null },
+      { title: "Idea content TikTok", prompt: "Cho 5 idea content TikTok cho spa làm đẹp, format storytime", emoji: "🎬", category: null },
+      { title: "Email sequence ra mắt sản phẩm", prompt: "Viết email sequence 5 email ra mắt sản phẩm serum mới", emoji: "✉️", category: null },
     ];
     list.push(...fallback);
   }
