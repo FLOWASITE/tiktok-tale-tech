@@ -115,6 +115,16 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
           return { insights: [], fromCache: false, creditsError: 'RATE_LIMIT' };
         }
 
+        // Transient Edge Runtime errors (503/502/504 cold-start) — return empty
+        // gracefully instead of throwing red error to UI. React Query will retry.
+        if (
+          (status === 503 || status === 502 || status === 504) ||
+          /SUPABASE_EDGE_RUNTIME_ERROR|temporarily unavailable|Failed to fetch|timed out/i.test(error.message)
+        ) {
+          console.warn('[AIInsightsCard] Transient edge error, returning empty:', error.message);
+          return { insights: [], fromCache: false };
+        }
+
         console.error('Error fetching insights:', error);
         throw error;
       }
@@ -128,7 +138,8 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     },
     staleTime: 5 * 60 * 1000, // Cache 5 minutes in React Query
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     enabled: !!user && !authLoading, // Only run query when user is authenticated AND auth is finished loading
   });
 
