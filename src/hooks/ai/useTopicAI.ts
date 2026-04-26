@@ -315,7 +315,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }, 100);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'refine',
           rawTopic: rawTopic.trim(),
@@ -405,7 +405,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'gap_analysis',
           brandTemplateId,
@@ -442,7 +442,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'cluster',
           brandTemplateId,
@@ -479,7 +479,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'keywords',
           brandTemplateId,
@@ -516,7 +516,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setIntelErrorCode(null);
     
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'refine_intel',
           brandTemplateId,
@@ -564,7 +564,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'next_best',
           brandTemplateId,
@@ -601,7 +601,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'weekly_plan',
           brandTemplateId,
@@ -638,7 +638,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'conflict_check',
           brandTemplateId,
@@ -680,7 +680,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setRecErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'learning',
           brandTemplateId,
@@ -732,7 +732,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setTrendingErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'trending',
           brandTemplateId,
@@ -1191,7 +1191,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     setAudienceErrorCode(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('topic-ai', {
+      const { data, error: fnError } = await invokeWithTimeout<any>('topic-ai', {
         body: {
           action: 'suggest_audience',
           topic: topic.trim(),
