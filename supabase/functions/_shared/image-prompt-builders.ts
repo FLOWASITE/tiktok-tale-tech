@@ -542,9 +542,12 @@ export const buildNegativePrompt: PromptBuilder = (ctx) => {
 
   // Default negative prompt for background mode (no text on image)
   const DEFAULT_BG_NEGATIVE = 'text, words, letters, numbers, watermark, logo, UI elements, blurry, low quality, distorted face, extra fingers, deformed hands';
-  
+
+  // Negative prompt for with_text mode — keep specified text, ban EXTRA text
+  const DEFAULT_WITHTEXT_NEGATIVE = 'extra text beyond what is specified, additional words, English decorative words, English badges, English stickers, "NEW", "SALE", "BEST", "PREMIUM", "OFFICIAL", "HOT", taglines, slogans, secondary captions, sale tags, banner overlays with extra text, watermark, foreign language text, mixed language text';
+
   const effectiveNegative = negativePrompt
-    || (imageContentType !== 'with_text' ? DEFAULT_BG_NEGATIVE : null);
+    || (imageContentType === 'with_text' ? DEFAULT_WITHTEXT_NEGATIVE : DEFAULT_BG_NEGATIVE);
 
   if (!effectiveNegative) return null;
 
@@ -575,7 +578,7 @@ export const buildCriticalRules: PromptBuilder = (ctx) => {
         id: 'critical_rules',
         position: 'suffix',
         priority: 90,
-        content: `## CRITICAL RULES:\n1. INCLUDE the specified text prominently and legibly\n2. Text must be CLEARLY READABLE with HIGH CONTRAST\n3. DO NOT include any logos or brand marks\n4. NEVER create blank, white, or empty images\n5. DO NOT add structured layouts, CTA buttons, or contact info sections unless explicitly described`,
+        content: `## CRITICAL RULES:\n1. INCLUDE the specified text prominently and legibly\n2. Text must be CLEARLY READABLE with HIGH CONTRAST\n3. DO NOT include any logos or brand marks\n4. NEVER create blank, white, or empty images\n5. DO NOT add structured layouts, CTA buttons, or contact info sections unless explicitly described\n6. Render ONLY the exact text specified — DO NOT add badges, stickers, taglines, slogans, "NEW"/"SALE"/"BEST" labels, or any decorative English words\n7. ALL visible text must match the language of the specified text (if Vietnamese, NO English words anywhere in the composition)`,
       };
     }
     return {
@@ -605,7 +608,9 @@ export const buildCriticalRules: PromptBuilder = (ctx) => {
 10. Vietnamese diacritics VERIFICATION: Every accent mark (ă, â, ơ, ô, ư, ê, đ, tone marks) MUST match the input EXACTLY
 11. NEVER substitute similar-looking characters (e.g., ă→a, đ→d, ơ→o)
 12. NEVER rephrase, shorten, or modify any text content — render VERBATIM
-13. If text readability is uncertain, add a semi-transparent dark/light backdrop behind the text`,
+13. If text readability is uncertain, add a semi-transparent dark/light backdrop behind the text
+14. RENDER ONLY THE EXACT TEXT SPECIFIED ABOVE. DO NOT add ANY additional text, words, badges, labels, stickers, watermarks, or decorative typography. Especially FORBIDDEN: English decorative words like "NEW", "SALE", "BEST", "PREMIUM", "OFFICIAL", "HOT", "LIMITED", taglines, slogans, or call-to-action phrases that are NOT part of the specified text.
+15. LANGUAGE LOCK: ALL visible text in the image MUST be in the same language as the specified text. If the specified text is Vietnamese, NO English words are allowed anywhere in the composition (no English badges, no English stickers, no English UI elements, no English signs in the background).`,
     };
   }
 
