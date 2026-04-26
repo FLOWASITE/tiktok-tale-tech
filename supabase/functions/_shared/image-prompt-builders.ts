@@ -236,7 +236,7 @@ export const buildTextLayout: PromptBuilder = (ctx) => {
   const parts: string[] = [];
 
   // Text-in-image section
-  parts.push(buildTextInImageContent(params.textToInclude, params.textPosition, params.typographyStyle));
+  parts.push(buildTextInImageContent(params.textToInclude, params.textPosition, params.typographyStyle, ctx.finalAspectRatio));
 
   // Structured layout (full mode only)
   if (params.promptMode === 'full' || !params.promptMode) {
