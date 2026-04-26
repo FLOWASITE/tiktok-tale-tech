@@ -1111,10 +1111,19 @@ function buildChannelRulesPrompt(
   // Channel name
   parts.push(`### ${channel.toUpperCase()}`);
   
-  // Length - with STRONGER enforcement for high min_length
+  // Length - with STRONGER enforcement, special branch for long-form (≥500 words)
   const lengthLabel = settings.length_unit === 'chars' ? 'ký tự' : 'chữ';
-  if (settings.min_length && settings.min_length >= 200) {
-    // Strong enforcement for high min_length (e.g., Facebook 250+ words)
+  if (settings.min_length && settings.min_length >= 500 && settings.length_unit !== 'chars') {
+    // LONG-FORM enforcement (website, blog, youtube, linkedin với min ≥ 500)
+    const bodyMin = Math.round(settings.min_length * 0.7);
+    const bodyMax = Math.round(settings.max_length * 0.75);
+    parts.push(`- Độ dài: 🚨 **LONG-FORM BẮT BUỘC ${settings.min_length}-${settings.max_length} ${lengthLabel}** (KHÔNG được dưới ${settings.min_length})`);
+    parts.push(`  📊 Phân bổ: Hook 50-80 từ + Thân bài ${bodyMin}-${bodyMax} từ (chia 4-6 sections H2, mỗi section 150-300 từ) + Kết+CTA 50-100 từ`);
+    parts.push(`  ✅ KHI VIẾT XONG → ĐẾM TỪ. Nếu < ${settings.min_length} → MỞ RỘNG section yếu nhất bằng case study, số liệu cụ thể, ví dụ thực tế, so sánh, FAQ`);
+    parts.push(`  ❌ DƯỚI ${settings.min_length} ${lengthLabel} = AUTO REJECT, hệ thống sẽ retry và bài bị đánh dấu lỗi`);
+    parts.push(`  💡 Đây là bài SEO/long-form cho ${channel} → cần chiều sâu, KHÔNG phải caption ngắn`);
+  } else if (settings.min_length && settings.min_length >= 200) {
+    // Medium-form enforcement (facebook 250+, linkedin 300+, email 250+, telegram 200+)
     parts.push(`- Độ dài: 🚨 **BẮT BUỘC TỐI THIỂU ${settings.min_length} ${lengthLabel}** (max: ${settings.max_length})`);
     parts.push(`  ⚠️ NẾU DƯỚI ${settings.min_length} ${lengthLabel} → TỰ ĐỘNG VIẾT THÊM: chi tiết, ví dụ, giải thích, mở rộng từng điểm`);
     parts.push(`  ❌ NỘI DUNG DƯỚI ${settings.min_length} ${lengthLabel} SẼ BỊ REJECT`);
