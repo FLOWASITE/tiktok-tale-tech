@@ -362,6 +362,35 @@ const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
 };
 
+/**
+ * Unwrap website channel content which may be either:
+ *   - string (markdown body)
+ *   - object: { content, title, meta_description, h1, h2_headings, ... }
+ * Returns { text, seoData } where text is always a string|null safe to write to website_content column.
+ * Used by all 3 persistence paths (parallel/streaming, non-streaming create, expand-mode update)
+ * to prevent silent NULL writes when AI returns SEO object instead of plain string.
+ */
+function extractWebsiteContent(value: unknown): { text: string | null; seoData: Record<string, unknown> | null } {
+  if (value == null) return { text: null, seoData: null };
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return { text: trimmed.length > 0 ? trimmed : null, seoData: null };
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const inner = typeof obj.content === 'string'
+      ? obj.content
+      : typeof obj.text === 'string'
+        ? obj.text
+        : typeof obj.markdown === 'string'
+          ? obj.markdown
+          : null;
+    const text = inner && inner.trim().length > 0 ? inner.trim() : null;
+    return { text, seoData: text ? obj : null };
+  }
+  return { text: null, seoData: null };
+}
+
 const DEFAULT_BUNDLE_TITLE = 'Bài đăng';
 const TITLE_MAX_LENGTH = 100;
 
@@ -3122,7 +3151,13 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               emit,
               onChannelComplete: (channel, content) => {
                 completedChannelsSet.add(channel);
-                channelResults[channel] = content;
+                // Unwrap website object → string so downstream consumers (dedup, persona-fit, persistence) get text
+                if (channel === 'website' && content && typeof content === 'object') {
+                  const { text } = extractWebsiteContent(content);
+                  channelResults[channel] = text || '';
+                } else {
+                  channelResults[channel] = content;
+                }
                 
                 const displayName = getChannelDisplayName(channel);
                 const completionProgress = 20 + ((completedChannelsSet.size / channels.length) * 55);
@@ -3240,7 +3275,13 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   for (const channel of channels) {
                     const key = `${channel}_content`;
                     if (critiqueLoop.finalContent[key]) {
-                      channelResults[channel] = critiqueLoop.finalContent[key];
+                      const refined = critiqueLoop.finalContent[key];
+                      if (channel === 'website' && refined && typeof refined === 'object') {
+                        const { text } = extractWebsiteContent(refined);
+                        channelResults[channel] = text || '';
+                      } else {
+                        channelResults[channel] = refined;
+                      }
                     }
                   }
                 }
@@ -3456,7 +3497,17 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   selected_hooks: formData.selectedHooks || [],
                   global_hook: formData.globalHook || null,
                   // Channel contents
-                  website_content: channelResults.website || null,
+                  website_content: (() => {
+                    if (!channels.includes('website')) return null;
+                    const websiteText = channelResults.website || null;
+                    if (!websiteText) {
+                      console.warn('[generate-multichannel] ⚠️ website channel selected but channelResults.website is empty - will save NULL');
+                    }
+                    return websiteText;
+                  })(),
+                  website_seo_data: (channels.includes('website') && channelResults.website)
+                    ? { content: channelResults.website }
+                    : null,
                   facebook_content: channelResults.facebook || null,
                   instagram_content: channelResults.instagram || null,
                   twitter_content: channelResults.twitter || null,
