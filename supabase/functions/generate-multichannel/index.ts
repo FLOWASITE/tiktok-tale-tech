@@ -362,6 +362,35 @@ const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
 };
 
+/**
+ * Unwrap website channel content which may be either:
+ *   - string (markdown body)
+ *   - object: { content, title, meta_description, h1, h2_headings, ... }
+ * Returns { text, seoData } where text is always a string|null safe to write to website_content column.
+ * Used by all 3 persistence paths (parallel/streaming, non-streaming create, expand-mode update)
+ * to prevent silent NULL writes when AI returns SEO object instead of plain string.
+ */
+function extractWebsiteContent(value: unknown): { text: string | null; seoData: Record<string, unknown> | null } {
+  if (value == null) return { text: null, seoData: null };
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return { text: trimmed.length > 0 ? trimmed : null, seoData: null };
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const inner = typeof obj.content === 'string'
+      ? obj.content
+      : typeof obj.text === 'string'
+        ? obj.text
+        : typeof obj.markdown === 'string'
+          ? obj.markdown
+          : null;
+    const text = inner && inner.trim().length > 0 ? inner.trim() : null;
+    return { text, seoData: text ? obj : null };
+  }
+  return { text: null, seoData: null };
+}
+
 const DEFAULT_BUNDLE_TITLE = 'Bài đăng';
 const TITLE_MAX_LENGTH = 100;
 
