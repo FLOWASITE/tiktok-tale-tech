@@ -3511,6 +3511,21 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                     const websiteText = channelResults.website || null;
                     if (!websiteText) {
                       console.warn('[generate-multichannel] ⚠️ website channel selected but channelResults.website is empty - will save NULL');
+                    } else {
+                      // Length compliance check vs brand override
+                      try {
+                        const ws = mergeChannelSettings('website', channelOverrides);
+                        if (ws.min_length && ws.length_unit !== 'chars') {
+                          const wc = String(websiteText).trim().split(/\s+/).filter(Boolean).length;
+                          if (wc < ws.min_length) {
+                            console.warn(`[generate-multichannel][length-shortfall] website: ${wc} từ < min ${ws.min_length} (max ${ws.max_length}). Brand override may not be enforced by AI.`);
+                          } else {
+                            console.log(`[generate-multichannel][length-ok] website: ${wc} từ (range ${ws.min_length}-${ws.max_length})`);
+                          }
+                        }
+                      } catch (e) {
+                        console.warn('[generate-multichannel] length-check failed:', e instanceof Error ? e.message : String(e));
+                      }
                     }
                     return websiteText;
                   })(),
