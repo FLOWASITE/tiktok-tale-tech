@@ -236,7 +236,7 @@ export const buildTextLayout: PromptBuilder = (ctx) => {
   const parts: string[] = [];
 
   // Text-in-image section
-  parts.push(buildTextInImageContent(params.textToInclude, params.textPosition, params.typographyStyle));
+  parts.push(buildTextInImageContent(params.textToInclude, params.textPosition, params.typographyStyle, ctx.finalAspectRatio));
 
   // Structured layout (full mode only)
   if (params.promptMode === 'full' || !params.promptMode) {
@@ -253,10 +253,59 @@ export const buildTextLayout: PromptBuilder = (ctx) => {
   return { id: 'text_layout', position: 'core', priority: 85, content: parts.join('\n') };
 };
 
+// ============================================
+// Helpers for text-in-image quality (length, layout, safe-zone)
+// ============================================
+
+/** Suggest line breaks for long text at natural pause points */
+function suggestLineBreaks(text: string, maxCharsPerLine = 28): string {
+  if (text.length <= maxCharsPerLine) return text;
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    if ((current + ' ' + word).trim().length > maxCharsPerLine && current) {
+      lines.push(current.trim());
+      current = word;
+    } else {
+      current = (current + ' ' + word).trim();
+    }
+  }
+  if (current) lines.push(current.trim());
+  return lines.join('\n');
+}
+
+/** Length tier for layout/font scaling */
+function getTextLengthTier(text: string): { tier: 'short' | 'medium' | 'long' | 'very_long'; lines: number; maxWordsPerLine: number; fontSizeHint: string } {
+  const len = text.length;
+  if (len <= 25) return { tier: 'short', lines: 1, maxWordsPerLine: 5, fontSizeHint: 'XL — fills 60-70% width' };
+  if (len <= 60) return { tier: 'medium', lines: 2, maxWordsPerLine: 5, fontSizeHint: 'L — fills 70-80% width' };
+  if (len <= 100) return { tier: 'long', lines: 3, maxWordsPerLine: 6, fontSizeHint: 'M — fills 75-85% width' };
+  return { tier: 'very_long', lines: 4, maxWordsPerLine: 7, fontSizeHint: 'S — fills 80-90% width, tight line-height' };
+}
+
+/** Aspect-ratio-aware safe zones (% from edges) */
+interface SafeZone { top: number; bottom: number; left: number; right: number; note: string }
+function getSafeZone(aspectRatio?: string): SafeZone {
+  const ratio = aspectRatio || '1:1';
+  if (ratio === '9:16' || ratio === '9:18') {
+    return { top: 12, bottom: 25, left: 8, right: 8, note: 'Vertical (TikTok/Reels) — avoid top UI overlay (12%) + bottom caption zone (25%)' };
+  }
+  if (ratio === '16:9') {
+    return { top: 10, bottom: 18, left: 8, right: 8, note: 'Landscape (YouTube/FB) — avoid bottom subtitle area (18%)' };
+  }
+  if (ratio === '4:5') {
+    return { top: 10, bottom: 15, left: 8, right: 8, note: 'Portrait (IG feed) — slight bottom margin for caption preview' };
+  }
+  // 1:1, 4:3, 3:4 default
+  return { top: 8, bottom: 8, left: 8, right: 8, note: 'Square — uniform 8% margin all sides' };
+}
+
 function buildTextInImageContent(
   textToInclude?: string,
   textPosition?: TextPosition,
   typographyStyle?: TypographyStyle,
+  aspectRatio?: string,
 ): string {
   if (!textToInclude) return '';
 
@@ -280,20 +329,43 @@ function buildTextInImageContent(
 
   const pos = textPosition || 'center';
   const style = typographyStyle || 'modern';
+  const len = textToInclude.length;
+  const lengthTier = getTextLengthTier(textToInclude);
+  const safeZone = getSafeZone(aspectRatio);
+  const suggestedLayout = suggestLineBreaks(textToInclude, lengthTier.tier === 'short' ? 50 : 28);
+
+  // Length warning for AI
+  let lengthWarning = '';
+  if (lengthTier.tier === 'long' || lengthTier.tier === 'very_long') {
+    lengthWarning = `
+⚠️ LONG TEXT (${len} chars) — render in EXACTLY ${lengthTier.lines} lines, max ${lengthTier.maxWordsPerLine} words/line.
+DO NOT shorten, paraphrase, or skip any words. Preserve every character.
+
+Suggested line breaks:
+${suggestedLayout.split('\n').map(l => `  → "${l}"`).join('\n')}`;
+  }
 
   return `
 ## TEXT IN IMAGE (REQUIRED - Social Graphic Mode):
-INCLUDE this exact text prominently in the image:
+INCLUDE this exact text prominently in the image (${len} characters):
 "${textToInclude}"
+${lengthWarning}
 
 Typography Guidelines:
 - Position: ${positionGuide[pos]}
 - Typography Style: ${styleGuide[style]}
+- Font size: ${lengthTier.fontSizeHint}
 - Ensure HIGH CONTRAST between text and background for readability
 - Text should be the PRIMARY FOCAL ELEMENT of the image
 - Use brand colors for text if they provide good contrast
 - Text must be LARGE and CLEARLY READABLE at social media viewing sizes
-- Add subtle text shadow or backdrop if needed for legibility`;
+- Add subtle text shadow or backdrop if needed for legibility
+
+## SAFE-ZONE CONSTRAINT (CRITICAL — text must fit within these bounds):
+${safeZone.note}
+- Vertical bounds: ${safeZone.top}% to ${100 - safeZone.bottom}% from top
+- Horizontal bounds: ${safeZone.left}% to ${100 - safeZone.right}% from left
+- NO text touches edges. NO text gets cropped by platform UI overlays.`;
 }
 
 function buildStructuredLayoutContent(
@@ -568,19 +640,67 @@ function countVietnameseDiacritics(text: string): number {
   return (text.match(diacriticChars) || []).length;
 }
 
+/** Map a single VN char to a description of its diacritic for the model */
+function describeDiacritic(ch: string): string | null {
+  const lower = ch.toLowerCase();
+  // Special letters
+  const specialMap: Record<string, string> = {
+    'ă': 'a + breve ̆', 'â': 'a + circumflex ̂',
+    'ê': 'e + circumflex ̂',
+    'ô': 'o + circumflex ̂', 'ơ': 'o + horn ̛',
+    'ư': 'u + horn ̛',
+    'đ': 'd with stroke',
+  };
+  if (specialMap[lower]) return specialMap[lower];
+  // Tone marks on plain vowels
+  const toneMap: Record<string, string> = {
+    'à': 'a + grave ̀', 'á': 'a + acute ́', 'ả': 'a + hook ̉', 'ã': 'a + tilde ̃', 'ạ': 'a + dot ̣',
+    'è': 'e + grave', 'é': 'e + acute', 'ẻ': 'e + hook', 'ẽ': 'e + tilde', 'ẹ': 'e + dot',
+    'ì': 'i + grave', 'í': 'i + acute', 'ỉ': 'i + hook', 'ĩ': 'i + tilde', 'ị': 'i + dot',
+    'ò': 'o + grave', 'ó': 'o + acute', 'ỏ': 'o + hook', 'õ': 'o + tilde', 'ọ': 'o + dot',
+    'ù': 'u + grave', 'ú': 'u + acute', 'ủ': 'u + hook', 'ũ': 'u + tilde', 'ụ': 'u + dot',
+    'ỳ': 'y + grave', 'ý': 'y + acute', 'ỷ': 'y + hook', 'ỹ': 'y + tilde', 'ỵ': 'y + dot',
+    // Tone on ă/â/ê/ô/ơ/ư
+    'ằ': 'ă + grave', 'ắ': 'ă + acute', 'ẳ': 'ă + hook', 'ẵ': 'ă + tilde', 'ặ': 'ă + dot',
+    'ầ': 'â + grave', 'ấ': 'â + acute', 'ẩ': 'â + hook', 'ẫ': 'â + tilde', 'ậ': 'â + dot',
+    'ề': 'ê + grave', 'ế': 'ê + acute', 'ể': 'ê + hook', 'ễ': 'ê + tilde', 'ệ': 'ê + dot',
+    'ồ': 'ô + grave', 'ố': 'ô + acute', 'ổ': 'ô + hook', 'ỗ': 'ô + tilde', 'ộ': 'ô + dot',
+    'ờ': 'ơ + grave', 'ớ': 'ơ + acute', 'ở': 'ơ + hook', 'ỡ': 'ơ + tilde', 'ợ': 'ơ + dot',
+    'ừ': 'ư + grave', 'ứ': 'ư + acute', 'ử': 'ư + hook', 'ữ': 'ư + tilde', 'ự': 'ư + dot',
+  };
+  return toneMap[lower] ?? null;
+}
+
+/** Build a per-character breakdown of accented chars (max 12 to keep prompt focused) */
+function buildCharBreakdown(text: string): string {
+  const callouts: string[] = [];
+  for (let i = 0; i < text.length && callouts.length < 12; i++) {
+    const ch = text[i];
+    const desc = describeDiacritic(ch);
+    if (desc) {
+      callouts.push(`  • Position ${i + 1}: "${ch}" = ${desc} — NOT plain "${ch.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd')}"`);
+    }
+  }
+  // Word-by-word spelling
+  const words = text.split(/\s+/).filter(Boolean);
+  const spelling = words.map(w => w.split('').join('-')).join(' | ');
+  return `### CHARACTER-BY-CHARACTER BREAKDOWN (render exactly these glyphs):
+Spelling: ${spelling}
+
+Accent callouts (first ${callouts.length} accented characters):
+${callouts.join('\n')}`;
+}
+
 export const buildVietnameseTextAccuracy: PromptBuilder = (ctx) => {
   const { isWithText, params } = ctx;
   if (!isWithText || !params.textToInclude) return null;
 
   const text = params.textToInclude;
   const diacriticCount = countVietnameseDiacritics(text);
-  
-  // Also check structured elements for Vietnamese text
-  const structuredTexts: string[] = [];
-  // Note: structuredElements is not in ImagePromptParams but passed via generate-brand-image
-  // This builder focuses on textToInclude which IS in params
 
   if (diacriticCount === 0) return null; // No Vietnamese text, skip
+
+  const charBreakdown = buildCharBreakdown(text);
 
   return {
     id: 'vietnamese_text_accuracy',
@@ -594,6 +714,8 @@ EXACT TEXT TO RENDER (character-by-character):
 Total Vietnamese diacritical marks in this text: ${diacriticCount}
 Your rendered text MUST contain exactly ${diacriticCount} accent marks.
 
+${charBreakdown}
+
 ### CRITICAL DIACRITIC RULES:
 - ă ≠ a (ă has breve accent — NEVER render as plain "a")
 - â ≠ a (â has circumflex — NEVER render as plain "a")  
@@ -605,14 +727,16 @@ Your rendered text MUST contain exactly ${diacriticCount} accent marks.
 - Tone marks (sắc ́, huyền ̀, hỏi ̉, ngã ̃, nặng ̣) MUST be preserved exactly
 
 ### FONT REQUIREMENT:
-- Use a font that supports FULL Vietnamese Unicode (e.g., Roboto, Noto Sans, Be Vietnam Pro, Montserrat)
+- Use a font that supports FULL Vietnamese Unicode (Be Vietnam Pro, Noto Sans Vietnamese, Inter, Montserrat)
 - NEVER use decorative/display fonts that lack Vietnamese diacritics
-- If unsure about font support, use Noto Sans — it has 100% Vietnamese coverage
+- If unsure about font support, use Be Vietnam Pro — it has 100% Vietnamese coverage AND modern design
 
-### VERIFICATION:
-- Count accent marks in your rendered text — must equal ${diacriticCount}
-- If you CANNOT render the text accurately, leave the text area BLANK rather than rendering incorrect characters
-- NEVER rephrase, shorten, or modify the text in any way`,
+### VERIFICATION (do this before finalizing):
+1. Count accent marks in your rendered text — must equal ${diacriticCount}
+2. Compare each accented character to the breakdown above
+3. If ANY character is wrong, regenerate the text region — DO NOT submit incorrect Vietnamese
+4. If you CANNOT render accurately, leave the text area BLANK rather than rendering wrong characters
+5. NEVER rephrase, shorten, or modify the text in any way`,
   };
 };
 

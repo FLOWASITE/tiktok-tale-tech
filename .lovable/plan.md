@@ -1,83 +1,92 @@
-## 🐛 Bug đã xác nhận
+# 🎯 Mục tiêu
+Cải thiện độ chính xác và thẩm mỹ của **text render trong ảnh AI** (đặc biệt tiếng Việt có dấu) — vốn là điểm yếu cố hữu của Nano Banana / Imagen / Gemini Image.
 
-**Hiện trạng từ DB (brand Flowa, override `min_length: 1000, max_length: 2000` từ):**
-| ID bài | Setting yêu cầu | Thực tế | Thiếu |
+# 🔍 Hiện trạng (đã verify trong code)
+File `supabase/functions/_shared/image-prompt-builders.ts` đã có:
+- ✅ `buildVietnameseTextAccuracy` — đếm dấu, liệt kê rule ă/â/ơ/ô/ư/ê/đ, yêu cầu font Noto Sans/Be Vietnam Pro
+- ✅ `buildTextLayout` — position + typography style guide
+- ✅ Sandwich reinforcement (priority 95, suffix)
+
+**Điểm yếu còn lại** (nguyên nhân text vẫn sai/xấu):
+1. Không giới hạn độ dài → text > 60 ký tự bị AI **rút gọn hoặc bịa**
+2. Không có **character-by-character breakdown** → AI dễ skip dấu trong từ dài
+3. Không tính **safe-zone theo aspect ratio** → text bị crop ở 9:16 / 1:1
+4. Không có **post-render verification** (OCR check) → ảnh sai vẫn được trả về user
+5. Không có **fallback layer**: khi text quá phức tạp, nên overlay text bằng Canvas thay vì để AI render
+
+---
+
+# 🛠️ 5 cải tiến đề xuất (priority cao → thấp)
+
+## 1️⃣ **Text Length Guard + Auto-Split** (CAO)
+**File:** `supabase/functions/_shared/image-prompt-builders.ts` (sửa `buildVietnameseTextAccuracy` + `buildTextInImageContent`)
+
+- Đếm ký tự `textToInclude`. Nếu > 60 ký tự (tiếng Việt) hoặc > 80 (tiếng Anh):
+  - Cảnh báo trong prompt: `"⚠️ TEXT IS LONG (${len} chars). Render in 2-3 lines, max 6 words/line."`
+  - Đề xuất line break tại dấu phẩy/khoảng trắng gần nhất
+- Nếu > 120 ký tự: **reject sớm** trong `generate-brand-image`, trả error `TEXT_TOO_LONG` → UI hiện toast gợi rút gọn
+
+## 2️⃣ **Character-by-Character Breakdown cho text VN** (CAO)
+**File:** cùng builder trên
+
+Thêm vào prompt khi diacriticCount > 0:
+```
+SPELLING BREAKDOWN (render exactly these characters in order):
+"Chăm sóc da" → C-h-ă-m | s-ó-c | d-a
+- Position 3: "ă" (a + breve ̆) — NOT "a"
+- Position 7: "ó" (o + acute ́) — NOT "o"
+```
+Nano Banana Pro xử lý tốt hơn rõ rệt khi nhìn thấy từng ký tự tách rời (đã test trong cộng đồng Imagen/Gemini).
+
+## 3️⃣ **Safe-Zone Aware Positioning** (TRUNG)
+**File:** `image-prompt-builders.ts` → mở rộng `positionGuide`
+
+Thay vì chỉ "top/bottom/center", inject **tỉ lệ % an toàn theo aspect ratio**:
+- 9:16 (TikTok/Reels): text trong vùng 10%-75% chiều cao (tránh UI overlay top + caption bottom)
+- 1:1 (Instagram): margin 8% mỗi cạnh
+- 16:9 (YouTube/Facebook): tránh 20% bottom (subtitle zone)
+
+Thêm explicit: `"Keep text within ${safeZone.top}%-${safeZone.bottom}% vertical, ${safeZone.left}%-${safeZone.right}% horizontal"`.
+
+## 4️⃣ **Post-Render OCR Verification** (TRUNG — optional toggle)
+**File mới:** `supabase/functions/_shared/text-in-image-verifier.ts`
+**Sửa:** `supabase/functions/generate-brand-image/index.ts`
+
+Sau khi GeminiGen trả ảnh:
+1. Gọi Gemini 2.5 Flash với prompt: `"Đọc chính xác text trong ảnh này (giữ nguyên dấu tiếng Việt). Chỉ trả text, không giải thích."`
+2. So sánh fuzzy (Levenshtein) với `textToInclude`
+3. Nếu similarity < 85% → **retry tự động 1 lần** với prompt được tăng cường (thêm "PREVIOUS ATTEMPT FAILED — text was rendered as: [X]. CORRECT IT to: [Y]")
+4. Log vào `ai_metrics`: `text_accuracy_score`
+
+Chi phí: ~$0.0001/check (Flash). Có toggle `ENABLE_TEXT_OCR_VERIFY` trong workspace settings.
+
+## 5️⃣ **Canvas Overlay Fallback Layer** (THẤP — phức tạp nhất, value cao nhất)
+**File:** `supabase/functions/_shared/branded-image-composer.ts` (đã tồn tại — mở rộng)
+
+Cho phép user chọn mode `text_overlay = 'ai' | 'canvas' | 'auto'`:
+- **ai**: như hiện tại (Nano Banana render)
+- **canvas**: AI tạo ảnh nền sạch (không text), sau đó dùng `Deno Canvas API` overlay text bằng font Noto Sans Bevn → **100% chính xác chữ**
+- **auto** (default): nếu text > 40 ký tự HOẶC chứa nhiều dấu (>15) → tự động dùng canvas mode
+
+UI bổ sung 1 dropdown trong `ImageAdvancedOptions.tsx`.
+
+---
+
+# 📊 Phạm vi triển khai
+
+| Cải tiến | Files thay đổi | Effort | Impact |
 |---|---|---|---|
-| `05c2f755...` (08:30 hôm nay) | 1000–2000 từ | **660 từ** | -340 |
-| `e86e9305...` (05:39) | 1000–2000 từ | **456 từ** | -544 |
+| 1. Length guard | 2 files | 15 phút | ⭐⭐⭐⭐ |
+| 2. Char breakdown | 1 file | 10 phút | ⭐⭐⭐⭐⭐ |
+| 3. Safe-zone | 1 file + data table | 20 phút | ⭐⭐⭐ |
+| 4. OCR verify | 2 files mới + 1 sửa | 45 phút | ⭐⭐⭐⭐ |
+| 5. Canvas overlay | 3 files + UI | 90 phút | ⭐⭐⭐⭐⭐ |
 
-→ AI generate ngắn hơn `min_length` ~30-50%.
+# ✅ Khuyến nghị
+**Làm ngay #1 + #2 + #3** (45 phút, tác động lớn, không rủi ro). 
+**#4 và #5** làm sau, có toggle để bật dần — đặc biệt #5 sẽ giải quyết triệt để vấn đề text VN sai dấu.
 
-## 🔍 Root cause
-
-Tại `generate-multichannel/index.ts` **line 4293 và 4571**, hàm `calculateChannelMaxTokens(channel, options)` được gọi mà **KHÔNG truyền `channelMaxLength` + `lengthUnit`** từ override của brand:
-
-```ts
-const dynamicTokens = calculateChannelMaxTokens(channel, {
-  contentGoal,
-  qualityMode,
-  // ❌ THIẾU: channelMaxLength, lengthUnit
-});
-```
-
-Hệ quả:
-- Hàm này (xem `_shared/dynamic-tokens.ts` line 105-118) khi không có `channelMaxLength` sẽ rơi xuống branch dùng `config.maxTokens` mặc định × multipliers — không liên quan tới brand setting.
-- Với website, `bufferMultiplier=1.3`, multiplier goal/quality ~1.0 → output token cap ~8000, đủ chỗ. Nhưng AI **không biết "phải dùng tối thiểu bao nhiêu token"** → tự ngắn để an toàn.
-- Prompt instruction (line 1116-1126) có ghi "BẮT BUỘC tối thiểu 1000 chữ" nhưng vì `min_length=1000 < 200` của fallback condition? Không — 1000 ≥ 200 nên rơi vào branch line 1116-1120 (mạnh nhất). Tức prompt OK rồi.
-
-→ **Vấn đề thực sự**: AI (qwen-plus) không tuân thủ chính xác min_length cho long-form. Cần **3 fix kết hợp**:
-
-## 🔧 Plan fix
-
-### 1. Pass `channelMaxLength` + `lengthUnit` vào `calculateChannelMaxTokens`
-
-Cả 2 chỗ (line 4293 path streaming, line 4571 path agent parallel) — đọc `mergeChannelSettings(channel, channelOverrides)` trước để có `min_length/max_length/length_unit`, rồi truyền vào:
-
-```ts
-const channelSettings = mergeChannelSettings(channel, channelOverrides);
-const dynamicTokens = calculateChannelMaxTokens(channel, {
-  contentGoal,
-  qualityMode,
-  channelMaxLength: channelSettings.max_length,  // ← MỚI
-  lengthUnit: channelSettings.length_unit,        // ← MỚI
-});
-```
-
-→ Token budget sẽ scale đúng theo brand override (vd Flowa max=2000 từ → ~3900 token + buffer ~5070 token).
-
-### 2. Tăng cường enforcement trong system prompt cho long-form (≥500 từ)
-
-Tại `buildChannelRulesPrompt` (line 1104), thêm branch riêng cho **long-form** (min_length ≥ 500):
-
-```ts
-if (settings.min_length && settings.min_length >= 500) {
-  parts.push(`- Độ dài: 🚨 **LONG-FORM BẮT BUỘC ${settings.min_length}-${settings.max_length} ${lengthLabel}**`);
-  parts.push(`  📊 Phân bổ: Hook 50-80 từ + Thân bài ${Math.round(settings.min_length*0.7)}-${Math.round(settings.max_length*0.75)} từ (chia 4-6 sections H2) + Kết+CTA 50-100 từ`);
-  parts.push(`  ✅ KHI VIẾT XONG → ĐẾM TỪ. Nếu < ${settings.min_length} → MỞ RỘNG section yếu nhất bằng case study, số liệu, ví dụ cụ thể`);
-  parts.push(`  ❌ DƯỚI ${settings.min_length} ${lengthLabel} = AUTO REJECT, phải retry`);
-}
-```
-
-### 3. Post-generation length validation + auto-extend (optional, an toàn)
-
-Sau khi nhận content từ AI, nếu `wordCount < min_length × 0.85` (tức thiếu hơn 15%) → trigger 1 lần "extend pass" với prompt `"Bài hiện tại {X} từ, cần thêm {Y} từ. Mở rộng section yếu nhất với ví dụ/case study, KHÔNG đổi cấu trúc/SEO/CTA"`. Tái dùng cùng model + ai-provider.
-
-→ Đảm bảo SLA về độ dài ngay cả khi model "lười".
-
-## 📁 Files thay đổi
-- `supabase/functions/generate-multichannel/index.ts` (3 chỗ: ~line 1116, 4293, 4571 + 1 hàm helper extend ~30 dòng)
-
-## ⚠️ Không làm
-- ❌ Không backfill bài cũ
-- ❌ Không đụng bài lỗi `ec82d405...`
-- ❌ Không thay default settings (vẫn 800-2000 cho website)
-
-## ✅ Kỳ vọng sau fix
-- Bài website mới của Flowa: **1000-2000 từ** ổn định (test: tạo bài topic bất kỳ → check `website_content` ≥ 1000 từ)
-- Bài website của TAF (override 1200-3000): tự động đạt ≥1200 từ
-- Channel khác không ảnh hưởng (cùng helper, brand chưa override → dùng default settings như cũ)
-
-## 🧪 Test plan
-1. Tạo 1 bài multichannel với brand Flowa, channel `website` only
-2. Verify DB: `SELECT length(website_content), array_length(regexp_split_to_array(trim(website_content),'\s+'),1) FROM multi_channel_contents ORDER BY created_at DESC LIMIT 1`
-3. Expected: word_count ≥ 1000
+Bạn muốn tôi triển khai **gói nào** trước?
+- (A) Chỉ #1+#2+#3 — quick win
+- (B) #1+#2+#3+#4 — thêm verification loop
+- (C) Toàn bộ #1→#5 — full overhaul (gồm canvas fallback)
