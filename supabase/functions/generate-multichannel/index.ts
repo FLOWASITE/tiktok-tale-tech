@@ -3497,7 +3497,17 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   selected_hooks: formData.selectedHooks || [],
                   global_hook: formData.globalHook || null,
                   // Channel contents
-                  website_content: channelResults.website || null,
+                  website_content: (() => {
+                    if (!channels.includes('website')) return null;
+                    const websiteText = channelResults.website || null;
+                    if (!websiteText) {
+                      console.warn('[generate-multichannel] ⚠️ website channel selected but channelResults.website is empty - will save NULL');
+                    }
+                    return websiteText;
+                  })(),
+                  website_seo_data: (channels.includes('website') && channelResults.website)
+                    ? { content: channelResults.website }
+                    : null,
                   facebook_content: channelResults.facebook || null,
                   instagram_content: channelResults.instagram || null,
                   twitter_content: channelResults.twitter || null,
