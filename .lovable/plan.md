@@ -1,52 +1,63 @@
 ## 🎯 Mục tiêu
-UPSERT 3 bản dịch (vi/en/th) vào `industry_pack_translations` cho pack `marketing_advertising` (id `8eabae8b-b777-4bc9-a84c-24fd2a68c56d`), khớp Global Pack v3.0 vừa seed.
+UPDATE row `industry_jurisdiction_profiles` (id `a3913611-ef9c-404d-a0b9-af3ce0584a23`, pack `8eabae8b...`, jurisdiction `VN`) — overwrite `resolved_rules` + `disclaimer` bằng **Phần 2 Deep Research Edition** (April 2026).
 
-## 📊 Verify hiện trạng
-- Bảng có 10 cột: `id, global_pack_id, language_code, name, short_name, preferred_terms (text[]), forbidden_terms (text[]), glossary (jsonb), created_at, updated_at`
-- Hiện chỉ có 1 row `vi` cũ với `preferred_terms` & `forbidden_terms` NULL → sẽ overwrite
+## 📊 So sánh hiện trạng vs payload mới
 
-## 🗺️ Mapping JSON → Schema
-
-| Field JSON | Cột DB | Ghi chú |
+| Field trong `resolved_rules` | Hiện tại | Sau update |
 |---|---|---|
-| `language_code` | `language_code` | vi / en / th |
-| `name` | `name` | NOT NULL |
-| `short_name` | `short_name` | th không có → derive `การตลาด` |
-| `preferred_terms` | `preferred_terms` (text[]) | array literal |
-| `forbidden_terms` | `forbidden_terms` (text[]) | array literal |
-| `category_description` | `glossary->>'category_description'` | **nhúng JSONB — schema không có cột riêng** |
-| `industry_keywords_seo` | `glossary->'industry_keywords_seo'` | **nhúng JSONB** |
+| `compliance_rules` | ~13 rules generic | **25 rules** với `effective_date`, `source`, `penalty`, `key_changes` |
+| `key_regulations` | có | **11 regulations** với `key_articles`, `source_url`, `precedents` (Falm Asia 38tr, Hà Tĩnh 105tr) |
+| `industry_trends` | có | **20 trends_2026** (AI Agent, GEO, Cookieless, MMM, Social Commerce 70%, KOL compliance...) |
+| `claim_restrictions` | có | **12 claims** với `examples_correct` |
+| `terminology` | có | + `vietnamese_marketing_concepts` |
+| `brand_voice` | có | + `cultural_notes` (9 điểm văn hóa B2B VN) |
+| `market_size_2026` | ❌ | ✅ MỚI (85.6tr internet users, 13.8B USD e-commerce) |
+| `vietnamese_marketing_ecosystem` | ❌ | ✅ MỚI (tier-1 agencies, local leaders, MarTech, KOL platforms, associations) |
+| `common_use_cases_vn` | ❌ | ✅ MỚI (10 use cases với compliance_notes) |
 
-## 📝 Các bước
+Payload size: 15.6KB → ~50KB (ước tính)
 
-### Bước 1 — UPSERT 3 rows (insert tool)
-1 SQL `INSERT … ON CONFLICT (global_pack_id, language_code) DO UPDATE`:
-- **vi**: 36 preferred_terms, 26 forbidden_terms, glossary = `{category_description, industry_keywords_seo: [13 keywords]}`
-- **en**: 32 preferred_terms, 17 forbidden_terms, glossary = `{category_description, industry_keywords_seo: [11 keywords]}`
-- **th**: 11 preferred_terms, 8 forbidden_terms, glossary = `{}` (input không có 2 trường này)
+## 🛠 Bước thực hiện (dùng insert tool — KHÔNG migration)
 
-ON CONFLICT refresh: name, short_name, preferred_terms, forbidden_terms, glossary, updated_at.
+### Bước 1 — Sanitize JSON từ user input
+1. Sửa 2 chỗ thiếu `}` (sau rule `cross_border_advertising` và `data_privacy`)
+2. Bỏ entry `common_use_cases_vn` cuối bị truncate (`{` rỗng)
+3. Tách `disclaimer` dài (cuối JSON) ra làm cột `disclaimer` cấp profile
 
-### Bước 2 — Verify
+### Bước 2 — UPDATE
 ```sql
-SELECT language_code, name, short_name,
-       array_length(preferred_terms,1) AS pref_count,
-       array_length(forbidden_terms,1) AS forb_count,
-       glossary ? 'category_description' AS has_desc,
-       glossary ? 'industry_keywords_seo' AS has_seo
-FROM industry_pack_translations
-WHERE global_pack_id = '8eabae8b-b777-4bc9-a84c-24fd2a68c56d'
-ORDER BY language_code;
+UPDATE industry_jurisdiction_profiles
+SET resolved_rules = $1::jsonb,        -- payload Phần 2 đầy đủ
+    disclaimer     = $2,                -- bản dài cuối JSON
+    last_verified_date = '2026-04-17',  -- theo last_updated trong payload
+    validity_status = 'current',
+    updated_at = now()
+WHERE id = 'a3913611-ef9c-404d-a0b9-af3ce0584a23';
 ```
-Expect: en (32/17/true/true), th (11/8/false/false), vi (36/26/true/true).
 
-## ⚠️ Lưu ý
-- **Không tạo migration** — data update, dùng insert tool theo rule `<updating-tables>`
-- **Không có trigger** invalidate AI cache trên bảng này — translations chỉ phục vụ UI/SEO, không tham gia compliance hash
-- **Quy ước nhúng `category_description` + `industry_keywords_seo` vào `glossary` JSONB** vì schema không có cột riêng. Nếu cần expose như cột text/text[] riêng cho edge function, sẽ cần migration thêm cột sau — flag trước để tránh hiểu ngầm
-- Row `vi` hiện tại glossary NULL → không xung đột
+### Bước 3 — Verify
+```sql
+SELECT 
+  jsonb_array_length(resolved_rules->'compliance_rules')   AS compliance_count,   -- expect 25
+  jsonb_array_length(resolved_rules->'key_regulations')    AS regulations_count,  -- expect 11
+  jsonb_array_length(resolved_rules->'industry_trends_2026') AS trends_count,     -- expect 20
+  jsonb_array_length(resolved_rules->'claim_restrictions') AS claims_count,       -- expect 12
+  jsonb_array_length(resolved_rules->'common_use_cases_vn') AS use_cases_count,   -- expect 10
+  resolved_rules ? 'market_size_2026' AS has_market_size,
+  resolved_rules ? 'vietnamese_marketing_ecosystem' AS has_ecosystem,
+  LENGTH(disclaimer) AS disclaimer_len,                    -- expect ~700+
+  LENGTH(resolved_rules::text) AS payload_size
+FROM industry_jurisdiction_profiles
+WHERE id = 'a3913611-ef9c-404d-a0b9-af3ce0584a23';
+```
 
-## ✅ Kết quả mong đợi
-- 3 rows translations active cho pack v3.0
-- Sẵn sàng cho UI brand picker đa locale + SEO landing pages
-- Edge functions đọc qua `industry_pack_translations` thấy đủ vi/en/th
+## ⚠️ Side effects (được hệ thống tự xử lý)
+- **`auto_bump_industry_version_on_rules_change`** trigger trên `industry_global_packs` — KHÔNG fire vì ta chỉ update `industry_jurisdiction_profiles` (pack v3.0 giữ nguyên).
+- **AI cache invalidation**: Cache key dùng `complianceHash` (xem mem `compliance-hash-defense-vn`) — vì `resolved_rules` thay đổi đáng kể, hash sẽ khác → cache cũ tự miss/regenerate ở lần gọi tiếp theo. Không cần manual purge.
+- **`notify_industry_upgrade`** trigger chỉ fire trên `industry_template_translations` (legacy) — không ảnh hưởng.
+
+## ❓ Confirm trước khi approve
+1. **Field `industry_trends`** hiện tại có sẽ bị **đè bằng `industry_trends_2026`** (key name khác). Edge functions / UI nếu đọc key cũ `industry_trends` cần biết. Bạn có muốn tôi giữ cả 2 key (alias) hay chỉ dùng `industry_trends_2026` theo đúng JSON Phần 2?
+2. **Bản `disclaimer` dài cuối JSON** (đặt ngoài `resolved_rules`) → tôi đề xuất ghi vào **cột `disclaimer`** của bảng (700+ ký tự, đè bản 250 ký tự hiện tại). OK không?
+
+Nếu OK với cả 2 → approve plan này, tôi sẽ thực thi UPDATE.
