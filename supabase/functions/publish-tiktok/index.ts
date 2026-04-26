@@ -596,13 +596,43 @@ Deno.serve(withPerf({ functionName: "publish-tiktok" }, async (req) => {
       throw new Error("Invalid platform for this endpoint");
     }
 
-    // Check token expiry
-    if (connection.token_expires_at) {
-      const expiresAt = new Date(connection.token_expires_at);
-      if (expiresAt < new Date()) {
-        throw new Error(
-          "TikTok token has expired. Please reconnect your account.",
+    // Check token expiry — auto-refresh if expired/near-expiry
+    const needsRefresh = connection.token_expires_at
+      ? new Date(connection.token_expires_at).getTime() - Date.now() < 5 * 60 * 1000 // < 5 min left
+      : false;
+
+    if (needsRefresh) {
+      console.log("[tiktok] Token expired/near-expiry, attempting refresh...");
+      try {
+        const { data: refreshResult, error: refreshError } = await supabase.functions.invoke(
+          "refresh-tiktok-token",
+          { body: { connectionId } },
         );
+        if (refreshError || !refreshResult?.success) {
+          // Mark needs_reauth so UI shows reconnect banner
+          await supabase
+            .from("social_connections")
+            .update({
+              is_active: false,
+              metadata: { ...(connection.metadata || {}), needs_reauth: true, reauth_reason: "token_expired" },
+            })
+            .eq("id", connectionId);
+          throw new Error("TikTok token has expired. Please reconnect your account.");
+        }
+        // Reload connection with fresh token
+        const { data: refreshed } = await supabase
+          .from("social_connections")
+          .select("access_token, token_expires_at, metadata")
+          .eq("id", connectionId)
+          .single();
+        if (refreshed) {
+          connection.access_token = refreshed.access_token;
+          connection.token_expires_at = refreshed.token_expires_at;
+        }
+        console.log("[tiktok] Token refreshed successfully");
+      } catch (e) {
+        console.error("[tiktok] Refresh failed:", e);
+        throw new Error("TikTok token has expired. Please reconnect your account.");
       }
     }
 
