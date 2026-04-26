@@ -640,19 +640,67 @@ function countVietnameseDiacritics(text: string): number {
   return (text.match(diacriticChars) || []).length;
 }
 
+/** Map a single VN char to a description of its diacritic for the model */
+function describeDiacritic(ch: string): string | null {
+  const lower = ch.toLowerCase();
+  // Special letters
+  const specialMap: Record<string, string> = {
+    'ă': 'a + breve ̆', 'â': 'a + circumflex ̂',
+    'ê': 'e + circumflex ̂',
+    'ô': 'o + circumflex ̂', 'ơ': 'o + horn ̛',
+    'ư': 'u + horn ̛',
+    'đ': 'd with stroke',
+  };
+  if (specialMap[lower]) return specialMap[lower];
+  // Tone marks on plain vowels
+  const toneMap: Record<string, string> = {
+    'à': 'a + grave ̀', 'á': 'a + acute ́', 'ả': 'a + hook ̉', 'ã': 'a + tilde ̃', 'ạ': 'a + dot ̣',
+    'è': 'e + grave', 'é': 'e + acute', 'ẻ': 'e + hook', 'ẽ': 'e + tilde', 'ẹ': 'e + dot',
+    'ì': 'i + grave', 'í': 'i + acute', 'ỉ': 'i + hook', 'ĩ': 'i + tilde', 'ị': 'i + dot',
+    'ò': 'o + grave', 'ó': 'o + acute', 'ỏ': 'o + hook', 'õ': 'o + tilde', 'ọ': 'o + dot',
+    'ù': 'u + grave', 'ú': 'u + acute', 'ủ': 'u + hook', 'ũ': 'u + tilde', 'ụ': 'u + dot',
+    'ỳ': 'y + grave', 'ý': 'y + acute', 'ỷ': 'y + hook', 'ỹ': 'y + tilde', 'ỵ': 'y + dot',
+    // Tone on ă/â/ê/ô/ơ/ư
+    'ằ': 'ă + grave', 'ắ': 'ă + acute', 'ẳ': 'ă + hook', 'ẵ': 'ă + tilde', 'ặ': 'ă + dot',
+    'ầ': 'â + grave', 'ấ': 'â + acute', 'ẩ': 'â + hook', 'ẫ': 'â + tilde', 'ậ': 'â + dot',
+    'ề': 'ê + grave', 'ế': 'ê + acute', 'ể': 'ê + hook', 'ễ': 'ê + tilde', 'ệ': 'ê + dot',
+    'ồ': 'ô + grave', 'ố': 'ô + acute', 'ổ': 'ô + hook', 'ỗ': 'ô + tilde', 'ộ': 'ô + dot',
+    'ờ': 'ơ + grave', 'ớ': 'ơ + acute', 'ở': 'ơ + hook', 'ỡ': 'ơ + tilde', 'ợ': 'ơ + dot',
+    'ừ': 'ư + grave', 'ứ': 'ư + acute', 'ử': 'ư + hook', 'ữ': 'ư + tilde', 'ự': 'ư + dot',
+  };
+  return toneMap[lower] ?? null;
+}
+
+/** Build a per-character breakdown of accented chars (max 12 to keep prompt focused) */
+function buildCharBreakdown(text: string): string {
+  const callouts: string[] = [];
+  for (let i = 0; i < text.length && callouts.length < 12; i++) {
+    const ch = text[i];
+    const desc = describeDiacritic(ch);
+    if (desc) {
+      callouts.push(`  • Position ${i + 1}: "${ch}" = ${desc} — NOT plain "${ch.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/đ/gi, 'd')}"`);
+    }
+  }
+  // Word-by-word spelling
+  const words = text.split(/\s+/).filter(Boolean);
+  const spelling = words.map(w => w.split('').join('-')).join(' | ');
+  return `### CHARACTER-BY-CHARACTER BREAKDOWN (render exactly these glyphs):
+Spelling: ${spelling}
+
+Accent callouts (first ${callouts.length} accented characters):
+${callouts.join('\n')}`;
+}
+
 export const buildVietnameseTextAccuracy: PromptBuilder = (ctx) => {
   const { isWithText, params } = ctx;
   if (!isWithText || !params.textToInclude) return null;
 
   const text = params.textToInclude;
   const diacriticCount = countVietnameseDiacritics(text);
-  
-  // Also check structured elements for Vietnamese text
-  const structuredTexts: string[] = [];
-  // Note: structuredElements is not in ImagePromptParams but passed via generate-brand-image
-  // This builder focuses on textToInclude which IS in params
 
   if (diacriticCount === 0) return null; // No Vietnamese text, skip
+
+  const charBreakdown = buildCharBreakdown(text);
 
   return {
     id: 'vietnamese_text_accuracy',
@@ -666,6 +714,8 @@ EXACT TEXT TO RENDER (character-by-character):
 Total Vietnamese diacritical marks in this text: ${diacriticCount}
 Your rendered text MUST contain exactly ${diacriticCount} accent marks.
 
+${charBreakdown}
+
 ### CRITICAL DIACRITIC RULES:
 - ă ≠ a (ă has breve accent — NEVER render as plain "a")
 - â ≠ a (â has circumflex — NEVER render as plain "a")  
@@ -677,14 +727,16 @@ Your rendered text MUST contain exactly ${diacriticCount} accent marks.
 - Tone marks (sắc ́, huyền ̀, hỏi ̉, ngã ̃, nặng ̣) MUST be preserved exactly
 
 ### FONT REQUIREMENT:
-- Use a font that supports FULL Vietnamese Unicode (e.g., Roboto, Noto Sans, Be Vietnam Pro, Montserrat)
+- Use a font that supports FULL Vietnamese Unicode (Be Vietnam Pro, Noto Sans Vietnamese, Inter, Montserrat)
 - NEVER use decorative/display fonts that lack Vietnamese diacritics
-- If unsure about font support, use Noto Sans — it has 100% Vietnamese coverage
+- If unsure about font support, use Be Vietnam Pro — it has 100% Vietnamese coverage AND modern design
 
-### VERIFICATION:
-- Count accent marks in your rendered text — must equal ${diacriticCount}
-- If you CANNOT render the text accurately, leave the text area BLANK rather than rendering incorrect characters
-- NEVER rephrase, shorten, or modify the text in any way`,
+### VERIFICATION (do this before finalizing):
+1. Count accent marks in your rendered text — must equal ${diacriticCount}
+2. Compare each accented character to the breakdown above
+3. If ANY character is wrong, regenerate the text region — DO NOT submit incorrect Vietnamese
+4. If you CANNOT render accurately, leave the text area BLANK rather than rendering wrong characters
+5. NEVER rephrase, shorten, or modify the text in any way`,
   };
 };
 
