@@ -235,7 +235,18 @@ export function useAutoImageGeneration() {
       footerOverlay,
       fallbackStrategy = 'full',
     } = options;
-    
+
+    // ⚠️ Hard guard: includeLogo=true nhưng logoUrl rỗng → cảnh báo rõ ràng thay vì skip âm thầm
+    if (includeLogo && !logoUrl) {
+      console.error(`[Pipeline:${channel}] ⚠ includeLogo=true nhưng logoUrl rỗng`, {
+        includeLogo, logoUrl, brandTemplateId, contentId,
+      });
+      toast.warning('Đã bật "Thêm logo" nhưng brand chưa có logo', {
+        description: 'Vui lòng upload logo trong trang Brand, hoặc tắt tuỳ chọn này.',
+        duration: 7000,
+      });
+    }
+
     // Resolve 'auto' logo position to channel-specific optimal position
     const resolvedLogoPosition = logoPosition === 'auto' ? autoSelectLogoPosition(channel, aspectRatio) : (logoPosition || 'bottom-right');
     
@@ -519,12 +530,17 @@ export function useAutoImageGeneration() {
             });
           }
         } else {
-          console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
+          const skipReason = !includeLogo
+            ? 'includeLogo=false (user tắt)'
+            : !logoUrl
+              ? 'logoUrl rỗng (brand chưa upload logo)'
+              : 'unknown';
+          console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — ${skipReason}`, { includeLogo, logoUrl });
           debugSteps.push({
             id: 'step2',
             label: 'STEP 2 — Logo overlay',
             status: 'skipped',
-            summary: 'Bỏ qua vì không có logo cấu hình',
+            summary: `Bỏ qua: ${skipReason}`,
           });
         }
 
