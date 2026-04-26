@@ -138,7 +138,8 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     },
     staleTime: 5 * 60 * 1000, // Cache 5 minutes in React Query
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     enabled: !!user && !authLoading, // Only run query when user is authenticated AND auth is finished loading
   });
 
