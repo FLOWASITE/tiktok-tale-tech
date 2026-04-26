@@ -1,63 +1,52 @@
 ## 🎯 Mục tiêu
-Cập nhật Industry Global Pack `marketing_advertising` từ v1.0 → **v3.0 (Deep Research Edition)** và tạo `industry_jurisdiction_profiles` cho **VN** với resolved_rules sẵn sàng cho compliance-precheck/generate-* edge functions.
+UPSERT 3 bản dịch (vi/en/th) vào `industry_pack_translations` cho pack `marketing_advertising` (id `8eabae8b-b777-4bc9-a84c-24fd2a68c56d`), khớp Global Pack v3.0 vừa seed.
 
-## 📊 Trạng thái hiện tại (đã verify)
-- DB đã có pack `marketing_advertising` (id `8eabae8b-b777-4bc9-a84c-24fd2a68c56d`, v1.0, active)
-- Schema `industry_global_packs` khớp 100% với data v3.0 (đủ cột: `global_brand_voice`, `global_terminology`, `global_compliance_rules`, `global_claim_restrictions`, `global_argument_patterns`, `global_system_rules`, `risk_guidelines`, `related_industries`, `version`)
-- Các trường mở rộng trong JSON v3.0 (`industry_definition`, `tone_must_avoid`, `voice_dos/donts`, `technical_glossary`, `auto_block_conditions`, `industry_subsectors`) **không có cột riêng** → sẽ nhúng vào các JSONB phù hợp (xem mapping bên dưới)
+## 📊 Verify hiện trạng
+- Bảng có 10 cột: `id, global_pack_id, language_code, name, short_name, preferred_terms (text[]), forbidden_terms (text[]), glossary (jsonb), created_at, updated_at`
+- Hiện chỉ có 1 row `vi` cũ với `preferred_terms` & `forbidden_terms` NULL → sẽ overwrite
 
-## 🗺️ Mapping JSON v3.0 → Schema DB
+## 🗺️ Mapping JSON → Schema
 
-| Field trong v3.0 | Cột DB đích | Ghi chú |
+| Field JSON | Cột DB | Ghi chú |
 |---|---|---|
-| `target_audience` | `target_audience` | "B2B" |
-| `version` | `version` | "3.0" |
-| `industry_definition` | gộp vào `global_brand_voice.industry_definition` | giữ trong JSONB |
-| `global_brand_voice` (toàn bộ + voice_dos/donts/tone_must_avoid) | `global_brand_voice` | merge full |
-| `global_terminology` (preferred_terms, forbidden_*, technical_glossary) | `global_terminology` | merge full, technical_glossary lưu nested |
-| `global_compliance_rules` | `global_compliance_rules` | array of objects |
-| `global_claim_restrictions` | `global_claim_restrictions` | array of objects |
-| `global_argument_patterns` | `global_argument_patterns` | object |
-| `global_system_rules` | `global_system_rules` | array |
-| `risk_guidelines` (+ `auto_block_conditions`) | `risk_guidelines` | nhúng auto_block_conditions vào cùng object |
-| `related_industries` | `related_industries` | text[] |
-| `industry_subsectors` | nhúng vào `global_brand_voice.industry_subsectors` | giữ trong JSONB |
+| `language_code` | `language_code` | vi / en / th |
+| `name` | `name` | NOT NULL |
+| `short_name` | `short_name` | th không có → derive `การตลาด` |
+| `preferred_terms` | `preferred_terms` (text[]) | array literal |
+| `forbidden_terms` | `forbidden_terms` (text[]) | array literal |
+| `category_description` | `glossary->>'category_description'` | **nhúng JSONB — schema không có cột riêng** |
+| `industry_keywords_seo` | `glossary->'industry_keywords_seo'` | **nhúng JSONB** |
 
-## 📝 Các bước thực hiện
+## 📝 Các bước
 
-### Bước 1 — UPDATE Global Pack v1.0 → v3.0 (insert tool)
-Chạy `UPDATE industry_global_packs SET ... WHERE id = '8eabae8b-...'` thay tất cả cột JSONB + `target_audience='B2B'` + `version='3.0'`.
-- Trigger `auto_bump_industry_version_on_rules_change` sẽ detect rule changes nhưng vì version cũng thay đổi (1.0→3.0) nên giữ nguyên 3.0
-- Trigger `invalidate_cache_on_industry_update` sẽ tự xóa cache cũ
-- Trigger `notify_industry_upgrade` sẽ tạo notifications cho mọi user dùng pack này
+### Bước 1 — UPSERT 3 rows (insert tool)
+1 SQL `INSERT … ON CONFLICT (global_pack_id, language_code) DO UPDATE`:
+- **vi**: 36 preferred_terms, 26 forbidden_terms, glossary = `{category_description, industry_keywords_seo: [13 keywords]}`
+- **en**: 32 preferred_terms, 17 forbidden_terms, glossary = `{category_description, industry_keywords_seo: [11 keywords]}`
+- **th**: 11 preferred_terms, 8 forbidden_terms, glossary = `{}` (input không có 2 trường này)
 
-### Bước 2 — UPSERT Jurisdiction Profile VN (insert tool)
-Insert vào `industry_jurisdiction_profiles`:
-- `global_pack_id` = id pack
-- `jurisdiction_code` = `'VN'`
-- `resolved_rules` = clone toàn bộ rules từ Global Pack + thêm:
-  - `industry_code: 'marketing_advertising'`
-  - `jurisdiction_code: 'VN'`
-  - `names: { vi: 'Marketing & Quảng cáo', en: 'Marketing & Advertising' }`
-  - `key_regulations`: trích từ `global_compliance_rules` các rule có `source` chứa "Vietnam" (Vietnam Ad Law 2025, NĐ 13/2023, Vietnam AI Law 2026, Luật Trẻ em)
-  - `industry_trends`: extract từ industry_definition (AI Marketing Agent, social commerce, creator economy, GEO, search everywhere)
-- `validity_status` = `'current'`
-- `last_verified_date` = today
-- `disclaimer` = "Nội dung tham khảo theo quy định hiện hành tại Việt Nam (Luật Quảng cáo 2025, NĐ 13/2023 về bảo vệ dữ liệu cá nhân). Cam kết kết quả marketing chỉ mang tính tham khảo, không đảm bảo."
+ON CONFLICT refresh: name, short_name, preferred_terms, forbidden_terms, glossary, updated_at.
 
-ON CONFLICT `(global_pack_id, jurisdiction_code)` → UPDATE `resolved_rules`, `validity_status`, `last_verified_date`, `disclaimer`, `updated_at = now()`.
-
-### Bước 3 — Verify
-- `SELECT version, jsonb_array_length(global_compliance_rules), jsonb_array_length(global_claim_restrictions) FROM industry_global_packs WHERE industry_code='marketing_advertising'` → expect v3.0, 13 compliance rules, 12 claim restrictions
-- `SELECT jurisdiction_code, validity_status FROM industry_jurisdiction_profiles WHERE global_pack_id='8eabae8b-...'` → expect VN/current
+### Bước 2 — Verify
+```sql
+SELECT language_code, name, short_name,
+       array_length(preferred_terms,1) AS pref_count,
+       array_length(forbidden_terms,1) AS forb_count,
+       glossary ? 'category_description' AS has_desc,
+       glossary ? 'industry_keywords_seo' AS has_seo
+FROM industry_pack_translations
+WHERE global_pack_id = '8eabae8b-b777-4bc9-a84c-24fd2a68c56d'
+ORDER BY language_code;
+```
+Expect: en (32/17/true/true), th (11/8/false/false), vi (36/26/true/true).
 
 ## ⚠️ Lưu ý
-- **Không** đụng `industry_pack_translations` (v3.0 không cung cấp dịch tách rời, glossary đã nhúng trong `global_terminology.technical_glossary`)
-- **Không** tạo migration mới (đây là data update, dùng insert tool theo rule `<updating-tables>`)
-- Auto trigger `notify_industry_upgrade` sẽ ping mọi user/org có brand template gắn industry này — **đây là behavior mong muốn** để user biết Industry Memory upgraded
-- Cache AI sẽ tự invalidate qua trigger → lần generate tiếp theo dùng rules v3.0
+- **Không tạo migration** — data update, dùng insert tool theo rule `<updating-tables>`
+- **Không có trigger** invalidate AI cache trên bảng này — translations chỉ phục vụ UI/SEO, không tham gia compliance hash
+- **Quy ước nhúng `category_description` + `industry_keywords_seo` vào `glossary` JSONB** vì schema không có cột riêng. Nếu cần expose như cột text/text[] riêng cho edge function, sẽ cần migration thêm cột sau — flag trước để tránh hiểu ngầm
+- Row `vi` hiện tại glossary NULL → không xung đột
 
 ## ✅ Kết quả mong đợi
-- Pack `marketing_advertising` v3.0 active với đầy đủ 13 compliance rules + 12 claim restrictions + risk scoring weights mới
-- Jurisdiction Profile VN sẵn sàng cho `compliance-precheck-v2.ts` và mọi edge function `generate-*` đọc qua `industry_jurisdiction_profiles.resolved_rules`
-- Notifications tự động gửi đến user dùng industry này
+- 3 rows translations active cho pack v3.0
+- Sẵn sàng cho UI brand picker đa locale + SEO landing pages
+- Edge functions đọc qua `industry_pack_translations` thấy đủ vi/en/th
