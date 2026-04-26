@@ -1111,10 +1111,19 @@ function buildChannelRulesPrompt(
   // Channel name
   parts.push(`### ${channel.toUpperCase()}`);
   
-  // Length - with STRONGER enforcement for high min_length
+  // Length - with STRONGER enforcement, special branch for long-form (≥500 words)
   const lengthLabel = settings.length_unit === 'chars' ? 'ký tự' : 'chữ';
-  if (settings.min_length && settings.min_length >= 200) {
-    // Strong enforcement for high min_length (e.g., Facebook 250+ words)
+  if (settings.min_length && settings.min_length >= 500 && settings.length_unit !== 'chars') {
+    // LONG-FORM enforcement (website, blog, youtube, linkedin với min ≥ 500)
+    const bodyMin = Math.round(settings.min_length * 0.7);
+    const bodyMax = Math.round(settings.max_length * 0.75);
+    parts.push(`- Độ dài: 🚨 **LONG-FORM BẮT BUỘC ${settings.min_length}-${settings.max_length} ${lengthLabel}** (KHÔNG được dưới ${settings.min_length})`);
+    parts.push(`  📊 Phân bổ: Hook 50-80 từ + Thân bài ${bodyMin}-${bodyMax} từ (chia 4-6 sections H2, mỗi section 150-300 từ) + Kết+CTA 50-100 từ`);
+    parts.push(`  ✅ KHI VIẾT XONG → ĐẾM TỪ. Nếu < ${settings.min_length} → MỞ RỘNG section yếu nhất bằng case study, số liệu cụ thể, ví dụ thực tế, so sánh, FAQ`);
+    parts.push(`  ❌ DƯỚI ${settings.min_length} ${lengthLabel} = AUTO REJECT, hệ thống sẽ retry và bài bị đánh dấu lỗi`);
+    parts.push(`  💡 Đây là bài SEO/long-form cho ${channel} → cần chiều sâu, KHÔNG phải caption ngắn`);
+  } else if (settings.min_length && settings.min_length >= 200) {
+    // Medium-form enforcement (facebook 250+, linkedin 300+, email 250+, telegram 200+)
     parts.push(`- Độ dài: 🚨 **BẮT BUỘC TỐI THIỂU ${settings.min_length} ${lengthLabel}** (max: ${settings.max_length})`);
     parts.push(`  ⚠️ NẾU DƯỚI ${settings.min_length} ${lengthLabel} → TỰ ĐỘNG VIẾT THÊM: chi tiết, ví dụ, giải thích, mở rộng từng điểm`);
     parts.push(`  ❌ NỘI DUNG DƯỚI ${settings.min_length} ${lengthLabel} SẼ BỊ REJECT`);
@@ -3502,6 +3511,21 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                     const websiteText = channelResults.website || null;
                     if (!websiteText) {
                       console.warn('[generate-multichannel] ⚠️ website channel selected but channelResults.website is empty - will save NULL');
+                    } else {
+                      // Length compliance check vs brand override
+                      try {
+                        const ws = mergeChannelSettings('website', channelOverrides);
+                        if (ws.min_length && ws.length_unit !== 'chars') {
+                          const wc = String(websiteText).trim().split(/\s+/).filter(Boolean).length;
+                          if (wc < ws.min_length) {
+                            console.warn(`[generate-multichannel][length-shortfall] website: ${wc} từ < min ${ws.min_length} (max ${ws.max_length}). Brand override may not be enforced by AI.`);
+                          } else {
+                            console.log(`[generate-multichannel][length-ok] website: ${wc} từ (range ${ws.min_length}-${ws.max_length})`);
+                          }
+                        }
+                      } catch (e) {
+                        console.warn('[generate-multichannel] length-check failed:', e instanceof Error ? e.message : String(e));
+                      }
                     }
                     return websiteText;
                   })(),
@@ -4290,12 +4314,16 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         // Use channel-specific config if available, otherwise dynamic tokens as fallback
         const model = channelConfig?.model || aiConfig.model;
         const temperature = channelConfig?.temperature ?? aiConfig.temperature;
+        // Pass brand-merged channel settings so token budget scales with min/max_length override
+        const chSettings = mergeChannelSettings(channel, channelOverrides);
         const dynamicTokens = calculateChannelMaxTokens(channel, {
           contentGoal: contentGoal,
           qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+          channelMaxLength: chSettings.max_length,
+          lengthUnit: chSettings.length_unit === 'chars' ? 'chars' : 'words',
         });
         const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
-        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
+        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${chSettings.max_length} ${chSettings.length_unit})`);
         channelModelMap.set(channel, { model, temperature, maxTokens });
       }
       
@@ -4568,16 +4596,20 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             const channelConfig = channelModelConfigs.get(channel);
             const model = channelConfig?.model || formData.model_override || aiConfig.model;
             const temp = channelConfig?.temperature ?? aiConfig.temperature;
+            // Pass brand-merged channel settings so token budget scales with min/max_length override
+            const channelSettingsEarly = mergeChannelSettings(channel, channelOverrides);
             const dynamicTokens = calculateChannelMaxTokens(channel, {
               contentGoal: contentGoal,
               qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+              channelMaxLength: channelSettingsEarly.max_length,
+              lengthUnit: channelSettingsEarly.length_unit === 'chars' ? 'chars' : 'words',
             });
             const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
-            console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
+            console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${channelSettingsEarly.max_length} ${channelSettingsEarly.length_unit})`);
             
             // Use channelSettings from DB (same as Manual Mode) instead of hardcoded descriptions
             const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
-            const channelSettings = mergeChannelSettings(channel, channelOverrides);
+            const channelSettings = channelSettingsEarly;
             const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings, brandAllowEmoji);
             const lengthLabel = channelSettings.length_unit === 'chars' ? 'ký tự' : 'chữ';
             const lengthDesc = channelSettings.min_length 
