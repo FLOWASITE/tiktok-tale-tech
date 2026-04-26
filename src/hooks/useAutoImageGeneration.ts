@@ -530,12 +530,17 @@ export function useAutoImageGeneration() {
             });
           }
         } else {
-          console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
+          const skipReason = !includeLogo
+            ? 'includeLogo=false (user tắt)'
+            : !logoUrl
+              ? 'logoUrl rỗng (brand chưa upload logo)'
+              : 'unknown';
+          console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — ${skipReason}`, { includeLogo, logoUrl });
           debugSteps.push({
             id: 'step2',
             label: 'STEP 2 — Logo overlay',
             status: 'skipped',
-            summary: 'Bỏ qua vì không có logo cấu hình',
+            summary: `Bỏ qua: ${skipReason}`,
           });
         }
 
