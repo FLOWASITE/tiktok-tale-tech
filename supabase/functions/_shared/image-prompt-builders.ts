@@ -542,9 +542,12 @@ export const buildNegativePrompt: PromptBuilder = (ctx) => {
 
   // Default negative prompt for background mode (no text on image)
   const DEFAULT_BG_NEGATIVE = 'text, words, letters, numbers, watermark, logo, UI elements, blurry, low quality, distorted face, extra fingers, deformed hands';
-  
+
+  // Negative prompt for with_text mode — keep specified text, ban EXTRA text
+  const DEFAULT_WITHTEXT_NEGATIVE = 'extra text beyond what is specified, additional words, English decorative words, English badges, English stickers, "NEW", "SALE", "BEST", "PREMIUM", "OFFICIAL", "HOT", taglines, slogans, secondary captions, sale tags, banner overlays with extra text, watermark, foreign language text, mixed language text';
+
   const effectiveNegative = negativePrompt
-    || (imageContentType !== 'with_text' ? DEFAULT_BG_NEGATIVE : null);
+    || (imageContentType === 'with_text' ? DEFAULT_WITHTEXT_NEGATIVE : DEFAULT_BG_NEGATIVE);
 
   if (!effectiveNegative) return null;
 
