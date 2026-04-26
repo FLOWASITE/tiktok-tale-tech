@@ -1293,7 +1293,7 @@ function buildStructuredElement(
           borderRadius: theme.ctaBorderRadius ?? (theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0),
           marginTop: resolvedSectionGap,
           boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 2px 6px ${colors.primary}66`,
-          maxWidth: ratioProfile.ctaMaxWidth,
+          maxWidth: Math.round(ctaFitWidth),
           ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
         },
         children: {
