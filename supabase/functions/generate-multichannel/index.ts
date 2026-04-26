@@ -4581,16 +4581,20 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             const channelConfig = channelModelConfigs.get(channel);
             const model = channelConfig?.model || formData.model_override || aiConfig.model;
             const temp = channelConfig?.temperature ?? aiConfig.temperature;
+            // Pass brand-merged channel settings so token budget scales with min/max_length override
+            const channelSettingsEarly = mergeChannelSettings(channel, channelOverrides);
             const dynamicTokens = calculateChannelMaxTokens(channel, {
               contentGoal: contentGoal,
               qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+              channelMaxLength: channelSettingsEarly.max_length,
+              lengthUnit: channelSettingsEarly.length_unit === 'chars' ? 'chars' : 'words',
             });
             const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
-            console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
+            console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${channelSettingsEarly.max_length} ${channelSettingsEarly.length_unit})`);
             
             // Use channelSettings from DB (same as Manual Mode) instead of hardcoded descriptions
             const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
-            const channelSettings = mergeChannelSettings(channel, channelOverrides);
+            const channelSettings = channelSettingsEarly;
             const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings, brandAllowEmoji);
             const lengthLabel = channelSettings.length_unit === 'chars' ? 'ký tự' : 'chữ';
             const lengthDesc = channelSettings.min_length 
