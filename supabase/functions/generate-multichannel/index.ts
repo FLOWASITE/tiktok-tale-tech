@@ -3151,7 +3151,13 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               emit,
               onChannelComplete: (channel, content) => {
                 completedChannelsSet.add(channel);
-                channelResults[channel] = content;
+                // Unwrap website object → string so downstream consumers (dedup, persona-fit, persistence) get text
+                if (channel === 'website' && content && typeof content === 'object') {
+                  const { text } = extractWebsiteContent(content);
+                  channelResults[channel] = text || '';
+                } else {
+                  channelResults[channel] = content;
+                }
                 
                 const displayName = getChannelDisplayName(channel);
                 const completionProgress = 20 + ((completedChannelsSet.size / channels.length) * 55);
@@ -3269,7 +3275,13 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   for (const channel of channels) {
                     const key = `${channel}_content`;
                     if (critiqueLoop.finalContent[key]) {
-                      channelResults[channel] = critiqueLoop.finalContent[key];
+                      const refined = critiqueLoop.finalContent[key];
+                      if (channel === 'website' && refined && typeof refined === 'object') {
+                        const { text } = extractWebsiteContent(refined);
+                        channelResults[channel] = text || '';
+                      } else {
+                        channelResults[channel] = refined;
+                      }
                     }
                   }
                 }
