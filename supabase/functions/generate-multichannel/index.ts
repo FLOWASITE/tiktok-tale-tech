@@ -4299,12 +4299,16 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         // Use channel-specific config if available, otherwise dynamic tokens as fallback
         const model = channelConfig?.model || aiConfig.model;
         const temperature = channelConfig?.temperature ?? aiConfig.temperature;
+        // Pass brand-merged channel settings so token budget scales with min/max_length override
+        const chSettings = mergeChannelSettings(channel, channelOverrides);
         const dynamicTokens = calculateChannelMaxTokens(channel, {
           contentGoal: contentGoal,
           qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+          channelMaxLength: chSettings.max_length,
+          lengthUnit: chSettings.length_unit === 'chars' ? 'chars' : 'words',
         });
         const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
-        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
+        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${chSettings.max_length} ${chSettings.length_unit})`);
         channelModelMap.set(channel, { model, temperature, maxTokens });
       }
       
