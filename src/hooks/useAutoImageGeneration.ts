@@ -47,6 +47,8 @@ export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' 
 export interface AutoGenerateOptions {
   contentId: string;
   brandTemplateId: string;
+  /** Organization the task belongs to — used for generation_tasks tracking */
+  organizationId?: string;
   channels: Channel[];
   contentSummaries: Record<Channel, string>;
   brandCountryCode?: string;
@@ -312,7 +314,7 @@ export function useAutoImageGeneration() {
           contentId,
           channel,
           brandTemplateId,
-          organizationId: undefined,
+          organizationId: options.organizationId,
           source: 'auto',
         });
 
