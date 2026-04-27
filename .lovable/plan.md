@@ -1,41 +1,67 @@
-## 🐛 Vấn đề
+## 🎯 Vấn đề
+Mockup **Google Maps** đang hardcode thông tin:
+- Địa chỉ: `123 Nguyễn Huệ, Quận 1, TP.HCM`
+- SĐT: `028 1234 5678`
+- Website: `www.{brandname}.com`
+- Rating: `4.6 / 328 đánh giá`
+- Mô tả: `Dịch vụ Marketing`
 
-Ảnh Facebook gần nhất render đúng text tiếng Việt được yêu cầu, nhưng **Nano Banana tự thêm text tiếng Anh decorative** (kiểu "NEW", "SALE", "BEST", taglines, badges...) — gây lệch ngôn ngữ với brand VN.
+→ Không phản ánh đúng brand. Ví dụ Flowa thực tế đã có trong DB:
+- `address`: `304/15 Tân Kỳ Tân Quý, phường Tân Sơn Nhì, Tp. Hồ Chí Minh`
+- `phone`: `0838 226 363`
+- `website`: `https://flowa.one/`
+- `company_name`: `Công ty CP Công nghệ Flowa`
 
-## 🔍 Root cause
+Dữ liệu này **đã sẵn có** trong `brand_templates.footer_info` (jsonb) — cùng cấu trúc với `BrandFooterInfo` (`company_name`, `phone`, `email`, `website`, `address`).
 
-Trong `supabase/functions/_shared/image-prompt-builders.ts`:
+## 🔧 Thay đổi
 
-1. **`buildCriticalRules` (with_text mode, dòng 595-608)** chỉ yêu cầu render đúng text VN nhưng **không cấm AI thêm text khác** (decorative English words, badges, stickers).
-2. **`buildNegativePrompt` (dòng 540-557)** — negative prompt `text, words, letters` **chỉ áp dụng cho `background_only` mode**. Khi `with_text`, negative prompt **rỗng** → AI free thêm text phụ tuỳ ý.
-3. AI image models (Gemini-Image, Nano Banana) có bias mạnh thêm English decorative text trên social graphics nếu không bị cấm tường minh.
+### 1. `src/components/preview/GoogleMapsMockup.tsx`
+Thêm prop `footerInfo?: BrandFooterInfo` và `industry?: string` (lấy ngành từ brand thay cho "Dịch vụ Marketing"):
 
-## ✅ Fix plan (1 file, 2 thay đổi nhỏ)
-
-### File: `supabase/functions/_shared/image-prompt-builders.ts`
-
-**A. `buildCriticalRules` — with_text mode (full + brand_only):**
-Thêm 2 rule mới sau rule "render verbatim":
-- `Render ONLY the exact text specified above. DO NOT add any other text, words, badges, labels, stickers, watermarks, or decorative typography (especially NO English words like "NEW", "SALE", "BEST", "PREMIUM", "OFFICIAL", taglines, slogans, or call-to-action phrases).`
-- `If brand language is Vietnamese, ALL visible text in the image must be Vietnamese — no English words allowed anywhere in the composition.`
-
-**B. `buildNegativePrompt` — extend cho with_text mode:**
-Thêm negative prompt riêng cho `with_text`:
+```tsx
+interface GoogleMapsMockupProps {
+  content: string;
+  brandName: string;
+  logoUrl?: string;
+  isGenerating?: boolean;
+  channelImage?: string;
+  footerInfo?: BrandFooterInfo | null;   // ✨ NEW
+  industryLabel?: string;                // ✨ NEW (fallback "Doanh nghiệp")
+}
 ```
-extra text, additional words, English decorative words, badges, stickers, sale tags, banners with text, watermark, secondary captions, foreign language text
-```
-(giữ nguyên text được chỉ định, chỉ cấm text PHỤ ngoài text chỉ định)
 
-### Optional Layer 2 — Brand language signal
-Truyền `brandLanguage` (đã có ở frontend qua `useAutoLanguage`) vào `ImagePromptParams` để critical rule biết khẳng định "ALL visible text must be Vietnamese" thay vì hardcode. (Nếu phức tạp sẽ skip, hardcode VN ổn vì đa số user là VN.)
+Logic render:
+- **Address**: `footerInfo?.address` → nếu rỗng, ẩn dòng địa chỉ (không hiển thị placeholder giả).
+- **Phone**: `footerInfo?.phone` → nếu rỗng, ẩn dòng SĐT.
+- **Website**: ưu tiên `footerInfo?.website` (strip `https?://` và trailing `/` để hiển thị sạch như Maps thật `flowa.one`); fallback về `displayUrl` cũ chỉ khi không có data.
+- **Subtitle dưới brand name**: dùng `industryLabel` (vd: "Phần mềm Marketing") thay cho hardcode "Dịch vụ Marketing"; fallback "Doanh nghiệp".
+- **Rating + reviewCount**: giữ tạm `4.6 / 328` nhưng đánh dấu rõ là **demo data** (Maps mockup chỉ là preview, rating thật cần tích hợp GBP API). Có thể hash từ `brandName` để mỗi brand có con số khác nhau (vd: 4.5–4.9, 80–500 reviews) — tránh cảm giác "y hệt nhau".
 
-## 🧪 Verification
+### 2. `src/components/viewer/ContentMockupToggle.tsx`
+- Thêm prop `footerInfo?: BrandFooterInfo | null` và `industryLabel?: string`.
+- Truyền xuống `GoogleMapsMockup`.
 
-- Sau khi deploy `generate-brand-image`, tạo lại 1 ảnh Facebook cho brand Flowa
-- Quan sát ảnh: phải KHÔNG có English decorative text
-- Check log `[generate-brand-image] FINAL PROMPT` để xác nhận 2 rule mới có mặt
+### 3. `src/components/MultiChannelViewer.tsx`
+- Mở rộng query `brand-template-viewer` để select thêm `footer_info, industry`:
+  ```ts
+  .select('logo_url, channel_overrides, footer_info, industry')
+  ```
+- Truyền vào `<ContentMockupToggle ... footerInfo={brandTemplateData?.footer_info} industryLabel={brandTemplateData?.industry?.[0]} />` (industry là array; lấy phần tử đầu).
 
-## 📦 Scope
-- Chỉ sửa 1 file shared: `supabase/functions/_shared/image-prompt-builders.ts`
-- Không đụng frontend, không migration
-- Auto-deploy qua Lovable Cloud khi commit
+### 4. (Tùy chọn) `BrandSampleContentViewer` 
+Nếu mockup Google Maps cũng hiển thị ở tab "Xem mẫu" của Brand, truyền tương tự — tôi sẽ kiểm tra và bổ sung trong lúc implement.
+
+## ✅ Kết quả mong đợi
+Khi mở mockup Google Maps cho brand **Flowa**:
+- Địa chỉ: `304/15 Tân Kỳ Tân Quý, phường Tân Sơn Nhì, Tp. Hồ Chí Minh`
+- SĐT: `0838 226 363`
+- Website: `flowa.one`
+- Subtitle: industry thật của brand (vd: `Phần mềm`)
+- Brand nào chưa nhập `footer_info` → các dòng tương ứng được ẩn gọn gàng, không hiển thị data giả.
+
+## 📁 Files sẽ sửa
+- `src/components/preview/GoogleMapsMockup.tsx`
+- `src/components/viewer/ContentMockupToggle.tsx`
+- `src/components/MultiChannelViewer.tsx`
+- (có thể) `src/components/BrandSampleContentViewer.tsx`

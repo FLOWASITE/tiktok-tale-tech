@@ -509,7 +509,7 @@ export function MultiChannelViewer({
       if (!content?.brand_template_id) return null;
       const { data } = await supabase
         .from('brand_templates')
-        .select('logo_url, channel_overrides')
+        .select('logo_url, channel_overrides, footer_info, industry')
         .eq('id', content.brand_template_id)
         .single();
       return data;
@@ -519,6 +519,10 @@ export function MultiChannelViewer({
   
   const brandLogoUrl = brandTemplateData?.logo_url || null;
   const channelOverrides = brandTemplateData?.channel_overrides as Record<string, Partial<ChannelSettings>> | null;
+  const brandFooterInfo = (brandTemplateData?.footer_info as any) || null;
+  const brandIndustryLabel = Array.isArray(brandTemplateData?.industry) && brandTemplateData.industry.length > 0
+    ? String(brandTemplateData.industry[0])
+    : undefined;
 
   // Check for industry version upgrade
   const { isOutdated: hasVersionUpgrade, latestVersion, industryName: upgradeIndustryName } = useContentVersionCheck(
@@ -1578,6 +1582,8 @@ export function MultiChannelViewer({
                                   onTriggerGEO={handleTriggerGEO}
                                   isGEOLoading={isGEOScoring}
                                   geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
+                                  footerInfo={brandFooterInfo}
+                                  industryLabel={brandIndustryLabel}
                                 />
                               </div>
                                 
