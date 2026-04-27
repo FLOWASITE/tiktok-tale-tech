@@ -187,9 +187,9 @@ AI có thể trích xuất snippet độc lập.
     let issues: any[] = [];
 
     if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      factorScores = parsed.factor_scores || {};
-      issues = parsed.issues || [];
+      const parsed = safeParseJson(toolCall.function.arguments);
+      factorScores = parsed?.factor_scores || {};
+      issues = parsed?.issues || [];
     }
 
     // Calculate overall score (weighted average)
