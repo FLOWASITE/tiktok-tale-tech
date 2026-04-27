@@ -1634,7 +1634,7 @@ ${audienceQASection}
 ${learningSection}
 
 ## OUTPUT FORMAT:
-Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
+Trả về JSON array với ${topic ? '3-5' : '5-6'} topics:
 [{
   "topic": "Tiêu đề chi tiết, hấp dẫn, có hook + ngữ cảnh rõ ràng. ĐỘ DÀI BẮT BUỘC: 80-300 ký tự (đếm cả khoảng trắng). Tối ưu: 120-200 ký tự. Có thể dùng dấu ':' hoặc '—' để tách hook và mô tả phụ. KHÔNG ngắn hơn 80 ký tự.",
   "category": "evergreen" | "trending" | "seasonal" | "reactive",
