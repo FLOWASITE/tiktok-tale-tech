@@ -5,9 +5,14 @@
 
 import { callAI } from './ai-provider.ts';
 import { HOOK_CRITERIA } from './critique-criteria.ts';
-import { isCircuitOpen } from './circuit-breaker.ts';
+import { isCircuitOpen, recordFailure } from './circuit-breaker.ts';
 
 const HOOK_EVAL_MODEL = 'google/gemini-2.5-flash-lite';
+
+// In-memory soft kill switch for the lifetime of this isolate.
+// Once we see a credits/402 error, stop calling AI eval for the rest of the cold-start
+// to avoid overwhelming the function with doomed requests (which causes 503s).
+let aiEvalDisabledThisIsolate = false;
 
 export interface HookScore {
   overall: number;          // 1-10
