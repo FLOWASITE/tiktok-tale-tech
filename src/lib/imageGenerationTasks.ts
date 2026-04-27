@@ -20,7 +20,12 @@ export async function createImageGenerationTask({
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
 
-    if (!userId || !contentId || !channel) {
+    if (!userId) {
+      console.warn('[imageGenerationTasks] No userId — skipping task tracking, will still call generate-brand-image');
+      return null;
+    }
+    if (!contentId || !channel) {
+      console.warn('[imageGenerationTasks] Missing contentId/channel — skipping task tracking', { contentId, channel });
       return null;
     }
 
@@ -44,7 +49,8 @@ export async function createImageGenerationTask({
       .single();
 
     if (error) {
-      console.warn('[imageGenerationTasks] Failed to create image task:', {
+      // Best-effort: log loud nhưng KHÔNG block pipeline. generate-brand-image vẫn sẽ được gọi với taskId=null.
+      console.warn('[imageGenerationTasks] ⚠ Failed to create image task (pipeline will continue):', {
         message: error.message,
         code: (error as any).code,
         details: (error as any).details,
@@ -53,10 +59,12 @@ export async function createImageGenerationTask({
         channel,
         brandTemplateId,
         userId,
+        organizationId: organizationId || null,
       });
       return null;
     }
 
+    console.log('[imageGenerationTasks] ✓ Task created', { taskId: data?.id, contentId, channel });
     return data?.id ?? null;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
