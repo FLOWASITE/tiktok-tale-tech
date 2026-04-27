@@ -35,10 +35,7 @@ Deno.serve(withPerf({ functionName: 'optimize-social-text' }, async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Note: model + provider routing now handled by centralized callAI() (DashScope qwen-flash + 2-tier fallback)
 
     const styleInstructions: Record<string, string> = {
       'punchy': 'Make it punchy, bold, and attention-grabbing. Use power words.',
