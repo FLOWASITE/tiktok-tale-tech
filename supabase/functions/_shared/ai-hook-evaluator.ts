@@ -33,7 +33,7 @@ export interface HookEvaluation {
 }
 
 // AI evaluation is expensive, only use for borderline cases
-const AI_EVAL_THRESHOLD = 8; // Only call AI if regex score < 8/18
+const AI_EVAL_THRESHOLD = 5; // Only call AI if regex score < 5/18 (lowered to reduce gateway load)
 
 /**
  * Evaluate hook using regex patterns only (fast, free)
