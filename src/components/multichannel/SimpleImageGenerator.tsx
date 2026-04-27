@@ -1052,11 +1052,22 @@ export function SimpleImageGenerator({
             <Button
               onClick={handleGenerate}
               disabled={batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing}
+              title={
+                batchGen.isGenerating
+                  ? 'Đang tạo ảnh...'
+                  : selectedChannels.length === 0
+                  ? 'Vui lòng chọn ít nhất 1 kênh'
+                  : isDecomposing
+                  ? 'AI đang phân tích nội dung, vui lòng đợi...'
+                  : 'Tạo ảnh cho các kênh đã chọn'
+              }
               className="w-full h-11 gap-2 text-base"
               size="lg"
             >
               {batchGen.isGenerating ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+              ) : isDecomposing ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Đang phân tích nội dung...</>
               ) : (
                 <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
               )}
