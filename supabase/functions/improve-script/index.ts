@@ -1,5 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,31 +74,22 @@ Hãy viết lại kịch bản đã cải thiện theo các gợi ý trên. Gi�
       cacheInputText,
       { functionName: 'improve-script', similarityThreshold: 0.95 },
       async () => {
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-          }),
+        const aiRes = await callAI({
+          functionName: "improve-script",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
         });
 
-        if (!response.ok) {
-          if (response.status === 429) throw new Error("RATE_LIMIT");
-          if (response.status === 402) throw new Error("NO_CREDITS");
-          const errText = await response.text();
-          console.error("AI gateway error:", response.status, errText);
+        if (!aiRes.success) {
+          if (aiRes.error?.includes("429") || aiRes.error?.includes("Rate")) throw new Error("RATE_LIMIT");
+          if (aiRes.error?.includes("402") || aiRes.error?.includes("Payment")) throw new Error("NO_CREDITS");
+          console.error("[improve-script] AI error:", aiRes.error);
           throw new Error("AI_GATEWAY_ERROR");
         }
 
-        const data = await response.json();
-        const improvedContent = data.choices?.[0]?.message?.content?.trim();
+        const improvedContent = aiRes.data?.choices?.[0]?.message?.content?.trim();
         if (!improvedContent) throw new Error("EMPTY_RESPONSE");
         return { improvedContent };
       },

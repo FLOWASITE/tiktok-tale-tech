@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withPerf } from "../_shared/middleware/perf.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ Deno.serve(withPerf({ functionName: 'validate-seamless-consistency' }, async (re
   }
 
   try {
-    const { carouselId, slideImageUrls } = await req.json();
+    const { carouselId, slideImageUrls, organizationId } = await req.json();
 
     if (!carouselId || !slideImageUrls || slideImageUrls.length < 2) {
       return new Response(
@@ -21,17 +22,8 @@ Deno.serve(withPerf({ functionName: 'validate-seamless-consistency' }, async (re
       );
     }
 
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) {
-      return new Response(
-        JSON.stringify({ error: "AI API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     console.log(`[validate-seamless] Validating ${slideImageUrls.length} slides for carousel ${carouselId}`);
 
-    // Build vision prompt with all slide images
     const analysisPrompt = `Analyze these ${slideImageUrls.length} images as a panoramic carousel sequence placed side by side from left to right.
 
 For each image, extract:
@@ -64,37 +56,28 @@ Respond ONLY in valid JSON (no markdown):
     }));
     content.push({ type: "text", text: analysisPrompt });
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${lovableApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [{ role: "user", content }],
-        max_tokens: 1500,
-      }),
+    const result = await callAI({
+      functionName: "validate-seamless-consistency",
+      organizationId,
+      messages: [{ role: "user", content }],
+      maxTokensOverride: 1500,
     });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("[validate-seamless] AI error:", aiResponse.status, errText);
+    if (!result.success) {
+      console.error("[validate-seamless] AI error:", result.error);
       return new Response(
-        JSON.stringify({ error: "AI validation failed", details: errText }),
+        JSON.stringify({ error: "AI validation failed", details: result.error }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiData = await aiResponse.json();
-    const rawText = aiData.choices?.[0]?.message?.content || "";
+    const rawText = result.data?.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from response (strip markdown fences if present)
     let analysis: any;
     try {
       const jsonStr = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
       analysis = JSON.parse(jsonStr);
-    } catch (parseErr) {
+    } catch {
       console.error("[validate-seamless] Failed to parse AI response:", rawText);
       return new Response(
         JSON.stringify({ error: "Could not parse AI analysis", rawResponse: rawText.slice(0, 500) }),
@@ -104,7 +87,6 @@ Respond ONLY in valid JSON (no markdown):
 
     const overallScore = analysis?.consistency?.overallScore ?? null;
 
-    // Save to DB (non-blocking)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -127,6 +109,7 @@ Respond ONLY in valid JSON (no markdown):
         carouselId,
         ...analysis,
         consistent: (overallScore ?? 100) >= 60,
+        modelUsed: `${result.model} (${result.provider})`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
