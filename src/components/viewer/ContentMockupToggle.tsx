@@ -5,6 +5,7 @@ import { MockupScoreBar } from '@/components/preview/MockupScoreBar';
 import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
+import type { BrandFooterInfo } from '@/components/BrandForm';
 
 interface ContentMockupToggleProps {
   channel: Channel;
@@ -25,6 +26,9 @@ interface ContentMockupToggleProps {
   onTriggerGEO?: () => void;
   isGEOLoading?: boolean;
   geoFactorScores?: Record<string, number> | null;
+  // Brand metadata for richer mockups (Google Maps, etc.)
+  footerInfo?: BrandFooterInfo | null;
+  industryLabel?: string;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
