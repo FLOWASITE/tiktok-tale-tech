@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeWithTimeout } from "@/lib/invokeEdgeFunctionWithTimeout";
 import { toast } from "sonner";
 import { UserPlus, Loader2, Building2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -89,7 +90,7 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+      const { data, error } = await invokeWithTimeout<{ success?: boolean; error?: string }>("admin-manage-user", {
         body: {
           action: "create_user",
           email,
@@ -100,6 +101,7 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
           organization_ids: selectedOrgIds,
           org_role: orgRole,
         },
+        timeoutMs: 60_000,
       });
 
       if (error) throw error;
