@@ -132,6 +132,7 @@ const TOPIC_AI_ALLOWED_MODELS = new Set([
   'qwen-plus',
   'qwen-max',
   'qwen-turbo',
+  'qwen-flash',
   'qwen-long',
   'qwen-vl-max',
   'qwen-vl-plus',
