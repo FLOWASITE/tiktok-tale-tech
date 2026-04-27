@@ -407,6 +407,9 @@ export async function searchAudienceQuestions(
     console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping audience Q&A mining`);
     return null;
   }
+  if (webSearchDisabledThisIsolate) {
+    return null;
+  }
 
   try {
     const audienceContext = targetAudience || 'khách hàng';
