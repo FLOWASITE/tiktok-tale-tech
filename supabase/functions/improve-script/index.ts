@@ -1,5 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
