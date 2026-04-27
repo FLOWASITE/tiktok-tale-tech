@@ -91,6 +91,8 @@ export function ContentMockupToggle({
             logoUrl={logoUrl}
             isGenerating={isLoading}
             channelImage={channelImage}
+            footerInfo={footerInfo}
+            industryLabel={industryLabel}
           />
         </div>
       </div>
