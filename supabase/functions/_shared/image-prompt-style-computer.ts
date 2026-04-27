@@ -85,16 +85,24 @@ export function computeStyleFromBrand(
     scores.flat_design += 1;
   }
 
-  // Find highest scoring style
-  let bestStyle: ImageStylePreset = 'photorealistic'; // default
-  let bestScore = 0;
+  // Find top-3 scoring styles, weighted-random pick from them for variation
+  // (avoids "always same preset" which makes layouts look identical across generations)
+  const ranked = (Object.entries(scores) as [ImageStylePreset, number][])
+    .filter(([, s]) => s > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
 
-  for (const [style, score] of Object.entries(scores)) {
-    if (score > bestScore) {
-      bestScore = score;
-      bestStyle = style as ImageStylePreset;
-    }
+  if (ranked.length === 0) {
+    return 'photorealistic'; // default fallback
   }
 
-  return bestStyle;
+  // Weighted pick: top style ~55%, 2nd ~30%, 3rd ~15%
+  const weights = [0.55, 0.30, 0.15];
+  const r = Math.random();
+  let cum = 0;
+  for (let i = 0; i < ranked.length; i++) {
+    cum += weights[i] ?? 0;
+    if (r <= cum) return ranked[i][0];
+  }
+  return ranked[0][0];
 }

@@ -827,7 +827,12 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       // NEW: Pass text-in-image params for Social Graphics
       imageContentType: effectiveImageContentType,
       textToInclude: effectiveTextToInclude,
-      textPosition,
+      // Rotate text position when caller didn't pin one — adds layout diversity
+      textPosition: textPosition || (effectiveImageContentType === 'with_text' && effectiveTextToInclude
+        ? (['center', 'top', 'bottom', 'top-left', 'bottom-right'] as const)[
+            Math.floor(Math.random() * 5)
+          ]
+        : undefined),
       typographyStyle,
       // Country-specific character appearance
       countryCode: brandTemplate.country_code as string | undefined,
