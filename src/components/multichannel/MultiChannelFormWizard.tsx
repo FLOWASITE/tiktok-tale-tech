@@ -953,7 +953,9 @@ export function MultiChannelFormWizard({
     }
 
     let cancelled = false;
-    AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
+    // NOTE: KHÔNG add vào AUTO_IMAGE_TRIGGERED_CONTENT_IDS ở đây nữa.
+    // Chỉ add SAU KHI pipeline thật sự được gọi (sau DB pre-check pass).
+    // Nếu skip do đã có ảnh, không lock contentId → user có thể trigger thủ công sau.
 
     (async () => {
       // Layer 2: DB pre-check — if all channels already have persisted images, skip pipeline entirely
@@ -994,6 +996,11 @@ export function MultiChannelFormWizard({
         });
         return !!resolved.text && resolved.languageMatch;
       });
+
+      // Lock contentId NGAY TRƯỚC khi gọi pipeline — đảm bảo không lock nếu skip ở trên
+      AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp);
+      console.log('[AutoImageTrigger] 🚀 starting pipeline for', generatedContentIdProp, 'channels=', formData.channels);
+
       onStartImagePipeline(formData.channels, channelTexts, {
         contentGoal: formData.contentGoal,
         contentRole: formData.contentRole,
@@ -1011,7 +1018,8 @@ export function MultiChannelFormWizard({
     })();
 
     return () => { cancelled = true; };
-  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, imageMode, imagePhase, generationComplete, generatedContentIdProp, formData.channels, promptMode, brandTemplate?.country_code]);
 
   // Resume from background tasks on mount
   useEffect(() => {

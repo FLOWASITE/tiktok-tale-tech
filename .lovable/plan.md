@@ -1,62 +1,57 @@
-## Tình trạng hiện tại
+## Trả lời nhanh: Không nhầm function
 
-Đã kiểm tra Edge Function logs trong 30 phút gần nhất:
-- `decompose-image-request` chạy thành công 2 lần (status 200) — bước AI phân tích nội dung khi mở dialog ✅
-- `generate-brand-image` **chưa từng được gọi** — không có invocation nào trong log
-- Bảng `generation_tasks`: chưa có task type `image_generation` nào được tạo bao giờ
-- Console có lỗi `Failed to fetch` lặp lại từ `useBackgroundGeneration` (poll fallback của Realtime)
+Multichannel dùng đúng `generate-brand-image` (có hỗ trợ `channel` param cho FB/IG/LI/...). Không có function riêng tên `generate-multichannel-image`. `agent-creator-v2`, `useSocialImageGeneration`, `useAutoImageGeneration`, `tool-executor` — tất cả đều gọi đúng function này.
 
-**Kết luận:** Click vào nút "Tạo ảnh" không tới được edge function. Nguyên nhân khả dĩ:
+## Vấn đề thực sự
 
-1. **Nút bị disable âm thầm** — `batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing` đang true ở thời điểm click (ví dụ: `isDecomposing` chưa kết thúc, hoặc state đang stuck).
-2. **`createImageGenerationTask` fail trước khi gọi edge function** — vì Realtime/network đang flaky (trùng với "Failed to fetch" trong console), `taskId` trả về `null` nhưng pipeline vẫn tiếp tục → gọi `generate-brand-image` với `taskId=null` → bị reject sớm bên server.
-3. **Dialog đóng/unmount giữa chừng** — `cancelled = true` ở effect decompose, hoặc parent re-render đổi `key`.
-4. **Connection layer 502/abort** — `invokeWithTimeout` swallow lỗi mạng (không log gì) và return error mà toast bị skip.
+Edge function logs `generate-brand-image` **hoàn toàn trống** trong vài giờ qua. Request từ frontend không tới được function. Hai điểm chặn ở frontend:
 
-## Việc sẽ làm
+### A. Nút "Tạo ảnh AI" bị disable âm thầm khi `isDecomposing=true`
 
-### 1. Thêm log chi tiết tại entry point `handleGenerate` (`SimpleImageGenerator.tsx`)
-Trước khi gọi `batchGen.generateAllImages`, log đầy đủ điều kiện guard:
+`AIReadyCard.tsx` (full mode) và nút trong `SimpleImageGenerator.tsx` (brand_only/raw mode) đều có:
 ```
-[SimpleImageGenerator] handleGenerate triggered {
-  selectedChannels, contentId, brandTemplateId, isDecomposing,
-  isGenerating: batchGen.isGenerating, hybridOverlay: !!hybridOverlay,
-  contentSummariesKeys: Object.keys(contentSummaries),
-  contentSummariesLengths: ...
-}
+disabled={isGenerating || selectedChannels.length === 0 || isDecomposing}
 ```
-→ Nếu user click mà **không thấy log này** → button thực sự bị disabled.
-→ Nếu thấy log nhưng `selectedChannels=[]` → guard chặn → toast đã hiển thị.
 
-### 2. Fail-safe cho `createImageGenerationTask` (`useAutoImageGeneration.ts` line 311–317)
-Hiện tại function này swallow error và return `null`. Sửa để:
-- Log rõ khi `taskId === null` với lý do (network error, RLS, etc.)
-- **Vẫn tiếp tục** gọi `generate-brand-image` với `taskId=null` (edge function tự handle), KHÔNG block pipeline.
-- Hiện code đã làm vậy nhưng không log → cần thêm `console.warn('[Pipeline:${channel}] taskId=null, proceeding without task tracking')`.
+`isDecomposing` chỉ false sau khi `decomposeRequestWithAI` (~10s) xong. Nếu user click khi state này còn true (do `useEffect` re-run khi đổi channel/style/template), nút không trigger handler. `handleGenerate` thậm chí có guard `if (isDecomposing) return` → click bị nuốt.
 
-### 3. Thêm toast khi `generate-brand-image` invocation thực sự bị fetch error
-Hiện tại nếu `invokeWithTimeout` reject với "Failed to fetch", chỉ log `[useAutoImageGeneration] Function error` nhưng toast generic "Lỗi tạo ảnh: Failed to fetch" có thể bị nuốt do `setGenerating(null)` race. Đảm bảo:
-- Toast lỗi **luôn fire** ngay khi catch (không chờ batch finish)
-- Hiển thị rõ "Mạng kết nối tới máy chủ AI bị gián đoạn — vui lòng kiểm tra mạng và thử lại"
+### B. Auto-trigger Step 5 đánh dấu contentId "đã chạy" trước khi thật sự chạy
 
-### 4. Nút "Tạo ảnh": tooltip giải thích vì sao bị disable
-Hiện tại button disable với 3 điều kiện gộp; user không biết lý do. Bọc button trong tooltip hiển thị:
-- "Đang tạo ảnh..." nếu `isGenerating`
-- "Vui lòng chọn ít nhất 1 kênh" nếu `selectedChannels.length === 0`
-- "Đang phân tích nội dung..." nếu `isDecomposing`
+`MultiChannelFormWizard.tsx` (line 956): `AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp)` được gọi **trước** khi đợi DB pre-check. Nếu DB pre-check vô tình thấy `channel_images` đã có URL (kể cả URL cũ/lỗi), effect return mà không gọi pipeline → contentId bị khoá vĩnh viễn cho session đó.
 
-### 5. Sau khi triển khai, yêu cầu user thử lại
-Mở dialog "Tạo ảnh", chọn kênh, click "Tạo ảnh". Console sẽ cho biết chính xác bước nào fail. Sau đó mình sẽ fix root cause cụ thể (KHÔNG đoán mò trước).
+## Kế hoạch sửa
 
-## Chi tiết kỹ thuật
+### 1. Bỏ chặn "Tạo ảnh" khi đang decompose
+- `AIReadyCard.tsx`: bỏ `isDecomposing` khỏi `disabled`. Khi đang decompose, vẫn cho click — handler sẽ dùng `contentSummaries` gốc thay vì `hybridBackgroundPrompt`.
+- `SimpleImageGenerator.tsx` line 1054: tương tự, bỏ `isDecomposing` khỏi `disabled`.
+- `handleGenerate` (line 648): bỏ guard `if (isDecomposing) return`. Nếu chưa có `hybridBackgroundPrompt`, dùng `contentSummaries` (đã có sẵn từ `useMemo` line 405).
+- Đổi label nút khi đang decompose: "Tạo ngay (AI gợi ý layout đang chạy nền)".
 
-| File | Thay đổi |
-|---|---|
-| `src/components/multichannel/SimpleImageGenerator.tsx` | Thêm console.log trước `batchGen.generateAllImages`; bọc button bằng Tooltip hiển thị lý do disable |
-| `src/hooks/useAutoImageGeneration.ts` | Log `taskId=null` warning; đảm bảo toast lỗi fetch hiển thị ngay |
-| `src/lib/imageGenerationTasks.ts` | Log chi tiết error (RLS / network / unique violation) khi insert fail |
+### 2. Sửa auto-trigger Step 5 không khoá contentId khi skip
+- Chuyển `AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(...)` xuống **ngay trước** dòng `onStartImagePipeline(...)` (sau khi DB pre-check pass).
+- Nếu pre-check thấy đủ ảnh → return mà không add (cho phép user trigger lại từ nút thủ công nếu cần).
+- Bổ sung dependency thiếu cho effect: `formData.channels`, `formData.selectedHooks`, `formData.globalHook`, `promptMode`, `brandTemplate?.country_code`, `getChannelText`, `onStartImagePipeline`.
 
-## Việc KHÔNG làm trong bước này
-- Không refactor pipeline image generation (chưa rõ root cause)
-- Không sửa Realtime "Failed to fetch" (đó là warning của background polling, không liên quan trực tiếp luồng generate)
-- Không chuyển sang async queue pattern (hệ thống đã có `generation_tasks` + persist nền — vấn đề không phải timeout)
+### 3. Thêm log + nút thủ công ở Step 5
+- Log rõ `[AutoImageTrigger] starting pipeline` ngay trước khi gọi.
+- Hiện sẵn nút "Tạo ảnh AI cho X kênh" trong Step 5 ngay cả khi `imagePhase='generating_images'` đã chạy 1 lần nhưng không có kết quả → nút này force re-trigger (xoá `AUTO_IMAGE_TRIGGERED_CONTENT_IDS` cho contentId đó).
+
+### 4. Xác minh sau khi sửa
+Sau deploy:
+1. Mở dialog "Tạo ảnh AI" trên 1 bài multichannel hiện có.
+2. Chọn ≥1 kênh, click "Tạo ảnh AI".
+3. Xem console: phải có `[SimpleImageGenerator] handleGenerate triggered` → `[Pipeline:facebook] 🚀 START` → `[Pipeline:facebook] ✓ Task created` → network POST `generate-brand-image`.
+4. Xem edge function logs `generate-brand-image`: phải có `build marker` → `Routing to PoYo.ai` hoặc `Routing to GeminiGen.ai` → `Image uploaded`.
+5. Lúc đó provider mới thật sự bị trừ tiền.
+
+## File sẽ chỉnh
+
+- `src/components/multichannel/AIReadyCard.tsx` — bỏ `isDecomposing` khỏi disabled
+- `src/components/multichannel/SimpleImageGenerator.tsx` — bỏ guard `isDecomposing`, fallback prompt khi decompose chưa xong
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — sửa thứ tự add `AUTO_IMAGE_TRIGGERED_CONTENT_IDS`, thêm dependency, thêm nút retry
+
+## Không sửa
+
+- `generate-brand-image` edge function (nó OK, không có log nghĩa là không bị gọi)
+- Provider config Geminigen / PoYo (chưa được gọi nên chưa biết có lỗi không — sẽ verify sau khi request thật sự đi tới function)
+- `decompose-image-request` (chạy bình thường)

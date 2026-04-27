@@ -646,8 +646,9 @@ export function SimpleImageGenerator({
       return;
     }
     if (isDecomposing) {
-      toast.warning('AI đang phân tích nội dung — vui lòng đợi 1-2 giây rồi thử lại');
-      return;
+      // Không chặn nữa: pipeline sẽ fallback dùng contentSummaries thay vì hybridBackgroundPrompt
+      console.log('[SimpleImageGenerator] handleGenerate: AI decompose đang chạy, tiếp tục với contentSummaries fallback');
+      toast.info('Đang tạo ảnh ngay (AI gợi ý layout chạy nền)');
     }
     if (promptMode !== 'full' && imageContentType === 'with_text') {
       if (useSharedText && !textToInclude.trim()) {
@@ -1051,14 +1052,14 @@ export function SimpleImageGenerator({
 
             <Button
               onClick={handleGenerate}
-              disabled={batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing}
+              disabled={batchGen.isGenerating || selectedChannels.length === 0}
               title={
                 batchGen.isGenerating
                   ? 'Đang tạo ảnh...'
                   : selectedChannels.length === 0
                   ? 'Vui lòng chọn ít nhất 1 kênh'
                   : isDecomposing
-                  ? 'AI đang phân tích nội dung, vui lòng đợi...'
+                  ? 'Tạo ngay (AI gợi ý layout đang chạy nền)'
                   : 'Tạo ảnh cho các kênh đã chọn'
               }
               className="w-full h-11 gap-2 text-base"
@@ -1067,7 +1068,7 @@ export function SimpleImageGenerator({
               {batchGen.isGenerating ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
               ) : isDecomposing ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Đang phân tích nội dung...</>
+                <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh (AI layout chạy nền)</>
               ) : (
                 <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
               )}
