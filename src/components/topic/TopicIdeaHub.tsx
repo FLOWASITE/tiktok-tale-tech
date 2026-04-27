@@ -45,6 +45,7 @@ export function TopicIdeaHub({
   suggestions,
   source,
   isLoading,
+  isEnhancing = false,
   onSelect,
   onRefresh,
   onCategoryRefresh,
