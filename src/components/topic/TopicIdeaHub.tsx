@@ -63,12 +63,15 @@ export function TopicIdeaHub({
   const [isOpen, setIsOpen] = useState(true);
   const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
 
-  // Reset loading state when suggestions finish loading
+  // Reset loading chip state only when BOTH isLoading and isEnhancing are false.
+  // isEnhancing is true during the brief refresh window even when the outer
+  // isLoading flag isn't toggled — this prevents the chip spinner from
+  // disappearing instantly on cache hits or fast responses.
   useEffect(() => {
-    if (!isLoading && loadingCategory) {
+    if (!isLoading && !isEnhancing && loadingCategory) {
       setLoadingCategory(null);
     }
-  }, [isLoading, loadingCategory]);
+  }, [isLoading, isEnhancing, loadingCategory]);
 
   const handleCategoryClick = (label: string) => {
     if (loadingCategory) return; // Prevent double-click
