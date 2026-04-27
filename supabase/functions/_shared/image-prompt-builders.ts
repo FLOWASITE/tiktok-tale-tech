@@ -783,6 +783,95 @@ export const buildBrandColorReinforcement: PromptBuilder = (ctx) => {
 };
 
 // ============================================
+// Creative Variation (core) — injects per-call randomness
+// to break "samey layout" syndrome across generations
+// ============================================
+
+const COMPOSITION_VARIATIONS = [
+  'asymmetric composition with subject offset to the left third (rule of thirds)',
+  'asymmetric composition with subject offset to the right third (rule of thirds)',
+  'centered hero composition with strong negative space around the subject',
+  'low-angle hero shot looking up at the subject for dramatic presence',
+  'high-angle overhead/flat-lay composition with elements arranged below',
+  'diagonal composition with leading lines guiding the eye through the frame',
+  'close-up macro framing with shallow depth-of-field background blur',
+  'wide environmental composition placing the subject within its context',
+  'layered composition with foreground, midground, and background depth cues',
+  'split-screen / dual-zone composition contrasting two visual areas',
+  'tight cropped composition with the subject filling most of the frame',
+  'minimalist composition with one focal element on a generous empty backdrop',
+];
+
+const LIGHTING_VARIATIONS = [
+  'soft golden-hour natural lighting with warm shadows',
+  'high-key bright daylight with airy, open feel',
+  'moody low-key lighting with deep shadows and a single highlight',
+  'dramatic side-lighting carving out shape and texture',
+  'soft diffused studio lighting from a large overhead source',
+  'backlit rim-light silhouetting the subject edges',
+  'cinematic two-tone color grade (warm highlights, cool shadows)',
+  'crisp top-down sunlight with sharp directional shadows',
+  'overcast even lighting for a calm editorial mood',
+  'gradient ambient lighting transitioning across the frame',
+];
+
+const CAMERA_VARIATIONS = [
+  '35mm lens, eye-level perspective',
+  '50mm lens, slight three-quarter angle',
+  '85mm portrait lens with compressed background',
+  '24mm wide-angle for environmental scope',
+  'top-down 90° flat-lay perspective',
+  'low 30° upward angle for a heroic feel',
+  'over-the-shoulder POV framing',
+  'isometric 3/4 perspective',
+];
+
+const TEXT_POSITION_ROTATION: TextPosition[] = ['center', 'top', 'bottom', 'top-left', 'bottom-right'];
+
+/** Deterministic-ish seed picker — uses time + content hash so each generation differs */
+function pickVariation<T>(arr: T[], seed: number): T {
+  return arr[Math.abs(seed) % arr.length];
+}
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
+export const buildCreativeVariation: PromptBuilder = (ctx) => {
+  const { params } = ctx;
+  const { promptMode = 'full' } = params;
+  if (promptMode === 'raw') return null;
+
+  // Seed from content + timestamp so each call gets a different variation
+  // but same call within retries stays consistent enough
+  const seed = hashString((params.contentSummary || '') + (params.brand?.brandName || '')) + Date.now();
+
+  const composition = pickVariation(COMPOSITION_VARIATIONS, seed);
+  const lighting = pickVariation(LIGHTING_VARIATIONS, seed >> 3);
+  const camera = pickVariation(CAMERA_VARIATIONS, seed >> 7);
+
+  const parts = [
+    `## CREATIVE VARIATION (UNIQUE PER GENERATION — DO NOT REUSE GENERIC LAYOUT):`,
+    `- Composition: ${composition}`,
+    `- Lighting: ${lighting}`,
+    `- Camera: ${camera}`,
+    `- IMPORTANT: This image must look visually distinct from typical brand graphics. Avoid the default centered-product-on-clean-background formula unless explicitly required by the channel spec above.`,
+  ];
+
+  return { id: 'creative_variation', position: 'core', priority: 88, content: parts.join('\n') };
+};
+
+/** Rotate text position when caller didn't pin one — adds layout diversity for with_text mode */
+export function rotateTextPosition(seed: string): TextPosition {
+  const h = Math.abs(hashString(seed) + Date.now());
+  return TEXT_POSITION_ROTATION[h % TEXT_POSITION_ROTATION.length];
+}
+
+// ============================================
 // DEFAULT BUILDER REGISTRY
 // ============================================
 
@@ -792,6 +881,7 @@ export const DEFAULT_BUILDERS: PromptBuilder[] = [
   buildChannelSpec,
   buildBrandColors,
   buildStylePreset,
+  buildCreativeVariation,
   buildTextLayout,
   buildStrategicContext,
   buildNegativePrompt,
