@@ -611,7 +611,37 @@ async function callDashScope(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[ai-provider] DashScope error:", response.status, errorText);
-      
+
+      // Auto-fallback when configured model name is invalid (e.g. "qwen3-plus" doesn't exist).
+      // Retry ONCE with safe default `qwen-plus` so a single bad config row never silently drops a channel.
+      const isModelNotFound =
+        response.status === 404 &&
+        (errorText.includes("model_not_found") || errorText.includes("does not exist"));
+      const SAFE_DASHSCOPE_FALLBACK = "qwen-plus";
+      if (isModelNotFound && model !== SAFE_DASHSCOPE_FALLBACK) {
+        console.warn(
+          `[ai-provider] DashScope model "${model}" not found — auto-retrying with "${SAFE_DASHSCOPE_FALLBACK}"`
+        );
+        const retryBody = { ...body, model: SAFE_DASHSCOPE_FALLBACK };
+        const retryRes = await fetch(PROVIDER_ENDPOINTS.dashscope, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(retryBody),
+        });
+        if (retryRes.ok) {
+          if (options.stream) {
+            return { success: true, data: retryRes.body, provider: "dashscope", model: SAFE_DASHSCOPE_FALLBACK };
+          }
+          const retryData = await retryRes.json();
+          return { success: true, data: retryData, provider: "dashscope", model: SAFE_DASHSCOPE_FALLBACK };
+        }
+        const retryErrText = await retryRes.text();
+        console.error("[ai-provider] DashScope fallback also failed:", retryRes.status, retryErrText);
+      }
+
       if (response.status === 429) {
         return { success: false, error: "Rate limit exceeded", provider: "dashscope", model };
       }
