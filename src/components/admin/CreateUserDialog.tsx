@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeWithTimeout } from "@/lib/invokeEdgeFunctionWithTimeout";
 import { toast } from "sonner";
 import { UserPlus, Loader2, Building2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
