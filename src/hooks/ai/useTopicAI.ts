@@ -816,6 +816,9 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     suggestAbortControllerRef.current = new AbortController();
 
     suggestIsFetchingRef.current = true;
+    // When user actively triggers refresh (chip click, refresh icon), surface loading state
+    // so spinners show. Initial auto-load is handled by the useEffect below.
+    if (forceRefresh) setSuggestLoading(true);
     setSuggestEnhancing(true);
     setSuggestError(null);
     setSuggestErrorCode(null);
