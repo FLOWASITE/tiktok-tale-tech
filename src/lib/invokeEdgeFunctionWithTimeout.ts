@@ -90,18 +90,19 @@ export async function invokeWithTimeout<T = unknown>(
     let transientRetries = 0;
 
     // Retry on either HTTP transient runtime errors OR network "Failed to fetch" (worker dropped connection)
+    const MAX_TRANSIENT_RETRIES = 5;
     while (
-      transientRetries < 4 &&
+      transientRetries < MAX_TRANSIENT_RETRIES &&
       ('networkError' in attempt ||
         isTransientRuntimeError(attempt.response.status, attempt.responseText))
     ) {
       transientRetries++;
-      // Exponential backoff with jitter: 600ms, 1200ms, 2400ms, 4800ms (+random 0-300ms)
-      const backoffMs = 600 * Math.pow(2, transientRetries - 1) + Math.floor(Math.random() * 300);
+      // Exponential backoff with jitter: 500ms, 1s, 2s, 4s, 8s (+random 0-300ms)
+      const backoffMs = 500 * Math.pow(2, transientRetries - 1) + Math.floor(Math.random() * 300);
       const reason = 'networkError' in attempt
         ? 'network failure'
         : `${attempt.response.status}`;
-      console.warn(`[invokeWithTimeout] ${functionName} hit transient ${reason}, retrying in ${backoffMs}ms (attempt ${transientRetries}/2)`);
+      console.warn(`[invokeWithTimeout] ${functionName} hit transient ${reason}, retrying in ${backoffMs}ms (attempt ${transientRetries}/${MAX_TRANSIENT_RETRIES})`);
       await new Promise((r) => setTimeout(r, backoffMs));
       attempt = await tryRequest(token);
     }
