@@ -37,6 +37,21 @@ const CHANNEL_CONTENT_FIELD: Partial<Record<Channel, string>> = {
   threads: 'threads_content',
 };
 
+// Channels that benefit from a generated image. Pure-text channels (email, telegram)
+// are excluded from auto image generation to avoid wasted provider spend.
+const VISUAL_IMAGE_CHANNELS: ReadonlySet<Channel> = new Set<Channel>([
+  'website',
+  'facebook',
+  'instagram',
+  'twitter',
+  'google_maps',
+  'linkedin',
+  'youtube',
+  'zalo_oa',
+  'tiktok',
+  'threads',
+]);
+
 interface LocationState {
   prefillTopic?: string;
   prefillGoal?: ContentGoal;
@@ -113,6 +128,7 @@ export default function MultiChannelCreate() {
     brandFooterInfo: (selectedTemplate?.footer_info as Record<string, string> | null) || null,
     brandIndustry: selectedTemplate?.industry_template_id ? [selectedTemplate.industry_template_id] : undefined,
     brandCountryCode: selectedTemplate?.country_code || null,
+    organizationId: currentOrganization?.id,
     autoSave: true,
   });
 
@@ -201,34 +217,48 @@ export default function MultiChannelCreate() {
     const result = await streamGenerate(fullData);
     
     if (result) {
+      console.log('[MultiChannelCreate] ✓ content result received', {
+        contentId: result.id,
+        channels: data.channels,
+      });
       setGeneratedContentId(result.id);
       setGenerationState('complete');
 
       if (selectedBrandId && data.channels?.length) {
-        const channelTexts = data.channels.reduce((acc, channel) => {
-          const field = CHANNEL_CONTENT_FIELD[channel];
-          acc[channel] = (field && result[field]) || getChannelText(channel) || result.topic || data.topic || '';
-          return acc;
-        }, {} as Record<string, string>);
+        // Only auto-generate images for visual channels (skip pure-text channels like email/telegram)
+        const visualChannels = data.channels.filter((ch) => VISUAL_IMAGE_CHANNELS.has(ch));
 
-        console.log('[MultiChannelCreate] 🚀 auto-starting image pipeline after content result', {
-          contentId: result.id,
-          channels: data.channels,
-        });
+        if (visualChannels.length === 0) {
+          console.log('[MultiChannelCreate] ⏭ No visual channels selected — skipping auto image pipeline', {
+            channels: data.channels,
+          });
+        } else {
+          const channelTexts = visualChannels.reduce((acc, channel) => {
+            const field = CHANNEL_CONTENT_FIELD[channel];
+            acc[channel] = (field && result[field]) || getChannelText(channel) || result.topic || data.topic || '';
+            return acc;
+          }, {} as Record<string, string>);
 
-        imagePipeline.startPipeline(result.id, data.channels, channelTexts, {
-          contentGoal: data.contentGoal,
-          contentRole: data.contentRole,
-          contentAngle: data.contentAngle,
-          topic: data.topic,
-          promptMode: 'full',
-          brandCountryCode: selectedTemplate?.country_code || undefined,
-          structuredTemplate: 'auto',
-          hooks: {
-            selectedHooks: result.selected_hooks || data.selectedHooks,
-            globalHook: result.global_hook || data.globalHook,
-          },
-        });
+          console.log('[MultiChannelCreate] 🚀 auto-starting image pipeline after content result', {
+            contentId: result.id,
+            visualChannels,
+            skippedChannels: data.channels.filter((ch) => !VISUAL_IMAGE_CHANNELS.has(ch)),
+          });
+
+          imagePipeline.startPipeline(result.id, visualChannels, channelTexts, {
+            contentGoal: data.contentGoal,
+            contentRole: data.contentRole,
+            contentAngle: data.contentAngle,
+            topic: data.topic,
+            promptMode: 'full',
+            brandCountryCode: selectedTemplate?.country_code || undefined,
+            structuredTemplate: 'auto',
+            hooks: {
+              selectedHooks: result.selected_hooks || data.selectedHooks,
+              globalHook: result.global_hook || data.globalHook,
+            },
+          });
+        }
       }
       
       // Refetch contents
