@@ -5,9 +5,14 @@
 
 import { callAI } from './ai-provider.ts';
 import { HOOK_CRITERIA } from './critique-criteria.ts';
-import { isCircuitOpen } from './circuit-breaker.ts';
+import { isCircuitOpen, recordFailure } from './circuit-breaker.ts';
 
 const HOOK_EVAL_MODEL = 'google/gemini-2.5-flash-lite';
+
+// In-memory soft kill switch for the lifetime of this isolate.
+// Once we see a credits/402 error, stop calling AI eval for the rest of the cold-start
+// to avoid overwhelming the function with doomed requests (which causes 503s).
+let aiEvalDisabledThisIsolate = false;
 
 export interface HookScore {
   overall: number;          // 1-10
@@ -28,7 +33,7 @@ export interface HookEvaluation {
 }
 
 // AI evaluation is expensive, only use for borderline cases
-const AI_EVAL_THRESHOLD = 8; // Only call AI if regex score < 8/18
+const AI_EVAL_THRESHOLD = 5; // Only call AI if regex score < 5/18 (lowered to reduce gateway load)
 
 /**
  * Evaluate hook using regex patterns only (fast, free)
@@ -124,10 +129,13 @@ Trả về JSON:
 
 CHỈ TRẢ VỀ JSON.`;
 
-  // Short-circuit if breaker is OPEN for this model — avoids spamming Lovable Gateway
-  // with 402 (out of credits) calls when we already know it will fail.
+  // Short-circuit if breaker is OPEN or we already saw credits exhaustion in this isolate.
+  if (aiEvalDisabledThisIsolate) {
+    return null;
+  }
   try {
     if (await isCircuitOpen(HOOK_EVAL_MODEL)) {
+      aiEvalDisabledThisIsolate = true;
       return null;
     }
   } catch {
@@ -154,7 +162,15 @@ CHỈ TRẢ VỀ JSON.`;
       }
     }
   } catch (error) {
-    console.error('AI hook evaluation error:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    // Detect credits / 402 / payment errors and disable AI eval for the rest of this isolate.
+    if (/402|credits|payment_required|not enough credits/i.test(msg)) {
+      aiEvalDisabledThisIsolate = true;
+      try { await recordFailure(HOOK_EVAL_MODEL); } catch { /* best effort */ }
+      // Silent — expected when credits are out
+      return null;
+    }
+    console.error('AI hook evaluation error:', msg);
   }
 
   return null;
