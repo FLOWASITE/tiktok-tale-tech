@@ -20,6 +20,49 @@ const GEO_FACTORS = [
   { key: "extractability", label: "Extractability", weight: 12, description: "Dễ trích xuất cho AI snippet" },
 ];
 
+// Robust JSON parser for LLM tool-call arguments (handles truncation, trailing commas, control chars)
+function safeParseJson(raw: string): any {
+  if (!raw || typeof raw !== "string") return null;
+  let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = s.search(/[\{\[]/);
+  if (start === -1) return null;
+  const openChar = s[start];
+  const closeChar = openChar === "[" ? "]" : "}";
+  const lastClose = s.lastIndexOf(closeChar);
+  s = lastClose > start ? s.substring(start, lastClose + 1) : s.substring(start);
+
+  try { return JSON.parse(s); } catch {}
+
+  let cleaned = s
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .replace(/,\s*([}\]])/g, "$1");
+  try { return JSON.parse(cleaned); } catch {}
+
+  // Repair truncation: walk and balance
+  let depthCurly = 0, depthSquare = 0, inStr = false, esc = false, lastSafeComma = -1;
+  for (let i = 0; i < cleaned.length; i++) {
+    const c = cleaned[i];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{") depthCurly++;
+    else if (c === "}") depthCurly--;
+    else if (c === "[") depthSquare++;
+    else if (c === "]") depthSquare--;
+    else if (c === "," && depthCurly >= 1) lastSafeComma = i;
+  }
+  let repaired = (inStr && lastSafeComma > 0) ? cleaned.substring(0, lastSafeComma) : cleaned;
+  if (inStr) repaired = repaired.replace(/[^"]*$/, "");
+  for (let i = 0; i < Math.max(0, depthSquare); i++) repaired += "]";
+  for (let i = 0; i < Math.max(0, depthCurly); i++) repaired += "}";
+  try { return JSON.parse(repaired); } catch (e) {
+    console.error("[geo-score-content] safeParseJson failed:", (e as Error).message, "len:", raw.length);
+    return null;
+  }
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -187,9 +230,9 @@ AI có thể trích xuất snippet độc lập.
     let issues: any[] = [];
 
     if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      factorScores = parsed.factor_scores || {};
-      issues = parsed.issues || [];
+      const parsed = safeParseJson(toolCall.function.arguments);
+      factorScores = parsed?.factor_scores || {};
+      issues = parsed?.issues || [];
     }
 
     // Calculate overall score (weighted average)
