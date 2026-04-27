@@ -1,115 +1,110 @@
-## 🎯 Vấn đề
+# 🚀 Plan tối ưu tốc độ Gợi ý Chủ đề
 
-Trên form **Tạo Kịch bản Video** (`/scripts/new`), khi click vào các chip:
-- 🔥 Viral tuần này
-- 📈 Theo trend
-- 🎁 Mùa lễ hội
-- ⚡ So sánh A vs B
-- 🔄 Refresh icon (góc phải)
+**Mục tiêu**: Giảm thời gian chờ từ **96s → ~3-8s** cho cache MISS, **1.5s → ~0.2s** cho cache HIT.
 
-→ **Nhìn như không có gì xảy ra** (không spinner, không update list trong tích tắc, người dùng bấm lại nghĩ là hỏng).
+---
 
-> Lưu ý: Backend (edge function `topic-ai`) vẫn fire request đúng với `categoryHint`, nhưng UX feedback bị gãy nên trông như không hoạt động. Multichannel & Carousel cũng dùng cùng component nên đang bị bug giống hệt — chỉ chưa ai phát hiện.
+## 📊 Baseline hiện tại (đo từ logs)
 
-## 🔍 Root Cause (đã trace xong)
-
-File `src/hooks/ai/useTopicAI.ts` — hàm `fetchSuggestions` (line 803):
-
-```ts
-const fetchSuggestions = useCallback(async (forceRefresh = false, categoryHint?: string) => {
-  // ...
-  setSuggestEnhancing(true);   // ← chỉ set "enhancing"
-  // KHÔNG set setSuggestLoading(true)
-  // ...
-});
-```
-
-Nhưng module export ra:
-```ts
-suggestions: {
-  isLoading: suggestLoading,    // ← luôn = false trong lúc refresh
-  isEnhancing: suggestEnhancing,
-  ...
-}
-```
-
-**Hệ quả dây chuyền**:
-1. `ScriptFormStepper` lấy `isLoading: suggestionsLoading` → truyền vào `TopicIdeaHub` → truyền tiếp vào `TopicSuggestionPanel`.
-2. **Refresh icon** (`TopicSuggestionPanel` line 967): icon không quay (`isLoading && "animate-spin"` = false).
-3. **Category chips** (`TopicIdeaHub` line 65-69):
-   ```ts
-   useEffect(() => {
-     if (!isLoading && loadingCategory) setLoadingCategory(null);
-   }, [isLoading, loadingCategory]);
-   ```
-   → Vì `isLoading` luôn false, effect chạy ngay sau khi `setLoadingCategory(label)`, **reset về null trước khi React kịp render spinner** → chip không bao giờ hiện trạng thái loading.
-4. Người dùng click → không thấy gì → click lại → `if (loadingCategory) return` cũng không chặn được vì state đã reset.
-
-## 🛠 Plan sửa (2 thay đổi nhỏ, an toàn)
-
-### File 1: `src/hooks/ai/useTopicAI.ts` — fix nguồn gốc
-
-Trong `fetchSuggestions` (~line 803-942), set **cả `suggestLoading`** khi refresh do user trigger:
-
-```ts
-const fetchSuggestions = useCallback(async (forceRefresh = false, categoryHint?: string) => {
-  if (!enabled) return;
-  if (suggestIsFetchingRef.current && !forceRefresh) { ... return; }
-  
-  // ... abort controller setup
-  
-  suggestIsFetchingRef.current = true;
-  // ✅ NEW: bật suggestLoading khi user chủ động refresh / chọn category
-  if (forceRefresh) setSuggestLoading(true);
-  setSuggestEnhancing(true);
-  // ...
-  
-  // trong finally / cleanup:
-  setSuggestEnhancing(false);
-  if (forceRefresh) setSuggestLoading(false);   // ✅ tắt khi xong
-}, [...]);
-```
-
-→ Refresh icon sẽ quay, chip sẽ hiện `Loader2` spinner đúng vài giây cho đến khi suggestions mới về.
-
-### File 2: `src/components/topic/TopicIdeaHub.tsx` — defensive fix cho chip
-
-Chip đang reset quá nhanh do effect chỉ phụ thuộc `isLoading`. Đổi sang dùng `isEnhancing` HOẶC thêm minimum-delay 600ms để guarantee user thấy feedback ngay cả khi cache trả về tức thì:
-
-```ts
-// Approach A (preferred): theo dõi cả enhancing
-useEffect(() => {
-  if (!isLoading && !isEnhancing && loadingCategory) {
-    setLoadingCategory(null);
-  }
-}, [isLoading, isEnhancing, loadingCategory]);
-```
-
-→ Cần thêm prop `isEnhancing?: boolean` vào `TopicIdeaHubProps` và pass từ `ScriptFormStepper` (đã có sẵn `suggestionsModule.isEnhancing` trong wrapper, chỉ cần expose qua `useEnhancedTopicSuggestions`).
-
-### File 3 (optional): `src/components/script/ScriptFormStepper.tsx`
-
-Pass thêm `isEnhancing={enhancingState}` vào `<TopicIdeaHub>` để chip có feedback chính xác.
-
-## ✅ Kết quả mong đợi
-
-| Action | Trước | Sau |
+| Tình huống | Thời gian | Bottleneck |
 |---|---|---|
-| Click chip "Theo trend" | Không feedback, list im lìm 5-10s | Chip biến thành button đậm + spinner, list hiện skeleton, sau ~3-8s ra suggestions mới |
-| Click refresh icon | Icon đứng yên | Icon quay liên tục đến khi xong |
-| Click "Brainstorm AI" | ✅ Vẫn OK (mở Sheet) | ✅ Không đổi |
+| Cache MISS | 96s | qwen-plus generate 10 topics tuần tự |
+| Cache HIT (DB) | 1.5s | Round-trip DB query |
+| User perception | "Đứng yên" | Không có progress feedback |
 
-## 🌐 Lan tỏa
+---
 
-Vì `useEnhancedTopicSuggestions` + `TopicIdeaHub` được dùng chung ở:
-- `ScriptFormStepper` (Video Script)
-- `MultiChannelFormStepper` / `MultiChannelFormWizard` (Đa kênh)
-- `CarouselForm` (Carousel)
+## 🎯 4 thay đổi (theo thứ tự impact)
 
-→ Fix một lần, **3 form đều được lợi**. Không có breaking change.
+### **1. Pre-warm cache khi mở form** (impact: cao, effort: thấp)
 
-## 📌 Không thay đổi
+**Vấn đề**: User click form → click chip → đợi 96s.
+**Fix**: Fetch suggestions ngay khi user navigate vào trang Script/Multichannel/Carousel, dùng stale-while-revalidate.
 
-- Logic backend `topic-ai` edge function (đang chạy đúng).
-- Format/contentGoal mapping cho script.
-- Brainstorm AI sheet flow.
+**Files**:
+- `src/hooks/ai/useTopicAI.ts`: Thêm option `prefetchOnMount: true` (default), fire `fetchSuggestions(false)` ngay khi hook mount + brand sẵn sàng
+- `src/hooks/ai/topic-suggestions/useSuggestionsState.ts` (nếu có): expose `prefetch()` riêng biệt
+- Trang `/scripts/new`, `/multichannel/new`, `/carousel/new`: gọi `useTopicAI({ prefetchOnMount: true })` từ component cha
+
+**Hiệu quả kỳ vọng**: 80% case user click chip → cache đã warm → < 200ms
+
+---
+
+### **2. Streaming progressive UI** (impact: cao về UX, effort: trung bình)
+
+**Vấn đề**: User thấy spinner đứng yên 96s → cảm tưởng app hỏng.
+
+**Fix backend** (`supabase/functions/topic-ai/index.ts`):
+- Bật `stream: true` khi gọi `callAI()` cho action `suggest`
+- Stream từng topic ra qua SSE với event `topic_chunk` (tương tự pattern carousel streaming đã có)
+- Khi xong → emit `topics_complete` + cache vào DB như cũ
+
+**Fix frontend** (`src/hooks/ai/topic-suggestions/useSuggestionsFetch.ts`):
+- Dùng `fetch` + `ReadableStream` thay cho `supabase.functions.invoke()`
+- Parse SSE chunks → push từng topic vào state ngay khi đến
+- Hiển thị `Loader2` chip + "Đang tạo topic 3/6..." trong `TopicSuggestionPanel`
+
+**Files**:
+- `supabase/functions/topic-ai/index.ts`
+- `supabase/functions/topic-ai/lib/suggest.ts` (nếu tồn tại)
+- `src/hooks/ai/topic-suggestions/useSuggestionsFetch.ts`
+- `src/components/TopicSuggestionPanel.tsx`: thêm progress text
+
+**Hiệu quả kỳ vọng**: User thấy topic đầu tiên ở **~3-5s** thay vì 96s. Total time vẫn ~60-80s nhưng cảm nhận nhanh hơn 10x.
+
+---
+
+### **3. Giảm 10 → 6 suggestions + nút "Tải thêm"** (impact: trung bình, effort: thấp)
+
+**Vấn đề**: Generate 10 topic dài (mỗi topic 150-250 ký tự) chiếm phần lớn time.
+
+**Fix**:
+- `supabase/functions/topic-ai/lib/suggest.ts` (hoặc `index.ts`): default `count: 6`, max `12`
+- `src/components/TopicSuggestionPanel.tsx`: thêm button "Tải thêm 6 ý tưởng" gọi `refresh()` với `count: 6, append: true`
+- `src/hooks/ai/topic-suggestions/useSuggestionsState.ts`: support append mode
+
+**Hiệu quả kỳ vọng**: ~96s → **~55-60s** cho lần đầu (~40% giảm). Cộng với streaming → user thấy topic đầu ở 3s.
+
+---
+
+### **4. Setup Upstash Redis cache** (impact: trung bình, effort: thấp — chủ yếu config)
+
+**Hiện tại**: `[RedisCache] No Upstash credentials, cache disabled` → mất layer in-memory cache nhanh.
+
+**Hướng dẫn setup** (sẽ trình bày trong chat sau khi approve):
+1. User tạo account free tại https://upstash.com (10k commands/day free)
+2. Tạo Redis database (region: Singapore cho latency tốt nhất với VN)
+3. Copy `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
+4. Tôi dùng tool `add_secret` để inject vào Lovable Cloud
+5. Code trong `supabase/functions/_shared/cache/redis-cache.ts` đã sẵn sàng — auto-detect và bật
+
+**Hiệu quả kỳ vọng**: Cache HIT giảm từ 1.5s → **~150-200ms** (10x nhanh hơn DB cache).
+
+---
+
+## 📋 Thứ tự thực hiện
+
+1. ✅ **Bước 1**: Giảm 10→6 suggestions (5 phút, deploy ngay)
+2. ✅ **Bước 2**: Pre-warm cache on mount (10 phút)
+3. ✅ **Bước 3**: Streaming SSE backend + frontend (30-45 phút — phức tạp nhất)
+4. ⏸️ **Bước 4**: Hỏi user setup Upstash → add secret → enable Redis
+
+---
+
+## 🔍 Bonus fix (phát hiện trong log)
+
+- **Model fallback bug**: Log báo `Unsupported model qwen-flash, fallback → qwen-plus`. Nếu user config qwen-flash mà code không support → cần thêm `qwen-flash` vào `SUPPORTED_MODELS` trong `topic-ai`. qwen-flash nhanh hơn qwen-plus ~2x. Sẽ fix kèm bước 1.
+
+- **Web search skip**: Log show `Skipped all Perplexity API calls - cost optimization` — đúng ý đồ tiết kiệm. Không cần đổi.
+
+---
+
+## ✅ Kết quả dự kiến sau khi xong
+
+| Tình huống | Trước | Sau |
+|---|---|---|
+| User mở form lần đầu | Click chip → đợi 96s | Topic xuất hiện sau 3s, full sau 30-40s |
+| User click chip lần 2+ | 1.5s | ~200ms (Redis) hoặc ~500ms (DB cache) |
+| Cảm nhận | "App hỏng" | "Mượt như Claude/ChatGPT" |
+
+**Không có breaking changes**. Backward compatible với 3 form: Script, Multichannel, Carousel.
