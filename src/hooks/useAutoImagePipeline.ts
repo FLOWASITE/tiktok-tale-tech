@@ -39,6 +39,8 @@ interface AutoImagePipelineOptions {
   brandIndustry?: string[];
   /** Brand country code for overlay language matching */
   brandCountryCode?: string | null;
+  /** Organization ID for task tracking */
+  organizationId?: string;
   /** Whether to auto-save images to DB immediately */
   autoSave?: boolean;
 }
@@ -89,7 +91,7 @@ function extractContentSummary(channelContent: string): string {
 }
 
 export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
-  const { brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, autoSave = true } = options;
+  const { brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, organizationId, autoSave = true } = options;
   
   const [phase, setPhase] = useState<PipelinePhase>('idle');
   const [imageResults, setImageResults] = useState<{ successful: Channel[]; failed: Channel[] } | null>(null);
@@ -246,6 +248,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       const genOptions: AutoGenerateOptions = {
         contentId,
         brandTemplateId,
+        organizationId,
         channels,
         contentSummaries,
         aspectRatio: 'auto',
@@ -327,7 +330,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         inFlightContentIdRef.current = null;
       }
     }
-  }, [brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, autoSave, autoImageGen]);
+  }, [brandTemplateId, brandLogoUrl, brandIndustry, brandPrimaryColor, brandFooterInfo, brandCountryCode, organizationId, autoSave, autoImageGen]);
 
   const cancelPipeline = useCallback(() => {
     abortRef.current = true;
