@@ -113,7 +113,7 @@ export function GoogleMapsMockup({ content, brandName, logoUrl, isGenerating, ch
             </Avatar>
             <div className="min-w-0">
               <h3 className="text-base font-medium text-[#202124] dark:text-[#e8eaed] leading-tight">{brandName}</h3>
-              <p className="text-xs text-[#70757a] dark:text-[#9aa0a6] mt-0.5">Dịch vụ Marketing</p>
+              <p className="text-xs text-[#70757a] dark:text-[#9aa0a6] mt-0.5 truncate">{subtitle}</p>
             </div>
           </div>
           <button className="p-1.5 hover:bg-[#f1f3f4] dark:hover:bg-[#3c4043] rounded-full transition-colors">
