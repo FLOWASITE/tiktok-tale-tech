@@ -514,6 +514,9 @@ export async function searchTrendingTopics(
     console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping trending search`);
     return null;
   }
+  if (webSearchDisabledThisIsolate) {
+    return null;
+  }
 
   try {
     const currentDate = new Date().toISOString().split('T')[0];
