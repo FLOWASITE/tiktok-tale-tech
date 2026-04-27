@@ -273,6 +273,19 @@ export function shouldSkipWebSearch(options: {
 }
 
 /**
+ * In-isolate kill switch: once Perplexity/OpenRouter returns a quota/auth error
+ * (401 insufficient_quota, 402, 429), skip all further web-search calls for the
+ * lifetime of this isolate. Prevents repeated failing requests from slowing
+ * cold starts and triggering edge-runtime 503s.
+ */
+let webSearchDisabledThisIsolate = false;
+
+function isQuotaOrAuthError(status: number, body: string): boolean {
+  if (status === 401 || status === 402 || status === 429) return true;
+  return /insufficient_quota|exceeded your current quota|payment_required|not enough credits/i.test(body);
+}
+
+/**
  * Search for industry data using OpenRouter (Perplexity Sonar) or direct Perplexity API
  */
 export async function searchIndustryData(
@@ -281,6 +294,9 @@ export async function searchIndustryData(
 ): Promise<IndustryInsight | null> {
   if (!WEB_SEARCH_API_KEY) {
     console.log(`[${WEB_SEARCH_LABEL}] API not configured, skipping industry data search`);
+    return null;
+  }
+  if (webSearchDisabledThisIsolate) {
     return null;
   }
 
