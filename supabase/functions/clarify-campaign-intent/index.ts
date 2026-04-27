@@ -93,33 +93,23 @@ Rules:
 - Respond in the SAME LANGUAGE as the campaign title
 - Return ONLY valid JSON, no markdown`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(lovableApiKey ? { "Authorization": `Bearer ${lovableApiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 1000,
-      }),
+    const aiResult = await callAI({
+      functionName: "clarify-campaign-intent",
+      organizationId,
+      messages: [{ role: "user", content: prompt }],
+      temperatureOverride: 0.2,
+      maxTokensOverride: 1000,
     });
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("[clarify-campaign-intent] AI error:", aiRes.status, errText);
+    if (!aiResult.success) {
+      console.error("[clarify-campaign-intent] AI error:", aiResult.error);
       return new Response(
         JSON.stringify({ ready: true, understanding: `Tạo nội dung về "${title}"` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiData = await aiRes.json();
-    const content = aiData?.choices?.[0]?.message?.content || "";
+    const content = aiResult.data?.choices?.[0]?.message?.content || "";
 
     let parsed: any;
     try {
