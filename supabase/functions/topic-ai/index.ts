@@ -1670,7 +1670,7 @@ Trả về JSON array với ${topic ? '3-5' : '5-6'} topics:
   };
   const categoryGuidance = categoryHint ? (categoryHintMap[categoryHint] || `🎯 HƯỚNG ĐI: Tập trung gợi ý các chủ đề theo hướng "${categoryHint}". Tất cả topics phải phù hợp với hướng đi này.`) : '';
 
-  const userPrompt = `Gợi ý ${topic ? '3-5' : '8-10'} chủ đề content cho:
+  const userPrompt = `Gợi ý ${topic ? '3-5' : '5-6'} chủ đề content cho:
 - Mục tiêu: ${goalLabels[contentGoal || 'education']}
 - Format: ${format || 'all'}
 ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
