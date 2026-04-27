@@ -21,6 +21,22 @@ import { useAutoImagePipeline } from '@/hooks/useAutoImagePipeline';
 import { MultiChannelFormData, ContentGoal, Channel } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { toast } from 'sonner';
+
+const CHANNEL_CONTENT_FIELD: Partial<Record<Channel, string>> = {
+  website: 'website_content',
+  facebook: 'facebook_content',
+  instagram: 'instagram_content',
+  twitter: 'twitter_content',
+  google_maps: 'google_maps_content',
+  linkedin: 'linkedin_content',
+  email: 'email_content',
+  youtube: 'youtube_content',
+  zalo_oa: 'zalo_oa_content',
+  telegram: 'telegram_content',
+  tiktok: 'tiktok_content',
+  threads: 'threads_content',
+};
+
 interface LocationState {
   prefillTopic?: string;
   prefillGoal?: ContentGoal;
@@ -187,6 +203,33 @@ export default function MultiChannelCreate() {
     if (result) {
       setGeneratedContentId(result.id);
       setGenerationState('complete');
+
+      if (selectedBrandId && data.channels?.length) {
+        const channelTexts = data.channels.reduce((acc, channel) => {
+          const field = CHANNEL_CONTENT_FIELD[channel];
+          acc[channel] = (field && result[field]) || getChannelText(channel) || result.topic || data.topic || '';
+          return acc;
+        }, {} as Record<string, string>);
+
+        console.log('[MultiChannelCreate] 🚀 auto-starting image pipeline after content result', {
+          contentId: result.id,
+          channels: data.channels,
+        });
+
+        imagePipeline.startPipeline(result.id, data.channels, channelTexts, {
+          contentGoal: data.contentGoal,
+          contentRole: data.contentRole,
+          contentAngle: data.contentAngle,
+          topic: data.topic,
+          promptMode: 'full',
+          brandCountryCode: selectedTemplate?.country_code || undefined,
+          structuredTemplate: 'auto',
+          hooks: {
+            selectedHooks: result.selected_hooks || data.selectedHooks,
+            globalHook: result.global_hook || data.globalHook,
+          },
+        });
+      }
       
       // Refetch contents
       await refetch();
