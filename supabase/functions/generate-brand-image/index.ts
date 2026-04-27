@@ -187,16 +187,25 @@ async function persistGeneratedImage(
     .single();
 
   const currentImages = (currentContent?.channel_images as Record<string, any>) || {};
-  currentImages[channel] = {
-    url: imageUrl,
-    provider: modelUsed,
-    aspectRatio,
-  };
+  const existing = currentImages[channel];
 
-  await supabase
-    .from('multi_channel_contents')
-    .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
-    .eq('id', contentId);
+  // ⚠️ Chỉ ghi khi channel chưa có ảnh, để KHÔNG đè URL final (sau STEP 2-4 logo/text/footer)
+  // mà client-side pipeline đã lưu vào trước đó. STEP 1 raw URL chỉ làm fallback ban đầu.
+  if (!existing?.url) {
+    currentImages[channel] = {
+      url: imageUrl,
+      provider: modelUsed,
+      aspectRatio,
+    };
+
+    await supabase
+      .from('multi_channel_contents')
+      .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
+      .eq('id', contentId);
+  } else {
+    console.log(`[generate-brand-image] Skipping channel_images update for ${channel} — existing URL preserved (likely overlay-final from client pipeline)`);
+  }
+
 
   await updateImageTaskStatus(supabase, taskId, {
     status: 'completed',
