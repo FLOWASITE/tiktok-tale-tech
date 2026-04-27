@@ -909,6 +909,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     } finally {
       suggestIsFetchingRef.current = false;
       setSuggestEnhancing(false);
+      // Clear loading flag if we set it (user-triggered refresh path)
+      if (forceRefresh) setSuggestLoading(false);
     }
   }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
 
