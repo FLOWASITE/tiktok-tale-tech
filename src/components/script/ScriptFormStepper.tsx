@@ -173,6 +173,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     suggestions: enhancedSuggestions,
     source: suggestionsSource,
     isLoading: suggestionsLoading,
+    isEnhancing: suggestionsEnhancing,
     error: suggestionsError,
     errorCode: suggestionsErrorCode,
     refresh: refreshSuggestions,
