@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import type { BrandFooterInfo } from '@/components/BrandForm';
 
 interface GoogleMapsMockupProps {
   content: string;
@@ -14,6 +15,8 @@ interface GoogleMapsMockupProps {
   logoUrl?: string;
   isGenerating?: boolean;
   channelImage?: string;
+  footerInfo?: BrandFooterInfo | null;
+  industryLabel?: string;
 }
 
 const mockupMarkdownComponents = {
@@ -25,13 +28,34 @@ const mockupMarkdownComponents = {
   br: () => <br className="block" />,
 };
 
-export function GoogleMapsMockup({ content, brandName, logoUrl, isGenerating, channelImage }: GoogleMapsMockupProps) {
+/** Strip protocol + trailing slash for clean Maps display */
+function cleanWebsite(url?: string | null): string {
+  if (!url) return '';
+  return url.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
+/** Deterministic hash → number in [min, max] (both inclusive) */
+function seededInt(seed: string, min: number, max: number): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  const range = max - min + 1;
+  return min + (Math.abs(h) % range);
+}
+
+export function GoogleMapsMockup({ content, brandName, logoUrl, isGenerating, channelImage, footerInfo, industryLabel }: GoogleMapsMockupProps) {
   const [saved, setSaved] = useState(false);
   const [liked, setLiked] = useState(false);
 
-  const displayUrl = `www.${brandName.toLowerCase().replace(/\s+/g, '')}.com`;
-  const rating = 4.6;
-  const reviewCount = 328;
+  const address = footerInfo?.address?.trim() || '';
+  const phone = footerInfo?.phone?.trim() || '';
+  const websiteRaw = footerInfo?.website?.trim() || '';
+  const displayUrl = cleanWebsite(websiteRaw) || `${brandName.toLowerCase().replace(/\s+/g, '')}.com`;
+  const subtitle = industryLabel?.trim() || footerInfo?.company_name?.trim() || 'Doanh nghiệp';
+
+  // Demo rating/reviews — varied per brand so previews don't feel identical
+  // (Real GBP rating requires Google Business Profile API integration)
+  const rating = seededInt(brandName, 42, 49) / 10; // 4.2 - 4.9
+  const reviewCount = seededInt(brandName + 'r', 80, 520);
 
   return (
     <div className="bg-white dark:bg-[#202124] rounded-xl border border-[#dadce0] dark:border-[#3c4043] overflow-hidden font-['Google_Sans',Roboto,Arial,sans-serif] shadow-sm max-w-[420px] mx-auto">
