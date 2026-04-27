@@ -316,6 +316,12 @@ export function useAutoImageGeneration() {
           source: 'auto',
         });
 
+        if (!taskId) {
+          console.warn(`[Pipeline:${channel}] taskId=null — proceeding without background task tracking (likely RLS/network issue creating generation_tasks row)`);
+        } else {
+          console.log(`[Pipeline:${channel}] ✓ Task created: ${taskId} — invoking generate-brand-image`);
+        }
+
         let { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
           body: {
             taskId,
