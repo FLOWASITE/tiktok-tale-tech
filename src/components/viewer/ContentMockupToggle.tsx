@@ -64,6 +64,8 @@ export function ContentMockupToggle({
   onTriggerGEO,
   isGEOLoading,
   geoFactorScores,
+  footerInfo,
+  industryLabel,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
