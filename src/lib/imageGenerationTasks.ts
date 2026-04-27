@@ -44,13 +44,27 @@ export async function createImageGenerationTask({
       .single();
 
     if (error) {
-      console.warn('[imageGenerationTasks] Failed to create image task:', error);
+      console.warn('[imageGenerationTasks] Failed to create image task:', {
+        message: error.message,
+        code: (error as any).code,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        contentId,
+        channel,
+        brandTemplateId,
+        userId,
+      });
       return null;
     }
 
     return data?.id ?? null;
   } catch (error) {
-    console.warn('[imageGenerationTasks] Failed to create image task:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn('[imageGenerationTasks] Exception creating image task:', msg, {
+      contentId,
+      channel,
+      brandTemplateId,
+    });
     return null;
   }
 }

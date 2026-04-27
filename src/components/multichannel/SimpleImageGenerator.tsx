@@ -620,12 +620,33 @@ export function SimpleImageGenerator({
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
+    // Diagnostic log — confirms button click reaches handler
+    console.log('[SimpleImageGenerator] handleGenerate triggered', {
+      contentId: content?.id,
+      brandTemplateId: content?.brand_template_id,
+      selectedChannels,
+      isDecomposing,
+      isGenerating: batchGen.isGenerating,
+      hasHybridOverlay: !!hybridOverlay,
+      contentSummariesKeys: Object.keys(contentSummaries || {}),
+      contentSummariesLengths: Object.fromEntries(
+        Object.entries(contentSummaries || {}).map(([k, v]) => [k, (v as string)?.length || 0])
+      ),
+      promptMode,
+      imageContentType,
+      textToIncludeLength: textToInclude?.length || 0,
+    });
+
     if (!content.brand_template_id) {
       toast.error('Vui lòng chọn brand template trước');
       return;
     }
     if (selectedChannels.length === 0) {
       toast.error('Vui lòng chọn ít nhất 1 kênh');
+      return;
+    }
+    if (isDecomposing) {
+      toast.warning('AI đang phân tích nội dung — vui lòng đợi 1-2 giây rồi thử lại');
       return;
     }
     if (promptMode !== 'full' && imageContentType === 'with_text') {
@@ -1031,11 +1052,22 @@ export function SimpleImageGenerator({
             <Button
               onClick={handleGenerate}
               disabled={batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing}
+              title={
+                batchGen.isGenerating
+                  ? 'Đang tạo ảnh...'
+                  : selectedChannels.length === 0
+                  ? 'Vui lòng chọn ít nhất 1 kênh'
+                  : isDecomposing
+                  ? 'AI đang phân tích nội dung, vui lòng đợi...'
+                  : 'Tạo ảnh cho các kênh đã chọn'
+              }
               className="w-full h-11 gap-2 text-base"
               size="lg"
             >
               {batchGen.isGenerating ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+              ) : isDecomposing ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Đang phân tích nội dung...</>
               ) : (
                 <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
               )}
