@@ -163,10 +163,12 @@ export function GoogleMapsMockup({ content, brandName, logoUrl, isGenerating, ch
 
         {/* Business Info */}
         <div className="space-y-2.5 pb-3 border-b border-[#dadce0] dark:border-[#3c4043]">
-          <div className="flex items-start gap-3">
-            <MapPin className="w-4 h-4 text-[#70757a] dark:text-[#9aa0a6] mt-0.5 shrink-0" />
-            <span className="text-sm text-[#202124] dark:text-[#e8eaed]">123 Nguyễn Huệ, Quận 1, TP.HCM</span>
-          </div>
+          {address && (
+            <div className="flex items-start gap-3">
+              <MapPin className="w-4 h-4 text-[#70757a] dark:text-[#9aa0a6] mt-0.5 shrink-0" />
+              <span className="text-sm text-[#202124] dark:text-[#e8eaed]">{address}</span>
+            </div>
+          )}
           <div className="flex items-start gap-3">
             <Clock className="w-4 h-4 text-[#70757a] dark:text-[#9aa0a6] mt-0.5 shrink-0" />
             <div>
@@ -175,13 +177,15 @@ export function GoogleMapsMockup({ content, brandName, logoUrl, isGenerating, ch
               <ChevronRight className="w-3 h-3 text-[#70757a] inline ml-0.5" />
             </div>
           </div>
-          <div className="flex items-start gap-3">
-            <Phone className="w-4 h-4 text-[#70757a] dark:text-[#9aa0a6] mt-0.5 shrink-0" />
-            <span className="text-sm text-[#1a73e8] hover:underline cursor-pointer">028 1234 5678</span>
-          </div>
+          {phone && (
+            <div className="flex items-start gap-3">
+              <Phone className="w-4 h-4 text-[#70757a] dark:text-[#9aa0a6] mt-0.5 shrink-0" />
+              <span className="text-sm text-[#1a73e8] hover:underline cursor-pointer">{phone}</span>
+            </div>
+          )}
           <div className="flex items-start gap-3">
             <Globe className="w-4 h-4 text-[#70757a] dark:text-[#9aa0a6] mt-0.5 shrink-0" />
-            <span className="text-sm text-[#1a73e8] hover:underline cursor-pointer">{displayUrl}</span>
+            <span className="text-sm text-[#1a73e8] hover:underline cursor-pointer break-all">{displayUrl}</span>
           </div>
         </div>
       </div>
