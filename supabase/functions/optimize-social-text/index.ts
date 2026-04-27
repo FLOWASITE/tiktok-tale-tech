@@ -1,5 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,10 +35,7 @@ Deno.serve(withPerf({ functionName: 'optimize-social-text' }, async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Note: model + provider routing now handled by centralized callAI() (DashScope qwen-flash + 2-tier fallback)
 
     const styleInstructions: Record<string, string> = {
       'punchy': 'Make it punchy, bold, and attention-grabbing. Use power words.',
@@ -71,63 +69,25 @@ Examples:
       cacheInputText,
       { functionName: 'optimize-social-text', similarityThreshold: 0.92 },
       async () => {
-        const PRIMARY_MODEL = 'google/gemini-2.5-flash-lite';
-        const FALLBACK_MODELS = ['google/gemini-3-flash-preview'];
+        const aiResult = await callAI({
+          functionName: 'optimize-social-text',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Optimize this text for a social graphic overlay:\n\n"${text}"` },
+          ],
+          temperatureOverride: 0.7,
+          maxTokensOverride: 100,
+        });
 
-        const callAI = async (model: string) => {
-          return fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: `Optimize this text for a social graphic overlay:\n\n"${text}"` }
-              ],
-              temperature: 0.7,
-              max_tokens: 100,
-            }),
-          });
-        };
-
-        let response = await callAI(PRIMARY_MODEL);
-        let bodyConsumed = false;
-
-        // Fallback chain on 402 (credits exhausted)
-        if (response.status === 402) {
-          console.warn(`[optimize-social-text] Primary model credits exhausted, trying fallbacks...`);
-          await response.text(); // consume body
-          bodyConsumed = true;
-
-          for (const fallbackModel of FALLBACK_MODELS) {
-            console.log(`[optimize-social-text] Trying fallback: ${fallbackModel}`);
-            response = await callAI(fallbackModel);
-            bodyConsumed = false;
-            if (response.status !== 402) break;
-            console.warn(`[optimize-social-text] Fallback ${fallbackModel} also returned 402`);
-            await response.text(); // consume body
-            bodyConsumed = true;
-          }
-        }
-
-        if (!response.ok) {
-          if (!bodyConsumed) {
-            const errorText = await response.text();
-            console.error('[optimize-social-text] AI API error:', response.status, errorText);
-          } else {
-            console.error('[optimize-social-text] AI API error:', response.status, '(body already consumed)');
-          }
-          if (response.status === 402) {
+        if (!aiResult.success) {
+          console.error('[optimize-social-text] AI error:', aiResult.error);
+          if (aiResult.error?.includes('402') || aiResult.error?.includes('Payment')) {
             throw new Error('AI credits exhausted');
           }
           throw new Error('Failed to optimize text with AI');
         }
 
-        const data = await response.json();
-        const optimizedText = data.choices?.[0]?.message?.content?.trim() || text;
+        const optimizedText = aiResult.data?.choices?.[0]?.message?.content?.trim() || text;
 
         // Clean up any quotes that AI might add
         const cleanedText = optimizedText

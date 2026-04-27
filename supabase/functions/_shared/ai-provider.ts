@@ -829,13 +829,54 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   }
 
   // DashScope uses env var directly (no DB config needed)
+  // 2-tier fallback chain for resilience:
+  //   tier 1: requested qwen model (e.g. qwen-plus)
+  //   tier 2: qwen-flash (cheaper/faster sibling — same provider)
+  //   tier 3: google/gemini-2.5-flash via Lovable Gateway (last resort, only if credits)
   if (primaryProvider === "dashscope") {
     console.log("[ai-provider] Using DashScope (Alibaba Cloud)");
-    return callWithCircuitBreaker(
+    const primaryResult = await callWithCircuitBreaker(
       () => callDashScope(messages, effectiveModel, effectiveConfig, options),
       effectiveModel,
       options
     );
+
+    if (primaryResult.success) return primaryResult;
+
+    // Tier 2: try qwen-flash if not already using it
+    const isTransientError = primaryResult.error?.includes("429") ||
+                             primaryResult.error?.includes("Rate") ||
+                             primaryResult.error?.includes("timeout") ||
+                             primaryResult.error?.includes("DashScope error");
+    if (isTransientError && effectiveModel !== "qwen-flash") {
+      console.warn(`[ai-provider] DashScope ${effectiveModel} failed, falling back to qwen-flash`);
+      const tier2Config = { ...effectiveConfig, model: "qwen-flash" };
+      const tier2Result = await callWithCircuitBreaker(
+        () => callDashScope(messages, "qwen-flash", tier2Config, options),
+        "qwen-flash",
+        options
+      );
+      if (tier2Result.success) {
+        tier2Result.fromFallback = true;
+        return tier2Result;
+      }
+      // Tier 3: Lovable Gateway as last resort (skip if 402 to avoid credit storm)
+      const isCreditsExhausted = tier2Result.error?.includes("402") ||
+                                  tier2Result.error?.includes("Payment");
+      if (!isCreditsExhausted) {
+        console.warn(`[ai-provider] DashScope qwen-flash failed, last-resort fallback to Lovable Gateway gemini-2.5-flash`);
+        const tier3Config = { ...effectiveConfig, model: "google/gemini-2.5-flash" };
+        const tier3Result = await callWithCircuitBreaker(
+          () => callLovableGateway(messages, "google/gemini-2.5-flash", tier3Config, options),
+          "google/gemini-2.5-flash",
+          options
+        );
+        tier3Result.fromFallback = true;
+        return tier3Result;
+      }
+    }
+
+    return primaryResult;
   }
 
   // Default: Use Lovable Gateway
