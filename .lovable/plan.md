@@ -1,48 +1,115 @@
-# 🎯 Mục tiêu
-Đồng bộ logic chọn AI model: đảm bảo mọi function dùng `qwen-*` đều route DashScope với fallback an toàn, sửa model name không khớp, dọn inconsistency `force_provider`.
+## 🎯 Vấn đề
 
-## 🔍 Vấn đề chính phát hiện
+Trên form **Tạo Kịch bản Video** (`/scripts/new`), khi click vào các chip:
+- 🔥 Viral tuần này
+- 📈 Theo trend
+- 🎁 Mùa lễ hội
+- ⚡ So sánh A vs B
+- 🔄 Refresh icon (góc phải)
 
-| # | Vấn đề | Function bị ảnh hưởng |
-|---|---|---|
-| 1 | `force_provider=NULL` nhưng dùng qwen → phụ thuộc auto-detect | `topic-ai`, `analyze-dashboard-insights`, `analyze-script`, `chat-topics`, `auto-suggest-connections`, `generate-brand-guideline`, `generate-carousel`, `generate-core-content`, `generate-multichannel`, `generate-storyboard`, `regenerate-carousel-caption` |
-| 2 | Model name không tồn tại trong DashScope catalog | `topic-ai` (`qwen3-flash` ⚠️ list chỉ có turbo/plus/max/long), `generate-script` (`qwen-max` qua OpenRouter ⚠️ OpenRouter dùng `qwen/qwen3.5-*`) |
-| 3 | Không có fallback khi DashScope down (qwen-* không Lovable-compatible) | Tất cả 28 function dùng qwen-* |
-| 4 | `overlay-brand-logo` dùng `poyo/*` lệch group default `geminigen/*` | overlay-brand-logo |
+→ **Nhìn như không có gì xảy ra** (không spinner, không update list trong tích tắc, người dùng bấm lại nghĩ là hỏng).
 
-## 🛠️ Thay đổi đề xuất
+> Lưu ý: Backend (edge function `topic-ai`) vẫn fire request đúng với `categoryHint`, nhưng UX feedback bị gãy nên trông như không hoạt động. Multichannel & Carousel cũng dùng cùng component nên đang bị bug giống hệt — chỉ chưa ai phát hiện.
 
-### Migration 1 — Chuẩn hoá `force_provider` cho mọi function dùng qwen
-SET `force_provider='dashscope'` cho 11 function ở vấn đề #1 → loại bỏ auto-detect, làm rõ ràng cho admin nhìn UI.
+## 🔍 Root Cause (đã trace xong)
 
-### Migration 2 — Sửa model name không khớp
-- `topic-ai`: `qwen3-flash` → `qwen-flash` (hoặc `qwen3-turbo` nếu muốn dòng qwen3)
-- `generate-script`: `qwen-max` (force=openrouter) → đổi sang `qwen-max-latest` + force=`dashscope` (đồng bộ với generate-multichannel) — HOẶC giữ OpenRouter nhưng dùng đúng tên `qwen/qwen3.5-397b-a17b`
+File `src/hooks/ai/useTopicAI.ts` — hàm `fetchSuggestions` (line 803):
 
-### Code fix — Fallback chain cho qwen models
-File `supabase/functions/_shared/ai-provider.ts` (~line 814-827):
-- Khi `primaryProvider=dashscope` fail, hiện tại return error luôn (vì `isLovableCompatibleModel` = false cho qwen).
-- **Thêm 2-tier fallback**:
-  1. DashScope qwen-flash → DashScope qwen-plus (model fallback nội bộ)
-  2. Nếu cả 2 fail → fallback sang `google/gemini-2.5-flash` qua Lovable Gateway (last resort, có credits mới chạy)
-- Tránh "credit storm": disable Lovable Gateway trong isolate sau lần 402 đầu tiên.
+```ts
+const fetchSuggestions = useCallback(async (forceRefresh = false, categoryHint?: string) => {
+  // ...
+  setSuggestEnhancing(true);   // ← chỉ set "enhancing"
+  // KHÔNG set setSuggestLoading(true)
+  // ...
+});
+```
 
-### Quality of life
-- Thêm validation lúc admin lưu config: nếu chọn provider X mà model name không thuộc catalog X → cảnh báo UI.
-- Log rõ ở `[ai-provider]`: source = individual / group / default + chosen provider để debug nhanh trên Edge Function logs.
+Nhưng module export ra:
+```ts
+suggestions: {
+  isLoading: suggestLoading,    // ← luôn = false trong lúc refresh
+  isEnhancing: suggestEnhancing,
+  ...
+}
+```
 
-## 📦 Files sẽ sửa
-1. `supabase/migrations/<new>.sql` — UPDATE force_provider cho 11 function + sửa model name 2 function
-2. `supabase/functions/_shared/ai-provider.ts` — thêm 2-tier fallback logic + isolate-level kill switch khi 402
-3. (optional) `src/components/admin/AIFunctionConfigForm.tsx` — validation provider/model khớp catalog
+**Hệ quả dây chuyền**:
+1. `ScriptFormStepper` lấy `isLoading: suggestionsLoading` → truyền vào `TopicIdeaHub` → truyền tiếp vào `TopicSuggestionPanel`.
+2. **Refresh icon** (`TopicSuggestionPanel` line 967): icon không quay (`isLoading && "animate-spin"` = false).
+3. **Category chips** (`TopicIdeaHub` line 65-69):
+   ```ts
+   useEffect(() => {
+     if (!isLoading && loadingCategory) setLoadingCategory(null);
+   }, [isLoading, loadingCategory]);
+   ```
+   → Vì `isLoading` luôn false, effect chạy ngay sau khi `setLoadingCategory(label)`, **reset về null trước khi React kịp render spinner** → chip không bao giờ hiện trạng thái loading.
+4. Người dùng click → không thấy gì → click lại → `if (loadingCategory) return` cũng không chặn được vì state đã reset.
+
+## 🛠 Plan sửa (2 thay đổi nhỏ, an toàn)
+
+### File 1: `src/hooks/ai/useTopicAI.ts` — fix nguồn gốc
+
+Trong `fetchSuggestions` (~line 803-942), set **cả `suggestLoading`** khi refresh do user trigger:
+
+```ts
+const fetchSuggestions = useCallback(async (forceRefresh = false, categoryHint?: string) => {
+  if (!enabled) return;
+  if (suggestIsFetchingRef.current && !forceRefresh) { ... return; }
+  
+  // ... abort controller setup
+  
+  suggestIsFetchingRef.current = true;
+  // ✅ NEW: bật suggestLoading khi user chủ động refresh / chọn category
+  if (forceRefresh) setSuggestLoading(true);
+  setSuggestEnhancing(true);
+  // ...
+  
+  // trong finally / cleanup:
+  setSuggestEnhancing(false);
+  if (forceRefresh) setSuggestLoading(false);   // ✅ tắt khi xong
+}, [...]);
+```
+
+→ Refresh icon sẽ quay, chip sẽ hiện `Loader2` spinner đúng vài giây cho đến khi suggestions mới về.
+
+### File 2: `src/components/topic/TopicIdeaHub.tsx` — defensive fix cho chip
+
+Chip đang reset quá nhanh do effect chỉ phụ thuộc `isLoading`. Đổi sang dùng `isEnhancing` HOẶC thêm minimum-delay 600ms để guarantee user thấy feedback ngay cả khi cache trả về tức thì:
+
+```ts
+// Approach A (preferred): theo dõi cả enhancing
+useEffect(() => {
+  if (!isLoading && !isEnhancing && loadingCategory) {
+    setLoadingCategory(null);
+  }
+}, [isLoading, isEnhancing, loadingCategory]);
+```
+
+→ Cần thêm prop `isEnhancing?: boolean` vào `TopicIdeaHubProps` và pass từ `ScriptFormStepper` (đã có sẵn `suggestionsModule.isEnhancing` trong wrapper, chỉ cần expose qua `useEnhancedTopicSuggestions`).
+
+### File 3 (optional): `src/components/script/ScriptFormStepper.tsx`
+
+Pass thêm `isEnhancing={enhancingState}` vào `<TopicIdeaHub>` để chip có feedback chính xác.
 
 ## ✅ Kết quả mong đợi
-- 100% function dùng qwen-* đều force `dashscope` rõ ràng (không phụ thuộc auto-detect)
-- DashScope down → tự fallback qwen-flash → qwen-plus → Gemini Flash qua Lovable
-- UI Admin AI Function Config phản ánh đúng provider thực tế đang chạy
-- Credit storm 402 không còn lặp đi lặp lại trong cùng 1 request
 
-## 🚧 Out of scope
-- Không đổi pricing logic
-- Không refactor cách lưu credentials
-- Không đụng image generation (đã ổn với GeminiGen/PoYo)
+| Action | Trước | Sau |
+|---|---|---|
+| Click chip "Theo trend" | Không feedback, list im lìm 5-10s | Chip biến thành button đậm + spinner, list hiện skeleton, sau ~3-8s ra suggestions mới |
+| Click refresh icon | Icon đứng yên | Icon quay liên tục đến khi xong |
+| Click "Brainstorm AI" | ✅ Vẫn OK (mở Sheet) | ✅ Không đổi |
+
+## 🌐 Lan tỏa
+
+Vì `useEnhancedTopicSuggestions` + `TopicIdeaHub` được dùng chung ở:
+- `ScriptFormStepper` (Video Script)
+- `MultiChannelFormStepper` / `MultiChannelFormWizard` (Đa kênh)
+- `CarouselForm` (Carousel)
+
+→ Fix một lần, **3 form đều được lợi**. Không có breaking change.
+
+## 📌 Không thay đổi
+
+- Logic backend `topic-ai` edge function (đang chạy đúng).
+- Format/contentGoal mapping cho script.
+- Brainstorm AI sheet flow.
