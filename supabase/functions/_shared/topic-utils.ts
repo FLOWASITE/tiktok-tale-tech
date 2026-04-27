@@ -456,7 +456,12 @@ Tập trung vào 8-12 câu hỏi phổ biến nhất, thực tế và có thể 
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[${WEB_SEARCH_LABEL}] Q&A API error:`, response.status, errorText.substring(0, 200));
+      if (isQuotaOrAuthError(response.status, errorText)) {
+        webSearchDisabledThisIsolate = true;
+        console.warn(`[${WEB_SEARCH_LABEL}] Quota/auth exhausted (${response.status}); disabling web search for this isolate`);
+      } else {
+        console.error(`[${WEB_SEARCH_LABEL}] Q&A API error:`, response.status, errorText.substring(0, 200));
+      }
       return null;
     }
 
