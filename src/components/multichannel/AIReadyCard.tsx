@@ -136,7 +136,16 @@ export function AIReadyCard({
         {/* CTA Button */}
         <Button
           onClick={onGenerate}
-          disabled={isGenerating || selectedChannels.length === 0 || isDecomposing}
+          disabled={isGenerating || selectedChannels.length === 0}
+          title={
+            isGenerating
+              ? 'Đang tạo ảnh...'
+              : selectedChannels.length === 0
+              ? 'Vui lòng chọn ít nhất 1 kênh'
+              : isDecomposing
+              ? 'Tạo ngay (AI gợi ý layout đang chạy nền)'
+              : 'Tạo ảnh AI cho các kênh đã chọn'
+          }
           className={cn(
             "w-full h-12 gap-2.5 text-base font-semibold rounded-xl transition-all",
             "bg-gradient-to-r from-primary to-primary/80",
@@ -148,10 +157,8 @@ export function AIReadyCard({
         >
           {isGenerating ? (
             <><Loader2 className="w-4.5 h-4.5 animate-spin" /> Đang tạo...</>
-          ) : isDecomposing ? (
-            <><Loader2 className="w-4.5 h-4.5 animate-spin" /> AI đang phân tích...</>
           ) : (
-            <><Sparkles className="w-4.5 h-4.5" /> Tạo {selectedChannels.length} ảnh AI</>
+            <><Sparkles className="w-4.5 h-4.5" /> Tạo {selectedChannels.length} ảnh AI{isDecomposing ? ' (layout chạy nền)' : ''}</>
           )}
         </Button>
       </div>
