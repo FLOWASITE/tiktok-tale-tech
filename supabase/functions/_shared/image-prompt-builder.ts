@@ -66,6 +66,8 @@ export {
   buildVietnameseTextAccuracy,
   buildLocalizationSuffix,
   buildBrandColorReinforcement,
+  buildCreativeVariation,
+  rotateTextPosition,
   DEFAULT_BUILDERS,
 } from './image-prompt-builders.ts';
 
