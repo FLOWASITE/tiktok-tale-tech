@@ -20,7 +20,8 @@ import { Channel } from '@/types/multichannel';
 import { useAIErrorHandler } from './useAIErrorHandler';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 
-const AUXILIARY_HOOK_TIMEOUT_MS = 25_000;
+// Needs to cover up to 5 retries (~16s backoff) + cold-start request (~10s) = ~30s safety margin
+const AUXILIARY_HOOK_TIMEOUT_MS = 60_000;
 
 async function invokeHookGenerator<T = any>(payload: Record<string, unknown>, timeoutMs = AUXILIARY_HOOK_TIMEOUT_MS) {
   return invokeWithTimeout<T>('generate-hooks', {
