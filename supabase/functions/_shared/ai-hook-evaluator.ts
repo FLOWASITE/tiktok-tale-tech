@@ -129,10 +129,13 @@ Trả về JSON:
 
 CHỈ TRẢ VỀ JSON.`;
 
-  // Short-circuit if breaker is OPEN for this model — avoids spamming Lovable Gateway
-  // with 402 (out of credits) calls when we already know it will fail.
+  // Short-circuit if breaker is OPEN or we already saw credits exhaustion in this isolate.
+  if (aiEvalDisabledThisIsolate) {
+    return null;
+  }
   try {
     if (await isCircuitOpen(HOOK_EVAL_MODEL)) {
+      aiEvalDisabledThisIsolate = true;
       return null;
     }
   } catch {
@@ -159,7 +162,15 @@ CHỈ TRẢ VỀ JSON.`;
       }
     }
   } catch (error) {
-    console.error('AI hook evaluation error:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    // Detect credits / 402 / payment errors and disable AI eval for the rest of this isolate.
+    if (/402|credits|payment_required|not enough credits/i.test(msg)) {
+      aiEvalDisabledThisIsolate = true;
+      try { await recordFailure(HOOK_EVAL_MODEL); } catch { /* best effort */ }
+      // Silent — expected when credits are out
+      return null;
+    }
+    console.error('AI hook evaluation error:', msg);
   }
 
   return null;
