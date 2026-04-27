@@ -1,57 +1,121 @@
-## Trả lời nhanh: Không nhầm function
+## Chẩn đoán
 
-Multichannel dùng đúng `generate-brand-image` (có hỗ trợ `channel` param cho FB/IG/LI/...). Không có function riêng tên `generate-multichannel-image`. `agent-creator-v2`, `useSocialImageGeneration`, `useAutoImageGeneration`, `tool-executor` — tất cả đều gọi đúng function này.
+Vấn đề không còn nằm ở Provider Geminigen/PoYo hay function `generate-brand-image`. Request vẫn chưa tới function này.
 
-## Vấn đề thực sự
+Điểm chặn hiện tại nằm ở tầng trước khi gọi function:
 
-Edge function logs `generate-brand-image` **hoàn toàn trống** trong vài giờ qua. Request từ frontend không tới được function. Hai điểm chặn ở frontend:
+1. Frontend tạo task `generation_tasks` với `task_type = 'image_generation'` trước khi gọi `generate-brand-image`.
+2. Database hiện đang có constraint:
 
-### A. Nút "Tạo ảnh AI" bị disable âm thầm khi `isDecomposing=true`
-
-`AIReadyCard.tsx` (full mode) và nút trong `SimpleImageGenerator.tsx` (brand_only/raw mode) đều có:
-```
-disabled={isGenerating || selectedChannels.length === 0 || isDecomposing}
+```sql
+CHECK (task_type IN ('core_content', 'multichannel', 'carousel_image'))
 ```
 
-`isDecomposing` chỉ false sau khi `decomposeRequestWithAI` (~10s) xong. Nếu user click khi state này còn true (do `useEffect` re-run khi đổi channel/style/template), nút không trigger handler. `handleGenerate` thậm chí có guard `if (isDecomposing) return` → click bị nuốt.
+Tức là `image_generation` bị chặn. Vì vậy pipeline ảnh dừng trước khi gọi backend/provider.
 
-### B. Auto-trigger Step 5 đánh dấu contentId "đã chạy" trước khi thật sự chạy
-
-`MultiChannelFormWizard.tsx` (line 956): `AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(generatedContentIdProp)` được gọi **trước** khi đợi DB pre-check. Nếu DB pre-check vô tình thấy `channel_images` đã có URL (kể cả URL cũ/lỗi), effect return mà không gọi pipeline → contentId bị khoá vĩnh viễn cho session đó.
+Ngoài ra, các content bạn vừa tạo có nhiều kênh như `email`, `website`, `telegram`, `google_maps`, `zalo_oa`. Không phải tất cả các kênh đều nên tạo ảnh social image. Cần giới hạn auto image chỉ cho kênh có ảnh phù hợp để tránh pipeline fail/hao phí.
 
 ## Kế hoạch sửa
 
-### 1. Bỏ chặn "Tạo ảnh" khi đang decompose
-- `AIReadyCard.tsx`: bỏ `isDecomposing` khỏi `disabled`. Khi đang decompose, vẫn cho click — handler sẽ dùng `contentSummaries` gốc thay vì `hybridBackgroundPrompt`.
-- `SimpleImageGenerator.tsx` line 1054: tương tự, bỏ `isDecomposing` khỏi `disabled`.
-- `handleGenerate` (line 648): bỏ guard `if (isDecomposing) return`. Nếu chưa có `hybridBackgroundPrompt`, dùng `contentSummaries` (đã có sẵn từ `useMemo` line 405).
-- Đổi label nút khi đang decompose: "Tạo ngay (AI gợi ý layout đang chạy nền)".
+### 1. Sửa database constraint cho task tạo ảnh
+Tạo migration mới để cho phép `image_generation` trong `generation_tasks.task_type`:
 
-### 2. Sửa auto-trigger Step 5 không khoá contentId khi skip
-- Chuyển `AUTO_IMAGE_TRIGGERED_CONTENT_IDS.add(...)` xuống **ngay trước** dòng `onStartImagePipeline(...)` (sau khi DB pre-check pass).
-- Nếu pre-check thấy đủ ảnh → return mà không add (cho phép user trigger lại từ nút thủ công nếu cần).
-- Bổ sung dependency thiếu cho effect: `formData.channels`, `formData.selectedHooks`, `formData.globalHook`, `promptMode`, `brandTemplate?.country_code`, `getChannelText`, `onStartImagePipeline`.
+```sql
+ALTER TABLE public.generation_tasks
+DROP CONSTRAINT IF EXISTS generation_tasks_task_type_check;
 
-### 3. Thêm log + nút thủ công ở Step 5
-- Log rõ `[AutoImageTrigger] starting pipeline` ngay trước khi gọi.
-- Hiện sẵn nút "Tạo ảnh AI cho X kênh" trong Step 5 ngay cả khi `imagePhase='generating_images'` đã chạy 1 lần nhưng không có kết quả → nút này force re-trigger (xoá `AUTO_IMAGE_TRIGGERED_CONTENT_IDS` cho contentId đó).
+ALTER TABLE public.generation_tasks
+ADD CONSTRAINT generation_tasks_task_type_check
+CHECK (task_type = ANY (ARRAY[
+  'core_content'::text,
+  'multichannel'::text,
+  'carousel_image'::text,
+  'image_generation'::text
+]));
+```
 
-### 4. Xác minh sau khi sửa
-Sau deploy:
-1. Mở dialog "Tạo ảnh AI" trên 1 bài multichannel hiện có.
-2. Chọn ≥1 kênh, click "Tạo ảnh AI".
-3. Xem console: phải có `[SimpleImageGenerator] handleGenerate triggered` → `[Pipeline:facebook] 🚀 START` → `[Pipeline:facebook] ✓ Task created` → network POST `generate-brand-image`.
-4. Xem edge function logs `generate-brand-image`: phải có `build marker` → `Routing to PoYo.ai` hoặc `Routing to GeminiGen.ai` → `Image uploaded`.
-5. Lúc đó provider mới thật sự bị trừ tiền.
+Không sửa migration cũ, chỉ thêm migration mới.
 
-## File sẽ chỉnh
+### 2. Truyền organization_id vào image generation task
+Hiện `useAutoImageGeneration` đang gọi `createImageGenerationTask` với `organizationId: undefined`.
 
-- `src/components/multichannel/AIReadyCard.tsx` — bỏ `isDecomposing` khỏi disabled
-- `src/components/multichannel/SimpleImageGenerator.tsx` — bỏ guard `isDecomposing`, fallback prompt khi decompose chưa xong
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — sửa thứ tự add `AUTO_IMAGE_TRIGGERED_CONTENT_IDS`, thêm dependency, thêm nút retry
+Sẽ cập nhật pipeline để nhận và truyền `organizationId` từ `MultiChannelCreate` xuống:
 
-## Không sửa
+```text
+MultiChannelCreate
+  -> useAutoImagePipeline.startPipeline(..., { organizationId })
+  -> useAutoImageGeneration.generateAllImages
+  -> createImageGenerationTask({ organizationId })
+```
 
-- `generate-brand-image` edge function (nó OK, không có log nghĩa là không bị gọi)
-- Provider config Geminigen / PoYo (chưa được gọi nên chưa biết có lỗi không — sẽ verify sau khi request thật sự đi tới function)
-- `decompose-image-request` (chạy bình thường)
+Việc này giúp tracking task đúng workspace và dễ debug.
+
+### 3. Chỉ auto tạo ảnh cho kênh visual/social
+Trong `/multichannel/create`, khi user chọn nhiều kênh, auto image sẽ chỉ chạy cho các kênh có ảnh chính phù hợp, ví dụ:
+
+```text
+facebook, instagram, linkedin, twitter, threads, tiktok, youtube, zalo_oa, google_maps, website
+```
+
+Có thể bỏ qua các kênh thuần text như `email`, `telegram` trong auto image để tránh tạo ảnh không cần thiết.
+
+UI vẫn sẽ báo rõ: tạo ảnh cho X/Y kênh visual.
+
+### 4. Fallback text chắc chắn hơn cho auto pipeline
+Hiện Step 5 auto-trigger dùng `getChannelText(ch)` từ streaming ref. Nếu stream đã hoàn tất hoặc component re-render, có thể rỗng.
+
+Sẽ dùng thứ tự fallback:
+
+```text
+result[channel_content_field]
+→ getChannelText(channel)
+→ topic
+```
+
+Và lưu snapshot `generatedChannelTexts` ở `MultiChannelCreate` ngay khi nhận `result`, rồi truyền xuống wizard/auto pipeline.
+
+### 5. Nếu task tracking vẫn lỗi, vẫn gọi generate-brand-image
+Đổi logic tạo task ảnh thành “best effort” đúng nghĩa:
+
+- Nếu insert task lỗi do RLS/constraint/connection: log rõ error.
+- Không dừng pipeline.
+- Vẫn gọi `generate-brand-image` với `taskId: null`.
+
+Hiện code có ý định “proceed without task tracking”, nhưng cần đảm bảo lỗi insert không làm chặn flow ở mọi nhánh.
+
+### 6. Thêm log có thể xác nhận ngay
+Thêm log rõ ở các điểm:
+
+```text
+[MultiChannelCreate] content result received
+[MultiChannelCreate] visual image channels = ...
+[AutoImagePipeline] PIPELINE INIT
+[Pipeline:<channel>] invoking generate-brand-image
+```
+
+Sau khi sửa, nếu provider chưa bị trừ tiền thì log/network sẽ chỉ ra chính xác request bị chặn ở đâu.
+
+## Xác minh sau khi implement
+
+1. Tạo content mới ở `/multichannel/create`.
+2. Kiểm tra database: content mới phải có `channel_images` cho ít nhất các kênh visual.
+3. Kiểm tra task: phải xuất hiện `generation_tasks.task_type = 'image_generation'`.
+4. Kiểm tra function logs: `generate-brand-image` phải có log mới.
+5. Nếu provider trả lỗi/timeout/credits, lúc đó mới xử lý tiếp ở tầng Provider.
+
+## Files dự kiến chỉnh
+
+- Thêm migration mới trong `supabase/migrations/` để mở constraint `image_generation`.
+- `src/lib/imageGenerationTasks.ts` — log rõ và không block pipeline khi task insert fail.
+- `src/hooks/useAutoImageGeneration.ts` — thêm `organizationId` vào options/task.
+- `src/hooks/useAutoImagePipeline.ts` — nhận `organizationId`, lọc kênh visual nếu cần.
+- `src/pages/MultiChannelCreate.tsx` — truyền `organizationId`, snapshot channel texts, trigger auto pipeline ổn định hơn.
+- Có thể chỉnh `src/components/multichannel/MultiChannelFormWizard.tsx` nếu cần truyền fallback text vào Step 5.
+
+<lov-actions>
+  <lov-open-history>View History</lov-open-history>
+</lov-actions>
+
+<lov-actions>
+<lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
+</lov-actions>
