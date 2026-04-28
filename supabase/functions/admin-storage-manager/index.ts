@@ -8,7 +8,19 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Simple in-memory rate limit per admin
+// Whitelist tables (must match admin_cleanup_table SQL function)
+const WHITELIST_TABLES = new Set<string>([
+  "ai_response_cache", "web_search_cache", "knowledge_graph_cache", "telegram_example_cache",
+  "edge_function_metrics", "agent_execution_logs", "agent_pipeline_logs", "cron_run_logs",
+  "admin_audit_logs", "campaign_kpi_logs", "regulation_propagation_log", "usage_logs",
+  "telegram_messages_log", "sales_chat_messages_log", "content_publishing_logs",
+  "approval_logs", "campaign_notification_logs",
+  "content_embeddings", "conversation_embeddings",
+  "generation_tasks", "workflow_checkpoints",
+  "telegram_processed_updates", "telegram_chat_state",
+]);
+
+// In-memory rate limit per admin
 const rateMap = new Map<string, number[]>();
 function rateLimit(userId: string, max = 30, windowMs = 60_000) {
   const now = Date.now();
@@ -21,7 +33,7 @@ function rateLimit(userId: string, max = 30, windowMs = 60_000) {
 
 async function getAdminUser(req: Request) {
   const auth = req.headers.get("Authorization");
-  if (!auth) throw new Error("Missing Authorization header");
+  if (!auth) throw new Error("Unauthorized: missing Authorization header");
   const token = auth.replace("Bearer ", "");
   const svc = createClient(SUPABASE_URL, SERVICE_KEY);
   const { data: u, error } = await svc.auth.getUser(token);
@@ -33,6 +45,18 @@ async function getAdminUser(req: Request) {
   const isAdmin = (roles || []).some((r: any) => r.role === "admin");
   if (!isAdmin) throw new Error("Forbidden: admin role required");
   return { user: u.user, svc };
+}
+
+async function audit(svc: any, userId: string, action: string, details: any) {
+  try {
+    await svc.from("admin_audit_logs").insert({
+      admin_id: userId,
+      action,
+      details,
+    });
+  } catch (e) {
+    console.error("[admin-storage-manager] audit insert failed:", e);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -49,43 +73,33 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case "get_overview": {
-        // Buckets summary
-        const { data: bucketsData } = await svc.rpc("get_db_memory_stats");
-        const { data: storageRows } = await svc
-          .from("v_storage_summary" as any)
-          .select("*")
-          .limit(0);
-        // direct query via rpc-less: use storage admin
         const buckets = await fetchBucketsSummary(svc);
-        return json({ db_stats: bucketsData || [], buckets });
+        const { data: dbStats } = await svc.rpc("get_db_memory_stats");
+        return json({ db_stats: dbStats || [], buckets });
+      }
+
+      case "get_db_stats_only": {
+        const { data: dbStats } = await svc.rpc("get_db_memory_stats");
+        return json({ db_stats: dbStats || [] });
       }
 
       case "list_bucket_files": {
         const { bucket, search, limit = 50, offset = 0, sortBy = "created_at", sortDir = "desc" } = body;
         if (!bucket) return json({ error: "bucket required" }, 400);
-        const { data, error } = await svc.storage.from(bucket).list("", {
-          limit: 1000,
-          offset: 0,
-          sortBy: { column: sortBy, order: sortDir },
+        const allFiles = await deepListBucket(svc, bucket);
+        // Sort
+        allFiles.sort((a: any, b: any) => {
+          const av = sortBy === "name" ? (a.name || "") : (a.created_at || "");
+          const bv = sortBy === "name" ? (b.name || "") : (b.created_at || "");
+          return sortDir === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
         });
-        if (error) throw error;
-        let files = (data || []).filter((f: any) => f.name && !f.name.endsWith("/"));
-        // Recursive: if there are folders, also fetch their content (1 level deep for now)
-        const folders = (data || []).filter((f: any) => f.id === null);
-        for (const folder of folders) {
-          const { data: sub } = await svc.storage.from(bucket).list(folder.name, { limit: 1000 });
-          if (sub) {
-            for (const s of sub) {
-              if (s.name && s.id) files.push({ ...s, name: `${folder.name}/${s.name}` });
-            }
-          }
-        }
+        let filtered = allFiles;
         if (search) {
           const q = search.toLowerCase();
-          files = files.filter((f: any) => f.name.toLowerCase().includes(q));
+          filtered = allFiles.filter((f: any) => f.name.toLowerCase().includes(q));
         }
-        const total = files.length;
-        const slice = files.slice(offset, offset + limit).map((f: any) => ({
+        const total = filtered.length;
+        const slice = filtered.slice(offset, offset + limit).map((f: any) => ({
           name: f.name,
           size: f.metadata?.size || 0,
           mimetype: f.metadata?.mimetype,
@@ -105,13 +119,42 @@ Deno.serve(async (req) => {
         if (paths.length > 200) return json({ error: "Tối đa 200 file/lần" }, 400);
         const { data, error } = await svc.storage.from(bucket).remove(paths);
         if (error) throw error;
-        await svc.from("admin_audit_logs").insert({
-          admin_user_id: user.id,
-          action: "storage_delete_files",
-          target_type: bucket,
-          metadata: { count: paths.length, paths: paths.slice(0, 20) },
+        await audit(svc, user.id, "storage_delete_files", {
+          bucket, count: paths.length, paths: paths.slice(0, 20),
         });
         return json({ deleted: data?.length || 0 });
+      }
+
+      case "cleanup_bucket_older_than": {
+        const { bucket, days = 30, dry_run = false } = body;
+        if (!bucket) return json({ error: "bucket required" }, 400);
+        const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+        const allFiles = await deepListBucket(svc, bucket);
+        const targets = allFiles
+          .filter((f: any) => f.created_at && new Date(f.created_at).getTime() < cutoff)
+          .map((f: any) => ({ name: f.name, size: f.metadata?.size || 0 }));
+        const totalBytes = targets.reduce((s: number, t: any) => s + t.size, 0);
+        if (dry_run) return json({ count: targets.length, total_bytes: totalBytes, sample: targets.slice(0, 10) });
+        if (targets.length === 0) return json({ deleted: 0, total_bytes: 0 });
+        // Batch 100/lần
+        let deleted = 0;
+        for (let i = 0; i < targets.length; i += 100) {
+          const batch = targets.slice(i, i + 100).map((t: any) => t.name);
+          const { data } = await svc.storage.from(bucket).remove(batch);
+          deleted += data?.length || 0;
+        }
+        await audit(svc, user.id, "storage_cleanup_older_than", {
+          bucket, days, deleted, total_bytes: totalBytes,
+        });
+        return json({ deleted, total_bytes: totalBytes });
+      }
+
+      case "download_file": {
+        const { bucket, path } = body;
+        if (!bucket || !path) return json({ error: "bucket và path bắt buộc" }, 400);
+        const { data, error } = await svc.storage.from(bucket).createSignedUrl(path, 300);
+        if (error) throw error;
+        return json({ url: data.signedUrl });
       }
 
       case "find_orphan_files": {
@@ -131,35 +174,54 @@ Deno.serve(async (req) => {
       case "cleanup_table": {
         const { table, mode, days } = body;
         if (!table || !mode) return json({ error: "table và mode bắt buộc" }, 400);
+        if (!WHITELIST_TABLES.has(table)) return json({ error: `Bảng ${table} không nằm trong whitelist` }, 400);
+        if (!["expired", "older_than", "all"].includes(mode)) return json({ error: "mode không hợp lệ" }, 400);
         const { data, error } = await svc.rpc("admin_cleanup_table", {
-          p_table: table,
-          p_mode: mode,
-          p_days: days ?? 30,
+          p_table: table, p_mode: mode, p_days: days ?? 30,
         });
         if (error) throw error;
+        await audit(svc, user.id, "cleanup_table", {
+          table, mode, days: days ?? 30, rows_deleted: data,
+        });
         return json({ rows_deleted: data });
+      }
+
+      case "bulk_cleanup_expired": {
+        const { data, error } = await svc.rpc("admin_bulk_cleanup_expired");
+        if (error) throw error;
+        const totalRows = Object.values(data || {}).reduce((s: number, v: any) => s + Number(v || 0), 0);
+        await audit(svc, user.id, "bulk_cleanup_expired", { breakdown: data, total: totalRows });
+        return json({ breakdown: data, total: totalRows });
       }
 
       case "preview_table": {
         const { table, limit = 10 } = body;
         if (!table) return json({ error: "table required" }, 400);
+        if (!WHITELIST_TABLES.has(table)) return json({ error: `Bảng ${table} không nằm trong whitelist` }, 400);
         const { data, error } = await svc
           .from(table)
           .select("*")
           .order("created_at", { ascending: false } as any)
-          .limit(limit);
+          .limit(Math.min(limit, 50));
         if (error) throw error;
         return json({ rows: data || [] });
       }
 
       case "audit_history": {
-        const { limit = 50 } = body;
-        const { data, error } = await svc
-          .from("admin_audit_logs")
+        const { limit = 50, offset = 0, action_filter } = body;
+        let query = svc
+          .from("v_admin_audit_with_user")
           .select("*")
-          .or("action.eq.cleanup_table,action.eq.storage_delete_files")
           .order("created_at", { ascending: false })
-          .limit(limit);
+          .range(offset, offset + limit - 1);
+        if (action_filter) {
+          query = query.eq("action", action_filter);
+        } else {
+          query = query.in("action", [
+            "cleanup_table", "storage_delete_files", "storage_cleanup_older_than", "bulk_cleanup_expired",
+          ]);
+        }
+        const { data, error } = await query;
         if (error) throw error;
         return json({ logs: data || [] });
       }
@@ -175,20 +237,52 @@ Deno.serve(async (req) => {
   }
 });
 
+async function deepListBucket(svc: any, bucket: string): Promise<any[]> {
+  // Recursive deep listing — handles >1000 files & nested folders
+  const result: any[] = [];
+  const stack: string[] = [""];
+  const visited = new Set<string>();
+  while (stack.length) {
+    const prefix = stack.pop()!;
+    if (visited.has(prefix)) continue;
+    visited.add(prefix);
+    let offset = 0;
+    while (true) {
+      const { data, error } = await svc.storage.from(bucket).list(prefix, {
+        limit: 1000, offset, sortBy: { column: "created_at", order: "desc" },
+      });
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const item of data) {
+        if (item.id === null) {
+          // Folder
+          const sub = prefix ? `${prefix}/${item.name}` : item.name;
+          if (!visited.has(sub)) stack.push(sub);
+        } else {
+          result.push({
+            ...item,
+            name: prefix ? `${prefix}/${item.name}` : item.name,
+          });
+        }
+      }
+      if (data.length < 1000) break;
+      offset += 1000;
+    }
+  }
+  return result;
+}
+
 async function fetchBucketsSummary(svc: any) {
-  // Use raw REST for storage.buckets aggregate
   const { data: buckets } = await svc.storage.listBuckets();
   const result: any[] = [];
   for (const b of buckets || []) {
-    // Count + size via list (limit 1000) — best effort summary
-    const { data: files } = await svc.storage.from(b.id).list("", { limit: 1000 });
-    const realFiles = (files || []).filter((f: any) => f.id);
-    const totalSize = realFiles.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
+    const files = await deepListBucket(svc, b.id).catch(() => []);
+    const totalSize = files.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
     result.push({
       id: b.id,
       name: b.name,
       public: b.public,
-      file_count: realFiles.length,
+      file_count: files.length,
       total_size: totalSize,
       created_at: b.created_at,
     });
