@@ -146,6 +146,73 @@ async function fetchTikTokMetrics(accessToken: string, videoId: string) {
   };
 }
 
+// Twitter/X — public metrics qua API v2 với OAuth 1.0a user context
+// Endpoint: GET /2/tweets?ids=<id>&tweet.fields=public_metrics,non_public_metrics
+async function fetchTwitterMetrics(args: {
+  consumerKey: string;
+  consumerSecret: string;
+  accessToken: string;
+  accessTokenSecret: string;
+  tweetId: string;
+}) {
+  const { consumerKey, consumerSecret, accessToken, accessTokenSecret, tweetId } = args;
+  const baseUrl = "https://api.x.com/2/tweets";
+  const queryParams: Record<string, string> = {
+    ids: tweetId,
+    "tweet.fields": "public_metrics,non_public_metrics,organic_metrics,created_at",
+  };
+
+  // Build OAuth header — query params phải tham gia signing
+  const authHeader = buildOAuth1Header(
+    "GET",
+    baseUrl,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret,
+    queryParams,
+  );
+
+  const qs = Object.entries(queryParams)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+
+  const r = await fetch(`${baseUrl}?${qs}`, {
+    headers: { Authorization: authHeader },
+  });
+
+  if (!r.ok) {
+    const errText = await r.text().catch(() => "");
+    console.warn(`[sync-engagement] twitter ${tweetId} → ${r.status}: ${errText.slice(0, 200)}`);
+    return null;
+  }
+
+  const data = await r.json();
+  const tweet = data?.data?.[0];
+  if (!tweet) return null;
+
+  const pub = tweet.public_metrics ?? {};
+  const nonPub = tweet.non_public_metrics ?? {};
+  const organic = tweet.organic_metrics ?? {};
+
+  // Impressions chỉ có khi authorized user là author của tweet
+  const impressions = nonPub.impression_count ?? organic.impression_count ?? 0;
+  const videoViews = organic.video_view_count ?? nonPub.video_view_count ?? 0;
+  const linkClicks = organic.url_link_clicks ?? nonPub.url_link_clicks ?? 0;
+
+  return {
+    reach: 0, // Twitter không expose reach distinct
+    impressions,
+    likes: pub.like_count ?? 0,
+    comments: pub.reply_count ?? 0,
+    shares: (pub.retweet_count ?? 0) + (pub.quote_count ?? 0),
+    saves: pub.bookmark_count ?? 0,
+    video_views: videoViews,
+    link_clicks: linkClicks,
+    raw: { twitter: { public_metrics: pub, non_public_metrics: nonPub, organic_metrics: organic } },
+  };
+}
+
 // ---------- Main handler ----------
 
 Deno.serve(async (req) => {
