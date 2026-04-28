@@ -59,6 +59,38 @@ function getFrontendUrl(stateOrigin?: string | null): string {
   return supabaseUrl.replace('.supabase.co', '.lovableproject.com');
 }
 
+function extractFacebookTargetPageIds(debugData: any): string[] {
+  const pageScopes = new Set([
+    'pages_manage_posts',
+    'pages_read_engagement',
+    'pages_show_list',
+    'pages_manage_metadata',
+  ]);
+  const ids = new Set<string>();
+  const granularScopes = debugData?.data?.granular_scopes;
+  if (!Array.isArray(granularScopes)) return [];
+
+  for (const item of granularScopes) {
+    if (!pageScopes.has(item?.scope) || !Array.isArray(item?.target_ids)) continue;
+    for (const targetId of item.target_ids) {
+      if (typeof targetId === 'string' && targetId.trim()) ids.add(targetId);
+    }
+  }
+  return [...ids];
+}
+
+function normalizeFacebookPage(page: any) {
+  return {
+    id: page.id,
+    name: page.name,
+    category: page.category,
+    picture: page.picture?.data?.url || page.picture || null,
+    fan_count: page.fan_count ?? null,
+    followers_count: page.followers_count ?? null,
+    access_token: page.access_token,
+  };
+}
+
 Deno.serve(withPerf({ functionName: 'facebook-oauth-callback' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -157,8 +189,51 @@ Deno.serve(withPerf({ functionName: 'facebook-oauth-callback' }, async (req) => 
       throw new Error(`Failed to fetch Pages: ${pagesError}`);
     }
     const pagesData = await pagesResponse.json();
-    const pages = pagesData.data || [];
-    console.log(`Found ${pages.length} Pages`);
+    const pagesById = new Map<string, any>();
+    for (const page of pagesData.data || []) {
+      if (page?.id) pagesById.set(page.id, normalizeFacebookPage(page));
+    }
+
+    // Facebook sometimes lets the user select multiple Page assets in the OAuth
+    // picker but /me/accounts only returns the subset immediately available via
+    // that edge. debug_token exposes granular target_ids for all selected Pages;
+    // fetch missing Page tokens individually and merge them into the picker list.
+    try {
+      const debugResp = await fetch(
+        `https://graph.facebook.com/v21.0/debug_token?` + new URLSearchParams({
+          input_token: userAccessToken,
+          access_token: `${appId}|${appSecret}`,
+        })
+      );
+      const debugData = await debugResp.json().catch(() => ({}));
+      const targetPageIds = extractFacebookTargetPageIds(debugData);
+      const missingTargetIds = targetPageIds.filter((id) => !pagesById.has(id));
+      console.log(`Facebook /me/accounts returned ${pagesById.size} Page(s); granular scopes target ${targetPageIds.length} Page(s)`);
+
+      for (const pageId of missingTargetIds) {
+        try {
+          const pageResp = await fetch(
+            `https://graph.facebook.com/v21.0/${pageId}?` + new URLSearchParams({
+              access_token: userAccessToken,
+              fields: 'id,name,access_token,category,picture,fan_count,followers_count',
+            })
+          );
+          const pageData = await pageResp.json().catch(() => ({}));
+          if (pageResp.ok && pageData?.id && pageData?.access_token) {
+            pagesById.set(pageData.id, normalizeFacebookPage(pageData));
+          } else if (pageData?.error) {
+            console.warn(`[facebook-oauth-callback] Could not hydrate selected Page ${pageId}:`, pageData.error?.message || pageData.error);
+          }
+        } catch (e) {
+          console.warn(`[facebook-oauth-callback] Failed to hydrate selected Page ${pageId}:`, e instanceof Error ? e.message : e);
+        }
+      }
+    } catch (e) {
+      console.warn('[facebook-oauth-callback] granular scope fallback failed:', e instanceof Error ? e.message : e);
+    }
+
+    const pages = [...pagesById.values()];
+    console.log(`Found ${pages.length} usable Facebook Page(s)`);
 
     if (pages.length === 0) {
       return Response.redirect(
@@ -176,7 +251,7 @@ Deno.serve(withPerf({ functionName: 'facebook-oauth-callback' }, async (req) => 
       id: p.id,
       name: p.name,
       category: p.category,
-      picture: p.picture?.data?.url || null,
+      picture: p.picture || null,
       fan_count: p.fan_count ?? null,
       followers_count: p.followers_count ?? null,
       // Encrypted page token kept inside session (never exposed to client)
@@ -188,7 +263,7 @@ Deno.serve(withPerf({ functionName: 'facebook-oauth-callback' }, async (req) => 
       id: p.id,
       name: p.name,
       category: p.category,
-      picture: p.picture?.data?.url || null,
+      picture: p.picture || null,
       fan_count: p.fan_count ?? null,
       followers_count: p.followers_count ?? null,
       access_token: p.access_token, // raw — stays in DB protected by RLS
