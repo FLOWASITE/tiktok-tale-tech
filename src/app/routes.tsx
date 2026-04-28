@@ -46,6 +46,7 @@ import AdminVouchers from "@/pages/AdminVouchers";
 import AdminEdgeFunctions from "@/pages/AdminEdgeFunctions";
 import AdminPlans from "@/pages/AdminPlans";
 import AdminCronMonitor from "@/pages/AdminCronMonitor";
+const AdminStorageMemory = lazy(() => import("@/pages/AdminStorageMemory"));
 import Campaigns from "@/pages/Campaigns";
 import CampaignCreate from "@/pages/CampaignCreate";
 import CampaignDetail from "@/pages/CampaignDetail";
