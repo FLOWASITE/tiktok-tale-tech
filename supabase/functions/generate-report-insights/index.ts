@@ -203,24 +203,39 @@ Trả lời bằng tool call duy nhất.`;
     );
 
     if (!aiResponse.ok) {
+      // Return 200 with structured error so frontend doesn't crash on supabase.functions.invoke
       if (aiResponse.status === 429) {
+        await aiResponse.text().catch(() => {});
         return new Response(
-          JSON.stringify({ error: "Đã đạt giới hạn AI requests, vui lòng thử lại sau." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          JSON.stringify({
+            error: "Đã đạt giới hạn AI requests, vui lòng thử lại sau ít phút.",
+            errorCode: "RATE_LIMITED",
+            fallback: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
       if (aiResponse.status === 402) {
+        await aiResponse.text().catch(() => {});
         return new Response(
-          JSON.stringify({ error: "Hết AI credits. Vui lòng nâng cấp workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          JSON.stringify({
+            error: "Workspace đã hết AI credits. Vui lòng nâng cấp gói để tiếp tục dùng AI Insights.",
+            errorCode: "AI_CREDITS_EXHAUSTED",
+            fallback: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      const errText = await aiResponse.text();
+      const errText = await aiResponse.text().catch(() => "");
       console.error("[generate-report-insights] AI gateway error:", aiResponse.status, errText);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "Lỗi tạm thời từ AI gateway, vui lòng thử lại.",
+          errorCode: "AI_GATEWAY_ERROR",
+          fallback: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const aiData = await aiResponse.json();
