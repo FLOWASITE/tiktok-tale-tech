@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon, Clock, AlertTriangle, History } from 'lucide-react';
 import { ContentTypeBadge, type ContentType, CONTENT_TYPE_LABELS } from '@/components/reports/ContentTypeBadge';
+import { ContentStatusBadge } from '@/components/reports/ContentStatusBadge';
+import { ContentHistorySheet } from '@/components/reports/ContentHistorySheet';
+import type { ContentRow } from '@/hooks/reports/useContentReport';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -42,6 +45,8 @@ export default function Reports() {
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
   const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'approved' | 'scheduled' | 'published' | 'failed'>('all');
+  const [historyRow, setHistoryRow] = useState<ContentRow | null>(null);
 
   // Engagement-tab-only date range + bucket (independent from global filters)
   const [engagementOverride, setEngagementOverride] = useState<{ from: Date; to: Date } | null>(null);
@@ -249,7 +254,7 @@ export default function Reports() {
 
           <TabsContent value="content" className="space-y-4">
             {/* KPI cards riêng cho tab Nội dung */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <StatCard
                 label="Tổng nội dung"
                 value={content.data?.total ?? 0}
@@ -257,9 +262,14 @@ export default function Reports() {
                 loading={content.isLoading}
               />
               <StatCard
-                label="Đã duyệt"
-                value={content.data?.funnel.approved ?? 0}
-                tone="positive"
+                label="Nháp"
+                value={(content.data?.byStatus.find((s) => s.status === 'draft')?.count) ?? 0}
+                loading={content.isLoading}
+              />
+              <StatCard
+                label="Đã lên lịch"
+                value={content.data?.funnel.scheduled ?? 0}
+                hint="Chờ đăng"
                 loading={content.isLoading}
               />
               <StatCard
@@ -269,13 +279,9 @@ export default function Reports() {
                 loading={content.isLoading}
               />
               <StatCard
-                label="Tỷ lệ duyệt"
-                value={`${
-                  content.data && content.data.total > 0
-                    ? Math.round((content.data.funnel.approved / content.data.total) * 100)
-                    : 0
-                }%`}
-                hint="Approved / Tổng"
+                label="Thất bại"
+                value={content.data?.funnel.failed ?? 0}
+                tone={content.data && content.data.funnel.failed > 0 ? 'negative' : 'default'}
                 loading={content.isLoading}
               />
             </div>
@@ -299,10 +305,12 @@ export default function Reports() {
                         fontSize: '12px',
                       }}
                     />
-                    <Bar dataKey="draft" stackId="s" fill="hsl(var(--muted-foreground))" name="Nháp" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="approved" stackId="s" fill="hsl(var(--primary))" name="Đã duyệt" />
-                    <Bar dataKey="partially_published" stackId="s" fill="hsl(38 92% 50%)" name="Đăng một phần" />
-                    <Bar dataKey="published" stackId="s" fill="hsl(142 76% 36%)" name="Đã đăng" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="draft" stackId="s" fill="hsl(var(--muted-foreground))" name="Nháp" />
+                    <Bar dataKey="approved" stackId="s" fill="hsl(217 91% 60%)" name="Đã duyệt" />
+                    <Bar dataKey="scheduled" stackId="s" fill="hsl(38 92% 50%)" name="Đã lên lịch" />
+                    <Bar dataKey="partially_published" stackId="s" fill="hsl(142 60% 45%)" name="Đăng một phần" />
+                    <Bar dataKey="published" stackId="s" fill="hsl(142 76% 36%)" name="Đã đăng" />
+                    <Bar dataKey="failed" stackId="s" fill="hsl(0 84% 60%)" name="Thất bại" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -390,7 +398,9 @@ export default function Reports() {
                     {[
                       { label: 'Đã tạo', value: content.data.funnel.created, icon: FileTextIcon, base: content.data.funnel.created },
                       { label: 'Đã duyệt', value: content.data.funnel.approved, icon: CheckCircle2, base: content.data.funnel.created },
+                      { label: 'Đã lên lịch', value: content.data.funnel.scheduled, icon: Clock, base: content.data.funnel.created },
                       { label: 'Đã đăng', value: content.data.funnel.published, icon: Send, base: content.data.funnel.created },
+                      { label: 'Thất bại', value: content.data.funnel.failed, icon: AlertTriangle, base: content.data.funnel.created },
                     ].map((step) => {
                       const pct = step.base > 0 ? Math.round((step.value / step.base) * 100) : 0;
                       const Icon = step.icon;
@@ -419,19 +429,34 @@ export default function Reports() {
             <Card>
               <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
                 <h3 className="text-sm font-medium">Chi tiết nội dung</h3>
-                <Select value={contentTypeFilter} onValueChange={(v) => setContentTypeFilter(v as ContentType | 'all')}>
-                  <SelectTrigger className="h-8 w-[180px]">
-                    <SelectValue placeholder="Tất cả loại" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả loại</SelectItem>
-                    {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {CONTENT_TYPE_LABELS[t]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                    <SelectTrigger className="h-8 w-[160px]">
+                      <SelectValue placeholder="Tất cả trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                      <SelectItem value="draft">Nháp</SelectItem>
+                      <SelectItem value="approved">Đã duyệt</SelectItem>
+                      <SelectItem value="scheduled">Đã lên lịch</SelectItem>
+                      <SelectItem value="published">Đã đăng</SelectItem>
+                      <SelectItem value="failed">Thất bại</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={contentTypeFilter} onValueChange={(v) => setContentTypeFilter(v as ContentType | 'all')}>
+                    <SelectTrigger className="h-8 w-[180px]">
+                      <SelectValue placeholder="Tất cả loại" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả loại</SelectItem>
+                      {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {CONTENT_TYPE_LABELS[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -440,19 +465,35 @@ export default function Reports() {
                     <TableHead>Tiêu đề</TableHead>
                     <TableHead>Brand</TableHead>
                     <TableHead>Trạng thái</TableHead>
-                    <TableHead>Channels</TableHead>
+                    <TableHead>Lịch / Đăng</TableHead>
                     <TableHead>Ngày tạo</TableHead>
+                    <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(content.data?.rows ?? [])
-                    .filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
-                    .slice(0, 100)
-                    .map((r) => (
+                  {(() => {
+                    const filtered = (content.data?.rows ?? [])
+                      .filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
+                      .filter((r) => {
+                        if (statusFilter === 'all') return true;
+                        if (statusFilter === 'published')
+                          return r.derivedStatus === 'published' || r.derivedStatus === 'partially_published';
+                        return r.derivedStatus === statusFilter;
+                      });
+                    if (filtered.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                            Không có nội dung trong khoảng này.
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                    return filtered.slice(0, 100).map((r) => (
                       <TableRow
                         key={`${r.type}-${r.id}`}
                         className="cursor-pointer"
-                        onClick={() => navigate(ROUTE_FOR_TYPE[r.type](r.id))}
+                        onClick={() => setHistoryRow(r)}
                       >
                         <TableCell><ContentTypeBadge type={r.type} /></TableCell>
                         <TableCell className="max-w-md truncate font-medium">{r.title}</TableCell>
@@ -460,53 +501,58 @@ export default function Reports() {
                           {r.brand_name ?? '—'}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              r.status === 'published'
-                                ? 'default'
-                                : r.status === 'partially_published'
-                                ? 'secondary'
-                                : r.status === 'approved'
-                                ? 'outline'
-                                : 'secondary'
-                            }
-                            className="font-normal"
-                          >
-                            {STATUS_LABEL[r.status] ?? r.status}
-                          </Badge>
+                          <ContentStatusBadge status={r.derivedStatus} />
                         </TableCell>
-                        <TableCell>
-                          {r.channels.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">—</span>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {r.nextScheduledAt ? (
+                            <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(r.nextScheduledAt), 'dd/MM HH:mm', { locale: vi })}
+                            </span>
+                          ) : r.lastPublishedAt ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                              <Send className="h-3 w-3" />
+                              {format(new Date(r.lastPublishedAt), 'dd/MM HH:mm', { locale: vi })}
+                            </span>
+                          ) : (r.failedCount ?? 0) > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                              <AlertTriangle className="h-3 w-3" />
+                              {r.failedCount} lỗi
+                            </span>
                           ) : (
-                            <div className="flex flex-wrap gap-1">
-                              {r.channels.slice(0, 3).map((c) => (
-                                <Badge key={c} variant="outline" className="text-xs font-normal">
-                                  {c}
-                                </Badge>
-                              ))}
-                              {r.channels.length > 3 && (
-                                <span className="text-xs text-muted-foreground">+{r.channels.length - 3}</span>
-                              )}
-                            </div>
+                            '—'
                           )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {format(new Date(r.created_at), 'dd/MM/yy HH:mm', { locale: vi })}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryRow(r);
+                            }}
+                            title="Xem lịch sử"
+                          >
+                            <History className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    ))}
-                  {(content.data?.rows ?? []).filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
-                    .length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
-                        Không có nội dung trong khoảng này.
-                      </TableCell>
-                    </TableRow>
-                  )}
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </Card>
+
+            <ContentHistorySheet
+              open={!!historyRow}
+              onOpenChange={(o) => !o && setHistoryRow(null)}
+              row={historyRow}
+              events={historyRow ? content.data?.history?.[historyRow.id] ?? [] : []}
+            />
           </TabsContent>
 
           <TabsContent value="publishing" className="space-y-4">
