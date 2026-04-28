@@ -58,6 +58,14 @@ function buildMetricsPayload(args: BuildArgs) {
   };
 }
 
+export class InsightsError extends Error {
+  errorCode?: string;
+  constructor(message: string, errorCode?: string) {
+    super(message);
+    this.errorCode = errorCode;
+  }
+}
+
 export function useReportInsights(args: BuildArgs | null) {
   const queryClient = useQueryClient();
 
@@ -69,14 +77,15 @@ export function useReportInsights(args: BuildArgs | null) {
     queryKey,
     enabled: !!args,
     staleTime: 60 * 60 * 1000,
+    retry: false,
     queryFn: async (): Promise<ReportInsightsResult> => {
       if (!args) throw new Error('No args');
       const payload = buildMetricsPayload(args);
       const { data, error } = await supabase.functions.invoke('generate-report-insights', {
         body: payload,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) throw new InsightsError(error.message ?? 'Lỗi gọi AI Insights');
+      if (data?.error) throw new InsightsError(data.error, data.errorCode);
       return data.insights as ReportInsightsResult;
     },
   });
@@ -88,8 +97,8 @@ export function useReportInsights(args: BuildArgs | null) {
       const { data, error } = await supabase.functions.invoke('generate-report-insights', {
         body: { ...payload, _bust: Date.now() },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) throw new InsightsError(error.message ?? 'Lỗi gọi AI Insights');
+      if (data?.error) throw new InsightsError(data.error, data.errorCode);
       return data.insights as ReportInsightsResult;
     },
     onSuccess: (data) => {
