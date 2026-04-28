@@ -1051,6 +1051,11 @@ type WorkspaceUsage = {
 
 function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: string) => void }) {
   const [search, setSearch] = useState("");
+  const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const dashQ = useQuery({
     queryKey: ["admin-workspace-dashboard"],
     queryFn: () => call("workspace_dashboard"),
@@ -1060,6 +1065,37 @@ function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: 
   const workspaces: WorkspaceUsage[] = dashQ.data?.workspaces || [];
   const bucketTotals: Record<string, { files: number; bytes: number }> = dashQ.data?.bucket_totals || {};
   const unresolved = dashQ.data?.unresolved || { files: 0, bytes: 0 };
+
+  const openCleanup = async () => {
+    setConfirmOpen(true);
+    setPreview(null);
+    setPreviewing(true);
+    try {
+      const r = await call("cleanup_unresolved", { dry_run: true });
+      setPreview(r);
+    } catch (e: any) {
+      toast.error(e.message);
+      setConfirmOpen(false);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const doCleanup = async () => {
+    setDeleting(true);
+    try {
+      const r = await call("cleanup_unresolved", { confirm: true });
+      toast.success(`Đã xóa ${r?.deleted ?? 0} file (${fmtBytes(r?.total_bytes ?? 0)})`);
+      setConfirmOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-workspace-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["admin-storage-overview"] });
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
 
   const bucketIds = useMemo(() => Object.keys(bucketTotals).sort(), [bucketTotals]);
   const filtered = useMemo(() => {
@@ -1101,9 +1137,22 @@ function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: 
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Chưa gán workspace</div>
-            <div className="text-2xl font-semibold mt-1">{fmtBytes(unresolved.bytes)}</div>
-            <div className="text-xs text-muted-foreground">{unresolved.files} file</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Chưa gán workspace</div>
+                <div className="text-2xl font-semibold mt-1">{fmtBytes(unresolved.bytes)}</div>
+                <div className="text-xs text-muted-foreground">{unresolved.files} file</div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                disabled={!unresolved.files}
+                onClick={openCleanup}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />Xóa
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1226,6 +1275,63 @@ function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: 
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa file chưa gắn workspace</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div className="text-sm text-destructive">
+                  ⚠️ Hành động KHÔNG THỂ HOÀN TÁC. File chưa gắn workspace có thể là dữ liệu của carousel/content vừa tạo nhưng resolver chưa kịp map (background task đang chạy).
+                </div>
+                {previewing && (
+                  <div className="text-sm text-muted-foreground">Đang quét toàn bộ buckets…</div>
+                )}
+                {preview && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-foreground">
+                      Tổng: {preview.count?.toLocaleString() ?? 0} file · {fmtBytes(preview.total_bytes ?? 0)}
+                    </div>
+                    <div className="border rounded max-h-64 overflow-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/50 sticky top-0">
+                          <tr>
+                            <th className="text-left px-3 py-2">Bucket</th>
+                            <th className="text-right px-3 py-2">File</th>
+                            <th className="text-right px-3 py-2">Dung lượng</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(preview.per_bucket || {})
+                            .sort((a: any, b: any) => b[1].bytes - a[1].bytes)
+                            .map(([b, v]: any) => (
+                              <tr key={b} className="border-t">
+                                <td className="px-3 py-1.5 font-mono">{b}</td>
+                                <td className="px-3 py-1.5 text-right">{v.count.toLocaleString()}</td>
+                                <td className="px-3 py-1.5 text-right">{fmtBytes(v.bytes)}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting || previewing || !preview?.count}
+              onClick={(e) => { e.preventDefault(); doCleanup(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Đang xóa…" : `Xác nhận xóa ${preview?.count ?? 0} file`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -220,6 +220,57 @@ Deno.serve(async (req) => {
         return json({ deleted, total_bytes: totalBytes });
       }
 
+      case "cleanup_unresolved": {
+        const { bucket, dry_run = false, confirm } = body;
+        if (!dry_run && confirm !== true) return json({ error: "Cần confirm=true để xóa thật" }, 400);
+
+        const { data: bucketsData } = await svc.storage.listBuckets();
+        const targetBuckets = bucket ? [{ id: bucket }] : (bucketsData || []);
+
+        const perBucket: Record<string, { count: number; bytes: number; sample: string[] }> = {};
+        let totalDeleted = 0;
+        let totalBytes = 0;
+        let totalCandidates = 0;
+
+        for (const b of targetBuckets) {
+          const files = await deepListBucket(svc, b.id).catch(() => []);
+          const orgMap = await resolveOrgForFiles(svc, b.id, files);
+          const orphans = files.filter((f: any) => !orgMap.get(f.name));
+          const bytes = orphans.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
+          perBucket[b.id] = {
+            count: orphans.length,
+            bytes,
+            sample: orphans.slice(0, 5).map((f: any) => f.name),
+          };
+          totalCandidates += orphans.length;
+
+          if (!dry_run && orphans.length > 0) {
+            for (let i = 0; i < orphans.length; i += 100) {
+              const batch = orphans.slice(i, i + 100).map((f: any) => f.name);
+              const { data } = await svc.storage.from(b.id).remove(batch);
+              totalDeleted += data?.length || 0;
+            }
+            totalBytes += bytes;
+          }
+        }
+
+        if (!dry_run) {
+          await audit(svc, user.id, "storage_cleanup_unresolved", {
+            bucket: bucket || "all",
+            deleted: totalDeleted,
+            total_bytes: totalBytes,
+            per_bucket: perBucket,
+          });
+        }
+        return json({
+          dry_run,
+          per_bucket: perBucket,
+          count: totalCandidates,
+          total_bytes: dry_run ? Object.values(perBucket).reduce((s, v) => s + v.bytes, 0) : totalBytes,
+          deleted: totalDeleted,
+        });
+      }
+
       case "cleanup_bucket_for_org": {
         const { bucket, organization_id, dry_run = false, confirm } = body;
         if (!bucket || !organization_id) return json({ error: "bucket và organization_id bắt buộc" }, 400);
