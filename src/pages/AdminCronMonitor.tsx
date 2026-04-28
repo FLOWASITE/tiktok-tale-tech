@@ -64,6 +64,213 @@ function formatDuration(ms: number | null) {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 }
 
+type Granularity = 'hour' | 'day' | 'week';
+
+function bucketKey(d: Date, g: Granularity) {
+  if (g === 'hour') return startOfHour(d).toISOString();
+  if (g === 'week') return startOfWeek(d, { weekStartsOn: 1 }).toISOString();
+  return startOfDay(d).toISOString();
+}
+
+function bucketLabel(iso: string, g: Granularity) {
+  const d = new Date(iso);
+  if (g === 'hour') return format(d, 'HH:mm');
+  if (g === 'week') return `T${format(d, 'w')} · ${format(d, 'dd/MM')}`;
+  return format(d, 'dd/MM');
+}
+
+function buildBuckets(rangeFilter: string, g: Granularity): string[] {
+  const now = new Date();
+  if (g === 'hour') {
+    const start = subHours(now, 23);
+    return eachHourOfInterval({ start: startOfHour(start), end: startOfHour(now) }).map((d) => d.toISOString());
+  }
+  const days = rangeFilter === '7d' ? 7 : 30;
+  const start = subDays(now, days - 1);
+  if (g === 'week') {
+    return eachWeekOfInterval(
+      { start: startOfWeek(start, { weekStartsOn: 1 }), end: startOfWeek(now, { weekStartsOn: 1 }) },
+      { weekStartsOn: 1 },
+    ).map((d) => d.toISOString());
+  }
+  return eachDayOfInterval({ start: startOfDay(start), end: startOfDay(now) }).map((d) => d.toISOString());
+}
+
+type AggRow = {
+  bucket: string;
+  label: string;
+  dbRecords: number;
+  storageLinked: number;
+  orphan: number;
+  total: number;
+  avgDurationSec: number;
+  maxDurationSec: number;
+  runCount: number;
+};
+
+function aggregateByPeriod(logs: CronLog[], g: Granularity, rangeFilter: string): AggRow[] {
+  const buckets = buildBuckets(rangeFilter, g);
+  const map = new Map<string, AggRow>();
+  buckets.forEach((b) => {
+    map.set(b, {
+      bucket: b,
+      label: bucketLabel(b, g),
+      dbRecords: 0,
+      storageLinked: 0,
+      orphan: 0,
+      total: 0,
+      avgDurationSec: 0,
+      maxDurationSec: 0,
+      runCount: 0,
+    });
+  });
+
+  // accumulators for avg
+  const sumDur = new Map<string, number>();
+
+  logs.forEach((log) => {
+    const key = bucketKey(new Date(log.started_at), g);
+    const row = map.get(key);
+    if (!row) return; // outside range
+    const s = log.summary || {};
+    const db =
+      (s.channel_images_deleted ?? 0) + (s.carousel_images_deleted ?? 0) + (s.videos_deleted ?? 0);
+    const storage = s.storage_files_removed ?? 0;
+    const orphan = s.orphan_storage_files_removed ?? 0;
+    row.dbRecords += db;
+    row.storageLinked += storage;
+    row.orphan += orphan;
+    row.total += db + storage + orphan;
+    const durSec = (log.duration_ms ?? 0) / 1000;
+    sumDur.set(key, (sumDur.get(key) ?? 0) + durSec);
+    if (durSec > row.maxDurationSec) row.maxDurationSec = durSec;
+    row.runCount += 1;
+  });
+
+  // finalise avg
+  for (const row of map.values()) {
+    if (row.runCount > 0) {
+      row.avgDurationSec = +(sumDur.get(row.bucket)! / row.runCount).toFixed(2);
+      row.maxDurationSec = +row.maxDurationSec.toFixed(2);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function DeletionTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const r = payload[0].payload as AggRow;
+  return (
+    <div className="bg-popover border rounded-md p-2.5 shadow-md text-xs space-y-1">
+      <div className="font-medium">{label}</div>
+      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-sm bg-primary" /> DB records: <span className="font-mono">{r.dbRecords.toLocaleString()}</span></div>
+      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-sm bg-muted-foreground/60" /> Storage (linked): <span className="font-mono">{r.storageLinked.toLocaleString()}</span></div>
+      <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-sm bg-accent-foreground/40" /> Mồ côi: <span className="font-mono">{r.orphan.toLocaleString()}</span></div>
+      <div className="border-t pt-1 mt-1 font-medium">Tổng: <span className="font-mono">{r.total.toLocaleString()}</span></div>
+      <div className="text-muted-foreground">{r.runCount} lần chạy</div>
+    </div>
+  );
+}
+
+function DurationTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const r = payload[0].payload as AggRow;
+  return (
+    <div className="bg-popover border rounded-md p-2.5 shadow-md text-xs space-y-1">
+      <div className="font-medium">{label}</div>
+      <div>Trung bình: <span className="font-mono">{r.avgDurationSec.toFixed(1)}s</span></div>
+      <div>Tối đa: <span className="font-mono">{r.maxDurationSec.toFixed(1)}s</span></div>
+      <div className="text-muted-foreground">{r.runCount} lần chạy</div>
+    </div>
+  );
+}
+
+function TrendCharts({ logs, rangeFilter }: { logs: CronLog[]; rangeFilter: string }) {
+  const defaultGranularity: Granularity = rangeFilter === '24h' ? 'hour' : 'day';
+  const [granularity, setGranularity] = useState<Granularity>(defaultGranularity);
+
+  // Reset granularity when range changes
+  const allowedGranularities: Granularity[] =
+    rangeFilter === '24h' ? ['hour'] : rangeFilter === '7d' ? ['day'] : ['day', 'week'];
+  const effective: Granularity = allowedGranularities.includes(granularity) ? granularity : allowedGranularities[0];
+
+  const data = aggregateByPeriod(logs, effective, rangeFilter);
+  const hasAny = data.some((d) => d.runCount > 0);
+
+  const axisTick = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">Xu hướng theo thời gian</CardTitle>
+          </div>
+          {allowedGranularities.length > 1 && (
+            <Tabs value={effective} onValueChange={(v) => setGranularity(v as Granularity)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="day" className="text-xs px-3">Theo ngày</TabsTrigger>
+                <TabsTrigger value="week" className="text-xs px-3">Theo tuần</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
+        <CardDescription className="text-xs">
+          Biểu đồ vẽ tất cả lần chạy (không áp dụng bộ lọc status) trong khoảng đã chọn.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!hasAny ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">
+            Chưa đủ dữ liệu để vẽ biểu đồ trong khoảng đã chọn.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Deletion stacked bar */}
+            <div>
+              <div className="text-sm font-medium mb-2">Bản ghi đã xóa</div>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={axisTick} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={false} />
+                    <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <RTooltip content={<DeletionTooltip />} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} iconType="square" />
+                    <Bar dataKey="dbRecords" name="DB records" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="storageLinked" name="Storage (linked)" stackId="a" fill="hsl(var(--muted-foreground) / 0.6)" />
+                    <Bar dataKey="orphan" name="Mồ côi" stackId="a" fill="hsl(var(--accent-foreground) / 0.4)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Duration line */}
+            <div>
+              <div className="text-sm font-medium mb-2">Thời gian chạy (giây)</div>
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="label" tick={axisTick} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={false} />
+                    <YAxis tick={axisTick} axisLine={false} tickLine={false} unit="s" />
+                    <RTooltip content={<DurationTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} iconType="line" />
+                    <Line type="monotone" dataKey="avgDurationSec" name="Trung bình" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="maxDurationSec" name="Tối đa" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="4 3" dot={{ r: 2 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminCronMonitor() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('all');
