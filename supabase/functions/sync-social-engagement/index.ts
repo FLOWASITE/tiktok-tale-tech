@@ -1,0 +1,319 @@
+// Sync social engagement metrics from platforms (FB, IG, LinkedIn, TikTok, X)
+// Triggered by pg_cron every 6 hours OR manually by user
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+interface PostRef {
+  content_id: string | null;
+  organization_id: string;
+  channel: string;
+  post_id: string;
+  performed_at: string;
+}
+
+// ---------- Platform fetchers ----------
+
+async function fetchFacebookMetrics(accessToken: string, postId: string) {
+  // Insights endpoint for page posts
+  const url = `https://graph.facebook.com/v21.0/${postId}/insights?metric=post_impressions,post_impressions_unique,post_reactions_by_type_total,post_clicks&access_token=${accessToken}`;
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const data = await r.json();
+  const map: Record<string, number> = {};
+  for (const m of data.data ?? []) {
+    map[m.name] = m.values?.[0]?.value ?? 0;
+  }
+
+  // Get likes/comments/shares from main post
+  const r2 = await fetch(
+    `https://graph.facebook.com/v21.0/${postId}?fields=likes.summary(true),comments.summary(true),shares&access_token=${accessToken}`,
+  );
+  let likes = 0, comments = 0, shares = 0;
+  if (r2.ok) {
+    const post = await r2.json();
+    likes = post.likes?.summary?.total_count ?? 0;
+    comments = post.comments?.summary?.total_count ?? 0;
+    shares = post.shares?.count ?? 0;
+  }
+
+  return {
+    impressions: map["post_impressions"] ?? 0,
+    reach: map["post_impressions_unique"] ?? 0,
+    likes,
+    comments,
+    shares,
+    link_clicks: map["post_clicks"] ?? 0,
+    saves: 0,
+    video_views: 0,
+    raw: { fb_insights: map },
+  };
+}
+
+async function fetchInstagramMetrics(accessToken: string, mediaId: string) {
+  const url = `https://graph.facebook.com/v21.0/${mediaId}/insights?metric=reach,impressions,likes,comments,shares,saved&access_token=${accessToken}`;
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const data = await r.json();
+  const map: Record<string, number> = {};
+  for (const m of data.data ?? []) {
+    map[m.name] = m.values?.[0]?.value ?? 0;
+  }
+  return {
+    reach: map["reach"] ?? 0,
+    impressions: map["impressions"] ?? 0,
+    likes: map["likes"] ?? 0,
+    comments: map["comments"] ?? 0,
+    shares: map["shares"] ?? 0,
+    saves: map["saved"] ?? 0,
+    video_views: 0,
+    link_clicks: 0,
+    raw: { ig_insights: map },
+  };
+}
+
+async function fetchLinkedInMetrics(accessToken: string, urn: string) {
+  // urn format: urn:li:share:xxx or urn:li:ugcPost:xxx
+  const r = await fetch(
+    `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(urn)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "LinkedIn-Version": "202405",
+      },
+    },
+  );
+  if (!r.ok) return null;
+  const data = await r.json();
+  return {
+    reach: 0,
+    impressions: 0,
+    likes: data.likesSummary?.totalLikes ?? 0,
+    comments: data.commentsSummary?.aggregatedTotalComments ?? 0,
+    shares: 0,
+    saves: 0,
+    video_views: 0,
+    link_clicks: 0,
+    raw: { linkedin: data },
+  };
+}
+
+async function fetchTikTokMetrics(accessToken: string, videoId: string) {
+  const r = await fetch(
+    `https://open.tiktokapis.com/v2/video/query/?fields=id,view_count,like_count,comment_count,share_count`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ filters: { video_ids: [videoId] } }),
+    },
+  );
+  if (!r.ok) return null;
+  const data = await r.json();
+  const v = data.data?.videos?.[0];
+  if (!v) return null;
+  return {
+    reach: 0,
+    impressions: v.view_count ?? 0,
+    likes: v.like_count ?? 0,
+    comments: v.comment_count ?? 0,
+    shares: v.share_count ?? 0,
+    saves: 0,
+    video_views: v.view_count ?? 0,
+    link_clicks: 0,
+    raw: { tiktok: v },
+  };
+}
+
+// ---------- Main handler ----------
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  const startedAt = Date.now();
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // Optional: scope sync (manual trigger from UI)
+  let scope: { organization_id?: string; brand_template_id?: string } = {};
+  try {
+    if (req.method === "POST") {
+      scope = await req.json().catch(() => ({}));
+    }
+  } catch (_) { /* noop */ }
+
+  // 1. Build list of recent published posts (last 30 days, max 500)
+  const sinceIso = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  let query = supabase
+    .from("content_publishing_logs")
+    .select("content_id, organization_id, channel, details, performed_at")
+    .eq("action", "published")
+    .gte("performed_at", sinceIso)
+    .order("performed_at", { ascending: false })
+    .limit(500);
+
+  if (scope.organization_id) {
+    query = query.eq("organization_id", scope.organization_id);
+  }
+
+  const { data: logs, error: logsErr } = await query;
+  if (logsErr) {
+    console.error("[sync-engagement] logs error", logsErr);
+    return new Response(JSON.stringify({ error: logsErr.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const posts: PostRef[] = [];
+  for (const log of logs ?? []) {
+    const d = (log.details ?? {}) as Record<string, unknown>;
+    const postId = (d.post_id ?? d.tweet_id ?? d.media_id) as string | undefined;
+    if (!postId || !log.organization_id) continue;
+    posts.push({
+      content_id: log.content_id,
+      organization_id: log.organization_id,
+      channel: log.channel,
+      post_id: postId,
+      performed_at: log.performed_at,
+    });
+  }
+
+  // Dedupe by (org, channel, post_id) - keep most recent
+  const dedupKey = (p: PostRef) =>
+    `${p.organization_id}::${p.channel}::${p.post_id}`;
+  const dedupMap = new Map<string, PostRef>();
+  for (const p of posts) {
+    if (!dedupMap.has(dedupKey(p))) dedupMap.set(dedupKey(p), p);
+  }
+  const uniquePosts = Array.from(dedupMap.values());
+
+  // 2. Get connections grouped by (org, platform)
+  const orgIds = [...new Set(uniquePosts.map((p) => p.organization_id))];
+  const { data: connections } = await supabase
+    .from("social_connections")
+    .select("id, organization_id, platform, access_token, brand_template_id, page_id")
+    .in("organization_id", orgIds.length ? orgIds : ["00000000-0000-0000-0000-000000000000"])
+    .eq("is_active", true);
+
+  // map: org::platform -> connection
+  const connMap = new Map<string, typeof connections[number]>();
+  for (const c of connections ?? []) {
+    // Map channel names to platform: 'facebook'->'facebook', 'instagram'->'instagram', etc.
+    connMap.set(`${c.organization_id}::${c.platform}`, c);
+  }
+
+  const channelToPlatform: Record<string, string> = {
+    facebook: "facebook",
+    instagram: "instagram",
+    linkedin: "linkedin",
+    tiktok: "tiktok",
+    twitter: "twitter",
+    x: "twitter",
+    threads: "threads",
+  };
+
+  // 3. Fetch metrics in parallel (chunked to avoid rate limits)
+  let success = 0, failed = 0, skipped = 0;
+  const upserts: any[] = [];
+
+  const CHUNK = 10;
+  for (let i = 0; i < uniquePosts.length; i += CHUNK) {
+    const chunk = uniquePosts.slice(i, i + CHUNK);
+    const results = await Promise.all(
+      chunk.map(async (p) => {
+        const platform = channelToPlatform[p.channel.toLowerCase()] ?? p.channel.toLowerCase();
+        const conn = connMap.get(`${p.organization_id}::${platform}`);
+        if (!conn) return { post: p, skip: true };
+
+        try {
+          let metrics: Awaited<ReturnType<typeof fetchFacebookMetrics>> = null;
+          switch (platform) {
+            case "facebook":
+              metrics = await fetchFacebookMetrics(conn.access_token, p.post_id);
+              break;
+            case "instagram":
+              metrics = await fetchInstagramMetrics(conn.access_token, p.post_id);
+              break;
+            case "linkedin":
+              metrics = await fetchLinkedInMetrics(conn.access_token, p.post_id);
+              break;
+            case "tiktok":
+              metrics = await fetchTikTokMetrics(conn.access_token, p.post_id);
+              break;
+            default:
+              return { post: p, skip: true };
+          }
+          if (!metrics) return { post: p, error: "no_data" };
+          return { post: p, conn, platform, metrics };
+        } catch (e) {
+          return { post: p, error: (e as Error).message };
+        }
+      }),
+    );
+
+    for (const r of results) {
+      if ("skip" in r && r.skip) { skipped++; continue; }
+      if ("error" in r && r.error) { failed++; continue; }
+      if (!("metrics" in r) || !r.metrics) { failed++; continue; }
+      success++;
+      upserts.push({
+        organization_id: r.post.organization_id,
+        brand_template_id: r.conn?.brand_template_id ?? null,
+        connection_id: r.conn?.id ?? null,
+        content_id: r.post.content_id,
+        platform: r.platform,
+        post_id: r.post.post_id,
+        snapshot_at: new Date().toISOString(),
+        ...r.metrics,
+      });
+    }
+  }
+
+  // 4. Bulk upsert
+  if (upserts.length) {
+    const { error: upErr } = await supabase
+      .from("social_post_metrics")
+      .upsert(upserts, {
+        onConflict: "connection_id,post_id,((snapshot_at AT TIME ZONE 'UTC')::date)",
+        ignoreDuplicates: false,
+      });
+    if (upErr) {
+      console.error("[sync-engagement] upsert error", upErr);
+    }
+  }
+
+  // 5. Track sync state
+  await supabase.from("report_sync_state").upsert(
+    {
+      sync_type: "social_engagement",
+      organization_id: scope.organization_id ?? null,
+      last_run_at: new Date().toISOString(),
+      last_status: failed > success ? "partial_failure" : "success",
+      stats: { total: uniquePosts.length, success, failed, skipped, duration_ms: Date.now() - startedAt },
+    },
+    { onConflict: "sync_type,organization_id" },
+  );
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      total: uniquePosts.length,
+      success,
+      failed,
+      skipped,
+      duration_ms: Date.now() - startedAt,
+    }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+});
