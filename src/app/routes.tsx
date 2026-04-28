@@ -48,6 +48,7 @@ import AdminPlans from "@/pages/AdminPlans";
 import AdminCronMonitor from "@/pages/AdminCronMonitor";
 const AdminStorageMemory = lazy(() => import("@/pages/AdminStorageMemory"));
 import Campaigns from "@/pages/Campaigns";
+const Reports = lazy(() => import("@/pages/Reports"));
 import CampaignCreate from "@/pages/CampaignCreate";
 import CampaignDetail from "@/pages/CampaignDetail";
 import AdCopies from "@/pages/AdCopies";
@@ -171,6 +172,7 @@ export function AppRoutes() {
       <Route path="/multichannel" element={<ProtectedRoute><AppLayout><MultiChannel /></AppLayout></ProtectedRoute>} />
       <Route path="/multichannel/new" element={<ProtectedRoute><AppLayout><MultiChannelCreate /></AppLayout></ProtectedRoute>} />
       <Route path="/campaigns" element={<ProtectedRoute><AppLayout><Campaigns /></AppLayout></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><AppLayout><Suspense fallback={null}><Reports /></Suspense></AppLayout></ProtectedRoute>} />
       <Route path="/campaigns/new" element={<ProtectedRoute><CampaignCreate /></ProtectedRoute>} />
       <Route path="/campaigns/:id/edit" element={<ProtectedRoute><CampaignCreate /></ProtectedRoute>} />
       <Route path="/campaigns/:id" element={<ProtectedRoute><CampaignDetail /></ProtectedRoute>} />
