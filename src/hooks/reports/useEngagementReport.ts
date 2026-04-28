@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ReportFilters } from './useReportFilters';
-import { bucketByDay, fillDateGaps } from '@/lib/reports/aggregators';
+import { bucketRows, fillBucketGaps, type BucketType } from '@/lib/reports/aggregators';
+
+export interface EngagementOptions {
+  overrideRange?: { from: Date; to: Date } | null;
+  bucket?: BucketType;
+}
 
 export interface EngagementReportData {
   totalReach: number;
