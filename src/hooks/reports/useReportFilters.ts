@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useOrganization } from '@/contexts/OrganizationContext';
-import { useBrand } from '@/contexts/BrandContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 
 export interface ReportFilters {
   dateFrom: Date;
