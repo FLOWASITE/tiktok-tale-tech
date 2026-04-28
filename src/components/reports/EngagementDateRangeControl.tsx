@@ -59,7 +59,7 @@ export function EngagementDateRangeControl({
             variant="ghost"
             size="sm"
             className="h-7 px-2.5 text-xs"
-            onClick={() => onRangeChange(p.get())}
+            onClick={() => onRangeChange(p.get(), p.bucketHint)}
           >
             {p.label}
           </Button>
