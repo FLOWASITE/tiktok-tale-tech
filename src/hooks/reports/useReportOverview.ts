@@ -29,13 +29,21 @@ export function useReportOverview(orgId: string | null, filters: ReportFilters) 
       // Content created (current period)
       let cQ = supabase
         .from('multi_channel_contents')
-        .select('id, channel', { count: 'exact', head: false })
+        .select('id, selected_channels', { count: 'exact', head: false })
         .eq('organization_id', orgId!)
         .gte('created_at', filters.dateFrom.toISOString())
         .lte('created_at', filters.dateTo.toISOString());
       if (filters.brandId) cQ = cQ.eq('brand_template_id', filters.brandId);
-      if (filters.channel) cQ = cQ.eq('channel', filters.channel);
+      if (filters.channel) cQ = cQ.contains('selected_channels', [filters.channel]);
       const { data: contentRows, count: contentCount } = await cQ;
+
+      // Content created (previous period) for delta
+      const { count: prevContentCount } = await supabase
+        .from('multi_channel_contents')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId!)
+        .gte('created_at', prevFrom.toISOString())
+        .lte('created_at', prevTo.toISOString());
 
       // Content created (previous period) for delta
       const { count: prevContentCount } = await supabase
