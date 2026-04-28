@@ -254,7 +254,7 @@ export default function Reports() {
 
           <TabsContent value="content" className="space-y-4">
             {/* KPI cards riêng cho tab Nội dung */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <StatCard
                 label="Tổng nội dung"
                 value={content.data?.total ?? 0}
@@ -262,9 +262,14 @@ export default function Reports() {
                 loading={content.isLoading}
               />
               <StatCard
-                label="Đã duyệt"
-                value={content.data?.funnel.approved ?? 0}
-                tone="positive"
+                label="Nháp"
+                value={(content.data?.byStatus.find((s) => s.status === 'draft')?.count) ?? 0}
+                loading={content.isLoading}
+              />
+              <StatCard
+                label="Đã lên lịch"
+                value={content.data?.funnel.scheduled ?? 0}
+                hint="Chờ đăng"
                 loading={content.isLoading}
               />
               <StatCard
@@ -274,13 +279,9 @@ export default function Reports() {
                 loading={content.isLoading}
               />
               <StatCard
-                label="Tỷ lệ duyệt"
-                value={`${
-                  content.data && content.data.total > 0
-                    ? Math.round((content.data.funnel.approved / content.data.total) * 100)
-                    : 0
-                }%`}
-                hint="Approved / Tổng"
+                label="Thất bại"
+                value={content.data?.funnel.failed ?? 0}
+                tone={content.data && content.data.funnel.failed > 0 ? 'negative' : 'neutral'}
                 loading={content.isLoading}
               />
             </div>
@@ -304,18 +305,16 @@ export default function Reports() {
                         fontSize: '12px',
                       }}
                     />
-                    <Bar dataKey="draft" stackId="s" fill="hsl(var(--muted-foreground))" name="Nháp" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="approved" stackId="s" fill="hsl(var(--primary))" name="Đã duyệt" />
-                    <Bar dataKey="partially_published" stackId="s" fill="hsl(38 92% 50%)" name="Đăng một phần" />
-                    <Bar dataKey="published" stackId="s" fill="hsl(142 76% 36%)" name="Đã đăng" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="draft" stackId="s" fill="hsl(var(--muted-foreground))" name="Nháp" />
+                    <Bar dataKey="approved" stackId="s" fill="hsl(217 91% 60%)" name="Đã duyệt" />
+                    <Bar dataKey="scheduled" stackId="s" fill="hsl(38 92% 50%)" name="Đã lên lịch" />
+                    <Bar dataKey="partially_published" stackId="s" fill="hsl(142 60% 45%)" name="Đăng một phần" />
+                    <Bar dataKey="published" stackId="s" fill="hsl(142 76% 36%)" name="Đã đăng" />
+                    <Bar dataKey="failed" stackId="s" fill="hsl(0 84% 60%)" name="Thất bại" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </Card>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card className="p-4">
-                <h3 className="mb-3 text-sm font-medium">Theo channel</h3>
                 {!content.data?.byChannel.length ? (
                   <EmptyReportState />
                 ) : (
