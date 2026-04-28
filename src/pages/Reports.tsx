@@ -290,11 +290,121 @@ export default function Reports() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="engagement">
-            <EmptyReportState
-              title="Engagement sync sẽ có ở Phase 2"
-              description="Cron 6h sync FB/IG/LinkedIn/TikTok/X insights sẽ kích hoạt ở giai đoạn tiếp theo. Hiện đã ghi nhận engagement từ FB webhook."
-            />
+          <TabsContent value="engagement" className="space-y-4">
+            {/* Sync controls */}
+            <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Engagement metrics</p>
+                <p className="text-xs text-muted-foreground">
+                  {engagement.data?.lastSyncedAt
+                    ? `Cập nhật ${formatDistanceToNow(new Date(engagement.data.lastSyncedAt), { addSuffix: true, locale: vi })}`
+                    : 'Chưa có dữ liệu sync. Tự động chạy mỗi 6 giờ.'}
+                  {' · '}
+                  Theo dõi {engagement.data?.postsTracked ?? 0} bài
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={triggerSync.isPending}
+                onClick={() => {
+                  triggerSync.mutate(undefined, {
+                    onSuccess: (r) => toast.success(`Đã sync ${r.success}/${r.total} bài`),
+                    onError: (e) => toast.error(`Lỗi sync: ${(e as Error).message}`),
+                  });
+                }}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${triggerSync.isPending ? 'animate-spin' : ''}`} />
+                Sync ngay
+              </Button>
+            </Card>
+
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatCard label="Reach" value={engagement.data?.totalReach ?? 0} loading={engagement.isLoading} />
+              <StatCard label="Impressions" value={engagement.data?.totalImpressions ?? 0} loading={engagement.isLoading} />
+              <StatCard label="Likes" value={engagement.data?.totalLikes ?? 0} loading={engagement.isLoading} tone="positive" />
+              <StatCard
+                label="Engagement rate"
+                value={`${engagement.data?.engagementRate ?? 0}%`}
+                hint={`${engagement.data?.totalComments ?? 0} comments · ${engagement.data?.totalShares ?? 0} shares`}
+                loading={engagement.isLoading}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="p-4">
+                <h3 className="mb-3 text-sm font-medium">Reach & Engagement theo ngày</h3>
+                {!engagement.data?.byDay.length ? (
+                  <EmptyReportState />
+                ) : (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={engagement.data.byDay}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                      <Line type="monotone" dataKey="reach" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Reach" />
+                      <Line type="monotone" dataKey="engagement" stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false} name="Engagement" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="mb-3 text-sm font-medium">Theo platform</h3>
+                {!engagement.data?.byPlatform.length ? (
+                  <EmptyReportState />
+                ) : (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={engagement.data.byPlatform}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="platform" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                      <Bar dataKey="reach" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Reach" />
+                      <Bar dataKey="likes" fill="hsl(142 76% 36%)" radius={[4, 4, 0, 0]} name="Likes" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+            </div>
+
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Platform</TableHead>
+                    <TableHead>Post ID</TableHead>
+                    <TableHead className="text-right"><Eye className="ml-auto h-3.5 w-3.5" /></TableHead>
+                    <TableHead className="text-right"><Heart className="ml-auto h-3.5 w-3.5" /></TableHead>
+                    <TableHead className="text-right"><MessageCircle className="ml-auto h-3.5 w-3.5" /></TableHead>
+                    <TableHead className="text-right"><Share2 className="ml-auto h-3.5 w-3.5" /></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(engagement.data?.topPosts ?? []).map((p) => (
+                    <TableRow
+                      key={`${p.platform}-${p.post_id}`}
+                      className={p.content_id ? 'cursor-pointer' : ''}
+                      onClick={() => p.content_id && navigate(`/multichannel/${p.content_id}`)}
+                    >
+                      <TableCell><Badge variant="outline">{p.platform}</Badge></TableCell>
+                      <TableCell className="max-w-[180px] truncate font-mono text-xs">{p.post_id}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.reach.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.likes.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.comments.toLocaleString()}</TableCell>
+                      <TableCell className="text-right tabular-nums">{p.shares.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                  {!engagement.data?.topPosts.length && (
+                    <TableRow><TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                      Chưa có dữ liệu engagement. Bấm "Sync ngay" để fetch từ platform.
+                    </TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
