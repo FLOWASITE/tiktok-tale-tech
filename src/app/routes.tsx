@@ -213,6 +213,7 @@ export function AppRoutes() {
       <Route path="/admin/edge-functions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEdgeFunctions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/plans" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminPlans /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/cron-monitor" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminCronMonitor /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/storage" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminStorageMemory /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/telegram-auth-check" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminTelegramAuthCheck /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
 
       {/* Other */}
