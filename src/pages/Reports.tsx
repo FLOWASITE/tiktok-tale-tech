@@ -590,6 +590,22 @@ export default function Reports() {
               </Button>
             </Card>
 
+            {/* Per-tab date range + bucket */}
+            <EngagementDateRangeControl
+              range={engagementRange}
+              bucket={engagementBucket}
+              onRangeChange={(r) => {
+                setEngagementOverride(r);
+                setEngagementBucket(suggestBucket(r.from, r.to));
+              }}
+              onBucketChange={setEngagementBucket}
+              onSyncWithGlobal={() => {
+                setEngagementOverride(null);
+                setEngagementBucket('day');
+              }}
+              isOverridden={engagementOverride !== null}
+            />
+
             {/* Stat cards */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <StatCard label="Reach" value={engagement.data?.totalReach ?? 0} loading={engagement.isLoading} />
@@ -605,14 +621,20 @@ export default function Reports() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="p-4">
-                <h3 className="mb-3 text-sm font-medium">Reach & Engagement theo ngày</h3>
+                <h3 className="mb-3 text-sm font-medium">
+                  Reach & Engagement {engagementBucket === 'day' ? 'theo ngày' : engagementBucket === 'week' ? 'theo tuần' : 'theo tháng'}
+                </h3>
                 {!engagement.data?.byDay.length ? (
                   <EmptyReportState />
                 ) : (
                   <ResponsiveContainer width="100%" height={240}>
                     <LineChart data={engagement.data.byDay}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) => formatBucketLabel(String(v), engagement.data?.bucketType ?? engagementBucket)}
+                      />
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
                       <Line type="monotone" dataKey="reach" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Reach" />
