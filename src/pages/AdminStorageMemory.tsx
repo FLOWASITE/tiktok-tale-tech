@@ -103,16 +103,54 @@ type BucketSummary = {
 type OrgOption = { id: string; name: string; slug: string };
 
 export default function AdminStorageMemory() {
+  const [orgId, setOrgId] = useState<string>("all");
+  const orgsQ = useQuery({
+    queryKey: ["admin-storage-orgs"],
+    queryFn: () => call("list_organizations"),
+  });
+  const orgs: OrgOption[] = orgsQ.data?.organizations || [];
+  const selectedOrg = orgs.find((o) => o.id === orgId) || null;
+
   return (
     <div className="container mx-auto p-6 max-w-7xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">File &amp; Bộ nhớ Hệ thống</h1>
           <p className="text-muted-foreground mt-1">
             Quản lý storage buckets, cache, log và embeddings — bổ sung cho cron tự động.
           </p>
         </div>
+
+        {/* Workspace selector - LUÔN hiển thị ở header */}
+        <Card className="min-w-[320px]">
+          <CardContent className="p-3 flex items-center gap-2 flex-wrap">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Workspace</span>
+            <Select value={orgId} onValueChange={setOrgId}>
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder={orgsQ.isLoading ? "Đang tải..." : "Chọn workspace..."} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả workspace ({orgs.length})</SelectItem>
+                {orgs.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedOrg && (
+              <Badge variant="secondary" className="font-mono text-xs">{selectedOrg.slug}</Badge>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {orgsQ.error && (
+        <Card className="border-destructive">
+          <CardContent className="p-4 text-sm text-destructive">
+            Không tải được danh sách workspace: {(orgsQ.error as Error).message}
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="storage" className="space-y-4">
         <TabsList>
@@ -120,7 +158,9 @@ export default function AdminStorageMemory() {
           <TabsTrigger value="memory"><Database className="h-4 w-4 mr-2" />Bộ nhớ DB</TabsTrigger>
           <TabsTrigger value="audit"><Clock className="h-4 w-4 mr-2" />Lịch sử dọn dẹp</TabsTrigger>
         </TabsList>
-        <TabsContent value="storage"><StorageTab /></TabsContent>
+        <TabsContent value="storage">
+          <StorageTab orgId={orgId} selectedOrg={selectedOrg} />
+        </TabsContent>
         <TabsContent value="memory"><MemoryTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
       </Tabs>
