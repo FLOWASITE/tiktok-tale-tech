@@ -82,6 +82,7 @@ const ACTION_LABELS: Record<string, string> = {
   cleanup_table: "Dọn bảng",
   storage_delete_files: "Xóa file",
   storage_cleanup_older_than: "Dọn file cũ",
+  storage_cleanup_org: "Dọn theo workspace",
   bulk_cleanup_expired: "Dọn hàng loạt",
 };
 
@@ -97,7 +98,9 @@ type DbStat = {
 type BucketSummary = {
   id: string; name: string; public: boolean;
   file_count: number; total_size: number; created_at: string;
+  org_file_count?: number; org_total_size?: number;
 };
+type OrgOption = { id: string; name: string; slug: string };
 
 export default function AdminStorageMemory() {
   return (
