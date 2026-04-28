@@ -17,7 +17,7 @@ export interface EngagementRange {
 interface Props {
   range: EngagementRange;
   bucket: BucketType;
-  onRangeChange: (r: EngagementRange) => void;
+  onRangeChange: (r: EngagementRange, bucketHint?: BucketType) => void;
   onBucketChange: (b: BucketType) => void;
   onSyncWithGlobal: () => void;
   isOverridden: boolean;
