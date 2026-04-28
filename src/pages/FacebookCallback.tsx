@@ -154,11 +154,52 @@ export default function FacebookCallback() {
       if (error || !data?.success) {
         throw new Error(data?.error || error?.message || 'Reset quyền thất bại');
       }
+
+      // Manual path: token unusable → open Facebook Business Tools so user removes app there
+      if (data.manual_action_required) {
+        toast({
+          title: 'Cần thao tác thủ công',
+          description: data.message || 'Mở Facebook Settings để remove app Flowa.',
+        });
+        if (data.manual_url) {
+          window.open(data.manual_url, '_blank', 'noopener');
+        }
+        return;
+      }
+
+      // Diagnostic: account thật chỉ có ≤1 Page
+      if (typeof data.actual_pages_count === 'number' && data.actual_pages_count <= 1) {
+        toast({
+          title: 'Tài khoản Facebook chỉ quản lý 1 Page',
+          description:
+            'Reset OK nhưng Facebook báo bạn chỉ là Admin của 1 Page duy nhất. Hãy đăng nhập Facebook và kiểm tra tại facebook.com/pages, hoặc dùng Facebook Business Manager để được cấp quyền thêm Page khác.',
+        });
+        return;
+      }
+
+      // Happy path: revoked + multiple pages exist → auto trigger fresh OAuth
       toast({
         title: 'Đã reset quyền Facebook',
-        description: data.message || 'Hãy bấm Kết nối Facebook lại để chọn đầy đủ Page.',
+        description: 'Đang mở lại cửa sổ Facebook để bạn chọn Page...',
       });
-      goBack();
+
+      const { data: connectData, error: connectError } = await supabase.functions.invoke(
+        'connect-social',
+        {
+          body: { platform: 'facebook', brandTemplateId },
+        }
+      );
+      if (connectError || !connectData?.url) {
+        toast({
+          title: 'Reset xong nhưng không tự mở được OAuth',
+          description: 'Hãy quay lại trang Brand và bấm "Kết nối Facebook" thủ công.',
+          variant: 'destructive',
+        });
+        goBack();
+        return;
+      }
+      // Redirect this window straight to Facebook OAuth
+      window.location.href = connectData.url;
     } catch (e) {
       toast({
         title: 'Không reset được quyền',

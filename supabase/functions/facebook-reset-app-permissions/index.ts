@@ -1,5 +1,5 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { decrypt as decryptGCM } from "../_shared/crypto.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,21 +12,18 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 
+const BUSINESS_TOOLS_URL = 'https://www.facebook.com/settings?tab=business_tools';
+
 /**
- * Revokes Facebook app authorization for the connected user so the next OAuth
- * flow shows the FULL Page picker again (not just previously authorized pages).
+ * Revoke Facebook app authorization at the USER level so the next OAuth
+ * flow shows the FULL Page picker again.
  *
- * Body: { brand_template_id: string }
- *
- * Steps:
- *  1. Auth user via JWT.
- *  2. Find ANY active facebook social_connection for that brand owned by the user.
- *  3. Decrypt page access_token → exchange to user-level via debug_token? Not needed:
- *     calling DELETE /me/permissions with a Page access token would only revoke at the
- *     Page scope. Instead we look up an OAuth session row that still has the user_token
- *     OR fall back to calling DELETE /{user_id}/permissions with the page token (which
- *     Facebook does accept for the owning user when the page token derives from the user).
- *  4. After revoke, deactivate local connections so the user reconnects clean.
+ * Strategy:
+ *  1. Find latest facebook_oauth_sessions for this user+brand → has encrypted_user_token.
+ *  2. Decrypt user token, debug-list pages user actually manages (for diagnostics).
+ *  3. Call DELETE /me/permissions with USER token → real revoke.
+ *  4. Deactivate local social_connections + delete stored sessions to prevent token reuse.
+ *  5. If no usable user token → return revoked:false + manual instructions URL.
  */
 Deno.serve(withPerf({ functionName: 'facebook-reset-app-permissions' }, async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -45,7 +42,7 @@ Deno.serve(withPerf({ functionName: 'facebook-reset-app-permissions' }, async (r
     const { brand_template_id } = body || {};
     if (!brand_template_id) return json({ error: 'brand_template_id required' }, 400);
 
-    // Verify access to brand
+    // Verify access
     const { data: brand } = await supabase
       .from('brand_templates')
       .select('id, organization_id, user_id')
@@ -64,85 +61,113 @@ Deno.serve(withPerf({ functionName: 'facebook-reset-app-permissions' }, async (r
       return json({ error: 'Forbidden' }, 403);
     }
 
-    // Find most recent OAuth session (preferred — has user-level token implicitly via me/accounts)
-    // Strategy: revoke via stored page access token by calling DELETE on the page's owning user.
-    // We fetch the connection's platform_user_id (page id) and access_token, then use Graph
-    // endpoint /{page_id}/subscribed_apps DELETE + DELETE /me/permissions with the page token,
-    // which Facebook treats as a deauthorize for the app for the underlying user.
-    const { data: connections } = await supabase
-      .from('social_connections')
-      .select('id, platform_user_id, access_token')
-      .eq('platform', 'facebook')
+    // 1. Get latest OAuth session with user token
+    const { data: sessions } = await supabase
+      .from('facebook_oauth_sessions')
+      .select('id, encrypted_user_token, created_at')
+      .eq('user_id', user.id)
       .eq('brand_template_id', brand_template_id)
-      .eq('is_active', true);
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (!connections || connections.length === 0) {
-      return json({
-        success: true,
-        revoked: false,
-        message: 'Không có kết nối Facebook nào để reset. Hãy bấm Kết nối Facebook và chọn lại Page trong cửa sổ OAuth.',
-      });
-    }
+    const session = sessions?.[0];
+    let userToken: string | null = null;
 
-    let revokedAny = false;
-    const errors: string[] = [];
-
-    for (const conn of connections) {
+    if (session?.encrypted_user_token) {
       try {
-        const pageToken = await decryptGCM(conn.access_token as string);
-        if (!pageToken) continue;
-
-        // Unsubscribe webhooks first (best effort)
-        await fetch(
-          `https://graph.facebook.com/v21.0/${conn.platform_user_id}/subscribed_apps`,
-          {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ access_token: pageToken }).toString(),
-          }
-        ).catch(() => {});
-
-        // Revoke app authorization for the underlying user. Using "me" with a page
-        // token revokes at the page level only; we need the user_id. Page token's
-        // /me returns the page itself, so we ask for the page's owning user via /me?fields=...
-        // Then DELETE /{user_id}/permissions.
-        const meResp = await fetch(
-          `https://graph.facebook.com/v21.0/me?fields=id&access_token=${encodeURIComponent(pageToken)}`
-        );
-        const meData = await meResp.json().catch(() => ({}));
-
-        // Try DELETE /{page_id}/permissions first (revokes app for that page)
-        const pageRevoke = await fetch(
-          `https://graph.facebook.com/v21.0/${conn.platform_user_id}/permissions?access_token=${encodeURIComponent(pageToken)}`,
-          { method: 'DELETE' }
-        );
-        if (pageRevoke.ok) revokedAny = true;
-        else {
-          const txt = await pageRevoke.text().catch(() => '');
-          errors.push(`page ${conn.platform_user_id}: ${txt.slice(0, 160)}`);
-        }
-        // (We intentionally do NOT call /me/permissions with the page token to avoid
-        // revoking unrelated pages of the same user.)
+        userToken = await decryptCredential(session.encrypted_user_token);
       } catch (e) {
-        errors.push(e instanceof Error ? e.message : String(e));
+        console.warn('[reset-fb] Failed to decrypt user token:', e instanceof Error ? e.message : e);
       }
     }
 
-    // Mark all FB connections inactive so user reconnects fresh
-    await supabase
-      .from('social_connections')
-      .update({ is_active: false })
-      .eq('platform', 'facebook')
-      .eq('brand_template_id', brand_template_id);
+    // Always cleanup local state (will reconnect fresh either way)
+    const cleanupLocal = async () => {
+      await supabase
+        .from('social_connections')
+        .update({ is_active: false })
+        .eq('platform', 'facebook')
+        .eq('brand_template_id', brand_template_id);
+      await supabase
+        .from('facebook_oauth_sessions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('brand_template_id', brand_template_id);
+    };
+
+    if (!userToken) {
+      await cleanupLocal();
+      return json({
+        success: true,
+        revoked: false,
+        manual_action_required: true,
+        manual_url: BUSINESS_TOOLS_URL,
+        message:
+          'Không tìm thấy token Facebook hợp lệ để revoke tự động. Hãy mở Facebook Settings → Business Integrations → tìm "Flowa" → Remove. Sau đó quay lại bấm "Kết nối Facebook".',
+      });
+    }
+
+    // 2. Diagnostic: how many pages does this FB user actually manage?
+    let actualPagesCount = 0;
+    try {
+      const accountsResp = await fetch(
+        `https://graph.facebook.com/v21.0/me/accounts?limit=100&fields=id,name&access_token=${encodeURIComponent(userToken)}`
+      );
+      const accountsData = await accountsResp.json().catch(() => ({}));
+      if (Array.isArray(accountsData?.data)) {
+        actualPagesCount = accountsData.data.length;
+        console.log(`[reset-fb] Facebook user actually manages ${actualPagesCount} Page(s):`, accountsData.data.map((p: any) => `${p.name} (${p.id})`).join(', '));
+      } else if (accountsData?.error) {
+        console.warn('[reset-fb] me/accounts error:', accountsData.error);
+      }
+    } catch (e) {
+      console.warn('[reset-fb] me/accounts probe failed:', e instanceof Error ? e.message : e);
+    }
+
+    // 3. REAL revoke at user level
+    let revoked = false;
+    let revokeError: string | null = null;
+    try {
+      const revokeResp = await fetch(
+        `https://graph.facebook.com/v21.0/me/permissions?access_token=${encodeURIComponent(userToken)}`,
+        { method: 'DELETE' }
+      );
+      const revokeData = await revokeResp.json().catch(() => ({}));
+      if (revokeResp.ok && revokeData?.success) {
+        revoked = true;
+        console.log('[reset-fb] User-level app permissions revoked successfully');
+      } else {
+        revokeError = JSON.stringify(revokeData).slice(0, 300);
+        console.warn('[reset-fb] revoke failed:', revokeError);
+      }
+    } catch (e) {
+      revokeError = e instanceof Error ? e.message : String(e);
+      console.warn('[reset-fb] revoke exception:', revokeError);
+    }
+
+    // 4. Cleanup local
+    await cleanupLocal();
+
+    if (!revoked) {
+      return json({
+        success: true,
+        revoked: false,
+        manual_action_required: true,
+        manual_url: BUSINESS_TOOLS_URL,
+        actual_pages_count: actualPagesCount,
+        error: revokeError,
+        message:
+          'Token đã hết hạn hoặc Facebook từ chối revoke tự động. Hãy mở Facebook Settings → Business Integrations → "Flowa" → Remove, rồi quay lại kết nối.',
+      });
+    }
 
     return json({
       success: true,
-      revoked: revokedAny,
-      pages_reset: connections.length,
-      errors: errors.length ? errors : undefined,
-      message: revokedAny
-        ? 'Đã reset quyền Facebook. Bấm "Kết nối Facebook" và chọn lại Page bạn muốn quản lý.'
-        : 'Đã hủy kết nối local. Hãy vào Facebook → Settings → Business Integrations → chọn app Flowa → Remove, rồi quay lại bấm Kết nối Facebook.',
+      revoked: true,
+      actual_pages_count: actualPagesCount,
+      message: actualPagesCount <= 1
+        ? `Đã reset quyền Facebook. Lưu ý: tài khoản FB của bạn hiện chỉ quản lý ${actualPagesCount} Page. Nếu muốn thêm Page khác, hãy đảm bảo bạn là Admin của Page đó tại facebook.com/pages.`
+        : `Đã reset quyền Facebook. Tài khoản của bạn quản lý ${actualPagesCount} Page — bấm "Kết nối Facebook" để chọn lại.`,
     });
   } catch (e) {
     console.error('[facebook-reset-app-permissions] error:', e);
