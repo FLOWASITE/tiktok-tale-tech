@@ -584,10 +584,11 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return (
         <div
           key={connection.id}
-          className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:border-border transition-colors ${
+          className={`rounded-lg border bg-card hover:border-border transition-colors ${
             isInactive ? 'opacity-50 border-border/30' : index === 0 ? 'border-border' : 'border-border/50'
           }`}
         >
+          <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-4">
             <div className="relative">
               {connection.platform_avatar_url || (connection as any).metadata?.page_picture ? (
@@ -690,6 +691,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
+          </div>
+          {!isInactive && (
+            <div className="px-4 pb-4">
+              <TokenStatusPanel
+                connection={connection}
+                platform="facebook"
+                onChecked={refetch}
+              />
+            </div>
+          )}
         </div>
       );
     };
