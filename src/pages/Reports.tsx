@@ -636,7 +636,10 @@ export default function Reports() {
                         tickFormatter={(v) => formatBucketLabel(String(v), engagement.data?.bucketType ?? engagementBucket)}
                       />
                       <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                      <Tooltip
+                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                        labelFormatter={(v) => formatBucketLabel(String(v), engagement.data?.bucketType ?? engagementBucket)}
+                      />
                       <Line type="monotone" dataKey="reach" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Reach" />
                       <Line type="monotone" dataKey="engagement" stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false} name="Engagement" />
                     </LineChart>
