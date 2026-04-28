@@ -1051,6 +1051,11 @@ type WorkspaceUsage = {
 
 function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: string) => void }) {
   const [search, setSearch] = useState("");
+  const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const dashQ = useQuery({
     queryKey: ["admin-workspace-dashboard"],
     queryFn: () => call("workspace_dashboard"),
@@ -1060,6 +1065,37 @@ function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: 
   const workspaces: WorkspaceUsage[] = dashQ.data?.workspaces || [];
   const bucketTotals: Record<string, { files: number; bytes: number }> = dashQ.data?.bucket_totals || {};
   const unresolved = dashQ.data?.unresolved || { files: 0, bytes: 0 };
+
+  const openCleanup = async () => {
+    setConfirmOpen(true);
+    setPreview(null);
+    setPreviewing(true);
+    try {
+      const r = await call("cleanup_unresolved", { dry_run: true });
+      setPreview(r);
+    } catch (e: any) {
+      toast.error(e.message);
+      setConfirmOpen(false);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const doCleanup = async () => {
+    setDeleting(true);
+    try {
+      const r = await call("cleanup_unresolved", { confirm: true });
+      toast.success(`Đã xóa ${r?.deleted ?? 0} file (${fmtBytes(r?.total_bytes ?? 0)})`);
+      setConfirmOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin-workspace-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["admin-storage-overview"] });
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
 
   const bucketIds = useMemo(() => Object.keys(bucketTotals).sort(), [bucketTotals]);
   const filtered = useMemo(() => {
