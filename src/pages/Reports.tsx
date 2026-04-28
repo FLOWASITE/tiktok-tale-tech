@@ -176,6 +176,10 @@ export default function Reports() {
             <TabsTrigger value="content">Nội dung</TabsTrigger>
             <TabsTrigger value="publishing">Publishing</TabsTrigger>
             <TabsTrigger value="engagement">Engagement</TabsTrigger>
+            <TabsTrigger value="insights" className="gap-1">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Insights
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
