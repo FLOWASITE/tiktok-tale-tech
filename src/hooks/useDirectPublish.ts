@@ -225,6 +225,13 @@ export function useDirectPublish() {
     });
   };
 
+  const publishToGoogleBusiness = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'google_business',
+      options,
+    });
+  };
+
   const publishToBlog = async (options: PublishOptions & { isPublic?: boolean }) => {
     const action = options.isPublic ? 'flowa_blog' : 'blog';
     const response = await supabase.functions.invoke('channel-publisher', {
