@@ -554,6 +554,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             </Button>
           )}
         </div>
+        </div>
+        {showTokenPanel && connection && (
+          <div className="px-4 pb-4">
+            <TokenStatusPanel
+              connection={connection}
+              platform={platform as 'instagram' | 'facebook'}
+              onChecked={refetch}
+            />
+          </div>
+        )}
       </div>
     );
   };
