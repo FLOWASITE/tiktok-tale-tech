@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
 } from 'recharts';
@@ -10,15 +10,23 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ReportFiltersBar } from '@/components/reports/ReportFiltersBar';
 import { StatCard } from '@/components/reports/StatCard';
 import { EmptyReportState } from '@/components/reports/EmptyReportState';
+import { AIInsightsPanel } from '@/components/reports/AIInsightsPanel';
 import { useReportFilters } from '@/hooks/reports/useReportFilters';
 import { useReportOverview } from '@/hooks/reports/useReportOverview';
 import { useContentReport } from '@/hooks/reports/useContentReport';
 import { usePublishingReport } from '@/hooks/reports/usePublishingReport';
 import { useEngagementReport, useTriggerEngagementSync } from '@/hooks/reports/useEngagementReport';
+import { useReportInsights } from '@/hooks/reports/useReportInsights';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { buildCsv, downloadCsv } from '@/lib/reports/csvBuilder';
+import { downloadReportPdf } from '@/lib/reports/pdfBuilder';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
