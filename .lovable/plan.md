@@ -1,33 +1,37 @@
-Kết quả kiểm tra nhanh: lần bấm gần nhất đã chạy OAuth và callback thành công, nhưng Facebook chỉ trả về 1 Page và đó chính là Page đã kết nối sẵn. Vì vậy UI không có Page mới để attach. Ngoài ra callback đang redirect sang domain published `app.flowa.one`, có thể làm popup không đồng bộ với preview hiện tại.
+Kết quả kiểm tra: backend đang gọi Facebook `me/accounts` thành công nhưng Facebook chỉ trả về 1 Page trong phiên hiện tại. Vì vậy vấn đề không nằm ở UI picker; Facebook chỉ trả về các Page đã được cấp quyền cho app. Tham số hiện tại dùng `auth_type=reauthorize` chưa đúng cho case xin lại/quyền bổ sung Page; tài liệu Facebook dùng `auth_type=rerequest`. Cần sửa flow để buộc Facebook mở lại màn hình chọn quyền/Page đúng cách, và thêm cơ chế reset quyền nếu Facebook vẫn cache danh sách Page.
 
-Kế hoạch sửa:
+Plan triển khai:
 
-1. Ép Facebook hiện màn chọn/quản lý Page mỗi lần bấm “Thêm Fanpage khác”
-   - Cập nhật URL OAuth trong `connect-social` cho Facebook thêm tham số buộc cấp quyền lại/chọn lại Page.
-   - Mục tiêu: khi user đã từng cấp quyền app, Facebook vẫn mở màn cho phép chọn thêm Page mới thay vì tự dùng danh sách Page cũ.
+1. Sửa OAuth URL cho Facebook
+- Trong `connect-social`, đổi `auth_type=reauthorize` thành `auth_type=rerequest`.
+- Thêm `config_id` nếu hệ thống đang lưu Facebook Login Configuration ID trong settings/env; nếu chưa có thì vẫn chạy bằng `scope` hiện tại.
+- Thêm `force_reselect_pages=true` vào `state` khi người dùng bấm “Thêm Fanpage khác” để callback biết đây là flow thêm Page.
 
-2. Giữ popup quay về đúng origin đang mở app
-   - Điều chỉnh callback fallback để ưu tiên `frontendOrigin` từ state.
-   - Tránh trường hợp đang dùng preview/lovableproject nhưng popup bị redirect sang `app.flowa.one`, khiến trải nghiệm “không được” dù backend đã tạo session.
+2. Thêm backend function reset quyền Facebook app
+- Tạo function `facebook-reset-app-permissions`.
+- Function dùng user token Facebook hiện có để gọi endpoint revoke app authorization (`DELETE /me/permissions`).
+- Sau khi reset, lần OAuth kế tiếp Facebook sẽ coi như kết nối lần đầu và hiển thị lại đầy đủ màn hình chọn Page.
+- Chỉ cho phép user owner/member của brand gọi function; không expose token ra client.
 
-3. Cải thiện Page picker khi chỉ thấy Page đã kết nối
-   - Nếu danh sách trả về toàn Page đã kết nối, hiển thị cảnh báo rõ:
-     “Facebook hiện chỉ cấp quyền cho các Page này. Bấm Cấp quyền thêm Page / Edit access trong Facebook để chọn Page khác.”
-   - Thêm nút hành động “Cấp quyền thêm Page” để mở lại OAuth đúng chế độ chọn thêm Page.
+3. Cải thiện picker Page
+- Trong `FacebookCallback.tsx`, nếu Facebook trả về toàn Page đã kết nối, hiển thị 2 lựa chọn rõ ràng:
+  - “Cấp quyền thêm Page” → mở lại OAuth với `auth_type=rerequest`.
+  - “Reset quyền Facebook rồi chọn lại” → gọi function reset quyền, sau đó tự mở lại OAuth.
+- Hiển thị thông tin debug ngắn: “Facebook hiện chỉ cấp quyền cho X Page” để tránh hiểu nhầm là app lọc mất Page.
 
-4. Sửa attach/display cho Page mới
-   - Khi attach page, lưu đủ `platform_display_name` và `platform_avatar_url` để UI hiển thị Page mới rõ ràng.
-   - Giữ idempotent: nếu bấm lại Page cũ thì chỉ refresh token/thông tin, không tạo bản ghi trùng.
+4. Cải thiện polling ở tab kết nối
+- Khi popup đóng mà chưa thêm Page mới, refetch ngay và hiện toast hướng dẫn dùng nút reset quyền thay vì chỉ báo chung chung.
+- Đảm bảo route quay lại đúng tab `connections` sau callback.
 
-5. Làm polling ổn định hơn
-   - Với Facebook, sau popup đóng sẽ refetch ngay và báo nếu chưa có Page mới thay vì im lặng.
-   - Khi phát hiện Page mới, refetch cache đúng tab Kết nối.
+5. Kiểm chứng sau sửa
+- Kiểm tra logs `facebook-oauth-callback`: số `Found N Pages` phải tăng sau khi user reset/cấp quyền lại.
+- Kiểm tra bảng `facebook_oauth_sessions.pages_count` và `social_connections` để xác nhận các Page mới được insert theo `platform_user_id` khác nhau.
 
-File dự kiến chỉnh:
+Các file dự kiến chỉnh:
 - `supabase/functions/connect-social/index.ts`
 - `supabase/functions/facebook-oauth-callback/index.ts`
-- `supabase/functions/facebook-attach-page/index.ts`
+- `supabase/functions/facebook-reset-app-permissions/index.ts` mới
 - `src/pages/FacebookCallback.tsx`
 - `src/components/brand/BrandViewConnectionsTab.tsx`
 
-Không cần đổi schema database.
+Không cần migration database mới.
