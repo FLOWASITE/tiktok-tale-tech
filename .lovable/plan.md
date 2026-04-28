@@ -1,61 +1,78 @@
 ## Mục tiêu
-Nâng cấp `/admin/cron-monitor` từ trang single-job hiện tại thành dashboard giám sát đầy đủ với cảnh báo, đa job, và công cụ vận hành.
 
-## Trạng thái hiện tại
-Trang đã có: 4 stats cards, biểu đồ xu hướng (bar + line, day/week), bảng lịch sử 50 dòng, dialog chi tiết JSON, bộ lọc status/range, nút "Chạy ngay".
+Bổ sung trang **`/admin/storage`** ("File & Bộ nhớ Hệ thống") cho phép admin:
+1. Xem tổng quan dung lượng Storage buckets + Database tables theo nhóm.
+2. Duyệt file thực tế trong buckets (filter, sort, preview, xóa từng file).
+3. Dọn dẹp thủ công các bảng cache/log/embedding theo điều kiện (expired, theo ngày, theo loại) — bổ sung cho cron tự động đã có.
+4. Audit mọi thao tác xóa vào `admin_audit_logs`.
 
-## Các nâng cấp đề xuất
+## Hiện trạng phát hiện
 
-### 1. Hỗ trợ nhiều job (multi-job)
-Hiện đang hard-code `JOB_NAME = 'cleanup-old-media'`. Bổ sung:
-- **Job selector** (dropdown ở header) — query distinct `job_name` từ `cron_run_logs` để tự động phát hiện job mới
-- Nếu chỉ có 1 job → ẩn selector, hành xử như cũ
-- Tất cả stats/chart/bảng filter theo job được chọn
-- Chuẩn bị cho các cron job tương lai (auto-refresh-social-tokens, scheduled-publish, v.v.)
+- **Storage buckets**: `brand-logos` (28 file, 25 MB), `carousel-images` (97 file, 304 MB) — đều public.
+- **Bảng cache/log lớn**: `edge_function_metrics` 14.6k rows, `ai_response_cache` 179, `channel_image_history` 99, `web_search_cache` 104, `agent_execution_logs` 148, …
+- **Đã có** `AdminCronMonitor` cho cron `cleanup-old-media`, các function dọn dẹp DB (`cleanup_expired_cache`, `cleanup_old_edge_metrics`, `cleanup_expired_generation_tasks`, `cleanup_knowledge_graph_cache`, `cleanup_telegram_processed_updates`, …) đã có sẵn — chưa có UI để gọi trực tiếp.
 
-### 2. Banner cảnh báo (Health banner)
-Thêm 1 alert card ngay trên cùng khi phát hiện vấn đề:
-- **Quá hạn**: lần chạy gần nhất > 26 giờ trước (cron hằng ngày) → cảnh báo cron có thể bị treo
-- **Lỗi liên tiếp**: ≥ 2 lần fail liên tiếp gần nhất → cảnh báo
-- **Duration spike**: `maxDuration` trong 7 ngày qua > 3× trung bình → gợi ý xem lại
-Mỗi cảnh báo hiển thị icon, mô tả ngắn, và CTA (cuộn tới bảng / xem chi tiết).
+## Phạm vi
 
-### 3. Lịch chạy kế tiếp (Next run)
-Trong card "Lần chạy gần nhất", thêm dòng phụ "Lần chạy kế tiếp: …" tính từ schedule cron `0 3 * * *` (03:00 UTC) hiển thị theo giờ VN + countdown (`in 4h 12m`).
+### A. Tab "Storage Buckets" (file vật lý)
+- Card tổng quan mỗi bucket: số file, tổng dung lượng, file mới/cũ nhất, % public.
+- Bảng file: cột `name | bucket | size | created_at | last_accessed | preview`.
+  - Filter: bucket, khoảng ngày, search theo tên, sort (size/date).
+  - Pagination 50/lần (Load more).
+  - Hành động: **Xem trước** (mở public URL trong dialog), **Xóa** (single + bulk select), **Tải xuống**.
+- Nút "Tìm orphan" → liệt kê file không được tham chiếu trong `carousel_images.image_url`, `channel_image_history.image_url`, `brand_templates.logo_url` → cho phép xóa hàng loạt.
 
-### 4. Drill-down lỗi tốt hơn
-Trong Dialog chi tiết:
-- Tách phần **Summary** thành các mục dễ đọc: thẻ riêng cho DB / Storage / Orphan với số đã xóa, không hiện raw JSON ngay
-- Toggle "Xem JSON gốc" cho người cần
-- Mỗi lỗi: parse `{message, code, stack}` nếu là object; nút copy
-- Nếu có `errors[].context.path` (file storage) → hiển thị bucket/path ngắn gọn
+### B. Tab "Bộ nhớ DB" (cache/log/embedding)
+Mỗi nhóm là card có: số rows, dung lượng, oldest record, nút action.
+- **Cache**: `ai_response_cache`, `web_search_cache`, `knowledge_graph_cache`, `telegram_example_cache`
+  - Action: "Xóa expired" (gọi function có sẵn), "Xóa tất cả", "Xóa > N ngày".
+- **Logs**: `edge_function_metrics`, `agent_execution_logs`, `agent_pipeline_logs`, `cron_run_logs`, `admin_audit_logs`, `campaign_kpi_logs`, `regulation_propagation_log`, `usage_logs`, `telegram_messages_log`, `sales_chat_messages_log`, `content_publishing_logs`, `approval_logs`, `campaign_notification_logs`
+  - Action: "Xóa > N ngày" (default 30/90 tùy bảng), preview 10 dòng gần nhất.
+- **Embeddings**: `content_embeddings`, `conversation_embeddings`
+  - Action: xóa theo organization, xóa orphan (không có content_id tương ứng).
+- **Tasks tạm**: `generation_tasks`, `workflow_checkpoints`, `telegram_processed_updates`, `telegram_chat_state` — gọi function cleanup tương ứng.
 
-### 5. Tìm kiếm & phân trang
-- Ô search lọc theo nội dung errors hoặc khoảng thời gian cụ thể
-- Tăng giới hạn từ 50 → load thêm (button "Tải thêm 50") thay vì hard-cap
+### C. Tab "Lịch sử dọn dẹp"
+- Liệt kê 50 thao tác xóa gần nhất từ `admin_audit_logs` filter `action LIKE 'storage_%' OR 'cleanup_%'`.
+- Hiển thị: thời gian, admin, target, số rows/file ảnh hưởng, kích thước thu hồi.
 
-### 6. Export CSV
-Nút "Xuất CSV" tải về toàn bộ logs đang hiển thị (gồm columns: started_at, status, duration_ms, channel/carousel/videos, storage, orphan, error_count). Hữu ích cho báo cáo tháng.
+## Triển khai kỹ thuật
 
-### 7. Stats cards nâng cấp nhẹ
-- Card "Tổng bản ghi đã xóa": thêm sparkline mini (7 ngày qua) tái dùng `Sparkline` component có sẵn
-- Card "Thời lượng trung bình" mới (thay vì duplicate info trong card lỗi) — hiển thị avg + trend so với khoảng trước
+### Edge function mới: `admin-storage-manager`
+JWT validate + `has_role(user, 'admin')`. Action-based router:
+```
+{ action: 'list_bucket_files', bucket, prefix?, search?, limit, offset, sort }
+{ action: 'delete_bucket_files', bucket, paths: string[] }
+{ action: 'find_orphan_files', bucket }
+{ action: 'get_db_stats' } → trả size + count cho ~20 bảng
+{ action: 'cleanup_table', table, mode: 'expired'|'older_than'|'all', days?: number }
+{ action: 'preview_table', table, limit }
+```
+Mọi mutation ghi `admin_audit_logs` với `action`, `target_type`, `target_id`, `metadata` (rows_deleted, bytes_freed).
 
-### 8. Auto-refresh indicator
-Hiện tại refetch mỗi 30s ngầm. Thêm indicator nhỏ "Cập nhật lần cuối: 12s trước" gần nút Làm mới + toggle bật/tắt auto-refresh.
+### Migration mới
+- Thêm whitelist function `admin_cleanup_table(p_table text, p_mode text, p_days int)` SECURITY DEFINER:
+  - Switch case theo `p_table` (chỉ cho phép các bảng đã liệt kê) — tránh SQL injection.
+  - Trả về `rows_deleted int`.
+- Index hỗ trợ: `created_at` đã có sẵn ở hầu hết bảng.
 
-## Phạm vi file thay đổi
-- **Chỉ** `src/pages/AdminCronMonitor.tsx` (thêm components nội bộ + helpers)
-- Tái sử dụng `Sparkline` từ `src/components/dashboard`
-- Không tạo migration, không sửa edge function, không thêm package
+### Frontend
+- File mới `src/pages/AdminStorageMemory.tsx` (3 tabs trên).
+- Component con: `BucketFileTable.tsx`, `DbCleanupCard.tsx`, `OrphanFinderDialog.tsx`, `CleanupHistoryTable.tsx` trong `src/components/admin/storage/`.
+- Hook `useAdminStorage.ts` wrap các call edge function bằng TanStack Query.
+- Route mới trong `src/app/routes.tsx`: `/admin/storage` (lazy import) + thêm card "File & Bộ nhớ" vào `AdminDashboard.tsx`.
 
-## Không thay đổi
-- Không động vào `cleanup-old-media` edge function
-- Không sửa schema `cron_run_logs`
-- Không thay đổi sidebar / route
+### Bảo mật
+- Edge function: 401 nếu không phải admin.
+- Whitelist tên bảng — không nhận raw SQL.
+- Confirm dialog 2 bước cho "Xóa tất cả" hoặc xóa > 100 file.
+- Rate limit: tối đa 5 thao tác xóa/phút/admin (in-memory map).
 
-## Ưu tiên triển khai (nếu cần cắt giảm)
-**Must-have**: 1 (multi-job), 2 (health banner), 3 (next run), 4 (drill-down lỗi)
-**Nice-to-have**: 5 (search/pagination), 6 (CSV), 7 (sparkline), 8 (auto-refresh indicator)
+## File thay đổi
+- **Mới**: `supabase/functions/admin-storage-manager/index.ts`, `supabase/migrations/<ts>_admin_cleanup_table.sql`, `src/pages/AdminStorageMemory.tsx`, `src/components/admin/storage/{BucketFileTable,DbCleanupCard,OrphanFinderDialog,CleanupHistoryTable}.tsx`, `src/hooks/useAdminStorage.ts`.
+- **Sửa**: `src/app/routes.tsx` (route), `src/pages/AdminDashboard.tsx` (thêm card điều hướng).
 
-Tôi sẽ làm tất cả 8 mục trừ khi bạn muốn cắt bớt.
+## Ngoài phạm vi
+- Tự động thay đổi lịch cron (đã có ở AdminCronMonitor).
+- Restore file đã xóa (storage không có versioning bật).
+- Quota per-organization (ý tưởng cho bản sau).
