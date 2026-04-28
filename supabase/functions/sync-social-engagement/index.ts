@@ -241,9 +241,8 @@ Deno.serve(async (req) => {
     .order("performed_at", { ascending: false })
     .limit(500);
 
-  if (scope.organization_id) {
-    query = query.eq("organization_id", scope.organization_id);
-  }
+  // Note: filter scope.organization_id sẽ được áp dụng sau khi backfill org_id
+  // (vì 1 số log cũ thiếu organization_id, cần lookup từ multi_channel_contents)
 
   const { data: logs, error: logsErr } = await query;
   if (logsErr) {
