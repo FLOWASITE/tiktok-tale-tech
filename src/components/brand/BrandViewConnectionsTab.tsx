@@ -227,13 +227,20 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         });
 
         const isMultiPagePlatform = platform === 'facebook';
+        let foundNew = false;
 
         // Poll for NEW connection (page_id not in snapshot)
         const pollInterval = setInterval(async () => {
           try {
             if (popup && popup.closed) {
               clearInterval(pollInterval);
-              setTimeout(() => refetch(), 1500);
+              await refetch();
+              if (isMultiPagePlatform && !foundNew) {
+                toast.info('Chưa có Fanpage mới được thêm', {
+                  description:
+                    'Facebook chỉ trả về các Page bạn đã cấp quyền cho ứng dụng. Hãy bấm "Thêm Fanpage khác" và chọn thêm Page trong cửa sổ Facebook, hoặc vào Facebook Settings → Business Integrations để bật thêm Page.',
+                });
+              }
               return;
             }
             const { data } = await supabase
@@ -246,7 +253,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               (r) => r.platform_user_id && !existingIds.has(r.platform_user_id)
             );
             if (newRow) {
-              refetch();
+              foundNew = true;
+              await refetch();
               existingIds.add(newRow.platform_user_id as string);
               if (isMultiPagePlatform) {
                 // Allow user to keep picking more fanpages — don't close popup, keep polling
