@@ -292,6 +292,7 @@ export function useDirectPublish() {
     publishToZaloOA,
     publishToLinkedIn,
     publishToTikTok,
+    publishToGoogleBusiness,
     publishToBlog,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
