@@ -20,8 +20,8 @@ function defaultFilters(brandId: string | null): ReportFilters {
 }
 
 export function useReportFilters() {
-  const { currentOrganization } = useOrganization();
-  const { currentBrand } = useBrand();
+  const { currentOrganization } = useOrganizationContext();
+  const { currentBrand } = useCurrentBrand();
   const [filters, setFilters] = useState<ReportFilters>(() =>
     defaultFilters(currentBrand?.id ?? null),
   );
