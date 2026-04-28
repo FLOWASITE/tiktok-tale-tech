@@ -41,6 +41,11 @@ export default function Reports() {
   const { currentBrand } = useCurrentBrand();
   const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
 
+  // Engagement-tab-only date range + bucket (independent from global filters)
+  const [engagementOverride, setEngagementOverride] = useState<{ from: Date; to: Date } | null>(null);
+  const [engagementBucket, setEngagementBucket] = useState<BucketType>('day');
+  const engagementRange = engagementOverride ?? { from: filters.dateFrom, to: filters.dateTo };
+
   const STATUS_LABEL: Record<string, string> = {
     draft: 'Nháp',
     approved: 'Đã duyệt',
@@ -58,7 +63,10 @@ export default function Reports() {
   const overview = useReportOverview(organizationId, filters);
   const content = useContentReport(organizationId, filters);
   const publishing = usePublishingReport(organizationId, filters);
-  const engagement = useEngagementReport(organizationId, filters);
+  const engagement = useEngagementReport(organizationId, filters, {
+    overrideRange: engagementOverride,
+    bucket: engagementBucket,
+  });
   const triggerSync = useTriggerEngagementSync(organizationId);
 
   const insightsArgs = useMemo(() => {
