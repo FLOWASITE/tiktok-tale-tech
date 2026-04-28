@@ -76,6 +76,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   youtube: 'youtube',
   zalo_oa: 'zalo_oa',
   google_business: 'google_business',
+  google_maps: 'google_business',
   website: 'website',
 };
 
@@ -133,7 +134,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToBlog, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBlog, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
@@ -266,6 +267,9 @@ export function DirectPublishButton({
           break;
         case 'zalo_oa':
           result = await publishToZaloOA(publishOptions);
+          break;
+        case 'google_business':
+          result = await publishToGoogleBusiness(publishOptions);
           break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
