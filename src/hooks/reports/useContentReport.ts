@@ -103,6 +103,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
           status: r.status ?? 'draft',
           channels: (r.selected_channels as string[]) ?? [],
           brand_id: r.brand_template_id ?? null,
+          derivedStatus: 'draft' as DerivedStatus,
           created_at: r.created_at,
         }));
       })();
@@ -129,6 +130,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
           status: r.status ?? 'draft',
           channels: [],
           brand_id: r.brand_template_id ?? null,
+          derivedStatus: 'draft' as DerivedStatus,
           created_at: r.created_at,
         }));
       })();
@@ -154,6 +156,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
           status: r.status ?? 'draft',
           channels: [],
           brand_id: r.brand_template_id ?? null,
+          derivedStatus: 'draft' as DerivedStatus,
           created_at: r.created_at,
         }));
       })();
@@ -179,6 +182,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
           status: r.status ?? 'draft',
           channels: [],
           brand_id: r.brand_template_id ?? null,
+          derivedStatus: 'draft' as DerivedStatus,
           created_at: r.created_at,
         }));
       })();
@@ -204,6 +208,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
           status: r.status ?? 'draft',
           channels: [],
           brand_id: r.brand_template_id ?? null,
+          derivedStatus: 'draft' as DerivedStatus,
           created_at: r.created_at,
         }));
       })();
