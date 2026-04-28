@@ -13,15 +13,16 @@ import {
 } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle, DialogTrigger,
+  DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  HardDrive, Database, Trash2, RefreshCw, Search, Eye, ExternalLink,
+  HardDrive, Database, Trash2, RefreshCw, Search, Eye, ExternalLink, Download,
   AlertTriangle, FileWarning, Clock, ArrowDown, ArrowUp, Image as ImageIcon, FileText,
+  Sparkles, Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -77,6 +78,12 @@ const TABLE_LABELS: Record<string, string> = {
 const SUPPORTS_EXPIRED = new Set([
   "ai_response_cache", "web_search_cache", "knowledge_graph_cache", "generation_tasks",
 ]);
+const ACTION_LABELS: Record<string, string> = {
+  cleanup_table: "Dọn bảng",
+  storage_delete_files: "Xóa file",
+  storage_cleanup_older_than: "Dọn file cũ",
+  bulk_cleanup_expired: "Dọn hàng loạt",
+};
 
 type DbStat = {
   table_name: string;
@@ -172,6 +179,7 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [orphanOpen, setOrphanOpen] = useState(false);
+  const [olderOpen, setOlderOpen] = useState(false);
 
   const list = useQuery({
     queryKey: ["bucket-files", bucket, search, sortBy, sortDir, offset],
@@ -179,6 +187,11 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
   });
   const files = list.data?.files || [];
   const total = list.data?.total || 0;
+
+  const selectedSize = useMemo(
+    () => files.filter((f: any) => selected.has(f.name)).reduce((s: number, f: any) => s + (f.size || 0), 0),
+    [files, selected],
+  );
 
   const delMut = useMutation({
     mutationFn: (paths: string[]) => call("delete_bucket_files", { bucket, paths }),
@@ -190,6 +203,13 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const downloadFile = async (path: string) => {
+    try {
+      const res = await call("download_file", { bucket, path });
+      window.open(res.url, "_blank");
+    } catch (e: any) { toast.error(e.message); }
+  };
 
   const allChecked = files.length > 0 && files.every((f: any) => selected.has(f.name));
   const toggleAll = () => {
@@ -206,6 +226,9 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
             <CardDescription>Tổng {total} file (theo bộ lọc hiện tại)</CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setOlderOpen(true)}>
+              <Calendar className="h-4 w-4 mr-1" />Xóa file cũ
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setOrphanOpen(true)}>
               <FileWarning className="h-4 w-4 mr-1" />Tìm orphan
             </Button>
@@ -235,7 +258,7 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
           </Button>
           {selected.size > 0 && (
             <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
-              <Trash2 className="h-4 w-4 mr-1" />Xóa {selected.size} file
+              <Trash2 className="h-4 w-4 mr-1" />Xóa {selected.size} file ({fmtBytes(selectedSize)})
             </Button>
           )}
         </div>
@@ -248,7 +271,7 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
                 <TableHead>Tên file</TableHead>
                 <TableHead className="w-24">Size</TableHead>
                 <TableHead className="w-40">Tạo lúc</TableHead>
-                <TableHead className="w-32 text-right">Hành động</TableHead>
+                <TableHead className="w-40 text-right">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,7 +287,7 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
                   <TableCell className="font-mono text-xs truncate max-w-[420px]" title={f.name}>
                     <div className="flex items-center gap-2">
                       {f.mimetype?.startsWith("image/") ? <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                      {f.name}
+                      <span className="truncate">{f.name}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">{fmtBytes(f.size)}</TableCell>
@@ -275,6 +298,9 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
                     </Button>
                     <Button variant="ghost" size="icon" asChild title="Mở tab mới">
                       <a href={f.public_url} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => downloadFile(f.name)} title="Tải xuống (signed URL)">
+                      <Download className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="text-destructive" onClick={() => delMut.mutate([f.name])} title="Xóa">
                       <Trash2 className="h-4 w-4" />
@@ -309,7 +335,7 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa {selected.size} file?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hành động này không thể hoàn tác. File sẽ bị xóa vĩnh viễn khỏi bucket <b>{bucket}</b>.
+              Hành động này không thể hoàn tác. Sẽ thu hồi <b>{fmtBytes(selectedSize)}</b> từ bucket <b>{bucket}</b>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -325,7 +351,75 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
         qc.invalidateQueries({ queryKey: ["bucket-files", bucket] });
         onChanged();
       }} />
+
+      <OlderThanDialog bucket={bucket} open={olderOpen} onOpenChange={setOlderOpen} onChanged={() => {
+        qc.invalidateQueries({ queryKey: ["bucket-files", bucket] });
+        onChanged();
+      }} />
     </Card>
+  );
+}
+
+function OlderThanDialog({ bucket, open, onOpenChange, onChanged }: { bucket: string; open: boolean; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
+  const [days, setDays] = useState(60);
+  const [preview, setPreview] = useState<{ count: number; total_bytes: number; sample: any[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const runDryRun = async () => {
+    setLoading(true);
+    try {
+      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: true });
+      setPreview(r);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const runDelete = async () => {
+    setLoading(true);
+    try {
+      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: false });
+      toast.success(`Đã xóa ${r.deleted} file (thu hồi ${fmtBytes(r.total_bytes)})`);
+      onOpenChange(false);
+      setPreview(null);
+      onChanged();
+    } catch (e: any) { toast.error(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setPreview(null); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Xóa file cũ trong {bucket}</DialogTitle>
+          <DialogDescription>Kiểm tra trước (dry-run) trước khi xóa thật.</DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">File cũ hơn</span>
+          <Input type="number" min={1} value={days} onChange={(e) => { setDays(Number(e.target.value)); setPreview(null); }} className="w-20 h-9" />
+          <span className="text-sm">ngày</span>
+          <Button variant="outline" size="sm" onClick={runDryRun} disabled={loading}>Kiểm tra</Button>
+        </div>
+        {preview && (
+          <div className="border rounded-md p-3 space-y-2 bg-muted/30">
+            <div className="text-sm">Sẽ xóa <b>{preview.count}</b> file • thu hồi <b>{fmtBytes(preview.total_bytes)}</b></div>
+            {preview.sample.length > 0 && (
+              <div className="text-xs text-muted-foreground space-y-1 max-h-[160px] overflow-auto">
+                <div>Ví dụ:</div>
+                {preview.sample.map((s: any) => (
+                  <div key={s.name} className="font-mono truncate">• {s.name} ({fmtBytes(s.size)})</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
+          <Button variant="destructive" disabled={!preview || preview.count === 0 || loading} onClick={runDelete}>
+            <Trash2 className="h-4 w-4 mr-1" />Xóa {preview?.count || 0} file
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -393,22 +487,49 @@ function OrphanDialog({ bucket, open, onOpenChange, onChanged }: { bucket: strin
 
 /* ---------------- Memory Tab ---------------- */
 function MemoryTab() {
+  const qc = useQueryClient();
   const stats = useQuery({
     queryKey: ["db-memory-stats"],
-    queryFn: () => call("get_overview"),
+    queryFn: () => call("get_db_stats_only"),
   });
   const dbStats: DbStat[] = stats.data?.db_stats || [];
+
+  const [search, setSearch] = useState("");
+  const [filterCat, setFilterCat] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    return dbStats.filter((s) => {
+      const matchCat = filterCat === "all" || s.category === filterCat;
+      const matchSearch = !search || s.table_name.toLowerCase().includes(search.toLowerCase())
+        || (TABLE_LABELS[s.table_name] || "").toLowerCase().includes(search.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  }, [dbStats, search, filterCat]);
+
   const grouped = useMemo(() => {
     const g: Record<string, DbStat[]> = {};
-    for (const s of dbStats) {
+    for (const s of filtered) {
       g[s.category] = g[s.category] || [];
       g[s.category].push(s);
     }
     return g;
-  }, [dbStats]);
+  }, [filtered]);
 
   const totalRows = dbStats.reduce((s, x) => s + Number(x.row_count || 0), 0);
   const totalSize = dbStats.reduce((s, x) => s + Number(x.size_bytes || 0), 0);
+
+  const bulkMut = useMutation({
+    mutationFn: () => call("bulk_cleanup_expired"),
+    onSuccess: (d) => {
+      const lines = Object.entries(d.breakdown || {})
+        .filter(([_, v]) => Number(v) > 0)
+        .map(([k, v]) => `${k}: ${v}`).join(" • ") || "không có dòng hết hạn";
+      toast.success(`Đã dọn ${d.total} dòng • ${lines}`);
+      qc.invalidateQueries({ queryKey: ["db-memory-stats"] });
+      qc.invalidateQueries({ queryKey: ["audit-history"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
 
   const CATS: Array<{ key: string; label: string; desc: string }> = [
     { key: "cache", label: "Cache", desc: "AI response, web search, knowledge graph" },
@@ -427,21 +548,64 @@ function MemoryTab() {
           action={<Button variant="ghost" size="sm" onClick={() => stats.refetch()}><RefreshCw className={`h-3.5 w-3.5 ${stats.isFetching ? "animate-spin" : ""}`} /></Button>} />
       </div>
 
-      {CATS.map((cat) => (
-        <Card key={cat.key}>
-          <CardHeader>
-            <CardTitle className="text-base">{cat.label}</CardTitle>
-            <CardDescription>{cat.desc}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {(grouped[cat.key] || []).map((s) => (
-                <TableCleanupCard key={s.table_name} stat={s} onChanged={() => stats.refetch()} />
-              ))}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div>
+              <div className="font-medium text-sm">Dọn tất cả expired</div>
+              <div className="text-xs text-muted-foreground">Chạy 7 cleanup function tích hợp: cache, generation tasks, checkpoints, telegram state...</div>
             </div>
-          </CardContent>
-        </Card>
-      ))}
+          </div>
+          <Button size="sm" onClick={() => bulkMut.mutate()} disabled={bulkMut.isPending}>
+            <Sparkles className="h-4 w-4 mr-1" />{bulkMut.isPending ? "Đang dọn..." : "Dọn ngay"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Tìm bảng..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <Select value={filterCat} onValueChange={setFilterCat}>
+          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả nhóm</SelectItem>
+            <SelectItem value="cache">Cache</SelectItem>
+            <SelectItem value="log">Log</SelectItem>
+            <SelectItem value="embedding">Embedding</SelectItem>
+            <SelectItem value="task">Task tạm</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {CATS.filter((c) => filterCat === "all" || filterCat === c.key).map((cat) => {
+        const items = grouped[cat.key] || [];
+        if (items.length === 0) return null;
+        return (
+          <Card key={cat.key}>
+            <CardHeader>
+              <CardTitle className="text-base">{cat.label}</CardTitle>
+              <CardDescription>{cat.desc}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {items.map((s) => (
+                  <TableCleanupCard key={s.table_name} stat={s} onChanged={() => {
+                    stats.refetch();
+                    qc.invalidateQueries({ queryKey: ["audit-history"] });
+                  }} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {filtered.length === 0 && !stats.isLoading && (
+        <div className="text-sm text-muted-foreground text-center py-6">Không tìm thấy bảng nào.</div>
+      )}
     </div>
   );
 }
@@ -553,14 +717,47 @@ function PreviewDialog({ table, open, onOpenChange }: { table: string; open: boo
     enabled: open,
   });
   const rows = q.data?.rows || [];
+  const cols = useMemo(() => {
+    if (!rows[0]) return [];
+    const all = Object.keys(rows[0]);
+    // Ưu tiên id, created_at trước; bỏ embedding
+    const filtered = all.filter((k) => k !== "embedding");
+    const head = ["id", "created_at"].filter((k) => filtered.includes(k));
+    const rest = filtered.filter((k) => !head.includes(k));
+    return [...head, ...rest].slice(0, 6);
+  }, [rows]);
+
+  const cellValue = (v: any) => {
+    if (v === null || v === undefined) return <span className="text-muted-foreground">—</span>;
+    if (typeof v === "object") return <span className="font-mono text-xs" title={JSON.stringify(v)}>{JSON.stringify(v).slice(0, 60)}…</span>;
+    const s = String(v);
+    return <span title={s}>{s.length > 80 ? s.slice(0, 80) + "…" : s}</span>;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
-          <DialogTitle>10 dòng gần nhất • {table}</DialogTitle>
+          <DialogTitle>10 dòng gần nhất • {TABLE_LABELS[table] || table}</DialogTitle>
+          <DialogDescription className="font-mono text-xs">{table}</DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-auto">
-          <pre className="text-xs bg-muted/30 p-3 rounded-md">{JSON.stringify(rows, null, 2)}</pre>
+        <div className="max-h-[60vh] overflow-auto border rounded-md">
+          {q.isLoading && <div className="text-sm text-muted-foreground p-6 text-center">Đang tải...</div>}
+          {!q.isLoading && rows.length === 0 && <div className="text-sm text-muted-foreground p-6 text-center">Bảng trống</div>}
+          {!q.isLoading && rows.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>{cols.map((c) => <TableHead key={c} className="text-xs">{c}</TableHead>)}</TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r: any, i: number) => (
+                  <TableRow key={i}>
+                    {cols.map((c) => <TableCell key={c} className="text-xs max-w-[240px] truncate">{cellValue(r[c])}</TableCell>)}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -569,54 +766,115 @@ function PreviewDialog({ table, open, onOpenChange }: { table: string; open: boo
 
 /* ---------------- Audit Tab ---------------- */
 function AuditTab() {
+  const [actionFilter, setActionFilter] = useState<string>("all");
+  const [offset, setOffset] = useState(0);
   const q = useQuery({
-    queryKey: ["audit-history"],
-    queryFn: () => call("audit_history", { limit: 50 }),
+    queryKey: ["audit-history", actionFilter, offset],
+    queryFn: () => call("audit_history", {
+      limit: 50, offset,
+      action_filter: actionFilter === "all" ? undefined : actionFilter,
+    }),
   });
   const logs = q.data?.logs || [];
+
+  const exportCSV = () => {
+    if (logs.length === 0) { toast.error("Không có dữ liệu để xuất"); return; }
+    const rows = logs.map((l: any) => ({
+      thoi_gian: l.created_at,
+      hanh_dong: l.action,
+      admin: l.admin_name || l.admin_id,
+      email: l.admin_email || "",
+      chi_tiet: JSON.stringify(l.details || {}),
+    }));
+    const headers = Object.keys(rows[0]);
+    const csv = [
+      headers.join(","),
+      ...rows.map((r: any) => headers.map((h) => `"${String(r[h] || "").replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `admin-audit-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Đã xuất ${logs.length} dòng`);
+  };
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <CardTitle>Lịch sử dọn dẹp</CardTitle>
-            <CardDescription>50 thao tác xóa gần nhất bởi admin</CardDescription>
+            <CardDescription>Các thao tác xóa thủ công bởi admin</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={() => q.refetch()}>
-            <RefreshCw className={`h-4 w-4 mr-1 ${q.isFetching ? "animate-spin" : ""}`} />Làm mới
-          </Button>
+          <div className="flex gap-2">
+            <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setOffset(0); }}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả hành động</SelectItem>
+                <SelectItem value="cleanup_table">Dọn bảng</SelectItem>
+                <SelectItem value="storage_delete_files">Xóa file</SelectItem>
+                <SelectItem value="storage_cleanup_older_than">Dọn file cũ</SelectItem>
+                <SelectItem value="bulk_cleanup_expired">Dọn hàng loạt</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={exportCSV} disabled={logs.length === 0}>
+              <Download className="h-4 w-4 mr-1" />Export CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => q.refetch()}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${q.isFetching ? "animate-spin" : ""}`} />Làm mới
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-40">Thời gian</TableHead>
-                <TableHead className="w-44">Hành động</TableHead>
-                <TableHead>Đối tượng</TableHead>
-                <TableHead className="w-24 text-right">Ảnh hưởng</TableHead>
+                <TableHead className="w-36">Hành động</TableHead>
+                <TableHead className="w-44">Admin</TableHead>
+                <TableHead>Chi tiết</TableHead>
+                <TableHead className="w-28 text-right">Ảnh hưởng</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {q.isLoading && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>}
-              {!q.isLoading && logs.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Chưa có thao tác nào</TableCell></TableRow>}
-              {logs.map((l: any) => (
-                <TableRow key={l.id}>
-                  <TableCell className="text-xs text-muted-foreground">{fmtTime(l.created_at)}</TableCell>
-                  <TableCell><Badge variant="outline">{l.action}</Badge></TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {l.target_type}
-                    {l.metadata?.mode && <span className="ml-2 text-muted-foreground">mode={l.metadata.mode}</span>}
-                    {l.metadata?.days && <span className="ml-1 text-muted-foreground">({l.metadata.days}d)</span>}
-                  </TableCell>
-                  <TableCell className="text-right text-sm font-medium">
-                    {l.metadata?.rows_deleted ?? l.metadata?.count ?? "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {q.isLoading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>}
+              {!q.isLoading && logs.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Chưa có thao tác nào</TableCell></TableRow>}
+              {logs.map((l: any) => {
+                const d = l.details || {};
+                const impact = d.rows_deleted ?? d.deleted ?? d.count ?? d.total ?? "—";
+                let detail = "";
+                if (l.action === "cleanup_table") detail = `${d.table || "?"} • ${d.mode || ""}${d.days ? ` (${d.days}d)` : ""}`;
+                else if (l.action === "storage_delete_files") detail = `${d.bucket || "?"} • ${d.count} file`;
+                else if (l.action === "storage_cleanup_older_than") detail = `${d.bucket || "?"} • >${d.days}d • ${fmtBytes(d.total_bytes)}`;
+                else if (l.action === "bulk_cleanup_expired") {
+                  detail = Object.entries(d.breakdown || {})
+                    .filter(([_, v]) => Number(v) > 0)
+                    .map(([k, v]) => `${k}:${v}`).join(" • ") || "không có";
+                }
+                return (
+                  <TableRow key={l.id}>
+                    <TableCell className="text-xs text-muted-foreground">{fmtTime(l.created_at)}</TableCell>
+                    <TableCell><Badge variant="outline">{ACTION_LABELS[l.action] || l.action}</Badge></TableCell>
+                    <TableCell className="text-sm truncate max-w-[180px]" title={l.admin_email || ""}>
+                      {l.admin_name || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground truncate max-w-[360px]" title={detail}>
+                      {detail}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-medium">{impact}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
+        </div>
+        <div className="flex justify-between items-center text-sm">
+          <Button variant="outline" size="sm" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>← Trước</Button>
+          <span className="text-muted-foreground">Trang {Math.floor(offset / 50) + 1}</span>
+          <Button variant="outline" size="sm" disabled={logs.length < 50} onClick={() => setOffset(offset + 50)}>Sau →</Button>
         </div>
       </CardContent>
     </Card>
