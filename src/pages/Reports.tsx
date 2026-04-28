@@ -45,6 +45,8 @@ export default function Reports() {
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
   const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'approved' | 'scheduled' | 'published' | 'failed'>('all');
+  const [historyRow, setHistoryRow] = useState<ContentRow | null>(null);
 
   // Engagement-tab-only date range + bucket (independent from global filters)
   const [engagementOverride, setEngagementOverride] = useState<{ from: Date; to: Date } | null>(null);
