@@ -74,6 +74,51 @@ Deno.serve(async (req) => {
     const action = body?.action as string;
 
     switch (action) {
+      case "workspace_dashboard": {
+        // Aggregate per-workspace storage usage across all buckets
+        const { data: bucketsData } = await svc.storage.listBuckets();
+        const { data: orgsData } = await svc
+          .from("organizations")
+          .select("id, name, slug")
+          .order("name", { ascending: true });
+        const orgs = orgsData || [];
+        const orgIndex = new Map<string, { id: string; name: string; slug: string; total_files: number; total_bytes: number; per_bucket: Record<string, { files: number; bytes: number }> }>();
+        for (const o of orgs) {
+          orgIndex.set(o.id, { id: o.id, name: o.name, slug: o.slug, total_files: 0, total_bytes: 0, per_bucket: {} });
+        }
+        let unresolvedFiles = 0;
+        let unresolvedBytes = 0;
+        const bucketTotals: Record<string, { files: number; bytes: number }> = {};
+
+        for (const b of bucketsData || []) {
+          const files = await deepListBucket(svc, b.id).catch(() => []);
+          const orgMap = await resolveOrgForFiles(svc, b.id, files);
+          bucketTotals[b.id] = { files: files.length, bytes: files.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0) };
+          for (const f of files) {
+            const oid = orgMap.get(f.name);
+            const size = f.metadata?.size || 0;
+            if (oid && orgIndex.has(oid)) {
+              const e = orgIndex.get(oid)!;
+              e.total_files += 1;
+              e.total_bytes += size;
+              if (!e.per_bucket[b.id]) e.per_bucket[b.id] = { files: 0, bytes: 0 };
+              e.per_bucket[b.id].files += 1;
+              e.per_bucket[b.id].bytes += size;
+            } else {
+              unresolvedFiles += 1;
+              unresolvedBytes += size;
+            }
+          }
+        }
+        const workspaces = Array.from(orgIndex.values()).sort((a, b) => b.total_bytes - a.total_bytes);
+        return json({
+          workspaces,
+          bucket_totals: bucketTotals,
+          unresolved: { files: unresolvedFiles, bytes: unresolvedBytes },
+          generated_at: new Date().toISOString(),
+        });
+      }
+
       case "list_organizations": {
         const { data, error } = await svc
           .from("organizations")
