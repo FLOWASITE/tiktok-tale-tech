@@ -695,11 +695,15 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
         frontendOrigin: requestOrigin || null,
       }));
 
+      // auth_type=reauthorize forces Facebook to re-show the page picker so the user
+      // can grant access to ADDITIONAL pages (otherwise FB silently reuses prior grants
+      // and only returns the previously selected page — making "Add another fanpage" fail).
       const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?` + new URLSearchParams({
         client_id: globalCreds.consumerKey,
         redirect_uri: redirectUri,
         scope: 'pages_manage_posts,pages_read_engagement,pages_show_list,pages_manage_metadata',
         response_type: 'code',
+        auth_type: 'reauthorize',
         state: state,
       }).toString();
 
