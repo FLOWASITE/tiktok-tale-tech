@@ -238,7 +238,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               if (isMultiPagePlatform && !foundNew) {
                 toast.info('Chưa có Fanpage mới được thêm', {
                   description:
-                    'Facebook chỉ trả về các Page bạn đã cấp quyền cho ứng dụng. Hãy bấm "Thêm Fanpage khác" và chọn thêm Page trong cửa sổ Facebook, hoặc vào Facebook Settings → Business Integrations để bật thêm Page.',
+                    'Facebook chỉ trả về các Page bạn đã cấp quyền cho ứng dụng. Bấm "Thêm Fanpage khác" → trong cửa sổ chọn Page hãy bấm nút "Reset quyền & chọn lại" để Facebook hiện đầy đủ Page bạn quản lý.',
                 });
               }
               return;
