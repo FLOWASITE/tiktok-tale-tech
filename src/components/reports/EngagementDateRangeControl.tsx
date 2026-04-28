@@ -17,7 +17,7 @@ export interface EngagementRange {
 interface Props {
   range: EngagementRange;
   bucket: BucketType;
-  onRangeChange: (r: EngagementRange) => void;
+  onRangeChange: (r: EngagementRange, bucketHint?: BucketType) => void;
   onBucketChange: (b: BucketType) => void;
   onSyncWithGlobal: () => void;
   isOverridden: boolean;
@@ -30,14 +30,14 @@ function lastNDays(n: number): EngagementRange {
   return { from, to };
 }
 
-const PRESETS: { label: string; get: () => EngagementRange }[] = [
-  { label: '7 ngày', get: () => lastNDays(7) },
-  { label: 'Tuần này', get: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: new Date() }) },
-  { label: '30 ngày', get: () => lastNDays(30) },
-  { label: 'Tháng này', get: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
-  { label: '90 ngày', get: () => lastNDays(90) },
-  { label: 'Quý này', get: () => ({ from: startOfQuarter(new Date()), to: new Date() }) },
-  { label: 'Năm nay', get: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+const PRESETS: { label: string; get: () => EngagementRange; bucketHint?: BucketType }[] = [
+  { label: '7 ngày', get: () => lastNDays(7), bucketHint: 'day' },
+  { label: 'Tuần này', get: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: new Date() }), bucketHint: 'day' },
+  { label: '30 ngày', get: () => lastNDays(30), bucketHint: 'week' },
+  { label: 'Tháng này', get: () => ({ from: startOfMonth(new Date()), to: new Date() }), bucketHint: 'month' },
+  { label: '90 ngày', get: () => lastNDays(90), bucketHint: 'week' },
+  { label: 'Quý này', get: () => ({ from: startOfQuarter(new Date()), to: new Date() }), bucketHint: 'month' },
+  { label: 'Năm nay', get: () => ({ from: startOfYear(new Date()), to: new Date() }), bucketHint: 'month' },
 ];
 
 export function EngagementDateRangeControl({
@@ -59,7 +59,7 @@ export function EngagementDateRangeControl({
             variant="ghost"
             size="sm"
             className="h-7 px-2.5 text-xs"
-            onClick={() => onRangeChange(p.get())}
+            onClick={() => onRangeChange(p.get(), p.bucketHint)}
           >
             {p.label}
           </Button>
