@@ -231,7 +231,131 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
         if (r.brand_id) r.brand_name = brandNames[r.brand_id] ?? 'Brand';
       }
 
-      // Aggregations
+      // ============ Schedules + history (per content) ============
+      const contentIds = all.map((r) => r.id);
+      const history: Record<string, HistoryEvent[]> = {};
+      const scheduleAgg = new Map<
+        string,
+        { scheduled: number; failed: number; nextAt?: string; lastPublishAt?: string }
+      >();
+
+      if (contentIds.length > 0) {
+        // Chunk to keep .in() URLs sane
+        const chunk = <T,>(arr: T[], n = 200) => {
+          const out: T[][] = [];
+          for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+          return out;
+        };
+
+        const schedulesAll: any[] = [];
+        const pubLogsAll: any[] = [];
+        const approvalLogsAll: any[] = [];
+
+        await Promise.all(
+          chunk(contentIds).map(async (ids) => {
+            const [sched, plogs, alogs] = await Promise.all([
+              supabase
+                .from('content_schedules')
+                .select('content_id, channel, scheduled_at, publish_status, published_at, publish_error')
+                .in('content_id', ids)
+                .eq('organization_id', orgId!),
+              supabase
+                .from('content_publishing_logs')
+                .select('content_id, channel, action, performed_at, error_message')
+                .in('content_id', ids)
+                .eq('organization_id', orgId!)
+                .order('performed_at', { ascending: false })
+                .limit(500),
+              supabase
+                .from('approval_logs')
+                .select('content_id, action, notes, created_at, performed_by')
+                .in('content_id', ids)
+                .eq('organization_id', orgId!)
+                .order('created_at', { ascending: false })
+                .limit(500),
+            ]);
+            if (sched.data) schedulesAll.push(...sched.data);
+            if (plogs.data) pubLogsAll.push(...plogs.data);
+            if (alogs.data) approvalLogsAll.push(...alogs.data);
+          }),
+        );
+
+        const nowMs = Date.now();
+        for (const s of schedulesAll) {
+          const cur = scheduleAgg.get(s.content_id) ?? { scheduled: 0, failed: 0 };
+          if (s.publish_status === 'failed') cur.failed++;
+          if (s.publish_status === 'pending' || s.publish_status === 'scheduled') {
+            cur.scheduled++;
+            const at = s.scheduled_at as string | null;
+            if (at && new Date(at).getTime() >= nowMs) {
+              if (!cur.nextAt || at < cur.nextAt) cur.nextAt = at;
+            }
+          }
+          if (s.published_at) {
+            if (!cur.lastPublishAt || s.published_at > cur.lastPublishAt) {
+              cur.lastPublishAt = s.published_at;
+            }
+          }
+          scheduleAgg.set(s.content_id, cur);
+        }
+
+        // Build timeline
+        for (const a of approvalLogsAll) {
+          (history[a.content_id] ??= []).push({
+            type: 'approval',
+            at: a.created_at,
+            notes: a.notes ?? undefined,
+            actor: a.performed_by ?? null,
+          });
+        }
+        for (const p of pubLogsAll) {
+          const t = (p.action as HistoryEvent['type']) ?? 'published';
+          (history[p.content_id] ??= []).push({
+            type: t,
+            at: p.performed_at,
+            channel: p.channel ?? undefined,
+            error: p.error_message ?? undefined,
+          });
+        }
+        for (const s of schedulesAll) {
+          if (s.publish_status === 'pending' || s.publish_status === 'scheduled') {
+            (history[s.content_id] ??= []).push({
+              type: 'scheduled',
+              at: s.scheduled_at,
+              channel: s.channel ?? undefined,
+            });
+          }
+        }
+        // Sort each timeline desc
+        for (const k of Object.keys(history)) {
+          history[k].sort((a, b) => (a.at < b.at ? 1 : -1));
+        }
+      }
+
+      // ============ Derive status per row ============
+      // Priority: failed > scheduled > published/partially_published > approved > draft
+      for (const r of all) {
+        const agg = scheduleAgg.get(r.id);
+        r.scheduledCount = agg?.scheduled ?? 0;
+        r.failedCount = agg?.failed ?? 0;
+        r.nextScheduledAt = agg?.nextAt ?? null;
+        r.lastPublishedAt = agg?.lastPublishAt ?? null;
+
+        let d: DerivedStatus;
+        if (r.status === 'published') d = 'published';
+        else if (r.status === 'partially_published') d = 'partially_published';
+        else if (agg && agg.scheduled > 0) d = 'scheduled';
+        else if (agg && agg.failed > 0 && r.status !== 'approved') d = 'failed';
+        else if (r.status === 'approved') d = 'approved';
+        else d = 'draft';
+        // If everything failed and nothing scheduled/published, mark failed
+        if (d === 'approved' && agg && agg.failed > 0 && agg.scheduled === 0 && !agg.lastPublishAt) {
+          d = 'failed';
+        }
+        r.derivedStatus = d;
+      }
+
+      // ============ Aggregations ============
       const total = all.length;
 
       const typeMap = new Map<ContentType, number>();
@@ -241,20 +365,20 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
         .sort((a, b) => b.count - a.count);
 
       const statusMap = new Map<string, number>();
-      for (const r of all) statusMap.set(r.status, (statusMap.get(r.status) ?? 0) + 1);
+      for (const r of all) statusMap.set(r.derivedStatus, (statusMap.get(r.derivedStatus) ?? 0) + 1);
       const byStatus = [...statusMap.entries()]
         .map(([status, count]) => ({ status, count }))
         .sort((a, b) => b.count - a.count);
 
-      // byTypeStatus stacked
-      const tsMap = new Map<ContentType, { draft: number; approved: number; published: number; partially_published: number }>();
+      // byTypeStatus stacked (uses derivedStatus)
+      const tsMap = new Map<
+        ContentType,
+        { draft: number; approved: number; scheduled: number; published: number; partially_published: number; failed: number }
+      >();
       for (const r of all) {
-        const cur = tsMap.get(r.type) ?? { draft: 0, approved: 0, published: 0, partially_published: 0 };
-        if (r.status === 'draft') cur.draft++;
-        else if (r.status === 'approved') cur.approved++;
-        else if (r.status === 'published') cur.published++;
-        else if (r.status === 'partially_published') cur.partially_published++;
-        else cur.draft++;
+        const cur =
+          tsMap.get(r.type) ?? { draft: 0, approved: 0, scheduled: 0, published: 0, partially_published: 0, failed: 0 };
+        cur[r.derivedStatus] = (cur[r.derivedStatus] ?? 0) + 1;
         tsMap.set(r.type, cur);
       }
       const byTypeStatus = [...tsMap.entries()].map(([type, v]) => ({
@@ -263,7 +387,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
         ...v,
       }));
 
-      // byChannel (only multichannel rows have channels)
+      // byChannel
       const channelMap = new Map<string, number>();
       for (const r of all) for (const c of r.channels) channelMap.set(c, (channelMap.get(c) ?? 0) + 1);
       const byChannel = [...channelMap.entries()]
@@ -286,20 +410,14 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
       for (const [k, v] of dayBuckets) dayCounts.set(k, v.length);
       const byDay = fillDateGaps(filters.dateFrom, filters.dateTo, dayCounts);
 
-      // Top topics (case-insensitive)
+      // Top topics
       const topicMap = new Map<string, number>();
-      for (const r of all) {
-        const t = (r.topic ?? '').trim();
-        if (!t) continue;
-        const key = t.toLowerCase();
-        topicMap.set(key, (topicMap.get(key) ?? 0) + 1);
-      }
-      // Preserve display casing using first-seen mapping
       const displayMap = new Map<string, string>();
       for (const r of all) {
         const t = (r.topic ?? '').trim();
         if (!t) continue;
         const key = t.toLowerCase();
+        topicMap.set(key, (topicMap.get(key) ?? 0) + 1);
         if (!displayMap.has(key)) displayMap.set(key, t);
       }
       const topTopics = [...topicMap.entries()]
@@ -307,16 +425,17 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
-      // Funnel
-      const APPROVED = new Set(['approved', 'published', 'partially_published']);
-      const PUBLISHED = new Set(['published', 'partially_published']);
+      // Funnel (using derivedStatus)
+      const APPROVED = new Set<DerivedStatus>(['approved', 'scheduled', 'published', 'partially_published']);
+      const PUBLISHED = new Set<DerivedStatus>(['published', 'partially_published']);
       const funnel = {
         created: total,
-        approved: all.filter((r) => APPROVED.has(r.status)).length,
-        published: all.filter((r) => PUBLISHED.has(r.status)).length,
+        approved: all.filter((r) => APPROVED.has(r.derivedStatus)).length,
+        scheduled: all.filter((r) => r.derivedStatus === 'scheduled').length,
+        published: all.filter((r) => PUBLISHED.has(r.derivedStatus)).length,
+        failed: all.filter((r) => r.derivedStatus === 'failed').length,
       };
 
-      // Sort rows by date desc
       const rows = all.sort((a, b) => b.created_at.localeCompare(a.created_at));
 
       return {
@@ -330,6 +449,7 @@ export function useContentReport(orgId: string | null, filters: ReportFilters) {
         topTopics,
         funnel,
         rows,
+        history,
       };
     },
   });
