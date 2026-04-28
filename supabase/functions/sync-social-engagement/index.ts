@@ -254,17 +254,58 @@ Deno.serve(async (req) => {
     });
   }
 
-  const posts: PostRef[] = [];
+  // Build post list. Một số log cũ thiếu organization_id → backfill từ multi_channel_contents.
+  const missingOrgContentIds = new Set<string>();
+  type StagedLog = {
+    content_id: string | null;
+    organization_id: string | null;
+    channel: string;
+    post_id: string;
+    performed_at: string;
+  };
+  const staged: StagedLog[] = [];
+
   for (const log of logs ?? []) {
     const d = (log.details ?? {}) as Record<string, unknown>;
     const postId = (d.post_id ?? d.tweet_id ?? d.media_id) as string | undefined;
-    if (!postId || !log.organization_id) continue;
-    posts.push({
+    if (!postId) continue;
+    if (!log.organization_id && log.content_id) {
+      missingOrgContentIds.add(log.content_id as string);
+    }
+    staged.push({
       content_id: log.content_id,
       organization_id: log.organization_id,
       channel: log.channel,
       post_id: postId,
       performed_at: log.performed_at,
+    });
+  }
+
+  // Backfill org_id từ multi_channel_contents
+  const contentOrgMap = new Map<string, string>();
+  if (missingOrgContentIds.size > 0) {
+    const { data: contents } = await supabase
+      .from("multi_channel_contents")
+      .select("id, organization_id")
+      .in("id", Array.from(missingOrgContentIds));
+    for (const c of contents ?? []) {
+      if (c.id && c.organization_id) {
+        contentOrgMap.set(c.id as string, c.organization_id as string);
+      }
+    }
+  }
+
+  const posts: PostRef[] = [];
+  for (const s of staged) {
+    const orgId = s.organization_id ?? (s.content_id ? contentOrgMap.get(s.content_id) ?? null : null);
+    if (!orgId) continue;
+    if (scope.organization_id && orgId !== scope.organization_id) continue;
+    posts.push({
+      content_id: s.content_id,
+      organization_id: orgId,
+      channel: s.channel,
+      post_id: s.post_id,
+      performed_at: s.performed_at,
     });
   }
 
