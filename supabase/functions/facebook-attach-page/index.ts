@@ -88,6 +88,8 @@ Deno.serve(withPerf({ functionName: 'facebook-attach-page' }, async (req) => {
       user_id: session.user_id,
       platform: 'facebook',
       platform_username: page.name,
+      platform_display_name: page.name,
+      platform_avatar_url: page.picture || null,
       platform_user_id: page_id,
       access_token: encryptedToken,
       refresh_token: null,
