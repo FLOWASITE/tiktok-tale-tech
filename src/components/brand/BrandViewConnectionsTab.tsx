@@ -205,6 +205,17 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     // OAuth platforms (Facebook, Instagram, LinkedIn, Threads, Zalo OA, Google Business)
     setOauthConnecting(platform);
     try {
+      // Snapshot existing active connections so we can detect NEW ones (multi-page support)
+      const { data: existingRows } = await supabase
+        .from('social_connections')
+        .select('platform_user_id')
+        .eq('brand_template_id', template.id)
+        .eq('platform', platform)
+        .eq('is_active', true);
+      const existingIds = new Set(
+        (existingRows || []).map((r) => r.platform_user_id).filter(Boolean) as string[]
+      );
+
       const result = await connect({
         platform,
         brandTemplateId: template.id,
@@ -215,31 +226,40 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
           description: 'Hoàn tất đăng nhập trong cửa sổ mới để kết nối tài khoản.',
         });
 
-        // Poll for connection completion after OAuth popup opens
+        const isMultiPagePlatform = platform === 'facebook';
+
+        // Poll for NEW connection (page_id not in snapshot)
         const pollInterval = setInterval(async () => {
           try {
-            // Check if popup is closed
             if (popup && popup.closed) {
               clearInterval(pollInterval);
-              // Give a moment for backend to finish, then refetch
-              setTimeout(() => {
-                refetch();
-              }, 1500);
+              setTimeout(() => refetch(), 1500);
               return;
             }
-            // Also poll DB for new connection
             const { data } = await supabase
               .from('social_connections')
-              .select('id, platform, is_active')
+              .select('id, platform_user_id')
               .eq('brand_template_id', template.id)
               .eq('platform', platform)
-              .eq('is_active', true)
-              .maybeSingle();
-            if (data) {
-              clearInterval(pollInterval);
+              .eq('is_active', true);
+            const newRow = (data || []).find(
+              (r) => r.platform_user_id && !existingIds.has(r.platform_user_id)
+            );
+            if (newRow) {
               refetch();
-              toast.success(`Đã kết nối ${PLATFORM_CONFIG[platform].name} thành công!`);
-              if (popup && !popup.closed) popup.close();
+              existingIds.add(newRow.platform_user_id as string);
+              if (isMultiPagePlatform) {
+                // Allow user to keep picking more fanpages — don't close popup, keep polling
+                toast.success(
+                  existingIds.size > 1
+                    ? 'Đã thêm fanpage mới!'
+                    : `Đã kết nối ${PLATFORM_CONFIG[platform].name} thành công!`
+                );
+              } else {
+                clearInterval(pollInterval);
+                toast.success(`Đã kết nối ${PLATFORM_CONFIG[platform].name} thành công!`);
+                if (popup && !popup.closed) popup.close();
+              }
             }
           } catch {
             // Ignore polling errors
