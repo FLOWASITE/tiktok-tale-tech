@@ -15,14 +15,21 @@ const PLATFORM_LABELS: Record<string, string> = {
   website: 'Website',
 };
 
-function isTokenExpiredError(msg: string): boolean {
+function isReconnectNeededError(msg: string): boolean {
   const m = msg.toLowerCase();
   return (
     m.includes('token expired') ||
     m.includes('please reconnect') ||
     m.includes('needs_reauth') ||
     m.includes('hết hạn') ||
-    m.includes('reauthor')
+    m.includes('reauthor') ||
+    m.includes('connection is not active') ||
+    m.includes('not active') ||
+    m.includes('is_active') ||
+    m.includes('inactive') ||
+    m.includes('no_connection') ||
+    m.includes('chưa kết nối') ||
+    m.includes('không hoạt động')
   );
 }
 
