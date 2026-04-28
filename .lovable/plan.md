@@ -1,44 +1,157 @@
-## Vấn đề
+# Phân hệ Báo cáo (Workspace Reports)
 
-Logs xác nhận:
-- `facebook-reset-app-permissions` chạy OK (200) nhưng KHÔNG thực sự revoke app ở Facebook.
-- Sau khi reset + reconnect → Facebook vẫn trả về `Found 1 Pages`.
+Báo cáo cho user trong workspace, phủ 3 mảng: Content output, Publishing performance, Social Engagement. Có cron sync 6h, AI Insights tự động và Export PDF/CSV.
 
-**Root cause:** Reset function hiện tại gọi `DELETE /{page_id}/permissions` với **page access token**. Endpoint này không revoke app authorization ở user level — chỉ ảnh hưởng page đơn lẻ (mà page đó đã được cấp rồi nên vô tác dụng). Để Facebook hiện lại full Page picker, phải revoke ở **user level** với **user access token**.
+## 1. Tổng quan tính năng
 
-User token đã có sẵn trong `facebook_oauth_sessions.encrypted_user_token` nhưng reset function không dùng.
+**Route mới:** `/reports` (user) trong app, có sub-tabs:
+- **Tổng quan** — KPI cards + biểu đồ tổng hợp
+- **Nội dung** — đã tạo, theo channel/brand/campaign
+- **Publishing** — đã đăng, success/fail, theo platform
+- **Engagement** — reach/likes/comments/shares từ social
+- **Quảng cáo** — aggregate từ ad_copy_performance (đã có sẵn)
+- **AI Insights** — phân tích & gợi ý
 
-## Kế hoạch sửa
+**Filter toàn cục (sticky header):** Date range (default 30 ngày), Brand, Campaign, Channel/Platform.
 
-### 1. Sửa `facebook-reset-app-permissions` dùng user token
-- Query `facebook_oauth_sessions` mới nhất theo `user_id + brand_template_id` để lấy `encrypted_user_token`.
-- Decrypt ra user access token thật.
-- Gọi `DELETE https://graph.facebook.com/v21.0/me/permissions?access_token={USER_TOKEN}` → revoke toàn bộ app authorization của user.
-- Sau khi revoke OK: deactivate tất cả `social_connections` Facebook của brand + xóa `facebook_oauth_sessions` cũ để tránh dùng lại token đã revoke.
-- Trả về `success: true, revoked: true`.
+**Export:** PDF có brand logo + CSV data thô — nút ngay góc phải header.
 
-### 2. Fallback khi không có user token còn hợp lệ
-- Nếu không tìm thấy session hoặc decrypt fail hoặc Facebook trả lỗi (token hết hạn) → trả về `revoked: false` kèm hướng dẫn rõ ràng:
-  - Mở https://www.facebook.com/settings?tab=business_tools
-  - Tìm app "Flowa" → Remove
-  - Quay lại bấm "Kết nối Facebook"
-- UI hiện link clickable thẳng tới trang đó.
+## 2. Dữ liệu nguồn (đã có trong DB)
 
-### 3. Cải thiện UI ở `FacebookCallback.tsx`
-- Khi bấm nút "Reset quyền & chọn lại":
-  - Nếu `revoked: true` → toast success + tự động mở lại OAuth ngay (không cần user bấm thêm).
-  - Nếu `revoked: false` → show modal/alert có link trực tiếp tới Facebook Business Tools settings, kèm nút "Tôi đã remove, kết nối lại".
-- Hiển thị thêm cảnh báo: "Nếu vẫn chỉ thấy 1 Page, có thể tài khoản Facebook của bạn chỉ là admin của 1 Page đó. Kiểm tra tại facebook.com/pages."
+| Mảng | Bảng | Ghi chú |
+|---|---|---|
+| Content | `multi_channel_contents`, `scripts`, `carousels`, `core_contents` | Group theo `created_at`, `channel`, `brand_template_id`, `campaign_id` |
+| Publishing | `content_publishing_logs`, `publish_attempts` | Status: published/failed; group theo `channel` |
+| Engagement | `social_post_engagements` | Đã có FB webhook; cần mở rộng sang IG/LinkedIn/TikTok/X |
+| Ad | `ad_copy_performance` (+ auto-sync sẵn) | Aggregate cross-campaign |
+| Usage/Cost | `usage_logs`, `ai_metrics` | Quota visualization |
 
-### 4. Thêm log debug
-- Log số Pages tài khoản FB thực sự quản lý (gọi `me/accounts?limit=100` trong reset function trước khi revoke) để confirm user thực sự có nhiều Page hay chỉ 1.
+## 3. Bảng mới cần tạo
 
-## Files thay đổi
-- `supabase/functions/facebook-reset-app-permissions/index.ts` — viết lại logic dùng user token
-- `src/pages/FacebookCallback.tsx` — auto-reconnect sau revoke + link Business Tools
-- Không cần migration
+### `social_post_metrics` — snapshot insights từ platform APIs
+```
+id, organization_id, brand_template_id, connection_id,
+platform, post_id, content_id (nullable),
+snapshot_at, reach, impressions, likes, comments, shares, saves,
+video_views, link_clicks, raw jsonb,
+unique(connection_id, post_id, snapshot_at::date)
+```
+RLS: org members read, service role insert/update.
 
-## Kỳ vọng sau fix
-- Bấm "Reset quyền" → Facebook thực sự forget app authorization.
-- OAuth lần kế tiếp hiện full Page picker với tất cả Page mà user là admin.
-- Nếu user thật sự chỉ có 1 Page → log sẽ confirm rõ và UI báo đúng nguyên nhân thay vì để user nghi ngờ app bị bug.
+### `report_sync_state` — track cron sync
+```
+id, organization_id, connection_id, platform,
+last_synced_at, last_status, error_message, posts_synced
+```
+
+### `saved_reports` (V1.5, optional) — user lưu cấu hình filter
+Bỏ qua nếu không cần V1.
+
+## 4. Edge functions mới
+
+### `sync-social-engagement` (cron 6h)
+- Trigger qua pg_cron mỗi 6h
+- Loop qua `social_connections` còn token hợp lệ
+- Mỗi platform có module riêng (`fb.ts`, `ig.ts`, `linkedin.ts`, `tiktok.ts`, `x.ts`)
+- Lấy posts trong 30 ngày gần nhất → fetch insights → upsert `social_post_metrics`
+- Background persistence pattern (ghi DB ngay cả khi disconnect)
+- Skip platform nếu token expired (đã có `refresh-*-token` xử lý song song)
+
+### `generate-report-insights`
+- Input: `{ date_range, brand_id?, campaign_id? }`
+- Aggregate metrics từ DB → gửi vào Lovable AI Gateway (Gemini 2.5 Flash)
+- Prompt tiếng Việt: phân tích trend, top channel, suggest action
+- Cache kết quả 1h trong `ai_response_cache` (đã có infra)
+
+### `export-report` (PDF + CSV)
+- Input: `{ format: 'pdf'|'csv', filters, sections[] }`
+- PDF: dùng pdf-lib (Deno) hoặc render server-side qua HTML→PDF với puppeteer-lite. Lựa chọn an toàn: tạo HTML có brand logo + chart SVG, dùng `@react-pdf/renderer` ở client (đơn giản hơn, không cần edge function). **Khuyến nghị: làm client-side trước với jsPDF + html2canvas** cho V1, server-side để V2.
+- CSV: client-side blob download (đã có pattern trong `AdCopyAnalyticsDashboard`)
+
+## 5. Frontend
+
+### Cấu trúc file
+```
+src/pages/Reports.tsx                          # entry, sub-tabs
+src/components/reports/
+  ReportFilters.tsx                            # sticky header filter
+  ReportExportMenu.tsx                         # PDF + CSV dropdown
+  overview/OverviewSection.tsx
+  overview/KPICards.tsx                        # 4-6 stat cards
+  overview/TrendChart.tsx                      # area chart 30d
+  content/ContentReport.tsx                    # by channel + brand
+  publishing/PublishingReport.tsx              # success/fail funnel
+  engagement/EngagementReport.tsx              # platform tabs + post table
+  ads/AdsReport.tsx                            # reuse AdCopyAnalyticsDashboard pattern
+  insights/AIInsightsReport.tsx                # cards + refresh
+  shared/EmptyReportState.tsx
+  shared/ReportSkeleton.tsx
+src/hooks/reports/
+  useReportFilters.ts                          # url-state + brand/campaign awareness
+  useContentReport.ts
+  usePublishingReport.ts
+  useEngagementReport.ts
+  useReportInsights.ts
+  useReportExport.ts
+src/lib/reports/
+  aggregators.ts                               # group/sum helpers
+  pdfBuilder.ts                                # client PDF generation
+  csvBuilder.ts
+```
+
+### Navigation
+- Thêm menu item "Báo cáo" (icon `BarChart3`) vào sidebar chính, sau "Campaigns"
+- Bảo vệ bằng `<ProtectedRoute>` + `<AppLayout>`
+- Filter respect `currentOrganization.id` + `BrandContext` (theo Core memory: strict UI filtering)
+
+### Visual
+- Tuân Soft Luxury: neutral gray accents, no emoji, dùng `ChannelIcon` SVG cho platform
+- Reuse `recharts` (đã có), chart cards dùng same style như `CampaignAnalyticsDashboard`
+- Loading: skeleton; Empty: friendly CTA (vd "Chưa có post nào — bắt đầu xuất bản")
+
+## 6. Cron setup
+
+```sql
+SELECT cron.schedule(
+  'sync-social-engagement-6h',
+  '0 */6 * * *',
+  $$ SELECT net.http_post(
+    url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/sync-social-engagement',
+    headers:='{"Content-Type":"application/json","apikey":"<ANON>"}'::jsonb,
+    body:='{}'::jsonb
+  ); $$
+);
+```
+(Chạy bằng insert tool sau khi function deploy.)
+
+## 7. Phân pha triển khai
+
+**Phase 1 (V1 — core):**
+1. Migration: tạo `social_post_metrics`, `report_sync_state` + RLS
+2. Trang `/reports` + tab Tổng quan + tab Nội dung + tab Publishing (chỉ DB nội bộ)
+3. Filter + Export CSV
+4. Sidebar entry
+
+**Phase 2 (V1.1 — engagement):**
+5. Edge function `sync-social-engagement` (FB + IG trước, LinkedIn/TikTok/X sau)
+6. Cron 6h
+7. Tab Engagement + tab Ads (reuse component)
+
+**Phase 3 (V1.2 — AI + PDF):**
+8. Edge function `generate-report-insights` + AI Insights tab
+9. Export PDF (client-side jsPDF)
+10. i18n strings (vi/en/th)
+
+## 8. Rủi ro & lưu ý
+
+- **API quota từng platform:** sync 6h × số connection có thể hit limit IG/LinkedIn. Mitigate: rate-limit per platform, skip nếu fail liên tiếp 3 lần
+- **Token expired:** đã có `automated-token-refresh-system` chạy 30min, sync function chỉ skip + log
+- **PDF performance:** client-side jsPDF OK với <50 charts. Nếu nặng, chuyển server-side V2
+- **AI Insights cost:** cache 1h + chỉ regenerate khi user bấm refresh
+- **Không vi phạm RLS:** tất cả query filter `organization_id = currentOrganization.id` ở cả frontend + DB
+
+## 9. Câu hỏi mở (có thể quyết khi build)
+
+- Tab Ads: reuse `AdCopyAnalyticsDashboard` thẳng hay wrap lại với filter chung? → Khuyến nghị wrap để đồng nhất filter
+- AI Insights nên auto-generate khi vào trang hay chỉ khi user bấm? → Auto-load (cache 1h) + nút refresh
+- Báo cáo per-brand hay per-workspace? → Per-workspace, brand là filter optional

@@ -8744,6 +8744,63 @@ export type Database = {
           },
         ]
       }
+      report_sync_state: {
+        Row: {
+          connection_id: string | null
+          consecutive_failures: number
+          created_at: string
+          error_message: string | null
+          id: string
+          last_status: string
+          last_synced_at: string | null
+          organization_id: string
+          platform: string
+          posts_synced: number
+          updated_at: string
+        }
+        Insert: {
+          connection_id?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_status?: string
+          last_synced_at?: string | null
+          organization_id: string
+          platform: string
+          posts_synced?: number
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string | null
+          consecutive_failures?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_status?: string
+          last_synced_at?: string | null
+          organization_id?: string
+          platform?: string
+          posts_synced?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_sync_state_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_sync_state_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_chat_analytics: {
         Row: {
           assistant_message_count: number | null
@@ -9560,6 +9617,94 @@ export type Database = {
           },
           {
             foreignKeyName: "social_post_engagements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_post_metrics: {
+        Row: {
+          brand_template_id: string | null
+          comments: number
+          connection_id: string | null
+          content_id: string | null
+          created_at: string
+          id: string
+          impressions: number
+          likes: number
+          link_clicks: number
+          organization_id: string
+          platform: string
+          post_id: string
+          raw: Json
+          reach: number
+          saves: number
+          shares: number
+          snapshot_at: string
+          updated_at: string
+          video_views: number
+        }
+        Insert: {
+          brand_template_id?: string | null
+          comments?: number
+          connection_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          id?: string
+          impressions?: number
+          likes?: number
+          link_clicks?: number
+          organization_id: string
+          platform: string
+          post_id: string
+          raw?: Json
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_at?: string
+          updated_at?: string
+          video_views?: number
+        }
+        Update: {
+          brand_template_id?: string | null
+          comments?: number
+          connection_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          id?: string
+          impressions?: number
+          likes?: number
+          link_clicks?: number
+          organization_id?: string
+          platform?: string
+          post_id?: string
+          raw?: Json
+          reach?: number
+          saves?: number
+          shares?: number
+          snapshot_at?: string
+          updated_at?: string
+          video_views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_metrics_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_post_metrics_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_post_metrics_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
