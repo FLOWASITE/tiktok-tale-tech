@@ -289,10 +289,33 @@ function BucketBrowser({ bucket, organizationId, organizationName, onClose, onCh
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <CardTitle className="text-lg">Bucket: {bucket}</CardTitle>
-            <CardDescription>Tổng {total} file (theo bộ lọc hiện tại)</CardDescription>
+            <CardTitle className="text-lg flex items-center gap-2">
+              Bucket: {bucket}
+              {organizationId && organizationName && (
+                <Badge variant="secondary" className="font-normal">
+                  <Building2 className="h-3 w-3 mr-1" />{organizationName}
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Tổng {total} file
+              {organizationId ? " (đã lọc theo workspace)" : " (tất cả workspace)"}
+            </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {organizationId && (
+              <Button variant="destructive" size="sm" onClick={async () => {
+                setOrgCleanupLoading(true);
+                try {
+                  const r = await call("cleanup_bucket_for_org", { bucket, organization_id: organizationId, dry_run: true });
+                  setOrgCleanupPreview({ count: r.count, total_bytes: r.total_bytes });
+                  setOrgCleanupOpen(true);
+                } catch (e: any) { toast.error(e.message); }
+                finally { setOrgCleanupLoading(false); }
+              }} disabled={orgCleanupLoading}>
+                <Trash2 className="h-4 w-4 mr-1" />Xóa toàn bộ file của workspace
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setOlderOpen(true)}>
               <Calendar className="h-4 w-4 mr-1" />Xóa file cũ
             </Button>
