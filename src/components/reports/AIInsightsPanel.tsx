@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { ReportInsightCard, ReportInsightsResult } from '@/hooks/reports/useReportInsights';
+import { InsightsError } from '@/hooks/reports/useReportInsights';
 
 interface Props {
   data?: ReportInsightsResult;
@@ -51,9 +52,28 @@ export function AIInsightsPanel({ data, isLoading, isRefreshing, error, onRefres
       </Card>
 
       {error ? (
-        <Card className="p-6 text-sm text-rose-600">
-          Không thể tạo insights: {(error as Error).message}
-        </Card>
+        (() => {
+          const errMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
+          const code = error instanceof InsightsError ? error.errorCode : undefined;
+          const isCredits = code === 'AI_CREDITS_EXHAUSTED';
+          return (
+            <Card className={`p-6 text-sm ${isCredits ? 'border-amber-300 bg-amber-50/40 text-amber-900 dark:bg-amber-950/20 dark:text-amber-200' : 'text-rose-600'}`}>
+              <p className="font-medium">{isCredits ? 'Đã hết AI credits' : 'Không thể tạo insights'}</p>
+              <p className="mt-1 text-xs opacity-80">{errMsg}</p>
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" variant="outline" onClick={onRefresh} disabled={isRefreshing}>
+                  <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Thử lại
+                </Button>
+                {isCredits && (
+                  <Button size="sm" onClick={() => (window.location.href = '/settings/billing')}>
+                    Nâng cấp gói
+                  </Button>
+                )}
+              </div>
+            </Card>
+          );
+        })()
       ) : isLoading ? (
         <div className="grid gap-3 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
