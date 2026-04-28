@@ -293,17 +293,29 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 5. Track sync state
-  await supabase.from("report_sync_state").upsert(
-    {
-      sync_type: "social_engagement",
-      organization_id: scope.organization_id ?? null,
-      last_run_at: new Date().toISOString(),
-      last_status: failed > success ? "partial_failure" : "success",
-      stats: { total: uniquePosts.length, success, failed, skipped, duration_ms: Date.now() - startedAt },
-    },
-    { onConflict: "sync_type,organization_id" },
-  );
+  // 5. Track sync state per connection used
+  const stateRows = new Map<string, { organization_id: string; connection_id: string; platform: string; posts: number }>();
+  for (const u of upserts) {
+    if (!u.connection_id) continue;
+    const k = u.connection_id;
+    const cur = stateRows.get(k) ?? { organization_id: u.organization_id, connection_id: u.connection_id, platform: u.platform, posts: 0 };
+    cur.posts += 1;
+    stateRows.set(k, cur);
+  }
+  if (stateRows.size) {
+    await supabase.from("report_sync_state").upsert(
+      Array.from(stateRows.values()).map((s) => ({
+        organization_id: s.organization_id,
+        connection_id: s.connection_id,
+        platform: s.platform,
+        last_synced_at: new Date().toISOString(),
+        last_status: "success",
+        posts_synced: s.posts,
+        consecutive_failures: 0,
+      })),
+      { onConflict: "connection_id" },
+    );
+  }
 
   return new Response(
     JSON.stringify({
