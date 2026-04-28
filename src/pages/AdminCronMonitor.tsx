@@ -8,10 +8,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Play, RefreshCw, Clock, CheckCircle2, AlertTriangle, XCircle, Trash2, FileWarning, Calendar } from 'lucide-react';
+import { Play, RefreshCw, Clock, CheckCircle2, AlertTriangle, XCircle, Trash2, FileWarning, Calendar, TrendingUp } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, format, startOfDay, startOfWeek, startOfHour, eachDayOfInterval, eachWeekOfInterval, eachHourOfInterval, subDays, subHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RTooltip,
+  Legend,
+} from 'recharts';
 
 type CronLog = {
   id: string;
