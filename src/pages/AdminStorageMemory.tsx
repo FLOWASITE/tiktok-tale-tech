@@ -22,7 +22,7 @@ import {
 import {
   HardDrive, Database, Trash2, RefreshCw, Search, Eye, ExternalLink, Download,
   AlertTriangle, FileWarning, Clock, ArrowDown, ArrowUp, Image as ImageIcon, FileText,
-  Sparkles, Calendar, Building2,
+  Sparkles, Calendar, Building2, LayoutDashboard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -152,12 +152,16 @@ export default function AdminStorageMemory() {
         </Card>
       )}
 
-      <Tabs defaultValue="storage" className="space-y-4">
+      <Tabs defaultValue="dashboard" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard Workspace</TabsTrigger>
           <TabsTrigger value="storage"><HardDrive className="h-4 w-4 mr-2" />Storage Buckets</TabsTrigger>
           <TabsTrigger value="memory"><Database className="h-4 w-4 mr-2" />Bộ nhớ DB</TabsTrigger>
           <TabsTrigger value="audit"><Clock className="h-4 w-4 mr-2" />Lịch sử dọn dẹp</TabsTrigger>
         </TabsList>
+        <TabsContent value="dashboard">
+          <WorkspaceDashboardTab onSelectWorkspace={(id) => setOrgId(id)} />
+        </TabsContent>
         <TabsContent value="storage">
           <StorageTab orgId={orgId} selectedOrg={selectedOrg} />
         </TabsContent>
@@ -1032,5 +1036,196 @@ function AuditTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/* ---------------- Workspace Dashboard Tab ---------------- */
+type WorkspaceUsage = {
+  id: string;
+  name: string;
+  slug: string;
+  total_files: number;
+  total_bytes: number;
+  per_bucket: Record<string, { files: number; bytes: number }>;
+};
+
+function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: string) => void }) {
+  const [search, setSearch] = useState("");
+  const dashQ = useQuery({
+    queryKey: ["admin-workspace-dashboard"],
+    queryFn: () => call("workspace_dashboard"),
+    staleTime: 60_000,
+  });
+
+  const workspaces: WorkspaceUsage[] = dashQ.data?.workspaces || [];
+  const bucketTotals: Record<string, { files: number; bytes: number }> = dashQ.data?.bucket_totals || {};
+  const unresolved = dashQ.data?.unresolved || { files: 0, bytes: 0 };
+
+  const bucketIds = useMemo(() => Object.keys(bucketTotals).sort(), [bucketTotals]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return workspaces;
+    return workspaces.filter((w) => w.name.toLowerCase().includes(q) || w.slug?.toLowerCase().includes(q));
+  }, [workspaces, search]);
+
+  const totalAttributed = workspaces.reduce((s, w) => s + w.total_bytes, 0);
+  const totalSystem = totalAttributed + (unresolved.bytes || 0);
+  const totalFiles = workspaces.reduce((s, w) => s + w.total_files, 0) + (unresolved.files || 0);
+  const activeWorkspaces = workspaces.filter((w) => w.total_files > 0).length;
+  const top = workspaces.filter((w) => w.total_files > 0).slice(0, 5);
+
+  return (
+    <div className="space-y-4">
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" />Tổng Workspace</div>
+            <div className="text-2xl font-semibold mt-1">{workspaces.length}</div>
+            <div className="text-xs text-muted-foreground">{activeWorkspaces} có file</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-muted-foreground flex items-center gap-1"><FileText className="h-3 w-3" />Tổng file</div>
+            <div className="text-2xl font-semibold mt-1">{totalFiles.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">{unresolved.files} chưa định danh</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-muted-foreground flex items-center gap-1"><HardDrive className="h-3 w-3" />Tổng dung lượng</div>
+            <div className="text-2xl font-semibold mt-1">{fmtBytes(totalSystem)}</div>
+            <div className="text-xs text-muted-foreground">Đã gán: {fmtBytes(totalAttributed)}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Chưa gán workspace</div>
+            <div className="text-2xl font-semibold mt-1">{fmtBytes(unresolved.bytes)}</div>
+            <div className="text-xs text-muted-foreground">{unresolved.files} file</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top consumers */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <CardTitle className="text-base">Top Workspace tiêu thụ Storage</CardTitle>
+              <CardDescription>Sắp xếp giảm dần theo dung lượng đã sử dụng.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => dashQ.refetch()} disabled={dashQ.isFetching}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${dashQ.isFetching ? "animate-spin" : ""}`} />
+              Làm mới
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {dashQ.isLoading && <div className="text-sm text-muted-foreground">Đang tải dữ liệu workspace...</div>}
+          {!dashQ.isLoading && top.length === 0 && (
+            <div className="text-sm text-muted-foreground">Chưa có workspace nào tiêu thụ storage.</div>
+          )}
+          {top.map((w, idx) => {
+            const pct = totalAttributed > 0 ? (w.total_bytes / totalAttributed) * 100 : 0;
+            return (
+              <div key={w.id} className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Badge variant="secondary" className="font-mono">#{idx + 1}</Badge>
+                    <span className="font-medium truncate">{w.name}</span>
+                    <span className="text-xs text-muted-foreground">{w.total_files} file</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{fmtBytes(w.total_bytes)}</span>
+                    <span className="text-xs text-muted-foreground w-12 text-right">{pct.toFixed(1)}%</span>
+                  </div>
+                </div>
+                <div className="h-2 rounded bg-muted overflow-hidden">
+                  <div className="h-full bg-primary" style={{ width: `${Math.min(100, pct)}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Full table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-base">Chi tiết theo Workspace</CardTitle>
+              <CardDescription>Click vào workspace để chuyển sang tab Storage Buckets đã lọc.</CardDescription>
+            </div>
+            <div className="relative w-[240px]">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Tìm workspace..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-md overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Workspace</TableHead>
+                  <TableHead className="text-right w-24">Tổng file</TableHead>
+                  <TableHead className="text-right w-32">Dung lượng</TableHead>
+                  {bucketIds.map((b) => (
+                    <TableHead key={b} className="text-right w-32 font-mono text-[11px]">{b}</TableHead>
+                  ))}
+                  <TableHead className="w-20" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dashQ.isLoading && (
+                  <TableRow><TableCell colSpan={3 + bucketIds.length + 1} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>
+                )}
+                {!dashQ.isLoading && filtered.length === 0 && (
+                  <TableRow><TableCell colSpan={3 + bucketIds.length + 1} className="text-center text-muted-foreground py-6">Không có workspace</TableCell></TableRow>
+                )}
+                {filtered.map((w) => (
+                  <TableRow key={w.id} className="hover:bg-muted/40">
+                    <TableCell>
+                      <div className="font-medium">{w.name}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{w.slug}</div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">{w.total_files.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-medium">{fmtBytes(w.total_bytes)}</TableCell>
+                    {bucketIds.map((b) => {
+                      const cell = w.per_bucket[b];
+                      return (
+                        <TableCell key={b} className="text-right text-xs">
+                          {cell ? (
+                            <div>
+                              <div className="font-medium">{fmtBytes(cell.bytes)}</div>
+                              <div className="text-muted-foreground">{cell.files} file</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => onSelectWorkspace(w.id)}>
+                        Lọc →
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {dashQ.data?.generated_at && (
+            <div className="text-xs text-muted-foreground mt-2 text-right">
+              Cập nhật: {fmtTime(dashQ.data.generated_at)}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
