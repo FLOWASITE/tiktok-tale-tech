@@ -20,6 +20,9 @@ export interface EngagementReportData {
   postsTracked: number;
   byPlatform: { platform: string; reach: number; impressions: number; likes: number; comments: number; shares: number; posts: number }[];
   byDay: { date: string; reach: number; engagement: number }[];
+  bucketType: BucketType;
+  rangeFrom: string;
+  rangeTo: string;
   topPosts: {
     post_id: string;
     platform: string;
@@ -33,9 +36,25 @@ export interface EngagementReportData {
   lastSyncedAt: string | null;
 }
 
-export function useEngagementReport(orgId: string | null, filters: ReportFilters) {
+export function useEngagementReport(
+  orgId: string | null,
+  filters: ReportFilters,
+  options: EngagementOptions = {},
+) {
+  const fromDate = options.overrideRange?.from ?? filters.dateFrom;
+  const toDate = options.overrideRange?.to ?? filters.dateTo;
+  const bucket: BucketType = options.bucket ?? 'day';
+
   return useQuery({
-    queryKey: ['report-engagement', orgId, filters.dateFrom.toISOString(), filters.dateTo.toISOString(), filters.brandId, filters.channel],
+    queryKey: [
+      'report-engagement',
+      orgId,
+      fromDate.toISOString(),
+      toDate.toISOString(),
+      filters.brandId,
+      filters.channel,
+      bucket,
+    ],
     enabled: !!orgId,
     queryFn: async (): Promise<EngagementReportData> => {
       // Fetch latest snapshot per post within range
@@ -43,8 +62,8 @@ export function useEngagementReport(orgId: string | null, filters: ReportFilters
         .from('social_post_metrics')
         .select('post_id, platform, content_id, reach, impressions, likes, comments, shares, saves, video_views, snapshot_at, brand_template_id')
         .eq('organization_id', orgId!)
-        .gte('snapshot_at', filters.dateFrom.toISOString())
-        .lte('snapshot_at', filters.dateTo.toISOString())
+        .gte('snapshot_at', fromDate.toISOString())
+        .lte('snapshot_at', toDate.toISOString())
         .order('snapshot_at', { ascending: false })
         .limit(2000);
 
