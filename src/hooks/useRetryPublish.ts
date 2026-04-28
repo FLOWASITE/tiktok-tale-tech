@@ -29,7 +29,16 @@ function isReconnectNeededError(msg: string): boolean {
     m.includes('inactive') ||
     m.includes('no_connection') ||
     m.includes('chưa kết nối') ||
-    m.includes('không hoạt động')
+    m.includes('không hoạt động') ||
+    // OAuth token errors from Facebook/Instagram/Threads (FB error code 190)
+    m.includes('invalid oauth access token') ||
+    m.includes('cannot parse access token') ||
+    m.includes('oauthexception') ||
+    m.includes('access token') && (m.includes('invalid') || m.includes('expired') || m.includes('malformed')) ||
+    m.includes('token_invalid') ||
+    m.includes('invalid_token') ||
+    m.includes('unauthorized') ||
+    m.includes('401')
   );
 }
 
