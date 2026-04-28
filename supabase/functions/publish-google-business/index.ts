@@ -88,9 +88,39 @@ Deno.serve(withPerf({ functionName: 'publish-google-business' }, async (req) => 
       throw new Error('Failed to decrypt access token');
     }
 
-    // Check if token is expired and try refresh
+    // Check if token is expired and try refresh automatically
     if (connection.token_expires_at && new Date(connection.token_expires_at) < new Date()) {
-      throw new Error('Token expired. Please reconnect Google Business Profile.');
+      console.log('Access token expired, attempting auto-refresh...');
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const refreshResp = await fetch(`${supabaseUrl}/functions/v1/refresh-google-business-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ connectionId }),
+      });
+      const refreshResult = await refreshResp.json();
+      if (!refreshResult.success) {
+        throw new Error(refreshResult.error || 'Token expired. Please reconnect Google Business Profile.');
+      }
+      // Re-fetch connection with new token
+      const { data: refreshed, error: reErr } = await supabase
+        .from('social_connections')
+        .select('access_token')
+        .eq('id', connectionId)
+        .single();
+      if (reErr || !refreshed) {
+        throw new Error('Failed to reload refreshed connection');
+      }
+      try {
+        accessToken = await decryptCredential(refreshed.access_token);
+      } catch (e) {
+        console.error('decryptCredential after refresh failed:', e);
+        throw new Error('Failed to decrypt refreshed access token');
+      }
+      console.log('Token auto-refreshed successfully');
     }
 
     // Determine which location to post to
