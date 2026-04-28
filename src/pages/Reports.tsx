@@ -39,6 +39,21 @@ export default function Reports() {
   const { filters, updateFilters, resetFilters, setPresetRange, organizationId } = useReportFilters();
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
+  const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
+
+  const STATUS_LABEL: Record<string, string> = {
+    draft: 'Nháp',
+    approved: 'Đã duyệt',
+    published: 'Đã đăng',
+    partially_published: 'Đăng một phần',
+  };
+  const ROUTE_FOR_TYPE: Record<ContentType, (id: string) => string> = {
+    multichannel: (id) => `/multichannel/${id}`,
+    script: (id) => `/scripts/${id}`,
+    carousel: (id) => `/carousels/${id}`,
+    core: (id) => `/core-content/${id}`,
+    ad_copy: (id) => `/ad-copies/${id}`,
+  };
 
   const overview = useReportOverview(organizationId, filters);
   const content = useContentReport(organizationId, filters);
