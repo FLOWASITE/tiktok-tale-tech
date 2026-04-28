@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon } from 'lucide-react';
+import { ContentTypeBadge, type ContentType, CONTENT_TYPE_LABELS } from '@/components/reports/ContentTypeBadge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
 } from 'recharts';
@@ -36,6 +39,21 @@ export default function Reports() {
   const { filters, updateFilters, resetFilters, setPresetRange, organizationId } = useReportFilters();
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
+  const [contentTypeFilter, setContentTypeFilter] = useState<ContentType | 'all'>('all');
+
+  const STATUS_LABEL: Record<string, string> = {
+    draft: 'Nháp',
+    approved: 'Đã duyệt',
+    published: 'Đã đăng',
+    partially_published: 'Đăng một phần',
+  };
+  const ROUTE_FOR_TYPE: Record<ContentType, (id: string) => string> = {
+    multichannel: (id) => `/multichannel/${id}`,
+    script: (id) => `/scripts/${id}`,
+    carousel: (id) => `/carousels/${id}`,
+    core: (id) => `/core-content/${id}`,
+    ad_copy: (id) => `/ad-copies/${id}`,
+  };
 
   const overview = useReportOverview(organizationId, filters);
   const content = useContentReport(organizationId, filters);
@@ -220,6 +238,66 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="content" className="space-y-4">
+            {/* KPI cards riêng cho tab Nội dung */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatCard
+                label="Tổng nội dung"
+                value={content.data?.total ?? 0}
+                hint={`${content.data?.byType.length ?? 0} loại`}
+                loading={content.isLoading}
+              />
+              <StatCard
+                label="Đã duyệt"
+                value={content.data?.funnel.approved ?? 0}
+                tone="positive"
+                loading={content.isLoading}
+              />
+              <StatCard
+                label="Đã đăng"
+                value={content.data?.funnel.published ?? 0}
+                tone="positive"
+                loading={content.isLoading}
+              />
+              <StatCard
+                label="Tỷ lệ duyệt"
+                value={`${
+                  content.data && content.data.total > 0
+                    ? Math.round((content.data.funnel.approved / content.data.total) * 100)
+                    : 0
+                }%`}
+                hint="Approved / Tổng"
+                loading={content.isLoading}
+              />
+            </div>
+
+            {/* Stacked bar: loại × trạng thái */}
+            <Card className="p-4">
+              <h3 className="mb-3 text-sm font-medium">Loại nội dung × trạng thái</h3>
+              {!content.data?.byTypeStatus.length ? (
+                <EmptyReportState />
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={content.data.byTypeStatus}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="typeLabel" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <Bar dataKey="draft" stackId="s" fill="hsl(var(--muted-foreground))" name="Nháp" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="approved" stackId="s" fill="hsl(var(--primary))" name="Đã duyệt" />
+                    <Bar dataKey="partially_published" stackId="s" fill="hsl(38 92% 50%)" name="Đăng một phần" />
+                    <Bar dataKey="published" stackId="s" fill="hsl(142 76% 36%)" name="Đã đăng" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
+
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="p-4">
                 <h3 className="mb-3 text-sm font-medium">Theo channel</h3>
@@ -250,46 +328,171 @@ export default function Reports() {
                 {!content.data?.byBrand.length ? (
                   <EmptyReportState />
                 ) : (
-                  <ul className="space-y-2">
-                    {content.data.byBrand.slice(0, 8).map((b) => (
-                      <li key={b.brand} className="flex items-center justify-between text-sm">
-                        <span className="truncate">{b.brand}</span>
-                        <Badge variant="secondary">{b.count}</Badge>
-                      </li>
-                    ))}
+                  <ul className="space-y-2.5">
+                    {content.data.byBrand.slice(0, 8).map((b) => {
+                      const max = content.data!.byBrand[0].count;
+                      const pct = max > 0 ? (b.count / max) * 100 : 0;
+                      return (
+                        <li key={b.brand} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="truncate">{b.brand}</span>
+                            <Badge variant="secondary">{b.count}</Badge>
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </Card>
             </div>
 
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Top topics */}
+              <Card className="p-4">
+                <h3 className="mb-3 text-sm font-medium">Top chủ đề</h3>
+                {!content.data?.topTopics.length ? (
+                  <EmptyReportState description="Chưa có chủ đề nào trong khoảng này." />
+                ) : (
+                  <ol className="space-y-2">
+                    {content.data.topTopics.map((t, i) => (
+                      <li key={t.topic} className="flex items-center justify-between gap-3 text-sm">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                            {i + 1}
+                          </span>
+                          <span className="truncate">{t.topic}</span>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0">{t.count}</Badge>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </Card>
+
+              {/* Funnel */}
+              <Card className="p-4">
+                <h3 className="mb-3 text-sm font-medium">Funnel chuyển đổi</h3>
+                {!content.data || content.data.total === 0 ? (
+                  <EmptyReportState />
+                ) : (
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Đã tạo', value: content.data.funnel.created, icon: FileTextIcon, base: content.data.funnel.created },
+                      { label: 'Đã duyệt', value: content.data.funnel.approved, icon: CheckCircle2, base: content.data.funnel.created },
+                      { label: 'Đã đăng', value: content.data.funnel.published, icon: Send, base: content.data.funnel.created },
+                    ].map((step) => {
+                      const pct = step.base > 0 ? Math.round((step.value / step.base) * 100) : 0;
+                      const Icon = step.icon;
+                      return (
+                        <div key={step.label} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{step.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="tabular-nums font-medium">{step.value.toLocaleString()}</span>
+                              <span className="text-xs text-muted-foreground">{pct}%</span>
+                            </div>
+                          </div>
+                          <Progress value={pct} className="h-2" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Bảng chi tiết với filter */}
             <Card>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+                <h3 className="text-sm font-medium">Chi tiết nội dung</h3>
+                <Select value={contentTypeFilter} onValueChange={(v) => setContentTypeFilter(v as ContentType | 'all')}>
+                  <SelectTrigger className="h-8 w-[180px]">
+                    <SelectValue placeholder="Tất cả loại" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả loại</SelectItem>
+                    {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {CONTENT_TYPE_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Loại</TableHead>
                     <TableHead>Tiêu đề</TableHead>
+                    <TableHead>Brand</TableHead>
+                    <TableHead>Trạng thái</TableHead>
                     <TableHead>Channels</TableHead>
                     <TableHead>Ngày tạo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(content.data?.rows ?? []).slice(0, 50).map((r) => (
-                    <TableRow key={r.id} className="cursor-pointer" onClick={() => navigate(`/multichannel/${r.id}`)}>
-                      <TableCell className="max-w-md truncate font-medium">{r.title}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {r.channels.slice(0, 4).map((c) => (
-                            <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
-                          ))}
-                          {r.channels.length > 4 && <span className="text-xs text-muted-foreground">+{r.channels.length - 4}</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(r.created_at), 'dd/MM/yy HH:mm', { locale: vi })}
+                  {(content.data?.rows ?? [])
+                    .filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
+                    .slice(0, 100)
+                    .map((r) => (
+                      <TableRow
+                        key={`${r.type}-${r.id}`}
+                        className="cursor-pointer"
+                        onClick={() => navigate(ROUTE_FOR_TYPE[r.type](r.id))}
+                      >
+                        <TableCell><ContentTypeBadge type={r.type} /></TableCell>
+                        <TableCell className="max-w-md truncate font-medium">{r.title}</TableCell>
+                        <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">
+                          {r.brand_name ?? '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              r.status === 'published'
+                                ? 'default'
+                                : r.status === 'partially_published'
+                                ? 'secondary'
+                                : r.status === 'approved'
+                                ? 'outline'
+                                : 'secondary'
+                            }
+                            className="font-normal"
+                          >
+                            {STATUS_LABEL[r.status] ?? r.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {r.channels.length === 0 ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {r.channels.slice(0, 3).map((c) => (
+                                <Badge key={c} variant="outline" className="text-xs font-normal">
+                                  {c}
+                                </Badge>
+                              ))}
+                              {r.channels.length > 3 && (
+                                <span className="text-xs text-muted-foreground">+{r.channels.length - 3}</span>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {format(new Date(r.created_at), 'dd/MM/yy HH:mm', { locale: vi })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  {(content.data?.rows ?? []).filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
+                    .length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                        Không có nội dung trong khoảng này.
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {(content.data?.rows ?? []).length === 0 && (
-                    <TableRow><TableCell colSpan={3} className="py-6 text-center text-sm text-muted-foreground">Không có nội dung trong khoảng này.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

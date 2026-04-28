@@ -1,157 +1,127 @@
-# Phân hệ Báo cáo (Workspace Reports)
+# Hoàn thiện Tab Nội dung trong Báo cáo
 
-Báo cáo cho user trong workspace, phủ 3 mảng: Content output, Publishing performance, Social Engagement. Có cron sync 6h, AI Insights tự động và Export PDF/CSV.
+## Hiện trạng
 
-## 1. Tổng quan tính năng
+Tab Nội dung mới chỉ đọc `multi_channel_contents` và hiển thị:
 
-**Route mới:** `/reports` (user) trong app, có sub-tabs:
-- **Tổng quan** — KPI cards + biểu đồ tổng hợp
-- **Nội dung** — đã tạo, theo channel/brand/campaign
-- **Publishing** — đã đăng, success/fail, theo platform
-- **Engagement** — reach/likes/comments/shares từ social
-- **Quảng cáo** — aggregate từ ad_copy_performance (đã có sẵn)
-- **AI Insights** — phân tích & gợi ý
+- Bar chart theo channel
+- List top brand
+- Bảng tiêu đề (50 dòng)
 
-**Filter toàn cục (sticky header):** Date range (default 30 ngày), Brand, Campaign, Channel/Platform.
+Thiếu rất nhiều dữ liệu giá trị: scripts video, carousels, core_contents, ad_copies, trạng thái duyệt/publish, top topic, funnel chuyển đổi.
 
-**Export:** PDF có brand logo + CSV data thô — nút ngay góc phải header.
+## Mục tiêu
 
-## 2. Dữ liệu nguồn (đã có trong DB)
+Biến tab Nội dung thành tổng quan toàn diện về **mọi loại tài sản nội dung** workspace tạo trong khoảng thời gian, với insight có thể hành động (loại nào nhiều nhất, tỷ lệ approve, topic nào lặp lại).
 
-| Mảng | Bảng | Ghi chú |
-|---|---|---|
-| Content | `multi_channel_contents`, `scripts`, `carousels`, `core_contents` | Group theo `created_at`, `channel`, `brand_template_id`, `campaign_id` |
-| Publishing | `content_publishing_logs`, `publish_attempts` | Status: published/failed; group theo `channel` |
-| Engagement | `social_post_engagements` | Đã có FB webhook; cần mở rộng sang IG/LinkedIn/TikTok/X |
-| Ad | `ad_copy_performance` (+ auto-sync sẵn) | Aggregate cross-campaign |
-| Usage/Cost | `usage_logs`, `ai_metrics` | Quota visualization |
+## Phạm vi dữ liệu
 
-## 3. Bảng mới cần tạo
+Aggregate 5 nguồn (cùng filter `organization_id`, `brand_template_id`, `created_at` range):
 
-### `social_post_metrics` — snapshot insights từ platform APIs
-```
-id, organization_id, brand_template_id, connection_id,
-platform, post_id, content_id (nullable),
-snapshot_at, reach, impressions, likes, comments, shares, saves,
-video_views, link_clicks, raw jsonb,
-unique(connection_id, post_id, snapshot_at::date)
-```
-RLS: org members read, service role insert/update.
+- `multi_channel_contents` — multi-channel posts
+- `scripts` — video scripts
+- `carousels` — carousel slides
+- `ad_copies` — ad copy variants
 
-### `report_sync_state` — track cron sync
-```
-id, organization_id, connection_id, platform,
-last_synced_at, last_status, error_message, posts_synced
-```
+## Layout mới của Tab Nội dung
 
-### `saved_reports` (V1.5, optional) — user lưu cấu hình filter
-Bỏ qua nếu không cần V1.
-
-## 4. Edge functions mới
-
-### `sync-social-engagement` (cron 6h)
-- Trigger qua pg_cron mỗi 6h
-- Loop qua `social_connections` còn token hợp lệ
-- Mỗi platform có module riêng (`fb.ts`, `ig.ts`, `linkedin.ts`, `tiktok.ts`, `x.ts`)
-- Lấy posts trong 30 ngày gần nhất → fetch insights → upsert `social_post_metrics`
-- Background persistence pattern (ghi DB ngay cả khi disconnect)
-- Skip platform nếu token expired (đã có `refresh-*-token` xử lý song song)
-
-### `generate-report-insights`
-- Input: `{ date_range, brand_id?, campaign_id? }`
-- Aggregate metrics từ DB → gửi vào Lovable AI Gateway (Gemini 2.5 Flash)
-- Prompt tiếng Việt: phân tích trend, top channel, suggest action
-- Cache kết quả 1h trong `ai_response_cache` (đã có infra)
-
-### `export-report` (PDF + CSV)
-- Input: `{ format: 'pdf'|'csv', filters, sections[] }`
-- PDF: dùng pdf-lib (Deno) hoặc render server-side qua HTML→PDF với puppeteer-lite. Lựa chọn an toàn: tạo HTML có brand logo + chart SVG, dùng `@react-pdf/renderer` ở client (đơn giản hơn, không cần edge function). **Khuyến nghị: làm client-side trước với jsPDF + html2canvas** cho V1, server-side để V2.
-- CSV: client-side blob download (đã có pattern trong `AdCopyAnalyticsDashboard`)
-
-## 5. Frontend
-
-### Cấu trúc file
-```
-src/pages/Reports.tsx                          # entry, sub-tabs
-src/components/reports/
-  ReportFilters.tsx                            # sticky header filter
-  ReportExportMenu.tsx                         # PDF + CSV dropdown
-  overview/OverviewSection.tsx
-  overview/KPICards.tsx                        # 4-6 stat cards
-  overview/TrendChart.tsx                      # area chart 30d
-  content/ContentReport.tsx                    # by channel + brand
-  publishing/PublishingReport.tsx              # success/fail funnel
-  engagement/EngagementReport.tsx              # platform tabs + post table
-  ads/AdsReport.tsx                            # reuse AdCopyAnalyticsDashboard pattern
-  insights/AIInsightsReport.tsx                # cards + refresh
-  shared/EmptyReportState.tsx
-  shared/ReportSkeleton.tsx
-src/hooks/reports/
-  useReportFilters.ts                          # url-state + brand/campaign awareness
-  useContentReport.ts
-  usePublishingReport.ts
-  useEngagementReport.ts
-  useReportInsights.ts
-  useReportExport.ts
-src/lib/reports/
-  aggregators.ts                               # group/sum helpers
-  pdfBuilder.ts                                # client PDF generation
-  csvBuilder.ts
+```text
+┌─────────────────────────────────────────────────────────┐
+│ [4 KPI cards]                                           │
+│ Tổng nội dung │ Đã duyệt │ Đã publish │ Tỷ lệ duyệt    │
+├─────────────────────────────────────────────────────────┤
+│ [Stacked Bar: Theo loại × trạng thái]                   │
+│  multichannel/script/carousel/core/ad_copy              │
+│  draft / approved / published / partially_published     │
+├──────────────────────────┬──────────────────────────────┤
+│ Theo channel (bar)       │ Theo brand (list + bar)      │
+├──────────────────────────┼──────────────────────────────┤
+│ Top 10 topics (list)     │ Funnel: Tạo→Duyệt→Publish    │
+├──────────────────────────┴──────────────────────────────┤
+│ Bảng chi tiết (filter theo loại) — Loại │ Tiêu đề │     │
+│ Brand │ Trạng thái │ Channels │ Ngày tạo │ →           │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Navigation
-- Thêm menu item "Báo cáo" (icon `BarChart3`) vào sidebar chính, sau "Campaigns"
-- Bảo vệ bằng `<ProtectedRoute>` + `<AppLayout>`
-- Filter respect `currentOrganization.id` + `BrandContext` (theo Core memory: strict UI filtering)
+## Thay đổi kỹ thuật
 
-### Visual
-- Tuân Soft Luxury: neutral gray accents, no emoji, dùng `ChannelIcon` SVG cho platform
-- Reuse `recharts` (đã có), chart cards dùng same style như `CampaignAnalyticsDashboard`
-- Loading: skeleton; Empty: friendly CTA (vd "Chưa có post nào — bắt đầu xuất bản")
+### 1. `src/hooks/reports/useContentReport.ts` (rewrite)
 
-## 6. Cron setup
+Mở rộng `ContentReportData`:
 
-```sql
-SELECT cron.schedule(
-  'sync-social-engagement-6h',
-  '0 */6 * * *',
-  $$ SELECT net.http_post(
-    url:='https://rllyipiyuptkibqinotz.supabase.co/functions/v1/sync-social-engagement',
-    headers:='{"Content-Type":"application/json","apikey":"<ANON>"}'::jsonb,
-    body:='{}'::jsonb
-  ); $$
-);
+```typescript
+{
+  total: number;
+  byType: { type: 'multichannel'|'script'|'carousel'|'core'|'ad_copy'; count: number }[];
+  byStatus: { status: string; count: number }[];
+  byTypeStatus: { type: string; draft: number; approved: number; published: number; partially_published: number }[];
+  byChannel: { channel: string; count: number }[];
+  byBrand: { brand: string; count: number }[];
+  byDay: { date: string; value: number }[];
+  topTopics: { topic: string; count: number }[];        // NEW — group case-insensitive
+  funnel: { created: number; approved: number; published: number };  // NEW
+  rows: {
+    id: string;
+    type: 'multichannel'|'script'|'carousel'|'core'|'ad_copy';
+    title: string;
+    topic: string | null;
+    status: string;
+    channels: string[];
+    brand_id: string | null;
+    brand_name?: string;
+    created_at: string;
+  }[];
+}
 ```
-(Chạy bằng insert tool sau khi function deploy.)
 
-## 7. Phân pha triển khai
+Thực hiện 5 query song song bằng `Promise.all`, mỗi loại trả về row chuẩn hóa kèm `type`. Mỗi query gắn filter `brand_template_id`/`channel` (channel chỉ áp dụng cho `multichannel`). Lấy brand_name một lần qua `.in('id', brandIds)`.
 
-**Phase 1 (V1 — core):**
-1. Migration: tạo `social_post_metrics`, `report_sync_state` + RLS
-2. Trang `/reports` + tab Tổng quan + tab Nội dung + tab Publishing (chỉ DB nội bộ)
-3. Filter + Export CSV
-4. Sidebar entry
+Funnel logic:
 
-**Phase 2 (V1.1 — engagement):**
-5. Edge function `sync-social-engagement` (FB + IG trước, LinkedIn/TikTok/X sau)
-6. Cron 6h
-7. Tab Engagement + tab Ads (reuse component)
+- `created` = total
+- `approved` = status ∈ {approved, published, partially_published}
+- `published` = status ∈ {published, partially_published}
 
-**Phase 3 (V1.2 — AI + PDF):**
-8. Edge function `generate-report-insights` + AI Insights tab
-9. Export PDF (client-side jsPDF)
-10. i18n strings (vi/en/th)
+Top topics: lowercase + trim, group, sort desc, limit 10.
 
-## 8. Rủi ro & lưu ý
+### 2. `src/lib/reports/aggregators.ts`
 
-- **API quota từng platform:** sync 6h × số connection có thể hit limit IG/LinkedIn. Mitigate: rate-limit per platform, skip nếu fail liên tiếp 3 lần
-- **Token expired:** đã có `automated-token-refresh-system` chạy 30min, sync function chỉ skip + log
-- **PDF performance:** client-side jsPDF OK với <50 charts. Nếu nặng, chuyển server-side V2
-- **AI Insights cost:** cache 1h + chỉ regenerate khi user bấm refresh
-- **Không vi phạm RLS:** tất cả query filter `organization_id = currentOrganization.id` ở cả frontend + DB
+Bổ sung helper `groupByTypeStatus(rows)` trả về dữ liệu cho stacked bar.
 
-## 9. Câu hỏi mở (có thể quyết khi build)
+### 3. `src/components/reports/ContentTypeBadge.tsx` (new)
 
-- Tab Ads: reuse `AdCopyAnalyticsDashboard` thẳng hay wrap lại với filter chung? → Khuyến nghị wrap để đồng nhất filter
-- AI Insights nên auto-generate khi vào trang hay chỉ khi user bấm? → Auto-load (cache 1h) + nút refresh
-- Báo cáo per-brand hay per-workspace? → Per-workspace, brand là filter optional
+Badge nhỏ với màu/icon riêng cho mỗi loại (multichannel/script/carousel/core/ad_copy) — giữ Soft Luxury (neutral gray + accent nhẹ).
+
+### 4. `src/pages/Reports.tsx` — rewrite `<TabsContent value="content">`
+
+- Thêm 4 StatCard riêng cho tab.
+- Stacked BarChart (recharts) cho byTypeStatus.
+- Card "Top topics" + Card "Funnel" (3 step với % conversion).
+- Bảng chi tiết: thêm cột Loại (ContentTypeBadge), cột Trạng thái (Badge), cột Brand. Click row → route đúng theo loại:
+  - multichannel → `/multichannel/:id`
+  - script → `/scripts/:id`
+  - carousel → `/carousels/:id`
+  - core → `/core-content/:id`
+  - ad_copy → `/ad-copies/:id`
+- Filter dropdown nhỏ phía trên bảng để lọc theo loại (all/multichannel/script/carousel/core/ad_copy).
+
+### 5. `src/lib/reports/csvBuilder.ts` & `pdfBuilder.ts`
+
+Cập nhật để CSV/PDF export tab Nội dung bao gồm cột mới (Loại, Trạng thái, Brand) và section Funnel + Top topics trong PDF.
+
+## Lưu ý
+
+- Giữ `limit(1000)` mỗi query (Supabase default cap) — đủ cho range thông thường; nếu vượt sẽ có notice nhỏ.
+- Tôn trọng `currentOrganization.id` filter (multi-tenancy core rule).
+- Không thay đổi schema, không cần migration.
+- Dùng semantic tokens (`bg-primary`, `text-muted-foreground`), không raw colors.
+- ChannelIcon SVG (không emoji) khi hiển thị channel.
+
+## Files dự kiến
+
+- **edited**: `src/hooks/reports/useContentReport.ts`
+- **edited**: `src/pages/Reports.tsx`
+- **edited**: `src/lib/reports/aggregators.ts`
+- **edited**: `src/lib/reports/csvBuilder.ts`
+- **edited**: `src/lib/reports/pdfBuilder.ts`
+- **new**: `src/components/reports/ContentTypeBadge.tsx`
