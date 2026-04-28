@@ -131,39 +131,91 @@ export default function AdminStorageMemory() {
 /* ---------------- Storage Tab ---------------- */
 function StorageTab() {
   const qc = useQueryClient();
+  const [orgId, setOrgId] = useState<string>("all");
+  const orgsQ = useQuery({
+    queryKey: ["admin-storage-orgs"],
+    queryFn: () => call("list_organizations"),
+  });
+  const orgs: OrgOption[] = orgsQ.data?.organizations || [];
+  const selectedOrg = orgs.find((o) => o.id === orgId) || null;
+
   const overview = useQuery({
-    queryKey: ["admin-storage-overview"],
-    queryFn: () => call("get_overview"),
+    queryKey: ["admin-storage-overview", orgId],
+    queryFn: () => call("get_overview", orgId === "all" ? {} : { organization_id: orgId }),
   });
   const buckets: BucketSummary[] = overview.data?.buckets || [];
   const [activeBucket, setActiveBucket] = useState<string | null>(null);
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 flex items-center gap-3 flex-wrap">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Workspace</span>
+          <Select value={orgId} onValueChange={(v) => { setOrgId(v); setActiveBucket(null); }}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Chọn workspace..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả workspace</SelectItem>
+              {orgs.map((o) => (
+                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedOrg && (
+            <Badge variant="secondary" className="font-mono text-xs">{selectedOrg.slug}</Badge>
+          )}
+          <div className="ml-auto text-xs text-muted-foreground">
+            {orgId === "all"
+              ? "Đang xem tất cả file của hệ thống"
+              : "Đang lọc file thuộc workspace đã chọn"}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {overview.isLoading && <Card><CardContent className="p-6 text-sm text-muted-foreground">Đang tải...</CardContent></Card>}
-        {buckets.map((b) => (
-          <Card key={b.id} className={`cursor-pointer transition ${activeBucket === b.id ? "ring-2 ring-ring" : "hover:bg-muted/30"}`}
-            onClick={() => setActiveBucket(b.id)}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <HardDrive className="h-4 w-4" />{b.name}
-                </CardTitle>
-                <Badge variant={b.public ? "default" : "secondary"}>{b.public ? "Public" : "Private"}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Số file</span><span className="font-medium">{b.file_count}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Dung lượng</span><span className="font-medium">{fmtBytes(b.total_size)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Tạo lúc</span><span>{fmtTime(b.created_at)}</span></div>
-            </CardContent>
-          </Card>
-        ))}
+        {buckets.map((b) => {
+          const showOrg = orgId !== "all";
+          return (
+            <Card key={b.id} className={`cursor-pointer transition ${activeBucket === b.id ? "ring-2 ring-ring" : "hover:bg-muted/30"}`}
+              onClick={() => setActiveBucket(b.id)}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <HardDrive className="h-4 w-4" />{b.name}
+                  </CardTitle>
+                  <Badge variant={b.public ? "default" : "secondary"}>{b.public ? "Public" : "Private"}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {showOrg && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Của workspace</span>
+                      <span className="font-semibold text-primary">{b.org_file_count ?? 0} file • {fmtBytes(b.org_total_size ?? 0)}</span>
+                    </div>
+                    <div className="border-t my-1" />
+                  </>
+                )}
+                <div className="flex justify-between"><span className="text-muted-foreground">Tổng số file</span><span className="font-medium">{b.file_count}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tổng dung lượng</span><span className="font-medium">{fmtBytes(b.total_size)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tạo lúc</span><span>{fmtTime(b.created_at)}</span></div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {activeBucket && (
-        <BucketBrowser bucket={activeBucket} onClose={() => setActiveBucket(null)} onChanged={() => qc.invalidateQueries({ queryKey: ["admin-storage-overview"] })} />
+        <BucketBrowser
+          bucket={activeBucket}
+          organizationId={orgId === "all" ? null : orgId}
+          organizationName={selectedOrg?.name || null}
+          onClose={() => setActiveBucket(null)}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["admin-storage-overview"] })}
+        />
       )}
       {!activeBucket && buckets.length > 0 && (
         <div className="text-sm text-muted-foreground text-center py-4">Chọn 1 bucket ở trên để xem chi tiết file.</div>
@@ -172,7 +224,13 @@ function StorageTab() {
   );
 }
 
-function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose: () => void; onChanged: () => void }) {
+function BucketBrowser({ bucket, organizationId, organizationName, onClose, onChanged }: {
+  bucket: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"created_at" | "name">("created_at");
