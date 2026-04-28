@@ -169,15 +169,8 @@ export default function AdminStorageMemory() {
 }
 
 /* ---------------- Storage Tab ---------------- */
-function StorageTab() {
+function StorageTab({ orgId, selectedOrg }: { orgId: string; selectedOrg: OrgOption | null }) {
   const qc = useQueryClient();
-  const [orgId, setOrgId] = useState<string>("all");
-  const orgsQ = useQuery({
-    queryKey: ["admin-storage-orgs"],
-    queryFn: () => call("list_organizations"),
-  });
-  const orgs: OrgOption[] = orgsQ.data?.organizations || [];
-  const selectedOrg = orgs.find((o) => o.id === orgId) || null;
 
   const overview = useQuery({
     queryKey: ["admin-storage-overview", orgId],
@@ -188,31 +181,11 @@ function StorageTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3 flex-wrap">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Workspace</span>
-          <Select value={orgId} onValueChange={(v) => { setOrgId(v); setActiveBucket(null); }}>
-            <SelectTrigger className="w-[280px]">
-              <SelectValue placeholder="Chọn workspace..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả workspace</SelectItem>
-              {orgs.map((o) => (
-                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedOrg && (
-            <Badge variant="secondary" className="font-mono text-xs">{selectedOrg.slug}</Badge>
-          )}
-          <div className="ml-auto text-xs text-muted-foreground">
-            {orgId === "all"
-              ? "Đang xem tất cả file của hệ thống"
-              : "Đang lọc file thuộc workspace đã chọn"}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="text-xs text-muted-foreground">
+        {orgId === "all"
+          ? "Đang xem tất cả file của hệ thống"
+          : `Đang lọc file thuộc workspace: ${selectedOrg?.name || orgId}`}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {overview.isLoading && <Card><CardContent className="p-6 text-sm text-muted-foreground">Đang tải...</CardContent></Card>}
