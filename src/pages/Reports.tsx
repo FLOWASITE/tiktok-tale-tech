@@ -640,9 +640,9 @@ export default function Reports() {
             <EngagementDateRangeControl
               range={engagementRange}
               bucket={engagementBucket}
-              onRangeChange={(r) => {
+              onRangeChange={(r, bucketHint) => {
                 setEngagementOverride(r);
-                setEngagementBucket(suggestBucket(r.from, r.to));
+                setEngagementBucket(bucketHint ?? suggestBucket(r.from, r.to));
               }}
               onBucketChange={setEngagementBucket}
               onSyncWithGlobal={() => {
