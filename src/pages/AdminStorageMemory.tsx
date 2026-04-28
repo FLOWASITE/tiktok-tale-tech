@@ -22,7 +22,7 @@ import {
 import {
   HardDrive, Database, Trash2, RefreshCw, Search, Eye, ExternalLink, Download,
   AlertTriangle, FileWarning, Clock, ArrowDown, ArrowUp, Image as ImageIcon, FileText,
-  Sparkles, Calendar,
+  Sparkles, Calendar, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
