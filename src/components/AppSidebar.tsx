@@ -306,6 +306,7 @@ export function AppSidebar() {
     { title: 'Help Articles', titleKey: 'app.sidebar.adminHelp', url: '/admin/help-articles', icon: BookOpen },
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
     { title: 'Edge Functions', titleKey: 'app.sidebar.adminEdgeFunctions', url: '/admin/edge-functions', icon: Zap },
+    { title: 'Cron Monitor', titleKey: 'app.sidebar.adminCronMonitor', url: '/admin/cron-monitor', icon: Clock },
     { title: 'Quản lý gói', titleKey: 'app.sidebar.adminPlans', url: '/admin/plans', icon: Package },
   ];
 
