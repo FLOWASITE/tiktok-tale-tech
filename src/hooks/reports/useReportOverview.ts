@@ -45,14 +45,6 @@ export function useReportOverview(orgId: string | null, filters: ReportFilters) 
         .gte('created_at', prevFrom.toISOString())
         .lte('created_at', prevTo.toISOString());
 
-      // Content created (previous period) for delta
-      const { count: prevContentCount } = await supabase
-        .from('multi_channel_contents')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId!)
-        .gte('created_at', prevFrom.toISOString())
-        .lte('created_at', prevTo.toISOString());
-
       // Publishing logs
       let pQ = supabase
         .from('content_publishing_logs')
@@ -78,12 +70,15 @@ export function useReportOverview(orgId: string | null, filters: ReportFilters) 
         .gte('created_at', filters.dateFrom.toISOString())
         .lte('created_at', filters.dateTo.toISOString());
 
-      const publishedCount = (pubRows ?? []).filter((r) => r.action === 'published').length;
-      const failedCount = (pubRows ?? []).filter((r) => r.action === 'failed').length;
-      const prevPublishedCount = (prevPubRows ?? []).filter((r) => r.action === 'published').length;
+      const publishedCount = (pubRows ?? []).filter((r: any) => r.action === 'published').length;
+      const failedCount = (pubRows ?? []).filter((r: any) => r.action === 'failed').length;
+      const prevPublishedCount = (prevPubRows ?? []).filter((r: any) => r.action === 'published').length;
 
       const channels = new Set<string>();
-      for (const r of contentRows ?? []) if (r.channel) channels.add(r.channel as string);
+      for (const r of (contentRows ?? []) as any[]) {
+        const sc = r.selected_channels as string[] | null;
+        if (sc) for (const c of sc) channels.add(c);
+      }
 
       return {
         contentCreated: contentCount ?? 0,
