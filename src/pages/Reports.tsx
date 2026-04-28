@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
 } from 'recharts';
@@ -10,15 +10,23 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ReportFiltersBar } from '@/components/reports/ReportFiltersBar';
 import { StatCard } from '@/components/reports/StatCard';
 import { EmptyReportState } from '@/components/reports/EmptyReportState';
+import { AIInsightsPanel } from '@/components/reports/AIInsightsPanel';
 import { useReportFilters } from '@/hooks/reports/useReportFilters';
 import { useReportOverview } from '@/hooks/reports/useReportOverview';
 import { useContentReport } from '@/hooks/reports/useContentReport';
 import { usePublishingReport } from '@/hooks/reports/usePublishingReport';
 import { useEngagementReport, useTriggerEngagementSync } from '@/hooks/reports/useEngagementReport';
+import { useReportInsights } from '@/hooks/reports/useReportInsights';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { buildCsv, downloadCsv } from '@/lib/reports/csvBuilder';
+import { downloadReportPdf } from '@/lib/reports/pdfBuilder';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -26,12 +34,28 @@ import { toast } from 'sonner';
 export default function Reports() {
   const navigate = useNavigate();
   const { filters, updateFilters, resetFilters, setPresetRange, organizationId } = useReportFilters();
+  const { currentOrganization } = useOrganizationContext();
+  const { currentBrand } = useCurrentBrand();
 
   const overview = useReportOverview(organizationId, filters);
   const content = useContentReport(organizationId, filters);
   const publishing = usePublishingReport(organizationId, filters);
   const engagement = useEngagementReport(organizationId, filters);
   const triggerSync = useTriggerEngagementSync(organizationId);
+
+  const insightsArgs = useMemo(() => {
+    if (!organizationId || !overview.data || !engagement.data || !content.data) return null;
+    return {
+      organizationId,
+      filters,
+      brandName: currentBrand?.brand_name ?? null,
+      overview: overview.data,
+      engagement: engagement.data,
+      content: content.data,
+    };
+  }, [organizationId, overview.data, engagement.data, content.data, filters, currentBrand?.brand_name]);
+
+  const insights = useReportInsights(insightsArgs);
 
   const overviewSeries = useMemo(() => {
     const c = content.data?.byDay ?? [];
@@ -52,6 +76,24 @@ export default function Reports() {
     const rows = overviewSeries.map((r) => [r.date, r.created, r.published, r.failed]);
     const csv = buildCsv(headers, rows);
     downloadCsv(`bao-cao-${filters.dateFrom.toISOString().slice(0, 10)}_${filters.dateTo.toISOString().slice(0, 10)}.csv`, csv);
+  };
+
+  const handleExportPdf = () => {
+    try {
+      downloadReportPdf({
+        filters,
+        workspaceName: currentOrganization?.name,
+        brandName: currentBrand?.brand_name ?? null,
+        overview: overview.data,
+        content: content.data,
+        publishing: publishing.data,
+        engagement: engagement.data,
+        insights: insights.data,
+      }, `bao-cao-${filters.dateFrom.toISOString().slice(0, 10)}_${filters.dateTo.toISOString().slice(0, 10)}.pdf`);
+      toast.success('Đã xuất PDF');
+    } catch (e) {
+      toast.error(`Lỗi xuất PDF: ${(e as Error).message}`);
+    }
   };
 
   if (!organizationId) {
@@ -75,9 +117,21 @@ export default function Reports() {
             <BarChart3 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold tracking-tight">Báo cáo</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExportCsv}>
-            <Download className="mr-2 h-4 w-4" /> Xuất CSV
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" /> Xuất báo cáo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportPdf}>
+                <FileDown className="mr-2 h-4 w-4" /> PDF (đầy đủ)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportCsv}>
+                <Download className="mr-2 h-4 w-4" /> CSV (dữ liệu thô)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <ReportFiltersBar
@@ -122,6 +176,10 @@ export default function Reports() {
             <TabsTrigger value="content">Nội dung</TabsTrigger>
             <TabsTrigger value="publishing">Publishing</TabsTrigger>
             <TabsTrigger value="engagement">Engagement</TabsTrigger>
+            <TabsTrigger value="insights" className="gap-1">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Insights
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -405,6 +463,16 @@ export default function Reports() {
                 </TableBody>
               </Table>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="insights" className="space-y-4">
+            <AIInsightsPanel
+              data={insights.data}
+              isLoading={insights.isLoading}
+              isRefreshing={insights.isRefreshing}
+              error={insights.error}
+              onRefresh={() => insights.refresh()}
+            />
           </TabsContent>
         </Tabs>
       </div>
