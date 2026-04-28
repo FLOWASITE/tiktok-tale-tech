@@ -349,3 +349,6 @@ verify_jwt = false
 
 [functions.cleanup-old-media]
 verify_jwt = false
+
+[functions.admin-storage-manager]
+verify_jwt = false
