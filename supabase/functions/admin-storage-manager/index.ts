@@ -237,6 +237,29 @@ Deno.serve(async (req) => {
   }
 });
 
+async function listWithRetry(svc: any, bucket: string, prefix: string, offset: number, retries = 3): Promise<any> {
+  let lastErr: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const { data, error } = await svc.storage.from(bucket).list(prefix, {
+        limit: 1000, offset, sortBy: { column: "created_at", order: "desc" },
+      });
+      if (error) throw error;
+      return data;
+    } catch (e: any) {
+      lastErr = e;
+      const status = e?.status || e?.statusCode;
+      // Retry on transient gateway errors
+      if (status === 502 || status === 503 || status === 504 || status === 429) {
+        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
 async function deepListBucket(svc: any, bucket: string): Promise<any[]> {
   // Recursive deep listing — handles >1000 files & nested folders
   const result: any[] = [];
@@ -248,10 +271,7 @@ async function deepListBucket(svc: any, bucket: string): Promise<any[]> {
     visited.add(prefix);
     let offset = 0;
     while (true) {
-      const { data, error } = await svc.storage.from(bucket).list(prefix, {
-        limit: 1000, offset, sortBy: { column: "created_at", order: "desc" },
-      });
-      if (error) throw error;
+      const data = await listWithRetry(svc, bucket, prefix, offset);
       if (!data || data.length === 0) break;
       for (const item of data) {
         if (item.id === null) {
