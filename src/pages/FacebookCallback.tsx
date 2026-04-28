@@ -126,6 +126,21 @@ export default function FacebookCallback() {
     }
   };
 
+  const handleReauthorize = () => {
+    // Close this picker tab; the parent window keeps the polling open and the
+    // user can simply re-click "Thêm Fanpage khác" — but as a convenience we
+    // tell them what to do in Facebook UI.
+    toast({
+      title: 'Mở Facebook để cấp quyền thêm Page',
+      description:
+        'Vào Facebook → Settings → Business Integrations → chọn app → "Edit settings" và bật các Page bạn muốn thêm. Sau đó quay lại bấm "Thêm Fanpage khác".',
+    });
+    goBack();
+  };
+
+  const allAlreadyConnected =
+    pages.length > 0 && pages.every((p) => connectedIds.includes(p.id) || justAttached.includes(p.id));
+
   const renderPicker = () => (
     <Card className="w-full max-w-xl">
       <CardHeader className="text-center">
@@ -141,6 +156,31 @@ export default function FacebookCallback() {
         {pages.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-6">
             Tài khoản của bạn không quản lý Page nào.
+          </div>
+        )}
+
+        {allAlreadyConnected && justAttached.length === 0 && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-2">
+            <p className="font-medium">Tất cả Page Facebook trả về đã được kết nối.</p>
+            <p>
+              Facebook chỉ trả về các Page bạn đã cấp quyền cho ứng dụng. Để thêm Page mới, hãy vào{' '}
+              <strong>Facebook → Settings & privacy → Settings → Business Integrations</strong>, chọn ứng
+              dụng Flowa và bấm <strong>"Edit settings"</strong> để bật thêm Page, sau đó kết nối lại.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-1"
+              onClick={() =>
+                window.open(
+                  'https://www.facebook.com/settings?tab=business_tools',
+                  '_blank',
+                  'noopener'
+                )
+              }
+            >
+              Mở Facebook Settings
+            </Button>
           </div>
         )}
 
@@ -195,8 +235,8 @@ export default function FacebookCallback() {
         </div>
 
         <div className="flex gap-2 pt-3 border-t">
-          <Button variant="outline" onClick={goBack} className="flex-1">
-            Hủy
+          <Button variant="outline" onClick={handleReauthorize} className="flex-1">
+            Cấp quyền thêm Page
           </Button>
           <Button onClick={goBack} className="flex-1" disabled={!!attaching}>
             {justAttached.length > 0 ? `Hoàn tất (${justAttached.length})` : 'Xong'}
