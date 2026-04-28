@@ -268,6 +268,9 @@ export function DirectPublishButton({
         case 'zalo_oa':
           result = await publishToZaloOA(publishOptions);
           break;
+        case 'google_business':
+          result = await publishToGoogleBusiness(publishOptions);
+          break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
           return;
