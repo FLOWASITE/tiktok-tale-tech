@@ -1275,6 +1275,63 @@ function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: 
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa file chưa gắn workspace</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div className="text-sm text-destructive">
+                  ⚠️ Hành động KHÔNG THỂ HOÀN TÁC. File chưa gắn workspace có thể là dữ liệu của carousel/content vừa tạo nhưng resolver chưa kịp map (background task đang chạy).
+                </div>
+                {previewing && (
+                  <div className="text-sm text-muted-foreground">Đang quét toàn bộ buckets…</div>
+                )}
+                {preview && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-foreground">
+                      Tổng: {preview.count?.toLocaleString() ?? 0} file · {fmtBytes(preview.total_bytes ?? 0)}
+                    </div>
+                    <div className="border rounded max-h-64 overflow-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/50 sticky top-0">
+                          <tr>
+                            <th className="text-left px-3 py-2">Bucket</th>
+                            <th className="text-right px-3 py-2">File</th>
+                            <th className="text-right px-3 py-2">Dung lượng</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(preview.per_bucket || {})
+                            .sort((a: any, b: any) => b[1].bytes - a[1].bytes)
+                            .map(([b, v]: any) => (
+                              <tr key={b} className="border-t">
+                                <td className="px-3 py-1.5 font-mono">{b}</td>
+                                <td className="px-3 py-1.5 text-right">{v.count.toLocaleString()}</td>
+                                <td className="px-3 py-1.5 text-right">{fmtBytes(v.bytes)}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting || previewing || !preview?.count}
+              onClick={(e) => { e.preventDefault(); doCleanup(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Đang xóa…" : `Xác nhận xóa ${preview?.count ?? 0} file`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
