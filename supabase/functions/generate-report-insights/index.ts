@@ -109,17 +109,18 @@ Deno.serve(async (req) => {
 
     // Check cache (1h TTL)
     const cacheKey = `report-insights:${organizationId}:${brandId ?? "all"}:${dateFrom}:${dateTo}`;
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const inputHash = cacheKey;
+    const nowIso = new Date().toISOString();
     const { data: cached } = await serviceClient
       .from("ai_response_cache")
-      .select("response, created_at")
+      .select("response_data, created_at, expires_at")
       .eq("cache_key", cacheKey)
-      .gte("created_at", oneHourAgo)
+      .gt("expires_at", nowIso)
       .maybeSingle();
 
-    if (cached?.response) {
+    if (cached?.response_data) {
       return new Response(
-        JSON.stringify({ insights: cached.response, cached: true, generatedAt: cached.created_at }),
+        JSON.stringify({ insights: cached.response_data, cached: true, generatedAt: cached.created_at }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -239,10 +240,16 @@ Trả lời bằng tool call duy nhất.`;
     };
 
     // Cache 1h
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     await serviceClient.from("ai_response_cache").upsert({
       cache_key: cacheKey,
-      response: result as any,
-      created_at: new Date().toISOString(),
+      input_hash: inputHash,
+      function_name: "generate-report-insights",
+      response_data: result as any,
+      cache_scope: "org",
+      organization_id: organizationId,
+      brand_template_id: brandId ?? null,
+      expires_at: expiresAt,
     }, { onConflict: "cache_key" });
 
     return new Response(
