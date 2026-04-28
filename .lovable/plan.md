@@ -1,105 +1,59 @@
-# Chuẩn hoá công thức Engagement Rate theo Platform
-
-## Vấn đề hiện tại
-
-Trong `src/hooks/reports/useEngagementReport.ts` (dòng 72–74), engagement rate được tính bằng **một công thức duy nhất** cho mọi platform:
-
-```ts
-engagementRate = (totalLikes + totalComments + totalShares) / totalImpressions × 100
-```
-
-Sai về phương pháp luận khi so sánh giữa các platform:
-
-| Platform | Vấn đề với công thức hiện tại |
-|---|---|
-| **Facebook/Instagram** | Meta Business chuẩn dùng **Reach**, không phải Impressions. Bỏ qua **Saves** (chỉ số chính cho IG). |
-| **TikTok** | Phải dùng **Video Views** (denominator chính của TikTok Analytics). Dùng impressions = sai số rất lớn. |
-| **X (Twitter)** | Bỏ **Bookmarks** — đây là engagement cốt lõi sau khi X mở `non_public_metrics.impressions`. |
-| **LinkedIn** | Đúng denominator (impressions) nhưng numerator nên gọi "Reactions" thay vì "Likes". |
-| **Aggregate** | Cộng dồn Likes/Comments/Shares + Impressions giữa các platform → bias theo platform có impressions cao (X, LinkedIn) so với platform tracking reach (FB/IG). |
-
-Hậu quả: KPI "Engagement rate" tổng workspace không có ý nghĩa, không thể so sánh hiệu quả giữa kênh.
-
 ## Mục tiêu
+Thêm bộ lọc date range riêng cho tab **Engagement**, cho phép xem nhanh theo **tuần / tháng / quý**, chọn **custom range**, và đổi **bucket hiển thị** (ngày / tuần / tháng) cho biểu đồ "Reach & Engagement theo thời gian".
 
-1. **Per-post ER**: dùng đúng công thức theo platform.
-2. **Aggregate ER**: dùng **weighted average** đúng toán học = `Σengagements / Σdenominator × 100` (không phải arithmetic mean của ER per-post — gây bias theo post nhỏ).
-3. **Hiển thị minh bạch**: tooltip/info giải thích công thức từng platform để team biết đang đo gì.
-4. **Per-platform breakdown**: thêm cột ER vào bảng `byPlatform` để so sánh.
+Hiện tại chỉ có thanh filter global ở đầu trang (`ReportFiltersBar`) áp dụng cho tất cả tab. Khi chuyển sang Engagement, user vẫn phải scroll lên đầu trang để đổi range, và biểu đồ luôn bucket theo ngày (gây nhiễu khi xem range dài).
 
-## Công thức chuẩn theo platform
+## Thay đổi
 
-| Platform | Engagements (numerator) | Denominator | Nguồn chuẩn |
-|---|---|---|---|
-| **Facebook** | Likes + Comments + Shares + Saves | Reach (fallback Impressions) | Meta Business |
-| **Instagram** | Likes + Comments + Shares + Saves | Reach (fallback Impressions) | Meta Business |
-| **TikTok** | Likes + Comments + Shares | Video Views (fallback Reach) | TikTok Analytics |
-| **X / Twitter** | Likes + Replies + Retweets + Bookmarks (`saves` field) | Impressions (fallback Reach) | X Analytics |
-| **LinkedIn** | Reactions + Comments + Shares | Impressions (fallback Reach) | LinkedIn |
-| **Threads** | Likes + Replies + Reposts | Reach (fallback Impressions) | — |
-| **Unknown** | Likes + Comments + Shares + Saves | Impressions (fallback Reach) | Fallback |
+### 1. Component mới: `EngagementDateRangeControl`
+File: `src/components/reports/EngagementDateRangeControl.tsx`
 
-Lưu ý field `saves` trong `social_post_metrics` đã được sync chính xác cho IG (saves) và X (bookmarks) qua `sync-social-engagement` — không cần migration.
+Đặt ngay dưới header của tab Engagement (cạnh nút "Sync ngay"). Gồm:
+- **Preset chips**: `7 ngày`, `Tuần này`, `30 ngày`, `Tháng này`, `90 ngày`, `Quý này`, `Năm nay`
+- **Custom range picker** (shadcn Calendar `mode="range"`, `numberOfMonths={2}`, `pointer-events-auto`)
+- **Bucket selector**: `Ngày | Tuần | Tháng` (auto-suggest theo độ dài range: ≤14 ngày → Ngày, ≤90 → Tuần, >90 → Tháng; user có thể override)
+- Hiển thị label range đang chọn + số ngày
 
-## Thay đổi kỹ thuật
+State được nâng lên `Reports.tsx` (local state `engagementRange` + `engagementBucket`), KHÔNG ghi đè `filters` global. Các tab khác tiếp tục dùng `filters` global.
 
-### 1. **NEW** `src/lib/reports/engagementFormulas.ts`
-Module thuần (no React, no Supabase) chứa:
-- `type Platform`, `interface PostMetrics`, `interface ERFormula`
-- `computeERParts(platform, metrics)` — trả về `{ engagements, denominator, denominatorType, formula }` theo bảng trên với fallback.
-- `postEngagementRate(platform, metrics)` — ER cho 1 post, làm tròn 2 chữ số.
-- `weightedEngagementRate(posts[])` — aggregate đúng toán học `ΣE / ΣD × 100`.
-- `normalizePlatform(p)` — alias `fb→facebook`, `ig→instagram`, `x→twitter`, …
-- `PLATFORM_FORMULA_DOCS: Record<platform, string>` — text hiển thị tooltip.
+### 2. Mở rộng `useEngagementReport`
+File: `src/hooks/reports/useEngagementReport.ts`
 
-### 2. **EDIT** `src/hooks/reports/useEngagementReport.ts`
-- Mở rộng `EngagementReportData`:
-  ```ts
-  engagementRate: number;            // weighted, all platforms
-  engagementRateBasis: 'mixed';      // hint cho UI
-  byPlatform: { ..., engagementRate: number; erFormula: string }[];
-  ```
-- Thay logic dòng 72–74 bằng `weightedEngagementRate(latest.map(...))`.
-- Trong vòng lặp `byPlatform`, cộng thêm `engagements` & `denominator` per-platform rồi tính ER per-platform = `eng / denom × 100`. Gắn `erFormula` từ `PLATFORM_FORMULA_DOCS`.
-- Top posts: thêm field `engagementRate` per-post dùng `postEngagementRate()`.
+- Thêm tham số tùy chọn `overrideRange?: { from: Date; to: Date }` và `bucket?: 'day' | 'week' | 'month'`
+- Nếu `overrideRange` có thì dùng thay cho `filters.dateFrom/dateTo` (vẫn giữ `brandId`, `channel` từ filter global)
+- Bucket logic mới trong `aggregators.ts`:
+  - `bucketByWeek(rows, from, to)` — gom theo ISO week (thứ 2 đầu tuần, locale `vi`)
+  - `bucketByMonth(rows, from, to)` — gom theo `yyyy-MM`
+  - `fillDateGaps` đã có cho bucket ngày, mở rộng tương tự cho tuần/tháng
+- `byDay` được rename về `byBucket` trong response (giữ alias `byDay` để không vỡ chỗ gọi khác); thêm field `bucketType` để chart format label.
 
-### 3. **EDIT** `src/pages/Reports.tsx` — tab Engagement
-- StatCard "Engagement rate" thêm icon `Info` với `Tooltip` (shadcn) giải thích: "Weighted avg theo công thức chuẩn từng platform. Click vào từng platform bên dưới để xem ER riêng."
-- Bảng `byPlatform` đổi thành Table chính thức (đang là BarChart). Thêm cột:
-  - Platform (Badge)
-  - Reach
-  - Engagements (likes+comments+shares+...)
-  - **ER %** (per-platform, theo công thức chuẩn)
-  - Posts
-  - Tooltip trên header ER hiển thị `PLATFORM_FORMULA_DOCS[platform]` cho từng row.
-- Giữ BarChart "Reach vs Likes" (ưa thích visual).
-- Top posts table: thêm cột **ER %** mới.
+### 3. Cập nhật `Reports.tsx` — tab Engagement
+- Thêm `useState` cho `engagementRange` (default = `filters.dateFrom/dateTo`) và `engagementBucket` (default auto theo range)
+- Truyền vào `useEngagementReport(orgId, filters, { overrideRange, bucket })`
+- Hiển thị `EngagementDateRangeControl` trong header card của tab
+- Format trục X của LineChart theo `bucketType`:
+  - `day` → `dd/MM`
+  - `week` → `Tuần W (dd/MM)`
+  - `month` → `MM/yyyy`
+- Thêm badge nhỏ "Filter riêng cho tab này" để user biết range này không sync với filter global
 
-### 4. **EDIT** `src/lib/reports/pdfBuilder.ts` & `csvBuilder.ts`
-- Section "Engagement by Platform" trong PDF in thêm cột ER + footnote công thức.
-- CSV export `byPlatform` thêm cột `engagement_rate_pct`, `formula`.
+### 4. Cập nhật aggregators
+File: `src/lib/reports/aggregators.ts`
+- Thêm `bucketByWeek`, `bucketByMonth`
+- Thêm helper `suggestBucket(rangeDays): 'day' | 'week' | 'month'`
+- Thêm `formatBucketLabel(date, bucketType, locale)`
 
-### 5. **NEW** `src/lib/reports/__tests__/engagementFormulas.test.ts`
-Vitest unit tests cho `computeERParts`, `postEngagementRate`, `weightedEngagementRate` cover:
-- Mỗi platform happy path
-- Fallback (FB không có reach → dùng impressions)
-- Aggregate weighted (so sánh với arithmetic mean để chứng minh khác)
-- Empty/zero denominator → 0
+### 5. PDF/CSV (giữ tương thích)
+- `pdfBuilder.ts` và `csvBuilder.ts`: nếu engagement có `bucketType !== 'day'`, thêm cột header tương ứng (`Tuần` / `Tháng`) thay vì `Ngày`. Logic đơn giản, không breaking change.
 
-### 6. **MEMORY**
-Lưu rule mới vào `mem://ai-system/engagement-rate-formula-vn` để các tính năng analytics/AI insight sau dùng cùng công thức + cập nhật `mem://index.md`.
+## Edge cases
+- Khi `overrideRange` rỗng → fallback về filter global.
+- Khi user đổi filter global (date range) → option: hiện toast nhắc "Tab Engagement đang dùng range riêng, bấm Reset để dùng theo global". Hoặc thêm nút **"Đồng bộ với filter global"** trong `EngagementDateRangeControl`.
+- Preset "Tuần này" / "Tháng này" / "Quý này" / "Năm nay" tính theo timezone local của user (`date-fns/startOfWeek/Month/Quarter/Year` với `weekStartsOn: 1`).
+- Với bucket tuần/tháng, snapshot vẫn lấy "latest per post" rồi gom vào bucket theo `snapshot_at` của latest snapshot (giữ logic cũ, chỉ đổi bucketize).
 
-## Files dự kiến
+## Files
+- **Tạo mới**: `src/components/reports/EngagementDateRangeControl.tsx`
+- **Sửa**: `src/hooks/reports/useEngagementReport.ts`, `src/lib/reports/aggregators.ts`, `src/pages/Reports.tsx`, `src/lib/reports/pdfBuilder.ts`, `src/lib/reports/csvBuilder.ts`
 
-- **new**: `src/lib/reports/engagementFormulas.ts`
-- **new**: `src/lib/reports/__tests__/engagementFormulas.test.ts`
-- **edited**: `src/hooks/reports/useEngagementReport.ts`
-- **edited**: `src/pages/Reports.tsx` (tab Engagement)
-- **edited**: `src/lib/reports/pdfBuilder.ts`
-- **edited**: `src/lib/reports/csvBuilder.ts`
-- **new**: `mem://ai-system/engagement-rate-formula-vn` + update `mem://index.md`
-
-## Không động vào
-- DB schema `social_post_metrics` — đủ cột.
-- Edge function `sync-social-engagement` — vẫn fetch đúng metrics.
-- Công thức không áp dụng cho `useReportOverview` "engagement total" (đang là count) — giữ nguyên semantics đếm tương tác thô.
+Không có DB migration, không cần edge function mới — chỉ là client-side filter + bucket logic.
