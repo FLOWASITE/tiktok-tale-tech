@@ -509,7 +509,7 @@ function OlderThanDialog({ bucket, organizationId, open, onOpenChange, onChanged
   const runDryRun = async () => {
     setLoading(true);
     try {
-      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: true });
+      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: true, ...(organizationId ? { organization_id: organizationId } : {}) });
       setPreview(r);
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
@@ -518,7 +518,7 @@ function OlderThanDialog({ bucket, organizationId, open, onOpenChange, onChanged
   const runDelete = async () => {
     setLoading(true);
     try {
-      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: false });
+      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: false, ...(organizationId ? { organization_id: organizationId } : {}) });
       toast.success(`Đã xóa ${r.deleted} file (thu hồi ${fmtBytes(r.total_bytes)})`);
       onOpenChange(false);
       setPreview(null);
