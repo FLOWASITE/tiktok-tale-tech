@@ -1,68 +1,71 @@
 ## Mục tiêu
-Bổ sung khả năng **lọc & quản lý file Storage theo Workspace (Organization)** trong tab `Storage Buckets` của trang `/admin/storage`.
+Thêm chức năng **"Xóa file chưa gắn workspace"** (unresolved files) vào tab Dashboard Workspace của trang `/admin/storage`.
 
-## Hiện trạng
-- Tab Storage hiện hiển thị tất cả file của bucket cho admin global, không phân biệt workspace.
-- File path không nhất quán: carousel = `{carouselId}/...`, brand image = `{contentId}/...`, một số dùng `social/{orgPath}/...`.
-- Cần backend resolver: cho mỗi file → tra ra `organization_id` qua bảng `carousels`, `multi_channel_contents`, `core_contents`, `brand_templates`, v.v.
+## Bối cảnh
+- KPI card "Chưa gán workspace" (line 1102-1108 trong `AdminStorageMemory.tsx`) đang hiển thị số file/bytes của các file mà resolver không map được về `organization_id` nào.
+- Hiện chưa có cách xóa hàng loạt các file mồ côi này — chỉ có `cleanup_bucket_for_org` (xóa theo 1 org) và `cleanup_bucket_older_than` (xóa theo tuổi).
+- File "chưa gắn workspace" thường là file rác từ các flow lỗi, content bị xóa nhưng asset còn lại, hoặc file không tuân theo naming convention `{id}/...`.
 
-## Phạm vi triển khai
+## Triển khai
 
 ### A. Backend — `supabase/functions/admin-storage-manager/index.ts`
-1. **Thêm action `list_organizations`** trả danh sách workspace (`id`, `name`, `slug`) để dropdown filter.
-2. **Sửa action `list_bucket_files`** nhận thêm tham số `organization_id?: string`:
-   - Sau khi `deepListBucket`, build map `{firstSegment → org_id}` bằng cách:
-     - Trích `firstSegment = name.split('/')[0]`
-     - Nếu là UUID, query song song các bảng theo bucket:
-       - `carousel-images` → `carousels` (id, organization_id) + `carousel_images` (id, carousel_id) fallback
-       - `brand-images` / `content-images` → `multi_channel_contents` (id, organization_id), `core_contents`, `scripts`
-       - `brand-assets` → `brand_templates` (id, organization_id)
-       - Các bucket khác → cố gắng match theo prefix `social/{org_id}/...` hoặc folder = `{org_id}`
-     - Cache map per request
-   - Gắn `organization_id` + `organization_name` vào mỗi file response
-   - Nếu `organization_id` truyền vào → filter list trước khi paginate
-3. **Sửa action `get_overview`**: nhận `organization_id?` optional. Khi có → mỗi bucket trả thêm `org_file_count`, `org_total_size` (chỉ tính file thuộc org đó). Giữ field cũ để hiển thị "Tổng" lẫn "Của workspace".
-4. **Action mới `cleanup_bucket_for_org`**: xóa toàn bộ file của 1 workspace trong 1 bucket (có dry-run). Audit log đầy đủ.
+Thêm action mới **`cleanup_unresolved`**:
+
+```ts
+case "cleanup_unresolved": {
+  const { bucket, dry_run = false, confirm } = body;
+  // bucket optional → nếu không truyền: quét tất cả buckets
+  if (!dry_run && confirm !== true) return json({ error: "Cần confirm=true để xóa thật" }, 400);
+
+  const { data: bucketsData } = await svc.storage.listBuckets();
+  const targetBuckets = bucket ? [{ id: bucket }] : (bucketsData || []);
+
+  const perBucket: Record<string, { count: number; bytes: number; sample: any[] }> = {};
+  let totalDeleted = 0, totalBytes = 0;
+
+  for (const b of targetBuckets) {
+    const files = await deepListBucket(svc, b.id).catch(() => []);
+    const orgMap = await resolveOrgForFiles(svc, b.id, files);
+    const orphans = files.filter((f: any) => !orgMap.get(f.name));
+    const bytes = orphans.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
+    perBucket[b.id] = { count: orphans.length, bytes, sample: orphans.slice(0, 5).map((f: any) => f.name) };
+
+    if (!dry_run && orphans.length > 0) {
+      for (let i = 0; i < orphans.length; i += 100) {
+        const batch = orphans.slice(i, i + 100).map((f: any) => f.name);
+        const { data } = await svc.storage.from(b.id).remove(batch);
+        totalDeleted += data?.length || 0;
+      }
+      totalBytes += bytes;
+    }
+  }
+
+  if (!dry_run) {
+    await audit(svc, user.id, "storage_cleanup_unresolved", {
+      bucket: bucket || "all", deleted: totalDeleted, total_bytes: totalBytes, per_bucket: perBucket,
+    });
+  }
+  return json({ dry_run, per_bucket: perBucket, deleted: totalDeleted, total_bytes: totalBytes });
+}
+```
 
 ### B. Frontend — `src/pages/AdminStorageMemory.tsx`
-1. **Thêm dropdown Workspace selector** ở đầu `StorageTab` (load qua action `list_organizations`):
-   - Option mặc định: "Tất cả workspace"
-   - Option: từng workspace với badge số file
-2. **Truyền `organization_id`** xuống `BucketBrowser` qua props; mọi query (`list_bucket_files`, `cleanup_bucket_older_than`) đều gửi kèm.
-3. **Thêm cột "Workspace"** trong bảng file (hiển thị badge org name, click để filter nhanh).
-4. **Card bucket** hiển thị 2 dòng số liệu khi đã chọn workspace: "Của workspace: X file / Y MB" và "Tổng bucket: ... ".
-5. **Nút mới** trong `BucketBrowser` khi có workspace filter: **"Xóa toàn bộ file của workspace này"** → confirm dialog → gọi `cleanup_bucket_for_org`.
+1. **KPI card "Chưa gán workspace"** (line 1102-1108): thêm nút **"Xóa..."** nhỏ ở góc card, mở `AlertDialog`.
+2. **Confirm dialog** 2 bước:
+   - Bước 1 (auto): gọi `cleanup_unresolved` với `dry_run=true` → hiển thị bảng breakdown per-bucket (bucket name, count, bytes, sample 5 path).
+   - Bước 2: button đỏ "Xác nhận xóa N file (X MB)" → gọi `cleanup_unresolved` với `confirm=true`.
+3. **Toast** + **invalidate** `["admin-storage-workspace-dashboard"]` sau khi xóa thành công.
+4. Disable button khi `unresolved.files === 0`.
 
-### C. Resolver mapping (backend helper)
-Thêm hàm `resolveOrgForFiles(svc, bucket, files[])`:
-```ts
-// Trả Map<filename, organization_id>
-// 1. Gom các firstSegment unique
-// 2. Switch theo bucket:
-//    'carousel-images' → SELECT id, organization_id FROM carousels WHERE id = ANY($1)
-//    'brand-images'    → multi_channel_contents + core_contents
-//    'brand-assets'    → brand_templates
-//    'content-images'  → core_contents + multi_channel_contents
-//    others            → check 'social/{uuid}/' pattern → orgs.id
-// 3. Cache theo bucket trong process
-```
-Audit log mỗi action mới: `storage_cleanup_org`, payload `{bucket, organization_id, count, total_bytes}`.
+### C. UX an toàn
+- Mặc định preview (dry-run) trước; bắt buộc nhấn confirm lần 2 mới xóa thật.
+- Cảnh báo rõ ràng: *"Hành động này KHÔNG THỂ HOÀN TÁC. File chưa gắn workspace có thể là dữ liệu của carousel/content vừa tạo nhưng resolver chưa kịp map (ví dụ background task đang chạy)."*
+- Audit log đầy đủ trong `admin_audit_logs` action `storage_cleanup_unresolved`.
 
 ## File thay đổi
-**Sửa:**
-- `supabase/functions/admin-storage-manager/index.ts` (thêm 2 action + resolver + filter)
-- `src/pages/AdminStorageMemory.tsx` (selector + truyền props + cột mới + nút cleanup-by-org)
-
-**Không cần:**
-- Migration mới (dùng query trực tiếp từ service role).
-- Đổi tab Bộ nhớ DB / Audit (ngoài phạm vi).
-
-## Bảo mật
-- Chỉ admin (đã verify trong `getAdminUser`) mới gọi được — giữ nguyên rate limit 30 ops/phút.
-- `cleanup_bucket_for_org` thêm `confirm: true` bắt buộc trong body để tránh nhầm.
-- Resolver chỉ SELECT id + organization_id, không leak nội dung.
+- `supabase/functions/admin-storage-manager/index.ts` — thêm 1 action `cleanup_unresolved`
+- `src/pages/AdminStorageMemory.tsx` — thêm nút + dialog trong `WorkspaceDashboardTab`
 
 ## Ngoài phạm vi
-- Quản lý quota storage per-workspace (kế hoạch sau khi có metric ổn định).
-- Đổi naming convention upload mới (sẽ tách kế hoạch riêng để chuẩn hóa `{org_id}/...` cho mọi function).
-- Workspace-scoping cho tab "Bộ nhớ DB" (các bảng cache/log đa số toàn cục, làm sau).
+- Per-bucket selective cleanup từ UI (lần này xóa toàn bộ bucket hoặc tất cả buckets — đủ cho use-case dọn rác).
+- Soft-delete / quarantine (chưa cần, audit log đã đủ traceability).
