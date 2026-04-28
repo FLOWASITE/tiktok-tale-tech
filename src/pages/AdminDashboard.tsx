@@ -24,7 +24,8 @@ import {
   Clock,
   TrendingUp,
   Brain,
-  Server
+  Server,
+  HardDrive
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
