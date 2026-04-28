@@ -1,6 +1,8 @@
 // Sync social engagement metrics from platforms (FB, IG, LinkedIn, TikTok, X)
 // Triggered by pg_cron every 6 hours OR manually by user
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { buildOAuth1Header } from "../_shared/oauth1a.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +12,16 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Try-decrypt: token có thể đã plain hoặc đã encrypted
+async function safeDecrypt(value: string | null | undefined): Promise<string | null> {
+  if (!value) return null;
+  try {
+    return await decryptCredential(value);
+  } catch {
+    return value; // fallback - đã là plain
+  }
+}
 
 interface PostRef {
   content_id: string | null;
