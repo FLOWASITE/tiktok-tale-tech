@@ -10949,6 +10949,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_cleanup_table: {
+        Args: { p_days?: number; p_mode: string; p_table: string }
+        Returns: number
+      }
       aggregate_content_learnings: {
         Args: { p_brand_template_id: string }
         Returns: undefined
@@ -11021,6 +11025,14 @@ export type Database = {
           similarity: number
         }[]
       }
+      find_orphan_storage_paths: {
+        Args: { p_bucket: string }
+        Returns: {
+          created_at: string
+          object_name: string
+          size_bytes: number
+        }[]
+      }
       get_batch_processing_stats: {
         Args: never
         Returns: {
@@ -11065,6 +11077,18 @@ export type Database = {
           node_count: number
           percentage: number
           quality_level: string
+        }[]
+      }
+      get_db_memory_stats: {
+        Args: never
+        Returns: {
+          category: string
+          newest_record: string
+          oldest_record: string
+          row_count: number
+          size_bytes: number
+          size_pretty: string
+          table_name: string
         }[]
       }
       get_detailed_quality_stats: { Args: never; Returns: Json }

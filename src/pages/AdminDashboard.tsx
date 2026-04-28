@@ -24,7 +24,8 @@ import {
   Clock,
   TrendingUp,
   Brain,
-  Server
+  Server,
+  HardDrive
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
@@ -765,6 +766,18 @@ export default function AdminDashboard() {
               <Button variant="outline" size="sm">
                 <Server className="h-4 w-4 mr-2" />
                 Edge Functions
+              </Button>
+            </Link>
+            <Link to="/admin/cron-monitor">
+              <Button variant="outline" size="sm">
+                <Clock className="h-4 w-4 mr-2" />
+                Cron Monitor
+              </Button>
+            </Link>
+            <Link to="/admin/storage">
+              <Button variant="outline" size="sm">
+                <HardDrive className="h-4 w-4 mr-2" />
+                File &amp; Bộ nhớ
               </Button>
             </Link>
           </div>
