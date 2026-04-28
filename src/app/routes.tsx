@@ -45,6 +45,7 @@ import AdminSocialSettings from "@/pages/AdminSocialSettings";
 import AdminVouchers from "@/pages/AdminVouchers";
 import AdminEdgeFunctions from "@/pages/AdminEdgeFunctions";
 import AdminPlans from "@/pages/AdminPlans";
+import AdminCronMonitor from "@/pages/AdminCronMonitor";
 import Campaigns from "@/pages/Campaigns";
 import CampaignCreate from "@/pages/CampaignCreate";
 import CampaignDetail from "@/pages/CampaignDetail";
