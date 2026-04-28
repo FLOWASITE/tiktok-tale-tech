@@ -152,12 +152,16 @@ export default function AdminStorageMemory() {
         </Card>
       )}
 
-      <Tabs defaultValue="storage" className="space-y-4">
+      <Tabs defaultValue="dashboard" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard Workspace</TabsTrigger>
           <TabsTrigger value="storage"><HardDrive className="h-4 w-4 mr-2" />Storage Buckets</TabsTrigger>
           <TabsTrigger value="memory"><Database className="h-4 w-4 mr-2" />Bộ nhớ DB</TabsTrigger>
           <TabsTrigger value="audit"><Clock className="h-4 w-4 mr-2" />Lịch sử dọn dẹp</TabsTrigger>
         </TabsList>
+        <TabsContent value="dashboard">
+          <WorkspaceDashboardTab onSelectWorkspace={(id) => setOrgId(id)} />
+        </TabsContent>
         <TabsContent value="storage">
           <StorageTab orgId={orgId} selectedOrg={selectedOrg} />
         </TabsContent>
