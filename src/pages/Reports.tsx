@@ -315,6 +315,10 @@ export default function Reports() {
                 </ResponsiveContainer>
               )}
             </Card>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="p-4">
+                <h3 className="mb-3 text-sm font-medium">Theo channel</h3>
                 {!content.data?.byChannel.length ? (
                   <EmptyReportState />
                 ) : (
