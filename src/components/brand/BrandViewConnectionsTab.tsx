@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { TokenExpiryBadge } from '@/components/social/TokenExpiryBadge';
+import { TokenStatusPanel } from '@/components/social/TokenStatusPanel';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertCircle } from 'lucide-react';
@@ -420,12 +421,16 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     const connection = getConnectionForPlatform(platform);
     const isTesting = testingConnection === connection?.id;
 
+    const showTokenPanel =
+      !!connection &&
+      (platform === 'instagram' || platform === 'facebook');
+
     return (
       <div
         key={platform}
-        className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
+        className="rounded-lg border border-border/50 bg-card hover:border-border transition-colors"
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between p-4">
           {/* Platform icon with optional avatar overlay */}
           <div className="relative">
             {connection?.platform_avatar_url ? (
