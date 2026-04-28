@@ -34,12 +34,28 @@ import { toast } from 'sonner';
 export default function Reports() {
   const navigate = useNavigate();
   const { filters, updateFilters, resetFilters, setPresetRange, organizationId } = useReportFilters();
+  const { currentOrganization } = useOrganizationContext();
+  const { currentBrand } = useCurrentBrand();
 
   const overview = useReportOverview(organizationId, filters);
   const content = useContentReport(organizationId, filters);
   const publishing = usePublishingReport(organizationId, filters);
   const engagement = useEngagementReport(organizationId, filters);
   const triggerSync = useTriggerEngagementSync(organizationId);
+
+  const insightsArgs = useMemo(() => {
+    if (!organizationId || !overview.data || !engagement.data || !content.data) return null;
+    return {
+      organizationId,
+      filters,
+      brandName: currentBrand?.brand_name ?? null,
+      overview: overview.data,
+      engagement: engagement.data,
+      content: content.data,
+    };
+  }, [organizationId, overview.data, engagement.data, content.data, filters, currentBrand?.brand_name]);
+
+  const insights = useReportInsights(insightsArgs);
 
   const overviewSeries = useMemo(() => {
     const c = content.data?.byDay ?? [];
@@ -60,6 +76,24 @@ export default function Reports() {
     const rows = overviewSeries.map((r) => [r.date, r.created, r.published, r.failed]);
     const csv = buildCsv(headers, rows);
     downloadCsv(`bao-cao-${filters.dateFrom.toISOString().slice(0, 10)}_${filters.dateTo.toISOString().slice(0, 10)}.csv`, csv);
+  };
+
+  const handleExportPdf = () => {
+    try {
+      downloadReportPdf({
+        filters,
+        workspaceName: currentOrganization?.name,
+        brandName: currentBrand?.brand_name ?? null,
+        overview: overview.data,
+        content: content.data,
+        publishing: publishing.data,
+        engagement: engagement.data,
+        insights: insights.data,
+      }, `bao-cao-${filters.dateFrom.toISOString().slice(0, 10)}_${filters.dateTo.toISOString().slice(0, 10)}.pdf`);
+      toast.success('Đã xuất PDF');
+    } catch (e) {
+      toast.error(`Lỗi xuất PDF: ${(e as Error).message}`);
+    }
   };
 
   if (!organizationId) {
@@ -83,9 +117,21 @@ export default function Reports() {
             <BarChart3 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold tracking-tight">Báo cáo</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={handleExportCsv}>
-            <Download className="mr-2 h-4 w-4" /> Xuất CSV
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" /> Xuất báo cáo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportPdf}>
+                <FileDown className="mr-2 h-4 w-4" /> PDF (đầy đủ)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportCsv}>
+                <Download className="mr-2 h-4 w-4" /> CSV (dữ liệu thô)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <ReportFiltersBar
