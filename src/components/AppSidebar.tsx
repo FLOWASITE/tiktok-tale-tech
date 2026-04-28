@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack, Clock } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack, Clock, HardDrive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -307,6 +307,7 @@ export function AppSidebar() {
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
     { title: 'Edge Functions', titleKey: 'app.sidebar.adminEdgeFunctions', url: '/admin/edge-functions', icon: Zap },
     { title: 'Cron Monitor', titleKey: 'app.sidebar.adminCronMonitor', url: '/admin/cron-monitor', icon: Clock },
+    { title: 'File & Bộ nhớ', titleKey: 'app.sidebar.adminStorage', url: '/admin/storage', icon: HardDrive },
     { title: 'Quản lý gói', titleKey: 'app.sidebar.adminPlans', url: '/admin/plans', icon: Package },
   ];
 
