@@ -1,7 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { ReportFilters } from './useReportFilters';
-import { bucketByDay, fillDateGaps } from '@/lib/reports/aggregators';
+import { bucketRows, fillBucketGaps, type BucketType } from '@/lib/reports/aggregators';
+
+export interface EngagementOptions {
+  overrideRange?: { from: Date; to: Date } | null;
+  bucket?: BucketType;
+}
 
 export interface EngagementReportData {
   totalReach: number;
@@ -15,6 +20,9 @@ export interface EngagementReportData {
   postsTracked: number;
   byPlatform: { platform: string; reach: number; impressions: number; likes: number; comments: number; shares: number; posts: number }[];
   byDay: { date: string; reach: number; engagement: number }[];
+  bucketType: BucketType;
+  rangeFrom: string;
+  rangeTo: string;
   topPosts: {
     post_id: string;
     platform: string;
@@ -28,9 +36,25 @@ export interface EngagementReportData {
   lastSyncedAt: string | null;
 }
 
-export function useEngagementReport(orgId: string | null, filters: ReportFilters) {
+export function useEngagementReport(
+  orgId: string | null,
+  filters: ReportFilters,
+  options: EngagementOptions = {},
+) {
+  const fromDate = options.overrideRange?.from ?? filters.dateFrom;
+  const toDate = options.overrideRange?.to ?? filters.dateTo;
+  const bucket: BucketType = options.bucket ?? 'day';
+
   return useQuery({
-    queryKey: ['report-engagement', orgId, filters.dateFrom.toISOString(), filters.dateTo.toISOString(), filters.brandId, filters.channel],
+    queryKey: [
+      'report-engagement',
+      orgId,
+      fromDate.toISOString(),
+      toDate.toISOString(),
+      filters.brandId,
+      filters.channel,
+      bucket,
+    ],
     enabled: !!orgId,
     queryFn: async (): Promise<EngagementReportData> => {
       // Fetch latest snapshot per post within range
@@ -38,8 +62,8 @@ export function useEngagementReport(orgId: string | null, filters: ReportFilters
         .from('social_post_metrics')
         .select('post_id, platform, content_id, reach, impressions, likes, comments, shares, saves, video_views, snapshot_at, brand_template_id')
         .eq('organization_id', orgId!)
-        .gte('snapshot_at', filters.dateFrom.toISOString())
-        .lte('snapshot_at', filters.dateTo.toISOString())
+        .gte('snapshot_at', fromDate.toISOString())
+        .lte('snapshot_at', toDate.toISOString())
         .order('snapshot_at', { ascending: false })
         .limit(2000);
 
@@ -90,16 +114,16 @@ export function useEngagementReport(orgId: string | null, filters: ReportFilters
         .map(([platform, v]) => ({ platform, ...v }))
         .sort((a, b) => b.reach - a.reach);
 
-      // By day (use ALL rows for trend, not just latest)
-      const dayMap = bucketByDay(rows, (r) => r.snapshot_at as string);
+      // Bucket by day/week/month (use ALL rows for trend, not just latest)
+      const bMap = bucketRows(rows, bucket, (r) => r.snapshot_at as string);
       const reachMap = new Map<string, number>();
       const engMap = new Map<string, number>();
-      for (const [k, vals] of dayMap) {
+      for (const [k, vals] of bMap) {
         reachMap.set(k, vals.reduce((a, x) => a + (x.reach ?? 0), 0));
         engMap.set(k, vals.reduce((a, x) => a + ((x.likes ?? 0) + (x.comments ?? 0) + (x.shares ?? 0)), 0));
       }
-      const reachSeries = fillDateGaps(filters.dateFrom, filters.dateTo, reachMap);
-      const engSeries = fillDateGaps(filters.dateFrom, filters.dateTo, engMap);
+      const reachSeries = fillBucketGaps(fromDate, toDate, bucket, reachMap);
+      const engSeries = fillBucketGaps(fromDate, toDate, bucket, engMap);
       const byDay = reachSeries.map((p, i) => ({
         date: p.date,
         reach: p.value,
@@ -137,6 +161,9 @@ export function useEngagementReport(orgId: string | null, filters: ReportFilters
         postsTracked: latest.length,
         byPlatform,
         byDay,
+        bucketType: bucket,
+        rangeFrom: fromDate.toISOString(),
+        rangeTo: toDate.toISOString(),
         topPosts,
         lastSyncedAt,
       };
