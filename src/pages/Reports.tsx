@@ -281,7 +281,7 @@ export default function Reports() {
               <StatCard
                 label="Thất bại"
                 value={content.data?.funnel.failed ?? 0}
-                tone={content.data && content.data.funnel.failed > 0 ? 'negative' : 'neutral'}
+                tone={content.data && content.data.funnel.failed > 0 ? 'negative' : 'default'}
                 loading={content.isLoading}
               />
             </div>
