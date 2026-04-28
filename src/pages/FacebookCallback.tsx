@@ -273,9 +273,18 @@ export default function FacebookCallback() {
           })}
         </div>
 
-        <div className="flex gap-2 pt-3 border-t">
-          <Button variant="outline" onClick={handleReauthorize} className="flex-1">
-            Cấp quyền thêm Page
+        <div className="flex flex-col gap-2 pt-3 border-t sm:flex-row">
+          <Button
+            variant="outline"
+            onClick={handleResetPermissions}
+            className="flex-1"
+            disabled={resetting || !!attaching}
+          >
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Reset quyền &amp; chọn lại
+          </Button>
+          <Button variant="outline" onClick={handleReauthorize} className="flex-1" disabled={!!attaching}>
+            Hướng dẫn cấp thêm Page
           </Button>
           <Button onClick={goBack} className="flex-1" disabled={!!attaching}>
             {justAttached.length > 0 ? `Hoàn tất (${justAttached.length})` : 'Xong'}
