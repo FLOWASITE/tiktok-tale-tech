@@ -1,7 +1,7 @@
 /**
  * Helpers to aggregate raw rows into chart-friendly buckets.
  */
-export function bucketByDay<T extends { created_at?: string | null; performed_at?: string | null }>(
+export function bucketByDay<T>(
   rows: T[],
   getDate: (row: T) => string | null | undefined,
 ): Map<string, T[]> {
