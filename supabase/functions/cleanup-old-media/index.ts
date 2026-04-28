@@ -230,13 +230,18 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
 
     console.log(`[cleanup-old-media] Done:`, summary);
 
+    const finalStatus: 'success' | 'partial' = summary.errors.length === 0 ? 'success' : 'partial';
+    await writeLog(finalStatus, summary);
+
     return new Response(JSON.stringify({ success: true, retention_days: RETENTION_DAYS, summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown";
     console.error("[cleanup-old-media] Error:", error);
+    await writeLog('failed', null, msg);
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown" }),
+      JSON.stringify({ success: false, error: msg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
