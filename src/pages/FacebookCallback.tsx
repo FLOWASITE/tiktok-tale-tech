@@ -126,16 +126,48 @@ export default function FacebookCallback() {
     }
   };
 
+  const [resetting, setResetting] = useState(false);
+
   const handleReauthorize = () => {
-    // Close this picker tab; the parent window keeps the polling open and the
-    // user can simply re-click "Thêm Fanpage khác" — but as a convenience we
-    // tell them what to do in Facebook UI.
     toast({
       title: 'Mở Facebook để cấp quyền thêm Page',
       description:
-        'Vào Facebook → Settings → Business Integrations → chọn app → "Edit settings" và bật các Page bạn muốn thêm. Sau đó quay lại bấm "Thêm Fanpage khác".',
+        'Vào Facebook → Settings → Business Integrations → chọn app Flowa → "Edit settings" và bật các Page bạn muốn thêm. Sau đó quay lại bấm "Thêm Fanpage khác".',
     });
     goBack();
+  };
+
+  const handleResetPermissions = async () => {
+    if (!brandTemplateId) {
+      toast({
+        title: 'Thiếu thông tin',
+        description: 'Không xác định được thương hiệu để reset.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setResetting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('facebook-reset-app-permissions', {
+        body: { brand_template_id: brandTemplateId },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Reset quyền thất bại');
+      }
+      toast({
+        title: 'Đã reset quyền Facebook',
+        description: data.message || 'Hãy bấm Kết nối Facebook lại để chọn đầy đủ Page.',
+      });
+      goBack();
+    } catch (e) {
+      toast({
+        title: 'Không reset được quyền',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    } finally {
+      setResetting(false);
+    }
   };
 
   const allAlreadyConnected =
@@ -149,7 +181,7 @@ export default function FacebookCallback() {
         </div>
         <CardTitle className="text-xl">Chọn Fanpage để kết nối</CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
-          Tìm thấy <strong>{pages.length}</strong> Page. Chọn một hoặc nhiều Page để gắn vào thương hiệu.
+          Facebook trả về <strong>{pages.length}</strong> Page mà bạn đã cấp quyền cho ứng dụng. Chọn một hoặc nhiều Page để gắn vào thương hiệu.
         </p>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -163,10 +195,16 @@ export default function FacebookCallback() {
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-2">
             <p className="font-medium">Tất cả Page Facebook trả về đã được kết nối.</p>
             <p>
-              Facebook chỉ trả về các Page bạn đã cấp quyền cho ứng dụng. Để thêm Page mới, hãy vào{' '}
-              <strong>Facebook → Settings & privacy → Settings → Business Integrations</strong>, chọn ứng
-              dụng Flowa và bấm <strong>"Edit settings"</strong> để bật thêm Page, sau đó kết nối lại.
+              Facebook chỉ trả về các Page bạn đã cấp quyền cho ứng dụng. Để chọn thêm Page khác, hãy:
             </p>
+            <ol className="list-decimal pl-4 space-y-1">
+              <li>
+                <strong>Cách 1 (nhanh):</strong> Bấm <strong>"Reset quyền &amp; chọn lại"</strong> bên dưới rồi kết nối lại Facebook — màn hình chọn Page sẽ hiện đầy đủ các Page bạn quản lý.
+              </li>
+              <li>
+                <strong>Cách 2 (thủ công):</strong> Vào <strong>Facebook → Settings &amp; privacy → Settings → Business Integrations</strong>, chọn ứng dụng Flowa, bấm <strong>"Edit settings"</strong> và bật thêm Page, sau đó kết nối lại.
+              </li>
+            </ol>
             <Button
               size="sm"
               variant="outline"
@@ -183,6 +221,7 @@ export default function FacebookCallback() {
             </Button>
           </div>
         )}
+
 
         <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
           {pages.map((p) => {
@@ -234,9 +273,18 @@ export default function FacebookCallback() {
           })}
         </div>
 
-        <div className="flex gap-2 pt-3 border-t">
-          <Button variant="outline" onClick={handleReauthorize} className="flex-1">
-            Cấp quyền thêm Page
+        <div className="flex flex-col gap-2 pt-3 border-t sm:flex-row">
+          <Button
+            variant="outline"
+            onClick={handleResetPermissions}
+            className="flex-1"
+            disabled={resetting || !!attaching}
+          >
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Reset quyền &amp; chọn lại
+          </Button>
+          <Button variant="outline" onClick={handleReauthorize} className="flex-1" disabled={!!attaching}>
+            Hướng dẫn cấp thêm Page
           </Button>
           <Button onClick={goBack} className="flex-1" disabled={!!attaching}>
             {justAttached.length > 0 ? `Hoàn tất (${justAttached.length})` : 'Xong'}
