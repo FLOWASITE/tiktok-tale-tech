@@ -76,6 +76,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   youtube: 'youtube',
   zalo_oa: 'zalo_oa',
   google_business: 'google_business',
+  google_maps: 'google_business',
   website: 'website',
 };
 
