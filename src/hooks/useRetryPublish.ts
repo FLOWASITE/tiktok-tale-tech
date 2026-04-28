@@ -149,7 +149,7 @@ export function useRetryPublish() {
         .eq('id', scheduleId);
 
       // Detect token-expired → surface in-app reconnect banner
-      if (isTokenExpiredError(errMsg)) {
+      if (isReconnectNeededError(errMsg)) {
         emitReconnectNeeded({
           platform: channel,
           platformLabel: PLATFORM_LABELS[channel] || channel,
