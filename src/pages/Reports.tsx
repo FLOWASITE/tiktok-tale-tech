@@ -398,7 +398,9 @@ export default function Reports() {
                     {[
                       { label: 'Đã tạo', value: content.data.funnel.created, icon: FileTextIcon, base: content.data.funnel.created },
                       { label: 'Đã duyệt', value: content.data.funnel.approved, icon: CheckCircle2, base: content.data.funnel.created },
+                      { label: 'Đã lên lịch', value: content.data.funnel.scheduled, icon: Clock, base: content.data.funnel.created },
                       { label: 'Đã đăng', value: content.data.funnel.published, icon: Send, base: content.data.funnel.created },
+                      { label: 'Thất bại', value: content.data.funnel.failed, icon: AlertTriangle, base: content.data.funnel.created },
                     ].map((step) => {
                       const pct = step.base > 0 ? Math.round((step.value / step.base) * 100) : 0;
                       const Icon = step.icon;
