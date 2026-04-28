@@ -291,6 +291,7 @@ export function AppSidebar() {
     { title: 'Chiến dịch', titleKey: 'app.sidebar.campaigns', url: '/campaigns', icon: Target },
     { title: 'Công việc', titleKey: 'app.sidebar.tasks', url: '/tasks', icon: ClipboardList },
     { title: 'Lịch đăng', titleKey: 'app.sidebar.calendar', url: '/calendar', icon: CalendarDays },
+    { title: 'Báo cáo', titleKey: 'app.sidebar.reports', url: '/reports', icon: BarChart3 },
   ];
 
 
