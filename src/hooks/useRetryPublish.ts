@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Channel } from '@/types/multichannel';
 import { emitReconnectNeeded } from '@/components/social/ReconnectBanner';
+import { isReconnectNeeded } from '@/lib/oauthErrorClassifier';
 
 const PLATFORM_LABELS: Record<string, string> = {
   zalo_oa: 'Zalo OA',
@@ -15,32 +16,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   website: 'Website',
 };
 
-function isReconnectNeededError(msg: string): boolean {
-  const m = msg.toLowerCase();
-  return (
-    m.includes('token expired') ||
-    m.includes('please reconnect') ||
-    m.includes('needs_reauth') ||
-    m.includes('hết hạn') ||
-    m.includes('reauthor') ||
-    m.includes('connection is not active') ||
-    m.includes('not active') ||
-    m.includes('is_active') ||
-    m.includes('inactive') ||
-    m.includes('no_connection') ||
-    m.includes('chưa kết nối') ||
-    m.includes('không hoạt động') ||
-    // OAuth token errors from Facebook/Instagram/Threads (FB error code 190)
-    m.includes('invalid oauth access token') ||
-    m.includes('cannot parse access token') ||
-    m.includes('oauthexception') ||
-    m.includes('access token') && (m.includes('invalid') || m.includes('expired') || m.includes('malformed')) ||
-    m.includes('token_invalid') ||
-    m.includes('invalid_token') ||
-    m.includes('unauthorized') ||
-    m.includes('401')
-  );
-}
+const isReconnectNeededError = (msg: string) => isReconnectNeeded(msg);
 
 interface RetryPublishOptions {
   scheduleId: string;

@@ -1,71 +1,89 @@
-## Mục tiêu
-Thêm chức năng **"Xóa file chưa gắn workspace"** (unresolved files) vào tab Dashboard Workspace của trang `/admin/storage`.
+## Goal
 
-## Bối cảnh
-- KPI card "Chưa gán workspace" (line 1102-1108 trong `AdminStorageMemory.tsx`) đang hiển thị số file/bytes của các file mà resolver không map được về `organization_id` nào.
-- Hiện chưa có cách xóa hàng loạt các file mồ côi này — chỉ có `cleanup_bucket_for_org` (xóa theo 1 org) và `cleanup_bucket_older_than` (xóa theo tuổi).
-- File "chưa gắn workspace" thường là file rác từ các flow lỗi, content bị xóa nhưng asset còn lại, hoặc file không tuân theo naming convention `{id}/...`.
+Surface OAuth token health for Instagram and Facebook connections so the user can see at a glance: when the token was last checked, whether it is **valid / expiring soon / expired / invalid (malformed) / inactive**, and run a fresh check on demand — without leaving the Brand → Connections tab.
 
-## Triển khai
+## What you'll see
 
-### A. Backend — `supabase/functions/admin-storage-manager/index.ts`
-Thêm action mới **`cleanup_unresolved`**:
+Inside each connected Instagram and Facebook card on `/brands → Connections`, a new compact **Token status** panel appears below the account info:
 
+```text
+┌─ Token status ─────────────────────────────┐
+│  ● Valid · expires in 47 days              │
+│  Last checked: 2 minutes ago               │
+│  [ Check now ]   [ Reconnect ]             │
+└────────────────────────────────────────────┘
+```
+
+States and colors (Soft Luxury neutral palette + semantic accent):
+
+| State             | When                                                                                  | Badge color       |
+|-------------------|---------------------------------------------------------------------------------------|-------------------|
+| Valid             | `is_active=true`, `token_expires_at > now + 7d`, no recent error                      | green             |
+| Expiring soon     | `token_expires_at` within 7 days                                                      | amber             |
+| Expired           | `token_expires_at < now()`                                                            | red               |
+| Invalid token     | `metadata.test_result = 'invalid_token'` or last error matches FB code 190 / "Cannot parse access token" | red               |
+| Malformed         | last error matches "Cannot parse" / "malformed"                                       | red               |
+| Inactive          | `is_active = false` and not classified above                                          | muted gray        |
+| Never checked     | no `last_verified_at` and no `metadata.last_test`                                     | muted gray        |
+
+The panel also shows:
+- **Last checked**: relative time from `last_verified_at` ?? `metadata.last_test`, with full timestamp on hover.
+- **Last error** (if any): one-line message from `last_error` ?? `metadata.error`.
+- **Check now** button: re-runs verification and refreshes the panel.
+- **Reconnect** button: appears only when state is Expired / Invalid / Malformed / Inactive — emits the existing reconnect event so the global `ReconnectBanner` flow takes over.
+
+## Where it goes
+
+Only Instagram and Facebook cards in `src/components/brand/BrandViewConnectionsTab.tsx` get the panel for now (matches the user's reported failure surface). The same component is reusable for other platforms later.
+
+## Technical details
+
+### New component
+`src/components/social/TokenStatusPanel.tsx`
+
+Props:
 ```ts
-case "cleanup_unresolved": {
-  const { bucket, dry_run = false, confirm } = body;
-  // bucket optional → nếu không truyền: quét tất cả buckets
-  if (!dry_run && confirm !== true) return json({ error: "Cần confirm=true để xóa thật" }, 400);
-
-  const { data: bucketsData } = await svc.storage.listBuckets();
-  const targetBuckets = bucket ? [{ id: bucket }] : (bucketsData || []);
-
-  const perBucket: Record<string, { count: number; bytes: number; sample: any[] }> = {};
-  let totalDeleted = 0, totalBytes = 0;
-
-  for (const b of targetBuckets) {
-    const files = await deepListBucket(svc, b.id).catch(() => []);
-    const orgMap = await resolveOrgForFiles(svc, b.id, files);
-    const orphans = files.filter((f: any) => !orgMap.get(f.name));
-    const bytes = orphans.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
-    perBucket[b.id] = { count: orphans.length, bytes, sample: orphans.slice(0, 5).map((f: any) => f.name) };
-
-    if (!dry_run && orphans.length > 0) {
-      for (let i = 0; i < orphans.length; i += 100) {
-        const batch = orphans.slice(i, i + 100).map((f: any) => f.name);
-        const { data } = await svc.storage.from(b.id).remove(batch);
-        totalDeleted += data?.length || 0;
-      }
-      totalBytes += bytes;
-    }
-  }
-
-  if (!dry_run) {
-    await audit(svc, user.id, "storage_cleanup_unresolved", {
-      bucket: bucket || "all", deleted: totalDeleted, total_bytes: totalBytes, per_bucket: perBucket,
-    });
-  }
-  return json({ dry_run, per_bucket: perBucket, deleted: totalDeleted, total_bytes: totalBytes });
+{
+  connection: SocialConnection;   // from useSocialConnections
+  platform: 'instagram' | 'facebook';
+  onChecked?: () => void;         // parent calls refetch()
 }
 ```
 
-### B. Frontend — `src/pages/AdminStorageMemory.tsx`
-1. **KPI card "Chưa gán workspace"** (line 1102-1108): thêm nút **"Xóa..."** nhỏ ở góc card, mở `AlertDialog`.
-2. **Confirm dialog** 2 bước:
-   - Bước 1 (auto): gọi `cleanup_unresolved` với `dry_run=true` → hiển thị bảng breakdown per-bucket (bucket name, count, bytes, sample 5 path).
-   - Bước 2: button đỏ "Xác nhận xóa N file (X MB)" → gọi `cleanup_unresolved` với `confirm=true`.
-3. **Toast** + **invalidate** `["admin-storage-workspace-dashboard"]` sau khi xóa thành công.
-4. Disable button khi `unresolved.files === 0`.
+Behavior:
+1. Computes status from a single pure function `classifyTokenStatus(connection)`:
+   - Reads `is_active`, `token_expires_at`, `last_error`, and `metadata` (`test_result`, `last_test`, `error`, `needs_reauth`, `refresh_error`).
+   - Returns `{ status, label, tone, lastCheckedAt, lastError }` where `status` is one of `valid | expiring_soon | expired | invalid | malformed | inactive | unknown`.
+   - Error-string matching reuses the same patterns already added to `useRetryPublish.isReconnectNeededError` (centralize them in a small helper `src/lib/oauthErrorClassifier.ts` and import from both places).
+2. **Check now** calls the existing `social-diagnostics` edge function with `{ action: 'test-connection', platform, connectionId }` (already used in `BrandViewConnectionsTab.handleTestConnection`). On success, calls `onChecked()` so the parent re-fetches connections.
+3. Uses `formatDistanceToNow(..., { locale: vi })` for relative time, `Tooltip` for full timestamp.
+4. **Reconnect** button calls `emitReconnectNeeded({ platform, platformLabel, message })` from `@/components/social/ReconnectBanner` so the in-app banner + flow already wired up handles the rest.
 
-### C. UX an toàn
-- Mặc định preview (dry-run) trước; bắt buộc nhấn confirm lần 2 mới xóa thật.
-- Cảnh báo rõ ràng: *"Hành động này KHÔNG THỂ HOÀN TÁC. File chưa gắn workspace có thể là dữ liệu của carousel/content vừa tạo nhưng resolver chưa kịp map (ví dụ background task đang chạy)."*
-- Audit log đầy đủ trong `admin_audit_logs` action `storage_cleanup_unresolved`.
+### New helper
+`src/lib/oauthErrorClassifier.ts`
 
-## File thay đổi
-- `supabase/functions/admin-storage-manager/index.ts` — thêm 1 action `cleanup_unresolved`
-- `src/pages/AdminStorageMemory.tsx` — thêm nút + dialog trong `WorkspaceDashboardTab`
+```ts
+export type OAuthErrorKind =
+  | 'invalid_token' | 'malformed' | 'expired'
+  | 'inactive' | 'unauthorized' | 'unknown';
 
-## Ngoài phạm vi
-- Per-bucket selective cleanup từ UI (lần này xóa toàn bộ bucket hoặc tất cả buckets — đủ cho use-case dọn rác).
-- Soft-delete / quarantine (chưa cần, audit log đã đủ traceability).
+export function classifyOAuthError(msg?: string | null): OAuthErrorKind { … }
+```
+
+Refactor `useRetryPublish.isReconnectNeededError` to delegate to this helper so detection stays in sync between the publish-retry hook and the new panel.
+
+### Wiring into the tab
+In `BrandViewConnectionsTab.tsx`:
+- Render `<TokenStatusPanel connection={connection} platform="instagram" onChecked={refetch} />` inside the Instagram card body (around line ~481, just below the existing `TokenExpiryBadge`).
+- Same for Facebook card (around line ~628).
+- Remove the standalone `TokenExpiryBadge` for these two platforms (the new panel replaces it). Keep it for other platforms unchanged.
+
+### Data already available
+No DB or edge-function changes needed:
+- `social_connections` already has `is_active`, `token_expires_at`, `last_verified_at`, `last_error`, `metadata`.
+- `test-instagram-connection` / `test-facebook-connection` (called via `social-diagnostics`) already write `metadata.last_test`, `metadata.test_result`, and update `is_active`.
+
+### Out of scope
+- No new edge function, no migration, no schema change.
+- No background polling — status refreshes only on mount, after a "Check now", and after any successful publish/reconnect (parent already calls `refetch`).
+- Other platforms (LinkedIn, X, Threads, Zalo, GBP, Website) keep the existing `TokenExpiryBadge` + test button. Easy follow-up: drop the same component into their cards.
