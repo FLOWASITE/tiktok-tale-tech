@@ -1,84 +1,68 @@
 ## Mục tiêu
-Vá các lỗi và bổ sung tính năng còn thiếu cho trang **File & Bộ nhớ Hệ thống** (`/admin/storage`) để thực sự "hoàn thiện" — không chỉ dừng ở scaffold.
+Bổ sung khả năng **lọc & quản lý file Storage theo Workspace (Organization)** trong tab `Storage Buckets` của trang `/admin/storage`.
 
-## Hiện trạng phát hiện
-Sau khi review `AdminStorageMemory.tsx` (624 dòng) và edge function `admin-storage-manager`:
-
-### Bug
-1. **Audit log không ghi cho `cleanup_table`**: Edge function gọi `admin_cleanup_table` RPC nhưng KHÔNG `insert` vào `admin_audit_logs`. Query `audit_history` lại lọc `action='cleanup_table'` → tab "Lịch sử dọn dẹp" sẽ luôn trống cho thao tác xóa DB. Đã verify: `admin_audit_logs` hiện không có row nào với action liên quan.
-2. **`preview_table` thiếu validation whitelist**: nhận tên bảng tự do từ client → có thể dùng để xem bảng nhạy cảm (vd `profiles`, `social_connections`).
-3. **`list_bucket_files` lấy tối đa 1000 file + 1 cấp folder**: bucket `carousel-images` có thể đã >1000 file nested sâu hơn, sẽ bỏ sót.
-4. **`get_overview` được gọi 2 lần** (cả StorageTab và MemoryTab dùng cùng key khác nhau) → query trùng. MemoryTab dùng key `db-memory-stats` nhưng query `get_overview` (lấy cả buckets) → lãng phí.
-5. **Không có pagination thực sự cho audit**: chỉ load 50 cứng.
-
-### Thiếu tính năng
-- Không có **export CSV** lịch sử dọn dẹp.
-- Không có **filter theo category/search** trong tab "Bộ nhớ DB".
-- Không có **bulk cleanup** (vd "Dọn tất cả expired cache" 1 click).
-- Không hiển thị **chi tiết admin nào thực hiện** (chỉ có `admin_user_id` UUID, chưa join profile).
-- **PreviewDialog** dump JSON thô — khó đọc, nên render thành table với cột chính.
-- Không có **download file** trong BucketBrowser (chỉ "mở tab mới").
-- Storage tab thiếu **"Xóa toàn bộ file > N ngày"** trong bucket.
-- Không có **estimated savings** sau cleanup (số bytes đã thu hồi).
+## Hiện trạng
+- Tab Storage hiện hiển thị tất cả file của bucket cho admin global, không phân biệt workspace.
+- File path không nhất quán: carousel = `{carouselId}/...`, brand image = `{contentId}/...`, một số dùng `social/{orgPath}/...`.
+- Cần backend resolver: cho mỗi file → tra ra `organization_id` qua bảng `carousels`, `multi_channel_contents`, `core_contents`, `brand_templates`, v.v.
 
 ## Phạm vi triển khai
 
-### A. Vá bug edge function (`supabase/functions/admin-storage-manager/index.ts`)
-1. **Ghi audit log** trong case `cleanup_table`:
-   ```ts
-   await svc.from("admin_audit_logs").insert({
-     admin_user_id: user.id,
-     action: "cleanup_table",
-     target_type: table,
-     metadata: { mode, days, rows_deleted: data }
-   });
-   ```
-2. **Whitelist `preview_table`**: dùng cùng `Set` tên bảng như `admin_cleanup_table` (lấy từ migration), reject nếu không nằm trong list.
-3. **Phân trang storage list**: dùng paginated `list()` lặp khi `data.length === 1000`, đệ quy folder bằng stack (deep listing).
-4. Thêm action mới:
-   - `download_file` → trả signed URL 5 phút (cho bucket private).
-   - `cleanup_bucket_older_than` → xóa file trong bucket > N ngày, hỗ trợ dry-run.
-   - `bulk_cleanup_expired` → gọi tuần tự `cleanup_expired_cache`, `cleanup_knowledge_graph_cache`, `cleanup_telegram_processed_updates`, `cleanup_expired_generation_tasks`, `cleanup_old_checkpoints`, `cleanup_stale_telegram_chat_state` → trả tổng rows.
-5. **Audit query** sửa filter `.in("action", ["cleanup_table", "storage_delete_files", "bulk_cleanup_expired"])` và join profile name qua subselect.
+### A. Backend — `supabase/functions/admin-storage-manager/index.ts`
+1. **Thêm action `list_organizations`** trả danh sách workspace (`id`, `name`, `slug`) để dropdown filter.
+2. **Sửa action `list_bucket_files`** nhận thêm tham số `organization_id?: string`:
+   - Sau khi `deepListBucket`, build map `{firstSegment → org_id}` bằng cách:
+     - Trích `firstSegment = name.split('/')[0]`
+     - Nếu là UUID, query song song các bảng theo bucket:
+       - `carousel-images` → `carousels` (id, organization_id) + `carousel_images` (id, carousel_id) fallback
+       - `brand-images` / `content-images` → `multi_channel_contents` (id, organization_id), `core_contents`, `scripts`
+       - `brand-assets` → `brand_templates` (id, organization_id)
+       - Các bucket khác → cố gắng match theo prefix `social/{org_id}/...` hoặc folder = `{org_id}`
+     - Cache map per request
+   - Gắn `organization_id` + `organization_name` vào mỗi file response
+   - Nếu `organization_id` truyền vào → filter list trước khi paginate
+3. **Sửa action `get_overview`**: nhận `organization_id?` optional. Khi có → mỗi bucket trả thêm `org_file_count`, `org_total_size` (chỉ tính file thuộc org đó). Giữ field cũ để hiển thị "Tổng" lẫn "Của workspace".
+4. **Action mới `cleanup_bucket_for_org`**: xóa toàn bộ file của 1 workspace trong 1 bucket (có dry-run). Audit log đầy đủ.
 
-### B. Migration mới (`<ts>_admin_storage_v2.sql`)
-- Thêm function `admin_bulk_cleanup_expired()` trả jsonb `{ table_name: rows_deleted }`, SECURITY DEFINER + check admin role.
-- Cập nhật `admin_cleanup_table` (nếu cần) để thêm bảng `web_search_cache` (đang thiếu trong whitelist hiện tại — verify lại).
-- View `v_admin_audit_with_user` JOIN `admin_audit_logs` với `profiles` để hiển thị tên admin.
+### B. Frontend — `src/pages/AdminStorageMemory.tsx`
+1. **Thêm dropdown Workspace selector** ở đầu `StorageTab` (load qua action `list_organizations`):
+   - Option mặc định: "Tất cả workspace"
+   - Option: từng workspace với badge số file
+2. **Truyền `organization_id`** xuống `BucketBrowser` qua props; mọi query (`list_bucket_files`, `cleanup_bucket_older_than`) đều gửi kèm.
+3. **Thêm cột "Workspace"** trong bảng file (hiển thị badge org name, click để filter nhanh).
+4. **Card bucket** hiển thị 2 dòng số liệu khi đã chọn workspace: "Của workspace: X file / Y MB" và "Tổng bucket: ... ".
+5. **Nút mới** trong `BucketBrowser` khi có workspace filter: **"Xóa toàn bộ file của workspace này"** → confirm dialog → gọi `cleanup_bucket_for_org`.
 
-### C. Frontend (`src/pages/AdminStorageMemory.tsx`)
-- Tách MemoryTab dùng query key riêng cho `db_stats` (skip buckets payload bằng action mới `get_db_stats_only`).
-- **Thanh tìm kiếm + filter category** ở tab Bộ nhớ DB.
-- Nút **"Dọn tất cả expired cache"** ở đầu tab Bộ nhớ DB → gọi `bulk_cleanup_expired`, hiển thị toast với chi tiết từng bảng.
-- **PreviewDialog** render thành Table thật: tự suy 5 cột đầu từ keys của row đầu tiên, truncate cell dài.
-- **BucketBrowser**:
-  - Thêm nút "Xóa file > N ngày" trong header.
-  - Nút Download dùng `signed URL` cho file private.
-  - Hiển thị tổng dung lượng các file đang chọn.
-- **AuditTab**:
-  - Hiển thị tên admin (từ view mới).
-  - Nút Export CSV (`Papa.unparse` đã có sẵn).
-  - Filter theo loại action (dropdown).
-  - Pagination "Tải thêm 50".
-- Thay JSON dump bằng component `<JsonTree>` đơn giản hoặc table.
-
-### D. Thêm card vào AdminDashboard
-Verify đã có card "File & Bộ nhớ" — nếu chưa, thêm với link `/admin/storage` (đã làm ở loop trước, chỉ verify).
+### C. Resolver mapping (backend helper)
+Thêm hàm `resolveOrgForFiles(svc, bucket, files[])`:
+```ts
+// Trả Map<filename, organization_id>
+// 1. Gom các firstSegment unique
+// 2. Switch theo bucket:
+//    'carousel-images' → SELECT id, organization_id FROM carousels WHERE id = ANY($1)
+//    'brand-images'    → multi_channel_contents + core_contents
+//    'brand-assets'    → brand_templates
+//    'content-images'  → core_contents + multi_channel_contents
+//    others            → check 'social/{uuid}/' pattern → orgs.id
+// 3. Cache theo bucket trong process
+```
+Audit log mỗi action mới: `storage_cleanup_org`, payload `{bucket, organization_id, count, total_bytes}`.
 
 ## File thay đổi
 **Sửa:**
-- `supabase/functions/admin-storage-manager/index.ts` (vá audit + thêm 3 action + whitelist preview)
-- `src/pages/AdminStorageMemory.tsx` (refactor 3 tab, thêm filter/export/preview table)
+- `supabase/functions/admin-storage-manager/index.ts` (thêm 2 action + resolver + filter)
+- `src/pages/AdminStorageMemory.tsx` (selector + truyền props + cột mới + nút cleanup-by-org)
 
-**Mới:**
-- `supabase/migrations/<ts>_admin_storage_v2.sql` (function bulk cleanup + view audit join profile)
+**Không cần:**
+- Migration mới (dùng query trực tiếp từ service role).
+- Đổi tab Bộ nhớ DB / Audit (ngoài phạm vi).
 
 ## Bảo mật
-- Whitelist tên bảng cho cả `cleanup_table` lẫn `preview_table`.
-- Signed URL download chỉ valid 5 phút.
-- Rate limit hiện tại 30 ops/phút giữ nguyên, riêng `bulk_cleanup_expired` đếm như 1 op.
+- Chỉ admin (đã verify trong `getAdminUser`) mới gọi được — giữ nguyên rate limit 30 ops/phút.
+- `cleanup_bucket_for_org` thêm `confirm: true` bắt buộc trong body để tránh nhầm.
+- Resolver chỉ SELECT id + organization_id, không leak nội dung.
 
 ## Ngoài phạm vi
-- Restore file đã xóa (storage không bật versioning).
-- Quota per-organization (kế hoạch sau).
-- Background job dọn theo lịch (đã có cron riêng).
+- Quản lý quota storage per-workspace (kế hoạch sau khi có metric ổn định).
+- Đổi naming convention upload mới (sẽ tách kế hoạch riêng để chuẩn hóa `{org_id}/...` cho mọi function).
+- Workspace-scoping cho tab "Bộ nhớ DB" (các bảng cache/log đa số toàn cục, làm sau).
