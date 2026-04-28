@@ -1137,9 +1137,22 @@ function WorkspaceDashboardTab({ onSelectWorkspace }: { onSelectWorkspace: (id: 
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Chưa gán workspace</div>
-            <div className="text-2xl font-semibold mt-1">{fmtBytes(unresolved.bytes)}</div>
-            <div className="text-xs text-muted-foreground">{unresolved.files} file</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Chưa gán workspace</div>
+                <div className="text-2xl font-semibold mt-1">{fmtBytes(unresolved.bytes)}</div>
+                <div className="text-xs text-muted-foreground">{unresolved.files} file</div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                disabled={!unresolved.files}
+                onClick={openCleanup}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />Xóa
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
