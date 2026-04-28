@@ -45,6 +45,7 @@ import AdminSocialSettings from "@/pages/AdminSocialSettings";
 import AdminVouchers from "@/pages/AdminVouchers";
 import AdminEdgeFunctions from "@/pages/AdminEdgeFunctions";
 import AdminPlans from "@/pages/AdminPlans";
+import AdminCronMonitor from "@/pages/AdminCronMonitor";
 import Campaigns from "@/pages/Campaigns";
 import CampaignCreate from "@/pages/CampaignCreate";
 import CampaignDetail from "@/pages/CampaignDetail";
@@ -210,6 +211,7 @@ export function AppRoutes() {
       <Route path="/admin/vouchers" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminVouchers /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/edge-functions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEdgeFunctions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/plans" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminPlans /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/cron-monitor" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminCronMonitor /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/telegram-auth-check" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminTelegramAuthCheck /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
 
       {/* Other */}

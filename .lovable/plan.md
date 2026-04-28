@@ -1,39 +1,50 @@
-# Fix: Auto-cleanup media 7 ngày chưa hoạt động
+## Mục tiêu
+Tạo trang `/admin/cron-monitor` cho admin xem trạng thái cron `cleanup-old-media`: lần chạy gần nhất, số bản ghi đã xóa (channel_images, carousel_images, videos, storage files), thời gian chạy (duration), nguồn trigger (cron/manual), lỗi nếu có. Cho phép trigger thủ công và xem lịch sử các lần chạy.
 
-## Hiện trạng
-- Cron job `cleanup-old-media-daily` đã tồn tại (3:00 UTC mỗi ngày, gọi edge function `cleanup-old-media`).
-- Edge function `cleanup-old-media/index.ts` đã có code đầy đủ (xóa channel_image_history, carousel_images, video_generations >7 ngày + dọn storage có protect logic).
-- **Nhưng edge function chưa từng chạy** (không có log boot/invoke nào).
-- DB còn tồn 5 channel images + 22 carousel images >7 ngày chưa bị xóa.
+## Việc cần làm
 
-## Nguyên nhân
-Edge function `cleanup-old-media` chưa được deploy/active trên Lovable Cloud, nên `pg_net.http_post` từ cron gọi vào URL `/functions/v1/cleanup-old-media` trả về 404 và không có log nào ghi nhận tại function level.
+### 1. Database — bảng log run history
+Tạo migration mới với bảng `cron_run_logs`:
+- `id`, `job_name` (text, indexed), `started_at`, `completed_at`, `duration_ms`
+- `status` ('success' | 'partial' | 'failed')
+- `triggered_by` ('cron' | 'manual')
+- `summary` (jsonb) — chứa số bản ghi xóa từng loại + storage stats
+- `errors` (jsonb array)
+- RLS: chỉ admin SELECT (`has_role(auth.uid(), 'admin')`); service role full access cho INSERT từ edge function
+- Index trên `(job_name, started_at DESC)` để query nhanh
 
-## Các bước fix
+### 2. Edge function `cleanup-old-media` — bổ sung log
+Sửa `supabase/functions/cleanup-old-media/index.ts`:
+- Đọc `triggered_by` từ body (default 'cron')
+- Track `startTime`, tính `duration_ms` cuối hàm
+- INSERT 1 row vào `cron_run_logs` với toàn bộ summary + errors trước khi return (kể cả nhánh catch error → status 'failed')
+- Status logic: `errors.length === 0` → 'success'; có errors nhưng vẫn xóa được → 'partial'; throw → 'failed'
 
-### 1. Re-deploy edge function `cleanup-old-media`
-- Touch lại file `supabase/functions/cleanup-old-media/index.ts` (no-op edit + cập nhật comment header) để Lovable Cloud trigger auto-deploy khi commit.
-- Verify `supabase/config.toml` không vô tình require `verify_jwt = true` cho function này (cron gọi bằng anon key).
+### 3. Trang admin mới `src/pages/AdminCronMonitor.tsx`
+- Card thống kê tổng: lần chạy gần nhất (relative time), tổng bản ghi xóa 7 ngày qua, success rate
+- Nút "Chạy ngay" → invoke `cleanup-old-media` với `triggered_by: 'manual'`, refetch list sau 2s
+- Bảng lịch sử (20 lần gần nhất, có pagination):
+  - Cột: Started At | Trigger | Duration | Status (badge) | Channel imgs | Carousel imgs | Videos | Storage files | Errors (expandable)
+  - Click row mở dialog chi tiết hiển thị full `summary` jsonb + danh sách errors
+- Filter theo status (all/success/partial/failed) và range thời gian (24h/7d/30d)
+- Empty state khi chưa có log + hint "Cron chạy 03:00 UTC mỗi ngày"
 
-### 2. Trigger chạy ngay (manual invoke) để xác nhận hoạt động
-- Sau khi deploy, gọi function 1 lần để dọn 27 records cũ tồn đọng và xác nhận log xuất hiện.
+### 4. Routing & navigation
+- Thêm route `/admin/cron-monitor` trong `src/app/routes.tsx` (theo pattern `<ProtectedRoute><AdminProtectedRoute><AppLayout>...`)
+- Thêm link trong sidebar admin (tìm component navigation admin hiện có để chèn item "Cron Monitor")
 
-### 3. Kiểm tra `pg_net` request history
-- Query `net._http_response` để confirm cron các ngày trước đã gọi nhưng nhận status code gì (404 / 401 / 500).
-- Nếu phát hiện 401, đổi cron dùng service_role key thay vì anon key.
+### 5. Backfill nhẹ (optional, làm ngay sau migrate)
+Insert 1 row "info" vào `cron_run_logs` để empty state có context, hoặc bỏ qua — chờ lần cron tiếp theo (03:00 UTC).
 
-### 4. Sanity check sau khi chạy
-- Verify số rows >7 ngày trong `channel_image_history`, `carousel_images`, `video_generations` = 0.
-- Verify storage bucket không còn orphan files (qua summary trả về của function).
+## Kỹ thuật chi tiết
+- **Migration SQL**: dùng pattern `public.cron_run_logs` + RLS policies + index
+- **Edge function**: dùng `serviceClient` đã có, ghi log trong `try/finally` để chắc chắn record dù có throw
+- **UI**: shadcn Table + Badge + Dialog (đã có); React Query với `queryKey: ['cron-logs', filters]`, refetch interval 30s khi tab active
+- **Mở rộng tương lai**: schema `job_name` cho phép tái dùng cho các cron khác (auto-refresh-social-tokens, scheduled-publisher, v.v.) — chỉ cần mỗi function INSERT vào cùng bảng
 
-## Files ảnh hưởng
-- `supabase/functions/cleanup-old-media/index.ts` (touch để force redeploy)
-- Có thể cần migration nhỏ update cron headers nếu phát hiện auth issue
-
-## Không cần thay đổi
-- Logic function (đã đúng, có protect logic, có chunk delete 100, có dedupe per bucket).
-- Schedule cron (3h UTC = 10h sáng VN — hợp lý, low traffic).
-- RLS / DB schema.
-
-## Rủi ro
-- Thấp. Function dùng service role key nội bộ, có error handling đầy đủ, đã có protect logic chống xóa nhầm ảnh đang dùng.
+## Files thay đổi
+- `supabase/migrations/<new>.sql` (tạo bảng + RLS + index)
+- `supabase/functions/cleanup-old-media/index.ts` (thêm logging)
+- `src/pages/AdminCronMonitor.tsx` (mới)
+- `src/app/routes.tsx` (thêm route)
+- Component sidebar admin (thêm nav item)

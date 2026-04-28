@@ -4953,6 +4953,45 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_run_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          errors: Json
+          id: string
+          job_name: string
+          started_at: string
+          status: string
+          summary: Json
+          triggered_by: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          errors?: Json
+          id?: string
+          job_name: string
+          started_at?: string
+          status?: string
+          summary?: Json
+          triggered_by?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          errors?: Json
+          id?: string
+          job_name?: string
+          started_at?: string
+          status?: string
+          summary?: Json
+          triggered_by?: string
+        }
+        Relationships: []
+      }
       curated_events: {
         Row: {
           country_code: string | null
