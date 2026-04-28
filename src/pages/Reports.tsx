@@ -32,6 +32,8 @@ export default function Reports() {
   const publishing = usePublishingReport(organizationId, filters);
   const engagement = useEngagementReport(organizationId, filters);
   const triggerSync = useTriggerEngagementSync(organizationId);
+
+  const overviewSeries = useMemo(() => {
     const c = content.data?.byDay ?? [];
     const p = publishing.data?.byDay ?? [];
     const map = new Map<string, { date: string; created: number; published: number; failed: number }>();
