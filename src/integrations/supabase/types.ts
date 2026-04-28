@@ -5393,6 +5393,39 @@ export type Database = {
         }
         Relationships: []
       }
+      facebook_oauth_sessions: {
+        Row: {
+          brand_template_id: string | null
+          created_at: string
+          encrypted_user_token: string
+          expires_at: string
+          id: string
+          organization_id: string | null
+          pages: Json
+          user_id: string
+        }
+        Insert: {
+          brand_template_id?: string | null
+          created_at?: string
+          encrypted_user_token: string
+          expires_at?: string
+          id?: string
+          organization_id?: string | null
+          pages?: Json
+          user_id: string
+        }
+        Update: {
+          brand_template_id?: string | null
+          created_at?: string
+          encrypted_user_token?: string
+          expires_at?: string
+          id?: string
+          organization_id?: string | null
+          pages?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       generation_signals: {
         Row: {
           accepted: boolean | null
@@ -10995,6 +11028,7 @@ export type Database = {
         Returns: Json
       }
       cleanup_expired_cache: { Args: never; Returns: number }
+      cleanup_expired_facebook_oauth_sessions: { Args: never; Returns: number }
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_old_checkpoints: { Args: never; Returns: number }
