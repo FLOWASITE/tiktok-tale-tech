@@ -317,20 +317,42 @@ Deno.serve(async (req) => {
   }
   const uniquePosts = Array.from(dedupMap.values());
 
-  // 2. Get connections grouped by (org, platform)
+  // 2. Load active connections + map qua brand_template_id để bù khi connection thiếu organization_id
   const orgIds = [...new Set(uniquePosts.map((p) => p.organization_id))];
   const { data: connections } = await supabase
     .from("social_connections")
     .select("id, organization_id, platform, access_token, refresh_token, consumer_key, consumer_secret, brand_template_id, page_id")
-    .in("organization_id", orgIds.length ? orgIds : ["00000000-0000-0000-0000-000000000000"])
     .eq("is_active", true);
 
-  // map: org::platform -> connection
   type ConnRow = NonNullable<typeof connections>[number];
+
+  // Lookup org từ brand_template_id để fix các connection legacy thiếu organization_id
+  const brandIds = (connections ?? [])
+    .filter((c) => !c.organization_id && c.brand_template_id)
+    .map((c) => c.brand_template_id as string);
+  const brandOrgMap = new Map<string, string>();
+  if (brandIds.length) {
+    const { data: brands } = await supabase
+      .from("brand_templates")
+      .select("id, organization_id")
+      .in("id", brandIds);
+    for (const b of brands ?? []) {
+      if (b.id && b.organization_id) brandOrgMap.set(b.id as string, b.organization_id as string);
+    }
+  }
+
   const connMap = new Map<string, ConnRow>();
   for (const c of connections ?? []) {
-    // Map channel names to platform: 'facebook'->'facebook', 'instagram'->'instagram', etc.
-    connMap.set(`${c.organization_id}::${c.platform}`, c);
+    const effectiveOrg =
+      c.organization_id ??
+      (c.brand_template_id ? brandOrgMap.get(c.brand_template_id as string) : null);
+    if (!effectiveOrg) continue;
+    if (orgIds.length && !orgIds.includes(effectiveOrg)) continue;
+    const key = `${effectiveOrg}::${c.platform}`;
+    // Prefer connection có organization_id thực; chỉ overwrite nếu chưa có
+    if (!connMap.has(key)) {
+      connMap.set(key, { ...c, organization_id: effectiveOrg });
+    }
   }
 
   const channelToPlatform: Record<string, string> = {
