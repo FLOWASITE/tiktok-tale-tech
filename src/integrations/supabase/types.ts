@@ -10875,6 +10875,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_admin_audit_with_user: {
+        Row: {
+          action: string | null
+          admin_email: string | null
+          admin_id: string | null
+          admin_name: string | null
+          created_at: string | null
+          details: Json | null
+          id: string | null
+          target_user_id: string | null
+        }
+        Relationships: []
+      }
       v_cache_and_revision: {
         Row: {
           cache_hit_rate: number | null
@@ -10949,6 +10962,7 @@ export type Database = {
       }
     }
     Functions: {
+      admin_bulk_cleanup_expired: { Args: never; Returns: Json }
       admin_cleanup_table: {
         Args: { p_days?: number; p_mode: string; p_table: string }
         Returns: number
