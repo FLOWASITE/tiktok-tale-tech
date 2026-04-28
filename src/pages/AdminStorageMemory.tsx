@@ -243,8 +243,11 @@ function BucketBrowser({ bucket, organizationId, organizationName, onClose, onCh
   const [olderOpen, setOlderOpen] = useState(false);
 
   const list = useQuery({
-    queryKey: ["bucket-files", bucket, search, sortBy, sortDir, offset],
-    queryFn: () => call("list_bucket_files", { bucket, search, sortBy, sortDir, limit: 50, offset }),
+    queryKey: ["bucket-files", bucket, search, sortBy, sortDir, offset, organizationId],
+    queryFn: () => call("list_bucket_files", {
+      bucket, search, sortBy, sortDir, limit: 50, offset,
+      ...(organizationId ? { organization_id: organizationId } : {}),
+    }),
   });
   const files = list.data?.files || [];
   const total = list.data?.total || 0;
