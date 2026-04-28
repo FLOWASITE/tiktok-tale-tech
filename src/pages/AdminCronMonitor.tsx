@@ -410,6 +410,9 @@ export default function AdminCronMonitor() {
         </Card>
       </div>
 
+      {/* Trend charts */}
+      <TrendCharts logs={logs ?? []} rangeFilter={rangeFilter} />
+
       {/* Filters */}
       <Card>
         <CardHeader>
