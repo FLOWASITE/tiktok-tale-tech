@@ -286,7 +286,8 @@ Deno.serve(async (req) => {
     .eq("is_active", true);
 
   // map: org::platform -> connection
-  const connMap = new Map<string, typeof connections[number]>();
+  type ConnRow = NonNullable<typeof connections>[number];
+  const connMap = new Map<string, ConnRow>();
   for (const c of connections ?? []) {
     // Map channel names to platform: 'facebook'->'facebook', 'instagram'->'instagram', etc.
     connMap.set(`${c.organization_id}::${c.platform}`, c);
