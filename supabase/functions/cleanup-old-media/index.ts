@@ -32,13 +32,49 @@ function parseStorageUrl(url: string | null | undefined): { bucket: string; path
 Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { auth: { persistSession: false } }
-    );
+  const startedAt = new Date();
+  const startMs = Date.now();
+  let triggeredBy: 'cron' | 'manual' = 'cron';
 
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } }
+  );
+
+  // Try to read trigger source from body (best-effort, don't fail if no body)
+  try {
+    if (req.method === 'POST') {
+      const cloned = req.clone();
+      const body = await cloned.json().catch(() => null);
+      if (body?.triggered_by === 'manual') triggeredBy = 'manual';
+    }
+  } catch { /* ignore */ }
+
+  const writeLog = async (
+    status: 'success' | 'partial' | 'failed',
+    summary: CleanupSummary | null,
+    fatalError?: string
+  ) => {
+    try {
+      const errors = summary?.errors ?? [];
+      if (fatalError) errors.push(fatalError);
+      await supabase.from('cron_run_logs').insert({
+        job_name: 'cleanup-old-media',
+        started_at: startedAt.toISOString(),
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - startMs,
+        status,
+        triggered_by: triggeredBy,
+        summary: summary ?? {},
+        errors,
+      });
+    } catch (logErr) {
+      console.error('[cleanup-old-media] Failed to write cron_run_logs:', logErr);
+    }
+  };
+
+  try {
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const summary: CleanupSummary = {
       channel_images_deleted: 0,
