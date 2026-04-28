@@ -22,7 +22,7 @@ import {
 import {
   HardDrive, Database, Trash2, RefreshCw, Search, Eye, ExternalLink, Download,
   AlertTriangle, FileWarning, Clock, ArrowDown, ArrowUp, Image as ImageIcon, FileText,
-  Sparkles, Calendar,
+  Sparkles, Calendar, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -82,6 +82,7 @@ const ACTION_LABELS: Record<string, string> = {
   cleanup_table: "Dọn bảng",
   storage_delete_files: "Xóa file",
   storage_cleanup_older_than: "Dọn file cũ",
+  storage_cleanup_org: "Dọn theo workspace",
   bulk_cleanup_expired: "Dọn hàng loạt",
 };
 
@@ -97,7 +98,9 @@ type DbStat = {
 type BucketSummary = {
   id: string; name: string; public: boolean;
   file_count: number; total_size: number; created_at: string;
+  org_file_count?: number; org_total_size?: number;
 };
+type OrgOption = { id: string; name: string; slug: string };
 
 export default function AdminStorageMemory() {
   return (
@@ -128,39 +131,91 @@ export default function AdminStorageMemory() {
 /* ---------------- Storage Tab ---------------- */
 function StorageTab() {
   const qc = useQueryClient();
+  const [orgId, setOrgId] = useState<string>("all");
+  const orgsQ = useQuery({
+    queryKey: ["admin-storage-orgs"],
+    queryFn: () => call("list_organizations"),
+  });
+  const orgs: OrgOption[] = orgsQ.data?.organizations || [];
+  const selectedOrg = orgs.find((o) => o.id === orgId) || null;
+
   const overview = useQuery({
-    queryKey: ["admin-storage-overview"],
-    queryFn: () => call("get_overview"),
+    queryKey: ["admin-storage-overview", orgId],
+    queryFn: () => call("get_overview", orgId === "all" ? {} : { organization_id: orgId }),
   });
   const buckets: BucketSummary[] = overview.data?.buckets || [];
   const [activeBucket, setActiveBucket] = useState<string | null>(null);
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 flex items-center gap-3 flex-wrap">
+          <Building2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Workspace</span>
+          <Select value={orgId} onValueChange={(v) => { setOrgId(v); setActiveBucket(null); }}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Chọn workspace..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả workspace</SelectItem>
+              {orgs.map((o) => (
+                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedOrg && (
+            <Badge variant="secondary" className="font-mono text-xs">{selectedOrg.slug}</Badge>
+          )}
+          <div className="ml-auto text-xs text-muted-foreground">
+            {orgId === "all"
+              ? "Đang xem tất cả file của hệ thống"
+              : "Đang lọc file thuộc workspace đã chọn"}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {overview.isLoading && <Card><CardContent className="p-6 text-sm text-muted-foreground">Đang tải...</CardContent></Card>}
-        {buckets.map((b) => (
-          <Card key={b.id} className={`cursor-pointer transition ${activeBucket === b.id ? "ring-2 ring-ring" : "hover:bg-muted/30"}`}
-            onClick={() => setActiveBucket(b.id)}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <HardDrive className="h-4 w-4" />{b.name}
-                </CardTitle>
-                <Badge variant={b.public ? "default" : "secondary"}>{b.public ? "Public" : "Private"}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Số file</span><span className="font-medium">{b.file_count}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Dung lượng</span><span className="font-medium">{fmtBytes(b.total_size)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Tạo lúc</span><span>{fmtTime(b.created_at)}</span></div>
-            </CardContent>
-          </Card>
-        ))}
+        {buckets.map((b) => {
+          const showOrg = orgId !== "all";
+          return (
+            <Card key={b.id} className={`cursor-pointer transition ${activeBucket === b.id ? "ring-2 ring-ring" : "hover:bg-muted/30"}`}
+              onClick={() => setActiveBucket(b.id)}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <HardDrive className="h-4 w-4" />{b.name}
+                  </CardTitle>
+                  <Badge variant={b.public ? "default" : "secondary"}>{b.public ? "Public" : "Private"}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                {showOrg && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Của workspace</span>
+                      <span className="font-semibold text-primary">{b.org_file_count ?? 0} file • {fmtBytes(b.org_total_size ?? 0)}</span>
+                    </div>
+                    <div className="border-t my-1" />
+                  </>
+                )}
+                <div className="flex justify-between"><span className="text-muted-foreground">Tổng số file</span><span className="font-medium">{b.file_count}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tổng dung lượng</span><span className="font-medium">{fmtBytes(b.total_size)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Tạo lúc</span><span>{fmtTime(b.created_at)}</span></div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {activeBucket && (
-        <BucketBrowser bucket={activeBucket} onClose={() => setActiveBucket(null)} onChanged={() => qc.invalidateQueries({ queryKey: ["admin-storage-overview"] })} />
+        <BucketBrowser
+          bucket={activeBucket}
+          organizationId={orgId === "all" ? null : orgId}
+          organizationName={selectedOrg?.name || null}
+          onClose={() => setActiveBucket(null)}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["admin-storage-overview"] })}
+        />
       )}
       {!activeBucket && buckets.length > 0 && (
         <div className="text-sm text-muted-foreground text-center py-4">Chọn 1 bucket ở trên để xem chi tiết file.</div>
@@ -169,7 +224,13 @@ function StorageTab() {
   );
 }
 
-function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose: () => void; onChanged: () => void }) {
+function BucketBrowser({ bucket, organizationId, organizationName, onClose, onChanged }: {
+  bucket: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"created_at" | "name">("created_at");
@@ -180,10 +241,16 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [orphanOpen, setOrphanOpen] = useState(false);
   const [olderOpen, setOlderOpen] = useState(false);
+  const [orgCleanupOpen, setOrgCleanupOpen] = useState(false);
+  const [orgCleanupPreview, setOrgCleanupPreview] = useState<{ count: number; total_bytes: number } | null>(null);
+  const [orgCleanupLoading, setOrgCleanupLoading] = useState(false);
 
   const list = useQuery({
-    queryKey: ["bucket-files", bucket, search, sortBy, sortDir, offset],
-    queryFn: () => call("list_bucket_files", { bucket, search, sortBy, sortDir, limit: 50, offset }),
+    queryKey: ["bucket-files", bucket, search, sortBy, sortDir, offset, organizationId],
+    queryFn: () => call("list_bucket_files", {
+      bucket, search, sortBy, sortDir, limit: 50, offset,
+      ...(organizationId ? { organization_id: organizationId } : {}),
+    }),
   });
   const files = list.data?.files || [];
   const total = list.data?.total || 0;
@@ -222,10 +289,33 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <CardTitle className="text-lg">Bucket: {bucket}</CardTitle>
-            <CardDescription>Tổng {total} file (theo bộ lọc hiện tại)</CardDescription>
+            <CardTitle className="text-lg flex items-center gap-2">
+              Bucket: {bucket}
+              {organizationId && organizationName && (
+                <Badge variant="secondary" className="font-normal">
+                  <Building2 className="h-3 w-3 mr-1" />{organizationName}
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Tổng {total} file
+              {organizationId ? " (đã lọc theo workspace)" : " (tất cả workspace)"}
+            </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {organizationId && (
+              <Button variant="destructive" size="sm" onClick={async () => {
+                setOrgCleanupLoading(true);
+                try {
+                  const r = await call("cleanup_bucket_for_org", { bucket, organization_id: organizationId, dry_run: true });
+                  setOrgCleanupPreview({ count: r.count, total_bytes: r.total_bytes });
+                  setOrgCleanupOpen(true);
+                } catch (e: any) { toast.error(e.message); }
+                finally { setOrgCleanupLoading(false); }
+              }} disabled={orgCleanupLoading}>
+                <Trash2 className="h-4 w-4 mr-1" />Xóa toàn bộ file của workspace
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setOlderOpen(true)}>
               <Calendar className="h-4 w-4 mr-1" />Xóa file cũ
             </Button>
@@ -269,14 +359,15 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
               <TableRow>
                 <TableHead className="w-10"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></TableHead>
                 <TableHead>Tên file</TableHead>
+                <TableHead className="w-40">Workspace</TableHead>
                 <TableHead className="w-24">Size</TableHead>
                 <TableHead className="w-40">Tạo lúc</TableHead>
                 <TableHead className="w-40 text-right">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.isLoading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>}
-              {!list.isLoading && files.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Không có file</TableCell></TableRow>}
+              {list.isLoading && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>}
+              {!list.isLoading && files.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Không có file</TableCell></TableRow>}
               {files.map((f: any) => (
                 <TableRow key={f.name}>
                   <TableCell><Checkbox checked={selected.has(f.name)} onCheckedChange={(c) => {
@@ -289,6 +380,16 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
                       {f.mimetype?.startsWith("image/") ? <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
                       <span className="truncate">{f.name}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {f.organization_name ? (
+                      <Badge variant="secondary" className="font-normal max-w-[140px] truncate" title={f.organization_name}>
+                        <Building2 className="h-3 w-3 mr-1 shrink-0" />
+                        <span className="truncate">{f.organization_name}</span>
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground italic">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{fmtBytes(f.size)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtTime(f.created_at)}</TableCell>
@@ -352,15 +453,55 @@ function BucketBrowser({ bucket, onClose, onChanged }: { bucket: string; onClose
         onChanged();
       }} />
 
-      <OlderThanDialog bucket={bucket} open={olderOpen} onOpenChange={setOlderOpen} onChanged={() => {
+      <OlderThanDialog bucket={bucket} organizationId={organizationId} open={olderOpen} onOpenChange={setOlderOpen} onChanged={() => {
         qc.invalidateQueries({ queryKey: ["bucket-files", bucket] });
         onChanged();
       }} />
+
+      <AlertDialog open={orgCleanupOpen} onOpenChange={(o) => { setOrgCleanupOpen(o); if (!o) setOrgCleanupPreview(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Xóa toàn bộ file của workspace?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <div>
+                  Sẽ xóa <b>{orgCleanupPreview?.count ?? 0} file</b> (thu hồi <b>{fmtBytes(orgCleanupPreview?.total_bytes ?? 0)}</b>) thuộc workspace <b>{organizationName}</b> trong bucket <b>{bucket}</b>.
+                </div>
+                <div className="text-destructive">Hành động không thể hoàn tác.</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!orgCleanupPreview || orgCleanupPreview.count === 0 || orgCleanupLoading}
+              onClick={async () => {
+                if (!organizationId) return;
+                setOrgCleanupLoading(true);
+                try {
+                  const r = await call("cleanup_bucket_for_org", { bucket, organization_id: organizationId, confirm: true });
+                  toast.success(`Đã xóa ${r.deleted} file (thu hồi ${fmtBytes(r.total_bytes)})`);
+                  setOrgCleanupOpen(false);
+                  setOrgCleanupPreview(null);
+                  qc.invalidateQueries({ queryKey: ["bucket-files", bucket] });
+                  onChanged();
+                } catch (e: any) { toast.error(e.message); }
+                finally { setOrgCleanupLoading(false); }
+              }}
+            >
+              Xóa vĩnh viễn
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
 
-function OlderThanDialog({ bucket, open, onOpenChange, onChanged }: { bucket: string; open: boolean; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
+function OlderThanDialog({ bucket, organizationId, open, onOpenChange, onChanged }: { bucket: string; organizationId: string | null; open: boolean; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
   const [days, setDays] = useState(60);
   const [preview, setPreview] = useState<{ count: number; total_bytes: number; sample: any[] } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -368,7 +509,7 @@ function OlderThanDialog({ bucket, open, onOpenChange, onChanged }: { bucket: st
   const runDryRun = async () => {
     setLoading(true);
     try {
-      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: true });
+      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: true, ...(organizationId ? { organization_id: organizationId } : {}) });
       setPreview(r);
     } catch (e: any) { toast.error(e.message); }
     finally { setLoading(false); }
@@ -377,7 +518,7 @@ function OlderThanDialog({ bucket, open, onOpenChange, onChanged }: { bucket: st
   const runDelete = async () => {
     setLoading(true);
     try {
-      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: false });
+      const r = await call("cleanup_bucket_older_than", { bucket, days, dry_run: false, ...(organizationId ? { organization_id: organizationId } : {}) });
       toast.success(`Đã xóa ${r.deleted} file (thu hồi ${fmtBytes(r.total_bytes)})`);
       onOpenChange(false);
       setPreview(null);

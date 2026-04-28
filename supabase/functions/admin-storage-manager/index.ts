@@ -20,6 +20,8 @@ const WHITELIST_TABLES = new Set<string>([
   "telegram_processed_updates", "telegram_chat_state",
 ]);
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // In-memory rate limit per admin
 const rateMap = new Map<string, number[]>();
 function rateLimit(userId: string, max = 30, windowMs = 60_000) {
@@ -72,8 +74,18 @@ Deno.serve(async (req) => {
     const action = body?.action as string;
 
     switch (action) {
+      case "list_organizations": {
+        const { data, error } = await svc
+          .from("organizations")
+          .select("id, name, slug")
+          .order("name", { ascending: true });
+        if (error) throw error;
+        return json({ organizations: data || [] });
+      }
+
       case "get_overview": {
-        const buckets = await fetchBucketsSummary(svc);
+        const orgId: string | undefined = body.organization_id || undefined;
+        const buckets = await fetchBucketsSummary(svc, orgId);
         const { data: dbStats } = await svc.rpc("get_db_memory_stats");
         return json({ db_stats: dbStats || [], buckets });
       }
@@ -84,9 +96,13 @@ Deno.serve(async (req) => {
       }
 
       case "list_bucket_files": {
-        const { bucket, search, limit = 50, offset = 0, sortBy = "created_at", sortDir = "desc" } = body;
+        const { bucket, search, limit = 50, offset = 0, sortBy = "created_at", sortDir = "desc", organization_id } = body;
         if (!bucket) return json({ error: "bucket required" }, 400);
         const allFiles = await deepListBucket(svc, bucket);
+        // Resolve org for each file
+        const orgMap = await resolveOrgForFiles(svc, bucket, allFiles);
+        const orgNameMap = await fetchOrgNames(svc, Array.from(new Set(Array.from(orgMap.values()).filter(Boolean) as string[])));
+
         // Sort
         allFiles.sort((a: any, b: any) => {
           const av = sortBy === "name" ? (a.name || "") : (a.created_at || "");
@@ -94,20 +110,28 @@ Deno.serve(async (req) => {
           return sortDir === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
         });
         let filtered = allFiles;
+        if (organization_id) {
+          filtered = filtered.filter((f: any) => orgMap.get(f.name) === organization_id);
+        }
         if (search) {
           const q = search.toLowerCase();
-          filtered = allFiles.filter((f: any) => f.name.toLowerCase().includes(q));
+          filtered = filtered.filter((f: any) => f.name.toLowerCase().includes(q));
         }
         const total = filtered.length;
-        const slice = filtered.slice(offset, offset + limit).map((f: any) => ({
-          name: f.name,
-          size: f.metadata?.size || 0,
-          mimetype: f.metadata?.mimetype,
-          created_at: f.created_at,
-          updated_at: f.updated_at,
-          last_accessed_at: f.last_accessed_at,
-          public_url: svc.storage.from(bucket).getPublicUrl(f.name).data.publicUrl,
-        }));
+        const slice = filtered.slice(offset, offset + limit).map((f: any) => {
+          const oid = orgMap.get(f.name) || null;
+          return {
+            name: f.name,
+            size: f.metadata?.size || 0,
+            mimetype: f.metadata?.mimetype,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+            last_accessed_at: f.last_accessed_at,
+            public_url: svc.storage.from(bucket).getPublicUrl(f.name).data.publicUrl,
+            organization_id: oid,
+            organization_name: oid ? (orgNameMap.get(oid) || null) : null,
+          };
+        });
         return json({ files: slice, total });
       }
 
@@ -126,17 +150,19 @@ Deno.serve(async (req) => {
       }
 
       case "cleanup_bucket_older_than": {
-        const { bucket, days = 30, dry_run = false } = body;
+        const { bucket, days = 30, dry_run = false, organization_id } = body;
         if (!bucket) return json({ error: "bucket required" }, 400);
         const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
         const allFiles = await deepListBucket(svc, bucket);
-        const targets = allFiles
-          .filter((f: any) => f.created_at && new Date(f.created_at).getTime() < cutoff)
-          .map((f: any) => ({ name: f.name, size: f.metadata?.size || 0 }));
+        let candidates = allFiles.filter((f: any) => f.created_at && new Date(f.created_at).getTime() < cutoff);
+        if (organization_id) {
+          const orgMap = await resolveOrgForFiles(svc, bucket, candidates);
+          candidates = candidates.filter((f: any) => orgMap.get(f.name) === organization_id);
+        }
+        const targets = candidates.map((f: any) => ({ name: f.name, size: f.metadata?.size || 0 }));
         const totalBytes = targets.reduce((s: number, t: any) => s + t.size, 0);
         if (dry_run) return json({ count: targets.length, total_bytes: totalBytes, sample: targets.slice(0, 10) });
         if (targets.length === 0) return json({ deleted: 0, total_bytes: 0 });
-        // Batch 100/lần
         let deleted = 0;
         for (let i = 0; i < targets.length; i += 100) {
           const batch = targets.slice(i, i + 100).map((t: any) => t.name);
@@ -144,7 +170,31 @@ Deno.serve(async (req) => {
           deleted += data?.length || 0;
         }
         await audit(svc, user.id, "storage_cleanup_older_than", {
-          bucket, days, deleted, total_bytes: totalBytes,
+          bucket, days, deleted, total_bytes: totalBytes, organization_id: organization_id || null,
+        });
+        return json({ deleted, total_bytes: totalBytes });
+      }
+
+      case "cleanup_bucket_for_org": {
+        const { bucket, organization_id, dry_run = false, confirm } = body;
+        if (!bucket || !organization_id) return json({ error: "bucket và organization_id bắt buộc" }, 400);
+        if (!dry_run && confirm !== true) return json({ error: "Cần confirm=true để xóa thật" }, 400);
+        const allFiles = await deepListBucket(svc, bucket);
+        const orgMap = await resolveOrgForFiles(svc, bucket, allFiles);
+        const targets = allFiles
+          .filter((f: any) => orgMap.get(f.name) === organization_id)
+          .map((f: any) => ({ name: f.name, size: f.metadata?.size || 0 }));
+        const totalBytes = targets.reduce((s: number, t: any) => s + t.size, 0);
+        if (dry_run) return json({ count: targets.length, total_bytes: totalBytes, sample: targets.slice(0, 10) });
+        if (targets.length === 0) return json({ deleted: 0, total_bytes: 0 });
+        let deleted = 0;
+        for (let i = 0; i < targets.length; i += 100) {
+          const batch = targets.slice(i, i + 100).map((t: any) => t.name);
+          const { data } = await svc.storage.from(bucket).remove(batch);
+          deleted += data?.length || 0;
+        }
+        await audit(svc, user.id, "storage_cleanup_org", {
+          bucket, organization_id, deleted, total_bytes: totalBytes,
         });
         return json({ deleted, total_bytes: totalBytes });
       }
@@ -218,7 +268,8 @@ Deno.serve(async (req) => {
           query = query.eq("action", action_filter);
         } else {
           query = query.in("action", [
-            "cleanup_table", "storage_delete_files", "storage_cleanup_older_than", "bulk_cleanup_expired",
+            "cleanup_table", "storage_delete_files", "storage_cleanup_older_than",
+            "storage_cleanup_org", "bulk_cleanup_expired",
           ]);
         }
         const { data, error } = await query;
@@ -249,7 +300,6 @@ async function listWithRetry(svc: any, bucket: string, prefix: string, offset: n
     } catch (e: any) {
       lastErr = e;
       const status = e?.status || e?.statusCode;
-      // Retry on transient gateway errors
       if (status === 502 || status === 503 || status === 504 || status === 429) {
         await new Promise((r) => setTimeout(r, 500 * (i + 1)));
         continue;
@@ -261,7 +311,6 @@ async function listWithRetry(svc: any, bucket: string, prefix: string, offset: n
 }
 
 async function deepListBucket(svc: any, bucket: string): Promise<any[]> {
-  // Recursive deep listing — handles >1000 files & nested folders
   const result: any[] = [];
   const stack: string[] = [""];
   const visited = new Set<string>();
@@ -275,7 +324,6 @@ async function deepListBucket(svc: any, bucket: string): Promise<any[]> {
       if (!data || data.length === 0) break;
       for (const item of data) {
         if (item.id === null) {
-          // Folder
           const sub = prefix ? `${prefix}/${item.name}` : item.name;
           if (!visited.has(sub)) stack.push(sub);
         } else {
@@ -292,20 +340,116 @@ async function deepListBucket(svc: any, bucket: string): Promise<any[]> {
   return result;
 }
 
-async function fetchBucketsSummary(svc: any) {
+/**
+ * Resolve organization_id for each file based on its first path segment.
+ * - carousel-images: prefix = carousel_id → carousels.organization_id
+ * - brand-logos: prefix = user_id → primary org membership
+ * - generic 'social/{org_id}/...' pattern also supported
+ */
+async function resolveOrgForFiles(svc: any, bucket: string, files: any[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (!files.length) return map;
+
+  // Collect first segment per file
+  const segments = new Map<string, string[]>(); // segment -> filenames
+  for (const f of files) {
+    const parts = String(f.name || "").split("/");
+    let seg = parts[0];
+    // Special pattern: social/{org_id}/...
+    if (seg === "social" && parts[1] && UUID_RE.test(parts[1])) {
+      seg = parts[1];
+    }
+    if (!seg || !UUID_RE.test(seg)) {
+      map.set(f.name, null);
+      continue;
+    }
+    if (!segments.has(seg)) segments.set(seg, []);
+    segments.get(seg)!.push(f.name);
+  }
+
+  const segIds = Array.from(segments.keys());
+  if (!segIds.length) return map;
+
+  // Lookup based on bucket
+  const segToOrg = new Map<string, string>();
+
+  if (bucket === "carousel-images") {
+    // segment = carousel_id
+    const { data } = await svc
+      .from("carousels")
+      .select("id, organization_id")
+      .in("id", segIds);
+    for (const r of data || []) {
+      if (r.organization_id) segToOrg.set(r.id, r.organization_id);
+    }
+  } else if (bucket === "brand-logos") {
+    // segment = user_id → first org membership
+    const { data } = await svc
+      .from("organization_members")
+      .select("user_id, organization_id, role, created_at")
+      .in("user_id", segIds);
+    // Pick owner > admin > earliest
+    const byUser = new Map<string, any[]>();
+    for (const r of data || []) {
+      if (!byUser.has(r.user_id)) byUser.set(r.user_id, []);
+      byUser.get(r.user_id)!.push(r);
+    }
+    const rolePriority: Record<string, number> = { owner: 1, admin: 2, member: 3, viewer: 4 };
+    for (const [uid, rows] of byUser) {
+      rows.sort((a: any, b: any) => {
+        const ra = rolePriority[a.role] || 99;
+        const rb = rolePriority[b.role] || 99;
+        if (ra !== rb) return ra - rb;
+        return (a.created_at || "").localeCompare(b.created_at || "");
+      });
+      if (rows[0]) segToOrg.set(uid, rows[0].organization_id);
+    }
+  } else {
+    // Generic: try organization_id direct (segment = org_id)
+    const { data } = await svc
+      .from("organizations")
+      .select("id")
+      .in("id", segIds);
+    for (const r of data || []) segToOrg.set(r.id, r.id);
+  }
+
+  // Apply mapping
+  for (const [seg, fileNames] of segments) {
+    const orgId = segToOrg.get(seg) || null;
+    for (const fn of fileNames) map.set(fn, orgId);
+  }
+  return map;
+}
+
+async function fetchOrgNames(svc: any, ids: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!ids.length) return map;
+  const { data } = await svc.from("organizations").select("id, name").in("id", ids);
+  for (const r of data || []) map.set(r.id, r.name);
+  return map;
+}
+
+async function fetchBucketsSummary(svc: any, orgId?: string) {
   const { data: buckets } = await svc.storage.listBuckets();
   const result: any[] = [];
   for (const b of buckets || []) {
     const files = await deepListBucket(svc, b.id).catch(() => []);
     const totalSize = files.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
-    result.push({
+    const entry: any = {
       id: b.id,
       name: b.name,
       public: b.public,
       file_count: files.length,
       total_size: totalSize,
       created_at: b.created_at,
-    });
+    };
+    if (orgId) {
+      const orgMap = await resolveOrgForFiles(svc, b.id, files);
+      const orgFiles = files.filter((f: any) => orgMap.get(f.name) === orgId);
+      entry.org_file_count = orgFiles.length;
+      entry.org_total_size = orgFiles.reduce((s: number, f: any) => s + (f.metadata?.size || 0), 0);
+    }
+    result.push(entry);
   }
   return result;
 }
