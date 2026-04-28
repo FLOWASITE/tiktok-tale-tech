@@ -359,14 +359,15 @@ function BucketBrowser({ bucket, organizationId, organizationName, onClose, onCh
               <TableRow>
                 <TableHead className="w-10"><Checkbox checked={allChecked} onCheckedChange={toggleAll} /></TableHead>
                 <TableHead>Tên file</TableHead>
+                <TableHead className="w-40">Workspace</TableHead>
                 <TableHead className="w-24">Size</TableHead>
                 <TableHead className="w-40">Tạo lúc</TableHead>
                 <TableHead className="w-40 text-right">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.isLoading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>}
-              {!list.isLoading && files.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Không có file</TableCell></TableRow>}
+              {list.isLoading && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Đang tải...</TableCell></TableRow>}
+              {!list.isLoading && files.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Không có file</TableCell></TableRow>}
               {files.map((f: any) => (
                 <TableRow key={f.name}>
                   <TableCell><Checkbox checked={selected.has(f.name)} onCheckedChange={(c) => {
@@ -379,6 +380,16 @@ function BucketBrowser({ bucket, organizationId, organizationName, onClose, onCh
                       {f.mimetype?.startsWith("image/") ? <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
                       <span className="truncate">{f.name}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {f.organization_name ? (
+                      <Badge variant="secondary" className="font-normal max-w-[140px] truncate" title={f.organization_name}>
+                        <Building2 className="h-3 w-3 mr-1 shrink-0" />
+                        <span className="truncate">{f.organization_name}</span>
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground italic">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{fmtBytes(f.size)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{fmtTime(f.created_at)}</TableCell>
