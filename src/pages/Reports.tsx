@@ -464,6 +464,16 @@ export default function Reports() {
               </Table>
             </Card>
           </TabsContent>
+
+          <TabsContent value="insights" className="space-y-4">
+            <AIInsightsPanel
+              data={insights.data}
+              isLoading={insights.isLoading}
+              isRefreshing={insights.isRefreshing}
+              error={insights.error}
+              onRefresh={() => insights.refresh()}
+            />
+          </TabsContent>
         </Tabs>
       </div>
     </>
