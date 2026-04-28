@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
   const orgIds = [...new Set(uniquePosts.map((p) => p.organization_id))];
   const { data: connections } = await supabase
     .from("social_connections")
-    .select("id, organization_id, platform, access_token, brand_template_id, page_id")
+    .select("id, organization_id, platform, access_token, refresh_token, consumer_key, consumer_secret, brand_template_id, page_id")
     .in("organization_id", orgIds.length ? orgIds : ["00000000-0000-0000-0000-000000000000"])
     .eq("is_active", true);
 
