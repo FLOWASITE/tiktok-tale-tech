@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const RETENTION_DAYS = 7;
 
+// Buckets quét để xóa file media cũ. KHÔNG đụng tới brand-logos hoặc các bucket asset thương hiệu.
+const MEDIA_BUCKETS = ["carousel-images"] as const;
+
 interface CleanupSummary {
   channel_images_deleted: number;
   carousel_images_deleted: number;
@@ -15,13 +18,12 @@ interface CleanupSummary {
   storage_files_removed: number;
   storage_files_skipped_protected: number;
   storage_files_skipped_missing: number;
+  orphan_storage_files_found: number;
+  orphan_storage_files_removed: number;
+  orphan_storage_files_skipped_protected: number;
   errors: string[];
 }
 
-/**
- * Extract { bucket, path } from a public Supabase storage URL.
- * Format: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
- */
 function parseStorageUrl(url: string | null | undefined): { bucket: string; path: string } | null {
   if (!url) return null;
   const m = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+?)(?:\?|$)/);
@@ -29,38 +31,73 @@ function parseStorageUrl(url: string | null | undefined): { bucket: string; path
   return { bucket: m[1], path: decodeURIComponent(m[2]) };
 }
 
-Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 }, async (req) => {
+/**
+ * Đệ quy list tất cả file trong bucket (storage.list mặc định chỉ trả 1 cấp).
+ * Trả mảng { path, created_at } cho từng file.
+ */
+async function listAllFiles(
+  supabase: ReturnType<typeof createClient>,
+  bucket: string,
+  prefix = "",
+  out: Array<{ path: string; created_at: string | null }> = [],
+): Promise<Array<{ path: string; created_at: string | null }>> {
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supabase.storage.from(bucket).list(prefix, {
+      limit: PAGE,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw new Error(`list ${bucket}/${prefix}: ${error.message}`);
+    if (!data || data.length === 0) break;
+
+    for (const entry of data) {
+      // Folder: id === null
+      if (entry.id === null) {
+        const sub = prefix ? `${prefix}/${entry.name}` : entry.name;
+        await listAllFiles(supabase, bucket, sub, out);
+      } else {
+        const fullPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        out.push({ path: fullPath, created_at: entry.created_at ?? null });
+      }
+    }
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return out;
+}
+
+Deno.serve(withPerf({ functionName: "cleanup-old-media", slowThresholdMs: 60000 }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const startedAt = new Date();
   const startMs = Date.now();
-  let triggeredBy: 'cron' | 'manual' = 'cron';
+  let triggeredBy: "cron" | "manual" = "cron";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
-  // Try to read trigger source from body (best-effort, don't fail if no body)
   try {
-    if (req.method === 'POST') {
-      const cloned = req.clone();
-      const body = await cloned.json().catch(() => null);
-      if (body?.triggered_by === 'manual') triggeredBy = 'manual';
+    if (req.method === "POST") {
+      const body = await req.clone().json().catch(() => null);
+      if (body?.triggered_by === "manual") triggeredBy = "manual";
     }
   } catch { /* ignore */ }
 
   const writeLog = async (
-    status: 'success' | 'partial' | 'failed',
+    status: "success" | "partial" | "failed",
     summary: CleanupSummary | null,
-    fatalError?: string
+    fatalError?: string,
   ) => {
     try {
-      const errors = summary?.errors ?? [];
+      const errors = [...(summary?.errors ?? [])];
       if (fatalError) errors.push(fatalError);
-      await supabase.from('cron_run_logs').insert({
-        job_name: 'cleanup-old-media',
+      const { error } = await supabase.from("cron_run_logs").insert({
+        job_name: "cleanup-old-media",
         started_at: startedAt.toISOString(),
         completed_at: new Date().toISOString(),
         duration_ms: Date.now() - startMs,
@@ -69,13 +106,15 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
         summary: summary ?? {},
         errors,
       });
+      if (error) console.error("[cleanup-old-media] cron_run_logs insert failed:", error.message);
     } catch (logErr) {
-      console.error('[cleanup-old-media] Failed to write cron_run_logs:', logErr);
+      console.error("[cleanup-old-media] writeLog threw:", logErr);
     }
   };
 
   try {
-    const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const cutoffMs = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    const cutoff = new Date(cutoffMs).toISOString();
     const summary: CleanupSummary = {
       channel_images_deleted: 0,
       carousel_images_deleted: 0,
@@ -83,12 +122,14 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
       storage_files_removed: 0,
       storage_files_skipped_protected: 0,
       storage_files_skipped_missing: 0,
+      orphan_storage_files_found: 0,
+      orphan_storage_files_removed: 0,
+      orphan_storage_files_skipped_protected: 0,
       errors: [],
     };
 
-    console.log(`[cleanup-old-media] Cutoff: ${cutoff} (older than ${RETENTION_DAYS} days)`);
+    console.log(`[cleanup-old-media] Cutoff: ${cutoff} (older than ${RETENTION_DAYS} days), triggered_by=${triggeredBy}`);
 
-    // Use Set per-bucket to auto-dedupe paths
     const filesByBucket: Record<string, Set<string>> = {};
     const queueDelete = (url: string | null | undefined) => {
       const parsed = parseStorageUrl(url);
@@ -96,7 +137,7 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
       (filesByBucket[parsed.bucket] ??= new Set()).add(parsed.path);
     };
 
-    // 1) channel_image_history — xóa TẤT CẢ >7 ngày (kể cả is_selected=true)
+    // 1) channel_image_history
     {
       const { data, error } = await supabase
         .from("channel_image_history")
@@ -105,15 +146,15 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
         .limit(1000);
       if (error) summary.errors.push(`channel_image_history fetch: ${error.message}`);
       else if (data?.length) {
-        data.forEach((r) => queueDelete(r.image_url));
-        const ids = data.map((r) => r.id);
+        data.forEach((r: any) => queueDelete(r.image_url));
+        const ids = data.map((r: any) => r.id);
         const { error: delErr } = await supabase.from("channel_image_history").delete().in("id", ids);
         if (delErr) summary.errors.push(`channel_image_history delete: ${delErr.message}`);
         else summary.channel_images_deleted = ids.length;
       }
     }
 
-    // 2) carousel_images — xóa TẤT CẢ >7 ngày (kể cả is_selected=true)
+    // 2) carousel_images
     {
       const { data, error } = await supabase
         .from("carousel_images")
@@ -122,15 +163,15 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
         .limit(1000);
       if (error) summary.errors.push(`carousel_images fetch: ${error.message}`);
       else if (data?.length) {
-        data.forEach((r) => queueDelete(r.image_url));
-        const ids = data.map((r) => r.id);
+        data.forEach((r: any) => queueDelete(r.image_url));
+        const ids = data.map((r: any) => r.id);
         const { error: delErr } = await supabase.from("carousel_images").delete().in("id", ids);
         if (delErr) summary.errors.push(`carousel_images delete: ${delErr.message}`);
         else summary.carousel_images_deleted = ids.length;
       }
     }
 
-    // 3) video_generations — completed/failed older than 7 days
+    // 3) video_generations
     {
       const { data, error } = await supabase
         .from("video_generations")
@@ -140,20 +181,18 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
         .limit(1000);
       if (error) summary.errors.push(`video_generations fetch: ${error.message}`);
       else if (data?.length) {
-        data.forEach((r) => {
+        data.forEach((r: any) => {
           queueDelete(r.video_url);
           queueDelete(r.thumbnail_url);
         });
-        const ids = data.map((r) => r.id);
+        const ids = data.map((r: any) => r.id);
         const { error: delErr } = await supabase.from("video_generations").delete().in("id", ids);
         if (delErr) summary.errors.push(`video_generations delete: ${delErr.message}`);
         else summary.videos_deleted = ids.length;
       }
     }
 
-    // 4) Build "protected URL" set from records that survived (still referenced).
-    // If ANY surviving record references the same URL, we skip the storage delete
-    // for that path to avoid breaking ảnh user đang dùng.
+    // 4) Build "protected paths" (URL còn được tham chiếu trong DB sau cleanup).
     const protectedPaths: Record<string, Set<string>> = {};
     const addProtected = (url: string | null | undefined) => {
       const parsed = parseStorageUrl(url);
@@ -161,76 +200,86 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
       (protectedPaths[parsed.bucket] ??= new Set()).add(parsed.path);
     };
 
-    if (Object.keys(filesByBucket).length > 0) {
-      const [keepCh, keepCar, keepVid] = await Promise.all([
-        supabase
-          .from("channel_image_history")
-          .select("image_url")
-          .gte("created_at", cutoff)
-          .not("image_url", "is", null)
-          .limit(10000),
-        supabase
-          .from("carousel_images")
-          .select("image_url")
-          .gte("created_at", cutoff)
-          .not("image_url", "is", null)
-          .limit(10000),
-        supabase
-          .from("video_generations")
-          .select("video_url, thumbnail_url")
-          .or(`status.not.in.(completed,failed),created_at.gte.${cutoff}`)
-          .limit(10000),
-      ]);
+    const [allCh, allCar, allVid] = await Promise.all([
+      supabase.from("channel_image_history").select("image_url").not("image_url", "is", null).limit(20000),
+      supabase.from("carousel_images").select("image_url").not("image_url", "is", null).limit(20000),
+      supabase.from("video_generations").select("video_url, thumbnail_url").limit(20000),
+    ]);
 
-      if (keepCh.error) summary.errors.push(`protect channel_image_history: ${keepCh.error.message}`);
-      else keepCh.data?.forEach((r: { image_url: string | null }) => addProtected(r.image_url));
+    if (allCh.error) summary.errors.push(`protect channel_image_history: ${allCh.error.message}`);
+    else allCh.data?.forEach((r: any) => addProtected(r.image_url));
 
-      if (keepCar.error) summary.errors.push(`protect carousel_images: ${keepCar.error.message}`);
-      else keepCar.data?.forEach((r: { image_url: string | null }) => addProtected(r.image_url));
+    if (allCar.error) summary.errors.push(`protect carousel_images: ${allCar.error.message}`);
+    else allCar.data?.forEach((r: any) => addProtected(r.image_url));
 
-      if (keepVid.error) summary.errors.push(`protect video_generations: ${keepVid.error.message}`);
-      else
-        keepVid.data?.forEach((r: { video_url: string | null; thumbnail_url: string | null }) => {
-          addProtected(r.video_url);
-          addProtected(r.thumbnail_url);
-        });
-    }
+    if (allVid.error) summary.errors.push(`protect video_generations: ${allVid.error.message}`);
+    else allVid.data?.forEach((r: any) => {
+      addProtected(r.video_url);
+      addProtected(r.thumbnail_url);
+    });
 
-    // 5) Batch remove files from storage per bucket — dedupe + protect
+    // 5) Xóa file storage được queue từ DB (file vừa bị mất bản ghi DB)
     for (const [bucket, pathSet] of Object.entries(filesByBucket)) {
       const protectedSet = protectedPaths[bucket] ?? new Set<string>();
       const toRemove: string[] = [];
       for (const p of pathSet) {
-        if (protectedSet.has(p)) {
-          summary.storage_files_skipped_protected++;
-        } else {
-          toRemove.push(p);
-        }
+        if (protectedSet.has(p)) summary.storage_files_skipped_protected++;
+        else toRemove.push(p);
       }
-      if (!toRemove.length) continue;
-
-      // chunk by 100
       for (let i = 0; i < toRemove.length; i += 100) {
         const chunk = toRemove.slice(i, i + 100);
         const { data: removed, error } = await supabase.storage.from(bucket).remove(chunk);
         if (error) {
-          // "Object not found" is benign noise — race with prior run or stale URL
-          const msg = error.message || "";
-          if (/not found/i.test(msg)) {
+          if (/not found/i.test(error.message)) {
             summary.storage_files_skipped_missing += chunk.length;
-            console.warn(`[cleanup-old-media] storage[${bucket}] missing (benign):`, msg);
           } else {
-            summary.errors.push(`storage[${bucket}]: ${msg}`);
+            summary.errors.push(`storage[${bucket}]: ${error.message}`);
           }
         }
-        // Count actually-removed by response length, not by request length
         if (removed) summary.storage_files_removed += removed.length;
+      }
+    }
+
+    // 6) Quét file mồ côi trong các bucket media (file storage cũ >7d, không được DB tham chiếu).
+    for (const bucket of MEDIA_BUCKETS) {
+      try {
+        const all = await listAllFiles(supabase, bucket);
+        const protectedSet = protectedPaths[bucket] ?? new Set<string>();
+        const orphans: string[] = [];
+
+        for (const file of all) {
+          const ts = file.created_at ? Date.parse(file.created_at) : NaN;
+          // Nếu thiếu created_at thì coi như cũ để không kẹt file rác vĩnh viễn.
+          const isOld = Number.isFinite(ts) ? ts < cutoffMs : true;
+          if (!isOld) continue;
+          summary.orphan_storage_files_found++;
+          if (protectedSet.has(file.path)) {
+            summary.orphan_storage_files_skipped_protected++;
+            continue;
+          }
+          orphans.push(file.path);
+        }
+
+        for (let i = 0; i < orphans.length; i += 100) {
+          const chunk = orphans.slice(i, i + 100);
+          const { data: removed, error } = await supabase.storage.from(bucket).remove(chunk);
+          if (error) {
+            if (/not found/i.test(error.message)) {
+              summary.storage_files_skipped_missing += chunk.length;
+            } else {
+              summary.errors.push(`orphan-scan[${bucket}]: ${error.message}`);
+            }
+          }
+          if (removed) summary.orphan_storage_files_removed += removed.length;
+        }
+      } catch (e) {
+        summary.errors.push(`orphan-scan[${bucket}] fatal: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
 
     console.log(`[cleanup-old-media] Done:`, summary);
 
-    const finalStatus: 'success' | 'partial' = summary.errors.length === 0 ? 'success' : 'partial';
+    const finalStatus: "success" | "partial" = summary.errors.length === 0 ? "success" : "partial";
     await writeLog(finalStatus, summary);
 
     return new Response(JSON.stringify({ success: true, retention_days: RETENTION_DAYS, summary }), {
@@ -239,10 +288,10 @@ Deno.serve(withPerf({ functionName: 'cleanup-old-media', slowThresholdMs: 60000 
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown";
     console.error("[cleanup-old-media] Error:", error);
-    await writeLog('failed', null, msg);
+    await writeLog("failed", null, msg);
     return new Response(
       JSON.stringify({ success: false, error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 }));

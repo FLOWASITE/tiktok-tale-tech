@@ -92,6 +92,7 @@ export default function AdminCronMonitor() {
       return sum + (s.channel_images_deleted ?? 0) + (s.carousel_images_deleted ?? 0) + (s.videos_deleted ?? 0);
     }, 0) ?? 0,
     totalStorageRemoved: logs?.reduce((sum, l) => sum + (l.summary?.storage_files_removed ?? 0), 0) ?? 0,
+    totalOrphanRemoved: logs?.reduce((sum, l) => sum + (l.summary?.orphan_storage_files_removed ?? 0), 0) ?? 0,
   };
 
   const successRate = stats.totalRuns > 0 ? Math.round((stats.successCount / stats.totalRuns) * 100) : 0;
@@ -104,7 +105,10 @@ export default function AdminCronMonitor() {
         body: { triggered_by: 'manual' },
       });
       if (error) throw error;
-      toast.success(`Hoàn thành. Đã xóa ${(data?.summary?.channel_images_deleted ?? 0) + (data?.summary?.carousel_images_deleted ?? 0) + (data?.summary?.videos_deleted ?? 0)} bản ghi`);
+      const s = data?.summary ?? {};
+      const dbDeleted = (s.channel_images_deleted ?? 0) + (s.carousel_images_deleted ?? 0) + (s.videos_deleted ?? 0);
+      const storageDeleted = (s.storage_files_removed ?? 0) + (s.orphan_storage_files_removed ?? 0);
+      toast.success(`Hoàn thành. Đã xóa ${dbDeleted} bản ghi DB và ${storageDeleted} file storage.`);
       // Wait briefly for log row to be inserted
       setTimeout(() => queryClient.invalidateQueries({ queryKey: ['cron-logs'] }), 1500);
     } catch (e: any) {
@@ -159,7 +163,9 @@ export default function AdminCronMonitor() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">{stats.totalDeleted.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-1">+ {stats.totalStorageRemoved.toLocaleString()} files trong storage</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              + {stats.totalStorageRemoved.toLocaleString()} files DB-linked, + {stats.totalOrphanRemoved.toLocaleString()} files mồ côi
+            </div>
           </CardContent>
         </Card>
 
@@ -234,6 +240,7 @@ export default function AdminCronMonitor() {
                     <TableHead className="text-right">Carousel</TableHead>
                     <TableHead className="text-right">Video</TableHead>
                     <TableHead className="text-right">Storage</TableHead>
+                    <TableHead className="text-right">Mồ côi</TableHead>
                     <TableHead className="text-right">Lỗi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -252,6 +259,7 @@ export default function AdminCronMonitor() {
                       <TableCell className="text-right">{log.summary?.carousel_images_deleted ?? 0}</TableCell>
                       <TableCell className="text-right">{log.summary?.videos_deleted ?? 0}</TableCell>
                       <TableCell className="text-right">{log.summary?.storage_files_removed ?? 0}</TableCell>
+                      <TableCell className="text-right">{log.summary?.orphan_storage_files_removed ?? 0}</TableCell>
                       <TableCell className="text-right">
                         {log.errors?.length > 0 ? (
                           <Badge variant="destructive" className="text-xs">{log.errors.length}</Badge>
