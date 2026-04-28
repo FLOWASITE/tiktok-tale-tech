@@ -453,15 +453,55 @@ function BucketBrowser({ bucket, organizationId, organizationName, onClose, onCh
         onChanged();
       }} />
 
-      <OlderThanDialog bucket={bucket} open={olderOpen} onOpenChange={setOlderOpen} onChanged={() => {
+      <OlderThanDialog bucket={bucket} organizationId={organizationId} open={olderOpen} onOpenChange={setOlderOpen} onChanged={() => {
         qc.invalidateQueries({ queryKey: ["bucket-files", bucket] });
         onChanged();
       }} />
+
+      <AlertDialog open={orgCleanupOpen} onOpenChange={(o) => { setOrgCleanupOpen(o); if (!o) setOrgCleanupPreview(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Xóa toàn bộ file của workspace?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <div>
+                  Sẽ xóa <b>{orgCleanupPreview?.count ?? 0} file</b> (thu hồi <b>{fmtBytes(orgCleanupPreview?.total_bytes ?? 0)}</b>) thuộc workspace <b>{organizationName}</b> trong bucket <b>{bucket}</b>.
+                </div>
+                <div className="text-destructive">Hành động không thể hoàn tác.</div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!orgCleanupPreview || orgCleanupPreview.count === 0 || orgCleanupLoading}
+              onClick={async () => {
+                if (!organizationId) return;
+                setOrgCleanupLoading(true);
+                try {
+                  const r = await call("cleanup_bucket_for_org", { bucket, organization_id: organizationId, confirm: true });
+                  toast.success(`Đã xóa ${r.deleted} file (thu hồi ${fmtBytes(r.total_bytes)})`);
+                  setOrgCleanupOpen(false);
+                  setOrgCleanupPreview(null);
+                  qc.invalidateQueries({ queryKey: ["bucket-files", bucket] });
+                  onChanged();
+                } catch (e: any) { toast.error(e.message); }
+                finally { setOrgCleanupLoading(false); }
+              }}
+            >
+              Xóa vĩnh viễn
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
 
-function OlderThanDialog({ bucket, open, onOpenChange, onChanged }: { bucket: string; open: boolean; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
+function OlderThanDialog({ bucket, organizationId, open, onOpenChange, onChanged }: { bucket: string; organizationId: string | null; open: boolean; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
   const [days, setDays] = useState(60);
   const [preview, setPreview] = useState<{ count: number; total_bytes: number; sample: any[] } | null>(null);
   const [loading, setLoading] = useState(false);
