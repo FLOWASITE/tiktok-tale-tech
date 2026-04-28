@@ -1,74 +1,61 @@
-# Biểu đồ xu hướng cho Cron Monitor
-
 ## Mục tiêu
-Trên trang `/admin/cron-monitor`, bổ sung khu vực biểu đồ trực quan giúp admin theo dõi xu hướng:
-1. **Số bản ghi đã xóa theo thời gian** (DB rows + storage files + orphan files)
-2. **Thời gian chạy (duration)** mỗi lần cron
+Nâng cấp `/admin/cron-monitor` từ trang single-job hiện tại thành dashboard giám sát đầy đủ với cảnh báo, đa job, và công cụ vận hành.
 
-## Vị trí trên UI
-Chèn 1 Card mới **giữa** khu vực "Stats cards" và "Lịch sử chạy" — chứa 2 biểu đồ cạnh nhau (responsive: 1 cột trên mobile, 2 cột trên desktop).
+## Trạng thái hiện tại
+Trang đã có: 4 stats cards, biểu đồ xu hướng (bar + line, day/week), bảng lịch sử 50 dòng, dialog chi tiết JSON, bộ lọc status/range, nút "Chạy ngay".
 
-```text
-[ Stats Cards (4 cái) ]
-[ ▼ MỚI: Card "Xu hướng"  ────────────────────── ]
-  ┌─ Tabs: [Theo ngày] [Theo tuần] ─────────────┐
-  │ ┌─ Bản ghi đã xóa ─┐  ┌─ Thời gian chạy ─┐ │
-  │ │ Stacked Bar      │  │ Line chart       │ │
-  │ │ (3 lớp màu)      │  │ (avg + max)      │ │
-  │ └──────────────────┘  └──────────────────┘ │
-  └────────────────────────────────────────────┘
-[ Lịch sử chạy (table) ]
-```
+## Các nâng cấp đề xuất
 
-## Chi tiết hai biểu đồ
+### 1. Hỗ trợ nhiều job (multi-job)
+Hiện đang hard-code `JOB_NAME = 'cleanup-old-media'`. Bổ sung:
+- **Job selector** (dropdown ở header) — query distinct `job_name` từ `cron_run_logs` để tự động phát hiện job mới
+- Nếu chỉ có 1 job → ẩn selector, hành xử như cũ
+- Tất cả stats/chart/bảng filter theo job được chọn
+- Chuẩn bị cho các cron job tương lai (auto-refresh-social-tokens, scheduled-publish, v.v.)
 
-### 1. Biểu đồ "Bản ghi đã xóa"
-- **Loại**: Stacked Bar Chart (recharts `BarChart`)
-- **Trục X**: Mốc thời gian (ngày hoặc tuần tùy tab)
-- **Trục Y**: Tổng số bản ghi đã xóa
-- **3 lớp xếp chồng** (semantic colors):
-  - DB records (`channel_images_deleted + carousel_images_deleted + videos_deleted`)
-  - Storage files DB-linked (`storage_files_removed`)
-  - Orphan files (`orphan_storage_files_removed`)
-- **Tooltip**: hiển thị breakdown chi tiết + tổng
+### 2. Banner cảnh báo (Health banner)
+Thêm 1 alert card ngay trên cùng khi phát hiện vấn đề:
+- **Quá hạn**: lần chạy gần nhất > 26 giờ trước (cron hằng ngày) → cảnh báo cron có thể bị treo
+- **Lỗi liên tiếp**: ≥ 2 lần fail liên tiếp gần nhất → cảnh báo
+- **Duration spike**: `maxDuration` trong 7 ngày qua > 3× trung bình → gợi ý xem lại
+Mỗi cảnh báo hiển thị icon, mô tả ngắn, và CTA (cuộn tới bảng / xem chi tiết).
 
-### 2. Biểu đồ "Thời gian chạy"
-- **Loại**: Line Chart (recharts `LineChart`) với 2 đường:
-  - **Đường trung bình** (avg duration của ngày/tuần)
-  - **Đường tối đa** (max duration — phát hiện spike)
-- **Trục Y**: format giây (s) tự động
-- **Tooltip**: avg, max, số lần chạy trong mốc đó
+### 3. Lịch chạy kế tiếp (Next run)
+Trong card "Lần chạy gần nhất", thêm dòng phụ "Lần chạy kế tiếp: …" tính từ schedule cron `0 3 * * *` (03:00 UTC) hiển thị theo giờ VN + countdown (`in 4h 12m`).
 
-## Logic gom dữ liệu (frontend)
-- Tận dụng dữ liệu `logs` đã có sẵn từ query `cron-logs` — **không cần query mới**
-- Hàm `aggregateByPeriod(logs, granularity: 'day' | 'week')`:
-  - Group logs theo `format(started_at, 'yyyy-MM-dd')` hoặc tuần ISO
-  - Với mỗi nhóm: tính sum (records, storage, orphan) và avg/max duration
-  - Fill các ngày trống trong khoảng đã chọn để biểu đồ liên tục
-- Granularity tự động:
-  - Range `24h` → ẩn biểu đồ (quá ít data) hoặc nhóm theo giờ
-  - Range `7d` → mặc định "Theo ngày"
-  - Range `30d` → mặc định "Theo ngày", cho phép chuyển "Theo tuần"
+### 4. Drill-down lỗi tốt hơn
+Trong Dialog chi tiết:
+- Tách phần **Summary** thành các mục dễ đọc: thẻ riêng cho DB / Storage / Orphan với số đã xóa, không hiện raw JSON ngay
+- Toggle "Xem JSON gốc" cho người cần
+- Mỗi lỗi: parse `{message, code, stack}` nếu là object; nút copy
+- Nếu có `errors[].context.path` (file storage) → hiển thị bucket/path ngắn gọn
 
-## Tương tác với bộ lọc hiện có
-- Biểu đồ tự động cập nhật theo `rangeFilter` (24h/7d/30d) sẵn có
-- Bộ lọc `statusFilter` **không** áp dụng cho chart (luôn vẽ tất cả status để thấy cả lần lỗi) — thêm chú thích nhỏ
+### 5. Tìm kiếm & phân trang
+- Ô search lọc theo nội dung errors hoặc khoảng thời gian cụ thể
+- Tăng giới hạn từ 50 → load thêm (button "Tải thêm 50") thay vì hard-cap
 
-## Kỹ thuật
-- **File sửa**: chỉ `src/pages/AdminCronMonitor.tsx`
-- **Components mới (nội bộ trong file)**:
-  - `<DeletionTrendChart logs={logs} granularity={...} />`
-  - `<DurationTrendChart logs={logs} granularity={...} />`
-- **Helpers**:
-  - `aggregateByPeriod(logs, granularity)` — pure function
-  - `fillEmptyPeriods(data, range, granularity)` — đảm bảo trục X liên tục
-- **Recharts**: dùng `ResponsiveContainer`, `BarChart`, `LineChart`, `Tooltip`, `XAxis`, `YAxis`, `CartesianGrid`, `Legend`, `Bar`, `Line`
-- **Màu**: dùng semantic tokens qua CSS vars (`hsl(var(--primary))`, `hsl(var(--accent))`, `hsl(var(--muted-foreground))`) thay vì raw colors — phù hợp Soft Luxury
-- **Empty state**: nếu không có log → hiển thị placeholder "Chưa đủ dữ liệu để vẽ biểu đồ"
-- **date-fns**: dùng `startOfDay`, `startOfWeek`, `eachDayOfInterval`, `eachWeekOfInterval` (đã có sẵn trong dự án)
+### 6. Export CSV
+Nút "Xuất CSV" tải về toàn bộ logs đang hiển thị (gồm columns: started_at, status, duration_ms, channel/carousel/videos, storage, orphan, error_count). Hữu ích cho báo cáo tháng.
+
+### 7. Stats cards nâng cấp nhẹ
+- Card "Tổng bản ghi đã xóa": thêm sparkline mini (7 ngày qua) tái dùng `Sparkline` component có sẵn
+- Card "Thời lượng trung bình" mới (thay vì duplicate info trong card lỗi) — hiển thị avg + trend so với khoảng trước
+
+### 8. Auto-refresh indicator
+Hiện tại refetch mỗi 30s ngầm. Thêm indicator nhỏ "Cập nhật lần cuối: 12s trước" gần nút Làm mới + toggle bật/tắt auto-refresh.
+
+## Phạm vi file thay đổi
+- **Chỉ** `src/pages/AdminCronMonitor.tsx` (thêm components nội bộ + helpers)
+- Tái sử dụng `Sparkline` từ `src/components/dashboard`
+- Không tạo migration, không sửa edge function, không thêm package
 
 ## Không thay đổi
-- ❌ Không động vào edge function `cleanup-old-media`
-- ❌ Không sửa schema DB / không tạo migration
-- ❌ Không thay đổi stats cards và bảng lịch sử hiện có
-- ❌ Không cài thêm package (recharts đã có sẵn)
+- Không động vào `cleanup-old-media` edge function
+- Không sửa schema `cron_run_logs`
+- Không thay đổi sidebar / route
+
+## Ưu tiên triển khai (nếu cần cắt giảm)
+**Must-have**: 1 (multi-job), 2 (health banner), 3 (next run), 4 (drill-down lỗi)
+**Nice-to-have**: 5 (search/pagination), 6 (CSV), 7 (sparkline), 8 (auto-refresh indicator)
+
+Tôi sẽ làm tất cả 8 mục trừ khi bạn muốn cắt bớt.
