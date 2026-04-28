@@ -4,16 +4,33 @@ import type { ReportFilters } from './useReportFilters';
 import { bucketByDay, fillDateGaps } from '@/lib/reports/aggregators';
 import type { ContentType } from '@/components/reports/ContentTypeBadge';
 
+export type DerivedStatus = 'draft' | 'approved' | 'scheduled' | 'published' | 'partially_published' | 'failed';
+
 export interface ContentRow {
   id: string;
   type: ContentType;
   title: string;
   topic: string | null;
   status: string;
+  derivedStatus: DerivedStatus;
   channels: string[];
   brand_id: string | null;
   brand_name?: string;
   created_at: string;
+  approved_at?: string | null;
+  nextScheduledAt?: string | null;
+  lastPublishedAt?: string | null;
+  scheduledCount?: number;
+  failedCount?: number;
+}
+
+export interface HistoryEvent {
+  type: 'approval' | 'scheduled' | 'published' | 'failed' | 'rescheduled';
+  at: string;
+  channel?: string;
+  notes?: string;
+  error?: string;
+  actor?: string | null;
 }
 
 export interface ContentReportData {
@@ -25,15 +42,18 @@ export interface ContentReportData {
     typeLabel: string;
     draft: number;
     approved: number;
+    scheduled: number;
     published: number;
     partially_published: number;
+    failed: number;
   }[];
   byChannel: { channel: string; count: number }[];
   byBrand: { brand: string; count: number }[];
   byDay: { date: string; value: number }[];
   topTopics: { topic: string; count: number }[];
-  funnel: { created: number; approved: number; published: number };
+  funnel: { created: number; approved: number; scheduled: number; published: number; failed: number };
   rows: ContentRow[];
+  history: Record<string, HistoryEvent[]>;
 }
 
 const TYPE_LABEL: Record<ContentType, string> = {
