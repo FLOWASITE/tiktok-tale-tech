@@ -114,16 +114,16 @@ export function useEngagementReport(
         .map(([platform, v]) => ({ platform, ...v }))
         .sort((a, b) => b.reach - a.reach);
 
-      // By day (use ALL rows for trend, not just latest)
-      const dayMap = bucketByDay(rows, (r) => r.snapshot_at as string);
+      // Bucket by day/week/month (use ALL rows for trend, not just latest)
+      const bMap = bucketRows(rows, bucket, (r) => r.snapshot_at as string);
       const reachMap = new Map<string, number>();
       const engMap = new Map<string, number>();
-      for (const [k, vals] of dayMap) {
+      for (const [k, vals] of bMap) {
         reachMap.set(k, vals.reduce((a, x) => a + (x.reach ?? 0), 0));
         engMap.set(k, vals.reduce((a, x) => a + ((x.likes ?? 0) + (x.comments ?? 0) + (x.shares ?? 0)), 0));
       }
-      const reachSeries = fillDateGaps(filters.dateFrom, filters.dateTo, reachMap);
-      const engSeries = fillDateGaps(filters.dateFrom, filters.dateTo, engMap);
+      const reachSeries = fillBucketGaps(fromDate, toDate, bucket, reachMap);
+      const engSeries = fillBucketGaps(fromDate, toDate, bucket, engMap);
       const byDay = reachSeries.map((p, i) => ({
         date: p.date,
         reach: p.value,
@@ -161,6 +161,9 @@ export function useEngagementReport(
         postsTracked: latest.length,
         byPlatform,
         byDay,
+        bucketType: bucket,
+        rangeFrom: fromDate.toISOString(),
+        rangeTo: toDate.toISOString(),
         topPosts,
         lastSyncedAt,
       };
