@@ -20,6 +20,8 @@ import { ReportFiltersBar } from '@/components/reports/ReportFiltersBar';
 import { StatCard } from '@/components/reports/StatCard';
 import { EmptyReportState } from '@/components/reports/EmptyReportState';
 import { AIInsightsPanel } from '@/components/reports/AIInsightsPanel';
+import { EngagementDateRangeControl } from '@/components/reports/EngagementDateRangeControl';
+import { type BucketType, formatBucketLabel, suggestBucket } from '@/lib/reports/aggregators';
 import { useReportFilters } from '@/hooks/reports/useReportFilters';
 import { useReportOverview } from '@/hooks/reports/useReportOverview';
 import { useContentReport } from '@/hooks/reports/useContentReport';
