@@ -330,6 +330,34 @@ Deno.serve(async (req) => {
             case "tiktok":
               metrics = await fetchTikTokMetrics(conn.access_token, p.post_id);
               break;
+            case "twitter": {
+              // Twitter cần OAuth 1.0a: consumer key/secret + access token + token secret
+              // accessTokenSecret được lưu ở refresh_token (theo publish-twitter)
+              const consumerKey =
+                Deno.env.get("TWITTER_CONSUMER_KEY") ||
+                (await safeDecrypt(conn.consumer_key));
+              const consumerSecret =
+                Deno.env.get("TWITTER_CONSUMER_SECRET") ||
+                (await safeDecrypt(conn.consumer_secret));
+              const accessToken = await safeDecrypt(conn.access_token);
+              const accessTokenSecret = await safeDecrypt(conn.refresh_token);
+
+              if (!consumerKey || !consumerSecret || !accessToken || !accessTokenSecret) {
+                console.warn(
+                  `[sync-engagement] twitter ${p.post_id} thiếu credentials (consumer/access/secret)`,
+                );
+                return { post: p, error: "missing_twitter_credentials" };
+              }
+
+              metrics = await fetchTwitterMetrics({
+                consumerKey,
+                consumerSecret,
+                accessToken,
+                accessTokenSecret,
+                tweetId: p.post_id,
+              });
+              break;
+            }
             default:
               return { post: p, skip: true };
           }
