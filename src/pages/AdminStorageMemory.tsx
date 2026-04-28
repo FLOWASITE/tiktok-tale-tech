@@ -241,6 +241,9 @@ function BucketBrowser({ bucket, organizationId, organizationName, onClose, onCh
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [orphanOpen, setOrphanOpen] = useState(false);
   const [olderOpen, setOlderOpen] = useState(false);
+  const [orgCleanupOpen, setOrgCleanupOpen] = useState(false);
+  const [orgCleanupPreview, setOrgCleanupPreview] = useState<{ count: number; total_bytes: number } | null>(null);
+  const [orgCleanupLoading, setOrgCleanupLoading] = useState(false);
 
   const list = useQuery({
     queryKey: ["bucket-files", bucket, search, sortBy, sortDir, offset, organizationId],
