@@ -429,10 +429,6 @@ export default function Reports() {
             <Card>
               <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
                 <h3 className="text-sm font-medium">Chi tiết nội dung</h3>
-            {/* Bảng chi tiết với filter */}
-            <Card>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
-                <h3 className="text-sm font-medium">Chi tiết nội dung</h3>
                 <div className="flex flex-wrap items-center gap-2">
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
                     <SelectTrigger className="h-8 w-[160px]">
