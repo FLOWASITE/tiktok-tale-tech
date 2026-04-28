@@ -768,6 +768,18 @@ export default function AdminDashboard() {
                 Edge Functions
               </Button>
             </Link>
+            <Link to="/admin/cron-monitor">
+              <Button variant="outline" size="sm">
+                <Clock className="h-4 w-4 mr-2" />
+                Cron Monitor
+              </Button>
+            </Link>
+            <Link to="/admin/storage">
+              <Button variant="outline" size="sm">
+                <HardDrive className="h-4 w-4 mr-2" />
+                File &amp; Bộ nhớ
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
