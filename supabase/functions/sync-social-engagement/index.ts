@@ -316,7 +316,11 @@ Deno.serve(async (req) => {
         if (!conn) return { post: p, skip: true };
 
         try {
-          let metrics: Awaited<ReturnType<typeof fetchFacebookMetrics>> = null;
+          let metrics: {
+            reach: number; impressions: number; likes: number; comments: number;
+            shares: number; saves: number; video_views: number; link_clicks: number;
+            raw: Record<string, unknown>;
+          } | null = null;
           switch (platform) {
             case "facebook":
               metrics = await fetchFacebookMetrics(conn.access_token, p.post_id);
