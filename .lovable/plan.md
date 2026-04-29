@@ -1,59 +1,64 @@
 ## Mục tiêu
-Thêm bộ lọc date range riêng cho tab **Engagement**, cho phép xem nhanh theo **tuần / tháng / quý**, chọn **custom range**, và đổi **bucket hiển thị** (ngày / tuần / tháng) cho biểu đồ "Reach & Engagement theo thời gian".
+Bổ sung **tab "Gói đăng ký"** vào trang `/reports` để workspace owner theo dõi mức dùng vs hạn mức của gói hiện tại, biết quota nào sắp cạn, và xem các addon đang active. Không cần export.
 
-Hiện tại chỉ có thanh filter global ở đầu trang (`ReportFiltersBar`) áp dụng cho tất cả tab. Khi chuyển sang Engagement, user vẫn phải scroll lên đầu trang để đổi range, và biểu đồ luôn bucket theo ngày (gây nhiễu khi xem range dài).
+## UX trong tab mới
 
-## Thay đổi
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Gói hiện tại: PRO    Chu kỳ: 01/04 → 30/04 (còn 12 ngày)│
+│ [Xem chi tiết gói] [Nâng cấp]                           │
+├──────────────────────────────────────────────────────────┤
+│ 4 cards quota chính:                                    │
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+│ │Scripts   │ │Carousel  │ │Đa kênh   │ │Ảnh AI    │    │
+│ │ 45/100   │ │ 12/50    │ │ 230/500  │ │ 380/400  │    │
+│ │ ▓▓▓░░ 45%│ │ ▓▓░░░ 24%│ │ ▓▓▓▓░ 46%│ │ ▓▓▓▓▓ 95%│    │
+│ │          │ │          │ │          │ │ ⚠ sắp hết│    │
+│ └──────────┘ └──────────┘ └──────────┘ └──────────┘    │
+├──────────────────────────────────────────────────────────┤
+│ Cảnh báo (chỉ hiển thị nếu có item ≥80%):              │
+│  • Ảnh AI: 380/400 (95%) – dự kiến cạn 25/04            │
+│  • Scripts: sắp hết trong 5 ngày                        │
+├──────────────────────────────────────────────────────────┤
+│ Tiêu thụ theo ngày (line chart, từ usage_logs)         │
+│ X = ngày trong chu kỳ, Y = số lượt; series = 4 quota   │
+├──────────────────────────────────────────────────────────┤
+│ Top kênh tiêu thụ ảnh (bar): facebook 120, IG 80...    │
+├──────────────────────────────────────────────────────────┤
+│ Addon đã mua (active):                                  │
+│  • Pro x1 — mua 02/04, hết 02/05 — +50 scripts...      │
+│  • (nếu rỗng) "Chưa mua addon nào" + nút Mua thêm      │
+└──────────────────────────────────────────────────────────┘
+```
 
-### 1. Component mới: `EngagementDateRangeControl`
-File: `src/components/reports/EngagementDateRangeControl.tsx`
+Mỗi card quota hiển thị: used / total, % bar, badge trạng thái (`OK`/`Sắp hết` ≥80%/`Đã hết` =100%/`Không giới hạn` khi limit=-1). Card chuyển màu warning amber khi ≥80%, destructive khi =100%. Addon hết hạn trong 7 ngày → badge cảnh báo.
 
-Đặt ngay dưới header của tab Engagement (cạnh nút "Sync ngay"). Gồm:
-- **Preset chips**: `7 ngày`, `Tuần này`, `30 ngày`, `Tháng này`, `90 ngày`, `Quý này`, `Năm nay`
-- **Custom range picker** (shadcn Calendar `mode="range"`, `numberOfMonths={2}`, `pointer-events-auto`)
-- **Bucket selector**: `Ngày | Tuần | Tháng` (auto-suggest theo độ dài range: ≤14 ngày → Ngày, ≤90 → Tuần, >90 → Tháng; user có thể override)
-- Hiển thị label range đang chọn + số ngày
+## Technical changes
 
-State được nâng lên `Reports.tsx` (local state `engagementRange` + `engagementBucket`), KHÔNG ghi đè `filters` global. Các tab khác tiếp tục dùng `filters` global.
+### 1. Hook mới `src/hooks/reports/useSubscriptionReport.ts`
+- Tái sử dụng `useSubscription()` để lấy `subscription`, `currentPlanLimits`, `usage`, `activeAddons`, `currentPeriod`.
+- Query thêm `usage_logs` trong khoảng `currentPeriod.start → end`, lọc theo `organization_id` (qua join tới subscription user) — gom theo `date_trunc('day', created_at)` + `usage_type` để build daily series.
+- Tính `projectedExhaustionDate` cho mỗi quota: `daysToExhaust = (limit - used) / avgPerDay`; nếu rơi trước `current_period_end` → cảnh báo.
+- Trả về `{ planMeta, quotas: [{key,label,used,limit,pct,status,projectedExhaustionDate}], dailySeries, imageBreakdown, addons }`.
 
-### 2. Mở rộng `useEngagementReport`
-File: `src/hooks/reports/useEngagementReport.ts`
+### 2. Component mới `src/components/reports/SubscriptionReportTab.tsx`
+- Render: `PlanHeaderCard`, `QuotaCardsGrid` (4 card dùng `Progress` + `Badge`), `QuotaWarningsList`, `DailyUsageChart` (recharts `LineChart`, reuse pattern từ Engagement tab), `ImageChannelBreakdown` (recharts `BarChart`), `ActiveAddonsList`.
+- Empty states: chưa có subscription → CTA "Chọn gói"; chưa có usage → placeholder.
+- CTA buttons: "Nâng cấp" mở `UpgradePlanDialog`, "Mua thêm lượt" mở `AddonPurchaseDialog` (đã có sẵn).
 
-- Thêm tham số tùy chọn `overrideRange?: { from: Date; to: Date }` và `bucket?: 'day' | 'week' | 'month'`
-- Nếu `overrideRange` có thì dùng thay cho `filters.dateFrom/dateTo` (vẫn giữ `brandId`, `channel` từ filter global)
-- Bucket logic mới trong `aggregators.ts`:
-  - `bucketByWeek(rows, from, to)` — gom theo ISO week (thứ 2 đầu tuần, locale `vi`)
-  - `bucketByMonth(rows, from, to)` — gom theo `yyyy-MM`
-  - `fillDateGaps` đã có cho bucket ngày, mở rộng tương tự cho tuần/tháng
-- `byDay` được rename về `byBucket` trong response (giữ alias `byDay` để không vỡ chỗ gọi khác); thêm field `bucketType` để chart format label.
+### 3. Cập nhật `src/pages/Reports.tsx`
+- Thêm `<TabsTrigger value="subscription">Gói đăng ký</TabsTrigger>` (vị trí: sau "Insights", icon `CreditCard` từ lucide).
+- Thêm `<TabsContent value="subscription">` render `<SubscriptionReportTab />`.
+- Tab này KHÔNG dùng `ReportFiltersBar` global (vì period đã cố định theo subscription cycle), tự render header riêng.
 
-### 3. Cập nhật `Reports.tsx` — tab Engagement
-- Thêm `useState` cho `engagementRange` (default = `filters.dateFrom/dateTo`) và `engagementBucket` (default auto theo range)
-- Truyền vào `useEngagementReport(orgId, filters, { overrideRange, bucket })`
-- Hiển thị `EngagementDateRangeControl` trong header card của tab
-- Format trục X của LineChart theo `bucketType`:
-  - `day` → `dd/MM`
-  - `week` → `Tuần W (dd/MM)`
-  - `month` → `MM/yyyy`
-- Thêm badge nhỏ "Filter riêng cho tab này" để user biết range này không sync với filter global
-
-### 4. Cập nhật aggregators
-File: `src/lib/reports/aggregators.ts`
-- Thêm `bucketByWeek`, `bucketByMonth`
-- Thêm helper `suggestBucket(rangeDays): 'day' | 'week' | 'month'`
-- Thêm `formatBucketLabel(date, bucketType, locale)`
-
-### 5. PDF/CSV (giữ tương thích)
-- `pdfBuilder.ts` và `csvBuilder.ts`: nếu engagement có `bucketType !== 'day'`, thêm cột header tương ứng (`Tuần` / `Tháng`) thay vì `Ngày`. Logic đơn giản, không breaking change.
-
-## Edge cases
-- Khi `overrideRange` rỗng → fallback về filter global.
-- Khi user đổi filter global (date range) → option: hiện toast nhắc "Tab Engagement đang dùng range riêng, bấm Reset để dùng theo global". Hoặc thêm nút **"Đồng bộ với filter global"** trong `EngagementDateRangeControl`.
-- Preset "Tuần này" / "Tháng này" / "Quý này" / "Năm nay" tính theo timezone local của user (`date-fns/startOfWeek/Month/Quarter/Year` với `weekStartsOn: 1`).
-- Với bucket tuần/tháng, snapshot vẫn lấy "latest per post" rồi gom vào bucket theo `snapshot_at` của latest snapshot (giữ logic cũ, chỉ đổi bucketize).
+### 4. Không cần migration
+Tất cả data đã có sẵn trong `subscriptions`, `plan_limits`, `addon_purchases`, `usage_logs`. RLS đã cho org member đọc.
 
 ## Files
-- **Tạo mới**: `src/components/reports/EngagementDateRangeControl.tsx`
-- **Sửa**: `src/hooks/reports/useEngagementReport.ts`, `src/lib/reports/aggregators.ts`, `src/pages/Reports.tsx`, `src/lib/reports/pdfBuilder.ts`, `src/lib/reports/csvBuilder.ts`
+- **Tạo mới**: 
+  - `src/hooks/reports/useSubscriptionReport.ts`
+  - `src/components/reports/SubscriptionReportTab.tsx`
+- **Sửa**: 
+  - `src/pages/Reports.tsx` (thêm tab)
 
-Không có DB migration, không cần edge function mới — chỉ là client-side filter + bucket logic.
+Không edge function, không export PDF/CSV (theo yêu cầu).
