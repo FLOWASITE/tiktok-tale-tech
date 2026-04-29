@@ -114,7 +114,20 @@ async function publishToFacebook(
   content: string,
   options: { mediaUrls?: string[]; linkUrl?: string; scheduleTime?: string }
 ): Promise<{ postId: string; postUrl: string }> {
-  const { mediaUrls, linkUrl, scheduleTime } = options;
+  const { linkUrl, scheduleTime } = options;
+  let { mediaUrls } = options;
+
+  // Facebook KHÔNG hỗ trợ SVG → loại bỏ khỏi mediaUrls trước khi gọi Graph API
+  if (mediaUrls && mediaUrls.length > 0) {
+    const isSvg = (u: string) => /\.svg(\?|$)/i.test(u) || u.startsWith('data:image/svg');
+    const filtered = mediaUrls.filter((u) => !isSvg(u));
+    if (filtered.length !== mediaUrls.length) {
+      console.warn(
+        `[FB] Đã loại ${mediaUrls.length - filtered.length} ảnh SVG (Facebook không hỗ trợ SVG). Còn lại: ${filtered.length}`
+      );
+    }
+    mediaUrls = filtered.length > 0 ? filtered : undefined;
+  }
 
   if (mediaUrls && mediaUrls.length === 1) {
     // Single photo post — direct upload
