@@ -32,6 +32,10 @@ interface PlanLimit {
   monthly_images: number;
   monthly_ai_edits: number;
   monthly_brands: number;
+  // Pricing v2 — 3 đơn vị output
+  monthly_content_units: number;
+  monthly_image_units: number;
+  monthly_video_units: number;
   price_monthly: number;
   price_yearly: number;
   features: string[];
@@ -67,6 +71,9 @@ const PLAN_COLORS: Record<string, { badge: string; header: string; border: strin
 };
 
 const FIELD_ICONS: Record<string, React.ReactNode> = {
+  monthly_content_units: <Type className="h-3.5 w-3.5" />,
+  monthly_image_units: <Image className="h-3.5 w-3.5" />,
+  monthly_video_units: <Video className="h-3.5 w-3.5" />,
   monthly_brands: <Package className="h-3.5 w-3.5" />,
   monthly_scripts: <FileText className="h-3.5 w-3.5" />,
   monthly_carousels: <Layers className="h-3.5 w-3.5" />,
@@ -78,28 +85,40 @@ const FIELD_ICONS: Record<string, React.ReactNode> = {
 };
 
 const FIELD_LABELS: Record<string, string> = {
+  monthly_content_units: "Nội dung (units)",
+  monthly_image_units: "Ảnh AI (units)",
+  monthly_video_units: "Video (units)",
   monthly_brands: "Brands",
   monthly_scripts: "Scripts",
   monthly_carousels: "Carousels",
   monthly_multichannel: "Đa kênh",
-  monthly_images: "Ảnh AI",
+  monthly_images: "Ảnh AI (raw)",
   monthly_ai_edits: "AI Edits",
   price_monthly: "Giá tháng",
   price_yearly: "Giá năm",
 };
 
 const FIELD_TOOLTIPS: Record<string, string> = {
+  monthly_content_units: "Pricing v2: Tổng đơn vị nội dung (script + carousel + multichannel post + video script). -1 = không giới hạn",
+  monthly_image_units: "Pricing v2: Tổng ảnh AI/tháng. -1 = không giới hạn",
+  monthly_video_units: "Pricing v2: Tổng video/tháng. -1 = không giới hạn",
   monthly_brands: "Số brand tối đa. -1 = không giới hạn",
-  monthly_scripts: "Số script/tháng. -1 = không giới hạn",
-  monthly_carousels: "Số carousel/tháng. -1 = không giới hạn",
-  monthly_multichannel: "Số nội dung đa kênh/tháng. -1 = không giới hạn",
-  monthly_images: "Số ảnh AI/tháng. -1 = không giới hạn",
+  monthly_scripts: "Số script/tháng. -1 = không giới hạn (legacy)",
+  monthly_carousels: "Số carousel/tháng. -1 = không giới hạn (legacy)",
+  monthly_multichannel: "Số nội dung đa kênh/tháng. -1 = không giới hạn (legacy)",
+  monthly_images: "Số ảnh AI/tháng. -1 = không giới hạn (legacy)",
   monthly_ai_edits: "Số AI edits/tháng. -1 = không giới hạn",
   price_monthly: "Giá gói tháng (VNĐ)",
   price_yearly: "Giá gói năm (VNĐ)",
 };
 
-const limitFields = ["monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits"];
+// Đơn giá ước tính cho gợi ý giá (VND) — đồng bộ với plan_unit_costs
+const UNIT_COSTS_VND = { content: 375, image: 1000, video: 12500 } as const;
+
+const limitFields = [
+  "monthly_content_units", "monthly_image_units", "monthly_video_units",
+  "monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits",
+];
 const priceFields = ["price_monthly", "price_yearly"];
 
 const formatVND = (v: number) => v === 0 ? "Miễn phí" : v.toLocaleString("vi-VN") + "₫";
