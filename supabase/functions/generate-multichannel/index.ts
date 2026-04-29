@@ -3523,7 +3523,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   topic: formData.topic,
                   content_goal: resolvedContentGoal,
                   content_role: resolvedContentRole,
-                  selected_channels: resolvedSelectedChannels,
+                  selected_channels: persistedSelectedChannels,
                   brand_template_id: formData.brandTemplateId || null,
                   brand_voice_variant_id: formData.brandVoiceVariantId || null,
                   brand_name: brandName,
