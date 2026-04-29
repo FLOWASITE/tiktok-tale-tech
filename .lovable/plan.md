@@ -1,48 +1,142 @@
-## Vấn đề
+## Vấn đề xác nhận được
 
-Trong screenshot màn "Kênh xuất bản" (component `MultiChannelFormWizard.tsx`):
-- **X (Twitter)** đang dùng icon chim Twitter cũ (`Twitter` từ lucide) thay vì logo X.
-- **WordPress** và **Blogger** đang dùng icon `Globe` chung chung, không nhận diện được brand.
+Log backend gần nhất cho thấy request đúng là chỉ chọn WordPress:
 
-Ngoài ra, các nơi khác (`MultiChannelForm.tsx`, `MultiChannelFormStepper.tsx`, `ChannelIcon.tsx`) cũng đang dùng `Globe` cho WordPress/Blogger → cần đồng bộ.
+```text
+originalChannels: ["wordpress"]
+```
 
-## Giải pháp
+Nhưng backend vẫn log:
 
-### 1. Tạo SVG brand icon mới trong `src/components/icons/SocialIcons.tsx`
-Bổ sung 2 icon còn thiếu (X đã có sẵn `XIcon`):
-- `WordPressIcon` — chữ "W" trong vòng tròn (logo chính thức WordPress).
-- `BloggerIcon` — chữ "B" trong vòng vuông bo góc màu cam (logo Blogger).
+```text
+Starting PARALLEL generation for 2 channels
+```
 
-Cả hai dùng `currentColor` để có thể tô màu qua className giống `ZaloIcon`/`XIcon`.
+Nguyên nhân có khả năng nằm ở 2 lớp:
 
-### 2. Cập nhật map `channelIcons` ở 3 file để dùng icon đúng
+1. Backend đang collapse `wordpress -> website` để dùng chung pipeline long-form, nhưng danh sách kênh dùng cho streaming/UI vẫn có thể bị giữ/merge thành cả `website` và `wordpress` ở một số nhánh.
+2. UI tiến trình mobile/desktop đang lấy `totalChannels` từ nhiều nguồn khác nhau: lúc từ SSE backend, lúc từ `formData.channels`. Khi backend phát `website` nhưng form vẫn là `wordpress`, UI có thể hiển thị thành 2 ô/cột khác nhau dù về dữ liệu thật chỉ có một bài long-form.
 
-| Channel | Icon mới |
-|---|---|
-| `twitter` | `XIcon` (đã có) |
-| `wordpress` | `WordPressIcon` (mới) |
-| `blogger` | `BloggerIcon` (mới) |
+## Mục tiêu sửa
 
-Files cần sửa:
-- `src/components/multichannel/MultiChannelFormWizard.tsx` (line 187-202) — file đang hiển thị trong screenshot
-- `src/components/multichannel/MultiChannelFormStepper.tsx` (line 154-169) — wordpress/blogger còn `Globe`
-- `src/components/MultiChannelForm.tsx` (line 49-64) — wordpress/blogger còn `Globe`
+Khi người dùng chỉ chọn WordPress:
 
-### 3. Cập nhật `ChannelIcon.tsx` (component dùng chung cho streaming/preview cards)
-Thêm entry `wordpress` và `blogger` vào `channelConfig` với icon mới + màu nền brand:
-- `wordpress`: nền `bg-[#21759B]` (xanh WordPress) + `WordPressIcon`
-- `blogger`: nền `bg-[#FF8000]` (cam Blogger) + `BloggerIcon`
-- Đổi entry `twitter`/`x` đảm bảo dùng `XLucide` (đã đúng).
+```text
+Input UI:       [wordpress]
+Generate thật:  [website]      // internal canonical long-form pipeline
+UI hiển thị:    [wordpress]     // không hiện thêm Website
+DB lưu:         selected_channels = [wordpress]
+Content lưu:    website_content = nội dung WordPress
+```
 
-### 4. (Optional cleanup) Loại import `Twitter` cũ
-Sau khi thay xong trong `MultiChannelFormWizard.tsx`, xóa import `Twitter` từ lucide-react ở file này (nếu không còn dùng chỗ khác).
+Tương tự với Blogger:
 
-## Phạm vi không đụng tới
-- Logic chọn kênh, collapse `wordpress/blogger → website` trong edge function — giữ nguyên.
-- Color tokens semantic — chỉ icon thay đổi, các badge `text-blue-500` etc. giữ nguyên (đã hợp design system pink/rose của screenshot).
+```text
+Input UI:       [blogger]
+Generate thật:  [website]
+UI hiển thị:    [blogger]
+DB lưu:         selected_channels = [blogger]
+Content lưu:    website_content = nội dung Blogger
+```
 
-## Kết quả mong đợi
-Trong card "Kênh xuất bản":
-- WordPress hiển thị logo "W" tròn thay vì globe.
-- Blogger hiển thị logo "B" vuông cam thay vì globe.
-- X (Twitter) hiển thị logo X đen thay vì chim Twitter xanh.
+Nếu người dùng chọn cả Website và WordPress thì mới hiển thị cả hai lựa chọn, nhưng backend vẫn chỉ tạo long-form một lần và dùng chung `website_content`.
+
+## Kế hoạch triển khai
+
+### 1. Tách rõ 2 danh sách kênh trong `generate-multichannel`
+
+Trong `supabase/functions/generate-multichannel/index.ts`, tạo helper dùng thống nhất:
+
+- `generationChannels`: kênh nội bộ để AI generate, collapse alias long-form thành `website`.
+- `displayChannels`: kênh để SSE/UI hiển thị, giữ đúng lựa chọn người dùng (`wordpress` hoặc `blogger`).
+- `persistedSelectedChannels`: kênh lưu vào DB, cũng giữ đúng lựa chọn người dùng.
+
+Quy tắc mapping:
+
+```text
+wordpress -> website for generation, wordpress for display/persistence
+blogger   -> website for generation, blogger   for display/persistence
+website   -> website for generation, website   for display/persistence
+```
+
+### 2. Sửa streaming SSE để không báo thừa Website
+
+Ở nhánh streaming:
+
+- `generateChannelsParallel` vẫn nhận `generationChannels`.
+- `emit({ totalChannels })` dùng `displayChannels`, không dùng raw internal `website` nếu user chỉ chọn WordPress/Blogger.
+- Khi stream chunk từ channel nội bộ `website`, map ngược `website -> wordpress` hoặc `website -> blogger` nếu user chỉ chọn alias đó.
+- `completedChannels` cũng emit bằng display channel để UI chỉ thấy một kênh.
+
+Ví dụ:
+
+```text
+AI chunk channel: website
+SSE chunk channel gửi UI: wordpress
+```
+
+### 3. Sửa save DB để lưu đúng selected_channels nhưng vẫn lấy content đúng
+
+- Khi lưu content, vẫn ghi nội dung long-form vào `website_content` từ `channelResults.website`.
+- `selected_channels` chỉ là `['wordpress']` nếu user chỉ chọn WordPress.
+- `channel_statuses` dùng `persistedSelectedChannels`, tránh thêm status `website` khi user không chọn Website.
+
+### 4. Sửa các path phụ để đồng bộ
+
+Áp dụng cùng helper cho:
+
+- create mode
+- expand mode
+- regenerate mode
+- preview mode nếu channel là WordPress/Blogger
+- non-streaming/agent mode nếu có dùng `formData.channels` trực tiếp
+
+Mục tiêu là không còn nhánh nào dùng lẫn lộn `formData.channels` sau khi alias đã collapse.
+
+### 5. Sửa frontend hiển thị tiến trình
+
+Trong `src/pages/MultiChannelCreate.tsx` và các component tiến trình liên quan:
+
+- Ưu tiên `sseProgress.totalChannels` đã được backend map đúng.
+- Nếu chưa có SSE event đầu tiên, fallback về `formData.channels`.
+- Không trộn `streamingTexts` có key `website` với `totalChannels` là `wordpress`; nếu còn nhận `website` từ stream cũ, map về channel alias đang được chọn.
+
+### 6. Sửa auto image pipeline cho WordPress/Blogger
+
+Hiện `VISUAL_IMAGE_CHANNELS` chỉ có `website`, không có `wordpress/blogger`, nên sau khi tạo WordPress có thể không tạo ảnh đúng kênh.
+
+Cập nhật:
+
+- Cho `wordpress` và `blogger` là visual channels.
+- Khi lấy text để tạo ảnh: `wordpress/blogger -> website_content`.
+- Khi lưu/hiển thị ảnh: dùng đúng key người dùng chọn (`wordpress` hoặc `blogger`) để UI không hiện Website.
+
+### 7. Thêm log kiểm chứng ngắn gọn
+
+Thêm log backend dạng:
+
+```text
+[channel-alias] original=[wordpress] generation=[website] display=[wordpress] persist=[wordpress]
+```
+
+Sau khi sửa, trường hợp user chọn WordPress phải log:
+
+```text
+Starting PARALLEL generation for 1 channels
+```
+
+## Files dự kiến sửa
+
+- `supabase/functions/generate-multichannel/index.ts`
+- `src/pages/MultiChannelCreate.tsx`
+- Có thể thêm chỉnh nhỏ ở:
+  - `src/components/multichannel/AIGenerationProgress.tsx`
+  - `src/components/multichannel/MobileGenerationSheet.tsx`
+  - `src/components/multichannel/GeneratingBanner.tsx`
+
+## Không thay đổi
+
+- Không đổi schema database.
+- Không đổi logic kết nối/publish WordPress.
+- Không đổi icon vừa sửa.
+- Không đổi RLS/auth.

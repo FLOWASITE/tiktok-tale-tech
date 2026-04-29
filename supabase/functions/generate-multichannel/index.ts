@@ -1554,6 +1554,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
       formData.channel = CHANNEL_ALIASES[formData.channel];
     }
     console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
+    console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (wordpress/blogger collapse to website internally; UI keeps original alias)`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -3081,10 +3082,63 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             controller.enqueue(encoder.encode(':' + ' '.repeat(2048) + '\n\n'));
           } catch {}
           
+          // ─────────────────────────────────────────────────────────
+          // Channel display mapping (alias-aware SSE)
+          // The pipeline collapses 'wordpress'/'blogger' → 'website' for generation.
+          // The UI must still see only the alias the user picked, otherwise it
+          // shows 2 columns (Website + WordPress) for a single long-form post.
+          //
+          // Rule: if user picked 'wordpress' (or 'blogger') WITHOUT also picking
+          // 'website', map every outgoing 'website' channel reference back to
+          // that alias. If user picked both, leave channels untouched.
+          // ─────────────────────────────────────────────────────────
+          const _origCh: string[] = Array.isArray(originalChannels) ? originalChannels : [];
+          const _userPickedWebsite = _origCh.includes('website') || originalSingleChannel === 'website';
+          const _userPickedWordpress = _origCh.includes('wordpress') || originalSingleChannel === 'wordpress';
+          const _userPickedBloggerSse = _origCh.includes('blogger') || originalSingleChannel === 'blogger';
+          // Only one alias can replace 'website' for display. Prefer wordpress over blogger.
+          const _websiteDisplayAlias: string | null = _userPickedWebsite
+            ? null
+            : (_userPickedWordpress ? 'wordpress' : (_userPickedBloggerSse ? 'blogger' : null));
+
+          const mapChannelForDisplay = (ch: string | undefined): string | undefined => {
+            if (!ch) return ch;
+            if (ch === 'website' && _websiteDisplayAlias) return _websiteDisplayAlias;
+            return ch;
+          };
+          const mapChannelsForDisplay = (chs: string[] | undefined): string[] | undefined => {
+            if (!Array.isArray(chs)) return chs;
+            if (!_websiteDisplayAlias) return chs;
+            // De-dup after mapping in case both 'website' and alias somehow co-exist
+            const out: string[] = [];
+            for (const c of chs) {
+              const m = mapChannelForDisplay(c)!;
+              if (!out.includes(m)) out.push(m);
+            }
+            return out;
+          };
+
           const emit = (event: StreamingProgressEvent): boolean => {
             if (clientDisconnected) return false;
             try {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              // Translate any channel references for the UI
+              const outEvent: StreamingProgressEvent = { ...event };
+              if (outEvent.currentChannel) {
+                outEvent.currentChannel = mapChannelForDisplay(outEvent.currentChannel);
+              }
+              if (outEvent.totalChannels) {
+                outEvent.totalChannels = mapChannelsForDisplay(outEvent.totalChannels);
+              }
+              if (outEvent.completedChannels) {
+                outEvent.completedChannels = mapChannelsForDisplay(outEvent.completedChannels);
+              }
+              if (outEvent.streamingChunk?.channel) {
+                outEvent.streamingChunk = {
+                  ...outEvent.streamingChunk,
+                  channel: mapChannelForDisplay(outEvent.streamingChunk.channel)!,
+                };
+              }
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(outEvent)}\n\n`));
               return true;
             } catch {
               clientDisconnected = true;

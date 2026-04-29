@@ -43,6 +43,8 @@ const CHANNEL_CONTENT_FIELD: Partial<Record<Channel, string>> = {
 // are excluded from auto image generation to avoid wasted provider spend.
 const VISUAL_IMAGE_CHANNELS: ReadonlySet<Channel> = new Set<Channel>([
   'website',
+  'blogger',
+  'wordpress',
   'facebook',
   'instagram',
   'twitter',
