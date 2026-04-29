@@ -274,6 +274,12 @@ export function DirectPublishButton({
         case 'google_business':
           result = await publishToGoogleBusiness(publishOptions);
           break;
+        case 'blogger':
+          result = await publishToBlogger({
+            ...publishOptions,
+            title: blogTitle || undefined,
+          });
+          break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
           return;
