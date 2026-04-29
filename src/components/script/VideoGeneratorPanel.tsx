@@ -53,22 +53,30 @@ export function VideoGeneratorPanel({
   const availableAspectRatios = providerConfig.aspectRatios;
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) {
+      toast.error('Vui lòng nhập prompt mô tả cảnh quay trước khi tạo video.');
+      return;
+    }
 
-    const result = await generateVideo({
-      provider,
-      prompt: prompt.trim(),
-      // model omitted — Admin AI Function Config decides
-      duration,
-      aspect_ratio: aspectRatio,
-      resolution,
-      script_id: script?.id,
-      storyboard_id: storyboardId,
-      scene_number: scene?.sceneNumber,
-    });
+    try {
+      const result = await generateVideo({
+        provider,
+        prompt: prompt.trim(),
+        // model omitted — Admin AI Function Config decides
+        duration,
+        aspect_ratio: aspectRatio,
+        resolution,
+        script_id: script?.id,
+        storyboard_id: storyboardId,
+        scene_number: scene?.sceneNumber,
+      });
 
-    if (result?.video_url) {
-      onVideoGenerated?.(result.video_url);
+      if (result?.video_url) {
+        onVideoGenerated?.(result.video_url);
+      }
+    } catch (err) {
+      console.error('[VideoGeneratorPanel] generate failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Không thể tạo video.');
     }
   };
 
