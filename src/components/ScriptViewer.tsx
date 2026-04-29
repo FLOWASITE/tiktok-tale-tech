@@ -41,8 +41,7 @@ import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { ScriptAnalyzer } from '@/components/script/ScriptAnalyzer';
 import { TeleprompterMode } from '@/components/script/TeleprompterMode';
 import { StoryboardGenerator } from '@/components/script/StoryboardGenerator';
-import { VideoGeneratorPanel } from '@/components/script/VideoGeneratorPanel';
-import { VideoGallery } from '@/components/script/VideoGallery';
+import { ScriptVideoTab } from '@/components/script/ScriptVideoTab';
 import { ScriptExportMenu } from '@/components/script/ScriptExportMenu';
 import { ScriptCollaborationPanel } from '@/components/script/ScriptCollaborationPanel';
 import { SceneVideoStrip } from '@/components/scripts/SceneVideoStrip';
@@ -474,10 +473,9 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                       <TabsTrigger value="full" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
                         Toàn bộ
                       </TabsTrigger>
-                      <TabsTrigger value="storyboard" disabled className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5 opacity-50 cursor-not-allowed">
+                      <TabsTrigger value="storyboard" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
                         <Clapperboard className="w-3 h-3 mr-1" />
                         Storyboard
-                        <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 h-4 border-amber-500/50 text-amber-600">Soon</Badge>
                       </TabsTrigger>
                       <TabsTrigger value="video" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
                         <Video className="w-3 h-3 mr-1" />
@@ -541,10 +539,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         "rounded-lg bg-muted/30 p-3 xs:p-4 border border-border",
                         showAnalytics ? "h-[35vh] xs:h-[45vh]" : "h-[40vh] xs:h-[50vh]"
                       )}>
-                        <div className="space-y-4 pr-2 xs:pr-4">
-                          <VideoGeneratorPanel script={script} />
-                          <VideoGallery scriptId={script.id} />
-                        </div>
+                        <ScriptVideoTab
+                          script={script}
+                          onSendToVideoStudio={handleSendToVideoStudio}
+                        />
                       </ScrollArea>
                     </TabsContent>
                   </Tabs>
