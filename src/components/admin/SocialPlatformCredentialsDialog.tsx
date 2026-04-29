@@ -161,9 +161,11 @@ export function SocialPlatformCredentialsDialog({
           ? 'TikTok Client Key'
           : isLinkedIn
             ? 'LinkedIn Client ID'
-            : isMetaPlatform
-              ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-              : 'Consumer Key (API Key)';
+            : isPinterest
+              ? 'Pinterest App ID'
+              : isMetaPlatform
+                ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+                : 'Consumer Key (API Key)';
 
   const secretLabel = isWebsite
     ? 'API Key / Application Password'
@@ -175,9 +177,11 @@ export function SocialPlatformCredentialsDialog({
           ? 'TikTok Client Secret'
           : isLinkedIn
             ? 'LinkedIn Client Secret'
-            : isMetaPlatform
-              ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-              : 'Consumer Secret (API Secret)';
+            : isPinterest
+              ? 'Pinterest App Secret'
+              : isMetaPlatform
+                ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+                : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {
