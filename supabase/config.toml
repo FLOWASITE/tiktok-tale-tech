@@ -397,3 +397,18 @@ verify_jwt = false
 
 [functions.test-pinterest-connection]
 verify_jwt = false
+
+[functions.generate-voiceover]
+verify_jwt = false
+
+[functions.generate-bgm]
+verify_jwt = false
+
+[functions.generate-subtitles]
+verify_jwt = false
+
+[functions.render-video-creatomate]
+verify_jwt = false
+
+[functions.render-job-poller]
+verify_jwt = false
