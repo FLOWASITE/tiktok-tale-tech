@@ -10811,6 +10811,7 @@ export type Database = {
       video_generations: {
         Row: {
           aspect_ratio: string | null
+          bgm_url: string | null
           completed_at: string | null
           cost_estimate: number | null
           created_at: string
@@ -10818,24 +10819,31 @@ export type Database = {
           error_message: string | null
           generation_time_ms: number | null
           id: string
+          last_polled_at: string | null
           model_used: string | null
+          negative_prompt: string | null
           organization_id: string | null
+          poll_attempts: number
           progress: number | null
           prompt: string
           provider: Database["public"]["Enums"]["video_provider"]
+          provider_task_id: string | null
           resolution: string | null
           scene_number: number | null
           script_id: string | null
           starting_frame_url: string | null
           status: Database["public"]["Enums"]["video_generation_status"] | null
           storyboard_id: string | null
+          subtitle_srt: string | null
           thumbnail_url: string | null
           updated_at: string
           user_id: string
           video_url: string | null
+          voiceover_url: string | null
         }
         Insert: {
           aspect_ratio?: string | null
+          bgm_url?: string | null
           completed_at?: string | null
           cost_estimate?: number | null
           created_at?: string
@@ -10843,24 +10851,31 @@ export type Database = {
           error_message?: string | null
           generation_time_ms?: number | null
           id?: string
+          last_polled_at?: string | null
           model_used?: string | null
+          negative_prompt?: string | null
           organization_id?: string | null
+          poll_attempts?: number
           progress?: number | null
           prompt: string
           provider?: Database["public"]["Enums"]["video_provider"]
+          provider_task_id?: string | null
           resolution?: string | null
           scene_number?: number | null
           script_id?: string | null
           starting_frame_url?: string | null
           status?: Database["public"]["Enums"]["video_generation_status"] | null
           storyboard_id?: string | null
+          subtitle_srt?: string | null
           thumbnail_url?: string | null
           updated_at?: string
           user_id: string
           video_url?: string | null
+          voiceover_url?: string | null
         }
         Update: {
           aspect_ratio?: string | null
+          bgm_url?: string | null
           completed_at?: string | null
           cost_estimate?: number | null
           created_at?: string
@@ -10868,21 +10883,27 @@ export type Database = {
           error_message?: string | null
           generation_time_ms?: number | null
           id?: string
+          last_polled_at?: string | null
           model_used?: string | null
+          negative_prompt?: string | null
           organization_id?: string | null
+          poll_attempts?: number
           progress?: number | null
           prompt?: string
           provider?: Database["public"]["Enums"]["video_provider"]
+          provider_task_id?: string | null
           resolution?: string | null
           scene_number?: number | null
           script_id?: string | null
           starting_frame_url?: string | null
           status?: Database["public"]["Enums"]["video_generation_status"] | null
           storyboard_id?: string | null
+          subtitle_srt?: string | null
           thumbnail_url?: string | null
           updated_at?: string
           user_id?: string
           video_url?: string | null
+          voiceover_url?: string | null
         }
         Relationships: [
           {
@@ -11798,7 +11819,7 @@ export type Database = {
         | "ai_edit"
         | "video_generation"
       video_generation_status: "pending" | "processing" | "completed" | "failed"
-      video_provider: "lovable" | "minimax" | "runway"
+      video_provider: "lovable" | "minimax" | "runway" | "geminigen" | "poyo"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -11994,7 +12015,7 @@ export const Constants = {
         "video_generation",
       ],
       video_generation_status: ["pending", "processing", "completed", "failed"],
-      video_provider: ["lovable", "minimax", "runway"],
+      video_provider: ["lovable", "minimax", "runway", "geminigen", "poyo"],
     },
   },
 } as const
