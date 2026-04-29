@@ -105,7 +105,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   youtube: () => <span>▶️</span>,
   zalo_oa: ZaloIcon,
   google_business: () => <span>📍</span>,
-  blogger: () => <span style={{color:'#FF8000',fontWeight:700}}>B</span>,
+  blogger: () => <ChannelIcon channel="blogger" size={16} />,
   website: () => <span>🌐</span>,
 };
 
