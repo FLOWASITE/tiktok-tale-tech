@@ -25,11 +25,13 @@ export function QuickClipTab() {
   const [duration, setDuration] = useState(5);
   const [model, setModel] = useState<VideoModelChoice>('geminigen/veo-3.1-fast');
   const [enhancing, setEnhancing] = useState(false);
-  const { generateVideo, generating } = useVideoGeneration();
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
 
   const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
+  const activeJob = activeJobId ? generations.find((g) => g.id === activeJobId) : null;
 
   const handleSmartPrompt = async () => {
     if (prompt.trim().length < 5) {
