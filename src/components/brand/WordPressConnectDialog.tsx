@@ -211,7 +211,43 @@ export function WordPressConnectDialog({
             )}
           </div>
 
-          {/* Step 2: Open WP admin to create app password */}
+          {/* WordPress.com warning */}
+          {isWordPressCom && (
+            <Alert className="border-amber-500/40 bg-amber-500/5">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-xs space-y-2">
+                <p>
+                  <strong>Bạn đang dùng WordPress.com (hosted).</strong> Application
+                  Passwords <strong>chỉ có ở plan Business</strong> ($25/tháng) trở lên,
+                  hoặc WordPress self-hosted.
+                </p>
+                <p className="font-medium text-foreground">3 lựa chọn:</p>
+                <ol className="list-decimal list-inside space-y-1 pl-1">
+                  <li>
+                    Nâng cấp WordPress.com lên{' '}
+                    <a
+                      href="https://wordpress.com/pricing/"
+                      target="_blank"
+                      rel="noopener"
+                      className="underline font-medium"
+                    >
+                      Business plan
+                    </a>{' '}
+                    để bật Application Passwords
+                  </li>
+                  <li>
+                    Kết nối qua <strong>OAuth WordPress.com</strong> (đang phát triển — sắp ra mắt)
+                  </li>
+                  <li>
+                    Dùng WordPress self-hosted (cài WordPress trên hosting riêng như
+                    Hostinger, Bluehost, A2 Hosting…)
+                  </li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+          )}
+
+
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <span className="inline-flex w-5 h-5 rounded-full bg-foreground text-background text-xs items-center justify-center font-semibold">
