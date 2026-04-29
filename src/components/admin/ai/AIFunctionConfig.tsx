@@ -20,7 +20,8 @@ import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music } from 'lucide-react';
+import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music, Film } from 'lucide-react';
+import { getVideoModelCaps, VIDEO_PROVIDER_LABEL } from '@/lib/videoModelCaps';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
