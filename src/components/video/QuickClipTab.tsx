@@ -206,6 +206,40 @@ export function QuickClipTab() {
         </AlertDescription>
       </Alert>
 
+      {/* Active job progress */}
+      {activeJob && (
+        <div className="rounded-xl border border-border/40 bg-muted/30 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {activeJob.status === 'completed' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              ) : activeJob.status === 'failed' ? (
+                <XCircle className="w-4 h-4 text-destructive" />
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin text-foreground/70" />
+              )}
+              <span className="text-sm font-medium">
+                {activeJob.status === 'completed' ? 'Hoàn tất' :
+                 activeJob.status === 'failed' ? 'Thất bại' :
+                 'Đang tạo video…'}
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {activeJob.status === 'processing' || activeJob.status === 'pending'
+                ? 'Khoảng 1–3 phút'
+                : `${activeJob.progress}%`}
+            </span>
+          </div>
+          <Progress value={activeJob.progress ?? 10} className="h-1.5" />
+          {activeJob.status === 'completed' && activeJob.video_url && (
+            <video src={activeJob.video_url} controls className="w-full rounded-lg max-h-[280px] bg-black" />
+          )}
+          {activeJob.status === 'failed' && (
+            <p className="text-xs text-destructive">{activeJob.error_message ?? 'Provider trả lỗi không xác định'}</p>
+          )}
+        </div>
+      )}
+
       {/* Generate */}
       <div className="flex justify-end pt-2">
         <Button
