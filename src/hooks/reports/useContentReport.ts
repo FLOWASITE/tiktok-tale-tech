@@ -418,7 +418,7 @@ export function useContentReport(
       const dayBuckets = bucketByDay(all, (r) => r.created_at);
       const dayCounts = new Map<string, number>();
       for (const [k, v] of dayBuckets) dayCounts.set(k, v.length);
-      const byDay = fillDateGaps(filters.dateFrom, filters.dateTo, dayCounts);
+      const byDay = fillDateGaps(dateFrom, dateTo, dayCounts);
 
       // Top topics
       const topicMap = new Map<string, number>();
