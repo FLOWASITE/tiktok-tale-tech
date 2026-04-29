@@ -1629,6 +1629,7 @@ export function MultiChannelViewer({
                                   geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
                                   footerInfo={brandFooterInfo}
                                   industryLabel={brandIndustryLabel}
+                                  pinterestTitle={channel === 'pinterest' ? (content as any).pinterest_title || undefined : undefined}
                                 />
                               </div>
                                 
