@@ -295,6 +295,9 @@ verify_jwt = false
 [functions.test-wordpress-connection]
 verify_jwt = false
 
+[functions.test-wordpress-com-connection]
+verify_jwt = false
+
 [functions.categorize-industries]
 verify_jwt = false
 
