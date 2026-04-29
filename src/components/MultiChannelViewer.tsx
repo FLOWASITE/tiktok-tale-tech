@@ -232,7 +232,7 @@ const channelConfig: Record<Channel, {
   },
   threads: { 
     label: 'Threads', 
-    shortLabel: 'Th',
+    shortLabel: 'Threads',
     icon: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/10',
