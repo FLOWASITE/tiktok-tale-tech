@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Eye, Trash2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Zap } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { Eye, Trash2, Tag, Image, Building, FileText, CalendarClock, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Zap } from 'lucide-react';
+import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
