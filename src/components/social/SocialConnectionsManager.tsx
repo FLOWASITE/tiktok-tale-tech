@@ -164,6 +164,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'WordPress self-hosted via Application Password',
   },
+  wordpress_com: {
+    name: 'WordPress.com',
+    icon: GlobeIcon,
+    color: 'text-[#21759b]',
+    bgColor: 'bg-[#21759b]/10',
+    available: true,
+    description: 'WordPress.com hosted (OAuth)',
+  },
   website: {
     name: 'Website',
     icon: GlobeIcon,
