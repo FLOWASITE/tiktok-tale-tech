@@ -246,12 +246,21 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'geminigen/veo-3.1-fast',
     'geminigen/veo-2',
     'geminigen/sora-2',
+    'geminigen/sora-2-pro',
+    'geminigen/sora-2-hd',
     // Minimax (kept for backward compatibility — provider wired in generate-video)
     'minimax/video-01',
     // PoYo video (register model IDs here when provider exposes video endpoints)
     'poyo/veo-3',
     'poyo/veo-3-fast',
+    'poyo/veo-3.1',
+    'poyo/veo-3.1-fast',
     'poyo/sora-2',
+    'poyo/sora-2-pro',
+    'poyo/kling-2.1',
+    'poyo/kling-2.1-pro',
+    'poyo/hailuo-02',
+    'poyo/seedance-1-pro',
   ],
   audio: [
     // ElevenLabs music (default for generate-music)
