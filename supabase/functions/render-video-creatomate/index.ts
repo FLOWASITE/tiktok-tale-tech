@@ -17,6 +17,7 @@ interface RenderRequest {
   burn_subtitles?: boolean;
   aspect_ratio?: "9:16" | "16:9" | "1:1";
   storyboard_id?: string;
+  script_id?: string;
   source_clip_ids?: string[];
   organization_id?: string;
 }
@@ -172,6 +173,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         organization_id: organizationId,
         storyboard_id: body.storyboard_id ?? null,
+        script_id: body.script_id ?? null,
         source_clip_ids: body.source_clip_ids ?? [],
         voiceover_url: body.voiceover_url ?? null,
         bgm_url: body.bgm_url ?? null,

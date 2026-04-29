@@ -16,6 +16,7 @@ interface Props {
   onMergeMovie: () => void;
   canMerge: boolean;
   missingCount: number;
+  merging?: boolean;
 }
 
 export function ScriptVideoHeader({
@@ -29,6 +30,7 @@ export function ScriptVideoHeader({
   onMergeMovie,
   canMerge,
   missingCount,
+  merging = false,
 }: Props) {
   const pct = totalScenes > 0 ? Math.round((renderedScenes / totalScenes) * 100) : 0;
 
@@ -92,11 +94,21 @@ export function ScriptVideoHeader({
           <Button
             size="sm"
             onClick={onMergeMovie}
-            disabled={!canMerge}
+            disabled={!canMerge || merging}
             className="gap-1.5"
+            title={canMerge ? `Ghép ${renderedScenes} scene đã render thành 1 MP4` : 'Cần ít nhất 2 scene đã render'}
           >
-            <Film className="h-3.5 w-3.5" />
-            Ghép thành phim
+            {merging ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Đang ghép…
+              </>
+            ) : (
+              <>
+                <Film className="h-3.5 w-3.5" />
+                Ghép thành phim
+              </>
+            )}
           </Button>
         </div>
       </div>
