@@ -80,6 +80,7 @@ export function QuickClipTab() {
       duration,
       aspect_ratio: aspect,
       resolution: '1080p',
+      negative_prompt: negativePrompt.trim() || undefined,
     });
     if (result) {
       toast.success('Đã gửi yêu cầu sinh video. Theo dõi tại tab Thư viện.');
