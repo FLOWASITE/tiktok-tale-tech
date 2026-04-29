@@ -649,6 +649,15 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             />
           </div>
         )}
+        {platform === 'pinterest' && connection?.is_active && (
+          <div className="px-4 pb-4">
+            <PinterestBoardSelector
+              brandTemplateId={template.id}
+              connectionId={connection.id}
+              defaultBoardId={(template as any).pinterest_default_board_id ?? null}
+            />
+          </div>
+        )}
       </div>
     );
   };
