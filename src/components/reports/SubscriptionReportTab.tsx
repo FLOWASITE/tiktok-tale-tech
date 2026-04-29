@@ -257,6 +257,76 @@ export function SubscriptionReportTab() {
         </Card>
       )}
 
+      {/* Breakdown by brand & user */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            Tiêu thụ theo Brand
+          </h3>
+          {data.brandUsage.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có dữ liệu trong chu kỳ này.</p>
+          ) : (
+            <div className="space-y-0.5">
+              {(() => {
+                const max = data.brandUsage[0]?.total || 1;
+                return data.brandUsage.map((b: BrandUsageRow) => (
+                  <BreakdownRow
+                    key={b.brandId}
+                    label={b.brandName}
+                    total={b.total}
+                    maxTotal={max}
+                    scripts={b.scripts}
+                    carousels={b.carousels}
+                    multichannel={b.multichannel}
+                    images={b.images}
+                    leading={
+                      <div className="h-7 w-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    }
+                  />
+                ));
+              })()}
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Tiêu thụ theo Thành viên
+          </h3>
+          {data.userUsage.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có dữ liệu trong chu kỳ này.</p>
+          ) : (
+            <div className="space-y-0.5">
+              {(() => {
+                const max = data.userUsage[0]?.total || 1;
+                return data.userUsage.map((u: UserUsageRow) => (
+                  <BreakdownRow
+                    key={u.userId}
+                    label={u.fullName}
+                    total={u.total}
+                    maxTotal={max}
+                    scripts={u.scripts}
+                    carousels={u.carousels}
+                    multichannel={u.multichannel}
+                    images={u.images}
+                    leading={
+                      <Avatar className="h-7 w-7 shrink-0">
+                        {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.fullName} />}
+                        <AvatarFallback className="text-[10px]">{getInitials(u.fullName)}</AvatarFallback>
+                      </Avatar>
+                    }
+                  />
+                ));
+              })()}
+            </div>
+          )}
+        </Card>
+      </div>
+
       {/* Active addons */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
