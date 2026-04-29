@@ -8,9 +8,12 @@ import type { Script, ScriptPurpose } from '@/types/script';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
 import { useScriptVideoBatch, type BatchScene } from '@/hooks/useScriptVideoBatch';
+import { useScriptMovieMerge } from '@/hooks/useScriptMovieMerge';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { ScriptVideoHeader } from './ScriptVideoHeader';
 import { ScriptSceneGrid, type SceneGridItem } from './ScriptSceneGrid';
 import { ScriptVideoGalleryGrouped } from './ScriptVideoGalleryGrouped';
+import { ScriptMovieGallery } from './ScriptMovieGallery';
 import { SceneManagerPanel } from './SceneManagerPanel';
 import { VideoGeneratorPanel } from './VideoGeneratorPanel';
 import { VideoGallery } from './VideoGallery';
@@ -29,6 +32,7 @@ const parseDur = (s?: string): number | undefined => {
 
 export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: Props) {
   const navigate = useNavigate();
+  const { currentOrganization } = useOrganizationContext();
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
   const [view, setView] = useState<'grid' | 'manage'>('grid');
@@ -37,6 +41,7 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
     isAiVideo ? script.id : null,
   );
   const { progress, running, renderMissingScenes } = useScriptVideoBatch();
+  const { mergeMovie, merging } = useScriptMovieMerge();
 
   // Fallback: kịch bản loại khác chỉ có generator + gallery flat
   if (!isAiVideo) {
@@ -89,15 +94,25 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
     });
   };
 
-  const handleMerge = () => {
+  const handleMerge = async () => {
     if (!canMerge) {
       toast.info('Cần ít nhất 2 scene đã render để ghép phim.');
       return;
     }
-    toast.info('Đang chuẩn bị Video Studio…', {
-      description: 'Mở storyboard để ghép timeline.',
+    // Lấy clips đã hoàn thành theo đúng thứ tự scene
+    const orderedClips = scenes
+      .filter((s) => s.clip?.status === 'completed' && s.clip.video_url)
+      .map((s) => ({
+        id: s.clip!.id,
+        video_url: s.clip!.video_url!,
+        scene_number: s.sceneNumber,
+      }));
+
+    await mergeMovie(orderedClips, {
+      scriptId: script.id,
+      organizationId: currentOrganization?.id,
+      aspectRatio: '9:16',
     });
-    onSendToVideoStudio(0);
   };
 
   return (
