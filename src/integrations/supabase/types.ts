@@ -11638,6 +11638,7 @@ export type Database = {
         | "multichannel"
         | "image_generation"
         | "ai_edit"
+        | "video_generation"
       video_generation_status: "pending" | "processing" | "completed" | "failed"
       video_provider: "lovable" | "minimax" | "runway"
     }
@@ -11832,6 +11833,7 @@ export const Constants = {
         "multichannel",
         "image_generation",
         "ai_edit",
+        "video_generation",
       ],
       video_generation_status: ["pending", "processing", "completed", "failed"],
       video_provider: ["lovable", "minimax", "runway"],
