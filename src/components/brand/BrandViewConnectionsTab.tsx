@@ -216,6 +216,22 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
+    // WordPress / Blogger dùng chung Website dialog với integrationType preset
+    if (platform === 'wordpress' || platform === 'blogger') {
+      setSelectedPlatform(platform);
+      setWebsiteForm((prev) => ({
+        ...prev,
+        integrationType: platform as 'wordpress' | 'blogger',
+        websiteUrl: '',
+        username: '',
+        appPassword: '',
+        apiKey: '',
+        apiEndpoint: '',
+      }));
+      setWebsiteDialogOpen(true);
+      return;
+    }
+
     // OAuth platforms (Facebook, Instagram, LinkedIn, Threads, Zalo OA, Google Business)
     setOauthConnecting(platform);
     try {
