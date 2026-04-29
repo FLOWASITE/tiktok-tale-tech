@@ -310,23 +310,37 @@ export function VideoGeneratorPanel({
           )}
         </Button>
 
-        {/* Status banner */}
-        {phase === 'sending' && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Đang gửi tới <code className="font-mono">generate-video</code>…</span>
+        {/* Status / Progress */}
+        {(phase === 'sending' || phase === 'processing') && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 text-foreground/80">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                {phase === 'sending' ? 'Đang gửi yêu cầu…' : 'Đang render video…'}
+              </span>
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                {progress}% · {fmtTime(elapsed)}
+              </span>
+            </div>
+            <Progress value={progress} className="h-1.5" />
+            <p className="text-[10px] text-muted-foreground">
+              ETA ~{fmtTime(estimatedSeconds)}. Bạn có thể rời tab — video sẽ tự lưu vào thư viện khi xong.
+            </p>
           </div>
         )}
-        {phase === 'processing' && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Đang tạo video nền — sẽ thông báo khi xong.</span>
+        {phase === 'done' && (
+          <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Đã tạo xong video sau {fmtTime(elapsed)}.</span>
           </div>
         )}
         {phase === 'error' && lastError && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive space-y-1">
             <div className="font-medium flex items-center justify-between gap-2">
-              <span>Tạo video thất bại</span>
+              <span className="flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Tạo video thất bại
+              </span>
               {lastError.code && (
                 <code className="font-mono text-[10px] bg-destructive/10 px-1.5 py-0.5 rounded">
                   {lastError.code}
