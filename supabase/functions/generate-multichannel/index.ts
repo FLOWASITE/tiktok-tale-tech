@@ -4051,7 +4051,7 @@ const channelDescriptions: Record<string, string> = {
       telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
-      pinterest: "Pinterest Pin DESCRIPTION (≤500 ký tự, SEO-friendly, keyword-rich, action-oriented, kết thúc bằng CTA dạng 'Save for later' hoặc 'Click để xem thêm'). KHÔNG hashtag spam, tối đa 3-5 hashtag tự nhiên.",
+      pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine, KHÔNG phải feed mạng xã hội). Viết keyword-rich, long-tail keywords tự nhiên trong câu, tập trung MÔ TẢ LỢI ÍCH/GIÁ TRỊ/HƯỚNG DẪN (how-to, listicle, tip, idea). Không bán hàng cứng, không tự xưng kênh. Kết thúc bằng CTA mềm dạng 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. Tối đa 2-5 hashtag tự nhiên cuối bài (không spam). Ảnh đi kèm là vertical 2:3 (1000×1500).",
     };
 
     formData.channels.forEach(channel => {
