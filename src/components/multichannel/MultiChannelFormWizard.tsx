@@ -83,6 +83,7 @@ import {
    SkipForward,
    Zap,
 } from 'lucide-react';
+import { XIcon, WordPressIcon, BloggerIcon, ZaloIcon } from '@/components/icons/SocialIcons';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
