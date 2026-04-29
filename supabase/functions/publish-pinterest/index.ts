@@ -342,8 +342,17 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
           schedule_id: scheduleId,
           channel: 'pinterest',
           action: 'published',
-          details: { post_id: result.id, post_url: result.url, board_id: resolvedBoard, media_count: mediaUrls.length },
+          details: { post_id: result.id, post_url: result.url, board_id: resolvedBoard, media_count: mediaUrls.length, pin_type: effectiveType },
         });
+
+        // Persist Pin info on content row for analytics polling + UI
+        await supabase
+          .from('multi_channel_contents')
+          .update({
+            pinterest_post_id: result.id,
+            pinterest_post_url: result.url,
+          })
+          .eq('id', contentId);
       }
 
       return new Response(
