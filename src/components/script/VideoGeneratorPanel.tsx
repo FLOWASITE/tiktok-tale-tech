@@ -32,7 +32,7 @@ export function VideoGeneratorPanel({
   storyboardId,
   onVideoGenerated,
 }: VideoGeneratorPanelProps) {
-  const { generateVideo, generating } = useVideoGeneration();
+  const { generateVideo, generating, currentJobId, generations, clearCurrentJob } = useVideoGeneration();
   
   const [provider, setProvider] = useState<VideoProvider>('geminigen');
   const [prompt, setPrompt] = useState(scene?.promptText || '');
