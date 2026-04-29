@@ -259,7 +259,13 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           if (contentData) {
             const selectedChannels: string[] = contentData.selected_channels || [];
             const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
-            channelStatuses[channelKey] = 'published';
+
+            // For blogger: mark blogger=published if user selected it; fall back to website otherwise
+            let effectiveChannelKey = channelKey;
+            if (action === 'blogger') {
+              effectiveChannelKey = selectedChannels.includes('blogger') ? 'blogger' : 'website';
+            }
+            channelStatuses[effectiveChannelKey] = 'published';
 
             const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
             const newStatus = allPublished ? 'published' : 'partially_published';
@@ -272,7 +278,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             if (updateError) {
               console.error('[channel-publisher] Failed to update content status:', updateError.message);
             } else {
-              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${channelKey}=published)`);
+              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${effectiveChannelKey}=published)`);
             }
           }
 
