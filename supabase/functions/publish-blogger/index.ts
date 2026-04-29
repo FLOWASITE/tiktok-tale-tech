@@ -42,17 +42,22 @@ Deno.serve(withPerf({ functionName: 'publish-blogger' }, async (req) => {
     const body = await req.json();
     const {
       connectionId,
-      title,
       content,
       labels = [],
       featuredImageUrl,
       blogId: requestedBlogId,
       isDraft = false,
     } = body;
+    let { title } = body;
 
     if (!connectionId) throw new Error('connectionId is required');
-    if (!title) throw new Error('title is required');
     if (!content) throw new Error('content is required');
+
+    // Auto-extract title from first non-empty heading/line if missing
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      const firstLine = String(content).split('\n').map((l: string) => l.replace(/^#+\s*/, '').replace(/[*_~`]/g, '').trim()).find((l: string) => l.length > 0);
+      title = (firstLine || 'Bài viết mới').substring(0, 200);
+    }
 
     const { data: connection, error: connError } = await supabase
       .from('social_connections')
