@@ -1884,7 +1884,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 }
 
 // Pinterest Pin Mockup — vertical 2:3 card with bold "Lưu" button
-function PinterestMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function PinterestMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages, pinterestTitle }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [saved, setSaved] = useState(false);
   const [reacted, setReacted] = useState(false);
   const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
@@ -1892,10 +1892,11 @@ function PinterestMockup({ content, brandName, logoUrl, isGenerating, channelIma
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const domain = `${username}.com`;
 
-  // Title = first non-empty line, body = rest
+  // Prefer dedicated pinterest_title (DB column). Fallback: first non-empty line.
+  const trimmedTitle = pinterestTitle?.trim();
   const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-  const title = lines[0] || '';
-  const body = lines.slice(1).join('\n');
+  const title = trimmedTitle || lines[0] || '';
+  const body = trimmedTitle ? content.trim() : lines.slice(1).join('\n');
 
   return (
     <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-[#e9e9e9] dark:border-[#2c2c2c] overflow-hidden shadow-sm font-['Segoe_UI',system-ui,sans-serif] max-w-sm mx-auto">
