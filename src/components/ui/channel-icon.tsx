@@ -63,7 +63,7 @@ const svgIcons: Partial<Record<Channel | ExtraChannel, React.FC<{ className?: st
 };
 
 interface ChannelIconProps {
-  channel: Channel | 'blogger' | 'wordpress';
+  channel: Channel | 'blogger' | 'wordpress' | 'pinterest';
   className?: string;
   size?: number;
 }
