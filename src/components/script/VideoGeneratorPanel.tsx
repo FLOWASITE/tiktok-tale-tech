@@ -500,7 +500,10 @@ export function VideoGeneratorPanel({
             </ol>
             {(phase === 'sending' || phase === 'processing') && (
               <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/50">
-                ETA ~{fmtTime(estimatedSeconds)}. Bạn có thể rời tab — video sẽ tự lưu vào thư viện khi xong.
+                {progressSource === 'provider'
+                  ? `Còn ~${fmtTime(dynamicEtaSeconds)} (theo tốc độ provider thực tế).`
+                  : `ETA ~${fmtTime(dynamicEtaSeconds)} (ước lượng — sẽ được hiệu chỉnh khi provider báo).`}
+                {' '}Bạn có thể rời tab — video sẽ tự lưu khi xong.
               </p>
             )}
           </div>
