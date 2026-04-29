@@ -265,6 +265,9 @@ verify_jwt = false
 [functions.blogger-oauth-callback]
 verify_jwt = false
 
+[functions.wordpress-com-oauth-callback]
+verify_jwt = false
+
 [functions.publish-blogger]
 verify_jwt = false
 
