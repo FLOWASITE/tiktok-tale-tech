@@ -8,6 +8,8 @@ import { Loader2, Wand2, Sparkles, Info, Video } from 'lucide-react';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
 import { ProviderModelPicker, VIDEO_MODELS, VideoModelChoice } from './ProviderModelPicker';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
+import { useCurrentBrand } from '@/contexts/BrandContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const EXAMPLE_PROMPTS = [
