@@ -15,8 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useSocialConnections, type SocialPlatform } from '@/hooks/useSocialConnections';
 import { useDirectPublish } from '@/hooks/useDirectPublish';
-import { useCurrentBrand } from '@/hooks/useCurrentBrand';
-import { ChannelIcon } from '@/components/shared/ChannelIcon';
+import { useCurrentBrand } from '@/contexts/BrandContext';
+import { ChannelIcon } from '@/components/ui/channel-icon';
 import { toast } from 'sonner';
 
 interface Props {
