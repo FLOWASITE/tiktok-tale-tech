@@ -3,10 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, DollarSign, TrendingUp, Users, ArrowRightLeft } from "lucide-react";
+import { Loader2, DollarSign, TrendingUp, Users, ArrowRightLeft, Flame, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { useAdminPlanStats } from "@/hooks/admin/useAdminPlanStats";
 
 const PIE_COLORS = ["#94a3b8", "#3b82f6", "#8b5cf6", "#f59e0b"];
+const PLAN_ORDER = ["free", "starter", "pro", "enterprise"];
 
 export default function RevenueStats() {
   const statsQuery = useQuery({
