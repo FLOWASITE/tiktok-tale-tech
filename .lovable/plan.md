@@ -1,32 +1,39 @@
 ## Vấn đề
 
-Trong sidebar "Kênh" của MultiChannelViewer:
-- **Blogger** đang dùng icon `Globe` (quả địa cầu) thay vì logo Blogger thật.
-- **WordPress** đang dùng icon `Globe` và label rút gọn `WP` thay vì tên đầy đủ `WordPress` + logo WordPress thật.
-
-Tương tự `MultiChannelListView.tsx` cũng còn `wordpress: 'WP'` và `blogger: 'Blog'`.
+Trong sidebar "Kênh" của `MultiChannelViewer`, các social đang hiển thị tên viết tắt thay vì tên đầy đủ:
+- Facebook → `FB`
+- Instagram → `IG`
+- Threads → `Th`
+- (kèm các kênh khác cũng đang viết tắt: LinkedIn `LI`, YouTube `YT`, TikTok `TT`, Email `Mail`, Google Maps `Maps`, Telegram `TG`, Zalo OA `Zalo`)
 
 ## Kế hoạch sửa
 
-### 1. `src/components/MultiChannelViewer.tsx`
-- Import thêm `BloggerIcon, WordPressIcon` từ `@/components/icons/SocialIcons` (đã có sẵn `PinterestIcon`).
-- Sửa entry `blogger`:
-  - `icon`: `<BloggerIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />`
-  - giữ `shortLabel: 'Blogger'`
-- Sửa entry `wordpress`:
-  - `icon`: `<WordPressIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />`
-  - `shortLabel: 'WordPress'` (thay vì `WP`)
+Trong `src/components/MultiChannelViewer.tsx` (block `channelInfo` ~line 145–240), đổi `shortLabel` của tất cả kênh sang tên đầy đủ để đồng bộ với Pinterest / Blogger / WordPress đã sửa trước đó:
 
-### 2. `src/components/MultiChannelListView.tsx`
-- `blogger: 'Blog'` → `blogger: 'Blogger'`
-- `wordpress: 'WP'` → `wordpress: 'WordPress'`
+| Channel | shortLabel cũ | shortLabel mới |
+|---|---|---|
+| facebook | FB | Facebook |
+| instagram | IG | Instagram |
+| threads | Th | Threads |
+| twitter | X | X (giữ — đây là tên chính thức) |
+| linkedin | LI | LinkedIn |
+| email | Mail | Email |
+| youtube | YT | YouTube |
+| tiktok | TT | TikTok |
+| google_maps | Maps | Google Maps |
+| telegram | TG | Telegram |
+| zalo_oa | Zalo | Zalo OA |
+
+Đồng bộ thêm `MultiChannelListView.tsx` (block label map ~line 100–115) nếu vẫn còn viết tắt cho các social trên (FB/IG/Th/LI/YT/TT/TG…), đổi sang tên đầy đủ tương ứng.
 
 ## Kết quả mong muốn
 
-Sidebar hiển thị:
+Sidebar "Kênh" hiển thị:
 ```
-[logo Blogger cam]   Blogger
-[logo WordPress xanh] WordPress
+[logo FB]   Facebook
+[logo IG]   Instagram
+[logo Th]   Threads
+…
 ```
 
-Đồng nhất với cách đã sửa cho Pinterest ở lượt trước.
+Đồng nhất pattern "tên đầy đủ" cho mọi social.

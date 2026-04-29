@@ -144,7 +144,7 @@ const channelConfig: Record<Channel, {
   },
   facebook: { 
     label: 'Facebook', 
-    shortLabel: 'FB',
+    shortLabel: 'Facebook',
     icon: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-indigo-400',
     bgColor: 'bg-indigo-500/10',
