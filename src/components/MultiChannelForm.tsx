@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Loader2, Sparkles, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon } from '@/components/icons/SocialIcons';
 import { MultiChannelFormData, ContentGoal, ContentAngle, Channel, CHANNELS } from '@/types/multichannel';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
