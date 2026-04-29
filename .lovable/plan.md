@@ -1,102 +1,137 @@
-## Hiện trạng tab Video
-
-Trong `ScriptViewer.tsx` (lines 539-549), tab "Video" chỉ render:
-- `VideoGeneratorPanel` — 1 form tạo video đơn lẻ
-- `VideoGallery` — danh sách raw các lần generate (không gắn với scene)
-
-Vấn đề:
-1. **Không có overview** từng scene đã render hay chưa (info này chỉ thấy trong tab "Prompts" qua `SceneVideoStrip`)
-2. **Không batch render** được nhiều scene cùng lúc — phải qua `/videos` (Video Studio) thủ công từng scene
-3. **Tab Storyboard đang disabled** ("Soon") — kịch bản `ai_video` không có flow visual storyboard
-4. **VideoGallery** không group theo scene, chỉ list theo thời gian
-5. **Không có CTA ghép phim** sau khi render xong tất cả scene
-
 ## Mục tiêu
 
-Biến tab Video thành dashboard render hoàn chỉnh cho kịch bản ai_video, giữ nguyên fallback cho kịch bản loại khác.
+Thêm **Scene Manager** vào tab Video để bạn có thể:
+- Xem **toàn bộ** scene/PROMPT theo thứ tự, không chỉ render từng card riêng lẻ
+- **Sắp xếp lại thứ tự** scene bằng kéo-thả (drag-and-drop)
+- **Thêm scene mới** ở bất kỳ vị trí nào với template rỗng
+- **Edit prompt inline** từng scene (không phải bật chế độ edit toàn bộ kịch bản)
+- **Xóa** scene
+- Tự động lưu lại vào `script.content` và sync UI
 
-## Phạm vi thay đổi
+## Vấn đề hiện tại
 
-### 1. `src/components/script/ScriptVideoTab.tsx` (mới)
-Component mới thay thế nội dung TabsContent value="video", chứa:
+`ScriptVideoTab` (vừa làm) có `ScriptSceneGrid` hiển thị card per scene nhưng:
+- Read-only — không edit/move/add/delete được
+- Order cố định theo `parsedPrompts` (parse từ markdown của `script.content`)
+- Muốn thêm scene phải đóng dialog → bật "Sửa kịch bản" → edit raw markdown thủ công → lưu
 
-**A. Header dashboard** (chỉ hiện khi `isAiVideo`)
-- Progress bar tổng: "X/Y scene đã render"
-- Estimated cost còn lại + total spent (dùng `useScriptVideoGenerations`)
-- Action chính: **"Render tất cả scene chưa quay"** (batch) + **"Ghép thành phim hoàn chỉnh"** (disabled khi chưa đủ scene)
+## Thiết kế
 
-**B. Scene grid** (replace VideoGenerator đơn lẻ cho ai_video)
-- Lưới card 2-3 cột, mỗi card = 1 scene từ `parsedPrompts`
-- Card hiển thị: số scene, thumb video (nếu có) hoặc placeholder, status badge, duration, aspect, action "Render" / "Re-render" / "Mở Studio"
-- Click card mở dialog có `VideoGeneratorPanel` prefilled prompt scene đó (giữ nguyên panel hiện tại)
+### Lưu trữ
+Không tạo bảng mới. Scene order = thứ tự xuất hiện trong `script.content` (markdown). Khi user thay đổi → **rewrite `script.content`** → save vào DB.
 
-**C. Gallery group theo scene** (replace VideoGallery flat)
-- Tab phụ "Theo scene" / "Theo thời gian"
-- View "Theo scene": expand từng scene xem các lần render (versioning), chọn version nào làm "active"
-- View "Theo thời gian": giữ VideoGallery cũ
+```text
+script.content (markdown):
+**PROMPT 1:**
+<raw block 1>
 
-**D. Fallback**: nếu `!isAiVideo` (ví dụ kịch bản TikTok thuần), giữ layout cũ (VideoGeneratorPanel + VideoGallery).
+**PROMPT 2:**
+<raw block 2>
+...
+```
 
-### 2. Bỏ trạng thái "Soon" của tab Storyboard
-- File `src/components/ScriptViewer.tsx`, line 477-481: enable tab Storyboard, bỏ Badge "Soon" (vì `StoryboardGenerator` đã tồn tại line 536)
+Sau khi reorder/add/delete:
+- Renumber lại tuần tự (PROMPT 1, 2, 3…)
+- Lưu lại bằng `supabase.from('scripts').update({ content })`
 
-### 3. Hook mới `useScriptVideoBatch`
-- File `src/hooks/useScriptVideoBatch.ts` (mới)
-- Method `renderMissingScenes(scenes, defaults)`: queue tuần tự `generateVideo` cho từng scene chưa có clip completed
-- Trả về progress `{ done, total, currentSceneNumber, errors[] }`
-- Tôn trọng quota — nếu 402/429 thì stop và báo upgrade
-- Sử dụng `useVideoGeneration` hiện có
+### Lưu ý mapping với clip đã render
+- `video_generations.scene_number` đã link với số scene cũ
+- Khi reorder, scene #2 cũ trở thành scene #1 mới → clip cũ vẫn ở `scene_number=2` trong DB
+- **Giải pháp đơn giản**: cảnh báo user trước khi reorder — clip đã render sẽ giữ `scene_number` cũ; user re-render nếu cần (đa số dùng case là sắp xếp lại trước khi render)
+- **Nâng cao** (out of scope phase này): batch update `scene_number` trong `video_generations` theo mapping cũ→mới
 
-### 4. Action "Ghép thành phim hoàn chỉnh"
-- Toast info: "Đang chuẩn bị merge timeline…"
-- Navigate sang `/videos?tab=storyboard&scriptId=:id` — `StoryboardVideoTab` đã có sẵn (đọc state từ `ScriptToVideoContext`)
-- Không build merge logic mới ở phase này (đã tồn tại trong `/videos`)
+## Files mới
 
-### 5. Active version per scene
-- Migration nhỏ: thêm cột `is_active boolean default false` vào `video_generations` (default true cho clip mới nhất completed của mỗi scene)
-- Trigger: khi clip completed mới được set `is_active=true`, các clip cũ cùng `(script_id, scene_number)` set false
-- `useScriptVideoGenerations.bySceneNumber` filter `is_active=true`
-- UI: dropdown chọn version trong card scene
+### 1. `src/utils/serializeScenes.ts`
+- `EditableScene { sceneNumber, rawContent }`
+- `serializeScenes(scenes, purpose)` → markdown string với header `**PROMPT N:**` / `**SCENE N:**` / `**BLOCK N:**` theo purpose
+- `emptySceneTemplate(purpose)` → text mặc định cho scene mới
+
+### 2. `src/components/script/SceneManagerPanel.tsx`
+Panel chính với UI:
+
+```text
+┌─ Quản lý cảnh ─── [+ Thêm scene] [↻ Renumber] ──┐
+│ ┌──────────────────────────────────────────────┐ │
+│ │ ☰ #1  [✓ rendered]                  [⋯]    │ │
+│ │ Visual: cô gái cười, ánh sáng vàng...      │ │
+│ │ [Edit] [Delete] [+ Thêm dưới]              │ │
+│ └──────────────────────────────────────────────┘ │
+│ ┌──────────────────────────────────────────────┐ │
+│ │ ☰ #2  [chưa quay]                   [⋯]    │ │
+│ │ ...                                          │ │
+│ └──────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────┘
+```
+
+- Dùng `@dnd-kit/core` + `@dnd-kit/sortable` (đã cài) — handle `☰` để drag
+- Mỗi item: badge số scene, status clip (linked qua `bySceneNumber`), preview prompt 2-3 dòng, action buttons
+- Click "Edit" → expand inline `<Textarea>` để edit `rawContent`
+- "Delete" → confirm dialog → remove + renumber
+- "+ Thêm dưới" → insert empty scene ngay sau item này
+- Thay đổi → set `dirty=true`, hiện sticky bar `[Hủy] [Lưu thay đổi]`
+- "Lưu" → serialize → `supabase.from('scripts').update({ content })` → call `onScriptUpdate(updatedScript)` để propagate lên `ScriptViewer`
+
+### 3. Cảnh báo khi reorder
+- Nếu có ít nhất 1 scene đã có clip completed và user reorder → toast warning trước khi save:
+  > "Một số scene đã có video render. Sau khi sắp xếp, video cũ sẽ giữ liên kết với số scene cũ. Bạn có thể cần re-render để khớp."
+
+## Files sửa
+
+### `src/components/script/ScriptVideoTab.tsx`
+Thêm **toggle 2 view**:
+- "Lưới scene" (mặc định) → `ScriptSceneGrid` hiện tại
+- "Quản lý" → `SceneManagerPanel`
+
+```tsx
+<Tabs value={view} onValueChange={setView}>
+  <TabsList>
+    <TabsTrigger value="grid">Lưới scene</TabsTrigger>
+    <TabsTrigger value="manage">Quản lý & sắp xếp</TabsTrigger>
+  </TabsList>
+  <TabsContent value="grid"><ScriptSceneGrid ... /></TabsContent>
+  <TabsContent value="manage">
+    <SceneManagerPanel
+      script={script}
+      bySceneNumber={bySceneNumber}
+      onScriptUpdate={onScriptUpdate}
+    />
+  </TabsContent>
+</Tabs>
+```
+
+Truyền `onScriptUpdate` từ `ScriptViewer` xuống (đã có sẵn ở props).
+
+### `src/components/ScriptViewer.tsx`
+Truyền thêm `onScriptUpdate` vào `<ScriptVideoTab>` (1 line change).
+
+## Out of scope
+- Không re-map `video_generations.scene_number` tự động (chỉ cảnh báo user)
+- Không thêm field metadata mới (duration/aspect rời) — vẫn parse từ rawContent
+- Không validate content (PROMPT phải có Visual/Motion…) — giữ nguyên raw
 
 ## Technical details
 
 ```text
-ScriptViewer (TabsContent value="video")
-  └─ ScriptVideoTab
-       ├─ ScriptVideoHeader (progress + batch + merge CTA)
-       ├─ if isAiVideo:
-       │    ├─ ScriptSceneGrid (cards per scene)
-       │    │    └─ Click → Dialog<VideoGeneratorPanel scene={...}>
-       │    └─ ScriptVideoGalleryGrouped (toggle scene/time)
-       └─ else:
-            ├─ VideoGeneratorPanel script={script}
-            └─ VideoGallery scriptId={script.id}
+SceneManagerPanel
+  ├─ DndContext (closestCenter)
+  ├─ SortableContext (verticalListSortingStrategy)
+  │   └─ scenes.map(s => <SortableSceneItem key={s.id} ... />)
+  └─ Sticky save bar (chỉ hiện khi dirty)
+
+SortableSceneItem
+  ├─ useSortable({ id })
+  ├─ Drag handle (☰)
+  ├─ Status badge (đọc bySceneNumber.get(originalNumber))
+  ├─ Prompt preview / Inline textarea editor
+  └─ Action menu (Edit / Delete / Insert below / Duplicate)
 ```
 
-Sử dụng các module có sẵn:
-- `useScriptVideoGenerations` (đã có) — đọc clips by scene
-- `useVideoGeneration` (đã có) — generateVideo + realtime
-- `VideoGeneratorPanel` (đã có) — reuse trong dialog
-- `StoryboardVideoTab` ở /videos (đã có) — không động đến
+State local trong panel:
+```ts
+const [scenes, setScenes] = useState<EditableScene[]>(() => parseInitial());
+const [dirty, setDirty] = useState(false);
+const [editingId, setEditingId] = useState<string | null>(null);
+```
 
-Không edit `_shared/` edge functions. Không tạo edge function mới.
-
-## Files
-
-**Mới:**
-- `src/components/script/ScriptVideoTab.tsx`
-- `src/components/script/ScriptVideoHeader.tsx`
-- `src/components/script/ScriptSceneGrid.tsx`
-- `src/components/script/ScriptVideoGalleryGrouped.tsx`
-- `src/hooks/useScriptVideoBatch.ts`
-- Migration: `add_is_active_to_video_generations`
-
-**Sửa:**
-- `src/components/ScriptViewer.tsx` — replace TabsContent video + enable tab storyboard
-- `src/hooks/useScriptVideoGenerations.ts` — filter `is_active`
-- `src/types/videoGeneration.ts` — thêm field `is_active`
-
-## Out of scope
-- Không build video editor/timeline merge mới (đã có ở /videos)
-- Không chạm Audio Studio / Publish menu
-- Không refactor VideoGeneratorPanel (giữ nguyên props)
+Khi save thành công, panel reset `dirty=false` và parent re-fetch via `onScriptUpdate`.
