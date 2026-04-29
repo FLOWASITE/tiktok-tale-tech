@@ -1881,6 +1881,145 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
   );
 }
 
+// Pinterest Pin Mockup — vertical 2:3 card with bold "Lưu" button
+function PinterestMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+  const [saved, setSaved] = useState(false);
+  const [reacted, setReacted] = useState(false);
+  const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
+  const heroImage = allImages[0];
+  const username = brandName.toLowerCase().replace(/\s+/g, '');
+  const domain = `${username}.com`;
+
+  // Title = first non-empty line, body = rest
+  const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  const title = lines[0] || '';
+  const body = lines.slice(1).join('\n');
+
+  return (
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-[#e9e9e9] dark:border-[#2c2c2c] overflow-hidden shadow-sm font-['Segoe_UI',system-ui,sans-serif] max-w-sm mx-auto">
+      {/* Top action bar — floats over image */}
+      <div className="relative">
+        {/* Image area — Pinterest standard 2:3 vertical */}
+        <div className="relative aspect-[2/3] bg-gradient-to-br from-[#fef6f6] to-[#fde4e4] dark:from-[#2a1818] dark:to-[#3a1818] overflow-hidden">
+          {heroImage ? (
+            <img src={heroImage} alt="Pin" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center">
+              <PinterestIcon className="w-14 h-14 text-[#E60023]/30" />
+              <span className="text-xs text-[#767676] mt-2">Pin chưa có ảnh</span>
+            </div>
+          )}
+
+          {/* Top-right floating "Lưu" button — Pinterest signature */}
+          <button
+            onClick={() => setSaved(!saved)}
+            className={cn(
+              "absolute top-3 right-3 px-4 py-2.5 rounded-full text-sm font-semibold shadow-md transition-all duration-200 hover:scale-105 active:scale-95",
+              saved
+                ? "bg-[#111111] text-white"
+                : "bg-[#E60023] text-white hover:bg-[#ad081b]"
+            )}
+          >
+            {saved ? 'Đã lưu' : 'Lưu'}
+          </button>
+
+          {/* Top-left action chips */}
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+            <button className="w-9 h-9 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110 active:scale-95">
+              <ExternalLink className="w-4 h-4 text-[#111111] dark:text-white" />
+            </button>
+          </div>
+
+          {/* Bottom floating actions */}
+          <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+            <button className="w-9 h-9 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110 active:scale-95">
+              <Upload className="w-4 h-4 text-[#111111] dark:text-white" />
+            </button>
+            <button className="w-9 h-9 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110 active:scale-95">
+              <MoreHorizontal className="w-4 h-4 text-[#111111] dark:text-white" />
+            </button>
+          </div>
+
+          {/* Bottom-left domain pill (Pinterest source link style) */}
+          {domain && (
+            <a
+              href="#"
+              className="absolute bottom-3 left-3 max-w-[60%] truncate px-3 py-1.5 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-sm text-[12px] font-medium text-[#111111] dark:text-white shadow-md hover:bg-white transition-colors"
+            >
+              {domain}
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Card body */}
+      <div className="p-4 space-y-3">
+        {/* Reaction row */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setReacted(!reacted)}
+            className="flex items-center gap-1.5 text-sm font-medium text-[#111111] dark:text-white hover:opacity-70 transition-opacity"
+          >
+            <span className="w-7 h-7 rounded-full bg-[#efefef] dark:bg-[#2c2c2c] flex items-center justify-center transition-transform duration-200 hover:scale-110">
+              <span className="text-base leading-none">{reacted ? '😍' : '❤️'}</span>
+            </span>
+            <span className="text-[#767676] dark:text-[#b0b0b0]">{reacted ? '1.235' : '1.234'}</span>
+          </button>
+          <div className="flex items-center gap-3 text-[#767676] dark:text-[#b0b0b0] text-sm">
+            <button className="flex items-center gap-1 hover:text-[#111111] dark:hover:text-white transition-colors">
+              <MessageCircle className="w-4 h-4" />
+              <span>89</span>
+            </button>
+            <button className="flex items-center gap-1 hover:text-[#111111] dark:hover:text-white transition-colors">
+              <Send className="w-4 h-4 -rotate-12" />
+              <span>34</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Title (large, bold — Pinterest signature) */}
+        {isGenerating ? (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-5 bg-[#efefef] dark:bg-[#2c2c2c] rounded w-3/4" />
+            <div className="h-4 bg-[#efefef] dark:bg-[#2c2c2c] rounded w-full" />
+            <div className="h-4 bg-[#efefef] dark:bg-[#2c2c2c] rounded w-5/6" />
+          </div>
+        ) : (
+          <>
+            {title && (
+              <h3 className="text-[18px] font-bold text-[#111111] dark:text-white leading-snug line-clamp-2">
+                {title}
+              </h3>
+            )}
+            {body && (
+              <div className="text-[14px] text-[#333333] dark:text-[#cccccc] leading-[1.45] line-clamp-4">
+                <ReactMarkdown components={mockupMarkdownComponents}>{body}</ReactMarkdown>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Author row */}
+        <div className="flex items-center gap-2 pt-2 border-t border-[#efefef] dark:border-[#2c2c2c]">
+          <Avatar className="h-8 w-8">
+            {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+            <AvatarFallback className="bg-[#E60023] text-white font-bold text-xs">
+              {brandName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-[#111111] dark:text-white leading-tight truncate">{brandName}</p>
+            <p className="text-[12px] text-[#767676] dark:text-[#b0b0b0] leading-tight">12.3K người theo dõi</p>
+          </div>
+          <button className="px-3.5 py-1.5 rounded-full bg-[#efefef] dark:bg-[#2c2c2c] text-[13px] font-semibold text-[#111111] dark:text-white hover:bg-[#e1e1e1] dark:hover:bg-[#3c3c3c] transition-colors active:scale-95">
+            Theo dõi
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
   const { channel, seoData, channelImage, channelImages, slideTitles, brandName: rawBrandName, ...rest } = props;
   
@@ -1901,6 +2040,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <TwitterMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'threads':
       return <ThreadsMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
+    case 'pinterest':
+      return <PinterestMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
     case 'email':
       return <EmailMockup {...rest} brandName={safeBrandName} />;
     case 'general':
