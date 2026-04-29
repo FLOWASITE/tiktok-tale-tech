@@ -152,7 +152,7 @@ const channelConfig: Record<Channel, {
   },
   instagram: { 
     label: 'Instagram', 
-    shortLabel: 'IG',
+    shortLabel: 'Instagram',
     icon: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
