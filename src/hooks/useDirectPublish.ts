@@ -339,6 +339,7 @@ export function useDirectPublish() {
     publishToTikTok,
     publishToGoogleBusiness,
     publishToBlog,
+    publishToBlogger,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
     publishError: publishMutation.error,
