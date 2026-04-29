@@ -490,15 +490,24 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         {parsedPrompts.length > 0 ? (
                           <div className="space-y-2 xs:space-y-3 pr-2 xs:pr-4">
                             {parsedPrompts.map((prompt) => (
-                              <PurposeAwarePromptCard 
-                                key={prompt.promptNumber} 
-                                prompt={prompt} 
-                                purpose={scriptPurpose}
-                                totalPrompts={parsedPrompts.length}
-                                videoType={script.video_type}
-                                characterType={script.character_type}
-                                fullScriptContext={script.content}
-                              />
+                              <div key={prompt.promptNumber} className="space-y-0">
+                                <PurposeAwarePromptCard 
+                                  prompt={prompt} 
+                                  purpose={scriptPurpose}
+                                  totalPrompts={parsedPrompts.length}
+                                  videoType={script.video_type}
+                                  characterType={script.character_type}
+                                  fullScriptContext={script.content}
+                                />
+                                {isAiVideo && (
+                                  <SceneVideoStrip
+                                    sceneNumber={prompt.promptNumber}
+                                    clip={bySceneNumber.get(prompt.promptNumber)}
+                                    onShoot={() => handleSendToVideoStudio(prompt.promptNumber - 1)}
+                                    onReshoot={() => handleSendToVideoStudio(prompt.promptNumber - 1)}
+                                  />
+                                )}
+                              </div>
                             ))}
                           </div>
                         ) : (
