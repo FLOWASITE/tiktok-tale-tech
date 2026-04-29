@@ -27,6 +27,10 @@ export interface PlanLimit {
   monthly_multichannel: number;
   monthly_images: number;
   monthly_brands: number;
+  // Pricing v2: 3 đơn vị output
+  monthly_content_units: number;
+  monthly_image_units: number;
+  monthly_video_units: number;
   price_monthly: number;
   price_yearly: number;
   features: string[];
@@ -43,6 +47,10 @@ export interface UsageStats {
   images: number;
   image_channel_breakdown: Record<string, number>;
   brands: number;
+  // Pricing v2: tổng 3 đơn vị output trong chu kỳ
+  content_units: number;
+  image_units: number;
+  video_units: number;
 }
 
 export interface AddonPurchase {
