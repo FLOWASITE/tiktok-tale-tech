@@ -1,49 +1,50 @@
-# Fix icon Pinterest, Blogger, WordPress trong ChannelIcon
-
 ## Vấn đề
 
-Trong `src/components/multichannel/streaming/ChannelIcon.tsx` (component dùng ở PipelineKanban + CampaignPlanReview + MultiChannelViewer):
+Icon `ChannelIcon` đã đúng (Pinterest đỏ, Blogger cam, WordPress xanh) nhưng trên **card nội dung đa kênh** ở các flow khác vẫn sai vì có **nhiều mapping cục bộ** chưa cập nhật:
 
-1. **Pinterest** chưa có entry trong `channelConfig` → fallback ra `Globe` icon xám. User thấy không đúng (Pinterest phải là chữ "P" đỏ `#E60023`).
-2. **Blogger / WordPress** đã có entry nhưng SVG path hiện tại (`B in rounded square`, `W in circle`) **không phải logo chính thức** — render ở `size="sm"` (12px) trông gần giống globe/blob, user nhìn không nhận ra brand.
-3. Background color cho Blogger đang là `#FF8000` (cam) — sai. Logo Blogger chính thức là **cam `#FF5722`** với chữ "B" trắng trên hình bút mực. WordPress brand color là **xanh `#21759B`** đã đúng nhưng SVG path không rõ.
+| File | Pinterest | Blogger | WordPress |
+|---|---|---|---|
+| `MultiChannelFormWizard.tsx` (L188-192) | `Instagram` ❌ | BloggerIcon (cũ) | WordPressIcon (cũ) |
+| `MultiChannelHookGenerator.tsx` (L110-115) | `Instagram` ❌ | `Globe` ❌ | `Globe` ❌ |
+| `MultiChannelFormStepper.tsx` (L156-160) | `Instagram` ❌ | BloggerIcon | WordPressIcon |
+| `ExpandChannelsDialog.tsx` (L31-35) | `Instagram` ❌ | `Globe` ❌ | `Globe` ❌ |
+| `ExpandChannelsStreamingDialog.tsx` (L34-39) | `Instagram` ❌ | `Globe` ❌ | `Globe` ❌ |
+| `UnifiedImageGenerator.tsx` (L92-98) | `Instagram` ❌ | `Globe` ❌ | `Globe` ❌ |
+| `ImageChannelPicker.tsx` (L20-24) | `Instagram` ❌ | `Globe` ❌ | `Globe` ❌ |
+| `CampaignChannelStatus.tsx` (L22-31) | emoji `📌` ❌ | thiếu | thiếu |
 
-DB confirm channel name lưu đúng raw: `pinterest`, `wordpress`, `blogger` (không bị alias) — nên fix chỉ nằm ở UI mapping.
+Các icon `BloggerIcon`/`WordPressIcon` import trực tiếp render màu `currentColor` nên trông xám/đen — không có khung nền brand như `ChannelIcon` xử lý.
 
-## Thay đổi
+## Giải pháp
 
-### 1. `src/components/icons/SocialIcons.tsx`
+**Refactor toàn bộ về một nguồn duy nhất**: dùng `<ChannelIcon channel={ch} size="sm" />` từ `src/components/multichannel/streaming/ChannelIcon.tsx` (đã có Pinterest đỏ, Blogger cam `#FF5722`, WordPress xanh `#21759B` đầy đủ).
 
-Thay 3 SVG path bằng logo chính thức nhận diện rõ ở size nhỏ:
+### Thay đổi cụ thể
 
-- **PinterestIcon** — giữ nguyên (path "P" đã chuẩn brand)
-- **WordPressIcon** — thay bằng path official logo "W trong vòng tròn" đậm nét hơn (clear ở 12px)
-- **BloggerIcon** — thay bằng path official "B" trên nền pen-shape (Google Blogger logo, clear stroke)
+1. **`MultiChannelFormWizard.tsx`** — thay 3 entries `pinterest/blogger/wordpress` trong `CHANNEL_ICONS` map bằng `<ChannelIcon channel="..." size="sm" />`.
 
-### 2. `src/components/multichannel/streaming/ChannelIcon.tsx`
+2. **`MultiChannelFormStepper.tsx`** — sửa `pinterest: <Instagram />` thành `<ChannelIcon channel="pinterest" size="sm" />`. Đồng bộ Blogger/WordPress cùng cách.
 
-Thêm `pinterest` vào `channelConfig`:
+3. **`MultiChannelHookGenerator.tsx`** — map `channelIconMap` từ Lucide component sang component wrapper dùng `ChannelIcon` (hoặc đổi cách render trực tiếp).
 
-```ts
-pinterest: {
-  icon: PinterestLucide,
-  bgClass: "bg-[#E60023] text-white",  // Pinterest brand red
-  label: "Pinterest"
-}
-```
+4. **`ExpandChannelsDialog.tsx`** & **`ExpandChannelsStreamingDialog.tsx`** — thay 3 entries Pinterest/Blogger/WordPress bằng `<ChannelIcon size="sm" />`.
 
-Tạo `PinterestLucide` wrapper giống `WordPressLucide` / `BloggerLucide` đã có.
+5. **`UnifiedImageGenerator.tsx`** — entries `pinterest/blogger/wordpress` đang dùng `Instagram`/`Globe` — đổi sang `<ChannelIcon size="sm" />` (giữ `color`/`bgColor` chỉ dùng cho text label nếu cần, vì `ChannelIcon` đã tự lo background brand).
 
-Sửa `bgClass` Blogger từ `bg-[#FF8000]` → `bg-[#FF5722]` (orange-deep-orange chuẩn Google Blogger).
+6. **`ImageChannelPicker.tsx`** — đổi `CHANNEL_META.pinterest/blogger/wordpress` icon sang `<ChannelIcon size="sm" />`. Đồng thời update label: `pinterest → 'Pin'`, `blogger → 'Blog'`, `wordpress → 'WP'` (không dùng chung 'IG'/'Web' lẫn lộn nữa).
+
+7. **`CampaignChannelStatus.tsx`** — bỏ map emoji `CHANNEL_ICONS`, thay bằng render `<ChannelIcon channel={status.channel} size="sm" />` ở dòng 68. Tự động cover hết các kênh kể cả Pinterest/Blogger/WordPress/Zalo/Telegram… không còn fallback `📱`.
 
 ## Files modified
-- `src/components/icons/SocialIcons.tsx` — refine 2 SVG paths (Blogger, WordPress)
-- `src/components/multichannel/streaming/ChannelIcon.tsx` — add pinterest entry + PinterestLucide wrapper + fix Blogger color
-
-## Phạm vi ảnh hưởng
-Mọi nơi dùng `<ChannelIcon channel="..." />`: PipelineKanban, CampaignPlanReview, MultiChannelViewer, ChannelGroupView, streaming dialogs. Sau khi merge, 3 icon sẽ render rõ brand tại tất cả vị trí.
+- `src/components/multichannel/MultiChannelFormWizard.tsx`
+- `src/components/multichannel/MultiChannelFormStepper.tsx`
+- `src/components/multichannel/MultiChannelHookGenerator.tsx`
+- `src/components/multichannel/ExpandChannelsDialog.tsx`
+- `src/components/multichannel/ExpandChannelsStreamingDialog.tsx`
+- `src/components/multichannel/UnifiedImageGenerator.tsx`
+- `src/components/multichannel/ImageChannelPicker.tsx`
+- `src/components/campaign/detail/CampaignChannelStatus.tsx`
 
 ## Không thay đổi
-- Logic mapping channel name (raw → icon) — đã đúng từ DB
-- ChannelIcon component API
-- Icon Facebook/Instagram/TikTok... (đã đúng từ lucide)
+- `ChannelIcon.tsx` & `SocialIcons.tsx` (đã đúng từ lần trước)
+- Logic kết nối / data — chỉ sửa tầng hiển thị icon
