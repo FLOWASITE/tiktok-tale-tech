@@ -201,40 +201,56 @@ export function useSubscriptionReport() {
         contentToUser.set(r.id, r.user_id);
       });
 
-      // Image rows: chunk content_ids + filter created_at at DB level + parallel batches
-      const contentIds = multiRowsFull.map((r) => r.id);
-      let imageRaw: Array<{ created_at: string; channel: string | null; content_id: string; created_by: string | null }> = [];
-      if (contentIds.length > 0) {
-        const CHUNK = 200;
-        const CONCURRENCY = 4;
-        const chunks: string[][] = [];
-        for (let i = 0; i < contentIds.length; i += CHUNK) {
-          chunks.push(contentIds.slice(i, i + CHUNK));
+      // Image rows: query DIRECTLY by organization_id + period (channel_image_history
+      // có cột organization_id riêng → đếm chính xác cả ảnh thuộc content được tạo
+      // ở chu kỳ trước nhưng được generate ảnh trong chu kỳ này).
+      const imageRaw = await fetchAll<{
+        created_at: string;
+        channel: string | null;
+        content_id: string | null;
+        created_by: string | null;
+      }>(
+        () => supabase.from('channel_image_history')
+          .select('created_at, channel, content_id, created_by')
+          .eq('organization_id', orgId)
+          .gte('created_at', start).lte('created_at', end)
+          .order('created_at', { ascending: true }),
+      );
+
+      // Resolve brand for image's content_id. Ảnh có content_id ngoài period
+      // (content cũ) chưa có trong contentToBrand → lookup bổ sung 1 lần.
+      const unknownContentIds = new Set<string>();
+      for (const r of imageRaw) {
+        if (r.content_id && !contentToBrand.has(r.content_id)) {
+          unknownContentIds.add(r.content_id);
         }
-        for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-          const batch = chunks.slice(i, i + CONCURRENCY);
-          const results = await Promise.all(
-            batch.map((chunk) =>
-              supabase
-                .from('channel_image_history')
-                .select('created_at, channel, content_id, created_by')
-                .in('content_id', chunk)
-                .gte('created_at', start)
-                .lte('created_at', end),
-            ),
-          );
-          for (const { data } of results) {
-            if (data) imageRaw = imageRaw.concat(data as any);
-          }
+      }
+      if (unknownContentIds.size > 0) {
+        const ids = Array.from(unknownContentIds);
+        const CHUNK = 300;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const chunk = ids.slice(i, i + CHUNK);
+          const { data } = await supabase
+            .from('multi_channel_contents')
+            .select('id, brand_template_id, user_id')
+            .in('id', chunk);
+          (data || []).forEach((c: any) => {
+            contentToBrand.set(c.id, c.brand_template_id ?? null);
+            contentToUser.set(c.id, c.user_id ?? null);
+          });
         }
       }
 
       const images: RawRow[] = imageRaw.map((r) => ({
         created_at: r.created_at,
         channel: r.channel,
-        brand_template_id: contentToBrand.get(r.content_id) ?? null,
-        user_id: r.created_by ?? null,
+        // Brand: ưu tiên content's brand (link mạnh nhất); null nếu image không có content_id
+        brand_template_id: r.content_id ? (contentToBrand.get(r.content_id) ?? null) : null,
+        // User: ưu tiên người TẠO ảnh (created_by) — phản ánh đúng ai tiêu thụ quota.
+        // Fallback sang owner content nếu created_by null (legacy data).
+        user_id: r.created_by ?? (r.content_id ? (contentToUser.get(r.content_id) ?? null) : null),
       }));
+
 
       // Single-pass collection of brand & user IDs (avoid 4× spread allocations)
       const allBrandIds = new Set<string>();
