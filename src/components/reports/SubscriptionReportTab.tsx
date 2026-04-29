@@ -3,14 +3,16 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   BarChart, Bar,
 } from 'recharts';
-import { CreditCard, AlertTriangle, ArrowUpRight, Package, TrendingUp, Sparkles, Infinity as InfinityIcon } from 'lucide-react';
+import { CreditCard, AlertTriangle, ArrowUpRight, Package, TrendingUp, Sparkles, Infinity as InfinityIcon, Building2, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { useSubscriptionReport, type QuotaItem } from '@/hooks/reports/useSubscriptionReport';
+import { useSubscriptionReport, type QuotaItem, type BrandUsageRow, type UserUsageRow } from '@/hooks/reports/useSubscriptionReport';
 import { getPlanBadge } from '@/lib/plan-badge';
 import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
 import { AddonPurchaseDialog } from '@/components/AddonPurchaseDialog';
@@ -30,6 +32,53 @@ function progressColor(q: QuotaItem) {
   if (q.status === 'exhausted' || q.status === 'critical') return 'bg-destructive';
   if (q.status === 'warning') return 'bg-amber-500';
   return 'bg-primary';
+}
+
+interface BreakdownRowProps {
+  label: string;
+  total: number;
+  maxTotal: number;
+  scripts: number;
+  carousels: number;
+  multichannel: number;
+  images: number;
+  leading?: React.ReactNode;
+}
+
+function BreakdownRow({ label, total, maxTotal, scripts, carousels, multichannel, images, leading }: BreakdownRowProps) {
+  const pct = maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-md hover:bg-muted/50 transition-colors cursor-default">
+            {leading}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-sm font-medium truncate">{label}</span>
+                <span className="text-sm tabular-nums text-muted-foreground shrink-0">{total.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="end" className="text-xs">
+          <div className="space-y-0.5">
+            <div className="flex justify-between gap-4"><span>Scripts</span><span className="tabular-nums font-medium">{scripts}</span></div>
+            <div className="flex justify-between gap-4"><span>Carousels</span><span className="tabular-nums font-medium">{carousels}</span></div>
+            <div className="flex justify-between gap-4"><span>Đa kênh</span><span className="tabular-nums font-medium">{multichannel}</span></div>
+            <div className="flex justify-between gap-4"><span>Ảnh AI</span><span className="tabular-nums font-medium">{images}</span></div>
+          </div>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  );
+}
+
+function getInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?';
 }
 
 export function SubscriptionReportTab() {
@@ -207,6 +256,76 @@ export function SubscriptionReportTab() {
           </ResponsiveContainer>
         </Card>
       )}
+
+      {/* Breakdown by brand & user */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            Tiêu thụ theo Brand
+          </h3>
+          {data.brandUsage.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có dữ liệu trong chu kỳ này.</p>
+          ) : (
+            <div className="space-y-0.5">
+              {(() => {
+                const max = data.brandUsage[0]?.total || 1;
+                return data.brandUsage.map((b: BrandUsageRow) => (
+                  <BreakdownRow
+                    key={b.brandId}
+                    label={b.brandName}
+                    total={b.total}
+                    maxTotal={max}
+                    scripts={b.scripts}
+                    carousels={b.carousels}
+                    multichannel={b.multichannel}
+                    images={b.images}
+                    leading={
+                      <div className="h-7 w-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    }
+                  />
+                ));
+              })()}
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            Tiêu thụ theo Thành viên
+          </h3>
+          {data.userUsage.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có dữ liệu trong chu kỳ này.</p>
+          ) : (
+            <div className="space-y-0.5">
+              {(() => {
+                const max = data.userUsage[0]?.total || 1;
+                return data.userUsage.map((u: UserUsageRow) => (
+                  <BreakdownRow
+                    key={u.userId}
+                    label={u.fullName}
+                    total={u.total}
+                    maxTotal={max}
+                    scripts={u.scripts}
+                    carousels={u.carousels}
+                    multichannel={u.multichannel}
+                    images={u.images}
+                    leading={
+                      <Avatar className="h-7 w-7 shrink-0">
+                        {u.avatarUrl && <AvatarImage src={u.avatarUrl} alt={u.fullName} />}
+                        <AvatarFallback className="text-[10px]">{getInitials(u.fullName)}</AvatarFallback>
+                      </Avatar>
+                    }
+                  />
+                ));
+              })()}
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Active addons */}
       <Card className="p-4">
