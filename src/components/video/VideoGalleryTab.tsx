@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { PublishVideoMenu } from './PublishVideoMenu';
 
 type AspectFilter = 'all' | '9:16' | '16:9' | '1:1';
 type ScriptFilter = 'all' | 'standalone' | string; // string = scriptId
@@ -214,6 +215,14 @@ export function VideoGalleryTab() {
                           Tải về
                         </a>
                       </Button>
+                      <PublishVideoMenu
+                        videoUrl={g.video_url}
+                        aspectRatio={g.aspect_ratio as '9:16' | '16:9' | '1:1'}
+                        defaultCaption={g.prompt?.slice(0, 200) ?? ''}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px]"
+                      />
                       <Button variant="ghost" size="sm" onClick={() => deleteGeneration(g.id)} className="h-7 w-7 p-0">
                         <Trash2 className="w-3 h-3 text-muted-foreground" />
                       </Button>
