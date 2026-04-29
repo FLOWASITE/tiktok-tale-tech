@@ -3647,6 +3647,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   telegram_content: channelResults.telegram || null,
                   tiktok_content: channelResults.tiktok || null,
                   threads_content: channelResults.threads || null,
+                  pinterest_content: channelResults.pinterest || null,
+                  pinterest_title: channelResults.pinterest_title || null,
                 }))
                 .select()
                 .single();
