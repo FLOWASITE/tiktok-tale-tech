@@ -192,7 +192,9 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                     </div>
                   )}
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-                    <p className="text-[9px] text-white truncate">{clip.duration_seconds}s · {clip.aspect_ratio}</p>
+                    <p className="text-[9px] text-white truncate">
+                      {clip.scene_number ? `Scene ${clip.scene_number} · ` : ''}{clip.duration_seconds}s · {clip.aspect_ratio}
+                    </p>
                   </div>
                 </button>
               );
