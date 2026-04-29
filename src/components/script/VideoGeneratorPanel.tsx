@@ -7,11 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Video, Sparkles, Clock, Maximize } from 'lucide-react';
-import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG, GEMINIGEN_VIDEO_MODELS } from '@/types/videoGeneration';
+import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG } from '@/types/videoGeneration';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { Script } from '@/types/script';
 import { StoryboardScene } from '@/types/storyboard';
 import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
+import { AdminModelBadge } from '@/components/shared/AdminModelBadge';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+
+const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
 
 interface VideoGeneratorPanelProps {
   script?: Script;
@@ -29,11 +33,11 @@ export function VideoGeneratorPanel({
   const { generateVideo, generating } = useVideoGeneration();
   
   const [provider, setProvider] = useState<VideoProvider>('geminigen');
-  const [model, setModel] = useState<string>(GEMINIGEN_VIDEO_MODELS[0].id);
   const [prompt, setPrompt] = useState(scene?.promptText || '');
   const [duration, setDuration] = useState<number>(5);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('1080p');
+  const { currentOrganization } = useOrganizationContext();
 
   const providerConfig = VIDEO_PROVIDER_CONFIG[provider];
   const availableAspectRatios = providerConfig.aspectRatios;
@@ -44,7 +48,7 @@ export function VideoGeneratorPanel({
     const result = await generateVideo({
       provider,
       prompt: prompt.trim(),
-      model: provider === 'geminigen' ? model : undefined,
+      // model omitted — Admin AI Function Config decides
       duration,
       aspect_ratio: aspectRatio,
       resolution,
