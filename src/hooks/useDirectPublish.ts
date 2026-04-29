@@ -277,6 +277,53 @@ export function useDirectPublish() {
     };
   };
 
+  const publishToWordpress = async (options: PublishOptions & { title?: string; tags?: string[]; categories?: (string | number)[] }) => {
+    const response = await supabase.functions.invoke('channel-publisher', {
+      body: {
+        action: 'wordpress',
+        connectionId: options.connectionId,
+        contentId: options.contentId,
+        content: options.content,
+        title: options.title || options.blogData?.title,
+        tags: options.tags || options.blogData?.tags || [],
+        categories: options.categories || [],
+        excerpt: options.blogData?.excerpt,
+        slug: options.blogData?.slug,
+        featuredImageUrl: options.mediaUrls?.[0],
+        mediaUrls: options.mediaUrls,
+      },
+    });
+
+    if (response.error) {
+      const maybeContext = (response.error as { context?: Response } | null)?.context;
+      let errorMessage = response.error.message || 'Failed to publish to WordPress';
+      if (maybeContext instanceof Response) {
+        try {
+          const payload = await maybeContext.clone().json();
+          if (payload?.error) errorMessage = String(payload.error);
+        } catch { /* keep fallback */ }
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.error || 'Failed to publish to WordPress');
+    }
+
+    const resultData = response.data.data || response.data;
+
+    toast({
+      title: 'Đăng WordPress thành công! 🎉',
+      description: resultData.postUrl ? `Bài đã đăng tại ${resultData.postUrl}` : 'Bài viết đã được đăng lên WordPress',
+    });
+
+    return {
+      success: true,
+      platform: 'wordpress' as SocialPlatform,
+      postId: resultData.postId,
+      postUrl: resultData.postUrl,
+    };
+  };
   const publishToBlog = async (options: PublishOptions & { isPublic?: boolean }) => {
     const action = options.isPublic ? 'flowa_blog' : 'blog';
     const response = await supabase.functions.invoke('channel-publisher', {
@@ -340,6 +387,7 @@ export function useDirectPublish() {
     publishToGoogleBusiness,
     publishToBlog,
     publishToBlogger,
+    publishToWordpress,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
     publishError: publishMutation.error,

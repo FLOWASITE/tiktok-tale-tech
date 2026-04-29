@@ -156,6 +156,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'Đăng bài lên Blogger (Google)',
   },
+  wordpress: {
+    name: 'WordPress',
+    icon: GlobeIcon,
+    color: 'text-[#21759b]',
+    bgColor: 'bg-[#21759b]/10',
+    available: true,
+    description: 'WordPress self-hosted via Application Password',
+  },
   website: {
     name: 'Website',
     icon: GlobeIcon,
