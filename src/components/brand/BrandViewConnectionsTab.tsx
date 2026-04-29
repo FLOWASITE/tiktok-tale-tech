@@ -204,6 +204,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     apiEndpoint: '',
   });
   const [isWebsiteConnecting, setIsWebsiteConnecting] = useState(false);
+  const [wpDialogOpen, setWpDialogOpen] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
