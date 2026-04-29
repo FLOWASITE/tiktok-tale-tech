@@ -146,8 +146,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         if (!finalPayload.content) finalPayload.content = mcc.website_content;
         if (!finalPayload.featuredImageUrl) {
           const ci = mcc.channel_images as Record<string, any> | null;
+          const bloggerImg = ci?.blogger?.url || ci?.blogger?.image_url;
           const websiteImg = ci?.website?.url || ci?.website?.image_url;
-          finalPayload.featuredImageUrl = mcc.featured_image_url || websiteImg || undefined;
+          finalPayload.featuredImageUrl = bloggerImg || mcc.featured_image_url || websiteImg || undefined;
         }
         if (mcc.organization_id) finalPayload.organization_id = mcc.organization_id;
       } catch (resolveErr) {
