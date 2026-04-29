@@ -107,21 +107,21 @@ const goalIcons: Record<ContentGoal, typeof Target> = {
 };
 
 const channelLabels: Record<Channel, string> = {
-  website: 'Web',
+  website: 'Website',
   blogger: 'Blogger',
   wordpress: 'WordPress',
-  facebook: 'FB',
-  instagram: 'IG',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
   pinterest: 'Pinterest',
   twitter: 'X',
-  google_maps: 'GMaps',
-  linkedin: 'LI',
+  google_maps: 'Google Maps',
+  linkedin: 'LinkedIn',
   email: 'Email',
-  youtube: 'YT',
-  zalo_oa: 'Zalo',
-  telegram: 'TG',
-  tiktok: 'TT',
-  threads: 'TH',
+  youtube: 'YouTube',
+  zalo_oa: 'Zalo OA',
+  telegram: 'Telegram',
+  tiktok: 'TikTok',
+  threads: 'Threads',
 };
 
 const channelColors: Record<Channel, string> = {

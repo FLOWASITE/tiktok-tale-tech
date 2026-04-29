@@ -144,7 +144,7 @@ const channelConfig: Record<Channel, {
   },
   facebook: { 
     label: 'Facebook', 
-    shortLabel: 'FB',
+    shortLabel: 'Facebook',
     icon: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-indigo-400',
     bgColor: 'bg-indigo-500/10',
@@ -152,7 +152,7 @@ const channelConfig: Record<Channel, {
   },
   instagram: { 
     label: 'Instagram', 
-    shortLabel: 'IG',
+    shortLabel: 'Instagram',
     icon: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
@@ -176,7 +176,7 @@ const channelConfig: Record<Channel, {
   },
   google_maps: { 
     label: 'Google Maps', 
-    shortLabel: 'Maps',
+    shortLabel: 'Google Maps',
     icon: <MapPin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-green-400',
     bgColor: 'bg-green-500/10',
@@ -184,7 +184,7 @@ const channelConfig: Record<Channel, {
   },
   linkedin: { 
     label: 'LinkedIn', 
-    shortLabel: 'LI',
+    shortLabel: 'LinkedIn',
     icon: <Linkedin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/10',
@@ -192,7 +192,7 @@ const channelConfig: Record<Channel, {
   },
   email: { 
     label: 'Email', 
-    shortLabel: 'Mail',
+    shortLabel: 'Email',
     icon: <Mail className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/10',
@@ -200,7 +200,7 @@ const channelConfig: Record<Channel, {
   },
   youtube: { 
     label: 'YouTube', 
-    shortLabel: 'YT',
+    shortLabel: 'YouTube',
     icon: <Youtube className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-red-400',
     bgColor: 'bg-red-500/10',
@@ -208,7 +208,7 @@ const channelConfig: Record<Channel, {
   },
   zalo_oa: { 
     label: 'Zalo OA', 
-    shortLabel: 'Zalo',
+    shortLabel: 'Zalo OA',
     icon: <ZaloIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
@@ -216,7 +216,7 @@ const channelConfig: Record<Channel, {
   },
   telegram: { 
     label: 'Telegram', 
-    shortLabel: 'TG',
+    shortLabel: 'Telegram',
     icon: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/10',
@@ -224,7 +224,7 @@ const channelConfig: Record<Channel, {
   },
   tiktok: { 
     label: 'TikTok', 
-    shortLabel: 'TT',
+    shortLabel: 'TikTok',
     icon: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
@@ -232,7 +232,7 @@ const channelConfig: Record<Channel, {
   },
   threads: { 
     label: 'Threads', 
-    shortLabel: 'Th',
+    shortLabel: 'Threads',
     icon: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/10',
