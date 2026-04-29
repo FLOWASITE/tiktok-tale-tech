@@ -262,6 +262,18 @@ verify_jwt = false
 [functions.test-google-business-connection]
 verify_jwt = false
 
+[functions.blogger-oauth-callback]
+verify_jwt = false
+
+[functions.publish-blogger]
+verify_jwt = false
+
+[functions.refresh-blogger-token]
+verify_jwt = false
+
+[functions.test-blogger-connection]
+verify_jwt = false
+
 [functions.connect-website]
 verify_jwt = false
 
