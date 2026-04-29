@@ -126,12 +126,49 @@ function highlightScriptContent(text: string) {
 }
 
 export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: ScriptViewerProps) {
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
+
+  const handleSendToVideoStudio = (sceneIdx?: number) => {
+    if (!script) return;
+    const purpose = script.script_purpose as ScriptPurpose;
+    const prompts = parseScriptContent(script.content, purpose);
+    if (prompts.length === 0) {
+      toast.error('Kịch bản chưa có scene nào để chuyển sang Video Studio.');
+      return;
+    }
+    // Map duration "5s"/"5-8s"/"8 giây" → number; fallback 5s
+    const parseDur = (s?: string): number | undefined => {
+      if (!s) return undefined;
+      const m = s.match(/(\d+)/);
+      return m ? Math.max(3, Math.min(10, parseInt(m[1], 10))) : undefined;
+    };
+    const scenes = prompts.map((p) => ({
+      sceneNumber: p.promptNumber,
+      prompt: (p.rawContent || `${p.motion ?? ''}\n${p.dialogue ?? ''}`).trim().slice(0, 1500),
+      duration: parseDur(p.duration),
+      aspect: '9:16' as const,
+    }));
+    navigate('/videos', {
+      state: {
+        fromScript: {
+          script: {
+            id: script.id,
+            title: script.title,
+            topic: script.topic,
+            scenes,
+          },
+          activeSceneIndex: sceneIdx ?? 0,
+        },
+      },
+    });
+  };
+
   
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([script?.user_id]);
