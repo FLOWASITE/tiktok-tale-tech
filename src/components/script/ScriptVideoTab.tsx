@@ -128,6 +128,7 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
         onMergeMovie={handleMerge}
         canMerge={canMerge}
         missingCount={missingScenes.length}
+        merging={merging}
       />
 
       {totalScenes > 0 || view === 'manage' ? (
