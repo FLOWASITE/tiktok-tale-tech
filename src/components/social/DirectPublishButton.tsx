@@ -305,6 +305,17 @@ export function DirectPublishButton({
     }
 
     if (!connection) {
+      if (platform === 'blogger') {
+        console.warn('[DirectPublishButton] No blogger connection for brand=', brandTemplateId);
+        sonnerToast.error('Brand này chưa kết nối Blogger', {
+          description: 'Vào tab Kết nối của brand để kết nối Google/Blogger trước khi đăng bài.',
+          action: {
+            label: 'Đi đến Kết nối',
+            onClick: () => navigate(brandTemplateId ? `/brands/${brandTemplateId}?tab=connections` : '/connections'),
+          },
+        });
+        return;
+      }
       navigate('/connections');
       return;
     }
