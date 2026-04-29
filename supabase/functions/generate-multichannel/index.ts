@@ -345,6 +345,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   website: 'website_content',
   blog: 'website_content', // blog is alias for website
   blogger: 'website_content', // blogger publishes to same website_content column
+  wordpress: 'website_content', // wordpress publishes to same website_content column
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -1528,22 +1529,23 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     const originalNewChannels: string[] = Array.isArray(formData.newChannels) ? [...(formData.newChannels as string[])] : [];
     const originalSingleChannel: string | undefined = formData.channel;
 
-    // Expand 'blogger' to also include 'website' so the long-form pipeline runs.
-    // We still want 'blogger' kept in selected_channels at the end.
-    const expandBloggerToWebsite = (chs: string[]): string[] => {
+    // Expand 'blogger'/'wordpress' to also include 'website' so the long-form pipeline runs.
+    // We still want 'blogger'/'wordpress' kept in selected_channels at the end.
+    const expandLongFormAliases = (chs: string[]): string[] => {
       if (!Array.isArray(chs)) return chs;
       const out = [...chs];
-      if (out.includes('blogger') && !out.includes('website')) out.push('website');
+      const needsWebsite = (out.includes('blogger') || out.includes('wordpress')) && !out.includes('website');
+      if (needsWebsite) out.push('website');
       return out;
     };
     if (formData.channels) {
-      formData.channels = normalizeChannels(expandBloggerToWebsite(formData.channels));
+      formData.channels = normalizeChannels(expandLongFormAliases(formData.channels));
     }
     if (formData.newChannels) {
-      formData.newChannels = normalizeChannels(expandBloggerToWebsite(formData.newChannels as string[])) as any;
+      formData.newChannels = normalizeChannels(expandLongFormAliases(formData.newChannels as string[])) as any;
     }
-    if (formData.channel === 'blogger') {
-      // For single-channel regenerate of blogger, generate website body
+    if (formData.channel === 'blogger' || formData.channel === 'wordpress') {
+      // For single-channel regenerate of blogger/wordpress, generate website body
       formData.channel = 'website';
     } else if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
       formData.channel = CHANNEL_ALIASES[formData.channel];
@@ -1751,16 +1753,25 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     formData.contentRole = resolvedContentRole;
     formData.channels = resolvedSelectedChannels;
 
-    // Channels actually persisted to selected_channels: keep 'blogger' if user picked it.
+    // Channels actually persisted to selected_channels: keep 'blogger'/'wordpress' if user picked them.
     // Pipeline still sees 'website' to build long-form content.
     const userPickedBlogger =
       originalChannels.includes('blogger') ||
       originalNewChannels.includes('blogger') ||
       originalSingleChannel === 'blogger';
-    const persistedSelectedChannels: string[] = userPickedBlogger
+    const userPickedWordpress =
+      originalChannels.includes('wordpress') ||
+      originalNewChannels.includes('wordpress') ||
+      originalSingleChannel === 'wordpress';
+    const userExplicitWebsite =
+      originalChannels.includes('website') ||
+      originalNewChannels.includes('website') ||
+      originalSingleChannel === 'website';
+    const persistedSelectedChannels: string[] = (userPickedBlogger || userPickedWordpress)
       ? Array.from(new Set([
-          ...resolvedSelectedChannels.filter((c: string) => c !== 'website' || originalChannels.includes('website') || originalNewChannels.includes('website') || originalSingleChannel === 'website'),
-          'blogger',
+          ...resolvedSelectedChannels.filter((c: string) => c !== 'website' || userExplicitWebsite),
+          ...(userPickedBlogger ? ['blogger'] : []),
+          ...(userPickedWordpress ? ['wordpress'] : []),
         ]))
       : resolvedSelectedChannels;
 
