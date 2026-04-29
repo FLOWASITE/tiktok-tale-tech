@@ -1090,6 +1090,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       }
 
       const redirectUri = `${supabaseUrl}/functions/v1/pinterest-oauth-callback`;
+      console.log(`[pinterest] redirect_uri="${redirectUri}" — this MUST match the Redirect URI registered at developers.pinterest.com`);
       const oauthUrl = `https://www.pinterest.com/oauth/?` + new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
