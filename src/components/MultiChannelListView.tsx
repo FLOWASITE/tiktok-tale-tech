@@ -108,8 +108,8 @@ const goalIcons: Record<ContentGoal, typeof Target> = {
 
 const channelLabels: Record<Channel, string> = {
   website: 'Web',
-  blogger: 'Blog',
-  wordpress: 'WP',
+  blogger: 'Blogger',
+  wordpress: 'WordPress',
   facebook: 'FB',
   instagram: 'IG',
   pinterest: 'Pinterest',
