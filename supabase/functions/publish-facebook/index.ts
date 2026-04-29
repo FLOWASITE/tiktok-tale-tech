@@ -49,6 +49,22 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
+// Format Facebook Graph API error with full diagnostics
+function formatFbError(err: any, ctx: string): string {
+  const e = err?.error || {};
+  const code = e.code ?? '?';
+  const sub = e.error_subcode ?? '?';
+  const trace = e.fbtrace_id ?? '?';
+  const msg = e.message || e.error_user_msg || 'unknown';
+  console.error(`[FB ${ctx}] full error payload:`, JSON.stringify(err, null, 2));
+  return `FB[${ctx}] code=${code}/${sub} trace=${trace}: ${msg}`;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Transient FB error codes worth retrying
+const TRANSIENT_CODES = new Set([1, 2, 4, 17, 341, 368, -1]);
+
 async function uploadUnpublishedPhoto(
   pageId: string,
   accessToken: string,
@@ -64,11 +80,32 @@ async function uploadUnpublishedPhoto(
     }),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || 'Failed to upload photo');
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatFbError(err, `upload-photo ${imageUrl.slice(0, 80)}`));
   }
   const data = await res.json();
   return data.id;
+}
+
+// Verify a single uploaded photo is "ready" (FB has processed it)
+async function waitForPhotoReady(
+  photoId: string,
+  accessToken: string,
+  maxAttempts = 3,
+): Promise<boolean> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${photoId}?fields=id,images&access_token=${encodeURIComponent(accessToken)}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.id && Array.isArray(data?.images) && data.images.length > 0) return true;
+      }
+    } catch { /* ignore */ }
+    await sleep(2000);
+  }
+  return false;
 }
 
 async function publishToFacebook(
@@ -96,8 +133,8 @@ async function publishToFacebook(
       body: new URLSearchParams(photoParams),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || 'Failed to publish photo');
+      const err = await res.json().catch(() => ({}));
+      throw new Error(formatFbError(err, 'single-photo'));
     }
     const data = await res.json();
     const postId = data.post_id || data.id;
@@ -112,6 +149,21 @@ async function publishToFacebook(
     );
     console.log('Unpublished photo IDs:', photoIds);
 
+    // Wait for FB to process photos before attaching (race condition fix)
+    console.log('Waiting 3s for FB to process photos...');
+    await sleep(3000);
+
+    // Verify each photo is ready
+    const readyResults = await Promise.all(
+      photoIds.map((id) => waitForPhotoReady(id, accessToken)),
+    );
+    const notReady = photoIds.filter((_, i) => !readyResults[i]);
+    if (notReady.length > 0) {
+      console.warn(`[FB multi-photo] ${notReady.length}/${photoIds.length} photos not confirmed ready, continuing anyway:`, notReady);
+    } else {
+      console.log('All photos confirmed ready.');
+    }
+
     const params: Record<string, string> = {
       access_token: accessToken,
       message: content,
@@ -124,17 +176,27 @@ async function publishToFacebook(
       params.scheduled_publish_time = Math.floor(new Date(scheduleTime).getTime() / 1000).toString();
     }
 
-    const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(params),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || 'Failed to publish multi-photo post');
+    // Retry /feed call on transient FB errors
+    let lastErrPayload: any = null;
+    let lastErrCode: number | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (attempt > 1) console.log(`[FB multi-photo] succeeded on attempt ${attempt}`);
+        return { postId: data.id, postUrl: `https://www.facebook.com/${data.id}` };
+      }
+      lastErrPayload = await res.json().catch(() => ({}));
+      lastErrCode = lastErrPayload?.error?.code ?? null;
+      console.warn(`[FB multi-photo] attempt ${attempt} failed: code=${lastErrCode}, msg=${lastErrPayload?.error?.message}`);
+      if (lastErrCode !== null && !TRANSIENT_CODES.has(lastErrCode)) break;
+      if (attempt < 3) await sleep(3000 * attempt);
     }
-    const data = await res.json();
-    return { postId: data.id, postUrl: `https://www.facebook.com/${data.id}` };
+    throw new Error(formatFbError(lastErrPayload, 'multi-photo-feed'));
   }
 
   // Text or link post
@@ -154,8 +216,8 @@ async function publishToFacebook(
     body: new URLSearchParams(params),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || 'Failed to publish post');
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatFbError(err, 'text-or-link'));
   }
   const data = await res.json();
   return { postId: data.id, postUrl: `https://www.facebook.com/${data.id}` };
