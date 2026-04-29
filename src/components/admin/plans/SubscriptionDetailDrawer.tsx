@@ -48,6 +48,32 @@ export default function SubscriptionDetailDrawer({ sub, open, onClose }: Subscri
     enabled: open && !!sub?.organization_id,
   });
 
+  // Pricing v2 — current usage units
+  const usageQuery = useQuery({
+    queryKey: ["admin_sub_usage_v2", sub?.organization_id, sub?.plan_type],
+    queryFn: async () => {
+      if (!sub?.organization_id) return null;
+      const [usageRes, planRes] = await Promise.all([
+        supabase.rpc("get_org_usage_units_batch", { _org_id: sub.organization_id }),
+        supabase
+          .from("plan_limits")
+          .select("monthly_content_units, monthly_image_units, monthly_video_units")
+          .eq("plan_type", sub.plan_type as any)
+          .maybeSingle(),
+      ]);
+      const usage = (usageRes.data as any) || { content: 0, image: 0, video: 0 };
+      const limit = planRes.data || { monthly_content_units: 0, monthly_image_units: 0, monthly_video_units: 0 };
+      return {
+        items: [
+          { key: "content", label: "Nội dung", icon: FileText, used: usage.content || 0, limit: limit.monthly_content_units || 0 },
+          { key: "image", label: "Ảnh AI", icon: ImageIcon, used: usage.image || 0, limit: limit.monthly_image_units || 0 },
+          { key: "video", label: "Video", icon: Video, used: usage.video || 0, limit: limit.monthly_video_units || 0 },
+        ],
+      };
+    },
+    enabled: open && !!sub?.organization_id,
+  });
+
   const detail = detailQuery.data;
   const daysLeft = sub?.current_period_end ? differenceInDays(new Date(sub.current_period_end), new Date()) : null;
 
