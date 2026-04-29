@@ -453,6 +453,14 @@ Deno.serve(async (req) => {
               });
               break;
             }
+            case "pinterest": {
+              const pinterestToken = await safeDecrypt(conn.access_token);
+              if (!pinterestToken) {
+                return { post: p, error: "missing_pinterest_token" };
+              }
+              metrics = await fetchPinterestMetrics(pinterestToken, p.post_id);
+              break;
+            }
             default:
               return { post: p, skip: true };
           }
