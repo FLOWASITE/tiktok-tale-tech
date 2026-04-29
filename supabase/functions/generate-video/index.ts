@@ -7,6 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 import {
   generateVideoViaGeminiGen,
   submitGeminiGenVideoTask,
@@ -66,9 +67,9 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
     const body: VideoGenerationRequest = await req.json();
     const {
-      provider = 'geminigen',
+      provider: requestedProvider = 'geminigen',
       prompt,
-      model,
+      model: clientModel,
       duration = 5,
       aspect_ratio = '9:16',
       resolution = '1080p',
@@ -95,7 +96,36 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       .limit(1)
       .maybeSingle();
 
-    console.log(`[generate-video] provider=${provider} model=${model} duration=${duration}s aspect=${aspect_ratio} sync=${sync}`);
+    // ───────── ADMIN-CONTROLLED MODEL RESOLUTION ─────────
+    // Priority cascade (matches mem://ai-system/model-selection-priority-vn):
+    //   1. Client `model` (only respected if request comes from agent/internal pipelines — kept for backward compat)
+    //   2. Admin `ai_function_configs.model_override` for `generate-video`
+    //   3. Hard default per provider
+    let resolvedModel = clientModel || null;
+    let resolvedProvider: VideoProvider = requestedProvider;
+
+    if (!resolvedModel) {
+      try {
+        const cfg = await getAIConfig('generate-video', orgRow?.organization_id ?? undefined);
+        if (cfg.model) {
+          resolvedModel = cfg.model;
+          // If admin-configured model has a provider prefix (e.g. "geminigen/..." or "poyo/..."),
+          // override the requested provider so routing matches the model.
+          if (cfg.model.startsWith('poyo/')) resolvedProvider = 'poyo';
+          else if (cfg.model.startsWith('geminigen/')) resolvedProvider = 'geminigen';
+        }
+        if (cfg.force_provider) {
+          resolvedProvider = cfg.force_provider as VideoProvider;
+        }
+      } catch (cfgErr) {
+        console.warn('[generate-video] getAIConfig failed, using fallback:', cfgErr);
+      }
+    }
+
+    const provider = resolvedProvider;
+    const model = resolvedModel || undefined;
+
+    console.log(`[generate-video] provider=${provider} model=${model} (admin=${!clientModel}) duration=${duration}s aspect=${aspect_ratio} sync=${sync}`);
 
     // Create job row (pending → will flip to processing after submit)
     const { data: job, error: jobError } = await supabase
