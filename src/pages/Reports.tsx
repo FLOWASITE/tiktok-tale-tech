@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon, Clock, AlertTriangle, History } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon, Clock, AlertTriangle, History, Search, ArrowUpDown, ExternalLink, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ContentTypeBadge, type ContentType, CONTENT_TYPE_LABELS } from '@/components/reports/ContentTypeBadge';
 import { ContentStatusBadge } from '@/components/reports/ContentStatusBadge';
 import { ContentHistorySheet } from '@/components/reports/ContentHistorySheet';
