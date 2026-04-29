@@ -87,15 +87,18 @@ Deno.serve(withPerf({ functionName: 'test-wordpress-com-connection' }, async (re
     }
 
     const me = await res.json();
+    const displayName = me.display_name || me.username || conn.platform_username;
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Kết nối WordPress.com thành công! Đăng nhập với "${me.display_name || me.username}".`,
-        details: {
+        message: `Kết nối WordPress.com thành công! Đăng nhập với "${displayName}".`,
+        data: {
           id: me.ID,
           username: me.username,
+          name: displayName,
           display_name: me.display_name,
-          site: conn.platform_username,
+          site: conn.page_name || conn.platform_username,
+          site_url: (conn as any).metadata?.selected_site_url || null,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
