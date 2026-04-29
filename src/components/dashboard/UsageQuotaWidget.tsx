@@ -80,16 +80,24 @@ export function UsageQuotaWidget() {
   const daysRemaining = Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
   const periodPct = Math.min(100, Math.round((daysElapsed / totalDays) * 100));
 
-  const items: QuotaItem[] = [
+  // Pricing v2: 3 đơn vị output chính
+  const unitItems: QuotaItem[] = [
+    { key: 'content_units', label: 'Nội dung', icon: Type, used: usage.content_units, limit: currentPlanLimits.monthly_content_units },
+    { key: 'image_units', label: 'Ảnh AI', icon: ImageIcon, used: usage.image_units, limit: currentPlanLimits.monthly_image_units },
+    { key: 'video_units', label: 'Video', icon: Video, used: usage.video_units, limit: currentPlanLimits.monthly_video_units },
+  ];
+
+  // Breakdown chi tiết theo loại sản phẩm
+  const breakdownItems: QuotaItem[] = [
     { key: 'scripts', label: 'Scripts', icon: FileText, used: usage.scripts, limit: currentPlanLimits.monthly_scripts },
     { key: 'carousels', label: 'Carousels', icon: Images, used: usage.carousels, limit: currentPlanLimits.monthly_carousels },
     { key: 'multichannel', label: 'Đa kênh', icon: Layers, used: usage.multichannel, limit: currentPlanLimits.monthly_multichannel },
-    { key: 'images', label: 'Ảnh AI', icon: Wand2, used: usage.images, limit: currentPlanLimits.monthly_images },
+    { key: 'images', label: 'Ảnh AI (raw)', icon: Wand2, used: usage.images, limit: currentPlanLimits.monthly_images },
     { key: 'brands', label: 'Brands', icon: Palette, used: usage.brands, limit: currentPlanLimits.monthly_brands },
   ];
 
-  const hasWarning = items.some(item => {
-    if (item.limit === -1) return false;
+  const hasWarning = unitItems.some(item => {
+    if (item.limit === -1 || item.limit === 0) return false;
     return (item.used / item.limit) >= 0.8;
   });
 
