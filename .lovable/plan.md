@@ -1,52 +1,51 @@
-## Bối cảnh
+## Vấn đề
 
-Bạn vừa rotate key TikTok từ Sandbox → Production (app được duyệt). Hiện click "Kết nối TikTok" thì TikTok báo:
-> Đã xảy ra lỗi — client_key
+Đăng **carousel nhiều ảnh** lên Facebook fail với error generic `"An unknown error occurred"`. Logs xác nhận:
+- 4 ảnh upload unpublished OK (có `photo_ids`)
+- Gọi `POST /{page_id}/feed` với `attached_media[]` → FB trả lỗi sau ~32s
+- Code throw `err.error?.message` → mất hết `code`, `error_subcode`, `fbtrace_id` nên không chẩn đoán được
 
-DB hiện lưu `consumer_key` dài 60 chars (`Y102oj…`) — trông giống ciphertext AES-GCM base64. Có 2 khả năng đang xảy ra:
-1. Key Production được **paste thẳng vào DB** (plaintext) → `decrypt()` chạy ra rác → gửi `client_key=<rác>` lên TikTok.
-2. Key được encrypt nhưng bằng `AI_ENCRYPTION_KEY` khác lúc decrypt (env logs cho thấy length 35 bytes → SHA-256 derive → key drift).
+Single-photo và text post **vẫn hoạt động** → token + permission OK. Bug chỉ xảy ra ở multi-photo path.
 
-Cả 2 đều dẫn tới **TikTok nhận client_key sai format**.
+## Nguyên nhân khả dĩ (cao → thấp)
 
-## Giải pháp
+1. **Race condition**: FB cần vài giây xử lý ảnh unpublished. Gọi `/feed` ngay → FB chưa "ready" các media_fbid → trả lỗi generic.
+2. **Photo URLs FB không fetch được** (CDN slow/timeout) → upload "thành công" nhưng FB chưa thật sự process xong.
+3. **Caption format** (emoji, ký tự đặc biệt, hashtag) làm parser FB lỗi.
 
-### Bước 1 — Bạn làm thủ công (1 phút)
-1. Vào **Admin → AI Management → Social Platforms → TikTok**
-2. Xoá Client Key/Secret cũ, **paste lại Client Key + Client Secret Production** từ TikTok Developer Portal
-3. Save → bấm **Test Connection** (đã có sẵn `test-tiktok-credentials`)
-4. Trong TikTok Developer Portal → app Production, đảm bảo **Redirect URI** có:
-   ```
-   https://rllyipiyuptkibqinotz.supabase.co/functions/v1/tiktok-oauth-callback
-   ```
+## Kế hoạch sửa
 
-### Bước 2 — Tôi code (hardening để lần sau không lặp lại)
+### 1. Log đầy đủ Facebook error (MUST)
+File: `supabase/functions/publish-facebook/index.ts`
 
-**`supabase/functions/connect-social/index.ts`** (block TikTok ~dòng 810-835):
-- Sau khi decrypt `consumerKey`, validate format: TikTok client key là **18-20 ký tự lowercase alphanumeric** (regex `^[a-z0-9]{16,24}$`).
-- Nếu không match → throw lỗi tiếng Việt:
-  > "Client Key TikTok không hợp lệ (length=X). Vào Admin → Social Platforms → TikTok và **nhập lại** Client Key/Secret Production. Đừng update trực tiếp database."
-- Log diagnostic an toàn: `console.log('[tiktok] client_key length=', len, 'prefix=', key.slice(0,4) + '***')` (KHÔNG log full key).
+Hiện tại chỉ log `err.error?.message`. Đổi thành log full payload từ FB:
+```ts
+console.error('[FB multi-photo] error:', JSON.stringify(err, null, 2));
+throw new Error(
+  `FB error ${err.error?.code}/${err.error?.error_subcode}: ${err.error?.message} (trace: ${err.error?.fbtrace_id})`
+);
+```
+Áp dụng cho cả 3 nhánh (single photo, multi-photo, text/link) + cho cả `uploadUnpublishedPhoto`.
 
-**`supabase/functions/_shared/crypto.ts`** — thêm sanity check trong `decrypt()`:
-- Sau `TextDecoder.decode()`, kiểm tra output không chứa control bytes lạ (chỉ cho phép printable ASCII + tab/newline + UTF-8 hợp lệ).
-- Nếu fail → throw `Decryption produced invalid output (encryption key mismatch?)` thay vì trả chuỗi rác.
-- ⚠️ Edit này ảnh hưởng tất cả 157 functions dùng `decrypt()`. An toàn vì chỉ throw khi output **chắc chắn là rác** — plaintext hợp lệ (token, API key ASCII) không bị ảnh hưởng. Đây là behaviour change tốt: thay vì âm thầm trả rác → báo lỗi rõ.
+### 2. Thêm delay + verify trước khi attach (MUST)
+Sau khi `Promise.all(uploadUnpublishedPhoto)`:
+- **Sleep 3 giây** cho FB process xong
+- (Tuỳ chọn) GET `/{photo_id}?fields=id,images` để confirm ảnh ready, retry 2 lần × 2s nếu chưa
 
-**`supabase/functions/connect-social/index.ts` — `getGlobalPlatformCredentials`**:
-- Hiện đang `catch` mọi error và trả `{null, null}` → nuốt thông tin chẩn đoán → user thấy "TikTok chưa được cấu hình" gây hiểu lầm.
-- Sửa: phân biệt `decrypt error` (throw lên với message rõ) vs `DB fetch error` (giữ logic cũ).
+### 3. Retry logic cho `/feed` call (MUST)
+Nếu `/feed` trả lỗi với code transient (1, 2, 4, 17, 341, 368) → retry tối đa 2 lần, mỗi lần delay 3s.
 
-## Files thay đổi
+### 4. Fallback: nếu vẫn fail sau retry (NICE-TO-HAVE)
+Tự động fallback sang đăng **album**: tạo album rồi POST từng ảnh vào album với caption ở post đầu. Đây là path stable hơn `attached_media`.
 
-- `supabase/functions/connect-social/index.ts` — validate client_key format + sửa error handling
-- `supabase/functions/_shared/crypto.ts` — sanity check sau decrypt
+### 5. Surface lỗi đẹp hơn ở UI
+File: `src/hooks/useRetryPublish.ts` đã có toast — không cần đổi. Chỉ cần backend trả message rõ ràng hơn.
 
-## Sau khi xong
+## File thay đổi
+- `supabase/functions/publish-facebook/index.ts` — log chi tiết + delay + retry + (optional) album fallback
 
-- Nếu key Production hợp lệ + đã re-save qua UI → kết nối TikTok chạy bình thường.
-- Nếu lỡ paste thẳng vào DB hoặc encryption key drift → user thấy ngay lỗi cụ thể với hướng dẫn sửa, không còn redirect tới TikTok rồi nhận lỗi mơ hồ.
+## Sau khi deploy
+Bạn thử đăng lại 1 carousel. Nếu **vẫn fail**, log mới sẽ cho thấy `error.code` + `error_subcode` + `fbtrace_id` cụ thể → tôi sẽ biết chính xác fix tiếp gì (token scope, photo URL bị block, caption issue, v.v.).
 
-## Lưu ý
-
-Nếu sau khi re-save qua UI vẫn lỗi, gần như chắc chắn là **Redirect URI chưa whitelist** trong TikTok app Production — kiểm tra lại bước 4.
+## Câu hỏi nhanh
+Caption của bài Carousel bạn vừa thử có gì đặc biệt không (rất dài >5000 ký tự, nhiều emoji liên tiếp, link rút gọn lạ)? Nếu có, gửi tôi 1 đoạn để tôi loại trừ nguyên nhân #3.
