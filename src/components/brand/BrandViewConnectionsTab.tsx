@@ -218,12 +218,19 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    // WordPress / Blogger dùng chung Website dialog với integrationType preset
-    if (platform === 'wordpress' || platform === 'blogger') {
+    // WordPress dùng dialog chuyên biệt 3 bước
+    if (platform === 'wordpress') {
+      setSelectedPlatform(platform);
+      setWpDialogOpen(true);
+      return;
+    }
+
+    // Blogger dùng chung Website dialog với integrationType preset
+    if (platform === 'blogger') {
       setSelectedPlatform(platform);
       setWebsiteForm((prev) => ({
         ...prev,
-        integrationType: platform as 'wordpress' | 'blogger',
+        integrationType: 'blogger',
         websiteUrl: '',
         username: '',
         appPassword: '',
