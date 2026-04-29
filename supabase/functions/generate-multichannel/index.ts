@@ -1554,6 +1554,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
       formData.channel = CHANNEL_ALIASES[formData.channel];
     }
     console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
+    console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (wordpress/blogger collapse to website internally; UI keeps original alias)`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
