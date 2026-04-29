@@ -216,7 +216,7 @@ const channelConfig: Record<Channel, {
   },
   telegram: { 
     label: 'Telegram', 
-    shortLabel: 'TG',
+    shortLabel: 'Telegram',
     icon: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-sky-400',
     bgColor: 'bg-sky-500/10',
