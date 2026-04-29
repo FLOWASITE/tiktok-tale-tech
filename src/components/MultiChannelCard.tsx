@@ -41,41 +41,11 @@ interface MultiChannelCardProps {
   geoScore?: number | null;
 }
 
-const channelIcons: Record<Channel, React.ReactNode> = {
-  website: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  blogger: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  wordpress: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  facebook: <Facebook className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  instagram: <Instagram className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  pinterest: <Instagram className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  twitter: <XIcon className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  google_maps: <MapPin className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  linkedin: <Linkedin className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  email: <Mail className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  youtube: <Youtube className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  zalo_oa: <ZaloIcon className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  telegram: <Send className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  tiktok: <Music2 className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  threads: <AtSign className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-};
+// Channel icon + brand colors are handled centrally by <ChannelIcon />.
+// Card chỉ cần một nền trung tính tinh tế bao quanh icon brand.
+const channelTileClass =
+  'bg-background/70 border-border/60 hover:bg-muted/60';
 
-const channelColors: Record<Channel, string> = {
-  website: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  blogger: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  wordpress: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  facebook: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
-  instagram: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-  pinterest: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-  twitter: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-  google_maps: 'bg-green-500/20 text-green-400 border-green-500/30',
-  linkedin: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
-  email: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  youtube: 'bg-red-500/20 text-red-400 border-red-500/30',
-  zalo_oa: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  telegram: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
-  tiktok: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
-  threads: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-};
 
 const goalColors: Record<string, string> = {
   education: 'bg-cyan-500/20 text-cyan-400',
