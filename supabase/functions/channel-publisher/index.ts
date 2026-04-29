@@ -18,6 +18,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   website: 'publish-website',
   blog: 'publish-blog',
   'flowa_blog': 'publish-blog',
+  blogger: 'publish-blogger',
 };
 
 // Map action back to the channel key used in selected_channels / channel_statuses
@@ -33,6 +34,8 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   website: 'website',
   blog: 'website',
   'flowa_blog': 'website',
+  // Blogger is a publishing target of the website channel — mark website as published when Blogger succeeds
+  blogger: 'website',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
