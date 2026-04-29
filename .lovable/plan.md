@@ -1,49 +1,22 @@
-## Vấn đề
+Mình đã xác nhận lỗi hiện tại: kết nối WordPress.com đã lưu thành công, nhưng khi bấm Xác minh thì backend đang gửi chuỗi token đã mã hóa trực tiếp sang WordPress.com. Vì vậy WordPress.com trả `400 invalid_token`.
 
-OAuth WordPress.com chạy đến bước cuối (token + sites OK) nhưng fail ở 2 chỗ:
+Kế hoạch sửa:
 
-1. **Backend**: DB `social_connections.platform` có CHECK constraint không cho phép giá trị `wordpress_com`.
-   - Log: `violates check constraint "social_connections_platform_check"`
-2. **Frontend**: Route `/auth/wordpress-com/callback` chưa tồn tại → 404 sau khi redirect.
+1. Sửa backend `test-wordpress-com-connection`
+   - Trước khi gọi WordPress.com API, giải mã `access_token` bằng helper mã hóa chung đang dùng trong project.
+   - Nếu token không giải mã được, trả lỗi tiếng Việt rõ ràng: cần kết nối lại WordPress.com.
+   - Giữ logic lọc theo `connectionId`, `brandTemplateId`, `organizationId` như hiện tại.
 
-## Fix
+2. Làm chặt response xác minh
+   - Khi token hợp lệ, trả `success: true` cùng `data.username/name/site` để frontend toast hiển thị đúng tên tài khoản/site.
+   - Khi WordPress.com trả lỗi `invalid_token`, vẫn trả thông báo thân thiện và gợi ý reconnect.
 
-### 1. Migration: mở rộng CHECK constraint
+3. Kiểm tra lại luồng sau khi sửa
+   - Gọi lại `social-diagnostics` với connection hiện tại để đảm bảo không còn gửi encrypted token.
+   - Kiểm tra log function để xác nhận request tới WordPress.com thành công hoặc nếu token thật sự bị revoke thì lỗi sẽ là lỗi token thật, không phải lỗi do mã hóa.
 
-Drop và recreate constraint trên `social_connections.platform` để bao gồm `wordpress_com` (cùng các platform hiện có: twitter, facebook, instagram, linkedin, tiktok, threads, youtube, zalo_oa, google_business, blogger, wordpress, website).
-
-```sql
-ALTER TABLE public.social_connections 
-  DROP CONSTRAINT IF EXISTS social_connections_platform_check;
-
-ALTER TABLE public.social_connections 
-  ADD CONSTRAINT social_connections_platform_check 
-  CHECK (platform IN (
-    'twitter','facebook','instagram','linkedin','tiktok','threads',
-    'youtube','zalo_oa','google_business','blogger',
-    'wordpress','wordpress_com','website'
-  ));
-```
-
-(Trước khi viết migration sẽ query DB lấy danh sách platform hiện đang có trong constraint để không drop nhầm.)
-
-### 2. Tạo route frontend `/auth/wordpress-com/callback`
-
-Tạo `src/pages/WordPressComCallback.tsx` — copy pattern từ các callback hiện có (`BloggerCallback.tsx`, `LinkedInCallback.tsx`):
-- Đọc `success`, `error`, `site`, `site_url` từ query params
-- Hiện toast success/error
-- Redirect về `/brands` (hoặc trang quản lý brand connections) sau 1.5s
-
-Đăng ký route trong `src/app/routes.tsx` (public, không cần `<ProtectedRoute>` vì user đã login trước khi OAuth).
-
-### 3. Verify lại flow
-
-- User click "Kết nối WordPress.com" → redirect WP.com → authorize → callback edge function lưu DB OK → redirect về `/auth/wordpress-com/callback?success=true&site=...` → toast → quay về Brand page → connection xuất hiện.
-
-## Files thay đổi
-
-- `supabase/migrations/<timestamp>_allow_wordpress_com_platform.sql` (new)
-- `src/pages/WordPressComCallback.tsx` (new)
-- `src/app/routes.tsx` (thêm route)
-
-Không đụng edge function (đã đúng).
+Technical notes:
+- File cần sửa chính: `supabase/functions/test-wordpress-com-connection/index.ts`.
+- Dùng `decryptCredential` từ `supabase/functions/_shared/crypto.ts`, không tạo logic decrypt riêng.
+- Không cần migration database cho lỗi này.
+- Nếu muốn đăng bài lên WordPress.com sau đó, hiện tại còn một phần riêng cần bổ sung: `channel-publisher`/`publish-wordpress` mới support self-hosted `wordpress`, chưa route riêng cho `wordpress_com`. Plan này tập trung sửa lỗi Xác minh trước.

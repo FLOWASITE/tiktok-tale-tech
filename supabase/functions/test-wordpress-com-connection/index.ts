@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,12 +44,27 @@ Deno.serve(withPerf({ functionName: 'test-wordpress-com-connection' }, async (re
       );
     }
 
-    const accessToken = (conn as any).access_token;
-    if (!accessToken) {
+    const storedToken = (conn as any).access_token;
+    if (!storedToken) {
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Không tìm thấy access token. Vui lòng kết nối lại WordPress.com.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Token được lưu dưới dạng AES-256-GCM. Phải giải mã trước khi gọi WordPress.com.
+    let accessToken: string;
+    try {
+      accessToken = await decryptCredential(storedToken);
+    } catch (e) {
+      console.error('[test-wordpress-com-connection] decrypt failed:', e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Không giải mã được access token. Vui lòng ngắt kết nối và kết nối lại WordPress.com.',
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
