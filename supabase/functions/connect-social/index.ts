@@ -1027,17 +1027,31 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
     // For Pinterest - OAuth 2.0 with PKCE (mandatory)
     if (platform === 'pinterest') {
       // Prefer admin-managed credentials in social_platform_settings; fall back to env
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
       let clientId: string | null = null;
       try {
         const adminCreds = await getGlobalPlatformCredentials(supabase, 'pinterest', encryptionKey);
         clientId = adminCreds.consumerKey;
       } catch (e) {
-        console.warn('[pinterest] admin creds unavailable, falling back to env', (e as Error).message);
+        console.warn('[pinterest] admin creds unavailable, falling back to env:', (e as Error).message);
       }
       if (!clientId) clientId = Deno.env.get('PINTEREST_CLIENT_ID') || null;
       if (!clientId) {
         throw new Error('Pinterest chưa được cấu hình ở phía Flowa. Vui lòng vào Admin → Social Platforms → Pinterest để nhập App ID/Secret.');
       }
+
+      // Pinterest App IDs are numeric (typically 13-19 digits). Pre-validate to avoid
+      // the cryptic Pinterest "400 - App not found" page when admin pasted garbage.
+      const trimmedClientId = clientId.trim();
+      if (!/^\d{6,25}$/.test(trimmedClientId)) {
+        console.error(`[pinterest] invalid clientId format (length=${trimmedClientId.length}, prefix="${trimmedClientId.slice(0, 4)}")`);
+        throw new Error(
+          'Pinterest App ID không hợp lệ (phải là dãy số 13-19 chữ số). ' +
+          'Vui lòng vào Admin → Social Platforms → Pinterest, kiểm tra lại App ID copy từ developers.pinterest.com.'
+        );
+      }
+      clientId = trimmedClientId;
+      console.log(`[pinterest] using clientId prefix="${clientId.slice(0, 4)}***" (length=${clientId.length})`);
 
       // Generate PKCE code_verifier (43-128 chars) + code_challenge (S256)
       const verifierBytes = new Uint8Array(64);
@@ -1076,6 +1090,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       }
 
       const redirectUri = `${supabaseUrl}/functions/v1/pinterest-oauth-callback`;
+      console.log(`[pinterest] redirect_uri="${redirectUri}" — this MUST match the Redirect URI registered at developers.pinterest.com`);
       const oauthUrl = `https://www.pinterest.com/oauth/?` + new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
