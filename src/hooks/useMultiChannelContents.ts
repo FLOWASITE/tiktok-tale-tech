@@ -39,6 +39,8 @@ const transformContent = (data: any): MultiChannelContent => ({
   telegram_content: normalizeContentField(data.telegram_content),
   tiktok_content: normalizeContentField(data.tiktok_content),
   threads_content: normalizeContentField(data.threads_content),
+  pinterest_content: normalizeContentField(data.pinterest_content),
+  pinterest_title: data.pinterest_title ?? null,
   channel_images:
     data.channel_images && typeof data.channel_images === 'object' && !Array.isArray(data.channel_images)
       ? (data.channel_images as ChannelImages)
