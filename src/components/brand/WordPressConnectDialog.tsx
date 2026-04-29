@@ -63,6 +63,15 @@ export function WordPressConnectDialog({
   const [isSaving, setIsSaving] = useState(false);
 
   const normalized = useMemo(() => normalizeUrl(siteUrl), [siteUrl]);
+  const isWordPressCom = useMemo(() => {
+    try {
+      if (!normalized) return false;
+      const host = new URL(normalized).hostname.toLowerCase();
+      return host === 'wordpress.com' || host.endsWith('.wordpress.com');
+    } catch {
+      return false;
+    }
+  }, [normalized]);
   const adminUrl = normalized ? `${normalized}/wp-admin/profile.php#application-passwords` : '';
   const canTest = !!(normalized && username.trim() && appPassword.trim());
   const canSave = testResult.status === 'ok';
