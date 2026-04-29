@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
 import { ChannelIcon } from '@/components/ui/channel-icon';
 import { supabase } from '@/integrations/supabase/client';

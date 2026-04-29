@@ -1,79 +1,53 @@
-## Vấn đề hiện tại
+# Hỗ trợ WordPress.com + cảnh báo rõ ràng cho user
 
-Khi user bấm **Connect WordPress** ở Brand → Connections, dialog mở ra là **dialog Website đa năng** với:
-- Dropdown "Loại kết nối" hiển thị **9 lựchọn** (Flowa Blog, WordPress, NukeViet, Blogger, Wix, Shopify, Custom API, Webhook, Manual) → user phải scan và chọn lại dù vừa bấm WordPress
-- Chỉ 1 dòng hint nhỏ "Tạo tại WordPress Admin → Users → Profile → Application Passwords" → user không biết Application Password là gì, tại sao cần, copy ở đâu
-- Không có nút test riêng — phải submit mới biết sai
-- Field placeholder `xxxx xxxx xxxx xxxx xxxx xxxx` dễ gây hiểu nhầm phải gõ nguyên dạng có space
-- Không validate URL (thiếu `https://`, có dấu `/` cuối, có `/wp-admin` thừa…)
+## Vấn đề
+User đang dùng `dichvukiemtoantaf.wordpress.com` — đây là **WordPress.com** (hosted bởi Automattic), KHÔNG phải WordPress self-hosted.
 
-## Mục tiêu
+WordPress.com Free/Personal/Premium plan **không cho dùng Application Passwords** — tính năng này chỉ có ở:
+- Business plan ($25/tháng) trở lên
+- Hoặc WordPress self-hosted (cài trên hosting riêng)
 
-Khi user bấm Connect WordPress, phải cảm thấy: "Tôi chỉ cần làm 3 việc rất rõ ràng".
+Vì vậy user mở `/wp-admin/profile.php` không thấy mục "Application Passwords" → flow hiện tại đứng im.
 
-## Giải pháp
+## Giải pháp 2 phần
 
-### 1. Tách dialog WordPress riêng (`WordPressConnectDialog`)
+### Phần 1 — Cải thiện UX dialog hiện tại (làm ngay, không cần backend mới)
 
-Component mới `src/components/brand/WordPressConnectDialog.tsx` — không còn lẫn với 8 loại khác. Bố cục **3 bước có số thứ tự**:
+Sửa `WordPressConnectDialog.tsx` để **detect WordPress.com URL ngay khi user nhập** và hiển thị cảnh báo:
 
-```text
-[1] Địa chỉ website WordPress
-    [ https://yourblog.com                    ]
-    Tự động chuẩn hoá: thêm https://, bỏ /wp-admin, bỏ / cuối
+- Khi URL match `*.wordpress.com` → hiện banner vàng:
+  > ⚠️ **Bạn đang dùng WordPress.com (hosted).**
+  > Application Passwords chỉ có ở plan **Business** trở lên hoặc WordPress self-hosted.
+  > 
+  > **3 lựa chọn:**
+  > 1. Nâng cấp WordPress.com lên Business plan để bật Application Passwords
+  > 2. Kết nối qua **OAuth WordPress.com** (đang phát triển — coming soon)
+  > 3. Dùng WordPress self-hosted (cài WordPress trên hosting riêng như Hostinger, Bluehost…)
 
-[2] Tạo Application Password (1 lần duy nhất)
-    [ Mở trang tạo password ↗ ]   ← deep link tới {url}/wp-admin/profile.php#application-passwords
-    Hướng dẫn 4 dòng có ảnh thumbnail mini (optional):
-      • Đăng nhập admin WordPress của bạn
-      • Cuộn xuống mục "Application Passwords"
-      • Đặt tên là "Flowa" → bấm "Add New"
-      • Copy chuỗi password 24 ký tự WordPress hiển thị
+- Update step 2 instructions: nói rõ phần này CHỈ áp dụng self-hosted; với WordPress.com Business, hướng dẫn tìm ở `Users → Profile → Application Passwords` trong wp-admin cổ điển (`/wp-admin/profile.php?classic-editor`).
 
-[3] Dán thông tin đăng nhập
-    Username WordPress  [ admin              ]
-    Application Password [ ••••••••••••     ] [👁]
-    (tự động strip khoảng trắng khi paste)
+- Khi backend trả `code: 'rest_api_unavailable'` HOẶC URL chứa `.wordpress.com` mà test fail 401 → hiện gợi ý cụ thể thay vì error chung chung.
 
-    [ Kiểm tra kết nối ]   ← gọi test-wordpress-credentials, hiện ✓/✗ inline
-    [ Huỷ ]  [ Lưu kết nối ] (disabled cho tới khi test pass)
-```
+### Phần 2 — (Tuỳ chọn) Thêm OAuth WordPress.com
 
-### 2. UX details
+Nếu user xác nhận muốn hỗ trợ WordPress.com Free/Personal:
 
-- **Auto-normalize URL** ngay khi blur: `https://`, bỏ `/wp-admin`, `/wp-login.php`, trailing `/`.
-- **Deep-link button** mở `{normalizedUrl}/wp-admin/profile.php#application-passwords` ở tab mới — đỡ user phải tự tìm.
-- **Strip whitespace** khi paste Application Password (WordPress hiển thị có space cứ 4 ký tự, REST API yêu cầu không space — hoặc giữ nguyên đều OK, ta chuẩn hoá luôn).
-- **Test trước khi Lưu**: bắt buộc bấm "Kiểm tra kết nối" để Lưu enable. Khi pass hiện badge `✓ Đã xác minh — site: <Site Title> · WP <version>` (extract từ response của test endpoint).
-- **Error mapping** thân thiện:
-  - 401 → "Sai username hoặc Application Password. Hãy tạo lại password mới."
-  - 403 → "User không có quyền publish post. Cần Editor/Administrator."
-  - 404/HTML response → "Không tìm thấy REST API. Site có bật permalinks không phải Plain?"
-  - Timeout → "Site không phản hồi. Kiểm tra URL."
-- **Không hỏi credentials cấp admin**: vẫn giữ nguyên (Application Password). Nói rõ ngay đầu dialog: *"Flowa KHÔNG cần mật khẩu admin. Application Password là mã riêng, có thể thu hồi bất cứ lúc nào."*
+1. Đăng ký Flowa app tại https://developer.wordpress.com/apps/ → lấy `client_id`, `client_secret`
+2. Thêm secrets `WORDPRESSCOM_CLIENT_ID` + `WORDPRESSCOM_CLIENT_SECRET`
+3. Tạo edge function `wordpress-oauth-callback` (tương tự `blogger-oauth-callback`)
+4. Update `WordPressConnectDialog`: thêm tab "WordPress.com" vs "Self-hosted"
+5. WordPress.com publish dùng REST API `https://public-api.wordpress.com/wp/v2/sites/{site}/posts` với Bearer token
 
-### 3. Routing
+→ Phần này **tốn 1-2 ngày dev + cần Flowa đăng ký developer app**, nên hỏi user trước khi làm.
 
-Trong `BrandViewConnectionsTab.tsx`:
-- `handleConnect('wordpress')` → mở `WordPressConnectDialog` mới (state `wpDialogOpen`).
-- Vẫn giữ dialog Website đa năng cho các loại khác (NukeViet, Blogger, Custom API, Webhook…).
-- Sau khi save thành công → invalidate query `social-connections`, đóng dialog, toast "Đã kết nối WordPress: <site title>".
+## Files cần sửa (Phần 1)
 
-### 4. Backend (đã có sẵn, không thêm mới)
+- `src/components/brand/WordPressConnectDialog.tsx`
+  - Thêm `isWordPressCom = /\.wordpress\.com$/i.test(hostname)` 
+  - Hiển thị banner cảnh báo khi detect
+  - Thêm link tới hướng dẫn nâng cấp Business plan
+  - Sửa step 2 instructions cho rõ self-hosted vs .com
 
-- `test-wordpress-credentials` edge function đã hỗ trợ Application Password. Bổ sung: trả thêm `siteTitle` và `wpVersion` (đọc từ `/wp-json/` root response) để hiển thị badge xác minh.
-- `connect-social` đã accept platform `wordpress`. Reuse nguyên.
+## Đề xuất
 
-## Thay đổi file
-
-| File | Thay đổi |
-|---|---|
-| `src/components/brand/WordPressConnectDialog.tsx` | **Mới** — dialog 3 bước chuyên cho WordPress |
-| `src/components/brand/BrandViewConnectionsTab.tsx` | `handleConnect('wordpress')` route sang dialog mới; bỏ option `wordpress` khỏi dropdown của Website dialog đa năng |
-| `supabase/functions/test-wordpress-credentials/index.ts` | Trả thêm `siteTitle`, `wpVersion` từ `/wp-json/` |
-
-## Out of scope (có thể làm sau)
-
-- OAuth tự động qua wordpress.com (chỉ dùng được cho WP.com hosted, không dùng được cho self-hosted).
-- Auto-detect REST API endpoint nếu site dùng custom prefix.
-- Multi-site WordPress Network.
+**Làm Phần 1 ngay** (10 phút) để user không bị stuck. Sau đó hỏi user có muốn làm Phần 2 (OAuth WordPress.com) không.
