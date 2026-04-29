@@ -7,12 +7,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
-import { ProviderModelPicker, VIDEO_MODELS, VideoModelChoice } from './ProviderModelPicker';
+import { VIDEO_MODELS } from './ProviderModelPicker';
+import { AdminModelBadge } from '@/components/shared/AdminModelBadge';
+import { useFunctionModel } from '@/hooks/useFunctionModel';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+// Default fallback if Admin hasn't configured a model yet.
+const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
+
+// Friendly labels for the AdminModelBadge tooltip
+const VIDEO_MODEL_LABELS: Record<string, string> = Object.fromEntries(
+  VIDEO_MODELS.map((m) => [m.id, m.label]),
+);
 
 const EXAMPLE_PROMPTS = [
   'Cô gái Việt 25 tuổi cười rạng rỡ trong tiệm cà phê ánh sáng vàng dịu, máy quay zoom chậm vào ánh mắt, phong cách điện ảnh ấm áp.',
@@ -25,11 +36,11 @@ export function QuickClipTab() {
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
   const [duration, setDuration] = useState(5);
-  const [model, setModel] = useState<VideoModelChoice>('geminigen/veo-3.1-fast');
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
+  const { currentOrganization } = useOrganizationContext();
   const {
     activeScript,
     activeSceneIndex,
@@ -40,7 +51,14 @@ export function QuickClipTab() {
     markSceneCompleted,
   } = useScriptToVideo();
 
-  const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
+  // Model is decided by Admin (read-only here)
+  const { data: modelInfo } = useFunctionModel(
+    'generate-video',
+    DEFAULT_VIDEO_MODEL,
+    currentOrganization?.id ?? null,
+  );
+  const adminModel = modelInfo?.model ?? DEFAULT_VIDEO_MODEL;
+  const selectedModel = VIDEO_MODELS.find((m) => m.id === adminModel) ?? VIDEO_MODELS[0];
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
   const activeJob = activeJobId ? generations.find((g) => g.id === activeJobId) : null;
 
@@ -115,7 +133,7 @@ export function QuickClipTab() {
     const result = await generateVideo({
       provider,
       prompt: prompt.trim(),
-      model,
+      // model intentionally omitted — backend resolves from Admin AI Function Config
       duration,
       aspect_ratio: aspect,
       resolution: '1080p',
@@ -273,10 +291,20 @@ export function QuickClipTab() {
         />
       </div>
 
-      {/* Model picker */}
+      {/* Model — read-only, do Admin cấu hình */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Model AI</Label>
-        <ProviderModelPicker value={model} onChange={setModel} durationSec={duration} disabled={generating} />
+        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20 border border-border/40">
+          <AdminModelBadge
+            functionName="generate-video"
+            defaultModel={DEFAULT_VIDEO_MODEL}
+            organizationId={currentOrganization?.id}
+            labelMap={VIDEO_MODEL_LABELS}
+          />
+          <span className="text-[10px] text-muted-foreground">
+            {selectedModel?.description ?? 'Admin chưa cấu hình'}
+          </span>
+        </div>
       </div>
 
       {/* Cost preview */}
