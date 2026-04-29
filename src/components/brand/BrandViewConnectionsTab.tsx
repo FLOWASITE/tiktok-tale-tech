@@ -1215,7 +1215,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 }}
               >
                 <option value="flowa_blog">Blog Flowa (flowa.vn/blog)</option>
-                <option value="wordpress">WordPress (REST API)</option>
                 <option value="nukeviet">NukeViet CMS</option>
                 <option value="blogger">Blogger (Google)</option>
                 <option value="wix">Wix Blog</option>
