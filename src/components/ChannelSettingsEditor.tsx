@@ -140,7 +140,6 @@ function validateFooterTemplate(
         phone: { exists: !!footerInfo?.phone, label: 'Số điện thoại' },
         email: { exists: !!footerInfo?.email, label: 'Email' },
         website: { exists: !!footerInfo?.website, label: 'Website' },
-        blogger: { exists: !!footerInfo?.website, label: 'Website' },
         address: { exists: !!footerInfo?.address, label: 'Địa chỉ' },
         company: { exists: !!(companyName || footerInfo?.company_name), label: 'Tên công ty' },
       };
