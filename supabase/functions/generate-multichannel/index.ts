@@ -1751,6 +1751,19 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     formData.contentRole = resolvedContentRole;
     formData.channels = resolvedSelectedChannels;
 
+    // Channels actually persisted to selected_channels: keep 'blogger' if user picked it.
+    // Pipeline still sees 'website' to build long-form content.
+    const userPickedBlogger =
+      originalChannels.includes('blogger') ||
+      originalNewChannels.includes('blogger') ||
+      originalSingleChannel === 'blogger';
+    const persistedSelectedChannels: string[] = userPickedBlogger
+      ? Array.from(new Set([
+          ...resolvedSelectedChannels.filter((c: string) => c !== 'website' || originalChannels.includes('website') || originalNewChannels.includes('website') || originalSingleChannel === 'website'),
+          'blogger',
+        ]))
+      : resolvedSelectedChannels;
+
     // ============================================
     // STRATEGY VALIDATION LAYER (P0)
     // Detect Goal-Angle-Role conflicts and prepare prompt adjustments
