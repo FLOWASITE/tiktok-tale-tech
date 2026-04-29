@@ -171,6 +171,7 @@ export function VideoGeneratorPanel({
     }
 
     setLastError(null);
+    clearCurrentJob();
     setPhase('sending');
     try {
       const result = await generateVideo({
