@@ -157,3 +157,41 @@ export async function generateVideoViaPoyo(
 }
 
 export { submitPoyoVideoTask, pollPoyoVideoTask };
+
+/** One-shot status check — for background poller. Does NOT loop. */
+export async function checkPoyoVideoStatus(
+  taskId: string,
+  apiKey: string,
+): Promise<{ status: 'processing' | 'completed' | 'failed'; videoUrl?: string; thumbnailUrl?: string; error?: string }> {
+  try {
+    const response = await fetch(`${POYO_BASE_URL}/api/generate/status/${taskId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    if (!response.ok) {
+      // Transient — keep processing
+      return { status: 'processing' };
+    }
+
+    const data = await response.json();
+    const status = data?.data?.status || data?.status;
+
+    if (status === 'finished' || status === 'completed' || status === 'success') {
+      const files = data?.data?.files || data?.files || [];
+      const videoUrl = files[0]?.file_url || files[0]?.url || data?.data?.result_url;
+      const thumbnailUrl = files[0]?.thumbnail_url || data?.data?.thumbnail_url;
+      if (!videoUrl) return { status: 'failed', error: 'PoYo finished but returned no video URL' };
+      return { status: 'completed', videoUrl, thumbnailUrl };
+    }
+
+    if (status === 'failed' || status === 'error') {
+      const reason = data?.data?.error || data?.error || 'Unknown PoYo error';
+      return { status: 'failed', error: typeof reason === 'string' ? reason : JSON.stringify(reason) };
+    }
+
+    return { status: 'processing' };
+  } catch (e) {
+    console.warn('[poyo-video] checkStatus exception:', e);
+    return { status: 'processing' };
+  }
+}
