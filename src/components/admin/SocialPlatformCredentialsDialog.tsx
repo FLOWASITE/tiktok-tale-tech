@@ -138,6 +138,7 @@ export function SocialPlatformCredentialsDialog({
   const isGoogle = platform === 'google_business';
   const isWebsite = platform === 'website';
   const isTikTok = platform === 'tiktok';
+  const isPinterest = platform === 'pinterest';
 
   const handleCopyCallback = async () => {
     if (!callbackUrl) return;
