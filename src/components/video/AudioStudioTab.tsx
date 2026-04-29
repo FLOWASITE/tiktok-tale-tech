@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Mic, Music4, Type, Loader2, Play, Trash2, Download, Copy } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Mic, Music4, Type, Loader2, Trash2, Download, Copy, Wand2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -7,17 +7,57 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Badge } from '@/components/ui/badge';
 import { useAudioStudio, VOICE_OPTIONS, type AudioAsset } from '@/hooks/useAudioStudio';
+import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
+import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { toast } from 'sonner';
 
 export function AudioStudioTab() {
   const { assets, generating, generateVoiceover, generateBGM, generateSubtitles, deleteAsset } = useAudioStudio();
+  const { activeScript } = useScriptToVideo();
+  const { generations, fetchGenerations } = useVideoGeneration();
 
   const [voText, setVoText] = useState('');
   const [voVoiceId, setVoVoiceId] = useState<string>(VOICE_OPTIONS[0].id);
   const [bgmPrompt, setBgmPrompt] = useState('');
   const [bgmDuration, setBgmDuration] = useState(15);
   const [subUrl, setSubUrl] = useState('');
+
+  useEffect(() => { fetchGenerations(); }, [fetchGenerations]);
+
+  // Ghép narration text từ kịch bản (loại tags/notes/timecode)
+  const scriptNarration = useMemo(() => {
+    if (!activeScript?.scenes?.length) return '';
+    return activeScript.scenes
+      .map((s) => (s.prompt ?? '')
+        .replace(/\[[^\]]+\]/g, '')
+        .replace(/\(([^)]+)\)/g, '')
+        .replace(/\s+/g, ' ')
+        .trim())
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 5000);
+  }, [activeScript]);
+
+  // Clip mới nhất completed của kịch bản hiện tại — dùng để auto-fill phụ đề
+  const latestScriptClip = useMemo(() => {
+    if (!activeScript) return null;
+    return generations
+      .filter((g) => g.script_id === activeScript.id && g.status === 'completed' && g.video_url)
+      .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))[0] ?? null;
+  }, [activeScript, generations]);
+
+  const fillFromScript = () => {
+    if (!scriptNarration) { toast.error('Kịch bản chưa có nội dung dùng được.'); return; }
+    setVoText(scriptNarration);
+    toast.success(`Đã nạp ${scriptNarration.length} ký tự từ "${activeScript?.title}"`);
+  };
+  const fillSubtitleFromLatestClip = () => {
+    if (!latestScriptClip?.video_url) { toast.error('Chưa có clip hoàn thành cho kịch bản này.'); return; }
+    setSubUrl(latestScriptClip.video_url);
+    toast.success(`Đã nạp clip Scene ${latestScriptClip.scene_number ?? '?'}`);
+  };
 
   const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success('Đã copy'); };
 
