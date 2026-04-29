@@ -123,6 +123,95 @@ export default function RevenueStats() {
         </Card>
       </div>
 
+      {/* Quota v2 KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-md ${
+                (planStats.data?.avgBurnRate ?? 0) >= 80 ? "bg-destructive/10" :
+                (planStats.data?.avgBurnRate ?? 0) >= 50 ? "bg-amber-500/10" : "bg-primary/10"
+              }`}>
+                <Flame className={`h-5 w-5 ${
+                  (planStats.data?.avgBurnRate ?? 0) >= 80 ? "text-destructive" :
+                  (planStats.data?.avgBurnRate ?? 0) >= 50 ? "text-amber-600" : "text-primary"
+                }`} />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Burn rate quota TB</p>
+                <p className="text-2xl font-bold">{planStats.data?.avgBurnRate ?? 0}%</p>
+                <p className="text-[11px] text-muted-foreground/80">Trên top 100 workspace active</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-amber-500/10">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Workspace cần upgrade</p>
+                <p className="text-2xl font-bold">{planStats.data?.needsUpgradeCount ?? 0}</p>
+                <p className="text-[11px] text-muted-foreground/80">Có ≥1 unit ≥80%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-blue-500/10">
+                <Users className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Workspace đo được</p>
+                <p className="text-2xl font-bold">
+                  {planStats.data ? Object.values(planStats.data.tierUsage).reduce((s, t) => s + t.count, 0) : 0}
+                </p>
+                <p className="text-[11px] text-muted-foreground/80">Sample cho thống kê units</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tier units bar chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tiêu thụ units theo tier (chu kỳ hiện tại)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {planStats.isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart
+                data={PLAN_ORDER.map((tier) => {
+                  const t = planStats.data?.tierUsage[tier] || { content: 0, image: 0, video: 0, count: 0 };
+                  return {
+                    tier: tier.charAt(0).toUpperCase() + tier.slice(1),
+                    "Nội dung": t.content,
+                    "Ảnh AI": t.image,
+                    "Video": t.video,
+                  };
+                })}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis dataKey="tier" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="Nội dung" stackId="a" fill="hsl(var(--primary))" />
+                <Bar dataKey="Ảnh AI" stackId="a" fill="#8b5cf6" />
+                <Bar dataKey="Video" stackId="a" fill="#f59e0b" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pie Chart */}
         <Card>
