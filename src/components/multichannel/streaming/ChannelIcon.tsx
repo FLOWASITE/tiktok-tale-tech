@@ -108,6 +108,16 @@ const channelConfig: Record<string, {
     bgClass: "bg-primary text-primary-foreground",
     label: "Website"
   },
+  wordpress: {
+    icon: WordPressLucide,
+    bgClass: "bg-[#21759B] text-white",
+    label: "WordPress"
+  },
+  blogger: {
+    icon: BloggerLucide,
+    bgClass: "bg-[#FF8000] text-white",
+    label: "Blogger"
+  },
   google_maps: { 
     icon: MapPin, 
     bgClass: "bg-green-600 text-white",
