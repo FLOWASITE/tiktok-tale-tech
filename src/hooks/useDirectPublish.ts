@@ -152,6 +152,7 @@ export function useDirectPublish() {
       const isTikTokFileFormat =
         errorCode === 'TIKTOK_POST_PROCESSING_FAILED' &&
         error.message?.includes('file_format_check_failed');
+      const isInvalidPayload = errorCode === 'INVALID_PAYLOAD';
       const isTikTokImageError = [
         'TIKTOK_IMAGE_FETCH_FAILED',
         'TIKTOK_IMAGE_DECODE_FAILED',
