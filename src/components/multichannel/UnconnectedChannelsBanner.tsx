@@ -17,6 +17,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   blog: 'website',
   zalo: 'zalo_oa',
   google_business: 'google_business',
+  blogger: 'blogger',
 };
 
 const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
@@ -32,6 +33,7 @@ const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
   blog: 'Website',
   zalo: 'Zalo OA',
   google_business: 'Google Business',
+  blogger: 'Blogger',
 };
 
 interface UnconnectedChannelsBannerProps {
