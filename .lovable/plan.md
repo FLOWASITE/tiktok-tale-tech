@@ -1,76 +1,52 @@
-## Vấn đề
 
-Sau khi OAuth Google thành công, callback redirect `success=true` về UI nhưng:
-- DB query xác nhận **không có row nào** trong `social_connections` cho `platform='blogger'` (0 rows).
-- UI poll mỗi 3s → không thấy row mới → không update.
+# Cho phép xuất bản nội dung lên Blogger
 
-## Nguyên nhân
+## Bối cảnh
 
-`supabase/functions/blogger-oauth-callback/index.ts` **swallow lỗi DB** ở 2 chỗ:
+Edge function `publish-blogger` đã có sẵn và OAuth Blogger đã hoạt động (kết nối lưu vào `social_connections` với `platform = 'blogger'`). Tuy nhiên nút "Đăng ngay" trên UI không xuất hiện cho kênh Blogger vì:
 
-```ts
-if (existing) {
-  await supabase.from('social_connections').update(...);  // ❌ no error check
-} else {
-  await supabase.from('social_connections').insert(...);  // ❌ no error check
-}
-```
+1. `channel-publisher` (router) **không có entry** cho action `blogger` → mọi request bị reject với "Invalid action".
+2. `useDirectPublish` thiếu hàm `publishToBlogger`.
+3. `DirectPublishButton` không whitelist `blogger` trong `isSupported` → render nút "Sắp ra mắt".
+4. `resolve-social-payload.ts` không biết cách lấy nội dung Blogger từ `multi_channel_contents` khi gọi từ Telegram/lịch.
+5. Cron `process-scheduled-publishing` (nếu dùng) cũng đi qua `channel-publisher`, nên fix ở router là tự động hỗ trợ luôn cả lên lịch.
 
-→ Insert fail nhưng vẫn redirect `success=true`. Không có log nào trong edge function logs để biết lỗi cụ thể.
+## Phạm vi thay đổi
 
-Khả năng cao là 1 trong các vấn đề sau (cần log để xác định chính xác):
-- RLS policy chặn (mặc dù dùng service role — nhưng có thể có trigger/check constraint)
-- Một field nào đó vi phạm constraint (vd `platform` enum không chứa `'blogger'`, hoặc `scopes` array format sai)
-- Trigger `prevent_byob_collision_with_default_bot` hoặc tương tự fail
+### 1. `supabase/functions/channel-publisher/index.ts`
+- Thêm `blogger: 'publish-blogger'` vào `PLATFORM_FUNCTION_MAP`.
+- Thêm `blogger: 'website'` (hoặc `'blogger'` nếu dùng channel key riêng) vào `ACTION_TO_CHANNEL` để cập nhật `channel_statuses` đúng. Sẽ kiểm tra `Channel` type trước khi quyết định — nếu Blogger là channel độc lập trong UI thì giữ `blogger`.
+- Thêm Blogger vào `SOCIAL_RESOLVE_MAP` (file `resolve-social-payload.ts`) với:
+  - `dbPlatform: 'blogger'`
+  - `contentColumn: 'blog_content'` (hoặc cột phù hợp — sẽ verify trong `multi_channel_contents`)
+  - `channelKey: 'blogger'`
+- Sau khi resolve, payload cần có thêm `title` (lấy từ heading đầu của content hoặc field `blog_title` nếu có), `featuredImageUrl` từ `mediaUrls[0]`, `labels` (optional, từ tags).
 
-## Giải pháp
+### 2. `supabase/functions/publish-blogger/index.ts`
+- Hiện đã nhận `connectionId/title/content/labels/featuredImageUrl`. Bổ sung guard cho trường hợp `title` không có (auto-extract từ dòng đầu content), để tương thích với resolver tự động.
 
-### Fix 1: `supabase/functions/blogger-oauth-callback/index.ts` (line 144-148)
-Check error sau update/insert + log chi tiết + throw để UI thấy lỗi thật:
+### 3. `src/hooks/useDirectPublish.ts`
+- Thêm `publishToBlogger(options: PublishOptions & { blogData?: ... })` gửi `action: 'blogger'` qua `channel-publisher` với payload `{ connectionId, contentId, content, title, mediaUrls, labels }`.
+- Export trong return object.
 
-```ts
-if (existing) {
-  const { error: updErr } = await supabase
-    .from('social_connections').update(connectionData).eq('id', existing.id);
-  if (updErr) {
-    console.error('[blogger-oauth-callback] UPDATE failed:', updErr);
-    throw new Error(`DB update failed: ${updErr.message}`);
-  }
-} else {
-  const { data: inserted, error: insErr } = await supabase
-    .from('social_connections').insert(connectionData).select('id').single();
-  if (insErr) {
-    console.error('[blogger-oauth-callback] INSERT failed:', insErr,
-      'payload:', JSON.stringify({ ...connectionData, access_token: '[redacted]', refresh_token: '[redacted]' }));
-    throw new Error(`DB insert failed: ${insErr.message}`);
-  }
-  console.log('[blogger-oauth-callback] INSERT ok, id:', inserted?.id);
-}
-```
+### 4. `src/components/social/DirectPublishButton.tsx`
+- Thêm `'blogger'` vào mảng `isSupported`.
+- Thêm case `blogger` trong `handlePublish` switch → gọi `publishToBlogger` với `blogData.title` lấy từ ô Title trong dialog (tái dùng UI Blog dialog hiện có hoặc dialog confirm tiêu chuẩn + ô title).
+- Đổi nhãn nút khi platform là `blogger`: "Đăng Blogger".
+- Icon: thay text-span `"B"` bằng `ChannelIcon channel="blogger"` nếu icon đã có; nếu chưa, giữ tạm chữ B.
 
-### Fix 2: Verify `social_connections.platform` enum chấp nhận `'blogger'`
-Check via psql: `SELECT enum_range(NULL::social_platform_type)` (hoặc check column type). Nếu là enum và thiếu `'blogger'` → cần migration `ALTER TYPE ... ADD VALUE 'blogger'`.
+### 5. `src/components/ui/channel-icon.tsx` (verify)
+- Đảm bảo có icon cho `blogger`. Nếu chưa, thêm SVG đơn giản (chữ B màu cam Blogger #FF8000) — tuân thủ rule "SVG ChannelIcon thay vì emoji".
 
-Nếu column là text (không enum) → bỏ qua fix này.
+## Không thay đổi
 
-### Fix 3 (nếu cần): Migration thêm `'blogger'` vào enum
-Chỉ tạo nếu Fix 2 phát hiện thiếu:
-```sql
-ALTER TYPE public.social_platform_type ADD VALUE IF NOT EXISTS 'blogger';
-```
+- Schema DB / migrations (không cần).
+- OAuth flow Blogger (đã hoàn tất ở message trước).
+- Các edge function khác.
 
-## Testing sau khi triển khai
+## Kiểm tra sau khi implement
 
-1. Connect Blogger lại từ UI
-2. Check edge function logs `blogger-oauth-callback` — phải thấy `INSERT ok` hoặc lỗi cụ thể
-3. Query DB: `SELECT * FROM social_connections WHERE platform='blogger'` → phải có row
-4. UI hiện badge "Đã kết nối"
-
-## Files thay đổi
-
-- `supabase/functions/blogger-oauth-callback/index.ts` (Fix 1 — log + propagate error)
-- (Tuỳ chẩn đoán) Migration enum nếu cần
-
-## Lưu ý
-
-Đây là plan **bước 1**: thêm logging để biết lỗi thật. Sau khi user retry và logs hiện lỗi cụ thể, sẽ fix tiếp (RLS / enum / constraint / trigger) ở bước 2.
+1. Vào trang Multichannel → nội dung có kênh Blogger → bấm "Đăng ngay" → xuất bản thành công, nhận `postUrl` từ Blogger.
+2. Lên lịch đăng Blogger qua nút Calendar → cron chạy thành công.
+3. Kiểm tra `social_connections.last_used_at` được cập nhật, `last_error = null`.
+4. Logs `publish-blogger` không có lỗi, response trả `success: true, postUrl`.
