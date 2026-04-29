@@ -200,7 +200,7 @@ const channelConfig: Record<Channel, {
   },
   youtube: { 
     label: 'YouTube', 
-    shortLabel: 'YT',
+    shortLabel: 'YouTube',
     icon: <Youtube className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-red-400',
     bgColor: 'bg-red-500/10',
