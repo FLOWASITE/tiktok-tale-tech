@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChannelOverride } from '@/components/ChannelSettingsEditor';
 import { DEFAULT_CHANNEL_SETTINGS, ChannelSettings } from '@/types/channelSettings';
-import { Channel } from '@/types/multichannel';
+import { Channel, CHANNELS } from '@/types/multichannel';
 import { BrandChannelOptimizationEditor } from './BrandChannelOptimizationEditor';
 import {
   Collapsible,
