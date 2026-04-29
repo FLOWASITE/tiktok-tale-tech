@@ -52,7 +52,6 @@ import {
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Clock,
   Send,
   Music2,
