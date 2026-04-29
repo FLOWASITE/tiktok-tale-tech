@@ -71,6 +71,7 @@ import { StrategicContextPreview } from './StrategicContextPreview';
 import { TextPositionMockup } from './TextPositionMockup';
 import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 import { BackgroundEditor } from './BackgroundEditor';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;

@@ -82,6 +82,7 @@ import {
    Zap,
 } from 'lucide-react';
 import { XIcon, WordPressIcon, BloggerIcon, ZaloIcon } from '@/components/icons/SocialIcons';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
