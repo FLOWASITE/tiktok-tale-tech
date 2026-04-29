@@ -118,12 +118,18 @@ export function useVideoGeneration() {
 
       if (generationData) {
         const generation = generationData as VideoGeneration;
-        setGenerations(prev => [generation, ...prev]);
-        
+        setGenerations(prev => {
+          // Avoid duplicate if realtime got there first
+          if (prev.some((g) => g.id === generation.id)) return prev;
+          return [generation, ...prev];
+        });
+
         if (generation.status === 'completed') {
           toast.success('Video đã tạo thành công!');
+        } else if (generation.status === 'processing' || generation.status === 'pending') {
+          toast.info('Video đang được tạo nền — sẽ thông báo khi xong.');
         }
-        
+
         return generation;
       }
 
