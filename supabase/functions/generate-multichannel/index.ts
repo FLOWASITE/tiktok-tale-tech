@@ -4051,6 +4051,7 @@ const channelDescriptions: Record<string, string> = {
       telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
+      pinterest: "Pinterest Pin DESCRIPTION (≤500 ký tự, SEO-friendly, keyword-rich, action-oriented, kết thúc bằng CTA dạng 'Save for later' hoặc 'Click để xem thêm'). KHÔNG hashtag spam, tối đa 3-5 hashtag tự nhiên.",
     };
 
     formData.channels.forEach(channel => {
@@ -4232,6 +4233,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
+        pinterest: "Pinterest Pin DESCRIPTION (≤500 ký tự, SEO-friendly, keyword-rich, action-oriented, kết thúc bằng CTA. Tối đa 3-5 hashtag tự nhiên).",
       };
       
       for (const channel of channels) {
@@ -4242,6 +4244,13 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             type: "string",
             description: channelDescs[channel],
           };
+          // Pinterest also needs a separate title field (≤100 chars, SEO-optimized)
+          if (channel === 'pinterest') {
+            channelProps['pinterest_title'] = {
+              type: "string",
+              description: "Pinterest Pin TITLE (≤100 ký tự, chứa keyword chính, hấp dẫn click, không clickbait. Format: '[Benefit/Number] + [Keyword] + [Audience/Year]'. Ví dụ: '7 mẹo SEO Pinterest 2026 cho doanh nghiệp nhỏ'.",
+            };
+          }
         }
       }
       
