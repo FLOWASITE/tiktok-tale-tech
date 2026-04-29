@@ -68,6 +68,7 @@ export const CONTENT_ANGLES: { value: ContentAngle; label: string; description: 
 
 export type Channel = 
   | 'website'
+  | 'blogger'
   | 'facebook'
   | 'instagram'
   | 'twitter'
