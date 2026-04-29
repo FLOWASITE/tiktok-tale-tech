@@ -1162,6 +1162,14 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       </Dialog>
 
       {/* Website Setup Dialog */}
+      <WordPressConnectDialog
+        open={wpDialogOpen}
+        onOpenChange={setWpDialogOpen}
+        brandTemplateId={template.id}
+        onConnected={() => refetch()}
+      />
+
+      {/* Website Setup Dialog */}
       <Dialog open={websiteDialogOpen} onOpenChange={setWebsiteDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
