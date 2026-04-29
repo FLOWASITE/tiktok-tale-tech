@@ -116,6 +116,47 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
         </div>
       </div>
 
+      {/* Script-mode banner */}
+      {activeScript && (
+        <div className="rounded-xl border border-border/60 bg-foreground/[0.03] p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs">
+              <span className="text-muted-foreground">Đang ghép theo kịch bản:</span>{' '}
+              <span className="font-medium text-foreground">{activeScript.title}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch id="show-all" checked={showAllClips} onCheckedChange={setShowAllClips} />
+              <Label htmlFor="show-all" className="text-[10px] text-muted-foreground cursor-pointer">
+                Hiện tất cả clip
+              </Label>
+            </div>
+          </div>
+          {!showAllClips && missingScenes > 0 && (
+            <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 text-[11px]">
+                <p className="text-foreground">
+                  Còn <strong>{missingScenes}/{totalScenes}</strong> scene chưa quay.
+                </p>
+                {onJumpToTab && (
+                  <button
+                    onClick={() => onJumpToTab('quick')}
+                    className="text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                  >
+                    → Quay nốt ở Quick Clip
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {!showAllClips && (
+            <Button size="sm" variant="outline" onClick={selectAllByScene} className="h-7 text-[11px] w-full">
+              Chọn tất cả theo đúng thứ tự kịch bản
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Step 1: Select clips */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
