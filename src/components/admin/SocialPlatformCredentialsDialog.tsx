@@ -82,6 +82,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: '',
     instructions: 'Nhập URL API endpoint hoặc WordPress REST API URL và API Key/Password nếu cần xác thực',
   },
+  pinterest: {
+    url: 'https://developers.pinterest.com/apps/',
+    instructions: 'Tạo App tại Pinterest Developer Portal → Apps → Tạo app mới (yêu cầu Business account). Lấy App ID và App Secret. Thêm scope: boards:read, pins:read, pins:write, user_accounts:read.',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
@@ -94,6 +98,7 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
   zalo_oa: 'zalo-oauth-callback',
   google_business: 'google-business-oauth-callback',
   blogger: 'blogger-oauth-callback',
+  pinterest: 'pinterest-oauth-callback',
 };
 
 function getCallbackUrl(platform: SocialPlatform): string | null {
@@ -133,6 +138,7 @@ export function SocialPlatformCredentialsDialog({
   const isGoogle = platform === 'google_business';
   const isWebsite = platform === 'website';
   const isTikTok = platform === 'tiktok';
+  const isPinterest = platform === 'pinterest';
 
   const handleCopyCallback = async () => {
     if (!callbackUrl) return;
@@ -155,9 +161,11 @@ export function SocialPlatformCredentialsDialog({
           ? 'TikTok Client Key'
           : isLinkedIn
             ? 'LinkedIn Client ID'
-            : isMetaPlatform
-              ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-              : 'Consumer Key (API Key)';
+            : isPinterest
+              ? 'Pinterest App ID'
+              : isMetaPlatform
+                ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
+                : 'Consumer Key (API Key)';
 
   const secretLabel = isWebsite
     ? 'API Key / Application Password'
@@ -169,9 +177,11 @@ export function SocialPlatformCredentialsDialog({
           ? 'TikTok Client Secret'
           : isLinkedIn
             ? 'LinkedIn Client Secret'
-            : isMetaPlatform
-              ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-              : 'Consumer Secret (API Secret)';
+            : isPinterest
+              ? 'Pinterest App Secret'
+              : isMetaPlatform
+                ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
+                : 'Consumer Secret (API Secret)';
 
   useEffect(() => {
     if (open && existingSettings) {

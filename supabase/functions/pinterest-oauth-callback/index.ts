@@ -1,5 +1,31 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
-import { encrypt } from "../_shared/crypto.ts";
+import { encrypt, decryptCredential } from "../_shared/crypto.ts";
+
+// Resolve Pinterest OAuth client credentials: prefer admin DB → fallback env
+async function resolvePinterestClientCreds(supabase: any): Promise<{ clientId: string | null; clientSecret: string | null }> {
+  try {
+    const { data } = await supabase
+      .from('social_platform_settings')
+      .select('consumer_key, consumer_secret')
+      .eq('platform', 'pinterest')
+      .eq('is_active', true)
+      .maybeSingle();
+    if (data?.consumer_key && data?.consumer_secret) {
+      const encryptionKey = Deno.env.get('CREDENTIAL_ENCRYPTION_KEY') || '';
+      const [k, s] = await Promise.all([
+        decryptCredential(data.consumer_key, encryptionKey),
+        decryptCredential(data.consumer_secret, encryptionKey),
+      ]);
+      if (k && s) return { clientId: k, clientSecret: s };
+    }
+  } catch (e) {
+    console.warn('[pinterest] admin creds lookup failed:', (e as Error).message);
+  }
+  return {
+    clientId: Deno.env.get('PINTEREST_CLIENT_ID') || null,
+    clientSecret: Deno.env.get('PINTEREST_CLIENT_SECRET') || null,
+  };
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,8 +85,7 @@ Deno.serve(withPerf({ functionName: 'pinterest-oauth-callback' }, async (req) =>
       return Response.redirect(r.toString(), 302);
     }
 
-    const clientId = Deno.env.get('PINTEREST_CLIENT_ID');
-    const clientSecret = Deno.env.get('PINTEREST_CLIENT_SECRET');
+    const { clientId, clientSecret } = await resolvePinterestClientCreds(supabase);
     if (!clientId || !clientSecret) {
       const r = new URL('/auth/pinterest/callback', frontendUrl);
       r.searchParams.set('error', 'Pinterest credentials not configured');

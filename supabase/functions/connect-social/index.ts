@@ -1026,9 +1026,17 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
 
     // For Pinterest - OAuth 2.0 with PKCE (mandatory)
     if (platform === 'pinterest') {
-      const clientId = Deno.env.get('PINTEREST_CLIENT_ID');
+      // Prefer admin-managed credentials in social_platform_settings; fall back to env
+      let clientId: string | null = null;
+      try {
+        const adminCreds = await getGlobalPlatformCredentials(supabase, 'pinterest', encryptionKey);
+        clientId = adminCreds.consumerKey;
+      } catch (e) {
+        console.warn('[pinterest] admin creds unavailable, falling back to env', (e as Error).message);
+      }
+      if (!clientId) clientId = Deno.env.get('PINTEREST_CLIENT_ID') || null;
       if (!clientId) {
-        throw new Error('Pinterest chưa được cấu hình ở phía Flowa. Vui lòng liên hệ admin.');
+        throw new Error('Pinterest chưa được cấu hình ở phía Flowa. Vui lòng vào Admin → Social Platforms → Pinterest để nhập App ID/Secret.');
       }
 
       // Generate PKCE code_verifier (43-128 chars) + code_challenge (S256)

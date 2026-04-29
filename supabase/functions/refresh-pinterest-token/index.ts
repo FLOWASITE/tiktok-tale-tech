@@ -40,9 +40,26 @@ Deno.serve(withPerf({ functionName: 'refresh-pinterest-token' }, async (req) => 
       );
     }
 
-    const clientId = Deno.env.get('PINTEREST_CLIENT_ID');
-    const clientSecret = Deno.env.get('PINTEREST_CLIENT_SECRET');
-    if (!clientId || !clientSecret) throw new Error('Pinterest credentials not configured');
+    // Resolve OAuth client creds: admin DB first, env fallback
+    let clientId: string | null = null;
+    let clientSecret: string | null = null;
+    try {
+      const { data: adminCreds } = await supabase
+        .from('social_platform_settings')
+        .select('consumer_key, consumer_secret')
+        .eq('platform', 'pinterest')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (adminCreds?.consumer_key && adminCreds?.consumer_secret) {
+        clientId = await decryptCredential(adminCreds.consumer_key);
+        clientSecret = await decryptCredential(adminCreds.consumer_secret);
+      }
+    } catch (e) {
+      console.warn('[refresh-pinterest-token] admin creds unavailable:', (e as Error).message);
+    }
+    if (!clientId) clientId = Deno.env.get('PINTEREST_CLIENT_ID') || null;
+    if (!clientSecret) clientSecret = Deno.env.get('PINTEREST_CLIENT_SECRET') || null;
+    if (!clientId || !clientSecret) throw new Error('Pinterest credentials not configured (Admin → Social Platforms → Pinterest)');
 
     const refreshToken = await decryptCredential(connection.refresh_token);
     if (!refreshToken) throw new Error('Failed to decrypt refresh token');

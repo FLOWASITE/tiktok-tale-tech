@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe, Image as ImageIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +39,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'wordpress', name: 'WordPress', icon: Globe, color: 'text-[#21759b]', available: true },
   { platform: 'website', name: 'Website', icon: Globe, color: 'text-green-600', available: true },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: true },
+  { platform: 'pinterest', name: 'Pinterest', icon: ImageIcon, color: 'text-[#E60023]', available: true },
 ];
 
 export default function AdminSocialSettings() {
@@ -87,6 +88,7 @@ export default function AdminSocialSettings() {
         zalo_oa: 'zalo',
         google_business: 'google-business',
         website: 'website',
+        pinterest: 'pinterest',
       };
       const diagnosticPlatform = platformMap[platform] || platform;
 
