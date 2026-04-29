@@ -63,28 +63,39 @@ async function getGlobalPlatformCredentials(
   platform: string,
   encryptionKey: string
 ): Promise<{ consumerKey: string | null; consumerSecret: string | null }> {
+  let data: any = null;
   try {
-    const { data, error } = await supabase
+    const result = await supabase
       .from('social_platform_settings')
       .select('consumer_key, consumer_secret')
       .eq('platform', platform)
       .eq('is_active', true)
       .single();
 
-    if (error || !data) {
+    if (result.error || !result.data) {
       console.log(`No global settings found for ${platform}`);
       return { consumerKey: null, consumerSecret: null };
     }
+    data = result.data;
+  } catch (error) {
+    console.error('Error fetching global credentials (DB):', error);
+    return { consumerKey: null, consumerSecret: null };
+  }
 
+  // Decrypt is separate: if it fails, surface the error so the caller can
+  // show a meaningful message instead of pretending credentials don't exist.
+  try {
     const [consumerKey, consumerSecret] = await Promise.all([
       decryptCredential(data.consumer_key, encryptionKey),
       decryptCredential(data.consumer_secret, encryptionKey),
     ]);
-
     return { consumerKey, consumerSecret };
-  } catch (error) {
-    console.error('Error fetching global credentials:', error);
-    return { consumerKey: null, consumerSecret: null };
+  } catch (error: any) {
+    console.error(`[${platform}] decrypt error:`, error?.message || error);
+    throw new Error(
+      `Không thể giải mã credentials ${platform} — encryption key có thể đã bị xoay hoặc giá trị trong DB không phải ciphertext hợp lệ. ` +
+      `Vào Admin → AI Management → Social Platforms → ${platform} và NHẬP LẠI Client Key/Secret qua giao diện.`
+    );
   }
 }
 
@@ -810,9 +821,25 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
     if (platform === 'tiktok') {
       const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
       const globalCreds = await getGlobalPlatformCredentials(supabase, 'tiktok', encryptionKey);
-      
+
       if (!globalCreds.consumerKey || !globalCreds.consumerSecret) {
         throw new Error('TikTok chưa được cấu hình. Liên hệ Admin để thiết lập Client Key/Secret trong Admin Settings.');
+      }
+
+      // Validate TikTok client_key format. Production keys are lowercase
+      // alphanumeric ~18-20 chars (e.g. "aw5jx7..." or "sbaw..."). If decrypt
+      // returned garbage (key mismatch) or admin pasted plaintext into DB
+      // bypassing encryption, the value won't match — fail loudly here instead
+      // of redirecting to TikTok and getting a confusing "client_key" error.
+      const clientKey = globalCreds.consumerKey.trim();
+      console.log('[tiktok] client_key length=', clientKey.length, 'prefix=', clientKey.slice(0, 4) + '***');
+
+      if (!/^[a-z0-9]{16,24}$/.test(clientKey)) {
+        throw new Error(
+          `Client Key TikTok không hợp lệ (length=${clientKey.length}). ` +
+          `Vào Admin → AI Management → Social Platforms → TikTok và NHẬP LẠI Client Key/Secret Production từ TikTok Developer Portal. ` +
+          `Lưu ý: phải nhập qua giao diện Admin để được mã hoá đúng — không update trực tiếp database.`
+        );
       }
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -825,7 +852,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       }));
 
       const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?` + new URLSearchParams({
-        client_key: globalCreds.consumerKey,
+        client_key: clientKey,
         redirect_uri: redirectUri,
         scope: 'user.info.basic,video.publish,video.upload',
         response_type: 'code',

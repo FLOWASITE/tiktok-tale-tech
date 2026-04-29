@@ -109,9 +109,30 @@ export async function decrypt(ciphertext: string): Promise<string> {
     data
   );
   
-  // Decode to string
-  const decoder = new TextDecoder();
-  return decoder.decode(decrypted);
+  // Decode to string. Use fatal:true so invalid UTF-8 (typical of wrong key)
+  // throws instead of returning garbage with replacement chars.
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let text: string;
+  try {
+    text = decoder.decode(decrypted);
+  } catch {
+    throw new Error("Decryption produced invalid UTF-8 (encryption key mismatch?)");
+  }
+
+  // Sanity check: credentials we store are ASCII tokens / API keys / JSON.
+  // If output contains control bytes (other than tab/newline/CR), it's almost
+  // certainly garbage from a wrong key — refuse to return it silently.
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d) {
+      throw new Error("Decryption produced non-printable output (encryption key mismatch?)");
+    }
+    if (code === 0x7f) {
+      throw new Error("Decryption produced non-printable output (encryption key mismatch?)");
+    }
+  }
+
+  return text;
 }
 
 /**
