@@ -48,7 +48,6 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   MapPin,
   Linkedin,
   Mail,
