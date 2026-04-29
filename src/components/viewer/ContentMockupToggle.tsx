@@ -29,6 +29,8 @@ interface ContentMockupToggleProps {
   // Brand metadata for richer mockups (Google Maps, etc.)
   footerInfo?: BrandFooterInfo | null;
   industryLabel?: string;
+  // Pinterest-only: dedicated Pin title
+  pinterestTitle?: string;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
