@@ -44,6 +44,30 @@ export function useDirectPublish() {
       platform: SocialPlatform;
       options: PublishOptions;
     }): Promise<PublishResult> => {
+      // Client-side payload validation — fail fast với thông điệp rõ ràng
+      const missing: string[] = [];
+      if (!options?.connectionId || typeof options.connectionId !== 'string') {
+        missing.push('connectionId (kết nối mạng xã hội)');
+      }
+      const hasContent = typeof options?.content === 'string' && options.content.trim().length > 0;
+      const hasMedia = Array.isArray(options?.mediaUrls) && options.mediaUrls.filter(Boolean).length > 0;
+
+      // Instagram & TikTok bắt buộc phải có media
+      const mediaRequiredPlatforms: SocialPlatform[] = ['instagram', 'tiktok'];
+      if (mediaRequiredPlatforms.includes(platform) && !hasMedia) {
+        missing.push(`mediaUrls (ảnh/video — bắt buộc cho ${platform})`);
+      }
+      // Các nền khác cần ít nhất content hoặc media
+      if (!mediaRequiredPlatforms.includes(platform) && !hasContent && !hasMedia) {
+        missing.push('content hoặc mediaUrls (cần ít nhất một)');
+      }
+
+      if (missing.length > 0) {
+        const err = new Error(`Thiếu trường bắt buộc: ${missing.join(', ')}`);
+        (err as any).errorCode = 'INVALID_PAYLOAD';
+        throw err;
+      }
+
       // Map platform to channel-publisher action
       const PLATFORM_ACTION_MAP: Record<string, string> = {
         'zalo_oa': 'zalo',
@@ -51,8 +75,12 @@ export function useDirectPublish() {
         'tiktok': 'tiktok',
       };
       const action = PLATFORM_ACTION_MAP[platform] || platform;
-      
-      console.log(`Publishing to ${platform} via channel-publisher...`, options);
+
+      console.log(`Publishing to ${platform} via channel-publisher...`, {
+        connectionId: options.connectionId,
+        hasContent,
+        mediaCount: options.mediaUrls?.length ?? 0,
+      });
 
       const response = await supabase.functions.invoke('channel-publisher', {
         body: { action, ...options },
@@ -124,6 +152,7 @@ export function useDirectPublish() {
       const isTikTokFileFormat =
         errorCode === 'TIKTOK_POST_PROCESSING_FAILED' &&
         error.message?.includes('file_format_check_failed');
+      const isInvalidPayload = errorCode === 'INVALID_PAYLOAD';
       const isTikTokImageError = [
         'TIKTOK_IMAGE_FETCH_FAILED',
         'TIKTOK_IMAGE_DECODE_FAILED',
@@ -131,7 +160,13 @@ export function useDirectPublish() {
         'TIKTOK_UNSUPPORTED_FORMAT',
       ].includes(errorCode || '');
       
-      if (isTikTokFileFormat) {
+      if (isInvalidPayload) {
+        toast({
+          title: 'Payload không hợp lệ',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else if (isTikTokFileFormat) {
         toast({
           title: 'TikTok: Định dạng ảnh không tương thích',
           description: 'TikTok từ chối ảnh carousel do encoding không hỗ trợ. Hãy thử tạo lại ảnh hoặc dùng ảnh JPEG chuẩn.',
