@@ -1529,20 +1529,23 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     const originalNewChannels: string[] = Array.isArray(formData.newChannels) ? [...(formData.newChannels as string[])] : [];
     const originalSingleChannel: string | undefined = formData.channel;
 
-    // Expand 'blogger'/'wordpress' to also include 'website' so the long-form pipeline runs.
-    // We still want 'blogger'/'wordpress' kept in selected_channels at the end.
-    const expandLongFormAliases = (chs: string[]): string[] => {
+    // Collapse 'blogger'/'wordpress' INTO 'website' (they share the website_content column + long-form pipeline).
+    // Previously we EXPANDED (added website BESIDE wordpress), which caused the AI to run the long-form
+    // pipeline TWICE in parallel — wasting quota and showing duplicate columns in the streaming UI.
+    // We still keep 'blogger'/'wordpress' in selected_channels at the end (see persistedSelectedChannels below).
+    const collapseLongFormAliases = (chs: string[]): string[] => {
       if (!Array.isArray(chs)) return chs;
-      const out = [...chs];
-      const needsWebsite = (out.includes('blogger') || out.includes('wordpress')) && !out.includes('website');
-      if (needsWebsite) out.push('website');
-      return out;
+      const hasLongFormAlias = chs.includes('blogger') || chs.includes('wordpress');
+      if (!hasLongFormAlias) return chs;
+      const filtered = chs.filter((c) => c !== 'blogger' && c !== 'wordpress');
+      if (!filtered.includes('website')) filtered.push('website');
+      return filtered;
     };
     if (formData.channels) {
-      formData.channels = normalizeChannels(expandLongFormAliases(formData.channels));
+      formData.channels = normalizeChannels(collapseLongFormAliases(formData.channels));
     }
     if (formData.newChannels) {
-      formData.newChannels = normalizeChannels(expandLongFormAliases(formData.newChannels as string[])) as any;
+      formData.newChannels = normalizeChannels(collapseLongFormAliases(formData.newChannels as string[])) as any;
     }
     if (formData.channel === 'blogger' || formData.channel === 'wordpress') {
       // For single-channel regenerate of blogger/wordpress, generate website body
