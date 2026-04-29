@@ -109,6 +109,13 @@ export async function resolveSocialPayload(input: ResolveInput): Promise<Resolve
   // 3. Inject content + media
   finalPayload.content = channelContent;
 
+  // Pinterest needs an explicit title (separate from description)
+  if (action === 'pinterest' && mccRow.pinterest_title) {
+    finalPayload.title = mccRow.pinterest_title;
+  } else if (action === 'pinterest' && mccRow.title) {
+    finalPayload.title = mccRow.title;
+  }
+
   try {
     const channelImages = mccRow.channel_images as Record<string, any> | null;
     if (channelImages && typeof channelImages === 'object') {
