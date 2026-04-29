@@ -61,6 +61,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { WordPressConnectDialog } from './WordPressConnectDialog';
+import { PinterestBoardSelector } from './PinterestBoardSelector';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
