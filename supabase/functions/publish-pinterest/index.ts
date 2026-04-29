@@ -15,6 +15,7 @@ interface PublishRequest {
   link?: string;            // destination link (Pinterest is link-driven)
   boardId?: string;         // Pinterest board to pin to
   altText?: string;         // accessibility text
+  pinType?: 'auto' | 'image' | 'carousel' | 'video' | 'idea';
   scheduleId?: string;
   contentId?: string;
   organization_id?: string;
