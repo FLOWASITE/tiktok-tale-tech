@@ -1735,7 +1735,7 @@ export function MultiChannelViewer({
                               )}
                               
                               {/* SEO Preview for website channel */}
-                              {channel === 'website' && (content as any).website_seo_data && (
+                              {(channel === 'website' || channel === 'blogger') && (content as any).website_seo_data && (
                                 <WebsiteSEOPreview
                                   seoData={(content as any).website_seo_data}
                                   content={channelContent}
