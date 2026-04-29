@@ -1759,6 +1759,16 @@ export function MultiChannelViewer({
                                   brandName={content.brand_name}
                                 />
                               )}
+
+                              {/* Pinterest analytics — only when this Pin has been published */}
+                              {channel === 'pinterest' && (content as any).pinterest_post_id && (
+                                <PinterestAnalyticsCard
+                                  contentId={content.id}
+                                  pinId={(content as any).pinterest_post_id}
+                                  pinUrl={(content as any).pinterest_post_url}
+                                  organizationId={content.organization_id}
+                                />
+                              )}
                               
                             </div>
                           )
