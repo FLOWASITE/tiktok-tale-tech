@@ -14,7 +14,7 @@ export function AudioStudioTab() {
   const { assets, generating, generateVoiceover, generateBGM, generateSubtitles, deleteAsset } = useAudioStudio();
 
   const [voText, setVoText] = useState('');
-  const [voVoiceId, setVoVoiceId] = useState(VOICE_OPTIONS[0].id);
+  const [voVoiceId, setVoVoiceId] = useState<string>(VOICE_OPTIONS[0].id);
   const [bgmPrompt, setBgmPrompt] = useState('');
   const [bgmDuration, setBgmDuration] = useState(15);
   const [subUrl, setSubUrl] = useState('');
