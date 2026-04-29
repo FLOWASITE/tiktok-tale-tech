@@ -32,7 +32,7 @@ import {
   Globe, Youtube, Send, Building2, AtSign, Package, Users, Settings, Palette, Trash2
 } from "lucide-react";
 import { Facebook, Instagram, Linkedin } from "lucide-react";
-import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
+import { ZaloIcon, XIcon, PinterestIcon } from "@/components/icons/SocialIcons";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import type { Channel } from "@/types/multichannel";
