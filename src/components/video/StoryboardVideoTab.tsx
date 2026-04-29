@@ -395,9 +395,16 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                   </p>
                 </div>
                 {job.status === 'completed' && job.output_url && (
-                  <a href={job.output_url} target="_blank" rel="noreferrer">
-                    <Button size="sm" variant="outline">Xem</Button>
-                  </a>
+                  <div className="flex items-center gap-1.5">
+                    <a href={job.output_url} target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="outline">Xem</Button>
+                    </a>
+                    <PublishVideoMenu
+                      videoUrl={job.output_url}
+                      aspectRatio={job.aspect_ratio as '9:16' | '16:9' | '1:1'}
+                      defaultCaption={activeScript?.title ? `${activeScript.title}` : ''}
+                    />
+                  </div>
                 )}
                 {job.status === 'processing' && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
               </div>
