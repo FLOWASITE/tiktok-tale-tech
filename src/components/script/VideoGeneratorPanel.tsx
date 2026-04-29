@@ -456,7 +456,14 @@ export function VideoGeneratorPanel({
         {phase !== 'idle' && (
           <div className="space-y-2.5 rounded-md border border-border bg-muted/30 px-3 py-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-foreground/80">Tiến độ tạo video</span>
+              <span className="font-medium text-foreground/80 flex items-center gap-1.5">
+                Tiến độ tạo video
+                {progressSource === 'provider' && (
+                  <span className="text-[9px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                    Live
+                  </span>
+                )}
+              </span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 {progress}% · {fmtTime(elapsed)}
               </span>
