@@ -542,6 +542,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         <ScriptVideoTab
                           script={script}
                           onSendToVideoStudio={handleSendToVideoStudio}
+                          onScriptUpdate={onScriptUpdate}
                         />
                       </ScrollArea>
                     </TabsContent>
