@@ -1,6 +1,7 @@
 // Stitch multi-scene videos + voiceover + bgm + (optional) burn-in subtitles via Creatomate
 // Submit-only: returns render_job_id immediately. Background poller updates status.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,28 @@ Deno.serve(async (req) => {
     const body = await req.json() as RenderRequest;
     if (!body.clip_urls || body.clip_urls.length === 0) {
       return json({ error: "clip_urls required" }, 400);
+    }
+
+    // Resolve org_id (prefer client-provided, else lookup from membership)
+    let organizationId = body.organization_id ?? null;
+    if (!organizationId) {
+      const { data: orgRow } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      organizationId = orgRow?.organization_id ?? null;
+    }
+
+    // ───────── QUOTA CHECK (1 render = 1 video output) ─────────
+    if (organizationId) {
+      const quota = await checkUnitQuota(supabase, organizationId, 'video', 1);
+      if (!quota.allowed) {
+        console.warn(`[creatomate] quota exceeded org=${organizationId}`);
+        return buildQuotaExceededResponse(quota, corsHeaders);
+      }
     }
 
     const aspect = body.aspect_ratio ?? "9:16";
@@ -147,7 +170,7 @@ Deno.serve(async (req) => {
       .from("video_render_jobs")
       .insert({
         user_id: user.id,
-        organization_id: body.organization_id ?? null,
+        organization_id: organizationId,
         storyboard_id: body.storyboard_id ?? null,
         source_clip_ids: body.source_clip_ids ?? [],
         voiceover_url: body.voiceover_url ?? null,
