@@ -73,6 +73,19 @@ export function AudioStudioTab() {
         </div>
       </div>
 
+      {activeScript && (
+        <div className="rounded-xl border border-border/60 bg-foreground/[0.03] p-3 flex items-center justify-between gap-2 flex-wrap">
+          <div className="text-xs">
+            <span className="text-muted-foreground">Kịch bản đang dùng:</span>{' '}
+            <span className="font-medium text-foreground">{activeScript.title}</span>{' '}
+            <Badge variant="outline" className="ml-1 text-[10px] h-5">{activeScript.scenes.length} scene</Badge>
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            {scriptNarration ? `~${scriptNarration.length} ký tự sẵn cho voiceover` : 'Không có narration dùng được'}
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue="voiceover" className="space-y-4">
         <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="voiceover" className="gap-1.5"><Mic className="w-3.5 h-3.5" />Voiceover</TabsTrigger>
