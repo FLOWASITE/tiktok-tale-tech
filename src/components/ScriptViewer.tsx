@@ -45,6 +45,8 @@ import { VideoGeneratorPanel } from '@/components/script/VideoGeneratorPanel';
 import { VideoGallery } from '@/components/script/VideoGallery';
 import { ScriptExportMenu } from '@/components/script/ScriptExportMenu';
 import { ScriptCollaborationPanel } from '@/components/script/ScriptCollaborationPanel';
+import { SceneVideoStrip } from '@/components/scripts/SceneVideoStrip';
+import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
 import { cn } from '@/lib/utils';
 
 interface ScriptViewerProps {
