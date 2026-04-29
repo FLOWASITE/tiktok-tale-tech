@@ -115,15 +115,51 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
         missingCount={missingScenes.length}
       />
 
-      {totalScenes > 0 ? (
-        <ScriptSceneGrid
-          script={script}
-          scenes={scenes}
-          onOpenStudio={(idx) => onSendToVideoStudio(idx)}
-        />
+      {totalScenes > 0 || view === 'manage' ? (
+        <Tabs value={view} onValueChange={(v) => setView(v as 'grid' | 'manage')}>
+          <TabsList className="h-8 mb-3">
+            <TabsTrigger value="grid" className="text-[11px] gap-1.5 h-6">
+              <LayoutGrid className="h-3 w-3" />
+              Lưới scene
+            </TabsTrigger>
+            <TabsTrigger value="manage" className="text-[11px] gap-1.5 h-6">
+              <ListOrdered className="h-3 w-3" />
+              Quản lý &amp; sắp xếp
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="grid" className="mt-0">
+            {totalScenes > 0 ? (
+              <ScriptSceneGrid
+                script={script}
+                scenes={scenes}
+                onOpenStudio={(idx) => onSendToVideoStudio(idx)}
+              />
+            ) : (
+              <div className="text-center py-10 text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg">
+                Kịch bản chưa có scene nào. Chuyển sang tab "Quản lý" để thêm scene đầu tiên.
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="manage" className="mt-0">
+            <SceneManagerPanel
+              script={script}
+              bySceneNumber={bySceneNumber}
+              onScriptUpdate={onScriptUpdate}
+            />
+          </TabsContent>
+        </Tabs>
       ) : (
         <div className="text-center py-10 text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg">
-          Kịch bản chưa có scene nào. Hãy tạo storyboard hoặc edit kịch bản trước.
+          Kịch bản chưa có scene nào.{' '}
+          <button
+            type="button"
+            onClick={() => setView('manage')}
+            className="text-primary hover:underline"
+          >
+            Thêm scene đầu tiên
+          </button>
         </div>
       )}
 
