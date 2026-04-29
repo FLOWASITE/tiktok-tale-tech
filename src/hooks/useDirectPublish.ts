@@ -160,7 +160,13 @@ export function useDirectPublish() {
         'TIKTOK_UNSUPPORTED_FORMAT',
       ].includes(errorCode || '');
       
-      if (isTikTokFileFormat) {
+      if (isInvalidPayload) {
+        toast({
+          title: 'Payload không hợp lệ',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else if (isTikTokFileFormat) {
         toast({
           title: 'TikTok: Định dạng ảnh không tương thích',
           description: 'TikTok từ chối ảnh carousel do encoding không hỗ trợ. Hãy thử tạo lại ảnh hoặc dùng ảnh JPEG chuẩn.',
