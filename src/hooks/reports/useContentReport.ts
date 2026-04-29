@@ -64,20 +64,30 @@ const TYPE_LABEL: Record<ContentType, string> = {
   ad_copy: 'Ad copy',
 };
 
-export function useContentReport(orgId: string | null, filters: ReportFilters) {
+interface ContentReportOptions {
+  overrideRange?: { from: Date; to: Date } | null;
+}
+
+export function useContentReport(
+  orgId: string | null,
+  filters: ReportFilters,
+  options: ContentReportOptions = {},
+) {
+  const dateFrom = options.overrideRange?.from ?? filters.dateFrom;
+  const dateTo = options.overrideRange?.to ?? filters.dateTo;
   return useQuery({
     queryKey: [
       'report-content',
       orgId,
-      filters.dateFrom.toISOString(),
-      filters.dateTo.toISOString(),
+      dateFrom.toISOString(),
+      dateTo.toISOString(),
       filters.brandId,
       filters.channel,
     ],
     enabled: !!orgId,
     queryFn: async (): Promise<ContentReportData> => {
-      const fromIso = filters.dateFrom.toISOString();
-      const toIso = filters.dateTo.toISOString();
+      const fromIso = dateFrom.toISOString();
+      const toIso = dateTo.toISOString();
       const brandFilter = filters.brandId;
       const channelFilter = filters.channel;
 
