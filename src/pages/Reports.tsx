@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon, Clock, AlertTriangle, History, Search, ArrowUpDown, ExternalLink, X } from 'lucide-react';
+import { BarChart3, Download, RefreshCw, Heart, MessageCircle, Share2, Eye, FileDown, Sparkles, CheckCircle2, Send, FileText as FileTextIcon, Clock, AlertTriangle, History, Search, ArrowUpDown, ExternalLink, X, CreditCard } from 'lucide-react';
+import { SubscriptionReportTab } from '@/components/reports/SubscriptionReportTab';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ContentTypeBadge, type ContentType, CONTENT_TYPE_LABELS } from '@/components/reports/ContentTypeBadge';
@@ -226,6 +227,10 @@ export default function Reports() {
             <TabsTrigger value="insights" className="gap-1">
               <Sparkles className="h-3.5 w-3.5" />
               AI Insights
+            </TabsTrigger>
+            <TabsTrigger value="subscription" className="gap-1">
+              <CreditCard className="h-3.5 w-3.5" />
+              Gói đăng ký
             </TabsTrigger>
           </TabsList>
 
@@ -989,6 +994,10 @@ export default function Reports() {
               error={insights.error}
               onRefresh={() => insights.refresh()}
             />
+          </TabsContent>
+
+          <TabsContent value="subscription" className="space-y-4">
+            <SubscriptionReportTab />
           </TabsContent>
         </Tabs>
       </div>
