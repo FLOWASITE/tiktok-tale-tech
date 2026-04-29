@@ -337,6 +337,12 @@ verify_jwt = false
 [functions.generate-video]
 verify_jwt = false
 
+[functions.generate-video-prompt]
+verify_jwt = false
+
+[functions.video-job-poller]
+verify_jwt = false
+
 [functions.decompose-image-request]
 verify_jwt = false
 
