@@ -1604,7 +1604,7 @@ export function MultiChannelViewer({
                                     (channelContent.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5) +
                                     ((channelContent.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0)
                                   )) : undefined}
-                                  seoScore={channel === 'website' ? calculateSEOScore(channelContent || '') : undefined}
+                                  seoScore={(channel === 'website' || channel === 'blogger') ? calculateSEOScore(channelContent || '') : undefined}
                                   onTriggerGEO={handleTriggerGEO}
                                   isGEOLoading={isGEOScoring}
                                   geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
