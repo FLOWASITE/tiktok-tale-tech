@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -34,6 +35,15 @@ export function VideoGeneratorPanel({
   
   const [provider, setProvider] = useState<VideoProvider>('geminigen');
   const [prompt, setPrompt] = useState(scene?.promptText || '');
+  const [isPromptDirty, setIsPromptDirty] = useState(false);
+
+  // Đồng bộ prompt khi scene.promptText đến muộn hoặc đổi scene (chỉ khi user chưa gõ tay)
+  useEffect(() => {
+    if (!isPromptDirty && scene?.promptText && scene.promptText !== prompt) {
+      setPrompt(scene.promptText);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene?.promptText, scene?.sceneNumber]);
   const [duration, setDuration] = useState<number>(5);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('1080p');
@@ -43,22 +53,30 @@ export function VideoGeneratorPanel({
   const availableAspectRatios = providerConfig.aspectRatios;
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim()) {
+      toast.error('Vui lòng nhập prompt mô tả cảnh quay trước khi tạo video.');
+      return;
+    }
 
-    const result = await generateVideo({
-      provider,
-      prompt: prompt.trim(),
-      // model omitted — Admin AI Function Config decides
-      duration,
-      aspect_ratio: aspectRatio,
-      resolution,
-      script_id: script?.id,
-      storyboard_id: storyboardId,
-      scene_number: scene?.sceneNumber,
-    });
+    try {
+      const result = await generateVideo({
+        provider,
+        prompt: prompt.trim(),
+        // model omitted — Admin AI Function Config decides
+        duration,
+        aspect_ratio: aspectRatio,
+        resolution,
+        script_id: script?.id,
+        storyboard_id: storyboardId,
+        scene_number: scene?.sceneNumber,
+      });
 
-    if (result?.video_url) {
-      onVideoGenerated?.(result.video_url);
+      if (result?.video_url) {
+        onVideoGenerated?.(result.video_url);
+      }
+    } catch (err) {
+      console.error('[VideoGeneratorPanel] generate failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Không thể tạo video.');
     }
   };
 
@@ -128,14 +146,20 @@ export function VideoGeneratorPanel({
           <Label className="text-xs font-medium">Video Prompt</Label>
           <Textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => { setPrompt(e.target.value); setIsPromptDirty(true); }}
             placeholder="Mô tả chi tiết cảnh quay: nhân vật, hành động, góc camera, ánh sáng..."
             rows={4}
             className="text-sm resize-none"
           />
-          <p className="text-[10px] text-muted-foreground">
-            💡 Prompt càng chi tiết, video càng đẹp. Mô tả camera motion, lighting, mood.
-          </p>
+          {!prompt.trim() && scene ? (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400">
+              ⚠️ Scene chưa có mô tả — hãy nhập prompt thủ công trước khi tạo video.
+            </p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">
+              💡 Prompt càng chi tiết, video càng đẹp. Mô tả camera motion, lighting, mood.
+            </p>
+          )}
         </div>
 
         {/* Duration & Aspect Ratio */}
