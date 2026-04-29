@@ -350,15 +350,18 @@ export function useSubscriptionReport() {
     dailySeries: dailyQuery.data?.daily || [],
     imageChannelBreakdown: dailyQuery.data?.imageBreakdown || [],
     warnings,
+    brandUsage: breakdownQuery.data?.brandUsage || [],
+    userUsage: breakdownQuery.data?.userUsage || [],
   };
 
   return {
     data,
     activeAddons,
-    isLoading: subLoading || dailyQuery.isLoading,
+    isLoading: subLoading || dailyQuery.isLoading || breakdownQuery.isLoading,
     refetch: () => {
       refetchSubscription();
       dailyQuery.refetch();
+      breakdownQuery.refetch();
     },
   };
 }
