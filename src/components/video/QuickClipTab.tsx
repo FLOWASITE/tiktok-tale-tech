@@ -20,13 +20,52 @@ const EXAMPLE_PROMPTS = [
 
 export function QuickClipTab() {
   const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
   const [duration, setDuration] = useState(5);
   const [model, setModel] = useState<VideoModelChoice>('geminigen/veo-3.1-fast');
+  const [enhancing, setEnhancing] = useState(false);
   const { generateVideo, generating } = useVideoGeneration();
+  const { currentBrand } = useCurrentBrand();
 
   const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
+
+  const handleSmartPrompt = async () => {
+    if (prompt.trim().length < 5) {
+      toast.error('Nhập ý tưởng ngắn (≥5 ký tự) trước khi dùng Smart Prompt.');
+      return;
+    }
+    setEnhancing(true);
+    try {
+      const channel = aspect === '16:9' ? 'youtube' : aspect === '1:1' ? 'facebook' : 'tiktok';
+      const { data, error } = await supabase.functions.invoke('generate-video-prompt', {
+        body: {
+          idea: prompt.trim(),
+          channel,
+          aspect_ratio: aspect,
+          duration,
+          brand_id: currentBrand?.id,
+          industry_id: (currentBrand as { industry_template_id?: string } | null)?.industry_template_id,
+          language: 'vi',
+        },
+      });
+      if (error) throw error;
+      const result = data?.data;
+      if (result?.cinematic_prompt) {
+        setPrompt(result.cinematic_prompt);
+        if (result.negative_prompt) setNegativePrompt(result.negative_prompt);
+        toast.success('Smart Prompt đã tinh chỉnh ý tưởng theo brand & channel.');
+      } else {
+        toast.error('Không nhận được prompt nâng cao.');
+      }
+    } catch (e) {
+      console.error('[QuickClipTab] Smart Prompt error:', e);
+      toast.error('Không thể nâng cấp prompt — thử lại sau.');
+    } finally {
+      setEnhancing(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (prompt.trim().length < 10) {
