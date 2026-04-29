@@ -87,6 +87,68 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
     setSelectedClips(ids);
   };
 
+  // ============= AUTO-BATCH: Quay tự động tất cả scene chưa có =============
+  const runBatchGenerate = async () => {
+    if (!activeScript) return;
+    const existingScenes = new Set(
+      allCompletedClips
+        .filter((g) => g.script_id === activeScript.id)
+        .map((g) => g.scene_number)
+        .filter(Boolean) as number[],
+    );
+    // Cũng skip những scene đang processing để không double-submit
+    const inFlightScenes = new Set(
+      generations
+        .filter((g) => g.script_id === activeScript.id && (g.status === 'pending' || g.status === 'processing'))
+        .map((g) => g.scene_number)
+        .filter(Boolean) as number[],
+    );
+    const todo = activeScript.scenes.filter(
+      (s) => !existingScenes.has(s.sceneNumber) && !inFlightScenes.has(s.sceneNumber),
+    );
+    if (todo.length === 0) {
+      toast.info('Tất cả scene đã có clip rồi.');
+      return;
+    }
+
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: todo.length });
+    let success = 0;
+    let failed = 0;
+
+    for (let i = 0; i < todo.length; i++) {
+      const scene = todo[i];
+      setBatchProgress({ done: i, total: todo.length, currentScene: scene.sceneNumber });
+      try {
+        const res = await generateVideo({
+          provider: 'geminigen',
+          prompt: scene.prompt,
+          duration: Math.max(3, Math.min(scene.duration ?? 5, 10)),
+          aspect_ratio: scene.aspect ?? aspect,
+          resolution: '1080p',
+          script_id: activeScript.id,
+          scene_number: scene.sceneNumber,
+        });
+        if (res) success += 1; else failed += 1;
+      } catch (e) {
+        console.error('[batch] scene', scene.sceneNumber, e);
+        failed += 1;
+      }
+      // Nhỏ delay để tránh rate-limit provider
+      await new Promise((r) => setTimeout(r, 800));
+    }
+
+    setBatchProgress({ done: todo.length, total: todo.length });
+    setBatchRunning(false);
+    if (failed === 0) {
+      toast.success(`Đã submit ${success}/${todo.length} scene. Theo dõi tiến độ ở đây hoặc tab Thư viện.`);
+    } else {
+      toast.warning(`Hoàn tất với ${success} thành công, ${failed} lỗi. Hãy thử lại các scene lỗi ở Quick Clip.`);
+    }
+    // Trigger refetch để hiện clip mới
+    fetchGenerations();
+  };
+
   const orderedUrls = selectedClips
     .map((id) => completedClips.find((c) => c.id === id)?.video_url)
     .filter(Boolean) as string[];
