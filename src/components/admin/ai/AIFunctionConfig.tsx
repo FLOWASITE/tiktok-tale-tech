@@ -20,7 +20,8 @@ import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music } from 'lucide-react';
+import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network, Video, Music, Film } from 'lucide-react';
+import { getVideoModelCaps, VIDEO_PROVIDER_LABEL } from '@/lib/videoModelCaps';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -398,6 +399,15 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     Parameters
                   </TabsTrigger>
                 )}
+                {editingFunction?.functionName === 'generate-video' && (
+                  <TabsTrigger 
+                    value="video" 
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
+                  >
+                    <Film className="h-3 w-3 mr-1.5" />
+                    Video Defaults
+                  </TabsTrigger>
+                )}
                 <TabsTrigger 
                   value="settings" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
@@ -461,6 +471,82 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     </p>
                   </div>
                 </TabsContent>
+
+                {editingFunction.functionName === 'generate-video' && (() => {
+                  const activeModel = editingFunction.modelOverride || 'geminigen/veo-3.1-fast';
+                  const caps = getVideoModelCaps(activeModel);
+                  const params = (editingFunction.parameters || {}) as Record<string, any>;
+                  const updateParam = (key: string, value: any) => setEditingFunction({
+                    ...editingFunction,
+                    parameters: { ...params, [key]: value },
+                  });
+                  return (
+                    <TabsContent value="video" className="mt-0 space-y-4">
+                      <div className="p-3 rounded-lg border bg-muted/20 text-xs space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Model active:</span>
+                          <Badge variant="outline" className="text-[10px] font-mono">{activeModel}</Badge>
+                        </div>
+                        <div className="text-muted-foreground">
+                          Provider: <b>{VIDEO_PROVIDER_LABEL[caps.provider]}</b> · Max duration: <b>{caps.maxDuration}s</b>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Default duration (giây)</Label>
+                        <Select
+                          value={String(params.default_duration ?? caps.durationChoices[0])}
+                          onValueChange={(v) => updateParam('default_duration', parseInt(v, 10))}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {caps.durationChoices.map(d => (
+                              <SelectItem key={d} value={String(d)}>{d}s</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Áp dụng khi client (vd. agent pipeline) không gửi duration. UI scene editor vẫn override được.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Default aspect ratio</Label>
+                        <Select
+                          value={params.default_aspect_ratio ?? caps.aspectRatios[0]}
+                          onValueChange={(v) => updateParam('default_aspect_ratio', v)}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {caps.aspectRatios.map(a => (
+                              <SelectItem key={a} value={a}>{a}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Default resolution</Label>
+                        <Select
+                          value={params.default_resolution ?? caps.resolutionChoices[caps.resolutionChoices.length - 1]}
+                          onValueChange={(v) => updateParam('default_resolution', v)}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {caps.resolutionChoices.map(r => (
+                              <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="text-[10px] text-muted-foreground p-2.5 rounded bg-amber-500/5 border border-amber-500/20">
+                        💡 Đây là <b>fallback defaults</b> — khi user click Generate trên VideoGeneratorPanel,
+                        giá trị họ chọn sẽ override. Defaults này chỉ áp dụng cho agent pipelines hoặc API calls không truyền tham số.
+                      </div>
+                    </TabsContent>
+                  );
+                })()}
 
                 <TabsContent value="settings" className="mt-0 space-y-4">
                   <div className="space-y-2">

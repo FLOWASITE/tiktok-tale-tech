@@ -44,6 +44,8 @@ const CATEGORY_BORDER: Record<string, string> = {
   brand: 'border-l-orange-500',
   analysis: 'border-l-cyan-500',
   utility: 'border-l-gray-500',
+  video: 'border-l-pink-500',
+  audio: 'border-l-amber-500',
 };
 
 const COST_LABEL: Record<string, { text: string; className: string }> = {
