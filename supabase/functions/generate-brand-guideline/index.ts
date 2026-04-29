@@ -28,6 +28,33 @@ function safeParseToolCallJson(raw: string): Record<string, unknown> {
   // 3. Try again after cleanup
   try { return JSON.parse(cleaned); } catch { /* continue */ }
 
+  // 3b. Escape raw control chars inside strings (qwen often emits unescaped \n)
+  const escapeControlsInStrings = (s: string): string => {
+    let out = '';
+    let inStr = false;
+    let escaped = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inStr) {
+        if (escaped) { out += ch; escaped = false; continue; }
+        if (ch === '\\') { out += ch; escaped = true; continue; }
+        if (ch === '"') { out += ch; inStr = false; continue; }
+        if (ch === '\n') { out += '\\n'; continue; }
+        if (ch === '\r') { out += '\\r'; continue; }
+        if (ch === '\t') { out += '\\t'; continue; }
+        const code = ch.charCodeAt(0);
+        if (code < 0x20) { out += '\\u' + code.toString(16).padStart(4, '0'); continue; }
+        out += ch;
+      } else {
+        if (ch === '"') inStr = true;
+        out += ch;
+      }
+    }
+    return out;
+  };
+  cleaned = escapeControlsInStrings(cleaned);
+  try { return JSON.parse(cleaned); } catch { /* continue */ }
+
   // 4. Progressive truncation repair (up to 20 cuts)
   let repaired = cleaned;
   // Fix unbalanced quotes (truncated inside a string)
@@ -585,9 +612,17 @@ Tạo guideline CHI TIẾT với:
 
     // Extract tool call result
     const toolCall = aiResponse.data?.choices?.[0]?.message?.tool_calls?.[0];
+    let result: any = null;
     if (toolCall?.function?.arguments) {
-      const result = safeParseToolCallJson(toolCall.function.arguments) as any;
-      console.log('Enhanced brand guideline generated successfully');
+      try {
+        result = safeParseToolCallJson(toolCall.function.arguments) as any;
+        console.log('Enhanced brand guideline generated successfully');
+      } catch (parseErr) {
+        console.error('[generate-brand-guideline] Tool call JSON parse failed, falling back to content. Length:', toolCall.function.arguments.length, 'Error:', parseErr instanceof Error ? parseErr.message : parseErr);
+        result = null;
+      }
+    }
+    if (result) {
       
       // Build legacy guideline text from structured data for backward compatibility
       const legacyGuideline = [
