@@ -108,11 +108,11 @@ const goalIcons: Record<ContentGoal, typeof Target> = {
 
 const channelLabels: Record<Channel, string> = {
   website: 'Web',
-  blogger: 'Web',
-  wordpress: 'Web',
+  blogger: 'Blog',
+  wordpress: 'WP',
   facebook: 'FB',
   instagram: 'IG',
-  pinterest: 'IG',
+  pinterest: 'Pin',
   twitter: 'X',
   google_maps: 'GMaps',
   linkedin: 'LI',
@@ -126,11 +126,11 @@ const channelLabels: Record<Channel, string> = {
 
 const channelColors: Record<Channel, string> = {
   website: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
-  blogger: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
-  wordpress: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
+  blogger: 'bg-orange-500/20 text-orange-700 dark:text-orange-400',
+  wordpress: 'bg-sky-700/20 text-sky-800 dark:text-sky-300',
   facebook: 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400',
   instagram: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
-  pinterest: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
+  pinterest: 'bg-red-500/20 text-red-700 dark:text-red-400',
   twitter: 'bg-slate-500/20 text-slate-700 dark:text-slate-400',
   google_maps: 'bg-green-500/20 text-green-700 dark:text-green-400',
   linkedin: 'bg-sky-500/20 text-sky-700 dark:text-sky-400',
