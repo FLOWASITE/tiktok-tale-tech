@@ -146,14 +146,20 @@ export function VideoGeneratorPanel({
           <Label className="text-xs font-medium">Video Prompt</Label>
           <Textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => { setPrompt(e.target.value); setIsPromptDirty(true); }}
             placeholder="Mô tả chi tiết cảnh quay: nhân vật, hành động, góc camera, ánh sáng..."
             rows={4}
             className="text-sm resize-none"
           />
-          <p className="text-[10px] text-muted-foreground">
-            💡 Prompt càng chi tiết, video càng đẹp. Mô tả camera motion, lighting, mood.
-          </p>
+          {!prompt.trim() && scene ? (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400">
+              ⚠️ Scene chưa có mô tả — hãy nhập prompt thủ công trước khi tạo video.
+            </p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">
+              💡 Prompt càng chi tiết, video càng đẹp. Mô tả camera motion, lighting, mood.
+            </p>
+          )}
         </div>
 
         {/* Duration & Aspect Ratio */}
