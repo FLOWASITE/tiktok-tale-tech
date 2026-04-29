@@ -41,6 +41,9 @@ const transformContent = (data: any): MultiChannelContent => ({
   threads_content: normalizeContentField(data.threads_content),
   pinterest_content: normalizeContentField(data.pinterest_content),
   pinterest_title: data.pinterest_title ?? null,
+  pinterest_pin_type: (data as any).pinterest_pin_type ?? null,
+  pinterest_post_id: (data as any).pinterest_post_id ?? null,
+  pinterest_post_url: (data as any).pinterest_post_url ?? null,
   channel_images:
     data.channel_images && typeof data.channel_images === 'object' && !Array.isArray(data.channel_images)
       ? (data.channel_images as ChannelImages)

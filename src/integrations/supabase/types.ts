@@ -3129,6 +3129,7 @@ export type Database = {
           mission: string | null
           name: string
           organization_id: string | null
+          pinterest_default_board_id: string | null
           preferred_words: string[] | null
           primary_channels: string[] | null
           primary_color: string | null
@@ -3184,6 +3185,7 @@ export type Database = {
           mission?: string | null
           name: string
           organization_id?: string | null
+          pinterest_default_board_id?: string | null
           preferred_words?: string[] | null
           primary_channels?: string[] | null
           primary_color?: string | null
@@ -3239,6 +3241,7 @@ export type Database = {
           mission?: string | null
           name?: string
           organization_id?: string | null
+          pinterest_default_board_id?: string | null
           preferred_words?: string[] | null
           primary_channels?: string[] | null
           primary_color?: string | null
@@ -7626,6 +7629,9 @@ export type Database = {
           needs_manual_review: boolean | null
           organization_id: string | null
           pinterest_content: string | null
+          pinterest_pin_type: string | null
+          pinterest_post_id: string | null
+          pinterest_post_url: string | null
           pinterest_title: string | null
           primary_color: string | null
           priority: string | null
@@ -7676,6 +7682,9 @@ export type Database = {
           needs_manual_review?: boolean | null
           organization_id?: string | null
           pinterest_content?: string | null
+          pinterest_pin_type?: string | null
+          pinterest_post_id?: string | null
+          pinterest_post_url?: string | null
           pinterest_title?: string | null
           primary_color?: string | null
           priority?: string | null
@@ -7726,6 +7735,9 @@ export type Database = {
           needs_manual_review?: boolean | null
           organization_id?: string | null
           pinterest_content?: string | null
+          pinterest_pin_type?: string | null
+          pinterest_post_id?: string | null
+          pinterest_post_url?: string | null
           pinterest_title?: string | null
           primary_color?: string | null
           priority?: string | null

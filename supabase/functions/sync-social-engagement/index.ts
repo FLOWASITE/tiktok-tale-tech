@@ -146,6 +146,33 @@ async function fetchTikTokMetrics(accessToken: string, videoId: string) {
   };
 }
 
+// Pinterest Pin metrics via API v5
+async function fetchPinterestMetrics(accessToken: string, pinId: string) {
+  const end = new Date();
+  const start = new Date(end.getTime() - 30 * 24 * 3600 * 1000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const metrics = ['IMPRESSION', 'SAVE', 'PIN_CLICK', 'OUTBOUND_CLICK', 'VIDEO_MRC_VIEW'].join(',');
+  const url = `https://api.pinterest.com/v5/pins/${pinId}/analytics?start_date=${fmt(start)}&end_date=${fmt(end)}&metric_types=${metrics}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!r.ok) {
+    console.warn(`[sync-engagement] pinterest ${pinId} → ${r.status}`);
+    return null;
+  }
+  const data = await r.json();
+  const summary = data?.all?.summary_metrics ?? data?.summary_metrics ?? {};
+  return {
+    reach: 0,
+    impressions: Number(summary.IMPRESSION ?? 0),
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    saves: Number(summary.SAVE ?? 0),
+    video_views: Number(summary.VIDEO_MRC_VIEW ?? 0),
+    link_clicks: Number(summary.OUTBOUND_CLICK ?? summary.PIN_CLICK ?? 0),
+    raw: { pinterest: summary },
+  };
+}
+
 // Twitter/X — public metrics qua API v2 với OAuth 1.0a user context
 // Endpoint: GET /2/tweets?ids=<id>&tweet.fields=public_metrics,non_public_metrics
 async function fetchTwitterMetrics(args: {
@@ -363,6 +390,7 @@ Deno.serve(async (req) => {
     twitter: "twitter",
     x: "twitter",
     threads: "threads",
+    pinterest: "pinterest",
   };
 
   // 3. Fetch metrics in parallel (chunked to avoid rate limits)
@@ -423,6 +451,14 @@ Deno.serve(async (req) => {
                 accessTokenSecret,
                 tweetId: p.post_id,
               });
+              break;
+            }
+            case "pinterest": {
+              const pinterestToken = await safeDecrypt(conn.access_token);
+              if (!pinterestToken) {
+                return { post: p, error: "missing_pinterest_token" };
+              }
+              metrics = await fetchPinterestMetrics(pinterestToken, p.post_id);
               break;
             }
             default:

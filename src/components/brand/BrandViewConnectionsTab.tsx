@@ -61,6 +61,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { WordPressConnectDialog } from './WordPressConnectDialog';
+import { PinterestBoardSelector } from './PinterestBoardSelector';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
@@ -646,6 +647,15 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               connection={connection}
               platform={platform as 'instagram' | 'facebook'}
               onChecked={refetch}
+            />
+          </div>
+        )}
+        {platform === 'pinterest' && connection?.is_active && (
+          <div className="px-4 pb-4">
+            <PinterestBoardSelector
+              brandTemplateId={template.id}
+              connectionId={connection.id}
+              defaultBoardId={(template as any).pinterest_default_board_id ?? null}
             />
           </div>
         )}

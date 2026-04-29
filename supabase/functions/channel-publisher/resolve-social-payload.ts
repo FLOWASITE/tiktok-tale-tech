@@ -116,6 +116,23 @@ export async function resolveSocialPayload(input: ResolveInput): Promise<Resolve
     finalPayload.title = mccRow.title;
   }
 
+  // Pinterest: forward pin type override + resolve brand default board if not provided
+  if (action === 'pinterest') {
+    if (mccRow.pinterest_pin_type && mccRow.pinterest_pin_type !== 'auto') {
+      finalPayload.pinType = mccRow.pinterest_pin_type;
+    }
+    if (!finalPayload.boardId && mccRow.brand_template_id) {
+      const { data: brand } = await supabase
+        .from('brand_templates')
+        .select('pinterest_default_board_id')
+        .eq('id', mccRow.brand_template_id)
+        .maybeSingle();
+      if (brand?.pinterest_default_board_id) {
+        finalPayload.boardId = brand.pinterest_default_board_id;
+      }
+    }
+  }
+
   try {
     const channelImages = mccRow.channel_images as Record<string, any> | null;
     if (channelImages && typeof channelImages === 'object') {

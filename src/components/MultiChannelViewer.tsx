@@ -159,12 +159,12 @@ const channelConfig: Record<Channel, {
     maxLength: '50-150 chữ'
   },
   pinterest: { 
-    label: 'Instagram', 
-    shortLabel: 'IG',
-    icon: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
-    color: 'text-pink-400',
-    bgColor: 'bg-pink-500/10',
-    maxLength: '50-150 chữ'
+    label: 'Pinterest', 
+    shortLabel: 'PIN',
+    icon: <span className="text-[#E60023] font-bold text-xs">P</span>, 
+    color: 'text-[#E60023]',
+    bgColor: 'bg-[#E60023]/10',
+    maxLength: 'Title ≤100, Desc ≤500'
   },
   twitter: { 
     label: 'X (Twitter)', 
@@ -241,6 +241,7 @@ const channelConfig: Record<Channel, {
 };
 
 import { analyzeContent } from '@/hooks/useContentAnalysis';
+import { PinterestAnalyticsCard } from '@/components/viewer/PinterestAnalyticsCard';
 
 // Brand Voice Apply instruction
 const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo đúng Brand Voice profile đã cấu hình: giữ nguyên ý chính nhưng điều chỉnh giọng điệu, phong cách ngôn ngữ, mức độ formal, và tuân thủ các từ ưu tiên/từ cấm theo brand guidelines";
@@ -1757,6 +1758,16 @@ export function MultiChannelViewer({
                                   seoData={(content as any).website_seo_data}
                                   content={channelContent}
                                   brandName={content.brand_name}
+                                />
+                              )}
+
+                              {/* Pinterest analytics — only when this Pin has been published */}
+                              {channel === 'pinterest' && (content as any).pinterest_post_id && (
+                                <PinterestAnalyticsCard
+                                  contentId={content.id}
+                                  pinId={(content as any).pinterest_post_id}
+                                  pinUrl={(content as any).pinterest_post_url}
+                                  organizationId={(content as any).organization_id}
                                 />
                               )}
                               
