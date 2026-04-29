@@ -142,9 +142,26 @@ Deno.serve(withPerf({ functionName: 'blogger-oauth-callback' }, async (req) => {
     };
 
     if (existing) {
-      await supabase.from('social_connections').update(connectionData).eq('id', existing.id);
+      const { error: updErr } = await supabase
+        .from('social_connections')
+        .update(connectionData)
+        .eq('id', existing.id);
+      if (updErr) {
+        console.error('[blogger-oauth-callback] UPDATE failed:', updErr);
+        throw new Error(`DB update failed: ${updErr.message}`);
+      }
+      console.log('[blogger-oauth-callback] UPDATE ok for', existing.id);
     } else {
-      await supabase.from('social_connections').insert(connectionData);
+      const { data: inserted, error: insErr } = await supabase
+        .from('social_connections')
+        .insert(connectionData)
+        .select('id')
+        .single();
+      if (insErr) {
+        console.error('[blogger-oauth-callback] INSERT failed:', insErr);
+        throw new Error(`DB insert failed: ${insErr.message}`);
+      }
+      console.log('[blogger-oauth-callback] INSERT ok, id:', inserted?.id);
     }
 
     const redirectUrl = `${frontendUrl}/auth/blogger/callback?success=true&platform=blogger&username=${encodeURIComponent(primaryBlog.name)}`;
