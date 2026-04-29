@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type VideoProvider = 'geminigen' | 'lovable' | 'minimax' | 'runway';
+type VideoProvider = 'geminigen' | 'poyo' | 'lovable' | 'minimax' | 'runway';
 
 interface VideoGenerationRequest {
   provider: VideoProvider;
