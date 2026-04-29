@@ -344,6 +344,7 @@ PHONG CÁCH HARVEST:
 const CHANNEL_COLUMN_MAP: Record<string, string> = {
   website: 'website_content',
   blog: 'website_content', // blog is alias for website
+  blogger: 'website_content', // blogger publishes to same website_content column
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -360,6 +361,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
 // Normalize channel aliases to canonical names used in DB columns
 const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
+  blogger: 'website',
 };
 
 /**

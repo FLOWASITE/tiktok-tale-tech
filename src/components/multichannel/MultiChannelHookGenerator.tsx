@@ -108,6 +108,7 @@ interface MultiChannelHookGeneratorProps {
 
 const channelIcons: Record<Channel, LucideIcon> = {
   website: Globe,
+  blogger: Globe,
   facebook: Facebook,
   instagram: Instagram,
   twitter: Twitter,
@@ -172,6 +173,7 @@ export function MultiChannelHookGenerator({
     email: 'email',
     twitter: 'twitter',
     website: 'general',
+    blogger: 'general',
     google_maps: 'general',
     youtube: 'general',
     zalo_oa: 'general',

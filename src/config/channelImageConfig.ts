@@ -66,6 +66,30 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       layoutBias: 'split-editorial',
     },
   },
+  blogger: {
+    size: '1200x630',
+    aspectRatio: '16:9',
+    style: 'high-quality, professional, brand-aligned',
+    tips: 'High-res, brand colors, compelling imagery',
+    mood: 'trustworthy, premium, on-brand',
+    composition: 'hero-style, versatile for cropping, works with overlaid text',
+    visualDirections: [
+      'Hero banner quality - premium and polished',
+      'Works with text overlays (consider contrast)',
+      'Versatile for different crop ratios',
+      'Loading speed conscious - not overly complex',
+    ],
+    avoidElements: ['busy patterns that interfere with text', 'too many focal points'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['top-left', 'bottom-right'],
+      textDensityBudget: 0.62,
+      headlineBudget: 72,
+      ctaBudget: 24,
+      footerBudget: 72,
+      layoutBias: 'split-editorial',
+    },
+  },
   youtube: {
     size: '1280x720',
     aspectRatio: '16:9',
@@ -368,6 +392,7 @@ export const ASPECT_RATIO_OPTIONS = [
  */
 export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   website: '16:9',
+  blogger: '16:9',
   youtube: '16:9',
   facebook: '16:9',
   instagram: '4:5',

@@ -51,6 +51,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   zalo_oa: <MessageCircle className="w-4 h-4" />,
   google_maps: <Globe className="w-4 h-4" />,
   website: <Globe className="w-4 h-4" />,
+  blogger: <Globe className="w-4 h-4" />,
 };
 
 const POPULAR_CHANNELS: Channel[] = ['facebook', 'linkedin', 'instagram', 'tiktok', 'email'];
