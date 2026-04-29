@@ -11,6 +11,7 @@ const PIE_COLORS = ["#94a3b8", "#3b82f6", "#8b5cf6", "#f59e0b"];
 const PLAN_ORDER = ["free", "starter", "pro", "enterprise"];
 
 export default function RevenueStats() {
+  const planStats = useAdminPlanStats();
   const statsQuery = useQuery({
     queryKey: ["admin_revenue_stats"],
     queryFn: async () => {
