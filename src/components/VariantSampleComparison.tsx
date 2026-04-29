@@ -39,7 +39,7 @@ const CHANNEL_INFO: Record<ChannelType, { label: string; color: string }> = {
   facebook: { label: 'Facebook', color: 'bg-blue-500' },
   linkedin: { label: 'LinkedIn', color: 'bg-sky-600' },
   instagram: { label: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500' },
-  pinterest: { label: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500' },
+  pinterest: { label: 'Pinterest', color: 'bg-[#E60023]' },
   tiktok: { label: 'TikTok', color: 'bg-black' },
   email: { label: 'Email', color: 'bg-amber-500' },
   twitter: { label: 'Twitter', color: 'bg-sky-400' },

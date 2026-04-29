@@ -99,7 +99,7 @@ const channelColors: Record<Channel, { border: string; bg: string; text: string 
   wordpress: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400' },
   facebook: { border: 'border-l-indigo-500', bg: 'bg-indigo-500/10', text: 'text-indigo-700 dark:text-indigo-400' },
   instagram: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', text: 'text-pink-700 dark:text-pink-400' },
-  pinterest: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', text: 'text-pink-700 dark:text-pink-400' },
+  pinterest: { border: 'border-l-[#E60023]', bg: 'bg-[#E60023]/10', text: 'text-[#E60023] dark:text-[#ff4d6a]' },
   twitter: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', text: 'text-slate-700 dark:text-slate-400' },
   google_maps: { border: 'border-l-green-500', bg: 'bg-green-500/10', text: 'text-green-700 dark:text-green-400' },
   linkedin: { border: 'border-l-sky-500', bg: 'bg-sky-500/10', text: 'text-sky-700 dark:text-sky-400' },

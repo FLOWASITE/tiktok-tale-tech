@@ -70,7 +70,7 @@ const channelColors: Record<Channel, string> = {
   wordpress: 'text-blue-500',
   facebook: 'text-indigo-500',
   instagram: 'text-pink-500',
-  pinterest: 'text-pink-500',
+  pinterest: 'text-[#E60023]',
   twitter: 'text-slate-500',
   google_maps: 'text-green-500',
   linkedin: 'text-sky-500',

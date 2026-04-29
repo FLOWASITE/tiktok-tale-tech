@@ -84,7 +84,7 @@ const channelColors: Record<Channel, string> = {
   wordpress: 'border-l-blue-500',
   facebook: 'border-l-indigo-500',
   instagram: 'border-l-pink-500',
-  pinterest: 'border-l-pink-500',
+  pinterest: 'border-l-[#E60023]',
   twitter: 'border-l-slate-500',
   google_maps: 'border-l-green-500',
   linkedin: 'border-l-sky-500',
