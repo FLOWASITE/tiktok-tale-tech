@@ -1,49 +1,68 @@
-## Chẩn đoán
+## Mục tiêu
 
-Triệu chứng: bấm "Tạo Video" trong Storyboard kịch bản → không có gì xảy ra, gallery vẫn rỗng.
+Trang `/admin/ai` hiện đã có chip filter "Video" và registry model (Veo 2/3/3.1, Sora 2, PoYo Veo, Minimax). Backend `generate-video` đã đọc đúng `ai_function_configs.model_override` + `force_provider`. Nhưng cài đặt admin còn 5 lỗ hổng — plan này lấp đủ.
 
-Bằng chứng:
-- Edge function logs `generate-video`: **không có request nào** trong cửa sổ thời gian gần đây → request không bao giờ rời client.
-- Session replay: user thao tác trên panel (đổi provider checkbox) nhưng không có spinner "Đang tạo video..." xuất hiện.
-- Code review `src/components/script/VideoGeneratorPanel.tsx`:
-  - `prompt` được khởi tạo từ `scene?.promptText` chỉ **một lần** ở `useState(scene?.promptText || '')`. Nếu scene chưa load xong khi panel mount (hoặc đổi scene), state `prompt` vẫn rỗng.
-  - `handleGenerate` có `if (!prompt.trim()) return;` — return im lặng, không toast.
-  - Button `disabled={!prompt.trim()}` → user click không có phản hồi nào.
+## Hiện trạng (đã verify)
 
-Kết quả: với scene có `promptText` đến muộn, button luôn disabled hoặc handler bỏ qua → người dùng tưởng "không tạo được".
+```text
+ai_function_categories: chỉ có 9 row, KHÔNG có 'video'/'audio'
+                       → generate-video / generate-music rớt vào "Other"
+ai_function_group_configs: có row video (rỗng model), KHÔNG có audio
+ai_function_configs.generate-video: model=geminigen/veo-3.1-fast ✓ (OK)
+MODELS_BY_TYPE.video: 9 model registry đầy đủ ✓
+Admin AI page tab "Video" exists nhưng grouping không gom được
+```
 
-## Sửa
+## Các thay đổi
 
-**File**: `src/components/script/VideoGeneratorPanel.tsx`
+### 1. Seed system categories `video` + `audio` (migration)
 
-1. Thêm `useEffect` đồng bộ `prompt` mỗi khi `scene?.promptText` thay đổi (chỉ khi user chưa gõ tay):
-   - Track `isPromptDirty` (set true khi user gõ).
-   - Nếu `!isPromptDirty` và `scene?.promptText` đổi → setPrompt theo scene.
+Insert 2 row vào `ai_function_categories` với `organization_id = NULL`, `is_system = true`:
+- `video` — label "Video", icon `video`, color hồng (#ec4899), sort_order 9
+- `audio` — label "Audio", icon `music`, color cam (#f97316), sort_order 10
 
-2. Trong `handleGenerate`:
-   - Nếu `!prompt.trim()` → `toast.error('Vui lòng nhập prompt mô tả cảnh quay')` thay vì return im lặng.
-   - Bọc try/catch quanh `await generateVideo(...)`, log lỗi và toast nếu throw.
+Sau seed: `generate-video` và `generate-music` tự gom đúng nhóm trên UI mà không cần đụng React.
 
-3. Thêm hint dưới textarea khi prompt rỗng nhưng có scene: gợi ý "Scene chưa có mô tả — hãy nhập prompt thủ công".
+### 2. Lock provider–model coherence (frontend)
+
+Trong `InlineModelPicker` / `ModelSelector` cho function type `video`: khi user chọn model có prefix `geminigen/...`, `poyo/...`, `minimax/...`, tự động set `force_provider` tương ứng và disable trường `force_provider` (read-only badge). Tránh trạng thái không nhất quán model=`poyo/veo-3` nhưng force_provider=`geminigen`.
+
+### 3. Group Defaults Panel cho video & audio
+
+`GroupDefaultsPanel` đã render UI cho group `video`/`audio` nhưng group config `audio` thiếu row. Thêm helper "Tạo group config" khi row chưa tồn tại — insert mặc định `function_type='audio'`, `model_override=null`, `is_enabled=true`. Cùng đó: hiển thị tooltip "Group default ghi đè default model nhưng KHÔNG ghi đè per-function override" khớp memory `model-selection-priority-vn`.
+
+### 4. Per-function panel cho generate-video — thêm field
+
+Trong `FunctionCard` khi `function_name === 'generate-video'`: hiện thêm 2 dropdown chỉ-cấu-hình (lưu vào `parameters` jsonb của `ai_function_configs`):
+- `default_duration` — 5s | 10s
+- `default_resolution` — 480p | 1080p
+- `default_aspect_ratio` — danh sách aspect theo provider của model đang chọn
+
+Edge function `generate-video` đã nhận `duration/aspect_ratio/resolution` từ client; bổ sung fallback đọc từ `cfg.parameters` nếu client không truyền (cho agent pipelines).
+
+### 5. AdminModelBadge — surface caps
+
+`AdminModelBadge` trong `VideoGeneratorPanel` hiện chỉ hiển thị tên model. Bổ sung tooltip:
+- Provider được chọn (geminigen/poyo/minimax)
+- Aspect ratios khả dụng
+- Max duration
+- Note "Admin có thể đổi tại /admin/ai → Video"
 
 ## Kỹ thuật
 
-```text
-[Mount panel] → prompt = scene.promptText || ''
-                 ↓ (scene update đến sau)
-[useEffect] → if !dirty && scene.promptText → setPrompt(scene.promptText)
+| Thay đổi | File / nguồn |
+|---|---|
+| Seed 2 categories | migration mới — INSERT vào `ai_function_categories` |
+| Lock provider-model | `src/components/admin/ai/InlineModelPicker.tsx`, `ModelSelector.tsx` |
+| Audio group config + tooltips | `src/components/admin/ai/GroupDefaultsPanel.tsx` |
+| Video function defaults | `src/components/admin/ai/FunctionCard.tsx` (extend) |
+| Edge fallback duration/aspect | `supabase/functions/generate-video/index.ts` (đọc `cfg.parameters`) |
+| Tooltip badge | `src/components/shared/AdminModelBadge.tsx` |
 
-[Click Generate]
-  ├─ empty? → toast.error (không return im lặng)
-  └─ valid → generateVideo() + try/catch toast
-```
+Không đụng `_shared/`, không đổi RLS, không thêm bảng mới — chỉ seed data + UI/UX.
 
-Không thay đổi edge function, không thay đổi `useVideoGeneration` hook (đã có toast 402/429 đầy đủ).
+## Out of scope
 
-## Kiểm thử
-
-Sau khi fix:
-1. Mở 1 script ai_video, vào tab Storyboard, mở "Text-to-Video Generator" của 1 scene → prompt phải tự điền `scene.promptText`.
-2. Click "Tạo Video" với prompt rỗng → thấy toast "Vui lòng nhập prompt".
-3. Click với prompt hợp lệ → thấy spinner + toast "Video đang được tạo nền".
-4. Check `generate-video` logs → có request mới.
+- Không thêm model mới vào `MODELS_BY_TYPE.video` (đã đủ 9 model).
+- Không thay đổi cascade priority (Industry > Brand > Channel > Defaults).
+- Không thêm audio providers ngoài `elevenlabs/music-v1` đã có.
