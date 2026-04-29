@@ -995,6 +995,10 @@ export default function Reports() {
               onRefresh={() => insights.refresh()}
             />
           </TabsContent>
+
+          <TabsContent value="subscription" className="space-y-4">
+            <SubscriptionReportTab />
+          </TabsContent>
         </Tabs>
       </div>
     </>
