@@ -1522,17 +1522,33 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
   try {
     const requestStartTime = Date.now();
     const formData: FormData = await req.json();
-    // Normalize channel aliases (e.g. blog → website) early
+
+    // Capture original channels (preserves 'blogger' for selected_channels persistence)
+    const originalChannels: string[] = Array.isArray(formData.channels) ? [...formData.channels] : [];
+    const originalNewChannels: string[] = Array.isArray(formData.newChannels) ? [...(formData.newChannels as string[])] : [];
+    const originalSingleChannel: string | undefined = formData.channel;
+
+    // Expand 'blogger' to also include 'website' so the long-form pipeline runs.
+    // We still want 'blogger' kept in selected_channels at the end.
+    const expandBloggerToWebsite = (chs: string[]): string[] => {
+      if (!Array.isArray(chs)) return chs;
+      const out = [...chs];
+      if (out.includes('blogger') && !out.includes('website')) out.push('website');
+      return out;
+    };
     if (formData.channels) {
-      formData.channels = normalizeChannels(formData.channels);
+      formData.channels = normalizeChannels(expandBloggerToWebsite(formData.channels));
     }
     if (formData.newChannels) {
-      formData.newChannels = normalizeChannels(formData.newChannels as string[]);
+      formData.newChannels = normalizeChannels(expandBloggerToWebsite(formData.newChannels as string[])) as any;
     }
-    if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
+    if (formData.channel === 'blogger') {
+      // For single-channel regenerate of blogger, generate website body
+      formData.channel = 'website';
+    } else if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
       formData.channel = CHANNEL_ALIASES[formData.channel];
     }
-    console.log("Generating multi-channel content for:", formData.topic);
+    console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
