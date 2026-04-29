@@ -21,6 +21,7 @@ import {
   Star,
   Clock,
 } from 'lucide-react';
+import { PinterestIcon } from '@/components/icons/SocialIcons';
 import { cn } from '@/lib/utils';
 import { ChannelMockupFrame } from './preview/ChannelMockupFrame';
 import { ChannelType } from '@/utils/generateSampleText';
