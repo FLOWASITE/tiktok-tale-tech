@@ -14,6 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface SocialPlatformCredentialsDialogProps {
   open: boolean;
@@ -116,6 +118,10 @@ export function SocialPlatformCredentialsDialog({
   const [isActive, setIsActive] = useState(true);
   const [showKey, setShowKey] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [revealingKey, setRevealingKey] = useState(false);
+  const [revealingSecret, setRevealingSecret] = useState(false);
   const [copiedCallback, setCopiedCallback] = useState(false);
 
   const help = PLATFORM_HELP[platform];
@@ -179,7 +185,57 @@ export function SocialPlatformCredentialsDialog({
       setConsumerSecret('');
       setIsActive(true);
     }
+    // Reset reveal state mỗi lần đóng/mở
+    setShowKey(false);
+    setShowSecret(false);
+    setRevealedKey(null);
+    setRevealedSecret(null);
   }, [open, existingSettings]);
+
+  const handleToggleReveal = async (field: 'consumer_key' | 'consumer_secret') => {
+    const isKey = field === 'consumer_key';
+    const typedValue = isKey ? consumerKey : consumerSecret;
+    const currentlyShown = isKey ? showKey : showSecret;
+    const cached = isKey ? revealedKey : revealedSecret;
+    const setShown = isKey ? setShowKey : setShowSecret;
+    const setRevealed = isKey ? setRevealedKey : setRevealedSecret;
+    const setLoading = isKey ? setRevealingKey : setRevealingSecret;
+
+    // Đang hiển thị -> ẩn đi
+    if (currentlyShown) {
+      setShown(false);
+      return;
+    }
+
+    // User đã gõ giá trị mới -> chỉ toggle visibility input
+    if (typedValue) {
+      setShown(true);
+      return;
+    }
+
+    // Chưa fetch và có credentials đã lưu -> gọi reveal endpoint
+    if (!cached && existingSettings?.has_credentials) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('reveal-platform-credential', {
+          body: { platform, field },
+        });
+        if (error) throw error;
+        if (!data?.value) throw new Error('Không có giá trị');
+        setRevealed(data.value);
+        setShown(true);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Không thể hiện giá trị';
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Cached rồi -> chỉ show
+    setShown(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,7 +354,8 @@ export function SocialPlatformCredentialsDialog({
               <Input
                 id="consumerKey"
                 type={showKey ? 'text' : 'password'}
-                value={consumerKey}
+                value={showKey && !consumerKey && revealedKey ? revealedKey : consumerKey}
+                readOnly={showKey && !consumerKey && !!revealedKey}
                 onChange={(e) => setConsumerKey(e.target.value)}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_key || '••••'} — nhập mới để thay đổi`
@@ -310,9 +367,15 @@ export function SocialPlatformCredentialsDialog({
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full"
-                onClick={() => setShowKey(!showKey)}
+                onClick={() => handleToggleReveal('consumer_key')}
+                disabled={revealingKey}
+                aria-label={showKey ? 'Ẩn' : 'Hiện'}
               >
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {revealingKey
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : showKey
+                    ? <EyeOff className="w-4 h-4" />
+                    : <Eye className="w-4 h-4" />}
               </Button>
             </div>
           </div>
@@ -332,7 +395,8 @@ export function SocialPlatformCredentialsDialog({
               <Input
                 id="consumerSecret"
                 type={showSecret ? 'text' : 'password'}
-                value={consumerSecret}
+                value={showSecret && !consumerSecret && revealedSecret ? revealedSecret : consumerSecret}
+                readOnly={showSecret && !consumerSecret && !!revealedSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_secret || '••••'} — nhập mới để thay đổi`
@@ -344,9 +408,15 @@ export function SocialPlatformCredentialsDialog({
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full"
-                onClick={() => setShowSecret(!showSecret)}
+                onClick={() => handleToggleReveal('consumer_secret')}
+                disabled={revealingSecret}
+                aria-label={showSecret ? 'Ẩn' : 'Hiện'}
               >
-                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {revealingSecret
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : showSecret
+                    ? <EyeOff className="w-4 h-4" />
+                    : <Eye className="w-4 h-4" />}
               </Button>
             </div>
           </div>
