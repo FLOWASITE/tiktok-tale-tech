@@ -60,6 +60,7 @@ interface MultiChannelPreviewDialogProps {
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
   blogger: <Globe className="w-4 h-4" />,
+  wordpress: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
@@ -84,6 +85,7 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
   email: 'email',
   website: 'general',
   blogger: 'general',
+  wordpress: 'general',
   google_maps: 'general',
   youtube: 'general',
   zalo_oa: 'general',

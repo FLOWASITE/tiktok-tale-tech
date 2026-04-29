@@ -134,6 +134,14 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-orange-500/10',
     maxLength: '800-1500 chữ'
   },
+  wordpress: { 
+    label: 'Blogger', 
+    shortLabel: 'Blogger',
+    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-500/10',
+    maxLength: '800-1500 chữ'
+  },
   facebook: { 
     label: 'Facebook', 
     shortLabel: 'FB',

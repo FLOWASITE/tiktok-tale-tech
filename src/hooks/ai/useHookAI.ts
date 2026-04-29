@@ -99,6 +99,7 @@ export const CHANNEL_HOOK_TYPES: Record<Channel, string[]> = {
   youtube: ['Thumbnail bait', 'Promise value', 'Mystery opener', 'Pain point'],
   website: ['SEO headline', 'Problem-solution', 'How-to intro', 'Listicle opener'],
   blogger: ['SEO headline', 'Problem-solution', 'How-to intro', 'Listicle opener'],
+  wordpress: ['SEO headline', 'Problem-solution', 'How-to intro', 'Listicle opener'],
   email: ['Subject line', 'Personal opener', 'Urgency hook', 'Curiosity gap'],
   zalo_oa: ['Lời chào thân thiện', 'Ưu đãi mở đầu', 'Tin nhắn gợi nhớ', 'Flash sale'],
   telegram: ['News alert', 'Exclusive content', 'Community update', 'Quick tip'],

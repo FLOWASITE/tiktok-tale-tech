@@ -63,6 +63,7 @@ interface PublishingQueueProps {
 const channelIcons: Record<Channel, string> = {
   website: '🌐',
   blogger: '🌐',
+  wordpress: '🌐',
   facebook: '📘',
   instagram: '📸',
   twitter: '𝕏',
@@ -79,6 +80,7 @@ const channelIcons: Record<Channel, string> = {
 const channelColors: Record<Channel, string> = {
   website: 'border-l-blue-500',
   blogger: 'border-l-blue-500',
+  wordpress: 'border-l-blue-500',
   facebook: 'border-l-indigo-500',
   instagram: 'border-l-pink-500',
   twitter: 'border-l-slate-500',

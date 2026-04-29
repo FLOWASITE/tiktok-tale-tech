@@ -41,6 +41,7 @@ interface CalendarDayViewProps {
 const channelColors: Record<Channel, string> = {
   website: 'border-l-blue-500 bg-blue-500/10',
   blogger: 'border-l-blue-500 bg-blue-500/10',
+  wordpress: 'border-l-blue-500 bg-blue-500/10',
   facebook: 'border-l-indigo-500 bg-indigo-500/10',
   instagram: 'border-l-pink-500 bg-pink-500/10',
   twitter: 'border-l-slate-500 bg-slate-500/10',

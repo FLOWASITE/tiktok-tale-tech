@@ -110,6 +110,7 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
     email: '10:00 - 11:00',
     website: 'Bất kỳ lúc nào',
     blogger: 'Bất kỳ lúc nào',
+    wordpress: 'Bất kỳ lúc nào',
     google_maps: 'Bất kỳ lúc nào',
     zalo_oa: '9:00 - 11:00, 14:00 - 16:00',
     telegram: '10:00 - 12:00, 20:00 - 22:00',
