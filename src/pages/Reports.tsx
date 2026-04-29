@@ -455,133 +455,335 @@ export default function Reports() {
               </Card>
             </div>
 
-            {/* Bảng chi tiết với filter */}
-            <Card>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
-                <h3 className="text-sm font-medium">Chi tiết nội dung</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-                    <SelectTrigger className="h-8 w-[160px]">
-                      <SelectValue placeholder="Tất cả trạng thái" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                      <SelectItem value="draft">Nháp</SelectItem>
-                      <SelectItem value="approved">Đã duyệt</SelectItem>
-                      <SelectItem value="scheduled">Đã lên lịch</SelectItem>
-                      <SelectItem value="published">Đã đăng</SelectItem>
-                      <SelectItem value="failed">Thất bại</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={contentTypeFilter} onValueChange={(v) => setContentTypeFilter(v as ContentType | 'all')}>
-                    <SelectTrigger className="h-8 w-[180px]">
-                      <SelectValue placeholder="Tất cả loại" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả loại</SelectItem>
-                      {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {CONTENT_TYPE_LABELS[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Loại</TableHead>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead>Brand</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Lịch / Đăng</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
-                    <TableHead className="w-[40px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(() => {
-                    const filtered = (content.data?.rows ?? [])
-                      .filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
-                      .filter((r) => {
-                        if (statusFilter === 'all') return true;
-                        if (statusFilter === 'published')
-                          return r.derivedStatus === 'published' || r.derivedStatus === 'partially_published';
-                        return r.derivedStatus === statusFilter;
-                      });
-                    if (filtered.length === 0) {
-                      return (
+            {/* Bảng chi tiết với filter + search + bulk */}
+            {(() => {
+              const allRows = content.data?.rows ?? [];
+              const allBrands = Array.from(
+                new Set(allRows.map((r) => r.brand_name).filter((b): b is string => !!b)),
+              ).sort();
+              const allChannels = Array.from(
+                new Set(allRows.flatMap((r) => r.channels)),
+              ).sort();
+              const q = contentSearch.trim().toLowerCase();
+              const filtered = allRows
+                .filter((r) => contentTypeFilter === 'all' || r.type === contentTypeFilter)
+                .filter((r) => {
+                  if (statusFilter === 'all') return true;
+                  if (statusFilter === 'published')
+                    return r.derivedStatus === 'published' || r.derivedStatus === 'partially_published';
+                  return r.derivedStatus === statusFilter;
+                })
+                .filter((r) => contentBrandFilter === 'all' || r.brand_name === contentBrandFilter)
+                .filter((r) => contentChannelFilter === 'all' || r.channels.includes(contentChannelFilter))
+                .filter((r) => {
+                  if (!q) return true;
+                  return (
+                    r.title.toLowerCase().includes(q) ||
+                    (r.topic ?? '').toLowerCase().includes(q) ||
+                    (r.brand_name ?? '').toLowerCase().includes(q)
+                  );
+                });
+
+              const sorted = [...filtered].sort((a, b) => {
+                switch (contentSort) {
+                  case 'created_asc':
+                    return a.created_at.localeCompare(b.created_at);
+                  case 'next_asc':
+                    return (a.nextScheduledAt ?? '\uffff').localeCompare(b.nextScheduledAt ?? '\uffff');
+                  case 'last_desc':
+                    return (b.lastPublishedAt ?? '').localeCompare(a.lastPublishedAt ?? '');
+                  case 'title_asc':
+                    return a.title.localeCompare(b.title);
+                  case 'created_desc':
+                  default:
+                    return b.created_at.localeCompare(a.created_at);
+                }
+              });
+
+              const visible = sorted.slice(0, 100);
+              const visibleIds = new Set(visible.map((r) => `${r.type}-${r.id}`));
+              const selectedVisibleCount = visible.filter((r) => selectedIds.has(`${r.type}-${r.id}`)).length;
+              const allVisibleSelected = visible.length > 0 && selectedVisibleCount === visible.length;
+              const someSelected = selectedIds.size > 0;
+
+              const toggleAll = () => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (allVisibleSelected) {
+                    visibleIds.forEach((id) => next.delete(id));
+                  } else {
+                    visibleIds.forEach((id) => next.add(id));
+                  }
+                  return next;
+                });
+              };
+
+              const toggleOne = (key: string) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                });
+              };
+
+              const handleBulkExport = () => {
+                const rows = visible.filter((r) => selectedIds.has(`${r.type}-${r.id}`));
+                if (rows.length === 0) {
+                  toast.error('Chưa chọn dòng nào');
+                  return;
+                }
+                const headers = ['Loại', 'Tiêu đề', 'Brand', 'Trạng thái', 'Lịch tiếp', 'Đăng gần nhất', 'Channels', 'Ngày tạo'];
+                const data = rows.map((r) => [
+                  CONTENT_TYPE_LABELS[r.type],
+                  r.title,
+                  r.brand_name ?? '',
+                  r.derivedStatus,
+                  r.nextScheduledAt ?? '',
+                  r.lastPublishedAt ?? '',
+                  r.channels.join('|'),
+                  r.created_at,
+                ]);
+                const csv = buildCsv(headers, data);
+                downloadCsv(`noi-dung-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+                toast.success(`Đã xuất ${rows.length} dòng`);
+              };
+
+              const handleBulkOpen = () => {
+                const rows = visible.filter((r) => selectedIds.has(`${r.type}-${r.id}`));
+                if (rows.length === 0) {
+                  toast.error('Chưa chọn dòng nào');
+                  return;
+                }
+                if (rows.length > 10) {
+                  toast.error('Chỉ mở tối đa 10 tab cùng lúc');
+                  return;
+                }
+                rows.forEach((r) => {
+                  window.open(ROUTE_FOR_TYPE[r.type](r.id), '_blank', 'noopener,noreferrer');
+                });
+              };
+
+              const handleClearSelection = () => setSelectedIds(new Set());
+
+              return (
+                <Card>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium">Chi tiết nội dung</h3>
+                      <Badge variant="secondary" className="text-[10px] font-normal">
+                        {filtered.length}/{allRows.length}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={contentSearch}
+                          onChange={(e) => setContentSearch(e.target.value)}
+                          placeholder="Tìm tiêu đề, brand, topic..."
+                          className="h-8 w-[220px] pl-7 text-xs"
+                        />
+                      </div>
+                      <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                        <SelectTrigger className="h-8 w-[150px] text-xs">
+                          <SelectValue placeholder="Trạng thái" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                          <SelectItem value="draft">Nháp</SelectItem>
+                          <SelectItem value="approved">Đã duyệt</SelectItem>
+                          <SelectItem value="scheduled">Đã lên lịch</SelectItem>
+                          <SelectItem value="published">Đã đăng</SelectItem>
+                          <SelectItem value="failed">Thất bại</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={contentTypeFilter} onValueChange={(v) => setContentTypeFilter(v as ContentType | 'all')}>
+                        <SelectTrigger className="h-8 w-[150px] text-xs">
+                          <SelectValue placeholder="Loại" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả loại</SelectItem>
+                          {(Object.keys(CONTENT_TYPE_LABELS) as ContentType[]).map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {CONTENT_TYPE_LABELS[t]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {allBrands.length > 0 && (
+                        <Select value={contentBrandFilter} onValueChange={setContentBrandFilter}>
+                          <SelectTrigger className="h-8 w-[140px] text-xs">
+                            <SelectValue placeholder="Brand" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả brand</SelectItem>
+                            {allBrands.map((b) => (
+                              <SelectItem key={b} value={b}>
+                                {b}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {allChannels.length > 0 && (
+                        <Select value={contentChannelFilter} onValueChange={setContentChannelFilter}>
+                          <SelectTrigger className="h-8 w-[140px] text-xs">
+                            <SelectValue placeholder="Channel" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tất cả channel</SelectItem>
+                            {allChannels.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <Select value={contentSort} onValueChange={(v) => setContentSort(v as typeof contentSort)}>
+                        <SelectTrigger className="h-8 w-[160px] text-xs">
+                          <ArrowUpDown className="mr-1 h-3 w-3" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="created_desc">Mới nhất</SelectItem>
+                          <SelectItem value="created_asc">Cũ nhất</SelectItem>
+                          <SelectItem value="next_asc">Lịch tới gần nhất</SelectItem>
+                          <SelectItem value="last_desc">Vừa đăng gần nhất</SelectItem>
+                          <SelectItem value="title_asc">Tiêu đề A→Z</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Bulk action bar */}
+                  {someSelected && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                      <div className="text-xs">
+                        Đã chọn <span className="font-medium">{selectedIds.size}</span> dòng
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handleBulkExport}>
+                          <Download className="h-3 w-3" /> Xuất CSV
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={handleBulkOpen}>
+                          <ExternalLink className="h-3 w-3" /> Mở tab mới
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={handleClearSelection}>
+                          <X className="h-3 w-3" /> Bỏ chọn
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[36px]">
+                          <Checkbox
+                            checked={allVisibleSelected}
+                            onCheckedChange={toggleAll}
+                            aria-label="Chọn tất cả"
+                          />
+                        </TableHead>
+                        <TableHead>Loại</TableHead>
+                        <TableHead>Tiêu đề</TableHead>
+                        <TableHead>Brand</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Lịch / Đăng</TableHead>
+                        <TableHead>Ngày tạo</TableHead>
+                        <TableHead className="w-[40px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {visible.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
-                            Không có nội dung trong khoảng này.
+                          <TableCell colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
+                            Không có nội dung phù hợp.
                           </TableCell>
                         </TableRow>
-                      );
-                    }
-                    return filtered.slice(0, 100).map((r) => (
-                      <TableRow
-                        key={`${r.type}-${r.id}`}
-                        className="cursor-pointer"
-                        onClick={() => setHistoryRow(r)}
-                      >
-                        <TableCell><ContentTypeBadge type={r.type} /></TableCell>
-                        <TableCell className="max-w-md truncate font-medium">{r.title}</TableCell>
-                        <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">
-                          {r.brand_name ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <ContentStatusBadge status={r.derivedStatus} />
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {r.nextScheduledAt ? (
-                            <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
-                              <Clock className="h-3 w-3" />
-                              {format(new Date(r.nextScheduledAt), 'dd/MM HH:mm', { locale: vi })}
-                            </span>
-                          ) : r.lastPublishedAt ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                              <Send className="h-3 w-3" />
-                              {format(new Date(r.lastPublishedAt), 'dd/MM HH:mm', { locale: vi })}
-                            </span>
-                          ) : (r.failedCount ?? 0) > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
-                              <AlertTriangle className="h-3 w-3" />
-                              {r.failedCount} lỗi
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {format(new Date(r.created_at), 'dd/MM/yy HH:mm', { locale: vi })}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHistoryRow(r);
-                            }}
-                            title="Xem lịch sử"
-                          >
-                            <History className="h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ));
-                  })()}
-                </TableBody>
-              </Table>
-            </Card>
+                      ) : (
+                        visible.map((r) => {
+                          const key = `${r.type}-${r.id}`;
+                          const isChecked = selectedIds.has(key);
+                          return (
+                            <TableRow
+                              key={key}
+                              className="cursor-pointer"
+                              data-state={isChecked ? 'selected' : undefined}
+                              onClick={() => setHistoryRow(r)}
+                            >
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={() => toggleOne(key)}
+                                  aria-label="Chọn dòng"
+                                />
+                              </TableCell>
+                              <TableCell><ContentTypeBadge type={r.type} /></TableCell>
+                              <TableCell className="max-w-md truncate font-medium">{r.title}</TableCell>
+                              <TableCell className="max-w-[160px] truncate text-sm text-muted-foreground">
+                                {r.brand_name ?? '—'}
+                              </TableCell>
+                              <TableCell>
+                                <ContentStatusBadge status={r.derivedStatus} />
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {r.nextScheduledAt ? (
+                                  <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                                    <Clock className="h-3 w-3" />
+                                    {format(new Date(r.nextScheduledAt), 'dd/MM HH:mm', { locale: vi })}
+                                  </span>
+                                ) : r.lastPublishedAt ? (
+                                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                                    <Send className="h-3 w-3" />
+                                    {format(new Date(r.lastPublishedAt), 'dd/MM HH:mm', { locale: vi })}
+                                  </span>
+                                ) : (r.failedCount ?? 0) > 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {r.failedCount} lỗi
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {format(new Date(r.created_at), 'dd/MM/yy HH:mm', { locale: vi })}
+                              </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => setHistoryRow(r)}
+                                  title="Xem chi tiết"
+                                >
+                                  <History className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                  {sorted.length > visible.length && (
+                    <div className="border-t px-3 py-2 text-center text-xs text-muted-foreground">
+                      Hiển thị {visible.length}/{sorted.length} dòng. Lọc thêm để xem chi tiết.
+                    </div>
+                  )}
+                </Card>
+              );
+            })()}
 
             <ContentHistorySheet
               open={!!historyRow}
               onOpenChange={(o) => !o && setHistoryRow(null)}
               row={historyRow}
               events={historyRow ? content.data?.history?.[historyRow.id] ?? [] : []}
+              onOpenDetail={(r) => navigate(ROUTE_FOR_TYPE[r.type](r.id))}
             />
           </TabsContent>
 
