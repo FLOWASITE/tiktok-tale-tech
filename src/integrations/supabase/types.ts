@@ -2643,6 +2643,74 @@ export type Database = {
           },
         ]
       }
+      audio_assets: {
+        Row: {
+          asset_type: string
+          audio_url: string | null
+          cost_estimate: number | null
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          language: string | null
+          metadata: Json | null
+          organization_id: string | null
+          prompt: string | null
+          provider: string
+          source_text: string | null
+          srt_content: string | null
+          updated_at: string
+          user_id: string
+          voice_id: string | null
+          vtt_content: string | null
+        }
+        Insert: {
+          asset_type: string
+          audio_url?: string | null
+          cost_estimate?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          language?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          prompt?: string | null
+          provider?: string
+          source_text?: string | null
+          srt_content?: string | null
+          updated_at?: string
+          user_id: string
+          voice_id?: string | null
+          vtt_content?: string | null
+        }
+        Update: {
+          asset_type?: string
+          audio_url?: string | null
+          cost_estimate?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          language?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          prompt?: string | null
+          provider?: string
+          source_text?: string | null
+          srt_content?: string | null
+          updated_at?: string
+          user_id?: string
+          voice_id?: string | null
+          vtt_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audio_assets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batch_processing_jobs: {
         Row: {
           completed_at: string | null
@@ -10918,6 +10986,95 @@ export type Database = {
             columns: ["script_id"]
             isOneToOne: false
             referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_render_jobs: {
+        Row: {
+          aspect_ratio: string
+          bgm_url: string | null
+          burn_subtitles: boolean
+          completed_at: string | null
+          cost_estimate: number | null
+          created_at: string
+          duration_seconds: number | null
+          error_message: string | null
+          id: string
+          last_polled_at: string | null
+          organization_id: string | null
+          output_url: string | null
+          poll_attempts: number
+          progress: number
+          provider: string
+          provider_render_id: string | null
+          source_clip_ids: string[]
+          status: string
+          storyboard_id: string | null
+          subtitle_srt: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+          voiceover_url: string | null
+        }
+        Insert: {
+          aspect_ratio?: string
+          bgm_url?: string | null
+          burn_subtitles?: boolean
+          completed_at?: string | null
+          cost_estimate?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          last_polled_at?: string | null
+          organization_id?: string | null
+          output_url?: string | null
+          poll_attempts?: number
+          progress?: number
+          provider?: string
+          provider_render_id?: string | null
+          source_clip_ids?: string[]
+          status?: string
+          storyboard_id?: string | null
+          subtitle_srt?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+          voiceover_url?: string | null
+        }
+        Update: {
+          aspect_ratio?: string
+          bgm_url?: string | null
+          burn_subtitles?: boolean
+          completed_at?: string | null
+          cost_estimate?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          last_polled_at?: string | null
+          organization_id?: string | null
+          output_url?: string | null
+          poll_attempts?: number
+          progress?: number
+          provider?: string
+          provider_render_id?: string | null
+          source_clip_ids?: string[]
+          status?: string
+          storyboard_id?: string | null
+          subtitle_srt?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+          voiceover_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_render_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
