@@ -89,6 +89,65 @@ export function VideoGeneratorPanel({
     if (phase === 'idle' || phase === 'error') setProgress(0);
   }, [phase]);
 
+  // Theo dõi job thực tế qua realtime: nếu DB báo completed/failed → cập nhật phase
+  const currentJob = currentJobId ? generations.find((g) => g.id === currentJobId) : undefined;
+  useEffect(() => {
+    if (!currentJob) return;
+    if (currentJob.status === 'completed' && currentJob.video_url) {
+      setPhase('done');
+      onVideoGenerated?.(currentJob.video_url);
+    } else if (currentJob.status === 'failed') {
+      setPhase('error');
+      setLastError({
+        message: currentJob.error_message || 'Provider không trả video.',
+        code: 'PROVIDER_FAILED',
+      });
+    } else if (currentJob.status === 'processing' || currentJob.status === 'pending') {
+      setPhase('processing');
+    }
+  }, [currentJob?.status, currentJob?.video_url]);
+
+  // Stepper: 4 bước có thật trong pipeline submit-and-poll
+  type StepState = 'pending' | 'active' | 'done' | 'error';
+  const steps: { key: string; label: string; state: StepState }[] = [
+    {
+      key: 'submit',
+      label: 'Gửi yêu cầu tới máy chủ',
+      state:
+        phase === 'sending' ? 'active'
+        : phase === 'idle' ? 'pending'
+        : phase === 'error' && !currentJobId ? 'error'
+        : 'done',
+    },
+    {
+      key: 'queue',
+      label: 'Đẩy job vào hàng đợi provider',
+      state:
+        !currentJobId ? 'pending'
+        : (currentJob?.status === 'pending') ? 'active'
+        : (currentJob?.status === 'processing' || currentJob?.status === 'completed') ? 'done'
+        : currentJob?.status === 'failed' ? 'error'
+        : 'pending',
+    },
+    {
+      key: 'render',
+      label: `Provider render video (${provider})`,
+      state:
+        currentJob?.status === 'processing' ? 'active'
+        : currentJob?.status === 'completed' ? 'done'
+        : currentJob?.status === 'failed' ? 'error'
+        : 'pending',
+    },
+    {
+      key: 'finalize',
+      label: 'Lưu vào thư viện & sẵn sàng phát',
+      state:
+        currentJob?.status === 'completed' && currentJob?.video_url ? 'done'
+        : currentJob?.status === 'completed' ? 'active'
+        : 'pending',
+    },
+  ];
+
   const fmtTime = (s: number) => {
     const m = Math.floor(s / 60);
     const r = s % 60;
