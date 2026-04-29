@@ -179,13 +179,15 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
   try {
     const supabase = getServiceClient();
     const body: PublishRequest = await req.json();
-    const { connectionId, content, title, mediaUrls, link, boardId, altText, scheduleId, contentId } = body;
+    const { connectionId, content, title, mediaUrls, link, boardId, altText, pinType, scheduleId, contentId } = body;
+    const resolvedPinType = pinType && pinType !== 'auto' ? pinType : null;
 
     console.log('[publish-pinterest] request', {
       connectionId,
       contentLength: content?.length,
       mediaCount: mediaUrls?.length,
       boardId,
+      pinType: resolvedPinType || 'auto',
     });
 
     if (!connectionId) throw new Error('connectionId is required');
