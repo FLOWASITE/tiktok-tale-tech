@@ -1161,7 +1161,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </DialogContent>
       </Dialog>
 
-      {/* Website Setup Dialog */}
+      {/* WordPress Connect Dialog (3-step simplified) */}
       <WordPressConnectDialog
         open={wpDialogOpen}
         onOpenChange={setWpDialogOpen}
