@@ -1793,9 +1793,13 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
                 <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-5/6" />
                 <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-4/5" />
               </div>
-            ) : (
+            ) : formattedContent.trim() ? (
               <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed">
                 <MemoizedWebsiteMarkdown content={formattedContent} themeColor={themeColor} />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-[#d2d2d7] dark:border-[#3d3d3f] bg-[#fafafa] dark:bg-[#2c2c2e] p-6 text-center text-xs text-[#86868b]">
+                Chưa có nội dung bài viết. Hãy nhấn <span className="font-semibold">Tạo lại nội dung</span> để AI viết bài cho kênh này.
               </div>
             )}
             
