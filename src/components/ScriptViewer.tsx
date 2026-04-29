@@ -277,9 +277,9 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
             </div>
           </DialogHeader>
 
-          {/* Central AI Analyzer Button */}
+          {/* Central action row: AI Analyzer + Send to Video Studio */}
           {!showAnalytics && (
-            <div className="hidden sm:flex justify-center my-2">
+            <div className="hidden sm:flex justify-center my-2 gap-2 flex-wrap">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -296,6 +296,26 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                     <p>Phân tích kịch bản bằng AI để đánh giá chất lượng, cấu trúc và đưa ra gợi ý cải thiện</p>
                   </TooltipContent>
                 </Tooltip>
+
+                {scriptPurpose === 'ai_video' && parsedPrompts.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => handleSendToVideoStudio()}
+                        className="gap-2 px-4 py-2"
+                      >
+                        <Clapperboard className="w-4 h-4" />
+                        <span>Quay với Video Studio</span>
+                        <Badge variant="secondary" className="ml-1 h-5 text-[10px] px-1.5">
+                          {parsedPrompts.length} scene
+                        </Badge>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>Mở Video Studio và tự động nạp từng scene của kịch bản để quay AI tuần tự, sau đó ghép lại đúng thứ tự.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </TooltipProvider>
             </div>
           )}
