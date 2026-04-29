@@ -56,7 +56,7 @@ const svgIcons: Partial<Record<Channel, React.FC<{ className?: string }>>> = {
 };
 
 interface ChannelIconProps {
-  channel: Channel;
+  channel: Channel | 'blogger';
   className?: string;
   size?: number;
 }
@@ -71,8 +71,17 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
   if (channel === 'email') {
     return <Mail className={className} style={style} />;
   }
+  if (channel === 'blogger') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center font-bold text-[#FF8000] ${className}`}>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+          <path d="M21.976 14.514c-.05 1.857-.137 2.708-.397 3.534-.295.93-.747 1.6-1.484 2.222-.74.625-1.503 1.013-2.473 1.262-.838.215-1.687.31-3.529.353-1.84.043-2.41.043-3.94.043-1.532 0-2.1 0-3.94-.043-1.842-.044-2.692-.138-3.53-.353-.97-.249-1.733-.637-2.473-1.262-.737-.622-1.189-1.293-1.484-2.222-.26-.826-.347-1.677-.397-3.534C.073 13.585.06 13.288.06 12c0-1.288.013-1.585.069-2.514.05-1.857.137-2.708.397-3.534.295-.93.747-1.6 1.484-2.222.74-.625 1.503-1.013 2.473-1.262.838-.215 1.688-.31 3.53-.353 1.84-.043 2.408-.043 3.939-.043s2.1 0 3.94.043c1.842.044 2.691.138 3.529.353.97.249 1.733.637 2.473 1.262.737.622 1.189 1.293 1.484 2.222.26.826.347 1.677.397 3.534.056.929.069 1.226.069 2.514 0 1.288-.013 1.585-.069 2.514zM8.5 8a1 1 0 100 2h3a1 1 0 100-2h-3zm-1 6a1 1 0 100 2h9a1 1 0 100-2h-9z" />
+        </svg>
+      </span>
+    );
+  }
 
-  const SvgIcon = svgIcons[channel];
+  const SvgIcon = svgIcons[channel as Channel];
   if (SvgIcon) {
     return <span style={style} className={`inline-block ${className}`}><SvgIcon className="w-full h-full" /></span>;
   }
