@@ -45,6 +45,8 @@ import { VideoGeneratorPanel } from '@/components/script/VideoGeneratorPanel';
 import { VideoGallery } from '@/components/script/VideoGallery';
 import { ScriptExportMenu } from '@/components/script/ScriptExportMenu';
 import { ScriptCollaborationPanel } from '@/components/script/ScriptCollaborationPanel';
+import { SceneVideoStrip } from '@/components/scripts/SceneVideoStrip';
+import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
 import { cn } from '@/lib/utils';
 
 interface ScriptViewerProps {
@@ -190,6 +192,8 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
   const parsedPrompts = parseScriptContent(script.content, scriptPurpose);
   const promptCount = getPromptCount(script.content, scriptPurpose);
   const blockLabel = getBlockLabel(scriptPurpose);
+  const isAiVideo = scriptPurpose === 'ai_video';
+  const { bySceneNumber } = useScriptVideoGenerations(isAiVideo ? script.id : null);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(script.content);
@@ -486,15 +490,24 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         {parsedPrompts.length > 0 ? (
                           <div className="space-y-2 xs:space-y-3 pr-2 xs:pr-4">
                             {parsedPrompts.map((prompt) => (
-                              <PurposeAwarePromptCard 
-                                key={prompt.promptNumber} 
-                                prompt={prompt} 
-                                purpose={scriptPurpose}
-                                totalPrompts={parsedPrompts.length}
-                                videoType={script.video_type}
-                                characterType={script.character_type}
-                                fullScriptContext={script.content}
-                              />
+                              <div key={prompt.promptNumber} className="space-y-0">
+                                <PurposeAwarePromptCard 
+                                  prompt={prompt} 
+                                  purpose={scriptPurpose}
+                                  totalPrompts={parsedPrompts.length}
+                                  videoType={script.video_type}
+                                  characterType={script.character_type}
+                                  fullScriptContext={script.content}
+                                />
+                                {isAiVideo && (
+                                  <SceneVideoStrip
+                                    sceneNumber={prompt.promptNumber}
+                                    clip={bySceneNumber.get(prompt.promptNumber)}
+                                    onShoot={() => handleSendToVideoStudio(prompt.promptNumber - 1)}
+                                    onReshoot={() => handleSendToVideoStudio(prompt.promptNumber - 1)}
+                                  />
+                                )}
+                              </div>
                             ))}
                           </div>
                         ) : (

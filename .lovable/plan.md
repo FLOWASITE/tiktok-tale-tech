@@ -1,134 +1,90 @@
 ## Mục tiêu
 
-Liên kết hai luồng đang tách rời:
-- **Kịch bản Video** (`/scripts/new` → `scripts` table) sinh ra `ParsedPrompt[]` (mỗi prompt = 1 cảnh AI video).
-- **Video Studio** (`/videos`) hiện chỉ có **Quick Clip** rời rạc + **Storyboard** ghép thủ công các clip có sẵn.
-
-Sau plan này, người dùng có thể: từ một kịch bản → 1 click "Quay phim với Video Studio" → các scene tự nạp vào hàng đợi → Quick Clip generate từng scene → Storyboard biết clip nào thuộc kịch bản nào → ghép lại theo đúng thứ tự kịch bản.
+Khép kín vòng liên kết hai chiều **Kịch bản ↔ Video Studio**. Hiện tại luồng đi (Script → Studio) đã chạy mượt, nhưng luồng về (Studio → Script) và điều hướng per-scene còn thiếu, khiến user không thấy được "scene này đã quay chưa, clip ra sao".
 
 ---
 
-## Kiến trúc liên kết
+## 3 phần bổ sung
+
+### 1. Reverse-link strip trong `ScriptViewer.tsx`
+
+Dưới mỗi scene card (khi `script_purpose === 'ai_video'`), hiển thị một strip nhỏ:
 
 ```text
-ScriptViewer (ai_video purpose)
-   │  parseScriptContent → ParsedPrompt[]
-   ▼
-[Nút "Quay với Video Studio"]
-   │  navigate('/videos', state: { scriptId, scenes[] })
-   ▼
-VideoStudioPage  ──►  ScriptContext (mới, nhẹ)
-   ├── QuickClipTab    : Banner "Đang quay từ kịch bản X — scene 2/5", auto-fill prompt + duration + aspect
-   │                     khi generate → lưu script_id + scene_number vào video_generations
-   ├── StoryboardTab   : Mặc định lọc theo script đang active, sắp xếp theo scene_number, 1-click "Ghép theo kịch bản"
-   └── GalleryTab      : Group clip theo script, badge "Scene N/Total"
+┌─────────────────────────────────────────────────┐
+│ [thumb 48×64]  ✓ Đã quay · 5s · 9:16            │
+│                "Cận cảnh sản phẩm xoay 360°…"   │
+│                                  [▶ Xem] [↻ Quay lại] │
+└─────────────────────────────────────────────────┘
 ```
 
-DB **không cần thêm cột** — `video_generations.script_id` và `scene_number` đã tồn tại từ migration `20260208040527`. Chỉ cần truyền giá trị khi ghi.
+Trạng thái:
+- **Chưa quay** → strip mờ, nút duy nhất `[🎬 Quay scene này]`.
+- **Đang xử lý** (`status='processing'`) → spinner + `Đang render…`.
+- **Đã quay** (`status='completed'`) → thumbnail + nút `[▶ Xem]` (mở dialog preview) + `[↻ Quay lại]` (re-generate scene).
+- **Lỗi** (`status='failed'`) → badge đỏ nhạt + `[↻ Thử lại]`.
 
----
+**Data**: query `video_generations` lọc theo `script_id = script.id`, group theo `scene_number`. Dùng TanStack Query với realtime channel để auto-update khi clip xong.
 
-## Các thay đổi chi tiết
+### 2. CTA per-scene "Quay scene này"
 
-### 1. ScriptViewer — entry point
-**File**: `src/components/ScriptViewer.tsx`
+Trong nút strip trên (state "chưa quay"), click `[🎬 Quay scene này]` sẽ:
 
-- Khi `script_purpose === 'ai_video'` và có `parsedPrompts.length > 0`, thêm CTA chính: **"Quay với Video Studio"** (icon `Clapperboard`).
-- Action: `navigate('/videos', { state: { fromScript: { id, title, topic, scenes: parsedPrompts.map(p => ({ sceneNumber, prompt: p.rawContent || cinematic, duration, aspect })) } } })`.
-- Thêm CTA phụ trong từng scene card: **"Quay scene này"** → cùng route nhưng `state.activeSceneIndex = N`.
+```typescript
+navigate('/videos', {
+  state: {
+    fromScript: {
+      script: { id, title, scenes: parsedPrompts.map(...) },
+      activeSceneIndex: N - 1   // jump thẳng tới scene N
+    }
+  }
+});
+```
 
-### 2. ScriptToVideoContext — state liên kết (mới)
-**File**: `src/contexts/ScriptToVideoContext.tsx`
+`VideoStudioPage` đã hỗ trợ `activeSceneIndex` — chỉ cần truyền đúng index.
 
-- Provider bọc `VideoStudioPage`.
-- State: `activeScript: { id, title, scenes: VideoScene[] } | null`, `activeSceneIndex: number`, `completedSceneIds: Record<sceneNumber, video_generation_id>`.
-- Hydrate từ `location.state` lần đầu, persist vào `sessionStorage` (key `flowa_script_to_video`) để không mất khi user chuyển tab.
-- Methods: `setActiveScene(idx)`, `markSceneCompleted(num, genId)`, `clearScript()`, `goToNextScene()`.
+### 3. Filter theo script trong `VideoGalleryTab.tsx`
 
-### 3. Banner liên kết — hiển thị toàn page
-**File**: `src/components/video/ScriptLinkBanner.tsx` (mới)
+Thêm dropdown phía trên grid:
 
-- Hiển thị phía trên `<Tabs>` khi `activeScript` tồn tại.
-- Nội dung: tiêu đề kịch bản, progress `X/Y scene đã quay`, nút **"Bỏ liên kết"** + **"Mở kịch bản gốc"** (→ `/scripts/{id}`).
-- Soft Luxury: nền `bg-muted/30`, border `border-border/60`, icon neutral.
+```text
+[Tất cả ▾] [Script: Review serum X ▾] [Aspect: 9:16 ▾]
+```
 
-### 4. QuickClipTab — auto-fill từ scene
-**File**: `src/components/video/QuickClipTab.tsx`
-
-- Đọc `activeScript`, `activeSceneIndex` từ context.
-- Khi có scene active: prefill `prompt`, `duration`, `aspect` từ scene đó. Hiển thị strip nhỏ phía trên textarea: `[← Scene trước]  Scene 2/5: "..."  [Scene sau →]` để chuyển nhanh không cần quay về ScriptViewer.
-- Sau khi `generateVideo` thành công, truyền thêm `script_id` + `scene_number` xuống `useVideoGeneration.generateVideo` → `generate-video` edge function → ghi vào `video_generations`.
-- Auto `markSceneCompleted` + `goToNextScene()` khi job hoàn thành (lắng nghe Realtime trong context).
-
-### 5. useVideoGeneration — propagate script linkage
-**File**: `src/hooks/useVideoGeneration.ts`
-
-- Thêm optional `script_id`, `scene_number` vào tham số `generateVideo`.
-- Truyền xuống edge function body. Edge function `generate-video` đã insert vào `video_generations` — chỉ cần forward thêm 2 cột này.
-
-### 6. StoryboardVideoTab — mode "Theo kịch bản"
-**File**: `src/components/video/StoryboardVideoTab.tsx`
-
-- Khi `activeScript` tồn tại:
-  - Mặc định **chỉ hiển thị clip có `script_id === activeScript.id`**, sắp xếp theo `scene_number`.
-  - Tự động tick chọn tất cả + đặt thứ tự theo `scene_number`.
-  - Nút prominent **"Ghép theo đúng kịch bản"** (1-click submit render).
-  - Cảnh báo nếu thiếu scene: `"Còn 2/5 scene chưa quay → quay nốt ở Quick Clip"` + nút chuyển tab.
-- Toggle **"Hiện tất cả clip"** để fallback chế độ tự do hiện tại.
-
-### 7. VideoGalleryTab — group theo script
-**File**: `src/components/video/VideoGalleryTab.tsx`
-
-- Thêm filter theo script (dropdown danh sách script gần đây có clip).
-- Mỗi clip thuộc script → badge nhỏ `Scene 3 · "Tên script"` (clickable → mở ScriptViewer).
-
-### 8. Reverse link trong ScriptViewer
-**File**: `src/components/ScriptViewer.tsx`
-
-- Query `video_generations` theo `script_id`, hiển thị mini-strip dưới mỗi scene: thumbnail + status (`✓ Đã quay`, `⟳ Đang xử lý`, `— Chưa quay`).
-- Click thumbnail → mở video preview dialog. Click "Quay lại" → navigate Video Studio đúng scene.
-
----
-
-## Edge function thay đổi
-
-**`supabase/functions/generate-video/index.ts`**: chỉ thêm 2 dòng — đọc `script_id`, `scene_number` từ body và include khi `insert into video_generations`. Không thay đổi logic provider.
-
-Không cần migration mới.
-
----
-
-## UX flow tổng
-
-1. User tạo kịch bản `ai_video` 5 scenes ở `/scripts/new`.
-2. ScriptViewer mở → click **"Quay với Video Studio"**.
-3. Vào `/videos` → Banner xanh nhạt: *"Đang quay: 'Review serum X' — 0/5 scene"*. Tab Quick Clip auto-fill scene 1.
-4. Click **Tạo video** → job chạy nền (Realtime). Banner cập nhật `1/5`. Auto chuyển scene 2.
-5. Lặp lại đến `5/5`. Banner gợi ý: *"Đã đủ! Sang tab Storyboard để ghép."*
-6. Tab Storyboard: clip đã được pre-selected đúng thứ tự → 1-click ghép → render qua Creatomate (đã có sẵn).
-7. Quay lại ScriptViewer bất kỳ lúc nào: thấy thumbnail của từng scene đã quay.
-
----
-
-## Phạm vi & rủi ro
-
-- **Không sửa**: schema DB, `_shared/`, AI provider, Creatomate render logic, audio studio.
-- **Backward compatible**: mọi flow Quick Clip / Storyboard hiện tại vẫn dùng được khi không có `activeScript`.
-- **Không phá Lovable Cloud auto-gen**: chỉ thêm cột-đã-có vào insert, không edit `client.ts` / `types.ts`.
+- Query distinct `script_id` từ `video_generations` của user, join `scripts.title`.
+- Khi chọn 1 script → filter clips, đồng thời sort theo `scene_number ASC`.
+- Mỗi clip card đã có badge "Scene N" (đã làm) — thêm mini-link `→ Mở kịch bản` mở `/scripts` với scrollTo script đó.
 
 ---
 
 ## Files
 
 **Mới**:
-- `src/contexts/ScriptToVideoContext.tsx`
-- `src/components/video/ScriptLinkBanner.tsx`
+- `src/components/scripts/SceneVideoStrip.tsx` — strip hiển thị status + actions cho 1 scene.
+- `src/hooks/useScriptVideoGenerations.ts` — fetch + realtime cho `video_generations` theo `script_id`.
 
 **Sửa**:
-- `src/components/ScriptViewer.tsx` (thêm CTA + reverse-link strip)
-- `src/pages/VideoStudioPage.tsx` (bọc Provider + render Banner)
-- `src/components/video/QuickClipTab.tsx` (auto-fill + scene navigator + propagate IDs)
-- `src/components/video/StoryboardVideoTab.tsx` (mode theo script)
-- `src/components/video/VideoGalleryTab.tsx` (filter + badge scene)
-- `src/hooks/useVideoGeneration.ts` (params script_id/scene_number)
-- `supabase/functions/generate-video/index.ts` (forward 2 trường vào insert)
+- `src/components/ScriptViewer.tsx` — render `<SceneVideoStrip>` dưới mỗi scene card khi purpose là `ai_video`.
+- `src/components/video/VideoGalleryTab.tsx` — thêm script filter dropdown.
+
+---
+
+## Phạm vi & rủi ro
+
+- Không đụng schema, edge function, AI provider.
+- `useScriptVideoGenerations` có RLS sẵn (`organization_id`) nên an toàn.
+- Realtime channel cleanup đúng khi unmount tránh leak.
+- Backward compatible: script không phải `ai_video` không thấy strip.
+
+---
+
+## UX kết quả
+
+User mở kịch bản 5 scene → mỗi scene có strip riêng:
+- Scene 1, 2, 3 đã quay → thumbnail + nút Xem.
+- Scene 4 đang render → spinner.
+- Scene 5 chưa quay → nút "Quay scene này".
+
+Click "Quay scene 5" → vào Studio, banner hiện `0/5`, QuickClip auto-fill scene 5. Quay xong → quay lại ScriptViewer thấy thumbnail Scene 5 ngay (realtime).
+
+Trong Gallery, lọc theo script "Review serum X" → thấy đúng 5 clip của kịch bản đó, sắp xếp theo scene.
