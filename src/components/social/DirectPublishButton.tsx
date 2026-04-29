@@ -188,7 +188,11 @@ export function DirectPublishButton({
   const [isScheduling, setIsScheduling] = useState(false);
 
   const platform = CHANNEL_TO_PLATFORM[channel];
-  const connection = platform ? getConnectionForPlatform(platform) : null;
+  // For 'wordpress' channel, accept both self-hosted (wordpress) and WordPress.com OAuth (wordpress_com) connections
+  const connection = platform
+    ? getConnectionForPlatform(platform) ||
+      (platform === 'wordpress' ? getConnectionForPlatform('wordpress_com') : null)
+    : null;
   const Icon = platform ? PLATFORM_ICONS[platform] : Send;
   const charLimit = platform ? PLATFORM_CHAR_LIMITS[platform] : undefined;
 
