@@ -76,6 +76,7 @@ const CHANNEL_TO_PLATFORM: Partial<Record<Channel, SocialPlatform>> = {
   zalo_oa: 'zalo_oa',
   website: 'website',
   blogger: 'website',
+  wordpress: 'website',
 };
 
 function getStatusCounts(items: MultiChannelContent[]) {

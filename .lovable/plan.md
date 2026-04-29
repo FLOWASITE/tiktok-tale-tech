@@ -1,37 +1,140 @@
-Mình thấy đúng vấn đề trong screenshot: nội dung đang mở là bài Blogger của brand TAF nhưng UI đang render như `Website/Blog`, word count = 0 và mockup chỉ có ảnh/khung blog, không có body text. Nguyên nhân khả năng cao là Blogger đang bị alias quá mạnh sang `website`, trong khi UI/generation/publish chưa xử lý đầy đủ case `blogger` như một kênh hiển thị riêng.
+# Kế hoạch phát triển kênh WordPress
 
-Kế hoạch sửa:
+## Bối cảnh
+Hiện tại WordPress đang **gộp chung trong channel generic `website`** (cùng với Wix, Shopify, NukeViet, custom API). User chọn "Website/Blog" → backend mới phân nhánh theo `integrationType`. Blogger vừa được tách thành kênh riêng (orange branding, content mapping, image pipeline, direct publish). Chúng ta sẽ áp dụng **đúng pattern Blogger** cho WordPress để:
+- Người dùng thấy "WordPress" như 1 kênh độc lập (logo + màu xanh WP #21759b).
+- Có nút "Đăng WordPress" riêng, mockup preview riêng.
+- Kết nối WordPress per-brand qua Application Password.
+- AI sinh nội dung long-form đúng chuẩn WordPress (headings, blocks, featured image, categories/tags, SEO meta).
 
-1. Tách hiển thị Blogger khỏi Website/Blog trong viewer
-- Đổi `blogger` trong `MultiChannelViewer` từ label/shortLabel `Website/Blog`/`Web` thành `Blogger`/`Blogger` hoặc `Blog`.
-- `getContentForChannel()` sẽ map `blogger -> website_content`, để Blogger vẫn dùng cùng bài viết dài nhưng UI không báo sai là Website/Blog.
-- Các điều kiện riêng cho website như SEO preview/mockup sẽ áp dụng cho cả `website` và `blogger` khi dữ liệu nằm ở `website_content`/`website_seo_data`.
+## Mục tiêu
+1. WordPress = first-class channel `wordpress` (giống `blogger`, `website`).
+2. Hỗ trợ WordPress.com (OAuth qua connector) **và** self-hosted WordPress (Application Password).
+3. Pipeline: Generate → Preview/Mockup → Direct Publish → Track status.
+4. Tags, Categories, Featured Image, Excerpt, SEO (Yoast/Rank Math meta nếu có).
 
-2. Sửa mockup Blogger để luôn hiển thị body text
-- Trong `ContentMockupToggle`, truyền `seoData` cho cả `website` và `blogger` thay vì chỉ `website`.
-- Trong mockup blog, nếu `content` rỗng nhưng `seoData.content` có dữ liệu thì dùng `seoData.content` làm fallback.
-- Nếu cả hai đều rỗng, hiển thị empty state rõ ràng: “Chưa có nội dung bài Blogger” thay vì để vùng bài viết trắng.
+---
 
-3. Sửa dữ liệu trả về khi tạo/tạo lại Blogger
-- Hiện backend normalize `blogger -> website` quá sớm, nên có thể làm mất dấu kênh gốc hoặc khiến selected channel/UI lệch.
-- Điều chỉnh `generate-multichannel` để:
-  - vẫn lưu body Blogger vào `website_content`,
-  - vẫn lưu SEO object vào `website_seo_data`,
-  - nhưng `selected_channels` giữ được `blogger` khi user chọn Blogger,
-  - regenerate/expand channel `blogger` vẫn tạo nội dung bài dài thay vì chỉ map về social/website sai nhãn.
+## Phạm vi & các bước thực hiện
 
-4. Sửa auto image pipeline cho Blogger
-- Thêm `blogger` vào danh sách visual channels ở `MultiChannelCreate`, để khi tạo bài Blogger thì ảnh hero được tạo theo kênh Blogger.
-- Đảm bảo text summary/image prompt của Blogger lấy từ `website_content` và ảnh lưu dưới key `blogger` hoặc fallback đọc được từ `website` khi publish.
+### Bước 1 — Channel registry & UI core
+- `src/types/multichannel.ts`: thêm `'wordpress'` vào union `Channel` + entry trong `CHANNEL_CONFIGS` (label "WordPress", icon `Globe`/SVG WP, color blue-wp, category `text`).
+- `src/utils/channelColors.ts`, `src/config/channelImageConfig.ts`, `src/components/ui/channel-icon.tsx`: đăng ký màu (#21759b), icon SVG WordPress (thay vì emoji).
+- `getContentForChannel`: map `'wordpress'` → `website_content` (long-form), giống Blogger.
+- Cập nhật `BrandViewChannelsTab`, `ChannelGroupView`, `ExpandChannelsDialog`, `MultiChannelStats`, `MultiChannelCard`, `ImageChannelPicker`, `ContentMockupToggle`: render WordPress riêng, không gộp với "website".
 
-5. Sửa publish Blogger dùng đúng text và ảnh
-- `DirectPublishButton` cho Blogger sẽ gửi `stripSeoMetadata(channelContent)` giống blog/website để tránh metadata lẫn vào bài.
-- `channel-publisher` khi publish Blogger sẽ tìm featured image theo thứ tự: `channel_images.blogger`, rồi `channel_images.website`, rồi `featured_image_url`.
-- Sau publish Blogger, trạng thái nên đánh dấu `blogger` là published nếu selected_channels có Blogger; chỉ fallback sang `website` nếu content cũ không có blogger.
+### Bước 2 — Generation pipeline
+- `supabase/functions/generate-multichannel/index.ts`:
+  - `expandWordpressToWebsite()` tương tự Blogger: nếu user chọn `wordpress` → internally gọi long-form `website` generator nhưng vẫn lưu key `wordpress` vào `selected_channels` & `channel_statuses`.
+  - Token budget WordPress = website (1500-2500 tokens), giữ markdown (H2/H3, lists, blockquote).
+  - Sinh kèm: `excerpt` (150-160 ký tự), `tags[]` (5-8), `category` gợi ý, `seo_title`, `seo_description`, `slug`.
+- `src/components/MultiChannelCreate.tsx`: thêm `wordpress` vào danh sách channel có image hero (1200x675, ratio blog).
 
-6. Kiểm tra nhanh sau sửa
-- Mở lại bài TAF trong viewer: sidebar phải hiện Blogger, header chính là Blogger, word count > 0 nếu có `website_content`.
-- Mockup Blogger phải có ảnh hero và phần thân bài text dưới metadata tác giả.
-- Nút Đăng Blogger phải publish đúng body text, không chỉ ảnh.
+### Bước 3 — Mockup & Viewer
+- `MultiChannelViewer.tsx`: label "WordPress" + WP color, dùng `website_content`, fallback `seoData.content`, hiển thị tags/categories.
+- `ChannelMockupFrame.tsx`: thêm variant `wordpress` (header logo WP + featured image + H1 + body markdown render + tags chips + author/date), khác biệt với mockup Blogger (orange) và website generic.
+- `ContentAnalyticsPanel.tsx`: cho phép xem SEO score / GEO score riêng cho WordPress.
 
-Không cần đổi schema database mới nếu giữ kiến trúc hiện tại: Blogger dùng chung `website_content` và `website_seo_data`, chỉ sửa mapping/hiển thị/publish để không mất text và không bị gọi là “Website/Blog”.
+### Bước 4 — Connection (per-brand)
+**Hai luồng song song:**
+
+**A. Self-hosted WordPress (Application Password)** — luồng chính cho VN:
+- Tạo edge function mới `connect-wordpress` (tách từ `connect-website`):
+  - Input: `siteUrl`, `username`, `applicationPassword`, `brandTemplateId`.
+  - Test qua `GET {siteUrl}/wp-json/wp/v2/users/me?context=edit`.
+  - Lưu `social_connections` với `platform='wordpress'`, encrypted password, `metadata: { site_url, username, wp_version, capabilities }`.
+- UI: thêm card "WordPress" trong `BrandViewConnectionsTab` + `SocialConnectionsManager` với form (Site URL, Username, App Password + link hướng dẫn tạo Application Password).
+
+**B. WordPress.com (OAuth)** — optional, dùng connector có sẵn:
+- Đã có connector `wordpress_com` (uses gateway). Wrap qua `standard_connectors` flow nếu user chọn "WordPress.com".
+- Edge function `wordpress-oauth-callback` (tương tự `blogger-oauth-callback`) lưu connection per-brand, derive `organization_id` từ `brand_templates`.
+
+### Bước 5 — Publishing
+- Tạo `supabase/functions/publish-wordpress/index.ts` (tách logic WordPress khỏi `publish-website`):
+  - Self-hosted: `POST {site}/wp-json/wp/v2/posts` với Basic Auth (decrypt App Password).
+  - WordPress.com: `POST https://connector-gateway.lovable.dev/wordpress_com/...` qua gateway.
+  - Upload featured image: `POST /wp-json/wp/v2/media` → set `featured_media`.
+  - Map: `title`=seo_title, `content`=markdown→HTML, `excerpt`, `status`='publish'|'draft', `tags`, `categories`, `slug`, `meta` (Yoast keys nếu phát hiện plugin).
+  - Strip SEO metadata block trước khi gửi (giống Blogger).
+- `src/components/social/DirectPublishButton.tsx` & `useDirectPublish.ts`:
+  - Thêm case `'wordpress'`: route tới `publish-wordpress`.
+  - Pre-check connection theo brand → nếu chưa kết nối, toast error + link tới Connections tab.
+- `channel-publisher/index.ts`: ưu tiên `channel_images.wordpress` → `featured_image_url` → `channel_images.website`. Update `channel_statuses.wordpress='published'`.
+
+### Bước 6 — Database migration
+- Backfill `social_connections` hiện có (`platform='website'`, `metadata.integration_type='wordpress'`) → tách thành rows mới `platform='wordpress'`, giữ nguyên `organization_id` & `brand_template_id`.
+- Thêm vào `multi_channel_contents.channel_statuses` JSON support key `wordpress` (no schema change cần thiết, JSON tự do).
+- Migration thêm RLS check (đã có cho social_connections theo organization).
+
+### Bước 7 — Admin & Settings
+- `AdminSocialSettings.tsx`: thêm WordPress vào danh sách platform credentials (cho admin set OAuth client của WordPress.com BYOK nếu cần).
+- `SocialPlatformCredentialsDialog.tsx`: form WordPress.com OAuth (client_id/secret) — optional, fallback dùng managed connector.
+
+### Bước 8 — Testing & QA
+- Test self-hosted: 1 site WordPress demo, tạo App Password, connect → publish bài có ảnh + tags.
+- Test WordPress.com: dùng connector workspace.
+- Test multi-brand isolation: brand A connect, brand B không thấy connection của A.
+- Kiểm tra mockup preview đúng style WP (không lẫn Blogger orange).
+
+---
+
+## Chi tiết kỹ thuật
+
+### Files mới
+```
+supabase/functions/connect-wordpress/index.ts
+supabase/functions/publish-wordpress/index.ts
+supabase/functions/test-wordpress-connection/index.ts
+supabase/functions/wordpress-oauth-callback/index.ts          (cho WordPress.com)
+supabase/functions/refresh-wordpress-token/index.ts           (cho WordPress.com)
+src/pages/WordPressCallback.tsx                               (OAuth landing)
+supabase/migrations/<timestamp>_split_wordpress_channel.sql   (backfill)
+```
+
+### Files sửa
+```
+src/types/multichannel.ts                       (+ 'wordpress' channel)
+src/utils/channelColors.ts                      (+ WP blue #21759b)
+src/config/channelImageConfig.ts                (+ wordpress 1200x675)
+src/components/ui/channel-icon.tsx              (+ SVG WordPress logo)
+src/components/MultiChannelViewer.tsx           (label + content mapping)
+src/components/preview/ChannelMockupFrame.tsx   (mockup variant wordpress)
+src/components/viewer/ContentMockupToggle.tsx   (enable SEO panel cho WP)
+src/components/brand/BrandViewChannelsTab.tsx
+src/components/brand/BrandViewConnectionsTab.tsx (form WP connection)
+src/components/multichannel/ChannelGroupView.tsx
+src/components/multichannel/ExpandChannelsDialog.tsx
+src/components/multichannel/ExpandChannelsStreamingDialog.tsx
+src/components/multichannel/ImageChannelPicker.tsx
+src/components/social/DirectPublishButton.tsx
+src/components/social/SocialConnectionsManager.tsx
+src/hooks/useDirectPublish.ts
+src/hooks/useSocialConnections.ts
+src/pages/MultiChannelCreate.tsx                (image gen channels)
+src/pages/AdminSocialSettings.tsx               (WP credentials)
+src/app/routes.tsx                              (+ /auth/wordpress/callback)
+supabase/functions/generate-multichannel/index.ts (expandWordpressToWebsite + persist key)
+supabase/functions/channel-publisher/index.ts   (route wordpress + image fallback)
+supabase/config.toml                            (verify_jwt=false cho oauth callback)
+```
+
+### Schema cascade tái sử dụng
+```
+Industry Memory → Brand Voice → Channel(WordPress: long-form, markdown, SEO) → Defaults
+```
+
+### Mockup khác biệt 3 channel long-form
+| Channel  | Màu chính | Header preview        | Đặc điểm                     |
+|----------|-----------|-----------------------|------------------------------|
+| website  | gray      | URL bar generic       | Generic blog                 |
+| blogger  | #f57c00   | Logo Blogger          | Orange branding              |
+| wordpress| #21759b   | Logo WordPress + WP UI| Tags chips + categories meta |
+
+---
+
+## Câu hỏi xác nhận trước khi build
+1. Ưu tiên **self-hosted WordPress (Application Password)** trước, hay làm song song cả **WordPress.com OAuth**?
+2. Có cần hỗ trợ **Yoast SEO / Rank Math** meta fields ngay đợt 1 không, hay để phase 2?
+3. Featured image: dùng lại `channel_images.website` hay generate riêng cho WordPress (1200x675 chuẩn blog)?
+
+Sau khi user approve, mình sẽ thực thi tuần tự Bước 1 → Bước 8, mỗi bước commit riêng để Lovable Cloud auto-deploy edge functions.

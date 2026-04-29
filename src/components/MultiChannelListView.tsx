@@ -109,6 +109,7 @@ const goalIcons: Record<ContentGoal, typeof Target> = {
 const channelLabels: Record<Channel, string> = {
   website: 'Web',
   blogger: 'Web',
+  wordpress: 'Web',
   facebook: 'FB',
   instagram: 'IG',
   twitter: 'X',
@@ -125,6 +126,7 @@ const channelLabels: Record<Channel, string> = {
 const channelColors: Record<Channel, string> = {
   website: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
   blogger: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
+  wordpress: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
   facebook: 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-400',
   instagram: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
   twitter: 'bg-slate-500/20 text-slate-700 dark:text-slate-400',

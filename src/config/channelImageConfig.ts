@@ -90,6 +90,30 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       layoutBias: 'split-editorial',
     },
   },
+  wordpress: {
+    size: '1200x675',
+    aspectRatio: '16:9',
+    style: 'editorial blog hero, professional, brand-aligned',
+    tips: 'Featured image cho WordPress post - high-res, đẹp khi crop responsive',
+    mood: 'trustworthy, premium, editorial, on-brand',
+    composition: 'hero-style featured image, works with H1 title overlay or standalone above the fold',
+    visualDirections: [
+      'Featured image quality cho blog post',
+      'Hoạt động tốt cả khi WordPress theme tự crop',
+      'Editorial / magazine feel',
+      'Có khoảng trống cho theme overlay title',
+    ],
+    avoidElements: ['busy patterns', 'logo lớn che trung tâm', 'text overlay nặng (theme đã có H1)'],
+    renderSpec: {
+      safeZones: { top: 0.06, right: 0.06, bottom: 0.1, left: 0.06 },
+      preferredLogoPositions: ['bottom-right'],
+      textDensityBudget: 0.4,
+      headlineBudget: 0,
+      ctaBudget: 0,
+      footerBudget: 40,
+      layoutBias: 'hero-led',
+    },
+  },
   youtube: {
     size: '1280x720',
     aspectRatio: '16:9',
@@ -393,6 +417,7 @@ export const ASPECT_RATIO_OPTIONS = [
 export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   website: '16:9',
   blogger: '16:9',
+  wordpress: '16:9',
   youtube: '16:9',
   facebook: '16:9',
   instagram: '4:5',

@@ -44,6 +44,7 @@ interface MultiChannelCardProps {
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   blogger: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
+  wordpress: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   facebook: <Facebook className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   instagram: <Instagram className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   twitter: <XIcon className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
@@ -60,6 +61,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 const channelColors: Record<Channel, string> = {
   website: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   blogger: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  wordpress: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   facebook: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
   instagram: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
   twitter: 'bg-slate-500/20 text-slate-400 border-slate-500/30',

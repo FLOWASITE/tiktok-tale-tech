@@ -65,6 +65,7 @@ interface ChannelSettingsEditorProps {
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
   blogger: <Globe className="w-4 h-4" />,
+  wordpress: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
@@ -432,6 +433,7 @@ const CHANNEL_PRESETS = {
       email: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
       website: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
       blogger: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
+      wordpress: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
     } as ChannelOverrides,
   },
 };

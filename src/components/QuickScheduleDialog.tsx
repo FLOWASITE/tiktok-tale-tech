@@ -32,6 +32,7 @@ interface QuickScheduleDialogProps {
 const channelLabels: Record<Channel, string> = {
   website: 'Website/Blog',
   blogger: 'Website/Blog',
+  wordpress: 'Website/Blog',
   facebook: 'Facebook',
   instagram: 'Instagram',
   twitter: 'X (Twitter)',
@@ -48,6 +49,7 @@ const channelLabels: Record<Channel, string> = {
 const channelColors: Record<Channel, string> = {
   website: 'bg-blue-500/10 text-blue-600 border-blue-200',
   blogger: 'bg-blue-500/10 text-blue-600 border-blue-200',
+  wordpress: 'bg-blue-500/10 text-blue-600 border-blue-200',
   facebook: 'bg-indigo-500/10 text-indigo-600 border-indigo-200',
   instagram: 'bg-pink-500/10 text-pink-600 border-pink-200',
   twitter: 'bg-slate-500/10 text-slate-600 border-slate-200',

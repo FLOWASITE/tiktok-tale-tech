@@ -52,6 +52,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   google_maps: <Globe className="w-4 h-4" />,
   website: <Globe className="w-4 h-4" />,
   blogger: <Globe className="w-4 h-4" />,
+  wordpress: <Globe className="w-4 h-4" />,
 };
 
 const POPULAR_CHANNELS: Channel[] = ['facebook', 'linkedin', 'instagram', 'tiktok', 'email'];

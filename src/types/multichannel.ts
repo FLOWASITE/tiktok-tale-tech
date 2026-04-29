@@ -69,6 +69,7 @@ export const CONTENT_ANGLES: { value: ContentAngle; label: string; description: 
 export type Channel = 
   | 'website'
   | 'blogger'
+  | 'wordpress'
   | 'facebook'
   | 'instagram'
   | 'twitter'
@@ -401,6 +402,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   // 📝 Thiên về Text — nội dung chủ yếu là văn bản
   { value: 'website', label: 'Website/Blog', icon: 'Globe', color: 'blue', category: 'text', description: 'Bài viết dài, SEO friendly, có CTA' },
   { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'text', description: 'Đăng bài lên Blogger (Google) - nội dung dùng chung Website' },
+  { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'text', description: 'WordPress (self-hosted hoặc .com) - long-form, SEO, tags/categories, featured image' },
   { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'text', description: 'Chuyên nghiệp, không emoji quá nhiều' },
   { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'text', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
   { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
