@@ -17,8 +17,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Save, Loader2, Undo2, Package, FileText, Image, Layers,
-  Palette, Bot, DollarSign, Plus, X, Users, TrendingUp, Infinity,
+  Save, Loader2, Undo2, Package, Image, MessageSquare,
+  DollarSign, Plus, X, Users, TrendingUp, Infinity,
   Pencil, Eye, Crown, Check, SaveAll, AlertTriangle, Type, Video, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -75,39 +75,27 @@ const FIELD_ICONS: Record<string, React.ReactNode> = {
   monthly_image_units: <Image className="h-3.5 w-3.5" />,
   monthly_video_units: <Video className="h-3.5 w-3.5" />,
   monthly_brands: <Package className="h-3.5 w-3.5" />,
-  monthly_scripts: <FileText className="h-3.5 w-3.5" />,
-  monthly_carousels: <Layers className="h-3.5 w-3.5" />,
-  monthly_multichannel: <Palette className="h-3.5 w-3.5" />,
-  monthly_images: <Image className="h-3.5 w-3.5" />,
-  monthly_ai_edits: <Bot className="h-3.5 w-3.5" />,
+  monthly_ai_edits: <MessageSquare className="h-3.5 w-3.5" />,
   price_monthly: <DollarSign className="h-3.5 w-3.5" />,
   price_yearly: <DollarSign className="h-3.5 w-3.5" />,
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  monthly_content_units: "Nội dung (units)",
-  monthly_image_units: "Ảnh AI (units)",
-  monthly_video_units: "Video (units)",
+  monthly_content_units: "Nội dung",
+  monthly_image_units: "Ảnh AI",
+  monthly_video_units: "Video",
   monthly_brands: "Brands",
-  monthly_scripts: "Scripts",
-  monthly_carousels: "Carousels",
-  monthly_multichannel: "Đa kênh",
-  monthly_images: "Ảnh AI (raw)",
-  monthly_ai_edits: "AI Edits",
+  monthly_ai_edits: "AI chat",
   price_monthly: "Giá tháng",
   price_yearly: "Giá năm",
 };
 
 const FIELD_TOOLTIPS: Record<string, string> = {
-  monthly_content_units: "Pricing v2: Tổng đơn vị nội dung (script + carousel + multichannel post + video script). -1 = không giới hạn",
-  monthly_image_units: "Pricing v2: Tổng ảnh AI/tháng. -1 = không giới hạn",
-  monthly_video_units: "Pricing v2: Tổng video/tháng. -1 = không giới hạn",
-  monthly_brands: "Số brand tối đa. -1 = không giới hạn",
-  monthly_scripts: "Số script/tháng. -1 = không giới hạn (legacy)",
-  monthly_carousels: "Số carousel/tháng. -1 = không giới hạn (legacy)",
-  monthly_multichannel: "Số nội dung đa kênh/tháng. -1 = không giới hạn (legacy)",
-  monthly_images: "Số ảnh AI/tháng. -1 = không giới hạn (legacy)",
-  monthly_ai_edits: "Số AI edits/tháng. -1 = không giới hạn",
+  monthly_content_units: "Tổng đơn vị nội dung / tháng (script + carousel + multichannel + video script). -1 = không giới hạn",
+  monthly_image_units: "Tổng ảnh AI / tháng. -1 = không giới hạn",
+  monthly_video_units: "Tổng video / tháng. -1 = không giới hạn",
+  monthly_brands: "Số brand tối đa workspace có thể tạo. -1 = không giới hạn",
+  monthly_ai_edits: "Số lượt AI chat / tháng. -1 = không giới hạn",
   price_monthly: "Giá gói tháng (VNĐ)",
   price_yearly: "Giá gói năm (VNĐ)",
 };
@@ -115,11 +103,13 @@ const FIELD_TOOLTIPS: Record<string, string> = {
 // Đơn giá ước tính cho gợi ý giá (VND) — đồng bộ với plan_unit_costs
 const UNIT_COSTS_VND = { content: 375, image: 1000, video: 12500 } as const;
 
-const v2LimitFields = ["monthly_content_units", "monthly_image_units", "monthly_video_units"];
-const legacyLimitFields = [
-  "monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits",
+const mainLimitFields = [
+  "monthly_content_units",
+  "monthly_image_units",
+  "monthly_video_units",
+  "monthly_brands",
+  "monthly_ai_edits",
 ];
-const limitFields = [...v2LimitFields, ...legacyLimitFields];
 const priceFields = ["price_monthly", "price_yearly"];
 
 const formatVND = (v: number) => v === 0 ? "Miễn phí" : v.toLocaleString("vi-VN") + "₫";
@@ -134,7 +124,7 @@ export default function PlanLimitsManager() {
   const [confirmPlan, setConfirmPlan] = useState<PlanLimit | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
-  const [showLegacy, setShowLegacy] = useState(false);
+  
 
   const plansQuery = useQuery({
     queryKey: ["admin_plan_limits"],
@@ -473,16 +463,13 @@ export default function PlanLimitsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Pricing v2 — Output units (primary) */}
+                {/* Hạn mức gói (5 trường chính) */}
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={plans.length + 1} className="bg-primary/5 py-1.5 px-4 border-l-2 border-primary">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-primary uppercase tracking-wider">Pricing v2 — Đơn vị output</span>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">Tính phí</Badge>
-                    </div>
+                    <span className="text-xs font-semibold text-primary uppercase tracking-wider">Hạn mức gói</span>
                   </TableCell>
                 </TableRow>
-                {v2LimitFields.map((field) => (
+                {mainLimitFields.map((field) => (
                   <TableRow key={field}>
                     <TableCell className="font-medium">
                       <Tooltip>
@@ -510,55 +497,6 @@ export default function PlanLimitsManager() {
                             <Badge variant="secondary" className="gap-1 text-xs"><Infinity className="h-3 w-3" /> ∞</Badge>
                           ) : (
                             <span className={`text-sm font-medium ${changed ? "text-primary" : ""}`}>{val}</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-
-                {/* Legacy / phụ trợ — collapsible */}
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={plans.length + 1} className="bg-muted/20 py-1.5 px-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowLegacy((v) => !v)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
-                    >
-                      <span className={`inline-block transition-transform ${showLegacy ? "rotate-90" : ""}`}>▸</span>
-                      Hạn mức phụ trợ / Legacy
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 ml-1">{legacyLimitFields.length}</Badge>
-                    </button>
-                  </TableCell>
-                </TableRow>
-                {showLegacy && legacyLimitFields.map((field) => (
-                  <TableRow key={field}>
-                    <TableCell className="font-medium pl-6">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-2 text-sm text-muted-foreground cursor-help">
-                            {FIELD_ICONS[field]} {FIELD_LABELS[field]}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs max-w-48">{FIELD_TOOLTIPS[field]}</TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                    {plans.map((plan) => {
-                      const val = getVal(plan, field as keyof PlanLimit) as number;
-                      const changed = isFieldChanged(plan, field);
-                      return (
-                        <TableCell key={plan.id} className="text-center">
-                          {isEditMode ? (
-                            <Input
-                              type="number"
-                              value={val}
-                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                              className={`h-8 text-sm text-center w-20 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
-                            />
-                          ) : val === -1 ? (
-                            <Badge variant="secondary" className="gap-1 text-xs"><Infinity className="h-3 w-3" /> ∞</Badge>
-                          ) : (
-                            <span className={`text-sm text-muted-foreground ${changed ? "text-primary" : ""}`}>{val}</span>
                           )}
                         </TableCell>
                       );
@@ -753,10 +691,8 @@ export default function PlanLimitsManager() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3 pt-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                    Pricing v2 <Badge variant="secondary" className="text-[10px] h-4 px-1.5">Tính phí</Badge>
-                  </p>
-                  {v2LimitFields.map((field) => {
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">Hạn mức gói</p>
+                  {mainLimitFields.map((field) => {
                     const val = getVal(plan, field as keyof PlanLimit) as number;
                     const fieldChanged = isFieldChanged(plan, field);
                     return (
@@ -772,36 +708,6 @@ export default function PlanLimitsManager() {
                           <Badge variant="secondary" className="text-xs gap-1"><Infinity className="h-3 w-3" /> ∞</Badge>
                         ) : (
                           <span className="text-sm font-medium">{val}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowLegacy((v) => !v)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors w-full"
-                  >
-                    <span className={`inline-block transition-transform ${showLegacy ? "rotate-90" : ""}`}>▸</span>
-                    Phụ trợ / Legacy
-                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 ml-auto">{legacyLimitFields.length}</Badge>
-                  </button>
-                  {showLegacy && legacyLimitFields.map((field) => {
-                    const val = getVal(plan, field as keyof PlanLimit) as number;
-                    const fieldChanged = isFieldChanged(plan, field);
-                    return (
-                      <div key={field} className="flex items-center justify-between pl-3">
-                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">{FIELD_ICONS[field]} {FIELD_LABELS[field]}</span>
-                        {isEditMode ? (
-                          <Input
-                            type="number" value={val}
-                            onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                            className={`h-7 w-20 text-sm text-right ${fieldChanged ? "ring-2 ring-primary/50" : ""}`}
-                          />
-                        ) : val === -1 ? (
-                          <Badge variant="secondary" className="text-xs gap-1"><Infinity className="h-3 w-3" /> ∞</Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">{val}</span>
                         )}
                       </div>
                     );

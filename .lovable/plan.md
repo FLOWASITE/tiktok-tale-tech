@@ -1,82 +1,77 @@
-## Hoàn thiện Trang Quản lý Gói (`/admin/plans`)
+## Mục tiêu
 
-Trang `AdminPlans.tsx` đã có 6 tab nhưng còn thiếu polish & chưa khớp 100% với Pricing v2 (3 đơn vị Nội dung/Ảnh/Video). Plan này tập trung **hoàn thiện phần admin** (không động vào user-facing đã làm xong).
+Đơn giản hoá `PlanLimitsManager` — không còn 2 nhóm v2/legacy. Chỉ hiển thị **5 trường chính**:
 
-### Mục tiêu
-1. **PlanLimitsManager**: Sắp xếp lại UI để Pricing v2 (3 units) làm trọng tâm, ẩn legacy fields vào "Nâng cao".
-2. **RevenueStats**: Bổ sung KPI quota usage (sum units consumed/tier, average % quota fill) — cho admin biết tier nào "hết quota nhanh".
-3. **SubscriptionDetailDrawer**: Thêm panel **Usage hiện tại** (3 units progress) + diff so với plan limit.
-4. **AdminPlans page**: Thêm header KPI strip (tổng MRR + workspace + quota burn rate) hiển thị xuyên suốt mọi tab.
+```text
+┌─ Hạn mức gói ──────────────────────────────────────────────┐
+│ Nội dung │ Ảnh AI │ Video │ Brands │ AI chat │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Các field legacy (`monthly_scripts`, `monthly_carousels`, `monthly_multichannel`, `monthly_images`) bị **ẩn hoàn toàn khỏi UI admin** và **ngừng enforcement ở backend** (chuyển sang dùng `can_use_unit` cho 3 units).
 
 ---
 
-### 1. PlanLimitsManager — Tách "Hạn mức v2" vs "Legacy"
+## Thay đổi cụ thể
 
-Hiện tại 7 limit fields trộn lẫn trong 1 group "Hạn mức". Sửa thành 2 nhóm:
+### 1. `PlanLimitsManager.tsx` — Bỏ collapsible, gộp thành 1 nhóm 5 fields
 
-```text
-┌─ Pricing v2 (đơn vị output) ────────────────┐
-│  Nội dung units │ Ảnh units │ Video units   │
-└──────────────────────────────────────────────┘
-┌─ Legacy / Phụ trợ (collapse mặc định) ──────┐
-│  Brands │ Scripts │ Carousels │ Đa kênh │   │
-│  Ảnh raw │ AI Edits                          │
-└──────────────────────────────────────────────┘
-```
+- Xoá state `showLegacy` và `<Collapsible>` "Hiển thị fields phụ trợ".
+- Đổi `v2LimitFields` thành `mainLimitFields = ["monthly_content_units", "monthly_image_units", "monthly_video_units", "monthly_brands", "monthly_ai_edits"]`.
+- Xoá `legacyLimitFields` array.
+- Cập nhật `FIELD_LABELS`:
+  - `monthly_content_units` → "Nội dung"
+  - `monthly_image_units` → "Ảnh AI"
+  - `monthly_video_units` → "Video"
+  - `monthly_brands` → "Brands"
+  - `monthly_ai_edits` → **"AI chat"** (đổi nhãn, giữ cột DB)
+- Cập nhật `FIELD_TOOLTIPS` cho `monthly_ai_edits`: "Số lượt AI chat / tháng. -1 = không giới hạn".
+- Cập nhật `FIELD_ICONS`: `monthly_ai_edits` → icon `MessageSquare` thay vì `Bot` (rõ nghĩa "chat" hơn).
+- Bỏ badge "v2" trên nhóm (vì giờ chỉ còn 1 nhóm thống nhất).
+- Render section "Hạn mức" như cũ nhưng map qua `mainLimitFields` duy nhất.
 
-- Group v2 hiển thị inline với badge **v2** primary color
-- Group legacy có toggle `<Collapsible>` "Hiển thị fields phụ trợ" (mặc định ẩn)
-- Nút **"Đề xuất giá"** đã có, giữ nguyên logic (tính từ 3 units × cost × markup 2.5x)
+### 2. `useSubscriptionReport.ts` & `UsageQuotaWidget.tsx`
 
-### 2. RevenueStats — Thêm Quota KPI
+- Thêm key thứ 4 cho `QuotaKey`: `ai_chats` (với label "AI chat").
+- Trong `buildQuotas`, đếm `usage_logs` `usage_type IN ('ai_edit')` (giữ enum cũ) gắn nhãn "AI chat".
+- Widget dashboard: thêm progress bar "AI chat" cùng nhóm với Nội dung/Ảnh/Video; ẩn collapsible "legacy products".
 
-Thêm 2 card KPI mới + 1 chart mới sau pie chart:
+### 3. `_shared/quota-units.ts` — Mở rộng cho ai_chat
 
-- **Card "Quota tiêu thụ TB"**: Trung bình % units đã dùng của tất cả workspaces active (gọi `get_org_usage_units_batch` cho top 100 active subs, average ratio)
-- **Card "Workspace cần upgrade"**: Số workspace có ≥1 unit ≥80% (có thể click → filter tab Subscriptions)
-- **Bar chart "Tiêu thụ units theo tier"**: 4 tier × 3 units (stacked bar) — show absolute units consumed cycle hiện tại
+- Thêm unit type thứ 4 `'ai_chat'` map sang `monthly_ai_edits`.
+- `checkUnitQuota` hỗ trợ `'content' | 'image' | 'video' | 'ai_chat'`.
+- Edge functions chat/edit gọi `checkUnitQuota(orgId, 'ai_chat')` thay vì `can_use_feature('ai_edit')`.
 
-### 3. SubscriptionDetailDrawer — Panel Usage v2
+### 4. Ngừng enforcement legacy ở backend
 
-Thêm section **"Usage chu kỳ hiện tại"** sau "Chu kỳ":
+- Các edge function generate (`generate-script`, `generate-carousel`, `generate-multichannel`, `generate-video`) hiện gọi `can_use_feature(...)` với 4 usage_types legacy → đổi sang gọi `checkUnitQuota(orgId, 'content' | 'image' | 'video')` thuần.
+- Giữ `can_use_feature` SQL function trong DB (không drop) để backward compat, nhưng không gọi từ code mới.
+- Vẫn `INSERT usage_logs` với `usage_type` cũ (`script`, `carousel`, `multichannel`, `image_generation`, `video_generation`, `ai_edit`) — `get_org_usage_units()` đã aggregate từ các loại này, không break analytics.
 
-```text
-Nội dung   ███████░░░  142/200  (71%)
-Ảnh AI     ██████████  198/200  ⚠ Sắp hết
-Video      ░░░░░░░░░░  0/10     (0%)
-```
+### 5. RevenueStats & SubscriptionDetailDrawer
 
-- Query `get_org_usage_units_batch(organization_id)` + plan limits
-- Progress bar màu tự động: <50% xanh, 50-80% vàng, >80% đỏ
-- Tooltip breakdown: Nội dung = scripts + carousels + multichannel + video script
+- `useAdminPlanStats` & `RevenueStats` chart "Tiêu thụ units theo tier" → giữ 3 cột Content/Image/Video, **thêm cột thứ 4** "AI chat" (sample query thêm `monthly_ai_edits` usage).
+- `SubscriptionDetailDrawer` panel "Usage chu kỳ hiện tại" → thêm progress bar thứ 4 "AI chat".
 
-### 4. AdminPlans — Header KPI strip
+### 6. Memory update
 
-Thêm strip 4 KPI cards trên cùng (trên Tabs):
-- Tổng workspace active
-- MRR ước tính (VNĐ)
-- ARPU
-- Burn rate quota TB (% units đã dùng / chu kỳ)
-
-Hiện tại các tabs tự tính riêng → tách shared hook `useAdminPlanStats()` để tránh duplicate query.
+- Cập nhật `mem://business/pricing-v2-units` ghi rõ: **4 hạn mức chính** = 3 units output + AI chat (re-use `monthly_ai_edits`); legacy fields deprecated.
 
 ---
 
-### Files cần sửa
+## Files cần sửa
 
-- **Updated** `src/components/admin/plans/PlanLimitsManager.tsx` — tách v2/legacy groups + Collapsible
-- **Updated** `src/components/admin/plans/RevenueStats.tsx` — thêm 2 KPI + bar chart units/tier
-- **Updated** `src/components/admin/plans/SubscriptionDetailDrawer.tsx` — thêm panel Usage v2
-- **Updated** `src/pages/AdminPlans.tsx` — thêm header KPI strip
-- **Created** `src/hooks/admin/useAdminPlanStats.ts` — shared stats hook
+- **Updated** `src/components/admin/plans/PlanLimitsManager.tsx` (bỏ collapsible, 5 fields chính)
+- **Updated** `src/components/dashboard/UsageQuotaWidget.tsx` (thêm AI chat, bỏ legacy collapsible)
+- **Updated** `src/hooks/reports/useSubscriptionReport.ts` (thêm `ai_chats` key)
+- **Updated** `src/hooks/admin/useAdminPlanStats.ts` (thêm chiều ai_chat)
+- **Updated** `src/components/admin/plans/RevenueStats.tsx` (chart 4 cột)
+- **Updated** `src/components/admin/plans/SubscriptionDetailDrawer.tsx` (4 progress bars)
+- **Updated** `supabase/functions/_shared/quota-units.ts` (hỗ trợ `ai_chat`)
+- **Updated** edge functions còn dùng `can_use_feature` cho legacy: chuyển sang `checkUnitQuota`
+- **Updated** `mem://business/pricing-v2-units`
 
-### Kỹ thuật
-
-- **Query batch**: dùng RPC `get_org_usage_units_batch(org_id)` đã có sẵn → không cần migration
-- **Performance**: limit query usage chỉ top 100 active subs để tránh N+1 (hoặc dùng SQL aggregate)
-- **Re-use**: `formatVND`, `formatLimit` đã có trong PlanLimitsManager → export ra `lib/plan-format.ts`
-
-### Không thuộc phạm vi
-- Không sửa user-facing (`Pricing.tsx`, `UsageQuotaWidget`, `UpgradePlanDialog`) — đã làm xong v2
-- Không sửa schema DB / migrations — dùng RPC sẵn có
-- Không animate/redesign Subscription table (đã ổn)
+## Không thuộc phạm vi
+- Không drop cột `monthly_scripts/carousels/multichannel/images` khỏi DB (giữ backward compat).
+- Không sửa `can_use_feature()` SQL function (giữ nguyên cho safety, chỉ ngừng gọi từ code mới).
+- Không tạo enum `usage_type` mới — re-use `ai_edit` enum hiện có.
