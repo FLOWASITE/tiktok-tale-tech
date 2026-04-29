@@ -98,6 +98,7 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
   zalo_oa: 'zalo-oauth-callback',
   google_business: 'google-business-oauth-callback',
   blogger: 'blogger-oauth-callback',
+  pinterest: 'pinterest-oauth-callback',
 };
 
 function getCallbackUrl(platform: SocialPlatform): string | null {
