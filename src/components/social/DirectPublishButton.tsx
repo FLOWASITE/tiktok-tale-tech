@@ -77,6 +77,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   zalo_oa: 'zalo_oa',
   google_business: 'google_business',
   google_maps: 'google_business',
+  blogger: 'blogger',
   website: 'website',
 };
 
@@ -90,6 +91,7 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   youtube: 'YouTube',
   zalo_oa: 'Zalo OA',
   google_business: 'Google Business',
+  blogger: 'Blogger',
   website: 'Website',
 };
 
@@ -103,6 +105,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   youtube: () => <span>▶️</span>,
   zalo_oa: ZaloIcon,
   google_business: () => <span>📍</span>,
+  blogger: () => <span style={{color:'#FF8000',fontWeight:700}}>B</span>,
   website: () => <span>🌐</span>,
 };
 
