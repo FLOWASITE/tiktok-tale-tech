@@ -35,6 +35,15 @@ export function VideoGeneratorPanel({
   
   const [provider, setProvider] = useState<VideoProvider>('geminigen');
   const [prompt, setPrompt] = useState(scene?.promptText || '');
+  const [isPromptDirty, setIsPromptDirty] = useState(false);
+
+  // Đồng bộ prompt khi scene.promptText đến muộn hoặc đổi scene (chỉ khi user chưa gõ tay)
+  useEffect(() => {
+    if (!isPromptDirty && scene?.promptText && scene.promptText !== prompt) {
+      setPrompt(scene.promptText);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene?.promptText, scene?.sceneNumber]);
   const [duration, setDuration] = useState<number>(5);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('1080p');
