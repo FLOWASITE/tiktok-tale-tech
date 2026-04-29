@@ -50,10 +50,22 @@ export default function Reports() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'approved' | 'scheduled' | 'published' | 'failed'>('all');
   const [historyRow, setHistoryRow] = useState<ContentRow | null>(null);
 
+  // Tab Nội dung: search + filter + sort + bulk
+  const [contentSearch, setContentSearch] = useState('');
+  const [contentBrandFilter, setContentBrandFilter] = useState<string>('all');
+  const [contentChannelFilter, setContentChannelFilter] = useState<string>('all');
+  const [contentSort, setContentSort] = useState<'created_desc' | 'created_asc' | 'next_asc' | 'last_desc' | 'title_asc'>('created_desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Tab Nội dung: date range riêng (giống Engagement)
+  const [contentOverride, setContentOverride] = useState<{ from: Date; to: Date } | null>(null);
+  const [contentBucket, setContentBucket] = useState<BucketType>('day');
+
   // Engagement-tab-only date range + bucket (independent from global filters)
   const [engagementOverride, setEngagementOverride] = useState<{ from: Date; to: Date } | null>(null);
   const [engagementBucket, setEngagementBucket] = useState<BucketType>('day');
   const engagementRange = engagementOverride ?? { from: filters.dateFrom, to: filters.dateTo };
+  const contentRange = contentOverride ?? { from: filters.dateFrom, to: filters.dateTo };
 
   const STATUS_LABEL: Record<string, string> = {
     draft: 'Nháp',
@@ -70,7 +82,7 @@ export default function Reports() {
   };
 
   const overview = useReportOverview(organizationId, filters);
-  const content = useContentReport(organizationId, filters);
+  const content = useContentReport(organizationId, filters, { overrideRange: contentOverride });
   const publishing = usePublishingReport(organizationId, filters);
   const engagement = useEngagementReport(organizationId, filters, {
     overrideRange: engagementOverride,
