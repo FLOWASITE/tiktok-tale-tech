@@ -166,12 +166,12 @@ export default function Account() {
     queryKey: ["usage_history", user?.id, selectedMonth],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id || !selectedPeriod) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0, content_units: 0, image_units: 0, video_units: 0 };
       }
 
       // Get org's content IDs for image counting (workspace-scoped)
       const orgId = subscription?.organization_id;
-      if (!orgId) return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
+      if (!orgId) return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0, content_units: 0, image_units: 0, video_units: 0 };
 
       const { data: orgContents } = await supabase
         .from("multi_channel_contents")
@@ -218,15 +218,21 @@ export default function Account() {
         });
       }
 
+      const scriptsCount = scriptsRes.count ?? 0;
+      const carouselsCount = carouselsRes.count ?? 0;
+      const imagesCount = imagesRes.count ?? 0;
       return {
-        scripts: scriptsRes.count ?? 0,
-        carousels: carouselsRes.count ?? 0,
+        scripts: scriptsCount,
+        carousels: carouselsCount,
         multichannel: multiRes.count ?? 0,
         multichannel_social_posts: socialPostsTotal,
         channel_breakdown: channelBreakdown,
-        images: imagesRes.count ?? 0,
+        images: imagesCount,
         image_channel_breakdown: imageChannelBreakdown,
         brands: 0,
+        content_units: scriptsCount + carouselsCount + socialPostsTotal,
+        image_units: imagesCount,
+        video_units: 0,
       };
     },
     enabled: !!user?.id && selectedMonth !== "current" && !!selectedPeriod,

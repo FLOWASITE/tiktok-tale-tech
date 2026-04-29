@@ -8027,9 +8027,12 @@ export type Database = {
           monthly_ai_edits: number
           monthly_brands: number
           monthly_carousels: number
+          monthly_content_units: number
+          monthly_image_units: number
           monthly_images: number
           monthly_multichannel: number
           monthly_scripts: number
+          monthly_video_units: number
           plan_type: Database["public"]["Enums"]["plan_type"]
           price_monthly: number
           price_yearly: number
@@ -8042,9 +8045,12 @@ export type Database = {
           monthly_ai_edits?: number
           monthly_brands?: number
           monthly_carousels?: number
+          monthly_content_units?: number
+          monthly_image_units?: number
           monthly_images?: number
           monthly_multichannel?: number
           monthly_scripts?: number
+          monthly_video_units?: number
           plan_type: Database["public"]["Enums"]["plan_type"]
           price_monthly?: number
           price_yearly?: number
@@ -8057,12 +8063,42 @@ export type Database = {
           monthly_ai_edits?: number
           monthly_brands?: number
           monthly_carousels?: number
+          monthly_content_units?: number
+          monthly_image_units?: number
           monthly_images?: number
           monthly_multichannel?: number
           monthly_scripts?: number
+          monthly_video_units?: number
           plan_type?: Database["public"]["Enums"]["plan_type"]
           price_monthly?: number
           price_yearly?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plan_unit_costs: {
+        Row: {
+          cost_usd: number
+          created_at: string
+          id: string
+          notes: string | null
+          unit_type: string
+          updated_at: string
+        }
+        Insert: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          unit_type: string
+          updated_at?: string
+        }
+        Update: {
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          unit_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -11165,6 +11201,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_use_unit: {
+        Args: { _amount?: number; _org_id: string; _unit_type: string }
+        Returns: boolean
+      }
       check_org_features_batch: {
         Args: {
           p_org_id: string
@@ -11312,6 +11352,11 @@ export type Database = {
         }
         Returns: number
       }
+      get_org_usage_units: {
+        Args: { _org_id: string; _unit_type: string }
+        Returns: number
+      }
+      get_org_usage_units_batch: { Args: { _org_id: string }; Returns: Json }
       get_orphan_nodes: {
         Args: { p_limit?: number }
         Returns: {
@@ -11638,6 +11683,7 @@ export type Database = {
         | "multichannel"
         | "image_generation"
         | "ai_edit"
+        | "video_generation"
       video_generation_status: "pending" | "processing" | "completed" | "failed"
       video_provider: "lovable" | "minimax" | "runway"
     }
@@ -11832,6 +11878,7 @@ export const Constants = {
         "multichannel",
         "image_generation",
         "ai_edit",
+        "video_generation",
       ],
       video_generation_status: ["pending", "processing", "completed", "failed"],
       video_provider: ["lovable", "minimax", "runway"],

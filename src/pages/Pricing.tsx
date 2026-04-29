@@ -26,10 +26,9 @@ const PLANS = [
     description: "Dùng thử các tính năng cơ bản",
     limits: {
       brands: "1",
-      multichannel: "2",
-      images: "2",
-      scripts: "2",
-      carousels: "0",
+      content: "5",
+      images: "5",
+      videos: "0",
       aiChat: "Không giới hạn",
       support: "Cộng đồng",
       publishing: false,
@@ -39,16 +38,15 @@ const PLANS = [
   },
   {
     key: "starter",
-    monthlyPrice: 10000,
-    yearlyPrice: 15000,
+    monthlyPrice: 199000,
+    yearlyPrice: 1990000,
     popular: false,
     description: "Cho cá nhân & freelancer",
     limits: {
       brands: "3",
-      multichannel: "20",
-      images: "20",
-      scripts: "10",
-      carousels: "3",
+      content: "50",
+      images: "50",
+      videos: "0",
       aiChat: "Không giới hạn",
       support: "Email",
       publishing: true,
@@ -65,10 +63,9 @@ const PLANS = [
     description: "Cho team marketing chuyên nghiệp",
     limits: {
       brands: "10",
-      multichannel: "60",
-      images: "60",
-      scripts: "30",
-      carousels: "10",
+      content: "200",
+      images: "200",
+      videos: "10",
       aiChat: "Không giới hạn",
       support: "Priority",
       publishing: true,
@@ -84,10 +81,9 @@ const PLANS = [
     description: "Cho doanh nghiệp & agency",
     limits: {
       brands: "30",
-      multichannel: "200",
-      images: "200",
-      scripts: "100",
-      carousels: "35",
+      content: "600",
+      images: "600",
+      videos: "40",
       aiChat: "Không giới hạn",
       support: "Dedicated",
       publishing: true,
@@ -99,10 +95,9 @@ const PLANS = [
 
 const COMPARISON_ROWS = [
   { label: "Thương hiệu", key: "brands", tooltip: "Số brand template tối đa" },
-  { label: "Bài đa kênh / tháng", key: "multichannel", tooltip: "Số bài social đa kênh có thể tạo mỗi tháng" },
-  { label: "Ảnh AI / tháng", key: "images", tooltip: "Số ảnh AI có thể generate mỗi tháng" },
-  { label: "Kịch bản video / tháng", key: "scripts", tooltip: "Số kịch bản video AI có thể tạo" },
-  { label: "Carousel / tháng", key: "carousels", tooltip: "Số carousel có thể tạo" },
+  { label: "Nội dung / tháng", key: "content", tooltip: "Tổng số bài content text (multichannel posts + carousel captions + video scripts)" },
+  { label: "Ảnh AI / tháng", key: "images", tooltip: "Tổng số ảnh AI generate được (multichannel images + carousel slides)" },
+  { label: "Video / tháng", key: "videos", tooltip: "Tổng số video render từ kịch bản" },
   { label: "AI Chat", key: "aiChat", tooltip: "Chatbot AI hỗ trợ content" },
   { label: "Thành viên team", key: "teamMembers", tooltip: "Số người dùng trong workspace" },
   { label: "Đăng bài tự động", key: "publishing", tooltip: "Xuất bản trực tiếp lên social media" },
@@ -389,10 +384,9 @@ export default function Pricing() {
                   <ul className="space-y-2 sm:space-y-2.5 mb-6 flex-1 text-sm">
                     {[
                       { text: `${plan.limits.brands} thương hiệu`, always: true },
-                      { text: `${plan.limits.multichannel} bài đa kênh/tháng`, always: true },
+                      { text: `${plan.limits.content} nội dung/tháng`, always: true },
                       { text: `${plan.limits.images} ảnh AI/tháng`, always: true },
-                      { text: `${plan.limits.scripts} kịch bản video`, always: true },
-                      { text: `${plan.limits.carousels} carousel/tháng`, always: Number(plan.limits.carousels) > 0 },
+                      { text: `${plan.limits.videos} video/tháng`, always: Number(plan.limits.videos) > 0 },
                       { text: "Đăng bài tự động", always: plan.limits.publishing },
                       { text: "Analytics & Insights", always: plan.limits.analytics },
                       { text: `Hỗ trợ ${plan.limits.support}`, always: true },
@@ -427,6 +421,64 @@ export default function Pricing() {
                 </motion.div>
               );
             })}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Conversion Matrix */}
+      <section className="pb-8 sm:pb-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.4 }}
+            className="rounded-2xl border border-border bg-card p-5 sm:p-7"
+          >
+            <div className="text-center mb-5">
+              <Badge variant="outline" className="mb-2 text-xs">Cách tính hạn mức</Badge>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+                Mỗi sản phẩm tiêu hao <span className="text-primary">bao nhiêu đơn vị?</span>
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                Hạn mức gói tính theo 3 đơn vị: Nội dung — Ảnh AI — Video
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-2.5 font-medium">Sản phẩm</th>
+                    <th className="text-center py-2.5 font-medium">Nội dung</th>
+                    <th className="text-center py-2.5 font-medium">Ảnh AI</th>
+                    <th className="text-center py-2.5 font-medium">Video</th>
+                  </tr>
+                </thead>
+                <tbody className="text-foreground">
+                  <tr className="border-b border-border/50">
+                    <td className="py-3 font-medium">Nội dung đa kênh <span className="text-xs text-muted-foreground font-normal">(N kênh)</span></td>
+                    <td className="text-center tabular-nums">N</td>
+                    <td className="text-center tabular-nums">0–N <span className="text-xs text-muted-foreground">(nếu bật ảnh)</span></td>
+                    <td className="text-center tabular-nums text-muted-foreground">0</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-3 font-medium">Carousel <span className="text-xs text-muted-foreground font-normal">(5 slides)</span></td>
+                    <td className="text-center tabular-nums">1</td>
+                    <td className="text-center tabular-nums">5</td>
+                    <td className="text-center tabular-nums text-muted-foreground">0</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 font-medium">Video Kịch bản</td>
+                    <td className="text-center tabular-nums">1</td>
+                    <td className="text-center tabular-nums text-muted-foreground">0</td>
+                    <td className="text-center tabular-nums">1</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Ví dụ: 1 carousel 5 slides = 1 nội dung + 5 ảnh AI · 1 bài đa kênh 4 kênh có ảnh = 4 nội dung + 4 ảnh
+            </p>
           </motion.div>
         </div>
       </section>
@@ -673,10 +725,9 @@ export default function Pricing() {
             if (!plan) return undefined;
             return [
               { label: "Thương hiệu", value: plan.limits.brands },
-              { label: "Bài đa kênh/tháng", value: plan.limits.multichannel },
+              { label: "Nội dung/tháng", value: plan.limits.content },
               { label: "Ảnh AI/tháng", value: plan.limits.images },
-              { label: "Scripts/tháng", value: plan.limits.scripts },
-              { label: "Carousels/tháng", value: plan.limits.carousels },
+              { label: "Video/tháng", value: plan.limits.videos },
             ];
           })()}
           yearlyDiscount={isYearly ? (() => {
