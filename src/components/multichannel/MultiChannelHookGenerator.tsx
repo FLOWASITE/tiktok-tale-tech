@@ -106,13 +106,13 @@ interface MultiChannelHookGeneratorProps {
   brandTemplateId?: string;
 }
 
-const channelIcons: Record<Channel, LucideIcon> = {
+const channelIcons: Record<Channel, React.ComponentType<{ className?: string }>> = {
   website: Globe,
-  blogger: Globe,
-  wordpress: Globe,
+  blogger: BloggerIcon,
+  wordpress: WordPressIcon,
   facebook: Facebook,
   instagram: Instagram,
-  pinterest: Instagram,
+  pinterest: PinterestIcon,
   twitter: Twitter,
   google_maps: MapPin,
   linkedin: Linkedin,
