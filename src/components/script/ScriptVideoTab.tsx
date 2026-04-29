@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { LayoutGrid, ListOrdered } from 'lucide-react';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
@@ -9,12 +11,14 @@ import { useScriptVideoBatch, type BatchScene } from '@/hooks/useScriptVideoBatc
 import { ScriptVideoHeader } from './ScriptVideoHeader';
 import { ScriptSceneGrid, type SceneGridItem } from './ScriptSceneGrid';
 import { ScriptVideoGalleryGrouped } from './ScriptVideoGalleryGrouped';
+import { SceneManagerPanel } from './SceneManagerPanel';
 import { VideoGeneratorPanel } from './VideoGeneratorPanel';
 import { VideoGallery } from './VideoGallery';
 
 interface Props {
   script: Script;
   onSendToVideoStudio: (sceneIdx?: number) => void;
+  onScriptUpdate?: (updated: Script) => void;
 }
 
 const parseDur = (s?: string): number | undefined => {
