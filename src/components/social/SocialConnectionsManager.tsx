@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useSocialConnections, SocialPlatform } from '@/hooks/useSocialConnections';
+import { ChannelIcon } from '@/components/ui/channel-icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
