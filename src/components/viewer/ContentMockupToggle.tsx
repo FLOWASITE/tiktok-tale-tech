@@ -130,7 +130,7 @@ export function ContentMockupToggle({
           logoUrl={logoUrl}
           primaryColor={primaryColor}
           isGenerating={isLoading}
-          seoData={channel === 'website' ? seoData : undefined}
+          seoData={isWebsiteLike ? seoData : undefined}
           channelImage={channelImage}
         />
       </div>
