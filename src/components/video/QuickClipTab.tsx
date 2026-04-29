@@ -30,10 +30,45 @@ export function QuickClipTab() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
+  const {
+    activeScript,
+    activeSceneIndex,
+    currentScene,
+    completedSceneIds,
+    setActiveSceneIndex,
+    goToNextScene,
+    markSceneCompleted,
+  } = useScriptToVideo();
 
   const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
   const activeJob = activeJobId ? generations.find((g) => g.id === activeJobId) : null;
+
+  // Auto-fill prompt/duration/aspect when scene changes
+  useEffect(() => {
+    if (!currentScene) return;
+    setPrompt(currentScene.prompt);
+    if (currentScene.duration) setDuration(Math.max(3, Math.min(currentScene.duration, selectedModel?.maxDuration ?? 10)));
+    if (currentScene.aspect) setAspect(currentScene.aspect);
+    setActiveJobId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScript?.id, activeSceneIndex]);
+
+  // When the active job for current scene completes → mark + auto-advance
+  useEffect(() => {
+    if (!activeJob || !currentScene || !activeScript) return;
+    if (activeJob.status === 'completed') {
+      if (!completedSceneIds[currentScene.sceneNumber]) {
+        markSceneCompleted(currentScene.sceneNumber, activeJob.id);
+        // Auto move to next scene if there's one
+        if (activeSceneIndex < activeScript.scenes.length - 1) {
+          setTimeout(() => goToNextScene(), 1200);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJob?.status]);
+
 
   const handleSmartPrompt = async () => {
     if (prompt.trim().length < 5) {
