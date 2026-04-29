@@ -82,10 +82,13 @@ export interface SubscriptionReportData {
 }
 
 const QUOTA_LABELS: Record<QuotaKey, string> = {
+  content_units: 'Nội dung',
+  image_units: 'Ảnh AI',
+  video_units: 'Video',
   scripts: 'Scripts',
   carousels: 'Carousels',
   multichannel: 'Đa kênh',
-  images: 'Ảnh AI',
+  images: 'Ảnh AI (raw)',
 };
 
 function buildStatus(used: number, limit: number): QuotaStatus {
