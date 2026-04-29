@@ -82,6 +82,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: '',
     instructions: 'Nhập URL API endpoint hoặc WordPress REST API URL và API Key/Password nếu cần xác thực',
   },
+  pinterest: {
+    url: 'https://developers.pinterest.com/apps/',
+    instructions: 'Tạo App tại Pinterest Developer Portal → Apps → Tạo app mới (yêu cầu Business account). Lấy App ID và App Secret. Thêm scope: boards:read, pins:read, pins:write, user_accounts:read.',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
