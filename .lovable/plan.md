@@ -1,90 +1,91 @@
+
+# Đưa việc chọn Model AI về Admin Settings
+
+## Vấn đề hiện tại
+Hệ Admin AI Function Config (`/admin/ai` → tab **Functions**) đã đầy đủ: lưu model/provider per function trong bảng `ai_function_configs`, có group defaults, OpenRouter sync, etc. Nhưng các tính năng Video/Audio mới thêm vẫn để **user cuối tự chọn model** trong UI:
+
+- `src/components/video/QuickClipTab.tsx` → `<ProviderModelPicker>` (6 model lựa)
+- `src/components/script/VideoGeneratorPanel.tsx` → `<Select>` model GeminiGen
+- Edge functions `generate-video`, `generate-voiceover`, `generate-bgm`, `generate-subtitles`, `render-video-creatomate` nhận `model` từ client thay vì đọc từ `ai_function_configs`
+
+→ Trái với policy "Admin quyết định model AI", và trái với memory `[Model Priority Logic]` (Channel config > Agent Override > Default).
+
 ## Mục tiêu
+1. **User UI**: bỏ chọn model. Chỉ hiển thị badge nhỏ read-only "Model: Veo 3.1 Fast (do Admin cấu hình)".
+2. **Edge functions**: model **luôn** đọc từ `ai_function_configs` (qua `getAIConfig()`), client không gửi `model` nữa.
+3. **Admin AI Management**: đảm bảo các function video/audio mới đã được seed vào `AI_FUNCTIONS` registry với type `video`/`audio` để admin thấy và cấu hình.
 
-Khép kín vòng liên kết hai chiều **Kịch bản ↔ Video Studio**. Hiện tại luồng đi (Script → Studio) đã chạy mượt, nhưng luồng về (Studio → Script) và điều hướng per-scene còn thiếu, khiến user không thấy được "scene này đã quay chưa, clip ra sao".
+## Thay đổi cụ thể
 
----
+### 1. Đăng ký functions vào registry (`src/hooks/useAIConfig.ts`)
+Thêm vào `AI_FUNCTIONS` (nếu chưa có):
+- `generate-video-clip` (type: video) — model mặc định `geminigen/veo-3.1-fast`
+- `generate-voiceover` (type: audio) — model mặc định ElevenLabs hoặc OpenAI TTS
+- `generate-bgm` (type: audio)
+- `generate-subtitles` (type: audio) — Whisper
+- `render-video-creatomate` (type: video) — provider Creatomate (no AI model)
+- `generate-video-from-script` (type: video)
 
-## 3 phần bổ sung
+### 2. Frontend — bỏ Picker
+**`src/components/video/QuickClipTab.tsx`**:
+- Xóa state `model`, xóa `<ProviderModelPicker>`.
+- Thêm hook nhỏ `useFunctionModel('generate-video-clip')` đọc từ `ai_function_configs` qua RPC/select để hiển thị badge.
+- Không gửi `model` trong body khi gọi `supabase.functions.invoke('generate-video', ...)`.
 
-### 1. Reverse-link strip trong `ScriptViewer.tsx`
+**`src/components/script/VideoGeneratorPanel.tsx`**:
+- Xóa state `model` + `<Select>` model.
+- Thay bằng read-only badge.
 
-Dưới mỗi scene card (khi `script_purpose === 'ai_video'`), hiển thị một strip nhỏ:
+**Giữ lại** `ProviderModelPicker.tsx` chỉ để Admin tham khảo metadata (`VIDEO_MODELS` array vẫn export cho admin UI dùng), nhưng không import vào user-facing components.
 
-```text
-┌─────────────────────────────────────────────────┐
-│ [thumb 48×64]  ✓ Đã quay · 5s · 9:16            │
-│                "Cận cảnh sản phẩm xoay 360°…"   │
-│                                  [▶ Xem] [↻ Quay lại] │
-└─────────────────────────────────────────────────┘
+### 3. Backend — đọc model từ admin config
+**`supabase/functions/generate-video/index.ts`**:
+```ts
+import { getAIConfig } from "../_shared/ai-config.ts";
+
+// Bỏ: const selectedModel = model || GEMINIGEN_VIDEO_MODELS[0].id;
+// Thay bằng:
+const cfg = await getAIConfig('generate-video-clip', organizationId);
+const selectedModel = cfg.model; // vd "geminigen/veo-3.1-fast"
+const provider = cfg.provider;   // "geminigen" hoặc "poyo"
 ```
+Route theo `provider` thay vì `model.startsWith('geminigen/')`.
 
-Trạng thái:
-- **Chưa quay** → strip mờ, nút duy nhất `[🎬 Quay scene này]`.
-- **Đang xử lý** (`status='processing'`) → spinner + `Đang render…`.
-- **Đã quay** (`status='completed'`) → thumbnail + nút `[▶ Xem]` (mở dialog preview) + `[↻ Quay lại]` (re-generate scene).
-- **Lỗi** (`status='failed'`) → badge đỏ nhạt + `[↻ Thử lại]`.
+Tương tự cho:
+- `generate-voiceover/index.ts`
+- `generate-bgm/index.ts`
+- `generate-subtitles/index.ts`
+- `render-video-creatomate/index.ts` (chỉ provider, không model AI)
 
-**Data**: query `video_generations` lọc theo `script_id = script.id`, group theo `scene_number`. Dùng TanStack Query với realtime channel để auto-update khi clip xong.
+Vẫn cho phép `agentOverrideModel` (theo Model Priority Logic) khi gọi từ agent pipeline.
 
-### 2. CTA per-scene "Quay scene này"
+### 4. Admin UI — không cần đổi
+`AIFunctionConfigComponent` đã handle generic — chỉ cần các function mới xuất hiện trong `AI_FUNCTIONS` với đúng `type: 'video' | 'audio'` thì sẽ hiển thị trong tab Functions với filter Video/Audio.
 
-Trong nút strip trên (state "chưa quay"), click `[🎬 Quay scene này]` sẽ:
+### 5. Memory update
+Cập nhật `mem://ai-system/model-selection-priority-vn` ghi rõ:
+> Video & Audio functions tuân thủ Model Priority Logic. User-facing UI KHÔNG được expose model picker — chỉ Admin cấu hình tại `/admin/ai`.
 
-```typescript
-navigate('/videos', {
-  state: {
-    fromScript: {
-      script: { id, title, scenes: parsedPrompts.map(...) },
-      activeSceneIndex: N - 1   // jump thẳng tới scene N
-    }
-  }
-});
-```
+## Files thay đổi
 
-`VideoStudioPage` đã hỗ trợ `activeSceneIndex` — chỉ cần truyền đúng index.
+**Edited**
+- `src/components/video/QuickClipTab.tsx` (bỏ picker, thêm badge)
+- `src/components/script/VideoGeneratorPanel.tsx` (bỏ picker, thêm badge)
+- `src/hooks/useAIConfig.ts` (seed functions video/audio mới)
+- `supabase/functions/generate-video/index.ts` (đọc admin config)
+- `supabase/functions/generate-voiceover/index.ts`
+- `supabase/functions/generate-bgm/index.ts`
+- `supabase/functions/generate-subtitles/index.ts`
+- `supabase/functions/render-video-creatomate/index.ts`
 
-### 3. Filter theo script trong `VideoGalleryTab.tsx`
+**New**
+- `src/hooks/useFunctionModel.ts` (hook nhỏ đọc model hiện tại để hiển thị read-only)
+- `src/components/shared/AdminModelBadge.tsx` (badge "Model: X · do Admin cấu hình", có link tới `/admin/ai` cho admin)
 
-Thêm dropdown phía trên grid:
+**Memory**
+- update `mem://ai-system/model-selection-priority-vn`
 
-```text
-[Tất cả ▾] [Script: Review serum X ▾] [Aspect: 9:16 ▾]
-```
-
-- Query distinct `script_id` từ `video_generations` của user, join `scripts.title`.
-- Khi chọn 1 script → filter clips, đồng thời sort theo `scene_number ASC`.
-- Mỗi clip card đã có badge "Scene N" (đã làm) — thêm mini-link `→ Mở kịch bản` mở `/scripts` với scrollTo script đó.
-
----
-
-## Files
-
-**Mới**:
-- `src/components/scripts/SceneVideoStrip.tsx` — strip hiển thị status + actions cho 1 scene.
-- `src/hooks/useScriptVideoGenerations.ts` — fetch + realtime cho `video_generations` theo `script_id`.
-
-**Sửa**:
-- `src/components/ScriptViewer.tsx` — render `<SceneVideoStrip>` dưới mỗi scene card khi purpose là `ai_video`.
-- `src/components/video/VideoGalleryTab.tsx` — thêm script filter dropdown.
-
----
-
-## Phạm vi & rủi ro
-
-- Không đụng schema, edge function, AI provider.
-- `useScriptVideoGenerations` có RLS sẵn (`organization_id`) nên an toàn.
-- Realtime channel cleanup đúng khi unmount tránh leak.
-- Backward compatible: script không phải `ai_video` không thấy strip.
-
----
-
-## UX kết quả
-
-User mở kịch bản 5 scene → mỗi scene có strip riêng:
-- Scene 1, 2, 3 đã quay → thumbnail + nút Xem.
-- Scene 4 đang render → spinner.
-- Scene 5 chưa quay → nút "Quay scene này".
-
-Click "Quay scene 5" → vào Studio, banner hiện `0/5`, QuickClip auto-fill scene 5. Quay xong → quay lại ScriptViewer thấy thumbnail Scene 5 ngay (realtime).
-
-Trong Gallery, lọc theo script "Review serum X" → thấy đúng 5 clip của kịch bản đó, sắp xếp theo scene.
+## Kết quả
+- User không còn thấy model dropdown ở Video Studio / Script Video Generator.
+- Mọi thay đổi model cho video/audio chỉ Admin làm tại `/admin/ai` → tab **Functions**.
+- Agent override vẫn hoạt động (priority cascade không đổi).
