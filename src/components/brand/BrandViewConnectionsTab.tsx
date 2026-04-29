@@ -420,6 +420,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     google_business: 'google-business',
     blogger: 'blogger',
     wordpress: 'wordpress',
+    wordpress_com: 'wordpress-com',
     website: 'website',
   };
 
