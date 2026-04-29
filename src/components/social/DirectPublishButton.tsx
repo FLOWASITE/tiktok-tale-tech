@@ -79,6 +79,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   google_business: 'google_business',
   google_maps: 'google_business',
   blogger: 'blogger',
+  wordpress: 'wordpress',
   website: 'website',
 };
 
@@ -93,6 +94,7 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   zalo_oa: 'Zalo OA',
   google_business: 'Google Business',
   blogger: 'Blogger',
+  wordpress: 'WordPress',
   website: 'Website',
 };
 
@@ -107,6 +109,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   zalo_oa: ZaloIcon,
   google_business: () => <span>📍</span>,
   blogger: () => <ChannelIcon channel="blogger" size={16} />,
+  wordpress: () => <ChannelIcon channel="wordpress" size={16} />,
   website: () => <span>🌐</span>,
 };
 
@@ -138,7 +141,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBlog, publishToBlogger, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBlog, publishToBlogger, publishToWordpress, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
@@ -282,6 +285,13 @@ export function DirectPublishButton({
             title: blogTitle || undefined,
           });
           break;
+        case 'wordpress':
+          result = await publishToWordpress({
+            ...publishOptions,
+            content: stripSeoMetadata(editableContent),
+            title: blogTitle || undefined,
+          });
+          break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
           return;
@@ -306,10 +316,11 @@ export function DirectPublishButton({
     }
 
     if (!connection) {
-      if (platform === 'blogger') {
-        console.warn('[DirectPublishButton] No blogger connection for brand=', brandTemplateId);
-        sonnerToast.error('Brand này chưa kết nối Blogger', {
-          description: 'Vào tab Kết nối của brand để kết nối Google/Blogger trước khi đăng bài.',
+      if (platform === 'blogger' || platform === 'wordpress') {
+        const label = platform === 'wordpress' ? 'WordPress' : 'Blogger';
+        console.warn(`[DirectPublishButton] No ${platform} connection for brand=`, brandTemplateId);
+        sonnerToast.error(`Brand này chưa kết nối ${label}`, {
+          description: `Vào tab Kết nối của brand để kết nối ${label} trước khi đăng bài.`,
           action: {
             label: 'Đi đến Kết nối',
             onClick: () => navigate(brandTemplateId ? `/brands/${brandTemplateId}?tab=connections` : '/connections'),
@@ -380,7 +391,7 @@ export function DirectPublishButton({
   if (!platform) return null;
 
   const isAlreadyPublished = channelStatus === 'published';
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website', 'google_business', 'blogger'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website', 'google_business', 'blogger', 'wordpress'].includes(platform);
 
   if (!isSupported) {
     if (iconOnly) {
@@ -479,6 +490,7 @@ export function DirectPublishButton({
               isAlreadyPublished ? 'Đăng lại' :
               platform === 'website' ? 'Đăng Blog' : 
               platform === 'blogger' ? 'Đăng Blogger' :
+              platform === 'wordpress' ? 'Đăng WordPress' :
               connection ? 'Đăng ngay' : 'Kết nối để đăng'
             )}
           </Button>
