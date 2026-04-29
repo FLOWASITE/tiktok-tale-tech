@@ -52,12 +52,28 @@ export function VideoGeneratorPanel({
   const providerConfig = VIDEO_PROVIDER_CONFIG[provider];
   const availableAspectRatios = providerConfig.aspectRatios;
 
+  type Phase = 'idle' | 'sending' | 'processing' | 'error' | 'done';
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [lastError, setLastError] = useState<{ message: string; code?: string } | null>(null);
+
+  const extractErrorCode = (err: unknown): string | undefined => {
+    if (!err) return undefined;
+    const anyErr = err as { errorCode?: string; code?: string; status?: number; message?: string };
+    if (anyErr.errorCode) return String(anyErr.errorCode);
+    if (anyErr.code) return String(anyErr.code);
+    if (anyErr.status) return `HTTP_${anyErr.status}`;
+    const m = anyErr.message?.match(/\b(4\d{2}|5\d{2})\b/);
+    return m ? `HTTP_${m[1]}` : undefined;
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error('Vui lòng nhập prompt mô tả cảnh quay trước khi tạo video.');
       return;
     }
 
+    setLastError(null);
+    setPhase('sending');
     try {
       const result = await generateVideo({
         provider,
@@ -71,12 +87,26 @@ export function VideoGeneratorPanel({
         scene_number: scene?.sceneNumber,
       });
 
-      if (result?.video_url) {
+      if (!result) {
+        // generateVideo trả null = request không thành công nhưng đã toast bên trong
+        setPhase('error');
+        setLastError({ message: 'Không nhận được phản hồi từ generate-video.', code: 'NO_RESPONSE' });
+        return;
+      }
+
+      if (result.video_url) {
         onVideoGenerated?.(result.video_url);
+        setPhase('done');
+      } else {
+        setPhase('processing');
       }
     } catch (err) {
       console.error('[VideoGeneratorPanel] generate failed:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể tạo video.');
+      const message = err instanceof Error ? err.message : 'Không thể tạo video.';
+      const code = extractErrorCode(err);
+      setLastError({ message, code });
+      setPhase('error');
+      toast.error(code ? `[${code}] ${message}` : message);
     }
   };
 
@@ -225,13 +255,13 @@ export function VideoGeneratorPanel({
         {/* Generate Button */}
         <Button
           onClick={handleGenerate}
-          disabled={generating || !prompt.trim()}
+          disabled={generating || phase === 'sending' || !prompt.trim()}
           className="w-full"
         >
-          {generating ? (
+          {generating || phase === 'sending' ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Đang tạo video...
+              {phase === 'sending' ? 'Đang gửi yêu cầu...' : 'Đang tạo video...'}
             </>
           ) : (
             <>
@@ -240,6 +270,40 @@ export function VideoGeneratorPanel({
             </>
           )}
         </Button>
+
+        {/* Status banner */}
+        {phase === 'sending' && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Đang gửi tới <code className="font-mono">generate-video</code>…</span>
+          </div>
+        )}
+        {phase === 'processing' && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Đang tạo video nền — sẽ thông báo khi xong.</span>
+          </div>
+        )}
+        {phase === 'error' && lastError && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive space-y-1">
+            <div className="font-medium flex items-center justify-between gap-2">
+              <span>Tạo video thất bại</span>
+              {lastError.code && (
+                <code className="font-mono text-[10px] bg-destructive/10 px-1.5 py-0.5 rounded">
+                  {lastError.code}
+                </code>
+              )}
+            </div>
+            <p className="text-[11px] leading-snug break-words">{lastError.message}</p>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              className="text-[11px] underline underline-offset-2 hover:no-underline"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
 
         {/* Info */}
         <div className="text-[10px] text-muted-foreground space-y-1 pt-2 border-t">
