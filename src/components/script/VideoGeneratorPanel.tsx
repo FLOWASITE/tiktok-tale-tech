@@ -164,9 +164,58 @@ export function VideoGeneratorPanel({
     return m ? `HTTP_${m[1]}` : undefined;
   };
 
+  // Schema validation toàn bộ payload trước khi gửi
+  const validatePayload = () => {
+    const errors: string[] = [];
+    const validProviders = Object.keys(VIDEO_PROVIDER_CONFIG);
+    const trimmed = prompt.trim();
+
+    if (!trimmed) {
+      errors.push('Prompt rỗng — hãy nhập mô tả cảnh quay.');
+    } else if (trimmed.length < 5) {
+      errors.push(`Prompt quá ngắn (${trimmed.length}/5 ký tự tối thiểu).`);
+    } else if (trimmed.length > 4000) {
+      errors.push(`Prompt quá dài (${trimmed.length}/4000 ký tự).`);
+    }
+
+    if (!provider || !validProviders.includes(provider)) {
+      errors.push(`Provider "${provider}" không hợp lệ. Hỗ trợ: ${validProviders.join(', ')}.`);
+    } else if (provider === 'runway') {
+      errors.push('Provider Runway chưa được hỗ trợ (Coming Soon).');
+    }
+
+    // scene_number chỉ bắt buộc khi đang gắn vào storyboard scene
+    if (scene && (scene.sceneNumber == null || !Number.isInteger(scene.sceneNumber) || scene.sceneNumber < 1)) {
+      errors.push('Scene number không hợp lệ — hãy chọn lại scene từ storyboard.');
+    }
+
+    if (storyboardId && !script?.id) {
+      errors.push('Thiếu script_id liên kết với storyboard.');
+    }
+
+    if (![5, 10].includes(duration)) {
+      errors.push(`Duration ${duration}s không hợp lệ (chỉ hỗ trợ 5s hoặc 10s).`);
+    }
+
+    const allowedAspect = providerConfig.aspectRatios;
+    if (!allowedAspect.includes(aspectRatio)) {
+      errors.push(`Aspect ratio ${aspectRatio} không khả dụng cho ${provider}.`);
+    }
+
+    return errors;
+  };
+
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      toast.error('Vui lòng nhập prompt mô tả cảnh quay trước khi tạo video.');
+    const errors = validatePayload();
+    if (errors.length > 0) {
+      toast.error(errors[0], {
+        description: errors.length > 1 ? `+${errors.length - 1} lỗi khác — xem khung bên dưới.` : undefined,
+      });
+      setLastError({
+        message: errors.join(' • '),
+        code: 'VALIDATION_FAILED',
+      });
+      setPhase('error');
       return;
     }
 
