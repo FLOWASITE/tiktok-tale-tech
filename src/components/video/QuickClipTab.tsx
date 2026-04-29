@@ -36,11 +36,11 @@ export function QuickClipTab() {
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
   const [duration, setDuration] = useState(5);
-  const [model, setModel] = useState<VideoModelChoice>('geminigen/veo-3.1-fast');
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
+  const { currentOrganization } = useOrganizationContext();
   const {
     activeScript,
     activeSceneIndex,
@@ -51,7 +51,14 @@ export function QuickClipTab() {
     markSceneCompleted,
   } = useScriptToVideo();
 
-  const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
+  // Model is decided by Admin (read-only here)
+  const { data: modelInfo } = useFunctionModel(
+    'generate-video',
+    DEFAULT_VIDEO_MODEL,
+    currentOrganization?.id ?? null,
+  );
+  const adminModel = modelInfo?.model ?? DEFAULT_VIDEO_MODEL;
+  const selectedModel = VIDEO_MODELS.find((m) => m.id === adminModel) ?? VIDEO_MODELS[0];
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
   const activeJob = activeJobId ? generations.find((g) => g.id === activeJobId) : null;
 
