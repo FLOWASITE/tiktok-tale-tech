@@ -395,7 +395,8 @@ export function SocialPlatformCredentialsDialog({
               <Input
                 id="consumerSecret"
                 type={showSecret ? 'text' : 'password'}
-                value={consumerSecret}
+                value={showSecret && !consumerSecret && revealedSecret ? revealedSecret : consumerSecret}
+                readOnly={showSecret && !consumerSecret && !!revealedSecret}
                 onChange={(e) => setConsumerSecret(e.target.value)}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_secret || '••••'} — nhập mới để thay đổi`
@@ -407,9 +408,15 @@ export function SocialPlatformCredentialsDialog({
                 variant="ghost"
                 size="icon"
                 className="absolute right-0 top-0 h-full"
-                onClick={() => setShowSecret(!showSecret)}
+                onClick={() => handleToggleReveal('consumer_secret')}
+                disabled={revealingSecret}
+                aria-label={showSecret ? 'Ẩn' : 'Hiện'}
               >
-                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {revealingSecret
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : showSecret
+                    ? <EyeOff className="w-4 h-4" />
+                    : <Eye className="w-4 h-4" />}
               </Button>
             </div>
           </div>
