@@ -210,7 +210,7 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       headlineBudget: 60,
       ctaBudget: 22,
       footerBudget: 50,
-      layoutBias: 'vertical-text-overlay',
+      layoutBias: 'hero-led',
     },
   },
   tiktok: {
