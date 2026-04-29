@@ -1,5 +1,6 @@
 // Background music via ElevenLabs Music API
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,8 +29,27 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const prompt: string = (body.prompt ?? "").toString().trim();
     const duration: number = Math.min(30, Math.max(5, body.duration ?? 15));
-    const organizationId: string | undefined = body.organization_id;
+    let organizationId: string | null = body.organization_id ?? null;
     if (!prompt) return json({ error: "prompt required" }, 400);
+
+    if (!organizationId) {
+      const { data: orgRow } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      organizationId = orgRow?.organization_id ?? null;
+    }
+
+    if (organizationId) {
+      const quota = await checkUnitQuota(supabase, organizationId, 'content', 1);
+      if (!quota.allowed) {
+        console.warn(`[bgm] quota exceeded org=${organizationId}`);
+        return buildQuotaExceededResponse(quota, corsHeaders);
+      }
+    }
 
     const musicRes = await fetch("https://api.elevenlabs.io/v1/music", {
       method: "POST",
@@ -63,7 +83,7 @@ Deno.serve(async (req) => {
       .from("audio_assets")
       .insert({
         user_id: user.id,
-        organization_id: organizationId ?? null,
+        organization_id: organizationId,
         asset_type: "music",
         prompt,
         duration_seconds: duration,
