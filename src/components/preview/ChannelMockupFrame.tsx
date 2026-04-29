@@ -61,6 +61,8 @@ interface ChannelMockupFrameProps {
   channelImages?: string[];
   /** Per-slide titles for carousel card overlays */
   slideTitles?: string[];
+  /** Pinterest-only: separate Pin title (≤100 chars, SEO-optimized) */
+  pinterestTitle?: string;
 }
 
 // Reusable animated button component
