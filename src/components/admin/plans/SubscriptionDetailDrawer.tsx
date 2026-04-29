@@ -118,6 +118,53 @@ export default function SubscriptionDetailDrawer({ sub, open, onClose }: Subscri
               <InfoRow label="Ngày tạo" value={sub.created_at ? format(new Date(sub.created_at), "dd/MM/yyyy HH:mm") : "—"} />
             </div>
 
+            {/* Pricing v2 — Usage chu kỳ hiện tại */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Usage chu kỳ hiện tại</h4>
+              {usageQuery.isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : usageQuery.data ? (
+                <div className="space-y-3">
+                  {usageQuery.data.items.map((it) => {
+                    const Icon = it.icon;
+                    const isUnlimited = it.limit === -1;
+                    const ratio = isUnlimited ? 0 : it.limit > 0 ? Math.min(it.used / it.limit, 1.5) : 0;
+                    const tone = usageTone(ratio);
+                    const pct = Math.round(ratio * 100);
+                    const danger = !isUnlimited && it.limit > 0 && ratio >= 0.8;
+                    return (
+                      <div key={it.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-1.5">
+                            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                            {it.label}
+                            {danger && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            {it.used} / {formatLimit(it.limit)}
+                            {!isUnlimited && it.limit > 0 && (
+                              <span className="text-xs text-muted-foreground ml-1">({pct}%)</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn("h-full transition-all", usageBarClass(tone))}
+                            style={{ width: isUnlimited ? "100%" : `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <p className="text-[11px] text-muted-foreground/80 pt-1">
+                    Nội dung = scripts + carousels + multichannel + video script
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có dữ liệu usage</p>
+              )}
+            </div>
+
             {/* Extra metadata */}
             {detail && (
               <div className="space-y-3">
