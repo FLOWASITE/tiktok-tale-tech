@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       .from("audio_assets")
       .insert({
         user_id: user.id,
-        organization_id: organizationId ?? null,
+        organization_id: organizationId,
         asset_type: "subtitle",
         source_text: result.text,
         language,
