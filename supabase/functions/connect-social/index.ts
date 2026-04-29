@@ -947,7 +947,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'website'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
