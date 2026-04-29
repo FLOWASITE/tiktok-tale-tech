@@ -942,12 +942,36 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       );
     }
 
+    // For WordPress - manual setup with Application Password
+    if (platform === 'wordpress') {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresManualSetup: true,
+          instructions: {
+            steps: [
+              '1. Vào WP Admin → Users → Profile → Application Passwords',
+              '2. Tạo Application Password mới (đặt tên "Flowa")',
+              '3. Nhập Site URL, Username và Application Password vào form',
+            ],
+            fields: [
+              { key: 'siteUrl', label: 'Site URL (vd: https://example.com)', required: true },
+              { key: 'username', label: 'WordPress Username', required: true },
+              { key: 'applicationPassword', label: 'Application Password', required: true },
+            ],
+            note: 'WordPress self-hosted dùng REST API + Application Password (không cần OAuth).',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website', 'wordpress'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
