@@ -1529,7 +1529,7 @@ export function MultiChannelViewer({
                             )}
 
                             {/* Editor */}
-                            {channel === 'website' ? (
+                            {(channel === 'website' || channel === 'blogger') ? (
                               <div className="space-y-2">
                                 <div className="flex justify-end">
                                   <ToggleGroup 
