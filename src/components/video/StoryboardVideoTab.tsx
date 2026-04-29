@@ -1,22 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X, AlertTriangle } from 'lucide-react';
+import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X, AlertTriangle, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useAudioStudio } from '@/hooks/useAudioStudio';
 import { useVideoRender } from '@/hooks/useVideoRender';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
 }
 
 export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
-  const { generations, fetchGenerations } = useVideoGeneration();
+  const { generations, fetchGenerations, generateVideo, generating } = useVideoGeneration();
   const { assets, fetchAssets } = useAudioStudio();
   const { jobs, submitting, submitRender } = useVideoRender();
   const { activeScript } = useScriptToVideo();
@@ -29,6 +31,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const [burnSubs, setBurnSubs] = useState(true);
   const [aspect, setAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
   const [showAllClips, setShowAllClips] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; currentScene?: number }>({ done: 0, total: 0 });
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
