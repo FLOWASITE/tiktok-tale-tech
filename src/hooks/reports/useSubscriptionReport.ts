@@ -25,6 +25,28 @@ export interface DailyUsagePoint {
   images: number;
 }
 
+export interface BrandUsageRow {
+  brandId: string;
+  brandName: string;
+  scripts: number;
+  carousels: number;
+  multichannel: number;
+  images: number;
+  total: number;
+}
+
+export interface UserUsageRow {
+  userId: string;
+  fullName: string;
+  email: string | null;
+  avatarUrl: string | null;
+  scripts: number;
+  carousels: number;
+  multichannel: number;
+  images: number;
+  total: number;
+}
+
 export interface SubscriptionReportData {
   hasSubscription: boolean;
   planType: string | null;
@@ -38,6 +60,8 @@ export interface SubscriptionReportData {
   dailySeries: DailyUsagePoint[];
   imageChannelBreakdown: Array<{ channel: string; count: number }>;
   warnings: QuotaItem[];
+  brandUsage: BrandUsageRow[];
+  userUsage: UserUsageRow[];
 }
 
 const QUOTA_LABELS: Record<QuotaKey, string> = {
