@@ -173,6 +173,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         organization_id: organizationId,
         storyboard_id: body.storyboard_id ?? null,
+        script_id: body.script_id ?? null,
         source_clip_ids: body.source_clip_ids ?? [],
         voiceover_url: body.voiceover_url ?? null,
         bgm_url: body.bgm_url ?? null,
