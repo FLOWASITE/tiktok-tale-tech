@@ -80,6 +80,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   google_maps: 'google_business',
   blogger: 'blogger',
   wordpress: 'wordpress',
+  wordpress_com: 'wordpress_com',
   website: 'website',
 };
 
@@ -95,6 +96,7 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   google_business: 'Google Business',
   blogger: 'Blogger',
   wordpress: 'WordPress',
+  wordpress_com: 'WordPress.com',
   website: 'Website',
 };
 
@@ -110,6 +112,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   google_business: () => <span>📍</span>,
   blogger: () => <ChannelIcon channel="blogger" size={16} />,
   wordpress: () => <ChannelIcon channel="wordpress" size={16} />,
+  wordpress_com: () => <ChannelIcon channel="wordpress" size={16} />,
   website: () => <span>🌐</span>,
 };
 
