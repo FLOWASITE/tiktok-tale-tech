@@ -71,6 +71,7 @@ export function ContentMockupToggle({
   geoFactorScores,
   footerInfo,
   industryLabel,
+  pinterestTitle,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
