@@ -167,31 +167,59 @@ export function UsageQuotaWidget() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {items.map(item => {
+        {/* 3 đơn vị output chính (Pricing v2) */}
+        {unitItems.map(item => {
           const isUnlimited = item.limit === -1;
-          const percentage = isUnlimited ? 0 : Math.min(100, Math.round((item.used / item.limit) * 100));
+          const isZero = item.limit === 0;
+          const percentage = isUnlimited || isZero ? 0 : Math.min(100, Math.round((item.used / item.limit) * 100));
           const Icon = item.icon;
 
           return (
             <div key={item.key} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Icon className="h-3 w-3" />
+                <span className="flex items-center gap-1.5 text-foreground font-medium">
+                  <Icon className="h-3.5 w-3.5" />
                   {item.label}
                 </span>
-                <span className={cn('font-medium tabular-nums', !isUnlimited && getQuotaTextClass(percentage))}>
+                <span className={cn('font-semibold tabular-nums', !isUnlimited && !isZero && getQuotaTextClass(percentage))}>
                   {item.used}{isUnlimited ? ' / ∞' : ` / ${item.limit}`}
                 </span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
                 <div
-                  className={cn('h-full rounded-full transition-all', getQuotaBarClass(percentage))}
-                  style={{ width: `${isUnlimited ? 0 : percentage}%` }}
+                  className={cn('h-full rounded-full transition-all', isZero ? 'bg-muted' : getQuotaBarClass(percentage))}
+                  style={{ width: `${isUnlimited || isZero ? 0 : percentage}%` }}
                 />
               </div>
             </div>
           );
         })}
+
+        {/* Chi tiết theo sản phẩm — collapse */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors w-full justify-center pt-1">
+            <ChevronDown className="h-3 w-3" />
+            Chi tiết theo sản phẩm
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 pt-2 border-t mt-2">
+            {breakdownItems.map(item => {
+              const isUnlimited = item.limit === -1;
+              const percentage = isUnlimited ? 0 : Math.min(100, Math.round((item.used / item.limit) * 100));
+              const Icon = item.icon;
+              return (
+                <div key={item.key} className="flex items-center justify-between text-[11px]">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Icon className="h-3 w-3" />
+                    {item.label}
+                  </span>
+                  <span className={cn('tabular-nums', !isUnlimited && getQuotaTextClass(percentage))}>
+                    {item.used}{isUnlimited ? ' / ∞' : ` / ${item.limit}`}
+                  </span>
+                </div>
+              );
+            })}
+          </CollapsibleContent>
+        </Collapsible>
 
         <div className="flex items-center gap-2 pt-2">
           <Button
