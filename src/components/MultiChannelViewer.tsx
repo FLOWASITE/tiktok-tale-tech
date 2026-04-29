@@ -1054,7 +1054,7 @@ export function MultiChannelViewer({
 
                 {/* Expand Channels */}
                 {onExpandChannels && (() => {
-                  const ALL_CHANNELS: Channel[] = ['website', 'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'email', 'google_maps', 'zalo_oa', 'telegram', 'tiktok', 'threads'];
+                  const ALL_CHANNELS: Channel[] = ['website', 'blogger', 'facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'email', 'google_maps', 'zalo_oa', 'telegram', 'tiktok', 'threads'];
                   const safeSelectedChannels = content?.selected_channels ?? [];
                   const availableChannelsCount = ALL_CHANNELS.filter(ch => !safeSelectedChannels.includes(ch)).length;
                   
