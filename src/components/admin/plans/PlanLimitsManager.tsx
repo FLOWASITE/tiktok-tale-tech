@@ -529,15 +529,47 @@ export default function PlanLimitsManager() {
                       const val = getVal(plan, field as keyof PlanLimit) as number;
                       const changed = isFieldChanged(plan, field);
                       const savings = field === "price_yearly" ? getSavingsPercent(plan) : 0;
+                      // Gợi ý giá tháng dựa trên unit costs + markup 2.5x
+                      const cu = getVal(plan, "monthly_content_units") as number;
+                      const iu = getVal(plan, "monthly_image_units") as number;
+                      const vu = getVal(plan, "monthly_video_units") as number;
+                      const baseCost = (cu === -1 ? 0 : cu) * UNIT_COSTS_VND.content
+                        + (iu === -1 ? 0 : iu) * UNIT_COSTS_VND.image
+                        + (vu === -1 ? 0 : vu) * UNIT_COSTS_VND.video;
+                      const suggested = field === "price_monthly"
+                        ? Math.round(baseCost * 2.5 / 1000) * 1000
+                        : field === "price_yearly"
+                          ? Math.round(baseCost * 2.5 * 10 / 1000) * 1000 // 10 tháng giá = 2 tháng free
+                          : 0;
                       return (
                         <TableCell key={plan.id} className="text-center">
                           {isEditMode ? (
-                            <Input
-                              type="number"
-                              value={val}
-                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                              className={`h-8 text-sm text-center w-28 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
-                            />
+                            <div className="flex flex-col items-center gap-1">
+                              <Input
+                                type="number"
+                                value={val}
+                                onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
+                                className={`h-8 text-sm text-center w-28 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
+                              />
+                              {suggested > 0 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleFieldChange(plan.id, field, String(suggested))}
+                                      className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5"
+                                    >
+                                      <Sparkles className="h-2.5 w-2.5" />
+                                      Đề xuất {formatVND(suggested)}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="text-xs max-w-56">
+                                    Tính từ tổng unit × cost cơ bản × markup 2.5×.<br/>
+                                    Click để áp dụng.
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
                               <span className={`text-sm font-semibold ${changed ? "text-primary" : ""}`}>{formatVND(val)}</span>
