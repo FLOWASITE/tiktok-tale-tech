@@ -127,11 +127,11 @@ const channelConfig: Record<Channel, {
     maxLength: '800-1500 chữ'
   },
   blogger: { 
-    label: 'Website/Blog', 
-    shortLabel: 'Web',
+    label: 'Blogger', 
+    shortLabel: 'Blogger',
     icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-500/10',
     maxLength: '800-1500 chữ'
   },
   facebook: { 
@@ -232,6 +232,7 @@ const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo �
 function getContentForChannel(content: MultiChannelContent, channel: Channel): string | null {
   switch (channel) {
     case 'website': return content.website_content;
+    case 'blogger': return content.website_content;
     case 'facebook': return content.facebook_content;
     case 'instagram': return content.instagram_content;
     case 'twitter': return content.twitter_content;
@@ -1528,7 +1529,7 @@ export function MultiChannelViewer({
                             )}
 
                             {/* Editor */}
-                            {channel === 'website' ? (
+                            {(channel === 'website' || channel === 'blogger') ? (
                               <div className="space-y-2">
                                 <div className="flex justify-end">
                                   <ToggleGroup 
@@ -1591,7 +1592,7 @@ export function MultiChannelViewer({
                                   logoUrl={brandLogoUrl || undefined}
                                   primaryColor={content.primary_color || undefined}
                                   isLoading={isRegenerating}
-                                  seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
+                                  seoData={(channel === 'website' || channel === 'blogger') ? (content as any).website_seo_data : undefined}
                                   channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
                                   critiqueScore={content.critique_score}
                                   geoScore={geoScoreData?.overall_score}
@@ -1603,7 +1604,7 @@ export function MultiChannelViewer({
                                     (channelContent.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5) +
                                     ((channelContent.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0)
                                   )) : undefined}
-                                  seoScore={channel === 'website' ? calculateSEOScore(channelContent || '') : undefined}
+                                  seoScore={(channel === 'website' || channel === 'blogger') ? calculateSEOScore(channelContent || '') : undefined}
                                   onTriggerGEO={handleTriggerGEO}
                                   isGEOLoading={isGEOScoring}
                                   geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
@@ -1734,7 +1735,7 @@ export function MultiChannelViewer({
                               )}
                               
                               {/* SEO Preview for website channel */}
-                              {channel === 'website' && (content as any).website_seo_data && (
+                              {(channel === 'website' || channel === 'blogger') && (content as any).website_seo_data && (
                                 <WebsiteSEOPreview
                                   seoData={(content as any).website_seo_data}
                                   content={channelContent}

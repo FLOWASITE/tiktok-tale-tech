@@ -1580,10 +1580,18 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
   const [scrollProgress, setScrollProgress] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
-  
-  const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
-  
-  const wordCount = seoData?.word_count || formattedContent.split(/\s+/).length;
+
+  // Fallback: if main content is empty but SEO data has body, use that
+  const effectiveContent = useMemo(() => {
+    if (content && content.trim()) return content;
+    const seoContent = (seoData as any)?.content;
+    if (typeof seoContent === 'string' && seoContent.trim()) return seoContent;
+    return '';
+  }, [content, seoData]);
+
+  const formattedContent = useMemo(() => ensureMarkdownFormat(effectiveContent), [effectiveContent]);
+
+  const wordCount = seoData?.word_count || formattedContent.split(/\s+/).filter(Boolean).length;
   const readTime = seoData?.reading_time_minutes || Math.max(1, Math.ceil(wordCount / 200));
   const themeColor = primaryColor || '#3b82f6';
   
@@ -1785,9 +1793,13 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
                 <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-5/6" />
                 <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-4/5" />
               </div>
-            ) : (
+            ) : formattedContent.trim() ? (
               <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed">
                 <MemoizedWebsiteMarkdown content={formattedContent} themeColor={themeColor} />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-[#d2d2d7] dark:border-[#3d3d3f] bg-[#fafafa] dark:bg-[#2c2c2e] p-6 text-center text-xs text-[#86868b]">
+                Chưa có nội dung bài viết. Hãy nhấn <span className="font-semibold">Tạo lại nội dung</span> để AI viết bài cho kênh này.
               </div>
             )}
             

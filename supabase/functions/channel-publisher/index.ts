@@ -146,8 +146,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         if (!finalPayload.content) finalPayload.content = mcc.website_content;
         if (!finalPayload.featuredImageUrl) {
           const ci = mcc.channel_images as Record<string, any> | null;
+          const bloggerImg = ci?.blogger?.url || ci?.blogger?.image_url;
           const websiteImg = ci?.website?.url || ci?.website?.image_url;
-          finalPayload.featuredImageUrl = mcc.featured_image_url || websiteImg || undefined;
+          finalPayload.featuredImageUrl = bloggerImg || mcc.featured_image_url || websiteImg || undefined;
         }
         if (mcc.organization_id) finalPayload.organization_id = mcc.organization_id;
       } catch (resolveErr) {
@@ -258,7 +259,13 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           if (contentData) {
             const selectedChannels: string[] = contentData.selected_channels || [];
             const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
-            channelStatuses[channelKey] = 'published';
+
+            // For blogger: mark blogger=published if user selected it; fall back to website otherwise
+            let effectiveChannelKey = channelKey;
+            if (action === 'blogger') {
+              effectiveChannelKey = selectedChannels.includes('blogger') ? 'blogger' : 'website';
+            }
+            channelStatuses[effectiveChannelKey] = 'published';
 
             const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
             const newStatus = allPublished ? 'published' : 'partially_published';
@@ -271,7 +278,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             if (updateError) {
               console.error('[channel-publisher] Failed to update content status:', updateError.message);
             } else {
-              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${channelKey}=published)`);
+              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${effectiveChannelKey}=published)`);
             }
           }
 

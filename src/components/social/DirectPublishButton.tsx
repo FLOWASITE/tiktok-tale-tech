@@ -278,6 +278,7 @@ export function DirectPublishButton({
         case 'blogger':
           result = await publishToBlogger({
             ...publishOptions,
+            content: stripSeoMetadata(editableContent),
             title: blogTitle || undefined,
           });
           break;

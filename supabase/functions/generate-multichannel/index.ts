@@ -359,9 +359,11 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
 };
 
 // Normalize channel aliases to canonical names used in DB columns
+// NOTE: 'blogger' is intentionally NOT aliased to 'website' so the UI can
+// keep showing it as a separate channel. Both still write to website_content
+// via CHANNEL_COLUMN_MAP.
 const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
-  blogger: 'website',
 };
 
 /**
@@ -1520,17 +1522,33 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
   try {
     const requestStartTime = Date.now();
     const formData: FormData = await req.json();
-    // Normalize channel aliases (e.g. blog → website) early
+
+    // Capture original channels (preserves 'blogger' for selected_channels persistence)
+    const originalChannels: string[] = Array.isArray(formData.channels) ? [...formData.channels] : [];
+    const originalNewChannels: string[] = Array.isArray(formData.newChannels) ? [...(formData.newChannels as string[])] : [];
+    const originalSingleChannel: string | undefined = formData.channel;
+
+    // Expand 'blogger' to also include 'website' so the long-form pipeline runs.
+    // We still want 'blogger' kept in selected_channels at the end.
+    const expandBloggerToWebsite = (chs: string[]): string[] => {
+      if (!Array.isArray(chs)) return chs;
+      const out = [...chs];
+      if (out.includes('blogger') && !out.includes('website')) out.push('website');
+      return out;
+    };
     if (formData.channels) {
-      formData.channels = normalizeChannels(formData.channels);
+      formData.channels = normalizeChannels(expandBloggerToWebsite(formData.channels));
     }
     if (formData.newChannels) {
-      formData.newChannels = normalizeChannels(formData.newChannels as string[]);
+      formData.newChannels = normalizeChannels(expandBloggerToWebsite(formData.newChannels as string[])) as any;
     }
-    if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
+    if (formData.channel === 'blogger') {
+      // For single-channel regenerate of blogger, generate website body
+      formData.channel = 'website';
+    } else if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
       formData.channel = CHANNEL_ALIASES[formData.channel];
     }
-    console.log("Generating multi-channel content for:", formData.topic);
+    console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -1732,6 +1750,19 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     formData.contentAngle = resolvedContentAngle;
     formData.contentRole = resolvedContentRole;
     formData.channels = resolvedSelectedChannels;
+
+    // Channels actually persisted to selected_channels: keep 'blogger' if user picked it.
+    // Pipeline still sees 'website' to build long-form content.
+    const userPickedBlogger =
+      originalChannels.includes('blogger') ||
+      originalNewChannels.includes('blogger') ||
+      originalSingleChannel === 'blogger';
+    const persistedSelectedChannels: string[] = userPickedBlogger
+      ? Array.from(new Set([
+          ...resolvedSelectedChannels.filter((c: string) => c !== 'website' || originalChannels.includes('website') || originalNewChannels.includes('website') || originalSingleChannel === 'website'),
+          'blogger',
+        ]))
+      : resolvedSelectedChannels;
 
     // ============================================
     // STRATEGY VALIDATION LAYER (P0)
@@ -3429,7 +3460,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               
               // Build update payload with new channel contents
               const updatePayload: Record<string, any> = {
-                selected_channels: [...new Set([...existingChannels, ...resolvedSelectedChannels])],
+                selected_channels: [...new Set([...existingChannels, ...persistedSelectedChannels])],
                 critique_score: critiqueResult?.overall_score || null,
                 critique_details: critiqueResult || null,
                 was_refined: wasRefined,
@@ -3492,7 +3523,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   topic: formData.topic,
                   content_goal: resolvedContentGoal,
                   content_role: resolvedContentRole,
-                  selected_channels: resolvedSelectedChannels,
+                  selected_channels: persistedSelectedChannels,
                   brand_template_id: formData.brandTemplateId || null,
                   brand_voice_variant_id: formData.brandVoiceVariantId || null,
                   brand_name: brandName,
@@ -5435,7 +5466,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       
       // Build update payload with new channel contents
       const updatePayload: Record<string, any> = {
-        selected_channels: [...new Set([...existingChannels, ...resolvedSelectedChannels])],
+        selected_channels: [...new Set([...existingChannels, ...persistedSelectedChannels])],
         critique_score: critiqueResult?.overall_score || null,
         critique_details: critiqueResult || null,
         was_refined: wasRefined,
@@ -5508,7 +5539,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           industry: industry,
           content_goal: resolvedContentGoal,
           content_role: resolvedContentRole,
-          selected_channels: resolvedSelectedChannels,
+          selected_channels: persistedSelectedChannels,
           brand_template_id: formData.brandTemplateId || null,
           brand_voice_variant_id: formData.brandVoiceVariantId || null,
           brand_name: brandName,
