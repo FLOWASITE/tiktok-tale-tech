@@ -60,6 +60,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { WordPressConnectDialog } from './WordPressConnectDialog';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
