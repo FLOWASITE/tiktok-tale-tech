@@ -54,7 +54,7 @@ import {
   Settings2,
   Megaphone,
 } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon } from '@/components/icons/SocialIcons';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
