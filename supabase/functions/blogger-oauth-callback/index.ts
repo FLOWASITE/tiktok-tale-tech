@@ -31,10 +31,24 @@ Deno.serve(withPerf({ functionName: 'blogger-oauth-callback' }, async (req) => {
     } catch {
       throw new Error('Invalid state parameter');
     }
-    const { brandTemplateId, organizationId, userId, frontendOrigin } = stateData;
+    const { brandTemplateId, userId, frontendOrigin } = stateData;
+    let { organizationId } = stateData;
     if (frontendOrigin) frontendUrl = frontendOrigin;
 
     const supabase = getServiceClient();
+
+    // Derive organizationId from brand if missing — guarantees connection is queryable by org-scoped resolvers
+    if (!organizationId && brandTemplateId) {
+      const { data: bt } = await supabase
+        .from('brand_templates')
+        .select('organization_id')
+        .eq('id', brandTemplateId)
+        .maybeSingle();
+      if (bt?.organization_id) {
+        organizationId = bt.organization_id;
+        console.log('[blogger-oauth-callback] derived organizationId from brand:', organizationId);
+      }
+    }
 
     // Get Google credentials (shared with google_business if available, else 'blogger')
     let { data: settings } = await supabase
