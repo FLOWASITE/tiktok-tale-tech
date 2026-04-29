@@ -541,10 +541,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         "rounded-lg bg-muted/30 p-3 xs:p-4 border border-border",
                         showAnalytics ? "h-[35vh] xs:h-[45vh]" : "h-[40vh] xs:h-[50vh]"
                       )}>
-                        <div className="space-y-4 pr-2 xs:pr-4">
-                          <VideoGeneratorPanel script={script} />
-                          <VideoGallery scriptId={script.id} />
-                        </div>
+                        <ScriptVideoTab
+                          script={script}
+                          onSendToVideoStudio={handleSendToVideoStudio}
+                        />
                       </ScrollArea>
                     </TabsContent>
                   </Tabs>
