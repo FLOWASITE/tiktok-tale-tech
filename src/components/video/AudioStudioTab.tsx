@@ -26,18 +26,50 @@ export function AudioStudioTab() {
 
   useEffect(() => { fetchGenerations(); }, [fetchGenerations]);
 
-  // Ghép narration text từ kịch bản (loại tags/notes/timecode)
+  // Chuẩn hóa 1 đoạn narration: bỏ [tags], (notes), timecode, scene headers, speaker labels
+  const cleanNarration = (raw: string): string => {
+    if (!raw) return '';
+    let t = raw;
+    // 1. Bỏ block tags & ghi chú đạo diễn: [B-roll], (cười nhẹ), {SFX}, <cut>
+    t = t.replace(/\[[^\]]*\]/g, ' ')
+         .replace(/\([^)]*\)/g, ' ')
+         .replace(/\{[^}]*\}/g, ' ')
+         .replace(/<[^>]+>/g, ' ');
+    // 2. Bỏ timecode: 00:05, 0:00-0:03, 00:00:05, [00:05], (0:03 - 0:08)
+    t = t.replace(/\b\d{1,2}:\d{2}(?::\d{2})?(?:\s*[-–—~]\s*\d{1,2}:\d{2}(?::\d{2})?)?\b/g, ' ');
+    // 3. Bỏ markers dòng: "SCENE 1:", "Cảnh 2 -", "Shot 3.", "VO:", "NARRATOR:", "MC:"
+    t = t.replace(/^\s*(scene|cảnh|canh|shot|cut|take|vo|voice[\s-]?over|narrator|mc|host|speaker|người\s*dẫn)\s*\d*\s*[:.\-–—)]\s*/gim, '');
+    // 4. Bỏ markdown nhẹ
+    t = t.replace(/[*_`#>]+/g, ' ');
+    // 5. Gộp khoảng trắng
+    t = t.replace(/[ \t]+/g, ' ')
+         .replace(/\s*\n\s*/g, '\n')
+         .replace(/\n{2,}/g, '\n')
+         .trim();
+    return t;
+  };
+
+  // Cắt mềm tại ranh giới câu để giữ mạch lạc trong giới hạn ký tự
+  const truncateAtSentence = (text: string, max: number): string => {
+    if (text.length <= max) return text;
+    const slice = text.slice(0, max);
+    const lastBreak = Math.max(
+      slice.lastIndexOf('.'), slice.lastIndexOf('!'), slice.lastIndexOf('?'),
+      slice.lastIndexOf('…'), slice.lastIndexOf('\n')
+    );
+    if (lastBreak > max * 0.6) return slice.slice(0, lastBreak + 1).trim();
+    const lastSpace = slice.lastIndexOf(' ');
+    return (lastSpace > 0 ? slice.slice(0, lastSpace) : slice).trim() + '…';
+  };
+
+  // Ghép narration text từ kịch bản
   const scriptNarration = useMemo(() => {
     if (!activeScript?.scenes?.length) return '';
-    return activeScript.scenes
-      .map((s) => (s.prompt ?? '')
-        .replace(/\[[^\]]+\]/g, '')
-        .replace(/\(([^)]+)\)/g, '')
-        .replace(/\s+/g, ' ')
-        .trim())
+    const joined = activeScript.scenes
+      .map((s) => cleanNarration(s.prompt ?? ''))
       .filter(Boolean)
-      .join('\n\n')
-      .slice(0, 5000);
+      .join('\n\n');
+    return truncateAtSentence(joined, 5000);
   }, [activeScript]);
 
   // Clip mới nhất completed của kịch bản hiện tại — dùng để auto-fill phụ đề
