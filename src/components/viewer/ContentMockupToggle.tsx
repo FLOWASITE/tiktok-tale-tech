@@ -78,7 +78,8 @@ export function ContentMockupToggle({
     ? brandName.trim() 
     : 'Brand';
 
-  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} seoScore={channel === 'website' ? seoScore : undefined} onTriggerGEO={onTriggerGEO} isGEOLoading={isGEOLoading} geoFactorScores={geoFactorScores} content={content} />;
+  const isWebsiteLike = channel === 'website' || channel === 'blogger';
+  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} seoScore={isWebsiteLike ? seoScore : undefined} onTriggerGEO={onTriggerGEO} isGEOLoading={isGEOLoading} geoFactorScores={geoFactorScores} content={content} />;
 
   // Use dedicated Google Maps mockup
   if (channel === 'google_maps') {
