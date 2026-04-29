@@ -1,26 +1,44 @@
-## Lỗi
-`social-diagnostics` báo `Invalid action/platform: test-credentials/blogger` vì:
-1. **`PLATFORM_NAMES`** trong `supabase/functions/social-diagnostics/index.ts` thiếu `'blogger'` → mọi request test Blogger đều bị reject ngay tại router.
-2. Không có function **`test-blogger-credentials`** (chỉ có `test-blogger-connection`). Khi UI Admin Social Settings bấm "Test credentials" cho Blogger sẽ fail kể cả sau khi thêm vào allowlist.
+## Vấn đề
 
-## Sửa
+Sau khi user authorize Google/Blogger thành công, callback redirect về `rllyipiyuptkibqinotz.lovableproject.com/auth/blogger/callback` — domain này **không tồn tại** (project dùng `app.flowa.one` / `*.lovable.app`), nên Chrome hiện "Project not found".
 
-### 1. `supabase/functions/social-diagnostics/index.ts`
-Thêm `'blogger'` vào `PLATFORM_NAMES`:
+## Nguyên nhân
+
+1. **`connect-social` (line 903)** khi tạo state cho Blogger KHÔNG pack `frontendOrigin` (origin của user) vào state — khác với Twitter/LinkedIn/Threads (line 510, 787) đã làm đúng.
+2. **`blogger-oauth-callback` (line 15, 149, 153)** fallback bằng `supabaseUrl.replace('.supabase.co', '.lovableproject.com')` → ra domain sai (`rllyipiyuptkibqinotz.lovableproject.com` không tồn tại; đúng phải là `id-preview--<id>.lovable.app` hoặc `app.flowa.one`).
+
+## Giải pháp
+
+### 1. `supabase/functions/connect-social/index.ts` (line ~903)
+Pack `frontendOrigin: requestOrigin` vào state cho Blogger (giống Twitter/Threads):
+
 ```ts
-const PLATFORM_NAMES = [
-  'facebook', 'instagram', 'linkedin', 'threads',
-  'tiktok', 'twitter', 'zalo', 'google-business', 'website', 'blogger',
-];
+const state = btoa(JSON.stringify({ 
+  brandTemplateId, organizationId, userId: user.id, 
+  frontendOrigin: requestOrigin || null 
+}));
 ```
 
-### 2. Tạo `supabase/functions/test-blogger-credentials/index.ts`
-Theo pattern của `test-google-business-credentials`: nhận `consumerKey` + `consumerSecret` (Google OAuth Client ID/Secret), validate format (Client ID phải có dạng `*.apps.googleusercontent.com`), trả về `{ success, message }`. Không gọi Google API thực vì credentials chỉ verify được qua OAuth flow.
+### 2. `supabase/functions/blogger-oauth-callback/index.ts`
+- Decode `frontendOrigin` từ state
+- Resolve `frontendUrl` theo thứ tự ưu tiên: `stateData.frontendOrigin` → `Deno.env.get('FRONTEND_URL')` → fallback `https://app.flowa.one` (KHÔNG dùng `.lovableproject.com` vì không tồn tại)
 
-### 3. `supabase/config.toml`
-Thêm entry `verify_jwt = false` cho `test-blogger-credentials` (giống `test-google-business-credentials`).
+```ts
+const stateData = JSON.parse(atob(state));
+const { brandTemplateId, organizationId, userId, frontendOrigin } = stateData;
+// ...
+const frontendUrl = frontendOrigin 
+  || Deno.env.get('FRONTEND_URL') 
+  || 'https://app.flowa.one';
+```
 
-## Files
-- Edit: `supabase/functions/social-diagnostics/index.ts`
-- Create: `supabase/functions/test-blogger-credentials/index.ts`
-- Edit: `supabase/config.toml`
+Áp dụng cho cả success và error redirect path.
+
+## Files thay đổi
+
+- `supabase/functions/connect-social/index.ts` — thêm `frontendOrigin` vào blogger state (1 dòng)
+- `supabase/functions/blogger-oauth-callback/index.ts` — đọc `frontendOrigin` từ state + sửa fallback URL (3 chỗ)
+
+## Test
+
+Sau deploy: Admin → Brand Connection → Connect Blogger → authorize Google → phải redirect về `app.flowa.one/auth/blogger/callback?success=true` (hoặc preview domain hiện tại của user) thay vì `lovableproject.com`.
