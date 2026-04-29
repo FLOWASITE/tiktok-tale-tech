@@ -425,6 +425,64 @@ export default function Pricing() {
         </div>
       </section>
 
+      {/* Conversion Matrix */}
+      <section className="pb-8 sm:pb-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.4 }}
+            className="rounded-2xl border border-border bg-card p-5 sm:p-7"
+          >
+            <div className="text-center mb-5">
+              <Badge variant="outline" className="mb-2 text-xs">Cách tính hạn mức</Badge>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+                Mỗi sản phẩm tiêu hao <span className="text-primary">bao nhiêu đơn vị?</span>
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1.5">
+                Hạn mức gói tính theo 3 đơn vị: Nội dung — Ảnh AI — Video
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-left py-2.5 font-medium">Sản phẩm</th>
+                    <th className="text-center py-2.5 font-medium">Nội dung</th>
+                    <th className="text-center py-2.5 font-medium">Ảnh AI</th>
+                    <th className="text-center py-2.5 font-medium">Video</th>
+                  </tr>
+                </thead>
+                <tbody className="text-foreground">
+                  <tr className="border-b border-border/50">
+                    <td className="py-3 font-medium">Nội dung đa kênh <span className="text-xs text-muted-foreground font-normal">(N kênh)</span></td>
+                    <td className="text-center tabular-nums">N</td>
+                    <td className="text-center tabular-nums">0–N <span className="text-xs text-muted-foreground">(nếu bật ảnh)</span></td>
+                    <td className="text-center tabular-nums text-muted-foreground">0</td>
+                  </tr>
+                  <tr className="border-b border-border/50">
+                    <td className="py-3 font-medium">Carousel <span className="text-xs text-muted-foreground font-normal">(5 slides)</span></td>
+                    <td className="text-center tabular-nums">1</td>
+                    <td className="text-center tabular-nums">5</td>
+                    <td className="text-center tabular-nums text-muted-foreground">0</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 font-medium">Video Kịch bản</td>
+                    <td className="text-center tabular-nums">1</td>
+                    <td className="text-center tabular-nums text-muted-foreground">0</td>
+                    <td className="text-center tabular-nums">1</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              Ví dụ: 1 carousel 5 slides = 1 nội dung + 5 ảnh AI · 1 bài đa kênh 4 kênh có ảnh = 4 nội dung + 4 ảnh
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Comparison Table */}
       <section className="py-12 sm:py-16 bg-muted/30">
         <div className="container mx-auto px-4 max-w-6xl">
