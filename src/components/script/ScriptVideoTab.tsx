@@ -181,6 +181,10 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
 
       <Separator className="my-4" />
 
+      <ScriptMovieGallery scriptId={script.id} />
+
+      <Separator className="my-4" />
+
       <ScriptVideoGalleryGrouped scriptId={script.id} clips={clips} loading={loading} />
     </div>
   );
