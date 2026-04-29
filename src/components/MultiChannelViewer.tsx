@@ -160,8 +160,8 @@ const channelConfig: Record<Channel, {
   },
   pinterest: { 
     label: 'Pinterest', 
-    shortLabel: 'PIN',
-    icon: <span className="text-[#E60023] font-bold text-xs">P</span>, 
+    shortLabel: 'Pinterest',
+    icon: <PinterestIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-[#E60023]',
     bgColor: 'bg-[#E60023]/10',
     maxLength: 'Title ≤100, Desc ≤500'
