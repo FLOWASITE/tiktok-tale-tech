@@ -1,30 +1,36 @@
-## Vấn đề
+## Vấn đề (đã chẩn đoán)
 
-Trong trang Brand → tab Channels, mục **Channel Settings** chỉ liệt kê 10 kênh (Website, Facebook, Instagram, X, Google Maps, LinkedIn, Email, YouTube, Zalo OA, Telegram) — **thiếu Blogger** (cũng như TikTok, Threads). Vì vậy không thể cấu hình độ dài / hook / CTA / emoji riêng cho Blogger ở cấp Brand.
+Bạn đang ở brand **"Flowa - Agentic Content Marketing Platform"** (`8dd69b10-…`) và bấm **Đăng Blogger** không có gì xảy ra (không có log nào ở `publish-blogger` / `channel-publisher`).
 
-Nguyên nhân: file `src/components/brand/BrandViewChannelsTab.tsx` có một mảng `ALL_CHANNELS` **hardcoded** (10 kênh) thay vì dùng `CHANNELS` từ `@/types/multichannel` (đã có đủ Blogger/TikTok/Threads). Ngoài ra label `blogger` đang gán nhầm là `'Website'`.
+Nguyên nhân từ DB:
+- Trong bảng `social_connections` chỉ có **1 row Blogger duy nhất** thuộc về brand **"TAF"** (`188f65cc-…`, organization `f28873d2-…`).
+- Brand "Flowa" hiện tại (`bccfec38-…` org) **chưa có connection Blogger** nào.
+- Theo policy "Brand Connection Isolation", `useSocialConnections` lọc chặt theo `brand_template_id` → trên brand "Flowa" sẽ không thấy connection Blogger nào → nút bấm sẽ navigate về `/connections` mà không hiện lý do, khiến trông như "không phản hồi".
+- Bonus: row Blogger hiện tại có `organization_id = NULL` (state OAuth lúc đó chỉ chứa `brandTemplateId`). Backend `channel-publisher` resolve bằng `.eq('organization_id', mcc.organization_id)` nên ngay cả query org-scope cũng miss.
 
-Phần "AI Optimization per Channel" (chip "Blogger +") đã hoạt động đúng vì dùng `CHANNELS` từ source of truth.
+## Các thay đổi đề xuất
 
-## Thay đổi
+### 1. Vá `supabase/functions/blogger-oauth-callback/index.ts`
+Sau khi parse state, nếu `organizationId` thiếu nhưng có `brandTemplateId`, **derive** `organizationId` từ `brand_templates.organization_id`. Đảm bảo mọi connection mới luôn có cả 2 ID → resolver org-scope/brand-scope đều tìm thấy.
 
-### 1. `src/components/brand/BrandViewChannelsTab.tsx`
-- Thay mảng `ALL_CHANNELS` hardcoded bằng `CHANNELS.map(c => c.value)` (import từ `@/types/multichannel`) → tự động sync mọi kênh hợp lệ, bao gồm Blogger / TikTok / Threads.
-- Sửa `channelLabels.blogger` từ `'Website'` → `'Blogger'` để phân biệt rõ với Website.
-- Giữ thứ tự ưu tiên (đặt `blogger` cạnh `website` cho hợp lý nhóm Text).
+### 2. Backfill data — migration mới
+Tạo migration `update public.social_connections set organization_id = bt.organization_id from brand_templates bt where social_connections.brand_template_id = bt.id and social_connections.organization_id is null;` để vá row "TAF" đang có org NULL. (Migration tool sẽ xin phép user trước khi chạy.)
 
-### 2. (Tuỳ chọn — gom dọn) Các nơi khác đang hardcode danh sách 10–12 kênh thiếu Blogger
-Để Blogger nhất quán toàn UI multichannel, cập nhật cùng lúc:
-- `src/components/MultiChannelViewer.tsx` (dòng 1057): thêm `'blogger'` vào `ALL_CHANNELS` để đếm "kênh chưa expand".
-- `src/components/multichannel/ChannelGroupView.tsx` (dòng 62): thêm `'blogger'`.
-- `src/components/multichannel/ExpandChannelsDialog.tsx` (dòng 46) và `ExpandChannelsStreamingDialog.tsx` (dòng 50): thêm `'blogger'` vào danh sách kênh có thể mở rộng.
-- `src/hooks/useMultiChannelContents.ts` (dòng 92): thêm `'blogger'` vào allowlist khi load contents.
+### 3. UX rõ ràng hơn cho nút "Đăng Blogger" (`src/components/social/DirectPublishButton.tsx`)
+Khi `platform === 'blogger'` và `!connection`, thay vì silent navigate, hiển thị toast:
+> "Brand này chưa kết nối Blogger. Vào tab Kết nối của brand để kết nối Google/Blogger trước." + nút "Đi đến Kết nối".
 
-Không đụng đến:
-- `useChannelModelConfig.ts` `ALL_CHANNELS` (config model AI cấp admin, có schema riêng — sẽ là task tách biệt nếu cần).
-- Backend / DB / RLS — `blogger` đã được xử lý qua alias `blogger → website` trong `generate-multichannel` và `channel-publisher`, không cần migration.
+Đồng thời log warn `[DirectPublishButton] No blogger connection for brand=<id>` để dễ debug.
 
-## Kết quả mong đợi
-- Vào `/brands/:id` → tab Channels → mục **Channel Settings** xuất hiện hàng **Blogger** (cùng TikTok, Threads), mở ra cho phép xem/tuỳ chỉnh độ dài 800–1500 chữ và các rule khác (lấy từ `DEFAULT_CHANNEL_SETTINGS.blogger` đã có sẵn).
-- Badge "X kênh tùy chỉnh" hoạt động đúng nếu user override Blogger.
-- Các UI multichannel khác (viewer, expand dialog, group view) cũng nhận diện Blogger là kênh hợp lệ.
+### 4. Hành động bạn cần làm (sau khi deploy fix)
+- Vào brand **Flowa** → tab **Kết nối** → kết nối **Blogger** (Google OAuth).
+- Sau đó bấm **Đăng Blogger** lại — request sẽ tới `publish-blogger` và đăng được bài.
+
+Lý do phải kết nối lại cho brand "Flowa": Flowa tách connection per-brand (mỗi brand có thể chọn blog Blogger khác nhau, refresh token riêng) — không dùng chung connection cross-brand.
+
+## Tệp sẽ chạm
+- `supabase/functions/blogger-oauth-callback/index.ts` (derive org_id)
+- `supabase/migrations/<timestamp>_backfill_social_connections_org_id.sql` (data fix)
+- `src/components/social/DirectPublishButton.tsx` (toast khi thiếu connection blogger)
+
+Không đụng schema, không đụng RLS, không đụng generic publish flow.
