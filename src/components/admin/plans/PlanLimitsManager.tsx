@@ -19,7 +19,7 @@ import {
 import {
   Save, Loader2, Undo2, Package, FileText, Image, Layers,
   Palette, Bot, DollarSign, Plus, X, Users, TrendingUp, Infinity,
-  Pencil, Eye, Crown, Check, SaveAll, AlertTriangle,
+  Pencil, Eye, Crown, Check, SaveAll, AlertTriangle, Type, Video, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
