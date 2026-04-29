@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { parseScriptContent, getPromptCount, getBlockLabel } from '@/utils/parsePrompts';
