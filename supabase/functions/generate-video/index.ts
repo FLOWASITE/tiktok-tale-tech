@@ -1,13 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { generateVideoViaGeminiGen, GEMINIGEN_VIDEO_MODELS } from "../_shared/geminigen-video-generator.ts";
+import { generateVideoViaPoyo, POYO_VIDEO_MODELS, type PoyoVideoModel } from "../_shared/poyo-video-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type VideoProvider = 'geminigen' | 'lovable' | 'minimax' | 'runway';
+type VideoProvider = 'geminigen' | 'poyo' | 'lovable' | 'minimax' | 'runway';
 
 interface VideoGenerationRequest {
   provider: VideoProvider;
@@ -120,6 +121,25 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           duration,
           negativePrompt: negative_prompt,
           startingFrameUrl: starting_frame_url,
+        }, apiKey);
+
+        videoUrl = result.videoUrl;
+      } else if (provider === 'poyo') {
+        const apiKey = Deno.env.get("POYO_API_KEY");
+        if (!apiKey) throw new Error('POYO_API_KEY not configured');
+
+        const selectedModel = (model && POYO_VIDEO_MODELS.includes(model as PoyoVideoModel)
+          ? model
+          : POYO_VIDEO_MODELS[0]) as PoyoVideoModel;
+
+        const result = await generateVideoViaPoyo({
+          prompt,
+          model: selectedModel,
+          aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
+          duration,
+          resolution: resolution === '720p' ? '720p' : '1080p',
+          startingFrameUrl: starting_frame_url,
+          negativePrompt: negative_prompt,
         }, apiKey);
 
         videoUrl = result.videoUrl;

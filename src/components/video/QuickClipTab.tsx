@@ -8,6 +8,8 @@ import { Loader2, Wand2, Sparkles, Info, Video } from 'lucide-react';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
 import { ProviderModelPicker, VIDEO_MODELS, VideoModelChoice } from './ProviderModelPicker';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
+import { useCurrentBrand } from '@/contexts/BrandContext';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const EXAMPLE_PROMPTS = [
@@ -18,13 +20,52 @@ const EXAMPLE_PROMPTS = [
 
 export function QuickClipTab() {
   const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
   const [duration, setDuration] = useState(5);
   const [model, setModel] = useState<VideoModelChoice>('geminigen/veo-3.1-fast');
+  const [enhancing, setEnhancing] = useState(false);
   const { generateVideo, generating } = useVideoGeneration();
+  const { currentBrand } = useCurrentBrand();
 
   const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
+
+  const handleSmartPrompt = async () => {
+    if (prompt.trim().length < 5) {
+      toast.error('Nhập ý tưởng ngắn (≥5 ký tự) trước khi dùng Smart Prompt.');
+      return;
+    }
+    setEnhancing(true);
+    try {
+      const channel = aspect === '16:9' ? 'youtube' : aspect === '1:1' ? 'facebook' : 'tiktok';
+      const { data, error } = await supabase.functions.invoke('generate-video-prompt', {
+        body: {
+          idea: prompt.trim(),
+          channel,
+          aspect_ratio: aspect,
+          duration,
+          brand_id: currentBrand?.id,
+          industry_id: (currentBrand as { industry_template_id?: string } | null)?.industry_template_id,
+          language: 'vi',
+        },
+      });
+      if (error) throw error;
+      const result = data?.data;
+      if (result?.cinematic_prompt) {
+        setPrompt(result.cinematic_prompt);
+        if (result.negative_prompt) setNegativePrompt(result.negative_prompt);
+        toast.success('Smart Prompt đã tinh chỉnh ý tưởng theo brand & channel.');
+      } else {
+        toast.error('Không nhận được prompt nâng cao.');
+      }
+    } catch (e) {
+      console.error('[QuickClipTab] Smart Prompt error:', e);
+      toast.error('Không thể nâng cấp prompt — thử lại sau.');
+    } finally {
+      setEnhancing(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (prompt.trim().length < 10) {
@@ -39,6 +80,7 @@ export function QuickClipTab() {
       duration,
       aspect_ratio: aspect,
       resolution: '1080p',
+      negative_prompt: negativePrompt.trim() || undefined,
     });
     if (result) {
       toast.success('Đã gửi yêu cầu sinh video. Theo dõi tại tab Thư viện.');
@@ -74,23 +116,54 @@ export function QuickClipTab() {
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="VD: Cô gái cười dịu dàng trong vườn hoa hồng, ánh sáng ban mai, máy quay slow-motion zoom vào khuôn mặt..."
           className="min-h-[100px] resize-none text-sm"
-          disabled={generating}
+          disabled={generating || enhancing}
         />
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          <span className="text-[10px] text-muted-foreground mr-1 self-center">Gợi ý nhanh:</span>
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSmartPrompt}
+            disabled={generating || enhancing || prompt.trim().length < 5}
+            className="h-7 text-[11px] gap-1.5"
+          >
+            {enhancing ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Wand2 className="w-3 h-3" />
+            )}
+            Smart Prompt {currentBrand ? `· ${currentBrand.name}` : ''}
+          </Button>
+          <span className="text-[10px] text-muted-foreground mx-1 self-center">·</span>
+          <span className="text-[10px] text-muted-foreground mr-1 self-center">Mẫu:</span>
           {EXAMPLE_PROMPTS.map((p, i) => (
             <button
               key={i}
               type="button"
               onClick={() => setPrompt(p)}
-              disabled={generating}
+              disabled={generating || enhancing}
               className="text-[10px] px-2 py-1 rounded-md bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors border border-border/30"
             >
               <Sparkles className="w-2.5 h-2.5 inline mr-1" />
-              Mẫu {i + 1}
+              {i + 1}
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Negative prompt (optional) */}
+      <div className="space-y-2">
+        <Label htmlFor="video-neg-prompt" className="text-xs font-medium text-muted-foreground">
+          Negative prompt <span className="text-[10px]">(tùy chọn — điều cần tránh)</span>
+        </Label>
+        <Textarea
+          id="video-neg-prompt"
+          value={negativePrompt}
+          onChange={(e) => setNegativePrompt(e.target.value)}
+          placeholder="VD: low quality, blurry, distorted faces, watermark..."
+          className="min-h-[50px] resize-none text-xs font-mono"
+          disabled={generating || enhancing}
+        />
       </div>
 
       {/* Aspect ratio */}
