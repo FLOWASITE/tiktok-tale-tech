@@ -11008,6 +11008,7 @@ export type Database = {
           progress: number
           provider: string
           provider_render_id: string | null
+          script_id: string | null
           source_clip_ids: string[]
           status: string
           storyboard_id: string | null
@@ -11034,6 +11035,7 @@ export type Database = {
           progress?: number
           provider?: string
           provider_render_id?: string | null
+          script_id?: string | null
           source_clip_ids?: string[]
           status?: string
           storyboard_id?: string | null
@@ -11060,6 +11062,7 @@ export type Database = {
           progress?: number
           provider?: string
           provider_render_id?: string | null
+          script_id?: string | null
           source_clip_ids?: string[]
           status?: string
           storyboard_id?: string | null
@@ -11075,6 +11078,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_render_jobs_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
             referencedColumns: ["id"]
           },
         ]
