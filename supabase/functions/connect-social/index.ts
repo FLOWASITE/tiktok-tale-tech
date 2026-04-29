@@ -966,6 +966,37 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       );
     }
 
+    // For WordPress.com - OAuth 2.0 (per-user)
+    if (platform === 'wordpress_com') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'wordpress', encryptionKey);
+      if (!globalCreds.consumerKey) {
+        throw new Error('WordPress.com chưa được cấu hình. Liên hệ Admin để khai báo Client ID/Secret tại Admin → Social Platforms → WordPress.');
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/wordpress-com-oauth-callback`;
+      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id, frontendOrigin: requestOrigin || null }));
+
+      const oauthUrl = `https://public-api.wordpress.com/oauth2/authorize?` + new URLSearchParams({
+        client_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'global',
+        state,
+      }).toString();
+
+      return new Response(JSON.stringify({
+        success: true,
+        requiresOAuth: true,
+        oauthUrl,
+        instructions: {
+          steps: ['1. Click để đăng nhập WordPress.com', '2. Cấp quyền truy cập site', '3. Chọn site mặc định'],
+          note: 'Hoạt động với mọi plan WordPress.com (Free, Personal, Premium, Business).',
+        },
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
