@@ -17,6 +17,7 @@ interface RenderRequest {
   burn_subtitles?: boolean;
   aspect_ratio?: "9:16" | "16:9" | "1:1";
   storyboard_id?: string;
+  script_id?: string;
   source_clip_ids?: string[];
   organization_id?: string;
 }
