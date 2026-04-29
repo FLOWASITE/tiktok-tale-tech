@@ -208,15 +208,24 @@ export function useSubscription() {
         });
       }
 
+      const scriptsCount = scriptsRes.count ?? 0;
+      const carouselsCount = carouselsRes.count ?? 0;
+      const imagesCount = imagesRes.count ?? 0;
+      // content_units = scripts + carousel captions + per-channel multichannel posts (+ video scripts later)
+      const contentUnits = scriptsCount + carouselsCount + socialPostsTotal;
+
       return {
-        scripts: scriptsRes.count ?? 0,
-        carousels: carouselsRes.count ?? 0,
+        scripts: scriptsCount,
+        carousels: carouselsCount,
         multichannel: multiRes.count ?? 0,
         multichannel_social_posts: socialPostsTotal,
         channel_breakdown: channelBreakdown,
-        images: imagesRes.count ?? 0,
+        images: imagesCount,
         image_channel_breakdown: imageChannelBreakdown,
         brands: brandsRes.count ?? 0,
+        content_units: contentUnits,
+        image_units: imagesCount,
+        video_units: 0,
       };
     },
     enabled: !!orgId && !!subscriptionQuery.data,
