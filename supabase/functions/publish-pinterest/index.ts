@@ -1,5 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { rehostImageForPinterest, refreshPinterestToken } from "../_shared/pinterest-helpers.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -242,53 +243,56 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
     const attemptId = attempt?.id;
 
     try {
-      let result: { id: string; url: string };
       const description = content || '';
       const firstMedia = mediaUrls[0];
+      const isVideo = isVideoUrl(firstMedia);
 
-      if (isVideoUrl(firstMedia)) {
-        // Video Pin (use first item as video, second as cover if provided)
-        const cover = mediaUrls[1] && !isVideoUrl(mediaUrls[1]) ? mediaUrls[1] : undefined;
-        result = await createVideoPin(accessToken, {
-          boardId: resolvedBoard,
-          title,
-          description,
-          link,
-          videoUrl: firstMedia,
-          coverImageUrl: cover,
-          altText,
-        });
-      } else if (mediaUrls.length === 1) {
-        result = await createImagePin(accessToken, {
-          boardId: resolvedBoard,
-          title,
-          description,
-          link,
-          altText,
-          imageUrl: firstMedia,
-        });
-      } else {
-        // Carousel Pin (multi-image, max 5)
-        const imageOnly = mediaUrls.filter((u) => !isVideoUrl(u)).slice(0, 5);
+      // Rehost non-Pinterest-safe URLs (data:, blob:, http://) to Supabase public bucket
+      let safeMedia: string[] = mediaUrls;
+      if (!isVideo) {
+        safeMedia = await Promise.all(
+          mediaUrls.map((u) => rehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
+        );
+      }
+      const safeFirst = safeMedia[0];
+
+      // Helper that runs the actual publish with current access token
+      const doPublish = async (token: string): Promise<{ id: string; url: string }> => {
+        if (isVideo) {
+          const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
+          return await createVideoPin(token, {
+            boardId: resolvedBoard, title, description, link,
+            videoUrl: safeFirst, coverImageUrl: cover, altText,
+          });
+        }
+        if (safeMedia.length === 1) {
+          return await createImagePin(token, {
+            boardId: resolvedBoard, title, description, link, altText, imageUrl: safeFirst,
+          });
+        }
+        const imageOnly = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
         if (imageOnly.length === 0) throw new Error('Không có ảnh hợp lệ để tạo carousel Pin');
         if (imageOnly.length === 1) {
-          result = await createImagePin(accessToken, {
-            boardId: resolvedBoard,
-            title,
-            description,
-            link,
-            altText,
-            imageUrl: imageOnly[0],
+          return await createImagePin(token, {
+            boardId: resolvedBoard, title, description, link, altText, imageUrl: imageOnly[0],
           });
+        }
+        return await createCarouselPin(token, {
+          boardId: resolvedBoard, title, description, link, altText, imageUrls: imageOnly,
+        });
+      };
+
+      // Try once; on 401 auto-refresh and retry once
+      let result: { id: string; url: string };
+      try {
+        result = await doPublish(accessToken);
+      } catch (e: any) {
+        if (e?.status === 401) {
+          console.log('[publish-pinterest] 401 — refreshing token and retrying');
+          accessToken = await refreshPinterestToken(connectionId);
+          result = await doPublish(accessToken);
         } else {
-          result = await createCarouselPin(accessToken, {
-            boardId: resolvedBoard,
-            title,
-            description,
-            link,
-            altText,
-            imageUrls: imageOnly,
-          });
+          throw e;
         }
       }
 
