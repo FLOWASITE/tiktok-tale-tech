@@ -180,6 +180,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'WordPress, API hoặc Webhook',
   },
+  pinterest: {
+    name: 'Pinterest',
+    icon: () => <ChannelIcon channel="pinterest" size={16} />,
+    color: 'text-[#E60023]',
+    bgColor: 'bg-[#E60023]/10',
+    available: true,
+    description: 'Đăng Pin ảnh / video / carousel (Business account)',
+  },
 };
 
 interface TwitterSetupForm {
