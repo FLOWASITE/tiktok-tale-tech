@@ -18,6 +18,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   website: 'publish-website',
   blog: 'publish-blog',
   'flowa_blog': 'publish-blog',
+  blogger: 'publish-blogger',
 };
 
 // Map action back to the channel key used in selected_channels / channel_statuses
@@ -33,6 +34,8 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   website: 'website',
   blog: 'website',
   'flowa_blog': 'website',
+  // Blogger is a publishing target of the website channel — mark website as published when Blogger succeeds
+  blogger: 'website',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
@@ -96,6 +99,61 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         console.error('[channel-publisher] social payload resolve error:', resolveErr);
         return new Response(
           JSON.stringify({ success: false, error: 'Không tải được nội dung để đăng' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // === Resolve for BLOGGER action — uses website_content + blogger connection ===
+    if (action === 'blogger' && typeof contentIdForResolve === 'string' &&
+        (!finalPayload.connectionId || !finalPayload.content || !finalPayload.title)) {
+      try {
+        const supabase = getServiceClient();
+        const { data: mcc } = await supabase
+          .from('multi_channel_contents')
+          .select('title, website_content, organization_id, brand_template_id, featured_image_url, channel_images')
+          .eq('id', contentIdForResolve)
+          .maybeSingle();
+
+        if (!mcc?.website_content) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Bài chưa có nội dung website/blog. Vui lòng tạo nội dung kênh website trước.' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (!finalPayload.connectionId) {
+          let connQuery = supabase
+            .from('social_connections')
+            .select('id')
+            .eq('platform', 'blogger')
+            .eq('is_active', true)
+            .eq('organization_id', mcc.organization_id);
+          if (mcc.brand_template_id) {
+            connQuery = connQuery.eq('brand_template_id', mcc.brand_template_id);
+          }
+          const { data: conn } = await connQuery.limit(1).maybeSingle();
+          if (!conn?.id) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Chưa kết nối Blogger cho brand này.', errorCode: 'NO_CONNECTION' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          finalPayload.connectionId = conn.id;
+        }
+
+        if (!finalPayload.title) finalPayload.title = mcc.title || 'Bài viết mới';
+        if (!finalPayload.content) finalPayload.content = mcc.website_content;
+        if (!finalPayload.featuredImageUrl) {
+          const ci = mcc.channel_images as Record<string, any> | null;
+          const websiteImg = ci?.website?.url || ci?.website?.image_url;
+          finalPayload.featuredImageUrl = mcc.featured_image_url || websiteImg || undefined;
+        }
+        if (mcc.organization_id) finalPayload.organization_id = mcc.organization_id;
+      } catch (resolveErr) {
+        console.error('[channel-publisher] blogger resolve error:', resolveErr);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Không tải được nội dung Blogger để đăng' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

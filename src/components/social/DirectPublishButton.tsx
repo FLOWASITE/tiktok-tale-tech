@@ -105,7 +105,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   youtube: () => <span>▶️</span>,
   zalo_oa: ZaloIcon,
   google_business: () => <span>📍</span>,
-  blogger: () => <span style={{color:'#FF8000',fontWeight:700}}>B</span>,
+  blogger: () => <ChannelIcon channel="blogger" size={16} />,
   website: () => <span>🌐</span>,
 };
 
@@ -137,7 +137,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBlog, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBlog, publishToBlogger, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
@@ -274,6 +274,12 @@ export function DirectPublishButton({
         case 'google_business':
           result = await publishToGoogleBusiness(publishOptions);
           break;
+        case 'blogger':
+          result = await publishToBlogger({
+            ...publishOptions,
+            title: blogTitle || undefined,
+          });
+          break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
           return;
@@ -361,7 +367,7 @@ export function DirectPublishButton({
   if (!platform) return null;
 
   const isAlreadyPublished = channelStatus === 'published';
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website', 'google_business'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website', 'google_business', 'blogger'].includes(platform);
 
   if (!isSupported) {
     if (iconOnly) {
@@ -375,7 +381,7 @@ export function DirectPublishButton({
             className
           )}
         >
-          <ChannelIcon channel={(channel || platform || 'website') as Channel} size={16} className="text-muted-foreground" />
+          <ChannelIcon channel={(channel || platform || 'website') as Channel | 'blogger'} size={16} className="text-muted-foreground" />
         </button>
       );
     }
@@ -418,7 +424,7 @@ export function DirectPublishButton({
           {isPublishing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <ChannelIcon channel={(channel || platform || 'website') as Channel} size={14} />
+            <ChannelIcon channel={(channel || platform || 'website') as Channel | 'blogger'} size={14} />
           )}
           {isAlreadyPublished && (
             <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
@@ -459,6 +465,7 @@ export function DirectPublishButton({
             {!isPublishing && (
               isAlreadyPublished ? 'Đăng lại' :
               platform === 'website' ? 'Đăng Blog' : 
+              platform === 'blogger' ? 'Đăng Blogger' :
               connection ? 'Đăng ngay' : 'Kết nối để đăng'
             )}
           </Button>

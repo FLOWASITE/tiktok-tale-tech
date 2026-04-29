@@ -1442,6 +1442,23 @@ export function MultiChannelViewer({
                             onPublishSuccess?.();
                           }}
                         />
+                        {channel === 'website' && (
+                          <DirectPublishButton
+                            content={channelContent || ''}
+                            contentId={content.id}
+                            channel="blogger"
+                            brandTemplateId={content.brand_template_id || undefined}
+                            mediaUrls={(() => {
+                              const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                              return imgUrl ? [imgUrl] : undefined;
+                            })()}
+                            variant="outline"
+                            size="sm"
+                            onPublishSuccess={() => {
+                              onPublishSuccess?.();
+                            }}
+                          />
+                        )}
                       </div>
                     )}
 

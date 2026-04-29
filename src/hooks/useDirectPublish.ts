@@ -232,6 +232,51 @@ export function useDirectPublish() {
     });
   };
 
+  const publishToBlogger = async (options: PublishOptions & { title?: string; labels?: string[] }) => {
+    const response = await supabase.functions.invoke('channel-publisher', {
+      body: {
+        action: 'blogger',
+        connectionId: options.connectionId,
+        contentId: options.contentId,
+        content: options.content,
+        title: options.title || options.blogData?.title,
+        labels: options.labels || options.blogData?.tags || [],
+        featuredImageUrl: options.mediaUrls?.[0],
+        mediaUrls: options.mediaUrls,
+      },
+    });
+
+    if (response.error) {
+      const maybeContext = (response.error as { context?: Response } | null)?.context;
+      let errorMessage = response.error.message || 'Failed to publish to Blogger';
+      if (maybeContext instanceof Response) {
+        try {
+          const payload = await maybeContext.clone().json();
+          if (payload?.error) errorMessage = String(payload.error);
+        } catch { /* keep fallback */ }
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!response.data?.success) {
+      throw new Error(response.data?.error || 'Failed to publish to Blogger');
+    }
+
+    const resultData = response.data.data || response.data;
+
+    toast({
+      title: 'Đăng Blogger thành công! 🎉',
+      description: resultData.postUrl ? `Bài đã đăng tại ${resultData.postUrl}` : 'Bài viết đã được đăng lên Blogger',
+    });
+
+    return {
+      success: true,
+      platform: 'blogger' as SocialPlatform,
+      postId: resultData.postId,
+      postUrl: resultData.postUrl,
+    };
+  };
+
   const publishToBlog = async (options: PublishOptions & { isPublic?: boolean }) => {
     const action = options.isPublic ? 'flowa_blog' : 'blog';
     const response = await supabase.functions.invoke('channel-publisher', {
@@ -294,6 +339,7 @@ export function useDirectPublish() {
     publishToTikTok,
     publishToGoogleBusiness,
     publishToBlog,
+    publishToBlogger,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
     publishError: publishMutation.error,
