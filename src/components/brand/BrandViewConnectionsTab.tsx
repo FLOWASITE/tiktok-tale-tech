@@ -60,6 +60,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { WordPressConnectDialog } from './WordPressConnectDialog';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
@@ -203,6 +204,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     apiEndpoint: '',
   });
   const [isWebsiteConnecting, setIsWebsiteConnecting] = useState(false);
+  const [wpDialogOpen, setWpDialogOpen] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
@@ -216,12 +218,19 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    // WordPress / Blogger dùng chung Website dialog với integrationType preset
-    if (platform === 'wordpress' || platform === 'blogger') {
+    // WordPress dùng dialog chuyên biệt 3 bước
+    if (platform === 'wordpress') {
+      setSelectedPlatform(platform);
+      setWpDialogOpen(true);
+      return;
+    }
+
+    // Blogger dùng chung Website dialog với integrationType preset
+    if (platform === 'blogger') {
       setSelectedPlatform(platform);
       setWebsiteForm((prev) => ({
         ...prev,
-        integrationType: platform as 'wordpress' | 'blogger',
+        integrationType: 'blogger',
         websiteUrl: '',
         username: '',
         appPassword: '',
@@ -1152,6 +1161,14 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </DialogContent>
       </Dialog>
 
+      {/* WordPress Connect Dialog (3-step simplified) */}
+      <WordPressConnectDialog
+        open={wpDialogOpen}
+        onOpenChange={setWpDialogOpen}
+        brandTemplateId={template.id}
+        onConnected={() => refetch()}
+      />
+
       {/* Website Setup Dialog */}
       <Dialog open={websiteDialogOpen} onOpenChange={setWebsiteDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -1206,7 +1223,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 }}
               >
                 <option value="flowa_blog">Blog Flowa (flowa.vn/blog)</option>
-                <option value="wordpress">WordPress (REST API)</option>
                 <option value="nukeviet">NukeViet CMS</option>
                 <option value="blogger">Blogger (Google)</option>
                 <option value="wix">Wix Blog</option>
