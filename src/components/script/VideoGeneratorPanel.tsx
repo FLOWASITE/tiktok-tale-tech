@@ -110,27 +110,18 @@ export function VideoGeneratorPanel({
           </RadioGroup>
         </div>
 
-        {/* Model Selection (GeminiGen only) */}
-        {provider === 'geminigen' && (
-          <div className="space-y-2">
-            <Label className="text-xs font-medium flex items-center gap-1">
-              <Sparkles className="h-3 w-3" />
-              Model
-            </Label>
-            <Select value={model} onValueChange={setModel}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GEMINIGEN_VIDEO_MODELS.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.label} (max {m.maxDuration}s)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/* Model — read-only, do Admin cấu hình tại /admin/ai */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium flex items-center gap-1">
+            <Sparkles className="h-3 w-3" />
+            Model AI
+          </Label>
+          <AdminModelBadge
+            functionName="generate-video"
+            defaultModel={DEFAULT_VIDEO_MODEL}
+            organizationId={currentOrganization?.id}
+          />
+        </div>
 
         {/* Prompt */}
         <div className="space-y-2">
