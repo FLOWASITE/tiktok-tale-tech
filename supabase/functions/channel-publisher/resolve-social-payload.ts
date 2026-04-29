@@ -25,6 +25,7 @@ export const SOCIAL_RESOLVE_MAP: Record<
     contentColumn: 'google_business_content',
     channelKey: 'google_maps',
   },
+  pinterest: { dbPlatform: 'pinterest', contentColumn: 'pinterest_content', channelKey: 'pinterest' },
 };
 
 export type ResolveResult =
