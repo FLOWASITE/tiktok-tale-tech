@@ -384,10 +384,9 @@ export default function Pricing() {
                   <ul className="space-y-2 sm:space-y-2.5 mb-6 flex-1 text-sm">
                     {[
                       { text: `${plan.limits.brands} thương hiệu`, always: true },
-                      { text: `${plan.limits.multichannel} bài đa kênh/tháng`, always: true },
+                      { text: `${plan.limits.content} nội dung/tháng`, always: true },
                       { text: `${plan.limits.images} ảnh AI/tháng`, always: true },
-                      { text: `${plan.limits.scripts} kịch bản video`, always: true },
-                      { text: `${plan.limits.carousels} carousel/tháng`, always: Number(plan.limits.carousels) > 0 },
+                      { text: `${plan.limits.videos} video/tháng`, always: Number(plan.limits.videos) > 0 },
                       { text: "Đăng bài tự động", always: plan.limits.publishing },
                       { text: "Analytics & Insights", always: plan.limits.analytics },
                       { text: `Hỗ trợ ${plan.limits.support}`, always: true },
