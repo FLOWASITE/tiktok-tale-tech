@@ -359,9 +359,11 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
 };
 
 // Normalize channel aliases to canonical names used in DB columns
+// NOTE: 'blogger' is intentionally NOT aliased to 'website' so the UI can
+// keep showing it as a separate channel. Both still write to website_content
+// via CHANNEL_COLUMN_MAP.
 const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
-  blogger: 'website',
 };
 
 /**
