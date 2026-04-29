@@ -8019,6 +8019,42 @@ export type Database = {
           },
         ]
       }
+      pinterest_oauth_sessions: {
+        Row: {
+          brand_template_id: string | null
+          code_verifier: string
+          created_at: string
+          expires_at: string
+          frontend_origin: string | null
+          id: string
+          organization_id: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          brand_template_id?: string | null
+          code_verifier: string
+          created_at?: string
+          expires_at?: string
+          frontend_origin?: string | null
+          id?: string
+          organization_id?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          brand_template_id?: string | null
+          code_verifier?: string
+          created_at?: string
+          expires_at?: string
+          frontend_origin?: string | null
+          id?: string
+          organization_id?: string | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plan_limits: {
         Row: {
           created_at: string
