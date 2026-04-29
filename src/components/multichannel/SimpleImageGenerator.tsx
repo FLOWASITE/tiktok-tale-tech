@@ -161,8 +161,8 @@ function getContentSummary(content: MultiChannelContent, channel: Channel): stri
 /** Get full channel content for deep AI analysis (up to 2000 chars) */
 function getFullChannelContent(content: MultiChannelContent, channel: Channel): string {
   const fieldMap: Partial<Record<Channel, string | null>> = {
-    website: content.website_content, facebook: content.facebook_content,
-    blogger: content.website_content, facebook: content.facebook_content,
+    website: content.website_content, blogger: content.website_content,
+    facebook: content.facebook_content,
     instagram: content.instagram_content, twitter: content.twitter_content,
     linkedin: content.linkedin_content, youtube: content.youtube_content,
     tiktok: content.tiktok_content, threads: content.threads_content,
