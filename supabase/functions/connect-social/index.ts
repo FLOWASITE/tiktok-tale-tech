@@ -63,28 +63,39 @@ async function getGlobalPlatformCredentials(
   platform: string,
   encryptionKey: string
 ): Promise<{ consumerKey: string | null; consumerSecret: string | null }> {
+  let data: any = null;
   try {
-    const { data, error } = await supabase
+    const result = await supabase
       .from('social_platform_settings')
       .select('consumer_key, consumer_secret')
       .eq('platform', platform)
       .eq('is_active', true)
       .single();
 
-    if (error || !data) {
+    if (result.error || !result.data) {
       console.log(`No global settings found for ${platform}`);
       return { consumerKey: null, consumerSecret: null };
     }
+    data = result.data;
+  } catch (error) {
+    console.error('Error fetching global credentials (DB):', error);
+    return { consumerKey: null, consumerSecret: null };
+  }
 
+  // Decrypt is separate: if it fails, surface the error so the caller can
+  // show a meaningful message instead of pretending credentials don't exist.
+  try {
     const [consumerKey, consumerSecret] = await Promise.all([
       decryptCredential(data.consumer_key, encryptionKey),
       decryptCredential(data.consumer_secret, encryptionKey),
     ]);
-
     return { consumerKey, consumerSecret };
-  } catch (error) {
-    console.error('Error fetching global credentials:', error);
-    return { consumerKey: null, consumerSecret: null };
+  } catch (error: any) {
+    console.error(`[${platform}] decrypt error:`, error?.message || error);
+    throw new Error(
+      `Không thể giải mã credentials ${platform} — encryption key có thể đã bị xoay hoặc giá trị trong DB không phải ciphertext hợp lệ. ` +
+      `Vào Admin → AI Management → Social Platforms → ${platform} và NHẬP LẠI Client Key/Secret qua giao diện.`
+    );
   }
 }
 
