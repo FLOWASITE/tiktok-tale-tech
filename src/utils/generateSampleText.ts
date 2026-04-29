@@ -9,7 +9,7 @@ interface SampleTextOptions {
   channel?: ChannelType;
 }
 
-export type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
+export type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'pinterest' | 'general';
 
 const CHANNEL_CONFIGS: Record<ChannelType, {
   emoji: boolean;
