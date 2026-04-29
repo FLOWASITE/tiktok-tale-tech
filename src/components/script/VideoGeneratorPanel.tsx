@@ -52,12 +52,28 @@ export function VideoGeneratorPanel({
   const providerConfig = VIDEO_PROVIDER_CONFIG[provider];
   const availableAspectRatios = providerConfig.aspectRatios;
 
+  type Phase = 'idle' | 'sending' | 'processing' | 'error' | 'done';
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [lastError, setLastError] = useState<{ message: string; code?: string } | null>(null);
+
+  const extractErrorCode = (err: unknown): string | undefined => {
+    if (!err) return undefined;
+    const anyErr = err as { errorCode?: string; code?: string; status?: number; message?: string };
+    if (anyErr.errorCode) return String(anyErr.errorCode);
+    if (anyErr.code) return String(anyErr.code);
+    if (anyErr.status) return `HTTP_${anyErr.status}`;
+    const m = anyErr.message?.match(/\b(4\d{2}|5\d{2})\b/);
+    return m ? `HTTP_${m[1]}` : undefined;
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error('Vui lòng nhập prompt mô tả cảnh quay trước khi tạo video.');
       return;
     }
 
+    setLastError(null);
+    setPhase('sending');
     try {
       const result = await generateVideo({
         provider,
@@ -71,12 +87,26 @@ export function VideoGeneratorPanel({
         scene_number: scene?.sceneNumber,
       });
 
-      if (result?.video_url) {
+      if (!result) {
+        // generateVideo trả null = request không thành công nhưng đã toast bên trong
+        setPhase('error');
+        setLastError({ message: 'Không nhận được phản hồi từ generate-video.', code: 'NO_RESPONSE' });
+        return;
+      }
+
+      if (result.video_url) {
         onVideoGenerated?.(result.video_url);
+        setPhase('done');
+      } else {
+        setPhase('processing');
       }
     } catch (err) {
       console.error('[VideoGeneratorPanel] generate failed:', err);
-      toast.error(err instanceof Error ? err.message : 'Không thể tạo video.');
+      const message = err instanceof Error ? err.message : 'Không thể tạo video.';
+      const code = extractErrorCode(err);
+      setLastError({ message, code });
+      setPhase('error');
+      toast.error(code ? `[${code}] ${message}` : message);
     }
   };
 
