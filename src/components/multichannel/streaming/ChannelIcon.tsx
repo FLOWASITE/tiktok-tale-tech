@@ -29,6 +29,20 @@ const XLucide: LucideIcon = Object.assign(
   { displayName: 'XLucide' }
 ) as unknown as LucideIcon;
 
+const WordPressLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <WordPressIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'WordPressLucide' }
+) as unknown as LucideIcon;
+
+const BloggerLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <BloggerIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'BloggerLucide' }
+) as unknown as LucideIcon;
+
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
   bgClass: string;
