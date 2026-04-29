@@ -85,7 +85,7 @@ export function QuickClipTab() {
       negative_prompt: negativePrompt.trim() || undefined,
     });
     if (result) {
-      toast.success('Đã gửi yêu cầu sinh video. Theo dõi tại tab Thư viện.');
+      setActiveJobId(result.id);
     }
   };
 
