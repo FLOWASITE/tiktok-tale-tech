@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
 import { ProviderModelPicker, VIDEO_MODELS, VideoModelChoice } from './ProviderModelPicker';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useCurrentBrand } from '@/contexts/BrandContext';
+import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -29,10 +30,45 @@ export function QuickClipTab() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
+  const {
+    activeScript,
+    activeSceneIndex,
+    currentScene,
+    completedSceneIds,
+    setActiveSceneIndex,
+    goToNextScene,
+    markSceneCompleted,
+  } = useScriptToVideo();
 
   const selectedModel = VIDEO_MODELS.find((m) => m.id === model);
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
   const activeJob = activeJobId ? generations.find((g) => g.id === activeJobId) : null;
+
+  // Auto-fill prompt/duration/aspect when scene changes
+  useEffect(() => {
+    if (!currentScene) return;
+    setPrompt(currentScene.prompt);
+    if (currentScene.duration) setDuration(Math.max(3, Math.min(currentScene.duration, selectedModel?.maxDuration ?? 10)));
+    if (currentScene.aspect) setAspect(currentScene.aspect);
+    setActiveJobId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScript?.id, activeSceneIndex]);
+
+  // When the active job for current scene completes → mark + auto-advance
+  useEffect(() => {
+    if (!activeJob || !currentScene || !activeScript) return;
+    if (activeJob.status === 'completed') {
+      if (!completedSceneIds[currentScene.sceneNumber]) {
+        markSceneCompleted(currentScene.sceneNumber, activeJob.id);
+        // Auto move to next scene if there's one
+        if (activeSceneIndex < activeScript.scenes.length - 1) {
+          setTimeout(() => goToNextScene(), 1200);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJob?.status]);
+
 
   const handleSmartPrompt = async () => {
     if (prompt.trim().length < 5) {
@@ -84,14 +120,57 @@ export function QuickClipTab() {
       aspect_ratio: aspect,
       resolution: '1080p',
       negative_prompt: negativePrompt.trim() || undefined,
+      // Liên kết với scene của kịch bản nếu có
+      script_id: activeScript?.id,
+      scene_number: currentScene?.sceneNumber,
     });
     if (result) {
       setActiveJobId(result.id);
     }
   };
 
+  const totalScenes = activeScript?.scenes.length ?? 0;
+  const isLastScene = activeScript ? activeSceneIndex >= totalScenes - 1 : false;
+  const isFirstScene = activeSceneIndex <= 0;
+
   return (
     <div className="space-y-6">
+      {/* Scene navigator — chỉ hiện khi có activeScript */}
+      {activeScript && currentScene && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-foreground/[0.03] border border-border/60">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActiveSceneIndex(activeSceneIndex - 1)}
+            disabled={isFirstScene}
+            className="h-8 w-8 p-0 shrink-0"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <Clapperboard className="w-3.5 h-3.5 text-foreground/60 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Scene {currentScene.sceneNumber} / {totalScenes}
+                {completedSceneIds[currentScene.sceneNumber] && (
+                  <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 normal-case tracking-normal">· đã quay</span>
+                )}
+              </p>
+              <p className="text-xs text-foreground truncate">{currentScene.prompt.slice(0, 110)}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActiveSceneIndex(activeSceneIndex + 1)}
+            disabled={isLastScene}
+            className="h-8 w-8 p-0 shrink-0"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Header strip */}
       <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
         <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
@@ -100,10 +179,13 @@ export function QuickClipTab() {
         <div className="flex-1">
           <p className="text-sm font-medium text-foreground">Quick Clip</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.
+            {activeScript
+              ? 'Prompt đã tự nạp từ scene của kịch bản. Bạn vẫn có thể chỉnh trước khi quay.'
+              : 'Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.'}
           </p>
         </div>
       </div>
+
 
       {/* Prompt */}
       <div className="space-y-2">

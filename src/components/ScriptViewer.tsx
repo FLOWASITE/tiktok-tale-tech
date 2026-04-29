@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { parseScriptContent, getPromptCount, getBlockLabel } from '@/utils/parsePrompts';
@@ -125,12 +126,49 @@ function highlightScriptContent(text: string) {
 }
 
 export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: ScriptViewerProps) {
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
+
+  const handleSendToVideoStudio = (sceneIdx?: number) => {
+    if (!script) return;
+    const purpose = script.script_purpose as ScriptPurpose;
+    const prompts = parseScriptContent(script.content, purpose);
+    if (prompts.length === 0) {
+      toast.error('Kịch bản chưa có scene nào để chuyển sang Video Studio.');
+      return;
+    }
+    // Map duration "5s"/"5-8s"/"8 giây" → number; fallback 5s
+    const parseDur = (s?: string): number | undefined => {
+      if (!s) return undefined;
+      const m = s.match(/(\d+)/);
+      return m ? Math.max(3, Math.min(10, parseInt(m[1], 10))) : undefined;
+    };
+    const scenes = prompts.map((p) => ({
+      sceneNumber: p.promptNumber,
+      prompt: (p.rawContent || `${p.motion ?? ''}\n${p.dialogue ?? ''}`).trim().slice(0, 1500),
+      duration: parseDur(p.duration),
+      aspect: '9:16' as const,
+    }));
+    navigate('/videos', {
+      state: {
+        fromScript: {
+          script: {
+            id: script.id,
+            title: script.title,
+            topic: script.topic,
+            scenes,
+          },
+          activeSceneIndex: sceneIdx ?? 0,
+        },
+      },
+    });
+  };
+
   
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([script?.user_id]);
@@ -239,9 +277,9 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
             </div>
           </DialogHeader>
 
-          {/* Central AI Analyzer Button */}
+          {/* Central action row: AI Analyzer + Send to Video Studio */}
           {!showAnalytics && (
-            <div className="hidden sm:flex justify-center my-2">
+            <div className="hidden sm:flex justify-center my-2 gap-2 flex-wrap">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -258,6 +296,26 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                     <p>Phân tích kịch bản bằng AI để đánh giá chất lượng, cấu trúc và đưa ra gợi ý cải thiện</p>
                   </TooltipContent>
                 </Tooltip>
+
+                {scriptPurpose === 'ai_video' && parsedPrompts.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => handleSendToVideoStudio()}
+                        className="gap-2 px-4 py-2"
+                      >
+                        <Clapperboard className="w-4 h-4" />
+                        <span>Quay với Video Studio</span>
+                        <Badge variant="secondary" className="ml-1 h-5 text-[10px] px-1.5">
+                          {parsedPrompts.length} scene
+                        </Badge>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>Mở Video Studio và tự động nạp từng scene của kịch bản để quay AI tuần tự, sau đó ghép lại đúng thứ tự.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </TooltipProvider>
             </div>
           )}

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -8,12 +8,18 @@ import { Slider } from '@/components/ui/slider';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useAudioStudio } from '@/hooks/useAudioStudio';
 import { useVideoRender } from '@/hooks/useVideoRender';
+import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { Badge } from '@/components/ui/badge';
 
-export function StoryboardVideoTab() {
+interface Props {
+  onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
+}
+
+export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const { generations, fetchGenerations } = useVideoGeneration();
   const { assets, fetchAssets } = useAudioStudio();
   const { jobs, submitting, submitRender } = useVideoRender();
+  const { activeScript } = useScriptToVideo();
 
   const [selectedClips, setSelectedClips] = useState<string[]>([]);
   const [voiceoverId, setVoiceoverId] = useState<string>('none');
@@ -22,13 +28,41 @@ export function StoryboardVideoTab() {
   const [subtitleId, setSubtitleId] = useState<string>('none');
   const [burnSubs, setBurnSubs] = useState(true);
   const [aspect, setAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [showAllClips, setShowAllClips] = useState(false);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
-  const completedClips = generations.filter((g) => g.status === 'completed' && g.video_url);
+  const allCompletedClips = generations.filter((g) => g.status === 'completed' && g.video_url);
+
+  // Filter theo activeScript trừ khi user toggle "Hiện tất cả"
+  const completedClips = useMemo(() => {
+    if (!activeScript || showAllClips) return allCompletedClips;
+    return allCompletedClips
+      .filter((g) => g.script_id === activeScript.id)
+      .sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0));
+  }, [allCompletedClips, activeScript, showAllClips]);
+
   const voiceovers = assets.filter((a) => a.asset_type === 'voiceover' && a.audio_url);
   const bgms = assets.filter((a) => a.asset_type === 'music' && a.audio_url);
   const subs = assets.filter((a) => a.asset_type === 'subtitle' && a.srt_content);
+
+  // Auto pre-select theo thứ tự scene khi vừa vào với activeScript
+  useEffect(() => {
+    if (!activeScript || showAllClips) return;
+    if (selectedClips.length > 0) return; // user đã thao tác — không ghi đè
+    const ids = allCompletedClips
+      .filter((g) => g.script_id === activeScript.id)
+      .sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0))
+      .map((g) => g.id);
+    if (ids.length > 0) setSelectedClips(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScript?.id, allCompletedClips.length, showAllClips]);
+
+  const totalScenes = activeScript?.scenes.length ?? 0;
+  const scenesWithClips = activeScript
+    ? new Set(allCompletedClips.filter((g) => g.script_id === activeScript.id).map((g) => g.scene_number).filter(Boolean))
+    : null;
+  const missingScenes = activeScript ? totalScenes - (scenesWithClips?.size ?? 0) : 0;
 
   const toggleClip = (id: string) => {
     setSelectedClips((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -39,6 +73,14 @@ export function StoryboardVideoTab() {
       const j = i + dir; if (j < 0 || j >= prev.length) return prev;
       const next = [...prev]; [next[i], next[j]] = [next[j], next[i]]; return next;
     });
+  };
+  const selectAllByScene = () => {
+    if (!activeScript) return;
+    const ids = allCompletedClips
+      .filter((g) => g.script_id === activeScript.id)
+      .sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0))
+      .map((g) => g.id);
+    setSelectedClips(ids);
   };
 
   const orderedUrls = selectedClips
@@ -73,6 +115,47 @@ export function StoryboardVideoTab() {
           <p className="text-xs text-muted-foreground">Chọn clip → thêm voiceover/nhạc/phụ đề → render qua Creatomate</p>
         </div>
       </div>
+
+      {/* Script-mode banner */}
+      {activeScript && (
+        <div className="rounded-xl border border-border/60 bg-foreground/[0.03] p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs">
+              <span className="text-muted-foreground">Đang ghép theo kịch bản:</span>{' '}
+              <span className="font-medium text-foreground">{activeScript.title}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch id="show-all" checked={showAllClips} onCheckedChange={setShowAllClips} />
+              <Label htmlFor="show-all" className="text-[10px] text-muted-foreground cursor-pointer">
+                Hiện tất cả clip
+              </Label>
+            </div>
+          </div>
+          {!showAllClips && missingScenes > 0 && (
+            <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 text-[11px]">
+                <p className="text-foreground">
+                  Còn <strong>{missingScenes}/{totalScenes}</strong> scene chưa quay.
+                </p>
+                {onJumpToTab && (
+                  <button
+                    onClick={() => onJumpToTab('quick')}
+                    className="text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                  >
+                    → Quay nốt ở Quick Clip
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {!showAllClips && (
+            <Button size="sm" variant="outline" onClick={selectAllByScene} className="h-7 text-[11px] w-full">
+              Chọn tất cả theo đúng thứ tự kịch bản
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Step 1: Select clips */}
       <div className="space-y-2">
@@ -109,7 +192,9 @@ export function StoryboardVideoTab() {
                     </div>
                   )}
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-                    <p className="text-[9px] text-white truncate">{clip.duration_seconds}s · {clip.aspect_ratio}</p>
+                    <p className="text-[9px] text-white truncate">
+                      {clip.scene_number ? `Scene ${clip.scene_number} · ` : ''}{clip.duration_seconds}s · {clip.aspect_ratio}
+                    </p>
                   </div>
                 </button>
               );

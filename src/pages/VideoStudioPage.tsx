@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign } from 'lucide-react';
@@ -8,6 +9,8 @@ import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
 import { VideoGalleryTab } from '@/components/video/VideoGalleryTab';
 import { VideoCostTracker } from '@/components/video/VideoCostTracker';
+import { ScriptLinkBanner } from '@/components/video/ScriptLinkBanner';
+import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
 
 const TABS = [
   { value: 'quick', label: 'Quick Clip', icon: Wand2, hint: 'Một prompt → một video 5–10s' },
@@ -17,8 +20,32 @@ const TABS = [
   { value: 'costs', label: 'Chi phí', icon: DollarSign, hint: 'Theo dõi credit & spend' },
 ] as const;
 
-export default function VideoStudioPage() {
-  const [tab, setTab] = useState<typeof TABS[number]['value']>('quick');
+type TabValue = typeof TABS[number]['value'];
+
+interface FromScriptState {
+  fromScript?: {
+    script: ActiveScript;
+    activeSceneIndex?: number;
+  };
+}
+
+function VideoStudioInner() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<TabValue>('quick');
+  const { setActiveScript } = useScriptToVideo();
+
+  // Hydrate from navigation state once
+  useEffect(() => {
+    const state = location.state as FromScriptState | null;
+    if (state?.fromScript?.script) {
+      setActiveScript(state.fromScript.script, state.fromScript.activeSceneIndex ?? 0);
+      setTab('quick');
+      // Clear state to avoid re-hydration on refresh / remount
+      navigate(location.pathname, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -43,7 +70,10 @@ export default function VideoStudioPage() {
           </p>
         </header>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-6">
+        {/* Script link banner — chỉ hiện khi có activeScript */}
+        <ScriptLinkBanner onJumpToTab={(t) => setTab(t)} />
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto p-1 bg-muted/50">
             {TABS.map((t) => {
               const Icon = t.icon;
@@ -74,7 +104,7 @@ export default function VideoStudioPage() {
           <TabsContent value="storyboard" className="mt-0">
             <Card className="border-border/60">
               <CardContent className="p-4 md:p-6">
-                <StoryboardVideoTab />
+                <StoryboardVideoTab onJumpToTab={(t) => setTab(t)} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -105,5 +135,13 @@ export default function VideoStudioPage() {
         </Tabs>
       </div>
     </>
+  );
+}
+
+export default function VideoStudioPage() {
+  return (
+    <ScriptToVideoProvider>
+      <VideoStudioInner />
+    </ScriptToVideoProvider>
   );
 }
