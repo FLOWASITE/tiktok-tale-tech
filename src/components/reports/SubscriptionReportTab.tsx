@@ -146,6 +146,59 @@ export function SubscriptionReportTab() {
         </div>
       </Card>
 
+      {/* Filter bar */}
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-1">
+            <Filter className="h-3.5 w-3.5" />
+            <span>Lọc theo:</span>
+          </div>
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="h-9 w-[200px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Tất cả Brand" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả Brand</SelectItem>
+              {data.filterOptions.brands.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="h-9 w-[220px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Tất cả Thành viên" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả Thành viên</SelectItem>
+              {data.filterOptions.users.map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {data.isFiltered && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setBrandFilter('all'); setUserFilter('all'); }}
+                className="h-9 px-2 text-muted-foreground"
+              >
+                <X className="h-3.5 w-3.5 mr-1" /> Xoá lọc
+              </Button>
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Đang xem dữ liệu đã lọc theo chu kỳ hiện tại
+              </Badge>
+            </>
+          )}
+        </div>
+      </Card>
+
       {/* Quota cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {data.quotas.map((q) => (
