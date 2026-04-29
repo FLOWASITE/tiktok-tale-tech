@@ -2024,7 +2024,7 @@ function PinterestMockup({ content, brandName, logoUrl, isGenerating, channelIma
 }
 
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
-  const { channel, seoData, channelImage, channelImages, slideTitles, brandName: rawBrandName, ...rest } = props;
+  const { channel, seoData, channelImage, channelImages, slideTitles, pinterestTitle, brandName: rawBrandName, ...rest } = props;
   
   const safeBrandName = typeof rawBrandName === 'string' && rawBrandName.trim() 
     ? rawBrandName.trim() 
