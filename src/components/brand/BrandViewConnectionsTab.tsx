@@ -137,6 +137,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Đăng bài Local Posts',
   },
+  blogger: {
+    name: 'Blogger',
+    icon: <Globe className="w-5 h-5" />,
+    color: 'bg-[#FF8000] text-white',
+    available: true,
+    description: 'Đăng bài Blogger (Google) qua OAuth',
+  },
   website: {
     name: 'Website',
     icon: <Globe className="w-5 h-5" />,
@@ -372,6 +379,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     youtube: 'youtube',
     zalo_oa: 'zalo',
     google_business: 'google-business',
+    blogger: 'blogger',
     website: 'website',
   };
 
