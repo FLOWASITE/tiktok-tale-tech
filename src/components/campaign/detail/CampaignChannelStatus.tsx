@@ -12,6 +12,7 @@ import {
 import { ChannelStatus } from '@/hooks/useCampaignChannelIntegration';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 
 interface CampaignChannelStatusProps {
   channelStatuses: ChannelStatus[];
@@ -19,16 +20,7 @@ interface CampaignChannelStatusProps {
   isLoading?: boolean;
 }
 
-const CHANNEL_ICONS: Record<string, string> = {
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '🐦',
-  tiktok: '🎵',
-  linkedin: '💼',
-  youtube: '▶️',
-  threads: '🧵',
-  pinterest: '📌',
-};
+// Icons rendered via shared <ChannelIcon /> for brand consistency
 
 export function CampaignChannelStatus({ 
   channelStatuses, 
@@ -65,8 +57,6 @@ export function CampaignChannelStatus({
         ) : (
           <div className="space-y-2">
             {channelStatuses.map((status) => {
-              const icon = CHANNEL_ICONS[status.channel.toLowerCase()] || '📱';
-              
               return (
                 <div 
                   key={status.channel}
@@ -79,10 +69,12 @@ export function CampaignChannelStatus({
                     {status.isConnected && status.connectionAvatar ? (
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={status.connectionAvatar} />
-                        <AvatarFallback>{icon}</AvatarFallback>
+                        <AvatarFallback>
+                          <ChannelIcon channel={status.channel} size="sm" />
+                        </AvatarFallback>
                       </Avatar>
                     ) : (
-                      <span className="text-xl w-8 text-center">{icon}</span>
+                      <ChannelIcon channel={status.channel} size="md" />
                     )}
                     
                     <div>
