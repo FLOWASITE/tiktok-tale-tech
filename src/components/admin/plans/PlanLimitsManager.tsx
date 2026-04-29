@@ -463,16 +463,13 @@ export default function PlanLimitsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Pricing v2 — Output units (primary) */}
+                {/* Hạn mức gói (5 trường chính) */}
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={plans.length + 1} className="bg-primary/5 py-1.5 px-4 border-l-2 border-primary">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-primary uppercase tracking-wider">Pricing v2 — Đơn vị output</span>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">Tính phí</Badge>
-                    </div>
+                    <span className="text-xs font-semibold text-primary uppercase tracking-wider">Hạn mức gói</span>
                   </TableCell>
                 </TableRow>
-                {v2LimitFields.map((field) => (
+                {mainLimitFields.map((field) => (
                   <TableRow key={field}>
                     <TableCell className="font-medium">
                       <Tooltip>
@@ -500,55 +497,6 @@ export default function PlanLimitsManager() {
                             <Badge variant="secondary" className="gap-1 text-xs"><Infinity className="h-3 w-3" /> ∞</Badge>
                           ) : (
                             <span className={`text-sm font-medium ${changed ? "text-primary" : ""}`}>{val}</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-
-                {/* Legacy / phụ trợ — collapsible */}
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={plans.length + 1} className="bg-muted/20 py-1.5 px-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowLegacy((v) => !v)}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
-                    >
-                      <span className={`inline-block transition-transform ${showLegacy ? "rotate-90" : ""}`}>▸</span>
-                      Hạn mức phụ trợ / Legacy
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 ml-1">{legacyLimitFields.length}</Badge>
-                    </button>
-                  </TableCell>
-                </TableRow>
-                {showLegacy && legacyLimitFields.map((field) => (
-                  <TableRow key={field}>
-                    <TableCell className="font-medium pl-6">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-2 text-sm text-muted-foreground cursor-help">
-                            {FIELD_ICONS[field]} {FIELD_LABELS[field]}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs max-w-48">{FIELD_TOOLTIPS[field]}</TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                    {plans.map((plan) => {
-                      const val = getVal(plan, field as keyof PlanLimit) as number;
-                      const changed = isFieldChanged(plan, field);
-                      return (
-                        <TableCell key={plan.id} className="text-center">
-                          {isEditMode ? (
-                            <Input
-                              type="number"
-                              value={val}
-                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                              className={`h-8 text-sm text-center w-20 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
-                            />
-                          ) : val === -1 ? (
-                            <Badge variant="secondary" className="gap-1 text-xs"><Infinity className="h-3 w-3" /> ∞</Badge>
-                          ) : (
-                            <span className={`text-sm text-muted-foreground ${changed ? "text-primary" : ""}`}>{val}</span>
                           )}
                         </TableCell>
                       );
