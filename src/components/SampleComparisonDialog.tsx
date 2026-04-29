@@ -31,6 +31,7 @@ const CHANNEL_CONFIG: Record<ChannelType, { label: string; icon: React.ReactNode
   facebook: { label: 'Facebook', icon: <Facebook className="w-4 h-4" />, color: 'text-blue-600' },
   linkedin: { label: 'LinkedIn', icon: <Linkedin className="w-4 h-4" />, color: 'text-sky-600' },
   instagram: { label: 'Instagram', icon: <Instagram className="w-4 h-4" />, color: 'text-pink-600' },
+  pinterest: { label: 'Instagram', icon: <Instagram className="w-4 h-4" />, color: 'text-pink-600' },
   tiktok: { label: 'TikTok', icon: <Music2 className="w-4 h-4" />, color: 'text-foreground' },
   email: { label: 'Email', icon: <Mail className="w-4 h-4" />, color: 'text-amber-600' },
   twitter: { label: 'Twitter', icon: null, color: '' },

@@ -134,6 +134,7 @@ function getContentSummary(content: MultiChannelContent, channel: Channel): stri
     website: content.website_content, blogger: content.website_content,
     facebook: content.facebook_content,
     instagram: content.instagram_content, twitter: content.twitter_content,
+    pinterest: content.instagram_content,
     linkedin: content.linkedin_content, youtube: content.youtube_content,
     tiktok: content.tiktok_content, threads: content.threads_content,
     zalo_oa: (content as any).zalo_oa_content, telegram: (content as any).telegram_content,
@@ -164,6 +165,7 @@ function getFullChannelContent(content: MultiChannelContent, channel: Channel): 
     website: content.website_content, blogger: content.website_content,
     facebook: content.facebook_content,
     instagram: content.instagram_content, twitter: content.twitter_content,
+    pinterest: content.instagram_content,
     linkedin: content.linkedin_content, youtube: content.youtube_content,
     tiktok: content.tiktok_content, threads: content.threads_content,
     zalo_oa: (content as any).zalo_oa_content, telegram: (content as any).telegram_content,
@@ -319,6 +321,7 @@ export function SimpleImageGenerator({
       website: content.website_content, blogger: content.website_content,
       facebook: content.facebook_content,
       instagram: content.instagram_content, twitter: content.twitter_content,
+      pinterest: content.instagram_content,
       linkedin: content.linkedin_content, youtube: content.youtube_content,
       tiktok: content.tiktok_content, threads: content.threads_content,
     };

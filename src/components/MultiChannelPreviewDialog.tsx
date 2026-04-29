@@ -63,6 +63,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   wordpress: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
+  pinterest: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
   google_maps: <MapPin className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
@@ -79,6 +80,7 @@ type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'ema
 const channelToMockupType: Record<Channel, ChannelMockupType> = {
   facebook: 'facebook',
   instagram: 'instagram',
+  pinterest: 'instagram',
   twitter: 'twitter',
   linkedin: 'linkedin',
   tiktok: 'tiktok',

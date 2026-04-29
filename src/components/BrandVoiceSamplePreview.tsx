@@ -67,6 +67,12 @@ const CHANNEL_INFO: Record<ChannelType, {
     gradient: 'from-pink-500 via-red-500 to-yellow-500',
     bgGradient: 'from-pink-500/10 via-purple-500/5 to-transparent'
   },
+  pinterest: { 
+    label: 'Instagram', 
+    icon: <Instagram className="w-4 h-4" />, 
+    gradient: 'from-pink-500 via-red-500 to-yellow-500',
+    bgGradient: 'from-pink-500/10 via-purple-500/5 to-transparent'
+  },
   tiktok: { 
     label: 'TikTok', 
     icon: <MessageCircle className="w-4 h-4" />, 

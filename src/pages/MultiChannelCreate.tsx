@@ -28,6 +28,7 @@ const CHANNEL_CONTENT_FIELD: Partial<Record<Channel, string>> = {
   wordpress: 'website_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
+  pinterest: 'instagram_content',
   twitter: 'twitter_content',
   google_maps: 'google_maps_content',
   linkedin: 'linkedin_content',

@@ -103,6 +103,7 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
   const bestTimes: Record<Channel, string> = {
     facebook: '9:00 - 11:00, 19:00 - 21:00',
     instagram: '11:00 - 13:00, 19:00 - 21:00',
+    pinterest: '11:00 - 13:00, 19:00 - 21:00',
     linkedin: '7:00 - 9:00, 17:00 - 18:00',
     twitter: '8:00 - 10:00, 12:00 - 13:00',
     tiktok: '19:00 - 22:00',

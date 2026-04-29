@@ -41,6 +41,7 @@ const CHANNEL_LABELS: Record<ChannelType, string> = {
   facebook: 'Facebook',
   linkedin: 'LinkedIn',
   instagram: 'Instagram',
+  pinterest: 'Instagram',
   tiktok: 'TikTok',
   email: 'Email',
 };
@@ -49,6 +50,7 @@ const CHANNEL_ICONS: Record<ChannelType, React.ReactNode> = {
   facebook: <Facebook className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
+  pinterest: <Instagram className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   email: <Mail className="w-4 h-4" />,
 };

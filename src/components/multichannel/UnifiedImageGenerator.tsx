@@ -90,6 +90,7 @@ type GeneratorMode = 'single' | 'batch';
 const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bgColor: string }> = {
   facebook: { icon: <Facebook className="w-4 h-4" />, color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
   instagram: { icon: <Instagram className="w-4 h-4" />, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
+  pinterest: { icon: <Instagram className="w-4 h-4" />, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
   linkedin: { icon: <Linkedin className="w-4 h-4" />, color: 'text-sky-600', bgColor: 'bg-sky-500/10' },
   twitter: { icon: <Twitter className="w-4 h-4" />, color: 'text-slate-700', bgColor: 'bg-slate-500/10' },
   website: { icon: <Globe className="w-4 h-4" />, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
@@ -268,6 +269,7 @@ function getBestOverlayText(content: MultiChannelContent, channel: Channel): str
   const channelContentMap: Partial<Record<Channel, string | null>> = {
     facebook: content.facebook_content,
     instagram: content.instagram_content,
+    pinterest: content.instagram_content,
     twitter: content.twitter_content,
     linkedin: content.linkedin_content,
     youtube: content.youtube_content,

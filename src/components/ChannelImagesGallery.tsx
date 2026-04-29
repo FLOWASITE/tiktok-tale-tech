@@ -88,6 +88,12 @@ const channelConfig: Record<Channel, {
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/20',
   },
+  pinterest: { 
+    label: 'Instagram', 
+    icon: <Instagram className="w-3 h-3" />, 
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-500/20',
+  },
   twitter: { 
     label: 'X', 
     icon: <XIcon className="w-3 h-3" />, 

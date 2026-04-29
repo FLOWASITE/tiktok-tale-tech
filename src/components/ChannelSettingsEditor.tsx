@@ -68,6 +68,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   wordpress: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
+  pinterest: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
   google_maps: <MapPin className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
@@ -421,6 +422,7 @@ const CHANNEL_PRESETS = {
     overrides: {
       facebook: { emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5 },
       instagram: { emoji_allowed: true, emoji_limit: 8, hashtag_limit: 20 },
+      pinterest: { emoji_allowed: true, emoji_limit: 8, hashtag_limit: 20 },
       tiktok: { emoji_allowed: true, emoji_limit: 6, hashtag_limit: 10 },
       twitter: { emoji_allowed: true, emoji_limit: 3, hashtag_limit: 3 },
     } as ChannelOverrides,

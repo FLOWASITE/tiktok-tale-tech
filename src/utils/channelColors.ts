@@ -12,6 +12,11 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-pink-600',
     border: 'border-pink-500/30',
   },
+  pinterest: {
+    bg: 'bg-gradient-to-r from-purple-500/15 via-pink-500/15 to-orange-500/15',
+    text: 'text-pink-600',
+    border: 'border-pink-500/30',
+  },
   twitter: {
     bg: 'bg-slate-500/15',
     text: 'text-slate-700 dark:text-slate-300',

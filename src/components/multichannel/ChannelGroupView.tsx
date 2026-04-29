@@ -68,6 +68,7 @@ const ALL_CHANNELS: Channel[] = [
 const CHANNEL_TO_PLATFORM: Partial<Record<Channel, SocialPlatform>> = {
   facebook: 'facebook',
   instagram: 'instagram',
+  pinterest: 'instagram',
   tiktok: 'tiktok',
   twitter: 'twitter',
   linkedin: 'linkedin',

@@ -42,6 +42,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   facebook: <Facebook className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
+  pinterest: <Instagram className="w-4 h-4" />,
   twitter: <Twitter className="w-4 h-4" />,
   tiktok: <TikTokIcon className="w-4 h-4" />,
   youtube: <Youtube className="w-4 h-4" />,

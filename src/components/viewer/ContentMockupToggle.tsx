@@ -36,6 +36,7 @@ const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram'
   facebook: 'facebook',
   linkedin: 'linkedin',
   instagram: 'instagram',
+  pinterest: 'instagram',
   tiktok: 'tiktok',
   email: 'email',
   twitter: 'twitter',
