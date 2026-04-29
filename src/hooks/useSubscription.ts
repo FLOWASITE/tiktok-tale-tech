@@ -70,6 +70,7 @@ const EMPTY_USAGE: UsageStats = {
   scripts: 0, carousels: 0, multichannel: 0,
   multichannel_social_posts: 0, channel_breakdown: {},
   images: 0, image_channel_breakdown: {}, brands: 0,
+  content_units: 0, image_units: 0, video_units: 0,
 };
 
 export function useSubscription() {
