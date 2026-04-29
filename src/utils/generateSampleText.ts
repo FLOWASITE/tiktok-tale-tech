@@ -21,7 +21,7 @@ const CHANNEL_CONFIGS: Record<ChannelType, {
   facebook: { emoji: true, hashtags: false, lengthHint: 'medium', style: 'casual', cta: true },
   linkedin: { emoji: false, hashtags: true, lengthHint: 'long', style: 'professional', cta: true },
   instagram: { emoji: true, hashtags: true, lengthHint: 'short', style: 'trendy', cta: false },
-  pinterest: { emoji: false, hashtags: true, lengthHint: 'short', style: 'pinterest-seo', cta: true },
+  pinterest: { emoji: false, hashtags: true, lengthHint: 'short', style: 'professional', cta: true },
   tiktok: { emoji: true, hashtags: true, lengthHint: 'short', style: 'trendy', cta: false },
   twitter: { emoji: true, hashtags: true, lengthHint: 'short', style: 'casual', cta: false },
   email: { emoji: false, hashtags: false, lengthHint: 'long', style: 'professional', cta: true },
