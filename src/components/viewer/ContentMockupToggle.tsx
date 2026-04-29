@@ -137,6 +137,7 @@ export function ContentMockupToggle({
           isGenerating={isLoading}
           seoData={isWebsiteLike ? seoData : undefined}
           channelImage={channelImage}
+          pinterestTitle={channel === 'pinterest' ? pinterestTitle : undefined}
         />
       </div>
     </div>
