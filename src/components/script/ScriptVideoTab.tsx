@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { LayoutGrid, ListOrdered } from 'lucide-react';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
@@ -9,12 +11,14 @@ import { useScriptVideoBatch, type BatchScene } from '@/hooks/useScriptVideoBatc
 import { ScriptVideoHeader } from './ScriptVideoHeader';
 import { ScriptSceneGrid, type SceneGridItem } from './ScriptSceneGrid';
 import { ScriptVideoGalleryGrouped } from './ScriptVideoGalleryGrouped';
+import { SceneManagerPanel } from './SceneManagerPanel';
 import { VideoGeneratorPanel } from './VideoGeneratorPanel';
 import { VideoGallery } from './VideoGallery';
 
 interface Props {
   script: Script;
   onSendToVideoStudio: (sceneIdx?: number) => void;
+  onScriptUpdate?: (updated: Script) => void;
 }
 
 const parseDur = (s?: string): number | undefined => {
@@ -23,10 +27,11 @@ const parseDur = (s?: string): number | undefined => {
   return m ? Math.max(3, Math.min(10, parseInt(m[1], 10))) : undefined;
 };
 
-export function ScriptVideoTab({ script, onSendToVideoStudio }: Props) {
+export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: Props) {
   const navigate = useNavigate();
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
+  const [view, setView] = useState<'grid' | 'manage'>('grid');
 
   const { clips, bySceneNumber, loading } = useScriptVideoGenerations(
     isAiVideo ? script.id : null,
@@ -110,15 +115,51 @@ export function ScriptVideoTab({ script, onSendToVideoStudio }: Props) {
         missingCount={missingScenes.length}
       />
 
-      {totalScenes > 0 ? (
-        <ScriptSceneGrid
-          script={script}
-          scenes={scenes}
-          onOpenStudio={(idx) => onSendToVideoStudio(idx)}
-        />
+      {totalScenes > 0 || view === 'manage' ? (
+        <Tabs value={view} onValueChange={(v) => setView(v as 'grid' | 'manage')}>
+          <TabsList className="h-8 mb-3">
+            <TabsTrigger value="grid" className="text-[11px] gap-1.5 h-6">
+              <LayoutGrid className="h-3 w-3" />
+              Lưới scene
+            </TabsTrigger>
+            <TabsTrigger value="manage" className="text-[11px] gap-1.5 h-6">
+              <ListOrdered className="h-3 w-3" />
+              Quản lý &amp; sắp xếp
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="grid" className="mt-0">
+            {totalScenes > 0 ? (
+              <ScriptSceneGrid
+                script={script}
+                scenes={scenes}
+                onOpenStudio={(idx) => onSendToVideoStudio(idx)}
+              />
+            ) : (
+              <div className="text-center py-10 text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg">
+                Kịch bản chưa có scene nào. Chuyển sang tab "Quản lý" để thêm scene đầu tiên.
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="manage" className="mt-0">
+            <SceneManagerPanel
+              script={script}
+              bySceneNumber={bySceneNumber}
+              onScriptUpdate={onScriptUpdate}
+            />
+          </TabsContent>
+        </Tabs>
       ) : (
         <div className="text-center py-10 text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg">
-          Kịch bản chưa có scene nào. Hãy tạo storyboard hoặc edit kịch bản trước.
+          Kịch bản chưa có scene nào.{' '}
+          <button
+            type="button"
+            onClick={() => setView('manage')}
+            className="text-primary hover:underline"
+          >
+            Thêm scene đầu tiên
+          </button>
         </div>
       )}
 
