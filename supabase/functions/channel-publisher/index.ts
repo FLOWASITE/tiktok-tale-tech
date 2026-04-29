@@ -19,6 +19,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   blog: 'publish-blog',
   'flowa_blog': 'publish-blog',
   blogger: 'publish-blogger',
+  wordpress: 'publish-wordpress',
 };
 
 // Map action back to the channel key used in selected_channels / channel_statuses
@@ -34,8 +35,9 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   website: 'website',
   blog: 'website',
   'flowa_blog': 'website',
-  // Blogger is a publishing target of the website channel — mark website as published when Blogger succeeds
+  // Blogger/WordPress are publishing targets of the website channel — mark website as published when they succeed
   blogger: 'website',
+  wordpress: 'website',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
@@ -104,14 +106,14 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
       }
     }
 
-    // === Resolve for BLOGGER action — uses website_content + blogger connection ===
-    if (action === 'blogger' && typeof contentIdForResolve === 'string' &&
+    // === Resolve for BLOGGER/WORDPRESS actions — uses website_content + dedicated connection ===
+    if ((action === 'blogger' || action === 'wordpress') && typeof contentIdForResolve === 'string' &&
         (!finalPayload.connectionId || !finalPayload.content || !finalPayload.title)) {
       try {
         const supabase = getServiceClient();
         const { data: mcc } = await supabase
           .from('multi_channel_contents')
-          .select('title, website_content, organization_id, brand_template_id, featured_image_url, channel_images')
+          .select('title, website_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data')
           .eq('id', contentIdForResolve)
           .maybeSingle();
 
@@ -126,7 +128,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           let connQuery = supabase
             .from('social_connections')
             .select('id')
-            .eq('platform', 'blogger')
+            .eq('platform', action)
             .eq('is_active', true)
             .eq('organization_id', mcc.organization_id);
           if (mcc.brand_template_id) {
@@ -134,8 +136,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           }
           const { data: conn } = await connQuery.limit(1).maybeSingle();
           if (!conn?.id) {
+            const label = action === 'wordpress' ? 'WordPress' : 'Blogger';
             return new Response(
-              JSON.stringify({ success: false, error: 'Chưa kết nối Blogger cho brand này.', errorCode: 'NO_CONNECTION' }),
+              JSON.stringify({ success: false, error: `Chưa kết nối ${label} cho brand này.`, errorCode: 'NO_CONNECTION' }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -146,15 +149,16 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         if (!finalPayload.content) finalPayload.content = mcc.website_content;
         if (!finalPayload.featuredImageUrl) {
           const ci = mcc.channel_images as Record<string, any> | null;
-          const bloggerImg = ci?.blogger?.url || ci?.blogger?.image_url;
+          const channelImg = ci?.[action]?.url || ci?.[action]?.image_url;
           const websiteImg = ci?.website?.url || ci?.website?.image_url;
-          finalPayload.featuredImageUrl = bloggerImg || mcc.featured_image_url || websiteImg || undefined;
+          finalPayload.featuredImageUrl = channelImg || mcc.featured_image_url || websiteImg || undefined;
         }
+        if (mcc.seo_data && !finalPayload.seoData) finalPayload.seoData = mcc.seo_data;
         if (mcc.organization_id) finalPayload.organization_id = mcc.organization_id;
       } catch (resolveErr) {
-        console.error('[channel-publisher] blogger resolve error:', resolveErr);
+        console.error(`[channel-publisher] ${action} resolve error:`, resolveErr);
         return new Response(
-          JSON.stringify({ success: false, error: 'Không tải được nội dung Blogger để đăng' }),
+          JSON.stringify({ success: false, error: `Không tải được nội dung ${action} để đăng` }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -260,10 +264,12 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             const selectedChannels: string[] = contentData.selected_channels || [];
             const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
 
-            // For blogger: mark blogger=published if user selected it; fall back to website otherwise
+            // For blogger/wordpress: mark blogger/wordpress=published if user selected it; fall back to website otherwise
             let effectiveChannelKey = channelKey;
             if (action === 'blogger') {
               effectiveChannelKey = selectedChannels.includes('blogger') ? 'blogger' : 'website';
+            } else if (action === 'wordpress') {
+              effectiveChannelKey = selectedChannels.includes('wordpress') ? 'wordpress' : 'website';
             }
             channelStatuses[effectiveChannelKey] = 'published';
 
