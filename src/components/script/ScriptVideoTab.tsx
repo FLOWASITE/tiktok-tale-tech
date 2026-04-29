@@ -27,10 +27,11 @@ const parseDur = (s?: string): number | undefined => {
   return m ? Math.max(3, Math.min(10, parseInt(m[1], 10))) : undefined;
 };
 
-export function ScriptVideoTab({ script, onSendToVideoStudio }: Props) {
+export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: Props) {
   const navigate = useNavigate();
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
+  const [view, setView] = useState<'grid' | 'manage'>('grid');
 
   const { clips, bySceneNumber, loading } = useScriptVideoGenerations(
     isAiVideo ? script.id : null,
