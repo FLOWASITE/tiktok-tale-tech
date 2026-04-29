@@ -568,6 +568,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'telegram_content',
   'tiktok_content',
   'threads_content',
+  'pinterest_content',
+  'pinterest_title',
   'created_at',
   'updated_at',
 ]);
