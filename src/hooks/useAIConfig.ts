@@ -1571,7 +1571,7 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
     // Legacy
     'qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long',
   ],
-  geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4', 'geminigen/veo-3', 'geminigen/veo-3-fast', 'geminigen/veo-3.1', 'geminigen/veo-3.1-fast', 'geminigen/veo-2', 'geminigen/sora-2', 'geminigen/tts-v1'],
+  geminigen: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4', 'geminigen/veo-3', 'geminigen/veo-3-fast', 'geminigen/veo-3.1', 'geminigen/veo-3.1-fast', 'geminigen/veo-2', 'geminigen/sora-2', 'geminigen/sora-2-pro', 'geminigen/sora-2-hd', 'geminigen/tts-v1'],
   custom: ['elevenlabs/music-v1', 'minimax/video-01'],
 };
 
