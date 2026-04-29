@@ -267,6 +267,22 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="content" className="space-y-4">
+            {/* Date range riêng cho tab Nội dung */}
+            <EngagementDateRangeControl
+              range={contentRange}
+              bucket={contentBucket}
+              onRangeChange={(r, bucketHint) => {
+                setContentOverride(r);
+                setContentBucket(bucketHint ?? suggestBucket(r.from, r.to));
+              }}
+              onBucketChange={setContentBucket}
+              onSyncWithGlobal={() => {
+                setContentOverride(null);
+                setContentBucket('day');
+              }}
+              isOverridden={contentOverride !== null}
+            />
+
             {/* KPI cards riêng cho tab Nội dung */}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <StatCard
