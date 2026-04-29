@@ -123,7 +123,7 @@ export function VideoGeneratorPanel({
   })();
 
   // Theo dõi job thực tế qua realtime: nếu DB báo completed/failed → cập nhật phase
-  const currentJob = currentJobId ? generations.find((g) => g.id === currentJobId) : undefined;
+  // (currentJob đã khai báo ở block progress phía trên)
   useEffect(() => {
     if (!currentJob) return;
     if (currentJob.status === 'completed' && currentJob.video_url) {
