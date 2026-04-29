@@ -80,7 +80,8 @@ export type Channel =
   | 'zalo_oa'
   | 'telegram'
   | 'tiktok'
-  | 'threads';
+  | 'threads'
+  | 'pinterest';
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
