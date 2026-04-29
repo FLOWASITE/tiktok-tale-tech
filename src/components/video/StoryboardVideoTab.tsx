@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -8,12 +8,18 @@ import { Slider } from '@/components/ui/slider';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useAudioStudio } from '@/hooks/useAudioStudio';
 import { useVideoRender } from '@/hooks/useVideoRender';
+import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { Badge } from '@/components/ui/badge';
 
-export function StoryboardVideoTab() {
+interface Props {
+  onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
+}
+
+export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const { generations, fetchGenerations } = useVideoGeneration();
   const { assets, fetchAssets } = useAudioStudio();
   const { jobs, submitting, submitRender } = useVideoRender();
+  const { activeScript } = useScriptToVideo();
 
   const [selectedClips, setSelectedClips] = useState<string[]>([]);
   const [voiceoverId, setVoiceoverId] = useState<string>('none');
@@ -22,13 +28,41 @@ export function StoryboardVideoTab() {
   const [subtitleId, setSubtitleId] = useState<string>('none');
   const [burnSubs, setBurnSubs] = useState(true);
   const [aspect, setAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [showAllClips, setShowAllClips] = useState(false);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
-  const completedClips = generations.filter((g) => g.status === 'completed' && g.video_url);
+  const allCompletedClips = generations.filter((g) => g.status === 'completed' && g.video_url);
+
+  // Filter theo activeScript trừ khi user toggle "Hiện tất cả"
+  const completedClips = useMemo(() => {
+    if (!activeScript || showAllClips) return allCompletedClips;
+    return allCompletedClips
+      .filter((g) => g.script_id === activeScript.id)
+      .sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0));
+  }, [allCompletedClips, activeScript, showAllClips]);
+
   const voiceovers = assets.filter((a) => a.asset_type === 'voiceover' && a.audio_url);
   const bgms = assets.filter((a) => a.asset_type === 'music' && a.audio_url);
   const subs = assets.filter((a) => a.asset_type === 'subtitle' && a.srt_content);
+
+  // Auto pre-select theo thứ tự scene khi vừa vào với activeScript
+  useEffect(() => {
+    if (!activeScript || showAllClips) return;
+    if (selectedClips.length > 0) return; // user đã thao tác — không ghi đè
+    const ids = allCompletedClips
+      .filter((g) => g.script_id === activeScript.id)
+      .sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0))
+      .map((g) => g.id);
+    if (ids.length > 0) setSelectedClips(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScript?.id, allCompletedClips.length, showAllClips]);
+
+  const totalScenes = activeScript?.scenes.length ?? 0;
+  const scenesWithClips = activeScript
+    ? new Set(allCompletedClips.filter((g) => g.script_id === activeScript.id).map((g) => g.scene_number).filter(Boolean))
+    : null;
+  const missingScenes = activeScript ? totalScenes - (scenesWithClips?.size ?? 0) : 0;
 
   const toggleClip = (id: string) => {
     setSelectedClips((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -39,6 +73,14 @@ export function StoryboardVideoTab() {
       const j = i + dir; if (j < 0 || j >= prev.length) return prev;
       const next = [...prev]; [next[i], next[j]] = [next[j], next[i]]; return next;
     });
+  };
+  const selectAllByScene = () => {
+    if (!activeScript) return;
+    const ids = allCompletedClips
+      .filter((g) => g.script_id === activeScript.id)
+      .sort((a, b) => (a.scene_number ?? 0) - (b.scene_number ?? 0))
+      .map((g) => g.id);
+    setSelectedClips(ids);
   };
 
   const orderedUrls = selectedClips
