@@ -152,6 +152,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'WordPress self-hosted (Application Password)',
   },
+  wordpress_com: {
+    name: 'WordPress.com',
+    icon: <ChannelIcon channel="wordpress" size={20} />,
+    color: 'bg-[#21759b]/10',
+    available: true,
+    description: 'WordPress.com hosted (OAuth — mọi plan)',
+  },
   website: {
     name: 'Website',
     icon: <ChannelIcon channel="website" className="text-[#10B981]" size={20} />,
