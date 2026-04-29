@@ -61,7 +61,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 
 const channelLabels: Record<Channel, string> = {
   website: 'Website',
-  blogger: 'Website',
+  blogger: 'Blogger',
   facebook: 'Facebook',
   instagram: 'Instagram',
   twitter: 'X (Twitter)',
