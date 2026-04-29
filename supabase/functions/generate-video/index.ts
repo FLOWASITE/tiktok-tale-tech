@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { generateVideoViaGeminiGen, GEMINIGEN_VIDEO_MODELS } from "../_shared/geminigen-video-generator.ts";
+import { generateVideoViaPoyo, POYO_VIDEO_MODELS, type PoyoVideoModel } from "../_shared/poyo-video-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
