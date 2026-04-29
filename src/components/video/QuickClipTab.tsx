@@ -7,12 +7,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
-import { ProviderModelPicker, VIDEO_MODELS, VideoModelChoice } from './ProviderModelPicker';
+import { VIDEO_MODELS } from './ProviderModelPicker';
+import { AdminModelBadge } from '@/components/shared/AdminModelBadge';
+import { useFunctionModel } from '@/hooks/useFunctionModel';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
+import { useCurrentOrganization } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+// Default fallback if Admin hasn't configured a model yet.
+const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
+
+// Friendly labels for the AdminModelBadge tooltip
+const VIDEO_MODEL_LABELS: Record<string, string> = Object.fromEntries(
+  VIDEO_MODELS.map((m) => [m.id, m.label]),
+);
 
 const EXAMPLE_PROMPTS = [
   'Cô gái Việt 25 tuổi cười rạng rỡ trong tiệm cà phê ánh sáng vàng dịu, máy quay zoom chậm vào ánh mắt, phong cách điện ảnh ấm áp.',
