@@ -283,6 +283,15 @@ verify_jwt = false
 [functions.test-website-connection]
 verify_jwt = false
 
+[functions.connect-wordpress]
+verify_jwt = false
+
+[functions.publish-wordpress]
+verify_jwt = false
+
+[functions.test-wordpress-connection]
+verify_jwt = false
+
 [functions.categorize-industries]
 verify_jwt = false
 
