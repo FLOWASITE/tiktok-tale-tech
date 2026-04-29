@@ -47,6 +47,11 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-blue-700',
     border: 'border-blue-600/30',
   },
+  wordpress: {
+    bg: 'bg-[#21759b]/15',
+    text: 'text-[#21759b] dark:text-sky-400',
+    border: 'border-[#21759b]/30',
+  },
   email: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-600',
