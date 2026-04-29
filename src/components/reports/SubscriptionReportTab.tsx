@@ -9,9 +9,10 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   BarChart, Bar,
 } from 'recharts';
-import { CreditCard, AlertTriangle, ArrowUpRight, Package, TrendingUp, Sparkles, Infinity as InfinityIcon, Building2, Users } from 'lucide-react';
+import { CreditCard, AlertTriangle, ArrowUpRight, Package, TrendingUp, Sparkles, Infinity as InfinityIcon, Building2, Users, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSubscriptionReport, type QuotaItem, type BrandUsageRow, type UserUsageRow } from '@/hooks/reports/useSubscriptionReport';
 import { getPlanBadge } from '@/lib/plan-badge';
 import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
