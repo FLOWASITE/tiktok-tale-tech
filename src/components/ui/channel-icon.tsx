@@ -106,7 +106,7 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
 }
 
 // Color mapping for each channel icon
-export const channelIconColors: Record<Channel, string> = {
+export const channelIconColors: Record<Channel | ExtraChannel, string> = {
   facebook: 'text-[#1877F2]',
   instagram: 'text-[#E4405F]',
   tiktok: 'text-foreground',
