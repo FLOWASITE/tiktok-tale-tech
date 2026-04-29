@@ -210,6 +210,7 @@ export function useVideoGeneration() {
     loading,
     generating,
     currentJobId,
+    clearCurrentJob,
     fetchGenerations,
     generateVideo,
     pollJobStatus,
