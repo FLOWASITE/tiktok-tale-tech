@@ -96,7 +96,14 @@ export function AudioStudioTab() {
         {/* Voiceover */}
         <TabsContent value="voiceover" className="space-y-3">
           <div className="space-y-2">
-            <Label className="text-xs">Văn bản (tối đa 5000 ký tự)</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Văn bản (tối đa 5000 ký tự)</Label>
+              {activeScript && scriptNarration && (
+                <Button size="sm" variant="ghost" onClick={fillFromScript} className="h-6 gap-1 text-[10px]">
+                  <Wand2 className="w-3 h-3" />Nạp từ kịch bản ({activeScript.scenes.length} scene)
+                </Button>
+              )}
+            </div>
             <Textarea rows={5} value={voText} onChange={(e) => setVoText(e.target.value)}
               placeholder="Chào bạn! Hôm nay mình giới thiệu sản phẩm mới..."
               className="resize-none" maxLength={5000} />
