@@ -1,76 +1,64 @@
-## Vấn đề xác định
+## Vấn đề
 
-Trong ảnh bạn khoanh đúng khu vực **Kênh** trên card nội dung đa kênh. File đang render khu vực này là:
+Trong màn bạn chụp, khu vực slide social của Pinterest đang bị 2 lỗi:
 
-- `src/components/MultiChannelCard.tsx`
+1. Sidebar kênh đang hiển thị nhãn rút gọn `PIN` / `Pin`, trong khi bạn muốn hiển thị đầy đủ `Pinterest`.
+2. Icon Pinterest trong header/sidebar đang dùng chữ `P` text đơn giản, không phải logo Pinterest thật.
 
-Hiện tại component này vẫn dùng mapping cục bộ cũ:
+Ngoài ra mockup Pinterest đã có component riêng trong `ChannelMockupFrame.tsx`, nhưng `ContentMockupToggle.tsx` vẫn đang map `pinterest` sang mockup `instagram`, nên có nguy cơ render sai kiểu mockup ở vùng preview.
+
+## Kế hoạch sửa
+
+1. **Sửa cấu hình Pinterest trong `MultiChannelViewer.tsx`**
+   - Import thêm `PinterestIcon` từ `@/components/icons/SocialIcons`.
+   - Đổi icon Pinterest từ:
+
+```tsx
+<span className="text-[#E60023] font-bold text-xs">P</span>
+```
+
+sang logo SVG thật:
+
+```tsx
+<PinterestIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+```
+
+   - Đổi `shortLabel` từ `PIN` thành `Pinterest`, để sidebar bên trái hiển thị đầy đủ tên social.
+
+2. **Sửa mapping mockup Pinterest trong `ContentMockupToggle.tsx`**
+   - Đổi:
 
 ```ts
-blogger: <Globe ... />
-wordpress: <Globe ... />
-pinterest: <Instagram ... />
+pinterest: 'instagram'
 ```
 
-Vì vậy trên card:
-- Pinterest đang hiện icon Instagram sai.
-- Blogger/WordPress đang hiện icon globe sai.
-- Các ô kênh đang dùng màu generic xanh/hồng thay vì màu brand thật.
+thành:
 
-## Cách sửa
-
-1. **Refactor `MultiChannelCard.tsx` dùng `ChannelIcon` chung**
-   - Import `ChannelIcon` từ `src/components/multichannel/streaming/ChannelIcon.tsx`.
-   - Bỏ `channelIcons` mapping cục bộ cho phần card, hoặc chỉ giữ nếu còn dùng chỗ khác.
-   - Khi render mỗi channel ở dòng icon, dùng:
-
-```tsx
-<ChannelIcon channel={channel} size="sm" />
+```ts
+pinterest: 'pinterest'
 ```
 
-2. **Loại bỏ nền/màu cũ gây sai nhận diện**
-   - Không dùng `channelColors[channel]` cho Pinterest/Blogger/WordPress nữa vì nó đang ép:
-     - Pinterest = màu Instagram/pink
-     - Blogger/WordPress = màu website/blue generic
-   - Chuyển ô chứa channel thành nền trung tính theo style Soft Luxury:
+   - Như vậy preview sẽ dùng đúng `PinterestMockup` đã có sẵn trong `ChannelMockupFrame.tsx`, không còn fallback sang Instagram mockup.
 
-```tsx
-bg-background/70 border-border/60 hover:bg-muted/50
-```
-
-   - `ChannelIcon` tự xử lý màu brand bên trong:
-     - Pinterest đỏ `#E60023`
-     - Blogger cam `#FF5722`
-     - WordPress xanh `#21759B`
-
-3. **Giữ nguyên dot trạng thái và dot ảnh**
-   - Dot trên phải vẫn báo trạng thái từng kênh.
-   - Dot dưới trái vẫn báo có ảnh.
-   - Chỉ thay phần logo bên trong, không đổi logic dữ liệu.
-
-4. **Tooltip hiển thị label chuẩn hơn**
-   - Dùng `getChannelLabel(channel)` để tooltip hiện:
-     - Pinterest
-     - Blogger
-     - WordPress
-     - Google Maps
-     - Zalo OA
-   - Không còn hiển thị key thô như `google_maps`, `zalo_oa` nếu có.
-
-5. **Kiểm tra các card/list liên quan nếu còn mapping cũ**
-   - Tìm thêm các component render card danh sách tương tự, đặc biệt:
-     - `MultiChannelListView.tsx`
-     - `BulkScheduleDialog.tsx`
-     - `ApprovalDialog.tsx`
-   - Nếu chúng cũng đang dùng `Globe`/`Instagram` cho Pinterest/Blogger/WordPress thì đồng bộ sang `ChannelIcon` để không bị sai ở màn khác.
+3. **Đồng bộ label ở list/card nếu còn thấy `Pin`**
+   - Kiểm tra `MultiChannelListView.tsx` đang có `pinterest: 'Pin'`.
+   - Đổi thành `Pinterest` để các card/danh sách nội dung đa kênh cũng thống nhất với yêu cầu “tên social viết đầy đủ là Pinterest”.
 
 ## Kết quả mong muốn
 
-Sau khi sửa, khu vực bạn khoanh sẽ hiển thị icon thật/brand đúng:
+Sau khi sửa:
 
 ```text
-KÊNH
-[ Facebook thật ] [ Pinterest đỏ P ] [ Blogger cam B ] [ WordPress xanh W ] ...
+Sidebar Kênh:
+[logo Pinterest thật] Pinterest
+0 từ
 ```
 
-Không còn trường hợp Pinterest hiện icon Instagram hoặc Blogger/WordPress hiện quả địa cầu.
+Header chính:
+
+```text
+[logo Pinterest thật] Pinterest
+50–150 từ • 0 từ / 0 ký tự
+```
+
+Preview bên dưới sẽ render đúng mockup Pinterest thay vì style Instagram.

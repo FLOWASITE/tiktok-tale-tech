@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, PinterestIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
@@ -160,8 +160,8 @@ const channelConfig: Record<Channel, {
   },
   pinterest: { 
     label: 'Pinterest', 
-    shortLabel: 'PIN',
-    icon: <span className="text-[#E60023] font-bold text-xs">P</span>, 
+    shortLabel: 'Pinterest',
+    icon: <PinterestIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-[#E60023]',
     bgColor: 'bg-[#E60023]/10',
     maxLength: 'Title ≤100, Desc ≤500'

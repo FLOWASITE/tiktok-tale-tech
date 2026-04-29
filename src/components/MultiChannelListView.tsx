@@ -112,7 +112,7 @@ const channelLabels: Record<Channel, string> = {
   wordpress: 'WP',
   facebook: 'FB',
   instagram: 'IG',
-  pinterest: 'Pin',
+  pinterest: 'Pinterest',
   twitter: 'X',
   google_maps: 'GMaps',
   linkedin: 'LI',
