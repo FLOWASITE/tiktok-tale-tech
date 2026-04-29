@@ -60,6 +60,7 @@ import ZaloCallback from "@/pages/ZaloCallback";
 import ZaloOAuthProxy from "@/pages/ZaloOAuthProxy";
 import GoogleBusinessCallback from "@/pages/GoogleBusinessCallback";
 import BloggerCallback from "@/pages/BloggerCallback";
+import WordPressComCallback from "@/pages/WordPressComCallback";
 import XCallback from "@/pages/XCallback";
 import TikTokCallback from "@/pages/TikTokCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
@@ -123,6 +124,7 @@ export function AppRoutes() {
       <Route path="/api/zalo/callback" element={<ZaloOAuthProxy />} />
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
       <Route path="/auth/blogger/callback" element={<BloggerCallback />} />
+      <Route path="/auth/wordpress-com/callback" element={<WordPressComCallback />} />
       <Route path="/auth/x/callback" element={<XCallback />} />
       <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
