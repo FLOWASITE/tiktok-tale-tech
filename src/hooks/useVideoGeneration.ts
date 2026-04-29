@@ -11,6 +11,44 @@ export function useVideoGeneration() {
   const [generating, setGenerating] = useState(false);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
+  // Realtime subscription — push updates from the background poller into local state
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`video-generations-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'video_generations',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as VideoGeneration;
+          setGenerations((prev) => {
+            const idx = prev.findIndex((g) => g.id === updated.id);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            next[idx] = updated;
+            return next;
+          });
+          const old = (payload.old ?? {}) as Partial<VideoGeneration>;
+          if (old.status !== 'completed' && updated.status === 'completed') {
+            toast.success('Video đã tạo xong! 🎬');
+          } else if (old.status !== 'failed' && updated.status === 'failed') {
+            toast.error(updated.error_message ?? 'Video tạo thất bại');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const fetchGenerations = useCallback(async (scriptId?: string) => {
     if (!user) return;
 
