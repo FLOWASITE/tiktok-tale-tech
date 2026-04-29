@@ -34,10 +34,14 @@ import {
 } from 'lucide-react';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 
-const ALL_CHANNELS: Channel[] = [
-  'website', 'facebook', 'instagram', 'twitter', 'google_maps',
-  'linkedin', 'email', 'youtube', 'zalo_oa', 'telegram'
-];
+// Derive from single source of truth (CHANNELS) so newly added channels (Blogger, TikTok, Threads, ...) appear automatically.
+// Order: keep website + blogger first (text/long-form), then the rest in CHANNELS order.
+const ALL_CHANNELS: Channel[] = (() => {
+  const all = CHANNELS.map(c => c.value);
+  const priority: Channel[] = ['website', 'blogger'];
+  const rest = all.filter(c => !priority.includes(c));
+  return [...priority.filter(c => all.includes(c)), ...rest];
+})();
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
