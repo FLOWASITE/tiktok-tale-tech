@@ -259,6 +259,10 @@ export function useSubscription() {
       monthly_multichannel: basePlanLimits.monthly_multichannel === -1 ? -1 : basePlanLimits.monthly_multichannel + addonMulti,
       monthly_images: basePlanLimits.monthly_images === -1 ? -1 : basePlanLimits.monthly_images + addonImages,
       monthly_brands: basePlanLimits.monthly_brands === -1 ? -1 : basePlanLimits.monthly_brands + addonBrands,
+      // v2 unit limits — addons hiện chỉ áp dụng cho cột cũ; tạm để base
+      monthly_content_units: basePlanLimits.monthly_content_units,
+      monthly_image_units: basePlanLimits.monthly_image_units,
+      monthly_video_units: basePlanLimits.monthly_video_units,
     };
   })();
 
@@ -266,7 +270,7 @@ export function useSubscription() {
 
   const isWithinLimits = (type: NumericUsageKey): boolean => {
     if (!currentPlanLimits || !usageQuery.data) return false;
-    
+
     const limitMap: Record<NumericUsageKey, number> = {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
@@ -274,6 +278,9 @@ export function useSubscription() {
       multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
       brands: currentPlanLimits.monthly_brands,
+      content_units: currentPlanLimits.monthly_content_units,
+      image_units: currentPlanLimits.monthly_image_units,
+      video_units: currentPlanLimits.monthly_video_units,
     };
 
     const limit = limitMap[type];
@@ -283,7 +290,7 @@ export function useSubscription() {
 
   const getRemainingUsage = (type: NumericUsageKey): number => {
     if (!currentPlanLimits || !usageQuery.data) return 0;
-    
+
     const limitMap: Record<NumericUsageKey, number> = {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
@@ -291,6 +298,9 @@ export function useSubscription() {
       multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
       brands: currentPlanLimits.monthly_brands,
+      content_units: currentPlanLimits.monthly_content_units,
+      image_units: currentPlanLimits.monthly_image_units,
+      video_units: currentPlanLimits.monthly_video_units,
     };
 
     const limit = limitMap[type];
