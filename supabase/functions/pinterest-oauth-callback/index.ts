@@ -85,8 +85,7 @@ Deno.serve(withPerf({ functionName: 'pinterest-oauth-callback' }, async (req) =>
       return Response.redirect(r.toString(), 302);
     }
 
-    const clientId = Deno.env.get('PINTEREST_CLIENT_ID');
-    const clientSecret = Deno.env.get('PINTEREST_CLIENT_SECRET');
+    const { clientId, clientSecret } = await resolvePinterestClientCreds(supabase);
     if (!clientId || !clientSecret) {
       const r = new URL('/auth/pinterest/callback', frontendUrl);
       r.searchParams.set('error', 'Pinterest credentials not configured');
