@@ -900,7 +900,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const redirectUri = `${supabaseUrl}/functions/v1/blogger-oauth-callback`;
-      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id }));
+      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id, frontendOrigin: requestOrigin || null }));
 
       const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
         client_id: globalCreds.consumerKey,

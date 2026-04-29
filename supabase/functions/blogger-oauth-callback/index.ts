@@ -12,7 +12,7 @@ Deno.serve(withPerf({ functionName: 'blogger-oauth-callback' }, async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const frontendUrl = Deno.env.get('FRONTEND_URL') || supabaseUrl.replace('.supabase.co', '.lovableproject.com');
+  let frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.flowa.one';
 
   try {
     const url = new URL(req.url);
@@ -25,13 +25,14 @@ Deno.serve(withPerf({ functionName: 'blogger-oauth-callback' }, async (req) => {
     if (error) throw new Error(`OAuth error: ${error}`);
     if (!code || !state) throw new Error('Missing code or state parameter');
 
-    let stateData: { brandTemplateId: string | null; organizationId: string | null; userId: string };
+    let stateData: { brandTemplateId: string | null; organizationId: string | null; userId: string; frontendOrigin?: string | null };
     try {
       stateData = JSON.parse(atob(state));
     } catch {
       throw new Error('Invalid state parameter');
     }
-    const { brandTemplateId, organizationId, userId } = stateData;
+    const { brandTemplateId, organizationId, userId, frontendOrigin } = stateData;
+    if (frontendOrigin) frontendUrl = frontendOrigin;
 
     const supabase = getServiceClient();
 
