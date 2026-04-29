@@ -4248,7 +4248,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           if (channel === 'pinterest') {
             channelProps['pinterest_title'] = {
               type: "string",
-              description: "Pinterest Pin TITLE (≤100 ký tự, chứa keyword chính, hấp dẫn click, không clickbait. Format: '[Benefit/Number] + [Keyword] + [Audience/Year]'. Ví dụ: '7 mẹo SEO Pinterest 2026 cho doanh nghiệp nhỏ'.",
+              description: "Pinterest Pin TITLE (≤100 ký tự — bắt buộc, riêng biệt với description). Chứa keyword chính, hấp dẫn click nhưng KHÔNG clickbait. Format gợi ý: '[Number/Benefit] + [Keyword] + [Audience/Context]'. Ví dụ: '7 mẹo SEO Pinterest 2026 cho doanh nghiệp nhỏ', 'Cách trị mụn tại nhà — hướng dẫn từ chuyên gia'. KHÔNG dùng emoji, KHÔNG dùng hashtag trong title.",
             };
           }
         }
