@@ -65,11 +65,18 @@ export function VideoGeneratorPanel({
   const [lastError, setLastError] = useState<{ message: string; code?: string } | null>(null);
   const [progress, setProgress] = useState(0);
   const [elapsed, setElapsed] = useState(0);
+  const [progressSource, setProgressSource] = useState<'estimate' | 'provider'>('estimate');
 
-  // ETA ước lượng (giây) theo provider/duration — dùng cho progress giả lập
+  // ETA cơ sở (giây) theo provider/duration — chỉ dùng khi provider chưa báo progress
   const estimatedSeconds = (provider === 'geminigen' ? 60 : 90) + duration * 6;
 
-  // Ticker cập nhật progress + thời gian khi đang sending/processing
+  // Tham chiếu job thực tế qua realtime (DB cột `progress` được background poller cập nhật)
+  const currentJob = currentJobId ? generations.find((g) => g.id === currentJobId) : undefined;
+  const providerProgress = currentJob?.progress ?? 0;
+
+  // Ticker đếm thời gian + cập nhật progress
+  // - Ưu tiên giá trị thật từ DB (`currentJob.progress`) khi > 0
+  // - Fallback: ước lượng tiệm cận 92% theo elapsed/ETA
   useEffect(() => {
     if (phase !== 'sending' && phase !== 'processing') return;
     const startedAt = Date.now();
@@ -77,20 +84,46 @@ export function VideoGeneratorPanel({
     const id = setInterval(() => {
       const sec = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(sec);
-      // Tiệm cận 92% — chừa 8% cho lúc nhận callback thực sự
-      const pct = Math.min(92, Math.round((sec / estimatedSeconds) * 92));
-      setProgress(pct);
+      const estimated = Math.min(92, Math.round((sec / estimatedSeconds) * 92));
+      // Lấy max để progress không bao giờ tụt; nếu provider có số thật thì dùng nó
+      if (providerProgress > 0) {
+        setProgress((prev) => Math.max(prev, providerProgress));
+        setProgressSource('provider');
+      } else {
+        setProgress((prev) => Math.max(prev, estimated));
+        setProgressSource('estimate');
+      }
     }, 500);
     return () => clearInterval(id);
-  }, [phase, estimatedSeconds]);
+  }, [phase, estimatedSeconds, providerProgress]);
+
+  // Đẩy progress ngay khi DB push update (không cần đợi tick)
+  useEffect(() => {
+    if (providerProgress > 0 && (phase === 'processing' || phase === 'sending')) {
+      setProgress((prev) => Math.max(prev, Math.min(99, providerProgress)));
+      setProgressSource('provider');
+    }
+  }, [providerProgress, phase]);
 
   useEffect(() => {
     if (phase === 'done') setProgress(100);
-    if (phase === 'idle' || phase === 'error') setProgress(0);
+    if (phase === 'idle' || phase === 'error') {
+      setProgress(0);
+      setProgressSource('estimate');
+    }
   }, [phase]);
 
+  // ETA động: khi có providerProgress thật → tính lại dựa trên tốc độ thực tế
+  const dynamicEtaSeconds = (() => {
+    if (progressSource === 'provider' && progress > 5 && elapsed > 2) {
+      const remaining = Math.max(0, Math.round((elapsed / progress) * (100 - progress)));
+      return remaining;
+    }
+    return Math.max(0, estimatedSeconds - elapsed);
+  })();
+
   // Theo dõi job thực tế qua realtime: nếu DB báo completed/failed → cập nhật phase
-  const currentJob = currentJobId ? generations.find((g) => g.id === currentJobId) : undefined;
+  // (currentJob đã khai báo ở block progress phía trên)
   useEffect(() => {
     if (!currentJob) return;
     if (currentJob.status === 'completed' && currentJob.video_url) {
@@ -423,7 +456,14 @@ export function VideoGeneratorPanel({
         {phase !== 'idle' && (
           <div className="space-y-2.5 rounded-md border border-border bg-muted/30 px-3 py-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-foreground/80">Tiến độ tạo video</span>
+              <span className="font-medium text-foreground/80 flex items-center gap-1.5">
+                Tiến độ tạo video
+                {progressSource === 'provider' && (
+                  <span className="text-[9px] uppercase tracking-wide bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                    Live
+                  </span>
+                )}
+              </span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 {progress}% · {fmtTime(elapsed)}
               </span>
@@ -460,7 +500,10 @@ export function VideoGeneratorPanel({
             </ol>
             {(phase === 'sending' || phase === 'processing') && (
               <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/50">
-                ETA ~{fmtTime(estimatedSeconds)}. Bạn có thể rời tab — video sẽ tự lưu vào thư viện khi xong.
+                {progressSource === 'provider'
+                  ? `Còn ~${fmtTime(dynamicEtaSeconds)} (theo tốc độ provider thực tế).`
+                  : `ETA ~${fmtTime(dynamicEtaSeconds)} (ước lượng — sẽ được hiệu chỉnh khi provider báo).`}
+                {' '}Bạn có thể rời tab — video sẽ tự lưu khi xong.
               </p>
             )}
           </div>
