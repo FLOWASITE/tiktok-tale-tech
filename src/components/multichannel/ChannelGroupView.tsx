@@ -61,7 +61,7 @@ interface ChannelGroupViewProps {
 
 const ALL_CHANNELS: Channel[] = [
   'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin',
-  'youtube', 'threads', 'telegram', 'zalo_oa', 'website',
+  'youtube', 'threads', 'telegram', 'zalo_oa', 'website', 'blogger',
   'email', 'google_maps',
 ];
 
