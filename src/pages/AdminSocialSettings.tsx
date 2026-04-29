@@ -88,6 +88,7 @@ export default function AdminSocialSettings() {
         zalo_oa: 'zalo',
         google_business: 'google-business',
         website: 'website',
+        pinterest: 'pinterest',
       };
       const diagnosticPlatform = platformMap[platform] || platform;
 
