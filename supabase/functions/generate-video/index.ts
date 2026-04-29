@@ -124,6 +124,25 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         }, apiKey);
 
         videoUrl = result.videoUrl;
+      } else if (provider === 'poyo') {
+        const apiKey = Deno.env.get("POYO_API_KEY");
+        if (!apiKey) throw new Error('POYO_API_KEY not configured');
+
+        const selectedModel = (model && POYO_VIDEO_MODELS.includes(model as PoyoVideoModel)
+          ? model
+          : POYO_VIDEO_MODELS[0]) as PoyoVideoModel;
+
+        const result = await generateVideoViaPoyo({
+          prompt,
+          model: selectedModel,
+          aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
+          duration,
+          resolution: resolution === '720p' ? '720p' : '1080p',
+          startingFrameUrl: starting_frame_url,
+          negativePrompt: negative_prompt,
+        }, apiKey);
+
+        videoUrl = result.videoUrl;
       } else if (provider === 'lovable') {
         videoUrl = await generateWithLovable({
           prompt,
