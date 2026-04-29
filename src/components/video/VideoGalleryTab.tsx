@@ -80,6 +80,12 @@ export function VideoGalleryTab() {
                 </Badge>
               </div>
               <div className="p-3 space-y-2">
+                {g.script_id && g.scene_number && (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px] gap-1 border-foreground/20 text-foreground/70">
+                    <VideoIcon className="w-2.5 h-2.5" />
+                    Scene {g.scene_number} · từ kịch bản
+                  </Badge>
+                )}
                 <p className="text-xs text-foreground line-clamp-2 leading-snug">{g.prompt}</p>
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
                   <span>{g.aspect_ratio} · {g.duration_seconds}s</span>
