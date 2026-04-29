@@ -1864,6 +1864,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         telegram: { min: 50, max: 120, unit: "từ" },
         tiktok: { min: 20, max: 60, unit: "từ" },
         threads: { min: 30, max: 100, unit: "từ" },
+        pinterest: { min: 30, max: 80, unit: "từ" },
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
@@ -1879,6 +1880,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         telegram: "Telegram",
         tiktok: "TikTok",
         threads: "Threads",
+        pinterest: "Pinterest",
       };
 
       const channelLabel = PREVIEW_CHANNEL_LABELS[previewChannel] || previewChannel;
