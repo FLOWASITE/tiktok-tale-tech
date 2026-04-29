@@ -113,6 +113,25 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     //   3. Hard default per provider
     let resolvedModel = clientModel || null;
     let resolvedProvider: VideoProvider = requestedProvider;
+    let adminParams: Record<string, any> = {};
+
+    // Always fetch admin parameters jsonb for fallback defaults (duration/aspect/resolution)
+    try {
+      const { data: paramRow } = await supabase
+        .from('ai_function_configs')
+        .select('parameters')
+        .eq('function_name', 'generate-video')
+        .eq('is_enabled', true)
+        .or(orgRow?.organization_id
+          ? `organization_id.eq.${orgRow.organization_id},organization_id.is.null`
+          : `organization_id.is.null`)
+        .order('organization_id', { nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      adminParams = (paramRow?.parameters as Record<string, any>) || {};
+    } catch (paramErr) {
+      console.warn('[generate-video] admin parameters fetch failed:', paramErr);
+    }
 
     if (!resolvedModel) {
       try {
@@ -135,7 +154,12 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     const provider = resolvedProvider;
     const model = resolvedModel || undefined;
 
-    console.log(`[generate-video] provider=${provider} model=${model} (admin=${!clientModel}) duration=${duration}s aspect=${aspect_ratio} sync=${sync}`);
+    // Resolve duration/aspect/resolution: client value wins, else admin params fallback, else hard default
+    const duration = clientDuration ?? adminParams.default_duration ?? 5;
+    const aspect_ratio = clientAspect ?? adminParams.default_aspect_ratio ?? '9:16';
+    const resolution = clientResolution ?? adminParams.default_resolution ?? '1080p';
+
+    console.log(`[generate-video] provider=${provider} model=${model} (admin=${!clientModel}) duration=${duration}s aspect=${aspect_ratio} res=${resolution} sync=${sync}`);
 
     // Create job row (pending → will flip to processing after submit)
     const { data: job, error: jobError } = await supabase
