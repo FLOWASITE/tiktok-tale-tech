@@ -192,7 +192,7 @@ const channelConfig: Record<Channel, {
   },
   email: { 
     label: 'Email', 
-    shortLabel: 'Mail',
+    shortLabel: 'Email',
     icon: <Mail className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/10',
