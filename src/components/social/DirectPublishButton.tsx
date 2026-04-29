@@ -381,7 +381,7 @@ export function DirectPublishButton({
             className
           )}
         >
-          <ChannelIcon channel={(channel || platform || 'website') as Channel} size={16} className="text-muted-foreground" />
+          <ChannelIcon channel={(channel || platform || 'website') as Channel | 'blogger'} size={16} className="text-muted-foreground" />
         </button>
       );
     }
@@ -424,7 +424,7 @@ export function DirectPublishButton({
           {isPublishing ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <ChannelIcon channel={(channel || platform || 'website') as Channel} size={14} />
+            <ChannelIcon channel={(channel || platform || 'website') as Channel | 'blogger'} size={14} />
           )}
           {isAlreadyPublished && (
             <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
