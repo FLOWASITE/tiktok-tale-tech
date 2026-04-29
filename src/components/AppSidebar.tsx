@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack, Clock, HardDrive } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack, Clock, HardDrive, Video } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -277,6 +277,7 @@ export function AppSidebar() {
   const contentItems: MenuItem[] = [
     { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
     { title: 'Kịch bản Video', titleKey: 'app.sidebar.videoScript', url: '/scripts', icon: Film },
+    { title: 'Video Studio', titleKey: 'app.sidebar.videoStudio', url: '/videos', icon: Video },
     { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
   ];
 

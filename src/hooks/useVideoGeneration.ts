@@ -148,6 +148,7 @@ export function useVideoGeneration() {
     const availability: Record<VideoProvider, boolean> = {
       lovable: true, // Always available
       geminigen: false,
+      poyo: false,
       minimax: false,
       runway: false,
     };
