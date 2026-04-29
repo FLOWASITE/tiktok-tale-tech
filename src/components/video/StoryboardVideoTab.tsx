@@ -12,6 +12,7 @@ import { useVideoRender } from '@/hooks/useVideoRender';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { PublishVideoMenu } from './PublishVideoMenu';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
