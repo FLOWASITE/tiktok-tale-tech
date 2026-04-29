@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import type { Script, ScriptPurpose } from '@/types/script';
-import { parseScriptContent } from '@/utils/scriptPurposeUtils';
+import { parseScriptContent } from '@/utils/parsePrompts';
 import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
 import { useScriptVideoBatch, type BatchScene } from '@/hooks/useScriptVideoBatch';
 import { ScriptVideoHeader } from './ScriptVideoHeader';
