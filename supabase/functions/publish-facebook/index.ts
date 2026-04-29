@@ -49,6 +49,22 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
+// Format Facebook Graph API error with full diagnostics
+function formatFbError(err: any, ctx: string): string {
+  const e = err?.error || {};
+  const code = e.code ?? '?';
+  const sub = e.error_subcode ?? '?';
+  const trace = e.fbtrace_id ?? '?';
+  const msg = e.message || e.error_user_msg || 'unknown';
+  console.error(`[FB ${ctx}] full error payload:`, JSON.stringify(err, null, 2));
+  return `FB[${ctx}] code=${code}/${sub} trace=${trace}: ${msg}`;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Transient FB error codes worth retrying
+const TRANSIENT_CODES = new Set([1, 2, 4, 17, 341, 368, -1]);
+
 async function uploadUnpublishedPhoto(
   pageId: string,
   accessToken: string,
@@ -64,11 +80,32 @@ async function uploadUnpublishedPhoto(
     }),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || 'Failed to upload photo');
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatFbError(err, `upload-photo ${imageUrl.slice(0, 80)}`));
   }
   const data = await res.json();
   return data.id;
+}
+
+// Verify a single uploaded photo is "ready" (FB has processed it)
+async function waitForPhotoReady(
+  photoId: string,
+  accessToken: string,
+  maxAttempts = 3,
+): Promise<boolean> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/v21.0/${photoId}?fields=id,images&access_token=${encodeURIComponent(accessToken)}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.id && Array.isArray(data?.images) && data.images.length > 0) return true;
+      }
+    } catch { /* ignore */ }
+    await sleep(2000);
+  }
+  return false;
 }
 
 async function publishToFacebook(
