@@ -248,11 +248,14 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
     try {
       const description = content || '';
       const firstMedia = mediaUrls[0];
-      const isVideo = isVideoUrl(firstMedia);
+      const autoIsVideo = isVideoUrl(firstMedia);
+      // Apply user override; fall back to auto-detect
+      const effectiveType = resolvedPinType
+        || (autoIsVideo ? 'video' : (mediaUrls.length > 1 ? 'carousel' : 'image'));
 
       // Rehost non-Pinterest-safe URLs (data:, blob:, http://) to Supabase public bucket
       let safeMedia: string[] = mediaUrls;
-      if (!isVideo) {
+      if (effectiveType !== 'video') {
         safeMedia = await Promise.all(
           mediaUrls.map((u) => rehostImageForPinterest(u, `pin-${connectionId.slice(0, 8)}`))
         );
@@ -261,18 +264,19 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
 
       // Helper that runs the actual publish with current access token
       const doPublish = async (token: string): Promise<{ id: string; url: string }> => {
-        if (isVideo) {
+        if (effectiveType === 'video') {
           const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
           return await createVideoPin(token, {
             boardId: resolvedBoard, title, description, link,
             videoUrl: safeFirst, coverImageUrl: cover, altText,
           });
         }
-        if (safeMedia.length === 1) {
+        if (effectiveType === 'image' || safeMedia.length === 1) {
           return await createImagePin(token, {
             boardId: resolvedBoard, title, description, link, altText, imageUrl: safeFirst,
           });
         }
+        // carousel / idea → use carousel endpoint
         const imageOnly = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
         if (imageOnly.length === 0) throw new Error('Không có ảnh hợp lệ để tạo carousel Pin');
         if (imageOnly.length === 1) {
