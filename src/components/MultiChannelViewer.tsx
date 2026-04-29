@@ -241,6 +241,7 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
   switch (channel) {
     case 'website': return content.website_content;
     case 'blogger': return content.website_content;
+    case 'wordpress': return content.website_content;
     case 'facebook': return content.facebook_content;
     case 'instagram': return content.instagram_content;
     case 'twitter': return content.twitter_content;
