@@ -810,9 +810,25 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
     if (platform === 'tiktok') {
       const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
       const globalCreds = await getGlobalPlatformCredentials(supabase, 'tiktok', encryptionKey);
-      
+
       if (!globalCreds.consumerKey || !globalCreds.consumerSecret) {
         throw new Error('TikTok chưa được cấu hình. Liên hệ Admin để thiết lập Client Key/Secret trong Admin Settings.');
+      }
+
+      // Validate TikTok client_key format. Production keys are lowercase
+      // alphanumeric ~18-20 chars (e.g. "aw5jx7..." or "sbaw..."). If decrypt
+      // returned garbage (key mismatch) or admin pasted plaintext into DB
+      // bypassing encryption, the value won't match — fail loudly here instead
+      // of redirecting to TikTok and getting a confusing "client_key" error.
+      const clientKey = globalCreds.consumerKey.trim();
+      console.log('[tiktok] client_key length=', clientKey.length, 'prefix=', clientKey.slice(0, 4) + '***');
+
+      if (!/^[a-z0-9]{16,24}$/.test(clientKey)) {
+        throw new Error(
+          `Client Key TikTok không hợp lệ (length=${clientKey.length}). ` +
+          `Vào Admin → AI Management → Social Platforms → TikTok và NHẬP LẠI Client Key/Secret Production từ TikTok Developer Portal. ` +
+          `Lưu ý: phải nhập qua giao diện Admin để được mã hoá đúng — không update trực tiếp database.`
+        );
       }
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
