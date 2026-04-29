@@ -115,10 +115,11 @@ const FIELD_TOOLTIPS: Record<string, string> = {
 // Đơn giá ước tính cho gợi ý giá (VND) — đồng bộ với plan_unit_costs
 const UNIT_COSTS_VND = { content: 375, image: 1000, video: 12500 } as const;
 
-const limitFields = [
-  "monthly_content_units", "monthly_image_units", "monthly_video_units",
+const v2LimitFields = ["monthly_content_units", "monthly_image_units", "monthly_video_units"];
+const legacyLimitFields = [
   "monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits",
 ];
+const limitFields = [...v2LimitFields, ...legacyLimitFields];
 const priceFields = ["price_monthly", "price_yearly"];
 
 const formatVND = (v: number) => v === 0 ? "Miễn phí" : v.toLocaleString("vi-VN") + "₫";
