@@ -34,6 +34,53 @@ function progressColor(q: QuotaItem) {
   return 'bg-primary';
 }
 
+interface BreakdownRowProps {
+  label: string;
+  total: number;
+  maxTotal: number;
+  scripts: number;
+  carousels: number;
+  multichannel: number;
+  images: number;
+  leading?: React.ReactNode;
+}
+
+function BreakdownRow({ label, total, maxTotal, scripts, carousels, multichannel, images, leading }: BreakdownRowProps) {
+  const pct = maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-md hover:bg-muted/50 transition-colors cursor-default">
+            {leading}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-sm font-medium truncate">{label}</span>
+                <span className="text-sm tabular-nums text-muted-foreground shrink-0">{total.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-primary/70 transition-all" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="end" className="text-xs">
+          <div className="space-y-0.5">
+            <div className="flex justify-between gap-4"><span>Scripts</span><span className="tabular-nums font-medium">{scripts}</span></div>
+            <div className="flex justify-between gap-4"><span>Carousels</span><span className="tabular-nums font-medium">{carousels}</span></div>
+            <div className="flex justify-between gap-4"><span>Đa kênh</span><span className="tabular-nums font-medium">{multichannel}</span></div>
+            <div className="flex justify-between gap-4"><span>Ảnh AI</span><span className="tabular-nums font-medium">{images}</span></div>
+          </div>
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
+  );
+}
+
+function getInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?';
+}
+
 export function SubscriptionReportTab() {
   const navigate = useNavigate();
   const { data, activeAddons, isLoading } = useSubscriptionReport();
