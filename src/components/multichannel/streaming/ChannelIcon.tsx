@@ -117,12 +117,12 @@ const channelConfig: Record<string, {
   },
   wordpress: {
     icon: WordPressLucide,
-    bgClass: "bg-[#21759B] text-white",
+    bgClass: "bg-transparent text-[#21759B]",
     label: "WordPress"
   },
   blogger: {
     icon: BloggerLucide,
-    bgClass: "bg-[#FF5722] text-white",
+    bgClass: "bg-transparent text-[#FF5722]",
     label: "Blogger"
   },
   pinterest: {
