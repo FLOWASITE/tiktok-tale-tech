@@ -1592,7 +1592,7 @@ export function MultiChannelViewer({
                                   logoUrl={brandLogoUrl || undefined}
                                   primaryColor={content.primary_color || undefined}
                                   isLoading={isRegenerating}
-                                  seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
+                                  seoData={(channel === 'website' || channel === 'blogger') ? (content as any).website_seo_data : undefined}
                                   channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
                                   critiqueScore={content.critique_score}
                                   geoScore={geoScoreData?.overall_score}
