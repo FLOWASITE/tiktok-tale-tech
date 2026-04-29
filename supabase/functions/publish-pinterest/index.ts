@@ -1,5 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { rehostImageForPinterest, refreshPinterestToken } from "../_shared/pinterest-helpers.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
