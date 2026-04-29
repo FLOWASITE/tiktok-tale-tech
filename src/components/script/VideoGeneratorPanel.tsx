@@ -37,11 +37,18 @@ export function VideoGeneratorPanel({
   const [prompt, setPrompt] = useState(scene?.promptText || '');
   const [isPromptDirty, setIsPromptDirty] = useState(false);
 
-  // Đồng bộ prompt khi scene.promptText đến muộn hoặc đổi scene (chỉ khi user chưa gõ tay)
+  // Reset cờ "đã gõ tay" khi chuyển sang scene khác → cho phép auto-fill prompt mới
   useEffect(() => {
-    if (!isPromptDirty && scene?.promptText && scene.promptText !== prompt) {
-      setPrompt(scene.promptText);
-    }
+    setIsPromptDirty(false);
+  }, [scene?.sceneNumber]);
+
+  // Đồng bộ prompt khi scene.promptText đến muộn (load async) hoặc khi đổi scene
+  useEffect(() => {
+    const next = scene?.promptText?.trim();
+    if (!next) return;
+    if (isPromptDirty) return;
+    if (next === prompt) return;
+    setPrompt(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene?.promptText, scene?.sceneNumber]);
   const [duration, setDuration] = useState<number>(5);
