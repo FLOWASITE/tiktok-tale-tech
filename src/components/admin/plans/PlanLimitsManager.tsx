@@ -19,7 +19,7 @@ import {
 import {
   Save, Loader2, Undo2, Package, FileText, Image, Layers,
   Palette, Bot, DollarSign, Plus, X, Users, TrendingUp, Infinity,
-  Pencil, Eye, Crown, Check, SaveAll, AlertTriangle,
+  Pencil, Eye, Crown, Check, SaveAll, AlertTriangle, Type, Video, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +32,10 @@ interface PlanLimit {
   monthly_images: number;
   monthly_ai_edits: number;
   monthly_brands: number;
+  // Pricing v2 — 3 đơn vị output
+  monthly_content_units: number;
+  monthly_image_units: number;
+  monthly_video_units: number;
   price_monthly: number;
   price_yearly: number;
   features: string[];
@@ -67,6 +71,9 @@ const PLAN_COLORS: Record<string, { badge: string; header: string; border: strin
 };
 
 const FIELD_ICONS: Record<string, React.ReactNode> = {
+  monthly_content_units: <Type className="h-3.5 w-3.5" />,
+  monthly_image_units: <Image className="h-3.5 w-3.5" />,
+  monthly_video_units: <Video className="h-3.5 w-3.5" />,
   monthly_brands: <Package className="h-3.5 w-3.5" />,
   monthly_scripts: <FileText className="h-3.5 w-3.5" />,
   monthly_carousels: <Layers className="h-3.5 w-3.5" />,
@@ -78,28 +85,40 @@ const FIELD_ICONS: Record<string, React.ReactNode> = {
 };
 
 const FIELD_LABELS: Record<string, string> = {
+  monthly_content_units: "Nội dung (units)",
+  monthly_image_units: "Ảnh AI (units)",
+  monthly_video_units: "Video (units)",
   monthly_brands: "Brands",
   monthly_scripts: "Scripts",
   monthly_carousels: "Carousels",
   monthly_multichannel: "Đa kênh",
-  monthly_images: "Ảnh AI",
+  monthly_images: "Ảnh AI (raw)",
   monthly_ai_edits: "AI Edits",
   price_monthly: "Giá tháng",
   price_yearly: "Giá năm",
 };
 
 const FIELD_TOOLTIPS: Record<string, string> = {
+  monthly_content_units: "Pricing v2: Tổng đơn vị nội dung (script + carousel + multichannel post + video script). -1 = không giới hạn",
+  monthly_image_units: "Pricing v2: Tổng ảnh AI/tháng. -1 = không giới hạn",
+  monthly_video_units: "Pricing v2: Tổng video/tháng. -1 = không giới hạn",
   monthly_brands: "Số brand tối đa. -1 = không giới hạn",
-  monthly_scripts: "Số script/tháng. -1 = không giới hạn",
-  monthly_carousels: "Số carousel/tháng. -1 = không giới hạn",
-  monthly_multichannel: "Số nội dung đa kênh/tháng. -1 = không giới hạn",
-  monthly_images: "Số ảnh AI/tháng. -1 = không giới hạn",
+  monthly_scripts: "Số script/tháng. -1 = không giới hạn (legacy)",
+  monthly_carousels: "Số carousel/tháng. -1 = không giới hạn (legacy)",
+  monthly_multichannel: "Số nội dung đa kênh/tháng. -1 = không giới hạn (legacy)",
+  monthly_images: "Số ảnh AI/tháng. -1 = không giới hạn (legacy)",
   monthly_ai_edits: "Số AI edits/tháng. -1 = không giới hạn",
   price_monthly: "Giá gói tháng (VNĐ)",
   price_yearly: "Giá gói năm (VNĐ)",
 };
 
-const limitFields = ["monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits"];
+// Đơn giá ước tính cho gợi ý giá (VND) — đồng bộ với plan_unit_costs
+const UNIT_COSTS_VND = { content: 375, image: 1000, video: 12500 } as const;
+
+const limitFields = [
+  "monthly_content_units", "monthly_image_units", "monthly_video_units",
+  "monthly_brands", "monthly_scripts", "monthly_carousels", "monthly_multichannel", "monthly_images", "monthly_ai_edits",
+];
 const priceFields = ["price_monthly", "price_yearly"];
 
 const formatVND = (v: number) => v === 0 ? "Miễn phí" : v.toLocaleString("vi-VN") + "₫";
@@ -510,15 +529,47 @@ export default function PlanLimitsManager() {
                       const val = getVal(plan, field as keyof PlanLimit) as number;
                       const changed = isFieldChanged(plan, field);
                       const savings = field === "price_yearly" ? getSavingsPercent(plan) : 0;
+                      // Gợi ý giá tháng dựa trên unit costs + markup 2.5x
+                      const cu = getVal(plan, "monthly_content_units") as number;
+                      const iu = getVal(plan, "monthly_image_units") as number;
+                      const vu = getVal(plan, "monthly_video_units") as number;
+                      const baseCost = (cu === -1 ? 0 : cu) * UNIT_COSTS_VND.content
+                        + (iu === -1 ? 0 : iu) * UNIT_COSTS_VND.image
+                        + (vu === -1 ? 0 : vu) * UNIT_COSTS_VND.video;
+                      const suggested = field === "price_monthly"
+                        ? Math.round(baseCost * 2.5 / 1000) * 1000
+                        : field === "price_yearly"
+                          ? Math.round(baseCost * 2.5 * 10 / 1000) * 1000 // 10 tháng giá = 2 tháng free
+                          : 0;
                       return (
                         <TableCell key={plan.id} className="text-center">
                           {isEditMode ? (
-                            <Input
-                              type="number"
-                              value={val}
-                              onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                              className={`h-8 text-sm text-center w-28 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
-                            />
+                            <div className="flex flex-col items-center gap-1">
+                              <Input
+                                type="number"
+                                value={val}
+                                onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
+                                className={`h-8 text-sm text-center w-28 mx-auto ${changed ? "ring-2 ring-primary/50 border-primary/30" : ""}`}
+                              />
+                              {suggested > 0 && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleFieldChange(plan.id, field, String(suggested))}
+                                      className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5"
+                                    >
+                                      <Sparkles className="h-2.5 w-2.5" />
+                                      Đề xuất {formatVND(suggested)}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="text-xs max-w-56">
+                                    Tính từ tổng unit × cost cơ bản × markup 2.5×.<br/>
+                                    Click để áp dụng.
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex flex-col items-center gap-0.5">
                               <span className={`text-sm font-semibold ${changed ? "text-primary" : ""}`}>{formatVND(val)}</span>

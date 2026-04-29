@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
-export type QuotaKey = 'scripts' | 'carousels' | 'multichannel' | 'images';
+export type QuotaKey = 'scripts' | 'carousels' | 'multichannel' | 'images' | 'content_units' | 'image_units' | 'video_units';
 export type QuotaStatus = 'unlimited' | 'ok' | 'warning' | 'critical' | 'exhausted';
 
 export interface QuotaItem {
@@ -82,10 +82,13 @@ export interface SubscriptionReportData {
 }
 
 const QUOTA_LABELS: Record<QuotaKey, string> = {
+  content_units: 'Nội dung',
+  image_units: 'Ảnh AI',
+  video_units: 'Video',
   scripts: 'Scripts',
   carousels: 'Carousels',
   multichannel: 'Đa kênh',
-  images: 'Ảnh AI',
+  images: 'Ảnh AI (raw)',
 };
 
 function buildStatus(used: number, limit: number): QuotaStatus {
@@ -457,15 +460,27 @@ export function useSubscriptionReport() {
         carousels: filtered.carousels.length,
         multichannel: filtered.multichannel.length,
         images: filtered.images.length,
+        // Khi filter active, tính content_units = scripts + carousels + per-channel multichannel posts (approx)
+        content_units: filtered.scripts.length + filtered.carousels.length + filtered.multichannel.length,
+        image_units: filtered.images.length,
+        video_units: 0,
       } : (usage ? {
         scripts: usage.scripts,
         carousels: usage.carousels,
         multichannel: usage.multichannel,
         images: usage.images,
+        content_units: usage.content_units,
+        image_units: usage.image_units,
+        video_units: usage.video_units,
       } : null);
       if (!used) return [];
 
       const items: Array<{ key: QuotaKey; used: number; limit: number }> = [
+        // Pricing v2 — 3 đơn vị output chính (đặt trước)
+        { key: 'content_units', used: used.content_units, limit: currentPlanLimits.monthly_content_units },
+        { key: 'image_units', used: used.image_units, limit: currentPlanLimits.monthly_image_units },
+        { key: 'video_units', used: used.video_units, limit: currentPlanLimits.monthly_video_units },
+        // Legacy breakdown (giữ để xem chi tiết)
         { key: 'scripts', used: used.scripts, limit: currentPlanLimits.monthly_scripts },
         { key: 'carousels', used: used.carousels, limit: currentPlanLimits.monthly_carousels },
         { key: 'multichannel', used: used.multichannel, limit: currentPlanLimits.monthly_multichannel },
