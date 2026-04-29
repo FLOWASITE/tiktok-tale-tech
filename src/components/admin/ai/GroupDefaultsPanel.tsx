@@ -3,11 +3,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Type, Image, Globe, X, Layers, Video, Music } from 'lucide-react';
+import { Type, Image, Globe, X, Layers, Video, Music, Info } from 'lucide-react';
 import { useGroupModelConfig, FUNCTION_TYPE_GROUPS, countAffectedFunctions } from '@/hooks/useGroupModelConfig';
 import { AIFunctionConfig, getModelInfo } from '@/hooks/useAIConfig';
 import { ProviderIndicator } from './ModelCard';
 import { ModelSelector } from './ModelSelector';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface GroupDefaultsPanelProps {
   organizationId?: string;
@@ -41,6 +42,24 @@ export function GroupDefaultsPanel({ organizationId, functionConfigs }: GroupDef
           <Layers className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">Group Defaults</h3>
           <span className="text-xs text-muted-foreground">— Đặt model mặc định cho nhóm function type</span>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Giải thích thứ tự ưu tiên">
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[280px] text-xs leading-relaxed">
+                <p className="font-medium mb-1">Thứ tự ưu tiên model:</p>
+                <ol className="list-decimal pl-4 space-y-0.5">
+                  <li>Per-function override (cao nhất)</li>
+                  <li>Group default (đặt ở đây)</li>
+                  <li>Default model của function</li>
+                </ol>
+                <p className="mt-2 text-muted-foreground">Group default <b>không</b> ghi đè override của từng function cụ thể.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
