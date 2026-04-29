@@ -1562,7 +1562,7 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   replicate: ['black-forest-labs/flux-schnell', 'stability-ai/sdxl'],
   perplexity: ['sonar-pro', 'sonar'],
   kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
-  poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine', 'poyo/veo-3', 'poyo/veo-3-fast', 'poyo/sora-2'],
+  poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine', 'poyo/veo-3', 'poyo/veo-3-fast', 'poyo/veo-3.1', 'poyo/veo-3.1-fast', 'poyo/sora-2', 'poyo/sora-2-pro', 'poyo/kling-2.1', 'poyo/kling-2.1-pro', 'poyo/hailuo-02', 'poyo/seedance-1-pro'],
   dashscope: [
     // Qwen3 series (latest)
     'qwen3-max', 'qwen3-plus', 'qwen3-turbo', 'qwen3-flash', 'qwen3-long',
