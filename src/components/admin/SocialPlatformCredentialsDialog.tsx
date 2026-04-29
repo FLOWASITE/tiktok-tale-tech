@@ -185,7 +185,57 @@ export function SocialPlatformCredentialsDialog({
       setConsumerSecret('');
       setIsActive(true);
     }
+    // Reset reveal state mỗi lần đóng/mở
+    setShowKey(false);
+    setShowSecret(false);
+    setRevealedKey(null);
+    setRevealedSecret(null);
   }, [open, existingSettings]);
+
+  const handleToggleReveal = async (field: 'consumer_key' | 'consumer_secret') => {
+    const isKey = field === 'consumer_key';
+    const typedValue = isKey ? consumerKey : consumerSecret;
+    const currentlyShown = isKey ? showKey : showSecret;
+    const cached = isKey ? revealedKey : revealedSecret;
+    const setShown = isKey ? setShowKey : setShowSecret;
+    const setRevealed = isKey ? setRevealedKey : setRevealedSecret;
+    const setLoading = isKey ? setRevealingKey : setRevealingSecret;
+
+    // Đang hiển thị -> ẩn đi
+    if (currentlyShown) {
+      setShown(false);
+      return;
+    }
+
+    // User đã gõ giá trị mới -> chỉ toggle visibility input
+    if (typedValue) {
+      setShown(true);
+      return;
+    }
+
+    // Chưa fetch và có credentials đã lưu -> gọi reveal endpoint
+    if (!cached && existingSettings?.has_credentials) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('reveal-platform-credential', {
+          body: { platform, field },
+        });
+        if (error) throw error;
+        if (!data?.value) throw new Error('Không có giá trị');
+        setRevealed(data.value);
+        setShown(true);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Không thể hiện giá trị';
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Cached rồi -> chỉ show
+    setShown(true);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
