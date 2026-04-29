@@ -82,6 +82,7 @@ import {
    Zap,
 } from 'lucide-react';
 import { XIcon, WordPressIcon, BloggerIcon, ZaloIcon } from '@/components/icons/SocialIcons';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
@@ -185,11 +186,11 @@ const STEPS: Step[] = [
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
-  blogger: <BloggerIcon className="w-4 h-4" />,
-  wordpress: <WordPressIcon className="w-4 h-4" />,
+  blogger: <ChannelIcon channel="blogger" size="sm" />,
+  wordpress: <ChannelIcon channel="wordpress" size="sm" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
-  pinterest: <Instagram className="w-4 h-4" />,
+  pinterest: <ChannelIcon channel="pinterest" size="sm" />,
   twitter: <XIcon className="w-4 h-4" />,
   google_maps: <MapPin className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,

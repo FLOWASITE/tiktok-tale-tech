@@ -71,6 +71,7 @@ import { StrategicContextPreview } from './StrategicContextPreview';
 import { TextPositionMockup } from './TextPositionMockup';
 import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 import { BackgroundEditor } from './BackgroundEditor';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;
@@ -90,12 +91,12 @@ type GeneratorMode = 'single' | 'batch';
 const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bgColor: string }> = {
   facebook: { icon: <Facebook className="w-4 h-4" />, color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
   instagram: { icon: <Instagram className="w-4 h-4" />, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
-  pinterest: { icon: <Instagram className="w-4 h-4" />, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
+  pinterest: { icon: <ChannelIcon channel="pinterest" size="sm" />, color: 'text-[#E60023]', bgColor: 'bg-[#E60023]/10' },
   linkedin: { icon: <Linkedin className="w-4 h-4" />, color: 'text-sky-600', bgColor: 'bg-sky-500/10' },
   twitter: { icon: <Twitter className="w-4 h-4" />, color: 'text-slate-700', bgColor: 'bg-slate-500/10' },
   website: { icon: <Globe className="w-4 h-4" />, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  blogger: { icon: <Globe className="w-4 h-4" />, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  wordpress: { icon: <Globe className="w-4 h-4" />, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
+  blogger: { icon: <ChannelIcon channel="blogger" size="sm" />, color: 'text-[#FF5722]', bgColor: 'bg-[#FF5722]/10' },
+  wordpress: { icon: <ChannelIcon channel="wordpress" size="sm" />, color: 'text-[#21759B]', bgColor: 'bg-[#21759B]/10' },
   google_maps: { icon: <MapPin className="w-4 h-4" />, color: 'text-green-600', bgColor: 'bg-green-500/10' },
   youtube: { icon: <Youtube className="w-4 h-4" />, color: 'text-red-600', bgColor: 'bg-red-500/10' },
   email: { icon: <Mail className="w-4 h-4" />, color: 'text-amber-600', bgColor: 'bg-amber-500/10' },

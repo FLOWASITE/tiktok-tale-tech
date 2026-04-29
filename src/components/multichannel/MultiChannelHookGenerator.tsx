@@ -58,6 +58,7 @@ import {
   ArrowUpDown,
   Eye,
 } from 'lucide-react';
+import { BloggerIcon, WordPressIcon, PinterestIcon } from '@/components/icons/SocialIcons';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { MultiChannelHook, useMultiChannelHooks } from '@/hooks/useMultiChannelHooks';
@@ -106,13 +107,13 @@ interface MultiChannelHookGeneratorProps {
   brandTemplateId?: string;
 }
 
-const channelIcons: Record<Channel, LucideIcon> = {
+const channelIcons: Record<Channel, React.ComponentType<{ className?: string }>> = {
   website: Globe,
-  blogger: Globe,
-  wordpress: Globe,
+  blogger: BloggerIcon,
+  wordpress: WordPressIcon,
   facebook: Facebook,
   instagram: Instagram,
-  pinterest: Instagram,
+  pinterest: PinterestIcon,
   twitter: Twitter,
   google_maps: MapPin,
   linkedin: Linkedin,

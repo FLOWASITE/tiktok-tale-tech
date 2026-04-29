@@ -5,7 +5,7 @@ import {
   Facebook, Instagram, Linkedin, Globe, MapPin,
   Youtube, Mail, Music2, AtSign, Send,
 } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, BloggerIcon, WordPressIcon, PinterestIcon } from '@/components/icons/SocialIcons';
 
 interface ImageChannelPickerProps {
   availableChannels: Channel[];
@@ -17,12 +17,12 @@ interface ImageChannelPickerProps {
 const CHANNEL_META: Record<Channel, { icon: React.ReactNode; label: string }> = {
   facebook: { icon: <Facebook className="w-3.5 h-3.5" />, label: 'FB' },
   instagram: { icon: <Instagram className="w-3.5 h-3.5" />, label: 'IG' },
-  pinterest: { icon: <Instagram className="w-3.5 h-3.5" />, label: 'IG' },
+  pinterest: { icon: <PinterestIcon className="w-3.5 h-3.5" />, label: 'Pin' },
   linkedin: { icon: <Linkedin className="w-3.5 h-3.5" />, label: 'LI' },
   twitter: { icon: <XIcon className="w-3.5 h-3.5" />, label: 'X' },
   website: { icon: <Globe className="w-3.5 h-3.5" />, label: 'Web' },
-  blogger: { icon: <Globe className="w-3.5 h-3.5" />, label: 'Web' },
-  wordpress: { icon: <Globe className="w-3.5 h-3.5" />, label: 'Web' },
+  blogger: { icon: <BloggerIcon className="w-3.5 h-3.5" />, label: 'Blog' },
+  wordpress: { icon: <WordPressIcon className="w-3.5 h-3.5" />, label: 'WP' },
   google_maps: { icon: <MapPin className="w-3.5 h-3.5" />, label: 'Maps' },
   youtube: { icon: <Youtube className="w-3.5 h-3.5" />, label: 'YT' },
   email: { icon: <Mail className="w-3.5 h-3.5" />, label: 'Mail' },

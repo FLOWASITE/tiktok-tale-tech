@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader2, Plus, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Music2, AtSign } from 'lucide-react';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import {
   Dialog,
   DialogContent,
@@ -28,11 +29,11 @@ interface ExpandChannelsDialogProps {
 
 const CHANNEL_ICONS: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
-  blogger: <Globe className="w-4 h-4" />,
-  wordpress: <Globe className="w-4 h-4" />,
+  blogger: <ChannelIcon channel="blogger" size="sm" />,
+  wordpress: <ChannelIcon channel="wordpress" size="sm" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
-  pinterest: <Instagram className="w-4 h-4" />,
+  pinterest: <ChannelIcon channel="pinterest" size="sm" />,
   twitter: <XIcon className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
   youtube: <Youtube className="w-4 h-4" />,
