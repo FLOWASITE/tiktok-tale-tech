@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 interface ConnectRequest {
-  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'website';
+  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'website' | 'pinterest';
   organizationId?: string;
   brandTemplateId?: string;
   accessToken?: string;
@@ -1024,12 +1024,84 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // For Pinterest - OAuth 2.0 with PKCE (mandatory)
+    if (platform === 'pinterest') {
+      const clientId = Deno.env.get('PINTEREST_CLIENT_ID');
+      if (!clientId) {
+        throw new Error('Pinterest chưa được cấu hình ở phía Flowa. Vui lòng liên hệ admin.');
+      }
+
+      // Generate PKCE code_verifier (43-128 chars) + code_challenge (S256)
+      const verifierBytes = new Uint8Array(64);
+      crypto.getRandomValues(verifierBytes);
+      const codeVerifier = btoa(String.fromCharCode(...verifierBytes))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        .slice(0, 96);
+      const challengeHash = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(codeVerifier)
+      );
+      const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(challengeHash)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+      // Random state string
+      const stateBytes = new Uint8Array(32);
+      crypto.getRandomValues(stateBytes);
+      const state = btoa(String.fromCharCode(...stateBytes))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+      // Persist session for callback to retrieve verifier
+      const { error: sessErr } = await supabase
+        .from('pinterest_oauth_sessions')
+        .insert({
+          user_id: user.id,
+          organization_id: organizationId || null,
+          brand_template_id: brandTemplateId || null,
+          state,
+          code_verifier: codeVerifier,
+          frontend_origin: requestOrigin || null,
+        });
+
+      if (sessErr) {
+        console.error('[pinterest] failed to persist oauth session:', sessErr);
+        throw new Error('Không thể khởi tạo phiên OAuth Pinterest. Vui lòng thử lại.');
+      }
+
+      const redirectUri = `${supabaseUrl}/functions/v1/pinterest-oauth-callback`;
+      const oauthUrl = `https://www.pinterest.com/oauth/?` + new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'boards:read,boards:write,pins:read,pins:write,user_accounts:read',
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+      }).toString();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          requiresOAuth: true,
+          oauthUrl,
+          instructions: {
+            steps: [
+              '1. Đăng nhập tài khoản Pinterest (khuyến nghị Business account)',
+              '2. Cho phép Flowa quyền đọc/đăng Pin và Board',
+              '3. Bạn sẽ được redirect về sau khi hoàn tất',
+            ],
+            note: 'Pinterest yêu cầu Business account để đăng Pin qua API. Token sống 30 ngày, hệ thống tự refresh.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website', 'wordpress', 'wordpress_com'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website', 'wordpress', 'wordpress_com', 'pinterest'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

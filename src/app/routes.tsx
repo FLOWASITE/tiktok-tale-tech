@@ -63,6 +63,7 @@ import BloggerCallback from "@/pages/BloggerCallback";
 import WordPressComCallback from "@/pages/WordPressComCallback";
 import XCallback from "@/pages/XCallback";
 import TikTokCallback from "@/pages/TikTokCallback";
+import PinterestCallback from "@/pages/PinterestCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
 import GEODashboard from "@/pages/GEODashboard";
 import FlowaChatPage from "@/pages/FlowaChatPage";
@@ -127,6 +128,7 @@ export function AppRoutes() {
       <Route path="/auth/wordpress-com/callback" element={<WordPressComCallback />} />
       <Route path="/auth/x/callback" element={<XCallback />} />
       <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
+      <Route path="/auth/pinterest/callback" element={<PinterestCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
 

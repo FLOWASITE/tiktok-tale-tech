@@ -166,6 +166,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'WordPress, API hoặc Webhook',
   },
+  pinterest: {
+    name: 'Pinterest',
+    icon: <ChannelIcon channel="pinterest" className="text-[#E60023]" size={20} />,
+    color: 'bg-[#E60023]/10',
+    available: true,
+    description: 'Đăng Pin ảnh / video / carousel (yêu cầu Business account)',
+  },
 };
 
 interface TwitterSetupForm {
@@ -422,6 +429,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     wordpress: 'wordpress',
     wordpress_com: 'wordpress-com',
     website: 'website',
+    pinterest: 'pinterest',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {

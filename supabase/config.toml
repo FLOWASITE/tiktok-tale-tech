@@ -379,3 +379,15 @@ verify_jwt = false
 
 [functions.admin-storage-manager]
 verify_jwt = false
+
+[functions.pinterest-oauth-callback]
+verify_jwt = false
+
+[functions.refresh-pinterest-token]
+verify_jwt = false
+
+[functions.pinterest-list-boards]
+verify_jwt = false
+
+[functions.test-pinterest-connection]
+verify_jwt = false

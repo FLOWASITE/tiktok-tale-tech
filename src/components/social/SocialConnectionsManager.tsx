@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useSocialConnections, SocialPlatform } from '@/hooks/useSocialConnections';
+import { ChannelIcon } from '@/components/ui/channel-icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -179,6 +180,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     bgColor: 'bg-[#10B981]/10',
     available: true,
     description: 'WordPress, API hoặc Webhook',
+  },
+  pinterest: {
+    name: 'Pinterest',
+    icon: () => <ChannelIcon channel="pinterest" size={16} />,
+    color: 'text-[#E60023]',
+    bgColor: 'bg-[#E60023]/10',
+    available: true,
+    description: 'Đăng Pin ảnh / video / carousel (Business account)',
   },
 };
 
