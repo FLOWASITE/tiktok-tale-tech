@@ -13,7 +13,7 @@ import { useFunctionModel } from '@/hooks/useFunctionModel';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
-import { useCurrentOrganization } from '@/contexts/OrganizationContext';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
