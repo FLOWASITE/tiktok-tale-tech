@@ -176,7 +176,7 @@ const channelConfig: Record<Channel, {
   },
   google_maps: { 
     label: 'Google Maps', 
-    shortLabel: 'Maps',
+    shortLabel: 'Google Maps',
     icon: <MapPin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-green-400',
     bgColor: 'bg-green-500/10',
