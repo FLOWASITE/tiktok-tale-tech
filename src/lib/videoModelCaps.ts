@@ -52,6 +52,22 @@ export const VIDEO_MODEL_CAPS: Record<string, VideoModelCaps> = {
     resolutionChoices: ['720p', '1080p'],
     shortName: 'Sora 2',
   },
+  'geminigen/sora-2-pro': {
+    provider: 'geminigen',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: ['720p', '1080p'],
+    shortName: 'Sora 2 Pro',
+  },
+  'geminigen/sora-2-hd': {
+    provider: 'geminigen',
+    aspectRatios: ['16:9', '9:16'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: ['1080p'],
+    shortName: 'Sora 2 HD',
+  },
 
   // ── PoYo.ai video ────────────────────────────────────────────────────
   'poyo/veo-3': {
@@ -70,6 +86,22 @@ export const VIDEO_MODEL_CAPS: Record<string, VideoModelCaps> = {
     resolutionChoices: COMMON_RES,
     shortName: 'PoYo Veo 3 Fast',
   },
+  'poyo/veo-3.1': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: COMMON_RES,
+    shortName: 'PoYo Veo 3.1',
+  },
+  'poyo/veo-3.1-fast': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: COMMON_RES,
+    shortName: 'PoYo Veo 3.1 Fast',
+  },
   'poyo/sora-2': {
     provider: 'poyo',
     aspectRatios: ['16:9', '9:16', '1:1'],
@@ -77,6 +109,46 @@ export const VIDEO_MODEL_CAPS: Record<string, VideoModelCaps> = {
     durationChoices: COMMON_DURATIONS,
     resolutionChoices: ['720p', '1080p'],
     shortName: 'PoYo Sora 2',
+  },
+  'poyo/sora-2-pro': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: ['720p', '1080p'],
+    shortName: 'PoYo Sora 2 Pro',
+  },
+  'poyo/kling-2.1': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: ['720p', '1080p'],
+    shortName: 'PoYo Kling 2.1',
+  },
+  'poyo/kling-2.1-pro': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: COMMON_DURATIONS,
+    resolutionChoices: ['720p', '1080p'],
+    shortName: 'PoYo Kling 2.1 Pro',
+  },
+  'poyo/hailuo-02': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    maxDuration: 10,
+    durationChoices: [6, 10],
+    resolutionChoices: ['720p', '1080p'],
+    shortName: 'PoYo Hailuo 02',
+  },
+  'poyo/seedance-1-pro': {
+    provider: 'poyo',
+    aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+    maxDuration: 10,
+    durationChoices: [5, 10],
+    resolutionChoices: ['480p', '720p', '1080p'],
+    shortName: 'PoYo Seedance 1 Pro',
   },
 
   // ── Minimax (legacy) ─────────────────────────────────────────────────
