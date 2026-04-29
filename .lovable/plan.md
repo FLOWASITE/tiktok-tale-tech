@@ -1,45 +1,48 @@
-# Fix: Chỉ chọn WordPress nhưng AI tạo cả Website + WordPress
-
 ## Vấn đề
-Trong screenshot user chỉ tick **WordPress** ở "Thiên về Text", nhưng panel "AI đang tạo nội dung" hiện **2 cột song song**: `Website` (758 từ) và `wordpress` (338 từ). Hệ quả:
 
-- Lãng phí quota: AI bị gọi 2 lần cho cùng một loại nội dung long-form.
-- UI gây nhầm lẫn: user chỉ chọn 1 kênh nhưng thấy 2 thẻ.
-- Nội dung 2 cột lệch nhau (vì là 2 lần generate độc lập), không nhất quán.
+Trong screenshot màn "Kênh xuất bản" (component `MultiChannelFormWizard.tsx`):
+- **X (Twitter)** đang dùng icon chim Twitter cũ (`Twitter` từ lucide) thay vì logo X.
+- **WordPress** và **Blogger** đang dùng icon `Globe` chung chung, không nhận diện được brand.
 
-## Root cause
-Tại `supabase/functions/generate-multichannel/index.ts` (dòng ~1532) backend đang **EXPAND** `wordpress` → thêm `website` vào danh sách channels chạy pipeline:
-
-```ts
-const needsWebsite = (out.includes('blogger') || out.includes('wordpress')) && !out.includes('website');
-if (needsWebsite) out.push('website');   // ← thêm website BÊN CẠNH wordpress
-```
-
-Sau đó `generateChannelsParallel(channelsToGenerate)` chạy AI song song cho **cả `website` lẫn `wordpress`** → 2 stream events `streaming_text` riêng → frontend hiện 2 cột.
-
-Vì `wordpress` và `website` cùng ghi vào cột DB `website_content` (xem `CHANNEL_TO_COLUMN.wordpress = 'website_content'`), việc generate hai lần là dư thừa.
+Ngoài ra, các nơi khác (`MultiChannelForm.tsx`, `MultiChannelFormStepper.tsx`, `ChannelIcon.tsx`) cũng đang dùng `Globe` cho WordPress/Blogger → cần đồng bộ.
 
 ## Giải pháp
-**Collapse** thay vì **expand**: thay `wordpress`/`blogger` bằng `website` duy nhất trong pipeline; vẫn giữ `wordpress`/`blogger` trong `selected_channels` đã persist (logic sẵn có ở dòng ~1756 vẫn hoạt động đúng).
 
-### Thay đổi file
-**`supabase/functions/generate-multichannel/index.ts`** (~dòng 1532–1546):
+### 1. Tạo SVG brand icon mới trong `src/components/icons/SocialIcons.tsx`
+Bổ sung 2 icon còn thiếu (X đã có sẵn `XIcon`):
+- `WordPressIcon` — chữ "W" trong vòng tròn (logo chính thức WordPress).
+- `BloggerIcon` — chữ "B" trong vòng vuông bo góc màu cam (logo Blogger).
 
-Thay `expandLongFormAliases` (push thêm `website`) bằng `collapseLongFormAliases`:
-- Nếu `channels` có `blogger`/`wordpress` → bỏ chúng ra, đảm bảo có đúng 1 `website`.
-- Nếu user pick CẢ `website` lẫn `wordpress` → kết quả vẫn chỉ còn 1 `website` (không trùng).
-- Áp dụng cho cả `formData.channels` và `formData.newChannels`.
-- Logic `formData.channel === 'wordpress' → 'website'` (single-channel regenerate, dòng 1547-1552) giữ nguyên — đã đúng.
+Cả hai dùng `currentColor` để có thể tô màu qua className giống `ZaloIcon`/`XIcon`.
 
-Logic `persistedSelectedChannels` (dòng ~1756) vẫn nhận diện `userPickedWordpress` từ `originalChannels` → DB lưu đúng `wordpress` trong `selected_channels`. Frontend `DirectPublishButton` (đã sửa ở turn trước) đã fallback `wordpress` → connection `wordpress_com`.
+### 2. Cập nhật map `channelIcons` ở 3 file để dùng icon đúng
 
-### Kết quả mong đợi
-- Chỉ chọn WordPress → progress panel chỉ hiện **1 cột** "WordPress", chạy 1 lần AI.
-- DB: `selected_channels = ['wordpress']`, `website_content` chứa nội dung long-form.
-- Khi đăng: nút "Đăng WordPress" tìm connection `wordpress_com` (đã sửa ở lần trước) → publish OK.
-- Chọn cả WordPress + Website cùng lúc → vẫn chỉ chạy 1 lần AI, persist `['wordpress', 'website']`.
+| Channel | Icon mới |
+|---|---|
+| `twitter` | `XIcon` (đã có) |
+| `wordpress` | `WordPressIcon` (mới) |
+| `blogger` | `BloggerIcon` (mới) |
 
-### Không thay đổi
-- Pipeline AI, prompt, length config, persist DB columns.
-- UI components (`AIGenerationProgress`, `StreamingTextGrid`).
-- Edge function nào khác — chỉ sửa duy nhất khối `expandLongFormAliases`.
+Files cần sửa:
+- `src/components/multichannel/MultiChannelFormWizard.tsx` (line 187-202) — file đang hiển thị trong screenshot
+- `src/components/multichannel/MultiChannelFormStepper.tsx` (line 154-169) — wordpress/blogger còn `Globe`
+- `src/components/MultiChannelForm.tsx` (line 49-64) — wordpress/blogger còn `Globe`
+
+### 3. Cập nhật `ChannelIcon.tsx` (component dùng chung cho streaming/preview cards)
+Thêm entry `wordpress` và `blogger` vào `channelConfig` với icon mới + màu nền brand:
+- `wordpress`: nền `bg-[#21759B]` (xanh WordPress) + `WordPressIcon`
+- `blogger`: nền `bg-[#FF8000]` (cam Blogger) + `BloggerIcon`
+- Đổi entry `twitter`/`x` đảm bảo dùng `XLucide` (đã đúng).
+
+### 4. (Optional cleanup) Loại import `Twitter` cũ
+Sau khi thay xong trong `MultiChannelFormWizard.tsx`, xóa import `Twitter` từ lucide-react ở file này (nếu không còn dùng chỗ khác).
+
+## Phạm vi không đụng tới
+- Logic chọn kênh, collapse `wordpress/blogger → website` trong edge function — giữ nguyên.
+- Color tokens semantic — chỉ icon thay đổi, các badge `text-blue-500` etc. giữ nguyên (đã hợp design system pink/rose của screenshot).
+
+## Kết quả mong đợi
+Trong card "Kênh xuất bản":
+- WordPress hiển thị logo "W" tròn thay vì globe.
+- Blogger hiển thị logo "B" vuông cam thay vì globe.
+- X (Twitter) hiển thị logo X đen thay vì chim Twitter xanh.
