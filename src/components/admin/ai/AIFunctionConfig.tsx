@@ -399,6 +399,15 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     Parameters
                   </TabsTrigger>
                 )}
+                {editingFunction?.functionName === 'generate-video' && (
+                  <TabsTrigger 
+                    value="video" 
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
+                  >
+                    <Film className="h-3 w-3 mr-1.5" />
+                    Video Defaults
+                  </TabsTrigger>
+                )}
                 <TabsTrigger 
                   value="settings" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
