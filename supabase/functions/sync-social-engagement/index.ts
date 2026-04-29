@@ -363,6 +363,7 @@ Deno.serve(async (req) => {
     twitter: "twitter",
     x: "twitter",
     threads: "threads",
+    pinterest: "pinterest",
   };
 
   // 3. Fetch metrics in parallel (chunked to avoid rate limits)
