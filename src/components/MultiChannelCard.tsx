@@ -368,13 +368,12 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "relative flex items-center p-1.5 xs:p-2 rounded-md border transition-all duration-200",
-                          channelColors[channel],
-                          // #4: brightness instead of scale to avoid layout shift
-                          "hover:brightness-125 hover:shadow-sm"
+                          "relative flex items-center justify-center p-1 rounded-md border transition-all duration-200",
+                          channelTileClass,
+                          "hover:shadow-sm"
                         )}
                       >
-                        {channelIcons[channel]}
+                        <ChannelIcon channel={channel} size="sm" />
                         <span 
                           className={cn(
                             "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-background",
@@ -389,7 +388,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      <p className="font-medium">{channel}</p>
+                      <p className="font-medium">{getChannelLabel(channel)}</p>
                       <p className="text-muted-foreground">{channelStatusLabel}</p>
                       <p className={cn(
                         "text-[10px]",
