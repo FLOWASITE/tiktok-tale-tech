@@ -465,6 +465,7 @@ export function DirectPublishButton({
             {!isPublishing && (
               isAlreadyPublished ? 'Đăng lại' :
               platform === 'website' ? 'Đăng Blog' : 
+              platform === 'blogger' ? 'Đăng Blogger' :
               connection ? 'Đăng ngay' : 'Kết nối để đăng'
             )}
           </Button>
