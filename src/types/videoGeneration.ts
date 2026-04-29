@@ -1,4 +1,12 @@
-export type VideoProvider = 'geminigen' | 'lovable' | 'minimax' | 'runway';
+export type VideoProvider = 'geminigen' | 'poyo' | 'lovable' | 'minimax' | 'runway';
+
+export const POYO_VIDEO_MODELS = [
+  { id: 'poyo/seedance-2', label: 'Seedance 2', maxDuration: 10 },
+  { id: 'poyo/sora-2', label: 'Sora 2 (PoYo)', maxDuration: 10 },
+  { id: 'poyo/happy-horse', label: 'Happy Horse', maxDuration: 10 },
+] as const;
+
+export type PoyoVideoModelId = typeof POYO_VIDEO_MODELS[number]['id'];
 
 export const GEMINIGEN_VIDEO_MODELS = [
   { id: 'geminigen/veo-3', label: 'Veo 3', maxDuration: 10 },
@@ -72,6 +80,15 @@ export const VIDEO_PROVIDER_CONFIG: Record<VideoProvider, {
     label: 'GeminiGen (Veo / Sora)',
     description: 'Veo 3, Veo 3 Fast, Veo 3.1, Sora 2 — cần GEMINIGEN_API_KEY',
     icon: '🎥',
+    requiresApiKey: true,
+    maxDuration: 10,
+    aspectRatios: ['16:9', '9:16', '1:1'],
+    supportsModelSelect: true,
+  },
+  poyo: {
+    label: 'PoYo (Seedance / Sora / Happy Horse)',
+    description: 'Seedance 2, Sora 2, Happy Horse — cần POYO_API_KEY',
+    icon: '🐱',
     requiresApiKey: true,
     maxDuration: 10,
     aspectRatios: ['16:9', '9:16', '1:1'],
