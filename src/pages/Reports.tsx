@@ -228,6 +228,10 @@ export default function Reports() {
               <Sparkles className="h-3.5 w-3.5" />
               AI Insights
             </TabsTrigger>
+            <TabsTrigger value="subscription" className="gap-1">
+              <CreditCard className="h-3.5 w-3.5" />
+              Gói đăng ký
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
