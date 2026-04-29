@@ -140,9 +140,11 @@ export function useVideoGeneration() {
       return null;
     } finally {
       setGenerating(false);
-      setCurrentJobId(null);
+      // KHÔNG reset currentJobId — UI cần theo dõi job qua realtime đến completed/failed
     }
   }, [user]);
+
+  const clearCurrentJob = useCallback(() => setCurrentJobId(null), []);
 
   const pollJobStatus = useCallback(async (jobId: string): Promise<VideoGeneration | null> => {
     try {
@@ -208,6 +210,7 @@ export function useVideoGeneration() {
     loading,
     generating,
     currentJobId,
+    clearCurrentJob,
     fetchGenerations,
     generateVideo,
     pollJobStatus,

@@ -32,7 +32,7 @@ export function VideoGeneratorPanel({
   storyboardId,
   onVideoGenerated,
 }: VideoGeneratorPanelProps) {
-  const { generateVideo, generating } = useVideoGeneration();
+  const { generateVideo, generating, currentJobId, generations, clearCurrentJob } = useVideoGeneration();
   
   const [provider, setProvider] = useState<VideoProvider>('geminigen');
   const [prompt, setPrompt] = useState(scene?.promptText || '');
@@ -89,6 +89,65 @@ export function VideoGeneratorPanel({
     if (phase === 'idle' || phase === 'error') setProgress(0);
   }, [phase]);
 
+  // Theo dõi job thực tế qua realtime: nếu DB báo completed/failed → cập nhật phase
+  const currentJob = currentJobId ? generations.find((g) => g.id === currentJobId) : undefined;
+  useEffect(() => {
+    if (!currentJob) return;
+    if (currentJob.status === 'completed' && currentJob.video_url) {
+      setPhase('done');
+      onVideoGenerated?.(currentJob.video_url);
+    } else if (currentJob.status === 'failed') {
+      setPhase('error');
+      setLastError({
+        message: currentJob.error_message || 'Provider không trả video.',
+        code: 'PROVIDER_FAILED',
+      });
+    } else if (currentJob.status === 'processing' || currentJob.status === 'pending') {
+      setPhase('processing');
+    }
+  }, [currentJob?.status, currentJob?.video_url]);
+
+  // Stepper: 4 bước có thật trong pipeline submit-and-poll
+  type StepState = 'pending' | 'active' | 'done' | 'error';
+  const steps: { key: string; label: string; state: StepState }[] = [
+    {
+      key: 'submit',
+      label: 'Gửi yêu cầu tới máy chủ',
+      state:
+        phase === 'sending' ? 'active'
+        : phase === 'idle' ? 'pending'
+        : phase === 'error' && !currentJobId ? 'error'
+        : 'done',
+    },
+    {
+      key: 'queue',
+      label: 'Đẩy job vào hàng đợi provider',
+      state:
+        !currentJobId ? 'pending'
+        : (currentJob?.status === 'pending') ? 'active'
+        : (currentJob?.status === 'processing' || currentJob?.status === 'completed') ? 'done'
+        : currentJob?.status === 'failed' ? 'error'
+        : 'pending',
+    },
+    {
+      key: 'render',
+      label: `Provider render video (${provider})`,
+      state:
+        currentJob?.status === 'processing' ? 'active'
+        : currentJob?.status === 'completed' ? 'done'
+        : currentJob?.status === 'failed' ? 'error'
+        : 'pending',
+    },
+    {
+      key: 'finalize',
+      label: 'Lưu vào thư viện & sẵn sàng phát',
+      state:
+        currentJob?.status === 'completed' && currentJob?.video_url ? 'done'
+        : currentJob?.status === 'completed' ? 'active'
+        : 'pending',
+    },
+  ];
+
   const fmtTime = (s: number) => {
     const m = Math.floor(s / 60);
     const r = s % 60;
@@ -112,6 +171,7 @@ export function VideoGeneratorPanel({
     }
 
     setLastError(null);
+    clearCurrentJob();
     setPhase('sending');
     try {
       const result = await generateVideo({
@@ -310,22 +370,50 @@ export function VideoGeneratorPanel({
           )}
         </Button>
 
-        {/* Status / Progress */}
-        {(phase === 'sending' || phase === 'processing') && (
-          <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2.5">
+        {/* Stepper — tiến độ thực tế từng bước */}
+        {phase !== 'idle' && (
+          <div className="space-y-2.5 rounded-md border border-border bg-muted/30 px-3 py-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-2 text-foreground/80">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                {phase === 'sending' ? 'Đang gửi yêu cầu…' : 'Đang render video…'}
-              </span>
+              <span className="font-medium text-foreground/80">Tiến độ tạo video</span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 {progress}% · {fmtTime(elapsed)}
               </span>
             </div>
-            <Progress value={progress} className="h-1.5" />
-            <p className="text-[10px] text-muted-foreground">
-              ETA ~{fmtTime(estimatedSeconds)}. Bạn có thể rời tab — video sẽ tự lưu vào thư viện khi xong.
-            </p>
+            <Progress value={progress} className="h-1" />
+            <ol className="space-y-1.5 pt-1">
+              {steps.map((step, idx) => {
+                const Icon =
+                  step.state === 'done' ? CheckCircle2
+                  : step.state === 'active' ? Loader2
+                  : step.state === 'error' ? AlertCircle
+                  : null;
+                const colorCls =
+                  step.state === 'done' ? 'text-emerald-600 dark:text-emerald-400'
+                  : step.state === 'active' ? 'text-primary'
+                  : step.state === 'error' ? 'text-destructive'
+                  : 'text-muted-foreground/60';
+                return (
+                  <li key={step.key} className={`flex items-center gap-2 text-xs ${colorCls}`}>
+                    {Icon ? (
+                      <Icon className={`h-3.5 w-3.5 shrink-0 ${step.state === 'active' ? 'animate-spin' : ''}`} />
+                    ) : (
+                      <span className="h-3.5 w-3.5 shrink-0 flex items-center justify-center">
+                        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-50" />
+                      </span>
+                    )}
+                    <span className="flex-1">
+                      <span className="opacity-60 mr-1.5">{idx + 1}.</span>
+                      {step.label}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+            {(phase === 'sending' || phase === 'processing') && (
+              <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/50">
+                ETA ~{fmtTime(estimatedSeconds)}. Bạn có thể rời tab — video sẽ tự lưu vào thư viện khi xong.
+              </p>
+            )}
           </div>
         )}
         {phase === 'done' && (
