@@ -144,6 +144,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Đăng bài Blogger (Google) qua OAuth',
   },
+  wordpress: {
+    name: 'WordPress',
+    icon: <Globe className="w-5 h-5" />,
+    color: 'bg-[#21759b] text-white',
+    available: true,
+    description: 'WordPress self-hosted (Application Password)',
+  },
   website: {
     name: 'Website',
     icon: <Globe className="w-5 h-5" />,
@@ -380,6 +387,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     zalo_oa: 'zalo',
     google_business: 'google-business',
     blogger: 'blogger',
+    wordpress: 'wordpress',
     website: 'website',
   };
 
