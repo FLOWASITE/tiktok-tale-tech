@@ -141,7 +141,7 @@ export function PublishVideoMenu({
                 disabled={disabled}
                 className="gap-2 text-xs cursor-pointer"
               >
-                <ChannelIcon channel={p} className="w-3.5 h-3.5" />
+                <ChannelIcon channel={p as any} className="w-3.5 h-3.5" />
                 <span className="flex-1">{PLATFORM_LABEL[p] ?? p}</span>
                 {disabled ? (
                   <Badge variant="outline" className="text-[9px] h-4 px-1">Chưa kết nối</Badge>
@@ -158,7 +158,7 @@ export function PublishVideoMenu({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              {pickedPlatform && <ChannelIcon channel={pickedPlatform} className="w-4 h-4" />}
+              {pickedPlatform && <ChannelIcon channel={pickedPlatform as any} className="w-4 h-4" />}
               Đăng video lên {pickedPlatform ? PLATFORM_LABEL[pickedPlatform] : ''}
             </DialogTitle>
           </DialogHeader>
