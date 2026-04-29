@@ -64,6 +64,12 @@ const channelConfig: Record<Channel, {
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
   },
+  blogger: { 
+    label: 'Website', 
+    icon: <Globe className="w-3 h-3" />, 
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/20',
+  },
   facebook: { 
     label: 'Facebook', 
     icon: <Facebook className="w-3 h-3" />, 

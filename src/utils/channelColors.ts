@@ -42,6 +42,11 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-blue-700',
     border: 'border-blue-600/30',
   },
+  blogger: {
+    bg: 'bg-blue-600/15',
+    text: 'text-blue-700',
+    border: 'border-blue-600/30',
+  },
   email: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-600',

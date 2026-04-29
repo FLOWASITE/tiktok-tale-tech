@@ -33,6 +33,7 @@ interface SchedulePanelProps {
 
 const channelLabels: Record<Channel, string> = {
   website: 'Website/Blog',
+  blogger: 'Website/Blog',
   facebook: 'Facebook',
   instagram: 'Instagram',
   twitter: 'X (Twitter)',

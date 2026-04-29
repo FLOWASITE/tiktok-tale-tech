@@ -48,6 +48,7 @@ interface MultiChannelFormProps {
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  blogger: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   facebook: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   instagram: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   twitter: <XIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
@@ -63,6 +64,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
 
 const channelColors: Record<Channel, string> = {
   website: 'text-blue-500',
+  blogger: 'text-blue-500',
   facebook: 'text-indigo-500',
   instagram: 'text-pink-500',
   twitter: 'text-slate-500',

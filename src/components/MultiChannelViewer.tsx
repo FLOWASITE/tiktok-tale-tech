@@ -126,6 +126,14 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-blue-500/10',
     maxLength: '800-1500 chữ'
   },
+  blogger: { 
+    label: 'Website/Blog', 
+    shortLabel: 'Web',
+    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/10',
+    maxLength: '800-1500 chữ'
+  },
   facebook: { 
     label: 'Facebook', 
     shortLabel: 'FB',

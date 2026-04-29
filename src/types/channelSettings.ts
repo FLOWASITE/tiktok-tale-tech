@@ -51,6 +51,24 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_type: 'markdown',
     format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
   },
+  blogger: {
+    min_length: 800,
+    max_length: 1500,
+    length_unit: 'words',
+    hook_required: false,
+    hook_style: 'không cần giật tít',
+    bullet_allowed: true,
+    cta_policy: 'soft',
+    emoji_allowed: false,
+    emoji_limit: 0,
+    hashtag_limit: 0,
+    hashtag_position: 'none',
+    line_break_style: 'normal',
+    link_position: 'body',
+    tone_adjustment: 'keep',
+    format_type: 'markdown',
+    format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
+  },
   facebook: {
     min_length: 250,
     max_length: 400,
@@ -379,6 +397,7 @@ export const BASE_CHANNEL_CONFIG: Record<Channel, {
   descriptionSuffix: string;
 }> = {
   website: { label: 'Website/Blog', color: 'text-blue-400', bgColor: 'bg-blue-500/10', descriptionSuffix: 'SEO optimized' },
+  blogger: { label: 'Website/Blog', color: 'text-blue-400', bgColor: 'bg-blue-500/10', descriptionSuffix: 'SEO optimized' },
   facebook: { label: 'Facebook', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', descriptionSuffix: 'hook + emoji' },
   instagram: { label: 'Instagram', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'visual-first' },
   twitter: { label: 'X (Twitter)', color: 'text-slate-400', bgColor: 'bg-slate-500/10', descriptionSuffix: '' },

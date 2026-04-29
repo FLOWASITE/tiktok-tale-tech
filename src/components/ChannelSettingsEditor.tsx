@@ -64,6 +64,7 @@ interface ChannelSettingsEditorProps {
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
+  blogger: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
@@ -139,6 +140,7 @@ function validateFooterTemplate(
         phone: { exists: !!footerInfo?.phone, label: 'Số điện thoại' },
         email: { exists: !!footerInfo?.email, label: 'Email' },
         website: { exists: !!footerInfo?.website, label: 'Website' },
+        blogger: { exists: !!footerInfo?.website, label: 'Website' },
         address: { exists: !!footerInfo?.address, label: 'Địa chỉ' },
         company: { exists: !!(companyName || footerInfo?.company_name), label: 'Tên công ty' },
       };
@@ -430,6 +432,7 @@ const CHANNEL_PRESETS = {
       linkedin: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
       email: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
       website: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
+      blogger: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
     } as ChannelOverrides,
   },
 };

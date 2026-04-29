@@ -43,6 +43,7 @@ interface MultiChannelStatsProps {
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
+  blogger: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,

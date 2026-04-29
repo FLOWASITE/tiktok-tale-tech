@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 
 const CHANNEL_CONTENT_FIELD: Partial<Record<Channel, string>> = {
   website: 'website_content',
+  blogger: 'website_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
