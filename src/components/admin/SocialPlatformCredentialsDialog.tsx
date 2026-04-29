@@ -68,6 +68,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://console.cloud.google.com/apis/credentials',
     instructions: 'Tạo OAuth 2.0 Client tại Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs',
   },
+  blogger: {
+    url: 'https://console.cloud.google.com/apis/credentials',
+    instructions: 'Tái dùng OAuth Client của Google Business hoặc tạo mới. Bật Blogger API v3 và thêm scope https://www.googleapis.com/auth/blogger',
+  },
   website: {
     url: '',
     instructions: 'Nhập URL API endpoint hoặc WordPress REST API URL và API Key/Password nếu cần xác thực',
@@ -83,6 +87,7 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
   tiktok: 'tiktok-oauth-callback',
   zalo_oa: 'zalo-oauth-callback',
   google_business: 'google-business-oauth-callback',
+  blogger: 'blogger-oauth-callback',
 };
 
 function getCallbackUrl(platform: SocialPlatform): string | null {

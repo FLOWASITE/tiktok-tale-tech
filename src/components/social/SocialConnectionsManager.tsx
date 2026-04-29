@@ -148,6 +148,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'Đăng bài Local Posts',
   },
+  blogger: {
+    name: 'Blogger',
+    icon: GlobeIcon,
+    color: 'text-[#FF8000]',
+    bgColor: 'bg-[#FF8000]/10',
+    available: true,
+    description: 'Đăng bài lên Blogger (Google)',
+  },
   website: {
     name: 'Website',
     icon: GlobeIcon,

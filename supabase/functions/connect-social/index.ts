@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 interface ConnectRequest {
-  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'website';
+  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'website';
   organizationId?: string;
   brandTemplateId?: string;
   accessToken?: string;
@@ -887,6 +887,42 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       );
     }
 
+    // For Blogger - OAuth 2.0 flow (Google), shares credentials with google_business if blogger settings missing
+    if (platform === 'blogger') {
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      let globalCreds = await getGlobalPlatformCredentials(supabase, 'blogger', encryptionKey);
+      if (!globalCreds.consumerKey) {
+        globalCreds = await getGlobalPlatformCredentials(supabase, 'google_business', encryptionKey);
+      }
+      if (!globalCreds.consumerKey) {
+        throw new Error('Blogger chưa được cấu hình. Liên hệ Admin.');
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const redirectUri = `${supabaseUrl}/functions/v1/blogger-oauth-callback`;
+      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id }));
+
+      const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + new URLSearchParams({
+        client_id: globalCreds.consumerKey,
+        redirect_uri: redirectUri,
+        scope: 'https://www.googleapis.com/auth/blogger',
+        response_type: 'code',
+        access_type: 'offline',
+        prompt: 'consent',
+        state,
+      }).toString();
+
+      return new Response(JSON.stringify({
+        success: true,
+        requiresOAuth: true,
+        oauthUrl,
+        instructions: {
+          steps: ['1. Click để đăng nhập Google', '2. Cấp quyền truy cập Blogger', '3. Chọn blog mặc định'],
+          note: 'Bạn cần có blog Blogger đã được tạo tại blogger.com.',
+        },
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // For Website - redirect to separate connect-website function
     if (platform === 'website') {
       return new Response(
@@ -911,7 +947,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'website'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
