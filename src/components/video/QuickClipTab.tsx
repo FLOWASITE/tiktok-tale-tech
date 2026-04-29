@@ -120,14 +120,57 @@ export function QuickClipTab() {
       aspect_ratio: aspect,
       resolution: '1080p',
       negative_prompt: negativePrompt.trim() || undefined,
+      // Liên kết với scene của kịch bản nếu có
+      script_id: activeScript?.id,
+      scene_number: currentScene?.sceneNumber,
     });
     if (result) {
       setActiveJobId(result.id);
     }
   };
 
+  const totalScenes = activeScript?.scenes.length ?? 0;
+  const isLastScene = activeScript ? activeSceneIndex >= totalScenes - 1 : false;
+  const isFirstScene = activeSceneIndex <= 0;
+
   return (
     <div className="space-y-6">
+      {/* Scene navigator — chỉ hiện khi có activeScript */}
+      {activeScript && currentScene && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-foreground/[0.03] border border-border/60">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActiveSceneIndex(activeSceneIndex - 1)}
+            disabled={isFirstScene}
+            className="h-8 w-8 p-0 shrink-0"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <Clapperboard className="w-3.5 h-3.5 text-foreground/60 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Scene {currentScene.sceneNumber} / {totalScenes}
+                {completedSceneIds[currentScene.sceneNumber] && (
+                  <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 normal-case tracking-normal">· đã quay</span>
+                )}
+              </p>
+              <p className="text-xs text-foreground truncate">{currentScene.prompt.slice(0, 110)}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setActiveSceneIndex(activeSceneIndex + 1)}
+            disabled={isLastScene}
+            className="h-8 w-8 p-0 shrink-0"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Header strip */}
       <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
         <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
@@ -136,10 +179,13 @@ export function QuickClipTab() {
         <div className="flex-1">
           <p className="text-sm font-medium text-foreground">Quick Clip</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.
+            {activeScript
+              ? 'Prompt đã tự nạp từ scene của kịch bản. Bạn vẫn có thể chỉnh trước khi quay.'
+              : 'Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.'}
           </p>
         </div>
       </div>
+
 
       {/* Prompt */}
       <div className="space-y-2">
