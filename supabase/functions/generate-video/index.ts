@@ -19,6 +19,7 @@ import {
   POYO_VIDEO_MODELS,
   type PoyoVideoModel,
 } from "../_shared/poyo-video-generator.ts";
+import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,6 +96,15 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
+
+    // ───────── QUOTA CHECK (Pricing v2 — unit "video") ─────────
+    if (orgRow?.organization_id) {
+      const quota = await checkUnitQuota(supabase, orgRow.organization_id, 'video', 1);
+      if (!quota.allowed) {
+        console.warn(`[generate-video] quota exceeded org=${orgRow.organization_id}`);
+        return buildQuotaExceededResponse(quota, corsHeaders);
+      }
+    }
 
     // ───────── ADMIN-CONTROLLED MODEL RESOLUTION ─────────
     // Priority cascade (matches mem://ai-system/model-selection-priority-vn):

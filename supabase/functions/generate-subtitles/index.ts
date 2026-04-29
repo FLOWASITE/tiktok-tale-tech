@@ -2,6 +2,7 @@
 // Input: audio_url (or video_url - will try to extract audio inline)
 // Output: SRT + VTT, persisted as audio_assets row
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,8 +29,27 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const mediaUrl: string = body.media_url;
     const language: string = body.language ?? "vie"; // ISO 639-3
-    const organizationId: string | undefined = body.organization_id;
+    let organizationId: string | null = body.organization_id ?? null;
     if (!mediaUrl) return json({ error: "media_url required" }, 400);
+
+    if (!organizationId) {
+      const { data: orgRow } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      organizationId = orgRow?.organization_id ?? null;
+    }
+
+    if (organizationId) {
+      const quota = await checkUnitQuota(supabase, organizationId, 'content', 1);
+      if (!quota.allowed) {
+        console.warn(`[subtitles] quota exceeded org=${organizationId}`);
+        return buildQuotaExceededResponse(quota, corsHeaders);
+      }
+    }
 
     // Download media
     const mediaRes = await fetch(mediaUrl);
@@ -69,7 +89,7 @@ Deno.serve(async (req) => {
       .from("audio_assets")
       .insert({
         user_id: user.id,
-        organization_id: organizationId ?? null,
+        organization_id: organizationId,
         asset_type: "subtitle",
         source_text: result.text,
         language,

@@ -1,6 +1,7 @@
 // Voiceover TTS via ElevenLabs - returns persisted audio_assets row + public URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,10 +37,31 @@ Deno.serve(async (req) => {
     const text: string = (body.text ?? "").toString().trim();
     const voiceId: string = body.voice_id ?? DEFAULT_VOICE_ID;
     const language: string = body.language ?? "vi";
-    const organizationId: string | undefined = body.organization_id;
+    let organizationId: string | null = body.organization_id ?? null;
 
     if (!text || text.length < 2) return json({ error: "text too short" }, 400);
     if (text.length > 5000) return json({ error: "text > 5000 chars" }, 400);
+
+    // Resolve org_id if not provided
+    if (!organizationId) {
+      const { data: orgRow } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      organizationId = orgRow?.organization_id ?? null;
+    }
+
+    // Quota check (audio asset = 1 unit "content")
+    if (organizationId) {
+      const quota = await checkUnitQuota(supabase, organizationId, 'content', 1);
+      if (!quota.allowed) {
+        console.warn(`[voiceover] quota exceeded org=${organizationId}`);
+        return buildQuotaExceededResponse(quota, corsHeaders);
+      }
+    }
 
     // ElevenLabs TTS
     const ttsRes = await fetch(
@@ -87,7 +109,7 @@ Deno.serve(async (req) => {
       .from("audio_assets")
       .insert({
         user_id: user.id,
-        organization_id: organizationId ?? null,
+        organization_id: organizationId,
         asset_type: "voiceover",
         source_text: text,
         voice_id: voiceId,

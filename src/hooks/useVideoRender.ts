@@ -88,8 +88,25 @@ export function useVideoRender() {
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('render-video-creatomate', { body: req });
-      if (error) throw error;
-      if (data?.error) { toast.error(data.error); return null; }
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('402') || msg.includes('QUOTA')) {
+          toast.error('Đã hết hạn mức Video. Vui lòng nâng cấp gói.');
+        } else if (msg.includes('429')) {
+          toast.error('Quá tải provider. Thử lại sau ít phút.');
+        } else {
+          throw error;
+        }
+        return null;
+      }
+      if (data?.error) {
+        if (data.code === 'QUOTA_EXCEEDED') {
+          toast.error(data.error);
+        } else {
+          toast.error(data.error);
+        }
+        return null;
+      }
       const job = data.render_job as VideoRenderJob;
       setJobs((prev) => [job, ...prev]);
       toast.info('Video đang được ghép — sẽ thông báo khi xong (1-3 phút).');

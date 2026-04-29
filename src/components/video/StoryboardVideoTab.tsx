@@ -1,22 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X, AlertTriangle } from 'lucide-react';
+import { Film, Loader2, Play, Music4, Mic, Type, Sparkles, X, AlertTriangle, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { useAudioStudio } from '@/hooks/useAudioStudio';
 import { useVideoRender } from '@/hooks/useVideoRender';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
 }
 
 export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
-  const { generations, fetchGenerations } = useVideoGeneration();
+  const { generations, fetchGenerations, generateVideo, generating } = useVideoGeneration();
   const { assets, fetchAssets } = useAudioStudio();
   const { jobs, submitting, submitRender } = useVideoRender();
   const { activeScript } = useScriptToVideo();
@@ -29,6 +31,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const [burnSubs, setBurnSubs] = useState(true);
   const [aspect, setAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
   const [showAllClips, setShowAllClips] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; currentScene?: number }>({ done: 0, total: 0 });
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
@@ -83,6 +87,68 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
     setSelectedClips(ids);
   };
 
+  // ============= AUTO-BATCH: Quay tự động tất cả scene chưa có =============
+  const runBatchGenerate = async () => {
+    if (!activeScript) return;
+    const existingScenes = new Set(
+      allCompletedClips
+        .filter((g) => g.script_id === activeScript.id)
+        .map((g) => g.scene_number)
+        .filter(Boolean) as number[],
+    );
+    // Cũng skip những scene đang processing để không double-submit
+    const inFlightScenes = new Set(
+      generations
+        .filter((g) => g.script_id === activeScript.id && (g.status === 'pending' || g.status === 'processing'))
+        .map((g) => g.scene_number)
+        .filter(Boolean) as number[],
+    );
+    const todo = activeScript.scenes.filter(
+      (s) => !existingScenes.has(s.sceneNumber) && !inFlightScenes.has(s.sceneNumber),
+    );
+    if (todo.length === 0) {
+      toast.info('Tất cả scene đã có clip rồi.');
+      return;
+    }
+
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: todo.length });
+    let success = 0;
+    let failed = 0;
+
+    for (let i = 0; i < todo.length; i++) {
+      const scene = todo[i];
+      setBatchProgress({ done: i, total: todo.length, currentScene: scene.sceneNumber });
+      try {
+        const res = await generateVideo({
+          provider: 'geminigen',
+          prompt: scene.prompt,
+          duration: Math.max(3, Math.min(scene.duration ?? 5, 10)),
+          aspect_ratio: scene.aspect ?? aspect,
+          resolution: '1080p',
+          script_id: activeScript.id,
+          scene_number: scene.sceneNumber,
+        });
+        if (res) success += 1; else failed += 1;
+      } catch (e) {
+        console.error('[batch] scene', scene.sceneNumber, e);
+        failed += 1;
+      }
+      // Nhỏ delay để tránh rate-limit provider
+      await new Promise((r) => setTimeout(r, 800));
+    }
+
+    setBatchProgress({ done: todo.length, total: todo.length });
+    setBatchRunning(false);
+    if (failed === 0) {
+      toast.success(`Đã submit ${success}/${todo.length} scene. Theo dõi tiến độ ở đây hoặc tab Thư viện.`);
+    } else {
+      toast.warning(`Hoàn tất với ${success} thành công, ${failed} lỗi. Hãy thử lại các scene lỗi ở Quick Clip.`);
+    }
+    // Trigger refetch để hiện clip mới
+    fetchGenerations();
+  };
+
   const orderedUrls = selectedClips
     .map((id) => completedClips.find((c) => c.id === id)?.video_url)
     .filter(Boolean) as string[];
@@ -132,24 +198,41 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
             </div>
           </div>
           {!showAllClips && missingScenes > 0 && (
-            <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div className="flex-1 text-[11px]">
-                <p className="text-foreground">
-                  Còn <strong>{missingScenes}/{totalScenes}</strong> scene chưa quay.
-                </p>
-                {onJumpToTab && (
-                  <button
-                    onClick={() => onJumpToTab('quick')}
-                    className="text-amber-700 dark:text-amber-300 underline hover:no-underline"
-                  >
-                    → Quay nốt ở Quick Clip
-                  </button>
-                )}
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1 text-[11px]">
+                  <p className="text-foreground">
+                    Còn <strong>{missingScenes}/{totalScenes}</strong> scene chưa quay.
+                  </p>
+                  {onJumpToTab && (
+                    <button
+                      onClick={() => onJumpToTab('quick')}
+                      className="text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                    >
+                      → Quay từng scene ở Quick Clip
+                    </button>
+                  )}
+                </div>
               </div>
+              <Button
+                size="sm"
+                onClick={runBatchGenerate}
+                disabled={batchRunning || generating}
+                className="h-8 text-[11px] w-full gap-1.5"
+              >
+                {batchRunning ? (
+                  <><Loader2 className="w-3 h-3 animate-spin" />Đang quay scene {batchProgress.currentScene} ({batchProgress.done}/{batchProgress.total})…</>
+                ) : (
+                  <><Wand2 className="w-3 h-3" />Quay tự động {missingScenes} scene còn lại</>
+                )}
+              </Button>
+              {batchRunning && (
+                <Progress value={(batchProgress.done / Math.max(1, batchProgress.total)) * 100} className="h-1" />
+              )}
             </div>
           )}
-          {!showAllClips && (
+          {!showAllClips && missingScenes === 0 && (
             <Button size="sm" variant="outline" onClick={selectAllByScene} className="h-7 text-[11px] w-full">
               Chọn tất cả theo đúng thứ tự kịch bản
             </Button>
