@@ -124,7 +124,7 @@ export default function PlanLimitsManager() {
   const [confirmPlan, setConfirmPlan] = useState<PlanLimit | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isSavingAll, setIsSavingAll] = useState(false);
-  const [showLegacy, setShowLegacy] = useState(false);
+  
 
   const plansQuery = useQuery({
     queryKey: ["admin_plan_limits"],
