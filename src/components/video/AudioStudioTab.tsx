@@ -154,7 +154,14 @@ export function AudioStudioTab() {
         {/* Subtitle */}
         <TabsContent value="subtitle" className="space-y-3">
           <div className="space-y-2">
-            <Label className="text-xs">URL video / audio</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">URL video / audio</Label>
+              {latestScriptClip && (
+                <Button size="sm" variant="ghost" onClick={fillSubtitleFromLatestClip} className="h-6 gap-1 text-[10px]">
+                  <FileText className="w-3 h-3" />Dùng clip mới nhất của kịch bản
+                </Button>
+              )}
+            </div>
             <Input value={subUrl} onChange={(e) => setSubUrl(e.target.value)}
               placeholder="https://...mp4 (từ Thư viện video)" />
             <p className="text-[10px] text-muted-foreground">
