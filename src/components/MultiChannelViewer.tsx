@@ -1767,7 +1767,7 @@ export function MultiChannelViewer({
                                   contentId={content.id}
                                   pinId={(content as any).pinterest_post_id}
                                   pinUrl={(content as any).pinterest_post_url}
-                                  organizationId={content.organization_id}
+                                  organizationId={(content as any).organization_id}
                                 />
                               )}
                               
