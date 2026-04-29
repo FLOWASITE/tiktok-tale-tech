@@ -4233,7 +4233,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
-        pinterest: "Pinterest Pin DESCRIPTION (≤500 ký tự, SEO-friendly, keyword-rich, action-oriented, kết thúc bằng CTA. Tối đa 3-5 hashtag tự nhiên).",
+        pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine). Long-tail keyword tự nhiên, mô tả lợi ích/hướng dẫn (how-to, listicle, idea), kết thúc CTA mềm 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. 2-5 hashtag tự nhiên cuối. Ảnh đi kèm vertical 2:3.",
       };
       
       for (const channel of channels) {
