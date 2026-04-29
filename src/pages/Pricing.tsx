@@ -667,10 +667,9 @@ export default function Pricing() {
             if (!plan) return undefined;
             return [
               { label: "Thương hiệu", value: plan.limits.brands },
-              { label: "Bài đa kênh/tháng", value: plan.limits.multichannel },
+              { label: "Nội dung/tháng", value: plan.limits.content },
               { label: "Ảnh AI/tháng", value: plan.limits.images },
-              { label: "Scripts/tháng", value: plan.limits.scripts },
-              { label: "Carousels/tháng", value: plan.limits.carousels },
+              { label: "Video/tháng", value: plan.limits.videos },
             ];
           })()}
           yearlyDiscount={isYearly ? (() => {
