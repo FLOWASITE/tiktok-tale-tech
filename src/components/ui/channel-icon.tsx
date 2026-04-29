@@ -102,5 +102,6 @@ export const channelIconColors: Record<Channel, string> = {
   google_maps: 'text-[#4285F4]',
   zalo_oa: 'text-[#0068FF]',
   website: 'text-muted-foreground',
+  blogger: 'text-[#F57C00]',
   email: 'text-muted-foreground',
 };
