@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, Image as ImageIcon, Video, AlertTriangle } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import type { SubRow } from "./subscription-types";
+import { usageTone, usageBarClass, formatLimit } from "@/lib/plan-format";
+import { cn } from "@/lib/utils";
 
 interface SubscriptionDetailDrawerProps {
   sub: SubRow | null;
@@ -42,6 +44,32 @@ export default function SubscriptionDetailDrawer({ sub, open, onClose }: Subscri
         .limit(10);
       if (error) throw error;
       return data || [];
+    },
+    enabled: open && !!sub?.organization_id,
+  });
+
+  // Pricing v2 — current usage units
+  const usageQuery = useQuery({
+    queryKey: ["admin_sub_usage_v2", sub?.organization_id, sub?.plan_type],
+    queryFn: async () => {
+      if (!sub?.organization_id) return null;
+      const [usageRes, planRes] = await Promise.all([
+        supabase.rpc("get_org_usage_units_batch", { _org_id: sub.organization_id }),
+        supabase
+          .from("plan_limits")
+          .select("monthly_content_units, monthly_image_units, monthly_video_units")
+          .eq("plan_type", sub.plan_type as any)
+          .maybeSingle(),
+      ]);
+      const usage = (usageRes.data as any) || { content: 0, image: 0, video: 0 };
+      const limit = planRes.data || { monthly_content_units: 0, monthly_image_units: 0, monthly_video_units: 0 };
+      return {
+        items: [
+          { key: "content", label: "Nội dung", icon: FileText, used: usage.content || 0, limit: limit.monthly_content_units || 0 },
+          { key: "image", label: "Ảnh AI", icon: ImageIcon, used: usage.image || 0, limit: limit.monthly_image_units || 0 },
+          { key: "video", label: "Video", icon: Video, used: usage.video || 0, limit: limit.monthly_video_units || 0 },
+        ],
+      };
     },
     enabled: open && !!sub?.organization_id,
   });
@@ -88,6 +116,53 @@ export default function SubscriptionDetailDrawer({ sub, open, onClose }: Subscri
                 />
               )}
               <InfoRow label="Ngày tạo" value={sub.created_at ? format(new Date(sub.created_at), "dd/MM/yyyy HH:mm") : "—"} />
+            </div>
+
+            {/* Pricing v2 — Usage chu kỳ hiện tại */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Usage chu kỳ hiện tại</h4>
+              {usageQuery.isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : usageQuery.data ? (
+                <div className="space-y-3">
+                  {usageQuery.data.items.map((it) => {
+                    const Icon = it.icon;
+                    const isUnlimited = it.limit === -1;
+                    const ratio = isUnlimited ? 0 : it.limit > 0 ? Math.min(it.used / it.limit, 1.5) : 0;
+                    const tone = usageTone(ratio);
+                    const pct = Math.round(ratio * 100);
+                    const danger = !isUnlimited && it.limit > 0 && ratio >= 0.8;
+                    return (
+                      <div key={it.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-1.5">
+                            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                            {it.label}
+                            {danger && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            {it.used} / {formatLimit(it.limit)}
+                            {!isUnlimited && it.limit > 0 && (
+                              <span className="text-xs text-muted-foreground ml-1">({pct}%)</span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn("h-full transition-all", usageBarClass(tone))}
+                            style={{ width: isUnlimited ? "100%" : `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <p className="text-[11px] text-muted-foreground/80 pt-1">
+                    Nội dung = scripts + carousels + multichannel + video script
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Không có dữ liệu usage</p>
+              )}
             </div>
 
             {/* Extra metadata */}

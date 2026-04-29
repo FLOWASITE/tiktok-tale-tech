@@ -1,69 +1,82 @@
-# Bổ sung Báo cáo Gói đăng ký — Breakdown theo Brand & User
+## Hoàn thiện Trang Quản lý Gói (`/admin/plans`)
 
-Thêm 2 panel mới vào tab **Gói đăng ký** (`SubscriptionReportTab`) cho phép xem brand nào và thành viên nào tiêu thụ quota nhiều nhất trong chu kỳ hiện tại.
+Trang `AdminPlans.tsx` đã có 6 tab nhưng còn thiếu polish & chưa khớp 100% với Pricing v2 (3 đơn vị Nội dung/Ảnh/Video). Plan này tập trung **hoàn thiện phần admin** (không động vào user-facing đã làm xong).
 
-## Phạm vi
+### Mục tiêu
+1. **PlanLimitsManager**: Sắp xếp lại UI để Pricing v2 (3 units) làm trọng tâm, ẩn legacy fields vào "Nâng cao".
+2. **RevenueStats**: Bổ sung KPI quota usage (sum units consumed/tier, average % quota fill) — cho admin biết tier nào "hết quota nhanh".
+3. **SubscriptionDetailDrawer**: Thêm panel **Usage hiện tại** (3 units progress) + diff so với plan limit.
+4. **AdminPlans page**: Thêm header KPI strip (tổng MRR + workspace + quota burn rate) hiển thị xuyên suốt mọi tab.
 
-- Áp dụng cho 4 loại quota: Scripts, Carousels, Đa kênh, Ảnh AI
-- Khoảng thời gian: chu kỳ subscription hiện tại (tái dùng `currentPeriod` từ `useSubscription`)
-- Không cần export
+---
 
-## Thay đổi kỹ thuật
+### 1. PlanLimitsManager — Tách "Hạn mức v2" vs "Legacy"
 
-### 1. Mở rộng `useSubscriptionReport.ts`
-
-Thêm 2 query mới chạy song song với `dailyQuery`:
-
-**Brand breakdown** — group theo `brand_template_id`:
-- Query `scripts`, `carousels`, `multi_channel_contents` (lọc `organization_id` + period)
-- Với ảnh: lấy `content_id` từ `multi_channel_contents` rồi join `channel_image_history` (chunk 100 như hiện tại) để map ngược về brand
-- Lookup tên brand qua `brand_templates` (1 query batch theo `id IN (...)`)
-- Output: `Array<{ brandId, brandName, scripts, carousels, multichannel, images, total }>`
-
-**User breakdown** — group theo `user_id` / `created_by`:
-- 3 bảng content dùng `user_id`, `channel_image_history` dùng `created_by`
-- Lookup tên user qua `profiles` (`id, full_name, email, avatar_url`) batch
-- Output: `Array<{ userId, fullName, email, avatarUrl, scripts, carousels, multichannel, images, total }>`
-
-Cả hai đều sort theo `total` desc, hiển thị top 10.
-
-### 2. Component UI mới
-
-Thêm 2 Card vào `SubscriptionReportTab.tsx`, đặt sau "Top kênh tiêu thụ Ảnh AI" và trước "Addon đang hoạt động":
+Hiện tại 7 limit fields trộn lẫn trong 1 group "Hạn mức". Sửa thành 2 nhóm:
 
 ```text
-┌─────────────────────────────────┬─────────────────────────────────┐
-│ Tiêu thụ theo Brand             │ Tiêu thụ theo Thành viên        │
-│ ┌──────────────────────────────┐│ ┌──────────────────────────────┐│
-│ │ Brand A    ▓▓▓▓▓▓▓▓▓░  142  ││ │ ◯ Nguyễn Văn A ▓▓▓▓▓▓░  87  ││
-│ │ Brand B    ▓▓▓▓▓▓░░░░   78  ││ │ ◯ Trần Thị B   ▓▓▓▓░░░  52  ││
-│ │ Brand C    ▓▓▓░░░░░░░   31  ││ │ ◯ Lê Văn C     ▓▓░░░░░  18  ││
-│ └──────────────────────────────┘│ └──────────────────────────────┘│
-└─────────────────────────────────┴─────────────────────────────────┘
+┌─ Pricing v2 (đơn vị output) ────────────────┐
+│  Nội dung units │ Ảnh units │ Video units   │
+└──────────────────────────────────────────────┘
+┌─ Legacy / Phụ trợ (collapse mặc định) ──────┐
+│  Brands │ Scripts │ Carousels │ Đa kênh │   │
+│  Ảnh raw │ AI Edits                          │
+└──────────────────────────────────────────────┘
 ```
 
-Mỗi dòng:
-- Tên (brand hoặc user + avatar)
-- Thanh progress bar (% so với top 1)
-- Tổng tiêu thụ + tooltip breakdown 4 loại (scripts/carousels/đa kênh/ảnh)
+- Group v2 hiển thị inline với badge **v2** primary color
+- Group legacy có toggle `<Collapsible>` "Hiển thị fields phụ trợ" (mặc định ẩn)
+- Nút **"Đề xuất giá"** đã có, giữ nguyên logic (tính từ 3 units × cost × markup 2.5x)
 
-Layout: `grid grid-cols-1 lg:grid-cols-2 gap-3`. Empty state khi không có data.
+### 2. RevenueStats — Thêm Quota KPI
 
-### 3. Tooltip chi tiết
+Thêm 2 card KPI mới + 1 chart mới sau pie chart:
 
-Hover vào 1 dòng → tooltip hiển thị 4 con số cụ thể:
-- Scripts: X
-- Carousels: Y
-- Đa kênh: Z
-- Ảnh AI: W
+- **Card "Quota tiêu thụ TB"**: Trung bình % units đã dùng của tất cả workspaces active (gọi `get_org_usage_units_batch` cho top 100 active subs, average ratio)
+- **Card "Workspace cần upgrade"**: Số workspace có ≥1 unit ≥80% (có thể click → filter tab Subscriptions)
+- **Bar chart "Tiêu thụ units theo tier"**: 4 tier × 3 units (stacked bar) — show absolute units consumed cycle hiện tại
 
-## Files
+### 3. SubscriptionDetailDrawer — Panel Usage v2
 
-- **Updated**: `src/hooks/reports/useSubscriptionReport.ts` (thêm 2 queries + types `BrandUsageRow`, `UserUsageRow`)
-- **Updated**: `src/components/reports/SubscriptionReportTab.tsx` (thêm 2 Card breakdown)
+Thêm section **"Usage chu kỳ hiện tại"** sau "Chu kỳ":
 
-## Lưu ý
+```text
+Nội dung   ███████░░░  142/200  (71%)
+Ảnh AI     ██████████  198/200  ⚠ Sắp hết
+Video      ░░░░░░░░░░  0/10     (0%)
+```
 
-- Tái dùng pattern chunk 100 ids đã có cho ảnh để tránh URL length limit
-- Chỉ count rows, không cần aggregate phức tạp ở DB → giữ ở client như phần daily series
-- Không thay đổi DB schema, không cần migration
+- Query `get_org_usage_units_batch(organization_id)` + plan limits
+- Progress bar màu tự động: <50% xanh, 50-80% vàng, >80% đỏ
+- Tooltip breakdown: Nội dung = scripts + carousels + multichannel + video script
+
+### 4. AdminPlans — Header KPI strip
+
+Thêm strip 4 KPI cards trên cùng (trên Tabs):
+- Tổng workspace active
+- MRR ước tính (VNĐ)
+- ARPU
+- Burn rate quota TB (% units đã dùng / chu kỳ)
+
+Hiện tại các tabs tự tính riêng → tách shared hook `useAdminPlanStats()` để tránh duplicate query.
+
+---
+
+### Files cần sửa
+
+- **Updated** `src/components/admin/plans/PlanLimitsManager.tsx` — tách v2/legacy groups + Collapsible
+- **Updated** `src/components/admin/plans/RevenueStats.tsx` — thêm 2 KPI + bar chart units/tier
+- **Updated** `src/components/admin/plans/SubscriptionDetailDrawer.tsx` — thêm panel Usage v2
+- **Updated** `src/pages/AdminPlans.tsx` — thêm header KPI strip
+- **Created** `src/hooks/admin/useAdminPlanStats.ts` — shared stats hook
+
+### Kỹ thuật
+
+- **Query batch**: dùng RPC `get_org_usage_units_batch(org_id)` đã có sẵn → không cần migration
+- **Performance**: limit query usage chỉ top 100 active subs để tránh N+1 (hoặc dùng SQL aggregate)
+- **Re-use**: `formatVND`, `formatLimit` đã có trong PlanLimitsManager → export ra `lib/plan-format.ts`
+
+### Không thuộc phạm vi
+- Không sửa user-facing (`Pricing.tsx`, `UsageQuotaWidget`, `UpgradePlanDialog`) — đã làm xong v2
+- Không sửa schema DB / migrations — dùng RPC sẵn có
+- Không animate/redesign Subscription table (đã ổn)
