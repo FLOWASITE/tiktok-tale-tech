@@ -116,24 +116,54 @@ export function QuickClipTab() {
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="VD: Cô gái cười dịu dàng trong vườn hoa hồng, ánh sáng ban mai, máy quay slow-motion zoom vào khuôn mặt..."
           className="min-h-[100px] resize-none text-sm"
-          disabled={generating}
+          disabled={generating || enhancing}
         />
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          <span className="text-[10px] text-muted-foreground mr-1 self-center">Gợi ý nhanh:</span>
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSmartPrompt}
+            disabled={generating || enhancing || prompt.trim().length < 5}
+            className="h-7 text-[11px] gap-1.5"
+          >
+            {enhancing ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Wand2 className="w-3 h-3" />
+            )}
+            Smart Prompt {currentBrand ? `· ${currentBrand.name}` : ''}
+          </Button>
+          <span className="text-[10px] text-muted-foreground mx-1 self-center">·</span>
+          <span className="text-[10px] text-muted-foreground mr-1 self-center">Mẫu:</span>
           {EXAMPLE_PROMPTS.map((p, i) => (
             <button
               key={i}
               type="button"
               onClick={() => setPrompt(p)}
-              disabled={generating}
+              disabled={generating || enhancing}
               className="text-[10px] px-2 py-1 rounded-md bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors border border-border/30"
             >
               <Sparkles className="w-2.5 h-2.5 inline mr-1" />
-              Mẫu {i + 1}
+              {i + 1}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Negative prompt (optional) */}
+      <div className="space-y-2">
+        <Label htmlFor="video-neg-prompt" className="text-xs font-medium text-muted-foreground">
+          Negative prompt <span className="text-[10px]">(tùy chọn — điều cần tránh)</span>
+        </Label>
+        <Textarea
+          id="video-neg-prompt"
+          value={negativePrompt}
+          onChange={(e) => setNegativePrompt(e.target.value)}
+          placeholder="VD: low quality, blurry, distorted faces, watermark..."
+          className="min-h-[50px] resize-none text-xs font-mono"
+          disabled={generating || enhancing}
+        />
 
       {/* Aspect ratio */}
       <div className="space-y-2">
