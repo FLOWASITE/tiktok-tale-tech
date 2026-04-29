@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
-export type QuotaKey = 'scripts' | 'carousels' | 'multichannel' | 'images';
+export type QuotaKey = 'scripts' | 'carousels' | 'multichannel' | 'images' | 'content_units' | 'image_units' | 'video_units';
 export type QuotaStatus = 'unlimited' | 'ok' | 'warning' | 'critical' | 'exhausted';
 
 export interface QuotaItem {
