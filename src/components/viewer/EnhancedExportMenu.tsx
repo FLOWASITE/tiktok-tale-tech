@@ -39,6 +39,7 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
     case 'telegram': return content.telegram_content;
     case 'tiktok': return content.tiktok_content;
     case 'threads': return content.threads_content;
+    case 'pinterest': return content.pinterest_content;
     default: return null;
   }
 }
