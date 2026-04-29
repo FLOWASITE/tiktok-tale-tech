@@ -43,7 +43,7 @@ const CHANNEL_ICONS: Record<Channel, React.ReactNode> = {
 };
 
 const ALL_CHANNEL_VALUES: Channel[] = [
-  'website', 'facebook', 'instagram', 'twitter', 'linkedin', 
+  'website', 'blogger', 'facebook', 'instagram', 'twitter', 'linkedin',
   'youtube', 'email', 'google_maps', 'zalo_oa', 'telegram', 'tiktok', 'threads'
 ];
 
