@@ -33,7 +33,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email';
+type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'pinterest';
 
 const VISIBLE_CHANNELS: ChannelType[] = ['facebook', 'linkedin', 'instagram', 'tiktok', 'email'];
 
@@ -41,6 +41,7 @@ const CHANNEL_LABELS: Record<ChannelType, string> = {
   facebook: 'Facebook',
   linkedin: 'LinkedIn',
   instagram: 'Instagram',
+  pinterest: 'Instagram',
   tiktok: 'TikTok',
   email: 'Email',
 };
@@ -49,6 +50,7 @@ const CHANNEL_ICONS: Record<ChannelType, React.ReactNode> = {
   facebook: <Facebook className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
+  pinterest: <Instagram className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   email: <Mail className="w-4 h-4" />,
 };

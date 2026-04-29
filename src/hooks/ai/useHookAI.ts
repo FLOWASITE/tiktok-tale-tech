@@ -93,6 +93,7 @@ export interface UseHookAIOptions {
 export const CHANNEL_HOOK_TYPES: Record<Channel, string[]> = {
   facebook: ['Câu hỏi gợi mở', 'Thống kê gây sốc', 'Tuyên bố táo bạo', 'Kể chuyện'],
   instagram: ['Hook ngắn + emoji', 'Câu hỏi tò mò', 'Số liệu ấn tượng', 'Quote truyền cảm hứng'],
+  pinterest: ['Hook ngắn + emoji', 'Câu hỏi tò mò', 'Số liệu ấn tượng', 'Quote truyền cảm hứng'],
   linkedin: ['Professional insight', 'Bài học kinh doanh', 'Xu hướng ngành', 'Case study mở đầu'],
   twitter: ['Hot take', 'Thread opener', 'Controversial opinion', 'Breaking news style'],
   tiktok: ['Stop scrolling hook', 'Trend reference', 'POV opener', 'Secret reveal'],

@@ -357,6 +357,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   telegram: 'telegram_content',
   tiktok: 'tiktok_content',
   threads: 'threads_content',
+  pinterest: 'pinterest_content',
 };
 
 // Normalize channel aliases to canonical names used in DB columns
@@ -567,6 +568,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'telegram_content',
   'tiktok_content',
   'threads_content',
+  'pinterest_content',
+  'pinterest_title',
   'created_at',
   'updated_at',
 ]);
@@ -1861,6 +1864,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         telegram: { min: 50, max: 120, unit: "từ" },
         tiktok: { min: 20, max: 60, unit: "từ" },
         threads: { min: 30, max: 100, unit: "từ" },
+        pinterest: { min: 30, max: 80, unit: "từ" },
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
@@ -1876,6 +1880,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         telegram: "Telegram",
         tiktok: "TikTok",
         threads: "Threads",
+        pinterest: "Pinterest",
       };
 
       const channelLabel = PREVIEW_CHANNEL_LABELS[previewChannel] || previewChannel;
@@ -3566,7 +3571,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               const dedupWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
               const { data: existingContent } = await supabase
                 .from('multi_channel_contents')
-                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
+                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
                 .eq('user_id', userId)
                 .eq('topic', formData.topic)
                 .gte('created_at', dedupWindow)
@@ -3644,6 +3649,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   telegram_content: channelResults.telegram || null,
                   tiktok_content: channelResults.tiktok || null,
                   threads_content: channelResults.threads || null,
+                  pinterest_content: channelResults.pinterest || null,
+                  pinterest_title: channelResults.pinterest_title || null,
                 }))
                 .select()
                 .single();
@@ -4044,6 +4051,7 @@ const channelDescriptions: Record<string, string> = {
       telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
+      pinterest: "Pinterest Pin DESCRIPTION (≤500 ký tự, SEO-friendly, keyword-rich, action-oriented, kết thúc bằng CTA dạng 'Save for later' hoặc 'Click để xem thêm'). KHÔNG hashtag spam, tối đa 3-5 hashtag tự nhiên.",
     };
 
     formData.channels.forEach(channel => {
@@ -4225,6 +4233,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
+        pinterest: "Pinterest Pin DESCRIPTION (≤500 ký tự, SEO-friendly, keyword-rich, action-oriented, kết thúc bằng CTA. Tối đa 3-5 hashtag tự nhiên).",
       };
       
       for (const channel of channels) {
@@ -4235,6 +4244,13 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             type: "string",
             description: channelDescs[channel],
           };
+          // Pinterest also needs a separate title field (≤100 chars, SEO-optimized)
+          if (channel === 'pinterest') {
+            channelProps['pinterest_title'] = {
+              type: "string",
+              description: "Pinterest Pin TITLE (≤100 ký tự, chứa keyword chính, hấp dẫn click, không clickbait. Format: '[Benefit/Number] + [Keyword] + [Audience/Year]'. Ví dụ: '7 mẹo SEO Pinterest 2026 cho doanh nghiệp nhỏ'.",
+            };
+          }
         }
       }
       
@@ -5642,6 +5658,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           telegram_content: (generatedData.telegram_content && generatedData.telegram_content.length > 0) ? generatedData.telegram_content : null,
           tiktok_content: (generatedData.tiktok_content && generatedData.tiktok_content.length > 0) ? generatedData.tiktok_content : null,
           threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
+          pinterest_content: (generatedData.pinterest_content && generatedData.pinterest_content.length > 0) ? generatedData.pinterest_content : null,
+          pinterest_title: (generatedData.pinterest_title && generatedData.pinterest_title.length > 0) ? generatedData.pinterest_title : null,
         }))
         .select()
         .single();

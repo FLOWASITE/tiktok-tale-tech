@@ -17,6 +17,7 @@ interface ImageChannelPickerProps {
 const CHANNEL_META: Record<Channel, { icon: React.ReactNode; label: string }> = {
   facebook: { icon: <Facebook className="w-3.5 h-3.5" />, label: 'FB' },
   instagram: { icon: <Instagram className="w-3.5 h-3.5" />, label: 'IG' },
+  pinterest: { icon: <Instagram className="w-3.5 h-3.5" />, label: 'IG' },
   linkedin: { icon: <Linkedin className="w-3.5 h-3.5" />, label: 'LI' },
   twitter: { icon: <XIcon className="w-3.5 h-3.5" />, label: 'X' },
   website: { icon: <Globe className="w-3.5 h-3.5" />, label: 'Web' },

@@ -45,6 +45,7 @@ const ANGLE_LABELS: Record<string, string> = {
 const CHANNEL_LAYOUT_LABELS: Partial<Record<Channel, string>> = {
   tiktok: 'Vertical storytelling',
   instagram: 'Visual-first, text tối thiểu',
+  pinterest: 'Visual-first, text tối thiểu',
   youtube: 'Thumbnail style',
   linkedin: 'Professional layout',
   email: 'Hero banner',

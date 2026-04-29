@@ -158,6 +158,14 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-pink-500/10',
     maxLength: '50-150 chữ'
   },
+  pinterest: { 
+    label: 'Instagram', 
+    shortLabel: 'IG',
+    icon: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    color: 'text-pink-400',
+    bgColor: 'bg-pink-500/10',
+    maxLength: '50-150 chữ'
+  },
   twitter: { 
     label: 'X (Twitter)', 
     shortLabel: 'X',

@@ -45,6 +45,12 @@ const CHANNEL_CONFIG: Record<ChannelType, { label: string; icon: React.ReactNode
     color: 'text-pink-600',
     bgColor: 'bg-gradient-to-r from-purple-500/10 to-pink-500/10'
   },
+  pinterest: { 
+    label: 'Instagram', 
+    icon: <Instagram className="w-4 h-4" />, 
+    color: 'text-pink-600',
+    bgColor: 'bg-gradient-to-r from-purple-500/10 to-pink-500/10'
+  },
   tiktok: { 
     label: 'TikTok', 
     icon: <Music2 className="w-4 h-4" />, 

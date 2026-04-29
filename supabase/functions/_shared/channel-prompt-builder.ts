@@ -139,6 +139,13 @@ const CHANNEL_CONSTRAINTS: Record<string, {
     format: 'Blog post with title, intro, sections, conclusion',
     platform: 'Blog',
   },
+  pinterest: {
+    maxChars: 500,
+    hashtagRange: [0, 5],
+    emojiLevel: 'minimal',
+    format: 'Pin description (≤500 chars) — keyword-rich, action-oriented, ends with link CTA. Title (≤100 chars) is generated separately as `pinterest_title`.',
+    platform: 'Pinterest',
+  },
 };
 
 // ============================================

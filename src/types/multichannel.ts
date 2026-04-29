@@ -80,7 +80,8 @@ export type Channel =
   | 'zalo_oa'
   | 'telegram'
   | 'tiktok'
-  | 'threads';
+  | 'threads'
+  | 'pinterest';
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
@@ -159,6 +160,8 @@ export interface MultiChannelContent {
   telegram_content: string | null;
   tiktok_content: string | null;
   threads_content: string | null;
+  pinterest_content: string | null;
+  pinterest_title: string | null;
   channel_images: ChannelImages;
   channel_statuses: ChannelStatuses;
   tags: string[];
@@ -413,6 +416,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'image', description: 'Post ngắn, hashtag, emoji phù hợp' },
   { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'image', description: 'Bài đăng ngắn cho doanh nghiệp' },
   { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'image', description: 'Tin nhắn ngắn, thân thiện' },
+  { value: 'pinterest', label: 'Pinterest', icon: 'Image', color: 'pinterest', category: 'image', description: 'Pin SEO: Title 100 ký tự, Description 500 ký tự, link về website' },
   // 🎬 Thiên về Video — nội dung video là core
   { value: 'tiktok', label: 'TikTok', icon: 'Music2', color: 'pink', category: 'video', description: 'Script video ngắn 15-60s, hook 3 giây' },
   { value: 'youtube', label: 'YouTube', icon: 'Youtube', color: 'red', category: 'video', description: 'Script video, mô tả, tags tối ưu' },

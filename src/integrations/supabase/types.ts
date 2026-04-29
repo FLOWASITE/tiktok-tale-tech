@@ -7625,6 +7625,8 @@ export type Database = {
           linkedin_content: string | null
           needs_manual_review: boolean | null
           organization_id: string | null
+          pinterest_content: string | null
+          pinterest_title: string | null
           primary_color: string | null
           priority: string | null
           refinement_count: number | null
@@ -7673,6 +7675,8 @@ export type Database = {
           linkedin_content?: string | null
           needs_manual_review?: boolean | null
           organization_id?: string | null
+          pinterest_content?: string | null
+          pinterest_title?: string | null
           primary_color?: string | null
           priority?: string | null
           refinement_count?: number | null
@@ -7721,6 +7725,8 @@ export type Database = {
           linkedin_content?: string | null
           needs_manual_review?: boolean | null
           organization_id?: string | null
+          pinterest_content?: string | null
+          pinterest_title?: string | null
           primary_color?: string | null
           priority?: string | null
           refinement_count?: number | null
@@ -8015,6 +8021,65 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pinterest_boards: {
+        Row: {
+          board_id: string
+          connection_id: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          follower_count: number | null
+          id: string
+          is_default: boolean | null
+          metadata: Json | null
+          name: string
+          organization_id: string | null
+          pin_count: number | null
+          privacy: string | null
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          connection_id: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          follower_count?: number | null
+          id?: string
+          is_default?: boolean | null
+          metadata?: Json | null
+          name: string
+          organization_id?: string | null
+          pin_count?: number | null
+          privacy?: string | null
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          connection_id?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          follower_count?: number | null
+          id?: string
+          is_default?: boolean | null
+          metadata?: Json | null
+          name?: string
+          organization_id?: string | null
+          pin_count?: number | null
+          privacy?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pinterest_boards_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
             referencedColumns: ["id"]
           },
         ]
