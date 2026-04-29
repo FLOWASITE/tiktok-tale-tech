@@ -9,9 +9,10 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   BarChart, Bar,
 } from 'recharts';
-import { CreditCard, AlertTriangle, ArrowUpRight, Package, TrendingUp, Sparkles, Infinity as InfinityIcon, Building2, Users } from 'lucide-react';
+import { CreditCard, AlertTriangle, ArrowUpRight, Package, TrendingUp, Sparkles, Infinity as InfinityIcon, Building2, Users, Filter, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSubscriptionReport, type QuotaItem, type BrandUsageRow, type UserUsageRow } from '@/hooks/reports/useSubscriptionReport';
 import { getPlanBadge } from '@/lib/plan-badge';
 import { UpgradePlanDialog } from '@/components/UpgradePlanDialog';
@@ -83,7 +84,7 @@ function getInitials(name: string) {
 
 export function SubscriptionReportTab() {
   const navigate = useNavigate();
-  const { data, activeAddons, isLoading } = useSubscriptionReport();
+  const { data, activeAddons, isLoading, brandFilter, setBrandFilter, userFilter, setUserFilter } = useSubscriptionReport();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [addonOpen, setAddonOpen] = useState(false);
 
@@ -142,6 +143,59 @@ export function SubscriptionReportTab() {
               Nâng cấp <ArrowUpRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
+        </div>
+      </Card>
+
+      {/* Filter bar */}
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-1">
+            <Filter className="h-3.5 w-3.5" />
+            <span>Lọc theo:</span>
+          </div>
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="h-9 w-[200px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Tất cả Brand" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả Brand</SelectItem>
+              {data.filterOptions.brands.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="h-9 w-[220px]">
+              <div className="flex items-center gap-2 min-w-0">
+                <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="Tất cả Thành viên" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả Thành viên</SelectItem>
+              {data.filterOptions.users.map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {data.isFiltered && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setBrandFilter('all'); setUserFilter('all'); }}
+                className="h-9 px-2 text-muted-foreground"
+              >
+                <X className="h-3.5 w-3.5 mr-1" /> Xoá lọc
+              </Button>
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Đang xem dữ liệu đã lọc theo chu kỳ hiện tại
+              </Badge>
+            </>
+          )}
         </div>
       </Card>
 
