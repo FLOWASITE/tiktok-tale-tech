@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Video, Sparkles, Clock, Maximize } from 'lucide-react';
+import { Loader2, Video, Sparkles, Clock, Maximize, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { VideoProvider, VIDEO_PROVIDER_CONFIG, ASPECT_RATIO_CONFIG } from '@/types/videoGeneration';
 import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 import { Script } from '@/types/script';
@@ -62,6 +63,37 @@ export function VideoGeneratorPanel({
   type Phase = 'idle' | 'sending' | 'processing' | 'error' | 'done';
   const [phase, setPhase] = useState<Phase>('idle');
   const [lastError, setLastError] = useState<{ message: string; code?: string } | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+
+  // ETA ước lượng (giây) theo provider/duration — dùng cho progress giả lập
+  const estimatedSeconds = (provider === 'geminigen' ? 60 : 90) + duration * 6;
+
+  // Ticker cập nhật progress + thời gian khi đang sending/processing
+  useEffect(() => {
+    if (phase !== 'sending' && phase !== 'processing') return;
+    const startedAt = Date.now();
+    setElapsed(0);
+    const id = setInterval(() => {
+      const sec = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsed(sec);
+      // Tiệm cận 92% — chừa 8% cho lúc nhận callback thực sự
+      const pct = Math.min(92, Math.round((sec / estimatedSeconds) * 92));
+      setProgress(pct);
+    }, 500);
+    return () => clearInterval(id);
+  }, [phase, estimatedSeconds]);
+
+  useEffect(() => {
+    if (phase === 'done') setProgress(100);
+    if (phase === 'idle' || phase === 'error') setProgress(0);
+  }, [phase]);
+
+  const fmtTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m > 0 ? `${m}m ${r}s` : `${r}s`;
+  };
 
   const extractErrorCode = (err: unknown): string | undefined => {
     if (!err) return undefined;
@@ -278,23 +310,37 @@ export function VideoGeneratorPanel({
           )}
         </Button>
 
-        {/* Status banner */}
-        {phase === 'sending' && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Đang gửi tới <code className="font-mono">generate-video</code>…</span>
+        {/* Status / Progress */}
+        {(phase === 'sending' || phase === 'processing') && (
+          <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 text-foreground/80">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                {phase === 'sending' ? 'Đang gửi yêu cầu…' : 'Đang render video…'}
+              </span>
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                {progress}% · {fmtTime(elapsed)}
+              </span>
+            </div>
+            <Progress value={progress} className="h-1.5" />
+            <p className="text-[10px] text-muted-foreground">
+              ETA ~{fmtTime(estimatedSeconds)}. Bạn có thể rời tab — video sẽ tự lưu vào thư viện khi xong.
+            </p>
           </div>
         )}
-        {phase === 'processing' && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Đang tạo video nền — sẽ thông báo khi xong.</span>
+        {phase === 'done' && (
+          <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Đã tạo xong video sau {fmtTime(elapsed)}.</span>
           </div>
         )}
         {phase === 'error' && lastError && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive space-y-1">
             <div className="font-medium flex items-center justify-between gap-2">
-              <span>Tạo video thất bại</span>
+              <span className="flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Tạo video thất bại
+              </span>
               {lastError.code && (
                 <code className="font-mono text-[10px] bg-destructive/10 px-1.5 py-0.5 rounded">
                   {lastError.code}
