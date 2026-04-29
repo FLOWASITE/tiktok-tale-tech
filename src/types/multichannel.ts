@@ -162,6 +162,9 @@ export interface MultiChannelContent {
   threads_content: string | null;
   pinterest_content: string | null;
   pinterest_title: string | null;
+  pinterest_pin_type?: 'auto' | 'image' | 'carousel' | 'video' | 'idea' | null;
+  pinterest_post_id?: string | null;
+  pinterest_post_url?: string | null;
   channel_images: ChannelImages;
   channel_statuses: ChannelStatuses;
   tags: string[];
