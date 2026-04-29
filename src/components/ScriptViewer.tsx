@@ -192,6 +192,8 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
   const parsedPrompts = parseScriptContent(script.content, scriptPurpose);
   const promptCount = getPromptCount(script.content, scriptPurpose);
   const blockLabel = getBlockLabel(scriptPurpose);
+  const isAiVideo = scriptPurpose === 'ai_video';
+  const { bySceneNumber } = useScriptVideoGenerations(isAiVideo ? script.id : null);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(script.content);
