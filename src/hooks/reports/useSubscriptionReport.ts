@@ -177,6 +177,117 @@ export function useSubscriptionReport() {
     },
   });
 
+  const breakdownQuery = useQuery({
+    queryKey: ['subscription-report-breakdown', orgId, currentPeriod.start, currentPeriod.end],
+    enabled: !!orgId && !!subscription,
+    queryFn: async (): Promise<{ brandUsage: BrandUsageRow[]; userUsage: UserUsageRow[] }> => {
+      if (!orgId) return { brandUsage: [], userUsage: [] };
+      const { start, end } = currentPeriod;
+
+      const [scriptsRes, carouselsRes, multiRes] = await Promise.all([
+        supabase.from('scripts').select('brand_template_id, user_id').eq('organization_id', orgId).gte('created_at', start).lte('created_at', end),
+        supabase.from('carousels').select('brand_template_id, user_id').eq('organization_id', orgId).gte('created_at', start).lte('created_at', end),
+        supabase.from('multi_channel_contents').select('id, brand_template_id, user_id').eq('organization_id', orgId).gte('created_at', start).lte('created_at', end),
+      ]);
+
+      const multiRows = (multiRes.data || []) as Array<{ id: string; brand_template_id: string | null; user_id: string | null }>;
+      const contentIds = multiRows.map((r) => r.id);
+      const contentToBrand = new Map<string, string | null>();
+      const contentToUser = new Map<string, string | null>();
+      multiRows.forEach((r) => {
+        contentToBrand.set(r.id, r.brand_template_id);
+        contentToUser.set(r.id, r.user_id);
+      });
+
+      // Fetch image rows in chunks
+      let imagesRows: Array<{ content_id: string; created_by: string | null }> = [];
+      if (contentIds.length > 0) {
+        const chunkSize = 100;
+        for (let i = 0; i < contentIds.length; i += chunkSize) {
+          const chunk = contentIds.slice(i, i + chunkSize);
+          const { data } = await supabase
+            .from('channel_image_history')
+            .select('content_id, created_by')
+            .in('content_id', chunk);
+          if (data) imagesRows = imagesRows.concat(data as any);
+        }
+      }
+
+      // Aggregate brand usage
+      const brandMap = new Map<string, BrandUsageRow>();
+      const ensureBrand = (id: string | null): BrandUsageRow | null => {
+        if (!id) return null;
+        let row = brandMap.get(id);
+        if (!row) {
+          row = { brandId: id, brandName: id, scripts: 0, carousels: 0, multichannel: 0, images: 0, total: 0 };
+          brandMap.set(id, row);
+        }
+        return row;
+      };
+      (scriptsRes.data || []).forEach((r: any) => { const b = ensureBrand(r.brand_template_id); if (b) { b.scripts += 1; b.total += 1; } });
+      (carouselsRes.data || []).forEach((r: any) => { const b = ensureBrand(r.brand_template_id); if (b) { b.carousels += 1; b.total += 1; } });
+      multiRows.forEach((r) => { const b = ensureBrand(r.brand_template_id); if (b) { b.multichannel += 1; b.total += 1; } });
+      imagesRows.forEach((r) => {
+        const brandId = contentToBrand.get(r.content_id) ?? null;
+        const b = ensureBrand(brandId);
+        if (b) { b.images += 1; b.total += 1; }
+      });
+
+      // Aggregate user usage
+      const userMap = new Map<string, UserUsageRow>();
+      const ensureUser = (id: string | null): UserUsageRow | null => {
+        if (!id) return null;
+        let row = userMap.get(id);
+        if (!row) {
+          row = { userId: id, fullName: id.slice(0, 8), email: null, avatarUrl: null, scripts: 0, carousels: 0, multichannel: 0, images: 0, total: 0 };
+          userMap.set(id, row);
+        }
+        return row;
+      };
+      (scriptsRes.data || []).forEach((r: any) => { const u = ensureUser(r.user_id); if (u) { u.scripts += 1; u.total += 1; } });
+      (carouselsRes.data || []).forEach((r: any) => { const u = ensureUser(r.user_id); if (u) { u.carousels += 1; u.total += 1; } });
+      multiRows.forEach((r) => { const u = ensureUser(r.user_id); if (u) { u.multichannel += 1; u.total += 1; } });
+      imagesRows.forEach((r) => {
+        const u = ensureUser(r.created_by);
+        if (u) { u.images += 1; u.total += 1; }
+      });
+
+      // Lookup brand names
+      const brandIds = Array.from(brandMap.keys());
+      if (brandIds.length > 0) {
+        const { data: brands } = await supabase
+          .from('brand_templates')
+          .select('id, brand_name')
+          .in('id', brandIds);
+        (brands || []).forEach((b: any) => {
+          const row = brandMap.get(b.id);
+          if (row) row.brandName = b.brand_name || row.brandName;
+        });
+      }
+
+      // Lookup user profiles
+      const userIds = Array.from(userMap.keys());
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', userIds);
+        (profiles || []).forEach((p: any) => {
+          const row = userMap.get(p.id);
+          if (row) {
+            row.fullName = p.full_name || p.email?.split('@')[0] || row.fullName;
+            row.email = p.email ?? null;
+            row.avatarUrl = p.avatar_url ?? null;
+          }
+        });
+      }
+
+      const brandUsage = Array.from(brandMap.values()).sort((a, b) => b.total - a.total).slice(0, 10);
+      const userUsage = Array.from(userMap.values()).sort((a, b) => b.total - a.total).slice(0, 10);
+      return { brandUsage, userUsage };
+    },
+  });
+
   const periodStart = subscription ? new Date(currentPeriod.start) : null;
   const periodEnd = subscription ? new Date(currentPeriod.end) : null;
   const now = new Date();
