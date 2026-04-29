@@ -841,7 +841,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       }));
 
       const oauthUrl = `https://www.tiktok.com/v2/auth/authorize/?` + new URLSearchParams({
-        client_key: globalCreds.consumerKey,
+        client_key: clientKey,
         redirect_uri: redirectUri,
         scope: 'user.info.basic,video.publish,video.upload',
         response_type: 'code',
