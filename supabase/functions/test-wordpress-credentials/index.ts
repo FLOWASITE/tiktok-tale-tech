@@ -31,11 +31,11 @@ Deno.serve(withPerf({ functionName: 'test-wordpress-credentials' }, async (req) 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'WordPress (self-hosted) không yêu cầu credentials cấp admin. Mỗi brand cấu hình Site URL + Application Password riêng tại Brand → Connections.',
+        message: 'WordPress sẵn sàng ✓ Không cần credentials cấp admin.',
         details: {
           platform: 'wordpress',
           authType: 'application-password',
-          note: 'Hệ thống dùng REST API /wp-json/wp/v2 với Basic Auth (username + Application Password). Không cần OAuth Client ID/Secret toàn cục.',
+          note: 'Mỗi brand sẽ tự cấu hình Site URL + Application Password riêng tại Brand → Connections.',
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
