@@ -5539,7 +5539,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           industry: industry,
           content_goal: resolvedContentGoal,
           content_role: resolvedContentRole,
-          selected_channels: resolvedSelectedChannels,
+          selected_channels: persistedSelectedChannels,
           brand_template_id: formData.brandTemplateId || null,
           brand_voice_variant_id: formData.brandVoiceVariantId || null,
           brand_name: brandName,
