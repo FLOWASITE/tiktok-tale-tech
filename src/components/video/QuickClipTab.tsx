@@ -164,6 +164,7 @@ export function QuickClipTab() {
           className="min-h-[50px] resize-none text-xs font-mono"
           disabled={generating || enhancing}
         />
+      </div>
 
       {/* Aspect ratio */}
       <div className="space-y-2">
