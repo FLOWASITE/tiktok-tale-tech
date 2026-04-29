@@ -29,6 +29,8 @@ interface ContentMockupToggleProps {
   // Brand metadata for richer mockups (Google Maps, etc.)
   footerInfo?: BrandFooterInfo | null;
   industryLabel?: string;
+  // Pinterest-only: dedicated Pin title
+  pinterestTitle?: string;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
@@ -69,6 +71,7 @@ export function ContentMockupToggle({
   geoFactorScores,
   footerInfo,
   industryLabel,
+  pinterestTitle,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
@@ -134,6 +137,7 @@ export function ContentMockupToggle({
           isGenerating={isLoading}
           seoData={isWebsiteLike ? seoData : undefined}
           channelImage={channelImage}
+          pinterestTitle={channel === 'pinterest' ? pinterestTitle : undefined}
         />
       </div>
     </div>

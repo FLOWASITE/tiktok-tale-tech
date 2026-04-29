@@ -262,6 +262,7 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
     case 'telegram': return content.telegram_content;
     case 'tiktok': return content.tiktok_content;
     case 'threads': return content.threads_content;
+    case 'pinterest': return content.pinterest_content;
     default: return null;
   }
 }
@@ -1628,6 +1629,7 @@ export function MultiChannelViewer({
                                   geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
                                   footerInfo={brandFooterInfo}
                                   industryLabel={brandIndustryLabel}
+                                  pinterestTitle={channel === 'pinterest' ? (content as any).pinterest_title || undefined : undefined}
                                 />
                               </div>
                                 

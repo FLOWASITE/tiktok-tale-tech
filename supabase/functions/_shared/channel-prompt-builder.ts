@@ -141,9 +141,9 @@ const CHANNEL_CONSTRAINTS: Record<string, {
   },
   pinterest: {
     maxChars: 500,
-    hashtagRange: [0, 5],
+    hashtagRange: [2, 5],
     emojiLevel: 'minimal',
-    format: 'Pin description (≤500 chars) — keyword-rich, action-oriented, ends with link CTA. Title (≤100 chars) is generated separately as `pinterest_title`.',
+    format: 'Pinterest Pin description (200-500 chars) — keyword-rich for search discovery, describes benefit/how-to/idea, ends with soft CTA ("Save Pin for later" / "Tap to see more"). Title (≤100 chars, keyword-first format) is generated separately as `pinterest_title`. Image is vertical 2:3 (1000×1500).',
     platform: 'Pinterest',
   },
 };

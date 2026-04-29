@@ -437,7 +437,7 @@ export const BASE_CHANNEL_CONFIG: Record<Channel, {
   wordpress: { label: 'Website/Blog', color: 'text-blue-400', bgColor: 'bg-blue-500/10', descriptionSuffix: 'SEO optimized' },
   facebook: { label: 'Facebook', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', descriptionSuffix: 'hook + emoji' },
   instagram: { label: 'Instagram', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'visual-first' },
-  pinterest: { label: 'Instagram', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'visual-first' },
+  pinterest: { label: 'Pinterest', color: 'text-[#E60023]', bgColor: 'bg-[#E60023]/10', descriptionSuffix: 'Pin SEO, vertical 2:3' },
   twitter: { label: 'X (Twitter)', color: 'text-slate-400', bgColor: 'bg-slate-500/10', descriptionSuffix: '' },
   linkedin: { label: 'LinkedIn', color: 'text-sky-400', bgColor: 'bg-sky-500/10', descriptionSuffix: 'professional' },
   youtube: { label: 'YouTube', color: 'text-red-400', bgColor: 'bg-red-500/10', descriptionSuffix: '' },
