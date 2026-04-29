@@ -63,6 +63,37 @@ export function VideoGeneratorPanel({
   type Phase = 'idle' | 'sending' | 'processing' | 'error' | 'done';
   const [phase, setPhase] = useState<Phase>('idle');
   const [lastError, setLastError] = useState<{ message: string; code?: string } | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+
+  // ETA ước lượng (giây) theo provider/duration — dùng cho progress giả lập
+  const estimatedSeconds = (provider === 'geminigen' ? 60 : 90) + duration * 6;
+
+  // Ticker cập nhật progress + thời gian khi đang sending/processing
+  useEffect(() => {
+    if (phase !== 'sending' && phase !== 'processing') return;
+    const startedAt = Date.now();
+    setElapsed(0);
+    const id = setInterval(() => {
+      const sec = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsed(sec);
+      // Tiệm cận 92% — chừa 8% cho lúc nhận callback thực sự
+      const pct = Math.min(92, Math.round((sec / estimatedSeconds) * 92));
+      setProgress(pct);
+    }, 500);
+    return () => clearInterval(id);
+  }, [phase, estimatedSeconds]);
+
+  useEffect(() => {
+    if (phase === 'done') setProgress(100);
+    if (phase === 'idle' || phase === 'error') setProgress(0);
+  }, [phase]);
+
+  const fmtTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m > 0 ? `${m}m ${r}s` : `${r}s`;
+  };
 
   const extractErrorCode = (err: unknown): string | undefined => {
     if (!err) return undefined;
