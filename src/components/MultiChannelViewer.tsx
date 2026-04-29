@@ -224,7 +224,7 @@ const channelConfig: Record<Channel, {
   },
   tiktok: { 
     label: 'TikTok', 
-    shortLabel: 'TT',
+    shortLabel: 'TikTok',
     icon: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-pink-400',
     bgColor: 'bg-pink-500/10',
