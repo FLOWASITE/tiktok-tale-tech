@@ -14,6 +14,8 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface SocialPlatformCredentialsDialogProps {
   open: boolean;
