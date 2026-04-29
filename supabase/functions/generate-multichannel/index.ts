@@ -357,6 +357,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   telegram: 'telegram_content',
   tiktok: 'tiktok_content',
   threads: 'threads_content',
+  pinterest: 'pinterest_content',
 };
 
 // Normalize channel aliases to canonical names used in DB columns
