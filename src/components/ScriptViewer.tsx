@@ -43,6 +43,7 @@ import { TeleprompterMode } from '@/components/script/TeleprompterMode';
 import { StoryboardGenerator } from '@/components/script/StoryboardGenerator';
 import { VideoGeneratorPanel } from '@/components/script/VideoGeneratorPanel';
 import { VideoGallery } from '@/components/script/VideoGallery';
+import { ScriptVideoTab } from '@/components/script/ScriptVideoTab';
 import { ScriptExportMenu } from '@/components/script/ScriptExportMenu';
 import { ScriptCollaborationPanel } from '@/components/script/ScriptCollaborationPanel';
 import { SceneVideoStrip } from '@/components/scripts/SceneVideoStrip';
