@@ -11,6 +11,49 @@ export function useVideoGeneration() {
   const [generating, setGenerating] = useState(false);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
+  // Buffer các sự kiện completed/failed xảy ra khi tab ẩn → flush khi user quay lại
+  const pendingWhileHiddenRef = useRef<Array<{ id: string; status: 'completed' | 'failed'; error?: string }>>([]);
+
+  useEffect(() => {
+    const flushPending = () => {
+      const items = pendingWhileHiddenRef.current;
+      if (items.length === 0) return;
+      pendingWhileHiddenRef.current = [];
+
+      const completed = items.filter((i) => i.status === 'completed');
+      const failed = items.filter((i) => i.status === 'failed');
+
+      if (completed.length === 1) {
+        toast.success('🎬 Video đã được lưu khi bạn vắng mặt', {
+          description: 'Mở thư viện video để xem kết quả.',
+          duration: 6000,
+        });
+      } else if (completed.length > 1) {
+        toast.success(`🎬 ${completed.length} video đã được lưu khi bạn vắng mặt`, {
+          description: 'Mở thư viện video để xem kết quả.',
+          duration: 6000,
+        });
+      }
+
+      if (failed.length > 0) {
+        toast.error(`${failed.length} video tạo thất bại trong lúc bạn vắng mặt`, {
+          description: failed[0].error?.slice(0, 120) ?? 'Mở thư viện để xem chi tiết.',
+          duration: 8000,
+        });
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') flushPending();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', flushPending);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', flushPending);
+    };
+  }, []);
+
   // Realtime subscription — push updates from the background poller into local state
   useEffect(() => {
     if (!user) return;
@@ -35,9 +78,22 @@ export function useVideoGeneration() {
             return next;
           });
           const old = (payload.old ?? {}) as Partial<VideoGeneration>;
-          if (old.status !== 'completed' && updated.status === 'completed') {
+          const justCompleted = old.status !== 'completed' && updated.status === 'completed';
+          const justFailed = old.status !== 'failed' && updated.status === 'failed';
+
+          if (document.hidden && (justCompleted || justFailed)) {
+            // Tab đang ẩn → buffer để toast khi quay lại
+            pendingWhileHiddenRef.current.push({
+              id: updated.id,
+              status: justCompleted ? 'completed' : 'failed',
+              error: updated.error_message ?? undefined,
+            });
+            return;
+          }
+
+          if (justCompleted) {
             toast.success('Video đã tạo xong! 🎬');
-          } else if (old.status !== 'failed' && updated.status === 'failed') {
+          } else if (justFailed) {
             toast.error(updated.error_message ?? 'Video tạo thất bại');
           }
         }
