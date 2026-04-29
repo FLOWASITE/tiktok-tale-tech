@@ -1580,10 +1580,18 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
   const [scrollProgress, setScrollProgress] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
-  
-  const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
-  
-  const wordCount = seoData?.word_count || formattedContent.split(/\s+/).length;
+
+  // Fallback: if main content is empty but SEO data has body, use that
+  const effectiveContent = useMemo(() => {
+    if (content && content.trim()) return content;
+    const seoContent = (seoData as any)?.content;
+    if (typeof seoContent === 'string' && seoContent.trim()) return seoContent;
+    return '';
+  }, [content, seoData]);
+
+  const formattedContent = useMemo(() => ensureMarkdownFormat(effectiveContent), [effectiveContent]);
+
+  const wordCount = seoData?.word_count || formattedContent.split(/\s+/).filter(Boolean).length;
   const readTime = seoData?.reading_time_minutes || Math.max(1, Math.ceil(wordCount / 200));
   const themeColor = primaryColor || '#3b82f6';
   
