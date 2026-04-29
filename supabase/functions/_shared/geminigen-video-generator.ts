@@ -187,6 +187,62 @@ export async function generateVideoViaGeminiGen(
   return await pollVideoTask(uuid, apiKey);
 }
 
+/** Submit only — for async pipeline (returns task UUID immediately). */
+export async function submitGeminiGenVideoTask(
+  params: GeminiGenVideoParams,
+  apiKey: string,
+): Promise<string> {
+  if (!apiKey) throw new Error('GEMINIGEN_API_KEY not configured');
+  return submitVideoTask(params, apiKey);
+}
+
+/** One-shot status check — for background poller. Does NOT poll in a loop. */
+export async function checkGeminiGenVideoStatus(
+  uuid: string,
+  apiKey: string,
+): Promise<{ status: 'processing' | 'completed' | 'failed'; videoUrl?: string; thumbnailUrl?: string; error?: string }> {
+  try {
+    const response = await fetch(`${GEMINIGEN_BASE_URL}${GEMINIGEN_HISTORY_ENDPOINT}/${uuid}`, {
+      headers: { 'x-api-key': apiKey },
+    });
+
+    if (!response.ok) {
+      // Treat HTTP errors as transient — keep processing
+      return { status: 'processing' };
+    }
+
+    const data = await response.json();
+    const status = data?.status ?? data?.data?.status;
+
+    if (status === 2 || status === 'completed' || status === 'success') {
+      const videoUrl =
+        data?.video_url || data?.data?.video_url ||
+        data?.generate_result || data?.data?.generate_result ||
+        data?.result_url || data?.data?.result_url ||
+        data?.output_url || data?.data?.output_url ||
+        data?.files?.[0]?.url || data?.videos?.[0]?.url;
+
+      if (!videoUrl) return { status: 'failed', error: 'Completed but no video URL returned' };
+
+      const thumbnailUrl =
+        data?.thumbnail_url || data?.data?.thumbnail_url ||
+        data?.files?.[0]?.thumbnail || undefined;
+
+      return { status: 'completed', videoUrl, thumbnailUrl };
+    }
+
+    if (status === 3 || status === 'failed' || status === 'error') {
+      const errorMsg = data?.error || data?.data?.error || 'Unknown GeminiGen error';
+      return { status: 'failed', error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg) };
+    }
+
+    return { status: 'processing' };
+  } catch (e) {
+    console.warn('[geminigen-video] checkStatus exception:', e);
+    return { status: 'processing' };
+  }
+}
+
 export function isGeminiGenVideoModel(model: string): boolean {
   return model.startsWith('geminigen/');
 }
