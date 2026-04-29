@@ -186,6 +186,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
     }
   }, [script]);
 
+  // IMPORTANT: All hooks must be called before any early return
+  const isAiVideoForHook = script?.script_purpose === 'ai_video';
+  const { bySceneNumber } = useScriptVideoGenerations(isAiVideoForHook ? script?.id ?? null : null);
+
   if (!script) return null;
 
   const scriptPurpose = script.script_purpose as ScriptPurpose;
@@ -193,7 +197,6 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
   const promptCount = getPromptCount(script.content, scriptPurpose);
   const blockLabel = getBlockLabel(scriptPurpose);
   const isAiVideo = scriptPurpose === 'ai_video';
-  const { bySceneNumber } = useScriptVideoGenerations(isAiVideo ? script.id : null);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(script.content);
