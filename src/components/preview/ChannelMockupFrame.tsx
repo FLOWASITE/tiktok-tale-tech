@@ -2044,7 +2044,7 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
     case 'threads':
       return <ThreadsMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'pinterest':
-      return <PinterestMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
+      return <PinterestMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} pinterestTitle={pinterestTitle} />;
     case 'email':
       return <EmailMockup {...rest} brandName={safeBrandName} />;
     case 'general':
