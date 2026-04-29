@@ -198,24 +198,41 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
             </div>
           </div>
           {!showAllClips && missingScenes > 0 && (
-            <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div className="flex-1 text-[11px]">
-                <p className="text-foreground">
-                  Còn <strong>{missingScenes}/{totalScenes}</strong> scene chưa quay.
-                </p>
-                {onJumpToTab && (
-                  <button
-                    onClick={() => onJumpToTab('quick')}
-                    className="text-amber-700 dark:text-amber-300 underline hover:no-underline"
-                  >
-                    → Quay nốt ở Quick Clip
-                  </button>
-                )}
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1 text-[11px]">
+                  <p className="text-foreground">
+                    Còn <strong>{missingScenes}/{totalScenes}</strong> scene chưa quay.
+                  </p>
+                  {onJumpToTab && (
+                    <button
+                      onClick={() => onJumpToTab('quick')}
+                      className="text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                    >
+                      → Quay từng scene ở Quick Clip
+                    </button>
+                  )}
+                </div>
               </div>
+              <Button
+                size="sm"
+                onClick={runBatchGenerate}
+                disabled={batchRunning || generating}
+                className="h-8 text-[11px] w-full gap-1.5"
+              >
+                {batchRunning ? (
+                  <><Loader2 className="w-3 h-3 animate-spin" />Đang quay scene {batchProgress.currentScene} ({batchProgress.done}/{batchProgress.total})…</>
+                ) : (
+                  <><Wand2 className="w-3 h-3" />Quay tự động {missingScenes} scene còn lại</>
+                )}
+              </Button>
+              {batchRunning && (
+                <Progress value={(batchProgress.done / Math.max(1, batchProgress.total)) * 100} className="h-1" />
+              )}
             </div>
           )}
-          {!showAllClips && (
+          {!showAllClips && missingScenes === 0 && (
             <Button size="sm" variant="outline" onClick={selectAllByScene} className="h-7 text-[11px] w-full">
               Chọn tất cả theo đúng thứ tự kịch bản
             </Button>
