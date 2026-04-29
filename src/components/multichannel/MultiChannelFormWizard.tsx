@@ -48,12 +48,10 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   MapPin,
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Clock,
   Send,
   Music2,
@@ -83,6 +81,7 @@ import {
    SkipForward,
    Zap,
 } from 'lucide-react';
+import { XIcon, WordPressIcon, BloggerIcon, ZaloIcon } from '@/components/icons/SocialIcons';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
@@ -186,16 +185,16 @@ const STEPS: Step[] = [
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
-  blogger: <Globe className="w-4 h-4" />,
-  wordpress: <Globe className="w-4 h-4" />,
+  blogger: <BloggerIcon className="w-4 h-4" />,
+  wordpress: <WordPressIcon className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
-  twitter: <Twitter className="w-4 h-4" />,
+  twitter: <XIcon className="w-4 h-4" />,
   google_maps: <MapPin className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
   email: <Mail className="w-4 h-4" />,
   youtube: <Youtube className="w-4 h-4" />,
-  zalo_oa: <MessageCircle className="w-4 h-4" />,
+  zalo_oa: <ZaloIcon className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,

@@ -12,7 +12,7 @@ import {
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
 const ZaloLucide: LucideIcon = Object.assign(
@@ -27,6 +27,20 @@ const XLucide: LucideIcon = Object.assign(
     <XIcon width={size} height={size} className={className} {...props} />
   ),
   { displayName: 'XLucide' }
+) as unknown as LucideIcon;
+
+const WordPressLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <WordPressIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'WordPressLucide' }
+) as unknown as LucideIcon;
+
+const BloggerLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <BloggerIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'BloggerLucide' }
 ) as unknown as LucideIcon;
 
 const channelConfig: Record<string, { 
@@ -93,6 +107,16 @@ const channelConfig: Record<string, {
     icon: Globe, 
     bgClass: "bg-primary text-primary-foreground",
     label: "Website"
+  },
+  wordpress: {
+    icon: WordPressLucide,
+    bgClass: "bg-[#21759B] text-white",
+    label: "WordPress"
+  },
+  blogger: {
+    icon: BloggerLucide,
+    bgClass: "bg-[#FF8000] text-white",
+    label: "Blogger"
   },
   google_maps: { 
     icon: MapPin, 

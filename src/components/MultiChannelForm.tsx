@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Loader2, Sparkles, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon } from '@/components/icons/SocialIcons';
 import { MultiChannelFormData, ContentGoal, ContentAngle, Channel, CHANNELS } from '@/types/multichannel';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
@@ -48,8 +48,8 @@ interface MultiChannelFormProps {
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  blogger: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  wordpress: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  blogger: <BloggerIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  wordpress: <WordPressIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   facebook: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   instagram: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   twitter: <XIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,

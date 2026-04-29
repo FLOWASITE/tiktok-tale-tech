@@ -54,7 +54,7 @@ import {
   Settings2,
   Megaphone,
 } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon } from '@/components/icons/SocialIcons';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
@@ -153,8 +153,8 @@ const LOADING_PHASES = [
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
-  blogger: <Globe className="w-4 h-4" />,
-  wordpress: <Globe className="w-4 h-4" />,
+  blogger: <BloggerIcon className="w-4 h-4" />,
+  wordpress: <WordPressIcon className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
