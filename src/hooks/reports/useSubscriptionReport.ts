@@ -134,6 +134,8 @@ export function useSubscriptionReport() {
   const rawQuery = useQuery({
     queryKey: ['subscription-report-raw', orgId, currentPeriod.start, currentPeriod.end],
     enabled: !!orgId && !!subscription,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
     queryFn: async (): Promise<RawData> => {
       const empty: RawData = {
         scripts: [], carousels: [], multichannel: [], images: [],
@@ -142,19 +144,52 @@ export function useSubscriptionReport() {
       if (!orgId) return empty;
       const { start, end } = currentPeriod;
 
-      const [scriptsRes, carouselsRes, multiRes] = await Promise.all([
-        supabase.from('scripts').select('created_at, brand_template_id, user_id').eq('organization_id', orgId).gte('created_at', start).lte('created_at', end),
-        supabase.from('carousels').select('created_at, brand_template_id, user_id').eq('organization_id', orgId).gte('created_at', start).lte('created_at', end),
-        supabase.from('multi_channel_contents').select('id, created_at, brand_template_id, user_id').eq('organization_id', orgId).gte('created_at', start).lte('created_at', end),
+      // Pagination helper — Supabase mặc định cap 1000 rows; ta page 1000/lần đến hết.
+      const PAGE = 1000;
+      const HARD_CAP = 50_000; // safety cap để không kéo vô tận khi anomaly
+      async function fetchAll<T>(builder: () => any): Promise<T[]> {
+        const out: T[] = [];
+        for (let from = 0; from < HARD_CAP; from += PAGE) {
+          const { data, error } = await builder().range(from, from + PAGE - 1);
+          if (error) throw error;
+          const rows = (data || []) as T[];
+          out.push(...rows);
+          if (rows.length < PAGE) break;
+        }
+        return out;
+      }
+
+      // Fetch 3 content tables in parallel, paginated.
+      const [scriptsRows, carouselsRows, multiRowsFull] = await Promise.all([
+        fetchAll<{ created_at: string; brand_template_id: string | null; user_id: string | null }>(
+          () => supabase.from('scripts')
+            .select('created_at, brand_template_id, user_id')
+            .eq('organization_id', orgId)
+            .gte('created_at', start).lte('created_at', end)
+            .order('created_at', { ascending: true }),
+        ),
+        fetchAll<{ created_at: string; brand_template_id: string | null; user_id: string | null }>(
+          () => supabase.from('carousels')
+            .select('created_at, brand_template_id, user_id')
+            .eq('organization_id', orgId)
+            .gte('created_at', start).lte('created_at', end)
+            .order('created_at', { ascending: true }),
+        ),
+        fetchAll<{ id: string; created_at: string; brand_template_id: string | null; user_id: string | null }>(
+          () => supabase.from('multi_channel_contents')
+            .select('id, created_at, brand_template_id, user_id')
+            .eq('organization_id', orgId)
+            .gte('created_at', start).lte('created_at', end)
+            .order('created_at', { ascending: true }),
+        ),
       ]);
 
-      const scripts: RawRow[] = (scriptsRes.data || []).map((r: any) => ({
+      const scripts: RawRow[] = scriptsRows.map((r) => ({
         created_at: r.created_at, brand_template_id: r.brand_template_id, user_id: r.user_id,
       }));
-      const carousels: RawRow[] = (carouselsRes.data || []).map((r: any) => ({
+      const carousels: RawRow[] = carouselsRows.map((r) => ({
         created_at: r.created_at, brand_template_id: r.brand_template_id, user_id: r.user_id,
       }));
-      const multiRowsFull = (multiRes.data || []) as Array<{ id: string; created_at: string; brand_template_id: string | null; user_id: string | null }>;
       const multichannel: RawRow[] = multiRowsFull.map((r) => ({
         created_at: r.created_at, brand_template_id: r.brand_template_id, user_id: r.user_id,
       }));
@@ -166,18 +201,31 @@ export function useSubscriptionReport() {
         contentToUser.set(r.id, r.user_id);
       });
 
-      // Fetch image rows in chunks
-      let imageRaw: Array<{ created_at: string; channel: string | null; content_id: string; created_by: string | null }> = [];
+      // Image rows: chunk content_ids + filter created_at at DB level + parallel batches
       const contentIds = multiRowsFull.map((r) => r.id);
+      let imageRaw: Array<{ created_at: string; channel: string | null; content_id: string; created_by: string | null }> = [];
       if (contentIds.length > 0) {
-        const chunkSize = 100;
-        for (let i = 0; i < contentIds.length; i += chunkSize) {
-          const chunk = contentIds.slice(i, i + chunkSize);
-          const { data } = await supabase
-            .from('channel_image_history')
-            .select('created_at, channel, content_id, created_by')
-            .in('content_id', chunk);
-          if (data) imageRaw = imageRaw.concat(data as any);
+        const CHUNK = 200;
+        const CONCURRENCY = 4;
+        const chunks: string[][] = [];
+        for (let i = 0; i < contentIds.length; i += CHUNK) {
+          chunks.push(contentIds.slice(i, i + CHUNK));
+        }
+        for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+          const batch = chunks.slice(i, i + CONCURRENCY);
+          const results = await Promise.all(
+            batch.map((chunk) =>
+              supabase
+                .from('channel_image_history')
+                .select('created_at, channel, content_id, created_by')
+                .in('content_id', chunk)
+                .gte('created_at', start)
+                .lte('created_at', end),
+            ),
+          );
+          for (const { data } of results) {
+            if (data) imageRaw = imageRaw.concat(data as any);
+          }
         }
       }
 
@@ -188,41 +236,57 @@ export function useSubscriptionReport() {
         user_id: r.created_by ?? null,
       }));
 
-      // Lookup brand names
+      // Single-pass collection of brand & user IDs (avoid 4× spread allocations)
       const allBrandIds = new Set<string>();
-      [...scripts, ...carousels, ...multichannel, ...images].forEach((r) => {
-        if (r.brand_template_id) allBrandIds.add(r.brand_template_id);
-      });
-      const brandNames = new Map<string, string>();
-      if (allBrandIds.size > 0) {
-        const { data: brands } = await supabase
-          .from('brand_templates')
-          .select('id, brand_name')
-          .in('id', Array.from(allBrandIds));
-        (brands || []).forEach((b: any) => {
-          brandNames.set(b.id, b.brand_name || b.id.slice(0, 8));
-        });
+      const allUserIds = new Set<string>();
+      const collect = (rows: RawRow[]) => {
+        for (const r of rows) {
+          if (r.brand_template_id) allBrandIds.add(r.brand_template_id);
+          if (r.user_id) allUserIds.add(r.user_id);
+        }
+      };
+      collect(scripts); collect(carousels); collect(multichannel); collect(images);
+
+      // Chunked .in() lookup for safety with large sets
+      async function lookupIn<T>(
+        ids: string[],
+        runner: (chunk: string[]) => Promise<{ data: T[] | null }>,
+      ): Promise<T[]> {
+        if (ids.length === 0) return [];
+        const CHUNK = 300;
+        const out: T[] = [];
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const { data } = await runner(ids.slice(i, i + CHUNK));
+          if (data) out.push(...data);
+        }
+        return out;
       }
 
-      // Lookup user profiles
-      const allUserIds = new Set<string>();
-      [...scripts, ...carousels, ...multichannel, ...images].forEach((r) => {
-        if (r.user_id) allUserIds.add(r.user_id);
+      // Brand & profile lookups in parallel
+      const [brandRows, profileRows] = await Promise.all([
+        lookupIn<{ id: string; brand_name: string | null }>(
+          Array.from(allBrandIds),
+          (chunk) => supabase.from('brand_templates').select('id, brand_name').in('id', chunk) as any,
+        ),
+        lookupIn<{ id: string; full_name: string | null; email: string | null; avatar_url: string | null }>(
+          Array.from(allUserIds),
+          (chunk) => supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', chunk) as any,
+        ),
+      ]);
+
+      const brandNames = new Map<string, string>();
+      brandRows.forEach((b) => {
+        brandNames.set(b.id, b.brand_name || b.id.slice(0, 8));
       });
+
       const userProfiles = new Map<string, { fullName: string; email: string | null; avatarUrl: string | null }>();
-      if (allUserIds.size > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, avatar_url')
-          .in('id', Array.from(allUserIds));
-        (profiles || []).forEach((p: any) => {
-          userProfiles.set(p.id, {
-            fullName: p.full_name || p.email?.split('@')[0] || p.id.slice(0, 8),
-            email: p.email ?? null,
-            avatarUrl: p.avatar_url ?? null,
-          });
+      profileRows.forEach((p) => {
+        userProfiles.set(p.id, {
+          fullName: p.full_name || p.email?.split('@')[0] || p.id.slice(0, 8),
+          email: p.email ?? null,
+          avatarUrl: p.avatar_url ?? null,
         });
-      }
+      });
 
       return { scripts, carousels, multichannel, images, brandNames, userProfiles };
     },
