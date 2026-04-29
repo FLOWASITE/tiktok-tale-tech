@@ -84,7 +84,7 @@ function getInitials(name: string) {
 
 export function SubscriptionReportTab() {
   const navigate = useNavigate();
-  const { data, activeAddons, isLoading } = useSubscriptionReport();
+  const { data, activeAddons, isLoading, brandFilter, setBrandFilter, userFilter, setUserFilter } = useSubscriptionReport();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [addonOpen, setAddonOpen] = useState(false);
 
