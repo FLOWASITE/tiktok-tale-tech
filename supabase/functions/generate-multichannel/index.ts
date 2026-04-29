@@ -5647,6 +5647,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           telegram_content: (generatedData.telegram_content && generatedData.telegram_content.length > 0) ? generatedData.telegram_content : null,
           tiktok_content: (generatedData.tiktok_content && generatedData.tiktok_content.length > 0) ? generatedData.tiktok_content : null,
           threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
+          pinterest_content: (generatedData.pinterest_content && generatedData.pinterest_content.length > 0) ? generatedData.pinterest_content : null,
+          pinterest_title: (generatedData.pinterest_title && generatedData.pinterest_title.length > 0) ? generatedData.pinterest_title : null,
         }))
         .select()
         .single();
