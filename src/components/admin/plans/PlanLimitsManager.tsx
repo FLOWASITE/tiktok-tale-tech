@@ -691,10 +691,8 @@ export default function PlanLimitsManager() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3 pt-4">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                    Pricing v2 <Badge variant="secondary" className="text-[10px] h-4 px-1.5">Tính phí</Badge>
-                  </p>
-                  {v2LimitFields.map((field) => {
+                  <p className="text-xs font-semibold text-primary uppercase tracking-wider">Hạn mức gói</p>
+                  {mainLimitFields.map((field) => {
                     const val = getVal(plan, field as keyof PlanLimit) as number;
                     const fieldChanged = isFieldChanged(plan, field);
                     return (
@@ -710,36 +708,6 @@ export default function PlanLimitsManager() {
                           <Badge variant="secondary" className="text-xs gap-1"><Infinity className="h-3 w-3" /> ∞</Badge>
                         ) : (
                           <span className="text-sm font-medium">{val}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowLegacy((v) => !v)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors w-full"
-                  >
-                    <span className={`inline-block transition-transform ${showLegacy ? "rotate-90" : ""}`}>▸</span>
-                    Phụ trợ / Legacy
-                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 ml-auto">{legacyLimitFields.length}</Badge>
-                  </button>
-                  {showLegacy && legacyLimitFields.map((field) => {
-                    const val = getVal(plan, field as keyof PlanLimit) as number;
-                    const fieldChanged = isFieldChanged(plan, field);
-                    return (
-                      <div key={field} className="flex items-center justify-between pl-3">
-                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">{FIELD_ICONS[field]} {FIELD_LABELS[field]}</span>
-                        {isEditMode ? (
-                          <Input
-                            type="number" value={val}
-                            onChange={(e) => handleFieldChange(plan.id, field, e.target.value)}
-                            className={`h-7 w-20 text-sm text-right ${fieldChanged ? "ring-2 ring-primary/50" : ""}`}
-                          />
-                        ) : val === -1 ? (
-                          <Badge variant="secondary" className="text-xs gap-1"><Infinity className="h-3 w-3" /> ∞</Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">{val}</span>
                         )}
                       </div>
                     );
