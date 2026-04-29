@@ -72,6 +72,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://console.cloud.google.com/apis/credentials',
     instructions: 'Tái dùng OAuth Client của Google Business hoặc tạo mới. Bật Blogger API v3 và thêm scope https://www.googleapis.com/auth/blogger',
   },
+  wordpress: {
+    url: '',
+    instructions: 'WordPress self-hosted: kết nối per-brand bằng Application Password (không cần admin credential). Để trống ở đây.',
+  },
   website: {
     url: '',
     instructions: 'Nhập URL API endpoint hoặc WordPress REST API URL và API Key/Password nếu cần xác thực',
