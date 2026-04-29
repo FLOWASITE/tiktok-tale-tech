@@ -118,6 +118,10 @@ export function SocialPlatformCredentialsDialog({
   const [isActive, setIsActive] = useState(true);
   const [showKey, setShowKey] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [revealingKey, setRevealingKey] = useState(false);
+  const [revealingSecret, setRevealingSecret] = useState(false);
   const [copiedCallback, setCopiedCallback] = useState(false);
 
   const help = PLATFORM_HELP[platform];
