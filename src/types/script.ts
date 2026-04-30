@@ -188,7 +188,7 @@ export interface ScriptFormData {
   topicHistoryId?: string;
   campaignId?: string;
   /** Aspect ratio cho video output (set bởi SocialFormatPicker) */
-  aspect_ratio?: '9:16' | '16:9' | '1:1';
+  aspect_ratio?: '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
   /** ID của social format preset đã chọn (vd 'tiktok-short') */
   social_format_id?: string;
 }
