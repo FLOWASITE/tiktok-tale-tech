@@ -47,6 +47,52 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Recursively walk an object and return the first value that looks like a video URL. */
+function findVideoUrlDeep(obj: unknown, depth = 0): string | undefined {
+  if (depth > 6 || obj == null) return undefined;
+  if (typeof obj === 'string') {
+    if (/^https?:\/\/.+\.(mp4|mov|webm|m3u8)(\?.*)?$/i.test(obj)) return obj;
+    return undefined;
+  }
+  if (Array.isArray(obj)) {
+    for (const it of obj) {
+      const found = findVideoUrlDeep(it, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof obj === 'object') {
+    for (const v of Object.values(obj as Record<string, unknown>)) {
+      const found = findVideoUrlDeep(v, depth + 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/** Recursively find an image URL (for thumbnail fallback). */
+function findImageUrlDeep(obj: unknown, depth = 0): string | undefined {
+  if (depth > 6 || obj == null) return undefined;
+  if (typeof obj === 'string') {
+    if (/^https?:\/\/.+\.(jpg|jpeg|png|webp)(\?.*)?$/i.test(obj)) return obj;
+    return undefined;
+  }
+  if (Array.isArray(obj)) {
+    for (const it of obj) {
+      const found = findImageUrlDeep(it, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof obj === 'object') {
+    for (const v of Object.values(obj as Record<string, unknown>)) {
+      const found = findImageUrlDeep(v, depth + 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
 async function submitVideoTask(params: GeminiGenVideoParams, apiKey: string): Promise<string> {
   const modelName = stripPrefix(params.model);
   const ratio = mapAspectRatio(params.aspectRatio);
@@ -139,12 +185,16 @@ async function pollVideoTask(uuid: string, apiKey: string): Promise<GeminiGenVid
       console.log(`[geminigen-video] Attempt ${attempt + 1}/${maxAttempts}: status=${status}`);
 
       if (status === 2 || status === 'completed' || status === 'success') {
+        console.log(`[geminigen-video] COMPLETED raw response for ${uuid}:`,
+          JSON.stringify(data).slice(0, 1500));
+
         const videoUrl =
           data?.video_url || data?.data?.video_url ||
           data?.generate_result || data?.data?.generate_result ||
           data?.result_url || data?.data?.result_url ||
           data?.output_url || data?.data?.output_url ||
-          data?.files?.[0]?.url || data?.videos?.[0]?.url;
+          data?.files?.[0]?.url || data?.videos?.[0]?.url ||
+          findVideoUrlDeep(data);
 
         if (!videoUrl) {
           console.error(`[geminigen-video] Completed but no URL. Keys: ${JSON.stringify(Object.keys(data))}`);
@@ -153,7 +203,7 @@ async function pollVideoTask(uuid: string, apiKey: string): Promise<GeminiGenVid
 
         const thumbnailUrl =
           data?.thumbnail_url || data?.data?.thumbnail_url ||
-          data?.files?.[0]?.thumbnail || undefined;
+          data?.files?.[0]?.thumbnail || findImageUrlDeep(data) || undefined;
 
         return {
           videoUrl,
@@ -215,18 +265,25 @@ export async function checkGeminiGenVideoStatus(
     const status = data?.status ?? data?.data?.status;
 
     if (status === 2 || status === 'completed' || status === 'success') {
+      console.log(`[geminigen-video] COMPLETED raw response for ${uuid}:`,
+        JSON.stringify(data).slice(0, 1500));
+
       const videoUrl =
         data?.video_url || data?.data?.video_url ||
         data?.generate_result || data?.data?.generate_result ||
         data?.result_url || data?.data?.result_url ||
         data?.output_url || data?.data?.output_url ||
-        data?.files?.[0]?.url || data?.videos?.[0]?.url;
+        data?.files?.[0]?.url || data?.videos?.[0]?.url ||
+        findVideoUrlDeep(data);
 
-      if (!videoUrl) return { status: 'failed', error: 'Completed but no video URL returned' };
+      if (!videoUrl) {
+        console.error(`[geminigen-video] No URL found. Top-level keys:`, Object.keys(data));
+        return { status: 'failed', error: 'Completed but no video URL returned' };
+      }
 
       const thumbnailUrl =
         data?.thumbnail_url || data?.data?.thumbnail_url ||
-        data?.files?.[0]?.thumbnail || undefined;
+        data?.files?.[0]?.thumbnail || findImageUrlDeep(data) || undefined;
 
       return { status: 'completed', videoUrl, thumbnailUrl };
     }
