@@ -30,6 +30,7 @@ const PLATFORM_ICON_KEY: Record<SocialPlatform, string> = {
   tiktok: 'tiktok',
   reels: 'instagram',
   shorts: 'youtube',
+  'fb-reels': 'facebook',
   pinterest: 'pinterest',
   threads: 'threads',
   facebook: 'facebook',
