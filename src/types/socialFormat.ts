@@ -123,7 +123,17 @@ export const SOCIAL_FORMAT_PRESETS: SocialFormatPreset[] = [
   // Threads (Meta) — conversation-first video, hỗ trợ tới 5 phút
   { id: 'threads-short',    platform: 'threads', format: 'short',    label: 'Threads Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'conversational hook',  channelKey: 'generic', description: 'Hook đối thoại ngắn' },
   { id: 'threads-standard', platform: 'threads', format: 'standard', label: 'Threads Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'opinion, take',        channelKey: 'generic', description: 'Take / opinion ngắn' },
-  { id: 'threads-long',     platform: 'threads', format: 'long',     label: 'Threads Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'thread storytelling',  channelKey: 'generic', description: 'Thread story 1 phút' },
+  { id: 'threads-long',     platform: 'threads', format: 'long',     label: 'Threads Long',     shortLabel: '5 phút', duration: 300, aspectRatio: '9:16', toneHint: 'thread storytelling',  channelKey: 'generic', description: 'Thread story dài (max 5 phút 2026)' },
+
+  // Bluesky — open social, max 60s, 1:1 chuẩn
+  { id: 'bluesky-short',    platform: 'bluesky', format: 'short',    label: 'Bluesky Short',    shortLabel: '15s', duration: 15, aspectRatio: '1:1', toneHint: 'punchy hook, open-social', channelKey: 'generic', description: 'Hook ngắn cho Bluesky' },
+  { id: 'bluesky-standard', platform: 'bluesky', format: 'standard', label: 'Bluesky Standard', shortLabel: '30s', duration: 30, aspectRatio: '1:1', toneHint: 'opinion, take',           channelKey: 'generic', description: 'Take / opinion 30s' },
+  { id: 'bluesky-long',     platform: 'bluesky', format: 'long',     label: 'Bluesky Long',     shortLabel: '60s', duration: 60, aspectRatio: '1:1', toneHint: 'thread-style',            channelKey: 'generic', description: 'Story 1 phút (max)' },
+
+  // WhatsApp Status — vertical 9:16, mỗi segment 60s
+  { id: 'whatsapp-short',    platform: 'whatsapp', format: 'short',    label: 'Status Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'quick announce',     channelKey: 'generic', description: 'Status nhanh, hook đầu' },
+  { id: 'whatsapp-standard', platform: 'whatsapp', format: 'standard', label: 'Status Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'announcement',       channelKey: 'generic', description: 'Status chuẩn 1 segment' },
+  { id: 'whatsapp-long',     platform: 'whatsapp', format: 'long',     label: 'Status Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'mini-story status', channelKey: 'generic', description: 'Status full segment 60s' },
 
   // ===== Long-form =====
   // Facebook
