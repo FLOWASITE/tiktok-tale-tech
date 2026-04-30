@@ -957,7 +957,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {currentStep === 2 && !isLoading && (
+      {currentStep === STEP_GENERATE && !isLoading && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>
