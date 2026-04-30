@@ -1,9 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
-import { saveMetrics, generateTraceId, estimateTokens, resolveUserId } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
+import { generateTraceId, resolveUserId } from "../_shared/logger.ts";
 import { getOutputLanguage, getLanguageConfig } from "../_shared/country-language-map.ts";
-import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withPerf } from "../_shared/middleware/perf.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,12 +115,8 @@ Deno.serve(withPerf({ functionName: 'generate-storyboard', slowThresholdMs: 4500
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    // Initialize Supabase client for prompt fetching & metrics
 
-    // Initialize Supabase client for prompt fetching
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -206,43 +202,44 @@ ${L.returnJson}`;
 
     console.log(`[generate-storyboard] Generating for: ${scriptTitle}, trace: ${traceId}`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+    // Route through shared callAI — honors ai_function_configs (model_override + force_provider).
+    // Admin chooses provider in /admin/ai → Functions → generate-storyboard.
+    // Supports DashScope (Alibaba) qwen3-* models, OpenRouter, Lovable Gateway, etc.
+    const aiResult = await callAIWithMetrics(supabase, {
+      functionName: 'generate-storyboard',
+      organizationId,
+      userId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      traceId,
+      actionType: 'content_generation',
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generate-storyboard] AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
+    if (!aiResult.success) {
+      const errMsg = aiResult.error || '';
+      console.error("[generate-storyboard] AI call failed:", aiResult.provider, aiResult.model, errMsg);
+
+      // Surface 402 / 429 cleanly to client (Vietnamese)
+      if (/\b402\b|payment[_ ]required|credit/i.test(errMsg)) {
+        return new Response(
+          JSON.stringify({ error: "Cần nạp thêm credits hoặc đổi sang provider khác (Admin → AI → Functions → generate-storyboard)." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (/\b429\b|rate[_ ]?limit|too many requests/i.test(errMsg)) {
         return new Response(
           JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Cần nạp thêm credits để tiếp tục sử dụng." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
+
+      throw new Error(`AI call failed (${aiResult.provider}/${aiResult.model}): ${errMsg}`);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const data = aiResult.data;
+    const content = data?.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error("No content in AI response");
@@ -286,24 +283,8 @@ ${L.returnJson}`;
 
     console.log(`[generate-storyboard] Generated ${scenes.length} scenes, total duration: ${totalDuration}s, took ${durationMs}ms`);
 
-    // Save AI metrics (non-blocking)
-    const model = "google/gemini-2.5-flash";
-    const inputTokens = data.usage?.prompt_tokens || estimateTokens(systemPrompt + userPrompt);
-    const outputTokens = data.usage?.completion_tokens || estimateTokens(content || '');
-    saveMetrics(supabase, {
-      traceId,
-      functionName: 'generate-storyboard',
-      userId,
-      totalDurationMs: durationMs,
-      aiCallDurationMs: durationMs,
-      inputTokensEstimated: inputTokens,
-      outputTokensEstimated: outputTokens,
-      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
-      modelsUsed: { text: model },
-      hadError: false,
-      contextSources: [],
-      actionType: 'content_generation',
-    }).catch(() => {});
+    // AI metrics already saved by callAIWithMetrics (provider/model/tokens/cost auto-tracked)
+    console.log(`[generate-storyboard] Provider: ${aiResult.provider}, Model: ${aiResult.model}, Cost: $${aiResult.metrics?.estimatedCostUsd?.toFixed(6) ?? '?'}`);
 
     // Track prompt usage
     try {

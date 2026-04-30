@@ -1,109 +1,48 @@
-# Plan — Ghép scene thành phim hoàn chỉnh
+## Bối cảnh
+
+Trong **Admin → AI Management → Functions**, function `generate-storyboard` **đã có sẵn** trong catalog (`src/hooks/useAIConfig.ts` dòng 55, category `content`, type `text`, default `google/gemini-2.5-flash`). Picker model cũng **đã liệt kê đầy đủ Qwen của Alibaba (DashScope)** — `qwen3-max`, `qwen3-plus`, `qwen3-turbo`, `qwen3-flash`, `qwen3-long`, `qwen3-vl-max/plus`, `qwen3-coder-plus`, `qwen-max-latest`, `qwen-plus-latest`, …
+
+**Vấn đề thực tế:** edge function `supabase/functions/generate-storyboard/index.ts` hard-code:
+- `model: "google/gemini-2.5-flash"`
+- gọi thẳng `https://ai.gateway.lovable.dev/v1/chat/completions`
+
+→ Bỏ qua `ai_function_configs` hoàn toàn. Chọn Qwen trong Admin **không có tác dụng**, và đây là lý do vẫn 402 (Lovable Gateway hết credits) dù muốn dùng Alibaba.
 
 ## Mục tiêu
-Nút "Ghép thành phim" hiện tại chỉ mở Video Studio. Sẽ chuyển thành **merge thực sự**: lấy toàn bộ clip đã render theo đúng thứ tự scene, ghép lại thành 1 MP4 và lưu lại để xem/tải về.
 
-## 1. Backend — Edge function `merge-script-video`
+Khi admin chọn model `qwen3-*` cho `generate-storyboard` trong Admin UI → request được route sang **DashScope (Alibaba Cloud)**, không đụng Lovable Gateway.
 
-Tạo `supabase/functions/merge-script-video/index.ts`:
+## Thay đổi
 
-- **Input**: `{ script_id: string, clip_ids: string[] }` (đúng thứ tự đã sắp xếp)
-- **Auth**: JWT validation qua serviceClient (theo pattern hiện tại)
-- **Logic**:
-  1. Validate quyền truy cập `script_id` theo `organization_id`
-  2. Load các clip từ `video_generations` theo `clip_ids` (status = completed, có `video_url`)
-  3. Tải tuần tự các MP4 vào `/tmp/` của Deno runtime
-  4. Dùng **ffmpeg concat demuxer** (subprocess `Deno.Command('ffmpeg')`) — re-encode chung codec/preset để xử lý input khác resolution/fps:
-     - `ffmpeg -f concat -safe 0 -i list.txt -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart out.mp4`
-  5. Upload output lên Supabase Storage bucket `script-movies/{org_id}/{script_id}/{timestamp}.mp4` (tạo bucket public nếu chưa có)
-  6. Insert record vào bảng mới `script_movies` (xem mục 2)
-  7. Return `{ id, video_url, duration }`
+### 1. `supabase/functions/generate-storyboard/index.ts` — chuyển sang `callAI`
 
-**Lưu ý ffmpeg trong edge function**: Deno Deploy runtime KHÔNG có ffmpeg. → Hai lựa chọn:
+Thay block `fetch("https://ai.gateway.lovable.dev/...")` (dòng ~209-245) bằng shared helper `callAIWithMetrics` (đã được dùng trong `generate-script`, `generate-hooks` …):
 
-- **Option A (khuyến nghị)**: dùng provider trung gian — gọi API ghép video của một service hiện có. Nhưng phức tạp.
-- **Option B (đơn giản, robust)**: Background Task pattern — edge function nhận request, đẩy job vào bảng `merge_jobs` (status=pending), rồi worker chạy ffmpeg. Vì Lovable Cloud không có worker, fallback thực tế là:
-- **Option C (chọn)**: Dùng **Mux / Shotstack / Cloudinary video concat API**. Cụ thể **Cloudinary** miễn phí có endpoint `video/upload` với transformation `fl_splice` để ghép. Yêu cầu user cấu hình `CLOUDINARY_*` secrets.
+- `import { callAIWithMetrics } from "../_shared/ai-provider.ts"`
+- Bỏ check `LOVABLE_API_KEY` cứng (helper tự xử lý theo provider)
+- Truyền `functionName: 'generate-storyboard'`, `organizationId`, `messages`, `userId`, `traceId`
+- Helper sẽ:
+  - đọc `ai_function_configs` (org-level → global → fallback)
+  - nếu `model_override` là `qwen3-*` hoặc `force_provider='dashscope'` → gọi DashScope qua `DASHSCOPE_API_KEY`
+  - tự `saveMetrics` (giữ behavior hiện tại) — bỏ block `saveMetrics` trùng lặp ở cuối hàm
+- Giữ nguyên 402/429 mapping ra response error tiếng Việt
 
-→ **Đề xuất hỏi user** (xem cuối plan) chọn provider merge: Cloudinary, Shotstack, hoặc client-side ffmpeg.wasm.
+### 2. `src/hooks/useAIConfig.ts` — không đổi
 
-## 2. Database — bảng `script_movies`
+Entry `generate-storyboard` đã có. Giữ default `google/gemini-2.5-flash` để org chưa cấu hình vẫn chạy bình thường; admin chuyển sang Qwen qua UI.
 
-Migration mới:
+### 3. Secret check
 
-```sql
-CREATE TABLE public.script_movies (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  script_id uuid NOT NULL REFERENCES scripts(id) ON DELETE CASCADE,
-  organization_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  video_url text NOT NULL,
-  thumbnail_url text,
-  duration_seconds numeric,
-  scene_count int NOT NULL,
-  clip_ids uuid[] NOT NULL,
-  status text NOT NULL DEFAULT 'completed', -- pending | processing | completed | failed
-  error_message text,
-  created_at timestamptz DEFAULT now()
-);
+Cần `DASHSCOPE_API_KEY` đã có trong Lovable Cloud secrets. Sẽ verify bằng `secrets--fetch_secrets` trước khi implement; nếu thiếu sẽ yêu cầu user thêm qua `add_secret` trước.
 
-ALTER TABLE public.script_movies ENABLE ROW LEVEL SECURITY;
+## Cách dùng sau khi xong
 
--- RLS: org members CRUD theo organization_id (theo pattern hiện tại)
-CREATE POLICY "org members read" ON script_movies FOR SELECT
-  USING (organization_id IN (SELECT organization_id FROM organization_members WHERE user_id = auth.uid()));
-CREATE POLICY "org members insert" ON script_movies FOR INSERT
-  WITH CHECK (user_id = auth.uid() AND organization_id IN (SELECT organization_id FROM organization_members WHERE user_id = auth.uid()));
-CREATE POLICY "org members delete" ON script_movies FOR DELETE
-  USING (organization_id IN (SELECT organization_id FROM organization_members WHERE user_id = auth.uid()));
+1. Vào **Admin → AI → Functions**, search "storyboard"
+2. Mở `generate-storyboard`, chọn provider **DashScope (Alibaba Cloud)** → model `qwen3-plus` (khuyến nghị) hoặc `qwen3-flash` (rẻ/nhanh)
+3. Lưu → lần render storyboard kế tiếp sẽ gọi Alibaba, không tốn credit Lovable AI
 
-CREATE INDEX idx_script_movies_script ON script_movies(script_id, created_at DESC);
-```
+## Out of scope
 
-Bucket Storage `script-movies` (public read).
-
-## 3. Frontend
-
-### Hook mới `src/hooks/useScriptMovieMerge.ts`
-- `mergeMovie(scriptId, orderedClipIds)` → invoke edge function, toast progress, return movie record
-- `useScriptMovies(scriptId)` → fetch list movies + realtime subscription
-
-### Sửa `ScriptVideoTab.tsx`
-- `handleMerge`:
-  ```ts
-  const orderedClipIds = scenes
-    .filter(s => s.clip?.status === 'completed' && s.clip.video_url)
-    .sort((a,b) => a.sceneNumber - b.sceneNumber)
-    .map(s => s.clip!.id);
-  await mergeMovie(script.id, orderedClipIds);
-  ```
-- Hiển thị badge state: "Đang ghép…" trong header khi merge chạy
-
-### Component mới `src/components/script/ScriptMovieGallery.tsx`
-- Hiển thị bên dưới `ScriptVideoGalleryGrouped`
-- List các phim đã ghép: thumbnail + video player + nút Tải MP4 + Xoá
-- Realtime update khi có movie mới hoàn thành
-
-### Sửa `ScriptVideoHeader.tsx`
-- Đổi label nút từ "Ghép thành phim" → vẫn giữ nhưng thêm tooltip: "Ghép {n} scene đã render thành 1 MP4"
-- Thêm prop `merging: boolean` để show spinner
-
-## 4. UX Flow
-1. User render đủ ≥2 scene
-2. Bấm "Ghép thành phim" → confirm dialog hiển thị thứ tự scene và tổng thời lượng dự kiến
-3. Edge function chạy → toast "Đang ghép phim, ~30s…"
-4. Khi xong → realtime update, gallery xuất hiện movie mới + auto scroll xuống
-5. User xem inline / tải MP4 / publish lên kênh
-
-## File changes
-- **Tạo**: `supabase/functions/merge-script-video/index.ts`, migration `script_movies` + bucket, `src/hooks/useScriptMovieMerge.ts`, `src/hooks/useScriptMovies.ts`, `src/components/script/ScriptMovieGallery.tsx`, `src/components/script/MergeMovieDialog.tsx`
-- **Sửa**: `src/components/script/ScriptVideoTab.tsx`, `src/components/script/ScriptVideoHeader.tsx`
-
-## Câu hỏi cần xác nhận trước khi build
-**Provider merge video**: edge function Deno không có ffmpeg sẵn. Bạn muốn:
-- **A. Cloudinary** (miễn phí 25GB/tháng, cần `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`) — recommended
-- **B. Shotstack** (chuyên video editing API, có free tier, cần `SHOTSTACK_API_KEY`)
-- **C. Client-side ffmpeg.wasm** — không cần backend/secret, nhưng chậm và tốn RAM trình duyệt; chỉ tốt với ≤5 scene ngắn
-- **D. Tự host worker ffmpeg** — phức tạp, không khuyến nghị trong scope hiện tại
-
-Mình sẽ hỏi câu này khi bắt đầu implement.
+- Không thay đổi schema DB, không tạo migration
+- Không sửa UI Admin (đã đầy đủ)
+- Không đổi default model global (giữ Gemini Flash) — tránh ảnh hưởng workspace khác
