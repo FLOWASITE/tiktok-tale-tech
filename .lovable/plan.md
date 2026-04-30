@@ -1,81 +1,98 @@
-## Mục tiêu
-Hiện tại `PLATFORM_SPEC_BY_ID` đang **hardcode `sceneDurationSec` = 5-6s** cho mọi platform → giả định model là Seedance. Với video dài (60-180s), điều này tạo quá nhiều clip không cần thiết.
+## Phát hiện từ tài liệu chính thức
 
-Giải pháp: thêm tầng **"Recommended Video Model"** chọn model có `maxDuration` cao nhất theo platform → kéo `sceneDurationSec` lên **8-10s khi phù hợp** → giảm 30-50% số clip cần render.
+Đã đọc `docs.poyo.ai/llms.txt` + chi tiết từng model. Bảng độ dài tối đa **theo doc chính thức** (không phải đoán):
 
-## Nguyên tắc auto-pick (cân bằng theo platform)
+| Model | Doc nguồn | Duration support | Aspect ratios |
+|---|---|---|---|
+| **Seedance 2 / Seedance 2 Fast** | `/video-series/seedance-2` | **4-15s** (integer) ⚡ | 21:9, 16:9, 4:3, 1:1, 3:4, 9:16 |
+| **VEO 3.1 (lite/fast/quality)** | `/video-series/veo-3-1` | **8s cố định** | up to 4K |
+| **Sora 2** | `/video-series/sora-2` | 10s hoặc 15s | — |
+| **Sora 2 Pro** | `/video-series/sora-2-pro` | 15s hoặc 25s | — |
+| **Hailuo 2.3** | `/video-series/hailuo-2-3` | 6s hoặc 10s (1080p chỉ 6s) | — |
+| **Kling 2.6** | `/video-series/kling-2-6` | 5s hoặc 10s | 1:1, 16:9, 9:16 |
+| **Runway Gen-4.5** | `/video-series/runway-gen-4-5` | 5s hoặc 10s | 16:9, 9:16, 4:3, 3:4, 1:1, 21:9 |
+| **Wan 2.5 t2v** | `/video-series/wan2.5-text-to-video` | 5s hoặc 10s | nhiều preset |
 
-| Platform | Aspect | Recommended model | maxDuration | Lý do |
-|---|---|---|---|---|
-| TikTok / Reels / Shorts (vertical short ≤60s) | 9:16 | `poyo/n-2` (Seedance 2) | 5-6s | Short-form fast cuts cần pacing nhanh, Seedance đủ chất + rẻ |
-| Reels / TikTok long (>60s) | 9:16 | `geminigen/n-3-fast` (Veo 3 Fast) | **10s** | Long-form vertical cần ít clip hơn để giữ flow |
-| Pinterest 2:3 | 2:3 | `geminigen/n-3-fast` | **10s** | Lifestyle pacing chậm, scene dài |
-| Square 1:1 (FB/IG feed) | 1:1 | `poyo/n-2` | 6s | Feed video ngắn |
-| Horizontal 16:9 (YouTube long, LinkedIn) | 16:9 | `geminigen/n-3.1-fast` (Veo 3.1 Fast) | **10s** | Long storytelling, ít clip = mượt hơn |
-| YouTube Shorts | 9:16 | `poyo/n-2` | 6s | Như TikTok short |
+→ Code hiện tại trong `pickRecommendedVideoModel` đang giả định **Seedance cap 6s** — sai. Doc chính thức xác nhận **Seedance 2 hỗ trợ tới 15s**, dù credit tính theo duration.
 
-## Thay đổi code
+## Phát hiện 2 — Bug model ID
 
-### 1. `supabase/functions/generate-script/index.ts`
+`generate-script/index.ts` (lines 1157-1163) đang return id:
+- `poyo/n-2` ← **không tồn tại** trong `_shared/poyo-video-generator.ts` (chỉ có `poyo/seedance-2`, `poyo/sora-2`, `poyo/happy-horse`)
+- `geminigen/n-3-fast`, `geminigen/n-3.1-fast` ← **không tồn tại** trong `_shared/geminigen-video-generator.ts` (đúng phải là `geminigen/veo-3-fast`, `geminigen/veo-3.1-fast`)
 
-**Thêm helper `pickRecommendedVideoModel`:**
-```ts
-interface VideoModelRecommendation {
-  modelId: string;        // 'poyo/n-2' | 'geminigen/n-3-fast' | 'geminigen/n-3.1-fast'
-  modelLabel: string;     // 'Seedance 2' | 'Veo 3 Fast' | 'Veo 3.1 Fast'
-  maxClipSec: number;     // 6 | 10
-  reason: string;         // log + return cho client
-}
+→ Frontend pre-select preset đọc id này sẽ fail (không match), badge `recommended_video_model` hiển thị id ảo. Cần fix để khớp registry thật.
 
-function pickRecommendedVideoModel(
-  platformLabel: string, aspect: string, totalDuration: number
-): VideoModelRecommendation
-```
+## Đề xuất thay đổi
 
-Logic:
-- `aspect === '9:16' && totalDuration <= 60` → Seedance 2 (cap 6s)
-- `aspect === '9:16' && totalDuration > 60` → Veo 3 Fast (cap 10s)
-- `aspect === '16:9'` → Veo 3.1 Fast (cap 10s)
-- `aspect === '2:3'` (Pinterest) → Veo 3 Fast (cap 10s)
-- `aspect === '1:1'` → Seedance 2 (cap 6s)
-- Default → Seedance 2
+### 1. Fix model IDs đúng với provider registry
+File: `supabase/functions/generate-script/index.ts` (function `pickRecommendedVideoModel`, ~line 1153)
 
-**Update `getPlatformSpec`:** chạy `pickRecommendedVideoModel` trước → **override `base.sceneDurationSec` = `recommendation.maxClipSec`** trước khi gọi `computeSmartSceneCount` + `buildSceneDurationPlan`. Như vậy số scene tự động giảm.
+| Trước (sai) | Sau (đúng) |
+|---|---|
+| `poyo/n-2` | `poyo/seedance-2` |
+| `geminigen/n-3-fast` | `geminigen/veo-3-fast` |
+| `geminigen/n-3.1-fast` | `geminigen/veo-3.1-fast` |
 
-**Mở rộng `PlatformSpec`:** thêm 3 field
-```ts
-recommendedVideoModel: string;       // modelId
-recommendedVideoModelLabel: string;  // human label
-videoModelReason: string;            // lý do pick
-```
+### 2. Nâng cap Seedance 6s → 12s (sweet spot)
 
-**Inject vào AI prompt + response:**
-- Inject vào system prompt: `"Mỗi PROMPT sẽ được render bằng {modelLabel} (cap {maxClipSec}s/clip)."` để AI viết prompt phù hợp với khả năng của model.
-- Trả về `metadata.recommendedVideoModel` trong response JSON cho client hiển thị.
+Doc cho phép tới 15s, nhưng:
+- 15s/clip với prompt phức tạp dễ bị drift chất lượng
+- 12s là sweet spot: giảm ~50% số clip vs 6s, vẫn an toàn về coherence
+- Vẫn dưới ngưỡng credit "premium" (Seedance bill theo duration tuyến tính)
 
-### 2. Frontend: hiển thị model recommendation
+Bảng auto-pick mới:
 
-`src/hooks/useVideoCompletion.ts` đã có map `fast` (Seedance) / `hero` (Veo 3 Fast). Cần:
-- Component nào hiển thị scene plan từ `generate-script` (Studio/Storyboard) → đọc `metadata.recommendedVideoModel` → **auto pre-select** preset trong QuickClip menu (fast vs hero).
-- Hiển thị badge nhỏ `"Đề xuất: Veo 3 Fast — giảm còn N clip"` để user hiểu lý do.
+| Aspect / Total duration | Recommended model | maxClipSec | Lý do |
+|---|---|---|---|
+| 9:16 ≤60s (TikTok/Reels short) | `poyo/seedance-2` | **8s** | Pacing nhanh nhưng vẫn giảm 25% clip vs 6s |
+| 9:16 >60s (Reels long, story) | `poyo/seedance-2` | **12s** | Long-form vertical → ít clip = mượt hơn, rẻ hơn Veo |
+| 16:9 (YouTube/LinkedIn) | `geminigen/veo-3.1-fast` | **8s** | Veo 3.1 fixed 8s, chất lượng cinematic cho horizontal |
+| 2:3 (Pinterest) | `poyo/seedance-2` | **12s** | Lifestyle pacing chậm |
+| 1:1 (Square feed) | `poyo/seedance-2` | **8s** | Feed video ngắn, balance |
+| Default fallback | `poyo/seedance-2` | **8s** | An toàn |
 
-(Sẽ tìm component cụ thể khi implement; ước tính 1-2 file UI.)
+### 3. Tác động đo lường
 
-## Tác động
-
-Ví dụ video TikTok long 90s:
-- **Trước:** cap 6s → ~15 clip (15 lần gọi Seedance)
-- **Sau:** cap 10s (Veo 3 Fast) → ~9 clip (giảm 40%)
+Video TikTok 90s vertical:
+- **Trước (cap 6s):** ~15 clip Seedance
+- **Sau (cap 12s):** ~8 clip Seedance → **giảm 47%**
 
 Video YouTube 16:9 dài 120s:
-- **Trước:** cap 6s → ~20 clip
-- **Sau:** cap 10s → ~12 clip (giảm 40%)
+- **Trước (cap 6s, pick id sai):** ~20 clip
+- **Sau (cap 8s, Veo 3.1 Fast id đúng):** ~15 clip → **giảm 25%** + render đúng provider
+
+Video TikTok ngắn 30s:
+- **Trước (cap 6s):** 5 clip
+- **Sau (cap 8s):** 4 clip → **giảm 20%**
+
+### 4. Inject doc-backed constraint vào AI prompt
+
+Tại line 1504, mở rộng `[AI RENDER MODEL]` block để liệt kê duration support thật:
+
+```
+[AI RENDER MODEL]
+Mỗi PROMPT sẽ được render bằng **Seedance 2** (cap 12s/clip — model hỗ trợ 4-15s).
+- Viết visual prompt cho 1 cảnh duy nhất, không có cut/transition trong cùng prompt.
+- Tránh chuyển động phức tạp đa hướng (drift risk khi clip >10s).
+- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static.
+```
+
+### 5. Update memory
+
+`mem://features/video/smart-model-pick-vn` — cập nhật bảng cap mới (8s/12s thay 6s/10s) + ghi chú "đã verify với docs.poyo.ai chính thức".
 
 ## Files thay đổi
-- `supabase/functions/generate-script/index.ts` (thêm `pickRecommendedVideoModel`, sửa `getPlatformSpec`, mở rộng interface, inject prompt + response metadata)
-- 1-2 file frontend hiển thị scene plan (sẽ xác định khi implement) — auto pre-select preset model + badge gợi ý
+
+- `supabase/functions/generate-script/index.ts` — sửa `pickRecommendedVideoModel` (model id + cap), mở rộng prompt block
+- `mem://features/video/smart-model-pick-vn` — update specs
 
 ## Không thay đổi
-- Không động `_shared/geminigen-video-generator.ts` (model registry giữ nguyên)
-- Không động pricing/quota logic
-- User vẫn có quyền override model cuối cùng tại QuickClip — đây chỉ là **smart default**
+
+- Logic `computeSmartSceneCount` + `buildSceneDurationPlan` (đã hoạt động đúng, chỉ nhận cap mới)
+- Frontend `useScripts.ts` toast (sẽ tự nhận id mới qua metadata)
+- Provider registry `_shared/*-video-generator.ts` (đã có sẵn id đúng)
+- Pricing/quota logic
+- User vẫn override được tại QuickClip
+
+Bấm **Approve** để mình implement.
