@@ -1,34 +1,54 @@
-# Implementation: 1 prompt cho video ngắn (TikTok 15s)
+# Fix: Video chỉ render 5s thay vì 15s
 
-## Đã sửa
+## Nguyên nhân (đã xác minh qua logs)
 
-### `supabase/functions/generate-script/index.ts`
+Edge function logs vừa rồi:
+```
+[generate-video] provider=geminigen model=geminigen/veo-3.1-fast 
+                 duration=5s aspect=9:16
+[geminigen-video] Submit: model=veo-3.1-fast, ratio=9:16, duration=5s
+```
 
-1. **`computeSmartSceneCount`**: bỏ tách hook scene riêng. Logic mới:
-   - `duration ≤ cap` → **1 prompt**
-   - `duration > cap` → `ceil(duration / cap)` prompt
+**3 vấn đề chồng nhau ở `QuickClipTab.tsx`:**
 
-2. **`buildSceneDurationPlan`**: bỏ ưu tiên `pacing.hookSceneSec`, chia đều theo sceneCount.
+1. **Default duration cứng = 5s** (`useState(5)` line 38) — không đọc từ scene plan của script.
+2. **Khi sync từ scene** (line 69): `Math.min(scene.duration, selectedModel.maxDuration)` — mà `selectedModel` đang là Veo 3.1 Fast với `maxDuration=8` → 15s bị clamp xuống 8s, rồi user kéo slider lại còn 5s.
+3. **Model không auto-pick theo aspect** — luôn dùng admin default (`veo-3.1-fast` cap 8s) cho cả 9:16, trong khi `generate-script` đã chọn Seedance 2 (cap 15s) cho vertical.
 
-3. **`pickRecommendedVideoModel`**: nâng cap Seedance 2 từ 8/12s → **15s** (theo doc PoYo 4-15s).
-   - Mọi vertical/square: Seedance 2 cap 15s
-   - 16:9: Veo 3.1 Fast cap 8s (doc fixed)
+→ Kết quả: script bảo "1 prompt 15s với Seedance 2", nhưng QuickClipTab gửi "5s với Veo 3.1 Fast".
 
-4. **Prompt `[AI RENDER MODEL]`**: thêm rule "PROMPT 1 phải có visual hook trong 0-3s đầu" (vì hook không còn là clip riêng).
+## Sửa
 
-## Bảng kết quả
+### 1. `src/components/video/QuickClipTab.tsx`
 
-| Duration | Aspect | Trước | Sau | Giảm |
-|---|---|---:|---:|---:|
-| TikTok 10s | 9:16 | 2 (hook+1) | **1** | -50% |
-| TikTok 15s | 9:16 | 3 (hook+2) | **1** | **-67%** |
-| TikTok 30s | 9:16 | 5 | **2** | -60% |
-| Reels 45s | 9:16 | 7 | **3** | -57% |
-| Reels 60s | 9:16 | 9 | **4** | -56% |
-| YT Shorts 90s | 9:16 | 9 | **6** | -33% |
-| 16:9 60s | 16:9 | 8 | **8** | 0% (Veo cap 8s) |
+- **Auto-pick model theo aspect** (giống logic `pickRecommendedVideoModel` ở `generate-script`):
+  - 9:16 / 1:1 / 2:3 → `poyo/seedance-2` (cap 15s)
+  - 16:9 → `geminigen/veo-3.1-fast` (cap 8s)
+  - Admin default chỉ dùng làm fallback nếu auto-pick không có trong VIDEO_MODELS.
+- **Default duration = 15s cho vertical, 8s cho 16:9** (thay vì cứng 5s).
+- **Sync scene đúng duration**: bỏ clamp về `selectedModel.maxDuration` cũ — phải re-derive model trước, rồi clamp theo cap mới. Dùng `scene.duration ?? duration` không clamp giảm, chỉ clamp tăng.
+- Slider `max` = `selectedModel.maxDuration` (đã đúng), nhưng khi đổi aspect → reset duration về cap mới.
 
-## Lưu ý
+### 2. `src/types/videoGeneration.ts`
 
-- **Không phải Kling**: Kling 2.6 PoYo cap 10s. **Seedance 2** mới là model PoYo support 4-15s/clip.
-- Nếu muốn Kling thay thế cho character animation → tạo branch riêng theo aspect (vd: 9:16 + character → Kling 10s).
+`POYO_VIDEO_MODELS`: `seedance-2` đang để `maxDuration: 10` — sửa thành `15` (đồng bộ với `generate-script` và doc PoYo 4-15s).
+
+### 3. `src/lib/videoModelCaps.ts`
+
+Thêm entry `'poyo/seedance-2'` (hiện chỉ có `seedance-1-pro` cap 10s) với `maxDuration: 15, durationChoices: [5, 10, 15]` cho admin panel.
+
+### 4. `src/components/video/ProviderModelPicker.tsx` (kiểm tra)
+
+Đảm bảo `VIDEO_MODELS` có `poyo/seedance-2` với `maxDuration: 15` và `pricePerSec` đúng.
+
+## Test sau khi sửa
+
+1. Mở script TikTok 15s → click "Quay scene này" → QuickClipTab auto-fill: **Seedance 2 + 15s + 9:16**.
+2. Bấm "Tạo video" → log phải show: `model=poyo/seedance-2 duration=15s aspect=9:16`.
+3. Đổi aspect sang 16:9 → tự reset thành Veo 3.1 Fast + 8s.
+4. Quick Clip rời (không từ script): default = Seedance 2 + 15s + 9:16.
+
+## Không thay đổi
+
+- Backend `generate-video` & `generate-script` — đã đúng logic, chỉ frontend gửi sai params.
+- Admin AI config — vẫn áp dụng cho các flow khác (manual override, image, text).

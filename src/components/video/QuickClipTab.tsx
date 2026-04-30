@@ -25,6 +25,21 @@ const VIDEO_MODEL_LABELS: Record<string, string> = Object.fromEntries(
   VIDEO_MODELS.map((m) => [m.id, m.label]),
 );
 
+/**
+ * Auto-pick model theo aspect (mirror logic của generate-script edge function).
+ * - Vertical/square (9:16, 1:1, 2:3): Seedance 2 (cap 15s) — clip dài nhất, rẻ nhất.
+ * - Landscape (16:9): Veo 3.1 Fast (cap 8s, audio native).
+ * Mục tiêu: 1 clip cover toàn bộ duration → tiết kiệm credit.
+ */
+function autoPickModelForAspect(aspect: VideoAspectRatio): string {
+  if (aspect === '16:9') return 'geminigen/veo-3.1-fast';
+  return 'poyo/seedance-2';
+}
+
+function defaultDurationForAspect(aspect: VideoAspectRatio): number {
+  return aspect === '16:9' ? 8 : 15;
+}
+
 const EXAMPLE_PROMPTS = [
   'Cô gái Việt 25 tuổi cười rạng rỡ trong tiệm cà phê ánh sáng vàng dịu, máy quay zoom chậm vào ánh mắt, phong cách điện ảnh ấm áp.',
   'Sản phẩm son môi đỏ xoay chậm 360 độ trên nền đá hoa cương trắng, ánh sáng studio mềm, macro shot, cinematic.',
@@ -35,7 +50,7 @@ export function QuickClipTab() {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
-  const [duration, setDuration] = useState(5);
+  const [duration, setDuration] = useState(15); // Default 15s cho 9:16 (Seedance 2 cap)
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
@@ -51,23 +66,45 @@ export function QuickClipTab() {
     markSceneCompleted,
   } = useScriptToVideo();
 
-  // Model is decided by Admin (read-only here)
+  // Admin model chỉ là FALLBACK — auto-pick theo aspect là ưu tiên cao hơn
+  // (đồng bộ với logic pickRecommendedVideoModel trong generate-script).
   const { data: modelInfo } = useFunctionModel(
     'generate-video',
     DEFAULT_VIDEO_MODEL,
     currentOrganization?.id ?? null,
   );
   const adminModel = modelInfo?.model ?? DEFAULT_VIDEO_MODEL;
-  const selectedModel = VIDEO_MODELS.find((m) => m.id === adminModel) ?? VIDEO_MODELS[0];
+
+  // Auto-pick: ưu tiên model phù hợp aspect; fallback admin nếu auto-pick không tồn tại trong VIDEO_MODELS.
+  const autoPicked = autoPickModelForAspect(aspect);
+  const effectiveModel =
+    VIDEO_MODELS.find((m) => m.id === autoPicked)?.id ??
+    VIDEO_MODELS.find((m) => m.id === adminModel)?.id ??
+    VIDEO_MODELS[0].id;
+  const selectedModel = VIDEO_MODELS.find((m) => m.id === effectiveModel) ?? VIDEO_MODELS[0];
   const estimatedCost = selectedModel ? (selectedModel.pricePerSec * duration).toFixed(2) : '0.00';
   const activeJob = activeJobId ? generations.find((g) => g.id === activeJobId) : null;
 
-  // Auto-fill prompt/duration/aspect when scene changes
+  // Khi đổi aspect → reset duration về cap mặc định của model mới (tránh giữ giá trị cũ vượt cap)
+  useEffect(() => {
+    const cap = selectedModel?.maxDuration ?? 10;
+    const target = defaultDurationForAspect(aspect);
+    setDuration(Math.min(target, cap));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aspect]);
+
+  // Auto-fill prompt/duration/aspect when scene changes (từ script)
   useEffect(() => {
     if (!currentScene) return;
     setPrompt(currentScene.prompt);
-    if (currentScene.duration) setDuration(Math.max(3, Math.min(currentScene.duration, selectedModel?.maxDuration ?? 10)));
     if (currentScene.aspect) setAspect(currentScene.aspect);
+    if (currentScene.duration) {
+      // Dùng duration của scene, clamp theo cap của model auto-pick cho aspect đó
+      const targetAspect = currentScene.aspect ?? aspect;
+      const targetModelId = autoPickModelForAspect(targetAspect);
+      const targetCap = VIDEO_MODELS.find((m) => m.id === targetModelId)?.maxDuration ?? 10;
+      setDuration(Math.max(3, Math.min(currentScene.duration, targetCap)));
+    }
     setActiveJobId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeScript?.id, activeSceneIndex]);
@@ -133,7 +170,8 @@ export function QuickClipTab() {
     const result = await generateVideo({
       provider,
       prompt: prompt.trim(),
-      // model intentionally omitted — backend resolves from Admin AI Function Config
+      // Gửi model auto-pick để override admin default (Seedance 2 cho 9:16/1:1, Veo 3.1 Fast cho 16:9)
+      model: selectedModel.id,
       duration,
       aspect_ratio: aspect,
       resolution: '1080p',

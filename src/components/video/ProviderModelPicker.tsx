@@ -56,10 +56,10 @@ export const VIDEO_MODELS: ModelOption[] = [
     id: 'poyo/seedance-2',
     provider: 'poyo',
     label: 'Seedance 2',
-    description: 'ByteDance · first/last frame control',
+    description: 'ByteDance · clip dài 15s · first/last frame',
     pricePerSec: 0.05,
-    maxDuration: 10,
-    badge: { label: 'Cheapest', tone: 'new' },
+    maxDuration: 15,
+    badge: { label: 'Cheapest · 15s', tone: 'new' },
     icon: Rocket,
   },
   {
