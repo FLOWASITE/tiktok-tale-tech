@@ -7,8 +7,11 @@ type: feature
 # Social Format Presets
 
 ## Khi nào áp dụng
-- Bước "Cấu hình" trong `ScriptFormStepper` khi `script_purpose === 'ai_video'`
-- Chip `SocialFormatPicker` hiển thị TRƯỚC chip Duration
+- Wizard `ScriptFormStepper` có **step riêng "Định dạng Social"** (STEP_SOCIAL_FORMAT=2) chỉ render khi `script_purpose === 'ai_video'`
+- STEPS dynamic qua `buildSteps(isVideoAi)`: ai_video → 3 steps (Nội dung → Định dạng Social → Tạo kịch bản); khác → 2 steps (skip step 2)
+- Step Generate hiển thị badge summary "TikTok Short · 15s · 9:16" + nút chip click → quay lại STEP_SOCIAL_FORMAT để đổi
+- Override Duration nằm trong Collapsible "Tinh chỉnh thủ công" tại step Social Format
+- Navigation dùng `visibleStepIds` + `currentVisibleIndex` để skip step ẩn; auto-snap về STEP_CONTENT nếu currentStep bị ẩn do đổi purpose
 
 ## Preset matrix
 | Platform | Short | Standard | Long | Aspect |

@@ -82,10 +82,21 @@ interface ScriptFormStepperProps {
   topicHistoryId?: string;
 }
 
-const STEPS: Step[] = [
-  { id: 1, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
-  { id: 2, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> },
-];
+// Step IDs are semantic — step 2 (Social Format) only shown when purpose='ai_video'
+const STEP_CONTENT = 1;
+const STEP_SOCIAL_FORMAT = 2;
+const STEP_GENERATE = 3;
+
+const buildSteps = (isVideoAi: boolean): Step[] => {
+  const base: Step[] = [
+    { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
+  ];
+  if (isVideoAi) {
+    base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
+  }
+  base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
+  return base;
+};
 
 const LOADING_PHASES = [
   'Đang phân tích chủ đề...',
@@ -285,32 +296,52 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     return 'text-green-500';
   }, [topicLength]);
 
+  const isVideoAi = formData.script_purpose === 'ai_video';
+  const STEPS = useMemo(() => buildSteps(isVideoAi), [isVideoAi]);
+
+  // Ordered list of step IDs that are actually shown
+  const visibleStepIds = useMemo(() => STEPS.map((s) => s.id), [STEPS]);
+
+  const currentVisibleIndex = visibleStepIds.indexOf(currentStep);
+
+  // If user switches purpose mid-flow and current step is hidden, snap back
+  useEffect(() => {
+    if (!visibleStepIds.includes(currentStep)) {
+      setCurrentStep(STEP_CONTENT);
+    }
+  }, [visibleStepIds, currentStep]);
+
   const canProceed = useMemo(() => {
     switch (currentStep) {
-      case 1:
+      case STEP_CONTENT:
         return formData.topic.trim().length >= 10;
-      case 2:
+      case STEP_SOCIAL_FORMAT:
+        return true; // preset is optional — defaults to 60s/9:16 if not picked
+      case STEP_GENERATE:
         return true;
       default:
         return false;
     }
   }, [currentStep, formData.topic]);
 
+  const isLastStep = currentVisibleIndex === visibleStepIds.length - 1;
+
   const handleNext = () => {
-    if (currentStep < 2 && canProceed) {
-      setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
-      setCurrentStep(prev => prev + 1);
-    }
+    if (!canProceed || isLastStep) return;
+    const nextId = visibleStepIds[currentVisibleIndex + 1];
+    setCompletedSteps((prev) => [...prev.filter((s) => s !== currentStep), currentStep]);
+    setCurrentStep(nextId);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-    }
+    if (currentVisibleIndex <= 0) return;
+    const prevId = visibleStepIds[currentVisibleIndex - 1];
+    setCurrentStep(prevId);
   };
 
   const handleStepClick = (step: number) => {
-    if (step <= currentStep || completedSteps.includes(step - 1)) {
+    if (!visibleStepIds.includes(step)) return;
+    if (step <= currentStep || completedSteps.includes(step)) {
       setCurrentStep(step);
     }
   };
@@ -570,8 +601,74 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* ====== Step 2: Smart Summary + Generate ====== */}
-        {currentStep === 2 && isLoading && (
+        {/* ====== Step 2: Social Format (only for ai_video) ====== */}
+        {currentStep === STEP_SOCIAL_FORMAT && (
+          <div className="space-y-5 animate-fade-in">
+            <div className="text-center py-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-foreground/[0.04] border border-border/40 mb-3">
+                <Smartphone className="w-6 h-6 text-foreground/80" />
+              </div>
+              <h3 className="font-semibold text-lg text-foreground">Chọn nền tảng đăng video</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                Định dạng quyết định <span className="text-foreground font-medium">thời lượng</span>, <span className="text-foreground font-medium">tỷ lệ khung hình</span> và tone của kịch bản
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/50 bg-card/40 p-5">
+              <SocialFormatPicker
+                value={formData.social_format_id}
+                onChange={(preset: SocialFormatPreset) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    social_format_id: preset.id,
+                    duration: preset.duration,
+                    aspect_ratio: preset.aspectRatio,
+                  }))
+                }
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Summary + manual override */}
+            {(() => {
+              const currentPreset = getPresetById(formData.social_format_id);
+              return (
+                <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-foreground/70" />
+                      <span className="text-muted-foreground">Đã chọn:</span>
+                      <span className="font-medium text-foreground">
+                        {currentPreset
+                          ? `${currentPreset.label} · ${currentPreset.duration}s · ${currentPreset.aspectRatio}`
+                          : `Mặc định · ${formData.duration}s · ${formData.aspect_ratio ?? '9:16'}`}
+                      </span>
+                    </div>
+                  </div>
+                  <Collapsible>
+                    <CollapsibleTrigger className="w-full flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition-colors">
+                      <SlidersHorizontal className="w-3 h-3" />
+                      <span>Tinh chỉnh thời lượng thủ công</span>
+                      <ChevronDown className="w-3 h-3 ml-auto [[data-state=open]>&]:rotate-180 transition-transform" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <DurationSelector
+                        value={formData.duration}
+                        onChange={(value) =>
+                          setFormData((prev) => ({ ...prev, duration: value, social_format_id: undefined }))
+                        }
+                        disabled={isLoading}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ====== Step 3: Smart Summary + Generate ====== */}
+        {currentStep === STEP_GENERATE && isLoading && (
           <ScriptGenerationProgress
             isActive={isLoading}
             topic={formData.topic}
@@ -579,7 +676,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             duration={formData.duration}
           />
         )}
-        {currentStep === 2 && !isLoading && (
+        {currentStep === STEP_GENERATE && !isLoading && (
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
@@ -590,22 +687,34 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto truncate">
                 Chủ đề: <span className="text-foreground font-medium">{formData.topic.length > 60 ? formData.topic.slice(0, 60) + '...' : formData.topic}</span>
               </p>
-              {(formData.hook || formData.angle) && (
-                <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
-                  {formData.hook && (
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-amber-500" />
-                      Hook đã chọn
-                    </span>
-                  )}
-                  {formData.angle && (
-                    <span className="flex items-center gap-1">
-                      <Target className="w-3 h-3 text-primary" />
-                      {TOPIC_ANGLE_LABELS[formData.angle].label}
-                    </span>
-                  )}
-                </div>
-              )}
+              {(() => {
+                const currentPreset = isVideoAi ? getPresetById(formData.social_format_id) : null;
+                const hasMeta = formData.hook || formData.angle || currentPreset;
+                if (!hasMeta) return null;
+                return (
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
+                    {currentPreset && (
+                      <span className="flex items-center gap-1">
+                        <Smartphone className="w-3 h-3 text-foreground/70" />
+                        <span className="text-foreground/80 font-medium">{currentPreset.label}</span>
+                        <span>· {currentPreset.duration}s · {currentPreset.aspectRatio}</span>
+                      </span>
+                    )}
+                    {formData.hook && (
+                      <span className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        Hook đã chọn
+                      </span>
+                    )}
+                    {formData.angle && (
+                      <span className="flex items-center gap-1">
+                        <Target className="w-3 h-3 text-primary" />
+                        {TOPIC_ANGLE_LABELS[formData.angle].label}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Smart Config Chips */}
@@ -616,36 +725,23 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </div>
               
               <div className="flex flex-wrap gap-2">
-                {/* Social Format chip — chỉ hiện cho Video AI */}
-                {formData.script_purpose === 'ai_video' && (() => {
+                {/* Social Format chip — chỉ hiện cho Video AI (read-only summary, edit ở Step 2) */}
+                {isVideoAi && (() => {
                   const currentPreset = getPresetById(formData.social_format_id);
                   const chipLabel = currentPreset
                     ? `${currentPreset.label} · ${currentPreset.shortLabel}`
-                    : 'Chọn social';
+                    : `Mặc định · ${formData.duration}s`;
                   return (
-                    <ConfigChipSelector
-                      label={chipLabel}
-                      icon={<Smartphone className="w-3.5 h-3.5" />}
-                      popoverClassName="min-w-[340px] max-w-[420px]"
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(STEP_SOCIAL_FORMAT)}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border/50 bg-background hover:border-foreground/30 hover:bg-muted/40 text-xs font-medium text-foreground transition-all"
+                      title="Đổi định dạng social (quay lại bước 2)"
                     >
-                      <div className="space-y-3">
-                        <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
-                          Social Format
-                        </p>
-                        <SocialFormatPicker
-                          value={formData.social_format_id}
-                          onChange={(preset: SocialFormatPreset) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              social_format_id: preset.id,
-                              duration: preset.duration,
-                              aspect_ratio: preset.aspectRatio,
-                            }))
-                          }
-                          disabled={isLoading}
-                        />
-                      </div>
-                    </ConfigChipSelector>
+                      <Smartphone className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{chipLabel}</span>
+                    </button>
                   );
                 })()}
 
@@ -819,14 +915,14 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           type="button"
           variant="ghost"
           onClick={handleBack}
-          disabled={currentStep === 1 || isLoading}
+          disabled={currentVisibleIndex === 0 || isLoading}
           className="gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           Quay lại
         </Button>
 
-        {currentStep < 2 ? (
+        {!isLastStep ? (
           <Button
             type="button"
             onClick={handleNext}
@@ -861,7 +957,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {currentStep === 2 && !isLoading && (
+      {currentStep === STEP_GENERATE && !isLoading && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>
