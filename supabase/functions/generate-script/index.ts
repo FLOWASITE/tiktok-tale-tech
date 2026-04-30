@@ -1817,7 +1817,7 @@ Deno.serve(withPerf({ functionName: 'generate-script', slowThresholdMs: 45000 },
   }
 
   try {
-    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId } = await req.json();
+    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, social_format_id, aspect_ratio, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -1996,7 +1996,15 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       }
     }
 
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style);
+    // Resolve platform spec từ Bước 2 (Nền tảng video) — chỉ áp dụng cho purpose ai_video
+    const effectivePurposeForSpec = (script_purpose === 'ai_video_veo3' || script_purpose === 'ai_video_minimax') ? 'ai_video' : (script_purpose || 'ai_video');
+    const platformSpec = effectivePurposeForSpec === 'ai_video'
+      ? getPlatformSpec(social_format_id, aspect_ratio, duration)
+      : undefined;
+    if (platformSpec) {
+      console.log('[generate-script] Platform spec:', platformSpec.platformLabel, platformSpec.aspect, `${platformSpec.recommendedScenes}×${platformSpec.sceneDurationSec}s`);
+    }
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec);
 
     // Get AI config from Admin Panel for model override
     const aiConfig = await getAIConfig('generate-script', requestOrgId || undefined);
