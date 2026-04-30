@@ -9,6 +9,7 @@ export interface AudioAsset {
   id: string;
   user_id: string;
   organization_id?: string | null;
+  script_id?: string | null;
   asset_type: AudioAssetType;
   source_text?: string | null;
   prompt?: string | null;
