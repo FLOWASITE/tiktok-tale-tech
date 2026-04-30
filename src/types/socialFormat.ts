@@ -110,9 +110,10 @@ export const SOCIAL_FORMAT_PRESETS: SocialFormatPreset[] = [
   { id: 'facebook-long',     platform: 'facebook', format: 'long',     label: 'FB Long',     shortLabel: '90s', duration: 90, aspectRatio: '1:1', toneHint: 'storytelling',         channelKey: 'facebook', description: 'Storytelling dài hơn' },
 
   // LinkedIn
-  { id: 'linkedin-short',    platform: 'linkedin', format: 'short',    label: 'LinkedIn Short',    shortLabel: '30s', duration: 30, aspectRatio: '1:1', toneHint: 'professional, insight', channelKey: 'generic', description: 'Insight ngắn, professional' },
-  { id: 'linkedin-standard', platform: 'linkedin', format: 'standard', label: 'LinkedIn Standard', shortLabel: '60s', duration: 60, aspectRatio: '1:1', toneHint: 'thought-leadership',    channelKey: 'generic', description: 'Thought leadership' },
-  { id: 'linkedin-long',     platform: 'linkedin', format: 'long',     label: 'LinkedIn Long',     shortLabel: '90s', duration: 90, aspectRatio: '1:1', toneHint: 'case-study, data',      channelKey: 'generic', description: 'Case study + data' },
+  // LinkedIn — 16:9 là chuẩn professional video (2026)
+  { id: 'linkedin-short',    platform: 'linkedin', format: 'short',    label: 'LinkedIn Short',    shortLabel: '30s', duration: 30, aspectRatio: '16:9', toneHint: 'professional, insight', channelKey: 'generic', description: 'Insight ngắn, professional' },
+  { id: 'linkedin-standard', platform: 'linkedin', format: 'standard', label: 'LinkedIn Standard', shortLabel: '60s', duration: 60, aspectRatio: '16:9', toneHint: 'thought-leadership',    channelKey: 'generic', description: 'Thought leadership' },
+  { id: 'linkedin-long',     platform: 'linkedin', format: 'long',     label: 'LinkedIn Long',     shortLabel: '90s', duration: 90, aspectRatio: '16:9', toneHint: 'case-study, data',      channelKey: 'generic', description: 'Case study + data' },
 
   // X / Twitter
   { id: 'x-short',    platform: 'x', format: 'short',    label: 'X Short',    shortLabel: '30s',  duration: 30,  aspectRatio: '1:1', toneHint: 'punchy, text-overlay',  channelKey: 'generic', description: 'Punchy clip, text-overlay rõ' },
