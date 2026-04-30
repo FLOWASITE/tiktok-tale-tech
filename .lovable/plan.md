@@ -1,73 +1,34 @@
-## Mục tiêu
+# Implementation: 1 prompt cho video ngắn (TikTok 15s)
 
-Giảm số PROMPT/clip xuống **mức tối thiểu vật lý** mà cap model cho phép, bỏ "ideal pacing" theo `avgSceneSec` (vốn đẩy số scene lên cao hơn cần thiết cho pacing thẩm mỹ).
+## Đã sửa
 
-## Tác động đo lường
+### `supabase/functions/generate-script/index.ts`
 
-Ví dụ video 9:16 (cap Seedance = 8s short / 12s long):
+1. **`computeSmartSceneCount`**: bỏ tách hook scene riêng. Logic mới:
+   - `duration ≤ cap` → **1 prompt**
+   - `duration > cap` → `ceil(duration / cap)` prompt
 
-| Duration | Aspect | Trước (có avgScene) | Sau (chỉ cap) | Giảm |
-|---|---|---|---|---|
-| 30s | 9:16 | 1 + round(28/4)=7 + 1 = **8 prompt** | 1 + ceil(28/8) = **5 prompt** | -38% |
-| 45s | 9:16 | 1 + round(43/4)=11 → clamp **11 prompt** | 1 + ceil(43/8) = **7 prompt** | -36% |
-| 60s | 9:16 | 1 + round(58/4)=15 → **15 prompt** | 1 + ceil(58/8) = **9 prompt** | -40% |
-| 90s | 9:16 | 1 + round(88/5)=18 → clamp 18 | 1 + ceil(88/12) = **9 prompt** | -50% |
-| 120s | 16:9 | 1 + round(118/6)=20 | 1 + ceil(118/8) = **16 prompt** | -20% |
+2. **`buildSceneDurationPlan`**: bỏ ưu tiên `pacing.hookSceneSec`, chia đều theo sceneCount.
 
-→ Ngắn (≤60s) giảm mạnh nhất (−36 to −40%), long-form vertical giảm tới **−50%**.
+3. **`pickRecommendedVideoModel`**: nâng cap Seedance 2 từ 8/12s → **15s** (theo doc PoYo 4-15s).
+   - Mọi vertical/square: Seedance 2 cap 15s
+   - 16:9: Veo 3.1 Fast cap 8s (doc fixed)
 
-## Trade-off đã hiểu
+4. **Prompt `[AI RENDER MODEL]`**: thêm rule "PROMPT 1 phải có visual hook trong 0-3s đầu" (vì hook không còn là clip riêng).
 
-- **Lợi:** ít credit render hơn, ít task PoYo/Veo song song hơn → ít timeout, ít quota burn.
-- **Hại:** mỗi clip dài 8s/12s với 1 visual duy nhất → pacing có thể "lỳ" với video TikTok ngắn (vốn quen cắt nhanh 3-4s/scene). AI sẽ phải mô tả cảnh "có chuyển động liên tục" để 8s không bị tĩnh.
-- **Bù lại:** prompt đã có sẵn block `[AI RENDER MODEL]` ở line 1504 yêu cầu "1 cảnh duy nhất, camera 1 hướng, tránh drift" → đã align với clip dài.
+## Bảng kết quả
 
-## Thay đổi kỹ thuật
+| Duration | Aspect | Trước | Sau | Giảm |
+|---|---|---:|---:|---:|
+| TikTok 10s | 9:16 | 2 (hook+1) | **1** | -50% |
+| TikTok 15s | 9:16 | 3 (hook+2) | **1** | **-67%** |
+| TikTok 30s | 9:16 | 5 | **2** | -60% |
+| Reels 45s | 9:16 | 7 | **3** | -57% |
+| Reels 60s | 9:16 | 9 | **4** | -56% |
+| YT Shorts 90s | 9:16 | 9 | **6** | -33% |
+| 16:9 60s | 16:9 | 8 | **8** | 0% (Veo cap 8s) |
 
-### File: `supabase/functions/generate-script/index.ts`
+## Lưu ý
 
-**1. Sửa `computeSmartSceneCount` (line 1062-1070)**
-
-Hiện tại:
-```ts
-const idealBody = remaining / pacing.avgSceneSec;
-const minBody   = Math.ceil(remaining / sceneDurationCapSec);
-const bodyScenes = Math.max(minBody, Math.round(idealBody));  // ← đẩy số scene lên
-```
-
-Sau:
-```ts
-// Bỏ avgScene pacing, chỉ tôn trọng cap model → luôn ra số clip tối thiểu
-const bodyScenes = Math.ceil(remaining / sceneDurationCapSec);
-```
-
-Vẫn giữ `clamp(2, pacing.maxScenes)` để safety.
-
-**2. Cập nhật comment block (line 1061, 1132-1145)**
-
-Đổi mô tả: "Smart scene count = MIN clip cần để cover duration, không tính avgScene pacing nữa".
-
-**3. Cập nhật `[AI RENDER MODEL]` block trong system prompt (~line 1504)**
-
-Thêm hint:
-> "Mỗi clip dài 8-12s. Mô tả cảnh có **chuyển động liên tục** (subject action, camera move 1 hướng) để clip không bị tĩnh. Tránh chia 1 prompt thành nhiều moment nhỏ."
-
-**4. Memory update**
-
-Cập nhật `mem://features/video/smart-model-pick-vn`: ghi rõ "Đã bỏ avgScene pacing — số clip = ceil(duration/cap), giảm thêm 30-50% so với phiên bản trước".
-
-## Không thay đổi
-
-- Cap 8s/12s (giữ nguyên, không nâng lên 15s)
-- `pickRecommendedVideoModel` (logic auto-pick model giữ nguyên)
-- `buildSceneDurationPlan` (cân bằng độ dài per-prompt vẫn hoạt động đúng với sceneCount mới)
-- `pacing.maxScenes` clamp (giữ làm safety net)
-- `pacing.hookSceneSec` (hook vẫn là scene riêng, ngắn 2-4s)
-- Frontend, pricing, quota, provider registry
-
-## Files thay đổi
-
-- `supabase/functions/generate-script/index.ts` — sửa `computeSmartSceneCount` + 2 comment block + AI prompt hint
-- `mem://features/video/smart-model-pick-vn` — update specs
-
-Bấm **Approve** để mình implement.
+- **Không phải Kling**: Kling 2.6 PoYo cap 10s. **Seedance 2** mới là model PoYo support 4-15s/clip.
+- Nếu muốn Kling thay thế cho character animation → tạo branch riêng theo aspect (vd: 9:16 + character → Kling 10s).

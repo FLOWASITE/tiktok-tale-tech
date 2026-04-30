@@ -1059,48 +1059,43 @@ function getPacingProfile(platformLabel: string, aspect: string): PacingProfile 
 }
 
 /**
- * Scene count = MIN clip vật lý cần để cover duration (1 hook + ceil(remaining/cap) body).
- * Bỏ ràng buộc avgSceneSec (pacing thẩm mỹ) → luôn ra số clip tối thiểu, giảm 30-50% credit render.
- * Trade-off: clip dài 8-12s, AI prompt phải mô tả chuyển động liên tục để tránh tĩnh.
- * Vẫn clamp theo maxScenes (safety net) và tối thiểu 2 scene (hook + 1 body).
+ * Scene count = MIN clip vật lý cần để cover duration.
+ *  - Nếu duration ≤ cap model → 1 prompt duy nhất (hook nằm trong 0-3s đầu cùng prompt).
+ *  - Nếu duration > cap → ceil(duration / cap) prompt, không tách hook riêng.
+ * Bỏ hoàn toàn pacing thẩm mỹ (avgSceneSec, hookSceneSec) khỏi phép tính.
+ * Vẫn clamp theo maxScenes (safety net).
  */
 function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDurationCapSec: number): number {
-  const remaining = Math.max(0, duration - pacing.hookSceneSec);
-  const bodyScenes = Math.ceil(remaining / sceneDurationCapSec); // chỉ tôn trọng cap model AI
-  const total = 1 + bodyScenes;
-  return Math.min(pacing.maxScenes, Math.max(2, total));
+  if (duration <= sceneDurationCapSec) return 1;
+  const total = Math.ceil(duration / sceneDurationCapSec);
+  return Math.min(pacing.maxScenes, Math.max(1, total));
 }
 
 /**
- * Cân bằng thời lượng từng PROMPT để TỔNG KHỚP `duration`.
- * Tránh prompt quá ngắn (<MIN_SCENE_SEC) hoặc quá dài (>cap clip AI).
- *  1. Scene 1 = HOOK (`pacing.hookSceneSec`, clamp [MIN, cap])
- *  2. Body chia đều phần còn lại, làm tròn 0.5s, clamp [MIN, cap]
- *  3. Drift do làm tròn → bù vào scene cuối (giữ trong [MIN, cap])
+ * Cân bằng thời lượng từng PROMPT để TỔNG = `duration`.
+ *  - sceneCount = 1: 1 clip dài đúng `duration` (clamp theo cap).
+ *  - sceneCount > 1: chia đều, không tách hook riêng. Hook nằm trong 0-3s đầu prompt 1.
+ * Tránh prompt quá ngắn (<MIN_SCENE_SEC) hoặc quá dài (>cap).
  */
 const MIN_SCENE_SEC = 2;
 function buildSceneDurationPlan(
   totalDurationSec: number,
   sceneCount: number,
-  pacing: PacingProfile,
+  _pacing: PacingProfile,
   capSec: number,
 ): number[] {
   if (sceneCount <= 0) return [];
   if (sceneCount === 1) {
     return [Math.min(capSec, Math.max(MIN_SCENE_SEC, totalDurationSec))];
   }
-  const hook = Math.min(capSec, Math.max(MIN_SCENE_SEC, pacing.hookSceneSec));
-  const bodyCount = sceneCount - 1;
-  const remainingSec = Math.max(MIN_SCENE_SEC * bodyCount, totalDurationSec - hook);
-  const rawBody = remainingSec / bodyCount;
-  // Round UP đến 0.5s gần nhất để TỔNG ≥ target → drift cuối ≤ 0 (trừ scene cuối thay vì cộng vượt cap)
-  const roundedBody = Math.ceil(rawBody * 2) / 2;
-  const bodyClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedBody));
+  const rawPer = totalDurationSec / sceneCount;
+  const roundedPer = Math.ceil(rawPer * 2) / 2;
+  const perClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedPer));
 
-  const plan: number[] = [hook];
-  for (let i = 0; i < bodyCount; i++) plan.push(bodyClamped);
+  const plan: number[] = [];
+  for (let i = 0; i < sceneCount; i++) plan.push(perClamped);
 
-  // Bù drift vào scene cuối (clamp)
+  // Bù drift vào scene cuối (clamp [MIN, cap])
   const drift = totalDurationSec - plan.reduce((a, b) => a + b, 0);
   if (drift !== 0) {
     const last = plan.length - 1;
@@ -1155,44 +1150,31 @@ interface VideoModelRecommendation {
 
 /**
  * Auto-pick model AI video tối ưu theo platform + duration để GIẢM SỐ CLIP cần render.
- * Đã verify với docs.poyo.ai chính thức (Seedance 2 thực tế hỗ trợ 4-15s, không phải 6s).
+ * Đã verify với docs.poyo.ai: Seedance 2 hỗ trợ 4-15s/clip → đẩy cap lên 15s để
+ * video ngắn (TikTok/Reels 15s) chỉ cần 1 prompt duy nhất.
  *
- * - Short vertical (≤60s): Seedance 2 cap 8s — pacing nhanh nhưng vẫn giảm 25% clip vs cap cũ 6s
- * - Long vertical (>60s):  Seedance 2 cap 12s — long-form vertical, giảm 50% clip vs cap cũ 6s
- * - Horizontal 16:9:       Veo 3.1 Fast cap 8s — chất lượng cinematic, fixed 8s theo doc
- * - Pinterest 2:3:         Seedance 2 cap 12s — lifestyle pacing chậm
- * - Square 1:1:            Seedance 2 cap 8s — feed video ngắn
+ * - Vertical 9:16 / 2:3 / 1:1: Seedance 2 cap 15s — TikTok 15s = 1 clip, 30s = 2 clip, 60s = 4 clip
+ * - Horizontal 16:9: Veo 3.1 Fast cap 8s (doc fixed) — chất lượng cinematic
  */
 function pickRecommendedVideoModel(
   platformLabel: string, aspect: string, totalDuration: number
 ): VideoModelRecommendation {
-  const seedanceShort: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 8,
-  };
-  const seedanceLong: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 12,
+  const seedanceMax: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 15,
   };
   const veo31Fast: Omit<VideoModelRecommendation, 'reason'> = {
     modelId: 'geminigen/veo-3.1-fast', modelLabel: 'Veo 3.1 Fast', preset: 'hero', maxClipSec: 8,
   };
 
-  // 9:16 vertical
-  if (aspect === '9:16') {
-    if (totalDuration > 60) {
-      return { ...seedanceLong, reason: `Long vertical ${totalDuration}s → Seedance 2 cap 12s/clip (doc 4-15s) giảm ~50% số clip` };
-    }
-    return { ...seedanceShort, reason: `Short vertical ${totalDuration}s → Seedance 2 cap 8s/clip giữ pacing nhanh` };
-  }
   // 16:9 horizontal — Veo 3.1 fixed 8s/clip theo doc
   if (aspect === '16:9') {
-    return { ...veo31Fast, reason: `Horizontal 16:9 → Veo 3.1 Fast 8s/clip (doc fixed) cinematic long-form` };
+    return { ...veo31Fast, reason: `Horizontal 16:9 → Veo 3.1 Fast 8s/clip (doc fixed) cinematic` };
   }
-  // Pinterest 2:3 — lifestyle, scene dài
-  if (aspect === '2:3') {
-    return { ...seedanceLong, reason: `Pinterest 2:3 lifestyle → Seedance 2 cap 12s/clip pacing chậm` };
-  }
-  // Square 1:1 hoặc default
-  return { ...seedanceShort, reason: `Square/feed → Seedance 2 cap 8s/clip` };
+  // Mọi vertical/square: Seedance 2 cap 15s — clip dài nhất, ít prompt nhất
+  return {
+    ...seedanceMax,
+    reason: `${aspect} ${totalDuration}s → Seedance 2 cap 15s/clip (doc 4-15s) ${totalDuration <= 15 ? '= 1 prompt duy nhất' : `= ${Math.ceil(totalDuration / 15)} prompts`}`,
+  };
 }
 
 interface PlatformSpec {
@@ -1514,7 +1496,7 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
   const sceneSec = spec?.sceneDurationSec ?? 8;
   const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
   const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
-  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip — đã tối ưu MIN số clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG có cut/transition trong cùng 1 prompt.\n- Mỗi clip dài ${spec.sceneDurationSec}s → BẮT BUỘC mô tả **chuyển động liên tục** (subject action + camera move 1 hướng) để clip không bị tĩnh/lỳ.\n- Tránh chuyển động phức tạp đa hướng (drift risk khi clip ≥10s).\n- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- Subject action liên tục trong suốt ${spec.sceneDurationSec}s, không có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).\n- KHÔNG chia nhỏ 1 prompt thành nhiều moment — pacing được kiểm soát bởi voiceover/subtitle, không phải số clip.` : '';
+  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip — đã tối ưu MIN số clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG có cut/transition trong cùng 1 prompt.\n- Mỗi clip dài ${spec.sceneDurationSec}s → BẮT BUỘC mô tả **chuyển động liên tục** (subject action + camera move 1 hướng) để clip không bị tĩnh/lỳ.\n- HOOK retention: nếu là PROMPT 1, mở đầu 0-3s phải có yếu tố visual hook (close-up biểu cảm, motion blur, gesture mạnh) — KHÔNG cần tách thành clip riêng.\n- Tránh chuyển động phức tạp đa hướng (drift risk khi clip ≥10s).\n- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- Subject action liên tục trong suốt ${spec.sceneDurationSec}s, không có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).\n- KHÔNG chia nhỏ 1 prompt thành nhiều moment — pacing được kiểm soát bởi voiceover/subtitle, không phải số clip.` : '';
   const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.${modelLine}` : '';
   switch(purpose) {
     case 'ai_video':
