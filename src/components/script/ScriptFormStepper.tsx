@@ -725,36 +725,23 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </div>
               
               <div className="flex flex-wrap gap-2">
-                {/* Social Format chip — chỉ hiện cho Video AI */}
-                {formData.script_purpose === 'ai_video' && (() => {
+                {/* Social Format chip — chỉ hiện cho Video AI (read-only summary, edit ở Step 2) */}
+                {isVideoAi && (() => {
                   const currentPreset = getPresetById(formData.social_format_id);
                   const chipLabel = currentPreset
                     ? `${currentPreset.label} · ${currentPreset.shortLabel}`
-                    : 'Chọn social';
+                    : `Mặc định · ${formData.duration}s`;
                   return (
-                    <ConfigChipSelector
-                      label={chipLabel}
-                      icon={<Smartphone className="w-3.5 h-3.5" />}
-                      popoverClassName="min-w-[340px] max-w-[420px]"
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(STEP_SOCIAL_FORMAT)}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border/50 bg-background hover:border-foreground/30 hover:bg-muted/40 text-xs font-medium text-foreground transition-all"
+                      title="Đổi định dạng social (quay lại bước 2)"
                     >
-                      <div className="space-y-3">
-                        <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
-                          Social Format
-                        </p>
-                        <SocialFormatPicker
-                          value={formData.social_format_id}
-                          onChange={(preset: SocialFormatPreset) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              social_format_id: preset.id,
-                              duration: preset.duration,
-                              aspect_ratio: preset.aspectRatio,
-                            }))
-                          }
-                          disabled={isLoading}
-                        />
-                      </div>
-                    </ConfigChipSelector>
+                      <Smartphone className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{chipLabel}</span>
+                    </button>
                   );
                 })()}
 
