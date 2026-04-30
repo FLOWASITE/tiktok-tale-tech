@@ -1134,10 +1134,58 @@ function formatSceneTimestamps(plan: number[]): string {
 // Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
 // (Seedance 5-6s, Veo 3 Fast 6-8s) và safe zone của platform đích.
 // ============================================
+interface VideoModelRecommendation {
+  modelId: string;          // 'poyo/n-2' | 'geminigen/n-3-fast' | 'geminigen/n-3.1-fast'
+  modelLabel: string;       // 'Seedance 2' | 'Veo 3 Fast' | 'Veo 3.1 Fast'
+  preset: 'fast' | 'hero';  // map sang useVideoCompletion preset
+  maxClipSec: number;       // 6 | 10
+  reason: string;           // log + UI badge
+}
+
+/**
+ * Auto-pick model AI video tối ưu theo platform + duration để GIẢM SỐ CLIP cần render.
+ * - Short vertical (≤60s): Seedance 2 (rẻ, đủ chất, 6s/clip phù hợp pacing nhanh)
+ * - Long vertical (>60s): Veo 3 Fast (10s/clip → giảm 30-40% số clip)
+ * - Horizontal 16:9: Veo 3.1 Fast (10s/clip, chất lượng long-form tốt nhất)
+ * - Pinterest 2:3: Veo 3 Fast (lifestyle pacing chậm cần scene dài)
+ * - Square 1:1: Seedance 2 (feed video ngắn)
+ */
+function pickRecommendedVideoModel(
+  platformLabel: string, aspect: string, totalDuration: number
+): VideoModelRecommendation {
+  const seedance: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'poyo/n-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 6,
+  };
+  const veo3Fast: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'geminigen/n-3-fast', modelLabel: 'Veo 3 Fast', preset: 'hero', maxClipSec: 10,
+  };
+  const veo31Fast: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'geminigen/n-3.1-fast', modelLabel: 'Veo 3.1 Fast', preset: 'hero', maxClipSec: 10,
+  };
+
+  // 9:16 vertical
+  if (aspect === '9:16') {
+    if (totalDuration > 60) {
+      return { ...veo3Fast, reason: `Long-form vertical ${totalDuration}s → Veo 3 Fast 10s/clip giảm ~40% số clip` };
+    }
+    return { ...seedance, reason: `Short-form vertical ${totalDuration}s → Seedance 2 6s/clip phù hợp pacing nhanh` };
+  }
+  // 16:9 horizontal
+  if (aspect === '16:9') {
+    return { ...veo31Fast, reason: `Horizontal long-form → Veo 3.1 Fast 10s/clip, ít clip = mượt hơn` };
+  }
+  // Pinterest 2:3
+  if (aspect === '2:3') {
+    return { ...veo3Fast, reason: `Pinterest 2:3 lifestyle → Veo 3 Fast 10s/clip cho pacing chậm` };
+  }
+  // Square 1:1 hoặc default
+  return { ...seedance, reason: `Square/feed video → Seedance 2 6s/clip` };
+}
+
 interface PlatformSpec {
   platformLabel: string;
   aspect: string;
-  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo) — CAP cứng
+  sceneDurationSec: number;       // độ dài 1 clip AI — CAP cứng (đã override theo recommendedVideoModel)
   recommendedScenes: number;      // tính theo PacingProfile (không phải chia đều)
   hookSceneSec: number;           // độ dài scene 1 (HOOK) — pacing-aware
   avgSceneSec: number;            // độ dài trung bình scene 2..N
@@ -1148,6 +1196,11 @@ interface PlatformSpec {
   textOverlayPosition: string;
   cameraStyle: string;
   continuityRules: string;
+  // Smart model recommendation — auto-pick để giảm số clip cần render
+  recommendedVideoModel: string;       // modelId vd 'geminigen/n-3-fast'
+  recommendedVideoModelLabel: string;  // human label vd 'Veo 3 Fast'
+  recommendedVideoPreset: 'fast' | 'hero'; // map sang useVideoCompletion preset
+  videoModelReason: string;            // lý do để log + UI hiển thị
 }
 
 // Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec/scenePlan/totalDurationSec sẽ tính theo PacingProfile + duration)
@@ -1372,16 +1425,27 @@ function getPlatformSpec(
 ): PlatformSpec {
   const base = (socialFormatId && PLATFORM_SPEC_BY_ID[socialFormatId])
     || inferSpecFromAspect(aspectRatio);
+
+  // ⭐ SMART MODEL PICK: chọn model AI video tối ưu theo platform + duration
+  // → override sceneDurationSec theo maxClipSec của model để giảm số clip cần render
+  const modelRec = pickRecommendedVideoModel(base.platformLabel, base.aspect, duration);
+  const effectiveCap = Math.max(base.sceneDurationSec, modelRec.maxClipSec);
+
   const pacing = getPacingProfile(base.platformLabel, base.aspect);
-  const recommendedScenes = computeSmartSceneCount(duration, pacing, base.sceneDurationSec);
-  const scenePlan = buildSceneDurationPlan(duration, recommendedScenes, pacing, base.sceneDurationSec);
+  const recommendedScenes = computeSmartSceneCount(duration, pacing, effectiveCap);
+  const scenePlan = buildSceneDurationPlan(duration, recommendedScenes, pacing, effectiveCap);
   return {
     ...base,
+    sceneDurationSec: effectiveCap, // override để downstream dùng cap mới
     recommendedScenes,
     hookSceneSec: pacing.hookSceneSec,
     avgSceneSec: pacing.avgSceneSec,
     scenePlan,
     totalDurationSec: duration,
+    recommendedVideoModel: modelRec.modelId,
+    recommendedVideoModelLabel: modelRec.modelLabel,
+    recommendedVideoPreset: modelRec.preset,
+    videoModelReason: modelRec.reason,
   };
 }
 
@@ -1437,7 +1501,8 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
   const sceneSec = spec?.sceneDurationSec ?? 8;
   const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
   const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
-  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.` : '';
+  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip). Viết visual prompt phù hợp với khả năng model này — tránh mô tả chuyển động quá phức tạp vượt quá ${spec.sceneDurationSec}s.` : '';
+  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.${modelLine}` : '';
   switch(purpose) {
     case 'ai_video':
     case 'ai_video_veo3':
@@ -2166,6 +2231,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
     if (platformSpec) {
       console.log('[generate-script] Platform spec:', platformSpec.platformLabel, platformSpec.aspect, `cap=${platformSpec.sceneDurationSec}s hook=${platformSpec.hookSceneSec}s avg=${platformSpec.avgSceneSec}s → ${platformSpec.recommendedScenes} scenes for ${duration}s`);
       console.log('[generate-script] Scene plan:', formatSceneDurationPlan(platformSpec.scenePlan), `(sum=${platformSpec.scenePlan.reduce((a, b) => a + b, 0)}s vs target ${duration}s)`);
+      console.log('[generate-script] 🎬 Recommended video model:', platformSpec.recommendedVideoModelLabel, `(${platformSpec.recommendedVideoModel})`, '—', platformSpec.videoModelReason);
     }
     const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec);
 
@@ -2421,7 +2487,16 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       }
     }
 
-    return new Response(JSON.stringify({ ...savedScript, fromCache }), {
+    const recommendedVideoModelMeta = platformSpec ? {
+      model_id: platformSpec.recommendedVideoModel,
+      model_label: platformSpec.recommendedVideoModelLabel,
+      preset: platformSpec.recommendedVideoPreset,
+      max_clip_sec: platformSpec.sceneDurationSec,
+      scene_count: platformSpec.recommendedScenes,
+      reason: platformSpec.videoModelReason,
+    } : null;
+
+    return new Response(JSON.stringify({ ...savedScript, fromCache, recommended_video_model: recommendedVideoModelMeta }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
