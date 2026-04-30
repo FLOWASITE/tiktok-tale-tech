@@ -42,12 +42,13 @@ export interface SocialFormatPreset {
 
 export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tagline: string }> = {
   tiktok:    { label: 'TikTok',     tagline: 'Vertical 9:16 · Hook 1.5s đầu' },
-  reels:     { label: 'Reels (IG)', tagline: 'Vertical 9:16 · Cinematic polish' },
-  shorts:    { label: 'YT Shorts',  tagline: 'Vertical 9:16 · Punchy' },
-  pinterest: { label: 'Pinterest',  tagline: '9:16 · Visual discovery, beauty fit' },
-  threads:   { label: 'Threads',    tagline: '9:16 · Conversation-first' },
-  facebook:  { label: 'Facebook',   tagline: '1:1 hoặc 9:16 · Caption-friendly' },
-  linkedin:  { label: 'LinkedIn',   tagline: '1:1 · Professional' },
+  reels:     { label: 'Reels (IG)', tagline: 'Vertical 9:16 · Cinematic, max 90s' },
+  shorts:    { label: 'YT Shorts',  tagline: 'Vertical 9:16 · Punchy, max 60s' },
+  'fb-reels':{ label: 'FB Reels',   tagline: 'Vertical 9:16 · Meta cross-post' },
+  pinterest: { label: 'Pinterest',  tagline: '2:3 Pin · Visual discovery' },
+  threads:   { label: 'Threads',    tagline: '9:16 · Conversation-first, max 5 phút' },
+  facebook:  { label: 'Facebook',   tagline: '1:1 Feed · Caption-friendly' },
+  linkedin:  { label: 'LinkedIn',   tagline: '16:9 · Professional' },
   x:         { label: 'X (Twitter)', tagline: '1:1 · Punchy, text-overlay' },
   youtube:   { label: 'YouTube Long', tagline: '16:9 · High production' },
 };
@@ -56,6 +57,7 @@ export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
   tiktok: 'short-form',
   reels: 'short-form',
   shorts: 'short-form',
+  'fb-reels': 'short-form',
   pinterest: 'short-form',
   threads: 'short-form',
   facebook: 'long-form',
