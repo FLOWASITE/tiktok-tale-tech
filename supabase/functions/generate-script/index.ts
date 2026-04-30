@@ -1618,12 +1618,8 @@ function buildSystemPrompt(
   const effectivePurpose = (scriptPurpose === 'ai_video_veo3' || scriptPurpose === 'ai_video_minimax') ? 'ai_video' : (scriptPurpose || 'ai_video');
   // Spec chỉ áp dụng cho ai_video purpose
   const spec = effectivePurpose === 'ai_video' ? platformSpec : undefined;
-  const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ";
-  const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
-  const purposeName = SCRIPT_PURPOSE_LABELS[scriptPurpose || 'ai_video'] || "Video AI";
-  // Normalize legacy values
-  const effectivePurpose = (scriptPurpose === 'ai_video_veo3' || scriptPurpose === 'ai_video_minimax') ? 'ai_video' : (scriptPurpose || 'ai_video');
-  
+
+
   // Voice Region - default to northern if not specified
   const effectiveVoiceRegion = voiceRegion || 'northern';
   const voiceRegionInfo = VOICE_REGION_CONFIG[effectiveVoiceRegion] || VOICE_REGION_CONFIG['northern'];
