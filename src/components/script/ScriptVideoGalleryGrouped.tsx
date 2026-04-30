@@ -113,49 +113,68 @@ function VersionCard({ clip, isLatest }: { clip: VideoGeneration; isLatest: bool
     addSuffix: true,
     locale: vi,
   });
+  const aspect = (clip.aspect_ratio === '9:16' || clip.aspect_ratio === '1:1')
+    ? clip.aspect_ratio
+    : '16:9';
+  const isCompleted = clip.video_url && clip.status === 'completed';
+
   return (
-    <div className="border border-border/40 rounded-md overflow-hidden bg-muted/20">
-      {clip.video_url && clip.status === 'completed' ? (
-        <video
-          src={clip.video_url}
-          controls
-          preload="metadata"
-          className="w-full aspect-video bg-black object-contain"
-        />
-      ) : (
-        <div className="w-full aspect-video flex items-center justify-center text-[10px] text-muted-foreground">
-          {clip.status === 'processing' || clip.status === 'pending' ? (
-            <span className="inline-flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Đang render
-            </span>
-          ) : clip.status === 'failed' ? (
-            <span className="text-destructive">Lỗi</span>
-          ) : (
-            'Chưa có video'
-          )}
-        </div>
+    <div
+      className={cn(
+        'rounded-md overflow-hidden bg-muted/30 transition-all',
+        isLatest ? 'ring-1 ring-emerald-500/40' : 'ring-1 ring-border/30',
       )}
-      <div className="p-2 flex items-center justify-between gap-2">
+    >
+      <div className="relative">
+        {isCompleted ? (
+          <LazyVideo
+            src={clip.video_url!}
+            aspectRatio={aspect as '16:9' | '9:16' | '1:1'}
+          />
+        ) : (
+          <div className="w-full aspect-video flex items-center justify-center text-[10px] text-muted-foreground">
+            {clip.status === 'processing' || clip.status === 'pending' ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Đang render
+              </span>
+            ) : clip.status === 'failed' ? (
+              <span className="text-destructive">Lỗi</span>
+            ) : (
+              'Chưa có video'
+            )}
+          </div>
+        )}
+        {clip.aspect_ratio && (
+          <Badge
+            variant="secondary"
+            className="absolute top-1.5 right-1.5 text-[9px] h-4 px-1.5 bg-background/85 backdrop-blur-sm border-0"
+          >
+            {clip.aspect_ratio}
+          </Badge>
+        )}
+      </div>
+
+      <div className="p-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-1.5 min-w-0">
           {isLatest && (
-            <Badge className="text-[9px] h-4 px-1.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">
+            <Badge className="text-[9px] h-4 px-1.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 shrink-0">
               Mới nhất
             </Badge>
           )}
           <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 truncate">
-            <Clock className="h-2.5 w-2.5" />
+            <Clock className="h-2.5 w-2.5 shrink-0" />
             {created}
           </span>
         </div>
         {clip.video_url && (
-          <div className="flex items-center gap-0.5 shrink-0">
-            <Button asChild size="sm" variant="ghost" className="h-6 w-6 p-0">
+          <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-auto">
+            <Button asChild size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground/70 hover:text-foreground">
               <a href={clip.video_url} target="_blank" rel="noopener noreferrer" title="Mở">
                 <ExternalLink className="h-3 w-3" />
               </a>
             </Button>
-            <Button asChild size="sm" variant="ghost" className="h-6 w-6 p-0">
+            <Button asChild size="sm" variant="ghost" className="h-6 w-6 p-0 text-muted-foreground/70 hover:text-foreground">
               <a href={clip.video_url} download title="Tải về">
                 <Download className="h-3 w-3" />
               </a>
