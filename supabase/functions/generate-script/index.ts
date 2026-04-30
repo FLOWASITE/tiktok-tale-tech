@@ -1292,18 +1292,22 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
   production: 'Production Script',
 };
 
-function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string, voiceRegionLabel: string): string {
+function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string, voiceRegionLabel: string, spec?: PlatformSpec): string {
+  const sceneSec = spec?.sceneDurationSec ?? 8;
+  const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
+  const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
+  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.` : '';
   switch(purpose) {
     case 'ai_video':
     case 'ai_video_veo3':
     case 'ai_video_minimax':
-      return `PROMPT X [00:00-00:08]:
+      return `PROMPT X [00:00-${endTs}]:
 
 [VISUAL DIRECTION]
-• Shot: Medium shot (35mm)
-• Camera: Static with subtle breathing movement
+• Shot: ${spec ? spec.framingHint.split(',')[0] : 'Medium shot (35mm)'}
+• Camera: ${spec?.cameraStyle ?? 'Static with subtle breathing movement'}
 • Lighting: Soft natural daylight from window
-• Background: Professional studio background, slightly blurred
+• Background: Phù hợp ngữ cảnh, slightly blurred${aspectLine}
 
 [CHARACTER ACTION]
 (Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
@@ -1317,7 +1321,8 @@ ${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ
 [AUDIO NOTES - For VEO 3]
 • Ambience: [âm thanh môi trường phù hợp bối cảnh]
 • SFX: None (hoặc hiệu ứng cụ thể nếu cần)
-• Music mood: [subtle/building/emotional tùy theo nội dung]`;
+• Music mood: [subtle/building/emotional tùy theo nội dung]${spec ? `\n\n[TEXT OVERLAY]\n${spec.textOverlayPosition} — chỉ dùng khi cần (≤6 từ, không che subject)` : ''}${continuityLine}`;
+
 
     case 'teleprompter':
     case 'voiceover': // legacy → same format as teleprompter
