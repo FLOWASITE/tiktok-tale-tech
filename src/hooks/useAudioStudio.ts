@@ -87,13 +87,17 @@ export function useAudioStudio() {
     } finally { setGenerating(null); }
   }, [user]);
 
-  const generateSubtitles = useCallback(async (mediaUrl: string, language = 'vie') => {
+  const generateSubtitles = useCallback(async (
+    mediaUrlOrOpts: string | { media_url?: string; script_id?: string },
+    language = 'vie',
+  ) => {
     if (!user) { toast.error('Vui lòng đăng nhập'); return null; }
     setGenerating('subtitle');
     try {
-      const { data, error } = await supabase.functions.invoke('generate-subtitles', {
-        body: { media_url: mediaUrl, language },
-      });
+      const body = typeof mediaUrlOrOpts === 'string'
+        ? { media_url: mediaUrlOrOpts, language }
+        : { ...mediaUrlOrOpts, language };
+      const { data, error } = await supabase.functions.invoke('generate-subtitles', { body });
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return null; }
       const asset = data.asset as AudioAsset;
