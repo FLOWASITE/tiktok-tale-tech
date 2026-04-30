@@ -1373,11 +1373,14 @@ function getPlatformSpec(
     || inferSpecFromAspect(aspectRatio);
   const pacing = getPacingProfile(base.platformLabel, base.aspect);
   const recommendedScenes = computeSmartSceneCount(duration, pacing, base.sceneDurationSec);
+  const scenePlan = buildSceneDurationPlan(duration, recommendedScenes, pacing, base.sceneDurationSec);
   return {
     ...base,
     recommendedScenes,
     hookSceneSec: pacing.hookSceneSec,
     avgSceneSec: pacing.avgSceneSec,
+    scenePlan,
+    totalDurationSec: duration,
   };
 }
 
