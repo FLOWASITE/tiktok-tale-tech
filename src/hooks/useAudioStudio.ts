@@ -47,12 +47,17 @@ export function useAudioStudio() {
     }
   }, [user]);
 
-  const generateVoiceover = useCallback(async (text: string, voiceId?: string, language = 'vi') => {
+  const generateVoiceover = useCallback(async (
+    text: string,
+    voiceId?: string,
+    language = 'vi',
+    scriptId?: string,
+  ) => {
     if (!user) { toast.error('Vui lòng đăng nhập'); return null; }
     setGenerating('voiceover');
     try {
       const { data, error } = await supabase.functions.invoke('generate-voiceover', {
-        body: { text, voice_id: voiceId, language },
+        body: { text, voice_id: voiceId, language, script_id: scriptId },
       });
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return null; }
@@ -67,12 +72,16 @@ export function useAudioStudio() {
     } finally { setGenerating(null); }
   }, [user]);
 
-  const generateBGM = useCallback(async (prompt: string, duration = 15) => {
+  const generateBGM = useCallback(async (
+    prompt: string,
+    duration = 15,
+    scriptId?: string,
+  ) => {
     if (!user) { toast.error('Vui lòng đăng nhập'); return null; }
     setGenerating('music');
     try {
       const { data, error } = await supabase.functions.invoke('generate-bgm', {
-        body: { prompt, duration },
+        body: { prompt, duration, script_id: scriptId },
       });
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return null; }
