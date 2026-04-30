@@ -1,6 +1,6 @@
 import { Duration, DURATION_LABELS } from '@/types/script';
 import { cn } from '@/lib/utils';
-import { Zap, Film, Tv, Video, Check } from 'lucide-react';
+import { Zap, Film, Tv, Video, Check, Sparkles, Clock, Megaphone } from 'lucide-react';
 
 interface DurationSelectorProps {
   value: Duration;
@@ -9,22 +9,25 @@ interface DurationSelectorProps {
 }
 
 const DURATION_CONFIG: Record<Duration, { icon: typeof Zap; description: string }> = {
-  60: { icon: Zap, description: 'TikTok/Reels' },
-  90: { icon: Film, description: 'Standard' },
+  15: { icon: Sparkles, description: 'Hook ngắn' },
+  30: { icon: Megaphone, description: 'Quảng cáo' },
+  60: { icon: Zap, description: 'Standard' },
+  90: { icon: Film, description: 'Long-form' },
   120: { icon: Tv, description: 'Extended' },
-  180: { icon: Video, description: 'Long-form' },
+  180: { icon: Video, description: 'Mid-form' },
+  600: { icon: Clock, description: 'YouTube dài' },
 };
 
 export function DurationSelector({ value, onChange, disabled }: DurationSelectorProps) {
   const durations = Object.keys(DURATION_CONFIG).map(Number) as Duration[];
-  
+
   return (
     <div className="grid grid-cols-2 gap-2">
       {durations.map((duration) => {
         const config = DURATION_CONFIG[duration];
         const Icon = config.icon;
         const isSelected = value === duration;
-        
+
         return (
           <button
             key={duration}
@@ -41,21 +44,21 @@ export function DurationSelector({ value, onChange, disabled }: DurationSelector
             )}
           >
             <div className={cn(
-              "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300",
-              isSelected 
-                ? "bg-primary/10 text-primary" 
+              "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0",
+              isSelected
+                ? "bg-primary/10 text-primary"
                 : "bg-muted/50 text-muted-foreground"
             )}>
               <Icon className="w-4 h-4" />
             </div>
-            <div className="text-left">
+            <div className="text-left min-w-0">
               <span className={cn(
-                "text-sm font-semibold tracking-tight block",
+                "text-sm font-semibold tracking-tight block truncate",
                 isSelected ? "text-foreground" : "text-muted-foreground"
               )}>
                 {DURATION_LABELS[duration]}
               </span>
-              <span className="text-[10px] text-muted-foreground/70">
+              <span className="text-[10px] text-muted-foreground/70 block truncate">
                 {config.description}
               </span>
             </div>
