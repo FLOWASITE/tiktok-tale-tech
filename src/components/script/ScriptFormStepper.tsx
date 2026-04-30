@@ -296,32 +296,52 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     return 'text-green-500';
   }, [topicLength]);
 
+  const isVideoAi = formData.script_purpose === 'ai_video';
+  const STEPS = useMemo(() => buildSteps(isVideoAi), [isVideoAi]);
+
+  // Ordered list of step IDs that are actually shown
+  const visibleStepIds = useMemo(() => STEPS.map((s) => s.id), [STEPS]);
+
+  const currentVisibleIndex = visibleStepIds.indexOf(currentStep);
+
+  // If user switches purpose mid-flow and current step is hidden, snap back
+  useEffect(() => {
+    if (!visibleStepIds.includes(currentStep)) {
+      setCurrentStep(STEP_CONTENT);
+    }
+  }, [visibleStepIds, currentStep]);
+
   const canProceed = useMemo(() => {
     switch (currentStep) {
-      case 1:
+      case STEP_CONTENT:
         return formData.topic.trim().length >= 10;
-      case 2:
+      case STEP_SOCIAL_FORMAT:
+        return true; // preset is optional — defaults to 60s/9:16 if not picked
+      case STEP_GENERATE:
         return true;
       default:
         return false;
     }
   }, [currentStep, formData.topic]);
 
+  const isLastStep = currentVisibleIndex === visibleStepIds.length - 1;
+
   const handleNext = () => {
-    if (currentStep < 2 && canProceed) {
-      setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
-      setCurrentStep(prev => prev + 1);
-    }
+    if (!canProceed || isLastStep) return;
+    const nextId = visibleStepIds[currentVisibleIndex + 1];
+    setCompletedSteps((prev) => [...prev.filter((s) => s !== currentStep), currentStep]);
+    setCurrentStep(nextId);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-    }
+    if (currentVisibleIndex <= 0) return;
+    const prevId = visibleStepIds[currentVisibleIndex - 1];
+    setCurrentStep(prevId);
   };
 
   const handleStepClick = (step: number) => {
-    if (step <= currentStep || completedSteps.includes(step - 1)) {
+    if (!visibleStepIds.includes(step)) return;
+    if (step <= currentStep || completedSteps.includes(step)) {
       setCurrentStep(step);
     }
   };
