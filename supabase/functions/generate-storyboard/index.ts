@@ -283,24 +283,8 @@ ${L.returnJson}`;
 
     console.log(`[generate-storyboard] Generated ${scenes.length} scenes, total duration: ${totalDuration}s, took ${durationMs}ms`);
 
-    // Save AI metrics (non-blocking)
-    const model = "google/gemini-2.5-flash";
-    const inputTokens = data.usage?.prompt_tokens || estimateTokens(systemPrompt + userPrompt);
-    const outputTokens = data.usage?.completion_tokens || estimateTokens(content || '');
-    saveMetrics(supabase, {
-      traceId,
-      functionName: 'generate-storyboard',
-      userId,
-      totalDurationMs: durationMs,
-      aiCallDurationMs: durationMs,
-      inputTokensEstimated: inputTokens,
-      outputTokensEstimated: outputTokens,
-      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
-      modelsUsed: { text: model },
-      hadError: false,
-      contextSources: [],
-      actionType: 'content_generation',
-    }).catch(() => {});
+    // AI metrics already saved by callAIWithMetrics (provider/model/tokens/cost auto-tracked)
+    console.log(`[generate-storyboard] Provider: ${aiResult.provider}, Model: ${aiResult.model}, Cost: $${aiResult.metrics?.estimatedCostUsd?.toFixed(6) ?? '?'}`);
 
     // Track prompt usage
     try {
