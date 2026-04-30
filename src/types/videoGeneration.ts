@@ -1,7 +1,7 @@
 export type VideoProvider = 'geminigen' | 'poyo' | 'lovable' | 'minimax' | 'runway';
 
 export const POYO_VIDEO_MODELS = [
-  { id: 'poyo/seedance-2', label: 'Seedance 2', maxDuration: 10 },
+  { id: 'poyo/seedance-2', label: 'Seedance 2', maxDuration: 15 },
   { id: 'poyo/sora-2', label: 'Sora 2 (PoYo)', maxDuration: 10 },
   { id: 'poyo/happy-horse', label: 'Happy Horse', maxDuration: 10 },
 ] as const;
