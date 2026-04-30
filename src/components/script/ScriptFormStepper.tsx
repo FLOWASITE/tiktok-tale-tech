@@ -25,6 +25,7 @@ import {
   Users,
   Mic,
   SlidersHorizontal,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -40,7 +41,15 @@ import { useCompliancePrecheck, PreCheckResult } from '@/hooks/useCompliancePrec
 import { ContentGoal } from '@/types/multichannel';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { SocialFormatPicker } from '@/components/script/SocialFormatPicker';
-import { getPresetById, type SocialFormatPreset } from '@/types/socialFormat';
+import {
+  getPresetById,
+  getQuickPickPresets,
+  getEstimatedScenes,
+  SOCIAL_FORMAT_PRESETS,
+  DEFAULT_PRESET_ID,
+  type SocialFormatPreset,
+} from '@/types/socialFormat';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { VideoTypeRecommendations } from '@/components/script/VideoTypeRecommendations';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
@@ -310,6 +319,26 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       setCurrentStep(STEP_CONTENT);
     }
   }, [visibleStepIds, currentStep]);
+
+  // Auto-default preset khi user lần đầu vào Step 2 mà chưa chọn gì
+  useEffect(() => {
+    if (
+      isVideoAi &&
+      currentStep === STEP_SOCIAL_FORMAT &&
+      !formData.social_format_id
+    ) {
+      const defaultPreset = SOCIAL_FORMAT_PRESETS.find((p) => p.id === DEFAULT_PRESET_ID);
+      if (defaultPreset) {
+        setFormData((prev) => ({
+          ...prev,
+          social_format_id: defaultPreset.id,
+          duration: defaultPreset.duration,
+          aspect_ratio: defaultPreset.aspectRatio,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, isVideoAi]);
 
   const canProceed = useMemo(() => {
     switch (currentStep) {
@@ -603,18 +632,74 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
         {/* ====== Step 2: Social Format (only for ai_video) ====== */}
         {currentStep === STEP_SOCIAL_FORMAT && (
-          <div className="space-y-5 animate-fade-in">
-            <div className="text-center py-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-foreground/[0.04] border border-border/40 mb-3">
-                <Smartphone className="w-6 h-6 text-foreground/80" />
+          <div className="space-y-4 animate-fade-in">
+            {/* Compact hero */}
+            <div className="flex items-center gap-2.5 pb-1">
+              <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-foreground/[0.04] border border-border/40 shrink-0">
+                <Smartphone className="w-4 h-4 text-foreground/80" />
               </div>
-              <h3 className="font-semibold text-lg text-foreground">Chọn nền tảng đăng video</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Định dạng quyết định <span className="text-foreground font-medium">thời lượng</span>, <span className="text-foreground font-medium">tỷ lệ khung hình</span> và tone của kịch bản
-              </p>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-base text-foreground leading-tight">
+                  Chọn nền tảng đăng video
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                  Quyết định thời lượng, tỷ lệ khung hình và tone kịch bản
+                </p>
+              </div>
             </div>
 
-            <div className="rounded-xl border border-border/50 bg-card/40 p-5">
+            {/* Quick-pick chips */}
+            {(() => {
+              const quickPicks = getQuickPickPresets();
+              return (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                  <span className="text-[10px] font-medium text-muted-foreground/70 tracking-wide uppercase shrink-0 mr-1">
+                    Nhanh
+                  </span>
+                  {quickPicks.map((preset) => {
+                    const isSelected = formData.social_format_id === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            social_format_id: preset.id,
+                            duration: preset.duration,
+                            aspect_ratio: preset.aspectRatio,
+                          }))
+                        }
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-all whitespace-nowrap',
+                          isSelected
+                            ? 'border-foreground/40 bg-foreground/[0.06] text-foreground'
+                            : 'border-border/50 bg-background text-muted-foreground hover:border-foreground/25 hover:text-foreground',
+                          isLoading && 'opacity-50 cursor-not-allowed',
+                        )}
+                      >
+                        <ChannelIcon
+                          channel={
+                            preset.platform === 'reels' ? 'instagram'
+                            : preset.platform === 'shorts' ? 'youtube'
+                            : preset.platform === 'x' ? 'twitter'
+                            : preset.platform
+                          }
+                          size="sm"
+                        />
+                        <span>{preset.label.replace(/^(YT|FB) /, '')}</span>
+                        <span className="text-muted-foreground/70 font-mono">· {preset.duration}s</span>
+                        {isSelected && <Check className="w-3 h-3" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Picker */}
+            <div className="rounded-xl border border-border/50 bg-card/40 p-4">
               <SocialFormatPicker
                 value={formData.social_format_id}
                 onChange={(preset: SocialFormatPreset) =>
@@ -629,43 +714,58 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               />
             </div>
 
-            {/* Summary + manual override */}
+            {/* Sticky summary + manual override */}
             {(() => {
               const currentPreset = getPresetById(formData.social_format_id);
+              const scenes = getEstimatedScenes(formData.duration);
               return (
-                <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <CheckCircle2 className="w-4 h-4 text-foreground/70" />
-                      <span className="text-muted-foreground">Đã chọn:</span>
-                      <span className="font-medium text-foreground">
-                        {currentPreset
-                          ? `${currentPreset.label} · ${currentPreset.duration}s · ${currentPreset.aspectRatio}`
-                          : `Mặc định · ${formData.duration}s · ${formData.aspect_ratio ?? '9:16'}`}
-                      </span>
+                <div className="sticky bottom-0 z-10 -mx-1 px-1 pb-1 pt-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm">
+                  <div className="rounded-xl border border-border/50 bg-card/80 p-3 space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 text-xs min-w-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-foreground/70 shrink-0" />
+                        <span className="text-muted-foreground shrink-0">Đã chọn:</span>
+                        <span className="font-semibold text-foreground truncate">
+                          {currentPreset
+                            ? `${currentPreset.label}`
+                            : 'Mặc định'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+                        <span className="px-1.5 py-0.5 rounded bg-foreground/[0.05] text-foreground/80">
+                          {formData.duration}s
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-foreground/[0.05] text-foreground/80">
+                          {currentPreset?.aspectRatio ?? formData.aspect_ratio ?? '9:16'}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-foreground/[0.05] text-foreground/80">
+                          {scenes} {scenes === 1 ? 'scene' : 'scenes'}
+                        </span>
+                      </div>
                     </div>
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full flex items-center gap-1.5 text-[10px] text-muted-foreground/70 hover:text-foreground transition-colors group">
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span>Tinh chỉnh thời lượng thủ công</span>
+                        <ChevronDown className="w-3 h-3 ml-auto group-data-[state=open]:rotate-180 transition-transform" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-2.5">
+                        <DurationSelector
+                          value={formData.duration}
+                          onChange={(value) =>
+                            setFormData((prev) => ({ ...prev, duration: value, social_format_id: undefined }))
+                          }
+                          disabled={isLoading}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
-                  <Collapsible>
-                    <CollapsibleTrigger className="w-full flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition-colors">
-                      <SlidersHorizontal className="w-3 h-3" />
-                      <span>Tinh chỉnh thời lượng thủ công</span>
-                      <ChevronDown className="w-3 h-3 ml-auto [[data-state=open]>&]:rotate-180 transition-transform" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-3">
-                      <DurationSelector
-                        value={formData.duration}
-                        onChange={(value) =>
-                          setFormData((prev) => ({ ...prev, duration: value, social_format_id: undefined }))
-                        }
-                        disabled={isLoading}
-                      />
-                    </CollapsibleContent>
-                  </Collapsible>
                 </div>
               );
             })()}
           </div>
         )}
+
 
         {/* ====== Step 3: Smart Summary + Generate ====== */}
         {currentStep === STEP_GENERATE && isLoading && (

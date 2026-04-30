@@ -1,109 +1,139 @@
-## Mục tiêu
+## Đánh giá Step 2 hiện tại
 
-Mở rộng `SocialFormatPicker` từ 6 → 9 platform (thêm Pinterest, Threads, X), reorganize layout theo 2 nhóm: **Short-form Video** vs **Standard / Long-form**.
+**Điểm mạnh**
+- Đã có 2 group Short-form / Long-form rõ ràng
+- Header step có icon, title, subtitle gọn
+- Summary card + Collapsible "Tinh chỉnh thủ công"
+
+**Điểm yếu cần xử lý**
+1. **Không có preset nào được chọn mặc định** khi vào step → `currentPreset = undefined`, summary hiện "Mặc định · 60s · 9:16" (formData.duration kế thừa từ step trước, có thể không khớp aspect)
+2. **`activePlatform` state không sync** khi user nhấn từ group khác → đã sync, nhưng khi `value` thay đổi từ ngoài thì state cũ vẫn giữ
+3. **Không có visual preview** aspect ratio (9:16 vs 1:1 vs 16:9) — khó hình dung
+4. **Format card thiếu thông tin** — chỉ hiện "Ngắn / 15s / 9:16", thiếu mô tả tone/use-case (đã có `preset.description` nhưng chưa hiển thị)
+5. **Cảnh báo split scene** ở dưới cùng dễ bị bỏ qua, nên rõ ràng hơn (chia bao nhiêu scene, ước tính cost/thời gian gen)
+6. **Summary card tách rời** với picker → khoảng cách thừa, có thể merge hoặc làm sticky
+7. **Không có "Recommend"** badge cho preset phổ biến nhất theo platform (vd TikTok Standard 30s)
+8. **Mobile**: 5 cột short-form trên mobile chỉ 3 cột → wrap thành 2 hàng (Pinterest + Threads xuống dòng) — OK nhưng có thể horizontal scroll cho clean
+9. **Không có keyboard shortcut** / arrow keys để duyệt
+10. **`formatsForPlatform` useMemo unused** trong `SocialFormatPicker` — dead code
 
 ---
 
-## 1. Mở rộng preset matrix (`src/types/socialFormat.ts`)
+## Plan hoàn thiện Step 2
 
-### Thêm 3 platform mới vào `SocialPlatform` type
-```typescript
-export type SocialPlatform =
-  | 'tiktok' | 'reels' | 'shorts'
-  | 'pinterest' | 'threads' | 'x'   // NEW
-  | 'facebook' | 'linkedin' | 'youtube';
+### A. SocialFormatPicker.tsx — nâng cấp UX
+
+#### A1. Mặc định preset khi vào step
+- Trong `ScriptFormStepper`: nếu `isVideoAi && currentStep === STEP_SOCIAL_FORMAT && !formData.social_format_id` → auto-set `tiktok-standard` (default phổ biến nhất)
+- Hoặc infer từ `(formData.duration, formData.aspect_ratio)` nếu user vào lại step
+
+#### A2. Thêm visual aspect-ratio preview
+- Mỗi format card: thêm mini-rectangle (div absolute scale theo ratio) bên cạnh duration
+- VD 9:16 → mini box `w-3 h-5`, 1:1 → `w-4 h-4`, 16:9 → `w-5 h-3`
+- Màu neutral `bg-foreground/20` với border
+
+#### A3. Format card giàu thông tin hơn
+- Hiển thị `preset.description` (1 dòng tone/use-case) bên dưới shortLabel
+- Layout card mới (vertical):
+```
+┌─ Ngắn          ✓ ─┐
+│  15s         [▮]   │   ← shortLabel + aspect mini
+│  9:16              │
+│  Punchy hook       │   ← description (truncate)
+└────────────────────┘
 ```
 
-### Preset matrix mới (9 platform × 3 format = 27 preset)
+#### A4. "Recommended" badge
+- Mỗi platform có 1 preset "recommended" (mặc định = `standard`)
+- Thêm field `recommended?: boolean` vào preset hoặc derive: `format === 'standard'` cho mọi platform
+- Hiển thị badge `⭐ Phổ biến` góc phải card
 
-| Platform | Short | Standard | Long | Aspect | channelKey | Group |
-|---|---|---|---|---|---|---|
-| TikTok | 15s | 30s | 60s | 9:16 | tiktok | Short-form |
-| Reels | 15s | 30s | 60s | 9:16 | reels | Short-form |
-| Shorts | 15s | 30s | 60s | 9:16 | shorts | Short-form |
-| **Pinterest** | 15s | 30s | 60s | 9:16 | generic | Short-form |
-| **Threads** | 15s | 30s | 60s | 9:16 | generic | Short-form |
-| Facebook | 30s | 60s | 90s | 1:1 | facebook | Long-form |
-| LinkedIn | 30s | 60s | 90s | 1:1 | generic | Long-form |
-| **X / Twitter** | 30s | 60s | 140s | 1:1 | generic | Long-form |
-| YouTube | 60s | 180s | 600s | 16:9 | youtube | Long-form |
-
-### Mở rộng `Duration` type (`src/types/script.ts`)
-- Thêm `140` vào union: `15 | 30 | 60 | 90 | 120 | 140 | 180 | 600`
-
-### Thêm metadata group
-```typescript
-export type SocialGroup = 'short-form' | 'long-form';
-
-export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
-  tiktok: 'short-form', reels: 'short-form', shorts: 'short-form',
-  pinterest: 'short-form', threads: 'short-form',
-  facebook: 'long-form', linkedin: 'long-form',
-  x: 'long-form', youtube: 'long-form',
-};
-
-export const SOCIAL_GROUP_LABELS: Record<SocialGroup, { label: string; description: string }> = {
-  'short-form': { label: 'Short-form Video', description: 'Vertical 9:16 · Hook nhanh · ≤ 60s' },
-  'long-form':  { label: 'Standard / Long-form', description: 'Square 1:1 hoặc 16:9 · Storytelling' },
-};
+#### A5. Cảnh báo split scene rõ hơn
+- Thay text 1 dòng bằng alert card (info style) khi `duration > 60`:
+```
+┌─ ⓘ Video sẽ chia thành 6 scenes ──┐
+│  Mỗi scene 10s do giới hạn AI       │
+│  model. Ước tính: ~3 phút render.   │
+└─────────────────────────────────────┘
 ```
 
-### Cập nhật `SOCIAL_PLATFORM_LABELS` cho 3 platform mới
-- `pinterest`: "Pinterest" / "9:16 · Visual discovery, beauty fit"
-- `threads`: "Threads" / "9:16 · Conversation-first"
-- `x`: "X (Twitter)" / "1:1 · Punchy, text-overlay"
+#### A6. Bỏ dead code
+- Xóa `formatsForPlatform` useMemo unused
 
----
+#### A7. Mobile horizontal scroll cho 5+ platform
+- Thay `grid-cols-3 md:grid-cols-5` bằng `flex overflow-x-auto md:grid md:grid-cols-5` cho short-form
+- Add `snap-x snap-mandatory` để snap từng card
+- Hidden scrollbar
 
-## 2. Cập nhật `SocialFormatPicker.tsx`
+### B. ScriptFormStepper.tsx — Step 2 container
 
-### Layout mới: 2 nhóm với header
-```text
-┌─ Short-form Video ────────── 9:16 · Hook nhanh ─┐
-│  [TikTok] [Reels] [Shorts] [Pinterest] [Threads] │   ← grid-cols-5 (desktop) / cols-3 (mobile)
-└──────────────────────────────────────────────────┘
-
-┌─ Standard / Long-form ───── 1:1 hoặc 16:9 ─────┐
-│  [Facebook] [LinkedIn] [X] [YouTube]            │   ← grid-cols-4 (desktop) / cols-2 (mobile)
-└──────────────────────────────────────────────────┘
-
-Độ dài · {tagline platform đang chọn}
-[ Ngắn 15s ] [ Vừa 30s ] [ Dài 60s ]
+#### B1. Auto-default preset khi vào step
+```tsx
+useEffect(() => {
+  if (isVideoAi && currentStep === STEP_SOCIAL_FORMAT && !formData.social_format_id) {
+    const defaultPreset = SOCIAL_FORMAT_PRESETS.find(p => p.id === 'tiktok-standard');
+    if (defaultPreset) {
+      setFormData(prev => ({
+        ...prev,
+        social_format_id: defaultPreset.id,
+        duration: defaultPreset.duration,
+        aspect_ratio: defaultPreset.aspectRatio,
+      }));
+    }
+  }
+}, [currentStep, isVideoAi]);
 ```
 
-### Thay đổi cụ thể
-- Thay `PLATFORMS: SocialPlatform[]` bằng group split: `groupBy(PLATFORMS, SOCIAL_PLATFORM_GROUP)`
-- Render 2 sections, mỗi section header dùng `SOCIAL_GROUP_LABELS`
-- Responsive: `grid-cols-3 md:grid-cols-5` cho short-form, `grid-cols-2 md:grid-cols-4` cho long-form
-- Bỏ chữ "Platform" header hiện tại (thay bằng group label)
-- `PLATFORM_ICON_KEY`: thêm `pinterest: 'pinterest'`, `threads: 'threads'`, `x: 'x'`
+#### B2. Step 2 hero section gọn lại
+- Bỏ icon-circle to (12x12) → thay bằng inline icon nhỏ kế title
+- Subtitle ngắn hơn, bỏ nhấn "thời lượng / tỷ lệ khung hình / tone"
+- Tiết kiệm vertical space cho picker
 
----
+#### B3. Summary card sticky bottom
+- Khi user scroll picker, summary card stick xuống dưới (`sticky bottom-0`)
+- Background blur + shadow nhẹ
+- Hiển thị: preset name · duration · aspect · estimated scenes
 
-## 3. Verify ChannelIcon hỗ trợ icons mới
+#### B4. Quick-pick chips ở top step (tùy chọn)
+- 3 chip lựa chọn nhanh: "TikTok 30s" · "Reels 15s" · "YouTube 60s"
+- Click → set preset luôn, không cần duyệt 2 group
+- Đặt ngay dưới hero, trước picker chính
 
-Cần check `src/components/multichannel/streaming/ChannelIcon.tsx` đã có SVG cho `pinterest`, `threads`, `x`. Nếu thiếu → fallback sang generic hoặc bổ sung (codebase đã có integration cho cả 3 → khả năng cao đã có, sẽ verify lúc implement).
+### C. socialFormat.ts — bổ sung field
 
----
+- Thêm `recommended?: boolean` vào interface, set true cho preset `standard` của mỗi platform
+- Thêm helper `getRecommendedPresets(): SocialFormatPreset[]` trả 3 preset cho quick-pick (TikTok Standard, Reels Short, YouTube Short)
+- Thêm `getEstimatedScenes(duration: number)` và `getEstimatedRenderMinutes(scenes)` cho cảnh báo
 
-## 4. Update memory
+### D. Memory update
 
-Cập nhật `.lovable/memory/features/video/social-format-presets-vn.md`:
-- Bảng matrix mới (9 platform)
-- Note layout group split short-form / long-form
-- Mở rộng Duration type include `140`
+Cập nhật `social-format-presets-vn.md`:
+- Note auto-default `tiktok-standard` khi vào step rỗng
+- Note quick-pick chips, recommended badge
+- Note aspect-ratio mini visual
+- Note sticky summary
 
 ---
 
 ## Files thay đổi
 
-- **Edit**: `src/types/socialFormat.ts` (thêm 3 platform, group metadata, 9 preset mới)
-- **Edit**: `src/types/script.ts` (Duration type +140)
-- **Edit**: `src/components/script/SocialFormatPicker.tsx` (layout 2 nhóm)
-- **Verify/Edit**: `src/components/multichannel/streaming/ChannelIcon.tsx` (nếu thiếu icon)
-- **Edit**: `.lovable/memory/features/video/social-format-presets-vn.md`
+| File | Thay đổi |
+|---|---|
+| `src/types/socialFormat.ts` | + `recommended` field, helpers `getRecommendedPresets`, `getEstimatedScenes` |
+| `src/components/script/SocialFormatPicker.tsx` | Format card mới (description + aspect mini), recommended badge, alert card, mobile scroll, bỏ dead code |
+| `src/components/script/ScriptFormStepper.tsx` | Auto-default preset effect, hero gọn, sticky summary, quick-pick chips (optional) |
+| `.lovable/memory/features/video/social-format-presets-vn.md` | Update specs |
 
 ## Không đụng
-- `ScriptFormStepper.tsx` — picker được mount nguyên không cần đổi prop
-- `useScripts.ts` / `generate-script` edge — đã spread `aspect_ratio` + `social_format_id`
-- `DurationSelector.tsx` — chỉ thêm `140` vào allowed durations nếu đang hardcode (sẽ check)
+- `DurationSelector.tsx` (đã ổn sau lần thêm 140s)
+- `useScripts.ts`, edge functions
+
+---
+
+## Câu hỏi chốt scope
+
+Tôi đề xuất **làm tất cả A1–A7 + B1–B3** (nâng cấp lõi). **B4 quick-pick chips** là nice-to-have, có thể skip nếu muốn giữ step focus.
+
+Cho mình xác nhận:
+1. Có làm **B4 quick-pick chips** không?
+2. Default preset khi vào step rỗng — chọn **TikTok Standard 30s** (phổ biến nhất) hay **Reels Short 15s** (beauty industry fit)?
