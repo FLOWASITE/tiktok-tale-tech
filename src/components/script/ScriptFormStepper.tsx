@@ -40,7 +40,15 @@ import { useCompliancePrecheck, PreCheckResult } from '@/hooks/useCompliancePrec
 import { ContentGoal } from '@/types/multichannel';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { SocialFormatPicker } from '@/components/script/SocialFormatPicker';
-import { getPresetById, type SocialFormatPreset } from '@/types/socialFormat';
+import {
+  getPresetById,
+  getQuickPickPresets,
+  getEstimatedScenes,
+  SOCIAL_FORMAT_PRESETS,
+  DEFAULT_PRESET_ID,
+  type SocialFormatPreset,
+} from '@/types/socialFormat';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { VideoTypeRecommendations } from '@/components/script/VideoTypeRecommendations';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
@@ -310,6 +318,26 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       setCurrentStep(STEP_CONTENT);
     }
   }, [visibleStepIds, currentStep]);
+
+  // Auto-default preset khi user lần đầu vào Step 2 mà chưa chọn gì
+  useEffect(() => {
+    if (
+      isVideoAi &&
+      currentStep === STEP_SOCIAL_FORMAT &&
+      !formData.social_format_id
+    ) {
+      const defaultPreset = SOCIAL_FORMAT_PRESETS.find((p) => p.id === DEFAULT_PRESET_ID);
+      if (defaultPreset) {
+        setFormData((prev) => ({
+          ...prev,
+          social_format_id: defaultPreset.id,
+          duration: defaultPreset.duration,
+          aspect_ratio: defaultPreset.aspectRatio,
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, isVideoAi]);
 
   const canProceed = useMemo(() => {
     switch (currentStep) {
