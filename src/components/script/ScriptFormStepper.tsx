@@ -20,6 +20,7 @@ import {
   Megaphone,
   ChevronRight,
   Clock,
+  Smartphone,
   Film,
   Users,
   Mic,
@@ -38,6 +39,8 @@ import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions
 import { useCompliancePrecheck, PreCheckResult } from '@/hooks/useCompliancePrecheck';
 import { ContentGoal } from '@/types/multichannel';
 import { DurationSelector } from '@/components/script/DurationSelector';
+import { SocialFormatPicker } from '@/components/script/SocialFormatPicker';
+import { getPresetById, type SocialFormatPreset } from '@/types/socialFormat';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { VideoTypeRecommendations } from '@/components/script/VideoTypeRecommendations';
 import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector';
@@ -613,7 +616,40 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </div>
               
               <div className="flex flex-wrap gap-2">
-                {/* Duration chip */}
+                {/* Social Format chip — chỉ hiện cho Video AI */}
+                {formData.script_purpose === 'ai_video' && (() => {
+                  const currentPreset = getPresetById(formData.social_format_id);
+                  const chipLabel = currentPreset
+                    ? `${currentPreset.label} · ${currentPreset.shortLabel}`
+                    : 'Chọn social';
+                  return (
+                    <ConfigChipSelector
+                      label={chipLabel}
+                      icon={<Smartphone className="w-3.5 h-3.5" />}
+                      popoverClassName="min-w-[340px] max-w-[420px]"
+                    >
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+                          Social Format
+                        </p>
+                        <SocialFormatPicker
+                          value={formData.social_format_id}
+                          onChange={(preset: SocialFormatPreset) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              social_format_id: preset.id,
+                              duration: preset.duration,
+                              aspect_ratio: preset.aspectRatio,
+                            }))
+                          }
+                          disabled={isLoading}
+                        />
+                      </div>
+                    </ConfigChipSelector>
+                  );
+                })()}
+
+                {/* Duration chip (override cho power user) */}
                 <ConfigChipSelector
                   label={`${formData.duration}s`}
                   icon={<Clock className="w-3.5 h-3.5" />}
@@ -622,7 +658,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                     <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Thời lượng</p>
                     <DurationSelector
                       value={formData.duration}
-                      onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, duration: value, social_format_id: undefined }))}
                       disabled={isLoading}
                     />
                   </div>
