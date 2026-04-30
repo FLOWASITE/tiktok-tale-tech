@@ -27,10 +27,26 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json();
-    const mediaUrl: string = body.media_url;
+    let mediaUrl: string = body.media_url;
     const language: string = body.language ?? "vie"; // ISO 639-3
+    const scriptId: string | undefined = body.script_id;
     let organizationId: string | null = body.organization_id ?? null;
-    if (!mediaUrl) return json({ error: "media_url required" }, 400);
+
+    // Auto-resolve media_url từ clip mới nhất completed của script nếu chỉ có script_id
+    if (!mediaUrl && scriptId) {
+      const { data: latestClip } = await supabase
+        .from("video_generations")
+        .select("video_url")
+        .eq("script_id", scriptId)
+        .eq("status", "completed")
+        .not("video_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestClip?.video_url) mediaUrl = latestClip.video_url;
+    }
+
+    if (!mediaUrl) return json({ error: "media_url hoặc script_id (có clip completed) required" }, 400);
 
     if (!organizationId) {
       const { data: orgRow } = await supabase

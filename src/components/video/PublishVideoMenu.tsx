@@ -23,7 +23,7 @@ interface Props {
   videoUrl: string;
   defaultCaption?: string;
   /** 9:16 = TikTok/Reels/Shorts; 16:9 = YouTube/FB; 1:1 = IG/FB */
-  aspectRatio?: '9:16' | '16:9' | '1:1';
+  aspectRatio?: '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
   size?: 'sm' | 'default';
   variant?: 'default' | 'outline' | 'ghost';
   className?: string;
@@ -44,7 +44,9 @@ const PLATFORM_LABEL: Record<string, string> = {
 function suggestPlatformsForAspect(aspect?: string): SocialPlatform[] {
   if (aspect === '9:16') return ['tiktok', 'instagram', 'youtube', 'facebook'];
   if (aspect === '16:9') return ['youtube', 'facebook', 'linkedin'];
-  if (aspect === '1:1') return ['instagram', 'facebook', 'linkedin'];
+  if (aspect === '1:1')  return ['instagram', 'facebook', 'linkedin'];
+  if (aspect === '2:3')  return ['instagram']; // Pinterest publish chưa hỗ trợ trong menu này
+  if (aspect === '4:5')  return ['instagram', 'facebook'];
   return VIDEO_PLATFORMS;
 }
 

@@ -21,8 +21,14 @@ export function AudioStudioTab() {
   const [voText, setVoText] = useState('');
   const [voVoiceId, setVoVoiceId] = useState<string>(VOICE_OPTIONS[0].id);
   const [bgmPrompt, setBgmPrompt] = useState('');
-  const [bgmDuration, setBgmDuration] = useState(15);
+  const scriptDuration = activeScript?.totalDuration ?? 0;
+  const [bgmDuration, setBgmDuration] = useState(scriptDuration > 0 ? Math.min(120, scriptDuration) : 15);
   const [subUrl, setSubUrl] = useState('');
+
+  // Khi activeScript đổi → đề xuất BGM khớp đúng tổng duration script
+  useEffect(() => {
+    if (scriptDuration > 0) setBgmDuration(Math.min(120, scriptDuration));
+  }, [scriptDuration]);
 
   useEffect(() => { fetchGenerations(); }, [fetchGenerations]);
 
@@ -172,10 +178,21 @@ export function AudioStudioTab() {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Độ dài: {bgmDuration}s</Label>
+              <Label className="text-xs">Độ dài: {bgmDuration}s {scriptDuration > 0 && bgmDuration === scriptDuration && (
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-1">· khớp kịch bản</span>
+              )}</Label>
               <span className="text-[10px] text-muted-foreground">~${(bgmDuration * 0.08).toFixed(2)}</span>
             </div>
-            <Slider value={[bgmDuration]} onValueChange={([v]) => setBgmDuration(v)} min={5} max={30} step={5} />
+            <Slider value={[bgmDuration]} onValueChange={([v]) => setBgmDuration(v)} min={5} max={120} step={5} />
+            {scriptDuration > 0 && bgmDuration !== scriptDuration && (
+              <button
+                type="button"
+                onClick={() => setBgmDuration(Math.min(120, scriptDuration))}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline"
+              >
+                Khớp với kịch bản ({scriptDuration}s)
+              </button>
+            )}
           </div>
           <Button onClick={() => generateBGM(bgmPrompt, bgmDuration)}
             disabled={!bgmPrompt.trim() || generating === 'music'} className="w-full">
