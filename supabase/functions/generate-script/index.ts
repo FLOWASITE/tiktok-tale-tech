@@ -1140,6 +1140,8 @@ interface PlatformSpec {
   recommendedScenes: number;      // tính theo PacingProfile (không phải chia đều)
   hookSceneSec: number;           // độ dài scene 1 (HOOK) — pacing-aware
   avgSceneSec: number;            // độ dài trung bình scene 2..N
+  scenePlan: number[];            // bảng thời lượng cân bằng cho từng PROMPT (tổng = totalDuration)
+  totalDurationSec: number;       // mục tiêu tổng (= duration đã chọn)
   framingHint: string;
   safeZone: string;
   textOverlayPosition: string;
@@ -1147,8 +1149,8 @@ interface PlatformSpec {
   continuityRules: string;
 }
 
-// Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec sẽ tính theo PacingProfile + duration)
-type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes' | 'hookSceneSec' | 'avgSceneSec'>;
+// Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec/scenePlan/totalDurationSec sẽ tính theo PacingProfile + duration)
+type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes' | 'hookSceneSec' | 'avgSceneSec' | 'scenePlan' | 'totalDurationSec'>;
 
 const PLATFORM_SPEC_BY_ID: Record<string, PlatformSpecBase> = {
   // ===== TikTok 9:16 =====
