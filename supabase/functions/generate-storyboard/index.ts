@@ -1,9 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
-import { saveMetrics, generateTraceId, estimateTokens, resolveUserId } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
+import { generateTraceId, resolveUserId } from "../_shared/logger.ts";
 import { getOutputLanguage, getLanguageConfig } from "../_shared/country-language-map.ts";
-import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withPerf } from "../_shared/middleware/perf.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
