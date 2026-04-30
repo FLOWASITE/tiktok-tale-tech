@@ -1536,7 +1536,20 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
   - Mỗi PROMPT có CHARACTER ACTION phù hợp với "${characterTypeName}"?
 
 □ **AUDIO NOTES?**
-  - Ambience, SFX, Music mood có phù hợp?`;
+  - Ambience, SFX, Music mood có phù hợp?${spec ? `
+
+□ **ASPECT RATIO ĐÚNG ${spec.aspect} (${spec.platformLabel})?**
+  - Mỗi PROMPT có chỉ định framing phù hợp khung hình ${spec.aspect}?
+  - Subject KHÔNG nằm trong vùng UI safe-zone?
+
+□ **MỖI CLIP ≤ ${spec.sceneDurationSec}s?**
+  - Hành động trong mỗi PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây (giới hạn AI video generator)?
+  - Tổng số PROMPT khớp ${promptCount}?
+
+□ **CONTINUITY GIỮA CÁC PROMPT?**
+  - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
+  - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
+  - KHÔNG thay đổi setting đột ngột giữa scenes?` : ''}`;
       break;
   }
 
