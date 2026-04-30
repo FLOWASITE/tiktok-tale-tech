@@ -25,6 +25,7 @@ import {
   Users,
   Mic,
   SlidersHorizontal,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
