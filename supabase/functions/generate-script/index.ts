@@ -1682,13 +1682,15 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
   - Mỗi PROMPT có chỉ định framing phù hợp khung hình ${spec.aspect}?
   - Subject KHÔNG nằm trong vùng UI safe-zone?
 
-□ **MỖI CLIP ≤ ${spec.sceneDurationSec}s?**
-  - Hành động trong mỗi PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây (giới hạn AI video generator)?
-  - Tổng số PROMPT khớp ${promptCount}?
+□ **DURATION BUDGET CHÍNH XÁC?**
+  - Mỗi PROMPT có timestamp khớp đúng bảng đã cấp (${formatSceneDurationPlan(spec.scenePlan)})?
+  - Tổng thời lượng tất cả PROMPT = ${spec.totalDurationSec}s (không vượt, không thiếu)?
+  - KHÔNG có PROMPT nào < ${MIN_SCENE_SEC}s hoặc > ${spec.sceneDurationSec}s?
 
 □ **PACING ĐÚNG ${spec.platformLabel}?**
   - Scene 1 là HOOK ngắn ~${spec.hookSceneSec}s? (visual gây tò mò ngay, KHÔNG mở chậm)
   - Scene 2..N có độ dài trung bình ~${spec.avgSceneSec}s? (không cào bằng theo cap clip)
+  - Tổng số PROMPT khớp ${promptCount}?
 
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
