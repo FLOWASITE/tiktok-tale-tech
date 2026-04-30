@@ -1072,35 +1072,30 @@ function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDu
 }
 
 /**
- * Cân bằng thời lượng từng PROMPT để TỔNG KHỚP `duration`.
- * Tránh prompt quá ngắn (<MIN_SCENE_SEC) hoặc quá dài (>cap clip AI).
- *  1. Scene 1 = HOOK (`pacing.hookSceneSec`, clamp [MIN, cap])
- *  2. Body chia đều phần còn lại, làm tròn 0.5s, clamp [MIN, cap]
- *  3. Drift do làm tròn → bù vào scene cuối (giữ trong [MIN, cap])
+ * Cân bằng thời lượng từng PROMPT để TỔNG = `duration`.
+ *  - sceneCount = 1: 1 clip dài đúng `duration` (clamp theo cap).
+ *  - sceneCount > 1: chia đều, không tách hook riêng. Hook nằm trong 0-3s đầu prompt 1.
+ * Tránh prompt quá ngắn (<MIN_SCENE_SEC) hoặc quá dài (>cap).
  */
 const MIN_SCENE_SEC = 2;
 function buildSceneDurationPlan(
   totalDurationSec: number,
   sceneCount: number,
-  pacing: PacingProfile,
+  _pacing: PacingProfile,
   capSec: number,
 ): number[] {
   if (sceneCount <= 0) return [];
   if (sceneCount === 1) {
     return [Math.min(capSec, Math.max(MIN_SCENE_SEC, totalDurationSec))];
   }
-  const hook = Math.min(capSec, Math.max(MIN_SCENE_SEC, pacing.hookSceneSec));
-  const bodyCount = sceneCount - 1;
-  const remainingSec = Math.max(MIN_SCENE_SEC * bodyCount, totalDurationSec - hook);
-  const rawBody = remainingSec / bodyCount;
-  // Round UP đến 0.5s gần nhất để TỔNG ≥ target → drift cuối ≤ 0 (trừ scene cuối thay vì cộng vượt cap)
-  const roundedBody = Math.ceil(rawBody * 2) / 2;
-  const bodyClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedBody));
+  const rawPer = totalDurationSec / sceneCount;
+  const roundedPer = Math.ceil(rawPer * 2) / 2;
+  const perClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedPer));
 
-  const plan: number[] = [hook];
-  for (let i = 0; i < bodyCount; i++) plan.push(bodyClamped);
+  const plan: number[] = [];
+  for (let i = 0; i < sceneCount; i++) plan.push(perClamped);
 
-  // Bù drift vào scene cuối (clamp)
+  // Bù drift vào scene cuối (clamp [MIN, cap])
   const drift = totalDurationSec - plan.reduce((a, b) => a + b, 0);
   if (drift !== 0) {
     const last = plan.length - 1;
