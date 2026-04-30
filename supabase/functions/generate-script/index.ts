@@ -1058,13 +1058,15 @@ function getPacingProfile(platformLabel: string, aspect: string): PacingProfile 
   return { hookSceneSec: 2, avgSceneSec: 4, maxScenes: 18 };
 }
 
-/** Tính scene count thông minh: 1 hook + body chia theo avgScene, clamp theo maxScenes & sceneDurationSec cap. */
+/**
+ * Scene count = MIN clip vật lý cần để cover duration (1 hook + ceil(remaining/cap) body).
+ * Bỏ ràng buộc avgSceneSec (pacing thẩm mỹ) → luôn ra số clip tối thiểu, giảm 30-50% credit render.
+ * Trade-off: clip dài 8-12s, AI prompt phải mô tả chuyển động liên tục để tránh tĩnh.
+ * Vẫn clamp theo maxScenes (safety net) và tối thiểu 2 scene (hook + 1 body).
+ */
 function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDurationCapSec: number): number {
-  // Body cần ít nhất ceil(remaining / capSec) scene để không vượt cap clip AI
   const remaining = Math.max(0, duration - pacing.hookSceneSec);
-  const idealBody = remaining / pacing.avgSceneSec;
-  const minBody   = Math.ceil(remaining / sceneDurationCapSec); // tôn trọng cap Seedance/Veo
-  const bodyScenes = Math.max(minBody, Math.round(idealBody));
+  const bodyScenes = Math.ceil(remaining / sceneDurationCapSec); // chỉ tôn trọng cap model AI
   const total = 1 + bodyScenes;
   return Math.min(pacing.maxScenes, Math.max(2, total));
 }
@@ -1512,7 +1514,7 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
   const sceneSec = spec?.sceneDurationSec ?? 8;
   const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
   const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
-  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG có cut/transition trong cùng 1 prompt.\n- Tránh chuyển động phức tạp đa hướng (drift risk khi clip ≥10s).\n- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- Subject action liên tục, không có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).` : '';
+  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip — đã tối ưu MIN số clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG có cut/transition trong cùng 1 prompt.\n- Mỗi clip dài ${spec.sceneDurationSec}s → BẮT BUỘC mô tả **chuyển động liên tục** (subject action + camera move 1 hướng) để clip không bị tĩnh/lỳ.\n- Tránh chuyển động phức tạp đa hướng (drift risk khi clip ≥10s).\n- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- Subject action liên tục trong suốt ${spec.sceneDurationSec}s, không có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).\n- KHÔNG chia nhỏ 1 prompt thành nhiều moment — pacing được kiểm soát bởi voiceover/subtitle, không phải số clip.` : '';
   const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.${modelLine}` : '';
   switch(purpose) {
     case 'ai_video':
