@@ -49,11 +49,11 @@ async function submitPoyoVideoTask(params: PoyoVideoParams, apiKey: string): Pro
   const modelName = stripPrefix(params.model);
   const aspect = params.aspectRatio || '9:16';
 
-  // PoYo API only accepts duration 5 or 10 — clamp anything higher
+  // PoYo API requires duration between 4 and 10 — clamp accordingly
   const rawDuration = params.duration ?? 5;
-  const clampedDuration = rawDuration > 10 ? 10 : rawDuration < 5 ? 5 : rawDuration;
+  const clampedDuration = Math.max(4, Math.min(10, rawDuration));
   if (rawDuration !== clampedDuration) {
-    console.warn(`[poyo-video] Clamped duration ${rawDuration}s → ${clampedDuration}s (PoYo max=10s)`);
+    console.warn(`[poyo-video] Clamped duration ${rawDuration}s → ${clampedDuration}s (PoYo range=4-10s)`);
   }
 
   const input: Record<string, unknown> = {
