@@ -82,10 +82,21 @@ interface ScriptFormStepperProps {
   topicHistoryId?: string;
 }
 
-const STEPS: Step[] = [
-  { id: 1, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
-  { id: 2, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> },
-];
+// Step IDs are semantic — step 2 (Social Format) only shown when purpose='ai_video'
+const STEP_CONTENT = 1;
+const STEP_SOCIAL_FORMAT = 2;
+const STEP_GENERATE = 3;
+
+const buildSteps = (isVideoAi: boolean): Step[] => {
+  const base: Step[] = [
+    { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
+  ];
+  if (isVideoAi) {
+    base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
+  }
+  base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
+  return base;
+};
 
 const LOADING_PHASES = [
   'Đang phân tích chủ đề...',
