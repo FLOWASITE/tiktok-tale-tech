@@ -981,10 +981,10 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): stri
 };
 
 function getPromptCount(duration: number, spec?: PlatformSpec): string {
-  // Khi có spec từ "Bước 2 — Nền tảng video", ưu tiên scene count khớp với clip duration thực tế
+  // Khi có spec từ "Bước 2 — Nền tảng video", dùng pacing profile của platform
   if (spec) {
     const n = spec.recommendedScenes;
-    return n > 1 ? `${n - 1}-${n}` : `${n}`;
+    return n > 3 ? `${n - 1}-${n}` : `${n}`;
   }
   switch (duration) {
     case 60:
@@ -998,6 +998,75 @@ function getPromptCount(duration: number, spec?: PlatformSpec): string {
     default:
       return "7-8";
   }
+}
+
+// ============================================
+// PACING PROFILE — số scene tối ưu theo NỀN TẢNG (không chỉ duration)
+// Best practice 2026: short-form vertical cần hook 0-2s + cắt nhanh,
+// long-form cần story beats dài hơn để giữ chuyện.
+// ============================================
+interface PacingProfile {
+  hookSceneSec: number;   // độ dài scene 1 (HOOK) — ngắn để giữ retention
+  avgSceneSec: number;    // độ dài trung bình scene 2..N
+  maxScenes: number;      // hard cap để Wizard không quá tải
+}
+
+/** Lookup pacing dựa trên platformLabel + aspect — KHÔNG cần sửa 30 entry PLATFORM_SPEC. */
+function getPacingProfile(platformLabel: string, aspect: string): PacingProfile {
+  const label = platformLabel.toLowerCase();
+
+  // Short-form vertical "viral" — cắt nhanh, hook ≤2s
+  if (/(tiktok|reels|shorts|fb reels|facebook reels)/.test(label)) {
+    return { hookSceneSec: 2, avgSceneSec: 3.5, maxScenes: 18 };
+  }
+
+  // Pinterest Pin 2:3 — slow lifestyle, mỗi card 1 ý
+  if (label.includes('pinterest pin')) {
+    return { hookSceneSec: 4, avgSceneSec: 6, maxScenes: 8 };
+  }
+
+  // Pinterest Idea Pin (long, 9:16) — như TikTok nhẹ
+  if (label.includes('pinterest idea')) {
+    return { hookSceneSec: 3, avgSceneSec: 4, maxScenes: 12 };
+  }
+
+  // Threads / Bluesky / WhatsApp — short-form nhưng nhẹ hơn TikTok
+  if (/(threads|bluesky|whatsapp)/.test(label)) {
+    return { hookSceneSec: 3, avgSceneSec: 4, maxScenes: 15 };
+  }
+
+  // YouTube long-form 16:9 — story beats, không cắt vụn
+  if (label === 'youtube' || label.startsWith('youtube ')) {
+    return { hookSceneSec: 4, avgSceneSec: 8, maxScenes: 40 };
+  }
+
+  // LinkedIn — talking-head + B-roll chậm
+  if (label.includes('linkedin')) {
+    return { hookSceneSec: 4, avgSceneSec: 6, maxScenes: 18 };
+  }
+
+  // Facebook Feed / X — mid-pacing
+  if (/(facebook feed|x \(twitter|twitter)/.test(label)) {
+    return { hookSceneSec: 3, avgSceneSec: 5, maxScenes: 16 };
+  }
+
+  // Fallback theo aspect
+  if (aspect === '16:9') return { hookSceneSec: 4, avgSceneSec: 7, maxScenes: 30 };
+  if (aspect === '1:1')  return { hookSceneSec: 3, avgSceneSec: 5, maxScenes: 16 };
+  if (aspect === '2:3')  return { hookSceneSec: 4, avgSceneSec: 6, maxScenes: 8 };
+  // 9:16 default
+  return { hookSceneSec: 2, avgSceneSec: 4, maxScenes: 18 };
+}
+
+/** Tính scene count thông minh: 1 hook + body chia theo avgScene, clamp theo maxScenes & sceneDurationSec cap. */
+function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDurationCapSec: number): number {
+  // Body cần ít nhất ceil(remaining / capSec) scene để không vượt cap clip AI
+  const remaining = Math.max(0, duration - pacing.hookSceneSec);
+  const idealBody = remaining / pacing.avgSceneSec;
+  const minBody   = Math.ceil(remaining / sceneDurationCapSec); // tôn trọng cap Seedance/Veo
+  const bodyScenes = Math.max(minBody, Math.round(idealBody));
+  const total = 1 + bodyScenes;
+  return Math.min(pacing.maxScenes, Math.max(2, total));
 }
 
 // ============================================
