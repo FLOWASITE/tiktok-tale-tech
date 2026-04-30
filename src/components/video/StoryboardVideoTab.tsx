@@ -30,12 +30,17 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const [bgmVolume, setBgmVolume] = useState(0.2);
   const [subtitleId, setSubtitleId] = useState<string>('none');
   const [burnSubs, setBurnSubs] = useState(true);
-  const [aspect, setAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [aspect, setAspect] = useState<'9:16' | '16:9' | '1:1' | '2:3' | '4:5'>('9:16');
   const [showAllClips, setShowAllClips] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; currentScene?: number }>({ done: 0, total: 0 });
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
+
+  // Auto-sync aspect from script preset (e.g. Pinterest 2:3, FB Reels 9:16, IG Portrait 4:5)
+  useEffect(() => {
+    if (activeScript?.aspectRatio) setAspect(activeScript.aspectRatio);
+  }, [activeScript?.aspectRatio]);
 
   const allCompletedClips = generations.filter((g) => g.status === 'completed' && g.video_url);
 
@@ -357,15 +362,21 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
       </div>
 
       {/* Step 3: Aspect + submit */}
-      <div className="flex items-end gap-3 pt-2 border-t border-border/50">
+      <div className="flex items-end gap-3 pt-2 border-t border-border/50 flex-wrap">
         <div className="space-y-1.5">
-          <Label className="text-xs">Tỷ lệ output</Label>
+          <Label className="text-xs">
+            Tỷ lệ output {activeScript?.aspectRatio && (
+              <span className="text-[10px] text-muted-foreground">(đồng bộ từ kịch bản)</span>
+            )}
+          </Label>
           <Select value={aspect} onValueChange={(v) => setAspect(v as any)}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="9:16">9:16 (TikTok/Reels)</SelectItem>
-              <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
+              <SelectItem value="9:16">9:16 (TikTok/Reels/Shorts)</SelectItem>
+              <SelectItem value="4:5">4:5 (IG Feed Portrait)</SelectItem>
+              <SelectItem value="2:3">2:3 (Pinterest)</SelectItem>
               <SelectItem value="1:1">1:1 (Square)</SelectItem>
+              <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
             </SelectContent>
           </Select>
         </div>
