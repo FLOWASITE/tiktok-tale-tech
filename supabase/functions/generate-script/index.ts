@@ -1077,8 +1077,10 @@ function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDu
 interface PlatformSpec {
   platformLabel: string;
   aspect: string;
-  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo)
-  recommendedScenes: number;      // = ceil(duration / sceneDurationSec)
+  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo) — CAP cứng
+  recommendedScenes: number;      // tính theo PacingProfile (không phải chia đều)
+  hookSceneSec: number;           // độ dài scene 1 (HOOK) — pacing-aware
+  avgSceneSec: number;            // độ dài trung bình scene 2..N
   framingHint: string;
   safeZone: string;
   textOverlayPosition: string;
