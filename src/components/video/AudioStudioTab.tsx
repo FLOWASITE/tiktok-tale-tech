@@ -161,7 +161,7 @@ export function AudioStudioTab() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button onClick={() => generateVoiceover(voText, voVoiceId)}
+              <Button onClick={() => generateVoiceover(voText, voVoiceId, 'vi', activeScript?.id)}
                 disabled={!voText.trim() || generating === 'voiceover'} className="w-full">
                 {generating === 'voiceover' ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Đang tạo...</> : 'Tạo voiceover'}
               </Button>
@@ -194,7 +194,7 @@ export function AudioStudioTab() {
               </button>
             )}
           </div>
-          <Button onClick={() => generateBGM(bgmPrompt, bgmDuration)}
+          <Button onClick={() => generateBGM(bgmPrompt, bgmDuration, activeScript?.id)}
             disabled={!bgmPrompt.trim() || generating === 'music'} className="w-full">
             {generating === 'music' ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Đang tạo...</> : 'Tạo nhạc nền'}
           </Button>

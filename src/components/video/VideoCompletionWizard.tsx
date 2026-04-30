@@ -1,5 +1,5 @@
-// VideoCompletionWizard — 1-nút-ra-MP4 cho ActiveScript
-// Mount ở đầu Storyboard tab. Hiện 4 step + nút "Auto chạy hết".
+// VideoCompletionWizard — 1-nút-ra-MP4 cho ActiveScript (short-form ≤90s)
+// Mount ở đầu Storyboard tab. 5 step + provider tier toggle + ETA động.
 import { useMemo, useState } from 'react';
 import {
   Sparkles,
@@ -8,9 +8,12 @@ import {
   AlertCircle,
   Loader2,
   Wand2,
+  Zap,
+  Crown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { useVideoCompletion, type WizardStep } from '@/hooks/useVideoCompletion';
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { cn } from '@/lib/utils';
@@ -30,23 +33,42 @@ function StepIcon({ status }: { status: WizardStep['status'] }) {
   return <Circle className="w-4 h-4 text-muted-foreground/40" />;
 }
 
+function formatEta(secs: number): string {
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return s > 0 ? `${m}p ${s}s` : `${m} phút`;
+}
+
 export function VideoCompletionWizard({ defaultVoiceText, defaultBgmPrompt }: Props) {
   const { activeScript } = useScriptToVideo();
-  const { steps, running, lastError, allReady, completedScenesCount, scriptScenesCount, runAuto } =
-    useVideoCompletion();
+  const {
+    steps,
+    running,
+    lastError,
+    allReady,
+    completedScenesCount,
+    scriptScenesCount,
+    overallProgress,
+    etaSeconds,
+    isShortForm,
+    tier,
+    setTier,
+    runAuto,
+  } = useVideoCompletion();
   const [bgmPrompt] = useState(defaultBgmPrompt ?? 'cinematic, modern, uplifting, soft pads, gentle beat');
 
-  const overallProgress = useMemo(() => {
-    const doneCount = steps.filter((s) => s.status === 'done').length;
-    return Math.round((doneCount / steps.length) * 100);
-  }, [steps]);
+  const isAnyRunning = running !== null;
+  const runningLabel = useMemo(
+    () => steps.find((s) => s.status === 'running')?.label ?? '…',
+    [steps],
+  );
 
   if (!activeScript) return null;
 
-  const isAnyRunning = running !== null;
-
   return (
     <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-foreground/[0.02] to-transparent p-4 space-y-4">
+      {/* Header */}
       <div className="flex items-start gap-3">
         <div className="w-9 h-9 rounded-xl bg-foreground/5 flex items-center justify-center shrink-0">
           <Sparkles className="w-4 h-4 text-foreground/70" />
@@ -61,8 +83,13 @@ export function VideoCompletionWizard({ defaultVoiceText, defaultBgmPrompt }: Pr
                 {activeScript.presetLabel}
               </Badge>
             )}
+            {isShortForm && (
+              <Badge variant="outline" className="text-[10px] h-5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                Short-form ≤90s
+              </Badge>
+            )}
             <span className="text-[10px] text-muted-foreground ml-auto">
-              {overallProgress}% hoàn thành
+              {overallProgress}%
             </span>
           </div>
           <h3 className="text-sm font-semibold text-foreground truncate mt-0.5">
@@ -71,12 +98,51 @@ export function VideoCompletionWizard({ defaultVoiceText, defaultBgmPrompt }: Pr
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {allReady
               ? 'Sẵn sàng render MP4 ngay khi bấm "Auto chạy hết".'
-              : `Bấm "Auto chạy hết" để hệ thống quay nốt ${scriptScenesCount - completedScenesCount} scene còn lại, sau đó tạo audio và render.`}
+              : `Hệ thống sẽ quay ${scriptScenesCount - completedScenesCount} scene song song, tạo audio và render — tất cả trong 1 lần bấm.`}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {/* Overall progress bar */}
+      <Progress value={overallProgress} className="h-1.5" />
+
+      {/* Provider tier toggle */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Chế độ:</span>
+        <button
+          type="button"
+          onClick={() => setTier('fast')}
+          disabled={isAnyRunning}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] transition',
+            tier === 'fast'
+              ? 'border-foreground/30 bg-foreground/[0.04] text-foreground'
+              : 'border-border/60 text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Zap className="w-3 h-3" />
+          Tiết kiệm (Seedance)
+          <span className="text-[9px] text-muted-foreground">~$1-2</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTier('hero')}
+          disabled={isAnyRunning}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] transition',
+            tier === 'hero'
+              ? 'border-foreground/30 bg-foreground/[0.04] text-foreground'
+              : 'border-border/60 text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Crown className="w-3 h-3" />
+          Chất lượng (Veo 3 Fast)
+          <span className="text-[9px] text-muted-foreground">~$10-30</span>
+        </button>
+      </div>
+
+      {/* 5 steps grid */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         {steps.map((step, idx) => (
           <div
             key={step.id}
@@ -110,11 +176,12 @@ export function VideoCompletionWizard({ defaultVoiceText, defaultBgmPrompt }: Pr
         </div>
       )}
 
+      {/* Footer: ETA + CTA */}
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 flex-wrap">
         <p className="text-[10px] text-muted-foreground">
           {allReady
             ? '✅ Tất cả clip đã sẵn — render khoảng 1-3 phút.'
-            : '⏱️ Mỗi scene quay khoảng 1-3 phút. Có thể đóng tab — sẽ chạy nền.'}
+            : `⏱️ ETA ~${formatEta(etaSeconds)}. Có thể đóng tab — sẽ chạy nền và thông báo khi xong.`}
         </p>
         <Button
           size="sm"
@@ -130,7 +197,9 @@ export function VideoCompletionWizard({ defaultVoiceText, defaultBgmPrompt }: Pr
           {isAnyRunning ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Đang chạy bước "{steps.find((s) => s.status === 'running')?.label ?? '…'}"
+              {running === 'scenes'
+                ? `Quay ${completedScenesCount}/${scriptScenesCount} scene…`
+                : `Đang ${runningLabel}…`}
             </>
           ) : (
             <>

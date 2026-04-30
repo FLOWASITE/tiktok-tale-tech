@@ -2656,6 +2656,7 @@ export type Database = {
           organization_id: string | null
           prompt: string | null
           provider: string
+          script_id: string | null
           source_text: string | null
           srt_content: string | null
           updated_at: string
@@ -2675,6 +2676,7 @@ export type Database = {
           organization_id?: string | null
           prompt?: string | null
           provider?: string
+          script_id?: string | null
           source_text?: string | null
           srt_content?: string | null
           updated_at?: string
@@ -2694,6 +2696,7 @@ export type Database = {
           organization_id?: string | null
           prompt?: string | null
           provider?: string
+          script_id?: string | null
           source_text?: string | null
           srt_content?: string | null
           updated_at?: string
@@ -2707,6 +2710,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_assets_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
             referencedColumns: ["id"]
           },
         ]
