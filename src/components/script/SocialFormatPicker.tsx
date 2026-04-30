@@ -5,9 +5,12 @@ import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import {
   SOCIAL_FORMAT_PRESETS,
   SOCIAL_PLATFORM_LABELS,
+  SOCIAL_GROUP_LABELS,
+  getPlatformsByGroup,
   type SocialPlatform,
   type SocialFormatLength,
   type SocialFormatPreset,
+  type SocialGroup,
   getPresetByPlatformFormat,
   getPresetById,
 } from '@/types/socialFormat';
@@ -23,17 +26,96 @@ const PLATFORM_ICON_KEY: Record<SocialPlatform, string> = {
   tiktok: 'tiktok',
   reels: 'instagram',
   shorts: 'youtube',
+  pinterest: 'pinterest',
+  threads: 'threads',
   facebook: 'facebook',
   linkedin: 'linkedin',
+  x: 'twitter',
   youtube: 'youtube',
 };
 
-const PLATFORMS: SocialPlatform[] = ['tiktok', 'reels', 'shorts', 'facebook', 'linkedin', 'youtube'];
+const SHORT_FORM_PLATFORMS = getPlatformsByGroup('short-form');
+const LONG_FORM_PLATFORMS = getPlatformsByGroup('long-form');
 
 interface SocialFormatPickerProps {
   value?: string; // preset id
   onChange: (preset: SocialFormatPreset) => void;
   disabled?: boolean;
+}
+
+interface PlatformGroupRowProps {
+  group: SocialGroup;
+  platforms: SocialPlatform[];
+  activePlatform: SocialPlatform;
+  currentPlatform?: SocialPlatform;
+  disabled?: boolean;
+  onSelect: (p: SocialPlatform) => void;
+  /** Tailwind grid cols class for desktop */
+  desktopCols: string;
+  /** Tailwind grid cols class for mobile */
+  mobileCols: string;
+}
+
+function PlatformGroupRow({
+  group,
+  platforms,
+  activePlatform,
+  currentPlatform,
+  disabled,
+  onSelect,
+  desktopCols,
+  mobileCols,
+}: PlatformGroupRowProps) {
+  const meta = SOCIAL_GROUP_LABELS[group];
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-[10px] font-semibold text-foreground/80 tracking-wide uppercase">
+          {meta.label}
+        </p>
+        <span className="text-[9px] text-muted-foreground/70 truncate ml-2">
+          {meta.description}
+        </span>
+      </div>
+      <div className={cn('grid gap-1.5', mobileCols, desktopCols)}>
+        {platforms.map((platform) => {
+          const isActive = activePlatform === platform;
+          const isCurrent = currentPlatform === platform;
+          return (
+            <button
+              key={platform}
+              type="button"
+              disabled={disabled}
+              onClick={() => onSelect(platform)}
+              className={cn(
+                'relative group flex flex-col items-center gap-1 p-2 rounded-lg border transition-all',
+                isActive
+                  ? 'border-foreground/30 bg-foreground/[0.04]'
+                  : 'border-border/40 bg-background hover:border-foreground/20 hover:bg-muted/30',
+                disabled && 'opacity-50 cursor-not-allowed',
+              )}
+              title={SOCIAL_PLATFORM_LABELS[platform].tagline}
+            >
+              <ChannelIcon channel={PLATFORM_ICON_KEY[platform]} size="sm" />
+              <span
+                className={cn(
+                  'text-[10px] font-medium tracking-tight truncate w-full text-center',
+                  isActive ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {SOCIAL_PLATFORM_LABELS[platform].label}
+              </span>
+              {isCurrent && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-foreground/80 flex items-center justify-center">
+                  <Check className="w-2 h-2 text-background" />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function SocialFormatPicker({ value, onChange, disabled }: SocialFormatPickerProps) {
@@ -48,50 +130,30 @@ export function SocialFormatPicker({ value, onChange, disabled }: SocialFormatPi
   );
 
   return (
-    <div className="space-y-3">
-      {/* Platform row */}
-      <div>
-        <p className="text-[10px] font-medium text-muted-foreground/70 tracking-wide uppercase mb-2">
-          Platform
-        </p>
-        <div className="grid grid-cols-3 gap-1.5">
-          {PLATFORMS.map((platform) => {
-            const isActive = activePlatform === platform;
-            const isCurrent = currentPreset?.platform === platform;
-            return (
-              <button
-                key={platform}
-                type="button"
-                disabled={disabled}
-                onClick={() => setActivePlatform(platform)}
-                className={cn(
-                  'group flex flex-col items-center gap-1 p-2 rounded-lg border transition-all',
-                  isActive
-                    ? 'border-foreground/30 bg-foreground/[0.04]'
-                    : 'border-border/40 bg-background hover:border-foreground/20 hover:bg-muted/30',
-                  disabled && 'opacity-50 cursor-not-allowed',
-                )}
-                title={SOCIAL_PLATFORM_LABELS[platform].tagline}
-              >
-                <ChannelIcon channel={PLATFORM_ICON_KEY[platform]} size="sm" />
-                <span
-                  className={cn(
-                    'text-[10px] font-medium tracking-tight truncate w-full text-center',
-                    isActive ? 'text-foreground' : 'text-muted-foreground',
-                  )}
-                >
-                  {SOCIAL_PLATFORM_LABELS[platform].label}
-                </span>
-                {isCurrent && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-foreground/80 flex items-center justify-center">
-                    <Check className="w-2 h-2 text-background" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* Short-form group */}
+      <PlatformGroupRow
+        group="short-form"
+        platforms={SHORT_FORM_PLATFORMS}
+        activePlatform={activePlatform}
+        currentPlatform={currentPreset?.platform}
+        disabled={disabled}
+        onSelect={setActivePlatform}
+        mobileCols="grid-cols-3"
+        desktopCols="md:grid-cols-5"
+      />
+
+      {/* Long-form group */}
+      <PlatformGroupRow
+        group="long-form"
+        platforms={LONG_FORM_PLATFORMS}
+        activePlatform={activePlatform}
+        currentPlatform={currentPreset?.platform}
+        disabled={disabled}
+        onSelect={setActivePlatform}
+        mobileCols="grid-cols-2"
+        desktopCols="md:grid-cols-4"
+      />
 
       {/* Format segmented */}
       <div>

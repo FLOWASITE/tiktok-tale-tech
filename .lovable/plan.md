@@ -1,60 +1,109 @@
-
-# Plan: Tách Social Format thành Step riêng trong Video Script Wizard
-
 ## Mục tiêu
-Hiện tại `SocialFormatPicker` đang là 1 chip nhỏ chen trong block "Cấu hình" ở Step 2 — dễ bị bỏ qua và không tương xứng với tầm quan trọng (quyết định cả duration + aspect_ratio + tone của toàn bộ pipeline).
 
-→ Nâng lên thành **Step riêng (Step 2: "Định dạng Social")** trong wizard, chỉ áp dụng khi `script_purpose === 'ai_video'`. Các purpose khác (podcast, education...) skip step này tự động.
+Mở rộng `SocialFormatPicker` từ 6 → 9 platform (thêm Pinterest, Threads, X), reorganize layout theo 2 nhóm: **Short-form Video** vs **Standard / Long-form**.
 
-## Flow mới (conditional)
+---
 
-```text
-Video AI:    [1] Nội dung → [2] Định dạng Social → [3] Tạo kịch bản
-Khác:        [1] Nội dung →                        [2] Tạo kịch bản
+## 1. Mở rộng preset matrix (`src/types/socialFormat.ts`)
+
+### Thêm 3 platform mới vào `SocialPlatform` type
+```typescript
+export type SocialPlatform =
+  | 'tiktok' | 'reels' | 'shorts'
+  | 'pinterest' | 'threads' | 'x'   // NEW
+  | 'facebook' | 'linkedin' | 'youtube';
 ```
 
-## Thay đổi
+### Preset matrix mới (9 platform × 3 format = 27 preset)
 
-### 1. `src/components/script/ScriptFormStepper.tsx`
+| Platform | Short | Standard | Long | Aspect | channelKey | Group |
+|---|---|---|---|---|---|---|
+| TikTok | 15s | 30s | 60s | 9:16 | tiktok | Short-form |
+| Reels | 15s | 30s | 60s | 9:16 | reels | Short-form |
+| Shorts | 15s | 30s | 60s | 9:16 | shorts | Short-form |
+| **Pinterest** | 15s | 30s | 60s | 9:16 | generic | Short-form |
+| **Threads** | 15s | 30s | 60s | 9:16 | generic | Short-form |
+| Facebook | 30s | 60s | 90s | 1:1 | facebook | Long-form |
+| LinkedIn | 30s | 60s | 90s | 1:1 | generic | Long-form |
+| **X / Twitter** | 30s | 60s | 140s | 1:1 | generic | Long-form |
+| YouTube | 60s | 180s | 600s | 16:9 | youtube | Long-form |
 
-**STEPS dynamic theo purpose:**
-- Build `STEPS` qua `useMemo` dựa trên `formData.script_purpose`
-- Khi `ai_video` → 3 steps: Nội dung / Định dạng / Tạo kịch bản
-- Khác → 2 steps như cũ
+### Mở rộng `Duration` type (`src/types/script.ts`)
+- Thêm `140` vào union: `15 | 30 | 60 | 90 | 120 | 140 | 180 | 600`
 
-**Step mới "Định dạng Social" (ID=2 cho video_ai):**
-- Header: icon `Smartphone`, tiêu đề "Chọn nền tảng đăng video", mô tả ngắn
-- Body: render full-size `SocialFormatPicker` (không bọc trong popover/chip) — to, rõ, dễ chọn
-- Hiển thị **summary card** bên dưới khi đã chọn:
-  - "TikTok Short · 15s · 9:16 · Hook 1.5s đầu"
-  - Chip nhỏ "Đổi thời lượng thủ công" → mở `DurationSelector` collapsible (giữ override path)
-- Nút "← Quay lại" / "Tiếp tục →"
-- Validation: phải chọn 1 preset mới cho qua (hoặc cho phép skip với warning nhỏ "Sẽ dùng default 60s/9:16")
+### Thêm metadata group
+```typescript
+export type SocialGroup = 'short-form' | 'long-form';
 
-**Step "Tạo kịch bản" (cũ Step 2 → giờ Step 3 cho ai_video):**
-- Bỏ `SocialFormatPicker` khỏi block "Cấu hình" (lines 619-650)
-- Chip Duration ở block Cấu hình giờ chỉ hiển thị **read-only summary** + cho phép override
-- Hiển thị badge nhỏ "Đã chọn: TikTok Short · 15s" ở Smart Summary header để user biết format đã set
+export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
+  tiktok: 'short-form', reels: 'short-form', shorts: 'short-form',
+  pinterest: 'short-form', threads: 'short-form',
+  facebook: 'long-form', linkedin: 'long-form',
+  x: 'long-form', youtube: 'long-form',
+};
 
-**Logic step navigation:**
-- `goToNextStep()` / `goToPrevStep()` cần handle skip step 2 khi không phải ai_video
-- Khi user đổi `script_purpose` ở step 1 từ ai_video → khác (hoặc ngược lại) ở giữa flow, reset step về 1 hoặc adjust
+export const SOCIAL_GROUP_LABELS: Record<SocialGroup, { label: string; description: string }> = {
+  'short-form': { label: 'Short-form Video', description: 'Vertical 9:16 · Hook nhanh · ≤ 60s' },
+  'long-form':  { label: 'Standard / Long-form', description: 'Square 1:1 hoặc 16:9 · Storytelling' },
+};
+```
 
-### 2. `src/components/script/StepIndicator.tsx` (kiểm tra)
-- Nếu component đã handle dynamic steps qua props thì không cần sửa
-- Nếu hardcode → cần verify
+### Cập nhật `SOCIAL_PLATFORM_LABELS` cho 3 platform mới
+- `pinterest`: "Pinterest" / "9:16 · Visual discovery, beauty fit"
+- `threads`: "Threads" / "9:16 · Conversation-first"
+- `x`: "X (Twitter)" / "1:1 · Punchy, text-overlay"
 
-### 3. UX micro
-- Animate fade-in khi vào step 2 mới
-- Auto-suggest preset dựa trên brand's primary channel nếu có (read từ `selectedTemplate.primary_channel`) — pre-select TikTok Short/Reels Standard
-- Nút "Bỏ qua, dùng default" ở góc cho power user muốn nhanh
+---
+
+## 2. Cập nhật `SocialFormatPicker.tsx`
+
+### Layout mới: 2 nhóm với header
+```text
+┌─ Short-form Video ────────── 9:16 · Hook nhanh ─┐
+│  [TikTok] [Reels] [Shorts] [Pinterest] [Threads] │   ← grid-cols-5 (desktop) / cols-3 (mobile)
+└──────────────────────────────────────────────────┘
+
+┌─ Standard / Long-form ───── 1:1 hoặc 16:9 ─────┐
+│  [Facebook] [LinkedIn] [X] [YouTube]            │   ← grid-cols-4 (desktop) / cols-2 (mobile)
+└──────────────────────────────────────────────────┘
+
+Độ dài · {tagline platform đang chọn}
+[ Ngắn 15s ] [ Vừa 30s ] [ Dài 60s ]
+```
+
+### Thay đổi cụ thể
+- Thay `PLATFORMS: SocialPlatform[]` bằng group split: `groupBy(PLATFORMS, SOCIAL_PLATFORM_GROUP)`
+- Render 2 sections, mỗi section header dùng `SOCIAL_GROUP_LABELS`
+- Responsive: `grid-cols-3 md:grid-cols-5` cho short-form, `grid-cols-2 md:grid-cols-4` cho long-form
+- Bỏ chữ "Platform" header hiện tại (thay bằng group label)
+- `PLATFORM_ICON_KEY`: thêm `pinterest: 'pinterest'`, `threads: 'threads'`, `x: 'x'`
+
+---
+
+## 3. Verify ChannelIcon hỗ trợ icons mới
+
+Cần check `src/components/multichannel/streaming/ChannelIcon.tsx` đã có SVG cho `pinterest`, `threads`, `x`. Nếu thiếu → fallback sang generic hoặc bổ sung (codebase đã có integration cho cả 3 → khả năng cao đã có, sẽ verify lúc implement).
+
+---
+
+## 4. Update memory
+
+Cập nhật `.lovable/memory/features/video/social-format-presets-vn.md`:
+- Bảng matrix mới (9 platform)
+- Note layout group split short-form / long-form
+- Mở rộng Duration type include `140`
+
+---
 
 ## Files thay đổi
 
-- `src/components/script/ScriptFormStepper.tsx` — STEPS dynamic, render step 2 mới, navigation logic, bỏ SocialFormatPicker chip khỏi step cuối
-- `src/components/script/StepIndicator.tsx` — verify support dynamic steps (có thể không cần sửa)
+- **Edit**: `src/types/socialFormat.ts` (thêm 3 platform, group metadata, 9 preset mới)
+- **Edit**: `src/types/script.ts` (Duration type +140)
+- **Edit**: `src/components/script/SocialFormatPicker.tsx` (layout 2 nhóm)
+- **Verify/Edit**: `src/components/multichannel/streaming/ChannelIcon.tsx` (nếu thiếu icon)
+- **Edit**: `.lovable/memory/features/video/social-format-presets-vn.md`
 
-## Out of scope
-- Không đổi `SocialFormatPicker` component (giữ nguyên)
-- Không đổi data flow xuống edge function (đã đúng từ feature trước)
-- Không đổi preset matrix
+## Không đụng
+- `ScriptFormStepper.tsx` — picker được mount nguyên không cần đổi prop
+- `useScripts.ts` / `generate-script` edge — đã spread `aspect_ratio` + `social_format_id`
+- `DurationSelector.tsx` — chỉ thêm `140` vào allowed durations nếu đang hardcode (sẽ check)
