@@ -1091,7 +1091,8 @@ function buildSceneDurationPlan(
   const bodyCount = sceneCount - 1;
   const remainingSec = Math.max(MIN_SCENE_SEC * bodyCount, totalDurationSec - hook);
   const rawBody = remainingSec / bodyCount;
-  const roundedBody = Math.round(rawBody * 2) / 2;
+  // Round UP đến 0.5s gần nhất để TỔNG ≥ target → drift cuối ≤ 0 (trừ scene cuối thay vì cộng vượt cap)
+  const roundedBody = Math.ceil(rawBody * 2) / 2;
   const bodyClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedBody));
 
   const plan: number[] = [hook];
