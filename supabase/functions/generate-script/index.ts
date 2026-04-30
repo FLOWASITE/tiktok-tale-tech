@@ -1131,55 +1131,66 @@ function formatSceneTimestamps(plan: number[]): string {
 
 // ============================================
 // PLATFORM SPEC — căn cứ "Bước 2: Nền tảng video"
-// Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
-// (Seedance 5-6s, Veo 3 Fast 6-8s) và safe zone của platform đích.
+// Mỗi PROMPT/scene phải khớp với khả năng của AI video generator.
+//
+// Doc-backed caps (verified from docs.poyo.ai + geminigen-video-generator.ts):
+//   • Seedance 2:        4-15s (PoYo)             → ta cap 8s short / 12s long (sweet spot)
+//   • Seedance 2 Fast:   4-15s, 480p/720p (PoYo)
+//   • VEO 3.1 Fast:      8s fixed (GeminiGen + PoYo)
+//   • VEO 3 Fast:        ~10s (GeminiGen)
+//   • Sora 2:            10s/15s (PoYo)
+//   • Hailuo 2.3:        6s/10s (PoYo)
+//   • Kling 2.6:         5s/10s (PoYo)
+// Mục tiêu: nâng cap Seedance 6s→12s để giảm thêm ~50% số clip cho long-form vertical.
 // ============================================
 interface VideoModelRecommendation {
-  modelId: string;          // 'poyo/n-2' | 'geminigen/n-3-fast' | 'geminigen/n-3.1-fast'
-  modelLabel: string;       // 'Seedance 2' | 'Veo 3 Fast' | 'Veo 3.1 Fast'
-  preset: 'fast' | 'hero';  // map sang useVideoCompletion preset
-  maxClipSec: number;       // 6 | 10
-  reason: string;           // log + UI badge
+  modelId: string;          // ID khớp registry _shared/{poyo,geminigen}-video-generator.ts
+  modelLabel: string;       // Hiển thị UI
+  preset: 'fast' | 'hero';  // Map sang useVideoCompletion preset
+  maxClipSec: number;       // Cap thực tế (đã trim sweet-spot để giữ chất lượng)
+  reason: string;           // Log + UI badge
 }
 
 /**
  * Auto-pick model AI video tối ưu theo platform + duration để GIẢM SỐ CLIP cần render.
- * - Short vertical (≤60s): Seedance 2 (rẻ, đủ chất, 6s/clip phù hợp pacing nhanh)
- * - Long vertical (>60s): Veo 3 Fast (10s/clip → giảm 30-40% số clip)
- * - Horizontal 16:9: Veo 3.1 Fast (10s/clip, chất lượng long-form tốt nhất)
- * - Pinterest 2:3: Veo 3 Fast (lifestyle pacing chậm cần scene dài)
- * - Square 1:1: Seedance 2 (feed video ngắn)
+ * Đã verify với docs.poyo.ai chính thức (Seedance 2 thực tế hỗ trợ 4-15s, không phải 6s).
+ *
+ * - Short vertical (≤60s): Seedance 2 cap 8s — pacing nhanh nhưng vẫn giảm 25% clip vs cap cũ 6s
+ * - Long vertical (>60s):  Seedance 2 cap 12s — long-form vertical, giảm 50% clip vs cap cũ 6s
+ * - Horizontal 16:9:       Veo 3.1 Fast cap 8s — chất lượng cinematic, fixed 8s theo doc
+ * - Pinterest 2:3:         Seedance 2 cap 12s — lifestyle pacing chậm
+ * - Square 1:1:            Seedance 2 cap 8s — feed video ngắn
  */
 function pickRecommendedVideoModel(
   platformLabel: string, aspect: string, totalDuration: number
 ): VideoModelRecommendation {
-  const seedance: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'poyo/n-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 6,
+  const seedanceShort: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 8,
   };
-  const veo3Fast: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'geminigen/n-3-fast', modelLabel: 'Veo 3 Fast', preset: 'hero', maxClipSec: 10,
+  const seedanceLong: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 12,
   };
   const veo31Fast: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'geminigen/n-3.1-fast', modelLabel: 'Veo 3.1 Fast', preset: 'hero', maxClipSec: 10,
+    modelId: 'geminigen/veo-3.1-fast', modelLabel: 'Veo 3.1 Fast', preset: 'hero', maxClipSec: 8,
   };
 
   // 9:16 vertical
   if (aspect === '9:16') {
     if (totalDuration > 60) {
-      return { ...veo3Fast, reason: `Long-form vertical ${totalDuration}s → Veo 3 Fast 10s/clip giảm ~40% số clip` };
+      return { ...seedanceLong, reason: `Long vertical ${totalDuration}s → Seedance 2 cap 12s/clip (doc 4-15s) giảm ~50% số clip` };
     }
-    return { ...seedance, reason: `Short-form vertical ${totalDuration}s → Seedance 2 6s/clip phù hợp pacing nhanh` };
+    return { ...seedanceShort, reason: `Short vertical ${totalDuration}s → Seedance 2 cap 8s/clip giữ pacing nhanh` };
   }
-  // 16:9 horizontal
+  // 16:9 horizontal — Veo 3.1 fixed 8s/clip theo doc
   if (aspect === '16:9') {
-    return { ...veo31Fast, reason: `Horizontal long-form → Veo 3.1 Fast 10s/clip, ít clip = mượt hơn` };
+    return { ...veo31Fast, reason: `Horizontal 16:9 → Veo 3.1 Fast 8s/clip (doc fixed) cinematic long-form` };
   }
-  // Pinterest 2:3
+  // Pinterest 2:3 — lifestyle, scene dài
   if (aspect === '2:3') {
-    return { ...veo3Fast, reason: `Pinterest 2:3 lifestyle → Veo 3 Fast 10s/clip cho pacing chậm` };
+    return { ...seedanceLong, reason: `Pinterest 2:3 lifestyle → Seedance 2 cap 12s/clip pacing chậm` };
   }
   // Square 1:1 hoặc default
-  return { ...seedance, reason: `Square/feed video → Seedance 2 6s/clip` };
+  return { ...seedanceShort, reason: `Square/feed → Seedance 2 cap 8s/clip` };
 }
 
 interface PlatformSpec {
@@ -1197,7 +1208,7 @@ interface PlatformSpec {
   cameraStyle: string;
   continuityRules: string;
   // Smart model recommendation — auto-pick để giảm số clip cần render
-  recommendedVideoModel: string;       // modelId vd 'geminigen/n-3-fast'
+  recommendedVideoModel: string;       // modelId vd 'poyo/seedance-2' hoặc 'geminigen/veo-3.1-fast'
   recommendedVideoModelLabel: string;  // human label vd 'Veo 3 Fast'
   recommendedVideoPreset: 'fast' | 'hero'; // map sang useVideoCompletion preset
   videoModelReason: string;            // lý do để log + UI hiển thị
@@ -1501,7 +1512,7 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
   const sceneSec = spec?.sceneDurationSec ?? 8;
   const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
   const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
-  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip). Viết visual prompt phù hợp với khả năng model này — tránh mô tả chuyển động quá phức tạp vượt quá ${spec.sceneDurationSec}s.` : '';
+  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG có cut/transition trong cùng 1 prompt.\n- Tránh chuyển động phức tạp đa hướng (drift risk khi clip ≥10s).\n- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- Subject action liên tục, không có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).` : '';
   const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.${modelLine}` : '';
   switch(purpose) {
     case 'ai_video':
