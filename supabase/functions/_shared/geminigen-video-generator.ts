@@ -185,12 +185,16 @@ async function pollVideoTask(uuid: string, apiKey: string): Promise<GeminiGenVid
       console.log(`[geminigen-video] Attempt ${attempt + 1}/${maxAttempts}: status=${status}`);
 
       if (status === 2 || status === 'completed' || status === 'success') {
+        console.log(`[geminigen-video] COMPLETED raw response for ${uuid}:`,
+          JSON.stringify(data).slice(0, 1500));
+
         const videoUrl =
           data?.video_url || data?.data?.video_url ||
           data?.generate_result || data?.data?.generate_result ||
           data?.result_url || data?.data?.result_url ||
           data?.output_url || data?.data?.output_url ||
-          data?.files?.[0]?.url || data?.videos?.[0]?.url;
+          data?.files?.[0]?.url || data?.videos?.[0]?.url ||
+          findVideoUrlDeep(data);
 
         if (!videoUrl) {
           console.error(`[geminigen-video] Completed but no URL. Keys: ${JSON.stringify(Object.keys(data))}`);
@@ -199,7 +203,7 @@ async function pollVideoTask(uuid: string, apiKey: string): Promise<GeminiGenVid
 
         const thumbnailUrl =
           data?.thumbnail_url || data?.data?.thumbnail_url ||
-          data?.files?.[0]?.thumbnail || undefined;
+          data?.files?.[0]?.thumbnail || findImageUrlDeep(data) || undefined;
 
         return {
           videoUrl,
