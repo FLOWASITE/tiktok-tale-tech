@@ -1134,10 +1134,58 @@ function formatSceneTimestamps(plan: number[]): string {
 // Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
 // (Seedance 5-6s, Veo 3 Fast 6-8s) và safe zone của platform đích.
 // ============================================
+interface VideoModelRecommendation {
+  modelId: string;          // 'poyo/n-2' | 'geminigen/n-3-fast' | 'geminigen/n-3.1-fast'
+  modelLabel: string;       // 'Seedance 2' | 'Veo 3 Fast' | 'Veo 3.1 Fast'
+  preset: 'fast' | 'hero';  // map sang useVideoCompletion preset
+  maxClipSec: number;       // 6 | 10
+  reason: string;           // log + UI badge
+}
+
+/**
+ * Auto-pick model AI video tối ưu theo platform + duration để GIẢM SỐ CLIP cần render.
+ * - Short vertical (≤60s): Seedance 2 (rẻ, đủ chất, 6s/clip phù hợp pacing nhanh)
+ * - Long vertical (>60s): Veo 3 Fast (10s/clip → giảm 30-40% số clip)
+ * - Horizontal 16:9: Veo 3.1 Fast (10s/clip, chất lượng long-form tốt nhất)
+ * - Pinterest 2:3: Veo 3 Fast (lifestyle pacing chậm cần scene dài)
+ * - Square 1:1: Seedance 2 (feed video ngắn)
+ */
+function pickRecommendedVideoModel(
+  platformLabel: string, aspect: string, totalDuration: number
+): VideoModelRecommendation {
+  const seedance: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'poyo/n-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 6,
+  };
+  const veo3Fast: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'geminigen/n-3-fast', modelLabel: 'Veo 3 Fast', preset: 'hero', maxClipSec: 10,
+  };
+  const veo31Fast: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'geminigen/n-3.1-fast', modelLabel: 'Veo 3.1 Fast', preset: 'hero', maxClipSec: 10,
+  };
+
+  // 9:16 vertical
+  if (aspect === '9:16') {
+    if (totalDuration > 60) {
+      return { ...veo3Fast, reason: `Long-form vertical ${totalDuration}s → Veo 3 Fast 10s/clip giảm ~40% số clip` };
+    }
+    return { ...seedance, reason: `Short-form vertical ${totalDuration}s → Seedance 2 6s/clip phù hợp pacing nhanh` };
+  }
+  // 16:9 horizontal
+  if (aspect === '16:9') {
+    return { ...veo31Fast, reason: `Horizontal long-form → Veo 3.1 Fast 10s/clip, ít clip = mượt hơn` };
+  }
+  // Pinterest 2:3
+  if (aspect === '2:3') {
+    return { ...veo3Fast, reason: `Pinterest 2:3 lifestyle → Veo 3 Fast 10s/clip cho pacing chậm` };
+  }
+  // Square 1:1 hoặc default
+  return { ...seedance, reason: `Square/feed video → Seedance 2 6s/clip` };
+}
+
 interface PlatformSpec {
   platformLabel: string;
   aspect: string;
-  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo) — CAP cứng
+  sceneDurationSec: number;       // độ dài 1 clip AI — CAP cứng (đã override theo recommendedVideoModel)
   recommendedScenes: number;      // tính theo PacingProfile (không phải chia đều)
   hookSceneSec: number;           // độ dài scene 1 (HOOK) — pacing-aware
   avgSceneSec: number;            // độ dài trung bình scene 2..N
@@ -1148,6 +1196,11 @@ interface PlatformSpec {
   textOverlayPosition: string;
   cameraStyle: string;
   continuityRules: string;
+  // Smart model recommendation — auto-pick để giảm số clip cần render
+  recommendedVideoModel: string;       // modelId vd 'geminigen/n-3-fast'
+  recommendedVideoModelLabel: string;  // human label vd 'Veo 3 Fast'
+  recommendedVideoPreset: 'fast' | 'hero'; // map sang useVideoCompletion preset
+  videoModelReason: string;            // lý do để log + UI hiển thị
 }
 
 // Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec/scenePlan/totalDurationSec sẽ tính theo PacingProfile + duration)
