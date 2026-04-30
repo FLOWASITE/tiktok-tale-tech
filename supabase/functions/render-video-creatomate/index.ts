@@ -85,13 +85,15 @@ Deno.serve(async (req) => {
     // Build Creatomate source JSON
     const elements: any[] = [];
 
-    // Video tracks (sequential)
+    // Video tracks (sequential). Smart-crop: cover + center anchor (giữ subject).
     body.clip_urls.forEach((url, i) => {
       elements.push({
         type: "video",
         track: 1,
         source: url,
         fit: "cover",
+        x_alignment: "50%",
+        y_alignment: "50%",
         ...(i === 0 ? {} : { time: null }), // sequential auto
       });
     });
