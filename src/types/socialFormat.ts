@@ -13,6 +13,8 @@ export type SocialPlatform =
   | 'fb-reels'
   | 'pinterest'
   | 'threads'
+  | 'bluesky'
+  | 'whatsapp'
   | 'facebook'
   | 'linkedin'
   | 'x'
@@ -40,6 +42,22 @@ export interface SocialFormatPreset {
   recommended?: boolean;
 }
 
+/** Hard upper-limit (seconds) per platform — dùng cho validation + UI cảnh báo */
+export const PLATFORM_MAX_DURATION: Record<SocialPlatform, number> = {
+  tiktok: 600,      // TikTok cho phép tới 10 phút (2026)
+  reels: 90,        // IG Reels max 90s
+  shorts: 60,       // YT Shorts max 60s
+  'fb-reels': 90,   // FB Reels max 90s
+  pinterest: 60,    // Pin Video / Idea Pin
+  threads: 300,     // Threads video max 5 phút
+  bluesky: 60,      // Bluesky video max 60s
+  whatsapp: 60,     // WhatsApp Status max 60s (1 segment)
+  facebook: 240,    // FB Feed video — giới hạn thực tế cho social
+  linkedin: 600,    // LinkedIn video max 10 phút (organic)
+  x: 140,           // X free-tier max 2:20
+  youtube: 3600,    // YouTube long
+};
+
 export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tagline: string }> = {
   tiktok:    { label: 'TikTok',     tagline: 'Vertical 9:16 · Hook 1.5s đầu' },
   reels:     { label: 'Reels (IG)', tagline: 'Vertical 9:16 · Cinematic, max 90s' },
@@ -47,6 +65,8 @@ export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tag
   'fb-reels':{ label: 'FB Reels',   tagline: 'Vertical 9:16 · Meta cross-post' },
   pinterest: { label: 'Pinterest',  tagline: '2:3 Pin · Visual discovery' },
   threads:   { label: 'Threads',    tagline: '9:16 · Conversation-first, max 5 phút' },
+  bluesky:   { label: 'Bluesky',    tagline: '1:1 · Open social, max 60s' },
+  whatsapp:  { label: 'WhatsApp',   tagline: '9:16 Status · 60s/segment' },
   facebook:  { label: 'Facebook',   tagline: '1:1 Feed · Caption-friendly' },
   linkedin:  { label: 'LinkedIn',   tagline: '16:9 · Professional' },
   x:         { label: 'X (Twitter)', tagline: '1:1 · Punchy, text-overlay' },
@@ -60,6 +80,8 @@ export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
   'fb-reels': 'short-form',
   pinterest: 'short-form',
   threads: 'short-form',
+  bluesky: 'short-form',
+  whatsapp: 'short-form',
   facebook: 'long-form',
   linkedin: 'long-form',
   x: 'long-form',
