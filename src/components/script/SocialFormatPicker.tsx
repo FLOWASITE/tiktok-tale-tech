@@ -33,6 +33,8 @@ const PLATFORM_ICON_KEY: Record<SocialPlatform, string> = {
   'fb-reels': 'facebook',
   pinterest: 'pinterest',
   threads: 'threads',
+  bluesky: 'bluesky',
+  whatsapp: 'whatsapp',
   facebook: 'facebook',
   linkedin: 'linkedin',
   x: 'twitter',
@@ -192,7 +194,7 @@ export function SocialFormatPicker({ value, onChange, disabled }: SocialFormatPi
         disabled={disabled}
         onSelect={setActivePlatform}
         mobileLayout="scroll"
-        desktopCols="md:grid-cols-6"
+        desktopCols="md:grid-cols-4 lg:grid-cols-8"
       />
 
       {/* Long-form group */}
