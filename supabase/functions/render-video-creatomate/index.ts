@@ -8,6 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type RenderAspect = "9:16" | "16:9" | "1:1" | "2:3" | "4:5";
+
 interface RenderRequest {
   clip_urls: string[]; // ordered list of video URLs (scenes)
   voiceover_url?: string;
@@ -15,17 +17,21 @@ interface RenderRequest {
   bgm_volume?: number; // 0-1, default 0.2
   subtitle_srt?: string;
   burn_subtitles?: boolean;
-  aspect_ratio?: "9:16" | "16:9" | "1:1";
+  aspect_ratio?: RenderAspect;
   storyboard_id?: string;
   script_id?: string;
   source_clip_ids?: string[];
   organization_id?: string;
 }
 
-const ASPECT_DIMS: Record<string, { width: number; height: number }> = {
+// Output dims theo platform native spec 2026
+// 2:3 → Pinterest 1000×1500, 4:5 → IG portrait 1080×1350
+const ASPECT_DIMS: Record<RenderAspect, { width: number; height: number }> = {
   "9:16": { width: 1080, height: 1920 },
   "16:9": { width: 1920, height: 1080 },
-  "1:1": { width: 1080, height: 1080 },
+  "1:1":  { width: 1080, height: 1080 },
+  "2:3":  { width: 1000, height: 1500 },
+  "4:5":  { width: 1080, height: 1350 },
 };
 
 Deno.serve(async (req) => {
@@ -72,7 +78,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const aspect = body.aspect_ratio ?? "9:16";
+    const aspect: RenderAspect = (body.aspect_ratio as RenderAspect) ?? "9:16";
     const dims = ASPECT_DIMS[aspect] ?? ASPECT_DIMS["9:16"];
     const burnSubs = body.burn_subtitles !== false && !!body.subtitle_srt;
 

@@ -29,6 +29,8 @@ export interface VideoRenderJob {
   completed_at?: string | null;
 }
 
+export type RenderAspect = '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
+
 export interface RenderRequest {
   clip_urls: string[];
   voiceover_url?: string;
@@ -36,8 +38,9 @@ export interface RenderRequest {
   bgm_volume?: number;
   subtitle_srt?: string;
   burn_subtitles?: boolean;
-  aspect_ratio?: '9:16' | '16:9' | '1:1';
+  aspect_ratio?: RenderAspect;
   storyboard_id?: string;
+  script_id?: string;
   source_clip_ids?: string[];
 }
 
