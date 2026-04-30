@@ -687,22 +687,34 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto truncate">
                 Chủ đề: <span className="text-foreground font-medium">{formData.topic.length > 60 ? formData.topic.slice(0, 60) + '...' : formData.topic}</span>
               </p>
-              {(formData.hook || formData.angle) && (
-                <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
-                  {formData.hook && (
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-amber-500" />
-                      Hook đã chọn
-                    </span>
-                  )}
-                  {formData.angle && (
-                    <span className="flex items-center gap-1">
-                      <Target className="w-3 h-3 text-primary" />
-                      {TOPIC_ANGLE_LABELS[formData.angle].label}
-                    </span>
-                  )}
-                </div>
-              )}
+              {(() => {
+                const currentPreset = isVideoAi ? getPresetById(formData.social_format_id) : null;
+                const hasMeta = formData.hook || formData.angle || currentPreset;
+                if (!hasMeta) return null;
+                return (
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
+                    {currentPreset && (
+                      <span className="flex items-center gap-1">
+                        <Smartphone className="w-3 h-3 text-foreground/70" />
+                        <span className="text-foreground/80 font-medium">{currentPreset.label}</span>
+                        <span>· {currentPreset.duration}s · {currentPreset.aspectRatio}</span>
+                      </span>
+                    )}
+                    {formData.hook && (
+                      <span className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        Hook đã chọn
+                      </span>
+                    )}
+                    {formData.angle && (
+                      <span className="flex items-center gap-1">
+                        <Target className="w-3 h-3 text-primary" />
+                        {TOPIC_ANGLE_LABELS[formData.angle].label}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Smart Config Chips */}
