@@ -49,7 +49,7 @@ export function QuickClipTab() {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
-  const [duration, setDuration] = useState(15); // Default 15s cho 9:16 (Seedance 2 cap)
+  const [duration, setDuration] = useState(10); // Default 10s cho 9:16 (Seedance 2 cap)
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
