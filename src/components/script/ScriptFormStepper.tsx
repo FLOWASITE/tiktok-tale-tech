@@ -601,8 +601,74 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* ====== Step 2: Smart Summary + Generate ====== */}
-        {currentStep === 2 && isLoading && (
+        {/* ====== Step 2: Social Format (only for ai_video) ====== */}
+        {currentStep === STEP_SOCIAL_FORMAT && (
+          <div className="space-y-5 animate-fade-in">
+            <div className="text-center py-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-foreground/[0.04] border border-border/40 mb-3">
+                <Smartphone className="w-6 h-6 text-foreground/80" />
+              </div>
+              <h3 className="font-semibold text-lg text-foreground">Chọn nền tảng đăng video</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                Định dạng quyết định <span className="text-foreground font-medium">thời lượng</span>, <span className="text-foreground font-medium">tỷ lệ khung hình</span> và tone của kịch bản
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border/50 bg-card/40 p-5">
+              <SocialFormatPicker
+                value={formData.social_format_id}
+                onChange={(preset: SocialFormatPreset) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    social_format_id: preset.id,
+                    duration: preset.duration,
+                    aspect_ratio: preset.aspectRatio,
+                  }))
+                }
+                disabled={isLoading}
+              />
+            </div>
+
+            {/* Summary + manual override */}
+            {(() => {
+              const currentPreset = getPresetById(formData.social_format_id);
+              return (
+                <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-foreground/70" />
+                      <span className="text-muted-foreground">Đã chọn:</span>
+                      <span className="font-medium text-foreground">
+                        {currentPreset
+                          ? `${currentPreset.label} · ${currentPreset.duration}s · ${currentPreset.aspectRatio}`
+                          : `Mặc định · ${formData.duration}s · ${formData.aspect_ratio ?? '9:16'}`}
+                      </span>
+                    </div>
+                  </div>
+                  <Collapsible>
+                    <CollapsibleTrigger className="w-full flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition-colors">
+                      <SlidersHorizontal className="w-3 h-3" />
+                      <span>Tinh chỉnh thời lượng thủ công</span>
+                      <ChevronDown className="w-3 h-3 ml-auto [[data-state=open]>&]:rotate-180 transition-transform" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3">
+                      <DurationSelector
+                        value={formData.duration}
+                        onChange={(value) =>
+                          setFormData((prev) => ({ ...prev, duration: value, social_format_id: undefined }))
+                        }
+                        disabled={isLoading}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ====== Step 3: Smart Summary + Generate ====== */}
+        {currentStep === STEP_GENERATE && isLoading && (
           <ScriptGenerationProgress
             isActive={isLoading}
             topic={formData.topic}
@@ -610,7 +676,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             duration={formData.duration}
           />
         )}
-        {currentStep === 2 && !isLoading && (
+        {currentStep === STEP_GENERATE && !isLoading && (
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
