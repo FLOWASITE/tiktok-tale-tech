@@ -381,7 +381,29 @@ export function QuickClipTab() {
           </div>
           <Progress value={activeJob.progress ?? 10} className="h-1.5" />
           {activeJob.status === 'completed' && activeJob.video_url && (
-            <video src={activeJob.video_url} controls className="w-full rounded-lg max-h-[280px] bg-black" />
+            <div className="space-y-3">
+              <video src={activeJob.video_url} controls className="w-full rounded-lg max-h-[280px] bg-black" />
+              <div className="flex items-center flex-wrap gap-2">
+                {activeJob.model_used && (
+                  <ModelUsedBadge modelUsed={activeJob.model_used} />
+                )}
+                <div className="flex-1" />
+                <Button asChild variant="outline" size="sm" className="h-7 text-[11px] gap-1">
+                  <a href={activeJob.video_url} download target="_blank" rel="noreferrer">
+                    <Download className="w-3 h-3" />
+                    Tải về
+                  </a>
+                </Button>
+                <PublishVideoMenu
+                  videoUrl={activeJob.video_url}
+                  aspectRatio={aspect}
+                  defaultCaption={prompt.slice(0, 200)}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px]"
+                />
+              </div>
+            </div>
           )}
           {activeJob.status === 'failed' && (
             <p className="text-xs text-destructive">{activeJob.error_message ?? 'Provider trả lỗi không xác định'}</p>
