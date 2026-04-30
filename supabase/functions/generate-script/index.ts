@@ -981,10 +981,10 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): stri
 };
 
 function getPromptCount(duration: number, spec?: PlatformSpec): string {
-  // Khi có spec từ "Bước 2 — Nền tảng video", ưu tiên scene count khớp với clip duration thực tế
+  // Khi có spec từ "Bước 2 — Nền tảng video", dùng pacing profile của platform
   if (spec) {
     const n = spec.recommendedScenes;
-    return n > 1 ? `${n - 1}-${n}` : `${n}`;
+    return n > 3 ? `${n - 1}-${n}` : `${n}`;
   }
   switch (duration) {
     case 60:
@@ -1001,6 +1001,75 @@ function getPromptCount(duration: number, spec?: PlatformSpec): string {
 }
 
 // ============================================
+// PACING PROFILE — số scene tối ưu theo NỀN TẢNG (không chỉ duration)
+// Best practice 2026: short-form vertical cần hook 0-2s + cắt nhanh,
+// long-form cần story beats dài hơn để giữ chuyện.
+// ============================================
+interface PacingProfile {
+  hookSceneSec: number;   // độ dài scene 1 (HOOK) — ngắn để giữ retention
+  avgSceneSec: number;    // độ dài trung bình scene 2..N
+  maxScenes: number;      // hard cap để Wizard không quá tải
+}
+
+/** Lookup pacing dựa trên platformLabel + aspect — KHÔNG cần sửa 30 entry PLATFORM_SPEC. */
+function getPacingProfile(platformLabel: string, aspect: string): PacingProfile {
+  const label = platformLabel.toLowerCase();
+
+  // Short-form vertical "viral" — cắt nhanh, hook ≤2s
+  if (/(tiktok|reels|shorts|fb reels|facebook reels)/.test(label)) {
+    return { hookSceneSec: 2, avgSceneSec: 3.5, maxScenes: 18 };
+  }
+
+  // Pinterest Pin 2:3 — slow lifestyle, mỗi card 1 ý
+  if (label.includes('pinterest pin')) {
+    return { hookSceneSec: 4, avgSceneSec: 6, maxScenes: 8 };
+  }
+
+  // Pinterest Idea Pin (long, 9:16) — như TikTok nhẹ
+  if (label.includes('pinterest idea')) {
+    return { hookSceneSec: 3, avgSceneSec: 4, maxScenes: 12 };
+  }
+
+  // Threads / Bluesky / WhatsApp — short-form nhưng nhẹ hơn TikTok
+  if (/(threads|bluesky|whatsapp)/.test(label)) {
+    return { hookSceneSec: 3, avgSceneSec: 4, maxScenes: 15 };
+  }
+
+  // YouTube long-form 16:9 — story beats, không cắt vụn
+  if (label === 'youtube' || label.startsWith('youtube ')) {
+    return { hookSceneSec: 4, avgSceneSec: 8, maxScenes: 40 };
+  }
+
+  // LinkedIn — talking-head + B-roll chậm
+  if (label.includes('linkedin')) {
+    return { hookSceneSec: 4, avgSceneSec: 6, maxScenes: 18 };
+  }
+
+  // Facebook Feed / X — mid-pacing
+  if (/(facebook feed|x \(twitter|twitter)/.test(label)) {
+    return { hookSceneSec: 3, avgSceneSec: 5, maxScenes: 16 };
+  }
+
+  // Fallback theo aspect
+  if (aspect === '16:9') return { hookSceneSec: 4, avgSceneSec: 7, maxScenes: 30 };
+  if (aspect === '1:1')  return { hookSceneSec: 3, avgSceneSec: 5, maxScenes: 16 };
+  if (aspect === '2:3')  return { hookSceneSec: 4, avgSceneSec: 6, maxScenes: 8 };
+  // 9:16 default
+  return { hookSceneSec: 2, avgSceneSec: 4, maxScenes: 18 };
+}
+
+/** Tính scene count thông minh: 1 hook + body chia theo avgScene, clamp theo maxScenes & sceneDurationSec cap. */
+function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDurationCapSec: number): number {
+  // Body cần ít nhất ceil(remaining / capSec) scene để không vượt cap clip AI
+  const remaining = Math.max(0, duration - pacing.hookSceneSec);
+  const idealBody = remaining / pacing.avgSceneSec;
+  const minBody   = Math.ceil(remaining / sceneDurationCapSec); // tôn trọng cap Seedance/Veo
+  const bodyScenes = Math.max(minBody, Math.round(idealBody));
+  const total = 1 + bodyScenes;
+  return Math.min(pacing.maxScenes, Math.max(2, total));
+}
+
+// ============================================
 // PLATFORM SPEC — căn cứ "Bước 2: Nền tảng video"
 // Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
 // (Seedance 5-6s, Veo 3 Fast 6-8s) và safe zone của platform đích.
@@ -1008,8 +1077,10 @@ function getPromptCount(duration: number, spec?: PlatformSpec): string {
 interface PlatformSpec {
   platformLabel: string;
   aspect: string;
-  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo)
-  recommendedScenes: number;      // = ceil(duration / sceneDurationSec)
+  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo) — CAP cứng
+  recommendedScenes: number;      // tính theo PacingProfile (không phải chia đều)
+  hookSceneSec: number;           // độ dài scene 1 (HOOK) — pacing-aware
+  avgSceneSec: number;            // độ dài trung bình scene 2..N
   framingHint: string;
   safeZone: string;
   textOverlayPosition: string;
@@ -1017,8 +1088,8 @@ interface PlatformSpec {
   continuityRules: string;
 }
 
-// Map social_format_id → spec gốc (không gồm recommendedScenes — sẽ tính theo duration)
-type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes'>;
+// Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec sẽ tính theo PacingProfile + duration)
+type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes' | 'hookSceneSec' | 'avgSceneSec'>;
 
 const PLATFORM_SPEC_BY_ID: Record<string, PlatformSpecBase> = {
   // ===== TikTok 9:16 =====
@@ -1239,9 +1310,14 @@ function getPlatformSpec(
 ): PlatformSpec {
   const base = (socialFormatId && PLATFORM_SPEC_BY_ID[socialFormatId])
     || inferSpecFromAspect(aspectRatio);
-  const sceneDur = base.sceneDurationSec;
-  const recommendedScenes = Math.max(1, Math.min(20, Math.ceil(duration / sceneDur)));
-  return { ...base, recommendedScenes };
+  const pacing = getPacingProfile(base.platformLabel, base.aspect);
+  const recommendedScenes = computeSmartSceneCount(duration, pacing, base.sceneDurationSec);
+  return {
+    ...base,
+    recommendedScenes,
+    hookSceneSec: pacing.hookSceneSec,
+    avgSceneSec: pacing.avgSceneSec,
+  };
 }
 
 function inferSpecFromAspect(aspect: string | undefined): PlatformSpecBase {
@@ -1546,6 +1622,10 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
   - Hành động trong mỗi PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây (giới hạn AI video generator)?
   - Tổng số PROMPT khớp ${promptCount}?
 
+□ **PACING ĐÚNG ${spec.platformLabel}?**
+  - Scene 1 là HOOK ngắn ~${spec.hookSceneSec}s? (visual gây tò mò ngay, KHÔNG mở chậm)
+  - Scene 2..N có độ dài trung bình ~${spec.avgSceneSec}s? (không cào bằng theo cap clip)
+
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
   - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
@@ -1718,10 +1798,17 @@ NGUYÊN TẮC:
 # 🎬 NỀN TẢNG ĐÍCH (Bước 2 — User đã chọn)
 - **Platform:** ${spec.platformLabel}
 - **Aspect ratio:** ${spec.aspect}
-- **Mỗi clip AI:** ${spec.sceneDurationSec}s (giới hạn Seedance/Veo Fast)
-- **Tổng số PROMPT cần tạo:** ${spec.recommendedScenes} (= tổng ${duration}s ÷ ${spec.sceneDurationSec}s/clip)
-- Mọi VISUAL DIRECTION PHẢI tuân thủ framing & safe zone của ${spec.platformLabel}.
-- Mọi action trong 1 PROMPT PHẢI gói gọn trong ${spec.sceneDurationSec} giây — không viết PROMPT có hành động dài hơn.
+- **Cap clip AI:** mỗi PROMPT tối đa ${spec.sceneDurationSec}s (giới hạn Seedance/Veo Fast)
+
+## ⚡ PACING PROFILE (đã tối ưu cho ${spec.platformLabel})
+- **Scene 1 (HOOK):** ~${spec.hookSceneSec}s — PUNCHY, gây tò mò trong 1s đầu, KHÔNG mở chậm (intro/logo)
+- **Scene 2..N (BODY):** trung bình ~${spec.avgSceneSec}s/scene
+- **TỔNG SỐ PROMPT cần tạo: ${spec.recommendedScenes}** (đã tính theo pacing đặc thù platform — KHÔNG chia đều cứng nhắc theo cap clip)
+
+## 📏 RÀNG BUỘC
+- Mọi VISUAL DIRECTION phải tuân thủ framing & safe zone của ${spec.platformLabel}.
+- Mọi action trong 1 PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây.
+- Giữ pacing đúng số PROMPT đã chỉ định — không tự ý gộp/tách scene.
 ` : '';
 
   return `${purposeIntro}
@@ -1998,7 +2085,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       ? getPlatformSpec(social_format_id, aspect_ratio, duration)
       : undefined;
     if (platformSpec) {
-      console.log('[generate-script] Platform spec:', platformSpec.platformLabel, platformSpec.aspect, `${platformSpec.recommendedScenes}×${platformSpec.sceneDurationSec}s`);
+      console.log('[generate-script] Platform spec:', platformSpec.platformLabel, platformSpec.aspect, `cap=${platformSpec.sceneDurationSec}s hook=${platformSpec.hookSceneSec}s avg=${platformSpec.avgSceneSec}s → ${platformSpec.recommendedScenes} scenes for ${duration}s`);
     }
     const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec);
 
