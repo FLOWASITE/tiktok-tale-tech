@@ -14,6 +14,7 @@ import { ScriptVideoHeader } from './ScriptVideoHeader';
 import { ScriptSceneGrid, type SceneGridItem } from './ScriptSceneGrid';
 import { ScriptVideoGalleryGrouped } from './ScriptVideoGalleryGrouped';
 import { ScriptMovieGallery } from './ScriptMovieGallery';
+import { VideoJobStatusPanel } from './VideoJobStatusPanel';
 import { SceneManagerPanel } from './SceneManagerPanel';
 import { VideoGeneratorPanel } from './VideoGeneratorPanel';
 import { VideoGallery } from './VideoGallery';
@@ -180,6 +181,8 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
       )}
 
       <Separator className="my-4" />
+
+      <VideoJobStatusPanel clips={clips} />
 
       <ScriptMovieGallery scriptId={script.id} />
 
