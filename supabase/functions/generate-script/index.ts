@@ -1794,10 +1794,17 @@ NGUYÊN TẮC:
 # 🎬 NỀN TẢNG ĐÍCH (Bước 2 — User đã chọn)
 - **Platform:** ${spec.platformLabel}
 - **Aspect ratio:** ${spec.aspect}
-- **Mỗi clip AI:** ${spec.sceneDurationSec}s (giới hạn Seedance/Veo Fast)
-- **Tổng số PROMPT cần tạo:** ${spec.recommendedScenes} (= tổng ${duration}s ÷ ${spec.sceneDurationSec}s/clip)
-- Mọi VISUAL DIRECTION PHẢI tuân thủ framing & safe zone của ${spec.platformLabel}.
-- Mọi action trong 1 PROMPT PHẢI gói gọn trong ${spec.sceneDurationSec} giây — không viết PROMPT có hành động dài hơn.
+- **Cap clip AI:** mỗi PROMPT tối đa ${spec.sceneDurationSec}s (giới hạn Seedance/Veo Fast)
+
+## ⚡ PACING PROFILE (đã tối ưu cho ${spec.platformLabel})
+- **Scene 1 (HOOK):** ~${spec.hookSceneSec}s — PUNCHY, gây tò mò trong 1s đầu, KHÔNG mở chậm (intro/logo)
+- **Scene 2..N (BODY):** trung bình ~${spec.avgSceneSec}s/scene
+- **TỔNG SỐ PROMPT cần tạo: ${spec.recommendedScenes}** (đã tính theo pacing đặc thù platform — KHÔNG chia đều cứng nhắc theo cap clip)
+
+## 📏 RÀNG BUỘC
+- Mọi VISUAL DIRECTION phải tuân thủ framing & safe zone của ${spec.platformLabel}.
+- Mọi action trong 1 PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây.
+- Giữ pacing đúng số PROMPT đã chỉ định — không tự ý gộp/tách scene.
 ` : '';
 
   return `${purposeIntro}
