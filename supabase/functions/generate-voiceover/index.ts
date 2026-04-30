@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
     const text: string = (body.text ?? "").toString().trim();
     const voiceId: string = body.voice_id ?? DEFAULT_VOICE_ID;
     const language: string = body.language ?? "vi";
+    const scriptId: string | null = body.script_id ?? null;
     let organizationId: string | null = body.organization_id ?? null;
 
     if (!text || text.length < 2) return json({ error: "text too short" }, 400);
@@ -110,6 +111,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user.id,
         organization_id: organizationId,
+        script_id: scriptId,
         asset_type: "voiceover",
         source_text: text,
         voice_id: voiceId,

@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user.id,
         organization_id: organizationId,
+        script_id: scriptId ?? null,
         asset_type: "subtitle",
         source_text: result.text,
         language,
@@ -114,7 +115,7 @@ Deno.serve(async (req) => {
         vtt_content: vtt,
         provider: "elevenlabs",
         cost_estimate: (totalDur / 60) * 0.40, // ~$0.40/min
-        metadata: { word_count: words.length, segment_count: segments.length },
+        metadata: { word_count: words.length, segment_count: segments.length, source_url: mediaUrl },
       })
       .select()
       .single();

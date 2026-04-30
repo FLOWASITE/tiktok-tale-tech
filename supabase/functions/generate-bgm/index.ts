@@ -28,7 +28,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const prompt: string = (body.prompt ?? "").toString().trim();
-    const duration: number = Math.min(30, Math.max(5, body.duration ?? 15));
+    // Cho phép tới 120s để khớp short-form ≤90s + buffer
+    const duration: number = Math.min(120, Math.max(5, body.duration ?? 15));
+    const scriptId: string | null = body.script_id ?? null;
     let organizationId: string | null = body.organization_id ?? null;
     if (!prompt) return json({ error: "prompt required" }, 400);
 
@@ -84,6 +86,7 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user.id,
         organization_id: organizationId,
+        script_id: scriptId,
         asset_type: "music",
         prompt,
         duration_seconds: duration,
