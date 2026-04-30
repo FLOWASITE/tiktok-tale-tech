@@ -1718,10 +1718,21 @@ NGUYÊN TẮC:
   const purposeOutputReqs = getPurposeOutputRequirements(effectivePurpose, videoTypeName, characterTypeName);
   const blockLabel = effectivePurpose === 'production' ? 'SCENE' : effectivePurpose === 'teleprompter' ? 'ĐOẠN' : 'PROMPT';
 
+  const platformBlock = spec ? `
+# 🎬 NỀN TẢNG ĐÍCH (Bước 2 — User đã chọn)
+- **Platform:** ${spec.platformLabel}
+- **Aspect ratio:** ${spec.aspect}
+- **Mỗi clip AI:** ${spec.sceneDurationSec}s (giới hạn Seedance/Veo Fast)
+- **Tổng số PROMPT cần tạo:** ${spec.recommendedScenes} (= tổng ${duration}s ÷ ${spec.sceneDurationSec}s/clip)
+- Mọi VISUAL DIRECTION PHẢI tuân thủ framing & safe zone của ${spec.platformLabel}.
+- Mọi action trong 1 PROMPT PHẢI gói gọn trong ${spec.sceneDurationSec} giây — không viết PROMPT có hành động dài hơn.
+` : '';
+
   return `${purposeIntro}
 
 ${dateContextSection}
 
+${platformBlock}
 ${priorityOrder}
 
 # ⚡ QUAN TRỌNG NHẤT: VIDEO TYPE & CHARACTER TYPE
