@@ -1,110 +1,60 @@
-# Plan: Social Format Picker cho Video Scripts
+
+# Plan: Tách Social Format thành Step riêng trong Video Script Wizard
 
 ## Mục tiêu
-Thay vì để user chọn duration trừu tượng (60/90/120/180s), thêm **Social Format Picker** ở bước tạo Video Script — chọn 1 chip "TikTok Short / Reels Standard / YouTube Long…" → tự động set `duration` + `aspect_ratio` + gợi ý tone phù hợp platform.
+Hiện tại `SocialFormatPicker` đang là 1 chip nhỏ chen trong block "Cấu hình" ở Step 2 — dễ bị bỏ qua và không tương xứng với tầm quan trọng (quyết định cả duration + aspect_ratio + tone của toàn bộ pipeline).
 
-## Phạm vi
-- Chỉ áp dụng cho `purpose = 'ai_video'` (Video Scripts)
-- Không phá luồng cũ: vẫn cho user override duration thủ công nếu cần
-- Picker mới đứng cạnh `ConfigChipSelector` hiện tại trong `ScriptFormStepper`
+→ Nâng lên thành **Step riêng (Step 2: "Định dạng Social")** trong wizard, chỉ áp dụng khi `script_purpose === 'ai_video'`. Các purpose khác (podcast, education...) skip step này tự động.
 
----
-
-## 1. Data model — Preset Matrix
-
-Tạo file mới `src/types/socialFormat.ts`:
+## Flow mới (conditional)
 
 ```text
-Platform       | Short  | Standard | Long
-TikTok         | 15s    | 30s      | 60s    (9:16)
-Reels (IG)     | 15s    | 30s      | 60s    (9:16)
-YT Shorts      | 15s    | 30s      | 60s    (9:16)
-Facebook       | 30s    | 60s      | 90s    (1:1 / 9:16)
-LinkedIn       | 30s    | 60s      | 90s    (1:1)
-YouTube Long   | 60s    | 180s     | 600s   (16:9)
+Video AI:    [1] Nội dung → [2] Định dạng Social → [3] Tạo kịch bản
+Khác:        [1] Nội dung →                        [2] Tạo kịch bản
 ```
 
-Mỗi preset export shape:
-```ts
-{
-  id: 'tiktok-short',
-  platform: 'tiktok',
-  format: 'short',
-  label: 'TikTok Short',
-  duration: 15,
-  aspectRatio: '9:16',
-  toneHint: 'punchy, hook-1.5s',
-  channelKey: 'tiktok',  // map sang generate-video-prompt channel param
-}
-```
+## Thay đổi
 
-## 2. Mở rộng `Duration` type
+### 1. `src/components/script/ScriptFormStepper.tsx`
 
-File: `src/types/script.ts`
-- Đổi `export type Duration = 60 | 90 | 120 | 180` → `export type Duration = 15 | 30 | 60 | 90 | 120 | 180 | 600`
-- Bổ sung `DURATION_LABELS` cho 15/30/600
-- Thêm `aspect_ratio?: '9:16' | '16:9' | '1:1'` vào `ScriptFormData` interface (line 124, 178)
+**STEPS dynamic theo purpose:**
+- Build `STEPS` qua `useMemo` dựa trên `formData.script_purpose`
+- Khi `ai_video` → 3 steps: Nội dung / Định dạng / Tạo kịch bản
+- Khác → 2 steps như cũ
 
-## 3. Component mới — `SocialFormatPicker`
+**Step mới "Định dạng Social" (ID=2 cho video_ai):**
+- Header: icon `Smartphone`, tiêu đề "Chọn nền tảng đăng video", mô tả ngắn
+- Body: render full-size `SocialFormatPicker` (không bọc trong popover/chip) — to, rõ, dễ chọn
+- Hiển thị **summary card** bên dưới khi đã chọn:
+  - "TikTok Short · 15s · 9:16 · Hook 1.5s đầu"
+  - Chip nhỏ "Đổi thời lượng thủ công" → mở `DurationSelector` collapsible (giữ override path)
+- Nút "← Quay lại" / "Tiếp tục →"
+- Validation: phải chọn 1 preset mới cho qua (hoặc cho phép skip với warning nhỏ "Sẽ dùng default 60s/9:16")
 
-File: `src/components/script/SocialFormatPicker.tsx`
-- 2-step UI: chọn Platform (icons SVG `ChannelIcon`, không emoji) → chọn Format (Short/Standard/Long) dạng segmented control
-- Soft Luxury: neutral gray border, `bg-foreground/[0.03]` khi active
-- Props: `value`, `onChange(preset)`, `disabled`
-- Khi chọn → call `onChange` trả về full preset object để parent set cả duration + aspect_ratio
+**Step "Tạo kịch bản" (cũ Step 2 → giờ Step 3 cho ai_video):**
+- Bỏ `SocialFormatPicker` khỏi block "Cấu hình" (lines 619-650)
+- Chip Duration ở block Cấu hình giờ chỉ hiển thị **read-only summary** + cho phép override
+- Hiển thị badge nhỏ "Đã chọn: TikTok Short · 15s" ở Smart Summary header để user biết format đã set
 
-## 4. Tích hợp vào `ScriptFormStepper.tsx`
+**Logic step navigation:**
+- `goToNextStep()` / `goToPrevStep()` cần handle skip step 2 khi không phải ai_video
+- Khi user đổi `script_purpose` ở step 1 từ ai_video → khác (hoặc ngược lại) ở giữa flow, reset step về 1 hoặc adjust
 
-Tại block "Cấu hình" (line 608-629):
-- Thêm chip mới **Social Format** đứng TRƯỚC chip Duration
-- Chỉ hiển thị khi `formData.purpose === 'ai_video'`
-- Khi user chọn preset → setFormData cả `duration`, `aspect_ratio`, lưu `socialFormatId` vào state để hiện active state
-- Chip Duration giữ nguyên làm "Override" (chip phụ, hiển thị nhỏ hơn) cho power user
+### 2. `src/components/script/StepIndicator.tsx` (kiểm tra)
+- Nếu component đã handle dynamic steps qua props thì không cần sửa
+- Nếu hardcode → cần verify
 
-## 5. Cập nhật `DurationSelector.tsx`
-
-- Mở rộng `DURATION_CONFIG` thêm 15/30/600
-- Sửa `description` chính xác hơn (bỏ chung chung "TikTok/Reels"):
-  - 15s → "Hook ngắn"
-  - 30s → "Quảng cáo"
-  - 60s → "Standard"
-  - 90s/120s/180s → "Long-form"
-  - 600s → "YouTube dài"
-- Layout `grid-cols-3` thay vì `grid-cols-2` để chứa 7 options gọn hơn
-
-## 6. Truyền aspect_ratio xuống pipeline
-
-- `useScripts.ts` (hook tạo script): include `aspect_ratio` vào payload gửi `generate-script` edge function
-- Khi script chuyển sang Video Studio (qua `ScriptToVideoContext`), nạp `aspect_ratio` vào `QuickClip` mặc định → user không phải chọn lại ở studio
-- `generate-video-prompt` đã nhận `aspect_ratio` + `channel` sẵn — chỉ cần caller truyền đúng
-
-## 7. UX micro-detail
-
-- Khi đổi preset, animate chip Duration update giá trị mới (smooth transition)
-- Tooltip trên mỗi platform card: "TikTok: vertical 9:16, hook 1.5s đầu, max 60s/clip"
-- Cảnh báo nhỏ khi chọn duration > 60s: "Sẽ chia thành N scenes × 10s do giới hạn AI video model"
-
----
+### 3. UX micro
+- Animate fade-in khi vào step 2 mới
+- Auto-suggest preset dựa trên brand's primary channel nếu có (read từ `selectedTemplate.primary_channel`) — pre-select TikTok Short/Reels Standard
+- Nút "Bỏ qua, dùng default" ở góc cho power user muốn nhanh
 
 ## Files thay đổi
 
-**Tạo mới:**
-- `src/types/socialFormat.ts` — preset matrix + types
-- `src/components/script/SocialFormatPicker.tsx` — UI picker
+- `src/components/script/ScriptFormStepper.tsx` — STEPS dynamic, render step 2 mới, navigation logic, bỏ SocialFormatPicker chip khỏi step cuối
+- `src/components/script/StepIndicator.tsx` — verify support dynamic steps (có thể không cần sửa)
 
-**Sửa:**
-- `src/types/script.ts` — mở rộng `Duration` type, thêm `aspect_ratio` vào `ScriptFormData`
-- `src/components/script/DurationSelector.tsx` — thêm 15/30/600s, sửa description
-- `src/components/script/ScriptFormStepper.tsx` — chèn `SocialFormatPicker` chip
-- `src/hooks/useScripts.ts` — truyền `aspect_ratio` xuống edge function
-- `src/contexts/ScriptToVideoContext.tsx` — propagate aspect_ratio sang Studio
-
-**Memory cập nhật:**
-- Thêm entry `mem://features/video/social-format-presets-vn` vào index — preset matrix Platform×Format mapping duration+aspect
-
----
-
-## Out of scope (đề xuất giai đoạn sau)
-- Auto-recommend preset dựa trên Brand audience / Industry pack
-- Thumbnail preview theo aspect ratio
-- Quota check riêng cho long-form (600s tốn nhiều scene)
+## Out of scope
+- Không đổi `SocialFormatPicker` component (giữ nguyên)
+- Không đổi data flow xuống edge function (đã đúng từ feature trước)
+- Không đổi preset matrix
