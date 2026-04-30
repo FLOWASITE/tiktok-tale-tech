@@ -13,6 +13,8 @@ export type SocialPlatform =
   | 'fb-reels'
   | 'pinterest'
   | 'threads'
+  | 'bluesky'
+  | 'whatsapp'
   | 'facebook'
   | 'linkedin'
   | 'x'
@@ -40,6 +42,22 @@ export interface SocialFormatPreset {
   recommended?: boolean;
 }
 
+/** Hard upper-limit (seconds) per platform — dùng cho validation + UI cảnh báo */
+export const PLATFORM_MAX_DURATION: Record<SocialPlatform, number> = {
+  tiktok: 600,      // TikTok cho phép tới 10 phút (2026)
+  reels: 90,        // IG Reels max 90s
+  shorts: 60,       // YT Shorts max 60s
+  'fb-reels': 90,   // FB Reels max 90s
+  pinterest: 60,    // Pin Video / Idea Pin
+  threads: 300,     // Threads video max 5 phút
+  bluesky: 60,      // Bluesky video max 60s
+  whatsapp: 60,     // WhatsApp Status max 60s (1 segment)
+  facebook: 240,    // FB Feed video — giới hạn thực tế cho social
+  linkedin: 600,    // LinkedIn video max 10 phút (organic)
+  x: 140,           // X free-tier max 2:20
+  youtube: 3600,    // YouTube long
+};
+
 export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tagline: string }> = {
   tiktok:    { label: 'TikTok',     tagline: 'Vertical 9:16 · Hook 1.5s đầu' },
   reels:     { label: 'Reels (IG)', tagline: 'Vertical 9:16 · Cinematic, max 90s' },
@@ -47,6 +65,8 @@ export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tag
   'fb-reels':{ label: 'FB Reels',   tagline: 'Vertical 9:16 · Meta cross-post' },
   pinterest: { label: 'Pinterest',  tagline: '2:3 Pin · Visual discovery' },
   threads:   { label: 'Threads',    tagline: '9:16 · Conversation-first, max 5 phút' },
+  bluesky:   { label: 'Bluesky',    tagline: '1:1 · Open social, max 60s' },
+  whatsapp:  { label: 'WhatsApp',   tagline: '9:16 Status · 60s/segment' },
   facebook:  { label: 'Facebook',   tagline: '1:1 Feed · Caption-friendly' },
   linkedin:  { label: 'LinkedIn',   tagline: '16:9 · Professional' },
   x:         { label: 'X (Twitter)', tagline: '1:1 · Punchy, text-overlay' },
@@ -60,6 +80,8 @@ export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
   'fb-reels': 'short-form',
   pinterest: 'short-form',
   threads: 'short-form',
+  bluesky: 'short-form',
+  whatsapp: 'short-form',
   facebook: 'long-form',
   linkedin: 'long-form',
   x: 'long-form',
@@ -67,7 +89,7 @@ export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
 };
 
 export const SOCIAL_GROUP_LABELS: Record<SocialGroup, { label: string; description: string }> = {
-  'short-form': { label: 'Short-form Video', description: 'Vertical 9:16 · Hook nhanh · ≤ 60s' },
+  'short-form': { label: 'Short-form Video', description: 'Vertical / Square ngắn · Hook nhanh · ≤ 5 phút' },
   'long-form':  { label: 'Standard / Long-form', description: 'Square 1:1 hoặc 16:9 · Storytelling' },
 };
 
@@ -101,7 +123,17 @@ export const SOCIAL_FORMAT_PRESETS: SocialFormatPreset[] = [
   // Threads (Meta) — conversation-first video, hỗ trợ tới 5 phút
   { id: 'threads-short',    platform: 'threads', format: 'short',    label: 'Threads Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'conversational hook',  channelKey: 'generic', description: 'Hook đối thoại ngắn' },
   { id: 'threads-standard', platform: 'threads', format: 'standard', label: 'Threads Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'opinion, take',        channelKey: 'generic', description: 'Take / opinion ngắn' },
-  { id: 'threads-long',     platform: 'threads', format: 'long',     label: 'Threads Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'thread storytelling',  channelKey: 'generic', description: 'Thread story 1 phút' },
+  { id: 'threads-long',     platform: 'threads', format: 'long',     label: 'Threads Long',     shortLabel: '5 phút', duration: 300, aspectRatio: '9:16', toneHint: 'thread storytelling',  channelKey: 'generic', description: 'Thread story dài (max 5 phút 2026)' },
+
+  // Bluesky — open social, max 60s, 1:1 chuẩn
+  { id: 'bluesky-short',    platform: 'bluesky', format: 'short',    label: 'Bluesky Short',    shortLabel: '15s', duration: 15, aspectRatio: '1:1', toneHint: 'punchy hook, open-social', channelKey: 'generic', description: 'Hook ngắn cho Bluesky' },
+  { id: 'bluesky-standard', platform: 'bluesky', format: 'standard', label: 'Bluesky Standard', shortLabel: '30s', duration: 30, aspectRatio: '1:1', toneHint: 'opinion, take',           channelKey: 'generic', description: 'Take / opinion 30s' },
+  { id: 'bluesky-long',     platform: 'bluesky', format: 'long',     label: 'Bluesky Long',     shortLabel: '60s', duration: 60, aspectRatio: '1:1', toneHint: 'thread-style',            channelKey: 'generic', description: 'Story 1 phút (max)' },
+
+  // WhatsApp Status — vertical 9:16, mỗi segment 60s
+  { id: 'whatsapp-short',    platform: 'whatsapp', format: 'short',    label: 'Status Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'quick announce',     channelKey: 'generic', description: 'Status nhanh, hook đầu' },
+  { id: 'whatsapp-standard', platform: 'whatsapp', format: 'standard', label: 'Status Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'announcement',       channelKey: 'generic', description: 'Status chuẩn 1 segment' },
+  { id: 'whatsapp-long',     platform: 'whatsapp', format: 'long',     label: 'Status Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'mini-story status', channelKey: 'generic', description: 'Status full segment 60s' },
 
   // ===== Long-form =====
   // Facebook
@@ -173,6 +205,24 @@ export function isRecommendedPreset(preset: SocialFormatPreset): boolean {
 /** Số scene 10s sẽ chia khi duration > 60 (giới hạn AI video model) */
 export function getEstimatedScenes(duration: number): number {
   return Math.max(1, Math.ceil(duration / 10));
+}
+
+/** Trả về max duration (giây) cho 1 platform — fallback 600 nếu lạ */
+export function getPlatformMaxDuration(platform: SocialPlatform): number {
+  return PLATFORM_MAX_DURATION[platform] ?? 600;
+}
+
+/**
+ * Kiểm tra duration có vượt giới hạn platform không.
+ * @returns { ok, max, overBy } — overBy = số giây vượt (0 nếu hợp lệ)
+ */
+export function validatePresetDuration(
+  platform: SocialPlatform,
+  duration: number,
+): { ok: boolean; max: number; overBy: number } {
+  const max = getPlatformMaxDuration(platform);
+  const overBy = Math.max(0, duration - max);
+  return { ok: overBy === 0, max, overBy };
 }
 
 /** Ước tính phút render dựa số scenes (~30s/scene avg) */

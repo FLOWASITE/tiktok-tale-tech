@@ -95,7 +95,7 @@ export type CharacterType =
   // Neutral
   | 'neutral_presenter'; // Người dẫn trung tính
 
-export type Duration = 15 | 30 | 60 | 90 | 120 | 140 | 180 | 600;
+export type Duration = 15 | 30 | 60 | 90 | 120 | 140 | 180 | 300 | 600;
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
@@ -282,6 +282,7 @@ export const DURATION_LABELS: Record<Duration, string> = {
   120: '2 phút (120 giây)',
   140: '2:20 (140 giây)',
   180: '3 phút (180 giây)',
+  300: '5 phút (300 giây)',
   600: '10 phút (600 giây)',
 };
 

@@ -16,6 +16,7 @@ const DURATION_CONFIG: Record<Duration, { icon: typeof Zap; description: string 
   120: { icon: Tv, description: 'Extended' },
   140: { icon: Tv, description: 'X Premium' },
   180: { icon: Video, description: 'Mid-form' },
+  300: { icon: Tv, description: 'Threads dài' },
   600: { icon: Clock, description: 'YouTube dài' },
 };
 

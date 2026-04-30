@@ -48,24 +48,26 @@ type: feature
 - Collapsible "Tinh chỉnh thời lượng thủ công" → DurationSelector (override → reset social_format_id)
 
 ## Layout 2 group (picker)
-- **Short-form Video** (vertical, ≤90s): TikTok, Reels, Shorts, FB Reels, Pinterest, Threads → `md:grid-cols-6`
+- **Short-form Video** (vertical / square ngắn, ≤300s): TikTok, Reels, Shorts, FB Reels, Pinterest, Threads, Bluesky, WhatsApp → `md:grid-cols-4 lg:grid-cols-8`
 - **Standard / Long-form** (1:1 hoặc 16:9): Facebook, LinkedIn, X, YouTube → `md:grid-cols-4`
 - Helper `getPlatformsByGroup(group)` trong `socialFormat.ts`
 - `SOCIAL_GROUP_LABELS` cung cấp label + description header
 
-## Preset matrix (10 platforms × 3 formats = 30 presets) — 2026 spec
-| Platform | Short | Standard | Long | Aspect | channelKey | Group |
-|---|---|---|---|---|---|---|
-| TikTok | 15s | 30s ⭐ | 60s | 9:16 | tiktok | short-form |
-| Reels (IG) | 15s ⭐(quick) | 30s | **90s** | 9:16 | reels | short-form |
-| Shorts (YT) | 15s | 30s | 60s | 9:16 | shorts | short-form |
-| **FB Reels** | 15s | 30s | 90s | 9:16 | facebook | short-form |
-| Pinterest | 15s | 30s ⭐ | 60s (Idea Pin) | **2:3** native / 9:16 long | generic | short-form |
-| Threads | 15s | 30s | 60s | 9:16 | generic | short-form |
-| Facebook (Feed) | 30s | 60s | 90s | 1:1 | facebook | long-form |
-| LinkedIn | 30s | 60s | 90s | **16:9** | generic | long-form |
-| X (Twitter) | 30s | 60s | **140s** | 1:1 | generic | long-form |
-| YouTube | 60s ⭐(quick) | 180s | 600s | 16:9 | youtube | long-form |
+## Preset matrix (12 platforms × 3 formats = 36 presets) — 2026 spec
+| Platform | Short | Standard | Long | Aspect | channelKey | Group | Max |
+|---|---|---|---|---|---|---|---|
+| TikTok | 15s | 30s ⭐ | 60s | 9:16 | tiktok | short-form | 600s |
+| Reels (IG) | 15s ⭐(quick) | 30s | **90s** | 9:16 | reels | short-form | 90s |
+| Shorts (YT) | 15s | 30s | 60s | 9:16 | shorts | short-form | 60s |
+| **FB Reels** | 15s | 30s | 90s | 9:16 | facebook | short-form | 90s |
+| Pinterest | 15s | 30s ⭐ | 60s (Idea Pin) | **2:3** native / 9:16 long | generic | short-form | 60s |
+| Threads | 15s | 30s | **300s** | 9:16 | generic | short-form | 300s |
+| **Bluesky** | 15s | 30s | 60s | 1:1 | generic | short-form | 60s |
+| **WhatsApp** | 15s | 30s | 60s | 9:16 Status | generic | short-form | 60s |
+| Facebook (Feed) | 30s | 60s | 90s | 1:1 | facebook | long-form | 240s |
+| LinkedIn | 30s | 60s | 90s | **16:9** | generic | long-form | 600s |
+| X (Twitter) | 30s | 60s | **140s** | 1:1 | generic | long-form | 140s |
+| YouTube | 60s ⭐(quick) | 180s | 600s | 16:9 | youtube | long-form | 3600s |
 
 ⭐ = `recommended` (format='standard') | ⭐(quick) = trong `QUICK_PICK_PRESET_IDS`
 Source of truth: `src/types/socialFormat.ts` (`SOCIAL_FORMAT_PRESETS`).
@@ -76,6 +78,8 @@ Source of truth: `src/types/socialFormat.ts` (`SOCIAL_FORMAT_PRESETS`).
 - `isRecommendedPreset(preset)` — derive từ `recommended === true || format === 'standard'`
 - `getEstimatedScenes(duration)` — `Math.ceil(duration / 10)` cho cảnh báo
 - `getEstimatedRenderMinutes(scenes)` — ~30s/scene avg
+- `PLATFORM_MAX_DURATION` + `getPlatformMaxDuration(platform)` — hard cap mỗi platform
+- `validatePresetDuration(platform, duration)` — `{ ok, max, overBy }` cho UI/edge guardrail
 
 ## Behavior
 - Chọn preset → setFormData cập nhật cả `duration`, `aspect_ratio`, `social_format_id`
