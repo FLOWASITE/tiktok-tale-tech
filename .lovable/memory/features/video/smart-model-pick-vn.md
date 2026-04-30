@@ -10,7 +10,7 @@ type: feature
 
 | Aspect | Model | Cap/clip | Lý do |
 |---|---|---:|---|
-| 9:16 / 2:3 / 1:1 / khác | `poyo/seedance-2` | **15s** | Doc PoYo 4-15s — clip dài nhất |
+| 9:16 / 2:3 / 1:1 / khác | `poyo/seedance-2` | **10s** | PoYo API chỉ accept 5 hoặc 10 |
 | 16:9 | `geminigen/veo-3.1-fast` | 8s | Doc Veo 3.1 fixed 8s |
 
 ## Logic tính số prompt (`computeSmartSceneCount`)
@@ -21,8 +21,8 @@ return Math.ceil(duration / cap);
 ```
 
 - **Bỏ tách hook scene riêng** — hook nằm trong 0-3s đầu của PROMPT 1 (rule trong `[AI RENDER MODEL]`).
-- TikTok 15s 9:16 → **1 prompt duy nhất** (Seedance render full 15s).
-- 30s → 2, 60s → 4, 90s → 6 prompts.
+- TikTok 15s 9:16 → **2 prompts** (Seedance max 10s/clip).
+- 30s → 3, 60s → 6 prompts.
 
 ## Prompt rule cho clip dài (`[AI RENDER MODEL]`)
 
@@ -33,5 +33,5 @@ return Math.ceil(duration / cap);
 
 ## Lưu ý
 
-- **Kling 2.6** PoYo chỉ cap 10s → KHÔNG dùng cho 15s single-clip. Seedance 2 là lựa chọn duy nhất hỗ trợ 15s.
-- Nếu duration > 60s long-form → vẫn dùng Seedance 15s cap (giảm tối đa số clip).
+- **PoYo API duration**: Dù docs ghi 4-15s, API thực tế chỉ accept `5` hoặc `10`. Gửi 15 → fail "no task_id".
+- Backend `poyo-video-generator.ts` clamp duration >10 → 10 tự động (safety net).
