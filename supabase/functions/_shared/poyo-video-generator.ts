@@ -87,13 +87,20 @@ async function submitPoyoVideoTask(params: PoyoVideoParams, apiKey: string): Pro
   }
 
   const data = await response.json();
+  console.log(`[poyo-video] Submit response:`, JSON.stringify(data).slice(0, 500));
+
   const embeddedCode = data?.code;
   const embeddedErrType = data?.error?.type || data?.error?.code;
+  const embeddedMsg = data?.error?.message || data?.message;
   if (embeddedCode === 402 || embeddedErrType === 'insufficient_credits_error') {
     throw new Error('POYO_CREDITS_EXHAUSTED: Insufficient PoYo credits');
   }
   if (embeddedCode === 401) throw new Error('POYO_AUTH_ERROR: Invalid PoYo API key');
   if (embeddedCode === 429) throw new Error('POYO_RATE_LIMIT: Too many requests');
+  // Catch any other embedded error before checking task_id
+  if (embeddedCode && embeddedCode >= 400) {
+    throw new Error(`POYO_ERROR_${embeddedCode}: ${embeddedMsg || 'Unknown PoYo error'}`);
+  }
 
   const taskId = data?.data?.task_id || data?.task_id;
   if (!taskId) {
