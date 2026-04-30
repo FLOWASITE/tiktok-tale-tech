@@ -16,6 +16,8 @@ import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
+import { PublishVideoMenu } from './PublishVideoMenu';
 
 // Default fallback if Admin hasn't configured a model yet.
 const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
