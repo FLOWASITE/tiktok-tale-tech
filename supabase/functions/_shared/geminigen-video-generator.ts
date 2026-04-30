@@ -13,7 +13,8 @@
 // ============================================
 
 const GEMINIGEN_BASE_URL = 'https://api.geminigen.ai';
-const GEMINIGEN_VIDEO_ENDPOINT = '/uapi/v1/generate_video';
+// Confirmed from official demo: https://github.com/AINNATE-GEMINIGEN/GEMINIGEN.AI-API-DEMO
+const GEMINIGEN_VIDEO_ENDPOINT = '/uapi/v1/video-gen/veo';
 const GEMINIGEN_HISTORY_ENDPOINT = '/uapi/v1/history';
 
 export interface GeminiGenVideoParams {
