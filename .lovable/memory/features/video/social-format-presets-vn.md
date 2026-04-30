@@ -48,21 +48,22 @@ type: feature
 - Collapsible "Tinh chỉnh thời lượng thủ công" → DurationSelector (override → reset social_format_id)
 
 ## Layout 2 group (picker)
-- **Short-form Video** (9:16, ≤60s): TikTok, Reels, Shorts, Pinterest, Threads
-- **Standard / Long-form** (1:1 hoặc 16:9): Facebook, LinkedIn, X, YouTube
+- **Short-form Video** (vertical, ≤90s): TikTok, Reels, Shorts, FB Reels, Pinterest, Threads → `md:grid-cols-6`
+- **Standard / Long-form** (1:1 hoặc 16:9): Facebook, LinkedIn, X, YouTube → `md:grid-cols-4`
 - Helper `getPlatformsByGroup(group)` trong `socialFormat.ts`
 - `SOCIAL_GROUP_LABELS` cung cấp label + description header
 
-## Preset matrix (9 platforms × 3 formats = 27 presets)
+## Preset matrix (10 platforms × 3 formats = 30 presets) — 2026 spec
 | Platform | Short | Standard | Long | Aspect | channelKey | Group |
 |---|---|---|---|---|---|---|
 | TikTok | 15s | 30s ⭐ | 60s | 9:16 | tiktok | short-form |
-| Reels | 15s ⭐(quick) | 30s | 60s | 9:16 | reels | short-form |
-| Shorts | 15s | 30s | 60s | 9:16 | shorts | short-form |
-| Pinterest | 15s | 30s | 60s | 9:16 | generic | short-form |
+| Reels (IG) | 15s ⭐(quick) | 30s | **90s** | 9:16 | reels | short-form |
+| Shorts (YT) | 15s | 30s | 60s | 9:16 | shorts | short-form |
+| **FB Reels** | 15s | 30s | 90s | 9:16 | facebook | short-form |
+| Pinterest | 15s | 30s ⭐ | 60s (Idea Pin) | **2:3** native / 9:16 long | generic | short-form |
 | Threads | 15s | 30s | 60s | 9:16 | generic | short-form |
-| Facebook | 30s | 60s | 90s | 1:1 | facebook | long-form |
-| LinkedIn | 30s | 60s | 90s | 1:1 | generic | long-form |
+| Facebook (Feed) | 30s | 60s | 90s | 1:1 | facebook | long-form |
+| LinkedIn | 30s | 60s | 90s | **16:9** | generic | long-form |
 | X (Twitter) | 30s | 60s | **140s** | 1:1 | generic | long-form |
 | YouTube | 60s ⭐(quick) | 180s | 600s | 16:9 | youtube | long-form |
 

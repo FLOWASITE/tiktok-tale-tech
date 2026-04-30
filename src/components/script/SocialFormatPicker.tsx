@@ -30,6 +30,7 @@ const PLATFORM_ICON_KEY: Record<SocialPlatform, string> = {
   tiktok: 'tiktok',
   reels: 'instagram',
   shorts: 'youtube',
+  'fb-reels': 'facebook',
   pinterest: 'pinterest',
   threads: 'threads',
   facebook: 'facebook',
@@ -48,6 +49,10 @@ function AspectMini({ ratio, active }: { ratio: AspectRatio; active?: boolean })
       ? 'w-2.5 h-[18px]'
       : ratio === '16:9'
       ? 'w-[18px] h-2.5'
+      : ratio === '2:3'
+      ? 'w-3 h-[18px]'
+      : ratio === '4:5'
+      ? 'w-[14px] h-[18px]'
       : 'w-3 h-3';
   return (
     <span
@@ -187,7 +192,7 @@ export function SocialFormatPicker({ value, onChange, disabled }: SocialFormatPi
         disabled={disabled}
         onSelect={setActivePlatform}
         mobileLayout="scroll"
-        desktopCols="md:grid-cols-5"
+        desktopCols="md:grid-cols-6"
       />
 
       {/* Long-form group */}

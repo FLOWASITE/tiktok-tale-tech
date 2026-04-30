@@ -10,6 +10,7 @@ export type SocialPlatform =
   | 'tiktok'
   | 'reels'
   | 'shorts'
+  | 'fb-reels'
   | 'pinterest'
   | 'threads'
   | 'facebook'
@@ -19,7 +20,7 @@ export type SocialPlatform =
 
 export type SocialFormatLength = 'short' | 'standard' | 'long';
 
-export type AspectRatio = '9:16' | '16:9' | '1:1';
+export type AspectRatio = '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
 
 export type SocialGroup = 'short-form' | 'long-form';
 
@@ -41,12 +42,13 @@ export interface SocialFormatPreset {
 
 export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tagline: string }> = {
   tiktok:    { label: 'TikTok',     tagline: 'Vertical 9:16 · Hook 1.5s đầu' },
-  reels:     { label: 'Reels (IG)', tagline: 'Vertical 9:16 · Cinematic polish' },
-  shorts:    { label: 'YT Shorts',  tagline: 'Vertical 9:16 · Punchy' },
-  pinterest: { label: 'Pinterest',  tagline: '9:16 · Visual discovery, beauty fit' },
-  threads:   { label: 'Threads',    tagline: '9:16 · Conversation-first' },
-  facebook:  { label: 'Facebook',   tagline: '1:1 hoặc 9:16 · Caption-friendly' },
-  linkedin:  { label: 'LinkedIn',   tagline: '1:1 · Professional' },
+  reels:     { label: 'Reels (IG)', tagline: 'Vertical 9:16 · Cinematic, max 90s' },
+  shorts:    { label: 'YT Shorts',  tagline: 'Vertical 9:16 · Punchy, max 60s' },
+  'fb-reels':{ label: 'FB Reels',   tagline: 'Vertical 9:16 · Meta cross-post' },
+  pinterest: { label: 'Pinterest',  tagline: '2:3 Pin · Visual discovery' },
+  threads:   { label: 'Threads',    tagline: '9:16 · Conversation-first, max 5 phút' },
+  facebook:  { label: 'Facebook',   tagline: '1:1 Feed · Caption-friendly' },
+  linkedin:  { label: 'LinkedIn',   tagline: '16:9 · Professional' },
   x:         { label: 'X (Twitter)', tagline: '1:1 · Punchy, text-overlay' },
   youtube:   { label: 'YouTube Long', tagline: '16:9 · High production' },
 };
@@ -55,6 +57,7 @@ export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
   tiktok: 'short-form',
   reels: 'short-form',
   shorts: 'short-form',
+  'fb-reels': 'short-form',
   pinterest: 'short-form',
   threads: 'short-form',
   facebook: 'long-form',
@@ -75,22 +78,27 @@ export const SOCIAL_FORMAT_PRESETS: SocialFormatPreset[] = [
   { id: 'tiktok-standard', platform: 'tiktok', format: 'standard', label: 'TikTok Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'engaging, mid-tempo', channelKey: 'tiktok', description: 'Tutorial ngắn, story arc nhỏ' },
   { id: 'tiktok-long',     platform: 'tiktok', format: 'long',     label: 'TikTok Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'detailed, narrative',channelKey: 'tiktok', description: 'Storytelling đầy đủ' },
 
-  // Reels
+  // Reels (IG) — Meta đã nâng max lên 90s (2026)
   { id: 'reels-short',    platform: 'reels', format: 'short',    label: 'Reels Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'aesthetic, smooth',     channelKey: 'reels', description: 'Aesthetic loop, smooth glide' },
   { id: 'reels-standard', platform: 'reels', format: 'standard', label: 'Reels Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'cinematic, polished',   channelKey: 'reels', description: 'Cinematic polish, color grade' },
-  { id: 'reels-long',     platform: 'reels', format: 'long',     label: 'Reels Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'narrative, brand-led',  channelKey: 'reels', description: 'Brand storytelling đầy đủ' },
+  { id: 'reels-long',     platform: 'reels', format: 'long',     label: 'Reels Long',     shortLabel: '90s', duration: 90, aspectRatio: '9:16', toneHint: 'narrative, brand-led',  channelKey: 'reels', description: 'Brand storytelling đầy đủ (max 90s 2026)' },
 
-  // Shorts
+  // Shorts (YouTube) — vẫn cap 60s
   { id: 'shorts-short',    platform: 'shorts', format: 'short',    label: 'Shorts Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'punchy hook',  channelKey: 'shorts', description: 'Punchy, clean composition' },
   { id: 'shorts-standard', platform: 'shorts', format: 'standard', label: 'Shorts Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'tutorial pace',channelKey: 'shorts', description: 'Quick tutorial' },
   { id: 'shorts-long',     platform: 'shorts', format: 'long',     label: 'Shorts Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'mini-story',   channelKey: 'shorts', description: 'Mini-story dài' },
 
-  // Pinterest (Idea Pins / Video Pins) — ưu tiên beauty discovery
-  { id: 'pinterest-short',    platform: 'pinterest', format: 'short',    label: 'Pinterest Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'visual hook, lifestyle',  channelKey: 'generic', description: 'Idea Pin nhanh, visual-first' },
-  { id: 'pinterest-standard', platform: 'pinterest', format: 'standard', label: 'Pinterest Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'tutorial, before-after',  channelKey: 'generic', description: 'Tutorial / before-after, search-engine copy' },
-  { id: 'pinterest-long',     platform: 'pinterest', format: 'long',     label: 'Pinterest Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'how-to, deep visual',     channelKey: 'generic', description: 'How-to dài, save-worthy' },
+  // Facebook Reels (9:16) — tách riêng khỏi FB Feed (1:1)
+  { id: 'fb-reels-short',    platform: 'fb-reels', format: 'short',    label: 'FB Reels Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'punchy, meta cross-post', channelKey: 'facebook', description: 'Vertical Meta cross-post' },
+  { id: 'fb-reels-standard', platform: 'fb-reels', format: 'standard', label: 'FB Reels Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'engaging, vertical',     channelKey: 'facebook', description: 'Reels chuẩn, vertical-first' },
+  { id: 'fb-reels-long',     platform: 'fb-reels', format: 'long',     label: 'FB Reels Long',     shortLabel: '90s', duration: 90, aspectRatio: '9:16', toneHint: 'narrative vertical',     channelKey: 'facebook', description: 'Storytelling vertical đầy đủ' },
 
-  // Threads (Meta) — conversation-first video
+  // Pinterest — Native Pin = 2:3 (1000×1500), search-engine copy. Idea Pin riêng = 9:16.
+  { id: 'pinterest-short',    platform: 'pinterest', format: 'short',    label: 'Pin Short',     shortLabel: '15s', duration: 15, aspectRatio: '2:3', toneHint: 'visual hook, lifestyle',  channelKey: 'generic', description: 'Pin Video 2:3, visual-first' },
+  { id: 'pinterest-standard', platform: 'pinterest', format: 'standard', label: 'Pin Standard',  shortLabel: '30s', duration: 30, aspectRatio: '2:3', toneHint: 'tutorial, before-after',  channelKey: 'generic', description: 'Pin Video tutorial / before-after' },
+  { id: 'pinterest-long',     platform: 'pinterest', format: 'long',     label: 'Idea Pin',      shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'how-to, deep visual',     channelKey: 'generic', description: 'Idea Pin 9:16, save-worthy' },
+
+  // Threads (Meta) — conversation-first video, hỗ trợ tới 5 phút
   { id: 'threads-short',    platform: 'threads', format: 'short',    label: 'Threads Short',    shortLabel: '15s', duration: 15, aspectRatio: '9:16', toneHint: 'conversational hook',  channelKey: 'generic', description: 'Hook đối thoại ngắn' },
   { id: 'threads-standard', platform: 'threads', format: 'standard', label: 'Threads Standard', shortLabel: '30s', duration: 30, aspectRatio: '9:16', toneHint: 'opinion, take',        channelKey: 'generic', description: 'Take / opinion ngắn' },
   { id: 'threads-long',     platform: 'threads', format: 'long',     label: 'Threads Long',     shortLabel: '60s', duration: 60, aspectRatio: '9:16', toneHint: 'thread storytelling',  channelKey: 'generic', description: 'Thread story 1 phút' },
@@ -102,9 +110,10 @@ export const SOCIAL_FORMAT_PRESETS: SocialFormatPreset[] = [
   { id: 'facebook-long',     platform: 'facebook', format: 'long',     label: 'FB Long',     shortLabel: '90s', duration: 90, aspectRatio: '1:1', toneHint: 'storytelling',         channelKey: 'facebook', description: 'Storytelling dài hơn' },
 
   // LinkedIn
-  { id: 'linkedin-short',    platform: 'linkedin', format: 'short',    label: 'LinkedIn Short',    shortLabel: '30s', duration: 30, aspectRatio: '1:1', toneHint: 'professional, insight', channelKey: 'generic', description: 'Insight ngắn, professional' },
-  { id: 'linkedin-standard', platform: 'linkedin', format: 'standard', label: 'LinkedIn Standard', shortLabel: '60s', duration: 60, aspectRatio: '1:1', toneHint: 'thought-leadership',    channelKey: 'generic', description: 'Thought leadership' },
-  { id: 'linkedin-long',     platform: 'linkedin', format: 'long',     label: 'LinkedIn Long',     shortLabel: '90s', duration: 90, aspectRatio: '1:1', toneHint: 'case-study, data',      channelKey: 'generic', description: 'Case study + data' },
+  // LinkedIn — 16:9 là chuẩn professional video (2026)
+  { id: 'linkedin-short',    platform: 'linkedin', format: 'short',    label: 'LinkedIn Short',    shortLabel: '30s', duration: 30, aspectRatio: '16:9', toneHint: 'professional, insight', channelKey: 'generic', description: 'Insight ngắn, professional' },
+  { id: 'linkedin-standard', platform: 'linkedin', format: 'standard', label: 'LinkedIn Standard', shortLabel: '60s', duration: 60, aspectRatio: '16:9', toneHint: 'thought-leadership',    channelKey: 'generic', description: 'Thought leadership' },
+  { id: 'linkedin-long',     platform: 'linkedin', format: 'long',     label: 'LinkedIn Long',     shortLabel: '90s', duration: 90, aspectRatio: '16:9', toneHint: 'case-study, data',      channelKey: 'generic', description: 'Case study + data' },
 
   // X / Twitter
   { id: 'x-short',    platform: 'x', format: 'short',    label: 'X Short',    shortLabel: '30s',  duration: 30,  aspectRatio: '1:1', toneHint: 'punchy, text-overlay',  channelKey: 'generic', description: 'Punchy clip, text-overlay rõ' },
