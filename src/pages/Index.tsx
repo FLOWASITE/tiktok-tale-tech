@@ -185,18 +185,21 @@ const Index = () => {
 
         {/* Content Grid/List */}
         {loading ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <Card key={i} className="p-4 bg-background/60 backdrop-blur-sm border-border/50">
-                <Skeleton className="h-5 w-3/4 mb-2" />
-                <Skeleton className="h-3 w-1/4 mb-4" />
-                <div className="flex gap-2 mb-4">
-                  <Skeleton className="h-6 w-20 rounded-full" />
-                  <Skeleton className="h-6 w-24 rounded-full" />
+              <Card key={i} className="p-3.5 bg-background/60 backdrop-blur-sm border-border/40 min-h-[170px]">
+                <Skeleton className="h-3 w-1/3 mb-3" />
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-3 w-1/2 mb-3" />
+                <div className="flex gap-1.5 mb-3">
+                  <Skeleton className="h-5 w-12 rounded" />
+                  <Skeleton className="h-5 w-14 rounded" />
+                  <Skeleton className="h-5 w-16 rounded" />
                 </div>
-                <div className="flex gap-2">
-                  <Skeleton className="h-8 flex-1" />
-                  <Skeleton className="h-8 w-8" />
+                <div className="flex items-center gap-2 mt-4">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-3 flex-1" />
+                  <Skeleton className="h-7 w-7 rounded" />
                 </div>
               </Card>
             ))}
