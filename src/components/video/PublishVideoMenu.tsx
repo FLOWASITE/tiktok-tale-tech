@@ -23,7 +23,7 @@ interface Props {
   videoUrl: string;
   defaultCaption?: string;
   /** 9:16 = TikTok/Reels/Shorts; 16:9 = YouTube/FB; 1:1 = IG/FB */
-  aspectRatio?: '9:16' | '16:9' | '1:1';
+  aspectRatio?: '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
   size?: 'sm' | 'default';
   variant?: 'default' | 'outline' | 'ghost';
   className?: string;

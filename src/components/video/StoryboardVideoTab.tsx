@@ -413,7 +413,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                     </a>
                     <PublishVideoMenu
                       videoUrl={job.output_url}
-                      aspectRatio={job.aspect_ratio as '9:16' | '16:9' | '1:1'}
+                      aspectRatio={job.aspect_ratio as '9:16' | '16:9' | '1:1' | '2:3' | '4:5'}
                       defaultCaption={activeScript?.title ? `${activeScript.title}` : ''}
                     />
                   </div>
