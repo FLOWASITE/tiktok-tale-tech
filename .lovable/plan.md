@@ -1,48 +1,40 @@
-## Bối cảnh
+## Vấn đề
+GeminiGen đã render xong video (status `completed`), nhưng parser của ta không tìm được URL trong response → job bị mark `failed: "Completed but no video URL returned"`.
 
-Trong **Admin → AI Management → Functions**, function `generate-storyboard` **đã có sẵn** trong catalog (`src/hooks/useAIConfig.ts` dòng 55, category `content`, type `text`, default `google/gemini-2.5-flash`). Picker model cũng **đã liệt kê đầy đủ Qwen của Alibaba (DashScope)** — `qwen3-max`, `qwen3-plus`, `qwen3-turbo`, `qwen3-flash`, `qwen3-long`, `qwen3-vl-max/plus`, `qwen3-coder-plus`, `qwen-max-latest`, `qwen-plus-latest`, …
+Hiện tại đang đoán mù field name (`video_url`, `generate_result`, `result_url`, `output_url`, `files[0].url`, `videos[0].url`). Cần thấy **response thực tế** mới fix chính xác.
 
-**Vấn đề thực tế:** edge function `supabase/functions/generate-storyboard/index.ts` hard-code:
-- `model: "google/gemini-2.5-flash"`
-- gọi thẳng `https://ai.gateway.lovable.dev/v1/chat/completions`
+## Kế hoạch fix (3 bước)
 
-→ Bỏ qua `ai_function_configs` hoàn toàn. Chọn Qwen trong Admin **không có tác dụng**, và đây là lý do vẫn 402 (Lovable Gateway hết credits) dù muốn dùng Alibaba.
+### 1. Log full raw response từ history endpoint
+Trong `checkGeminiGenVideoStatus` (file `supabase/functions/_shared/geminigen-video-generator.ts`), khi `status === completed`, log toàn bộ JSON body (truncate 1500 ký tự) **trước khi** thử extract URL. Mục đích: thấy chính xác cấu trúc trong logs `video-job-poller`.
 
-## Mục tiêu
+```ts
+console.log(`[geminigen-video] COMPLETED raw response for ${uuid}:`,
+  JSON.stringify(data).slice(0, 1500));
+```
 
-Khi admin chọn model `qwen3-*` cho `generate-storyboard` trong Admin UI → request được route sang **DashScope (Alibaba Cloud)**, không đụng Lovable Gateway.
+Đồng thời mở rộng fallback parser để quét **đệ quy** mọi field chứa `.mp4` hoặc URL bắt đầu bằng `https://` trong object — đây là safety net để không fail nữa kể cả khi field name khác.
 
-## Thay đổi
+### 2. Thêm recursive URL finder
+Helper nhỏ `findVideoUrl(obj)` duyệt object/array, return string đầu tiên match `/^https?:\/\/.*\.(mp4|mov|webm)/i`. Dùng làm fallback cuối cùng sau khi list field cứng không match.
 
-### 1. `supabase/functions/generate-storyboard/index.ts` — chuyển sang `callAI`
+### 3. Reset job đang fail để poller retry
+Update các record `video_generations` mới fail vì lý do "Completed but no video URL returned" về `status='processing', poll_attempts=0` để poller chạy lại với parser đã sửa.
 
-Thay block `fetch("https://ai.gateway.lovable.dev/...")` (dòng ~209-245) bằng shared helper `callAIWithMetrics` (đã được dùng trong `generate-script`, `generate-hooks` …):
+```sql
+UPDATE video_generations
+SET status='processing', poll_attempts=0, error_message=NULL, completed_at=NULL
+WHERE provider='geminigen'
+  AND status='failed'
+  AND error_message LIKE '%no video URL%'
+  AND created_at > now() - interval '1 hour';
+```
 
-- `import { callAIWithMetrics } from "../_shared/ai-provider.ts"`
-- Bỏ check `LOVABLE_API_KEY` cứng (helper tự xử lý theo provider)
-- Truyền `functionName: 'generate-storyboard'`, `organizationId`, `messages`, `userId`, `traceId`
-- Helper sẽ:
-  - đọc `ai_function_configs` (org-level → global → fallback)
-  - nếu `model_override` là `qwen3-*` hoặc `force_provider='dashscope'` → gọi DashScope qua `DASHSCOPE_API_KEY`
-  - tự `saveMetrics` (giữ behavior hiện tại) — bỏ block `saveMetrics` trùng lặp ở cuối hàm
-- Giữ nguyên 402/429 mapping ra response error tiếng Việt
+## Kết quả mong đợi
+- Video đã render xong sẽ được poller tick tiếp theo (≤30s) phát hiện URL và lưu vào `video_url` → UI ScriptVideoTab/ScriptVideoGalleryGrouped hiển thị video.
+- Logs sẽ in raw response để lần sau biết chính xác field cần parse.
+- Recursive finder làm hệ thống resilient nếu GeminiGen đổi schema.
 
-### 2. `src/hooks/useAIConfig.ts` — không đổi
-
-Entry `generate-storyboard` đã có. Giữ default `google/gemini-2.5-flash` để org chưa cấu hình vẫn chạy bình thường; admin chuyển sang Qwen qua UI.
-
-### 3. Secret check
-
-Cần `DASHSCOPE_API_KEY` đã có trong Lovable Cloud secrets. Sẽ verify bằng `secrets--fetch_secrets` trước khi implement; nếu thiếu sẽ yêu cầu user thêm qua `add_secret` trước.
-
-## Cách dùng sau khi xong
-
-1. Vào **Admin → AI → Functions**, search "storyboard"
-2. Mở `generate-storyboard`, chọn provider **DashScope (Alibaba Cloud)** → model `qwen3-plus` (khuyến nghị) hoặc `qwen3-flash` (rẻ/nhanh)
-3. Lưu → lần render storyboard kế tiếp sẽ gọi Alibaba, không tốn credit Lovable AI
-
-## Out of scope
-
-- Không thay đổi schema DB, không tạo migration
-- Không sửa UI Admin (đã đầy đủ)
-- Không đổi default model global (giữ Gemini Flash) — tránh ảnh hưởng workspace khác
+## Files thay đổi
+- `supabase/functions/_shared/geminigen-video-generator.ts` (log raw + recursive finder)
+- 1 migration SQL nhỏ để reset job fail gần đây
