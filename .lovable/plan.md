@@ -1,75 +1,34 @@
-Bạn đúng — nếu model là Kling và provider thật sự hỗ trợ clip 15s, thì TikTok 15s có thể render bằng 1 prompt/1 clip. Lý do hiện hệ thống vẫn tính nhiều prompt là vì code hiện tại chưa đưa Kling 15s vào auto-pick, mà đang ưu tiên Seedance/Veo với cap 8-12s và còn tách hook riêng.
+# Implementation: 1 prompt cho video ngắn (TikTok 15s)
 
-Kế hoạch sửa:
+## Đã sửa
 
-1. Cập nhật model capability cho Kling
-- Bổ sung/cập nhật cap Kling trong các registry video hiện có:
-  - `src/lib/videoModelCaps.ts`
-  - `src/types/videoGeneration.ts`
-  - `src/components/video/ProviderModelPicker.tsx` nếu picker cần hiển thị đúng max duration
-  - `supabase/functions/_shared/poyo-video-generator.ts` nếu backend render hiện chưa chấp nhận model Kling
-- Mục tiêu: Kling có `maxDuration: 15` và duration choices phù hợp với API thực tế.
+### `supabase/functions/generate-script/index.ts`
 
-2. Sửa auto-pick trong `generate-script`
-- Với video short vertical như TikTok/Reels/Shorts 15s:
-  - nếu duration `<= 15s` và aspect `9:16`, chọn Kling thay vì Seedance/Veo
-  - `maxClipSec = 15`
-  - `recommendedScenes = 1`
-- Với video dài hơn 15s:
-  - chia theo cap 15s: 30s = 2 prompt, 45s = 3 prompt, 60s = 4 prompt
+1. **`computeSmartSceneCount`**: bỏ tách hook scene riêng. Logic mới:
+   - `duration ≤ cap` → **1 prompt**
+   - `duration > cap` → `ceil(duration / cap)` prompt
 
-3. Bỏ ép tối thiểu 2 scene khi duration nằm trong cap
-- Hiện `computeSmartSceneCount` đang ép tối thiểu 2 scene:
-  ```ts
-  return Math.min(pacing.maxScenes, Math.max(2, total));
-  ```
-- Sửa thành logic:
-  ```ts
-  if (duration <= sceneDurationCapSec) return 1;
-  ```
-- Sau đó mới áp dụng chia clip cho video vượt cap.
+2. **`buildSceneDurationPlan`**: bỏ ưu tiên `pacing.hookSceneSec`, chia đều theo sceneCount.
 
-4. Điều chỉnh scene duration plan cho 1 prompt
-- Khi `sceneCount === 1`, plan sẽ là:
-  ```text
-  [15]
-  ```
-- Prompt output sẽ là:
-  ```text
-  PROMPT 1 [00:00-00:15]
-  ```
-- Không tách hook thành clip riêng; hook sẽ nằm trong 2-3 giây đầu của cùng prompt.
+3. **`pickRecommendedVideoModel`**: nâng cap Seedance 2 từ 8/12s → **15s** (theo doc PoYo 4-15s).
+   - Mọi vertical/square: Seedance 2 cap 15s
+   - 16:9: Veo 3.1 Fast cap 8s (doc fixed)
 
-5. Cập nhật prompt instruction
-- Thêm rule cho single-clip 15s:
-  - hook diễn ra trong 0-3s đầu
-  - không tạo cut/transition nội bộ
-  - mô tả continuous action + camera movement 1 hướng để 15s không bị tĩnh
+4. **Prompt `[AI RENDER MODEL]`**: thêm rule "PROMPT 1 phải có visual hook trong 0-3s đầu" (vì hook không còn là clip riêng).
 
-Kết quả mong muốn:
+## Bảng kết quả
 
-```text
-TikTok 15s 9:16
-  ↓
-pickRecommendedVideoModel → Kling 15s cap
-  ↓
-computeSmartSceneCount → 1 prompt
-  ↓
-buildSceneDurationPlan → [15s]
-  ↓
-AI viết 1 visual prompt continuous-motion
-  ↓
-Render 1 clip Kling 15s
-```
+| Duration | Aspect | Trước | Sau | Giảm |
+|---|---|---:|---:|---:|
+| TikTok 10s | 9:16 | 2 (hook+1) | **1** | -50% |
+| TikTok 15s | 9:16 | 3 (hook+2) | **1** | **-67%** |
+| TikTok 30s | 9:16 | 5 | **2** | -60% |
+| Reels 45s | 9:16 | 7 | **3** | -57% |
+| Reels 60s | 9:16 | 9 | **4** | -56% |
+| YT Shorts 90s | 9:16 | 9 | **6** | -33% |
+| 16:9 60s | 16:9 | 8 | **8** | 0% (Veo cap 8s) |
 
-Bảng sau khi sửa:
+## Lưu ý
 
-| Duration | Model đề xuất | Prompt/clip |
-|---|---:|---:|
-| TikTok 10s | Kling/Seedance tùy cost | 1 |
-| TikTok 15s | Kling 15s | 1 |
-| TikTok 30s | Kling 15s | 2 |
-| TikTok 45s | Kling 15s | 3 |
-| TikTok 60s | Kling 15s | 4 |
-
-Điểm cần lưu ý: Kling 15s tiết kiệm prompt nhất, nhưng nếu chi phí/chất lượng của Kling cao hơn Seedance thì có thể thêm rule: `Min Credit` chọn Kling 15s, còn `Fast/Cheap` vẫn chọn Seedance.
+- **Không phải Kling**: Kling 2.6 PoYo cap 10s. **Seedance 2** mới là model PoYo support 4-15s/clip.
+- Nếu muốn Kling thay thế cho character animation → tạo branch riêng theo aspect (vd: 9:16 + character → Kling 10s).
