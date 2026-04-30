@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
