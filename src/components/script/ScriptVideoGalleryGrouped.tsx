@@ -12,7 +12,9 @@ import {
 import { Loader2, ExternalLink, Download, Layers, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import type { VideoGeneration } from '@/types/videoGeneration';
+import { LazyVideo } from '@/components/ui/lazy-video';
 import { VideoGallery } from './VideoGallery';
 
 interface Props {
