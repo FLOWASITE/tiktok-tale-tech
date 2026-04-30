@@ -1069,6 +1069,66 @@ function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDu
   return Math.min(pacing.maxScenes, Math.max(2, total));
 }
 
+/**
+ * Cân bằng thời lượng từng PROMPT để TỔNG KHỚP `duration`.
+ * Tránh prompt quá ngắn (<MIN_SCENE_SEC) hoặc quá dài (>cap clip AI).
+ *  1. Scene 1 = HOOK (`pacing.hookSceneSec`, clamp [MIN, cap])
+ *  2. Body chia đều phần còn lại, làm tròn 0.5s, clamp [MIN, cap]
+ *  3. Drift do làm tròn → bù vào scene cuối (giữ trong [MIN, cap])
+ */
+const MIN_SCENE_SEC = 2;
+function buildSceneDurationPlan(
+  totalDurationSec: number,
+  sceneCount: number,
+  pacing: PacingProfile,
+  capSec: number,
+): number[] {
+  if (sceneCount <= 0) return [];
+  if (sceneCount === 1) {
+    return [Math.min(capSec, Math.max(MIN_SCENE_SEC, totalDurationSec))];
+  }
+  const hook = Math.min(capSec, Math.max(MIN_SCENE_SEC, pacing.hookSceneSec));
+  const bodyCount = sceneCount - 1;
+  const remainingSec = Math.max(MIN_SCENE_SEC * bodyCount, totalDurationSec - hook);
+  const rawBody = remainingSec / bodyCount;
+  // Round UP đến 0.5s gần nhất để TỔNG ≥ target → drift cuối ≤ 0 (trừ scene cuối thay vì cộng vượt cap)
+  const roundedBody = Math.ceil(rawBody * 2) / 2;
+  const bodyClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedBody));
+
+  const plan: number[] = [hook];
+  for (let i = 0; i < bodyCount; i++) plan.push(bodyClamped);
+
+  // Bù drift vào scene cuối (clamp)
+  const drift = totalDurationSec - plan.reduce((a, b) => a + b, 0);
+  if (drift !== 0) {
+    const last = plan.length - 1;
+    plan[last] = Math.min(capSec, Math.max(MIN_SCENE_SEC, plan[last] + drift));
+  }
+  return plan;
+}
+
+/** "PROMPT 1: 2s · PROMPT 2: 4.5s · ..." cho instruction AI dễ đọc. */
+function formatSceneDurationPlan(plan: number[]): string {
+  return plan.map((s, i) => `PROMPT ${i + 1}: ${s}s`).join(' · ');
+}
+
+/** "[00:00-00:02] [00:02-00:06.5] ..." */
+function formatSceneTimestamps(plan: number[]): string {
+  const fmt = (s: number) => {
+    const total = Math.round(s * 10) / 10;
+    const mm = Math.floor(total / 60);
+    const ss = total - mm * 60;
+    const ssStr = Number.isInteger(ss) ? String(ss).padStart(2, '0') : ss.toFixed(1).padStart(4, '0');
+    return `${String(mm).padStart(2, '0')}:${ssStr}`;
+  };
+  let cursor = 0;
+  return plan.map((s) => {
+    const start = fmt(cursor);
+    cursor += s;
+    return `[${start}-${fmt(cursor)}]`;
+  }).join(' ');
+}
+
 // ============================================
 // PLATFORM SPEC — căn cứ "Bước 2: Nền tảng video"
 // Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
@@ -1081,6 +1141,8 @@ interface PlatformSpec {
   recommendedScenes: number;      // tính theo PacingProfile (không phải chia đều)
   hookSceneSec: number;           // độ dài scene 1 (HOOK) — pacing-aware
   avgSceneSec: number;            // độ dài trung bình scene 2..N
+  scenePlan: number[];            // bảng thời lượng cân bằng cho từng PROMPT (tổng = totalDuration)
+  totalDurationSec: number;       // mục tiêu tổng (= duration đã chọn)
   framingHint: string;
   safeZone: string;
   textOverlayPosition: string;
@@ -1088,8 +1150,8 @@ interface PlatformSpec {
   continuityRules: string;
 }
 
-// Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec sẽ tính theo PacingProfile + duration)
-type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes' | 'hookSceneSec' | 'avgSceneSec'>;
+// Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec/scenePlan/totalDurationSec sẽ tính theo PacingProfile + duration)
+type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes' | 'hookSceneSec' | 'avgSceneSec' | 'scenePlan' | 'totalDurationSec'>;
 
 const PLATFORM_SPEC_BY_ID: Record<string, PlatformSpecBase> = {
   // ===== TikTok 9:16 =====
@@ -1312,11 +1374,14 @@ function getPlatformSpec(
     || inferSpecFromAspect(aspectRatio);
   const pacing = getPacingProfile(base.platformLabel, base.aspect);
   const recommendedScenes = computeSmartSceneCount(duration, pacing, base.sceneDurationSec);
+  const scenePlan = buildSceneDurationPlan(duration, recommendedScenes, pacing, base.sceneDurationSec);
   return {
     ...base,
     recommendedScenes,
     hookSceneSec: pacing.hookSceneSec,
     avgSceneSec: pacing.avgSceneSec,
+    scenePlan,
+    totalDurationSec: duration,
   };
 }
 
@@ -1618,13 +1683,15 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
   - Mỗi PROMPT có chỉ định framing phù hợp khung hình ${spec.aspect}?
   - Subject KHÔNG nằm trong vùng UI safe-zone?
 
-□ **MỖI CLIP ≤ ${spec.sceneDurationSec}s?**
-  - Hành động trong mỗi PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây (giới hạn AI video generator)?
-  - Tổng số PROMPT khớp ${promptCount}?
+□ **DURATION BUDGET CHÍNH XÁC?**
+  - Mỗi PROMPT có timestamp khớp đúng bảng đã cấp (${formatSceneDurationPlan(spec.scenePlan)})?
+  - Tổng thời lượng tất cả PROMPT = ${spec.totalDurationSec}s (không vượt, không thiếu)?
+  - KHÔNG có PROMPT nào < ${MIN_SCENE_SEC}s hoặc > ${spec.sceneDurationSec}s?
 
 □ **PACING ĐÚNG ${spec.platformLabel}?**
   - Scene 1 là HOOK ngắn ~${spec.hookSceneSec}s? (visual gây tò mò ngay, KHÔNG mở chậm)
   - Scene 2..N có độ dài trung bình ~${spec.avgSceneSec}s? (không cào bằng theo cap clip)
+  - Tổng số PROMPT khớp ${promptCount}?
 
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
@@ -1794,6 +1861,9 @@ NGUYÊN TẮC:
   const purposeOutputReqs = getPurposeOutputRequirements(effectivePurpose, videoTypeName, characterTypeName);
   const blockLabel = effectivePurpose === 'production' ? 'SCENE' : effectivePurpose === 'teleprompter' ? 'ĐOẠN' : 'PROMPT';
 
+  const planLine = spec ? formatSceneDurationPlan(spec.scenePlan) : '';
+  const tsLine   = spec ? formatSceneTimestamps(spec.scenePlan) : '';
+  const planSum  = spec ? spec.scenePlan.reduce((a, b) => a + b, 0) : 0;
   const platformBlock = spec ? `
 # 🎬 NỀN TẢNG ĐÍCH (Bước 2 — User đã chọn)
 - **Platform:** ${spec.platformLabel}
@@ -1803,12 +1873,21 @@ NGUYÊN TẮC:
 ## ⚡ PACING PROFILE (đã tối ưu cho ${spec.platformLabel})
 - **Scene 1 (HOOK):** ~${spec.hookSceneSec}s — PUNCHY, gây tò mò trong 1s đầu, KHÔNG mở chậm (intro/logo)
 - **Scene 2..N (BODY):** trung bình ~${spec.avgSceneSec}s/scene
-- **TỔNG SỐ PROMPT cần tạo: ${spec.recommendedScenes}** (đã tính theo pacing đặc thù platform — KHÔNG chia đều cứng nhắc theo cap clip)
+- **TỔNG SỐ PROMPT cần tạo: ${spec.recommendedScenes}** (đã tính theo pacing đặc thù platform)
 
-## 📏 RÀNG BUỘC
+## ⏱️ DURATION BUDGET — BẮT BUỘC TUÂN THỦ (đã cân bằng để TỔNG = ${spec.totalDurationSec}s)
+- **Bảng thời lượng cố định cho từng PROMPT:**
+  ${planLine}
+- **Timestamps tương ứng:** ${tsLine}
+- **Tổng cộng kiểm chứng:** ${planSum}s ≈ ${spec.totalDurationSec}s mục tiêu
+- ⚠️ **Mỗi PROMPT phải mở đầu bằng đúng timestamp ở trên** (vd \`PROMPT 1 [00:00-00:02]\`, \`PROMPT 2 [00:02-...]\`).
+- ⚠️ **KHÔNG có PROMPT nào ngắn hơn ${MIN_SCENE_SEC}s hoặc dài hơn ${spec.sceneDurationSec}s.**
+- ⚠️ **KHÔNG cào bằng độ dài scene** — Scene 1 phải ngắn theo HOOK rule, các scene sau theo bảng trên.
+- Action/dialogue trong mỗi PROMPT phải vừa khít thời lượng đã cấp (không nhồi nhét, không kéo dài).
+
+## 📏 RÀNG BUỘC KHÁC
 - Mọi VISUAL DIRECTION phải tuân thủ framing & safe zone của ${spec.platformLabel}.
-- Mọi action trong 1 PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây.
-- Giữ pacing đúng số PROMPT đã chỉ định — không tự ý gộp/tách scene.
+- Giữ đúng số PROMPT (${spec.recommendedScenes}) — không tự ý gộp/tách scene.
 ` : '';
 
   return `${purposeIntro}
@@ -2086,6 +2165,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       : undefined;
     if (platformSpec) {
       console.log('[generate-script] Platform spec:', platformSpec.platformLabel, platformSpec.aspect, `cap=${platformSpec.sceneDurationSec}s hook=${platformSpec.hookSceneSec}s avg=${platformSpec.avgSceneSec}s → ${platformSpec.recommendedScenes} scenes for ${duration}s`);
+      console.log('[generate-script] Scene plan:', formatSceneDurationPlan(platformSpec.scenePlan), `(sum=${platformSpec.scenePlan.reduce((a, b) => a + b, 0)}s vs target ${duration}s)`);
     }
     const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec);
 
