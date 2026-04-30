@@ -1069,6 +1069,65 @@ function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDu
   return Math.min(pacing.maxScenes, Math.max(2, total));
 }
 
+/**
+ * Cân bằng thời lượng từng PROMPT để TỔNG KHỚP `duration`.
+ * Tránh prompt quá ngắn (<MIN_SCENE_SEC) hoặc quá dài (>cap clip AI).
+ *  1. Scene 1 = HOOK (`pacing.hookSceneSec`, clamp [MIN, cap])
+ *  2. Body chia đều phần còn lại, làm tròn 0.5s, clamp [MIN, cap]
+ *  3. Drift do làm tròn → bù vào scene cuối (giữ trong [MIN, cap])
+ */
+const MIN_SCENE_SEC = 2;
+function buildSceneDurationPlan(
+  totalDurationSec: number,
+  sceneCount: number,
+  pacing: PacingProfile,
+  capSec: number,
+): number[] {
+  if (sceneCount <= 0) return [];
+  if (sceneCount === 1) {
+    return [Math.min(capSec, Math.max(MIN_SCENE_SEC, totalDurationSec))];
+  }
+  const hook = Math.min(capSec, Math.max(MIN_SCENE_SEC, pacing.hookSceneSec));
+  const bodyCount = sceneCount - 1;
+  const remainingSec = Math.max(MIN_SCENE_SEC * bodyCount, totalDurationSec - hook);
+  const rawBody = remainingSec / bodyCount;
+  const roundedBody = Math.round(rawBody * 2) / 2;
+  const bodyClamped = Math.min(capSec, Math.max(MIN_SCENE_SEC, roundedBody));
+
+  const plan: number[] = [hook];
+  for (let i = 0; i < bodyCount; i++) plan.push(bodyClamped);
+
+  // Bù drift vào scene cuối (clamp)
+  const drift = totalDurationSec - plan.reduce((a, b) => a + b, 0);
+  if (drift !== 0) {
+    const last = plan.length - 1;
+    plan[last] = Math.min(capSec, Math.max(MIN_SCENE_SEC, plan[last] + drift));
+  }
+  return plan;
+}
+
+/** "PROMPT 1: 2s · PROMPT 2: 4.5s · ..." cho instruction AI dễ đọc. */
+function formatSceneDurationPlan(plan: number[]): string {
+  return plan.map((s, i) => `PROMPT ${i + 1}: ${s}s`).join(' · ');
+}
+
+/** "[00:00-00:02] [00:02-00:06.5] ..." */
+function formatSceneTimestamps(plan: number[]): string {
+  const fmt = (s: number) => {
+    const total = Math.round(s * 10) / 10;
+    const mm = Math.floor(total / 60);
+    const ss = total - mm * 60;
+    const ssStr = Number.isInteger(ss) ? String(ss).padStart(2, '0') : ss.toFixed(1).padStart(4, '0');
+    return `${String(mm).padStart(2, '0')}:${ssStr}`;
+  };
+  let cursor = 0;
+  return plan.map((s) => {
+    const start = fmt(cursor);
+    cursor += s;
+    return `[${start}-${fmt(cursor)}]`;
+  }).join(' ');
+}
+
 // ============================================
 // PLATFORM SPEC — căn cứ "Bước 2: Nền tảng video"
 // Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
