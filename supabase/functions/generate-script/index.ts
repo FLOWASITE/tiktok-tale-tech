@@ -1208,7 +1208,7 @@ interface PlatformSpec {
   cameraStyle: string;
   continuityRules: string;
   // Smart model recommendation — auto-pick để giảm số clip cần render
-  recommendedVideoModel: string;       // modelId vd 'geminigen/n-3-fast'
+  recommendedVideoModel: string;       // modelId vd 'poyo/seedance-2' hoặc 'geminigen/veo-3.1-fast'
   recommendedVideoModelLabel: string;  // human label vd 'Veo 3 Fast'
   recommendedVideoPreset: 'fast' | 'hero'; // map sang useVideoCompletion preset
   videoModelReason: string;            // lý do để log + UI hiển thị
