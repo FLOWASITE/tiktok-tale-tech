@@ -2487,7 +2487,16 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       }
     }
 
-    return new Response(JSON.stringify({ ...savedScript, fromCache }), {
+    const recommendedVideoModelMeta = platformSpec ? {
+      model_id: platformSpec.recommendedVideoModel,
+      model_label: platformSpec.recommendedVideoModelLabel,
+      preset: platformSpec.recommendedVideoPreset,
+      max_clip_sec: platformSpec.sceneDurationSec,
+      scene_count: platformSpec.recommendedScenes,
+      reason: platformSpec.videoModelReason,
+    } : null;
+
+    return new Response(JSON.stringify({ ...savedScript, fromCache, recommended_video_model: recommendedVideoModelMeta }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
