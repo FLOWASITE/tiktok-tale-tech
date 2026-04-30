@@ -192,7 +192,7 @@ export function SocialFormatPicker({ value, onChange, disabled }: SocialFormatPi
         disabled={disabled}
         onSelect={setActivePlatform}
         mobileLayout="scroll"
-        desktopCols="md:grid-cols-5"
+        desktopCols="md:grid-cols-6"
       />
 
       {/* Long-form group */}
