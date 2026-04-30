@@ -10,6 +10,7 @@ export type SocialPlatform =
   | 'tiktok'
   | 'reels'
   | 'shorts'
+  | 'fb-reels'
   | 'pinterest'
   | 'threads'
   | 'facebook'
@@ -19,7 +20,7 @@ export type SocialPlatform =
 
 export type SocialFormatLength = 'short' | 'standard' | 'long';
 
-export type AspectRatio = '9:16' | '16:9' | '1:1';
+export type AspectRatio = '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
 
 export type SocialGroup = 'short-form' | 'long-form';
 
