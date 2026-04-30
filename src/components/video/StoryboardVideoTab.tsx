@@ -13,6 +13,7 @@ import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
+import { VideoCompletionWizard } from './VideoCompletionWizard';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
@@ -187,6 +188,14 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
           <p className="text-xs text-muted-foreground">Chọn clip → thêm voiceover/nhạc/phụ đề → render qua Creatomate</p>
         </div>
       </div>
+
+      {/* End-to-end Wizard — chỉ hiện khi có activeScript */}
+      {activeScript && (
+        <VideoCompletionWizard
+          defaultVoiceText={activeScript.scenes.map((s) => s.prompt).join(' ').slice(0, 800)}
+          defaultBgmPrompt="cinematic, modern, uplifting, soft pads, gentle beat"
+        />
+      )}
 
       {/* Script-mode banner */}
       {activeScript && (
