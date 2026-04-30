@@ -1150,44 +1150,31 @@ interface VideoModelRecommendation {
 
 /**
  * Auto-pick model AI video tối ưu theo platform + duration để GIẢM SỐ CLIP cần render.
- * Đã verify với docs.poyo.ai chính thức (Seedance 2 thực tế hỗ trợ 4-15s, không phải 6s).
+ * Đã verify với docs.poyo.ai: Seedance 2 hỗ trợ 4-15s/clip → đẩy cap lên 15s để
+ * video ngắn (TikTok/Reels 15s) chỉ cần 1 prompt duy nhất.
  *
- * - Short vertical (≤60s): Seedance 2 cap 8s — pacing nhanh nhưng vẫn giảm 25% clip vs cap cũ 6s
- * - Long vertical (>60s):  Seedance 2 cap 12s — long-form vertical, giảm 50% clip vs cap cũ 6s
- * - Horizontal 16:9:       Veo 3.1 Fast cap 8s — chất lượng cinematic, fixed 8s theo doc
- * - Pinterest 2:3:         Seedance 2 cap 12s — lifestyle pacing chậm
- * - Square 1:1:            Seedance 2 cap 8s — feed video ngắn
+ * - Vertical 9:16 / 2:3 / 1:1: Seedance 2 cap 15s — TikTok 15s = 1 clip, 30s = 2 clip, 60s = 4 clip
+ * - Horizontal 16:9: Veo 3.1 Fast cap 8s (doc fixed) — chất lượng cinematic
  */
 function pickRecommendedVideoModel(
   platformLabel: string, aspect: string, totalDuration: number
 ): VideoModelRecommendation {
-  const seedanceShort: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 8,
-  };
-  const seedanceLong: Omit<VideoModelRecommendation, 'reason'> = {
-    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 12,
+  const seedanceMax: Omit<VideoModelRecommendation, 'reason'> = {
+    modelId: 'poyo/seedance-2', modelLabel: 'Seedance 2', preset: 'fast', maxClipSec: 15,
   };
   const veo31Fast: Omit<VideoModelRecommendation, 'reason'> = {
     modelId: 'geminigen/veo-3.1-fast', modelLabel: 'Veo 3.1 Fast', preset: 'hero', maxClipSec: 8,
   };
 
-  // 9:16 vertical
-  if (aspect === '9:16') {
-    if (totalDuration > 60) {
-      return { ...seedanceLong, reason: `Long vertical ${totalDuration}s → Seedance 2 cap 12s/clip (doc 4-15s) giảm ~50% số clip` };
-    }
-    return { ...seedanceShort, reason: `Short vertical ${totalDuration}s → Seedance 2 cap 8s/clip giữ pacing nhanh` };
-  }
   // 16:9 horizontal — Veo 3.1 fixed 8s/clip theo doc
   if (aspect === '16:9') {
-    return { ...veo31Fast, reason: `Horizontal 16:9 → Veo 3.1 Fast 8s/clip (doc fixed) cinematic long-form` };
+    return { ...veo31Fast, reason: `Horizontal 16:9 → Veo 3.1 Fast 8s/clip (doc fixed) cinematic` };
   }
-  // Pinterest 2:3 — lifestyle, scene dài
-  if (aspect === '2:3') {
-    return { ...seedanceLong, reason: `Pinterest 2:3 lifestyle → Seedance 2 cap 12s/clip pacing chậm` };
-  }
-  // Square 1:1 hoặc default
-  return { ...seedanceShort, reason: `Square/feed → Seedance 2 cap 8s/clip` };
+  // Mọi vertical/square: Seedance 2 cap 15s — clip dài nhất, ít prompt nhất
+  return {
+    ...seedanceMax,
+    reason: `${aspect} ${totalDuration}s → Seedance 2 cap 15s/clip (doc 4-15s) ${totalDuration <= 15 ? '= 1 prompt duy nhất' : `= ${Math.ceil(totalDuration / 15)} prompts`}`,
+  };
 }
 
 interface PlatformSpec {
