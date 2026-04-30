@@ -1425,16 +1425,27 @@ function getPlatformSpec(
 ): PlatformSpec {
   const base = (socialFormatId && PLATFORM_SPEC_BY_ID[socialFormatId])
     || inferSpecFromAspect(aspectRatio);
+
+  // ⭐ SMART MODEL PICK: chọn model AI video tối ưu theo platform + duration
+  // → override sceneDurationSec theo maxClipSec của model để giảm số clip cần render
+  const modelRec = pickRecommendedVideoModel(base.platformLabel, base.aspect, duration);
+  const effectiveCap = Math.max(base.sceneDurationSec, modelRec.maxClipSec);
+
   const pacing = getPacingProfile(base.platformLabel, base.aspect);
-  const recommendedScenes = computeSmartSceneCount(duration, pacing, base.sceneDurationSec);
-  const scenePlan = buildSceneDurationPlan(duration, recommendedScenes, pacing, base.sceneDurationSec);
+  const recommendedScenes = computeSmartSceneCount(duration, pacing, effectiveCap);
+  const scenePlan = buildSceneDurationPlan(duration, recommendedScenes, pacing, effectiveCap);
   return {
     ...base,
+    sceneDurationSec: effectiveCap, // override để downstream dùng cap mới
     recommendedScenes,
     hookSceneSec: pacing.hookSceneSec,
     avgSceneSec: pacing.avgSceneSec,
     scenePlan,
     totalDurationSec: duration,
+    recommendedVideoModel: modelRec.modelId,
+    recommendedVideoModelLabel: modelRec.modelLabel,
+    recommendedVideoPreset: modelRec.preset,
+    videoModelReason: modelRec.reason,
   };
 }
 
