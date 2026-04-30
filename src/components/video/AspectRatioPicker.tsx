@@ -1,24 +1,31 @@
 import { cn } from '@/lib/utils';
-import { Smartphone, Monitor, Square } from 'lucide-react';
+import { Smartphone, Monitor, Square, Image as ImageIcon, Camera } from 'lucide-react';
 
-export type VideoAspectRatio = '9:16' | '16:9' | '1:1';
+export type VideoAspectRatio = '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
 
 interface AspectRatioPickerProps {
   value: VideoAspectRatio;
   onChange: (value: VideoAspectRatio) => void;
   disabled?: boolean;
+  /** Subset of ratios to show. Default = all 5. */
+  options?: VideoAspectRatio[];
 }
 
-const OPTIONS: { value: VideoAspectRatio; label: string; sub: string; icon: typeof Smartphone }[] = [
+const ALL_OPTIONS: { value: VideoAspectRatio; label: string; sub: string; icon: typeof Smartphone }[] = [
   { value: '9:16', label: 'Vertical', sub: 'TikTok · Reels · Shorts', icon: Smartphone },
-  { value: '16:9', label: 'Landscape', sub: 'YouTube · Web', icon: Monitor },
+  { value: '4:5', label: 'Portrait', sub: 'IG Feed Portrait', icon: Camera },
+  { value: '2:3', label: 'Pin', sub: 'Pinterest native', icon: ImageIcon },
   { value: '1:1', label: 'Square', sub: 'Feed · Ad', icon: Square },
+  { value: '16:9', label: 'Landscape', sub: 'YouTube · Web', icon: Monitor },
 ];
 
-export function AspectRatioPicker({ value, onChange, disabled }: AspectRatioPickerProps) {
+export function AspectRatioPicker({ value, onChange, disabled, options }: AspectRatioPickerProps) {
+  const visible = options
+    ? ALL_OPTIONS.filter((o) => options.includes(o.value))
+    : ALL_OPTIONS;
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {OPTIONS.map((opt) => {
+    <div className={cn('grid gap-2', visible.length >= 5 ? 'grid-cols-3 md:grid-cols-5' : `grid-cols-${visible.length}`)}>
+      {visible.map((opt) => {
         const Icon = opt.icon;
         const active = value === opt.value;
         return (

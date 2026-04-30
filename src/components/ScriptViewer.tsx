@@ -149,12 +149,24 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
       const m = s.match(/(\d+)/);
       return m ? Math.max(3, Math.min(10, parseInt(m[1], 10))) : undefined;
     };
+    // Aspect gốc của script — provider Veo/Seedance chỉ accept 9/16/1; 2:3 & 4:5 sinh ở 9:16 rồi crop khi stitch
+    const scriptAspect = ((script as any).aspect_ratio as
+      | '9:16' | '16:9' | '1:1' | '2:3' | '4:5'
+      | undefined) ?? '9:16';
+    const sceneAspect: '9:16' | '16:9' | '1:1' =
+      scriptAspect === '2:3' || scriptAspect === '4:5' || scriptAspect === '9:16'
+        ? '9:16'
+        : scriptAspect;
     const scenes = prompts.map((p) => ({
       sceneNumber: p.promptNumber,
       prompt: (p.rawContent || `${p.motion ?? ''}\n${p.dialogue ?? ''}`).trim().slice(0, 1500),
       duration: parseDur(p.duration),
-      aspect: '9:16' as const,
+      aspect: sceneAspect,
     }));
+    const totalDuration = typeof script.duration === 'number' ? script.duration : undefined;
+    const presetLabel = totalDuration
+      ? `${totalDuration}s · ${scriptAspect}`
+      : `${scriptAspect}`;
     navigate('/videos', {
       state: {
         fromScript: {
@@ -163,6 +175,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
             title: script.title,
             topic: script.topic,
             scenes,
+            aspectRatio: scriptAspect,
+            totalDuration,
+            socialFormatId: (script as any).social_format_id ?? undefined,
+            presetLabel,
           },
           activeSceneIndex: sceneIdx ?? 0,
         },

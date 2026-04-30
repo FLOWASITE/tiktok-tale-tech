@@ -4,11 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
  * VideoScene = một cảnh duy nhất bóc ra từ kịch bản (PROMPT/SCENE block).
  * Đủ thông tin để Quick Clip auto-fill.
  */
+export type StudioAspect = '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
+
 export interface VideoScene {
   sceneNumber: number;
   prompt: string;
   duration?: number;          // giây — gợi ý
-  aspect?: '9:16' | '16:9' | '1:1';
+  aspect?: StudioAspect;
 }
 
 export interface ActiveScript {
@@ -16,6 +18,14 @@ export interface ActiveScript {
   title: string;
   topic?: string;
   scenes: VideoScene[];
+  /** Aspect ratio gốc của script (từ SocialFormatPicker preset) — propagate xuống Studio */
+  aspectRatio?: StudioAspect;
+  /** Tổng duration mong muốn (giây) — dùng để khớp BGM, voiceover */
+  totalDuration?: number;
+  /** ID preset social format (vd 'tiktok-standard', 'pinterest-standard') */
+  socialFormatId?: string;
+  /** Nhãn ngắn để hiển thị: 'TikTok 30s · 9:16' */
+  presetLabel?: string;
 }
 
 interface ScriptToVideoState {
