@@ -35,6 +35,8 @@ export interface SocialFormatPreset {
   /** Channel key passed to generate-video-prompt edge function */
   channelKey: 'tiktok' | 'reels' | 'shorts' | 'facebook' | 'youtube' | 'generic';
   description: string;
+  /** True if this is the platform's most-used format (default = standard) */
+  recommended?: boolean;
 }
 
 export const SOCIAL_PLATFORM_LABELS: Record<SocialPlatform, { label: string; tagline: string }> = {
@@ -141,3 +143,31 @@ export function getPlatformsByGroup(group: SocialGroup): SocialPlatform[] {
     (p) => SOCIAL_PLATFORM_GROUP[p] === group,
   );
 }
+
+/** Default preset khi user vào step Social Format mà chưa chọn gì */
+export const DEFAULT_PRESET_ID = 'tiktok-standard';
+
+/** 3 preset nhanh hiển thị quick-pick chips ở đầu step */
+export const QUICK_PICK_PRESET_IDS = ['tiktok-standard', 'reels-short', 'youtube-short'] as const;
+
+export function getQuickPickPresets(): SocialFormatPreset[] {
+  return QUICK_PICK_PRESET_IDS
+    .map((id) => SOCIAL_FORMAT_PRESETS.find((p) => p.id === id))
+    .filter((p): p is SocialFormatPreset => Boolean(p));
+}
+
+/** Một preset là "recommended" nếu format='standard' (per platform default) */
+export function isRecommendedPreset(preset: SocialFormatPreset): boolean {
+  return preset.recommended === true || preset.format === 'standard';
+}
+
+/** Số scene 10s sẽ chia khi duration > 60 (giới hạn AI video model) */
+export function getEstimatedScenes(duration: number): number {
+  return Math.max(1, Math.ceil(duration / 10));
+}
+
+/** Ước tính phút render dựa số scenes (~30s/scene avg) */
+export function getEstimatedRenderMinutes(scenes: number): number {
+  return Math.max(1, Math.round((scenes * 30) / 60));
+}
+
