@@ -207,6 +207,24 @@ export function getEstimatedScenes(duration: number): number {
   return Math.max(1, Math.ceil(duration / 10));
 }
 
+/** Trả về max duration (giây) cho 1 platform — fallback 600 nếu lạ */
+export function getPlatformMaxDuration(platform: SocialPlatform): number {
+  return PLATFORM_MAX_DURATION[platform] ?? 600;
+}
+
+/**
+ * Kiểm tra duration có vượt giới hạn platform không.
+ * @returns { ok, max, overBy } — overBy = số giây vượt (0 nếu hợp lệ)
+ */
+export function validatePresetDuration(
+  platform: SocialPlatform,
+  duration: number,
+): { ok: boolean; max: number; overBy: number } {
+  const max = getPlatformMaxDuration(platform);
+  const overBy = Math.max(0, duration - max);
+  return { ok: overBy === 0, max, overBy };
+}
+
 /** Ước tính phút render dựa số scenes (~30s/scene avg) */
 export function getEstimatedRenderMinutes(scenes: number): number {
   return Math.max(1, Math.round((scenes * 30) / 60));
