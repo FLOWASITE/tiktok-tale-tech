@@ -2164,6 +2164,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       : undefined;
     if (platformSpec) {
       console.log('[generate-script] Platform spec:', platformSpec.platformLabel, platformSpec.aspect, `cap=${platformSpec.sceneDurationSec}s hook=${platformSpec.hookSceneSec}s avg=${platformSpec.avgSceneSec}s → ${platformSpec.recommendedScenes} scenes for ${duration}s`);
+      console.log('[generate-script] Scene plan:', formatSceneDurationPlan(platformSpec.scenePlan), `(sum=${platformSpec.scenePlan.reduce((a, b) => a + b, 0)}s vs target ${duration}s)`);
     }
     const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec);
 
