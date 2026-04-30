@@ -89,7 +89,7 @@ export const SOCIAL_PLATFORM_GROUP: Record<SocialPlatform, SocialGroup> = {
 };
 
 export const SOCIAL_GROUP_LABELS: Record<SocialGroup, { label: string; description: string }> = {
-  'short-form': { label: 'Short-form Video', description: 'Vertical 9:16 · Hook nhanh · ≤ 60s' },
+  'short-form': { label: 'Short-form Video', description: 'Vertical / Square ngắn · Hook nhanh · ≤ 5 phút' },
   'long-form':  { label: 'Standard / Long-form', description: 'Square 1:1 hoặc 16:9 · Storytelling' },
 };
 
