@@ -202,43 +202,44 @@ ${L.returnJson}`;
 
     console.log(`[generate-storyboard] Generating for: ${scriptTitle}, trace: ${traceId}`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
+    // Route through shared callAI — honors ai_function_configs (model_override + force_provider).
+    // Admin chooses provider in /admin/ai → Functions → generate-storyboard.
+    // Supports DashScope (Alibaba) qwen3-* models, OpenRouter, Lovable Gateway, etc.
+    const aiResult = await callAIWithMetrics(supabase, {
+      functionName: 'generate-storyboard',
+      organizationId,
+      userId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      traceId,
+      actionType: 'content_generation',
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generate-storyboard] AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
+    if (!aiResult.success) {
+      const errMsg = aiResult.error || '';
+      console.error("[generate-storyboard] AI call failed:", aiResult.provider, aiResult.model, errMsg);
+
+      // Surface 402 / 429 cleanly to client (Vietnamese)
+      if (/\b402\b|payment[_ ]required|credit/i.test(errMsg)) {
+        return new Response(
+          JSON.stringify({ error: "Cần nạp thêm credits hoặc đổi sang provider khác (Admin → AI → Functions → generate-storyboard)." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (/\b429\b|rate[_ ]?limit|too many requests/i.test(errMsg)) {
         return new Response(
           JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Cần nạp thêm credits để tiếp tục sử dụng." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
+
+      throw new Error(`AI call failed (${aiResult.provider}/${aiResult.model}): ${errMsg}`);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const data = aiResult.data;
+    const content = data?.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error("No content in AI response");
