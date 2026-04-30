@@ -1310,9 +1310,14 @@ function getPlatformSpec(
 ): PlatformSpec {
   const base = (socialFormatId && PLATFORM_SPEC_BY_ID[socialFormatId])
     || inferSpecFromAspect(aspectRatio);
-  const sceneDur = base.sceneDurationSec;
-  const recommendedScenes = Math.max(1, Math.min(20, Math.ceil(duration / sceneDur)));
-  return { ...base, recommendedScenes };
+  const pacing = getPacingProfile(base.platformLabel, base.aspect);
+  const recommendedScenes = computeSmartSceneCount(duration, pacing, base.sceneDurationSec);
+  return {
+    ...base,
+    recommendedScenes,
+    hookSceneSec: pacing.hookSceneSec,
+    avgSceneSec: pacing.avgSceneSec,
+  };
 }
 
 function inferSpecFromAspect(aspect: string | undefined): PlatformSpecBase {
