@@ -88,7 +88,7 @@ export function ScriptVideoGalleryGrouped({ scriptId, clips, loading }: Props) {
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pb-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {versions.map((v, idx) => (
                         <VersionCard key={v.id} clip={v} isLatest={idx === 0} />
                       ))}
