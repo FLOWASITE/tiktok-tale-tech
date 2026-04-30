@@ -1,116 +1,119 @@
-# Plan: Tối ưu Video Studio cho Short-form (≤90s)
+## Vấn đề
 
-## Vấn đề hiện tại
+Step 2 ("Nền tảng video") trong ScriptFormStepper đã thu thập `social_format_id` + `aspect_ratio` (TikTok 9:16, Reels 9:16, Shorts 9:16, Pinterest 2:3, FB Feed 4:5, YouTube 16:9...) và truyền lên edge function `generate-script` — nhưng **edge function bỏ qua hoàn toàn** 2 field này. Hậu quả:
 
-Wizard "Auto chạy hết" có 4 nhược điểm lớn cho short-form:
-
-1. **Ngắt giữa chừng**: Sau khi submit scenes là `return` → user phải quay lại sau 1-3 phút bấm tiếp. Với 6-9 scenes × 3-5s thì UX bị gãy.
-2. **Không có realtime**: Không listen `video_generations` → user phải F5 đoán khi nào xong.
-3. **Audio scope sai**: Lấy `assets[0]` (mới nhất tổng) thay vì theo `script_id` → dễ ghép voiceover nhầm script khác.
-4. **Bỏ qua subtitle** — yếu tố sống còn cho TikTok/Reels (85% xem tắt tiếng).
-5. **Provider mặc định Veo 3** ($0.75/s) — đắt cho short-form social. Seedance 2 đủ chất lượng và rẻ ~10×.
-6. **Tuần tự 800ms × N scene** + chờ render → tốn 20-30 phút. Có thể parallel.
-7. **Aspect 2:3 / 4:5** force render 9:16 rồi `fit:cover` → crop hai bên thay vì smart-crop center.
+- Prompt `ai_video` mặc định gắn cứng `[00:00-00:08]` (8s/scene) → mismatch với nền tảng tạo clip thực tế (Seedance default 5-6s, Veo 3 Fast 6-8s, Wizard chia scene theo 6s).
+- Visual rule generic "Medium shot, soft lighting" — không nói đến **aspect ratio**, **safe zone** cho text overlay (TikTok cần chừa 220px top + 480px bottom cho UI), không có **vertical framing** cho 9:16.
+- Không có hint về **scene continuity** (background/wardrobe nhất quán giữa các PROMPT) → khi stitch lại MP4 sẽ giật.
+- Số PROMPT không khớp với `getEstimatedScenes(preset)` → Wizard tạo thừa/thiếu scene so với kịch bản.
+- Pinterest 2:3, FB Feed 4:5 đều bị xử lý như 9:16 generic → smart-crop của render-video-creatomate hoạt động nhưng nội dung visual ban đầu sai khung hình.
 
 ## Mục tiêu
 
-- **1-click thật sự**: Bấm "Auto" → 8-15 phút sau có MP4 hoàn chỉnh, không cần tương tác lại.
-- **Real-time progress**: Hiển thị "Scene 3/9 đang quay (45%)" sống động.
-- **Subtitle tự bật mặc định** cho 9:16 / 4:5 / 2:3 (vertical formats).
-- **Parallel scenes**: Submit tất cả cùng lúc (provider tự queue), không sleep tuần tự.
-- **Cost-aware**: Default Seedance 2 cho short-form, có toggle nâng cấp Veo.
+Sửa duy nhất prompt của `generate-script` để mỗi PROMPT/scene xuất ra **đúng nền tảng đích**: aspect ratio, scene duration, scene count, framing rules, text-safe zone, continuity hints.
+
+## Phạm vi
+
+**Chỉ một file:** `supabase/functions/generate-script/index.ts`
+
+Không động vào: UI form, ScriptToVideoContext, Wizard, render edge functions, DB schema.
 
 ## Thay đổi
 
-### 1. `src/hooks/useVideoCompletion.ts` — viết lại flow
-- **Realtime subscription** `video_generations` filter `script_id=eq.X` → cập nhật `completedScenesCount` live.
-- **Parallel batch**: `Promise.allSettled` cho missing scenes thay vì for-loop sleep 800ms (provider queue tự xử lý rate-limit, đã có 402/429 handler).
-- **Continuous flow**: Sau submit scenes, hàm KHÔNG return → poll mỗi 5s đến khi `completedScenesCount === scriptScenesCount` (timeout 8 phút) → tự động chạy tiếp Audio + Render.
-- **Audio scope theo script**: Filter `assets` bằng `source_text.includes(activeScript.title)` hoặc thêm cột `script_id` (xem mục 5).
-- **Auto-subtitle bước 4**: Sau khi render xong scene đầu tiên, gọi `generate-subtitles` với `script_id` (edge function đã hỗ trợ auto-resolve).
-- **Provider selector**: Thêm param `provider: 'poyo' | 'geminigen'`, default `poyo` cho duration ≤6s.
+### 1. Destructure 2 field mới (line 1491)
 
-### 2. `src/components/video/VideoCompletionWizard.tsx`
-- Thêm step thứ 5 "Phụ đề" giữa BGM và Render.
-- Progress bar tổng (% scenes done × 0.4 + audio 0.2 + render 0.4).
-- Toggle "Tiết kiệm (Seedance)" / "Chất lượng cao (Veo)".
-- ETA dynamic: `missingScenes × 90s + 120s render`.
-- Khi `running === 'scenes'` hiển thị `3/9 ✓` thay vì spinner đơn điệu.
-
-### 3. `supabase/functions/render-video-creatomate/index.ts`
-- **Smart-crop cho 2:3 / 4:5**: Khi clip nguồn 9:16 mà output 2:3/4:5, dùng Creatomate `fit: "cover"` + `y_alignment: "center"` (đã có `fit:cover` nhưng thiếu alignment cho text-safe area).
-- Thêm field `output_url_thumbnail` để Wizard preview ngay khi xong.
-
-### 4. `supabase/functions/render-job-poller/index.ts` (đã có)
-- Sau khi job `succeeded` → auto-trigger `generate-subtitles` với `output_url` để tạo SRT cho version sau (background, không block).
-
-### 5. Migration: `audio_assets` + `script_id`
-```sql
-ALTER TABLE audio_assets ADD COLUMN script_id uuid REFERENCES scripts(id) ON DELETE SET NULL;
-CREATE INDEX idx_audio_assets_script ON audio_assets(script_id, asset_type, created_at DESC);
-```
-Cập nhật `useAudioStudio.generateVoiceover/generateBGM` nhận thêm optional `script_id` và truyền vào edge functions để persist.
-
-### 6. `src/hooks/useAudioStudio.ts` + 2 edge functions audio
-- `generateVoiceover(text, voiceId, scriptId?)` → insert `script_id`.
-- `generateBGM(prompt, dur, scriptId?)` → insert `script_id`.
-- Wizard truyền `activeScript.id` → đảm bảo audio scope đúng.
-
-### 7. Documentation
-Cập nhật `.lovable/memory/features/video/audio-and-stitching-vn.md`:
-- Wizard end-to-end behavior + realtime polling.
-- Default provider matrix (Seedance ≤6s, Veo cho hero scene).
-- Subtitle auto-on cho vertical aspect.
-
-## Technical details
-
-**Realtime polling pattern** (trong `useVideoCompletion`):
 ```ts
-useEffect(() => {
-  if (!activeScript) return;
-  const ch = supabase.channel(`vg-${activeScript.id}`)
-    .on('postgres_changes', {
-      event: 'UPDATE', schema: 'public', table: 'video_generations',
-      filter: `script_id=eq.${activeScript.id}`
-    }, () => fetchGenerations())
-    .subscribe();
-  return () => { supabase.removeChannel(ch); };
-}, [activeScript?.id]);
+let { topic, duration, video_type, character_type, script_purpose,
+      voice_region, dialogue_style, social_format_id, aspect_ratio, /* mới */
+      brandTemplateId, ... } = await req.json();
 ```
 
-**Continuous runAuto** (no return giữa chừng):
+### 2. Thêm preset table trong edge function
+
+Tạo constant `VIDEO_PLATFORM_SPECS` map từ `social_format_id` (vd `tiktok-standard`, `reels-short`, `pinterest-standard`, `fb-feed-standard`, `youtube-long`...) → spec object:
+
 ```ts
-if (missing.length > 0) {
-  await Promise.allSettled(missing.map(submitScene)); // parallel
-  // poll until done or timeout 8min
-  await waitFor(() => completedScenesCount >= scriptScenesCount, 8 * 60_000);
+{
+  platformLabel: 'TikTok',
+  aspect: '9:16',
+  sceneDurationSec: 6,        // align với Seedance/Veo Fast
+  recommendedScenes: 5,       // = ceil(duration / sceneDurationSec)
+  framingHint: 'Vertical framing, subject center, head ~upper third',
+  safeZone: 'Chừa top 220px (UI), bottom 480px (caption + CTA)',
+  textOverlayPosition: 'Center-upper, font 56-72px, max 6 từ',
+  cameraStyle: 'Static or slow push-in (giữ subject in-frame khi crop)',
+  continuityRules: 'Wardrobe + background + lighting NHẤT QUÁN giữa các PROMPT',
 }
-// fall through to audio + render
 ```
 
-**Cost matrix mới** cho short-form 60s (10 scenes × 6s):
-- Seedance 2: ~$1.20 (10 × $0.12)
-- Veo 3: ~$45 (10 × 6 × $0.75)
-- Default Seedance trừ khi user chọn "Hero quality".
+Có ~10 preset (đủ map từ `SOCIAL_FORMAT_PRESETS`). Default fallback = TikTok 9:16 6s.
+
+### 3. Helper mới `getPlatformSpec(socialFormatId, aspectRatio, duration)`
+
+Trả về spec; nếu `socialFormatId` không match thì compose từ `aspect_ratio` + duration (graceful degrade cho old payloads).
+
+### 4. Sửa `getOutputFormat()` cho case `ai_video`
+
+Thay `[00:00-00:08]` cứng bằng `[00:00-00:0{spec.sceneDurationSec}]` động. Thêm 2 dòng vào `[VISUAL DIRECTION]`:
+```
+• Aspect: ${spec.aspect} (${spec.platformLabel})
+• Framing: ${spec.framingHint}
+• Safe zone: ${spec.safeZone}
+```
+Thêm dòng cuối `[CONTINUITY]: Match wardrobe/background/lighting với PROMPT trước đó (chỉ subject action thay đổi).`
+
+### 5. Sửa `getPurposeVisualRules()` case `ai_video`
+
+Mở rộng từ 4 dòng generic thành block đầy đủ:
+- Aspect & framing rules theo `spec`
+- Text-safe zone (vital cho TikTok/Reels caption không bị che)
+- Camera style align với aspect (vertical = static/slow push, horizontal = có thể pan)
+- **Continuity contract**: subject/wardrobe/lighting/background NHẤT QUÁN xuyên suốt (Seedance/Veo không nhớ giữa lần generate).
+
+### 6. Sửa `getPromptCount(duration)` → ưu tiên `spec.recommendedScenes`
+
+Khi có `spec`, dùng `spec.recommendedScenes` thay vì công thức cũ. Đảm bảo Wizard chia đúng số clip (`scriptScenesCount === recommendedScenes`).
+
+### 7. Sửa `getPurposeSelfCheck()` case `ai_video`
+
+Thêm 2 check item mới:
+```
+□ ASPECT RATIO ĐÚNG ${spec.aspect}?
+  - Mỗi PROMPT có chỉ định framing phù hợp ${spec.platformLabel}?
+□ CONTINUITY GIỮA CÁC PROMPT?
+  - Wardrobe/background nhất quán?
+  - Không thay đổi setting đột ngột?
+```
+
+### 8. Truyền `spec` vào `buildSystemPrompt()`
+
+Thêm param thứ 12 `platformSpec?: PlatformSpec`. Pass xuống các helper. Thêm 1 block ngắn ở đầu system prompt:
+
+```
+# 🎬 NỀN TẢNG ĐÍCH
+- Platform: ${spec.platformLabel}
+- Aspect ratio: ${spec.aspect}
+- Mỗi clip: ${spec.sceneDurationSec}s (giới hạn AI video generator)
+- Tổng số PROMPT: ${spec.recommendedScenes}
+- Mọi visual direction PHẢI tuân thủ framing & safe zone của ${spec.platformLabel}.
+```
+
+### 9. Log để debug
+
+```ts
+console.log('[generate-script] Platform spec:', spec.platformLabel, spec.aspect, `${spec.recommendedScenes}×${spec.sceneDurationSec}s`);
+```
+
+## Out of scope (pha sau)
+
+- Sửa UI form / Wizard / render functions.
+- DB migration.
+- Long-form (>90s) — vẫn dùng spec mặc định.
+- Per-purpose tuning cho `teleprompter` / `production` (chỉ `ai_video` đụng tới).
 
 ## Files
 
 **Edited:**
-- `src/hooks/useVideoCompletion.ts` (rewrite ~80%)
-- `src/hooks/useAudioStudio.ts` (add `script_id` param)
-- `src/components/video/VideoCompletionWizard.tsx` (add subtitle step + provider toggle + ETA)
-- `supabase/functions/generate-voiceover/index.ts` (persist `script_id`)
-- `supabase/functions/generate-bgm/index.ts` (persist `script_id`)
-- `supabase/functions/render-video-creatomate/index.ts` (smart-crop alignment)
-- `supabase/functions/render-job-poller/index.ts` (auto subtitle post-render)
-- `.lovable/memory/features/video/audio-and-stitching-vn.md`
-
-**New:**
-- Migration `add_script_id_to_audio_assets.sql`
-
-**Out of scope** (pha sau):
-- Long-form >90s (cần multi-take stitching, B-roll injection).
-- Music-Bed marketplace, lipsync, custom voice clone.
-- Multi-language subtitle.
+- `supabase/functions/generate-script/index.ts` (~150 dòng thêm/sửa, không xóa logic cũ)
 
 Bấm Approve để mình implement.
