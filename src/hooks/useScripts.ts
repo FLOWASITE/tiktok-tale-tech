@@ -71,7 +71,17 @@ export function useScripts() {
 
       const newScript = data as Script;
       setScripts((prev) => [newScript, ...prev]);
-      toast.success('Đã tạo kịch bản thành công!');
+
+      // ⭐ Hiển thị recommendation model AI video (tối ưu giảm số clip)
+      const rec = (data as any)?.recommended_video_model;
+      if (rec?.model_label && rec?.scene_count) {
+        toast.success('Đã tạo kịch bản thành công!', {
+          description: `🎬 Đề xuất render bằng ${rec.model_label} (${rec.max_clip_sec}s/clip) → chỉ cần ${rec.scene_count} clip.`,
+          duration: 6000,
+        });
+      } else {
+        toast.success('Đã tạo kịch bản thành công!');
+      }
 
       // Send notification
       if (user) {
