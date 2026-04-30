@@ -1858,6 +1858,9 @@ NGUYÊN TẮC:
   const purposeOutputReqs = getPurposeOutputRequirements(effectivePurpose, videoTypeName, characterTypeName);
   const blockLabel = effectivePurpose === 'production' ? 'SCENE' : effectivePurpose === 'teleprompter' ? 'ĐOẠN' : 'PROMPT';
 
+  const planLine = spec ? formatSceneDurationPlan(spec.scenePlan) : '';
+  const tsLine   = spec ? formatSceneTimestamps(spec.scenePlan) : '';
+  const planSum  = spec ? spec.scenePlan.reduce((a, b) => a + b, 0) : 0;
   const platformBlock = spec ? `
 # 🎬 NỀN TẢNG ĐÍCH (Bước 2 — User đã chọn)
 - **Platform:** ${spec.platformLabel}
@@ -1867,12 +1870,21 @@ NGUYÊN TẮC:
 ## ⚡ PACING PROFILE (đã tối ưu cho ${spec.platformLabel})
 - **Scene 1 (HOOK):** ~${spec.hookSceneSec}s — PUNCHY, gây tò mò trong 1s đầu, KHÔNG mở chậm (intro/logo)
 - **Scene 2..N (BODY):** trung bình ~${spec.avgSceneSec}s/scene
-- **TỔNG SỐ PROMPT cần tạo: ${spec.recommendedScenes}** (đã tính theo pacing đặc thù platform — KHÔNG chia đều cứng nhắc theo cap clip)
+- **TỔNG SỐ PROMPT cần tạo: ${spec.recommendedScenes}** (đã tính theo pacing đặc thù platform)
 
-## 📏 RÀNG BUỘC
+## ⏱️ DURATION BUDGET — BẮT BUỘC TUÂN THỦ (đã cân bằng để TỔNG = ${spec.totalDurationSec}s)
+- **Bảng thời lượng cố định cho từng PROMPT:**
+  ${planLine}
+- **Timestamps tương ứng:** ${tsLine}
+- **Tổng cộng kiểm chứng:** ${planSum}s ≈ ${spec.totalDurationSec}s mục tiêu
+- ⚠️ **Mỗi PROMPT phải mở đầu bằng đúng timestamp ở trên** (vd \`PROMPT 1 [00:00-00:02]\`, \`PROMPT 2 [00:02-...]\`).
+- ⚠️ **KHÔNG có PROMPT nào ngắn hơn ${MIN_SCENE_SEC}s hoặc dài hơn ${spec.sceneDurationSec}s.**
+- ⚠️ **KHÔNG cào bằng độ dài scene** — Scene 1 phải ngắn theo HOOK rule, các scene sau theo bảng trên.
+- Action/dialogue trong mỗi PROMPT phải vừa khít thời lượng đã cấp (không nhồi nhét, không kéo dài).
+
+## 📏 RÀNG BUỘC KHÁC
 - Mọi VISUAL DIRECTION phải tuân thủ framing & safe zone của ${spec.platformLabel}.
-- Mọi action trong 1 PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây.
-- Giữ pacing đúng số PROMPT đã chỉ định — không tự ý gộp/tách scene.
+- Giữ đúng số PROMPT (${spec.recommendedScenes}) — không tự ý gộp/tách scene.
 ` : '';
 
   return `${purposeIntro}
