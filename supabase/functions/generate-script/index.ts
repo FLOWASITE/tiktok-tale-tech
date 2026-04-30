@@ -1678,7 +1678,7 @@ NGUYÊN TẮC:
   const characterTypeInstructions = CHARACTER_TYPE_INSTRUCTIONS[characterType] || "";
 
   // Build Self-Correction Checklist — purpose-aware
-  const selfCorrectionChecklist = getPurposeSelfCheck(effectivePurpose, videoTypeName, characterTypeName, promptCount);
+  const selfCorrectionChecklist = getPurposeSelfCheck(effectivePurpose, videoTypeName, characterTypeName, promptCount, spec);
 
   // Build Negative Examples
   const negativeExamples = `
@@ -1714,7 +1714,7 @@ NGUYÊN TẮC:
 
   // Purpose-specific sections
   const purposeIntro = getPurposeIntro(effectivePurpose, videoTypeName);
-  const purposeVisualRules = getPurposeVisualRules(effectivePurpose, videoTypeName, voiceRegionInfo);
+  const purposeVisualRules = getPurposeVisualRules(effectivePurpose, videoTypeName, voiceRegionInfo, spec);
   const purposeOutputReqs = getPurposeOutputRequirements(effectivePurpose, videoTypeName, characterTypeName);
   const blockLabel = effectivePurpose === 'production' ? 'SCENE' : effectivePurpose === 'teleprompter' ? 'ĐOẠN' : 'PROMPT';
 
@@ -1783,7 +1783,7 @@ ${purposeVisualRules}
 
 # ĐỊNH DẠNG CHUẨN MỖI ${blockLabel} (${purposeName})
 
-${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount, voiceRegionInfo.label)}
+${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount, voiceRegionInfo.label, spec)}
 
 # NGUYÊN TẮC TIMESTAMP
 - Tính timestamp dựa trên ${duration} giây chia đều cho ${promptCount} ${blockLabel.toLowerCase()}
