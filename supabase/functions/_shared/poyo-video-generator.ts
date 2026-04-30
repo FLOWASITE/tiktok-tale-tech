@@ -49,10 +49,17 @@ async function submitPoyoVideoTask(params: PoyoVideoParams, apiKey: string): Pro
   const modelName = stripPrefix(params.model);
   const aspect = params.aspectRatio || '9:16';
 
+  // PoYo API only accepts duration 5 or 10 — clamp anything higher
+  const rawDuration = params.duration ?? 5;
+  const clampedDuration = rawDuration > 10 ? 10 : rawDuration < 5 ? 5 : rawDuration;
+  if (rawDuration !== clampedDuration) {
+    console.warn(`[poyo-video] Clamped duration ${rawDuration}s → ${clampedDuration}s (PoYo max=10s)`);
+  }
+
   const input: Record<string, unknown> = {
     prompt: params.prompt,
     aspect_ratio: aspect,
-    duration: params.duration ?? 5,
+    duration: clampedDuration,
     resolution: params.resolution ?? '1080p',
   };
 
@@ -80,13 +87,20 @@ async function submitPoyoVideoTask(params: PoyoVideoParams, apiKey: string): Pro
   }
 
   const data = await response.json();
+  console.log(`[poyo-video] Submit response:`, JSON.stringify(data).slice(0, 500));
+
   const embeddedCode = data?.code;
   const embeddedErrType = data?.error?.type || data?.error?.code;
+  const embeddedMsg = data?.error?.message || data?.message;
   if (embeddedCode === 402 || embeddedErrType === 'insufficient_credits_error') {
     throw new Error('POYO_CREDITS_EXHAUSTED: Insufficient PoYo credits');
   }
   if (embeddedCode === 401) throw new Error('POYO_AUTH_ERROR: Invalid PoYo API key');
   if (embeddedCode === 429) throw new Error('POYO_RATE_LIMIT: Too many requests');
+  // Catch any other embedded error before checking task_id
+  if (embeddedCode && embeddedCode >= 400) {
+    throw new Error(`POYO_ERROR_${embeddedCode}: ${embeddedMsg || 'Unknown PoYo error'}`);
+  }
 
   const taskId = data?.data?.task_id || data?.task_id;
   if (!taskId) {

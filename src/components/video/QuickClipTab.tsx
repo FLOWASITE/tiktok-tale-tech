@@ -27,9 +27,8 @@ const VIDEO_MODEL_LABELS: Record<string, string> = Object.fromEntries(
 
 /**
  * Auto-pick model theo aspect (mirror logic của generate-script edge function).
- * - Vertical/square (9:16, 1:1, 2:3): Seedance 2 (cap 15s) — clip dài nhất, rẻ nhất.
+ * - Vertical/square (9:16, 1:1, 2:3): Seedance 2 (cap 10s).
  * - Landscape (16:9): Veo 3.1 Fast (cap 8s, audio native).
- * Mục tiêu: 1 clip cover toàn bộ duration → tiết kiệm credit.
  */
 function autoPickModelForAspect(aspect: VideoAspectRatio): string {
   if (aspect === '16:9') return 'geminigen/veo-3.1-fast';
@@ -37,7 +36,7 @@ function autoPickModelForAspect(aspect: VideoAspectRatio): string {
 }
 
 function defaultDurationForAspect(aspect: VideoAspectRatio): number {
-  return aspect === '16:9' ? 8 : 15;
+  return aspect === '16:9' ? 8 : 10;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -50,7 +49,7 @@ export function QuickClipTab() {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
-  const [duration, setDuration] = useState(15); // Default 15s cho 9:16 (Seedance 2 cap)
+  const [duration, setDuration] = useState(10); // Default 10s cho 9:16 (Seedance 2 cap)
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();

@@ -153,8 +153,8 @@ export const VIDEO_MODEL_CAPS: Record<string, VideoModelCaps> = {
   'poyo/seedance-2': {
     provider: 'poyo',
     aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '2:3'],
-    maxDuration: 15,
-    durationChoices: [5, 10, 15],
+    maxDuration: 10,
+    durationChoices: [5, 10],
     resolutionChoices: ['480p', '720p', '1080p'],
     shortName: 'PoYo Seedance 2',
   },
