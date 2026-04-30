@@ -1622,6 +1622,10 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
   - Hành động trong mỗi PROMPT phải gói gọn trong ${spec.sceneDurationSec} giây (giới hạn AI video generator)?
   - Tổng số PROMPT khớp ${promptCount}?
 
+□ **PACING ĐÚNG ${spec.platformLabel}?**
+  - Scene 1 là HOOK ngắn ~${spec.hookSceneSec}s? (visual gây tò mò ngay, KHÔNG mở chậm)
+  - Scene 2..N có độ dài trung bình ~${spec.avgSceneSec}s? (không cào bằng theo cap clip)
+
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
   - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
