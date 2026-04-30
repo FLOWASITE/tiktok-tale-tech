@@ -1088,8 +1088,8 @@ interface PlatformSpec {
   continuityRules: string;
 }
 
-// Map social_format_id → spec gốc (không gồm recommendedScenes — sẽ tính theo duration)
-type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes'>;
+// Map social_format_id → spec gốc (recommendedScenes/hookSceneSec/avgSceneSec sẽ tính theo PacingProfile + duration)
+type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes' | 'hookSceneSec' | 'avgSceneSec'>;
 
 const PLATFORM_SPEC_BY_ID: Record<string, PlatformSpecBase> = {
   // ===== TikTok 9:16 =====
