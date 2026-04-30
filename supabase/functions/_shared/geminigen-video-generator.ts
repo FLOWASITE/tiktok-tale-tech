@@ -51,33 +51,27 @@ async function submitVideoTask(params: GeminiGenVideoParams, apiKey: string): Pr
   const modelName = stripPrefix(params.model);
   const ratio = mapAspectRatio(params.aspectRatio);
 
-  const formData = new FormData();
-  formData.append('model', modelName);
-  formData.append('prompt', params.prompt);
-  formData.append('aspect_ratio', ratio);
-  formData.append('resolution', params.resolution || '1080p');
-  formData.append('duration', String(params.duration || 5));
+  // GeminiGen video API accepts JSON body (per official demo)
+  const body: Record<string, unknown> = {
+    model: modelName,
+    prompt: params.prompt,
+    aspect_ratio: ratio,
+    resolution: params.resolution || '1080p',
+    duration: params.duration || 5,
+  };
 
-  if (params.negativePrompt) {
-    formData.append('negative_prompt', params.negativePrompt);
-  }
-
-  if (params.startingFrameUrl) {
-    try {
-      const imgResp = await fetch(params.startingFrameUrl);
-      const imgBlob = await imgResp.blob();
-      formData.append('input_image', imgBlob, 'input.png');
-    } catch (e) {
-      console.warn('[geminigen-video] Failed to fetch starting frame, text-only mode:', e);
-    }
-  }
+  if (params.negativePrompt) body.negative_prompt = params.negativePrompt;
+  if (params.startingFrameUrl) body.input_image = params.startingFrameUrl;
 
   console.log(`[geminigen-video] Submit: model=${modelName}, ratio=${ratio}, duration=${params.duration || 5}s`);
 
   const response = await fetch(`${GEMINIGEN_BASE_URL}${GEMINIGEN_VIDEO_ENDPOINT}`, {
     method: 'POST',
-    headers: { 'x-api-key': apiKey },
-    body: formData,
+    headers: {
+      'x-api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
