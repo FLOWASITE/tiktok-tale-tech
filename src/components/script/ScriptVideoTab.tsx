@@ -182,6 +182,8 @@ export function ScriptVideoTab({ script, onSendToVideoStudio, onScriptUpdate }: 
 
       <Separator className="my-4" />
 
+      <VideoJobStatusPanel clips={clips} />
+
       <ScriptMovieGallery scriptId={script.id} />
 
       <Separator className="my-4" />
