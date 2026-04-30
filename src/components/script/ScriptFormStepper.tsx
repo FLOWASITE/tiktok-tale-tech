@@ -915,14 +915,14 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           type="button"
           variant="ghost"
           onClick={handleBack}
-          disabled={currentStep === 1 || isLoading}
+          disabled={currentVisibleIndex === 0 || isLoading}
           className="gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           Quay lại
         </Button>
 
-        {currentStep < 2 ? (
+        {!isLastStep ? (
           <Button
             type="button"
             onClick={handleNext}
