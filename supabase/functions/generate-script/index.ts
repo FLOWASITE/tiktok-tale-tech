@@ -980,7 +980,12 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): stri
   return parts.join("\n");
 };
 
-function getPromptCount(duration: number): string {
+function getPromptCount(duration: number, spec?: PlatformSpec): string {
+  // Khi có spec từ "Bước 2 — Nền tảng video", ưu tiên scene count khớp với clip duration thực tế
+  if (spec) {
+    const n = spec.recommendedScenes;
+    return n > 1 ? `${n - 1}-${n}` : `${n}`;
+  }
   switch (duration) {
     case 60:
       return "7-8";
@@ -992,6 +997,278 @@ function getPromptCount(duration: number): string {
       return "21-23";
     default:
       return "7-8";
+  }
+}
+
+// ============================================
+// PLATFORM SPEC — căn cứ "Bước 2: Nền tảng video"
+// Mỗi PROMPT/scene phải khớp với khả năng của AI video generator
+// (Seedance 5-6s, Veo 3 Fast 6-8s) và safe zone của platform đích.
+// ============================================
+interface PlatformSpec {
+  platformLabel: string;
+  aspect: string;
+  sceneDurationSec: number;       // độ dài 1 clip AI (Seedance/Veo)
+  recommendedScenes: number;      // = ceil(duration / sceneDurationSec)
+  framingHint: string;
+  safeZone: string;
+  textOverlayPosition: string;
+  cameraStyle: string;
+  continuityRules: string;
+}
+
+// Map social_format_id → spec gốc (không gồm recommendedScenes — sẽ tính theo duration)
+type PlatformSpecBase = Omit<PlatformSpec, 'recommendedScenes'>;
+
+const PLATFORM_SPEC_BY_ID: Record<string, PlatformSpecBase> = {
+  // ===== TikTok 9:16 =====
+  'tiktok-short': { platformLabel: 'TikTok', aspect: '9:16', sceneDurationSec: 5,
+    framingHint: 'Vertical, subject center, head ở 1/3 trên khung hình, eye-level',
+    safeZone: 'Chừa top 220px (UI thời gian/avatar) và bottom 480px (caption + nút Like/Share/CTA)',
+    textOverlayPosition: 'Center-upper, font 56-72px, ≤6 từ/dòng',
+    cameraStyle: 'Static hoặc slow push-in (giữ subject in-frame khi crop)',
+    continuityRules: 'Wardrobe + background + lighting NHẤT QUÁN giữa các PROMPT — Seedance/Veo không nhớ scene trước'
+  },
+  'tiktok-standard': { platformLabel: 'TikTok', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical, subject center-upper, có thể medium close-up',
+    safeZone: 'Chừa top 220px + bottom 480px cho UI TikTok',
+    textOverlayPosition: 'Center-upper, font 56-72px, ≤6 từ/dòng',
+    cameraStyle: 'Static hoặc slow push-in / pull-back',
+    continuityRules: 'Giữ wardrobe + background + lighting + character giống nhau xuyên các PROMPT'
+  },
+  'tiktok-long': { platformLabel: 'TikTok', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical, đa dạng shot (medium + close-up) nhưng giữ nhân vật chính',
+    safeZone: 'Chừa top 220px + bottom 480px',
+    textOverlayPosition: 'Center-upper, font 56-72px',
+    cameraStyle: 'Static / slow push / occasional handheld feel',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN; chỉ thay đổi action/biểu cảm'
+  },
+  // ===== Reels (Instagram) 9:16 =====
+  'reels-short': { platformLabel: 'Instagram Reels', aspect: '9:16', sceneDurationSec: 5,
+    framingHint: 'Vertical aesthetic, subject center, có negative space top/bottom',
+    safeZone: 'Chừa top 250px + bottom 380px (caption + Music attribution)',
+    textOverlayPosition: 'Center, font aesthetic 48-64px, max 5 từ',
+    cameraStyle: 'Smooth glide, slow push-in, cinematic',
+    continuityRules: 'Color grade + lighting + wardrobe NHẤT QUÁN — phong cách aesthetic xuyên suốt'
+  },
+  'reels-standard': { platformLabel: 'Instagram Reels', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical cinematic, medium shot, rule of thirds',
+    safeZone: 'Top 250px + bottom 380px',
+    textOverlayPosition: 'Center hoặc lower-third, aesthetic typography',
+    cameraStyle: 'Smooth push/pull, polished cinematic feel',
+    continuityRules: 'Giữ color grade + wardrobe + setting NHẤT QUÁN, scene-to-scene mượt'
+  },
+  'reels-long': { platformLabel: 'Instagram Reels', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical brand storytelling, đa dạng shot trong cùng setting',
+    safeZone: 'Top 250px + bottom 380px',
+    textOverlayPosition: 'Center / lower-third polished',
+    cameraStyle: 'Cinematic, smooth, có thể slow-mo',
+    continuityRules: 'Color grade + wardrobe + setting NHẤT QUÁN xuyên suốt brand story'
+  },
+  // ===== YouTube Shorts 9:16 =====
+  'shorts-short': { platformLabel: 'YouTube Shorts', aspect: '9:16', sceneDurationSec: 5,
+    framingHint: 'Vertical, subject center, clean composition',
+    safeZone: 'Chừa top 200px + bottom 420px (UI YouTube + tiêu đề)',
+    textOverlayPosition: 'Center-upper, font sans 60-72px, ≤6 từ',
+    cameraStyle: 'Static hoặc subtle push-in', continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'shorts-standard': { platformLabel: 'YouTube Shorts', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical clean, medium shot', safeZone: 'Top 200px + bottom 420px',
+    textOverlayPosition: 'Center-upper, sans-serif rõ', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'shorts-long': { platformLabel: 'YouTube Shorts', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical, đa dạng action trong cùng setting', safeZone: 'Top 200px + bottom 420px',
+    textOverlayPosition: 'Center-upper', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== FB Reels 9:16 =====
+  'fb-reels-short':    { platformLabel: 'Facebook Reels', aspect: '9:16', sceneDurationSec: 5,
+    framingHint: 'Vertical, subject center, hook ngay frame đầu', safeZone: 'Top 200px + bottom 440px (UI FB Reels)',
+    textOverlayPosition: 'Center-upper, font đậm 56-72px', cameraStyle: 'Static / push-in nhanh',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'fb-reels-standard': { platformLabel: 'Facebook Reels', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical, medium shot', safeZone: 'Top 200px + bottom 440px',
+    textOverlayPosition: 'Center-upper', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'fb-reels-long':     { platformLabel: 'Facebook Reels', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical storytelling, đa shot cùng setting', safeZone: 'Top 200px + bottom 440px',
+    textOverlayPosition: 'Center-upper', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== Pinterest =====
+  'pinterest-short': { platformLabel: 'Pinterest Pin', aspect: '2:3', sceneDurationSec: 5,
+    framingHint: 'Vertical 2:3, lifestyle/aesthetic, subject center, có không gian cho text overlay',
+    safeZone: 'Chừa top 120px + bottom 180px cho Pin title overlay',
+    textOverlayPosition: 'Top hoặc bottom band, sans-serif clean, search-friendly keyword',
+    cameraStyle: 'Static, lifestyle photography feel', continuityRules: 'Color palette + lifestyle setting NHẤT QUÁN'
+  },
+  'pinterest-standard': { platformLabel: 'Pinterest Pin', aspect: '2:3', sceneDurationSec: 6,
+    framingHint: 'Vertical 2:3 tutorial / before-after, subject rõ',
+    safeZone: 'Top 120px + bottom 180px', textOverlayPosition: 'Top/bottom band cho keyword',
+    cameraStyle: 'Static lifestyle / overhead', continuityRules: 'Color palette + setting NHẤT QUÁN'
+  },
+  'pinterest-long': { platformLabel: 'Pinterest Idea Pin', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical 9:16 how-to, rõ subject', safeZone: 'Top 200px + bottom 380px',
+    textOverlayPosition: 'Center, save-worthy keyword', cameraStyle: 'Static / overhead / push',
+    continuityRules: 'Color palette + setting NHẤT QUÁN'
+  },
+  // ===== Threads 9:16 =====
+  'threads-short':    { platformLabel: 'Threads', aspect: '9:16', sceneDurationSec: 5,
+    framingHint: 'Vertical, talking-head conversational', safeZone: 'Top 180px + bottom 320px',
+    textOverlayPosition: 'Center, sans-serif', cameraStyle: 'Static talking-head',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'threads-standard': { platformLabel: 'Threads', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical conversational, medium shot', safeZone: 'Top 180px + bottom 320px',
+    textOverlayPosition: 'Center', cameraStyle: 'Static / slight push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'threads-long':     { platformLabel: 'Threads', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical narrative dài', safeZone: 'Top 180px + bottom 320px',
+    textOverlayPosition: 'Center', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== Bluesky 1:1 =====
+  'bluesky-short':    { platformLabel: 'Bluesky', aspect: '1:1', sceneDurationSec: 5,
+    framingHint: 'Square, subject center, captions-friendly', safeZone: 'Padding 80px mỗi cạnh',
+    textOverlayPosition: 'Bottom-third hoặc center', cameraStyle: 'Static',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'bluesky-standard': { platformLabel: 'Bluesky', aspect: '1:1', sceneDurationSec: 6,
+    framingHint: 'Square, medium shot', safeZone: 'Padding 80px',
+    textOverlayPosition: 'Bottom-third', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'bluesky-long':     { platformLabel: 'Bluesky', aspect: '1:1', sceneDurationSec: 6,
+    framingHint: 'Square narrative', safeZone: 'Padding 80px',
+    textOverlayPosition: 'Bottom-third', cameraStyle: 'Static / push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== WhatsApp Status 9:16 =====
+  'whatsapp-short':    { platformLabel: 'WhatsApp Status', aspect: '9:16', sceneDurationSec: 5,
+    framingHint: 'Vertical, hook nhanh', safeZone: 'Top 180px + bottom 280px',
+    textOverlayPosition: 'Center, sans rõ', cameraStyle: 'Static',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'whatsapp-standard': { platformLabel: 'WhatsApp Status', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical announcement', safeZone: 'Top 180px + bottom 280px',
+    textOverlayPosition: 'Center', cameraStyle: 'Static',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'whatsapp-long':     { platformLabel: 'WhatsApp Status', aspect: '9:16', sceneDurationSec: 6,
+    framingHint: 'Vertical mini-story', safeZone: 'Top 180px + bottom 280px',
+    textOverlayPosition: 'Center', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== Facebook Feed 1:1 =====
+  'facebook-short':    { platformLabel: 'Facebook Feed', aspect: '1:1', sceneDurationSec: 5,
+    framingHint: 'Square, hook frame đầu, captions-first (đa số xem tắt tiếng)',
+    safeZone: 'Padding 60px mỗi cạnh', textOverlayPosition: 'Center hoặc bottom-third, sans-serif rõ',
+    cameraStyle: 'Static', continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'facebook-standard': { platformLabel: 'Facebook Feed', aspect: '1:1', sceneDurationSec: 6,
+    framingHint: 'Square, medium shot, captions-first', safeZone: 'Padding 60px',
+    textOverlayPosition: 'Bottom-third caption', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'facebook-long':     { platformLabel: 'Facebook Feed', aspect: '1:1', sceneDurationSec: 6,
+    framingHint: 'Square storytelling', safeZone: 'Padding 60px',
+    textOverlayPosition: 'Bottom-third', cameraStyle: 'Static / push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== LinkedIn 16:9 =====
+  'linkedin-short':    { platformLabel: 'LinkedIn', aspect: '16:9', sceneDurationSec: 6,
+    framingHint: 'Horizontal professional, medium shot, business setting',
+    safeZone: 'Padding 80px, để chỗ cho lower-third graphic',
+    textOverlayPosition: 'Lower-third corporate clean', cameraStyle: 'Static professional',
+    continuityRules: 'Setting + wardrobe professional NHẤT QUÁN'
+  },
+  'linkedin-standard': { platformLabel: 'LinkedIn', aspect: '16:9', sceneDurationSec: 6,
+    framingHint: 'Horizontal thought-leadership, medium shot', safeZone: 'Padding 80px',
+    textOverlayPosition: 'Lower-third graphics', cameraStyle: 'Static / slow push',
+    continuityRules: 'Setting + wardrobe NHẤT QUÁN'
+  },
+  'linkedin-long':     { platformLabel: 'LinkedIn', aspect: '16:9', sceneDurationSec: 6,
+    framingHint: 'Horizontal case-study, đa dạng shot trong setting professional',
+    safeZone: 'Padding 80px', textOverlayPosition: 'Lower-third + data overlay',
+    cameraStyle: 'Static / cinematic push', continuityRules: 'Setting + wardrobe NHẤT QUÁN'
+  },
+  // ===== X / Twitter 1:1 =====
+  'x-short':    { platformLabel: 'X (Twitter)', aspect: '1:1', sceneDurationSec: 5,
+    framingHint: 'Square punchy, subject center, text-overlay heavy',
+    safeZone: 'Padding 60px', textOverlayPosition: 'Center large text-overlay',
+    cameraStyle: 'Static / quick cut', continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'x-standard': { platformLabel: 'X (Twitter)', aspect: '1:1', sceneDurationSec: 6,
+    framingHint: 'Square hot-take, medium shot', safeZone: 'Padding 60px',
+    textOverlayPosition: 'Center text-overlay', cameraStyle: 'Static / slow push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  'x-long':     { platformLabel: 'X (Twitter)', aspect: '1:1', sceneDurationSec: 6,
+    framingHint: 'Square deep-take, nhiều góc trong cùng setting', safeZone: 'Padding 60px',
+    textOverlayPosition: 'Center / bottom band', cameraStyle: 'Static / push',
+    continuityRules: 'Wardrobe + background NHẤT QUÁN'
+  },
+  // ===== YouTube Long 16:9 =====
+  'youtube-short':    { platformLabel: 'YouTube', aspect: '16:9', sceneDurationSec: 6,
+    framingHint: 'Horizontal cinematic intro, wide shot có depth',
+    safeZone: 'Padding 80px, chừa lower-third cho graphics',
+    textOverlayPosition: 'Lower-third hoặc center cinematic', cameraStyle: 'Cinematic push / slow pan',
+    continuityRules: 'Setting + lighting + wardrobe NHẤT QUÁN cinematic'
+  },
+  'youtube-standard': { platformLabel: 'YouTube', aspect: '16:9', sceneDurationSec: 6,
+    framingHint: 'Horizontal wide + medium shots, deep-dive', safeZone: 'Padding 80px',
+    textOverlayPosition: 'Lower-third', cameraStyle: 'Cinematic, slow movements',
+    continuityRules: 'Setting + lighting + wardrobe NHẤT QUÁN'
+  },
+  'youtube-long':     { platformLabel: 'YouTube', aspect: '16:9', sceneDurationSec: 6,
+    framingHint: 'Horizontal multi-segment, high production', safeZone: 'Padding 80px',
+    textOverlayPosition: 'Lower-third + chapter graphics', cameraStyle: 'Cinematic, đa dạng',
+    continuityRules: 'Setting + lighting + wardrobe NHẤT QUÁN trong từng segment'
+  },
+};
+
+/** Resolve PlatformSpec từ social_format_id + aspect_ratio + duration (graceful degrade). */
+function getPlatformSpec(
+  socialFormatId: string | undefined,
+  aspectRatio: string | undefined,
+  duration: number,
+): PlatformSpec {
+  const base = (socialFormatId && PLATFORM_SPEC_BY_ID[socialFormatId])
+    || inferSpecFromAspect(aspectRatio);
+  const sceneDur = base.sceneDurationSec;
+  const recommendedScenes = Math.max(1, Math.min(20, Math.ceil(duration / sceneDur)));
+  return { ...base, recommendedScenes };
+}
+
+function inferSpecFromAspect(aspect: string | undefined): PlatformSpecBase {
+  switch (aspect) {
+    case '16:9':
+      return { platformLabel: 'Horizontal video', aspect: '16:9', sceneDurationSec: 6,
+        framingHint: 'Horizontal medium shot, wide composition', safeZone: 'Padding 80px',
+        textOverlayPosition: 'Lower-third', cameraStyle: 'Static / slow push',
+        continuityRules: 'Setting + wardrobe + lighting NHẤT QUÁN' };
+    case '1:1':
+      return { platformLabel: 'Square video', aspect: '1:1', sceneDurationSec: 6,
+        framingHint: 'Square, subject center, captions-first', safeZone: 'Padding 60px',
+        textOverlayPosition: 'Center / bottom-third', cameraStyle: 'Static',
+        continuityRules: 'Wardrobe + background NHẤT QUÁN' };
+    case '2:3':
+      return { platformLabel: 'Pinterest 2:3', aspect: '2:3', sceneDurationSec: 6,
+        framingHint: 'Vertical 2:3 lifestyle', safeZone: 'Top 120px + bottom 180px',
+        textOverlayPosition: 'Top/bottom band', cameraStyle: 'Static lifestyle',
+        continuityRules: 'Color palette + setting NHẤT QUÁN' };
+    case '4:5':
+      return { platformLabel: 'IG Feed 4:5', aspect: '4:5', sceneDurationSec: 6,
+        framingHint: 'Vertical 4:5, subject center-upper', safeZone: 'Top 120px + bottom 200px',
+        textOverlayPosition: 'Center-upper', cameraStyle: 'Static / slow push',
+        continuityRules: 'Wardrobe + background NHẤT QUÁN' };
+    case '9:16':
+    default:
+      return PLATFORM_SPEC_BY_ID['tiktok-standard'];
   }
 }
 
