@@ -1,119 +1,121 @@
 ## Vấn đề
 
-Step 2 ("Nền tảng video") trong ScriptFormStepper đã thu thập `social_format_id` + `aspect_ratio` (TikTok 9:16, Reels 9:16, Shorts 9:16, Pinterest 2:3, FB Feed 4:5, YouTube 16:9...) và truyền lên edge function `generate-script` — nhưng **edge function bỏ qua hoàn toàn** 2 field này. Hậu quả:
+Hiện `getPromptCount(duration, spec)` chỉ trả `ceil(duration / sceneDurationSec)` — cùng công thức cho mọi nền tảng. Hậu quả:
 
-- Prompt `ai_video` mặc định gắn cứng `[00:00-00:08]` (8s/scene) → mismatch với nền tảng tạo clip thực tế (Seedance default 5-6s, Veo 3 Fast 6-8s, Wizard chia scene theo 6s).
-- Visual rule generic "Medium shot, soft lighting" — không nói đến **aspect ratio**, **safe zone** cho text overlay (TikTok cần chừa 220px top + 480px bottom cho UI), không có **vertical framing** cho 9:16.
-- Không có hint về **scene continuity** (background/wardrobe nhất quán giữa các PROMPT) → khi stitch lại MP4 sẽ giật.
-- Số PROMPT không khớp với `getEstimatedScenes(preset)` → Wizard tạo thừa/thiếu scene so với kịch bản.
-- Pinterest 2:3, FB Feed 4:5 đều bị xử lý như 9:16 generic → smart-crop của render-video-creatomate hoạt động nhưng nội dung visual ban đầu sai khung hình.
+- **TikTok/Reels/Shorts 30s** → 5 scene × 6s đều nhau, mất "hook nhanh 0-3s" và pacing dồn dập đặc trưng short-form vertical (chuẩn industry: hook ≤3s, scene 2-4s, retention drop nếu scene >5s).
+- **Pinterest 2:3** → cần ít scene hơn (ảnh tĩnh + slow zoom kiểu Idea Pin), nhưng đang bằng TikTok.
+- **YouTube Long 600s** → bị clamp 20 scene (3-4s/scene cho 10 phút) — quá ít, kịch bản dài thường cần story beats rõ.
+- **LinkedIn/Facebook Feed** → cần scene dài hơn (talking-head, B-roll chậm), nhưng đang dùng cùng 6s.
+
+Wizard render khớp 1-1 scene → nếu prompt count sai, video pacing sai theo.
 
 ## Mục tiêu
 
-Sửa duy nhất prompt của `generate-script` để mỗi PROMPT/scene xuất ra **đúng nền tảng đích**: aspect ratio, scene duration, scene count, framing rules, text-safe zone, continuity hints.
+Tính số PROMPT thông minh theo **(nền tảng × độ dài × purpose)**, không chỉ phép chia. Mỗi platform có "pacing profile" riêng dựa trên best practice short-form/long-form 2026.
 
 ## Phạm vi
 
 **Chỉ một file:** `supabase/functions/generate-script/index.ts`
 
-Không động vào: UI form, ScriptToVideoContext, Wizard, render edge functions, DB schema.
-
 ## Thay đổi
 
-### 1. Destructure 2 field mới (line 1491)
+### 1. Thêm field `pacing` vào `PlatformSpec`
 
 ```ts
-let { topic, duration, video_type, character_type, script_purpose,
-      voice_region, dialogue_style, social_format_id, aspect_ratio, /* mới */
-      brandTemplateId, ... } = await req.json();
-```
-
-### 2. Thêm preset table trong edge function
-
-Tạo constant `VIDEO_PLATFORM_SPECS` map từ `social_format_id` (vd `tiktok-standard`, `reels-short`, `pinterest-standard`, `fb-feed-standard`, `youtube-long`...) → spec object:
-
-```ts
-{
-  platformLabel: 'TikTok',
-  aspect: '9:16',
-  sceneDurationSec: 6,        // align với Seedance/Veo Fast
-  recommendedScenes: 5,       // = ceil(duration / sceneDurationSec)
-  framingHint: 'Vertical framing, subject center, head ~upper third',
-  safeZone: 'Chừa top 220px (UI), bottom 480px (caption + CTA)',
-  textOverlayPosition: 'Center-upper, font 56-72px, max 6 từ',
-  cameraStyle: 'Static or slow push-in (giữ subject in-frame khi crop)',
-  continuityRules: 'Wardrobe + background + lighting NHẤT QUÁN giữa các PROMPT',
+interface PlatformSpec {
+  platformLabel: string;
+  aspect: string;
+  sceneDurationSec: number;       // độ dài CLIP AI tối đa (giữ nguyên — Seedance/Veo cap)
+  avgSceneDurationSec: number;    // MỚI — pacing trung bình mong muốn cho platform
+  hookSceneDurationSec: number;   // MỚI — scene đầu (hook) cần ngắn hơn cho retention
+  maxScenes: number;              // MỚI — hard cap để Wizard không quá tải
+  recommendedScenes: number;      // tính lại theo công thức mới
+  ...
 }
 ```
 
-Có ~10 preset (đủ map từ `SOCIAL_FORMAT_PRESETS`). Default fallback = TikTok 9:16 6s.
+### 2. Cập nhật `PLATFORM_SPEC_BY_ID` với pacing profiles
 
-### 3. Helper mới `getPlatformSpec(socialFormatId, aspectRatio, duration)`
+| Platform group | avgScene | hookScene | maxScenes | Lý do |
+|---|---|---|---|---|
+| TikTok / Reels / Shorts / FB Reels (short-form vertical) | **3.5s** | 2s | 18 | Hook nhanh, cắt dồn dập, retention chuẩn |
+| Pinterest Pin (2:3 ảnh tĩnh + motion) | **6s** | 4s | 8 | Idea Pin nhịp chậm, mỗi card 1 ý |
+| Pinterest Idea Pin Long (9:16) | 4s | 3s | 12 | Như TikTok nhẹ |
+| Threads / Bluesky / WhatsApp | 4s | 3s | 15 | Short-form nhưng nhẹ hơn |
+| Facebook Feed / X | **5s** | 3s | 16 | Mid-pacing, có chỗ thở |
+| LinkedIn (B2B, 16:9) | **6s** | 4s | 18 | Talking-head, slow B-roll |
+| YouTube (16:9, long-form) | **8s** | 4s | 40 | Story beats, không cắt vụn |
 
-Trả về spec; nếu `socialFormatId` không match thì compose từ `aspect_ratio` + duration (graceful degrade cho old payloads).
-
-### 4. Sửa `getOutputFormat()` cho case `ai_video`
-
-Thay `[00:00-00:08]` cứng bằng `[00:00-00:0{spec.sceneDurationSec}]` động. Thêm 2 dòng vào `[VISUAL DIRECTION]`:
-```
-• Aspect: ${spec.aspect} (${spec.platformLabel})
-• Framing: ${spec.framingHint}
-• Safe zone: ${spec.safeZone}
-```
-Thêm dòng cuối `[CONTINUITY]: Match wardrobe/background/lighting với PROMPT trước đó (chỉ subject action thay đổi).`
-
-### 5. Sửa `getPurposeVisualRules()` case `ai_video`
-
-Mở rộng từ 4 dòng generic thành block đầy đủ:
-- Aspect & framing rules theo `spec`
-- Text-safe zone (vital cho TikTok/Reels caption không bị che)
-- Camera style align với aspect (vertical = static/slow push, horizontal = có thể pan)
-- **Continuity contract**: subject/wardrobe/lighting/background NHẤT QUÁN xuyên suốt (Seedance/Veo không nhớ giữa lần generate).
-
-### 6. Sửa `getPromptCount(duration)` → ưu tiên `spec.recommendedScenes`
-
-Khi có `spec`, dùng `spec.recommendedScenes` thay vì công thức cũ. Đảm bảo Wizard chia đúng số clip (`scriptScenesCount === recommendedScenes`).
-
-### 7. Sửa `getPurposeSelfCheck()` case `ai_video`
-
-Thêm 2 check item mới:
-```
-□ ASPECT RATIO ĐÚNG ${spec.aspect}?
-  - Mỗi PROMPT có chỉ định framing phù hợp ${spec.platformLabel}?
-□ CONTINUITY GIỮA CÁC PROMPT?
-  - Wardrobe/background nhất quán?
-  - Không thay đổi setting đột ngột?
-```
-
-### 8. Truyền `spec` vào `buildSystemPrompt()`
-
-Thêm param thứ 12 `platformSpec?: PlatformSpec`. Pass xuống các helper. Thêm 1 block ngắn ở đầu system prompt:
-
-```
-# 🎬 NỀN TẢNG ĐÍCH
-- Platform: ${spec.platformLabel}
-- Aspect ratio: ${spec.aspect}
-- Mỗi clip: ${spec.sceneDurationSec}s (giới hạn AI video generator)
-- Tổng số PROMPT: ${spec.recommendedScenes}
-- Mọi visual direction PHẢI tuân thủ framing & safe zone của ${spec.platformLabel}.
-```
-
-### 9. Log để debug
+### 3. Viết lại `getPromptCount(duration, spec, purpose)`
 
 ```ts
-console.log('[generate-script] Platform spec:', spec.platformLabel, spec.aspect, `${spec.recommendedScenes}×${spec.sceneDurationSec}s`);
+function getPromptCount(duration, spec, purpose) {
+  // Non-video purpose giữ nguyên fallback cũ (teleprompter/production)
+  if (!spec) return /* legacy switch */;
+
+  // Hook chiếm scene đầu, phần còn lại chia theo avgScene
+  const hookSec = spec.hookSceneDurationSec;
+  const remaining = Math.max(0, duration - hookSec);
+  const bodyScenes = Math.round(remaining / spec.avgSceneDurationSec);
+  const total = Math.min(spec.maxScenes, Math.max(2, 1 + bodyScenes));
+
+  // Range ±1 cho AI có flexibility (vd "8-9")
+  return total > 3 ? `${total - 1}-${total}` : `${total}`;
+}
 ```
 
-## Out of scope (pha sau)
+### 4. Cập nhật `getPlatformSpec()` để tính `recommendedScenes` theo công thức mới
 
-- Sửa UI form / Wizard / render functions.
-- DB migration.
-- Long-form (>90s) — vẫn dùng spec mặc định.
-- Per-purpose tuning cho `teleprompter` / `production` (chỉ `ai_video` đụng tới).
+Thay `ceil(duration / sceneDurationSec)` bằng cùng logic hook + body như `getPromptCount`. Đảm bảo `recommendedScenes` (dùng trong system prompt + Wizard expectation) khớp với `promptCount` (dùng trong AI instruction).
+
+### 5. Inject pacing rule vào system prompt
+
+Trong block `# 🎬 NỀN TẢNG ĐÍCH` (line ~1721), thêm:
+
+```
+- Pacing chuẩn ${spec.platformLabel}: scene đầu (HOOK) ~${hookSec}s, các scene sau ~${avgSec}s.
+- Tổng: ${recommendedScenes} PROMPT (đã tính theo pacing đặc thù platform).
+- KHÔNG chia đều cứng nhắc — scene 1 phải PUNCHY/ngắn để giữ retention.
+```
+
+### 6. Cập nhật `getPurposeSelfCheck` `ai_video`
+
+Thêm checklist:
+```
+□ SCENE 1 LÀ HOOK (≤${hookSec}s)?
+  - Visual gây tò mò ngay 1s đầu?
+  - Không mở chậm (intro/logo)?
+□ PACING KHỚP ${platformLabel}?
+  - Scene trung bình ~${avgSec}s?
+  - Tổng số scene = ${recommendedScenes} (±1)?
+```
+
+### 7. Log pacing để debug
+
+```ts
+console.log('[generate-script] Pacing:', spec.platformLabel,
+  `hook=${spec.hookSceneDurationSec}s avg=${spec.avgSceneDurationSec}s → ${spec.recommendedScenes} scenes for ${duration}s`);
+```
+
+## Ví dụ kết quả
+
+| Input | Trước | Sau |
+|---|---|---|
+| TikTok 30s | 5 scenes × 6s | **8 scenes** (1 hook 2s + 7 body ~4s) |
+| Reels 60s | 10 scenes × 6s | **15 scenes** (1 hook 2s + 14 body ~4s) — clamp 18 |
+| Pinterest 30s | 5 scenes × 6s | **5 scenes** (1 hook 4s + 4 body ~6s) |
+| LinkedIn 90s | 15 scenes × 6s | **15 scenes** (1 hook 4s + 14 body ~6s) |
+| YouTube 600s | 20 scenes (clamped) | **40 scenes** (1 hook 4s + 39 body ~8s, clamp max) |
+
+## Out of scope
+
+- UI form, Wizard, render edge functions — không động.
+- Chưa tách pacing theo `script_purpose` (educational vs entertainment) — pha sau.
+- DB schema không đổi.
 
 ## Files
 
 **Edited:**
-- `supabase/functions/generate-script/index.ts` (~150 dòng thêm/sửa, không xóa logic cũ)
+- `supabase/functions/generate-script/index.ts` (~50 dòng: mở rộng interface, cập nhật 30 preset entries với 3 field mới, viết lại 2 hàm, thêm checklist)
 
 Bấm Approve để mình implement.
