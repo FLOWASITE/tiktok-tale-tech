@@ -1501,7 +1501,8 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
   const sceneSec = spec?.sceneDurationSec ?? 8;
   const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
   const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
-  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.` : '';
+  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip). Viết visual prompt phù hợp với khả năng model này — tránh mô tả chuyển động quá phức tạp vượt quá ${spec.sceneDurationSec}s.` : '';
+  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.${modelLine}` : '';
   switch(purpose) {
     case 'ai_video':
     case 'ai_video_veo3':
