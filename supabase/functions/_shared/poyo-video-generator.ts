@@ -49,10 +49,17 @@ async function submitPoyoVideoTask(params: PoyoVideoParams, apiKey: string): Pro
   const modelName = stripPrefix(params.model);
   const aspect = params.aspectRatio || '9:16';
 
+  // PoYo API only accepts duration 5 or 10 — clamp anything higher
+  const rawDuration = params.duration ?? 5;
+  const clampedDuration = rawDuration > 10 ? 10 : rawDuration < 5 ? 5 : rawDuration;
+  if (rawDuration !== clampedDuration) {
+    console.warn(`[poyo-video] Clamped duration ${rawDuration}s → ${clampedDuration}s (PoYo max=10s)`);
+  }
+
   const input: Record<string, unknown> = {
     prompt: params.prompt,
     aspect_ratio: aspect,
-    duration: params.duration ?? 5,
+    duration: clampedDuration,
     resolution: params.resolution ?? '1080p',
   };
 
