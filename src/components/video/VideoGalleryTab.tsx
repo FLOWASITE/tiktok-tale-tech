@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GalleryHorizontalEnd, Loader2, AlertCircle, CheckCircle2, Trash2, Download, RefreshCw, Video as VideoIcon, Clapperboard } from 'lucide-react';
+import { GalleryHorizontalEnd, Loader2, AlertCircle, CheckCircle2, Trash2, Download, RefreshCw, Video as VideoIcon, Clapperboard, Clock, Timer } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PublishVideoMenu } from './PublishVideoMenu';
+import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
+import { LazyVideo } from '@/components/ui/lazy-video';
 
 type AspectFilter = 'all' | '9:16' | '16:9' | '1:1';
-type ScriptFilter = 'all' | 'standalone' | string; // string = scriptId
+type ScriptFilter = 'all' | 'standalone' | string;
+
+const ASPECT_CLASS: Record<string, string> = {
+  '9:16': 'aspect-[9/16] max-h-[320px]',
+  '1:1': 'aspect-square',
+  '16:9': 'aspect-video',
+};
 
 export function VideoGalleryTab() {
   const { user } = useAuth();
@@ -28,7 +36,6 @@ export function VideoGalleryTab() {
     fetchGenerations();
   }, [fetchGenerations]);
 
-  // Lấy tiêu đề các script đã có clip
   useEffect(() => {
     if (!user) return;
     const ids = Array.from(new Set(generations.map((g) => g.script_id).filter(Boolean))) as string[];
@@ -173,14 +180,31 @@ export function VideoGalleryTab() {
             })();
             const Icon = statusBadge.icon;
             const scriptTitle = g.script_id ? scriptTitles[g.script_id] : null;
+            const aspectClass = ASPECT_CLASS[g.aspect_ratio] ?? 'aspect-video';
+            const lazyAspect = (g.aspect_ratio === '9:16' || g.aspect_ratio === '1:1') ? g.aspect_ratio : '16:9';
+
             return (
-              <Card key={g.id} className="overflow-hidden border-border/60 group">
-                <div className="aspect-video bg-muted/50 relative overflow-hidden">
+              <Card key={g.id} className="overflow-hidden border-border/60 group flex flex-col">
+                {/* Video preview — aspect-ratio aware */}
+                <div className={cn('bg-muted/50 relative overflow-hidden', aspectClass)}>
                   {g.video_url ? (
-                    <video src={g.video_url} controls className="w-full h-full object-cover" preload="metadata" poster={g.thumbnail_url} />
+                    <LazyVideo
+                      src={g.video_url}
+                      poster={g.thumbnail_url ?? undefined}
+                      aspectRatio={lazyAspect as '16:9' | '9:16' | '1:1'}
+                      className="w-full h-full"
+                      containerClassName="w-full h-full"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <VideoIcon className="w-8 h-8 text-muted-foreground/40" />
+                      {g.status === 'processing' || g.status === 'pending' ? (
+                        <div className="flex flex-col items-center gap-1.5">
+                          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">Đang render…</span>
+                        </div>
+                      ) : (
+                        <VideoIcon className="w-8 h-8 text-muted-foreground/40" />
+                      )}
                     </div>
                   )}
                   <Badge className={cn('absolute top-2 right-2 h-5 px-1.5 text-[10px] font-medium border-0 gap-1', statusBadge.tone)}>
@@ -188,11 +212,14 @@ export function VideoGalleryTab() {
                     {statusBadge.label}
                   </Badge>
                 </div>
-                <div className="p-3 space-y-2">
+
+                {/* Body */}
+                <div className="p-3 space-y-2 flex-1 flex flex-col">
+                  {/* Script scene link */}
                   {g.script_id && g.scene_number && (
                     <button
                       onClick={() => navigate('/scripts')}
-                      className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md border border-foreground/20 text-foreground/70 text-[10px] hover:bg-muted/50 transition max-w-full"
+                      className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md border border-foreground/20 text-foreground/70 text-[10px] hover:bg-muted/50 transition max-w-full self-start"
                       title={scriptTitle ? `Mở kịch bản: ${scriptTitle}` : 'Mở kịch bản'}
                     >
                       <Clapperboard className="w-2.5 h-2.5 shrink-0" />
@@ -202,13 +229,33 @@ export function VideoGalleryTab() {
                       </span>
                     </button>
                   )}
+
+                  {/* Model badge */}
+                  {g.model_used && (
+                    <ModelUsedBadge modelUsed={g.model_used} />
+                  )}
+
+                  {/* Prompt */}
                   <p className="text-xs text-foreground line-clamp-2 leading-snug">{g.prompt}</p>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+
+                  {/* Meta row */}
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground font-mono">
                     <span>{g.aspect_ratio} · {g.duration_seconds}s</span>
-                    <span>{formatDistanceToNow(new Date(g.created_at), { addSuffix: true, locale: vi })}</span>
+                    {g.generation_time_ms && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <Timer className="w-2.5 h-2.5" />
+                        {(g.generation_time_ms / 1000).toFixed(1)}s render
+                      </span>
+                    )}
+                    {g.cost_estimate != null && g.cost_estimate > 0 && (
+                      <span className="text-foreground/60">~${g.cost_estimate.toFixed(3)}</span>
+                    )}
+                    <span className="ml-auto">{formatDistanceToNow(new Date(g.created_at), { addSuffix: true, locale: vi })}</span>
                   </div>
+
+                  {/* Actions */}
                   {g.status === 'completed' && g.video_url && (
-                    <div className="flex items-center gap-1.5 pt-1">
+                    <div className="flex items-center gap-1.5 pt-1 mt-auto">
                       <Button asChild variant="outline" size="sm" className="h-7 text-[10px] gap-1 flex-1">
                         <a href={g.video_url} download target="_blank" rel="noreferrer">
                           <Download className="w-3 h-3" />
@@ -217,7 +264,7 @@ export function VideoGalleryTab() {
                       </Button>
                       <PublishVideoMenu
                         videoUrl={g.video_url}
-                        aspectRatio={g.aspect_ratio as '9:16' | '16:9' | '1:1'}
+                        aspectRatio={lazyAspect as '9:16' | '16:9' | '1:1'}
                         defaultCaption={g.prompt?.slice(0, 200) ?? ''}
                         size="sm"
                         variant="outline"
@@ -229,7 +276,7 @@ export function VideoGalleryTab() {
                     </div>
                   )}
                   {g.status === 'failed' && g.error_message && (
-                    <p className="text-[10px] text-red-600 dark:text-red-400 line-clamp-2">{g.error_message}</p>
+                    <p className="text-[10px] text-destructive line-clamp-2 mt-auto">{g.error_message}</p>
                   )}
                 </div>
               </Card>

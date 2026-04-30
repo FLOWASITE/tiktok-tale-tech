@@ -26,6 +26,7 @@ import {
   MoreHorizontal,
   Download,
 } from 'lucide-react';
+import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { cn } from '@/lib/utils';
 import type { VideoGeneration } from '@/types/videoGeneration';
 import type { StoryboardScene } from '@/types/storyboard';
@@ -163,6 +164,11 @@ function SceneCard({ item, onRender, onOpenStudio }: CardProps) {
         <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">
           {promptText || 'Không có mô tả'}
         </p>
+
+        {/* Model badge */}
+        {isCompleted && clip?.model_used && (
+          <ModelUsedBadge modelUsed={clip.model_used} className="self-start" />
+        )}
 
         {/* Status + meta inline */}
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80">

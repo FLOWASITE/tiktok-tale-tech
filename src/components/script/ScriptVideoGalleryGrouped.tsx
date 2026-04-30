@@ -9,13 +9,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Loader2, ExternalLink, Download, Layers, Clock } from 'lucide-react';
+import { Loader2, ExternalLink, Download, Layers, Clock, Timer } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { VideoGeneration } from '@/types/videoGeneration';
 import { LazyVideo } from '@/components/ui/lazy-video';
 import { VideoGallery } from './VideoGallery';
+import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 
 interface Props {
   scriptId: string;
@@ -155,17 +156,29 @@ function VersionCard({ clip, isLatest }: { clip: VideoGeneration; isLatest: bool
         )}
       </div>
 
-      <div className="p-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-1.5 min-w-0">
+      <div className="p-2 flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
           {isLatest && (
             <Badge className="text-[9px] h-4 px-1.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0 shrink-0">
               Mới nhất
             </Badge>
           )}
+          {clip.model_used && (
+            <ModelUsedBadge modelUsed={clip.model_used} className="text-[9px]" />
+          )}
           <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1 truncate">
             <Clock className="h-2.5 w-2.5 shrink-0" />
             {created}
           </span>
+          {clip.duration_seconds && (
+            <span className="text-[10px] text-muted-foreground">{clip.duration_seconds}s</span>
+          )}
+          {clip.generation_time_ms && (
+            <span className="text-[10px] text-muted-foreground inline-flex items-center gap-0.5">
+              <Timer className="h-2.5 w-2.5" />
+              {(clip.generation_time_ms / 1000).toFixed(1)}s
+            </span>
+          )}
         </div>
         {clip.video_url && (
           <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-auto">
