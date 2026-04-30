@@ -15,6 +15,8 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import type { VideoGeneration } from '@/types/videoGeneration';
+import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
+import { LazyVideo } from '@/components/ui/lazy-video';
 
 interface Props {
   clips: VideoGeneration[];
@@ -130,13 +132,13 @@ export function VideoJobStatusPanel({
               className="rounded-md border border-border/50 bg-background/40 p-2.5"
             >
               <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   <span className="text-[11px] font-medium truncate">{sceneLabel}</span>
                   {statusBadge(job.status)}
+                  {job.model_used && (
+                    <ModelUsedBadge modelUsed={job.model_used} />
+                  )}
                   <span className="text-[10px] text-muted-foreground truncate">
-                    {job.provider}
-                    {job.model_used ? ` · ${job.model_used.split('/').pop()}` : ''}
-                    {' · '}
                     {fmtTime(job.completed_at ?? job.updated_at)}
                   </span>
                 </div>
@@ -185,12 +187,15 @@ export function VideoJobStatusPanel({
               )}
 
               {job.status === 'completed' && job.video_url && (
-                <div className="mt-2 rounded overflow-hidden bg-black aspect-video max-h-44">
-                  <video
+                <div className="mt-2 rounded overflow-hidden max-h-52">
+                  <LazyVideo
                     src={job.video_url}
-                    controls
                     poster={job.thumbnail_url ?? undefined}
-                    className="w-full h-full object-contain"
+                    aspectRatio={
+                      (job.aspect_ratio === '9:16' || job.aspect_ratio === '1:1')
+                        ? job.aspect_ratio
+                        : '16:9'
+                    }
                   />
                 </div>
               )}
