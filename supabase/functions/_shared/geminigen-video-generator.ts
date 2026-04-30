@@ -265,18 +265,25 @@ export async function checkGeminiGenVideoStatus(
     const status = data?.status ?? data?.data?.status;
 
     if (status === 2 || status === 'completed' || status === 'success') {
+      console.log(`[geminigen-video] COMPLETED raw response for ${uuid}:`,
+        JSON.stringify(data).slice(0, 1500));
+
       const videoUrl =
         data?.video_url || data?.data?.video_url ||
         data?.generate_result || data?.data?.generate_result ||
         data?.result_url || data?.data?.result_url ||
         data?.output_url || data?.data?.output_url ||
-        data?.files?.[0]?.url || data?.videos?.[0]?.url;
+        data?.files?.[0]?.url || data?.videos?.[0]?.url ||
+        findVideoUrlDeep(data);
 
-      if (!videoUrl) return { status: 'failed', error: 'Completed but no video URL returned' };
+      if (!videoUrl) {
+        console.error(`[geminigen-video] No URL found. Top-level keys:`, Object.keys(data));
+        return { status: 'failed', error: 'Completed but no video URL returned' };
+      }
 
       const thumbnailUrl =
         data?.thumbnail_url || data?.data?.thumbnail_url ||
-        data?.files?.[0]?.thumbnail || undefined;
+        data?.files?.[0]?.thumbnail || findImageUrlDeep(data) || undefined;
 
       return { status: 'completed', videoUrl, thumbnailUrl };
     }
