@@ -170,7 +170,8 @@ export function QuickClipTab() {
     const result = await generateVideo({
       provider,
       prompt: prompt.trim(),
-      // model intentionally omitted — backend resolves from Admin AI Function Config
+      // Gửi model auto-pick để override admin default (Seedance 2 cho 9:16/1:1, Veo 3.1 Fast cho 16:9)
+      model: selectedModel.id,
       duration,
       aspect_ratio: aspect,
       resolution: '1080p',
