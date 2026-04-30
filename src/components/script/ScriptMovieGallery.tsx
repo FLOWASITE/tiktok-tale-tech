@@ -5,6 +5,7 @@ import { Loader2, Film, Download, AlertCircle, CheckCircle2 } from 'lucide-react
 import { useScriptMovies } from '@/hooks/useScriptMovies';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { LazyVideo } from '@/components/ui/lazy-video';
 
 interface Props {
   scriptId: string;
@@ -74,11 +75,14 @@ export function ScriptMovieGallery({ scriptId }: Props) {
 
             {m.status === 'completed' && m.output_url ? (
               <>
-                <video
+                <LazyVideo
                   src={m.output_url}
-                  controls
-                  className="w-full rounded bg-black aspect-[9/16] max-h-72 object-contain"
                   poster={m.thumbnail_url ?? undefined}
+                  aspectRatio={
+                    (m.aspect_ratio === '9:16' || m.aspect_ratio === '1:1')
+                      ? m.aspect_ratio as '9:16' | '1:1'
+                      : '16:9'
+                  }
                 />
                 <div className="flex justify-end mt-2">
                   <Button
