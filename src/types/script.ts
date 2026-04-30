@@ -95,7 +95,7 @@ export type CharacterType =
   // Neutral
   | 'neutral_presenter'; // Người dẫn trung tính
 
-export type Duration = 60 | 90 | 120 | 180;
+export type Duration = 15 | 30 | 60 | 90 | 120 | 180 | 600;
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
@@ -187,6 +187,10 @@ export interface ScriptFormData {
   angle?: TopicAngle;
   topicHistoryId?: string;
   campaignId?: string;
+  /** Aspect ratio cho video output (set bởi SocialFormatPicker) */
+  aspect_ratio?: '9:16' | '16:9' | '1:1';
+  /** ID của social format preset đã chọn (vd 'tiktok-short') */
+  social_format_id?: string;
 }
 
 // ============================================
@@ -271,10 +275,13 @@ export const CHARACTER_BY_CATEGORY: Record<CharacterCategory, CharacterType[]> =
 };
 
 export const DURATION_LABELS: Record<Duration, string> = {
+  15: '15 giây',
+  30: '30 giây',
   60: '1 phút (60 giây)',
   90: '1.5 phút (90 giây)',
   120: '2 phút (120 giây)',
   180: '3 phút (180 giây)',
+  600: '10 phút (600 giây)',
 };
 
 // ============================================
