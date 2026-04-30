@@ -245,17 +245,39 @@ ${L.returnJson}`;
       throw new Error("No content in AI response");
     }
 
-    // Parse JSON from response
-    let storyboardData;
+    // Parse JSON from response — robust extraction (handles markdown fences + leading/trailing text)
+    let storyboardData: any;
     try {
-      // Try to extract JSON from markdown code blocks
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
+      const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      let jsonStr = fenceMatch ? fenceMatch[1].trim() : content.trim();
+
+      // Fallback: find first '{' and last '}' if still not pure JSON
+      if (!jsonStr.startsWith('{')) {
+        const first = jsonStr.indexOf('{');
+        const last = jsonStr.lastIndexOf('}');
+        if (first !== -1 && last !== -1 && last > first) {
+          jsonStr = jsonStr.slice(first, last + 1);
+        }
+      }
       storyboardData = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error("[generate-storyboard] Failed to parse storyboard JSON:", parseError);
-      console.log("Raw content:", content);
-      throw new Error("Không thể phân tích kết quả từ AI");
+      console.log("[generate-storyboard] Raw content (first 2000 chars):", String(content).slice(0, 2000));
+      return new Response(
+        JSON.stringify({ error: "AI trả về định dạng không hợp lệ. Vui lòng thử lại hoặc đổi model trong Admin → AI → generate-storyboard." }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Guard: empty scenes array means model didn't follow schema
+    if (!Array.isArray(storyboardData?.scenes) || storyboardData.scenes.length === 0) {
+      console.error("[generate-storyboard] AI returned 0 scenes. Raw content (first 2000):", String(content).slice(0, 2000));
+      return new Response(
+        JSON.stringify({
+          error: "AI không tạo được phân cảnh nào. Hãy thử lại, hoặc đổi sang model mạnh hơn (qwen3-max / qwen3-plus / gemini-2.5-flash) trong Admin → AI → Functions → generate-storyboard.",
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Validate and normalize scenes
