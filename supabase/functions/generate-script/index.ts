@@ -1059,16 +1059,16 @@ function getPacingProfile(platformLabel: string, aspect: string): PacingProfile 
 }
 
 /**
- * Scene count = MIN clip vật lý cần để cover duration (1 hook + ceil(remaining/cap) body).
- * Bỏ ràng buộc avgSceneSec (pacing thẩm mỹ) → luôn ra số clip tối thiểu, giảm 30-50% credit render.
- * Trade-off: clip dài 8-12s, AI prompt phải mô tả chuyển động liên tục để tránh tĩnh.
- * Vẫn clamp theo maxScenes (safety net) và tối thiểu 2 scene (hook + 1 body).
+ * Scene count = MIN clip vật lý cần để cover duration.
+ *  - Nếu duration ≤ cap model → 1 prompt duy nhất (hook nằm trong 0-3s đầu cùng prompt).
+ *  - Nếu duration > cap → ceil(duration / cap) prompt, không tách hook riêng.
+ * Bỏ hoàn toàn pacing thẩm mỹ (avgSceneSec, hookSceneSec) khỏi phép tính.
+ * Vẫn clamp theo maxScenes (safety net).
  */
 function computeSmartSceneCount(duration: number, pacing: PacingProfile, sceneDurationCapSec: number): number {
-  const remaining = Math.max(0, duration - pacing.hookSceneSec);
-  const bodyScenes = Math.ceil(remaining / sceneDurationCapSec); // chỉ tôn trọng cap model AI
-  const total = 1 + bodyScenes;
-  return Math.min(pacing.maxScenes, Math.max(2, total));
+  if (duration <= sceneDurationCapSec) return 1;
+  const total = Math.ceil(duration / sceneDurationCapSec);
+  return Math.min(pacing.maxScenes, Math.max(1, total));
 }
 
 /**
