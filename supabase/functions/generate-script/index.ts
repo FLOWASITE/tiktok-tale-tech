@@ -1431,7 +1431,7 @@ Phục vụ quy trình: AI Video Generator (hình ảnh) → TTS (giọng nói) 
   }
 }
 
-function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegionInfo: { label: string; dialect_notes: string }): string {
+function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegionInfo: { label: string; dialect_notes: string }, spec?: PlatformSpec): string {
   switch (purpose) {
     case 'teleprompter':
       return `## 4. QUY ƯỚC TRÌNH BÀY (TELEPROMPTER)
@@ -1453,15 +1453,30 @@ function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegi
 
     case 'ai_video':
     default:
-      return `## 4. QUY ƯỚC VISUAL (VEO 3 COMPATIBLE)
+      if (!spec) {
+        return `## 4. QUY ƯỚC VISUAL (VEO 3 / SEEDANCE COMPATIBLE)
 - Shot mặc định: Medium shot (35mm)
 - Camera: Static with subtle breathing movement
 - Lighting: Soft natural lighting
 - Background: Phù hợp với thể loại ${videoTypeName}`;
+      }
+      return `## 4. QUY ƯỚC VISUAL — ${spec.platformLabel.toUpperCase()} ${spec.aspect}
+- **Aspect ratio bắt buộc:** ${spec.aspect} (mọi PROMPT phải khớp khung hình ${spec.platformLabel})
+- **Framing:** ${spec.framingHint}
+- **Safe zone (KHÔNG đặt subject hoặc text quan trọng vào vùng UI):** ${spec.safeZone}
+- **Camera:** ${spec.cameraStyle} — tránh pan/zoom mạnh (Seedance/Veo dễ artifact)
+- **Mỗi clip ≤ ${spec.sceneDurationSec}s** (giới hạn AI video generator) — chia hành động vừa đủ trong thời lượng này
+- **Text overlay (nếu cần):** ${spec.textOverlayPosition}
+- **Background:** Phù hợp với thể loại ${videoTypeName} VÀ tone của ${spec.platformLabel}
+
+## 5. CONTINUITY CONTRACT (BẮT BUỘC để stitch mượt)
+${spec.continuityRules}
+→ Trong mỗi PROMPT, viết explicit: "(Same setting/wardrobe/lighting as previous PROMPT)" để AI video model biết phải match.
+→ Chỉ thay đổi: subject ACTION, biểu cảm, dialogue. Không thay đổi: outfit, background, lighting setup, camera position cơ bản.`;
   }
 }
 
-function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTypeName: string, promptCount: string): string {
+function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTypeName: string, promptCount: string, spec?: PlatformSpec): string {
   const commonChecks = `
 □ **HOOK ĐÚNG THỂ LOẠI?**
   - Hook style PHẢI theo HOOK STYLE MẪU của thể loại "${videoTypeName}"
