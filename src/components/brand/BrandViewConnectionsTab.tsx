@@ -227,6 +227,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   });
   const [isWebsiteConnecting, setIsWebsiteConnecting] = useState(false);
   const [wpDialogOpen, setWpDialogOpen] = useState(false);
+  const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
+  const [blueskyHandle, setBlueskyHandle] = useState('');
+  const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
@@ -263,47 +266,10 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    // Bluesky — OAuth 2.0 (Confidential Client + DPoP)
+    // Bluesky — OAuth 2.0 (Confidential Client + DPoP). Open dialog to collect handle.
     if (platform === 'bluesky') {
-      const rawHandle = window.prompt(
-        'Nhập handle Bluesky của bạn (vd: yourname.bsky.social):',
-        ''
-      );
-      if (!rawHandle) return;
-      const handle = rawHandle.trim().replace(/^@/, '');
-      if (!handle.includes('.')) {
-        toast.error('Handle không hợp lệ', {
-          description: 'Vui lòng nhập đầy đủ handle, vd: yourname.bsky.social',
-        });
-        return;
-      }
-      setOauthConnecting('bluesky');
-      try {
-        const { data, error } = await supabase.functions.invoke('bluesky-oauth-start', {
-          body: { handle, brandTemplateId: template.id },
-        });
-        if (error || !data?.authorization_url) {
-          throw new Error(error?.message || data?.error || 'Không khởi tạo được OAuth');
-        }
-        window.open(data.authorization_url, '_blank', 'width=620,height=720');
-        toast.info('Đã mở trang đăng nhập Bluesky', {
-          description: 'Hoàn tất đăng nhập trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
-        });
-        const start = Date.now();
-        const poll = setInterval(async () => {
-          if (Date.now() - start > 120_000) { clearInterval(poll); setOauthConnecting(null); return; }
-          await refetch();
-          const conn = getConnectionForPlatform('bluesky');
-          if (conn?.is_active) {
-            clearInterval(poll);
-            setOauthConnecting(null);
-            toast.success('Đã kết nối Bluesky qua OAuth!');
-          }
-        }, 3000);
-      } catch (e: any) {
-        setOauthConnecting(null);
-        toast.error('Lỗi kết nối Bluesky', { description: e.message });
-      }
+      setBlueskyHandle('');
+      setBlueskyDialogOpen(true);
       return;
     }
 
@@ -441,6 +407,79 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       // Error handled in mutation
     }
   };
+
+  const HANDLE_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+  const handleBlueskySubmit = async () => {
+    const handle = blueskyHandle.trim().replace(/^@/, '').toLowerCase();
+    if (!handle) {
+      toast.error('Vui lòng nhập handle Bluesky', { description: 'Ví dụ: yourname.bsky.social' });
+      return;
+    }
+    if (handle.length > 253 || !HANDLE_RE.test(handle)) {
+      toast.error('Handle không hợp lệ', {
+        description:
+          'Hãy nhập handle như trên Bluesky (vd: yourname.bsky.social), không có dấu cách hay dấu tiếng Việt.',
+      });
+      return;
+    }
+
+    setIsBlueskyConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('bluesky-oauth-start', {
+        body: { handle, brandTemplateId: template.id },
+      });
+
+      let errBody: any = null;
+      if (error) {
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') errBody = await ctx.json();
+        } catch { /* ignore */ }
+      }
+
+      if (error || !data?.authorization_url) {
+        const msg = errBody?.error || data?.error || error?.message || 'Không khởi tạo được OAuth';
+        throw new Error(msg);
+      }
+
+      window.open(data.authorization_url, '_blank', 'width=620,height=720');
+      toast.info('Đã mở trang đăng nhập Bluesky', {
+        description: 'Hoàn tất đăng nhập trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
+      });
+      setBlueskyDialogOpen(false);
+
+      setOauthConnecting('bluesky');
+      const start = Date.now();
+      const poll = setInterval(async () => {
+        if (Date.now() - start > 180_000) {
+          clearInterval(poll);
+          setOauthConnecting(null);
+          return;
+        }
+        try {
+          const { data: rows } = await supabase
+            .from('social_connections')
+            .select('id, is_active, platform_username')
+            .eq('brand_template_id', template.id)
+            .eq('platform', 'bluesky')
+            .eq('is_active', true)
+            .limit(1);
+          if (rows && rows.length > 0) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            await refetch();
+            toast.success(`Đã kết nối Bluesky: @${rows[0].platform_username}`);
+          }
+        } catch { /* ignore polling errors */ }
+      }, 3000);
+    } catch (e: any) {
+      toast.error('Lỗi kết nối Bluesky', { description: e?.message || String(e) });
+    } finally {
+      setIsBlueskyConnecting(false);
+    }
+  };
+
 
   const handleDisconnect = async (connectionId: string) => {
     try {
@@ -1272,7 +1311,47 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </DialogContent>
       </Dialog>
 
-      {/* WordPress Connect Dialog (3-step simplified) */}
+      {/* Bluesky OAuth — handle prompt dialog */}
+      <Dialog open={blueskyDialogOpen} onOpenChange={setBlueskyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChannelIcon channel="bluesky" className="text-[#0085FF]" size={20} />
+              Kết nối Bluesky
+            </DialogTitle>
+            <DialogDescription>
+              Nhập handle Bluesky của bạn (ví dụ: <code>yourname.bsky.social</code>). Đây là tên đăng nhập, không phải tên hiển thị.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="bluesky-handle">Handle Bluesky</Label>
+            <Input
+              id="bluesky-handle"
+              autoFocus
+              placeholder="yourname.bsky.social"
+              value={blueskyHandle}
+              onChange={(e) => setBlueskyHandle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isBlueskyConnecting) handleBlueskySubmit();
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Bạn sẽ được chuyển sang Bluesky để xác thực qua OAuth 2.0 (DPoP). Flowa không lưu mật khẩu của bạn.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlueskyDialogOpen(false)} disabled={isBlueskyConnecting}>
+              Hủy
+            </Button>
+            <Button onClick={handleBlueskySubmit} disabled={isBlueskyConnecting}>
+              {isBlueskyConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Tiếp tục
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <WordPressConnectDialog
         open={wpDialogOpen}
         onOpenChange={setWpDialogOpen}

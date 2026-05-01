@@ -53,18 +53,39 @@ Deno.serve(async (req) => {
     const user = userData.user;
 
     const body = await req.json().catch(() => ({}));
-    const { handle, brandTemplateId, organizationId } = body as {
+    const { handle: handleRaw, brandTemplateId, organizationId } = body as {
       handle?: string; brandTemplateId?: string; organizationId?: string;
     };
 
-    if (!handle || typeof handle !== "string") {
+    const handle = (handleRaw || "").trim().replace(/^@/, "").toLowerCase();
+
+    if (!handle) {
       return new Response(JSON.stringify({ error: "Vui lòng nhập handle Bluesky (vd: yourname.bsky.social)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 1. Resolve identity
-    const identity = await resolveHandle(handle);
+    // Pre-validate handle: ASCII only, no spaces, must contain a dot, valid label chars
+    const HANDLE_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+    if (handle.length > 253 || !HANDLE_RE.test(handle)) {
+      return new Response(
+        JSON.stringify({
+          error: `Handle "${handleRaw}" không hợp lệ. Hãy nhập đúng handle như trên Bluesky, vd: yourname.bsky.social (không có dấu cách, không dấu tiếng Việt, không phải tên hiển thị).`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 1. Resolve identity (return 400 on failure, not 500)
+    let identity;
+    try {
+      identity = await resolveHandle(handle);
+    } catch (resolveErr: any) {
+      return new Response(
+        JSON.stringify({ error: resolveErr?.message || `Không tìm thấy handle "${handle}" trên Bluesky.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 2. Discover auth server
     const authServer = await discoverAuthServer(identity.pdsUrl);
