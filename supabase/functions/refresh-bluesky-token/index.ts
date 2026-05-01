@@ -49,7 +49,7 @@ async function refreshOne(supabase: any, connectionId: string): Promise<{ ok: bo
     await supabase.from("social_connections").update({
       access_token: await encrypt(newToken.access_token),
       refresh_token: await encrypt(newToken.refresh_token),
-      expires_at: new Date(newToken.expires_at).toISOString(),
+      token_expires_at: new Date(newToken.expires_at).toISOString(),
       last_error: null,
       metadata: { ...meta, dpop_nonce: newToken.dpop_nonce || meta.dpop_nonce },
     }).eq("id", connectionId);
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       .select("id")
       .eq("platform", "bluesky")
       .eq("is_active", true)
-      .lt("expires_at", cutoff);
+      .lt("token_expires_at", cutoff);
 
     const results: Array<{ id: string; ok: boolean; error?: string }> = [];
     for (const c of conns || []) {
