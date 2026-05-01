@@ -1104,9 +1104,23 @@ function buildSceneDurationPlan(
   return plan;
 }
 
-/** "PROMPT 1: 2s · PROMPT 2: 4.5s · ..." cho instruction AI dễ đọc. */
+/** "PROMPT 1: 2s (~5 từ) · PROMPT 2: 4.5s (~11 từ) · ..." cho instruction AI dễ đọc. */
 function formatSceneDurationPlan(plan: number[]): string {
-  return plan.map((s, i) => `PROMPT ${i + 1}: ${s}s`).join(' · ');
+  return plan.map((s, i) => `PROMPT ${i + 1}: ${s}s (~${Math.round(s * 2.5)} từ)`).join(' · ');
+}
+
+/** Tốc độ nói tiếng Việt tự nhiên: ~2.5 từ/giây (150 WPM). */
+const WORDS_PER_SEC = 2.5;
+
+function getWordBudget(durationSec: number): number {
+  return Math.round(durationSec * WORDS_PER_SEC);
+}
+
+function getMaxSentences(durationSec: number): number {
+  if (durationSec <= 3) return 1;
+  if (durationSec <= 5) return 2;
+  if (durationSec <= 8) return 3;
+  return 4;
 }
 
 /** "[00:00-00:02] [00:02-00:06.5] ..." */
@@ -1512,7 +1526,7 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
 [CHARACTER ACTION]
 (Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
 
-[DIALOGUE - Verbatim for Minimax]
+[DIALOGUE - max ~${getWordBudget(sceneSec)} từ cho ${sceneSec}s]
 "..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
 
 [TONE & DELIVERY]
@@ -1755,7 +1769,13 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
   - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
-  - KHÔNG thay đổi setting đột ngột giữa scenes?` : ''}`;
+  - KHÔNG thay đổi setting đột ngột giữa scenes?
+
+□ **CONTENT DENSITY VỪA THỜI LƯỢNG?**
+  - Mỗi scene Xs có ≤ X×2.5 từ dialogue? (2.5 từ/giây = tốc độ nói tự nhiên tiếng Việt)
+  - Mỗi scene CHỈ truyền tải 1 ý chính duy nhất?
+  - KHÔNG có scene nào dialogue dài hơn word budget đã cấp?
+  - KHÔNG có scene nào quá ít lời (im lặng >2s liên tục)?` : ''}`;
       break;
   }
 
@@ -1998,7 +2018,7 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn)' : `- 
 ## 1. CẤU TRÚC (Theo thể loại ${videoTypeName})
 - PHẢI tuân theo CẤU TRÚC BẮT BUỘC trong VIDEO TYPE INSTRUCTIONS
 - Tổng thời lượng: ${duration} giây
-- Mỗi ${blockLabel} ≈ 8 giây
+- Mỗi ${blockLabel} trung bình ≈ ${spec ? spec.avgSceneSec : Math.round(duration / (parseInt(promptCount.split('-')[0])))} giây
 - Số lượng: ${promptCount}
 
 ## 2. NHÂN VẬT (Theo ${characterTypeName})
@@ -2021,6 +2041,20 @@ ${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount, vo
 - Tính timestamp dựa trên ${duration} giây chia đều cho ${promptCount} ${blockLabel.toLowerCase()}
 - Mỗi phần ≈ ${Math.round(duration / (parseInt(promptCount.split('-')[0])))} giây
 - Format: [MM:SS-MM:SS]
+
+# 📝 CONTENT DENSITY — BẮT BUỘC (tốc độ nói tiếng Việt ~${WORDS_PER_SEC} từ/giây = 150 WPM)
+${spec ? `## Word Budget theo Scene Plan:
+${spec.scenePlan.map((s, i) => `- PROMPT ${i + 1}: ${s}s → tối đa **${getWordBudget(s)} từ** dialogue (${getMaxSentences(s)} câu)`).join('\n')}` : `- Scene ${Math.round(duration / (parseInt(promptCount.split('-')[0])))}s → tối đa ~${getWordBudget(Math.round(duration / (parseInt(promptCount.split('-')[0]))))} từ dialogue/scene`}
+
+## Quy tắc mật độ nội dung:
+- ⚠️ **1 Ý CHÍNH duy nhất / scene** — KHÔNG nhồi 2 ý vào 1 scene ngắn
+- Scene ≤3s (HOOK): max 1 câu ngắn (~${getWordBudget(3)} từ), gây tò mò tức thì
+- Scene 4-5s: max 2 câu ngắn (~${getWordBudget(5)} từ)
+- Scene 6-8s: max 3 câu (~${getWordBudget(7)} từ)
+- Scene 9-10s: max 4 câu (~${getWordBudget(10)} từ)
+- ⛔ KHÔNG viết dialogue dài hơn word budget — người đọc sẽ KHÔNG kịp nói hết
+- ⛔ KHÔNG viết scene chỉ có visual mà không có dialogue (trừ khi là transition 1-2s)
+- ✅ Ưu tiên câu ngắn, súc tích, đủ ý — người xem nhớ được ngay
 
 # NGUYÊN TẮC NỐI MẠCH
 - Phần sau kế thừa từ phần trước

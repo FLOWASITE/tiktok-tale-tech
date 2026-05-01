@@ -1,6 +1,6 @@
 ---
 name: Smart Video Model Pick
-description: generate-script auto-pick model + tính sceneCount tối thiểu để giảm số clip render
+description: generate-script auto-pick model + content density WPM constraints để video truyền tải đủ nội dung
 type: feature
 ---
 
@@ -28,6 +28,17 @@ return Math.ceil(duration / cap);
 
 - **Bỏ tách hook scene riêng** — hook nằm trong 0-3s đầu của PROMPT 1.
 - TikTok 15s 9:16 → **2 prompts** (Seedance max 10s/clip).
+
+## Content Density Rules (WPM)
+
+- Tốc độ nói tiếng Việt tự nhiên: **~2.5 từ/giây** (150 WPM)
+- `WORDS_PER_SEC = 2.5` constant trong generate-script
+- `getWordBudget(sec)` = `Math.round(sec * 2.5)`
+- `getMaxSentences(sec)`: ≤3s→1 câu, 4-5s→2 câu, 6-8s→3 câu, 9-10s→4 câu
+- Scene plan format hiển thị word budget: `PROMPT 1: 2s (~5 từ)`
+- System prompt có section `CONTENT DENSITY — BẮT BUỘC` với word budget per scene
+- Output format DIALOGUE header: `[DIALOGUE - max ~Y từ cho Xs scene]`
+- Self-check checklist có mục kiểm tra content density
 
 ## Prompt rule cho clip dài (`[AI RENDER MODEL]`)
 
