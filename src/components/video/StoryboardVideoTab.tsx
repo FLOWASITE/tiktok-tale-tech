@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { VideoCompletionWizard } from './VideoCompletionWizard';
-import { CharacterPicker } from './CharacterPicker';
+import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 interface Props {
@@ -37,8 +37,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const [showAllClips, setShowAllClips] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; currentScene?: number }>({ done: 0, total: 0 });
-  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(activeScript?.characterProfileId ?? null);
-  const [selectedCharacter, setSelectedCharacter] = useState<CharacterProfile | null>(null);
+  const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>(activeScript?.characterProfileId ? [activeScript.characterProfileId] : []);
+  const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
@@ -135,14 +135,16 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
       try {
         // Build prompt with character consistency
         let finalPrompt = scene.prompt;
-        if (selectedCharacter) {
-          const charBlock = buildCharacterBlock(selectedCharacter);
-          finalPrompt = `${charBlock}\n\n${finalPrompt}`;
+        if (selectedCharacters.length > 0) {
+          const charBlocks = selectedCharacters.map((c, i) =>
+            buildCharacterBlock(c) + (i === 0 ? ' [VAI CHÍNH]' : ` [VAI PHỤ ${i}]`)
+          ).join('\n\n');
+          finalPrompt = `${charBlocks}\n\n${finalPrompt}`;
         }
 
         // Last-frame chaining: use previous video URL as starting frame for continuity
         const startingFrame = previousVideoUrl
-          || selectedCharacter?.reference_image_url
+          || selectedCharacters[0]?.reference_image_url
           || undefined;
 
         const res = await generateVideo({
@@ -153,7 +155,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
           resolution: '1080p',
           script_id: activeScript.id,
           scene_number: scene.sceneNumber,
-          character_profile_id: selectedCharacterId || undefined,
+          character_profile_id: selectedCharacterIds[0] || undefined,
           starting_frame_url: startingFrame,
         });
         if (res) {
@@ -256,11 +258,11 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                   )}
                 </div>
               </div>
-              <CharacterPicker
-                value={selectedCharacterId}
-                onChange={(id, profile) => {
-                  setSelectedCharacterId(id);
-                  setSelectedCharacter(profile);
+              <MultiCharacterPicker
+                value={selectedCharacterIds}
+                onChange={(ids, profiles) => {
+                  setSelectedCharacterIds(ids);
+                  setSelectedCharacters(profiles);
                 }}
                 className="mt-1"
               />
