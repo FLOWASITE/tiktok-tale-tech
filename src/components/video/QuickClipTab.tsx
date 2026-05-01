@@ -174,17 +174,10 @@ export function QuickClipTab() {
       return;
     }
     const provider = selectedModel?.provider ?? 'geminigen';
-    // Inject character consistency block if a character is selected
-    let finalPrompt = prompt.trim();
-    if (selectedCharacters.length > 0) {
-      const charBlocks = selectedCharacters.map((c, i) =>
-        buildCharacterBlock(c) + (i === 0 ? ' [VAI CHÍNH]' : ` [VAI PHỤ ${i}]`)
-      ).join('\n\n');
-      finalPrompt = `${charBlocks}\n\n${finalPrompt}`;
-    }
+    // Character injection is handled server-side by generate-video edge function
     const result = await generateVideo({
       provider,
-      prompt: finalPrompt,
+      prompt: prompt.trim(),
       // Gửi model auto-pick để override admin default (Seedance 2 cho 9:16/1:1, Veo 3.1 Fast cho 16:9)
       model: selectedModel.id,
       duration,
