@@ -303,7 +303,24 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_type: 'plain',
     format_description: 'Text thuần, casual, conversational, không hashtag',
   },
-  bluesky: { icon: <Globe className="w-4 h-4" />, label: 'Bluesky' },
+  bluesky: {
+    min_length: 0,
+    max_length: 300,
+    length_unit: 'chars',
+    hook_required: true,
+    hook_style: 'Mở đầu thu hút, ngắn gọn',
+    bullet_allowed: false,
+    cta_policy: 'none',
+    emoji_allowed: true,
+    emoji_limit: 3,
+    hashtag_limit: 0,
+    hashtag_position: 'none',
+    line_break_style: 'normal',
+    link_position: 'inline',
+    tone_adjustment: 'concise',
+    format_type: 'plain',
+    format_description: 'Post ngắn 300 ký tự, casual, conversational. Tối đa 4 ảnh.',
+  },
 };
 
 // Helper: Build chi tiết rules prompt cho AI từ settings
