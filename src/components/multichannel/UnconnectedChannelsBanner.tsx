@@ -37,6 +37,7 @@ const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
   google_business: 'Google Business',
   blogger: 'Blogger',
   wordpress: 'Blogger',
+  bluesky: 'Bluesky',
 };
 
 interface UnconnectedChannelsBannerProps {
