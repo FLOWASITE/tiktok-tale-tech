@@ -253,7 +253,7 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
               </BreadcrumbList>
             </Breadcrumb>
             <Badge variant="secondary" className="text-xs ml-auto">
-              {folderImages.length} ảnh
+              {folderImages.length} {selectedFolder.mediaType === 'video' ? 'video' : 'ảnh'}
             </Badge>
           </div>
         )}
