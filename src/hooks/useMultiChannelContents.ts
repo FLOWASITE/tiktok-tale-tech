@@ -40,6 +40,7 @@ const transformContent = (data: any): MultiChannelContent => ({
   tiktok_content: normalizeContentField(data.tiktok_content),
   threads_content: normalizeContentField(data.threads_content),
   pinterest_content: normalizeContentField(data.pinterest_content),
+  bluesky_content: normalizeContentField(data.bluesky_content),
   pinterest_title: data.pinterest_title ?? null,
   pinterest_pin_type: (data as any).pinterest_pin_type ?? null,
   pinterest_post_id: (data as any).pinterest_post_id ?? null,
