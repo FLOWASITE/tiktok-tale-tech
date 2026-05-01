@@ -427,6 +427,7 @@ export function useDirectPublish() {
     publishToLinkedIn,
     publishToTikTok,
     publishToGoogleBusiness,
+    publishToBluesky,
     publishToBlog,
     publishToBlogger,
     publishToWordpress,
