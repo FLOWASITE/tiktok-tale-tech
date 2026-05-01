@@ -349,7 +349,25 @@ async function parseRichTextFacets(text: string): Promise<any[]> {
 // Image handling
 // =====================================================================
 
+// Detect actual mime from magic bytes (don't trust upstream content-type)
+function sniffMime(bytes: Uint8Array): string {
+  if (bytes.length < 12) return 'image/jpeg';
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
+  // PNG: 89 50 4E 47
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
+  // GIF: 47 49 46 38
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif';
+  // WEBP: RIFF....WEBP
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+  return 'image/jpeg';
+}
+
+const ALLOWED_BLUESKY_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
 async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  console.log(`[publish-bluesky] Downloading image: ${imageUrl.slice(0, 120)}`);
   let imgRes = await fetch(imageUrl);
   if (!imgRes.ok) {
     console.warn(`[publish-bluesky] Failed to download image: ${imgRes.status}`);
@@ -357,7 +375,10 @@ async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8
     return null;
   }
   let imageBytes = new Uint8Array(await imgRes.arrayBuffer());
-  let contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+  const headerMime = imgRes.headers.get('content-type') || '';
+  let contentType = sniffMime(imageBytes);
+  if (!ALLOWED_BLUESKY_MIMES.has(contentType)) contentType = 'image/jpeg';
+  console.log(`[publish-bluesky] Image fetched: ${imageBytes.length}B, header=${headerMime}, sniffed=${contentType}`);
 
   if (imageBytes.length <= MAX_BLOB_SIZE) return { bytes: imageBytes, contentType };
 
@@ -369,7 +390,9 @@ async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8
         imgRes = await fetch(`${imageUrl}${separator}${params}`);
         if (imgRes.ok) {
           imageBytes = new Uint8Array(await imgRes.arrayBuffer());
-          contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+          contentType = sniffMime(imageBytes);
+          if (!ALLOWED_BLUESKY_MIMES.has(contentType)) contentType = 'image/jpeg';
+          console.log(`[publish-bluesky] Resized via ${params}: ${imageBytes.length}B, mime=${contentType}`);
           if (imageBytes.length <= MAX_BLOB_SIZE) return { bytes: imageBytes, contentType };
         } else { await imgRes.text(); }
       } catch (e) { console.warn(`[publish-bluesky] Transform fetch failed: ${e}`); }
@@ -383,9 +406,11 @@ async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8
 async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Promise<any> {
   const prepared = await downloadAndPrepareImage(imageUrl);
   if (!prepared) return null;
+  // Copy into fresh ArrayBuffer (detached buffer safety + clean re-send if pdsFetch retries)
   const imageBody = new ArrayBuffer(prepared.bytes.byteLength);
   new Uint8Array(imageBody).set(prepared.bytes);
 
+  console.log(`[publish-bluesky] Uploading blob: ${prepared.bytes.length}B mime=${prepared.contentType}`);
   const { response, newNonce } = await pdsFetch({
     url: `${ctx.pdsUrl}/xrpc/com.atproto.repo.uploadBlob`,
     method: "POST",
@@ -399,10 +424,12 @@ async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Pro
 
   if (!response.ok) {
     const err = await response.text();
+    console.error(`[publish-bluesky] Blob upload FAILED ${response.status}: ${err.slice(0, 400)}`);
     throw new Error(`Blob upload failed (${response.status}): ${err.slice(0, 200)}`);
   }
-  const { blob } = await response.json();
-  return blob;
+  const result = await response.json();
+  console.log(`[publish-bluesky] Blob uploaded OK: ref=${result?.blob?.ref?.$link?.slice(0, 16)}...`);
+  return result.blob;
 }
 
 // =====================================================================
