@@ -1769,7 +1769,13 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
   - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
-  - KHÔNG thay đổi setting đột ngột giữa scenes?` : ''}`;
+  - KHÔNG thay đổi setting đột ngột giữa scenes?
+
+□ **CONTENT DENSITY VỪA THỜI LƯỢNG?**
+  - Mỗi scene Xs có ≤ X×2.5 từ dialogue? (2.5 từ/giây = tốc độ nói tự nhiên tiếng Việt)
+  - Mỗi scene CHỈ truyền tải 1 ý chính duy nhất?
+  - KHÔNG có scene nào dialogue dài hơn word budget đã cấp?
+  - KHÔNG có scene nào quá ít lời (im lặng >2s liên tục)?` : ''}`;
       break;
   }
 
