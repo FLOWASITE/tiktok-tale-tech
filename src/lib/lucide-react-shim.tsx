@@ -24,16 +24,7 @@ import {
   InstagramIcon as BrandInstagram,
   LinkedInIcon as BrandLinkedIn,
   YouTubeIcon as BrandYouTube,
-  TikTokIcon as BrandTikTok,
-  ThreadsIcon as BrandThreads,
-  TelegramIcon as BrandTelegram,
   XIcon as BrandX,
-  ZaloIcon as BrandZalo,
-  PinterestIcon as BrandPinterest,
-  WordPressIcon as BrandWordPress,
-  BloggerIcon as BrandBlogger,
-  BlueskyIcon as BrandBluesky,
-  GoogleBusinessIcon as BrandGoogleBusiness,
 } from "@/components/icons/SocialIcons";
 
 /**
