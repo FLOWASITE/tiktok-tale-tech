@@ -41,6 +41,7 @@ interface VideoGenerationRequest {
   storyboard_id?: string;
   scene_number?: number;
   sync?: boolean;  // if true, wait inline (legacy / agent flow)
+  character_profile_id?: string;
 }
 
 Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, async (req) => {
