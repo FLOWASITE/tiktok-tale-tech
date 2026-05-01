@@ -331,6 +331,7 @@ export function useCarouselGallery() {
       .channel(`gallery-realtime-${orgId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'carousel_images', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_image_history', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'multi_channel_contents', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'video_generations', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'video_render_jobs', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .subscribe();
