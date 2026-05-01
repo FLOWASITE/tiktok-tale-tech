@@ -170,7 +170,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       try {
         const { data: charProfile } = await supabase
           .from('character_profiles')
-          .select('name, description, appearance, wardrobe, reference_image_url')
+          .select('name, description, appearance, wardrobe, reference_image_url, reference_images')
           .eq('id', character_profile_id)
           .maybeSingle();
         if (charProfile) {
@@ -192,9 +192,20 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           enrichedPrompt = `${charBlock}\n\n${enrichedPrompt}`;
           console.log(`[generate-video] Injected character "${charProfile.name}" into prompt`);
 
-          // Use character reference image as starting frame if none provided
-          if (!characterRefUrl && charProfile.reference_image_url) {
-            characterRefUrl = charProfile.reference_image_url;
+          // Smart reference image selection from multi-reference images
+          if (!characterRefUrl) {
+            const refImages = Array.isArray(charProfile.reference_images) ? charProfile.reference_images as { url: string; label: string }[] : [];
+            if (refImages.length > 0) {
+              // Pick best image: prefer 'front' for first scene, 'close-up' for close-up prompts
+              const promptLower = prompt.toLowerCase();
+              const isCloseUp = promptLower.includes('close-up') || promptLower.includes('cận') || promptLower.includes('macro');
+              const preferred = isCloseUp ? 'close-up' : 'front';
+              const picked = refImages.find(r => r.label === preferred) || refImages[0];
+              characterRefUrl = picked.url;
+              console.log(`[generate-video] Using multi-ref image: ${picked.label}`);
+            } else if (charProfile.reference_image_url) {
+              characterRefUrl = charProfile.reference_image_url;
+            }
           }
         }
       } catch (e) {
