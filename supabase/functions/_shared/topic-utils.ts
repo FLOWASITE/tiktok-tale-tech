@@ -280,6 +280,19 @@ export function shouldSkipWebSearch(options: {
  */
 let webSearchDisabledThisIsolate = false;
 
+// If no key configured at all, kill switch is permanently on
+if (!WEB_SEARCH_API_KEY) {
+  webSearchDisabledThisIsolate = true;
+}
+
+export function isWebSearchKilled(): boolean {
+  return webSearchDisabledThisIsolate;
+}
+
+export function killWebSearchForIsolate(): void {
+  webSearchDisabledThisIsolate = true;
+}
+
 function isQuotaOrAuthError(status: number, body: string): boolean {
   if (status === 401 || status === 402 || status === 429) return true;
   return /insufficient_quota|exceeded your current quota|payment_required|not enough credits/i.test(body);

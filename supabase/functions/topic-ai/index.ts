@@ -37,6 +37,7 @@ import {
   inferJourneyStage,
   semanticMatchPersona,
   shouldSkipWebSearch,
+  isWebSearchKilled,
   hashContextData,
   type TopicBrandContext,
   type TopicHistoryItem,
@@ -307,6 +308,16 @@ async function handleSuggest(
     hasIndustry: !!industryToSearch,
   });
 
+  // Hard override: if web search has been killed in this isolate (no API key OR
+  // 401/402/429 already seen), skip both calls regardless of forceRefresh.
+  // This prevents wasted 4s timeouts on every cold start when keys are bad.
+  const webSearchKilled = isWebSearchKilled();
+  if (webSearchKilled) {
+    webSearchDecision.shouldSkipIndustrySearch = true;
+    webSearchDecision.shouldSkipAudienceQA = true;
+    webSearchDecision.reason = 'kill_switch_active';
+  }
+
   console.log(`[topic-ai:suggest] Web search decision: ${webSearchDecision.reason}, skip industry: ${webSearchDecision.shouldSkipIndustrySearch}, skip QA: ${webSearchDecision.shouldSkipAudienceQA}`);
 
   // Fetch industry data from Perplexity ONLY if needed (conditional parallel calls)
@@ -355,19 +366,37 @@ async function handleSuggest(
     instruction,
   });
 
-  // Call AI with metrics tracking
-  const result = await callAIWithMetrics(supabase, {
+  // Force a fast model for `suggest`: this action returns 6 short topics, doesn't
+  // need heavy reasoning. Slow providers (qwen-flash on DashScope) regularly take
+  // 80-120s here and blow past the 90s client timeout. Override to gemini-flash.
+  const FAST_SUGGEST_MODEL = 'google/gemini-2.5-flash';
+  const requestedModel = params.model_override;
+  const isSlowModel = requestedModel && /^qwen|gpt-5(?!-mini|-nano)/i.test(requestedModel);
+  const effectiveModel = isSlowModel ? FAST_SUGGEST_MODEL : requestedModel;
+  if (isSlowModel) {
+    console.log(`[topic-ai:suggest] Overriding slow model ${requestedModel} -> ${FAST_SUGGEST_MODEL} for latency`);
+  }
+
+  // Hard timeout 75s — must beat the 90s client timeout so we surface a clean
+  // error instead of letting the function be killed mid-flight.
+  const aiCallPromise = callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
     userId: params._userId,
     brandTemplateId,
     actionType: 'suggest',
-    ...(await buildTopicAIOverrides(organizationId, params.model_override, params.temperature, 'google/gemini-2.5-flash')),
+    ...(await buildTopicAIOverrides(organizationId, effectiveModel, params.temperature, FAST_SUGGEST_MODEL)),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ],
   });
+
+  const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) =>
+    setTimeout(() => resolve({ success: false, error: 'AI call exceeded 75s internal timeout' }), 75000)
+  );
+
+  const result = await Promise.race([aiCallPromise, timeoutPromise]);
 
   if (!result.success) {
     if (result.error?.includes('Rate limit')) {
