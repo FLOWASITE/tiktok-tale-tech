@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, X, Sparkles, Loader2, Check, Plus } from 'lucide-react';
+import { User, X, Sparkles, Loader2, Check, Plus, ArrowUp, ArrowDown, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -48,6 +48,14 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
 
   const removeCharacter = (id: string) => {
     const newIds = value.filter(v => v !== id);
+    onChange(newIds, profiles.filter(p => newIds.includes(p.id)));
+  };
+
+  const moveCharacter = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= value.length) return;
+    const newIds = [...value];
+    const [moved] = newIds.splice(fromIdx, 1);
+    newIds.splice(toIdx, 0, moved);
     onChange(newIds, profiles.filter(p => newIds.includes(p.id)));
   };
 
@@ -147,21 +155,82 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
       </div>
       
       {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selected.map((p, idx) => (
-            <Badge key={p.id} variant={idx === 0 ? "default" : "secondary"} className="gap-1 pr-1 text-xs">
-              {p.reference_image_url ? (
-                <img src={p.reference_image_url} alt="" className="w-4 h-4 rounded-sm object-cover" />
-              ) : (
-                <User className="w-3 h-3" />
-              )}
-              {p.name}
-              {idx === 0 && <span className="text-[9px] opacity-70 ml-0.5">chính</span>}
-              <button onClick={() => removeCharacter(p.id)} className="ml-0.5 hover:bg-foreground/10 rounded-sm p-0.5">
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </Badge>
-          ))}
+        <div className="space-y-1.5">
+          {selected.map((p, idx) => {
+            const roleLabel = idx === 0 ? 'Vai chính' : `Vai phụ ${selected.length > 2 ? idx : ''}`;
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs transition-colors",
+                  idx === 0
+                    ? "border-primary/30 bg-primary/5"
+                    : "border-border bg-muted/30"
+                )}
+              >
+                {/* Reorder buttons */}
+                {selected.length > 1 && (
+                  <div className="flex flex-col -my-0.5">
+                    <button
+                      onClick={() => moveCharacter(idx, idx - 1)}
+                      disabled={idx === 0}
+                      className="p-0 h-3 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                      title="Đưa lên"
+                    >
+                      <ArrowUp className="w-2.5 h-2.5" />
+                    </button>
+                    <button
+                      onClick={() => moveCharacter(idx, idx + 1)}
+                      disabled={idx === selected.length - 1}
+                      className="p-0 h-3 text-muted-foreground hover:text-foreground disabled:opacity-20"
+                      title="Đưa xuống"
+                    >
+                      <ArrowDown className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Avatar */}
+                {p.reference_image_url ? (
+                  <img src={p.reference_image_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <User className="w-3 h-3 text-muted-foreground" />
+                  </div>
+                )}
+
+                {/* Name + role */}
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium truncate block">{p.name}</span>
+                </div>
+
+                {/* Role badge */}
+                <Badge
+                  variant={idx === 0 ? "default" : "outline"}
+                  className={cn(
+                    "text-[9px] h-4 shrink-0",
+                    idx === 0 && "gap-0.5"
+                  )}
+                >
+                  {idx === 0 && <Star className="w-2 h-2" />}
+                  {roleLabel}
+                </Badge>
+
+                {/* Remove */}
+                <button
+                  onClick={() => removeCharacter(p.id)}
+                  className="shrink-0 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+          {selected.length > 1 && (
+            <p className="text-[10px] text-muted-foreground italic">
+              ↕ Kéo thứ tự để đổi vai chính / phụ
+            </p>
+          )}
         </div>
       )}
 
