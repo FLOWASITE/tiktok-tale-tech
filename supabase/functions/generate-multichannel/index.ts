@@ -358,6 +358,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   tiktok: 'tiktok_content',
   threads: 'threads_content',
   pinterest: 'pinterest_content',
+  bluesky: 'bluesky_content',
 };
 
 // Normalize channel aliases to canonical names used in DB columns
@@ -570,6 +571,7 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'threads_content',
   'pinterest_content',
   'pinterest_title',
+  'bluesky_content',
   'created_at',
   'updated_at',
 ]);
@@ -1865,6 +1867,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         tiktok: { min: 20, max: 60, unit: "từ" },
         threads: { min: 30, max: 100, unit: "từ" },
         pinterest: { min: 30, max: 80, unit: "từ" },
+        bluesky: { min: 30, max: 80, unit: "từ" },
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
@@ -1881,6 +1884,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         tiktok: "TikTok",
         threads: "Threads",
         pinterest: "Pinterest",
+        bluesky: "Bluesky",
       };
 
       const channelLabel = PREVIEW_CHANNEL_LABELS[previewChannel] || previewChannel;
