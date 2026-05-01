@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       .select("id")
       .eq("platform", "bluesky")
       .eq("is_active", true)
-      .lt("expires_at", cutoff);
+      .lt("token_expires_at", cutoff);
 
     const results: Array<{ id: string; ok: boolean; error?: string }> = [];
     for (const c of conns || []) {
