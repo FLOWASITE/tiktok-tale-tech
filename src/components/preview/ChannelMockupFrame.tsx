@@ -1305,7 +1305,7 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
           {/* Display name + handle + time */}
           <div className="flex items-center gap-1 flex-wrap">
             <span className="font-bold text-[15px] text-[#0f1419] dark:text-[#f1f3f5] hover:underline cursor-pointer">{brandName}</span>
-            <span className="text-[14px] text-[#788896]">@{handle}</span>
+            <span className="text-[14px] text-[#788896]">@{ownHandle}</span>
             <span className="text-[14px] text-[#788896]">·</span>
             <span className="text-[14px] text-[#788896]">2h</span>
           </div>
