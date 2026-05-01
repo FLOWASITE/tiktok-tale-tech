@@ -287,27 +287,28 @@ function enforceTweetLimit(text: string, max: number = TWEET_MAX_CHARS): string[
   let remaining = trimmed;
 
   while (tweetWeightedLength(remaining) > max) {
-    // Try to slice ~max graphemes then back off to last sentence/space boundary
-    let slice = sliceByGraphemes(remaining, max);
-    // Adjust if weighted length still > max (URLs counted as 23)
-    while (tweetWeightedLength(slice) > max && slice.length > 1) {
-      slice = sliceByGraphemes(slice, Array.from(slice).length - 1);
-    }
+    // Slice using weighted-length aware accumulator (handles weight-2 chars correctly)
+    let slice = sliceByWeightedLength(remaining, max);
 
-    // Prefer breaking at sentence end (. ! ? \n) within last 80 chars
+    // Prefer breaking at sentence end (. ! ? \n) within the slice
     const sentenceMatch = slice.match(/^([\s\S]*[\.!\?\n])\s+\S/);
     let cut = slice;
-    if (sentenceMatch && sentenceMatch[1].length >= max * 0.5) {
+    if (sentenceMatch && tweetWeightedLength(sentenceMatch[1]) >= max * 0.5) {
       cut = sentenceMatch[1];
     } else {
-      // Fall back to last whitespace
+      // Fall back to last whitespace within slice
       const lastSpace = slice.lastIndexOf(' ');
-      if (lastSpace > max * 0.5) {
+      if (lastSpace > 0 && tweetWeightedLength(slice.slice(0, lastSpace)) >= max * 0.5) {
         cut = slice.slice(0, lastSpace);
       }
     }
 
-    chunks.push(cut.trim());
+    cut = cut.trim();
+    if (!cut) {
+      // Safety: avoid infinite loop if cut is empty — force-take slice
+      cut = slice.trim() || sliceByGraphemes(remaining, 1);
+    }
+    chunks.push(cut);
     remaining = remaining.slice(cut.length).trim();
   }
   if (remaining.length > 0) chunks.push(remaining);
