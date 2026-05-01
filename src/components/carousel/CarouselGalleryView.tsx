@@ -310,17 +310,19 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
             <Filter className="w-4 h-4 text-muted-foreground" />
 
             <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setChannelFilter('all'); setCarouselFilter('all'); setPage(1); }}>
-              <SelectTrigger className="w-[200px] h-9 text-sm border-border/50">
+              <SelectTrigger className="w-[210px] h-9 text-sm border-border/50">
                 <SelectValue>
                   {sourceFilter === 'all' ? `Tất cả nguồn (${sourceCounts.all})` :
                    sourceFilter === 'carousel' ? `Carousel (${sourceCounts.carousel})` :
-                   `Multichannel (${sourceCounts.multichannel})`}
+                   sourceFilter === 'multichannel' ? `Multichannel (${sourceCounts.multichannel})` :
+                   `Video (${sourceCounts.video})`}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả nguồn ({sourceCounts.all})</SelectItem>
                 <SelectItem value="carousel">Carousel ({sourceCounts.carousel})</SelectItem>
                 <SelectItem value="multichannel">Multichannel ({sourceCounts.multichannel})</SelectItem>
+                <SelectItem value="video">Video ({sourceCounts.video})</SelectItem>
               </SelectContent>
             </Select>
 
