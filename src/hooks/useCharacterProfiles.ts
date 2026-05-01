@@ -78,6 +78,7 @@ export function useCharacterProfiles() {
           appearance: (input.appearance ?? {}) as any,
           wardrobe: input.wardrobe ?? null,
           reference_image_url: input.reference_image_url ?? null,
+          reference_images: (input.reference_images ?? []) as any,
           brand_template_id: input.brand_template_id ?? null,
           created_by: user?.id ?? null,
         })
