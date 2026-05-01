@@ -1119,8 +1119,14 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       );
     }
 
-    // Bluesky — App Password based (similar to Twitter manual)
+    // Bluesky — DEPRECATED here. Use bluesky-oauth-start / bluesky-oauth-callback instead.
     if (platform === 'bluesky') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Bluesky đã chuyển sang OAuth 2.0. Dùng nút "Kết nối Bluesky" mới (không nhập App Password nữa).',
+      }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (false && platform === 'bluesky') {
       const handle = ((body as any).handle || (body as any).blueskyHandle || '').replace(/^@/, '').trim();
       const appPassword = ((body as any).appPassword || (body as any).blueskyAppPassword || '').trim();
       if (!handle || !appPassword) {
