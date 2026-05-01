@@ -179,7 +179,7 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     icon: <ChannelIcon channel="bluesky" className="text-[#0085FF]" size={20} />,
     color: 'bg-[#0085FF]/10',
     available: true,
-    description: 'Đăng bài lên Bluesky (App Password)',
+    description: 'Đăng bài lên Bluesky qua OAuth 2.0 (DPoP)',
   },
 };
 
