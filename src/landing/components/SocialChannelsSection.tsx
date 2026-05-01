@@ -11,18 +11,20 @@ import {
   PinterestIcon,
   BlueskyIcon,
   TelegramIcon,
-  ZaloIcon,
   GoogleBusinessIcon,
   WordPressIcon,
   BloggerIcon,
 } from "@/components/icons/SocialIcons";
 import { cn } from "@/lib/utils";
+import zaloOaLogo from "@/assets/social/zalo-oa-logo.webp";
 
 type Channel = {
   name: string;
-  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  Icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   /** Brand color class for the icon itself */
   colorClass: string;
+  /** Optional raster image source — used when an SVG mark is not available */
+  imageSrc?: string;
 };
 
 // 16 platforms — order optimized for visual rhythm (recognizable brands first per row)
@@ -37,7 +39,7 @@ const CHANNELS: Channel[] = [
   { name: "Pinterest", Icon: PinterestIcon, colorClass: "text-[#E60023]" },
   { name: "Bluesky", Icon: BlueskyIcon, colorClass: "text-[#0085FF]" },
   { name: "Telegram", Icon: TelegramIcon, colorClass: "text-[#26A5E4]" },
-  { name: "Zalo OA", Icon: ZaloIcon, colorClass: "text-[#0068FF]" },
+  { name: "Zalo OA", imageSrc: zaloOaLogo, colorClass: "text-[#0068FF]" },
   { name: "Google Business", Icon: GoogleBusinessIcon, colorClass: "text-[#4285F4]" },
   { name: "WordPress", Icon: WordPressIcon, colorClass: "text-[#21759B]" },
   { name: "Blogger", Icon: BloggerIcon, colorClass: "text-[#FF5722]" },
@@ -131,13 +133,25 @@ export function SocialChannelsSection() {
             >
               <span
                 className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                  "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg",
                   "bg-background/80 ring-1 ring-border/50 transition-transform duration-300",
                   "group-hover:scale-105",
                   ch.colorClass
                 )}
               >
-                <ch.Icon width={18} height={18} aria-hidden />
+                {ch.imageSrc ? (
+                  <img
+                    src={ch.imageSrc}
+                    alt={`${ch.name} logo`}
+                    width={28}
+                    height={28}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-7 w-7 object-contain"
+                  />
+                ) : ch.Icon ? (
+                  <ch.Icon width={18} height={18} aria-hidden />
+                ) : null}
               </span>
               <span className="truncate text-sm font-medium text-foreground/90">
                 {ch.name}
