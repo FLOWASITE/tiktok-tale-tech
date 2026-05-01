@@ -329,6 +329,10 @@ export function QuickClipTab() {
         }}
       />
 
+      {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (
+        <CharacterVoicePreview characters={selectedCharacters} />
+      )}
+
       {/* Aspect ratio */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
