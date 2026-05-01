@@ -250,7 +250,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           if (!apiKey) throw new Error('GEMINIGEN_API_KEY not configured');
           const selectedModel = model || GEMINIGEN_VIDEO_MODELS[0].id;
           const result = await generateVideoViaGeminiGen({
-            prompt, model: selectedModel,
+            prompt: enrichedPrompt, model: selectedModel,
             aspectRatio: aspect_ratio,
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
@@ -264,7 +264,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             ? model : POYO_VIDEO_MODELS[0]) as PoyoVideoModel;
           try {
             const result = await generateVideoViaPoyo({
-              prompt, model: selectedModel,
+              prompt: enrichedPrompt, model: selectedModel,
               aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
               duration,
               resolution: resolution === '720p' ? '720p' : '1080p',
@@ -280,7 +280,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
               const fallbackModel = SYNC_FALLBACK_MAP[model || 'poyo/seedance-2'] || 'geminigen/veo-3.1-fast';
               console.log(`[generate-video] sync PoYo credits exhausted → fallback GeminiGen model=${fallbackModel}`);
               const result = await generateVideoViaGeminiGen({
-                prompt, model: fallbackModel,
+                prompt: enrichedPrompt, model: fallbackModel,
                 aspectRatio: aspect_ratio,
                 resolution: resolution === '720p' ? '720p' : '1080p',
                 duration, negativePrompt: negative_prompt,
@@ -377,7 +377,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
         try {
           providerTaskId = await submitGeminiGenVideoTask({
-            prompt, model: fallbackModel,
+            prompt: enrichedPrompt, model: fallbackModel,
             aspectRatio: aspect_ratio,
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
