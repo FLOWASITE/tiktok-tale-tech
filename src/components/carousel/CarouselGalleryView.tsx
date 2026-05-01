@@ -544,10 +544,19 @@ function ContentFolderCard({
             />
           )}
 
-          {/* Image count badge */}
+          {/* Center play overlay for video folders */}
+          {folder.mediaType === 'video' && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="rounded-full bg-black/55 backdrop-blur-sm p-3 ring-1 ring-white/15">
+                <Play className="w-6 h-6 text-white fill-white" />
+              </div>
+            </div>
+          )}
+
+          {/* Item count badge */}
           <div className="absolute bottom-2 right-2">
             <Badge className="text-[10px] h-5 bg-background/85 text-foreground border-border/50 backdrop-blur-sm" variant="outline">
-              <ImagePlus className="w-3 h-3 mr-0.5" />
+              {folder.mediaType === 'video' ? <VideoIcon className="w-3 h-3 mr-0.5" /> : <ImagePlus className="w-3 h-3 mr-0.5" />}
               {folder.imageCount}
             </Badge>
           </div>
@@ -558,6 +567,16 @@ function ContentFolderCard({
               <Badge className="text-[10px] h-5 bg-primary/90 text-primary-foreground" variant="default">
                 <Layers className="w-3 h-3 mr-0.5" />
                 Carousel
+              </Badge>
+            ) : folder.source === 'video' ? (
+              <Badge className="text-[10px] h-5 bg-purple-500/90 text-white border-0" variant="default">
+                <VideoIcon className="w-3 h-3 mr-0.5" />
+                Video clips
+              </Badge>
+            ) : folder.source === 'video_render' ? (
+              <Badge className="text-[10px] h-5 bg-fuchsia-600/90 text-white border-0" variant="default">
+                <Film className="w-3 h-3 mr-0.5" />
+                Final video
               </Badge>
             ) : folder.channel ? (
               <ChannelIcon channel={folder.channel} size="sm" />
