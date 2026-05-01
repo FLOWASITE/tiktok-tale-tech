@@ -76,7 +76,7 @@ export default function Reports() {
   };
   const ROUTE_FOR_TYPE: Record<ContentType, (id: string) => string> = {
     multichannel: (id) => `/multichannel/${id}`,
-    script: (id) => `/scripts/${id}`,
+    script: (id) => `/videos?tab=scripts&view=${id}`,
     carousel: (id) => `/carousels/${id}`,
     core: (id) => `/core-content/${id}`,
     ad_copy: (id) => `/ad-copies/${id}`,
