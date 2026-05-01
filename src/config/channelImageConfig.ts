@@ -427,7 +427,7 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       headlineBudget: 45,
       ctaBudget: 0,
       footerBudget: 25,
-      layoutBias: 'centered-hero' as any,
+      layoutBias: 'centered-hero',
       maxFileSizeKB: 976,
     },
   },
