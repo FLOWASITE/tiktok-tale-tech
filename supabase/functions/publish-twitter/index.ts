@@ -215,16 +215,39 @@ const TWEET_MAX_CHARS = 280;
 const TWEET_SAFE_CHARS = 274;
 
 /**
- * Twitter weighted length: URLs count as 23 chars regardless of length.
+ * Twitter weighted length per official spec:
  * https://developer.x.com/en/docs/counting-characters
+ *
+ * - URLs (http/https) count as 23 regardless of length.
+ * - Code points in these ranges count as 1: 0-4351 (BMP Latin/CJK boundary segment),
+ *   8192-8205, 8208-8223, 8242-8247.
+ * - Everything else (most CJK, emoji, supplementary plane, Vietnamese tone marks
+ *   when in NFC combined form usually fits 0-4351, but full-width punctuation,
+ *   most emoji, and surrogate pairs) counts as 2.
+ *
+ * NOTE: We NFC-normalize first so Vietnamese diacritics like "ắ" become single
+ * precomposed code points (which are <4352 → weight 1) instead of base+combining
+ * sequences (combining marks U+0300-036F are <4352 too, but doubled the count).
  */
+function isWeightOneCodePoint(cp: number): boolean {
+  return (
+    (cp >= 0 && cp <= 4351) ||
+    (cp >= 8192 && cp <= 8205) ||
+    (cp >= 8208 && cp <= 8223) ||
+    (cp >= 8242 && cp <= 8247)
+  );
+}
+
 function tweetWeightedLength(text: string): number {
-  // Replace URLs with 23-char placeholder
+  // Replace URLs with 23 weight-1 placeholder chars
   const urlRegex = /https?:\/\/\S+/g;
-  const normalized = text.replace(urlRegex, 'x'.repeat(23));
-  // Use grapheme count (emoji safe). Twitter counts most code points as 1,
-  // but some emoji as 2. For safety we count code points (Array.from).
-  return Array.from(normalized).length;
+  const normalized = text.normalize('NFC').replace(urlRegex, 'x'.repeat(23));
+  let weight = 0;
+  for (const ch of normalized) {
+    const cp = ch.codePointAt(0) ?? 0;
+    weight += isWeightOneCodePoint(cp) ? 1 : 2;
+  }
+  return weight;
 }
 
 function sliceByGraphemes(text: string, max: number): string {
@@ -232,6 +255,25 @@ function sliceByGraphemes(text: string, max: number): string {
   if (arr.length <= max) return text;
   return arr.slice(0, max).join('');
 }
+
+/**
+ * Slice text so its tweetWeightedLength is ≤ max.
+ * Uses grapheme-by-grapheme accumulation to handle weight-2 chars correctly.
+ */
+function sliceByWeightedLength(text: string, max: number): string {
+  const normalized = text.normalize('NFC');
+  let acc = '';
+  let w = 0;
+  for (const ch of normalized) {
+    const cp = ch.codePointAt(0) ?? 0;
+    const cw = isWeightOneCodePoint(cp) ? 1 : 2;
+    if (w + cw > max) break;
+    acc += ch;
+    w += cw;
+  }
+  return acc;
+}
+
 
 /**
  * Hard-enforce a single tweet ≤ max chars by splitting at sentence/word boundary.
@@ -245,27 +287,28 @@ function enforceTweetLimit(text: string, max: number = TWEET_MAX_CHARS): string[
   let remaining = trimmed;
 
   while (tweetWeightedLength(remaining) > max) {
-    // Try to slice ~max graphemes then back off to last sentence/space boundary
-    let slice = sliceByGraphemes(remaining, max);
-    // Adjust if weighted length still > max (URLs counted as 23)
-    while (tweetWeightedLength(slice) > max && slice.length > 1) {
-      slice = sliceByGraphemes(slice, Array.from(slice).length - 1);
-    }
+    // Slice using weighted-length aware accumulator (handles weight-2 chars correctly)
+    let slice = sliceByWeightedLength(remaining, max);
 
-    // Prefer breaking at sentence end (. ! ? \n) within last 80 chars
+    // Prefer breaking at sentence end (. ! ? \n) within the slice
     const sentenceMatch = slice.match(/^([\s\S]*[\.!\?\n])\s+\S/);
     let cut = slice;
-    if (sentenceMatch && sentenceMatch[1].length >= max * 0.5) {
+    if (sentenceMatch && tweetWeightedLength(sentenceMatch[1]) >= max * 0.5) {
       cut = sentenceMatch[1];
     } else {
-      // Fall back to last whitespace
+      // Fall back to last whitespace within slice
       const lastSpace = slice.lastIndexOf(' ');
-      if (lastSpace > max * 0.5) {
+      if (lastSpace > 0 && tweetWeightedLength(slice.slice(0, lastSpace)) >= max * 0.5) {
         cut = slice.slice(0, lastSpace);
       }
     }
 
-    chunks.push(cut.trim());
+    cut = cut.trim();
+    if (!cut) {
+      // Safety: avoid infinite loop if cut is empty — force-take slice
+      cut = slice.trim() || sliceByGraphemes(remaining, 1);
+    }
+    chunks.push(cut);
     remaining = remaining.slice(cut.length).trim();
   }
   if (remaining.length > 0) chunks.push(remaining);
@@ -301,13 +344,13 @@ function splitThreadContent(content: string): string[] {
     const total = expanded.length;
     return expanded.map((part, i) => {
       const prefix = `${i + 1}/${total} `;
+      const prefixWeight = tweetWeightedLength(prefix);
       // Strip any pre-existing "n/" prefix that might leak through
       const cleaned = part.replace(/^\d+\/\d*\s+/, '').trim();
-      // Ensure final string still ≤ 280 (prefix is small, but be safe)
       const withPrefix = prefix + cleaned;
       if (tweetWeightedLength(withPrefix) <= TWEET_MAX_CHARS) return withPrefix;
-      // Last-resort hard truncate
-      return prefix + sliceByGraphemes(cleaned, TWEET_MAX_CHARS - prefix.length - 1) + '…';
+      // Last-resort: weighted-length aware truncate, leaving room for "…"
+      return prefix + sliceByWeightedLength(cleaned, TWEET_MAX_CHARS - prefixWeight - 1) + '…';
     });
   }
 
@@ -559,7 +602,10 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
 
       // === SPLIT INTO THREAD OR SINGLE TWEET ===
       const tweets = splitThreadContent(content);
-      console.log(`[thread] Content split into ${tweets.length} tweet(s)`);
+      console.log(`[thread] Content split into ${tweets.length} tweet(s)`, {
+        weights: tweets.map(t => tweetWeightedLength(t)),
+        chars: tweets.map(t => Array.from(t).length),
+      });
 
       let firstTweetResult: { id: string; text: string } | null = null;
 
