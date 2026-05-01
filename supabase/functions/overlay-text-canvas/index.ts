@@ -2199,25 +2199,22 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
 
     console.log(`[overlay-text-canvas] SVG generated: ${svg.length} chars`);
 
-    // Convert SVG string to Uint8Array
-    const encoder = new TextEncoder();
-    const svgBytes = encoder.encode(svg);
+    // Rasterize Satori SVG → PNG (downstream publish-* functions reject SVG)
+    const pngBytes = await rasterizeSvgToPng(svg, imageWidth, imageHeight);
 
     let finalImageUrl: string;
 
     if (contentId && channel) {
       finalImageUrl = await uploadToStorage(
-        svgBytes,
+        pngBytes,
         contentId,
         channel,
         organizationId
       );
       console.log(`[overlay-text-canvas] Uploaded to: ${finalImageUrl}`);
     } else {
-      // Return as base64 data URL
-      const base64 = btoa(svg);
-      finalImageUrl = `data:image/svg+xml;base64,${base64}`;
-      console.log(`[overlay-text-canvas] Returning as base64 data URL`);
+      finalImageUrl = pngBytesToDataUrl(pngBytes);
+      console.log(`[overlay-text-canvas] Returning as PNG data URL`);
     }
 
     console.log(`[overlay-text-canvas] === SUCCESS ===`);
@@ -2232,7 +2229,7 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
         position,
         typographyStyle,
         fontSize,
-        format: 'svg',
+        format: 'png',
         dimensions: { width: imageWidth, height: imageHeight },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
