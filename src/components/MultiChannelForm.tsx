@@ -62,7 +62,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   tiktok: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   threads: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  bluesky: <ChannelIcon channel="bluesky" size={16} />,
+  bluesky: <Globe className="w-4 h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {

@@ -73,7 +73,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,
-  bluesky: <ChannelIcon channel="bluesky" size={16} />,
+  bluesky: <Globe className="w-4 h-4" />,
 };
 
 type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
