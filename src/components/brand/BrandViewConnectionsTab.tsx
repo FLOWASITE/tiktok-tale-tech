@@ -174,6 +174,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Đăng Pin ảnh / video / carousel (yêu cầu Business account)',
   },
+  bluesky: {
+    name: 'Bluesky',
+    icon: <ChannelIcon channel="bluesky" className="text-[#0085FF]" size={20} />,
+    color: 'bg-[#0085FF]/10',
+    available: true,
+    description: 'Đăng bài lên Bluesky (App Password)',
+  },
 };
 
 interface TwitterSetupForm {

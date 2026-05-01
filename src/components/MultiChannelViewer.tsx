@@ -238,6 +238,14 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-slate-500/10',
     maxLength: 'Tối đa 500 ký tự'
   },
+  bluesky: { 
+    label: 'Bluesky', 
+    shortLabel: 'Bluesky',
+    icon: <ChannelIcon channel="bluesky" size="sm" />, 
+    color: 'text-[#0085FF]',
+    bgColor: 'bg-[#0085FF]/10',
+    maxLength: 'Tối đa 300 ký tự'
+  },
 };
 
 import { analyzeContent } from '@/hooks/useContentAnalysis';
