@@ -490,6 +490,39 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
     ],
   },
   {
+    id: 'hung-kings',
+    name: 'Giỗ Tổ Hùng Vương',
+    date: nextOccurrence(3, 16), // ~10/3 Âm lịch, approximate
+    type: 'holiday',
+    suggestedTopics: [
+      'Tự hào nguồn cội Việt Nam',
+      'Văn hóa truyền thống dân tộc',
+      'Du lịch nghỉ lễ Giỗ Tổ',
+    ],
+  },
+  {
+    id: 'liberation-day',
+    name: 'Giải phóng miền Nam 30/4',
+    date: nextOccurrence(3, 30),
+    type: 'holiday',
+    suggestedTopics: [
+      'Tự hào lịch sử Việt Nam',
+      'Du lịch nghỉ lễ 30/4 - 1/5',
+      'Tri ân thế hệ đi trước',
+    ],
+  },
+  {
+    id: 'labor-day',
+    name: 'Quốc tế Lao động 1/5',
+    date: nextOccurrence(4, 1),
+    type: 'holiday',
+    suggestedTopics: [
+      'Tri ân người lao động',
+      'Work-life balance tips',
+      'Flash sale nghỉ lễ 1/5',
+    ],
+  },
+  {
     id: 'mothers-day',
     name: 'Ngày của Mẹ',
     date: nextOccurrence(4, 10),
