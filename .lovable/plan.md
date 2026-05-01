@@ -1,46 +1,56 @@
 ## Vấn đề
 
-Khi gen ảnh /multichannel với mode `ai_render` (mặc định), pipeline chạy 4 bước:
+Edge function `topic-ai` action `suggest` timeout 90s ở client. Logs cho thấy:
 
-1. **STEP 1** — `generate-brand-image` với `structuredElements` (banner/headline/cards/CTA/footer) → AI (Gemini/Seedream) **đã bake** toàn bộ text + footer vào ảnh, rất đẹp và đúng chỗ.
-2. **STEP 2** — overlay logo (OK).
-3. **STEP 3** — canvas overlay text (skip nếu có structured).
-4. **STEP 4** — `overlay-text-canvas` vẽ lại banner/headline/cards/CTA/**footer** bằng Satori/Resvg lên trên ảnh AI.
+- 1 request gen mất **117.681s** (vượt timeout client 90s) → `WARNING [PERF][SLOW] topic-ai durationMs:117681`
+- Model dùng `qwen-flash` (DashScope) — quá chậm cho payload lớn (brand context + 3 personas + 3 products + learning context).
+- **Perplexity API key đang hết quota / sai key** (`401 Quota/auth exhausted`) → mỗi cold-start vẫn gọi 2 calls song song trước khi bị disable trong-isolate, lãng phí 1-2s/lần.
+- Mỗi click "Viral tuần này" gửi `forceRefresh=true` → bypass cache → mỗi lần đều phải đợi LLM 100s+.
+- Sau đó còn `repair pass` (call AI lần 2) khi tiêu đề ngắn — cộng thêm 10-20s nữa.
 
-Bug ở **STEP 4**: trong `useAutoImageGeneration.ts` (line 572) cờ `frontendForcedStructuredFallback` được set thành `true` mỗi khi `isAiRenderMode && (footer || text hoặc structured)` — tức gần như **mọi lần gen**. Hậu quả: canvas vẽ đè footer/CTA/headline lần thứ hai lên footer/CTA/headline mà AI đã render → text trùng, footer chồng nhau, layout xấu (đúng triệu chứng user mô tả).
+Tổng: cold-start + 2 perplexity 401 + qwen-flash gen 80-100s + repair → vượt 90s.
 
-Backend `generate-brand-image` đã có cơ chế `recommendedOverlayMode` + `fallbackRecommended` để báo khi nào AI render thất bại và CẦN canvas fallback. Cần tin cờ này thay vì frontend tự ép.
+## Mục tiêu
 
-## Giải pháp
+Đưa thời gian phản hồi suggest về < 30s, ổn định, không phụ thuộc Perplexity (đang chết).
 
-Sửa logic fallback trong `src/hooks/useAutoImageGeneration.ts` để:
+## Thay đổi
 
-1. **Chỉ chạy STEP 4 (structured canvas overlay) khi backend thực sự yêu cầu fallback** (`fallbackRecommended === true` hoặc `recommendedOverlayMode !== 'ai_render'`). Bỏ `frontendForcedStructuredFallback` (xoá ép buộc khi AI render đã thành công).
-2. **Tương tự cho STEP 3 (text canvas overlay)** — chỉ chạy khi backend báo fallback. Ảnh AI render `with_text` đã có headline rồi.
-3. **Giữ STEP 2 logo overlay** như cũ (logo luôn cần canvas vì AI không bake-in logo file).
-4. **Vẫn cho phép user ép Satori** qua `options.overlayMode='satori'` — chỉ thay đổi default `ai_render` flow.
-5. **Thêm log rõ ràng** "STEP 4 SKIPPED — AI accepted, no double-render" để debug sau này.
+### 1. `supabase/functions/topic-ai/index.ts` — `handleSuggest`
 
-### Files thay đổi
+- **Tắt Perplexity mặc định** khi không có key hợp lệ: trước khi gọi `searchIndustryData` / `searchAudienceQuestions`, kiểm tra `webSearchKillSwitch` (đã có sẵn trong `topic-utils.ts`) — nếu đã từng 401 trong isolate thì bỏ qua hoàn toàn, không enqueue task.
+- **Truyền `cacheHitTimestamp` thực** vào `shouldSkipWebSearch` (hiện đang truyền `undefined`) để skip web search khi cache vừa miss nhưng còn data gần đây.
+- **Hard timeout per Perplexity call** ở mức 8s (AbortController) — nếu chậm thì bỏ, generate vẫn chạy.
+- **Hard timeout cho main AI call** 60s — nếu vượt thì throw để client thấy lỗi rõ thay vì timeout cứng 90s.
 
-- `src/hooks/useAutoImageGeneration.ts`
-  - Line ~572-575: bỏ `frontendForcedStructuredFallback` & `frontendForcedTextFallback`, chỉ giữ điều kiện `!isAiRenderMode || backendRequestedFallback`.
-  - Cập nhật `fallbackReasons` log để phản ánh.
-  - Cập nhật `requiredBranding` log để debug-only (không driving logic).
+### 2. `supabase/functions/_shared/topic-utils.ts`
 
-### Edge cases
+- Thêm export `isWebSearchKilled()` để `handleSuggest` đọc được trạng thái kill-switch và bỏ qua việc enqueue task ngay từ đầu (thay vì để task tự fail rồi mới tắt).
+- Khi `PERPLEXITY_API_KEY` hoặc `OPENROUTER_API_KEY` không được cấu hình → set kill-switch luôn ở module load.
 
-- Nếu provider/model không bake text tốt → backend trả `recommendedOverlayMode='satori'` → STEP 3/4 vẫn chạy như cũ.
-- Nếu user manual chọn `overlayMode='satori'` → flow cũ giữ nguyên.
-- Telegram pipeline (`branded-image-composer.ts`) không bị ảnh hưởng — nó vốn đã chỉ overlay logo, không có STEP 3/4.
+### 3. `supabase/functions/topic-ai/index.ts` — fallback model
 
-### QA
+- Đổi default từ `google/gemini-2.5-flash` → giữ nguyên, NHƯNG: nếu org override `qwen-flash` mà action là `suggest`, override-of-override về `google/gemini-2.5-flash-lite` (nhanh hơn 3-4x cho prompt cỡ này, vẫn đủ chất lượng cho 6 chủ đề ngắn).
+- Hoặc đơn giản hơn: thêm tham số `maxTokens: 1500` (hiện tại có thể đang để default cao) để LLM dừng sớm.
 
-- Test gen 1 bài Facebook + 1 bài Instagram có brand footer đầy đủ → ảnh chỉ có 1 lớp footer/CTA/headline (do AI render), không bị đè.
-- Console log `[Pipeline:facebook] ⏭ STEP 4 SKIPPED — ai_render accepted by backend`.
-- Mở DevTools Network → không còn POST tới `overlay-text-canvas` ở STEP 4 trong happy path.
-- Test 1 case ép `overlayMode='satori'` → STEP 4 vẫn chạy (regression check).
+### 4. `src/hooks/ai/useTopicAI.ts` — frontend resilience
 
-## Risk
+- Khi user bấm refresh category (`Viral tuần này`), KHÔNG gửi `forceRefresh=true` mặc định — chỉ force khi user bấm nút "Refresh" rõ ràng. Click chuyển category nên dùng cache nếu có.
+- Hiện thị thông báo "AI đang xử lý, có thể mất 30-60s" thay vì error toast khi thời gian > 15s, và hiển thị retry sau timeout.
 
-Thấp. Đây là **bỏ một bước double-render thừa**. Nếu một channel cụ thể nào đó AI render kém, backend đã có cơ chế trả `fallbackRecommended=true` để bật lại canvas — không mất khả năng phục hồi.
+### 5. (Tùy chọn) Hỏi user re-cấu hình Perplexity
+
+Sau khi triển khai fix, hỏi user có muốn cập nhật `PERPLEXITY_API_KEY` mới hoặc tắt hẳn web search trong cấu hình không (vì hiện key đã 401).
+
+## Files sẽ sửa
+
+- `supabase/functions/topic-ai/index.ts`
+- `supabase/functions/_shared/topic-utils.ts`
+- `src/hooks/ai/useTopicAI.ts`
+
+## Kết quả mong đợi
+
+- Suggest response time: **< 30s** (cache miss), **< 1s** (cache hit).
+- Không còn timeout 90s.
+- Click chuyển category dùng cache → tức thì.
+- Perplexity 401 không còn block luồng chính.
