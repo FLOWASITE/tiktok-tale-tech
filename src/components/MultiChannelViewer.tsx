@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ZaloIcon, XIcon, PinterestIcon, BloggerIcon, WordPressIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, PinterestIcon, BloggerIcon, WordPressIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
@@ -241,7 +241,7 @@ const channelConfig: Record<Channel, {
   bluesky: { 
     label: 'Bluesky', 
     shortLabel: 'Bluesky',
-    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <BlueskyIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-[#0085FF]',
     bgColor: 'bg-[#0085FF]/10',
     maxLength: 'Tối đa 300 ký tự'
