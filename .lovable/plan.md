@@ -1,49 +1,97 @@
-## Vấn đề
-Ảnh không upload được lên Bluesky khi đăng bài (text post vẫn OK). Logs hiện tại không có entry nào cho `publish-bluesky` nên cần bổ sung log chi tiết để chẩn đoán đồng thời sửa 3 nguyên nhân khả năng cao.
+## Chẩn đoán
 
-## Nguyên nhân nghi vấn
+Bài đăng Blogger/WordPress trống ký tự **không phải lỗi ở publish** mà là lỗi ở `generate-multichannel`: dữ liệu `blogger_content` và `wordpress_content` trong DB **luôn rỗng / null** ngay từ lúc generate.
 
-1. **Content-Type không hợp lệ với Bluesky**
-   - Bluesky PDS chỉ nhận `image/jpeg`, `image/png`, `image/webp`, `image/gif`.
-   - Khi ảnh từ Supabase Storage transform (`?width=1200&quality=70`) trả về header `image/webp` hoặc thậm chí `application/octet-stream`, blob upload sẽ fail với 400 `InvalidMimeType`.
+Bằng chứng từ DB (10 row gần nhất):
 
-2. **DPoP nonce stale ở lần upload đầu tiên**
-   - `ctx.dpopNonce` được load từ DB lúc resume session — thường đã hết hạn.
-   - Lần upload đầu phải tốn 1 round-trip 401 để lấy nonce mới. Khi upload 4 ảnh carousel song song hoặc liên tiếp, attempt 0 luôn fail và attempt 1 mới đúng — nhưng body `ArrayBuffer` đã được fetch tiêu thụ một lần, không re-send được trong một số runtime Deno.
+```
+title                                                 | web_len | blogger_len | wp_len
+------------------------------------------------------+---------+-------------+-------
+Tại sao 30% nội dung của bạn bị bỏ rơi…              |       0 |           0 |      0
+Flowa kiểm chứng: Một AI Agent tự vận hành…          |       0 |           0 |      0
+... (tất cả đều 0)
+```
 
-3. **Body binary bị consume khi retry**
-   - `pdsFetch` retry với cùng `opts.body` reference. Với `ArrayBuffer` thường OK nhưng nếu Deno wrap thành `ReadableStream` nội bộ thì attempt 1 gửi body rỗng → 400.
+→ AI có chạy generate (token được dùng), nhưng cột long-form không bao giờ được ghi.
 
-## Thay đổi
+## Root cause
 
-### 1. `supabase/functions/publish-bluesky/index.ts`
+File: `supabase/functions/generate-multichannel/index.ts`
 
-**`downloadAndPrepareImage`** (lines 352-381):
-- Sau khi fetch, **normalize content-type**: nếu không phải `image/jpeg|png|webp|gif`, mặc định về `image/jpeg`.
-- Detect magic bytes 4 byte đầu (`FF D8 FF` = JPEG, `89 50 4E 47` = PNG, `52 49 46 46` = WEBP/RIFF, `47 49 46` = GIF) để set content-type chính xác thay vì tin header server trả.
-- Log `[publish-bluesky] image prepared`: size + final contentType.
+### Lỗi 1: CREATE path quên insert blogger_content / wordpress_content
 
-**`uploadBlob`** (lines 383-406):
-- Log lỗi chi tiết khi blob upload fail: status + body response (đang có nhưng chỉ throw, cần `console.error` để hiện trong edge logs).
-- Thêm log success: `[publish-bluesky] blob uploaded` với mime + size.
+Ở block INSERT (dòng ~5615–5635) chỉ liệt kê tay từng cột:
 
-### 2. `supabase/functions/_shared/bluesky-oauth.ts` — `pdsFetch` (lines 544-583)
+```ts
+.insert({
+  website_content: ...,
+  facebook_content: ...,
+  instagram_content: ...,
+  // ... đủ các social
+  bluesky_content: ...,
+  // ❌ KHÔNG có blogger_content
+  // ❌ KHÔNG có wordpress_content
+})
+```
 
-- **Warm nonce trước khi gửi binary body**: nếu `opts.nonce` không có và `opts.body` là `ArrayBuffer`/`Uint8Array`, gọi 1 HEAD/OPTIONS preflight nhẹ để lấy `DPoP-Nonce` trước, tránh wasting binary body ở attempt 0.
-  - Implementation đơn giản hơn: nếu `opts.body` là binary VÀ không có nonce, thực hiện 1 preflight `POST` rỗng tới `/xrpc/_health` hoặc accept rằng attempt 0 sẽ fail rồi clone body trước khi retry.
-- **Clone body trước retry**: trước fetch lần đầu, nếu body là `ArrayBuffer`, lưu reference; trước attempt 1 dùng `body.slice(0)` để chắc chắn không bị consume.
-- Log warning khi nonce retry happen, kèm URL để dễ trace.
+Trong khi UPDATE path (expand mode, dòng ~5532–5547) thì loop qua `CHANNEL_COLUMN_MAP` đúng nên insert được cả 2 cột mới này. Vì vậy lần đầu tạo bài (đa số trường hợp) → 2 cột long-form trống.
 
-### 3. Cải thiện logging end-to-end
-- Thêm `console.log` ở mỗi bước trong handler chính (download → prepare → upload → embed) để khi user thử lại, edge logs sẽ chỉ ra step nào fail.
+### Lỗi 2: Có thể AI chưa được prompt để trả `blogger_content` / `wordpress_content`
 
-## Validation sau khi deploy
-1. Đăng bài Bluesky với 1 ảnh thường → logs hiện full pipeline + post thành công.
-2. Đăng carousel 4 ảnh → cả 4 ảnh xuất hiện trên Bluesky.
-3. Test ảnh từ Supabase Storage (đường dẫn `/storage/v1/`) — đảm bảo transform trả jpeg.
-4. Nếu vẫn fail, log sẽ chỉ rõ status code Bluesky trả + 200 ký tự đầu của response để fix tiếp (có thể là rate limit 429 hoặc mime cụ thể).
+Cần verify schema yêu cầu AI output có khai báo 2 key này hay không (chỗ `channelProperties` quanh dòng 4030/4212 đang chỉ thấy `website_content`). Nếu AI không bao giờ trả 2 key này → kể cả vá insert cũng vẫn rỗng.
 
-## Lưu ý
-- Không thay đổi schema DB hay auth flow.
-- Không cần reconnect Bluesky.
-- Chỉ ảnh hưởng `publish-bluesky` + helper `pdsFetch` (dùng chung nhưng thay đổi backward-compatible).
+## Plan sửa
+
+### 1. Vá CREATE path ghi đủ long-form cột
+
+Trong `generate-multichannel/index.ts` block INSERT:
+- Thêm `blogger_content: generatedData.blogger_content || null`
+- Thêm `wordpress_content: generatedData.wordpress_content || null`
+
+Tốt hơn: refactor để dùng cùng `CHANNEL_COLUMN_MAP` loop như UPDATE mode (tránh lặp lại bug khi thêm channel mới sau này).
+
+### 2. Đảm bảo AI sinh `blogger_content` và `wordpress_content`
+
+Kiểm tra schema/prompt builder của generate-multichannel:
+- Khi `channels` có `blogger` → schema phải yêu cầu key `blogger_content` (string, 500–800 từ, casual).
+- Khi `channels` có `wordpress` → schema phải yêu cầu key `wordpress_content` (string, 1200–2000 từ, in-depth).
+- Nếu hiện tại đang fallback sang `website_content` chung → tách riêng theo `channelSettings.format_description` đã định nghĩa trong memory.
+
+Sau sửa, AI output JSON sẽ có dạng:
+```json
+{
+  "website_content": { "content": "...", "seo_data": {...} },
+  "blogger_content": "Bài casual 500-800 từ...",
+  "wordpress_content": "Bài in-depth 1200-2000 từ..."
+}
+```
+
+### 3. Thêm log để dễ debug lần sau
+
+Trước khi insert/update, log:
+```
+[generate-multichannel] persist channels=[blogger,wordpress,...]
+  blogger_len=N wordpress_len=N website_len=N
+```
+
+Nếu len=0 mà channel được chọn → warning rõ ràng để biết bug ở generation chứ không phải DB.
+
+### 4. (Tuỳ chọn) Recovery cho các bài đã tạo rỗng
+
+Hiện tại 9/10 bài gần nhất đã có `blogger_len = wp_len = 0`. Sau khi vá, user sẽ phải:
+- Hoặc dùng nút "Regenerate channel" (UPDATE mode đã chạy đúng) cho từng bài cũ.
+- Hoặc tạo bài mới.
+
+Tôi **không** đề xuất chạy backfill tự động vì việc này sẽ tốn quota AI của user. Chỉ cần báo trong UI khi publish gặp content rỗng: "Kênh này chưa có nội dung, hãy bấm Regenerate".
+
+## File sẽ sửa
+
+- `supabase/functions/generate-multichannel/index.ts`
+  - INSERT block: thêm `blogger_content`, `wordpress_content` (hoặc refactor sang loop CHANNEL_COLUMN_MAP).
+  - Schema/prompt: đảm bảo AI sinh 2 key này khi channel được chọn.
+  - Thêm log persist length per channel.
+
+- `supabase/functions/channel-publisher/index.ts` (nhỏ)
+  - Khi resolve content rỗng cho blogger/wordpress, message lỗi rõ hơn: gợi ý user bấm "Tạo lại nội dung kênh này".
+
+Không động database schema (cột đã có sẵn từ migration trước), không động OAuth, không backfill data cũ.

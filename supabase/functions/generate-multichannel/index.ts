@@ -4009,6 +4009,8 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     const channelProperties: Record<string, object> = {};
 const channelDescriptions: Record<string, string> = {
       website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections với bullet points (- item) và numbered lists (1. item) để dễ đọc, blockquote cho trích dẫn quan trọng, **bold** cho keyword, conclusion với CTA mềm. BẮT BUỘC dùng bullet list hoặc numbered list trong ít nhất 2 section. Markdown format.",
+      blogger: "Bài Blogger (500-900 chữ, casual blog tone, ngôi 'tôi/mình', kể chuyện cá nhân + 1-2 bullet list ngắn, mở bài có hook, kết bài câu hỏi mời comment. Markdown nhẹ: ## heading, **bold**, - bullet. Ưu tiên giọng người thật, không cần SEO chặt như website.",
+      wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA rõ ràng. Markdown chuẩn (## ###, **bold**, - bullet, > blockquote, [link](url)). Sâu và dài hơn website một bậc.",
       facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
       instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
       twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -4192,6 +4194,8 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const channelProps: Record<string, object> = {};
       const channelDescs: Record<string, string> = {
         website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections với bullet points (- item) và numbered lists (1. item) để dễ đọc, blockquote cho trích dẫn quan trọng, **bold** cho keyword, conclusion với CTA mềm. BẮT BUỘC dùng bullet list hoặc numbered list trong ít nhất 2 section. Markdown format.",
+        blogger: "Bài Blogger (500-900 chữ, casual blog tone, ngôi 'tôi/mình', kể chuyện cá nhân + 1-2 bullet list ngắn, mở bài có hook, kết bài câu hỏi mời comment. Markdown nhẹ. Ưu tiên giọng người thật, không cần SEO chặt.",
+        wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA. Markdown chuẩn. Sâu và dài hơn website một bậc.",
         facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
         instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
         twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -5505,6 +5509,26 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     // Save to database with Industry Memory version tracking + critique metadata
     // EXPAND MODE: Update existing content | CREATE MODE: Insert new
+    // Debug: log persisted length per channel to catch silent gaps (e.g. AI not returning blogger_content/wordpress_content).
+    try {
+      const persistLens = (formData.channels || []).map((ch: string) => {
+        const v = ch === 'website'
+          ? (typeof generatedData.website_content === 'object' ? generatedData.website_content?.content : generatedData.website_content)
+          : generatedData[`${ch}_content`];
+        return `${ch}=${typeof v === 'string' ? v.length : 0}`;
+      });
+      console.log(`[generate-multichannel][persist] action=${formData.action || 'create'} channels=[${(formData.channels || []).join(',')}] lens={${persistLens.join(', ')}}`);
+      for (const ch of formData.channels || []) {
+        const v = ch === 'website'
+          ? (typeof generatedData.website_content === 'object' ? generatedData.website_content?.content : generatedData.website_content)
+          : generatedData[`${ch}_content`];
+        if (!v || (typeof v === 'string' && v.trim().length === 0)) {
+          console.warn(`[generate-multichannel][persist] ⚠️ channel "${ch}" was selected but AI returned empty content — bài đăng sẽ trống.`);
+        }
+      }
+    } catch (logErr) {
+      console.warn('[generate-multichannel][persist] log error:', logErr);
+    }
     let content: any;
     let dbError: any;
     
@@ -5632,6 +5656,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           pinterest_content: (generatedData.pinterest_content && generatedData.pinterest_content.length > 0) ? generatedData.pinterest_content : null,
           pinterest_title: (generatedData.pinterest_title && generatedData.pinterest_title.length > 0) ? generatedData.pinterest_title : null,
           bluesky_content: (generatedData.bluesky_content && generatedData.bluesky_content.length > 0) ? generatedData.bluesky_content : null,
+          blogger_content: (generatedData.blogger_content && generatedData.blogger_content.length > 0) ? generatedData.blogger_content : null,
+          wordpress_content: (generatedData.wordpress_content && generatedData.wordpress_content.length > 0) ? generatedData.wordpress_content : null,
         }))
         .select()
         .single();

@@ -128,10 +128,14 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         // Prefer dedicated column; fallback to website_content for backward compat with old records.
         const resolvedContent = (mcc as any)?.[contentColumn] || mcc?.website_content || null;
 
-        if (!resolvedContent) {
+        if (!resolvedContent || (typeof resolvedContent === 'string' && resolvedContent.trim().length === 0)) {
           const label = action === 'wordpress' ? 'WordPress' : 'Blogger';
           return new Response(
-            JSON.stringify({ success: false, error: `Bài chưa có nội dung ${label}. Vui lòng tạo nội dung kênh ${label} trước.` }),
+            JSON.stringify({
+              success: false,
+              error: `Bài chưa có nội dung ${label}. Vào trang chỉnh sửa bài, bấm "Tạo lại nội dung" cho kênh ${label} rồi thử đăng lại.`,
+              errorCode: 'EMPTY_CHANNEL_CONTENT',
+            }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
