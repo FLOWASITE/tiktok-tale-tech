@@ -27,6 +27,7 @@ export interface CharacterProfile {
   appearance: CharacterAppearance;
   wardrobe: string | null;
   reference_image_url: string | null;
+  reference_images: ReferenceImage[];
   brand_template_id: string | null;
   created_by: string | null;
   created_at: string;
