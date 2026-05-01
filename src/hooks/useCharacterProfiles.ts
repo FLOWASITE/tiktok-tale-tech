@@ -84,6 +84,8 @@ export function useCharacterProfiles() {
           reference_image_url: input.reference_image_url ?? null,
           reference_images: (input.reference_images ?? []) as any,
           brand_template_id: input.brand_template_id ?? null,
+          default_voice_id: input.default_voice_id ?? null,
+          default_voice_provider: input.default_voice_provider ?? null,
           created_by: user?.id ?? null,
         })
         .select()
