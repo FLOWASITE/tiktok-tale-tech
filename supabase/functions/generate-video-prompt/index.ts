@@ -22,6 +22,7 @@ interface PromptRequest {
   industry_id?: string;
   language?: 'vi' | 'en' | 'th';
   tone?: string;
+  character_profile_id?: string;
 }
 
 interface PromptResponse {
