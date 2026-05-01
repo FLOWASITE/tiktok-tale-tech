@@ -12,12 +12,12 @@ type: feature
 
 ## Phase 1 — Core
 - `useCharacterProfiles` hook: CRUD + `buildCharacterBlock()` + ReferenceImage types
-- `CharacterPicker`: Single-select dropdown (kept for backward compat)
+- `CharacterPicker`: Single-select dropdown (kept for backward compat, unused)
 - Prompt injection: generate-video + generate-video-prompt + generate-script
 
 ## Phase 2 — Enhanced
 - Multi-reference images: upload 5 ảnh với label, smart image selection theo context
-- Storyboard batch injection: CharacterPicker + inject character vào loop
+- Storyboard batch injection + inject character vào loop
 - Script integration: character_profile_id trong ScriptFormData + ActiveScript.characterProfileId
 - Last-frame chaining: sequential batch dùng previousVideoUrl làm starting_frame cho scene tiếp
 
@@ -28,9 +28,12 @@ type: feature
 - **Auto-extract last frame**: Batch generate lấy video_url từ scene trước làm starting_frame_url cho scene sau
 
 ## Phase 3.5 — Full Integration (hoàn thiện)
-- **MultiCharacterPicker tích hợp toàn bộ**: QuickClipTab, StoryboardVideoTab, ScriptFormStepper đều dùng MultiCharacterPicker
+- **MultiCharacterPicker tích hợp toàn bộ**: QuickClipTab, StoryboardVideoTab, ScriptFormStepper
 - **ScriptToVideoContext**: `characterProfileIds: string[]` propagate multi-character từ script sang video studio
-- **ScriptFormData**: thêm `character_profile_ids?: string[]` (giữ backward compat `character_profile_id`)
-- **Edge function `generate-video`**: Accept `character_profile_ids` array, fetch tất cả profiles, build block `[MAIN CHARACTER]` / `[SECONDARY CHARACTER N]`, ref image từ primary
-- **Edge function `generate-script`**: Accept `character_profile_ids` array, inject multi-character context `[NHÂN VẬT CHÍNH]` / `[NHÂN VẬT PHỤ N]` vào system prompt
-- **Backward compat**: Cả 2 edge functions fallback `character_profile_id` nếu `character_profile_ids` không có
+- **ScriptFormData**: `character_profile_ids?: string[]` (giữ backward compat `character_profile_id`)
+- **VideoGenerationRequest**: `character_profile_ids?: string[]`
+- **3 Edge functions đều hỗ trợ multi-character**:
+  - `generate-video`: Accept `character_profile_ids`, fetch all, build `[MAIN CHARACTER]` / `[SECONDARY CHARACTER N]`, ref image từ primary
+  - `generate-script`: Accept `character_profile_ids`, inject `[NHÂN VẬT CHÍNH]` / `[NHÂN VẬT PHỤ N]` vào system prompt
+  - `generate-video-prompt`: Accept `character_profile_ids`, build multi-character context cho Smart Prompt
+- **Backward compat**: Tất cả edge functions fallback `character_profile_id` nếu `character_profile_ids` không có
