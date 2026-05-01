@@ -429,6 +429,8 @@ export function CharacterProfileManager() {
               uploading={uploading}
               onUploadImage={handleUploadImage}
               onUploadRefImage={handleUploadRefImage}
+              onAiAnalyze={handleAiAnalyze}
+              analyzing={analyzing}
             />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Hủy</Button>
