@@ -131,6 +131,8 @@ function VideoStudioInner() {
               prefillTopic={prefillTopic}
               topicHistoryId={topicHistoryId}
               autoOpenNew={autoOpenNew}
+              initialViewScriptId={initialViewScriptId}
+              onSwitchTab={(t) => setTab(t as TabValue)}
             />
           </TabsContent>
 
