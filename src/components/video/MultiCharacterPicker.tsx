@@ -424,6 +424,47 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                             className="h-7 text-xs"
                           />
                         </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Xưng hô</Label>
+                            <Input
+                              value={c.appearance.honorific || ''}
+                              onChange={e => {
+                                const updated = [...generatedChars];
+                                updated[idx] = { ...updated[idx], appearance: { ...updated[idx].appearance, honorific: e.target.value } };
+                                setGeneratedChars(updated);
+                              }}
+                              placeholder="tôi, mình, em..."
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Giọng vùng miền</Label>
+                            <Input
+                              value={c.appearance.regional_accent || ''}
+                              onChange={e => {
+                                const updated = [...generatedChars];
+                                updated[idx] = { ...updated[idx], appearance: { ...updated[idx].appearance, regional_accent: e.target.value } };
+                                setGeneratedChars(updated);
+                              }}
+                              placeholder="Bắc Hà Nội..."
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Phong cách thoại</Label>
+                            <Input
+                              value={c.appearance.speech_style || ''}
+                              onChange={e => {
+                                const updated = [...generatedChars];
+                                updated[idx] = { ...updated[idx], appearance: { ...updated[idx].appearance, speech_style: e.target.value } };
+                                setGeneratedChars(updated);
+                              }}
+                              placeholder="Nhẹ nhàng thuyết phục..."
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
 
