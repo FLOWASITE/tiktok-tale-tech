@@ -267,6 +267,13 @@ export function useDirectPublish() {
     });
   };
 
+  const publishToBluesky = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'bluesky',
+      options,
+    });
+  };
+
   const publishToBlogger = async (options: PublishOptions & { title?: string; labels?: string[] }) => {
     const response = await supabase.functions.invoke('channel-publisher', {
       body: {
@@ -420,6 +427,7 @@ export function useDirectPublish() {
     publishToLinkedIn,
     publishToTikTok,
     publishToGoogleBusiness,
+    publishToBluesky,
     publishToBlog,
     publishToBlogger,
     publishToWordpress,

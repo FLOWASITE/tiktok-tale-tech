@@ -82,6 +82,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   wordpress: 'wordpress',
   wordpress_com: 'wordpress_com',
   website: 'website',
+  bluesky: 'bluesky',
 };
 
 const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
@@ -98,6 +99,7 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   wordpress: 'WordPress',
   wordpress_com: 'WordPress.com',
   website: 'Website',
+  bluesky: 'Bluesky',
 };
 
 const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
@@ -122,6 +124,7 @@ const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {
   twitter: 280,
   facebook: 63206,
   zalo_oa: 2000,
+  bluesky: 300,
 };
 
 type DialogState = 'confirm' | 'success' | 'blog';
@@ -146,7 +149,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBlog, publishToBlogger, publishToWordpress, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBluesky, publishToBlog, publishToBlogger, publishToWordpress, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
@@ -286,6 +289,9 @@ export function DirectPublishButton({
           break;
         case 'google_business':
           result = await publishToGoogleBusiness(publishOptions);
+          break;
+        case 'bluesky':
+          result = await publishToBluesky(publishOptions);
           break;
         case 'blogger':
           result = await publishToBlogger({
