@@ -28,6 +28,8 @@ export interface CharacterProfile {
   wardrobe: string | null;
   reference_image_url: string | null;
   reference_images: ReferenceImage[];
+  default_voice_id: string | null;
+  default_voice_provider: string | null;
   brand_template_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -41,6 +43,8 @@ export interface CharacterProfileInput {
   wardrobe?: string;
   reference_image_url?: string;
   reference_images?: ReferenceImage[];
+  default_voice_id?: string;
+  default_voice_provider?: string;
   brand_template_id?: string | null;
 }
 
@@ -80,6 +84,8 @@ export function useCharacterProfiles() {
           reference_image_url: input.reference_image_url ?? null,
           reference_images: (input.reference_images ?? []) as any,
           brand_template_id: input.brand_template_id ?? null,
+          default_voice_id: input.default_voice_id ?? null,
+          default_voice_provider: input.default_voice_provider ?? null,
           created_by: user?.id ?? null,
         })
         .select()
@@ -103,6 +109,8 @@ export function useCharacterProfiles() {
       if (input.wardrobe !== undefined) updateData.wardrobe = input.wardrobe;
       if (input.reference_image_url !== undefined) updateData.reference_image_url = input.reference_image_url;
       if (input.reference_images !== undefined) updateData.reference_images = input.reference_images as any;
+      if (input.default_voice_id !== undefined) updateData.default_voice_id = input.default_voice_id;
+      if (input.default_voice_provider !== undefined) updateData.default_voice_provider = input.default_voice_provider;
       if (input.brand_template_id !== undefined) updateData.brand_template_id = input.brand_template_id;
 
       const { data, error } = await supabase

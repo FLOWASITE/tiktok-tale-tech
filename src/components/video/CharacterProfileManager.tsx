@@ -15,7 +15,7 @@ import {
   type ReferenceImage,
   type ReferenceImageLabel,
 } from '@/hooks/useCharacterProfiles';
-import { Plus, Trash2, Edit2, User, Upload, Loader2, ImagePlus, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, User, Upload, Loader2, ImagePlus, X, Sparkles, Mic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
@@ -123,12 +123,16 @@ function CharacterFormFields({
   uploading,
   onUploadImage,
   onUploadRefImage,
+  onAiAnalyze,
+  analyzing,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   uploading: boolean;
   onUploadImage: (file: File) => Promise<void>;
   onUploadRefImage: (file: File, label: ReferenceImageLabel) => Promise<void>;
+  onAiAnalyze: () => Promise<void>;
+  analyzing: boolean;
 }) {
   const updateAppearance = (key: keyof CharacterAppearance, value: string) => {
     setForm((prev) => ({ ...prev, appearance: { ...prev.appearance, [key]: value } }));
@@ -237,6 +241,20 @@ function CharacterFormFields({
             />
           </label>
         </div>
+        {/* AI Auto-fill button */}
+        {form.reference_image_url && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5 text-xs"
+            onClick={onAiAnalyze}
+            disabled={analyzing}
+          >
+            {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {analyzing ? 'Đang phân tích...' : 'AI tự điền từ ảnh'}
+          </Button>
+        )}
       </div>
 
       {/* Multi-reference images */}
@@ -246,6 +264,31 @@ function CharacterFormFields({
         uploading={uploading}
         onUpload={onUploadRefImage}
       />
+
+      {/* Voice binding */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="flex items-center gap-1.5"><Mic className="w-3 h-3" /> Voice ID</Label>
+          <Input
+            value={form.default_voice_id || ''}
+            onChange={(e) => setForm((p) => ({ ...p, default_voice_id: e.target.value }))}
+            placeholder="voice-id từ TTS provider"
+            className="text-xs"
+          />
+        </div>
+        <div>
+          <Label>Provider</Label>
+          <Select value={form.default_voice_provider || ''} onValueChange={(v) => setForm((p) => ({ ...p, default_voice_provider: v }))}>
+            <SelectTrigger className="text-xs"><SelectValue placeholder="Chọn..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
+              <SelectItem value="google">Google TTS</SelectItem>
+              <SelectItem value="openai">OpenAI TTS</SelectItem>
+              <SelectItem value="lovable">Lovable AI</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
     </div>
   );
 }
@@ -257,6 +300,8 @@ const EMPTY_FORM: FormState = {
   wardrobe: '',
   reference_image_url: '',
   reference_images: [],
+  default_voice_id: '',
+  default_voice_provider: '',
 };
 
 export function CharacterProfileManager() {
@@ -266,6 +311,7 @@ export function CharacterProfileManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const uploadFile = async (file: File): Promise<string | null> => {
     if (!currentOrganization?.id) return null;
@@ -302,6 +348,31 @@ export function CharacterProfileManager() {
     }
   };
 
+  const handleAiAnalyze = async () => {
+    if (!form.reference_image_url) return;
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-character-image', {
+        body: { image_url: form.reference_image_url },
+      });
+      if (error) throw error;
+      if (data?.appearance) {
+        setForm((p) => ({
+          ...p,
+          appearance: { ...p.appearance, ...data.appearance },
+          description: data.description || p.description,
+          wardrobe: data.wardrobe || p.wardrobe,
+        }));
+        toast.success('AI đã phân tích ảnh và điền thông tin nhân vật');
+      }
+    } catch (e) {
+      console.error('[AI analyze]', e);
+      toast.error('Không thể phân tích ảnh — thử lại sau');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) return;
     if (editingId) {
@@ -323,6 +394,8 @@ export function CharacterProfileManager() {
       wardrobe: profile.wardrobe || '',
       reference_image_url: profile.reference_image_url || '',
       reference_images: (Array.isArray(profile.reference_images) ? profile.reference_images : []) as ReferenceImage[],
+      default_voice_id: profile.default_voice_id || '',
+      default_voice_provider: profile.default_voice_provider || '',
     });
     setOpen(true);
   };
@@ -358,6 +431,8 @@ export function CharacterProfileManager() {
               uploading={uploading}
               onUploadImage={handleUploadImage}
               onUploadRefImage={handleUploadRefImage}
+              onAiAnalyze={handleAiAnalyze}
+              analyzing={analyzing}
             />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Hủy</Button>
