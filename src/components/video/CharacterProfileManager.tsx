@@ -241,6 +241,20 @@ function CharacterFormFields({
             />
           </label>
         </div>
+        {/* AI Auto-fill button */}
+        {form.reference_image_url && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5 text-xs"
+            onClick={onAiAnalyze}
+            disabled={analyzing}
+          >
+            {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {analyzing ? 'Đang phân tích...' : 'AI tự điền từ ảnh'}
+          </Button>
+        )}
       </div>
 
       {/* Multi-reference images */}
@@ -250,6 +264,31 @@ function CharacterFormFields({
         uploading={uploading}
         onUpload={onUploadRefImage}
       />
+
+      {/* Voice binding */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="flex items-center gap-1.5"><Mic className="w-3 h-3" /> Voice ID</Label>
+          <Input
+            value={form.default_voice_id || ''}
+            onChange={(e) => setForm((p) => ({ ...p, default_voice_id: e.target.value }))}
+            placeholder="voice-id từ TTS provider"
+            className="text-xs"
+          />
+        </div>
+        <div>
+          <Label>Provider</Label>
+          <Select value={form.default_voice_provider || ''} onValueChange={(v) => setForm((p) => ({ ...p, default_voice_provider: v }))}>
+            <SelectTrigger className="text-xs"><SelectValue placeholder="Chọn..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
+              <SelectItem value="google">Google TTS</SelectItem>
+              <SelectItem value="openai">OpenAI TTS</SelectItem>
+              <SelectItem value="lovable">Lovable AI</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
     </div>
   );
 }
@@ -261,6 +300,8 @@ const EMPTY_FORM: FormState = {
   wardrobe: '',
   reference_image_url: '',
   reference_images: [],
+  default_voice_id: '',
+  default_voice_provider: '',
 };
 
 export function CharacterProfileManager() {
