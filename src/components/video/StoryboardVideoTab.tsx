@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { VideoCompletionWizard } from './VideoCompletionWizard';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
-import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;

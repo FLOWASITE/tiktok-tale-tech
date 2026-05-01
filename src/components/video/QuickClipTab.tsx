@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
-import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 // Default fallback if Admin hasn't configured a model yet.
 const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
