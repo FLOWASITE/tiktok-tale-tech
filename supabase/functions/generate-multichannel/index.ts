@@ -4056,6 +4056,7 @@ const channelDescriptions: Record<string, string> = {
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
       pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine, KHÔNG phải feed mạng xã hội). Viết keyword-rich, long-tail keywords tự nhiên trong câu, tập trung MÔ TẢ LỢI ÍCH/GIÁ TRỊ/HƯỚNG DẪN (how-to, listicle, tip, idea). Không bán hàng cứng, không tự xưng kênh. Kết thúc bằng CTA mềm dạng 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. Tối đa 2-5 hashtag tự nhiên cuối bài (không spam). Ảnh đi kèm là vertical 2:3 (1000×1500).",
+      bluesky: "Nội dung Bluesky (≤300 ký tự). Phong cách casual, conversational, dễ tương tác. Inline link nếu cần. KHÔNG dùng hashtag. Kết thúc bằng câu hỏi hoặc observation thú vị để mời bình luận.",
     };
 
     formData.channels.forEach(channel => {
@@ -4238,6 +4239,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
         pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine). Long-tail keyword tự nhiên, mô tả lợi ích/hướng dẫn (how-to, listicle, idea), kết thúc CTA mềm 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. 2-5 hashtag tự nhiên cuối. Ảnh đi kèm vertical 2:3.",
+        bluesky: "Nội dung Bluesky (≤300 ký tự). Casual, conversational, dễ tương tác. Inline link nếu cần. KHÔNG hashtag. Kết thúc câu hỏi hoặc observation.",
       };
       
       for (const channel of channels) {
