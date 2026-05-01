@@ -18,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { PublishVideoMenu } from './PublishVideoMenu';
+import { CharacterPicker } from './CharacterPicker';
+import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 // Default fallback if Admin hasn't configured a model yet.
 const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
@@ -54,6 +56,8 @@ export function QuickClipTab() {
   const [duration, setDuration] = useState(10); // Default 10s cho 9:16 (Seedance 2 cap)
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterProfile | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
   const { currentOrganization } = useOrganizationContext();
@@ -143,6 +147,7 @@ export function QuickClipTab() {
           brand_id: currentBrand?.id,
           industry_id: (currentBrand as { industry_template_id?: string } | null)?.industry_template_id,
           language: 'vi',
+          character_profile_id: selectedCharacterId || undefined,
         },
       });
       if (error) throw error;
@@ -168,9 +173,15 @@ export function QuickClipTab() {
       return;
     }
     const provider = selectedModel?.provider ?? 'geminigen';
+    // Inject character consistency block if a character is selected
+    let finalPrompt = prompt.trim();
+    if (selectedCharacter) {
+      const charBlock = buildCharacterBlock(selectedCharacter);
+      finalPrompt = `${charBlock}\n\n${finalPrompt}`;
+    }
     const result = await generateVideo({
       provider,
-      prompt: prompt.trim(),
+      prompt: finalPrompt,
       // Gửi model auto-pick để override admin default (Seedance 2 cho 9:16/1:1, Veo 3.1 Fast cho 16:9)
       model: selectedModel.id,
       duration,
@@ -180,6 +191,9 @@ export function QuickClipTab() {
       // Liên kết với scene của kịch bản nếu có
       script_id: activeScript?.id,
       scene_number: currentScene?.sceneNumber,
+      // Reference image from character profile
+      starting_frame_url: selectedCharacter?.reference_image_url || undefined,
+      character_profile_id: selectedCharacter?.id || undefined,
     });
     if (result) {
       setActiveJobId(result.id);
@@ -307,6 +321,15 @@ export function QuickClipTab() {
           disabled={generating || enhancing}
         />
       </div>
+
+      {/* Character consistency */}
+      <CharacterPicker
+        value={selectedCharacterId}
+        onChange={(id, profile) => {
+          setSelectedCharacterId(id);
+          setSelectedCharacter(profile);
+        }}
+      />
 
       {/* Aspect ratio */}
       <div className="space-y-2">

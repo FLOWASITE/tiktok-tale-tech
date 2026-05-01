@@ -4106,6 +4106,63 @@ export type Database = {
           },
         ]
       }
+      character_profiles: {
+        Row: {
+          appearance: Json
+          brand_template_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          name: string
+          organization_id: string
+          reference_image_url: string | null
+          updated_at: string
+          wardrobe: string | null
+        }
+        Insert: {
+          appearance?: Json
+          brand_template_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          name: string
+          organization_id: string
+          reference_image_url?: string | null
+          updated_at?: string
+          wardrobe?: string | null
+        }
+        Update: {
+          appearance?: Json
+          brand_template_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          reference_image_url?: string | null
+          updated_at?: string
+          wardrobe?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_profiles_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversation_messages: {
         Row: {
           content: string

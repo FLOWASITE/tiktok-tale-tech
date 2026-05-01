@@ -22,6 +22,7 @@ interface PromptRequest {
   industry_id?: string;
   language?: 'vi' | 'en' | 'th';
   tone?: string;
+  character_profile_id?: string;
 }
 
 interface PromptResponse {
@@ -66,6 +67,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       industry_id,
       language = 'vi',
       tone,
+      character_profile_id,
     } = body;
 
     if (!idea || idea.trim().length < 3) {
@@ -97,6 +99,26 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
         .maybeSingle();
       if (industry) {
         industryContext = `\nINDUSTRY: ${industry.name}\nFORBIDDEN: ${(industry.forbidden_terms ?? []).join(', ')}\nDISCLAIMERS: ${(industry.required_disclaimers ?? []).join(', ')}`;
+      }
+    }
+
+    // Fetch character profile for consistency
+    let characterContext = '';
+    if (character_profile_id) {
+      const { data: charProfile } = await supabase
+        .from('character_profiles')
+        .select('name, description, appearance, wardrobe')
+        .eq('id', character_profile_id)
+        .maybeSingle();
+      if (charProfile) {
+        const app = (charProfile.appearance || {}) as Record<string, string>;
+        const traits: string[] = [];
+        if (app.gender) traits.push(app.gender);
+        if (app.age_range) traits.push(`age ${app.age_range}`);
+        if (app.hair) traits.push(`${app.hair} hair`);
+        if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+        if (app.distinctive_features) traits.push(app.distinctive_features);
+        characterContext = `\nCHARACTER "${charProfile.name}": ${traits.join(', ')}. ${charProfile.description || ''}${charProfile.wardrobe ? ` Wearing: ${charProfile.wardrobe}.` : ''}\nCRITICAL: The generated prompt MUST describe this character's appearance precisely so the video maintains character consistency across scenes.`;
       }
     }
 
@@ -143,7 +165,7 @@ Return JSON shape:
   "recommended_music_mood": "e.g. uplifting cinematic, lo-fi calm, dramatic orchestral"
 }`;
 
-    const userPrompt = `IDEA: ${idea}\n${brandContext}${industryContext}\n\nReturn the JSON now.`;
+    const userPrompt = `IDEA: ${idea}\n${brandContext}${industryContext}${characterContext}\n\nReturn the JSON now.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

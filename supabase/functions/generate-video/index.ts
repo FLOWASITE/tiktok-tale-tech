@@ -41,6 +41,7 @@ interface VideoGenerationRequest {
   storyboard_id?: string;
   scene_number?: number;
   sync?: boolean;  // if true, wait inline (legacy / agent flow)
+  character_profile_id?: string;
 }
 
 Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, async (req) => {
@@ -80,6 +81,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       storyboard_id,
       scene_number,
       sync = false,
+      character_profile_id,
     } = body;
 
     if (!prompt || prompt.trim().length < 5) {
@@ -161,6 +163,45 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
     console.log(`[generate-video] provider=${provider} model=${model} (admin=${!clientModel}) duration=${duration}s aspect=${aspect_ratio} res=${resolution} sync=${sync}`);
 
+    // ───────── CHARACTER CONSISTENCY — inject character block into prompt ─────────
+    let enrichedPrompt = prompt;
+    let characterRefUrl = starting_frame_url;
+    if (character_profile_id) {
+      try {
+        const { data: charProfile } = await supabase
+          .from('character_profiles')
+          .select('name, description, appearance, wardrobe, reference_image_url')
+          .eq('id', character_profile_id)
+          .maybeSingle();
+        if (charProfile) {
+          const app = (charProfile.appearance || {}) as Record<string, string>;
+          const traits: string[] = [];
+          if (app.gender) traits.push(app.gender);
+          if (app.age_range) traits.push(`age ${app.age_range}`);
+          if (app.hair) traits.push(`${app.hair} hair`);
+          if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+          if (app.body_type) traits.push(app.body_type);
+
+          let charBlock = `[CHARACTER CONSISTENCY — "${charProfile.name}"]`;
+          if (traits.length) charBlock += `\nAppearance: ${traits.join(', ')}.`;
+          if (charProfile.description) charBlock += `\nDetails: ${charProfile.description}`;
+          if (charProfile.wardrobe) charBlock += `\nWardrobe: ${charProfile.wardrobe}.`;
+          if (app.distinctive_features) charBlock += `\nDistinctive: ${app.distinctive_features}.`;
+          charBlock += '\nIMPORTANT: Maintain this EXACT character appearance consistently. Same face, hair, clothing, body proportions.';
+
+          enrichedPrompt = `${charBlock}\n\n${enrichedPrompt}`;
+          console.log(`[generate-video] Injected character "${charProfile.name}" into prompt`);
+
+          // Use character reference image as starting frame if none provided
+          if (!characterRefUrl && charProfile.reference_image_url) {
+            characterRefUrl = charProfile.reference_image_url;
+          }
+        }
+      } catch (e) {
+        console.warn('[generate-video] Failed to fetch character profile:', e);
+      }
+    }
+
     // Create job row (pending → will flip to processing after submit)
     const { data: job, error: jobError } = await supabase
       .from('video_generations')
@@ -170,12 +211,12 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         scene_number,
         provider,
         model_used: model,
-        prompt,
+        prompt: enrichedPrompt,
         negative_prompt,
         duration_seconds: duration,
         aspect_ratio,
         resolution,
-        starting_frame_url,
+        starting_frame_url: characterRefUrl,
         status: 'pending',
         progress: 5,
         user_id: user.id,
@@ -209,11 +250,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           if (!apiKey) throw new Error('GEMINIGEN_API_KEY not configured');
           const selectedModel = model || GEMINIGEN_VIDEO_MODELS[0].id;
           const result = await generateVideoViaGeminiGen({
-            prompt, model: selectedModel,
+            prompt: enrichedPrompt, model: selectedModel,
             aspectRatio: aspect_ratio,
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
-            startingFrameUrl: starting_frame_url,
+            startingFrameUrl: characterRefUrl,
           }, apiKey);
           videoUrl = result.videoUrl;
         } else if (provider === 'poyo') {
@@ -223,11 +264,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             ? model : POYO_VIDEO_MODELS[0]) as PoyoVideoModel;
           try {
             const result = await generateVideoViaPoyo({
-              prompt, model: selectedModel,
+              prompt: enrichedPrompt, model: selectedModel,
               aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
               duration,
               resolution: resolution === '720p' ? '720p' : '1080p',
-              startingFrameUrl: starting_frame_url,
+              startingFrameUrl: characterRefUrl,
               negativePrompt: negative_prompt,
             }, apiKey);
             videoUrl = result.videoUrl;
@@ -239,11 +280,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
               const fallbackModel = SYNC_FALLBACK_MAP[model || 'poyo/seedance-2'] || 'geminigen/veo-3.1-fast';
               console.log(`[generate-video] sync PoYo credits exhausted → fallback GeminiGen model=${fallbackModel}`);
               const result = await generateVideoViaGeminiGen({
-                prompt, model: fallbackModel,
+                prompt: enrichedPrompt, model: fallbackModel,
                 aspectRatio: aspect_ratio,
                 resolution: resolution === '720p' ? '720p' : '1080p',
                 duration, negativePrompt: negative_prompt,
-                startingFrameUrl: starting_frame_url,
+                startingFrameUrl: characterRefUrl,
               }, gKey);
               videoUrl = result.videoUrl;
               syncProvider = 'geminigen';
@@ -299,11 +340,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         if (!apiKey) throw new Error('GEMINIGEN_API_KEY not configured');
         const selectedModel = model || GEMINIGEN_VIDEO_MODELS[0].id;
         providerTaskId = await submitGeminiGenVideoTask({
-          prompt, model: selectedModel,
+          prompt: enrichedPrompt, model: selectedModel,
           aspectRatio: aspect_ratio,
           resolution: resolution === '720p' ? '720p' : '1080p',
           duration, negativePrompt: negative_prompt,
-          startingFrameUrl: starting_frame_url,
+          startingFrameUrl: characterRefUrl,
         }, apiKey);
       } else if (provider === 'poyo') {
         const apiKey = Deno.env.get("POYO_API_KEY");
@@ -311,11 +352,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         const selectedModel = (model && POYO_VIDEO_MODELS.includes(model as PoyoVideoModel)
           ? model : POYO_VIDEO_MODELS[0]) as PoyoVideoModel;
         providerTaskId = await submitPoyoVideoTask({
-          prompt, model: selectedModel,
+          prompt: enrichedPrompt, model: selectedModel,
           aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
           duration,
           resolution: resolution === '720p' ? '720p' : '1080p',
-          startingFrameUrl: starting_frame_url,
+          startingFrameUrl: characterRefUrl,
           negativePrompt: negative_prompt,
         }, apiKey);
       } else {
@@ -336,11 +377,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
         try {
           providerTaskId = await submitGeminiGenVideoTask({
-            prompt, model: fallbackModel,
+            prompt: enrichedPrompt, model: fallbackModel,
             aspectRatio: aspect_ratio,
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
-            startingFrameUrl: starting_frame_url,
+            startingFrameUrl: characterRefUrl,
           }, geminigenKey);
           actualProvider = 'geminigen';
 
