@@ -1,74 +1,38 @@
-## Mục tiêu
+## Vấn đề
 
-Bổ sung một section mới trên Landing Page giới thiệu khả năng **kết nối & xuất bản đa kênh social** của Flowa, viết bằng giọng văn marketing (lợi ích, không liệt kê kỹ thuật).
+Icon Zalo hiện tại trong `src/components/icons/SocialIcons.tsx` đang dùng path **wordmark Zalo lồng trong speech bubble** (logo app cũ, có background bubble + chữ Zalo + 2 dấu chấm). Khi render ở size nhỏ (16-20px) trong landing page và channel cards, các chi tiết bị nén lại trông rối, không rõ là Zalo.
 
-## Vị trí trong Landing
+## Giải pháp
 
-Đặt ngay **sau `WorkflowSection`** và **trước `IndustryMemorySection`** trong `src/landing/pages/Landing.tsx`. Đây là điểm hợp lý vì:
-- Sau khi user hiểu workflow ("Flowa làm gì") → cho thấy "đăng đi đâu" trước khi đi sâu vào Industry Memory.
-- Tạo một beat trực quan (logo grid) giữa 2 section nặng chữ.
+Thay path SVG bằng phiên bản **Simple Icons (CC0, brand-approved)** — chỉ là wordmark "Zalo" cách điệu sạch sẽ, đúng tỉ lệ viewBox 24×24, render rõ ở mọi size. Đây là phiên bản chuẩn được dùng bởi simple-icons (24,000+ stars), ProIcons, SVGRepo.
 
-## Section mới: `SocialChannelsSection`
+### So sánh
 
-**File mới:** `src/landing/components/SocialChannelsSection.tsx`
-**Export:** thêm vào `src/landing/components/index.ts`
+| | Hiện tại | Mới (Simple Icons) |
+|---|---|---|
+| Style | Wordmark + speech bubble + chấm | Wordmark "Zalo" cách điệu |
+| Path size | ~1.6 KB | ~0.9 KB |
+| Render @16px | Rối, khó nhận | Rõ, đọc được "Zalo" |
+| License | Custom path | CC0-1.0 |
 
-### Nội dung & cấu trúc
+## Phạm vi sửa
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│  Eyebrow:  KẾT NỐI ĐA KÊNH                                  │
-│  Headline: Một lần soạn — đăng khắp nơi khách hàng của bạn │
-│  Sub:      16 nền tảng. Một workspace. Không copy-paste.    │
-├────────────────────────────────────────────────────────────┤
-│  [Grid 4×4 logo brand chính thức, hover lift + glow]        │
-│   FB · IG · TikTok · YouTube                                │
-│   LinkedIn · X · Threads · Pinterest                        │
-│   Bluesky · Telegram · Zalo OA · Google Business            │
-│   WordPress · Blogger · Website · Email                     │
-├────────────────────────────────────────────────────────────┤
-│  3 cột lợi ích (icon + headline + 1 dòng):                  │
-│  • OAuth 1-click — Kết nối an toàn, token tự gia hạn        │
-│  • Tự động tối ưu format — Mỗi kênh một độ dài, một tone   │
-│  • Lên lịch & đăng tự động — Cron mỗi 2 phút, không miss   │
-├────────────────────────────────────────────────────────────┤
-│  CTA phụ: "Xem tất cả tích hợp →"  (scroll to pricing)     │
-└────────────────────────────────────────────────────────────┘
-```
+**1 file duy nhất:** `src/components/icons/SocialIcons.tsx` — function `ZaloIcon` (line 3-11):
+- Giữ nguyên signature, viewBox `0 0 24 24`, `fill="currentColor"`
+- Thay nội dung `<path d="..."/>` bằng path Simple Icons:
+  ```
+  M12.49 10.2722v-.4496h1.3467v6.3218h-.7704a.576.576 0 01-.5763-.5729l-.0006.0005a3.273 3.273 0 01-1.9372.6321c-1.8138 0-3.2844-1.4697-3.2844-3.2823 0-1.8125 1.4706-3.2822 3.2844-3.2822a3.273 3.273 0 011.9372.6321l.0006.0005zM6.9188 7.7896v.205c0 .3823-.051.6944-.2995 1.0605l-.03.0343c-.0542.0615-.1815.206-.2421.2843L2.024 14.8h4.8948v.7682a.5764.5764 0 01-.5767.5761H0v-.3622c0-.4436.1102-.6414.2495-.8476L4.8582 9.23H.1922V7.7896h6.7266zm8.5513 8.3548a.4805.4805 0 01-.4803-.4798v-7.875h1.4416v8.3548H15.47zM20.6934 9.6C22.52 9.6 24 11.0807 24 12.9044c0 1.8252-1.4801 3.306-3.3066 3.306-1.8264 0-3.3066-1.4808-3.3066-3.306 0-1.8237 1.4802-3.3044 3.3066-3.3044zm-10.1412 5.253c1.0675 0 1.9324-.8645 1.9324-1.9312 0-1.065-.865-1.9295-1.9324-1.9295s-1.9324.8644-1.9324 1.9295c0 1.0667.865 1.9312 1.9324 1.9312zm10.1412-.0033c1.0737 0 1.945-.8707 1.945-1.9453 0-1.073-.8713-1.9436-1.945-1.9436-1.0753 0-1.945.8706-1.945 1.9436 0 1.0746.8697 1.9453 1.945 1.9453z
+  ```
+- Cập nhật JSDoc thành `/** Zalo official wordmark logo (Simple Icons CC0) */`
 
-### Copy đề xuất (VN, marketing tone)
+## Tác động lan tỏa
 
-- **Eyebrow:** `KẾT NỐI ĐA KÊNH` (uppercase, accent màu primary)
-- **Headline (h2):** `Một lần soạn — đăng khắp nơi khách hàng của bạn ở`
-- **Sub:** `16 nền tảng social & blog. Kết nối OAuth 1-click, tự động đăng đúng format từng kênh — bạn không cần mở 16 tab nữa.`
-- **3 lợi ích:**
-  1. **Kết nối an toàn 1-click** — `OAuth chính thức từ Meta, Google, LinkedIn, TikTok... Token tự refresh mỗi 30 phút, bạn không bao giờ phải đăng nhập lại giữa chiến dịch.`
-  2. **Tối ưu format từng kênh** — `AI tự điều chỉnh độ dài, hashtag, CTA theo "thói quen" của Pinterest 2:3, X 280 ký tự, LinkedIn 150-400 chữ — đúng chuẩn native, không nhìn ra là AI.`
-  3. **Lên lịch & đăng tự động** — `Đặt lịch trước cả tháng. Cron job chạy mỗi 2 phút đảm bảo bài đăng đúng giờ vàng — kể cả khi bạn đang ngủ.`
+Tất cả nơi import `ZaloIcon` từ `@/components/icons/SocialIcons` sẽ tự động dùng icon mới — không cần sửa thêm:
+- `src/components/icons/SocialIcons.tsx` — định nghĩa
+- `src/components/multichannel/streaming/ChannelIcon.tsx`
+- `src/components/MultiChannelForm.tsx`, `MultiChannelFormStepper.tsx`, `MultiChannelFormWizard.tsx`
+- `src/components/brand/BrandViewChannelsTab.tsx`
+- `src/components/admin/ai/AIChannelModelConfig.tsx`
+- `src/landing/components/SocialChannelsSection.tsx` (vừa tạo)
 
-### Visual specs (Soft Luxury, theo memory)
-
-- Background: `bg-background` với subtle radial gradient từ `primary/5`
-- Logo grid: 4 cột (md), 2 cột (mobile), card `border-border/50 bg-card/50 backdrop-blur` — hover `border-primary/30 shadow-[0_0_24px_-6px_hsl(var(--primary)/0.25)]`
-- Logo dùng brand SVG **chính thức** từ `@/components/icons/SocialIcons` (đã có): `FacebookIcon`, `InstagramIcon`, `TikTokIcon`, `YouTubeIcon`, `LinkedInIcon`, `XIcon`, `ThreadsIcon`, `PinterestIcon`, `BlueskyIcon`, `TelegramIcon`, `ZaloIcon`, `GoogleBusinessIcon`, `WordPressIcon`, `BloggerIcon`. Email + Website dùng `Mail` / `Globe` lucide.
-- Mỗi logo render với màu thương hiệu thật của nó (FB xanh, IG gradient, X đen, YT đỏ...) — đồng nhất với cách `streaming/ChannelIcon.tsx` đang làm.
-- Animation: `framer-motion` stagger fade-up cho grid (delay 0.04s × index), respect `prefers-reduced-motion`.
-- 3 cột lợi ích: icon trong vòng tròn `bg-primary/10 text-primary`, dùng lucide `ShieldCheck`, `Wand2`, `CalendarClock`.
-- i18n: hardcode VN cho lần này (giữ nhất quán với các section landing khác cũng VN-first), nhưng wrap qua `useTranslation()` keys nếu các section lân cận đang dùng — kiểm tra nhanh khi implement.
-
-### Tích hợp Landing.tsx
-
-```tsx
-// 1 import mới + 1 dòng JSX trong <main>:
-<WorkflowSection />
-<SocialChannelsSection />   {/* NEW */}
-<IndustryMemorySection />
-```
-
-## Phạm vi files
-
-- **Tạo mới:** `src/landing/components/SocialChannelsSection.tsx`
-- **Sửa:** `src/landing/components/index.ts` (export thêm)
-- **Sửa:** `src/landing/pages/Landing.tsx` (import + render)
-
-Không động DB, không edge function, không touch app routes.
+Không động DB, edge function, hay logic nào khác.
