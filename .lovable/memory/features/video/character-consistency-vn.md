@@ -1,34 +1,28 @@
 ---
 name: Character Consistency System
-description: Character profiles for maintaining visual consistency across video scenes with multi-ref images, batch injection, script integration, and last-frame chaining
+description: Full character consistency system with AI auto-fill, multi-character, voice binding, multi-ref images, batch injection, script integration, last-frame chaining
 type: feature
 ---
 
 ## Bảng `character_profiles`
-- Lưu: name, description, appearance (jsonb), wardrobe, reference_image_url, **reference_images (jsonb array)**
+- Cột: name, description, appearance (jsonb), wardrobe, reference_image_url, reference_images (jsonb array), default_voice_id, default_voice_provider
 - reference_images: mảng `{url, label}` với label = front|side|full-body|close-up|outfit (tối đa 5)
 - RLS: org_members CRUD
-- Storage bucket: `character-references` (public read, auth upload/delete)
+- Storage bucket: `character-references`
 
-## Frontend
+## Phase 1 — Core
 - `useCharacterProfiles` hook: CRUD + `buildCharacterBlock()` + ReferenceImage types
-- `CharacterProfileManager`: Dialog form CRUD + **multi-image upload** với label selector
-- `CharacterPicker`: Select dropdown dùng trong QuickClipTab, **StoryboardVideoTab**, **ScriptFormStepper**
+- `CharacterPicker`: Single-select dropdown (QuickClipTab, StoryboardVideoTab, ScriptFormStepper)
+- Prompt injection: generate-video + generate-video-prompt + generate-script
 
-## Backend Prompt Injection
-- `generate-video`: Nếu có `character_profile_id` → fetch profile → prepend `[CHARACTER CONSISTENCY]` block + **smart image selection** (front cho scene thường, close-up cho cận cảnh) + multi-ref fallback
-- `generate-video-prompt`: Inject `CHARACTER` context vào user prompt cho AI
-- `generate-script`: Nếu có `character_profile_id` → fetch profile → append `[NHÂN VẬT CHÍNH]` block vào system prompt, yêu cầu mô tả nhất quán trong mọi PROMPT block
+## Phase 2 — Enhanced
+- Multi-reference images: upload 5 ảnh với label, smart image selection theo context
+- Storyboard batch injection: CharacterPicker + inject character vào loop
+- Script integration: character_profile_id trong ScriptFormData + ActiveScript.characterProfileId
+- Last-frame chaining: sequential batch dùng previousVideoUrl làm starting_frame cho scene tiếp
 
-## Storyboard Batch Character Injection
-- CharacterPicker trên StoryboardVideoTab, phía trên nút "Quay tự động"
-- Mỗi scene inject character block vào prompt + truyền character_profile_id
-
-## Last-Frame Chaining
-- Batch generate sequential: sau scene N hoàn thành, `video_url` truyền làm `starting_frame_url` cho scene N+1
-- Fallback chain: previousVideoUrl > character reference_image > none
-
-## Script Integration
-- `ScriptFormData` có `character_profile_id`
-- `ActiveScript` interface có `characterProfileId` — propagate qua ScriptToVideoContext
-- ScriptFormStepper hiển thị CharacterPicker cạnh Character Type chip
+## Phase 3 — Advanced
+- **AI auto-fill**: Edge function `analyze-character-image` dùng Gemini Vision phân tích ảnh → tự điền appearance fields
+- **Multi-character**: `MultiCharacterPicker` component cho phép chọn tối đa 3 nhân vật (chính + phụ)
+- **Voice binding**: default_voice_id + default_voice_provider trên character_profiles, UI trong CharacterProfileManager
+- **Auto-extract last frame**: Batch generate lấy video_url từ scene trước làm starting_frame_url cho scene sau
