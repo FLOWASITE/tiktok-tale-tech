@@ -290,6 +290,9 @@ export function DirectPublishButton({
         case 'google_business':
           result = await publishToGoogleBusiness(publishOptions);
           break;
+        case 'bluesky':
+          result = await publishToBluesky(publishOptions);
+          break;
         case 'blogger':
           result = await publishToBlogger({
             ...publishOptions,
