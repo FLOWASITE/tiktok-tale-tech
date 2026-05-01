@@ -130,6 +130,7 @@ export function AppRoutes() {
       <Route path="/auth/x/callback" element={<XCallback />} />
       <Route path="/auth/tiktok/callback" element={<TikTokCallback />} />
       <Route path="/auth/pinterest/callback" element={<PinterestCallback />} />
+      <Route path="/auth/bluesky/callback" element={<BlueskyCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
 
