@@ -31,7 +31,7 @@ import {
   Upload,
   ExternalLink,
 } from 'lucide-react';
-import { PinterestIcon } from '@/components/icons/SocialIcons';
+import { PinterestIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
