@@ -59,6 +59,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,
+  bluesky: <Globe className="w-4 h-4" />,
 };
 
 const channelLabels: Record<Channel, string> = {
@@ -77,6 +78,7 @@ const channelLabels: Record<Channel, string> = {
   telegram: 'Telegram',
   tiktok: 'TikTok',
   threads: 'Threads',
+  bluesky: 'Bluesky',
 };
 
 const ctaPolicyLabels: Record<string, string> = {

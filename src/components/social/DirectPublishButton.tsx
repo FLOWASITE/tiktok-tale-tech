@@ -115,6 +115,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   wordpress_com: () => <ChannelIcon channel="wordpress" size={16} />,
   website: () => <span>🌐</span>,
   pinterest: () => <ChannelIcon channel="pinterest" size={16} />,
+  bluesky: () => <ChannelIcon channel="bluesky" size={16} />,
 };
 
 const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {

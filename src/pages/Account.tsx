@@ -59,6 +59,7 @@ const CHANNEL_META: Record<Channel, { label: string; icon: React.ReactNode; colo
   blogger: { label: "Website", icon: <Globe className="w-3.5 h-3.5" />, color: "text-emerald-600" },
   wordpress: { label: "Website", icon: <Globe className="w-3.5 h-3.5" />, color: "text-emerald-600" },
   google_maps: { label: "Google Maps", icon: <Globe className="w-3.5 h-3.5" />, color: "text-green-600" },
+  bluesky: { label: 'Bluesky', icon: <Globe className="w-4 h-4" />, color: 'text-[#0085FF]' },
 };
 
 function ChannelBreakdown({ breakdown }: { breakdown: Record<string, number> }) {

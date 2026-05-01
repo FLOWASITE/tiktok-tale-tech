@@ -189,6 +189,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'WordPress, API hoặc Webhook',
   },
+  bluesky: {
+    name: 'Bluesky',
+    icon: () => <ChannelIcon channel="bluesky" size={16} />,
+    color: 'text-[#0085FF]',
+    bgColor: 'bg-[#0085FF]/10',
+    available: true,
+    description: 'Đăng bài lên Bluesky (AT Protocol)',
+  },
 };
 
 interface TwitterSetupForm {

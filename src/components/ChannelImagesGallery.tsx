@@ -148,6 +148,12 @@ const channelConfig: Record<Channel, {
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/20',
   },
+  bluesky: { 
+    label: 'Bluesky', 
+    icon: <Globe className="w-3 h-3" />, 
+    color: 'text-[#0085FF]',
+    bgColor: 'bg-[#0085FF]/20',
+  },
 };
 
 export function ChannelImagesGallery({

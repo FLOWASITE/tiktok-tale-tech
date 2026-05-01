@@ -410,6 +410,25 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
       layoutBias: 'footer-contact',
     },
   },
+  bluesky: {
+    size: '1200x675',
+    aspectRatio: '16:9',
+    style: 'Clean, modern, conversational',
+    tips: 'Simple visuals, text overlay OK',
+    mood: 'casual, friendly, informative',
+    composition: 'clean layout, single focal point',
+    visualDirections: ['Clean minimal design', 'Friendly approachable tone', 'Good contrast for readability'],
+    avoidElements: ['Cluttered layouts', 'Too many text elements'],
+    renderSpec: {
+      safeZones: { top: 40, right: 40, bottom: 40, left: 40 },
+      preferredLogoPositions: ['bottom-right'],
+      textDensityBudget: 0.35,
+      headlineBudget: 50,
+      ctaBudget: 0,
+      footerBudget: 30,
+      layoutBias: 'centered-hero' as any,
+    },
+  },
 };
 
 /**
@@ -455,4 +474,5 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   zalo_oa: '16:9',
   telegram: '1:1',
   google_maps: '1:1',
+  bluesky: '16:9',
 };

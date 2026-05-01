@@ -26,6 +26,7 @@ export const SOCIAL_RESOLVE_MAP: Record<
     channelKey: 'google_maps',
   },
   pinterest: { dbPlatform: 'pinterest', contentColumn: 'pinterest_content', channelKey: 'pinterest' },
+  bluesky: { dbPlatform: 'bluesky', contentColumn: 'bluesky_content', channelKey: 'bluesky' },
 };
 
 export type ResolveResult =

@@ -81,7 +81,8 @@ export type Channel =
   | 'telegram'
   | 'tiktok'
   | 'threads'
-  | 'pinterest';
+  | 'pinterest'
+  | 'bluesky';
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 

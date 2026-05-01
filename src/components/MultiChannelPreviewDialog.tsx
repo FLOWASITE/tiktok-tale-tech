@@ -73,6 +73,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,
+  bluesky: <Globe className="w-4 h-4" />,
 };
 
 type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
@@ -93,6 +94,7 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
   zalo_oa: 'general',
   telegram: 'general',
   threads: 'general',
+  bluesky: 'general',
 };
 
 interface ChannelPreview {

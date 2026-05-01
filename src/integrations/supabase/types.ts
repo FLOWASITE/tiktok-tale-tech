@@ -7749,6 +7749,9 @@ export type Database = {
       }
       multi_channel_contents: {
         Row: {
+          bluesky_content: string | null
+          bluesky_post_id: string | null
+          bluesky_post_url: string | null
           brand_guideline: string | null
           brand_name: string
           brand_template_id: string | null
@@ -7802,6 +7805,9 @@ export type Database = {
           zalo_oa_content: string | null
         }
         Insert: {
+          bluesky_content?: string | null
+          bluesky_post_id?: string | null
+          bluesky_post_url?: string | null
           brand_guideline?: string | null
           brand_name: string
           brand_template_id?: string | null
@@ -7855,6 +7861,9 @@ export type Database = {
           zalo_oa_content?: string | null
         }
         Update: {
+          bluesky_content?: string | null
+          bluesky_post_id?: string | null
+          bluesky_post_url?: string | null
           brand_guideline?: string | null
           brand_name?: string
           brand_template_id?: string | null

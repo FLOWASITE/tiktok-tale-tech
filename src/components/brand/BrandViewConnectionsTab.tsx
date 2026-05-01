@@ -174,6 +174,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Đăng Pin ảnh / video / carousel (yêu cầu Business account)',
   },
+  bluesky: {
+    name: 'Bluesky',
+    icon: <ChannelIcon channel="bluesky" className="text-[#0085FF]" size={20} />,
+    color: 'bg-[#0085FF]/10',
+    available: true,
+    description: 'Đăng bài lên Bluesky (App Password)',
+  },
 };
 
 interface TwitterSetupForm {
@@ -207,6 +214,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     accessToken: '',
     accessTokenSecret: '',
   });
+  const [blueskyForm, setBlueskyForm] = useState({ handle: '', appPassword: '' });
+  const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
+  const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
   const [oauthConnecting, setOauthConnecting] = useState<SocialPlatform | null>(null);
   const [showInactiveFb, setShowInactiveFb] = useState(false);
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
@@ -253,6 +263,12 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         apiEndpoint: '',
       }));
       setWebsiteDialogOpen(true);
+      return;
+    }
+
+    // Bluesky — manual App Password
+    if (platform === 'bluesky') {
+      setBlueskyDialogOpen(true);
       return;
     }
 
@@ -431,6 +447,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     wordpress_com: 'wordpress-com',
     website: 'website',
     pinterest: 'pinterest',
+    bluesky: 'bluesky',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {

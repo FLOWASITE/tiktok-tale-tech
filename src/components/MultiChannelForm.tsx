@@ -62,6 +62,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   tiktok: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   threads: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  bluesky: <Globe className="w-4 h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {
@@ -80,6 +81,7 @@ const channelColors: Record<Channel, string> = {
   telegram: 'text-sky-500',
   tiktok: 'text-pink-500',
   threads: 'text-slate-600',
+  bluesky: 'Bluesky',
 };
 
 const DRAFT_KEY = 'multichannel_form_draft';

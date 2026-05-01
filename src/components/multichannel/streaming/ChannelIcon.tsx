@@ -12,7 +12,7 @@ import {
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon, PinterestIcon } from "@/components/icons/SocialIcons";
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon, PinterestIcon, BlueskyIcon } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
 const ZaloLucide: LucideIcon = Object.assign(
@@ -48,6 +48,13 @@ const PinterestLucide: LucideIcon = Object.assign(
     <PinterestIcon width={size} height={size} className={className} {...props} />
   ),
   { displayName: 'PinterestLucide' }
+) as unknown as LucideIcon;
+
+const BlueskyLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <BlueskyIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'BlueskyLucide' }
 ) as unknown as LucideIcon;
 
 const channelConfig: Record<string, { 
@@ -139,6 +146,11 @@ const channelConfig: Record<string, {
     icon: Send, 
     bgClass: "bg-sky-500 text-white",
     label: "Telegram"
+  },
+  bluesky: {
+    icon: BlueskyLucide,
+    bgClass: "bg-[#0085FF] text-white",
+    label: "Bluesky"
   },
 };
 
