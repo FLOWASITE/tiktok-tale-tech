@@ -209,7 +209,7 @@ export function MobileDiscoverySheet({
         onNavigate('/multichannel', state);
         break;
       case 'script':
-        onNavigate('/scripts', { ...state, prefillTopic: selectedTopic });
+        onNavigate('/videos', { ...state, tab: 'scripts', prefillTopic: selectedTopic, action: 'new' });
         break;
       case 'carousel':
         onNavigate('/carousel', { ...state, prefillTopic: selectedTopic });

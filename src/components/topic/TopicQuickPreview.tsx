@@ -45,7 +45,7 @@ const formatConfig = [
     description: 'Kịch bản video ngắn',
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10',
-    path: '/scripts'
+    path: '/videos?tab=scripts'
   },
   { 
     key: 'carousel' as const, 
