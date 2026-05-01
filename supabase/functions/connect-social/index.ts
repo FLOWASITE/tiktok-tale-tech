@@ -1119,12 +1119,97 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       );
     }
 
+    // Bluesky — App Password based (similar to Twitter manual)
+    if (platform === 'bluesky') {
+      const handle = (body as any).handle;
+      const appPassword = (body as any).appPassword;
+      if (!handle || !appPassword) {
+        throw new Error('Bluesky Handle và App Password là bắt buộc');
+      }
+
+      // Verify credentials
+      const verifyRes = await fetch('https://bsky.social/xrpc/com.atproto.server.createSession', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: handle, password: appPassword }),
+      });
+      if (!verifyRes.ok) {
+        const errTxt = await verifyRes.text();
+        throw new Error(`Xác thực Bluesky thất bại: ${errTxt.slice(0, 200)}`);
+      }
+      const session = await verifyRes.json();
+
+      // Get profile
+      let profile: any = {};
+      try {
+        const pRes = await fetch(`https://bsky.social/xrpc/app.bsky.actor.getProfile?actor=${session.did}`, {
+          headers: { 'Authorization': `Bearer ${session.accessJwt}` },
+        });
+        if (pRes.ok) profile = await pRes.json();
+        else await pRes.text();
+      } catch { /* non-fatal */ }
+
+      // Encrypt credentials using the shared crypto module
+      const { encrypt } = await import("../_shared/crypto.ts");
+      const encHandle = await encrypt(handle);
+      const encAppPassword = await encrypt(appPassword);
+
+      // Resolve org from brand
+      let resolvedOrgId = organizationId || null;
+      if (!resolvedOrgId && brandTemplateId) {
+        const { data: brand } = await supabase.from('brand_templates').select('organization_id').eq('id', brandTemplateId).single();
+        resolvedOrgId = brand?.organization_id || null;
+      }
+
+      // Upsert connection
+      let query = supabase.from('social_connections').select('id').eq('platform', 'bluesky');
+      if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
+      else query = query.eq('organization_id', resolvedOrgId);
+      const { data: existing } = await query.maybeSingle();
+
+      const connectionData = {
+        organization_id: resolvedOrgId,
+        brand_template_id: brandTemplateId || null,
+        user_id: user.id,
+        platform: 'bluesky',
+        platform_user_id: session.did,
+        platform_username: session.handle,
+        platform_display_name: profile.displayName || session.handle,
+        platform_avatar_url: profile.avatar || null,
+        access_token: encHandle,
+        refresh_token: encAppPassword,
+        is_active: true,
+        connected_at: new Date().toISOString(),
+        scopes: ['post', 'read'],
+        metadata: { did: session.did },
+      };
+
+      let connection;
+      if (existing) {
+        const { data, error: uErr } = await supabase.from('social_connections').update(connectionData).eq('id', existing.id).select().single();
+        if (uErr) throw uErr;
+        connection = data;
+      } else {
+        const { data, error: iErr } = await supabase.from('social_connections').insert(connectionData).select().single();
+        if (iErr) throw iErr;
+        connection = data;
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          connection: { id: connection.id, platform: 'bluesky', username: session.handle, displayName: profile.displayName, isActive: true },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // For other platforms - not yet supported
     return new Response(
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website', 'wordpress', 'wordpress_com', 'pinterest'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'tiktok', 'zalo_oa', 'google_business', 'blogger', 'website', 'wordpress', 'wordpress_com', 'pinterest', 'bluesky'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
