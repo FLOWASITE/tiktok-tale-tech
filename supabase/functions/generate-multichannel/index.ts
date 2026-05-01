@@ -5509,6 +5509,26 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     // Save to database with Industry Memory version tracking + critique metadata
     // EXPAND MODE: Update existing content | CREATE MODE: Insert new
+    // Debug: log persisted length per channel to catch silent gaps (e.g. AI not returning blogger_content/wordpress_content).
+    try {
+      const persistLens = (formData.channels || []).map((ch: string) => {
+        const v = ch === 'website'
+          ? (typeof generatedData.website_content === 'object' ? generatedData.website_content?.content : generatedData.website_content)
+          : generatedData[`${ch}_content`];
+        return `${ch}=${typeof v === 'string' ? v.length : 0}`;
+      });
+      console.log(`[generate-multichannel][persist] action=${formData.action || 'create'} channels=[${(formData.channels || []).join(',')}] lens={${persistLens.join(', ')}}`);
+      for (const ch of formData.channels || []) {
+        const v = ch === 'website'
+          ? (typeof generatedData.website_content === 'object' ? generatedData.website_content?.content : generatedData.website_content)
+          : generatedData[`${ch}_content`];
+        if (!v || (typeof v === 'string' && v.trim().length === 0)) {
+          console.warn(`[generate-multichannel][persist] ⚠️ channel "${ch}" was selected but AI returned empty content — bài đăng sẽ trống.`);
+        }
+      }
+    } catch (logErr) {
+      console.warn('[generate-multichannel][persist] log error:', logErr);
+    }
     let content: any;
     let dbError: any;
     
