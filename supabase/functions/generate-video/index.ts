@@ -352,7 +352,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         const selectedModel = (model && POYO_VIDEO_MODELS.includes(model as PoyoVideoModel)
           ? model : POYO_VIDEO_MODELS[0]) as PoyoVideoModel;
         providerTaskId = await submitPoyoVideoTask({
-          prompt, model: selectedModel,
+          prompt: enrichedPrompt, model: selectedModel,
           aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
           duration,
           resolution: resolution === '720p' ? '720p' : '1080p',
