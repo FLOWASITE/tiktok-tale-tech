@@ -123,12 +123,16 @@ function CharacterFormFields({
   uploading,
   onUploadImage,
   onUploadRefImage,
+  onAiAnalyze,
+  analyzing,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   uploading: boolean;
   onUploadImage: (file: File) => Promise<void>;
   onUploadRefImage: (file: File, label: ReferenceImageLabel) => Promise<void>;
+  onAiAnalyze: () => Promise<void>;
+  analyzing: boolean;
 }) {
   const updateAppearance = (key: keyof CharacterAppearance, value: string) => {
     setForm((prev) => ({ ...prev, appearance: { ...prev.appearance, [key]: value } }));
