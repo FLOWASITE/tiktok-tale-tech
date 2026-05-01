@@ -100,6 +100,21 @@ function VideoStudioInner() {
         {/* Script link banner — chỉ hiện khi có activeScript */}
         <ScriptLinkBanner onJumpToTab={(t) => setTab(t)} />
 
+        {/* Character profiles — collapsible */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Users className="w-3.5 h-3.5" />
+            <span>Quản lý nhân vật</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <Card className="border-border/60">
+              <CardContent className="p-4">
+                <CharacterProfileManager />
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
+
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
             {TABS.map((t) => {
