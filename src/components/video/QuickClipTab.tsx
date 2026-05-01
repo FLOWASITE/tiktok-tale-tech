@@ -147,6 +147,7 @@ export function QuickClipTab() {
           brand_id: currentBrand?.id,
           industry_id: (currentBrand as { industry_template_id?: string } | null)?.industry_template_id,
           language: 'vi',
+          character_profile_id: selectedCharacterId || undefined,
         },
       });
       if (error) throw error;
