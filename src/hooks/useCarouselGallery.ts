@@ -475,22 +475,28 @@ export function useCarouselGallery() {
 
   const bulkDelete = useCallback(async (ids: string[]) => {
     if (!ids.length) return;
-    const carouselIds = ids.filter(id => images.find(i => i.id === id)?.source === 'carousel');
-    const channelIds = ids.filter(id => images.find(i => i.id === id)?.source === 'multichannel');
+    const groups: Record<string, string[]> = {
+      carousel_images: [], channel_image_history: [], video_generations: [], video_render_jobs: [],
+    };
+    ids.forEach(id => {
+      const img = images.find(i => i.id === id);
+      if (!img) return;
+      groups[tableForSource(img.source)].push(id);
+    });
     try {
-      const results = await Promise.all([
-        ...(carouselIds.length ? [supabase.from('carousel_images').delete().in('id', carouselIds).select()] : []),
-        ...(channelIds.length ? [supabase.from('channel_image_history').delete().in('id', channelIds).select()] : []),
-      ]);
+      const ops = Object.entries(groups)
+        .filter(([, arr]) => arr.length)
+        .map(([table, arr]) => supabase.from(table as any).delete().in('id', arr).select());
+      const results = await Promise.all(ops);
       for (const r of results) {
-        if (r.error) throw r.error;
+        if ((r as any).error) throw (r as any).error;
       }
       setImages(prev => prev.filter(i => !ids.includes(i.id)));
       setSelectedIds(new Set());
-      toast.success(`Đã xóa ${ids.length} ảnh`);
+      toast.success(`Đã xóa ${ids.length} mục`);
     } catch (err) {
       console.error('Failed to bulk delete:', err);
-      toast.error('Không thể xóa ảnh hàng loạt');
+      toast.error('Không thể xóa hàng loạt');
     }
   }, [images]);
 
