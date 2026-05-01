@@ -37,6 +37,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [roleHint, setRoleHint] = useState('');
   const [charCount, setCharCount] = useState('2');
+  const [videoType, setVideoType] = useState('');
   const [generating, setGenerating] = useState(false);
   const [generatedChars, setGeneratedChars] = useState<GeneratedChar[]>([]);
   const [saving, setSaving] = useState(false);
@@ -77,6 +78,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
           role_hint: roleHint.trim() || undefined,
           count: parseInt(charCount) || 2,
           existing_names: profiles.map(p => p.name),
+          video_type: videoType.trim() || undefined,
         },
       });
 
@@ -125,6 +127,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
         setShowAIDialog(false);
         setGeneratedChars([]);
         setRoleHint('');
+        setVideoType('');
         toast.success(`Đã tạo và chọn ${toSave.length} nhân vật từ AI`);
       }, 600);
     } catch (e: any) {
@@ -318,6 +321,26 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Video type selector for voice variant matching */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Thể loại video <span className="text-muted-foreground">(tuỳ chọn — ảnh hưởng giọng nói)</span></Label>
+              <Select value={videoType} onValueChange={setVideoType} disabled={generating}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Chọn thể loại video..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Tự động</SelectItem>
+                  <SelectItem value="tutorial">Tutorial / Hướng dẫn</SelectItem>
+                  <SelectItem value="testimonial">Testimonial / Chia sẻ</SelectItem>
+                  <SelectItem value="promo">Promo / Quảng cáo</SelectItem>
+                  <SelectItem value="storytelling">Storytelling / Kể chuyện</SelectItem>
+                  <SelectItem value="explainer">Explainer / Giải thích</SelectItem>
+                  <SelectItem value="behind_the_scenes">Behind the Scenes</SelectItem>
+                  <SelectItem value="interview">Interview / Phỏng vấn</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Existing profiles info */}

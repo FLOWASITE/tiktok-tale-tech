@@ -32,17 +32,17 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
       });
     }
 
-    const { brand_template_id, role_hint, count, existing_names } = await req.json();
+    const { brand_template_id, role_hint, count, existing_names, video_type } = await req.json();
     if (!brand_template_id) {
       return new Response(JSON.stringify({ error: "brand_template_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch brand context
+    // Fetch brand context including voice variants
     const { data: brand, error: brandErr } = await supabase
       .from('brand_templates')
-      .select('name, tone_of_voice, target_audience, brand_personality, do_list, dont_list, content_pillars, industry_template_id')
+      .select('name, tone_of_voice, target_audience, brand_personality, do_list, dont_list, content_pillars, industry_template_id, voice_variants')
       .eq('id', brand_template_id)
       .single();
 
@@ -79,6 +79,24 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
       ? `\n\nNHÂN VẬT ĐÃ CÓ (KHÔNG tạo trùng tên hoặc ngoại hình giống): ${existing_names.join(', ')}`
       : '';
 
+    // Build voice variant context for selected video type
+    let voiceVariantContext = '';
+    const variants = Array.isArray(brand.voice_variants) ? brand.voice_variants : [];
+    if (video_type && variants.length > 0) {
+      const matched = variants.find((v: any) => v.video_type === video_type);
+      if (matched) {
+        voiceVariantContext = `\n\nBRAND VOICE VARIANT cho thể loại "${video_type}":
+- Giọng vùng miền ưu tiên: ${matched.regional_accent || 'tự chọn'}
+- Xưng hô mặc định: ${matched.honorific || 'tự chọn'}
+- Phong cách thoại: ${matched.speech_style || 'tự chọn'}
+- Tone: ${matched.tone || 'theo brand'}
+→ Nhân vật PHẢI tuân thủ các thiết lập giọng này.`;
+      }
+    }
+    const variantsList = variants.length > 0
+      ? `\nCác biến thể giọng có sẵn: ${variants.map((v: any) => v.video_type).join(', ')}`
+      : '';
+
     const systemPrompt = `Bạn là chuyên gia xây dựng nhân vật đại diện thương hiệu cho content marketing video tại Việt Nam.
 Dựa trên thông tin brand, tạo ${numCharacters} nhân vật phù hợp để xuất hiện trong video/content.
 Nhân vật phải khớp tone, đối tượng mục tiêu, và ngành nghề của brand.
@@ -92,7 +110,7 @@ Quy tắc:
 - honorific: đại từ xưng hô phù hợp vai trò và tông brand (VD: bác sĩ 40 tuổi thì "tôi" hoặc "mình"; nhân vật trẻ gần gũi thì "mình" hoặc "em")
 - speech_style: phong cách diễn đạt khi nói (VD: "Nhẹ nhàng thuyết phục, dùng nhiều ví dụ thực tế" hoặc "Năng động, hay dùng từ trend")
 - regional_accent: giọng vùng miền phù hợp brand (VD: "Bắc Hà Nội" cho brand chuyên nghiệp, "Nam Sài Gòn" cho brand trẻ trung)
-${role_hint ? `- Gợi ý vai trò từ user: ${role_hint}` : ''}${existingList}`;
+${role_hint ? `- Gợi ý vai trò từ user: ${role_hint}` : ''}${existingList}${voiceVariantContext}`;
 
     const userPrompt = `BRAND: ${brand.name}
 TONE: ${brand.tone_of_voice || 'chuyên nghiệp'}
@@ -100,7 +118,8 @@ TONE: ${brand.tone_of_voice || 'chuyên nghiệp'}
 TÍNH CÁCH BRAND: ${brand.brand_personality || ''}
 NÊN LÀM: ${(brand.do_list || []).join(', ')}
 KHÔNG NÊN: ${(brand.dont_list || []).join(', ')}
-TRỤ CỘT NỘI DUNG: ${(brand.content_pillars || []).join(', ')}${industryContext}
+TRỤ CỘT NỘI DUNG: ${(brand.content_pillars || []).join(', ')}${industryContext}${variantsList}
+${video_type ? `\nTHỂ LOẠI VIDEO: ${video_type}` : ''}
 
 Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand này.`;
 

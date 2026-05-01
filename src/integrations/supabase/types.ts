@@ -3226,6 +3226,7 @@ export type Database = {
           user_id: string | null
           version: number
           vision: string | null
+          voice_variants: Json
         }
         Insert: {
           allow_emoji?: boolean | null
@@ -3282,6 +3283,7 @@ export type Database = {
           user_id?: string | null
           version?: number
           vision?: string | null
+          voice_variants?: Json
         }
         Update: {
           allow_emoji?: boolean | null
@@ -3338,6 +3340,7 @@ export type Database = {
           user_id?: string | null
           version?: number
           vision?: string | null
+          voice_variants?: Json
         }
         Relationships: [
           {
