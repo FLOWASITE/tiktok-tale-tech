@@ -34,8 +34,9 @@ interface ScriptsTabProps {
   onSwitchTab?: (tab: string) => void;
 }
 
-export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew }: ScriptsTabProps) {
+export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialViewScriptId, onSwitchTab }: ScriptsTabProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { scripts, loading, deleteScript, updateScript, generating, generateScript } = useScripts();
   const { templates: brandTemplates } = useBrandTemplates();
   const { createLink } = useTopicContentLinks({ enabled: false });
