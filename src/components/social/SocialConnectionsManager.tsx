@@ -352,12 +352,24 @@ export function SocialConnectionsManager() {
                           Dùng lần cuối: {formatDistanceToNow(new Date(connection.last_used_at), { addSuffix: true, locale: vi })}
                         </p>
                       )}
-                      {connection?.last_error && (
-                        <p className="text-xs text-destructive flex items-center gap-1">
-                          <XCircle className="h-3 w-3" />
-                          {connection.last_error}
-                        </p>
-                      )}
+                      {(() => {
+                        if (!connection?.last_error) return null;
+                        // Defense-in-depth: hide stale "App Password" warnings on Bluesky
+                        // connections that have already migrated to OAuth 2.0.
+                        const meta = (connection as any).metadata || {};
+                        const isOAuthBluesky =
+                          platform === 'bluesky' &&
+                          (meta.oauth_version === 2 || !!meta.dpop_jwk_encrypted);
+                        const isStaleAppPasswordError =
+                          isOAuthBluesky && /App Password/i.test(connection.last_error);
+                        if (isStaleAppPasswordError) return null;
+                        return (
+                          <p className="text-xs text-destructive flex items-center gap-1">
+                            <XCircle className="h-3 w-3" />
+                            {connection.last_error}
+                          </p>
+                        );
+                      })()}
                       {connection && platform === 'zalo_oa' && (connection as any).metadata?.oa_package && (() => {
                         const pkg = (connection as any).metadata.oa_package;
                         const isBasic = ['Cơ bản', 'Basic'].includes(pkg);
