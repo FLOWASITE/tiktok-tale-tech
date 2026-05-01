@@ -26,6 +26,21 @@ async function refreshOne(supabase: any, connectionId: string): Promise<{ ok: bo
     return { ok: false, error: "Connection missing OAuth metadata (legacy App Password?)" };
   }
 
+  const previousLock = meta.refresh_lock_until || null;
+  const lockExpired = !previousLock || new Date(previousLock).getTime() < Date.now();
+  if (!lockExpired) return { ok: false, error: "Refresh already in progress" };
+
+  const lockUntil = new Date(Date.now() + 15_000).toISOString();
+  const { data: claimRow, error: claimErr } = await supabase
+    .from("social_connections")
+    .update({ metadata: { ...meta, refresh_lock_until: lockUntil } })
+    .eq("id", connectionId)
+    .eq("updated_at", conn.updated_at)
+    .select("id")
+    .maybeSingle();
+
+  if (claimErr || !claimRow) return { ok: false, error: "Refresh lock claim failed" };
+
   const refreshTokenPlain = await decrypt(conn.refresh_token);
   const dpopJwkPlain = await decrypt(meta.dpop_jwk_encrypted);
   const dpopJwk = JSON.parse(dpopJwkPlain);
@@ -51,15 +66,21 @@ async function refreshOne(supabase: any, connectionId: string): Promise<{ ok: bo
       refresh_token: await encrypt(newToken.refresh_token),
       token_expires_at: new Date(newToken.expires_at).toISOString(),
       last_error: null,
-      metadata: { ...meta, dpop_nonce: newToken.dpop_nonce || meta.dpop_nonce },
+      metadata: { ...meta, dpop_nonce: newToken.dpop_nonce || meta.dpop_nonce, refresh_lock_until: null },
     }).eq("id", connectionId);
 
     return { ok: true };
   } catch (e: any) {
+    const msg = e?.message || String(e);
+    const reauthRequired = /invalid_grant|refresh token replayed|invalid refresh token/i.test(msg);
     await supabase.from("social_connections").update({
-      last_error: `Refresh failed: ${e?.message || String(e)}`,
+      ...(reauthRequired ? { is_active: false } : {}),
+      last_error: reauthRequired
+        ? "Phiên Bluesky đã hết hạn hoặc refresh token đã bị dùng lại. Vui lòng kết nối lại Bluesky."
+        : `Refresh failed: ${msg}`,
+      metadata: { ...meta, refresh_lock_until: null },
     }).eq("id", connectionId);
-    return { ok: false, error: e?.message };
+    return { ok: false, error: msg };
   }
 }
 
