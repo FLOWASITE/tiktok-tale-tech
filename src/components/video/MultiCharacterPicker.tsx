@@ -78,6 +78,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
           role_hint: roleHint.trim() || undefined,
           count: parseInt(charCount) || 2,
           existing_names: profiles.map(p => p.name),
+          video_type: videoType.trim() || undefined,
         },
       });
 
