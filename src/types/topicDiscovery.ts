@@ -490,6 +490,39 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
     ],
   },
   {
+    id: 'hung-kings',
+    name: 'Giỗ Tổ Hùng Vương',
+    date: nextOccurrence(3, 16), // ~10/3 Âm lịch, approximate
+    type: 'holiday',
+    suggestedTopics: [
+      'Tự hào nguồn cội Việt Nam',
+      'Văn hóa truyền thống dân tộc',
+      'Du lịch nghỉ lễ Giỗ Tổ',
+    ],
+  },
+  {
+    id: 'liberation-day',
+    name: 'Giải phóng miền Nam 30/4',
+    date: nextOccurrence(3, 30),
+    type: 'holiday',
+    suggestedTopics: [
+      'Tự hào lịch sử Việt Nam',
+      'Du lịch nghỉ lễ 30/4 - 1/5',
+      'Tri ân thế hệ đi trước',
+    ],
+  },
+  {
+    id: 'labor-day',
+    name: 'Quốc tế Lao động 1/5',
+    date: nextOccurrence(4, 1),
+    type: 'holiday',
+    suggestedTopics: [
+      'Tri ân người lao động',
+      'Work-life balance tips',
+      'Flash sale nghỉ lễ 1/5',
+    ],
+  },
+  {
     id: 'mothers-day',
     name: 'Ngày của Mẹ',
     date: nextOccurrence(4, 10),
@@ -545,6 +578,28 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
     ],
   },
   {
+    id: 'halloween',
+    name: 'Halloween',
+    date: nextOccurrence(9, 31),
+    type: 'event',
+    suggestedTopics: [
+      'Content Halloween sáng tạo',
+      'Costume & makeup inspiration',
+      'Flash sale Halloween',
+    ],
+  },
+  {
+    id: 'singles-day',
+    name: 'Singles Day 11/11',
+    date: nextOccurrence(10, 11),
+    type: 'campaign',
+    suggestedTopics: [
+      'Mega sale 11/11 - Deal khủng',
+      'Self-love & treat yourself campaign',
+      'Countdown flash deal 11/11',
+    ],
+  },
+  {
     id: 'black-friday',
     name: 'Black Friday',
     date: nextOccurrence(10, 27),
@@ -564,6 +619,17 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
       'Merry Christmas từ thương hiệu',
       'Quà Giáng Sinh ý nghĩa',
       'Không khí lễ hội tại công ty',
+    ],
+  },
+  {
+    id: 'year-end',
+    name: 'Tất Niên',
+    date: nextOccurrence(11, 31),
+    type: 'event',
+    suggestedTopics: [
+      'Tổng kết năm - Highlights thương hiệu',
+      'Tri ân khách hàng cuối năm',
+      'Countdown năm mới',
     ],
   },
 ];
