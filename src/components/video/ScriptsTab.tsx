@@ -30,6 +30,8 @@ interface ScriptsTabProps {
   prefillTopic?: string;
   topicHistoryId?: string;
   autoOpenNew?: boolean;
+  initialViewScriptId?: string;
+  onSwitchTab?: (tab: string) => void;
 }
 
 export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew }: ScriptsTabProps) {
