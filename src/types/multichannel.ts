@@ -415,6 +415,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
   { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'text', description: 'Subject + body, CTA rõ ràng' },
   { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'text', description: 'Markdown, link preview' },
+  { value: 'bluesky', label: 'Bluesky', icon: 'Globe', color: 'sky', category: 'text', description: 'Post ngắn ≤300 ký tự, casual, không hashtag' },
   // 📸 Thiên về Ảnh — ảnh là yếu tố chính
   { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'image', description: 'Caption ngắn, 20-30 hashtag' },
   { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'image', description: 'Post ngắn, hashtag, emoji phù hợp' },
