@@ -1,6 +1,56 @@
 import satori from "https://esm.sh/satori@0.10.14?bundle";
+import { Resvg, initWasm } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// ─── Resvg WASM init (once per isolate) ───
+let _resvgReady: Promise<void> | null = null;
+function ensureResvg(): Promise<void> {
+  if (!_resvgReady) {
+    _resvgReady = (async () => {
+      try {
+        const wasmRes = await fetch("https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm");
+        if (!wasmRes.ok) throw new Error(`Resvg wasm fetch failed: ${wasmRes.status}`);
+        const wasmBytes = await wasmRes.arrayBuffer();
+        await initWasm(wasmBytes);
+        console.log("[overlay-text-canvas] Resvg WASM initialized");
+      } catch (e) {
+        // Lazy reset so next request can retry
+        _resvgReady = null;
+        throw e;
+      }
+    })();
+  }
+  return _resvgReady;
+}
+
+/**
+ * Rasterize Satori SVG string → PNG bytes via Resvg.
+ * Throws on failure (we never silently fall back to SVG, since downstream
+ * publish-* functions reject SVG and the post would lose its image).
+ */
+async function rasterizeSvgToPng(svg: string, width: number, _height: number): Promise<Uint8Array> {
+  await ensureResvg();
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "width", value: width },
+    font: { loadSystemFonts: false },
+    background: "rgba(255,255,255,0)",
+  });
+  const png = resvg.render();
+  const bytes = png.asPng();
+  png.free();
+  resvg.free();
+  return bytes;
+}
+
+function pngBytesToDataUrl(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return `data:image/png;base64,${btoa(bin)}`;
+}
 import {
   getBottomCenterLogoSafeArea,
   getFooterLayoutProfile,
