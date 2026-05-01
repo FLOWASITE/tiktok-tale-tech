@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { BrandForm } from '@/components/BrandForm';
 import { BrandViewHero } from '@/components/brand/BrandViewHero';
 import { BrandViewOverviewTab } from '@/components/brand/BrandViewOverviewTab';
@@ -64,6 +65,8 @@ export default function BrandView() {
   // Fetch personas and products for completeness calculation
   const { personas } = useCustomerPersonas({ brandTemplateId: id, enabled: !!id });
   const { products } = useProductCatalog(id);
+  const { connections } = useSocialConnections({ brandTemplateId: id });
+  const activeConnectionsCount = connections?.filter((c) => c.is_active).length || 0;
 
   useEffect(() => {
     if (!loading && id) {
@@ -233,6 +236,11 @@ export default function BrandView() {
           <TabsTrigger value="connections" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Share2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Kết nối</span>
+            {activeConnectionsCount > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded-full">
+                {activeConnectionsCount}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="samples" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <FileText className="w-3.5 h-3.5" />
