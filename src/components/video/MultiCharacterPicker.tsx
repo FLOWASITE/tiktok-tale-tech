@@ -37,6 +37,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [roleHint, setRoleHint] = useState('');
   const [charCount, setCharCount] = useState('2');
+  const [videoType, setVideoType] = useState('');
   const [generating, setGenerating] = useState(false);
   const [generatedChars, setGeneratedChars] = useState<GeneratedChar[]>([]);
   const [saving, setSaving] = useState(false);
