@@ -383,6 +383,8 @@ async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8
 async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Promise<any> {
   const prepared = await downloadAndPrepareImage(imageUrl);
   if (!prepared) return null;
+  const imageBody = new ArrayBuffer(prepared.bytes.byteLength);
+  new Uint8Array(imageBody).set(prepared.bytes);
 
   const { response, newNonce } = await pdsFetch({
     url: `${ctx.pdsUrl}/xrpc/com.atproto.repo.uploadBlob`,
@@ -390,10 +392,7 @@ async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Pro
     accessToken: ctx.accessToken,
     dpopKey: ctx.dpopKey,
     nonce: ctx.dpopNonce,
-    body: prepared.bytes.buffer.slice(
-      prepared.bytes.byteOffset,
-      prepared.bytes.byteOffset + prepared.bytes.byteLength,
-    ),
+    body: imageBody,
     contentType: prepared.contentType,
   });
   if (newNonce) { ctx.dpopNonce = newNonce; await persistNonce(supabase, ctx.connectionId, newNonce); }
