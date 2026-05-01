@@ -438,6 +438,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     wordpress_com: 'wordpress-com',
     website: 'website',
     pinterest: 'pinterest',
+    bluesky: 'bluesky',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
