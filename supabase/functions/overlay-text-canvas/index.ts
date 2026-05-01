@@ -646,17 +646,16 @@ async function uploadToStorage(
 
   const timestamp = Date.now();
   const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
-  const fileName = `social/${orgPath}/${contentId}/${channel}-with-text-${timestamp}.svg`;
+  const fileName = `social/${orgPath}/${contentId}/${channel}-with-text-${timestamp}.png`;
 
-  console.log(`[overlay-text-canvas] Uploading to storage: ${fileName}`);
+  console.log(`[overlay-text-canvas] Uploading PNG to storage: ${fileName} (${imageBytes.byteLength} bytes)`);
 
-  // Use Blob to avoid request body size issues with large SVGs
-  const blob = new Blob([imageBytes], { type: "image/svg+xml" });
+  const blob = new Blob([imageBytes], { type: "image/png" });
 
   const { error: uploadError } = await supabase.storage
     .from("carousel-images")
     .upload(fileName, blob, {
-      contentType: "image/svg+xml",
+      contentType: "image/png",
       upsert: true,
       duplex: "half",
     });
