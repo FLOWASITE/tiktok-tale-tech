@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Loader2, Plus, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Music2, AtSign } from 'lucide-react';
+import { Loader2, Plus, Globe, Mail } from 'lucide-react';
+import { FacebookIcon as Facebook, InstagramIcon as Instagram, LinkedInIcon as Linkedin, YouTubeIcon as Youtube, TikTokIcon as Music2, ThreadsIcon as AtSign, TelegramIcon as Send, GoogleBusinessIcon as MapPin } from '@/components/icons/SocialIcons';
 import { ZaloIcon, XIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import {
