@@ -938,6 +938,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   </div>
                 </ConfigChipSelector>
 
+                {/* Character Profile — nhân vật cụ thể từ hồ sơ */}
+                <CharacterPicker
+                  value={formData.character_profile_id ?? null}
+                  onChange={(id) => setFormData((prev) => ({ ...prev, character_profile_id: id ?? undefined }))}
+                />
+
                 {/* Voice & Dialogue chip */}
                 <ConfigChipSelector
                   label={formData.script_purpose === 'teleprompter' ? dialogueLabel : `${voiceLabel.replace('Giọng ', '')} • ${dialogueLabel}`}
