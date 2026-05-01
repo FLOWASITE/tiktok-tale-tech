@@ -341,11 +341,13 @@ PHONG CÁCH HARVEST:
 }
 
 // Channel content column mapping (for expand mode)
+// NOTE: website / blogger / wordpress are SEPARATE long-form channels with
+// distinct columns + distinct prompts (different length, structure, tone).
 const CHANNEL_COLUMN_MAP: Record<string, string> = {
   website: 'website_content',
-  blog: 'website_content', // blog is alias for website
-  blogger: 'website_content', // blogger publishes to same website_content column
-  wordpress: 'website_content', // wordpress publishes to same website_content column
+  blog: 'website_content', // 'blog' is the only alias kept for backward-compat
+  blogger: 'blogger_content',
+  wordpress: 'wordpress_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -362,9 +364,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
 };
 
 // Normalize channel aliases to canonical names used in DB columns
-// NOTE: 'blogger' is intentionally NOT aliased to 'website' so the UI can
-// keep showing it as a separate channel. Both still write to website_content
-// via CHANNEL_COLUMN_MAP.
+// 'blog' is the only true alias; blogger/wordpress are SEPARATE channels.
 const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
 };
