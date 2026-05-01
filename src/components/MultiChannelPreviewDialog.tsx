@@ -76,7 +76,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   bluesky: <Globe className="w-4 h-4" />,
 };
 
-type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
+type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'general';
 
 const channelToMockupType: Record<Channel, ChannelMockupType> = {
   facebook: 'facebook',
@@ -93,8 +93,8 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
   youtube: 'general',
   zalo_oa: 'general',
   telegram: 'general',
-  threads: 'general',
-  bluesky: 'general',
+  threads: 'threads',
+  bluesky: 'bluesky',
 };
 
 interface ChannelPreview {

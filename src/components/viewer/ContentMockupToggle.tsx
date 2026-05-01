@@ -34,7 +34,7 @@ interface ContentMockupToggleProps {
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
-const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'general'> = {
+const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'general'> = {
   facebook: 'facebook',
   linkedin: 'linkedin',
   instagram: 'instagram',
@@ -50,7 +50,7 @@ const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram'
   youtube: 'general',
   zalo_oa: 'general',
   telegram: 'general',
-  bluesky: 'general',
+  bluesky: 'bluesky',
 };
 
 export function ContentMockupToggle({

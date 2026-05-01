@@ -31,7 +31,7 @@ import {
   Upload,
   ExternalLink,
 } from 'lucide-react';
-import { PinterestIcon } from '@/components/icons/SocialIcons';
+import { PinterestIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +45,7 @@ const mockupMarkdownComponents = {
   br: () => <br className="block" />,
 };
 
-type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'general';
+type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'general';
 
 interface ChannelMockupFrameProps {
   channel: ChannelType;
@@ -1217,6 +1217,164 @@ function ThreadsMockup({ content, brandName, logoUrl, isGenerating, channelImage
   );
 }
 
+// Bluesky Post Mockup - Authentic AT Protocol / Bluesky Social design
+function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+  const handle = `${brandName.toLowerCase().replace(/\s+/g, '')}.bsky.social`;
+  const [liked, setLiked] = useState(false);
+  const [reposted, setReposted] = useState(false);
+
+  return (
+    <div className="bg-white dark:bg-[#161e27] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e1e8ed] dark:border-[#2e3a47] max-w-[440px] mx-auto">
+
+      {/* Status Bar */}
+      <div className="bg-white dark:bg-[#161e27] px-4 py-1.5 flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-[#000] dark:text-[#f1f3f5]">9:41</span>
+        <div className="flex items-center gap-1">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className={cn("w-[3px] rounded-full bg-[#000] dark:bg-white", i === 1 ? "h-1.5" : i === 2 ? "h-2" : i === 3 ? "h-2.5" : "h-3")} />
+            ))}
+          </div>
+          <div className="w-5 h-2.5 border border-[#000] dark:border-white rounded-sm ml-1">
+            <div className="w-3.5 h-full bg-[#000] dark:bg-white rounded-sm" />
+          </div>
+        </div>
+      </div>
+
+      {/* App Header - Bluesky brand */}
+      <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#e1e8ed] dark:border-[#2e3a47]">
+        <ChevronLeft className="w-5 h-5 text-[#0085ff]" />
+        <div className="flex items-center gap-1.5">
+          <BlueskyIcon className="w-5 h-5 text-[#0085ff]" />
+          <span className="font-bold text-[16px] text-[#0f1419] dark:text-[#f1f3f5] tracking-tight">Bluesky</span>
+        </div>
+        <MoreHorizontal className="w-5 h-5 text-[#788896]" />
+      </div>
+
+      {/* Tabs - Following / Discover */}
+      <div className="flex border-b border-[#e1e8ed] dark:border-[#2e3a47]">
+        <div className="flex-1 text-center py-2.5 border-b-2 border-[#0085ff]">
+          <span className="text-[14px] font-semibold text-[#0f1419] dark:text-[#f1f3f5]">Following</span>
+        </div>
+        <div className="flex-1 text-center py-2.5">
+          <span className="text-[14px] text-[#788896]">Discover</span>
+        </div>
+      </div>
+
+      {/* Post */}
+      <div className="flex px-4 pt-3 pb-2 gap-3">
+        {/* Avatar */}
+        <Avatar className="h-10 w-10 shrink-0">
+          {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+          <AvatarFallback className="bg-gradient-to-br from-[#0085ff] to-[#0066cc] text-white font-bold text-sm">
+            {brandName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+
+        {/* Right column */}
+        <div className="flex-1 min-w-0">
+          {/* Display name + handle + time */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="font-bold text-[15px] text-[#0f1419] dark:text-[#f1f3f5] hover:underline cursor-pointer">{brandName}</span>
+            <span className="text-[14px] text-[#788896]">@{handle}</span>
+            <span className="text-[14px] text-[#788896]">·</span>
+            <span className="text-[14px] text-[#788896]">2h</span>
+          </div>
+
+          {/* Content */}
+          <div className="mt-1">
+            {isGenerating ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3.5 bg-[#eef3f6] dark:bg-[#243240] rounded w-full" />
+                <div className="h-3.5 bg-[#eef3f6] dark:bg-[#243240] rounded w-5/6" />
+                <div className="h-3.5 bg-[#eef3f6] dark:bg-[#243240] rounded w-3/4" />
+              </div>
+            ) : (
+              <div className="text-[15px] text-[#0f1419] dark:text-[#f1f3f5] leading-[1.45] whitespace-pre-wrap">
+                <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+              </div>
+            )}
+          </div>
+
+          {/* Image */}
+          {channelImage && (
+            <div className="mt-2.5 rounded-xl overflow-hidden border border-[#e1e8ed] dark:border-[#2e3a47]">
+              <img src={channelImage} alt="Post" className="w-full aspect-[4/3] object-cover" />
+            </div>
+          )}
+
+          {/* Action buttons - Bluesky has 4: reply, repost, like, share */}
+          <div className="flex items-center justify-between mt-3 pr-4 max-w-[320px]">
+            <button className="flex items-center gap-1.5 group transition-all duration-200 active:scale-90">
+              <MessageCircle className="w-[18px] h-[18px] text-[#788896] group-hover:text-[#0085ff] transition-colors" />
+              <span className="text-[13px] text-[#788896] group-hover:text-[#0085ff] transition-colors">12</span>
+            </button>
+            <button
+              onClick={() => setReposted(!reposted)}
+              className="flex items-center gap-1.5 group transition-all duration-200 active:scale-90"
+            >
+              <Repeat2 className={cn(
+                "w-[18px] h-[18px] transition-colors",
+                reposted ? "text-[#20bc07]" : "text-[#788896] group-hover:text-[#20bc07]"
+              )} />
+              <span className={cn(
+                "text-[13px] transition-colors",
+                reposted ? "text-[#20bc07]" : "text-[#788896] group-hover:text-[#20bc07]"
+              )}>{reposted ? 25 : 24}</span>
+            </button>
+            <button
+              onClick={() => setLiked(!liked)}
+              className="flex items-center gap-1.5 group transition-all duration-200 active:scale-90"
+            >
+              <Heart className={cn(
+                "w-[18px] h-[18px] transition-all duration-300",
+                liked ? "text-[#ec4899] fill-[#ec4899]" : "text-[#788896] group-hover:text-[#ec4899]"
+              )} />
+              <span className={cn(
+                "text-[13px] transition-colors",
+                liked ? "text-[#ec4899]" : "text-[#788896] group-hover:text-[#ec4899]"
+              )}>{liked ? 187 : 186}</span>
+            </button>
+            <button className="group transition-all duration-200 active:scale-90">
+              <MoreHorizontal className="w-[18px] h-[18px] text-[#788896] group-hover:text-[#0085ff] transition-colors" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-[#e1e8ed] dark:border-[#2e3a47]" />
+
+      {/* Bottom Navigation - Bluesky style (5 tabs) */}
+      <div className="px-2 py-2 grid grid-cols-5 gap-0">
+        {[
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[22px] h-[22px]"><path d="M3 12L5 10M5 10L12 3L19 10M5 10V20C5 20.5523 5.44772 21 6 21H9M19 10L21 12M19 10V20C19 20.5523 18.5523 21 18 21H15M9 21V15H15V21M9 21H15"/></svg>, active: true },
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[22px] h-[22px]"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>, active: false },
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[22px] h-[22px]"><path d="M12 5v14M5 12h14"/></svg>, active: false },
+          { icon: () => <MessageCircle className="w-[22px] h-[22px]" />, active: false },
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[22px] h-[22px]"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>, active: false },
+        ].map((item, i) => (
+          <button
+            key={i}
+            className={cn(
+              "flex items-center justify-center py-1.5 transition-colors",
+              item.active ? "text-[#0085ff]" : "text-[#788896]"
+            )}
+          >
+            {item.icon()}
+          </button>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="bg-[#f7f9fa] dark:bg-[#0f1620] px-3 py-1.5 text-center border-t border-[#e1e8ed] dark:border-[#2e3a47] flex items-center justify-center gap-1.5">
+        <BlueskyIcon className="w-2.5 h-2.5 text-[#0085ff]" />
+        <span className="text-[9px] text-[#788896]">Xem trước · Bluesky Social</span>
+      </div>
+    </div>
+  );
+}
+
 // Email Mockup - Modern email client design
 function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [starred, setStarred] = useState(false);
@@ -2045,6 +2203,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <ThreadsMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'pinterest':
       return <PinterestMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} pinterestTitle={pinterestTitle} />;
+    case 'bluesky':
+      return <BlueskyMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'email':
       return <EmailMockup {...rest} brandName={safeBrandName} />;
     case 'general':
