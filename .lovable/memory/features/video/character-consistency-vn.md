@@ -12,7 +12,7 @@ type: feature
 
 ## Phase 1 — Core
 - `useCharacterProfiles` hook: CRUD + `buildCharacterBlock()` + ReferenceImage types
-- `CharacterPicker`: Single-select dropdown (QuickClipTab, StoryboardVideoTab, ScriptFormStepper)
+- `CharacterPicker`: Single-select dropdown (kept for backward compat)
 - Prompt injection: generate-video + generate-video-prompt + generate-script
 
 ## Phase 2 — Enhanced
@@ -26,3 +26,11 @@ type: feature
 - **Multi-character**: `MultiCharacterPicker` component cho phép chọn tối đa 3 nhân vật (chính + phụ)
 - **Voice binding**: default_voice_id + default_voice_provider trên character_profiles, UI trong CharacterProfileManager
 - **Auto-extract last frame**: Batch generate lấy video_url từ scene trước làm starting_frame_url cho scene sau
+
+## Phase 3.5 — Full Integration (hoàn thiện)
+- **MultiCharacterPicker tích hợp toàn bộ**: QuickClipTab, StoryboardVideoTab, ScriptFormStepper đều dùng MultiCharacterPicker
+- **ScriptToVideoContext**: `characterProfileIds: string[]` propagate multi-character từ script sang video studio
+- **ScriptFormData**: thêm `character_profile_ids?: string[]` (giữ backward compat `character_profile_id`)
+- **Edge function `generate-video`**: Accept `character_profile_ids` array, fetch tất cả profiles, build block `[MAIN CHARACTER]` / `[SECONDARY CHARACTER N]`, ref image từ primary
+- **Edge function `generate-script`**: Accept `character_profile_ids` array, inject multi-character context `[NHÂN VẬT CHÍNH]` / `[NHÂN VẬT PHỤ N]` vào system prompt
+- **Backward compat**: Cả 2 edge functions fallback `character_profile_id` nếu `character_profile_ids` không có
