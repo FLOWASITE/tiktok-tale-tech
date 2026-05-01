@@ -76,7 +76,7 @@ export default function Gallery() {
                   <AnimatedNumber value={s.value} duration={800} className="text-2xl font-bold text-foreground" />
                   <p className="text-xs text-muted-foreground">
                     {s.label}
-                    {s.label !== 'Tổng ảnh' && sourceCounts.all > 0 && (
+                    {s.label !== 'Tổng media' && sourceCounts.all > 0 && (
                       <span className="ml-1 text-muted-foreground/70">({getPercent(s.value)}%)</span>
                     )}
                   </p>
