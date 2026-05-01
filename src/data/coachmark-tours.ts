@@ -89,7 +89,7 @@ export const TOUR_CONFIGS: Record<string, CoachmarkStep[]> = {
     {
       id: 'scripts-nav',
       target: '[data-coachmark="sidebar-videoStudio"]',
-      title: 'Kịch bản Video',
+      title: 'Video Studio',
       description: 'Tạo kịch bản cho TikTok, Reels, Shorts với AI hỗ trợ.',
       icon: Video,
       placement: 'right'
