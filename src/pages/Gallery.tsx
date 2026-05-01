@@ -65,7 +65,7 @@ export default function Gallery() {
 
       {/* Stats Cards */}
       {!loading && !contentIdParam && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map(s => (
             <Card key={s.label} className="border-border/50">
               <CardContent className="flex items-center gap-3 p-4">
