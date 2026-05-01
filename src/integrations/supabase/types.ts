@@ -4112,6 +4112,8 @@ export type Database = {
           brand_template_id: string | null
           created_at: string
           created_by: string | null
+          default_voice_id: string | null
+          default_voice_provider: string | null
           description: string
           id: string
           name: string
@@ -4126,6 +4128,8 @@ export type Database = {
           brand_template_id?: string | null
           created_at?: string
           created_by?: string | null
+          default_voice_id?: string | null
+          default_voice_provider?: string | null
           description?: string
           id?: string
           name: string
@@ -4140,6 +4144,8 @@ export type Database = {
           brand_template_id?: string | null
           created_at?: string
           created_by?: string | null
+          default_voice_id?: string | null
+          default_voice_provider?: string | null
           description?: string
           id?: string
           name?: string
