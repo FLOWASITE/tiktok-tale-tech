@@ -71,6 +71,21 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
     }
   }, [prefillTopic]);
 
+  // Deep-link: auto-open script viewer when ?view=scriptId is in URL
+  useEffect(() => {
+    if (!initialViewScriptId || loading || scripts.length === 0) return;
+    const target = scripts.find(s => s.id === initialViewScriptId);
+    if (target) {
+      setSelectedScript(target);
+      setViewerOpen(true);
+      // Clean up the URL param
+      const params = new URLSearchParams(location.search);
+      params.delete('view');
+      const newSearch = params.toString();
+      navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+    }
+  }, [initialViewScriptId, loading, scripts]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<ScriptFiltersType>({
