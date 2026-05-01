@@ -4240,7 +4240,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
         pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine). Long-tail keyword tự nhiên, mô tả lợi ích/hướng dẫn (how-to, listicle, idea), kết thúc CTA mềm 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. 2-5 hashtag tự nhiên cuối. Ảnh đi kèm vertical 2:3.",
-        bluesky: "Nội dung Bluesky (≤280 ký tự). Casual, conversational, có cá tính. Emoji vừa phải (2-5). KHÔNG hashtag. Link đặt cuối. Kết thúc câu hỏi mở hoặc observation thú vị.",
+        bluesky: "Bluesky post (≤300 graphemes). PLAIN TEXT, KHÔNG markdown (no **bold**, no # heading, no `- ` bullet, no [text](url)). 2-3 đoạn ngắn 1-2 câu, cách dòng trống. Hook ngay câu đầu. Casual, first-person, có cá tính. Emoji 0-3. KHÔNG hashtag. Link (nếu có) là URL TRẦN dòng cuối, cách body 1 dòng trống. Kết bằng câu hỏi mở hoặc observation.",
       };
       
       for (const channel of channels) {
