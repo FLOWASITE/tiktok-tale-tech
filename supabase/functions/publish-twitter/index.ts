@@ -602,7 +602,10 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
 
       // === SPLIT INTO THREAD OR SINGLE TWEET ===
       const tweets = splitThreadContent(content);
-      console.log(`[thread] Content split into ${tweets.length} tweet(s)`);
+      console.log(`[thread] Content split into ${tweets.length} tweet(s)`, {
+        weights: tweets.map(t => tweetWeightedLength(t)),
+        chars: tweets.map(t => Array.from(t).length),
+      });
 
       let firstTweetResult: { id: string; text: string } | null = null;
 
