@@ -1614,17 +1614,16 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
       const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
       const svg2 = await satori(element2 as any, { width: imageWidth, height: imageHeight, fonts: fonts2 });
 
-      const encoder2 = new TextEncoder();
-      const svgBytes2 = encoder2.encode(svg2);
+      const pngBytes2 = await rasterizeSvgToPng(svg2, imageWidth, imageHeight);
       let finalUrl2: string;
       if (contentId && channel) {
-        finalUrl2 = await uploadToStorage(svgBytes2, contentId, channel, organizationId);
+        finalUrl2 = await uploadToStorage(pngBytes2, contentId, channel, organizationId);
       } else {
-        finalUrl2 = `data:image/svg+xml;base64,${btoa(svg2)}`;
+        finalUrl2 = pngBytesToDataUrl(pngBytes2);
       }
 
       return new Response(
-        JSON.stringify({ success: true, imageUrl: finalUrl2, format: 'svg', layout: sr.layout, dimensions: { width: imageWidth, height: imageHeight } }),
+        JSON.stringify({ success: true, imageUrl: finalUrl2, format: 'png', layout: sr.layout, dimensions: { width: imageWidth, height: imageHeight } }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
