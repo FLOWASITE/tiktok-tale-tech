@@ -51,6 +51,14 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
     onChange(newIds, profiles.filter(p => newIds.includes(p.id)));
   };
 
+  const moveCharacter = (fromIdx: number, toIdx: number) => {
+    if (toIdx < 0 || toIdx >= value.length) return;
+    const newIds = [...value];
+    const [moved] = newIds.splice(fromIdx, 1);
+    newIds.splice(toIdx, 0, moved);
+    onChange(newIds, profiles.filter(p => newIds.includes(p.id)));
+  };
+
   const generateCharacters = useCallback(async () => {
     if (!currentBrand?.id) {
       toast.error('Vui lòng chọn Brand trước');
