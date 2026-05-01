@@ -1,97 +1,101 @@
 
-# Tính năng Đồng nhất Nhân vật (Character Consistency)
+# Nâng cấp đồng nhất nhân vật (Phase 2)
 
-## Vấn đề hiện tại
-Khi tạo video nhiều scene (Storyboard hoặc batch từ Script), mỗi prompt được gửi độc lập tới AI video models (Veo, Seedance). Các model này **không có memory giữa các scene**, dẫn tới nhân vật thay đổi ngoại hình, trang phục, kiểu tóc giữa các clip.
+Phase 1 đã triển khai: bảng `character_profiles`, CRUD UI, CharacterPicker trên QuickClip, prompt injection trong `generate-video` và `generate-video-prompt`.
 
-Hiện tại chỉ có `continuityRules` text ("Wardrobe + background NHAT QUAN") trong prompt generate-script, nhưng không có structured character profile để inject vào video prompt.
+Phase 2 sẽ bổ sung 4 khả năng chính:
 
-## Giải pháp
+---
 
-### 1. Database: Bảng `character_profiles`
+## 1. Multi-Reference Images (nhiều ảnh tham chiếu)
 
-Tạo bảng lưu hồ sơ nhân vật tái sử dụng:
+**Hiện tại**: Mỗi nhân vật chỉ có 1 `reference_image_url`.
 
+**Nâng cấp**:
+- Thêm cột `reference_images jsonb default '[]'` vào `character_profiles` (mảng URLs, tối đa 5 ảnh: chính diện, nghiêng, toàn thân, cận mặt, trang phục).
+- UI cho phép upload nhiều ảnh, kéo thả sắp xếp, gắn label (front/side/full-body/close-up/outfit).
+- Edge function chọn ảnh phù hợp nhất theo context: scene đầu dùng ảnh chính diện, scene cận cảnh dùng close-up.
+
+**Files thay đổi**:
+- Migration: thêm cột `reference_images`
+- `CharacterProfileManager.tsx`: multi-image upload UI
+- `useCharacterProfiles.ts`: cập nhật types
+- `generate-video/index.ts`: smart image selection logic
+
+---
+
+## 2. Storyboard Batch Character Injection
+
+**Hiện tại**: `StoryboardVideoTab.runBatchGenerate()` gọi `generateVideo()` không truyền `character_profile_id`, nên batch generate không có character consistency.
+
+**Nâng cấp**:
+- Thêm `CharacterPicker` vào StoryboardVideoTab (phía trên nút "Quay tất cả").
+- Khi batch generate, mỗi scene tự động truyền `character_profile_id` + inject character block vào prompt.
+- Hiển thị badge nhân vật đang active trên mỗi scene card.
+
+**Files thay đổi**:
+- `StoryboardVideoTab.tsx`: thêm CharacterPicker + truyền character vào loop generate
+
+---
+
+## 3. Script-to-Video Character Integration
+
+**Hiện tại**: `ScriptNew` page và `ScriptToVideoContext` không biết về character profiles. Khi viết kịch bản, không có cách chọn nhân vật để AI giữ nhất quán từ khâu viết script đến khâu quay video.
+
+**Nâng cấp**:
+- Thêm `characterProfileId` vào `ActiveScript` interface trong `ScriptToVideoContext`.
+- Thêm `CharacterPicker` vào ScriptNew page (cạnh chọn video type/character type).
+- Khi tạo script AI (`generate-script`), inject structured character description vào prompt thay vì chỉ dùng `characterType` generic.
+- Khi chuyển script sang Video Studio, character profile tự động propagate qua context.
+
+**Files thay đổi**:
+- `ScriptToVideoContext.tsx`: thêm `characterProfileId` vào `ActiveScript`
+- `ScriptNew.tsx` hoặc component con: thêm CharacterPicker
+- `generate-script/index.ts`: inject character profile details vào continuityRules + mỗi PROMPT block
+
+---
+
+## 4. Last-Frame Chaining (Scene Continuity)
+
+**Hiện tại**: Mỗi scene dùng cùng 1 reference image tĩnh. Không có liên kết visual giữa scene trước và scene sau.
+
+**Nâng cấp**:
+- Khi batch generate (Storyboard), sau khi scene N hoàn thành, tự động extract thumbnail/last-frame URL từ video đã tạo.
+- Truyền URL đó làm `starting_frame_url` cho scene N+1, tạo chuỗi visual liên tục.
+- Fallback: nếu scene trước chưa xong hoặc không có video URL, dùng reference image gốc của character.
+
+**Files thay đổi**:
+- `StoryboardVideoTab.tsx`: sequential batch logic (chờ scene trước xong rồi mới submit scene sau)
+- `generate-video/index.ts`: ưu tiên `previous_scene_url` > `character reference` > none
+
+---
+
+## Technical Details
+
+### Database Migration
 ```sql
-create table public.character_profiles (
-  id uuid primary key default gen_random_uuid(),
-  organization_id uuid references public.organizations(id) on delete cascade not null,
-  name text not null,                    -- "Bác sĩ Minh", "Cô gái Gen Z"
-  description text not null,            -- Mô tả chi tiết ngoại hình
-  appearance jsonb default '{}',        -- {gender, age_range, hair, skin_tone, body_type, distinctive_features}
-  wardrobe text,                        -- Trang phục mặc định
-  reference_image_url text,             -- Ảnh tham chiếu (upload)
-  brand_template_id uuid references public.brand_templates(id),
-  created_by uuid references auth.users(id),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-alter table public.character_profiles enable row level security;
--- RLS: org members can CRUD
+ALTER TABLE public.character_profiles 
+  ADD COLUMN IF NOT EXISTS reference_images jsonb DEFAULT '[]';
 ```
 
-### 2. UI: Character Profile Manager
+### ScriptToVideoContext Changes
+```typescript
+export interface ActiveScript {
+  // ...existing fields
+  characterProfileId?: string;
+}
+```
 
-Thêm component `CharacterProfileManager` trong Video Studio:
-- Form tạo/sửa nhân vật: tên, mô tả ngoại hình, trang phục, tuổi, giới tính, đặc điểm nhận dạng
-- Upload ảnh tham chiếu (dùng Supabase Storage bucket `character-references`)
-- Danh sách nhân vật đã tạo (card grid, filter theo brand)
+### Batch Chaining Logic (pseudo)
+```
+for scene in scenes:
+  starting_frame = previousVideoUrl || characterRefImage || null
+  result = await generateVideo({ ...scene, starting_frame_url, character_profile_id })
+  wait for completion
+  previousVideoUrl = result.video_url  // for next scene
+```
 
-### 3. UI: Character Picker trên Quick Clip và Storyboard
-
-- Thêm dropdown/selector "Chọn nhân vật" trước khi generate video
-- Khi chọn nhân vật, tự động prepend character description vào prompt
-- Hiển thị avatar/tên nhân vật đang active
-
-### 4. Prompt Injection Logic
-
-**Edge function `generate-video`**: Khi request có `character_profile_id`:
-- Fetch character profile từ DB
-- Build character block: `"[CHARACTER] {name}: {gender}, {age}, {hair}, {skin}, wearing {wardrobe}. {distinctive_features}. Maintain this exact appearance throughout."`
-- Prepend vào prompt trước khi gửi provider
-
-**Edge function `generate-script`**: Khi script có linked character:
-- Inject character description vào mỗi PROMPT block của ai_video output
-- Thêm vào continuityRules: `"Character {name} MUST maintain: {appearance summary}"`
-
-**Edge function `generate-video-prompt`**: Thêm character block vào cinematic prompt generation.
-
-### 5. Reference Image (starting_frame_url)
-
-PoYo API đã hỗ trợ `startingFrameUrl` (first frame). Khi nhân vật có reference image:
-- Scene đầu tiên: gửi reference image làm `starting_frame_url`
-- Các scene tiếp: extract last frame từ video trước (nếu có) hoặc dùng cùng reference image
-
-### 6. Script-to-Video Integration
-
-Khi tạo script mới (ScriptNew page), cho phép chọn character profile. Character sẽ:
-- Được lưu vào `scripts.metadata` field
-- Tự động truyền qua ScriptToVideoContext sang Video Studio
-- Inject vào mọi scene prompt khi batch generate
-
-## Các file cần tạo/sửa
-
-| File | Thay đổi |
-|------|----------|
-| **Migration** | Tạo bảng `character_profiles` + RLS + storage bucket |
-| `src/hooks/useCharacterProfiles.ts` | CRUD hook cho character profiles |
-| `src/components/video/CharacterProfileManager.tsx` | UI quản lý nhân vật |
-| `src/components/video/CharacterPicker.tsx` | Dropdown chọn nhân vật |
-| `src/components/video/QuickClipTab.tsx` | Thêm CharacterPicker |
-| `src/components/video/StoryboardVideoTab.tsx` | Thêm CharacterPicker |
-| `src/pages/VideoStudioPage.tsx` | Thêm tab hoặc section cho Character |
-| `supabase/functions/generate-video/index.ts` | Fetch + inject character vào prompt |
-| `supabase/functions/generate-video-prompt/index.ts` | Inject character vào cinematic prompt |
-| `supabase/functions/generate-script/index.ts` | Inject character vào script output |
-| `src/contexts/ScriptToVideoContext.tsx` | Thêm character profile state |
-
-## Phạm vi Phase 1 (đề xuất triển khai)
-
-1. DB table + RLS
-2. Character Profile Manager UI (CRUD + upload ảnh)
-3. Character Picker trên Quick Clip
-4. Prompt injection trong `generate-video`
-5. Prompt injection trong `generate-video-prompt`
-
-Phase 2 (sau): Script integration, Storyboard batch, last-frame extraction.
+### Estimated Scope
+- 1 migration (add column)
+- 5 files modified (StoryboardVideoTab, ScriptToVideoContext, ScriptNew/component, CharacterProfileManager, generate-script edge function)
+- 1 file minor update (generate-video edge function)

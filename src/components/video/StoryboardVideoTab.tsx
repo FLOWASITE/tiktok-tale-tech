@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { VideoCompletionWizard } from './VideoCompletionWizard';
+import { CharacterPicker } from './CharacterPicker';
+import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
@@ -35,6 +37,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const [showAllClips, setShowAllClips] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; currentScene?: number }>({ done: 0, total: 0 });
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(activeScript?.characterProfileId ?? null);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterProfile | null>(null);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
@@ -123,20 +127,42 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
     let success = 0;
     let failed = 0;
 
+    let previousVideoUrl: string | null = null;
+
     for (let i = 0; i < todo.length; i++) {
       const scene = todo[i];
       setBatchProgress({ done: i, total: todo.length, currentScene: scene.sceneNumber });
       try {
+        // Build prompt with character consistency
+        let finalPrompt = scene.prompt;
+        if (selectedCharacter) {
+          const charBlock = buildCharacterBlock(selectedCharacter);
+          finalPrompt = `${charBlock}\n\n${finalPrompt}`;
+        }
+
+        // Last-frame chaining: use previous video URL as starting frame for continuity
+        const startingFrame = previousVideoUrl
+          || selectedCharacter?.reference_image_url
+          || undefined;
+
         const res = await generateVideo({
           provider: 'geminigen',
-          prompt: scene.prompt,
+          prompt: finalPrompt,
           duration: Math.max(3, Math.min(scene.duration ?? 5, 10)),
           aspect_ratio: scene.aspect ?? aspect,
           resolution: '1080p',
           script_id: activeScript.id,
           scene_number: scene.sceneNumber,
+          character_profile_id: selectedCharacterId || undefined,
+          starting_frame_url: startingFrame,
         });
-        if (res) success += 1; else failed += 1;
+        if (res) {
+          success += 1;
+          // Store video URL for chaining to next scene
+          if (res.video_url) previousVideoUrl = res.video_url;
+        } else {
+          failed += 1;
+        }
       } catch (e) {
         console.error('[batch] scene', scene.sceneNumber, e);
         failed += 1;
@@ -230,6 +256,14 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                   )}
                 </div>
               </div>
+              <CharacterPicker
+                value={selectedCharacterId}
+                onChange={(id, profile) => {
+                  setSelectedCharacterId(id);
+                  setSelectedCharacter(profile);
+                }}
+                className="mt-1"
+              />
               <Button
                 size="sm"
                 onClick={runBatchGenerate}

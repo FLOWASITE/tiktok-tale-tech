@@ -12,6 +12,13 @@ export interface CharacterAppearance {
   distinctive_features?: string;
 }
 
+export type ReferenceImageLabel = 'front' | 'side' | 'full-body' | 'close-up' | 'outfit';
+
+export interface ReferenceImage {
+  url: string;
+  label: ReferenceImageLabel;
+}
+
 export interface CharacterProfile {
   id: string;
   organization_id: string;
@@ -20,6 +27,7 @@ export interface CharacterProfile {
   appearance: CharacterAppearance;
   wardrobe: string | null;
   reference_image_url: string | null;
+  reference_images: ReferenceImage[];
   brand_template_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -32,6 +40,7 @@ export interface CharacterProfileInput {
   appearance?: CharacterAppearance;
   wardrobe?: string;
   reference_image_url?: string;
+  reference_images?: ReferenceImage[];
   brand_template_id?: string | null;
 }
 
@@ -51,7 +60,7 @@ export function useCharacterProfiles() {
         .eq('organization_id', orgId)
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as CharacterProfile[];
+      return (data ?? []) as unknown as CharacterProfile[];
     },
     enabled: !!orgId,
   });
@@ -69,13 +78,14 @@ export function useCharacterProfiles() {
           appearance: (input.appearance ?? {}) as any,
           wardrobe: input.wardrobe ?? null,
           reference_image_url: input.reference_image_url ?? null,
+          reference_images: (input.reference_images ?? []) as any,
           brand_template_id: input.brand_template_id ?? null,
           created_by: user?.id ?? null,
         })
         .select()
         .single();
       if (error) throw error;
-      return data as CharacterProfile;
+      return data as unknown as CharacterProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -92,6 +102,7 @@ export function useCharacterProfiles() {
       if (input.appearance !== undefined) updateData.appearance = input.appearance as any;
       if (input.wardrobe !== undefined) updateData.wardrobe = input.wardrobe;
       if (input.reference_image_url !== undefined) updateData.reference_image_url = input.reference_image_url;
+      if (input.reference_images !== undefined) updateData.reference_images = input.reference_images as any;
       if (input.brand_template_id !== undefined) updateData.brand_template_id = input.brand_template_id;
 
       const { data, error } = await supabase
@@ -101,7 +112,7 @@ export function useCharacterProfiles() {
         .select()
         .single();
       if (error) throw error;
-      return data as CharacterProfile;
+      return data as unknown as CharacterProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });

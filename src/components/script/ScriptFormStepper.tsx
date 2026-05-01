@@ -62,6 +62,7 @@ import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { ConfigChipSelector } from '@/components/script/ConfigChipSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
+import { CharacterPicker } from '@/components/video/CharacterPicker';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
 import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
@@ -936,6 +937,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                     </Collapsible>
                   </div>
                 </ConfigChipSelector>
+
+                {/* Character Profile — nhân vật cụ thể từ hồ sơ */}
+                <CharacterPicker
+                  value={formData.character_profile_id ?? null}
+                  onChange={(id) => setFormData((prev) => ({ ...prev, character_profile_id: id ?? undefined }))}
+                />
 
                 {/* Voice & Dialogue chip */}
                 <ConfigChipSelector
