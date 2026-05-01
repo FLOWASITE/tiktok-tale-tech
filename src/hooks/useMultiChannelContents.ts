@@ -284,8 +284,8 @@ export function useMultiChannelContents() {
     try {
       const fieldMap: Record<Channel, string> = {
         website: 'website_content',
-        blogger: 'website_content',
-        wordpress: 'website_content',
+        blogger: 'blogger_content',
+        wordpress: 'wordpress_content',
         facebook: 'facebook_content',
         instagram: 'instagram_content',
         pinterest: 'instagram_content',
