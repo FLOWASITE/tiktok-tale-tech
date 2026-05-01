@@ -256,6 +256,14 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                   )}
                 </div>
               </div>
+              <CharacterPicker
+                value={selectedCharacterId}
+                onChange={(id, profile) => {
+                  setSelectedCharacterId(id);
+                  setSelectedCharacter(profile);
+                }}
+                className="mt-1"
+              />
               <Button
                 size="sm"
                 onClick={runBatchGenerate}
