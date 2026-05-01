@@ -169,11 +169,11 @@ export function MultiChannelHookGenerator({
   const [previewHook, setPreviewHook] = useState<MultiChannelHook | null>(null);
 
   // Map multichannel Channel to ChannelMockupFrame type
-  const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general'> = {
+  const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'general'> = {
     facebook: 'facebook',
     linkedin: 'linkedin',
     instagram: 'instagram',
-    pinterest: 'instagram',
+    pinterest: 'pinterest',
     tiktok: 'tiktok',
     email: 'email',
     twitter: 'twitter',
@@ -184,8 +184,8 @@ export function MultiChannelHookGenerator({
     youtube: 'general',
     zalo_oa: 'general',
     telegram: 'general',
-    threads: 'general',
-  bluesky: 'general',
+    threads: 'threads',
+    bluesky: 'bluesky',
   };
 
   // Check if a hook is selected
