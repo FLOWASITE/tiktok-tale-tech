@@ -1,34 +1,37 @@
+## Mục tiêu
 
-# Hoàn thiện AI tạo nhân vật
+Tạo file test `src/components/video/__tests__/quickclip-character-consistency.test.ts` kiểm tra pipeline nhân vật trong QuickClip, bao gồm:
 
-## Vấn đề hiện tại
+### Test cases
 
-1. **Edge function thiếu middleware chuẩn** -- không dùng `withPerf`, không log metrics
-2. **Không tránh trùng** -- AI có thể tạo nhân vật giống nhân vật đã tồn tại trong org
-3. **Dialog không cho chỉnh sửa** -- user phải lưu rồi sửa, không thể chỉnh tên/mô tả inline trước khi lưu
-4. **Không auto-select sau lưu** -- nhân vật mới tạo không được tự động thêm vào danh sách đã chọn
-5. **Thiếu số lượng linh hoạt** -- luôn tạo `min(remaining, 2)`, user không chọn được 1 hay 3
+1. **handleGenerate gửi đúng character fields**
+   - `character_profile_id` = ID nhân vật đầu tiên
+   - `character_profile_ids` = toàn bộ mảng đã chọn
+   - Khi không chọn nhân vật → cả 2 field đều `undefined`
 
-## Thay đổi
+2. **handleSmartPrompt gửi đúng character fields tới generate-video-prompt**
+   - Tương tự logic: `character_profile_id` = `selectedCharacterIds[0]`, `character_profile_ids` = mảng
 
-### 1. Edge function `generate-character` -- nâng cấp
+3. **Scene navigation giữ nguyên character selection**
+   - Khi chuyển scene (activeSceneIndex thay đổi), `selectedCharacterIds` không bị reset
+   - Prompt thay đổi theo scene nhưng nhân vật giữ nguyên
 
-- Thêm `withPerf` wrapper + `saveMetrics` cho observability
-- Nhận thêm `existing_names: string[]` từ client -> inject vào prompt để AI tránh trùng tên/ngoại hình
-- Thêm `body_type` vào `required` trong tool schema (hiện chỉ optional)
-- Thêm field `suggested_voice_style` để AI gợi ý phong cách giọng phù hợp (VD: "Trầm ấm, chậm rãi")
+4. **Multi-character ordering preserved qua scenes**
+   - Thứ tự trong `character_profile_ids` (vai chính/phụ) không thay đổi khi navigate giữa các scene
 
-### 2. Frontend `MultiCharacterPicker.tsx` -- cải thiện UX
+5. **Reference image fallback logic**
+   - `starting_frame_url` lấy từ `selectedCharacters[0].reference_image_url`
+   - Nếu nhân vật không có ảnh reference → `undefined`
 
-- Gửi `existing_names` (tên các profile hiện có) lên edge function khi generate
-- Thêm dropdown chọn số lượng nhân vật muốn tạo (1-3)
-- Cho phép inline edit tên + mô tả + trang phục trên mỗi card kết quả trước khi lưu
-- Auto-select nhân vật mới vào picker sau khi lưu thành công (thay vì chỉ close dialog)
-- Hiển thị `suggested_voice_style` trên card kết quả
+### Kỹ thuật
 
-### 3. File thay đổi
+- Pure unit test với Vitest, không render component (extract logic ra helper functions để test)
+- Mirror chính xác logic từ `QuickClipTab.tsx` lines 142-153 (Smart Prompt) và 179-195 (Generate)
+- Reuse `makeProfile` helper từ file test hiện có
+- ~12-15 test cases tổng cộng
+
+### File thay đổi
 
 | File | Thay đổi |
-|---|---|
-| `supabase/functions/generate-character/index.ts` | withPerf, existing_names dedup, suggested_voice_style, body_type required |
-| `src/components/video/MultiCharacterPicker.tsx` | count picker, inline edit, auto-select, existing_names pass-through |
+|------|----------|
+| `src/components/video/__tests__/quickclip-character-consistency.test.ts` | Tạo mới |
