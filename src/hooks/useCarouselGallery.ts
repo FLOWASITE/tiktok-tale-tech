@@ -62,7 +62,7 @@ export function useCarouselGallery() {
 
   const orgId = currentOrganization?.id;
 
-  const fetchImages = async () => {
+  const fetchImages = useCallback(async () => {
     if (!orgId) {
       setImages([]);
       setLoading(false);
@@ -70,7 +70,7 @@ export function useCarouselGallery() {
     }
     setLoading(true);
     try {
-      const [carouselRes, channelRes] = await Promise.all([
+      const [carouselRes, channelRes, videoGenRes, videoRenderRes] = await Promise.all([
         supabase
           .from('carousel_images')
           .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, created_by, carousels(title, brand_name, user_id)')
@@ -81,10 +81,26 @@ export function useCarouselGallery() {
           .select('id, image_url, content_id, channel, version, is_selected, created_at, created_by, multi_channel_contents(title, brand_template_id, user_id)')
           .eq('organization_id', orgId)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('video_generations')
+          .select('id, video_url, thumbnail_url, prompt, duration_seconds, aspect_ratio, status, script_id, storyboard_id, scene_number, created_at, user_id, scripts:script_id(title)')
+          .eq('organization_id', orgId)
+          .eq('status', 'completed')
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('video_render_jobs')
+          .select('id, output_url, thumbnail_url, aspect_ratio, duration_seconds, status, script_id, storyboard_id, created_at, user_id, scripts:script_id(title)')
+          .eq('organization_id', orgId)
+          .eq('status', 'completed')
+          .not('output_url', 'is', null)
+          .order('created_at', { ascending: false }),
       ]);
 
       if (carouselRes.error) throw carouselRes.error;
       if (channelRes.error) throw channelRes.error;
+      if (videoGenRes.error) console.warn('video_generations fetch error:', videoGenRes.error);
+      if (videoRenderRes.error) console.warn('video_render_jobs fetch error:', videoRenderRes.error);
 
       const userIds = new Set<string>();
       const brandTemplateIds = new Set<string>();
@@ -98,6 +114,8 @@ export function useCarouselGallery() {
         if (row.multi_channel_contents?.user_id) userIds.add(row.multi_channel_contents.user_id);
         if (row.multi_channel_contents?.brand_template_id) brandTemplateIds.add(row.multi_channel_contents.brand_template_id);
       });
+      (videoGenRes.data || []).forEach((row: any) => { if (row.user_id) userIds.add(row.user_id); });
+      (videoRenderRes.data || []).forEach((row: any) => { if (row.user_id) userIds.add(row.user_id); });
 
       const [profilesRes, brandsRes, membersRes] = await Promise.all([
         userIds.size > 0
@@ -137,6 +155,7 @@ export function useCarouselGallery() {
           isSelected: row.is_selected ?? false,
           createdAt: row.created_at,
           source: 'carousel' as ImageSource,
+          mediaType: 'image' as MediaType,
           channel: 'carousel',
           createdByName: profile?.name,
           createdByEmail: profile?.email,
@@ -163,6 +182,7 @@ export function useCarouselGallery() {
           isSelected: row.is_selected ?? false,
           createdAt: row.created_at,
           source: 'multichannel' as ImageSource,
+          mediaType: 'image' as MediaType,
           channel: row.channel,
           createdByName: profile?.name,
           createdByEmail: profile?.email,
@@ -174,22 +194,105 @@ export function useCarouselGallery() {
         };
       });
 
-      const all = [...carouselImages, ...channelImages].sort(
+      const videoClips: GalleryImage[] = (videoGenRes.data || []).map((row: any) => {
+        const userId = row.user_id;
+        const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
+        const folderId = row.script_id || row.storyboard_id || row.id;
+        const folderTitle = row.scripts?.title || (row.storyboard_id ? 'Storyboard clip' : 'Quick clip');
+        return {
+          id: row.id,
+          imageUrl: row.thumbnail_url || row.video_url,
+          videoUrl: row.video_url,
+          carouselId: folderId,
+          carouselTitle: folderTitle,
+          slideNumber: row.scene_number || 1,
+          version: 1,
+          isSelected: false,
+          createdAt: row.created_at,
+          source: 'video' as ImageSource,
+          mediaType: 'video' as MediaType,
+          durationSeconds: row.duration_seconds,
+          aspectRatio: row.aspect_ratio,
+          channel: 'video',
+          createdByName: profile?.name,
+          createdByEmail: profile?.email,
+          createdByAvatar: profile?.avatar,
+          createdByUserId: userId,
+          isOrgMember: isMember,
+        };
+      });
+
+      const videoRenders: GalleryImage[] = (videoRenderRes.data || []).map((row: any) => {
+        const userId = row.user_id;
+        const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
+        const folderId = row.script_id || row.storyboard_id || row.id;
+        const folderTitle = row.scripts?.title || 'Final video';
+        return {
+          id: row.id,
+          imageUrl: row.thumbnail_url || row.output_url,
+          videoUrl: row.output_url,
+          carouselId: folderId,
+          carouselTitle: folderTitle,
+          slideNumber: 1,
+          version: 1,
+          isSelected: false,
+          createdAt: row.created_at,
+          source: 'video_render' as ImageSource,
+          mediaType: 'video' as MediaType,
+          durationSeconds: row.duration_seconds ? Number(row.duration_seconds) : undefined,
+          aspectRatio: row.aspect_ratio,
+          channel: 'video',
+          createdByName: profile?.name,
+          createdByEmail: profile?.email,
+          createdByAvatar: profile?.avatar,
+          createdByUserId: userId,
+          isOrgMember: isMember,
+        };
+      });
+
+      const all = [...carouselImages, ...channelImages, ...videoClips, ...videoRenders].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
       setImages(all);
     } catch (err) {
       console.error('Failed to fetch gallery images:', err);
-      toast.error('Không thể tải gallery ảnh');
+      toast.error('Không thể tải gallery');
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId]);
 
   useEffect(() => {
     fetchImages();
-  }, [orgId]);
+  }, [fetchImages]);
+
+  // Realtime: refetch khi có ảnh/video mới trong org
+  useEffect(() => {
+    if (!orgId) return;
+    const channel = supabase
+      .channel(`gallery-realtime-${orgId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'carousel_images', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_image_history', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_generations', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'video_render_jobs', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [orgId, fetchImages]);
+
+  // Refetch khi tab focus lại (user tạo ảnh/video ở tab khác xong quay về)
+  useEffect(() => {
+    const onFocus = () => fetchImages();
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchImages(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [fetchImages]);
 
   // Group images into content folders
   const contentFolders = useMemo<ContentFolder[]>(() => {
