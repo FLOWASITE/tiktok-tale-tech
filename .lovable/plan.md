@@ -1,22 +1,31 @@
-## Vấn đề
+## Mục tiêu
+Cho phép Carousel post trực tiếp lên **Bluesky** (đã có publish-bluesky edge function hỗ trợ tới 4 ảnh + DirectPublishButton đã whitelist `bluesky`).
 
-Nút "Sắp ra mắt" hiện thay vì "Đăng ngay" cho Bluesky vì `isSupported` whitelist trong `DirectPublishButton.tsx` thiếu `'bluesky'`.
+## Thay đổi
 
-## Fix
+**File:** `src/components/CarouselViewer.tsx`
 
-**File:** `src/components/social/DirectPublishButton.tsx` — line 409
+1. **Line 115-120** — thêm `bluesky` vào `platformLabels`:
+   ```ts
+   bluesky: 'Bluesky',
+   ```
 
-Thêm `'bluesky'` (và `'wordpress_com'` cho đầy đủ) vào danh sách `isSupported`:
+2. **Line 364** — thêm `'bluesky'` vào `ALL_CAROUSEL_CHANNELS`:
+   ```ts
+   const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok', 'bluesky'];
+   ```
 
-```ts
-const isSupported = [
-  'twitter', 'facebook', 'instagram', 'linkedin', 'tiktok',
-  'zalo_oa', 'website', 'google_business',
-  'blogger', 'wordpress', 'wordpress_com',
-  'bluesky',
-].includes(platform);
-```
+3. **Line 368-371** — thêm vào `CHANNEL_TO_PLATFORM`:
+   ```ts
+   bluesky: 'bluesky',
+   ```
 
-Backend (`channel-publisher` → `publish-bluesky`), hook (`publishToBluesky`), channel mapping, switch case và OAuth đều đã sẵn sàng từ các bước trước. Đây chỉ là 1 dòng whitelist còn sót.
+## Cơ chế tự nhiên có sẵn
+- `DirectPublishButton` đã chấp nhận `bluesky` (whitelist vừa fix).
+- `useDirectPublish.publishToBluesky` đã route qua `channel-publisher` → `publish-bluesky`.
+- `publish-bluesky` upload tối đa **4 ảnh đầu** của carousel (`mediaUrls.slice(0, 4)`) + truncate text 300 graphemes.
+- Bluesky icon chỉ hiện khi user đã có active connection (filter qua `connectedChannelSet`).
 
-Sau khi fix: nút "Sắp ra mắt" → "Đăng ngay" cho Bluesky đã kết nối.
+## Lưu ý
+- Carousel >4 slides: chỉ 4 ảnh đầu lên Bluesky (đây là limit cứng của AT Protocol, edge function tự cắt).
+- Caption dùng `caption_suggestion` hoặc `topic` — sẽ tự truncate xuống 300 ký tự.

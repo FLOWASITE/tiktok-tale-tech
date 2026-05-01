@@ -117,6 +117,7 @@ const platformLabels: Record<string, string> = {
   instagram: 'Instagram',
   tiktok: 'TikTok',
   linkedin: 'LinkedIn',
+  bluesky: 'Bluesky',
 };
 
 const generateExportContent = (carousel: Carousel): string => {
