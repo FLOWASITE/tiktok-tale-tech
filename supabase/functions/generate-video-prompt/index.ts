@@ -131,9 +131,15 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
           if (app.age_range) traits.push(`age ${app.age_range}`);
           if (app.hair) traits.push(`${app.hair} hair`);
           if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+          if (app.body_type) traits.push(app.body_type);
           if (app.distinctive_features) traits.push(app.distinctive_features);
-          let line = `${role} "${cp.name}": ${traits.join(', ')}. ${cp.description || ''}${cp.wardrobe ? ` Wearing: ${cp.wardrobe}.` : ''}`;
-          if (cp.default_voice_id) line += ` Voice: ${cp.default_voice_id} (${cp.default_voice_provider || 'default'}) — lip sync must match this voice.`;
+
+          let line = `[${role} — "${cp.name}"]`;
+          if (traits.length) line += `\nAppearance: ${traits.join(', ')}.`;
+          if (cp.description) line += `\nDetails: ${cp.description}`;
+          if (cp.wardrobe) line += `\nWardrobe: ${cp.wardrobe}.`;
+          if (cp.default_voice_id) line += `\nVoice: ${cp.default_voice_id} (${cp.default_voice_provider || 'default'}) — lip sync must match this voice.`;
+          line += `\nIMPORTANT: Describe "${cp.name}" with EXACT appearance above in the generated prompt.`;
           blocks.push(line);
         }
         characterContext = '\n' + blocks.join('\n');
