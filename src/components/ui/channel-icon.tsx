@@ -60,10 +60,15 @@ const svgIcons: Partial<Record<Channel | ExtraChannel, React.FC<{ className?: st
       <text x="24" y="27" textAnchor="middle" fontSize="13" fontWeight="900" fill="#fff" fontFamily="Arial, sans-serif" letterSpacing="-0.5">Zalo</text>
     </svg>
   ),
+  bluesky: ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.785 2.627 3.6 3.476 6.178 3.126-4.55.698-8.567 2.442-4.803 7.392 4.344 4.235 6.324-1.202 8.001-4.33 1.677 3.128 3.07 8.193 8.001 4.33 3.764-4.95-.252-6.694-4.803-7.392 2.578.35 5.393-.5 6.178-3.126C19.622 9.418 20 4.458 20 3.768c0-.689-.139-1.861-.902-2.203-.66-.3-1.664-.62-4.3 1.24C12.046 4.748 9.087 8.687 8 10.8h4z" transform="translate(2 2)" />
+    </svg>
+  ),
 };
 
 interface ChannelIconProps {
-  channel: Channel | 'blogger' | 'wordpress' | 'pinterest';
+  channel: Channel | 'blogger' | 'wordpress' | 'pinterest' | 'bluesky';
   className?: string;
   size?: number;
 }
