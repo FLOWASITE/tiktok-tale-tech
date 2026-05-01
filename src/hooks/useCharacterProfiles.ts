@@ -59,7 +59,7 @@ export function useCharacterProfiles() {
         .eq('organization_id', orgId)
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as CharacterProfile[];
+      return (data ?? []) as unknown as CharacterProfile[];
     },
     enabled: !!orgId,
   });
