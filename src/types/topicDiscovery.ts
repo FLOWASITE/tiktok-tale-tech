@@ -578,6 +578,28 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
     ],
   },
   {
+    id: 'halloween',
+    name: 'Halloween',
+    date: nextOccurrence(9, 31),
+    type: 'event',
+    suggestedTopics: [
+      'Content Halloween sáng tạo',
+      'Costume & makeup inspiration',
+      'Flash sale Halloween',
+    ],
+  },
+  {
+    id: 'singles-day',
+    name: 'Singles Day 11/11',
+    date: nextOccurrence(10, 11),
+    type: 'campaign',
+    suggestedTopics: [
+      'Mega sale 11/11 - Deal khủng',
+      'Self-love & treat yourself campaign',
+      'Countdown flash deal 11/11',
+    ],
+  },
+  {
     id: 'black-friday',
     name: 'Black Friday',
     date: nextOccurrence(10, 27),
@@ -597,6 +619,17 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
       'Merry Christmas từ thương hiệu',
       'Quà Giáng Sinh ý nghĩa',
       'Không khí lễ hội tại công ty',
+    ],
+  },
+  {
+    id: 'year-end',
+    name: 'Tất Niên',
+    date: nextOccurrence(11, 31),
+    type: 'event',
+    suggestedTopics: [
+      'Tổng kết năm - Highlights thương hiệu',
+      'Tri ân khách hàng cuối năm',
+      'Countdown năm mới',
     ],
   },
 ];
