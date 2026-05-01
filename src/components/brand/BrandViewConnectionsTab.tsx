@@ -266,9 +266,36 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    // Bluesky — manual App Password
+    // Bluesky — OAuth 2.0 (Confidential Client + DPoP)
     if (platform === 'bluesky') {
-      setBlueskyDialogOpen(true);
+      setOauthConnecting('bluesky');
+      try {
+        const { data, error } = await supabase.functions.invoke('bluesky-oauth-start', {
+          body: { brand_template_id: template.id },
+        });
+        if (error || !data?.authorization_url) {
+          throw new Error(error?.message || data?.error || 'Không khởi tạo được OAuth');
+        }
+        window.open(data.authorization_url, '_blank', 'width=620,height=720');
+        toast.info('Đã mở trang đăng nhập Bluesky', {
+          description: 'Hoàn tất đăng nhập trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
+        });
+        // Poll for new connection
+        const start = Date.now();
+        const poll = setInterval(async () => {
+          if (Date.now() - start > 120_000) { clearInterval(poll); setOauthConnecting(null); return; }
+          await refetch();
+          const conn = getConnectionForPlatform('bluesky');
+          if (conn?.is_active) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            toast.success('Đã kết nối Bluesky qua OAuth!');
+          }
+        }, 3000);
+      } catch (e: any) {
+        setOauthConnecting(null);
+        toast.error('Lỗi kết nối Bluesky', { description: e.message });
+      }
       return;
     }
 
