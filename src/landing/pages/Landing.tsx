@@ -2,6 +2,7 @@ import {
   LandingNav,
   HeroSection,
   WorkflowSection,
+  SocialChannelsSection,
   IndustryMemorySection,
   SocialProofSection,
   TestimonialsSection,
@@ -33,6 +34,7 @@ export default function Landing() {
         <SocialProofBar />
         <ProblemSection />
         <WorkflowSection />
+        <SocialChannelsSection />
         <IndustryMemorySection />
         <SocialProofSection />
         <TestimonialsSection />
