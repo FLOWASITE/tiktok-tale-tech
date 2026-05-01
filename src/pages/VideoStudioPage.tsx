@@ -89,19 +89,11 @@ function VideoStudioInner() {
       </Helmet>
 
       <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
-        {/* Hero header */}
-        <header className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground tracking-wide uppercase">
-            <Film className="w-3.5 h-3.5" />
-            Video Studio
-          </div>
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
-            Biến ý tưởng thành video sẵn-đăng
-          </h1>
-          <p className="text-sm text-muted-foreground max-w-2xl">
-            Viết kịch bản AI, sinh video ngắn 9:16 (TikTok/Reels/Shorts) hoặc landscape 16:9 (YouTube) với GeminiGen Veo & PoYo Seedance.
-          </p>
-        </header>
+        {/* Compact header */}
+        <div className="flex items-center gap-2">
+          <Film className="w-4 h-4 text-primary" />
+          <h1 className="text-lg font-semibold text-foreground">Video Studio</h1>
+        </div>
 
         {/* Script link banner — chỉ hiện khi có activeScript */}
         <ScriptLinkBanner onJumpToTab={(t) => setTab(t)} />

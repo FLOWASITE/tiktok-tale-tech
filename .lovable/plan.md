@@ -1,34 +1,43 @@
 
-# Hoàn thiện Merge Video Scripts & Video Studio
+# Bố trí trang Video Studio hợp lý hơn
 
-## Vấn de hiện tại
+## Vấn đề hiện tại
 
-1. **Dead imports**: `Index.tsx` (page `/scripts` cũ) và `ScriptNew.tsx` vẫn được import trong `routes.tsx` nhưng không dùng (chỉ redirect)
-2. **Stale link**: `TopicQuickPreview.tsx` line 105 vẫn trỏ `/scripts?view=...` thay vì `/videos?tab=scripts&view=...`
-3. **Thiếu deep-link**: `ScriptsTab` chưa hỗ trợ URL param `?view=scriptId` để auto-open ScriptViewer khi navigate từ nơi khác
-4. **ScriptsTab UX**: Khi đã merge vào Video Studio, nút "Chuyển sang Video" trong ScriptViewer nên switch tab trong cùng page thay vì navigate lại `/videos`
+1. **Header trùng lặp**: VideoStudioPage có header riêng ("Biến ý tưởng thành video sẵn-đăng") + ScriptsTab có ScriptHeroSection riêng ("Kịch bản") -- 2 hero section chồng nhau chiếm quá nhiều không gian trước khi thấy card.
 
-## Thay doi
+2. **Stats hero quá to**: ScriptHeroSection có 4 stat cards + progress ring + gradient background + blur effects chiếm ~250px vertical trước khi thấy nội dung chính.
 
-### 1. Cleanup dead imports trong `routes.tsx`
-- Xoa import `Index` va `ScriptNew` (2 pages khong con dung truc tiep)
+3. **Grid responsive chưa tối ưu**: Ở viewport ~707px (current), grid `grid-cols-1 xs:grid-cols-2` hiển thị 2 cột nhưng card min-h-[170px] + padding khiến mỗi card khá cao.
 
-### 2. Fix stale link trong `TopicQuickPreview.tsx`
-- Line 105: doi `'/scripts?view=...'` thanh `'/videos?tab=scripts&view=...'`
+4. **Filters + CampaignSelector xếp dọc trên mobile** chiếm thêm không gian.
 
-### 3. Deep-link support trong `ScriptsTab`
-- Doc URL param `view` tu `location.search`
-- Neu co `view=scriptId`, tim script tuong ung va auto-open `ScriptViewer`
+## Thay đổi
 
-### 4. VideoStudioPage: truyen URL search params xuong ScriptsTab
-- Doc `?view=` param va truyen vao `ScriptsTab` de auto-open script
+### 1. Compact ScriptHeroSection
 
-### 5. ScriptsTab: "Chuyen sang Video" tab switch
-- Nhan prop `onSwitchTab` tu `VideoStudioPage`
-- Khi user click "Quay voi Video Studio" trong ScriptViewer, goi `onSwitchTab('quick')` thay vi navigate
+- Thu gọn stats thành **1 dòng inline** (chips nhỏ) thay vì grid 4 cards riêng biệt
+- Bỏ progress ring SVG, thay bằng text nhỏ "X% hoàn thành"
+- Bỏ gradient background + blur decorative elements
+- Layout: 1 hàng gồm title + stats chips + view toggle + nút Thêm mới
 
-## Files thay doi
-- `src/app/routes.tsx` — xoa 2 dead imports
-- `src/components/topic/TopicQuickPreview.tsx` — fix link
-- `src/components/video/ScriptsTab.tsx` — them deep-link + onSwitchTab prop
-- `src/pages/VideoStudioPage.tsx` — truyen view param + onSwitchTab callback
+### 2. Gộp page header vào tab
+
+- Giảm VideoStudioPage header xuống 1 dòng breadcrumb nhỏ (icon + "Video Studio")
+- Bỏ h1 lớn và paragraph mô tả (đã hiển thị trong tab hints)
+
+### 3. Cải thiện card grid
+
+- Giảm skeleton loading cards từ 8 xuống 4 trên mobile
+- Grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` (bỏ xs breakpoint và 2xl:5-cols không cần thiết)
+
+### 4. Filters compact hơn
+
+- Đặt CampaignSelector và ScriptFilters trên cùng 1 hàng, wrap khi cần
+
+## Files cần sửa
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/script/ScriptHeroSection.tsx` | Thu gọn thành 1-2 dòng inline stats |
+| `src/pages/VideoStudioPage.tsx` | Compact page header |
+| `src/components/video/ScriptsTab.tsx` | Cập nhật grid breakpoints, giảm skeletons |
