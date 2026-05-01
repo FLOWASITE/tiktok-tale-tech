@@ -6,39 +6,141 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCharacterProfiles, type CharacterProfileInput, type CharacterAppearance, type CharacterProfile } from '@/hooks/useCharacterProfiles';
-import { Plus, Trash2, Edit2, User, Upload, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  useCharacterProfiles,
+  type CharacterProfileInput,
+  type CharacterAppearance,
+  type CharacterProfile,
+  type ReferenceImage,
+  type ReferenceImageLabel,
+} from '@/hooks/useCharacterProfiles';
+import { Plus, Trash2, Edit2, User, Upload, Loader2, ImagePlus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Phi nhị nguyên'];
 const AGE_OPTIONS = ['18-25', '25-35', '35-45', '45-55', '55+'];
 const HAIR_OPTIONS = ['Đen dài', 'Đen ngắn', 'Nâu', 'Vàng', 'Bạc/Trắng', 'Đỏ', 'Xoăn đen', 'Húi cua'];
 const SKIN_OPTIONS = ['Trắng sáng', 'Ngăm', 'Nâu ấm', 'Da ngâm đậm'];
 
+const REF_IMAGE_LABELS: { value: ReferenceImageLabel; label: string }[] = [
+  { value: 'front', label: 'Chính diện' },
+  { value: 'side', label: 'Nghiêng' },
+  { value: 'full-body', label: 'Toàn thân' },
+  { value: 'close-up', label: 'Cận mặt' },
+  { value: 'outfit', label: 'Trang phục' },
+];
+
+interface FormState extends CharacterProfileInput {
+  appearance: CharacterAppearance;
+  reference_images: ReferenceImage[];
+}
+
+function MultiReferenceImageUpload({
+  images,
+  onChange,
+  uploading,
+  onUpload,
+}: {
+  images: ReferenceImage[];
+  onChange: (imgs: ReferenceImage[]) => void;
+  uploading: boolean;
+  onUpload: (file: File, label: ReferenceImageLabel) => Promise<void>;
+}) {
+  const [uploadLabel, setUploadLabel] = useState<ReferenceImageLabel>('front');
+  const usedLabels = new Set(images.map((i) => i.label));
+  const availableLabels = REF_IMAGE_LABELS.filter((l) => !usedLabels.has(l.value));
+
+  return (
+    <div className="space-y-2">
+      <Label>Ảnh tham chiếu (tối đa 5)</Label>
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {images.map((img, idx) => (
+            <div key={idx} className="relative group">
+              <img
+                src={img.url}
+                alt={img.label}
+                className="w-16 h-16 rounded-xl object-cover border border-border/30"
+              />
+              <Badge
+                variant="secondary"
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] px-1 py-0 whitespace-nowrap"
+              >
+                {REF_IMAGE_LABELS.find((l) => l.value === img.label)?.label || img.label}
+              </Badge>
+              <button
+                type="button"
+                className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => onChange(images.filter((_, i) => i !== idx))}
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {images.length < 5 && availableLabels.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Select value={uploadLabel} onValueChange={(v) => setUploadLabel(v as ReferenceImageLabel)}>
+            <SelectTrigger className="h-8 text-xs w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableLabels.map((l) => (
+                <SelectItem key={l.value} value={l.value}>
+                  {l.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-dashed border-border/50 cursor-pointer hover:bg-muted/30 transition-colors text-xs text-muted-foreground">
+            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+            {uploading ? 'Đang tải...' : 'Thêm ảnh'}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUpload(file, uploadLabel);
+              }}
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CharacterFormFields({
   form,
   setForm,
   uploading,
   onUploadImage,
+  onUploadRefImage,
 }: {
-  form: CharacterProfileInput & { appearance: CharacterAppearance };
-  setForm: React.Dispatch<React.SetStateAction<CharacterProfileInput & { appearance: CharacterAppearance }>>;
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
   uploading: boolean;
   onUploadImage: (file: File) => Promise<void>;
+  onUploadRefImage: (file: File, label: ReferenceImageLabel) => Promise<void>;
 }) {
   const updateAppearance = (key: keyof CharacterAppearance, value: string) => {
-    setForm(prev => ({ ...prev, appearance: { ...prev.appearance, [key]: value } }));
+    setForm((prev) => ({ ...prev, appearance: { ...prev.appearance, [key]: value } }));
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
       <div>
         <Label>Tên nhân vật *</Label>
         <Input
           value={form.name}
-          onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+          onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
           placeholder="Bác sĩ Minh, Cô gái Gen Z..."
         />
       </div>
@@ -46,19 +148,19 @@ function CharacterFormFields({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Giới tính</Label>
-          <Select value={form.appearance.gender || ''} onValueChange={v => updateAppearance('gender', v)}>
+          <Select value={form.appearance.gender || ''} onValueChange={(v) => updateAppearance('gender', v)}>
             <SelectTrigger><SelectValue placeholder="Chọn..." /></SelectTrigger>
             <SelectContent>
-              {GENDER_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              {GENDER_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label>Độ tuổi</Label>
-          <Select value={form.appearance.age_range || ''} onValueChange={v => updateAppearance('age_range', v)}>
+          <Select value={form.appearance.age_range || ''} onValueChange={(v) => updateAppearance('age_range', v)}>
             <SelectTrigger><SelectValue placeholder="Chọn..." /></SelectTrigger>
             <SelectContent>
-              {AGE_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              {AGE_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -67,19 +169,19 @@ function CharacterFormFields({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Kiểu tóc</Label>
-          <Select value={form.appearance.hair || ''} onValueChange={v => updateAppearance('hair', v)}>
+          <Select value={form.appearance.hair || ''} onValueChange={(v) => updateAppearance('hair', v)}>
             <SelectTrigger><SelectValue placeholder="Chọn..." /></SelectTrigger>
             <SelectContent>
-              {HAIR_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              {HAIR_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label>Màu da</Label>
-          <Select value={form.appearance.skin_tone || ''} onValueChange={v => updateAppearance('skin_tone', v)}>
+          <Select value={form.appearance.skin_tone || ''} onValueChange={(v) => updateAppearance('skin_tone', v)}>
             <SelectTrigger><SelectValue placeholder="Chọn..." /></SelectTrigger>
             <SelectContent>
-              {SKIN_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+              {SKIN_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -89,7 +191,7 @@ function CharacterFormFields({
         <Label>Trang phục mặc định</Label>
         <Input
           value={form.wardrobe || ''}
-          onChange={e => setForm(p => ({ ...p, wardrobe: e.target.value }))}
+          onChange={(e) => setForm((p) => ({ ...p, wardrobe: e.target.value }))}
           placeholder="Áo blouse trắng, vest đen..."
         />
       </div>
@@ -98,7 +200,7 @@ function CharacterFormFields({
         <Label>Đặc điểm nhận dạng</Label>
         <Input
           value={form.appearance.distinctive_features || ''}
-          onChange={e => updateAppearance('distinctive_features', e.target.value)}
+          onChange={(e) => updateAppearance('distinctive_features', e.target.value)}
           placeholder="Nốt ruồi má trái, đeo kính gọng vàng..."
         />
       </div>
@@ -107,15 +209,15 @@ function CharacterFormFields({
         <Label>Mô tả chi tiết</Label>
         <Textarea
           value={form.description}
-          onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
           placeholder="Mô tả chi tiết ngoại hình, vóc dáng, phong cách..."
           rows={3}
         />
       </div>
 
-      {/* Reference image */}
+      {/* Legacy single reference image */}
       <div>
-        <Label>Ảnh tham chiếu</Label>
+        <Label>Ảnh đại diện chính</Label>
         <div className="flex items-center gap-3 mt-1">
           {form.reference_image_url && (
             <img src={form.reference_image_url} alt="ref" className="w-16 h-16 rounded-xl object-cover border border-border/30" />
@@ -128,7 +230,7 @@ function CharacterFormFields({
               accept="image/*"
               className="hidden"
               disabled={uploading}
-              onChange={e => {
+              onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) onUploadImage(file);
               }}
@@ -136,16 +238,25 @@ function CharacterFormFields({
           </label>
         </div>
       </div>
+
+      {/* Multi-reference images */}
+      <MultiReferenceImageUpload
+        images={form.reference_images}
+        onChange={(imgs) => setForm((p) => ({ ...p, reference_images: imgs }))}
+        uploading={uploading}
+        onUpload={onUploadRefImage}
+      />
     </div>
   );
 }
 
-const EMPTY_FORM: CharacterProfileInput & { appearance: CharacterAppearance } = {
+const EMPTY_FORM: FormState = {
   name: '',
   description: '',
   appearance: {},
   wardrobe: '',
   reference_image_url: '',
+  reference_images: [],
 };
 
 export function CharacterProfileManager() {
@@ -153,21 +264,39 @@ export function CharacterProfileManager() {
   const { currentOrganization } = useOrganizationContext();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<CharacterProfileInput & { appearance: CharacterAppearance }>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
 
+  const uploadFile = async (file: File): Promise<string | null> => {
+    if (!currentOrganization?.id) return null;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${currentOrganization.id}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from('character-references').upload(path, file);
+    if (error) { toast.error('Upload thất bại'); return null; }
+    const { data: { publicUrl } } = supabase.storage.from('character-references').getPublicUrl(path);
+    return publicUrl;
+  };
+
   const handleUploadImage = async (file: File) => {
-    if (!currentOrganization?.id) return;
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const path = `${currentOrganization.id}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('character-references').upload(path, file);
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('character-references').getPublicUrl(path);
-      setForm(p => ({ ...p, reference_image_url: publicUrl }));
-    } catch {
-      // silent
+      const url = await uploadFile(file);
+      if (url) setForm((p) => ({ ...p, reference_image_url: url }));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploadRefImage = async (file: File, label: ReferenceImageLabel) => {
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      if (url) {
+        setForm((p) => ({
+          ...p,
+          reference_images: [...p.reference_images, { url, label }],
+        }));
+      }
     } finally {
       setUploading(false);
     }
@@ -193,6 +322,7 @@ export function CharacterProfileManager() {
       appearance: (profile.appearance as CharacterAppearance) || {},
       wardrobe: profile.wardrobe || '',
       reference_image_url: profile.reference_image_url || '',
+      reference_images: (Array.isArray(profile.reference_images) ? profile.reference_images : []) as ReferenceImage[],
     });
     setOpen(true);
   };
@@ -218,11 +348,17 @@ export function CharacterProfileManager() {
               <Plus className="w-3.5 h-3.5" /> Thêm
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingId ? 'Sửa nhân vật' : 'Tạo nhân vật mới'}</DialogTitle>
             </DialogHeader>
-            <CharacterFormFields form={form} setForm={setForm} uploading={uploading} onUploadImage={handleUploadImage} />
+            <CharacterFormFields
+              form={form}
+              setForm={setForm}
+              uploading={uploading}
+              onUploadImage={handleUploadImage}
+              onUploadRefImage={handleUploadRefImage}
+            />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Hủy</Button>
               <Button size="sm" onClick={handleSave} disabled={!form.name.trim() || isSaving}>
@@ -250,8 +386,9 @@ export function CharacterProfileManager() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {profiles.map(p => {
+          {profiles.map((p) => {
             const app = p.appearance as CharacterAppearance;
+            const refCount = Array.isArray(p.reference_images) ? p.reference_images.length : 0;
             return (
               <Card key={p.id} className="group hover:border-primary/20 transition-colors">
                 <CardContent className="p-3 flex gap-3">
@@ -268,6 +405,9 @@ export function CharacterProfileManager() {
                       {app.gender && <span className="text-[10px] px-1.5 py-0.5 bg-muted/40 rounded-md">{app.gender}</span>}
                       {app.age_range && <span className="text-[10px] px-1.5 py-0.5 bg-muted/40 rounded-md">{app.age_range}</span>}
                       {app.hair && <span className="text-[10px] px-1.5 py-0.5 bg-muted/40 rounded-md">{app.hair}</span>}
+                      {refCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-md">{refCount} ảnh ref</span>
+                      )}
                     </div>
                     {p.wardrobe && <p className="text-[11px] text-muted-foreground mt-1 truncate">{p.wardrobe}</p>}
                   </div>
