@@ -1080,7 +1080,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
 // Khi brand cho emoji → dùng emoji như thường
 // Compact adaptive format based on emoji mode
 function getAdaptiveFormatDescription(channel: string, brandAllowEmoji: boolean): string {
-  const noEmojiChannels = ['website', 'google_maps', 'email', 'zalo_oa', 'telegram', 'twitter'];
+  const noEmojiChannels = ['website', 'blogger', 'wordpress', 'google_maps', 'email', 'zalo_oa', 'telegram', 'twitter'];
   if (noEmojiChannels.includes(channel)) {
     return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
   }
