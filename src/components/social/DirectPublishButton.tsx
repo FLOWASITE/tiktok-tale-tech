@@ -82,6 +82,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   wordpress: 'wordpress',
   wordpress_com: 'wordpress_com',
   website: 'website',
+  bluesky: 'bluesky',
 };
 
 const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
@@ -98,6 +99,7 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   wordpress: 'WordPress',
   wordpress_com: 'WordPress.com',
   website: 'Website',
+  bluesky: 'Bluesky',
 };
 
 const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
