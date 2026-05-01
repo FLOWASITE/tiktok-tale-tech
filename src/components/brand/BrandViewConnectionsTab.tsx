@@ -408,6 +408,79 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
+  const HANDLE_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+  const handleBlueskySubmit = async () => {
+    const handle = blueskyHandle.trim().replace(/^@/, '').toLowerCase();
+    if (!handle) {
+      toast.error('Vui lòng nhập handle Bluesky', { description: 'Ví dụ: yourname.bsky.social' });
+      return;
+    }
+    if (handle.length > 253 || !HANDLE_RE.test(handle)) {
+      toast.error('Handle không hợp lệ', {
+        description:
+          'Hãy nhập handle như trên Bluesky (vd: yourname.bsky.social), không có dấu cách hay dấu tiếng Việt.',
+      });
+      return;
+    }
+
+    setIsBlueskyConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('bluesky-oauth-start', {
+        body: { handle, brandTemplateId: template.id },
+      });
+
+      let errBody: any = null;
+      if (error) {
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') errBody = await ctx.json();
+        } catch { /* ignore */ }
+      }
+
+      if (error || !data?.authorization_url) {
+        const msg = errBody?.error || data?.error || error?.message || 'Không khởi tạo được OAuth';
+        throw new Error(msg);
+      }
+
+      window.open(data.authorization_url, '_blank', 'width=620,height=720');
+      toast.info('Đã mở trang đăng nhập Bluesky', {
+        description: 'Hoàn tất đăng nhập trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
+      });
+      setBlueskyDialogOpen(false);
+
+      setOauthConnecting('bluesky');
+      const start = Date.now();
+      const poll = setInterval(async () => {
+        if (Date.now() - start > 180_000) {
+          clearInterval(poll);
+          setOauthConnecting(null);
+          return;
+        }
+        try {
+          const { data: rows } = await supabase
+            .from('social_connections')
+            .select('id, is_active, platform_username')
+            .eq('brand_template_id', template.id)
+            .eq('platform', 'bluesky')
+            .eq('is_active', true)
+            .limit(1);
+          if (rows && rows.length > 0) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            await refetch();
+            toast.success(`Đã kết nối Bluesky: @${rows[0].platform_username}`);
+          }
+        } catch { /* ignore polling errors */ }
+      }, 3000);
+    } catch (e: any) {
+      toast.error('Lỗi kết nối Bluesky', { description: e?.message || String(e) });
+    } finally {
+      setIsBlueskyConnecting(false);
+    }
+  };
+
+
   const handleDisconnect = async (connectionId: string) => {
     try {
       await disconnect(connectionId);
