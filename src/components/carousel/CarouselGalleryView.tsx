@@ -165,18 +165,21 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
   const handleDownload = useCallback(async (index: number) => {
     const img = visibleImages[index];
     if (!img) return;
-    const prefix = img.source === 'carousel' ? 'carousel' : (img.channel || 'image');
+    const isVid = img.mediaType === 'video';
+    const url = isVid ? (img.videoUrl || img.imageUrl) : img.imageUrl;
+    const ext = isVid ? 'mp4' : 'png';
+    const prefix = isVid ? 'video' : (img.source === 'carousel' ? 'carousel' : (img.channel || 'image'));
     try {
-      const response = await fetch(img.imageUrl);
+      const response = await fetch(url);
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const objUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${prefix}-v${img.version}.png`;
+      a.href = objUrl;
+      a.download = `${prefix}-v${img.version}.${ext}`;
       a.click();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(objUrl);
     } catch {
-      window.open(img.imageUrl, '_blank');
+      window.open(url, '_blank');
     }
   }, [visibleImages]);
 
