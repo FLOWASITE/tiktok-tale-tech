@@ -31,6 +31,21 @@ interface PublishCtx {
   connectionId: string;
 }
 
+class BlueskyReconnectRequiredError extends Error {
+  status = 401;
+  errorCode = "BLUESKY_REAUTH_REQUIRED";
+
+  constructor(message = "Phiên Bluesky đã hết hạn. Vui lòng kết nối lại Bluesky.") {
+    super(message);
+    this.name = "BlueskyReconnectRequiredError";
+  }
+}
+
+function isInvalidRefreshTokenError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || "");
+  return /invalid_grant|refresh token replayed|invalid refresh token/i.test(message);
+}
+
 async function loadOAuthContext(supabase: any, connectionId: string): Promise<PublishCtx> {
   // Refresh lock TTL — concurrent publishes wait this long for the leader to finish
   const REFRESH_LOCK_TTL_MS = 15_000;
@@ -44,6 +59,39 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
     return data;
   }
 
+  async function buildContextFromConn(row: any, accessTokenOverride?: string): Promise<PublishCtx> {
+    const rowMeta = row.metadata || {};
+    if (!rowMeta.token_endpoint || !rowMeta.dpop_jwk_encrypted || !rowMeta.pds_url) {
+      throw new Error("Kết nối Bluesky cũ (App Password) không còn được hỗ trợ. Vui lòng kết nối lại bằng OAuth.");
+    }
+    const dpopJwkPlain = await decrypt(rowMeta.dpop_jwk_encrypted);
+    const dpopJwk = JSON.parse(dpopJwkPlain);
+    const dpopKey = await importDpopPrivateJwk(dpopJwk);
+    return {
+      did: rowMeta.did || row.platform_user_id,
+      handle: row.platform_username,
+      pdsUrl: String(rowMeta.pds_url).replace(/\/$/, ""),
+      accessToken: accessTokenOverride || await decrypt(row.access_token),
+      dpopKey,
+      dpopNonce: rowMeta.dpop_nonce || undefined,
+      connectionId,
+    };
+  }
+
+  async function waitForFreshToken(previousUpdatedAt?: string): Promise<PublishCtx | null> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < REFRESH_WAIT_MAX_MS) {
+      await new Promise((r) => setTimeout(r, REFRESH_WAIT_POLL_MS));
+      const freshConn = await fetchConn();
+      const expiresAtMs = freshConn.token_expires_at ? new Date(freshConn.token_expires_at).getTime() : 0;
+      const rowChanged = previousUpdatedAt && freshConn.updated_at && freshConn.updated_at !== previousUpdatedAt;
+      if (rowChanged && expiresAtMs - Date.now() > 60_000) {
+        return await buildContextFromConn(freshConn);
+      }
+    }
+    return null;
+  }
+
   let conn = await fetchConn();
   let meta = conn.metadata || {};
   if (!meta.token_endpoint || !meta.dpop_jwk_encrypted || !meta.pds_url) {
@@ -55,7 +103,7 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
   const dpopKey = await importDpopPrivateJwk(dpopJwk);
 
   const needsRefresh = () => {
-    const expiresAtMs = conn.expires_at ? new Date(conn.expires_at).getTime() : 0;
+    const expiresAtMs = conn.token_expires_at ? new Date(conn.token_expires_at).getTime() : 0;
     return !expiresAtMs || expiresAtMs - Date.now() < 60_000;
   };
 
@@ -94,12 +142,14 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
         });
 
         const nextMeta = { ...meta, dpop_nonce: newToken.dpop_nonce || meta.dpop_nonce, refresh_lock_until: null };
-        await supabase.from("social_connections").update({
+        const { error: saveErr } = await supabase.from("social_connections").update({
           access_token: await encrypt(newToken.access_token),
           refresh_token: await encrypt(newToken.refresh_token),
-          expires_at: new Date(newToken.expires_at).toISOString(),
+          token_expires_at: new Date(newToken.expires_at).toISOString(),
+          last_error: null,
           metadata: nextMeta,
         }).eq("id", connectionId);
+        if (saveErr) throw new Error(`Không lưu được token Bluesky mới: ${saveErr.message}`);
 
         return {
           did: meta.did || conn.platform_user_id,
@@ -111,21 +161,32 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
           connectionId,
         };
       } catch (e) {
+        if (isInvalidRefreshTokenError(e)) {
+          const recovered = await waitForFreshToken(conn.updated_at);
+          if (recovered) return recovered;
+        }
+        const reconnectMsg = isInvalidRefreshTokenError(e)
+          ? "Phiên Bluesky đã hết hạn hoặc refresh token đã bị dùng lại. Vui lòng ngắt kết nối và kết nối lại Bluesky."
+          : undefined;
         // Release lock on failure so the next request can retry
         await supabase.from("social_connections")
-          .update({ metadata: { ...meta, refresh_lock_until: null } })
+          .update({
+            metadata: { ...meta, refresh_lock_until: null },
+            ...(reconnectMsg ? { is_active: false, last_error: reconnectMsg } : {}),
+          })
           .eq("id", connectionId);
+        if (reconnectMsg) throw new BlueskyReconnectRequiredError(reconnectMsg);
         throw e;
       }
     } else {
       // Another worker is refreshing — poll until token is updated
       console.log(`[publish-bluesky] Another worker is refreshing, waiting...`);
-      const startedAt = Date.now();
-      while (Date.now() - startedAt < REFRESH_WAIT_MAX_MS) {
-        await new Promise((r) => setTimeout(r, REFRESH_WAIT_POLL_MS));
-        conn = await fetchConn();
-        meta = conn.metadata || {};
-        if (!needsRefresh()) break;
+      const recovered = await waitForFreshToken(conn.updated_at);
+      if (recovered) return recovered;
+      conn = await fetchConn();
+      meta = conn.metadata || {};
+      if (conn.is_active === false && /Bluesky|refresh token|kết nối lại/i.test(conn.last_error || "")) {
+        throw new BlueskyReconnectRequiredError(conn.last_error);
       }
       if (needsRefresh()) {
         throw new Error("Timeout chờ refresh token Bluesky từ request khác");
@@ -133,15 +194,7 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
     }
   }
 
-  return {
-    did: meta.did || conn.platform_user_id,
-    handle: conn.platform_username,
-    pdsUrl: String(meta.pds_url).replace(/\/$/, ""),
-    accessToken: await decrypt(conn.access_token),
-    dpopKey,
-    dpopNonce: meta.dpop_nonce || undefined,
-    connectionId,
-  };
+  return await buildContextFromConn(conn);
 }
 
 async function persistNonce(supabase: any, connectionId: string, nonce: string | undefined) {
@@ -330,6 +383,8 @@ async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8
 async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Promise<any> {
   const prepared = await downloadAndPrepareImage(imageUrl);
   if (!prepared) return null;
+  const imageBody = new ArrayBuffer(prepared.bytes.byteLength);
+  new Uint8Array(imageBody).set(prepared.bytes);
 
   const { response, newNonce } = await pdsFetch({
     url: `${ctx.pdsUrl}/xrpc/com.atproto.repo.uploadBlob`,
@@ -337,7 +392,7 @@ async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Pro
     accessToken: ctx.accessToken,
     dpopKey: ctx.dpopKey,
     nonce: ctx.dpopNonce,
-    body: prepared.bytes,
+    body: imageBody,
     contentType: prepared.contentType,
   });
   if (newNonce) { ctx.dpopNonce = newNonce; await persistNonce(supabase, ctx.connectionId, newNonce); }
@@ -518,10 +573,14 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
 
   } catch (err) {
     console.error('[publish-bluesky] error:', err);
+    const status = err instanceof BlueskyReconnectRequiredError ? err.status : 500;
+    const errorCode = err instanceof BlueskyReconnectRequiredError ? err.errorCode : undefined;
     return new Response(JSON.stringify({
       success: false,
       error: err instanceof Error ? err.message : 'Lỗi không xác định',
+      errorCode,
+      needs_reauth: err instanceof BlueskyReconnectRequiredError || undefined,
       warnings: warnings.length > 0 ? warnings : undefined,
-    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 }));
