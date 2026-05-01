@@ -50,6 +50,7 @@ const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram'
   youtube: 'general',
   zalo_oa: 'general',
   telegram: 'general',
+  bluesky: 'general',
 };
 
 export function ContentMockupToggle({

@@ -94,7 +94,7 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
   zalo_oa: 'general',
   telegram: 'general',
   threads: 'general',
-  bluesky: 'Bluesky',
+  bluesky: 'general',
 };
 
 interface ChannelPreview {

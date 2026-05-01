@@ -185,7 +185,7 @@ export function MultiChannelHookGenerator({
     zalo_oa: 'general',
     telegram: 'general',
     threads: 'general',
-  bluesky: 'Bluesky',
+  bluesky: 'general',
   };
 
   // Check if a hook is selected
