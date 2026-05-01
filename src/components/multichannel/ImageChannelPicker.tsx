@@ -30,7 +30,7 @@ const CHANNEL_META: Record<Channel, { icon: React.ReactNode; label: string }> = 
   zalo_oa: { icon: <ZaloIcon className="w-3.5 h-3.5" />, label: 'Zalo' },
   telegram: { icon: <Send className="w-3.5 h-3.5" />, label: 'TG' },
   threads: { icon: <AtSign className="w-3.5 h-3.5" />, label: 'Th' },
-  bluesky: { icon: <Globe className=\"w-4 h-4\" />, label: 'Bluesky' },
+  bluesky: { icon: <Globe className="w-4 h-4" />, label: 'Bluesky' },
 };
 
 export function ImageChannelPicker({

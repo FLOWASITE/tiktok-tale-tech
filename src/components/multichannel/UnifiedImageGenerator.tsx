@@ -104,7 +104,7 @@ const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bg
   zalo_oa: { icon: <MessageCircle className="w-4 h-4" />, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   telegram: { icon: <Send className="w-4 h-4" />, color: 'text-sky-500', bgColor: 'bg-sky-500/10' },
   threads: { icon: <AtSign className="w-4 h-4" />, color: 'text-slate-800 dark:text-slate-200', bgColor: 'bg-slate-500/10' },
-  bluesky: { icon: <Globe className=\"w-4 h-4\" />, label: 'Bluesky' },
+  bluesky: { icon: <Globe className="w-4 h-4" />, label: 'Bluesky' },
 };
 
 // LOGO_POSITIONS removed - now using LogoOptionsPanel with 9-position grid

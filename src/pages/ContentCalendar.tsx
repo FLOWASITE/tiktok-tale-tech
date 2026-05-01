@@ -109,7 +109,7 @@ const channelColors: Record<Channel, { border: string; bg: string; text: string 
   telegram: { border: 'border-l-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-700 dark:text-cyan-400' },
   tiktok: { border: 'border-l-pink-500', bg: 'bg-pink-500/10', text: 'text-pink-700 dark:text-pink-400' },
   threads: { border: 'border-l-slate-500', bg: 'bg-slate-500/10', text: 'text-slate-700 dark:text-slate-400' },
-  bluesky: { icon: <Globe className=\"w-4 h-4\" />, label: 'Bluesky' },
+  bluesky: { icon: <Globe className="w-4 h-4" />, label: 'Bluesky' },
 };
 
 // Draggable Schedule Item
