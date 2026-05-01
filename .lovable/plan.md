@@ -1,26 +1,29 @@
-Mình xin lỗi vì lần trước đổi sang wordmark chưa đúng ý. Lần này sẽ dùng đúng logo Zalo OA theo file bạn vừa gửi.
+## Mục tiêu
+Trên trang Brand Detail (`/brands/:id`), tab **Kết nối** hiện chỉ có icon + label. Bổ sung badge số lượng (giống tab **Personas** và **Sản phẩm**) để user thấy nhanh có bao nhiêu social connection đang active cho brand này.
 
-Kế hoạch thực hiện:
+## Thay đổi
+**File:** `src/pages/BrandView.tsx`
 
-1. Đưa file logo Zalo vào project
-- Copy `Logo-Zalo-Arc.webp` từ upload vào thư mục asset của app.
-- Đặt tên rõ ràng, ví dụ `src/assets/social/zalo-oa-logo.webp`.
+1. Import `useSocialConnections` từ `@/hooks/useSocialConnections`.
+2. Trong component `BrandView`, fetch connections theo `brandTemplateId`:
+   ```tsx
+   const { connections } = useSocialConnections({ brandTemplateId: id });
+   const activeConnectionsCount = connections?.filter(c => c.is_active).length || 0;
+   ```
+3. Cập nhật `<TabsTrigger value="connections">` (dòng 233–236) để render badge khi count > 0, dùng đúng style hiện tại của Personas/Sản phẩm:
+   ```tsx
+   <TabsTrigger value="connections" ...>
+     <Share2 className="w-3.5 h-3.5" />
+     <span className="hidden sm:inline">Kết nối</span>
+     {activeConnectionsCount > 0 && (
+       <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded-full">
+         {activeConnectionsCount}
+       </span>
+     )}
+   </TabsTrigger>
+   ```
 
-2. Thay cách render logo Zalo OA trên Landing Page
-- Trong `SocialChannelsSection`, riêng card `Zalo OA` sẽ dùng ảnh logo `.webp` thay vì `ZaloIcon` SVG wordmark hiện tại.
-- Hiển thị trong khung vuông bo góc, giữ đúng màu/logo như file gốc.
-- Dùng `object-contain` để logo không bị méo, không bị crop.
-
-3. Giữ an toàn cho các nơi khác đang dùng `ZaloIcon`
-- Không xoá vội `ZaloIcon` trong `SocialIcons.tsx` để tránh ảnh hưởng các màn hình khác.
-- Landing Page là nơi đang bị phản ánh trực tiếp, nên cập nhật ở đó trước.
-
-4. Kiểm tra responsive
-- Kiểm tra layout card logo ở viewport hiện tại khoảng `707x662`.
-- Đảm bảo logo Zalo OA nhìn rõ, không bị nhỏ quá, không lệch hàng với các logo social khác.
-
-Technical details:
-
-- Sửa `src/landing/components/SocialChannelsSection.tsx` để `Channel` hỗ trợ thêm `imageSrc` hoặc một render override cho Zalo OA.
-- Import asset bằng ES module từ `src/assets/...` thay vì dùng URL hardcode.
-- Giữ nguyên copy marketing và grid hiện tại; chỉ đổi phần logo Zalo OA.
+## Ghi chú
+- Dùng cùng filter `is_active` như `BrandViewHero` (dòng 79–80) để số trên tab khớp với badge "X Kết nối" trên hero card.
+- Hook `useSocialConnections` đã có cache theo `['social-connections','brand',brandTemplateId]` nên không tạo thêm request thừa khi BrandViewConnectionsTab cũng dùng.
+- Không thay đổi UI khác; không ảnh hưởng các tab còn lại.
