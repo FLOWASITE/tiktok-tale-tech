@@ -35,8 +35,10 @@ export interface ContentFolder {
   id: string;
   title: string;
   source: ImageSource;
+  mediaType: MediaType;
   thumbnailUrls: string[];
   imageCount: number;
+  videoCount: number;
   latestDate: string;
   createdByName?: string;
   createdByAvatar?: string;
