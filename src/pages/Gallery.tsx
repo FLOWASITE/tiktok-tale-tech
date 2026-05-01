@@ -27,9 +27,10 @@ export default function Gallery() {
   };
 
   const stats = [
-    { label: 'Tổng ảnh', value: sourceCounts.all, icon: ImageIcon, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Tổng media', value: sourceCounts.all, icon: ImageIcon, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Carousel', value: sourceCounts.carousel, icon: Layers, color: 'text-blue-500', bg: 'bg-blue-500/10' },
     { label: 'Multichannel', value: sourceCounts.multichannel, icon: Share2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+    { label: 'Video', value: sourceCounts.video, icon: Video, color: 'text-purple-500', bg: 'bg-purple-500/10' },
   ];
 
   const getPercent = (val: number) => {
