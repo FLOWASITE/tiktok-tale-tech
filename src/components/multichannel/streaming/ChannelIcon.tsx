@@ -12,7 +12,7 @@ import {
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon, PinterestIcon } from "@/components/icons/SocialIcons";
+import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon, PinterestIcon, BlueskyIcon } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
 const ZaloLucide: LucideIcon = Object.assign(
