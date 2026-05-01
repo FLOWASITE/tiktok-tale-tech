@@ -1231,7 +1231,7 @@ function ThreadsMockup({ content, brandName, logoUrl, isGenerating, channelImage
 
 // Bluesky Post Mockup - Authentic AT Protocol / Bluesky Social design
 function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
-  const handle = `${brandName.toLowerCase().replace(/\s+/g, '')}.bsky.social`;
+  const ownHandle = `${brandName.toLowerCase().replace(/\s+/g, '')}.bsky.social`;
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
@@ -1240,7 +1240,17 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
   const segments = useMemo(() => segmentBlueskyText(cleanContent), [cleanContent]);
   const graphemeCount = useMemo(() => countGraphemes(cleanContent), [cleanContent]);
   const overflow = graphemeCount > BLUESKY_MAX_GRAPHEMES;
-  const firstUrl = useMemo(() => extractFirstUrl(cleanContent), [cleanContent]);
+
+  // Pick embed target: LAST link/bareLink in text (Bluesky behavior khi không có ảnh).
+  const embedTarget = useMemo(() => {
+    const links = segments.filter(s => s.type === 'link' || s.type === 'bareLink');
+    if (links.length === 0) return null;
+    const last = links[links.length - 1];
+    return {
+      display: last.value,
+      href: last.type === 'bareLink' ? `https://${last.value}` : last.value,
+    };
+  }, [segments]);
 
   return (
     <div className="bg-white dark:bg-[#161e27] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e1e8ed] dark:border-[#2e3a47] max-w-[440px] mx-auto">
