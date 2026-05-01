@@ -1104,9 +1104,23 @@ function buildSceneDurationPlan(
   return plan;
 }
 
-/** "PROMPT 1: 2s · PROMPT 2: 4.5s · ..." cho instruction AI dễ đọc. */
+/** "PROMPT 1: 2s (~5 từ) · PROMPT 2: 4.5s (~11 từ) · ..." cho instruction AI dễ đọc. */
 function formatSceneDurationPlan(plan: number[]): string {
-  return plan.map((s, i) => `PROMPT ${i + 1}: ${s}s`).join(' · ');
+  return plan.map((s, i) => `PROMPT ${i + 1}: ${s}s (~${Math.round(s * 2.5)} từ)`).join(' · ');
+}
+
+/** Tốc độ nói tiếng Việt tự nhiên: ~2.5 từ/giây (150 WPM). */
+const WORDS_PER_SEC = 2.5;
+
+function getWordBudget(durationSec: number): number {
+  return Math.round(durationSec * WORDS_PER_SEC);
+}
+
+function getMaxSentences(durationSec: number): number {
+  if (durationSec <= 3) return 1;
+  if (durationSec <= 5) return 2;
+  if (durationSec <= 8) return 3;
+  return 4;
 }
 
 /** "[00:00-00:02] [00:02-00:06.5] ..." */
