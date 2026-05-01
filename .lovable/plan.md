@@ -1,66 +1,34 @@
 
-## Mục tiêu
+# Hoàn thiện Merge Video Scripts & Video Studio
 
-Gộp 2 trang riêng biệt:
-- **Kịch bản Video** (`/scripts`) — tạo + quản lý kịch bản AI
-- **Video Studio** (`/videos`) — Quick Clip, Storyboard, Audio, Gallery, Chi phí
+## Vấn de hiện tại
 
-thành **1 trang duy nhất** tại `/videos` với tên "Video Studio", thêm tab Kịch bản vào hệ thống tab hiện có.
+1. **Dead imports**: `Index.tsx` (page `/scripts` cũ) và `ScriptNew.tsx` vẫn được import trong `routes.tsx` nhưng không dùng (chỉ redirect)
+2. **Stale link**: `TopicQuickPreview.tsx` line 105 vẫn trỏ `/scripts?view=...` thay vì `/videos?tab=scripts&view=...`
+3. **Thiếu deep-link**: `ScriptsTab` chưa hỗ trợ URL param `?view=scriptId` để auto-open ScriptViewer khi navigate từ nơi khác
+4. **ScriptsTab UX**: Khi đã merge vào Video Studio, nút "Chuyển sang Video" trong ScriptViewer nên switch tab trong cùng page thay vì navigate lại `/videos`
 
-## Cấu trúc mới
+## Thay doi
 
-```text
-Video Studio (/videos)
-├─ Tab: Kịch bản       (mới — gộp từ /scripts)
-│   ├─ Danh sách scripts (grid/list + filters + pagination)
-│   └─ Tạo mới → mở dialog/inline stepper (thay vì navigate /scripts/new)
-├─ Tab: Quick Clip      (giữ nguyên)
-├─ Tab: Từ Storyboard   (giữ nguyên)
-├─ Tab: Audio Studio    (giữ nguyên)
-├─ Tab: Thư viện        (giữ nguyên)
-└─ Tab: Chi phí         (giữ nguyên)
-```
+### 1. Cleanup dead imports trong `routes.tsx`
+- Xoa import `Index` va `ScriptNew` (2 pages khong con dung truc tiep)
 
-## Thay đổi chi tiết
+### 2. Fix stale link trong `TopicQuickPreview.tsx`
+- Line 105: doi `'/scripts?view=...'` thanh `'/videos?tab=scripts&view=...'`
 
-### 1. `VideoStudioPage.tsx` — thêm tab "Kịch bản"
+### 3. Deep-link support trong `ScriptsTab`
+- Doc URL param `view` tu `location.search`
+- Neu co `view=scriptId`, tim script tuong ung va auto-open `ScriptViewer`
 
-- Thêm tab `scripts` vào đầu mảng `TABS` (icon: `Clapperboard`, hint: "Viết kịch bản AI cho video")
-- Tab content render `ScriptsTab` component mới (xem mục 2)
-- Default tab vẫn là `quick`, trừ khi navigate từ link cũ `/scripts` → auto chọn tab `scripts`
+### 4. VideoStudioPage: truyen URL search params xuong ScriptsTab
+- Doc `?view=` param va truyen vao `ScriptsTab` de auto-open script
 
-### 2. Component mới: `src/components/video/ScriptsTab.tsx`
+### 5. ScriptsTab: "Chuyen sang Video" tab switch
+- Nhan prop `onSwitchTab` tu `VideoStudioPage`
+- Khi user click "Quay voi Video Studio" trong ScriptViewer, goi `onSwitchTab('quick')` thay vi navigate
 
-Tổng hợp logic từ `Index.tsx` (scripts list) + `ScriptNew.tsx`:
-- Hiện danh sách scripts với filters, pagination, grid/list toggle (lấy từ `Index.tsx`)
-- Button "Tạo mới" mở ScriptForm inline hoặc trong dialog (thay vì navigate)
-- ScriptViewer dialog khi click vào script
-- Nút "Chuyển sang Video" từ script → set activeScript + switch tab sang Quick Clip/Storyboard
-
-### 3. Routes (`src/app/routes.tsx`)
-
-- Giữ `/videos` route
-- `/scripts` → redirect sang `/videos?tab=scripts` (backward compat)
-- Xóa `/scripts/new` route riêng
-
-### 4. Sidebar (`AppSidebar.tsx`)
-
-- Xóa item "Kịch bản Video" (`/scripts`)
-- Giữ "Video Studio" (`/videos`) — đổi icon thành `Clapperboard` hoặc giữ `Video`
-
-### 5. Navigation links
-
-- Tất cả `navigate('/scripts')` → `navigate('/videos', { state: { tab: 'scripts' } })` hoặc dùng query param
-- `navigate('/scripts/new')` → `navigate('/videos', { state: { tab: 'scripts', action: 'new' } })`
-
-### 6. Dọn dẹp
-
-- `src/pages/Index.tsx` — rename hoặc xóa (hiện đang serve `/scripts`)
-- `src/pages/ScriptNew.tsx` — logic chuyển vào ScriptsTab, file có thể xóa
-
-## Không thay đổi
-
-- Database schema, edge functions, hooks (`useScripts`, `useScriptToVideo`)
-- Logic ScriptForm, ScriptViewer, ScriptCard, ScriptFilters — reuse nguyên
-- ScriptToVideoContext — vẫn hoạt động, chỉ không cần navigate giữa 2 page nữa
-- Các tab hiện có của Video Studio (Quick Clip, Storyboard, Audio, Gallery, Costs)
+## Files thay doi
+- `src/app/routes.tsx` — xoa 2 dead imports
+- `src/components/topic/TopicQuickPreview.tsx` — fix link
+- `src/components/video/ScriptsTab.tsx` — them deep-link + onSwitchTab prop
+- `src/pages/VideoStudioPage.tsx` — truyen view param + onSwitchTab callback
