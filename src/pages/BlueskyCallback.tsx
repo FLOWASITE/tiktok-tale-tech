@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
+import { supabase } from '@/integrations/supabase/client';
 
 const ERROR_MAP: Record<string, { title: string; message: string; hint?: string }> = {
   bluesky_missing_params: {
@@ -17,7 +18,8 @@ const ERROR_MAP: Record<string, { title: string; message: string; hint?: string 
   },
   bluesky_token_exchange_failed: {
     title: 'Không đổi được token',
-    message: 'Bluesky từ chối mã xác thực. Có thể do client-metadata.json chưa truy cập được, hoặc DPoP key không khớp.',
+    message:
+      'Bluesky từ chối mã xác thực. Có thể do client-metadata.json chưa truy cập được, hoặc DPoP key không khớp.',
     hint: 'Thử kết nối lại. Nếu vẫn lỗi, kiểm tra https://app.flowa.one/oauth/bluesky/client-metadata.json đã accessible chưa.',
   },
   access_denied: {
@@ -37,35 +39,78 @@ export default function BlueskyCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorInfo, setErrorInfo] = useState<{ title: string; message: string; hint?: string } | null>(null);
   const [handle, setHandle] = useState('');
-  const brandTemplateId = searchParams.get('brand_template_id');
+  const ranRef = useRef(false);
 
-  const goBack = () =>
-    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
+  const goBack = () => navigate('/brands', { replace: true });
 
   useEffect(() => {
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
-    const errorDescription = searchParams.get('error_description');
-    const handleParam = searchParams.get('handle');
+    if (ranRef.current) return;
+    ranRef.current = true;
 
-    if (success === 'true') {
-      setStatus('success');
-      setHandle(handleParam || 'Bluesky Account');
-      toast({
-        title: 'Kết nối Bluesky thành công!',
-        description: `@${handleParam} đã được kết nối qua OAuth.`,
-      });
-      setTimeout(goBack, 2500);
-    } else if (error) {
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const iss = searchParams.get('iss');
+    const oauthError = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+
+    // Bluesky returned an error directly
+    if (oauthError) {
       setStatus('error');
-      const mapped = ERROR_MAP[error] || {
+      const mapped = ERROR_MAP[oauthError] || {
         title: 'Kết nối thất bại',
-        message: errorDescription || 'Đã xảy ra lỗi không xác định.',
+        message: errorDescription || oauthError,
       };
       setErrorInfo(mapped);
       toast({ title: mapped.title, description: mapped.message, variant: 'destructive' });
+      return;
     }
-  }, [searchParams]);
+
+    if (!code || !state) {
+      setStatus('error');
+      const mapped = ERROR_MAP.bluesky_missing_params;
+      setErrorInfo(mapped);
+      return;
+    }
+
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('bluesky-oauth-callback', {
+          body: { code, state, iss: iss || undefined },
+        });
+
+        const errBody =
+          (error as any)?.context && typeof (error as any).context.json === 'function'
+            ? await (error as any).context.json().catch(() => null)
+            : null;
+
+        if (error || !data?.success) {
+          const msg = errBody?.error || data?.error || error?.message || 'Kết nối thất bại';
+          throw new Error(msg);
+        }
+
+        setStatus('success');
+        const h = data?.connection?.username || 'Bluesky Account';
+        setHandle(h);
+        toast({
+          title: 'Kết nối Bluesky thành công!',
+          description: `@${h} đã được kết nối qua OAuth.`,
+        });
+        setTimeout(goBack, 2500);
+      } catch (e: any) {
+        setStatus('error');
+        setErrorInfo({
+          title: 'Kết nối thất bại',
+          message: e?.message || 'Đã xảy ra lỗi không xác định.',
+        });
+        toast({
+          title: 'Kết nối Bluesky thất bại',
+          description: e?.message || 'Đã xảy ra lỗi không xác định.',
+          variant: 'destructive',
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
