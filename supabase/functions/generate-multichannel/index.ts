@@ -4057,7 +4057,7 @@ const channelDescriptions: Record<string, string> = {
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
       pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine, KHÔNG phải feed mạng xã hội). Viết keyword-rich, long-tail keywords tự nhiên trong câu, tập trung MÔ TẢ LỢI ÍCH/GIÁ TRỊ/HƯỚNG DẪN (how-to, listicle, tip, idea). Không bán hàng cứng, không tự xưng kênh. Kết thúc bằng CTA mềm dạng 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. Tối đa 2-5 hashtag tự nhiên cuối bài (không spam). Ảnh đi kèm là vertical 2:3 (1000×1500).",
-      bluesky: "Nội dung Bluesky (≤300 ký tự). Phong cách casual, conversational, dễ tương tác. Inline link nếu cần. KHÔNG dùng hashtag. Kết thúc bằng câu hỏi hoặc observation thú vị để mời bình luận.",
+      bluesky: "Nội dung Bluesky (≤280 ký tự — chừa margin cho link). Viết như đang trò chuyện với bạn bè: casual, chân thật, có cá tính. Emoji vừa phải (2-5). KHÔNG dùng hashtag (Bluesky culture). Inline link đặt CUỐI post (không phá flow đọc). Kết thúc bằng câu hỏi mở hoặc observation thú vị để mời bình luận. Ưu tiên chia sẻ góc nhìn cá nhân, hot take, hoặc behind-the-scenes.",
     };
 
     formData.channels.forEach(channel => {
