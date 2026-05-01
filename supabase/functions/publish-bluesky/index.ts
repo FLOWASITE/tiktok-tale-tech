@@ -181,12 +181,12 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
     } else {
       // Another worker is refreshing — poll until token is updated
       console.log(`[publish-bluesky] Another worker is refreshing, waiting...`);
-      const startedAt = Date.now();
-      while (Date.now() - startedAt < REFRESH_WAIT_MAX_MS) {
-        await new Promise((r) => setTimeout(r, REFRESH_WAIT_POLL_MS));
-        conn = await fetchConn();
-        meta = conn.metadata || {};
-        if (!needsRefresh()) break;
+      const recovered = await waitForFreshToken(conn.updated_at);
+      if (recovered) return recovered;
+      conn = await fetchConn();
+      meta = conn.metadata || {};
+      if (conn.is_active === false && /Bluesky|refresh token|kết nối lại/i.test(conn.last_error || "")) {
+        throw new BlueskyReconnectRequiredError(conn.last_error);
       }
       if (needsRefresh()) {
         throw new Error("Timeout chờ refresh token Bluesky từ request khác");
