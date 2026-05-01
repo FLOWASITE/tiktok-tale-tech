@@ -265,10 +265,22 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
 
     // Bluesky — OAuth 2.0 (Confidential Client + DPoP)
     if (platform === 'bluesky') {
+      const rawHandle = window.prompt(
+        'Nhập handle Bluesky của bạn (vd: yourname.bsky.social):',
+        ''
+      );
+      if (!rawHandle) return;
+      const handle = rawHandle.trim().replace(/^@/, '');
+      if (!handle.includes('.')) {
+        toast.error('Handle không hợp lệ', {
+          description: 'Vui lòng nhập đầy đủ handle, vd: yourname.bsky.social',
+        });
+        return;
+      }
       setOauthConnecting('bluesky');
       try {
         const { data, error } = await supabase.functions.invoke('bluesky-oauth-start', {
-          body: { brand_template_id: template.id },
+          body: { handle, brandTemplateId: template.id },
         });
         if (error || !data?.authorization_url) {
           throw new Error(error?.message || data?.error || 'Không khởi tạo được OAuth');
@@ -277,7 +289,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         toast.info('Đã mở trang đăng nhập Bluesky', {
           description: 'Hoàn tất đăng nhập trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
         });
-        // Poll for new connection
         const start = Date.now();
         const poll = setInterval(async () => {
           if (Date.now() - start > 120_000) { clearInterval(poll); setOauthConnecting(null); return; }
