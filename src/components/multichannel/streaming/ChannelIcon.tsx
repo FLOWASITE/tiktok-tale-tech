@@ -50,6 +50,13 @@ const PinterestLucide: LucideIcon = Object.assign(
   { displayName: 'PinterestLucide' }
 ) as unknown as LucideIcon;
 
+const BlueskyLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <BlueskyIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'BlueskyLucide' }
+) as unknown as LucideIcon;
+
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
   bgClass: string;
@@ -139,6 +146,11 @@ const channelConfig: Record<string, {
     icon: Send, 
     bgClass: "bg-sky-500 text-white",
     label: "Telegram"
+  },
+  bluesky: {
+    icon: BlueskyLucide,
+    bgClass: "bg-[#0085FF] text-white",
+    label: "Bluesky"
   },
 };
 
