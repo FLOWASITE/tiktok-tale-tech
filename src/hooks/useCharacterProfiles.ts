@@ -12,6 +12,13 @@ export interface CharacterAppearance {
   distinctive_features?: string;
 }
 
+export type ReferenceImageLabel = 'front' | 'side' | 'full-body' | 'close-up' | 'outfit';
+
+export interface ReferenceImage {
+  url: string;
+  label: ReferenceImageLabel;
+}
+
 export interface CharacterProfile {
   id: string;
   organization_id: string;
