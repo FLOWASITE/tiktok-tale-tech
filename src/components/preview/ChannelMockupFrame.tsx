@@ -1,5 +1,14 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { ensureMarkdownFormat } from '@/utils/contentFormatter';
+import {
+  stripMarkdownForBluesky,
+  segmentBlueskyText,
+  countGraphemes,
+  extractFirstUrl,
+  getDomain,
+  BLUESKY_MAX_GRAPHEMES,
+} from '@/utils/blueskyFormatter';
+import { Link as LinkIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
 import { WebsiteSEOData } from '@/types/multichannel';
