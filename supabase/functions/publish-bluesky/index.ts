@@ -571,10 +571,14 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
 
   } catch (err) {
     console.error('[publish-bluesky] error:', err);
+    const status = err instanceof BlueskyReconnectRequiredError ? err.status : 500;
+    const errorCode = err instanceof BlueskyReconnectRequiredError ? err.errorCode : undefined;
     return new Response(JSON.stringify({
       success: false,
       error: err instanceof Error ? err.message : 'Lỗi không xác định',
+      errorCode,
+      needs_reauth: err instanceof BlueskyReconnectRequiredError || undefined,
       warnings: warnings.length > 0 ? warnings : undefined,
-    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 }));
