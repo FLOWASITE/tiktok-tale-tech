@@ -40,6 +40,7 @@ export interface CharacterProfileInput {
   appearance?: CharacterAppearance;
   wardrobe?: string;
   reference_image_url?: string;
+  reference_images?: ReferenceImage[];
   brand_template_id?: string | null;
 }
 
