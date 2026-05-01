@@ -1,6 +1,50 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { VideoGenerationRequest } from '@/types/videoGeneration';
-import { CharacterProfile, CharacterAppearance, buildCharacterBlock } from '@/hooks/useCharacterProfiles';
+
+// Inline types to avoid importing from hooks that pull in supabase client
+interface CharacterAppearance {
+  gender?: string;
+  age_range?: string;
+  hair?: string;
+  skin_tone?: string;
+  body_type?: string;
+  distinctive_features?: string;
+}
+
+interface CharacterProfile {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string;
+  appearance: CharacterAppearance;
+  wardrobe: string | null;
+  reference_image_url: string | null;
+  reference_images: { url: string; label: string }[];
+  default_voice_id: string | null;
+  default_voice_provider: string | null;
+  brand_template_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Mirror of buildCharacterBlock from useCharacterProfiles */
+function buildCharacterBlock(profile: CharacterProfile): string {
+  const app = profile.appearance;
+  const parts = [`[CHARACTER CONSISTENCY — "${profile.name}"]`];
+  const traits: string[] = [];
+  if (app.gender) traits.push(app.gender);
+  if (app.age_range) traits.push(`age ${app.age_range}`);
+  if (app.hair) traits.push(`${app.hair} hair`);
+  if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+  if (app.body_type) traits.push(app.body_type);
+  if (traits.length) parts.push(`Appearance: ${traits.join(', ')}.`);
+  if (profile.description) parts.push(`Details: ${profile.description}`);
+  if (profile.wardrobe) parts.push(`Wardrobe: ${profile.wardrobe}.`);
+  if (app.distinctive_features) parts.push(`Distinctive: ${app.distinctive_features}.`);
+  parts.push('IMPORTANT: Maintain this EXACT character appearance consistently across ALL scenes. Same face, hair, clothing, body proportions.');
+  return parts.join('\n');
+}
 
 // ─────────── Helpers ───────────
 
