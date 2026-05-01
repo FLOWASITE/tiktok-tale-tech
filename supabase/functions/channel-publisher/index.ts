@@ -37,9 +37,10 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   website: 'website',
   blog: 'website',
   'flowa_blog': 'website',
-  // Blogger/WordPress are publishing targets of the website channel — mark website as published when they succeed
-  blogger: 'website',
-  wordpress: 'website',
+  // 2026-05: Blogger/WordPress are now SEPARATE channels with their own
+  // content columns. They no longer mark 'website' as published.
+  blogger: 'blogger',
+  wordpress: 'wordpress',
   pinterest: 'pinterest',
   bluesky: 'bluesky',
 };
