@@ -488,6 +488,15 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                           {c.suggested_voice_style}
                         </Badge>
                       )}
+                      {c.appearance.honorific && (
+                        <Badge variant="secondary" className="text-[9px] h-4">Xưng: {c.appearance.honorific}</Badge>
+                      )}
+                      {c.appearance.regional_accent && (
+                        <Badge variant="secondary" className="text-[9px] h-4">🗣️ {c.appearance.regional_accent}</Badge>
+                      )}
+                      {c.appearance.speech_style && !c.editing && (
+                        <Badge variant="outline" className="text-[9px] h-4">💬 {c.appearance.speech_style}</Badge>
+                      )}
                     </div>
                   </div>
                 ))}
