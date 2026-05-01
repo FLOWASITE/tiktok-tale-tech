@@ -11,8 +11,12 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    alias: [
+      // Brand-correct social icons platform-wide.
+      // Any `import ... from "lucide-react"` resolves to our shim,
+      // which re-exports lucide and overrides social icons.
+      { find: /^lucide-react$/, replacement: path.resolve(__dirname, "./src/lib/lucide-react-shim.tsx") },
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+    ],
   },
 }));
