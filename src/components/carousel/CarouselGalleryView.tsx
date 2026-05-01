@@ -65,6 +65,14 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString('vi-VN');
 }
 
+function formatDuration(sec?: number): string {
+  if (!sec || sec <= 0) return '';
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m > 0 ? `${m}:${r.toString().padStart(2, '0')}` : `${r}s`;
+}
+
 interface CarouselGalleryViewProps {
   initialContentId?: string;
 }
