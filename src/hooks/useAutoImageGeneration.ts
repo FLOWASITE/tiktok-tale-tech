@@ -568,22 +568,22 @@ export function useAutoImageGeneration() {
           footerOverlay: !!footerOverlay,
           textsPerChannel: !!textsPerChannel,
         };
-        const hasRequiredStructuredBranding = requiredBranding.structured || requiredBranding.text;
-        const frontendForcedStructuredFallback = isAiRenderMode && (requiredBranding.footer || hasRequiredStructuredBranding);
-        const frontendForcedTextFallback = isAiRenderMode && requiredBranding.text && !!useCanvasFallback && !structuredOverlay && !fullStructuredOverlay;
-        const shouldFallbackStructured = fallbackStrategy !== 'none' && hasStructuredInput && (!isAiRenderMode || backendRequestedFallback || frontendForcedStructuredFallback);
-        const shouldFallbackText = fallbackStrategy !== 'none' && !!useCanvasFallback && effectiveContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (!isAiRenderMode || backendRequestedFallback || frontendForcedTextFallback);
+        // FIX: Trust AI render — do NOT force canvas overlay when AI has already baked
+        // headline/footer/CTA into the image. Canvas overlay only runs if backend
+        // explicitly requests fallback (recommendedOverlayMode !== 'ai_render' or
+        // fallbackRecommended === true), or if user forced satori mode.
+        // Previously frontendForcedStructured/TextFallback caused double-render:
+        // AI bake-in + Satori overlay = duplicated text + occluded footer.
+        const shouldFallbackStructured = fallbackStrategy !== 'none' && hasStructuredInput && (!isAiRenderMode || backendRequestedFallback);
+        const shouldFallbackText = fallbackStrategy !== 'none' && !!useCanvasFallback && effectiveContentType === 'with_text' && !!channelText && !fullStructuredOverlay && !structuredOverlay && (!isAiRenderMode || backendRequestedFallback);
         const fallbackReasons = [
           imageData.fallbackRecommended === true ? 'backend yêu cầu fallback' : null,
           isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render'
             ? `recommendedOverlayMode=${imageData.recommendedOverlayMode}`
             : null,
-          frontendForcedStructuredFallback && requiredBranding.footer ? 'frontend ép structured fallback vì footer bắt buộc' : null,
-          frontendForcedStructuredFallback && hasRequiredStructuredBranding && !requiredBranding.footer ? 'frontend ép structured fallback vì branding bắt buộc' : null,
-          frontendForcedTextFallback ? 'frontend ép text fallback vì channel text bắt buộc' : null,
           shouldFallbackStructured ? 'structured overlay fallback bật' : null,
           shouldFallbackText ? 'text overlay fallback bật' : null,
-          !backendRequestedFallback && isAiRenderMode ? 'AI accepted by backend hint' : null,
+          !backendRequestedFallback && isAiRenderMode ? 'AI accepted — no canvas double-render' : null,
           textSuppressedBecauseTooLong ? 'text too long, auto downgraded to background_only' : null,
           textSuppressedBecauseLanguageMismatch ? `language mismatch (${detectedLanguage} != ${brandLanguage}), auto downgraded to background_only` : null,
           !isAiRenderMode ? 'satori forced mode' : null,
