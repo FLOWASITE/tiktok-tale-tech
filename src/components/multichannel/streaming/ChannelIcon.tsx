@@ -1,61 +1,49 @@
 import { 
-  Facebook, 
-  Instagram, 
   Mail, 
   Globe,
-  Linkedin,
-  Youtube,
-  MapPin,
-  Send,
-  Music2,
-  AtSign,
-  LucideIcon
+  type LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon, PinterestIcon, BlueskyIcon } from "@/components/icons/SocialIcons";
+import { 
+  ZaloIcon, 
+  XIcon, 
+  WordPressIcon, 
+  BloggerIcon, 
+  PinterestIcon, 
+  BlueskyIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  YouTubeIcon,
+  TikTokIcon,
+  ThreadsIcon,
+  TelegramIcon,
+  GoogleBusinessIcon,
+} from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
-const ZaloLucide: LucideIcon = Object.assign(
-  ({ size = 24, className, ...props }: any) => (
-    <ZaloIcon width={size} height={size} className={className} {...props} />
-  ),
-  { displayName: 'ZaloLucide' }
-) as unknown as LucideIcon;
+const makeLucide = (Component: any, name: string): LucideIcon =>
+  Object.assign(
+    ({ size = 24, className, ...props }: any) => (
+      <Component width={size} height={size} className={className} {...props} />
+    ),
+    { displayName: name }
+  ) as unknown as LucideIcon;
 
-const XLucide: LucideIcon = Object.assign(
-  ({ size = 24, className, ...props }: any) => (
-    <XIcon width={size} height={size} className={className} {...props} />
-  ),
-  { displayName: 'XLucide' }
-) as unknown as LucideIcon;
-
-const WordPressLucide: LucideIcon = Object.assign(
-  ({ size = 24, className, ...props }: any) => (
-    <WordPressIcon width={size} height={size} className={className} {...props} />
-  ),
-  { displayName: 'WordPressLucide' }
-) as unknown as LucideIcon;
-
-const BloggerLucide: LucideIcon = Object.assign(
-  ({ size = 24, className, ...props }: any) => (
-    <BloggerIcon width={size} height={size} className={className} {...props} />
-  ),
-  { displayName: 'BloggerLucide' }
-) as unknown as LucideIcon;
-
-const PinterestLucide: LucideIcon = Object.assign(
-  ({ size = 24, className, ...props }: any) => (
-    <PinterestIcon width={size} height={size} className={className} {...props} />
-  ),
-  { displayName: 'PinterestLucide' }
-) as unknown as LucideIcon;
-
-const BlueskyLucide: LucideIcon = Object.assign(
-  ({ size = 24, className, ...props }: any) => (
-    <BlueskyIcon width={size} height={size} className={className} {...props} />
-  ),
-  { displayName: 'BlueskyLucide' }
-) as unknown as LucideIcon;
+const ZaloLucide = makeLucide(ZaloIcon, 'ZaloLucide');
+const XLucide = makeLucide(XIcon, 'XLucide');
+const WordPressLucide = makeLucide(WordPressIcon, 'WordPressLucide');
+const BloggerLucide = makeLucide(BloggerIcon, 'BloggerLucide');
+const PinterestLucide = makeLucide(PinterestIcon, 'PinterestLucide');
+const BlueskyLucide = makeLucide(BlueskyIcon, 'BlueskyLucide');
+const FacebookLucide = makeLucide(FacebookIcon, 'FacebookLucide');
+const InstagramLucide = makeLucide(InstagramIcon, 'InstagramLucide');
+const LinkedInLucide = makeLucide(LinkedInIcon, 'LinkedInLucide');
+const YouTubeLucide = makeLucide(YouTubeIcon, 'YouTubeLucide');
+const TikTokLucide = makeLucide(TikTokIcon, 'TikTokLucide');
+const ThreadsLucide = makeLucide(ThreadsIcon, 'ThreadsLucide');
+const TelegramLucide = makeLucide(TelegramIcon, 'TelegramLucide');
+const GoogleBusinessLucide = makeLucide(GoogleBusinessIcon, 'GoogleBusinessLucide');
 
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
@@ -63,22 +51,22 @@ const channelConfig: Record<string, {
   label: string;
 }> = {
   facebook: { 
-    icon: Facebook, 
-    bgClass: "bg-blue-500 text-white",
+    icon: FacebookLucide, 
+    bgClass: "bg-[#1877F2] text-white",
     label: "Facebook"
   },
   instagram: { 
-    icon: Instagram, 
+    icon: InstagramLucide, 
     bgClass: "bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-white",
     label: "Instagram"
   },
   tiktok: { 
-    icon: Music2, 
+    icon: TikTokLucide, 
     bgClass: "bg-black text-white",
     label: "TikTok"
   },
   threads: { 
-    icon: AtSign, 
+    icon: ThreadsLucide, 
     bgClass: "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900",
     label: "Threads"
   },
@@ -98,8 +86,8 @@ const channelConfig: Record<string, {
     label: "Zalo OA"
   },
   linkedin: { 
-    icon: Linkedin, 
-    bgClass: "bg-blue-700 text-white",
+    icon: LinkedInLucide, 
+    bgClass: "bg-[#0A66C2] text-white",
     label: "LinkedIn"
   },
   twitter: { 
@@ -113,8 +101,8 @@ const channelConfig: Record<string, {
     label: "X"
   },
   youtube: { 
-    icon: Youtube, 
-    bgClass: "bg-red-600 text-white",
+    icon: YouTubeLucide, 
+    bgClass: "bg-[#FF0000] text-white",
     label: "YouTube"
   },
   website: { 
@@ -138,13 +126,18 @@ const channelConfig: Record<string, {
     label: "Pinterest"
   },
   google_maps: { 
-    icon: MapPin, 
-    bgClass: "bg-green-600 text-white",
+    icon: GoogleBusinessLucide, 
+    bgClass: "bg-white text-[#4285F4] border border-border",
     label: "Google Maps"
   },
+  google_business: { 
+    icon: GoogleBusinessLucide, 
+    bgClass: "bg-white text-[#4285F4] border border-border",
+    label: "Google Business"
+  },
   telegram: { 
-    icon: Send, 
-    bgClass: "bg-sky-500 text-white",
+    icon: TelegramLucide, 
+    bgClass: "bg-[#26A5E4] text-white",
     label: "Telegram"
   },
   bluesky: {
