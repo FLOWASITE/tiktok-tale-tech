@@ -153,6 +153,9 @@ export function useDirectPublish() {
         errorCode === 'TIKTOK_POST_PROCESSING_FAILED' &&
         error.message?.includes('file_format_check_failed');
       const isInvalidPayload = errorCode === 'INVALID_PAYLOAD';
+      const isBlueskyReauth =
+        errorCode === 'BLUESKY_REAUTH_REQUIRED' ||
+        /Refresh token replayed|Invalid refresh token|kết nối lại Bluesky/i.test(error.message || '');
       const isTikTokImageError = [
         'TIKTOK_IMAGE_FETCH_FAILED',
         'TIKTOK_IMAGE_DECODE_FAILED',
@@ -160,7 +163,13 @@ export function useDirectPublish() {
         'TIKTOK_UNSUPPORTED_FORMAT',
       ].includes(errorCode || '');
       
-      if (isInvalidPayload) {
+      if (isBlueskyReauth) {
+        toast({
+          title: 'Bluesky cần kết nối lại',
+          description: 'Refresh token Bluesky đã bị vô hiệu hóa. Vào Kết nối, ngắt Bluesky rồi kết nối lại một lần.',
+          variant: 'destructive',
+        });
+      } else if (isInvalidPayload) {
         toast({
           title: 'Payload không hợp lệ',
           description: error.message,
