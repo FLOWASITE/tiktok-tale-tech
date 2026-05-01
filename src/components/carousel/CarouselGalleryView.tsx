@@ -691,6 +691,23 @@ function GalleryImageCard({
             loading="lazy"
           />
 
+          {img.mediaType === 'video' && (
+            <>
+              {/* Play badge centered */}
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full bg-black/55 backdrop-blur-sm p-2.5 ring-1 ring-white/15">
+                  <Play className="w-5 h-5 text-white fill-white" />
+                </div>
+              </div>
+              {/* Duration pill */}
+              {img.durationSeconds && img.durationSeconds > 0 && (
+                <Badge className="absolute bottom-1.5 right-1.5 text-[10px] h-5 bg-black/65 text-white border-0 backdrop-blur-sm">
+                  {formatDuration(img.durationSeconds)}
+                </Badge>
+              )}
+            </>
+          )}
+
           {bulkMode && (
             <div className="absolute top-1.5 right-1.5 z-10" onClick={e => e.stopPropagation()}>
               <Checkbox
