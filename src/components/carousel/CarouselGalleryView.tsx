@@ -771,6 +771,18 @@ function GalleryImageCard({
               S{img.slideNumber}
             </Badge>
           )}
+          {img.source === 'video' && (
+            <Badge className="absolute top-1.5 left-1.5 text-[10px] h-5 bg-purple-500/90 text-white border-0" variant="default">
+              <VideoIcon className="w-3 h-3 mr-0.5" />
+              Clip
+            </Badge>
+          )}
+          {img.source === 'video_render' && (
+            <Badge className="absolute top-1.5 left-1.5 text-[10px] h-5 bg-fuchsia-600/90 text-white border-0" variant="default">
+              <Film className="w-3 h-3 mr-0.5" />
+              Final
+            </Badge>
+          )}
 
           {img.version > 1 && !bulkMode && (
             <Badge className="absolute top-1.5 right-1.5 text-[10px] h-5 bg-background/80 text-foreground border-border/50" variant="outline">
