@@ -69,7 +69,7 @@ const CONTENT_FORMATS: { value: ContentFormat; label: string; icon: React.ReactN
   },
   { 
     value: 'script', 
-    label: 'Kịch bản Video', 
+    label: 'Video Studio', 
     icon: <Video className="w-4 h-4" />,
     description: 'Kịch bản cho video ngắn'
   },
