@@ -72,7 +72,7 @@ export default function BlueskyCallback() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ChannelIcon channel="bluesky" size={22} />
+            <ChannelIcon channel="bluesky" size="md" />
             Kết nối Bluesky
           </CardTitle>
         </CardHeader>
