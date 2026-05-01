@@ -1311,7 +1311,47 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </DialogContent>
       </Dialog>
 
-      {/* WordPress Connect Dialog (3-step simplified) */}
+      {/* Bluesky OAuth — handle prompt dialog */}
+      <Dialog open={blueskyDialogOpen} onOpenChange={setBlueskyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChannelIcon channel="bluesky" className="text-[#0085FF]" size={20} />
+              Kết nối Bluesky
+            </DialogTitle>
+            <DialogDescription>
+              Nhập handle Bluesky của bạn (ví dụ: <code>yourname.bsky.social</code>). Đây là tên đăng nhập, không phải tên hiển thị.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="bluesky-handle">Handle Bluesky</Label>
+            <Input
+              id="bluesky-handle"
+              autoFocus
+              placeholder="yourname.bsky.social"
+              value={blueskyHandle}
+              onChange={(e) => setBlueskyHandle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isBlueskyConnecting) handleBlueskySubmit();
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Bạn sẽ được chuyển sang Bluesky để xác thực qua OAuth 2.0 (DPoP). Flowa không lưu mật khẩu của bạn.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlueskyDialogOpen(false)} disabled={isBlueskyConnecting}>
+              Hủy
+            </Button>
+            <Button onClick={handleBlueskySubmit} disabled={isBlueskyConnecting}>
+              {isBlueskyConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Tiếp tục
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <WordPressConnectDialog
         open={wpDialogOpen}
         onOpenChange={setWpDialogOpen}
