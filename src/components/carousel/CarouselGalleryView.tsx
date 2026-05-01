@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid, RotateCcw, SearchX, User, ChevronLeft, FolderOpen, Share2, ImagePlus } from 'lucide-react';
+import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid, RotateCcw, SearchX, User, ChevronLeft, FolderOpen, Share2, ImagePlus, Play, Video as VideoIcon, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +63,14 @@ function formatRelativeTime(dateStr: string): string {
   const diffMonths = Math.floor(diffDays / 30);
   if (diffMonths < 12) return `${diffMonths} tháng trước`;
   return date.toLocaleDateString('vi-VN');
+}
+
+function formatDuration(sec?: number): string {
+  if (!sec || sec <= 0) return '';
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m > 0 ? `${m}:${r.toString().padStart(2, '0')}` : `${r}s`;
 }
 
 interface CarouselGalleryViewProps {
@@ -150,25 +158,33 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
   }));
 
   const openLightbox = useCallback((index: number) => {
+    const img = visibleImages[index];
+    if (img?.mediaType === 'video' && img.videoUrl) {
+      window.open(img.videoUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     setLightboxIndex(index);
     setLightboxOpen(true);
-  }, []);
+  }, [visibleImages]);
 
   const handleDownload = useCallback(async (index: number) => {
     const img = visibleImages[index];
     if (!img) return;
-    const prefix = img.source === 'carousel' ? 'carousel' : (img.channel || 'image');
+    const isVid = img.mediaType === 'video';
+    const url = isVid ? (img.videoUrl || img.imageUrl) : img.imageUrl;
+    const ext = isVid ? 'mp4' : 'png';
+    const prefix = isVid ? 'video' : (img.source === 'carousel' ? 'carousel' : (img.channel || 'image'));
     try {
-      const response = await fetch(img.imageUrl);
+      const response = await fetch(url);
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const objUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${prefix}-v${img.version}.png`;
+      a.href = objUrl;
+      a.download = `${prefix}-v${img.version}.${ext}`;
       a.click();
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(objUrl);
     } catch {
-      window.open(img.imageUrl, '_blank');
+      window.open(url, '_blank');
     }
   }, [visibleImages]);
 
@@ -226,6 +242,8 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
                   <BreadcrumbPage className="flex items-center gap-1.5">
                     {selectedFolder.source === 'carousel' ? (
                       <Layers className="w-3.5 h-3.5 text-primary" />
+                    ) : selectedFolder.mediaType === 'video' ? (
+                      <VideoIcon className="w-3.5 h-3.5 text-purple-500" />
                     ) : (
                       <Share2 className="w-3.5 h-3.5 text-emerald-500" />
                     )}
@@ -235,7 +253,7 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
               </BreadcrumbList>
             </Breadcrumb>
             <Badge variant="secondary" className="text-xs ml-auto">
-              {folderImages.length} ảnh
+              {folderImages.length} {selectedFolder.mediaType === 'video' ? 'video' : 'ảnh'}
             </Badge>
           </div>
         )}
@@ -302,17 +320,19 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
             <Filter className="w-4 h-4 text-muted-foreground" />
 
             <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setChannelFilter('all'); setCarouselFilter('all'); setPage(1); }}>
-              <SelectTrigger className="w-[200px] h-9 text-sm border-border/50">
+              <SelectTrigger className="w-[210px] h-9 text-sm border-border/50">
                 <SelectValue>
                   {sourceFilter === 'all' ? `Tất cả nguồn (${sourceCounts.all})` :
                    sourceFilter === 'carousel' ? `Carousel (${sourceCounts.carousel})` :
-                   `Multichannel (${sourceCounts.multichannel})`}
+                   sourceFilter === 'multichannel' ? `Multichannel (${sourceCounts.multichannel})` :
+                   `Video (${sourceCounts.video})`}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả nguồn ({sourceCounts.all})</SelectItem>
                 <SelectItem value="carousel">Carousel ({sourceCounts.carousel})</SelectItem>
                 <SelectItem value="multichannel">Multichannel ({sourceCounts.multichannel})</SelectItem>
+                <SelectItem value="video">Video ({sourceCounts.video})</SelectItem>
               </SelectContent>
             </Select>
 
@@ -526,10 +546,19 @@ function ContentFolderCard({
             />
           )}
 
-          {/* Image count badge */}
+          {/* Center play overlay for video folders */}
+          {folder.mediaType === 'video' && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="rounded-full bg-black/55 backdrop-blur-sm p-3 ring-1 ring-white/15">
+                <Play className="w-6 h-6 text-white fill-white" />
+              </div>
+            </div>
+          )}
+
+          {/* Item count badge */}
           <div className="absolute bottom-2 right-2">
             <Badge className="text-[10px] h-5 bg-background/85 text-foreground border-border/50 backdrop-blur-sm" variant="outline">
-              <ImagePlus className="w-3 h-3 mr-0.5" />
+              {folder.mediaType === 'video' ? <VideoIcon className="w-3 h-3 mr-0.5" /> : <ImagePlus className="w-3 h-3 mr-0.5" />}
               {folder.imageCount}
             </Badge>
           </div>
@@ -540,6 +569,16 @@ function ContentFolderCard({
               <Badge className="text-[10px] h-5 bg-primary/90 text-primary-foreground" variant="default">
                 <Layers className="w-3 h-3 mr-0.5" />
                 Carousel
+              </Badge>
+            ) : folder.source === 'video' ? (
+              <Badge className="text-[10px] h-5 bg-purple-500/90 text-white border-0" variant="default">
+                <VideoIcon className="w-3 h-3 mr-0.5" />
+                Video clips
+              </Badge>
+            ) : folder.source === 'video_render' ? (
+              <Badge className="text-[10px] h-5 bg-fuchsia-600/90 text-white border-0" variant="default">
+                <Film className="w-3 h-3 mr-0.5" />
+                Final video
               </Badge>
             ) : folder.channel ? (
               <ChannelIcon channel={folder.channel} size="sm" />
@@ -673,6 +712,23 @@ function GalleryImageCard({
             loading="lazy"
           />
 
+          {img.mediaType === 'video' && (
+            <>
+              {/* Play badge centered */}
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full bg-black/55 backdrop-blur-sm p-2.5 ring-1 ring-white/15">
+                  <Play className="w-5 h-5 text-white fill-white" />
+                </div>
+              </div>
+              {/* Duration pill */}
+              {img.durationSeconds && img.durationSeconds > 0 && (
+                <Badge className="absolute bottom-1.5 right-1.5 text-[10px] h-5 bg-black/65 text-white border-0 backdrop-blur-sm">
+                  {formatDuration(img.durationSeconds)}
+                </Badge>
+              )}
+            </>
+          )}
+
           {bulkMode && (
             <div className="absolute top-1.5 right-1.5 z-10" onClick={e => e.stopPropagation()}>
               <Checkbox
@@ -734,6 +790,18 @@ function GalleryImageCard({
             <Badge className="absolute top-1.5 left-1.5 text-[10px] h-5 bg-primary/90 text-primary-foreground" variant="default">
               <Layers className="w-3 h-3 mr-0.5" />
               S{img.slideNumber}
+            </Badge>
+          )}
+          {img.source === 'video' && (
+            <Badge className="absolute top-1.5 left-1.5 text-[10px] h-5 bg-purple-500/90 text-white border-0" variant="default">
+              <VideoIcon className="w-3 h-3 mr-0.5" />
+              Clip
+            </Badge>
+          )}
+          {img.source === 'video_render' && (
+            <Badge className="absolute top-1.5 left-1.5 text-[10px] h-5 bg-fuchsia-600/90 text-white border-0" variant="default">
+              <Film className="w-3 h-3 mr-0.5" />
+              Final
             </Badge>
           )}
 
