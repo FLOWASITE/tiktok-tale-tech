@@ -1,63 +1,46 @@
-## Bug: Post Facebook không có ảnh
+## Vấn đề
 
-### Nguyên nhân (xác định chắc chắn từ DB + logs)
+Khi gen ảnh /multichannel với mode `ai_render` (mặc định), pipeline chạy 4 bước:
 
-`channel_images.facebook` của bài "Lê Thu Hương..." chứa URL:
-```
-…/social/unassigned/<id>/facebook-with-text-1777631343470.svg
-```
+1. **STEP 1** — `generate-brand-image` với `structuredElements` (banner/headline/cards/CTA/footer) → AI (Gemini/Seedream) **đã bake** toàn bộ text + footer vào ảnh, rất đẹp và đúng chỗ.
+2. **STEP 2** — overlay logo (OK).
+3. **STEP 3** — canvas overlay text (skip nếu có structured).
+4. **STEP 4** — `overlay-text-canvas` vẽ lại banner/headline/cards/CTA/**footer** bằng Satori/Resvg lên trên ảnh AI.
 
-→ File này do edge function **`overlay-text-canvas`** tạo: dùng [Satori](https://esm.sh/satori) để render text overlay, **chỉ output SVG**, rồi upload thẳng vào Storage với `Content-Type: image/svg+xml` và đuôi `.svg`.
+Bug ở **STEP 4**: trong `useAutoImageGeneration.ts` (line 572) cờ `frontendForcedStructuredFallback` được set thành `true` mỗi khi `isAiRenderMode && (footer || text hoặc structured)` — tức gần như **mọi lần gen**. Hậu quả: canvas vẽ đè footer/CTA/headline lần thứ hai lên footer/CTA/headline mà AI đã render → text trùng, footer chồng nhau, layout xấu (đúng triệu chứng user mô tả).
 
-Khi publish, `publish-facebook` chạy filter (đã có sẵn):
-```ts
-const isSvg = (u) => /\.svg(\?|$)/i.test(u) || u.startsWith('data:image/svg');
-// → "[FB] Đã loại 1 ảnh SVG. Còn lại: 0"
-```
-→ Bài lên Facebook không có ảnh nào. (Logs đã in đúng: `[FB] Đã loại 1 ảnh SVG ... Còn lại: 0`).
+Backend `generate-brand-image` đã có cơ chế `recommendedOverlayMode` + `fallbackRecommended` để báo khi nào AI render thất bại và CẦN canvas fallback. Cần tin cờ này thay vì frontend tự ép.
 
-Bug này ảnh hưởng cả Facebook, Instagram, Pinterest, LinkedIn, X, Threads, GBP — bất cứ kênh nào không nhận SVG đều mất ảnh khi pipeline có bước overlay text.
+## Giải pháp
 
----
+Sửa logic fallback trong `src/hooks/useAutoImageGeneration.ts` để:
 
-### Giải pháp: Rasterize SVG → PNG ngay trong `overlay-text-canvas`
-
-Dùng `@resvg/resvg-wasm` (chạy được trên Deno edge) để convert SVG bytes do Satori sinh ra sang PNG, rồi upload PNG. Đây là pattern chuẩn Satori + Resvg, giữ nguyên toàn bộ logic layout/typography hiện tại.
-
-#### Thay đổi cụ thể
-
-**1. `supabase/functions/overlay-text-canvas/index.ts`**
-- Import `@resvg/resvg-wasm` (esm.sh) + init WASM 1 lần (cache module-level).
-- Thêm helper `rasterizeSvgToPng(svgString, width, height): Promise<Uint8Array>`.
-- Sửa hàm `uploadToStorage` (≈ line 599) và 3 call sites khác (line 1572, 2048, 2163):
-  - Đổi filename suffix: `${channel}-with-text-${ts}.png`
-  - Đổi blob type: `image/png`
-  - Đổi `contentType: 'image/png'`
-  - Truyền PNG bytes (kết quả rasterize) thay vì SVG bytes.
-- Bỏ data-URL fallback `data:image/svg+xml;base64,…` → đổi thành `data:image/png;base64,…` (sau rasterize).
-- Update các response field `format: 'svg'` → `format: 'png'` (cho client biết).
-- Fallback: nếu rasterize lỗi → log warn và **vẫn return PNG bytes rỗng → fail rõ ràng** thay vì âm thầm trả SVG (tránh tái diễn bug).
-
-**2. `supabase/functions/publish-facebook/index.ts`**
-- Giữ nguyên SVG filter (defense in depth).
-- Thêm log warn rõ hơn khi sau filter `mediaUrls = 0`: `"Tất cả ảnh là SVG → publish không kèm ảnh. Kiểm tra overlay-text-canvas."` (giúp debug nhanh nếu tái diễn).
-
-**3. Backfill ảnh SVG cũ (optional, không bắt buộc)**
-- Bài hiện tại (`09c5a171-…`) đã publish FB không ảnh — không sửa được retroactive vì FB post đã đăng.
-- Với các bài *chưa publish* nhưng `channel_images` đang trỏ `.svg`: lần publish kế tiếp nếu chạy lại generate-image sẽ tự ghi đè PNG mới. Không cần migration.
-
----
-
-### Technical notes
-
-- `@resvg/resvg-wasm` dùng được trên Deno: `import { Resvg, initWasm } from "https://esm.sh/@resvg/resvg-wasm@2.6.2"`. Phải `initWasm(fetch(wasmUrl))` 1 lần.
-- Performance: rasterize 1080×1080 SVG ≈ 200–400ms, chấp nhận được trong edge function timeout.
-- Memory: Resvg WASM ≈ 2MB; chạy trong cùng isolate Satori đã chạy nên ổn.
-- Không đổi schema, không đổi RLS, không đổi client.
+1. **Chỉ chạy STEP 4 (structured canvas overlay) khi backend thực sự yêu cầu fallback** (`fallbackRecommended === true` hoặc `recommendedOverlayMode !== 'ai_render'`). Bỏ `frontendForcedStructuredFallback` (xoá ép buộc khi AI render đã thành công).
+2. **Tương tự cho STEP 3 (text canvas overlay)** — chỉ chạy khi backend báo fallback. Ảnh AI render `with_text` đã có headline rồi.
+3. **Giữ STEP 2 logo overlay** như cũ (logo luôn cần canvas vì AI không bake-in logo file).
+4. **Vẫn cho phép user ép Satori** qua `options.overlayMode='satori'` — chỉ thay đổi default `ai_render` flow.
+5. **Thêm log rõ ràng** "STEP 4 SKIPPED — AI accepted, no double-render" để debug sau này.
 
 ### Files thay đổi
-- `supabase/functions/overlay-text-canvas/index.ts` (chính)
-- `supabase/functions/publish-facebook/index.ts` (log only)
 
-### Test
-- Sau deploy: tạo 1 bài multichannel mới có FB → check `channel_images.facebook.url` đuôi `.png` → publish thử → log `[FB] Đã loại 0 ảnh SVG` và post FB có ảnh.
+- `src/hooks/useAutoImageGeneration.ts`
+  - Line ~572-575: bỏ `frontendForcedStructuredFallback` & `frontendForcedTextFallback`, chỉ giữ điều kiện `!isAiRenderMode || backendRequestedFallback`.
+  - Cập nhật `fallbackReasons` log để phản ánh.
+  - Cập nhật `requiredBranding` log để debug-only (không driving logic).
+
+### Edge cases
+
+- Nếu provider/model không bake text tốt → backend trả `recommendedOverlayMode='satori'` → STEP 3/4 vẫn chạy như cũ.
+- Nếu user manual chọn `overlayMode='satori'` → flow cũ giữ nguyên.
+- Telegram pipeline (`branded-image-composer.ts`) không bị ảnh hưởng — nó vốn đã chỉ overlay logo, không có STEP 3/4.
+
+### QA
+
+- Test gen 1 bài Facebook + 1 bài Instagram có brand footer đầy đủ → ảnh chỉ có 1 lớp footer/CTA/headline (do AI render), không bị đè.
+- Console log `[Pipeline:facebook] ⏭ STEP 4 SKIPPED — ai_render accepted by backend`.
+- Mở DevTools Network → không còn POST tới `overlay-text-canvas` ở STEP 4 trong happy path.
+- Test 1 case ép `overlayMode='satori'` → STEP 4 vẫn chạy (regression check).
+
+## Risk
+
+Thấp. Đây là **bỏ một bước double-render thừa**. Nếu một channel cụ thể nào đó AI render kém, backend đã có cơ chế trả `fallbackRecommended=true` để bật lại canvas — không mất khả năng phục hồi.
