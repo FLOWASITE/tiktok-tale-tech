@@ -89,6 +89,13 @@ Deno.serve(async (req) => {
     }
 
     const audioBuf = await ttsRes.arrayBuffer();
+
+    // Preview mode: return base64 audio without persisting
+    if (preview) {
+      const b64 = base64Encode(audioBuf);
+      return json({ success: true, preview: true, audio_base64: b64, format: 'mp3', chars: text.length });
+    }
+
     const filename = `${user.id}/voiceover-${Date.now()}.mp3`;
 
     // Upload to storage
