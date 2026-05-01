@@ -4,8 +4,11 @@ import {
   stripMarkdownForBluesky,
   segmentBlueskyText,
   countGraphemes,
-  extractFirstUrl,
+  // extractFirstUrl no longer needed — embedTarget picks last link
   getDomain,
+  truncateUrlForDisplay,
+  isLikelyResolvableMention,
+  isInvalidHashtag,
   BLUESKY_MAX_GRAPHEMES,
 } from '@/utils/blueskyFormatter';
 import { Link as LinkIcon } from 'lucide-react';
@@ -1228,7 +1231,7 @@ function ThreadsMockup({ content, brandName, logoUrl, isGenerating, channelImage
 
 // Bluesky Post Mockup - Authentic AT Protocol / Bluesky Social design
 function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
-  const handle = `${brandName.toLowerCase().replace(/\s+/g, '')}.bsky.social`;
+  const ownHandle = `${brandName.toLowerCase().replace(/\s+/g, '')}.bsky.social`;
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
@@ -1237,7 +1240,17 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
   const segments = useMemo(() => segmentBlueskyText(cleanContent), [cleanContent]);
   const graphemeCount = useMemo(() => countGraphemes(cleanContent), [cleanContent]);
   const overflow = graphemeCount > BLUESKY_MAX_GRAPHEMES;
-  const firstUrl = useMemo(() => extractFirstUrl(cleanContent), [cleanContent]);
+
+  // Pick embed target: LAST link/bareLink in text (Bluesky behavior khi không có ảnh).
+  const embedTarget = useMemo(() => {
+    const links = segments.filter(s => s.type === 'link' || s.type === 'bareLink');
+    if (links.length === 0) return null;
+    const last = links[links.length - 1];
+    return {
+      display: last.value,
+      href: last.type === 'bareLink' ? `https://${last.value}` : last.value,
+    };
+  }, [segments]);
 
   return (
     <div className="bg-white dark:bg-[#161e27] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e1e8ed] dark:border-[#2e3a47] max-w-[440px] mx-auto">
@@ -1292,7 +1305,7 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
           {/* Display name + handle + time */}
           <div className="flex items-center gap-1 flex-wrap">
             <span className="font-bold text-[15px] text-[#0f1419] dark:text-[#f1f3f5] hover:underline cursor-pointer">{brandName}</span>
-            <span className="text-[14px] text-[#788896]">@{handle}</span>
+            <span className="text-[14px] text-[#788896]">@{ownHandle}</span>
             <span className="text-[14px] text-[#788896]">·</span>
             <span className="text-[14px] text-[#788896]">2h</span>
           </div>
@@ -1310,19 +1323,59 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
                 {segments.map((seg, idx) => {
                   if (seg.type === 'link') {
                     return (
-                      <a key={idx} href={seg.value} target="_blank" rel="noreferrer" className="text-[#0085ff] hover:underline">
-                        {seg.value}
+                      <a
+                        key={idx}
+                        href={seg.value}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={seg.value}
+                        className="text-[#0085ff] hover:underline"
+                      >
+                        {truncateUrlForDisplay(seg.value)}
                       </a>
                     );
                   }
                   if (seg.type === 'bareLink') {
                     return (
-                      <a key={idx} href={`https://${seg.value}`} target="_blank" rel="noreferrer" className="text-[#0085ff] hover:underline">
-                        {seg.value}
+                      <a
+                        key={idx}
+                        href={`https://${seg.value}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={seg.value}
+                        className="text-[#0085ff] hover:underline"
+                      >
+                        {truncateUrlForDisplay(seg.value)}
                       </a>
                     );
                   }
-                  if (seg.type === 'mention' || seg.type === 'hashtag') {
+                  if (seg.type === 'mention') {
+                    const resolvable = isLikelyResolvableMention(seg.value);
+                    return (
+                      <span
+                        key={idx}
+                        title={resolvable ? undefined : 'Mention chỉ hiển thị link nếu DID tồn tại trên Bluesky'}
+                        className={cn(
+                          'cursor-pointer',
+                          resolvable
+                            ? 'text-[#0085ff] hover:underline'
+                            : 'text-[#0085ff]/60 underline decoration-dotted decoration-[#0085ff]/40 underline-offset-2'
+                        )}
+                      >
+                        {seg.value}
+                      </span>
+                    );
+                  }
+                  if (seg.type === 'hashtag') {
+                    const invalid = isInvalidHashtag(seg.value);
+                    if (invalid) {
+                      // Bluesky drop tag → render as plain text + warn via title
+                      return (
+                        <span key={idx} title="Hashtag này sẽ bị Bluesky bỏ qua khi đăng" className="text-[#0f1419] dark:text-[#f1f3f5]">
+                          {seg.value}
+                        </span>
+                      );
+                    }
                     return (
                       <span key={idx} className="text-[#0085ff] hover:underline cursor-pointer">
                         {seg.value}
@@ -1352,20 +1405,27 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
             </div>
           )}
 
-          {/* Link embed card (native Bluesky behavior) */}
-          {!isGenerating && firstUrl && !channelImage && (
+          {/* Link embed card — Bluesky dùng URL CUỐI cùng làm embed (khi không có ảnh) */}
+          {!isGenerating && embedTarget && !channelImage && (
             <a
-              href={firstUrl}
+              href={embedTarget.href}
               target="_blank"
               rel="noreferrer"
-              className="mt-2.5 flex items-center gap-2.5 rounded-xl border border-[#e1e8ed] dark:border-[#2e3a47] px-3 py-2.5 hover:bg-[#f7f9fa] dark:hover:bg-[#1c2733] transition-colors"
+              className="mt-2.5 flex items-stretch gap-0 rounded-xl border border-[#e1e8ed] dark:border-[#2e3a47] overflow-hidden hover:bg-[#f7f9fa] dark:hover:bg-[#1c2733] transition-colors"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#eef3f6] dark:bg-[#243240] flex items-center justify-center shrink-0">
-                <LinkIcon className="w-4 h-4 text-[#788896]" />
+              {/* Thumbnail placeholder */}
+              <div className="w-[88px] bg-gradient-to-br from-[#eef3f6] to-[#dde8ef] dark:from-[#243240] dark:to-[#1c2733] flex items-center justify-center shrink-0">
+                <LinkIcon className="w-5 h-5 text-[#788896]" />
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] text-[#788896] truncate">{getDomain(firstUrl)}</div>
-                <div className="text-[13px] text-[#0f1419] dark:text-[#f1f3f5] truncate">{firstUrl}</div>
+              {/* Meta */}
+              <div className="min-w-0 flex-1 px-3 py-2.5">
+                <div className="text-[11px] text-[#788896] uppercase tracking-wide truncate">{getDomain(embedTarget.href)}</div>
+                <div className="text-[13px] font-semibold text-[#0f1419] dark:text-[#f1f3f5] line-clamp-1 mt-0.5 italic opacity-70">
+                  Tiêu đề trang sẽ hiển thị tại đây
+                </div>
+                <div className="text-[12px] text-[#788896] line-clamp-2 mt-0.5">
+                  Bluesky tự fetch og:title và og:description từ {getDomain(embedTarget.href)} khi đăng.
+                </div>
               </div>
             </a>
           )}

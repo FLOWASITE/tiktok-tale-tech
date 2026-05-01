@@ -51,10 +51,48 @@ export function extractFirstUrl(input: string): string | null {
 /** Lấy domain từ URL để hiển thị trên embed card. */
 export function getDomain(url: string): string {
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    const u = url.startsWith('http') ? url : `https://${url}`;
+    return new URL(u).hostname.replace(/^www\./, '');
   } catch {
     return url;
   }
+}
+
+/**
+ * Bluesky cắt URL hiển thị ~30 ký tự với ellipsis (giữ scheme + domain).
+ * vd: https://flowa.one/blog/this-is-a-very-long-slug → flowa.one/blog/this-is-a-v...
+ */
+export function truncateUrlForDisplay(url: string, max = 30): string {
+  if (!url) return '';
+  const stripped = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  if (stripped.length <= max) return stripped;
+  return stripped.slice(0, max - 1) + '…';
+}
+
+/**
+ * Heuristic: chỉ những handle thực sự có khả năng resolve DID mới hiển thị
+ * như link xanh đậm. Còn lại style "tentative" để user biết có thể không lên.
+ * Bluesky handle rules: chứa dấu chấm, không bắt đầu bằng số, ít nhất 1 ký tự
+ * trước '.', TLD hợp lệ.
+ */
+export function isLikelyResolvableMention(handle: string): boolean {
+  // handle có thể bắt đầu bằng @
+  const h = handle.replace(/^@/, '');
+  if (!h.includes('.')) return false;
+  if (/^[0-9]/.test(h)) return false;
+  // bsky.social hoặc custom domain với TLD ≥2 ký tự
+  const parts = h.split('.');
+  const tld = parts[parts.length - 1];
+  if (tld.length < 2) return false;
+  return true;
+}
+
+/** Hashtag bị publish-bluesky reject: pure-numeric hoặc >64 chars (tag không kèm '#'). */
+export function isInvalidHashtag(tag: string): boolean {
+  const t = tag.replace(/^#/, '');
+  if (/^\d+$/.test(t)) return true;
+  if (t.length > 64) return true;
+  return false;
 }
 
 /**
