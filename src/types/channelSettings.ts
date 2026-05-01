@@ -316,7 +316,7 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     hashtag_limit: 0,
     hashtag_position: 'none',
     line_break_style: 'normal',
-    link_position: 'inline',
+    link_position: 'body',
     tone_adjustment: 'concise',
     format_type: 'plain',
     format_description: 'Post ngắn 300 ký tự, casual, conversational. Tối đa 4 ảnh.',
