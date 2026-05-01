@@ -1529,37 +1529,25 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     const requestStartTime = Date.now();
     const formData: FormData = await req.json();
 
-    // Capture original channels (preserves 'blogger' for selected_channels persistence)
+    // Capture original channels (preserves alias spellings for selected_channels persistence)
     const originalChannels: string[] = Array.isArray(formData.channels) ? [...formData.channels] : [];
     const originalNewChannels: string[] = Array.isArray(formData.newChannels) ? [...(formData.newChannels as string[])] : [];
     const originalSingleChannel: string | undefined = formData.channel;
 
-    // Collapse 'blogger'/'wordpress' INTO 'website' (they share the website_content column + long-form pipeline).
-    // Previously we EXPANDED (added website BESIDE wordpress), which caused the AI to run the long-form
-    // pipeline TWICE in parallel — wasting quota and showing duplicate columns in the streaming UI.
-    // We still keep 'blogger'/'wordpress' in selected_channels at the end (see persistedSelectedChannels below).
-    const collapseLongFormAliases = (chs: string[]): string[] => {
-      if (!Array.isArray(chs)) return chs;
-      const hasLongFormAlias = chs.includes('blogger') || chs.includes('wordpress');
-      if (!hasLongFormAlias) return chs;
-      const filtered = chs.filter((c) => c !== 'blogger' && c !== 'wordpress');
-      if (!filtered.includes('website')) filtered.push('website');
-      return filtered;
-    };
+    // NOTE (2026-05): blogger / wordpress / website are now SEPARATE long-form channels
+    // (distinct columns, distinct prompts, distinct length & structure).
+    // We no longer collapse blogger/wordpress → website. Each runs its own AI call.
     if (formData.channels) {
-      formData.channels = normalizeChannels(collapseLongFormAliases(formData.channels));
+      formData.channels = normalizeChannels(formData.channels);
     }
     if (formData.newChannels) {
-      formData.newChannels = normalizeChannels(collapseLongFormAliases(formData.newChannels as string[])) as any;
+      formData.newChannels = normalizeChannels(formData.newChannels as string[]) as any;
     }
-    if (formData.channel === 'blogger' || formData.channel === 'wordpress') {
-      // For single-channel regenerate of blogger/wordpress, generate website body
-      formData.channel = 'website';
-    } else if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
+    if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
       formData.channel = CHANNEL_ALIASES[formData.channel];
     }
     console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
-    console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (wordpress/blogger collapse to website internally; UI keeps original alias)`);
+    console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (website/blogger/wordpress are now separate long-form channels)`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
