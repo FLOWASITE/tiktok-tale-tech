@@ -190,7 +190,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           const charBlocks: string[] = [];
           for (let i = 0; i < sorted.length; i++) {
             const cp = sorted[i];
-            const role = i === 0 ? 'MAIN CHARACTER' : `SECONDARY CHARACTER ${i}`;
+            const role = i === 0 ? 'MAIN CHARACTER' : `SUPPORTING CHARACTER ${i}`;
             const app = (cp.appearance || {}) as Record<string, string>;
             const traits: string[] = [];
             if (app.gender) traits.push(app.gender);
@@ -204,8 +204,16 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             if (cp.description) block += `\nDetails: ${cp.description}`;
             if (cp.wardrobe) block += `\nWardrobe: ${cp.wardrobe}.`;
             if (app.distinctive_features) block += `\nDistinctive: ${app.distinctive_features}.`;
-            block += `\nIMPORTANT: Maintain "${cp.name}" EXACT appearance consistently.`;
+            if (cp.default_voice_id) block += `\nVoice ID: ${cp.default_voice_id} (provider: ${cp.default_voice_provider || 'default'}).`;
+            block += `\nIMPORTANT: Maintain "${cp.name}" EXACT appearance consistently. Same face, hair, clothing, body proportions.`;
+            if (sorted.length > 1) {
+              block += ` Do NOT mix up with other characters.`;
+            }
             charBlocks.push(block);
+          }
+
+          if (sorted.length > 1) {
+            charBlocks.push(`[CHARACTER DISTINCTION] There are ${sorted.length} distinct characters. Each must have their own unique appearance as described above. Never merge or swap features between characters.`);
           }
 
           enrichedPrompt = `${charBlocks.join('\n\n')}\n\n${enrichedPrompt}`;
