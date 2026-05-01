@@ -1,0 +1,17 @@
+{
+  "client_id": "https://app.flowa.one/oauth/bluesky/client-metadata.json",
+  "client_name": "Flowa",
+  "client_uri": "https://app.flowa.one",
+  "logo_uri": "https://app.flowa.one/logo.png",
+  "tos_uri": "https://flowa.one/terms",
+  "policy_uri": "https://flowa.one/privacy",
+  "application_type": "web",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "scope": "atproto transition:generic",
+  "redirect_uris": ["https://app.flowa.one/oauth/bluesky/callback"],
+  "token_endpoint_auth_method": "private_key_jwt",
+  "token_endpoint_auth_signing_alg": "ES256",
+  "dpop_bound_access_tokens": true,
+  "jwks_uri": "https://app.flowa.one/oauth/bluesky/jwks.json"
+}
