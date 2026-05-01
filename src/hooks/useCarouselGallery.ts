@@ -318,12 +318,15 @@ export function useCarouselGallery() {
         imgs[0].createdAt
       );
 
+      const videoCount = imgs.filter(i => i.mediaType === 'video').length;
       folders.push({
         id,
         title: first.carouselTitle,
         source: first.source,
+        mediaType: first.mediaType,
         thumbnailUrls,
         imageCount: imgs.length,
+        videoCount,
         latestDate,
         createdByName: first.createdByName,
         createdByAvatar: first.createdByAvatar,
