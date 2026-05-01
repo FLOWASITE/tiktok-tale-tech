@@ -26,6 +26,8 @@ export interface ActiveScript {
   socialFormatId?: string;
   /** Nhãn ngắn để hiển thị: 'TikTok 30s · 9:16' */
   presetLabel?: string;
+  /** Character profile ID for consistency across scenes */
+  characterProfileId?: string;
 }
 
 interface ScriptToVideoState {
