@@ -158,9 +158,14 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
   }));
 
   const openLightbox = useCallback((index: number) => {
+    const img = visibleImages[index];
+    if (img?.mediaType === 'video' && img.videoUrl) {
+      window.open(img.videoUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     setLightboxIndex(index);
     setLightboxOpen(true);
-  }, []);
+  }, [visibleImages]);
 
   const handleDownload = useCallback(async (index: number) => {
     const img = visibleImages[index];
