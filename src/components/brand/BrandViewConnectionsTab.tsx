@@ -494,13 +494,46 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         return;
       }
 
+      // Handle Bluesky needs_reauth
+      if (resolved?.needs_reauth) {
+        toast.error('Cần kết nối lại', {
+          description: resolved?.error || 'App Password đã hết hạn hoặc bị thu hồi.',
+          duration: 8000,
+        });
+        refetch();
+        return;
+      }
+
+      // Handle rate limiting (Bluesky or others)
+      if (resolved?.errorCode === 'RATE_LIMITED') {
+        toast.warning('Bị giới hạn tốc độ', {
+          description: resolved?.error || 'Vui lòng thử lại sau 1-2 phút.',
+          duration: 6000,
+        });
+        return;
+      }
+
+      // Handle PDS/server unreachable (transient)
+      if (resolved?.errorCode === 'PDS_UNREACHABLE' || resolved?.errorCode === 'PDS_TIMEOUT') {
+        toast.warning('Máy chủ Bluesky không phản hồi', {
+          description: resolved?.error || 'Vui lòng thử lại sau.',
+          duration: 6000,
+        });
+        return;
+      }
+
       if (error || !resolved?.success) {
+        // Log diagnostics for debugging
+        if (resolved?.diagnostics) {
+          console.warn('[Test Connection Diagnostics]', resolved.diagnostics);
+        }
         throw new Error(resolved?.error || error?.message || 'Không thể xác minh kết nối');
       }
 
       const displayName = resolved.data?.username || resolved.data?.name || resolved.data?.oa_name || resolved.data?.accountInfo?.name || 'Tài khoản';
+      const extraInfo = resolved.data?.followersCount != null ? ` (${resolved.data.followersCount} followers)` : '';
       toast.success('Xác minh thành công!', {
-        description: `Đã kết nối với ${displayName}`,
+        description: `Đã kết nối với ${displayName}${extraInfo}`,
       });
 
       // Refetch connections to get updated data
