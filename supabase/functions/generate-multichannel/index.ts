@@ -3618,6 +3618,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   pinterest_content: channelResults.pinterest || null,
                   pinterest_title: channelResults.pinterest_title || null,
                   bluesky_content: channelResults.bluesky || null,
+                  blogger_content: channels.includes('blogger') ? (channelResults.blogger || null) : null,
+                  wordpress_content: channels.includes('wordpress') ? (channelResults.wordpress || null) : null,
                 }))
                 .select()
                 .single();
