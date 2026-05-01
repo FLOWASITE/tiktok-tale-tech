@@ -2088,14 +2088,13 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
       };
 
       const svg = await satori(element as any, { width: imageWidth, height: imageHeight, fonts });
-      const encoder = new TextEncoder();
-      const svgBytes = encoder.encode(svg);
+      const pngBytes = await rasterizeSvgToPng(svg, imageWidth, imageHeight);
 
       let finalImageUrl: string;
       if (contentId && channel) {
-        finalImageUrl = await uploadToStorage(svgBytes, contentId, channel, organizationId);
+        finalImageUrl = await uploadToStorage(pngBytes, contentId, channel, organizationId);
       } else {
-        finalImageUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+        finalImageUrl = pngBytesToDataUrl(pngBytes);
       }
 
       console.log(`[overlay-text-canvas] Carousel overlay complete: ${finalImageUrl.substring(0, 80)}...`);
@@ -2105,7 +2104,7 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
           imageUrl: finalImageUrl,
           textRendered: displayText,
           fontSize: fontSizePx,
-          format: 'svg',
+          format: 'png',
           dimensions: { width: imageWidth, height: imageHeight },
           mode: 'carousel_overlay',
         }),
