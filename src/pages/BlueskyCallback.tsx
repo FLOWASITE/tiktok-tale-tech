@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { ChannelIcon } from '@/components/ChannelIcon';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 
 const ERROR_MAP: Record<string, { title: string; message: string; hint?: string }> = {
   bluesky_missing_params: {
