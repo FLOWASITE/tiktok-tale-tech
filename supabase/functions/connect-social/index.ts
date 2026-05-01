@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 interface ConnectRequest {
-  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'website' | 'pinterest';
+  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'website' | 'pinterest' | 'bluesky';
   organizationId?: string;
   brandTemplateId?: string;
   accessToken?: string;
