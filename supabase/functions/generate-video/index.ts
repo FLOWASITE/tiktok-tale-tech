@@ -254,7 +254,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             aspectRatio: aspect_ratio,
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
-            startingFrameUrl: starting_frame_url,
+            startingFrameUrl: characterRefUrl,
           }, apiKey);
           videoUrl = result.videoUrl;
         } else if (provider === 'poyo') {
@@ -268,7 +268,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
               aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
               duration,
               resolution: resolution === '720p' ? '720p' : '1080p',
-              startingFrameUrl: starting_frame_url,
+              startingFrameUrl: characterRefUrl,
               negativePrompt: negative_prompt,
             }, apiKey);
             videoUrl = result.videoUrl;
@@ -284,7 +284,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
                 aspectRatio: aspect_ratio,
                 resolution: resolution === '720p' ? '720p' : '1080p',
                 duration, negativePrompt: negative_prompt,
-                startingFrameUrl: starting_frame_url,
+                startingFrameUrl: characterRefUrl,
               }, gKey);
               videoUrl = result.videoUrl;
               syncProvider = 'geminigen';
@@ -344,7 +344,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           aspectRatio: aspect_ratio,
           resolution: resolution === '720p' ? '720p' : '1080p',
           duration, negativePrompt: negative_prompt,
-          startingFrameUrl: starting_frame_url,
+          startingFrameUrl: characterRefUrl,
         }, apiKey);
       } else if (provider === 'poyo') {
         const apiKey = Deno.env.get("POYO_API_KEY");
@@ -356,7 +356,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           aspectRatio: (aspect_ratio as '16:9' | '9:16' | '1:1') ?? '9:16',
           duration,
           resolution: resolution === '720p' ? '720p' : '1080p',
-          startingFrameUrl: starting_frame_url,
+          startingFrameUrl: characterRefUrl,
           negativePrompt: negative_prompt,
         }, apiKey);
       } else {
@@ -381,7 +381,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             aspectRatio: aspect_ratio,
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
-            startingFrameUrl: starting_frame_url,
+            startingFrameUrl: characterRefUrl,
           }, geminigenKey);
           actualProvider = 'geminigen';
 
