@@ -111,7 +111,7 @@ export function useCharacterProfiles() {
         .select()
         .single();
       if (error) throw error;
-      return data as CharacterProfile;
+      return data as unknown as CharacterProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
