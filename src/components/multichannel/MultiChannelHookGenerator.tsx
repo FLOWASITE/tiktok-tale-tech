@@ -58,7 +58,7 @@ import {
   ArrowUpDown,
   Eye,
 } from 'lucide-react';
-import { BloggerIcon, WordPressIcon, PinterestIcon } from '@/components/icons/SocialIcons';
+import { BloggerIcon, WordPressIcon, PinterestIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { MultiChannelHook, useMultiChannelHooks } from '@/hooks/useMultiChannelHooks';
@@ -123,7 +123,7 @@ const channelIcons: Record<Channel, React.ComponentType<{ className?: string }>>
   telegram: Send,
   tiktok: Music2,
   threads: AtSign,
-  bluesky: Globe,
+  bluesky: BlueskyIcon,
 };
 
 // Skeleton loading component for hook cards

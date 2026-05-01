@@ -81,7 +81,7 @@ import {
    SkipForward,
    Zap,
 } from 'lucide-react';
-import { XIcon, WordPressIcon, BloggerIcon, ZaloIcon } from '@/components/icons/SocialIcons';
+import { XIcon, WordPressIcon, BloggerIcon, ZaloIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -200,7 +200,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,
-  bluesky: <Globe className="w-4 h-4" />,
+  bluesky: <BlueskyIcon className="w-4 h-4" />,
 };
 
 const MAX_TOPIC_LENGTH = 400;

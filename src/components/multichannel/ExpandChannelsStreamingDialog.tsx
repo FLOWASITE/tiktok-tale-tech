@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, CheckCircle2, X, Loader2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Music2, AtSign, Sparkles } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import {
   Dialog,
@@ -47,7 +47,7 @@ const CHANNEL_ICONS: Record<Channel, React.ReactNode> = {
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,
-  bluesky: <Globe className="w-4 h-4" />,
+  bluesky: <BlueskyIcon className="w-4 h-4" />,
 };
 
 const ALL_CHANNEL_VALUES: Channel[] = [
