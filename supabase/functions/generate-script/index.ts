@@ -1526,7 +1526,7 @@ function getOutputFormat(purpose: string, characterTypeName: string, duration: n
 [CHARACTER ACTION]
 (Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
 
-[DIALOGUE - Verbatim for Minimax]
+[DIALOGUE - max ~${getWordBudget(sceneSec)} từ cho ${sceneSec}s]
 "..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
 
 [TONE & DELIVERY]
