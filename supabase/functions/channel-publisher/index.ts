@@ -276,13 +276,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             const selectedChannels: string[] = contentData.selected_channels || [];
             const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
 
-            // For blogger/wordpress: mark blogger/wordpress=published if user selected it; fall back to website otherwise
-            let effectiveChannelKey = channelKey;
-            if (action === 'blogger') {
-              effectiveChannelKey = selectedChannels.includes('blogger') ? 'blogger' : 'website';
-            } else if (action === 'wordpress') {
-              effectiveChannelKey = selectedChannels.includes('wordpress') ? 'wordpress' : 'website';
-            }
+            // 2026-05: blogger/wordpress are independent channels.
+            // channelKey from CHANNEL_STATUS_KEY_MAP already resolves correctly.
+            const effectiveChannelKey = channelKey;
             channelStatuses[effectiveChannelKey] = 'published';
 
             const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
