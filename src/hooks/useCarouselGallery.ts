@@ -345,7 +345,8 @@ export function useCarouselGallery() {
   const filteredFolders = useMemo(() => {
     let result = contentFolders;
     if (sourceFilter !== 'all') {
-      result = result.filter(f => f.source === sourceFilter);
+      if (sourceFilter === 'video') result = result.filter(f => f.mediaType === 'video');
+      else result = result.filter(f => f.source === sourceFilter);
     }
     if (channelFilter !== 'all') {
       result = result.filter(f => f.channel === channelFilter);
