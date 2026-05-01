@@ -406,7 +406,7 @@ export function DirectPublishButton({
   if (!platform) return null;
 
   const isAlreadyPublished = channelStatus === 'published';
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website', 'google_business', 'blogger', 'wordpress'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'zalo_oa', 'website', 'google_business', 'blogger', 'wordpress', 'wordpress_com', 'bluesky'].includes(platform);
 
   if (!isSupported) {
     if (iconOnly) {
