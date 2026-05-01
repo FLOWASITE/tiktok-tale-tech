@@ -1,6 +1,56 @@
 import satori from "https://esm.sh/satori@0.10.14?bundle";
+import { Resvg, initWasm } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// ─── Resvg WASM init (once per isolate) ───
+let _resvgReady: Promise<void> | null = null;
+function ensureResvg(): Promise<void> {
+  if (!_resvgReady) {
+    _resvgReady = (async () => {
+      try {
+        const wasmRes = await fetch("https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm");
+        if (!wasmRes.ok) throw new Error(`Resvg wasm fetch failed: ${wasmRes.status}`);
+        const wasmBytes = await wasmRes.arrayBuffer();
+        await initWasm(wasmBytes);
+        console.log("[overlay-text-canvas] Resvg WASM initialized");
+      } catch (e) {
+        // Lazy reset so next request can retry
+        _resvgReady = null;
+        throw e;
+      }
+    })();
+  }
+  return _resvgReady;
+}
+
+/**
+ * Rasterize Satori SVG string → PNG bytes via Resvg.
+ * Throws on failure (we never silently fall back to SVG, since downstream
+ * publish-* functions reject SVG and the post would lose its image).
+ */
+async function rasterizeSvgToPng(svg: string, width: number, _height: number): Promise<Uint8Array> {
+  await ensureResvg();
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "width", value: width },
+    font: { loadSystemFonts: false },
+    background: "rgba(255,255,255,0)",
+  });
+  const png = resvg.render();
+  const bytes = png.asPng();
+  png.free();
+  resvg.free();
+  return bytes;
+}
+
+function pngBytesToDataUrl(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return `data:image/png;base64,${btoa(bin)}`;
+}
 import {
   getBottomCenterLogoSafeArea,
   getFooterLayoutProfile,
@@ -596,17 +646,16 @@ async function uploadToStorage(
 
   const timestamp = Date.now();
   const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
-  const fileName = `social/${orgPath}/${contentId}/${channel}-with-text-${timestamp}.svg`;
+  const fileName = `social/${orgPath}/${contentId}/${channel}-with-text-${timestamp}.png`;
 
-  console.log(`[overlay-text-canvas] Uploading to storage: ${fileName}`);
+  console.log(`[overlay-text-canvas] Uploading PNG to storage: ${fileName} (${imageBytes.byteLength} bytes)`);
 
-  // Use Blob to avoid request body size issues with large SVGs
-  const blob = new Blob([imageBytes], { type: "image/svg+xml" });
+  const blob = new Blob([imageBytes], { type: "image/png" });
 
   const { error: uploadError } = await supabase.storage
     .from("carousel-images")
     .upload(fileName, blob, {
-      contentType: "image/svg+xml",
+      contentType: "image/png",
       upsert: true,
       duplex: "half",
     });
@@ -1565,17 +1614,16 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
       const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
       const svg2 = await satori(element2 as any, { width: imageWidth, height: imageHeight, fonts: fonts2 });
 
-      const encoder2 = new TextEncoder();
-      const svgBytes2 = encoder2.encode(svg2);
+      const pngBytes2 = await rasterizeSvgToPng(svg2, imageWidth, imageHeight);
       let finalUrl2: string;
       if (contentId && channel) {
-        finalUrl2 = await uploadToStorage(svgBytes2, contentId, channel, organizationId);
+        finalUrl2 = await uploadToStorage(pngBytes2, contentId, channel, organizationId);
       } else {
-        finalUrl2 = `data:image/svg+xml;base64,${btoa(svg2)}`;
+        finalUrl2 = pngBytesToDataUrl(pngBytes2);
       }
 
       return new Response(
-        JSON.stringify({ success: true, imageUrl: finalUrl2, format: 'svg', layout: sr.layout, dimensions: { width: imageWidth, height: imageHeight } }),
+        JSON.stringify({ success: true, imageUrl: finalUrl2, format: 'png', layout: sr.layout, dimensions: { width: imageWidth, height: imageHeight } }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -2040,14 +2088,13 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
       };
 
       const svg = await satori(element as any, { width: imageWidth, height: imageHeight, fonts });
-      const encoder = new TextEncoder();
-      const svgBytes = encoder.encode(svg);
+      const pngBytes = await rasterizeSvgToPng(svg, imageWidth, imageHeight);
 
       let finalImageUrl: string;
       if (contentId && channel) {
-        finalImageUrl = await uploadToStorage(svgBytes, contentId, channel, organizationId);
+        finalImageUrl = await uploadToStorage(pngBytes, contentId, channel, organizationId);
       } else {
-        finalImageUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+        finalImageUrl = pngBytesToDataUrl(pngBytes);
       }
 
       console.log(`[overlay-text-canvas] Carousel overlay complete: ${finalImageUrl.substring(0, 80)}...`);
@@ -2057,7 +2104,7 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
           imageUrl: finalImageUrl,
           textRendered: displayText,
           fontSize: fontSizePx,
-          format: 'svg',
+          format: 'png',
           dimensions: { width: imageWidth, height: imageHeight },
           mode: 'carousel_overlay',
         }),
@@ -2152,25 +2199,22 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
 
     console.log(`[overlay-text-canvas] SVG generated: ${svg.length} chars`);
 
-    // Convert SVG string to Uint8Array
-    const encoder = new TextEncoder();
-    const svgBytes = encoder.encode(svg);
+    // Rasterize Satori SVG → PNG (downstream publish-* functions reject SVG)
+    const pngBytes = await rasterizeSvgToPng(svg, imageWidth, imageHeight);
 
     let finalImageUrl: string;
 
     if (contentId && channel) {
       finalImageUrl = await uploadToStorage(
-        svgBytes,
+        pngBytes,
         contentId,
         channel,
         organizationId
       );
       console.log(`[overlay-text-canvas] Uploaded to: ${finalImageUrl}`);
     } else {
-      // Return as base64 data URL
-      const base64 = btoa(svg);
-      finalImageUrl = `data:image/svg+xml;base64,${base64}`;
-      console.log(`[overlay-text-canvas] Returning as base64 data URL`);
+      finalImageUrl = pngBytesToDataUrl(pngBytes);
+      console.log(`[overlay-text-canvas] Returning as PNG data URL`);
     }
 
     console.log(`[overlay-text-canvas] === SUCCESS ===`);
@@ -2185,7 +2229,7 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
         position,
         typographyStyle,
         fontSize,
-        format: 'svg',
+        format: 'png',
         dimensions: { width: imageWidth, height: imageHeight },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -125,6 +125,12 @@ async function publishToFacebook(
       console.warn(
         `[FB] Đã loại ${mediaUrls.length - filtered.length} ảnh SVG (Facebook không hỗ trợ SVG). Còn lại: ${filtered.length}`
       );
+      if (filtered.length === 0) {
+        console.error(
+          `[FB] ⚠️ Tất cả ${mediaUrls.length} ảnh đều là SVG → post sẽ KHÔNG có ảnh. ` +
+          `Kiểm tra overlay-text-canvas: phải rasterize SVG → PNG trước khi upload.`
+        );
+      }
     }
     mediaUrls = filtered.length > 0 ? filtered : undefined;
   }
