@@ -1,101 +1,49 @@
 
-# Nâng cấp đồng nhất nhân vật (Phase 2)
+# Hoàn thiện Character Consistency System
 
-Phase 1 đã triển khai: bảng `character_profiles`, CRUD UI, CharacterPicker trên QuickClip, prompt injection trong `generate-video` và `generate-video-prompt`.
+## Tổng quan
 
-Phase 2 sẽ bổ sung 4 khả năng chính:
+Hiện tại MultiCharacterPicker đã tích hợp vào QuickClip và Storyboard. Còn lại cần hoàn thiện:
 
----
-
-## 1. Multi-Reference Images (nhiều ảnh tham chiếu)
-
-**Hiện tại**: Mỗi nhân vật chỉ có 1 `reference_image_url`.
-
-**Nâng cấp**:
-- Thêm cột `reference_images jsonb default '[]'` vào `character_profiles` (mảng URLs, tối đa 5 ảnh: chính diện, nghiêng, toàn thân, cận mặt, trang phục).
-- UI cho phép upload nhiều ảnh, kéo thả sắp xếp, gắn label (front/side/full-body/close-up/outfit).
-- Edge function chọn ảnh phù hợp nhất theo context: scene đầu dùng ảnh chính diện, scene cận cảnh dùng close-up.
-
-**Files thay đổi**:
-- Migration: thêm cột `reference_images`
-- `CharacterProfileManager.tsx`: multi-image upload UI
-- `useCharacterProfiles.ts`: cập nhật types
-- `generate-video/index.ts`: smart image selection logic
+1. **ScriptFormStepper**: Vẫn dùng single CharacterPicker -- nâng lên MultiCharacterPicker
+2. **Edge function `generate-video`**: Chỉ xử lý 1 `character_profile_id` -- cần hỗ trợ mảng `character_profile_ids`
+3. **Edge function `generate-script`**: Tương tự, inject multi-character vào script generation
+4. **ScriptToVideoContext**: `characterProfileId` (string) cần thành `characterProfileIds` (string[]) để propagate multi-character từ script sang video
 
 ---
 
-## 2. Storyboard Batch Character Injection
+## 1. ScriptFormStepper -- MultiCharacterPicker
 
-**Hiện tại**: `StoryboardVideoTab.runBatchGenerate()` gọi `generateVideo()` không truyền `character_profile_id`, nên batch generate không có character consistency.
+Thay `CharacterPicker` bằng `MultiCharacterPicker` trong form tạo kịch bản. Cập nhật `formData.character_profile_id` thành `character_profile_ids: string[]`.
 
-**Nâng cấp**:
-- Thêm `CharacterPicker` vào StoryboardVideoTab (phía trên nút "Quay tất cả").
-- Khi batch generate, mỗi scene tự động truyền `character_profile_id` + inject character block vào prompt.
-- Hiển thị badge nhân vật đang active trên mỗi scene card.
+## 2. ScriptToVideoContext -- Multi-character propagation
 
-**Files thay đổi**:
-- `StoryboardVideoTab.tsx`: thêm CharacterPicker + truyền character vào loop generate
+- Thêm `characterProfileIds?: string[]` vào `ActiveScript` interface (giữ backward compat với `characterProfileId`)
+- Khi chuyển script sang Video Studio, propagate danh sách nhân vật
 
----
+## 3. Edge function `generate-video` -- Multi-character prompt injection
 
-## 3. Script-to-Video Character Integration
+- Accept `character_profile_ids: string[]` (fallback `character_profile_id` cho backward compat)
+- Fetch tất cả profiles, build block cho từng nhân vật với tag `[MAIN CHARACTER]` / `[SECONDARY CHARACTER N]`
+- Reference image uu tien nhan vat chinh
 
-**Hiện tại**: `ScriptNew` page và `ScriptToVideoContext` không biết về character profiles. Khi viết kịch bản, không có cách chọn nhân vật để AI giữ nhất quán từ khâu viết script đến khâu quay video.
+## 4. Edge function `generate-script` -- Multi-character in script AI
 
-**Nâng cấp**:
-- Thêm `characterProfileId` vào `ActiveScript` interface trong `ScriptToVideoContext`.
-- Thêm `CharacterPicker` vào ScriptNew page (cạnh chọn video type/character type).
-- Khi tạo script AI (`generate-script`), inject structured character description vào prompt thay vì chỉ dùng `characterType` generic.
-- Khi chuyển script sang Video Studio, character profile tự động propagate qua context.
+- Accept `character_profile_ids` array
+- Inject structured description cho moi nhan vat vao continuityRules
 
-**Files thay đổi**:
-- `ScriptToVideoContext.tsx`: thêm `characterProfileId` vào `ActiveScript`
-- `ScriptNew.tsx` hoặc component con: thêm CharacterPicker
-- `generate-script/index.ts`: inject character profile details vào continuityRules + mỗi PROMPT block
+## 5. Script types update
+
+- `ScriptFormData.character_profile_ids?: string[]` thay cho `character_profile_id`
 
 ---
 
-## 4. Last-Frame Chaining (Scene Continuity)
+## Technical details
 
-**Hiện tại**: Mỗi scene dùng cùng 1 reference image tĩnh. Không có liên kết visual giữa scene trước và scene sau.
-
-**Nâng cấp**:
-- Khi batch generate (Storyboard), sau khi scene N hoàn thành, tự động extract thumbnail/last-frame URL từ video đã tạo.
-- Truyền URL đó làm `starting_frame_url` cho scene N+1, tạo chuỗi visual liên tục.
-- Fallback: nếu scene trước chưa xong hoặc không có video URL, dùng reference image gốc của character.
-
-**Files thay đổi**:
-- `StoryboardVideoTab.tsx`: sequential batch logic (chờ scene trước xong rồi mới submit scene sau)
-- `generate-video/index.ts`: ưu tiên `previous_scene_url` > `character reference` > none
-
----
-
-## Technical Details
-
-### Database Migration
-```sql
-ALTER TABLE public.character_profiles 
-  ADD COLUMN IF NOT EXISTS reference_images jsonb DEFAULT '[]';
-```
-
-### ScriptToVideoContext Changes
-```typescript
-export interface ActiveScript {
-  // ...existing fields
-  characterProfileId?: string;
-}
-```
-
-### Batch Chaining Logic (pseudo)
-```
-for scene in scenes:
-  starting_frame = previousVideoUrl || characterRefImage || null
-  result = await generateVideo({ ...scene, starting_frame_url, character_profile_id })
-  wait for completion
-  previousVideoUrl = result.video_url  // for next scene
-```
-
-### Estimated Scope
-- 1 migration (add column)
-- 5 files modified (StoryboardVideoTab, ScriptToVideoContext, ScriptNew/component, CharacterProfileManager, generate-script edge function)
-- 1 file minor update (generate-video edge function)
+### Files modified
+- `src/components/script/ScriptFormStepper.tsx` -- swap CharacterPicker -> MultiCharacterPicker
+- `src/contexts/ScriptToVideoContext.tsx` -- add `characterProfileIds` to ActiveScript
+- `src/types/script.ts` -- update ScriptFormData type
+- `supabase/functions/generate-video/index.ts` -- multi-character fetch + prompt build
+- `supabase/functions/generate-script/index.ts` -- multi-character injection
+- `mem://features/video/character-consistency-vn.md` -- update docs
