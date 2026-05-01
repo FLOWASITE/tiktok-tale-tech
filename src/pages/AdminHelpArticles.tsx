@@ -88,7 +88,7 @@ const ROUTES = [
   '/multichannel',
   '/multichannel/new',
   '/calendar',
-  '/scripts',
+  '/videos',
   '/carousel',
   '/admin',
   '/admin/ai',
