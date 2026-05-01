@@ -3,16 +3,18 @@ import { Helmet } from 'react-helmet-async';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign } from 'lucide-react';
+import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard } from 'lucide-react';
 import { QuickClipTab } from '@/components/video/QuickClipTab';
 import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
 import { VideoGalleryTab } from '@/components/video/VideoGalleryTab';
 import { VideoCostTracker } from '@/components/video/VideoCostTracker';
 import { ScriptLinkBanner } from '@/components/video/ScriptLinkBanner';
+import { ScriptsTab } from '@/components/video/ScriptsTab';
 import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
 
 const TABS = [
+  { value: 'scripts', label: 'Kịch bản', icon: Clapperboard, hint: 'Viết kịch bản AI cho video' },
   { value: 'quick', label: 'Quick Clip', icon: Wand2, hint: 'Một prompt → một video 5–10s' },
   { value: 'storyboard', label: 'Từ Storyboard', icon: Film, hint: 'Script → nhiều scene → video dài' },
   { value: 'audio', label: 'Audio Studio', icon: Music4, hint: 'Voiceover · Music · Subtitle' },
@@ -27,13 +29,22 @@ interface FromScriptState {
     script: ActiveScript;
     activeSceneIndex?: number;
   };
+  tab?: string;
+  prefillTopic?: string;
+  topicHistoryId?: string;
+  action?: string;
 }
 
 function VideoStudioInner() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabValue>('quick');
+  const [tab, setTab] = useState<TabValue>('scripts');
   const { setActiveScript } = useScriptToVideo();
+
+  // Script creation state from navigation
+  const [prefillTopic, setPrefillTopic] = useState<string | undefined>();
+  const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
+  const [autoOpenNew, setAutoOpenNew] = useState(false);
 
   // Hydrate from navigation state once
   useEffect(() => {
@@ -41,11 +52,29 @@ function VideoStudioInner() {
     if (state?.fromScript?.script) {
       setActiveScript(state.fromScript.script, state.fromScript.activeSceneIndex ?? 0);
       setTab('quick');
-      // Clear state to avoid re-hydration on refresh / remount
+      navigate(location.pathname, { replace: true });
+    } else if (state?.tab) {
+      setTab(state.tab as TabValue);
+      if (state.prefillTopic) {
+        setPrefillTopic(state.prefillTopic);
+        setTopicHistoryId(state.topicHistoryId);
+      }
+      if (state.action === 'new') {
+        setAutoOpenNew(true);
+      }
       navigate(location.pathname, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Also check URL search params for tab
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && TABS.some(t => t.value === tabParam)) {
+      setTab(tabParam as TabValue);
+    }
+  }, [location.search]);
 
   return (
     <>
@@ -65,8 +94,7 @@ function VideoStudioInner() {
             Biến ý tưởng thành video sẵn-đăng
           </h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Sinh video ngắn 9:16 (TikTok/Reels/Shorts) hoặc landscape 16:9 (YouTube) với GeminiGen Veo & PoYo Seedance.
-            Có brand voice, compliance, voiceover và subtitle tự động.
+            Viết kịch bản AI, sinh video ngắn 9:16 (TikTok/Reels/Shorts) hoặc landscape 16:9 (YouTube) với GeminiGen Veo & PoYo Seedance.
           </p>
         </header>
 
@@ -74,7 +102,7 @@ function VideoStudioInner() {
         <ScriptLinkBanner onJumpToTab={(t) => setTab(t)} />
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto p-1 bg-muted/50">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
             {TABS.map((t) => {
               const Icon = t.icon;
               return (
@@ -92,6 +120,14 @@ function VideoStudioInner() {
               );
             })}
           </TabsList>
+
+          <TabsContent value="scripts" className="mt-0">
+            <ScriptsTab
+              prefillTopic={prefillTopic}
+              topicHistoryId={topicHistoryId}
+              autoOpenNew={autoOpenNew}
+            />
+          </TabsContent>
 
           <TabsContent value="quick" className="mt-0">
             <Card className="border-border/60">
