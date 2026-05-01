@@ -1,64 +1,28 @@
 
-# Tối ưu nội dung kịch bản & thời lượng video
+## Problem
 
-## Vấn đề hiện tại
+All seasonal/festival events are dated in 2025 (both in the `curated_events` database table and the hardcoded `SEASONAL_EVENTS` constant). Since it's now May 2026, the "upcoming events" filter removes everything, so no seasonal suggestions appear.
 
-Phân tích code `generate-script/index.ts` cho thấy mấy điểm yếu:
+## Plan
 
-1. **Tốc độ đọc (WPM) không được kiểm soát**: System prompt không hướng dẫn AI về số từ/giây phù hợp. Tiếng Việt nói tự nhiên khoảng 2.5-3 từ/giây, nhưng AI hay nhồi quá nhiều lời thoại vào 1 prompt ngắn (5-10s) hoặc quá ít vào prompt dài.
+### 1. Update `curated_events` table with 2026 events (migration)
 
-2. **Line 2001 sai cố định**: `Mỗi ${blockLabel} ≈ 8 giây` — hardcoded 8s bất kể platform spec đã tính scenePlan chi tiết (có thể 2s hook, 3.5s body).
+Insert new rows for 2026 Vietnamese seasonal events (May 2026 onwards):
+- Ngày của Mẹ (11/05/2026), Ngày của Cha (21/06/2026), Quốc khánh 2/9, Trung Thu, Halloween, 20/10, 11/11, Black Friday, Giáng Sinh, Tất Niên 2026, Tết 2027
 
-3. **Dialogue length không ràng buộc theo duration**: Prompt format yêu cầu DIALOGUE nhưng không giới hạn số từ/câu theo thời lượng scene.
+Each with appropriate `suggested_topics`, `suggested_angles`, `event_type`, and `priority`.
 
-4. **Thiếu content density guideline**: Không có hướng dẫn về "1 ý chính / scene" hay "max 2 câu / 5s scene".
+### 2. Update `SEASONAL_EVENTS` in `src/types/topicDiscovery.ts`
 
-## Thay đổi kỹ thuật
+Replace hardcoded 2025 dates with a dynamic year calculation so the static calendar auto-recurs annually. Events that have already passed this year will show next year's date.
 
-### 1. Thêm WPM constraint vào system prompt (generate-script/index.ts)
+### 3. Update `UpcomingEventsCard` date logic
 
-Trong `buildSystemPrompt()`, thêm section mới "CONTENT DENSITY RULES":
+Add a fallback: if an event's date is past, bump it to the next occurrence (same month/day, next year). This prevents the card from going blank between calendar refreshes.
 
-```
-## CONTENT DENSITY — BẮT BUỘC
-- Tốc độ nói tiếng Việt tự nhiên: ~2.5 từ/giây (150 WPM)
-- Scene Xs → tối đa X×2.5 = Y từ dialogue
-- Mỗi scene CHỈ truyền tải 1 Ý CHÍNH duy nhất
-- KHÔNG nhồi nhiều ý vào 1 scene ngắn
-- Scene ≤5s: max 2 câu ngắn (12 từ)
-- Scene 6-8s: max 3 câu (18-20 từ)  
-- Scene 9-10s: max 4 câu (25 từ)
-```
+## Technical Details
 
-### 2. Fix hardcoded "≈ 8 giây" (line 2001)
-
-Thay bằng giá trị dynamic từ `spec.avgSceneSec` hoặc `Math.round(duration / promptCount)`.
-
-### 3. Thêm word count vào scene plan format
-
-Trong `formatSceneDurationPlan()`, thêm word budget:
-```
-PROMPT 1: 2s (~5 từ) · PROMPT 2: 3.5s (~9 từ) · ...
-```
-
-### 4. Cập nhật self-check checklist
-
-Thêm mục kiểm tra content density:
-```
-□ DIALOGUE CÓ VỪA THỜI LƯỢNG?
-  - Mỗi scene Xs có ≤ X×2.5 từ dialogue?
-  - Không có scene nào im lặng >2s (trừ visual-only scene)?
-  - Không có scene nào nhồi quá 4 từ/giây?
-```
-
-### 5. Cập nhật output format template
-
-Thêm word budget hint vào mỗi PROMPT template:
-```
-[DIALOGUE - max ~Y từ cho Xs scene]
-```
-
-### Files thay đổi
-
-- `supabase/functions/generate-script/index.ts` — tất cả thay đổi trên
-- `.lovable/memory/features/video/smart-model-pick-vn.md` — ghi nhận content density rules
+- Migration: `INSERT INTO curated_events` with 10-12 rows for H2 2026 + Q1 2027
+- `topicDiscovery.ts`: Replace `new Date(2025, ...)` with a helper `nextOccurrence(month, day)` that returns the nearest future date
+- `UpcomingEventsCard.tsx`: No structural changes needed once dates are dynamic
+- `DiscoveryFeedPanel.tsx`: Already handles rendering correctly; the only issue is empty data
