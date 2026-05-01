@@ -446,12 +446,20 @@ export const CONTENT_TIER_LABELS: {
   },
 ];
 
-// Vietnamese seasonal events
+// Helper: returns the nearest future occurrence of a month/day
+function nextOccurrence(month: number, day: number): Date {
+  const now = new Date();
+  const thisYear = new Date(now.getFullYear(), month, day);
+  if (thisYear > now) return thisYear;
+  return new Date(now.getFullYear() + 1, month, day);
+}
+
+// Vietnamese seasonal events (auto-recur annually)
 export const SEASONAL_EVENTS: SeasonalEvent[] = [
   {
     id: 'tet',
     name: 'Tết Nguyên Đán',
-    date: new Date(2025, 0, 29), // Dynamic based on lunar calendar
+    date: nextOccurrence(1, 6), // ~early Feb (approximate, varies by lunar calendar)
     type: 'holiday',
     suggestedTopics: [
       'Chúc mừng năm mới - Thông điệp từ thương hiệu',
@@ -462,7 +470,7 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
   {
     id: 'valentine',
     name: 'Valentine',
-    date: new Date(2025, 1, 14),
+    date: nextOccurrence(1, 14),
     type: 'event',
     suggestedTopics: [
       'Quà tặng Valentine ý nghĩa',
@@ -471,9 +479,64 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
     ],
   },
   {
+    id: 'womens-day-intl',
+    name: 'Ngày Quốc tế Phụ nữ 8/3',
+    date: nextOccurrence(2, 8),
+    type: 'holiday',
+    suggestedTopics: [
+      'Tri ân phụ nữ 8/3',
+      'Câu chuyện phụ nữ truyền cảm hứng',
+      'Ưu đãi đặc biệt dành cho phái đẹp',
+    ],
+  },
+  {
+    id: 'mothers-day',
+    name: 'Ngày của Mẹ',
+    date: nextOccurrence(4, 10),
+    type: 'holiday',
+    suggestedTopics: [
+      'Quà tặng mẹ ý nghĩa',
+      'Tri ân mẹ từ thương hiệu',
+      'Content gia đình cảm xúc',
+    ],
+  },
+  {
+    id: 'fathers-day',
+    name: 'Ngày của Cha',
+    date: nextOccurrence(5, 21),
+    type: 'holiday',
+    suggestedTopics: [
+      'Quà tặng cha',
+      'Tribute cha - câu chuyện cảm động',
+      'Family bonding content',
+    ],
+  },
+  {
+    id: 'national-day',
+    name: 'Quốc khánh 2/9',
+    date: nextOccurrence(8, 2),
+    type: 'holiday',
+    suggestedTopics: [
+      'Tự hào Việt Nam',
+      'Du lịch nghỉ lễ 2/9',
+      'Văn hóa dân tộc',
+    ],
+  },
+  {
+    id: 'mid-autumn',
+    name: 'Tết Trung Thu',
+    date: nextOccurrence(8, 25),
+    type: 'holiday',
+    suggestedTopics: [
+      'Bánh Trung Thu',
+      'Quà tặng Trung Thu',
+      'Family content đèn lồng',
+    ],
+  },
+  {
     id: 'womens-day',
-    name: 'Ngày Phụ Nữ Việt Nam',
-    date: new Date(2025, 9, 20),
+    name: 'Ngày Phụ Nữ Việt Nam 20/10',
+    date: nextOccurrence(9, 20),
     type: 'holiday',
     suggestedTopics: [
       'Tri ân phụ nữ Việt Nam',
@@ -484,10 +547,10 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
   {
     id: 'black-friday',
     name: 'Black Friday',
-    date: new Date(2025, 10, 28),
+    date: nextOccurrence(10, 27),
     type: 'campaign',
     suggestedTopics: [
-      'Flash sale Black Friday - Giảm sốc đến X%',
+      'Flash sale Black Friday - Giảm sốc',
       'Countdown Black Friday - Săn deal hot',
       'Hướng dẫn mua sắm thông minh mùa sale',
     ],
@@ -495,7 +558,7 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
   {
     id: 'christmas',
     name: 'Giáng Sinh',
-    date: new Date(2025, 11, 25),
+    date: nextOccurrence(11, 25),
     type: 'holiday',
     suggestedTopics: [
       'Merry Christmas từ thương hiệu',
