@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
+import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 // Default fallback if Admin hasn't configured a model yet.
