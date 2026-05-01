@@ -91,7 +91,7 @@ export const HELP_FEATURES: HelpFeature[] = [
       'AI sẽ tạo kịch bản phù hợp',
       'Chỉnh sửa và lưu kịch bản'
     ],
-    route: '/scripts'
+    route: '/videos?tab=scripts'
   },
   {
     id: 'carousel-design',
@@ -191,7 +191,7 @@ export const ROUTE_FEATURES: Record<string, string[]> = {
   '/multichannel/new': ['create-content'],
   '/topics': ['ai-chatbot', 'create-content'],
   '/calendar': ['view-calendar', 'create-content'],
-  '/scripts': ['manage-scripts', 'ai-chatbot'],
+  '/videos': ['manage-scripts', 'ai-chatbot'],
   '/carousel': ['carousel-design', 'ai-chatbot'],
   '/organization': ['organization-settings'],
   '/account': ['account-settings'],

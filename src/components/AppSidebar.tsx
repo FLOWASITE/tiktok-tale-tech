@@ -276,7 +276,6 @@ export function AppSidebar() {
   // Nhóm 2: Content Creation
   const contentItems: MenuItem[] = [
     { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
-    { title: 'Kịch bản Video', titleKey: 'app.sidebar.videoScript', url: '/scripts', icon: Film },
     { title: 'Video Studio', titleKey: 'app.sidebar.videoStudio', url: '/videos', icon: Video },
     { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
   ];

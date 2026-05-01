@@ -218,7 +218,7 @@ export function VideoGalleryTab() {
                   {/* Script scene link */}
                   {g.script_id && g.scene_number && (
                     <button
-                      onClick={() => navigate('/scripts')}
+                      onClick={() => navigate('/videos?tab=scripts')}
                       className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md border border-foreground/20 text-foreground/70 text-[10px] hover:bg-muted/50 transition max-w-full self-start"
                       title={scriptTitle ? `Mở kịch bản: ${scriptTitle}` : 'Mở kịch bản'}
                     >

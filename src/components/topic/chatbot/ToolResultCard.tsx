@@ -174,7 +174,7 @@ function ScriptResult({ result, onNavigate }: { result: any; onNavigate?: (path:
           variant="outline" 
           size="sm" 
           className="h-7 text-xs gap-1.5"
-          onClick={() => onNavigate('/scripts', { prefillTopic: result.title, prefillContent: result.content })}
+          onClick={() => onNavigate('/videos', { tab: 'scripts', prefillTopic: result.title, prefillContent: result.content, action: 'new' })}
         >
           Mở & Chỉnh sửa
           <ArrowRight className="w-3 h-3" />

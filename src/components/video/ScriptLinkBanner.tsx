@@ -49,7 +49,7 @@ export function ScriptLinkBanner({ onJumpToTab }: Props) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/scripts')}
+            onClick={() => navigate('/videos?tab=scripts')}
             className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
           >
             <ExternalLink className="w-3 h-3" />

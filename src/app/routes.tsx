@@ -168,8 +168,8 @@ export function AppRoutes() {
       <Route path="/core-content" element={<ProtectedRoute><AppLayout><CoreContentPage /></AppLayout></ProtectedRoute>} />
       <Route path="/geo" element={<ProtectedRoute><AppLayout><GEODashboard /></AppLayout></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><AppLayout><Tasks /></AppLayout></ProtectedRoute>} />
-      <Route path="/scripts" element={<ProtectedRoute><AppLayout><Index /></AppLayout></ProtectedRoute>} />
-      <Route path="/scripts/new" element={<ProtectedRoute><AppLayout><ScriptNew /></AppLayout></ProtectedRoute>} />
+      <Route path="/scripts" element={<Navigate to="/videos?tab=scripts" replace />} />
+      <Route path="/scripts/new" element={<Navigate to="/videos?tab=scripts" replace />} />
       <Route path="/videos" element={<ProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><VideoStudioPage /></Suspense></AppLayout></ProtectedRoute>} />
       <Route path="/carousel" element={<ProtectedRoute><AppLayout><Carousel /></AppLayout></ProtectedRoute>} />
       <Route path="/gallery" element={<ProtectedRoute><AppLayout><Gallery /></AppLayout></ProtectedRoute>} />
