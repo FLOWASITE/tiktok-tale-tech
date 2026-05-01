@@ -390,7 +390,7 @@ async function uploadBlob(ctx: PublishCtx, supabase: any, imageUrl: string): Pro
     accessToken: ctx.accessToken,
     dpopKey: ctx.dpopKey,
     nonce: ctx.dpopNonce,
-    body: prepared.bytes,
+    body: new Blob([prepared.bytes], { type: prepared.contentType }),
     contentType: prepared.contentType,
   });
   if (newNonce) { ctx.dpopNonce = newNonce; await persistNonce(supabase, ctx.connectionId, newNonce); }
