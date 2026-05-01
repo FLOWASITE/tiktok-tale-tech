@@ -93,8 +93,8 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
   youtube: 'general',
   zalo_oa: 'general',
   telegram: 'general',
-  threads: 'general',
-  bluesky: 'general',
+  threads: 'threads',
+  bluesky: 'bluesky',
 };
 
 interface ChannelPreview {
