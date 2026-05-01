@@ -311,6 +311,7 @@ export function CharacterProfileManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const uploadFile = async (file: File): Promise<string | null> => {
     if (!currentOrganization?.id) return null;
