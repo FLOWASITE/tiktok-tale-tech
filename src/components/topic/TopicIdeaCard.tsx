@@ -284,7 +284,7 @@ export function TopicIdeaCard({
       // Default: navigate to script creation with topic
       const params = new URLSearchParams({ topic: topic.topic });
       if (brandTemplateId) params.set('brandId', brandTemplateId);
-      navigate(`/scripts?${params.toString()}`);
+      navigate(`/videos?tab=scripts&${params.toString()}`);
     }
   };
 
