@@ -358,6 +358,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   tiktok: 'tiktok_content',
   threads: 'threads_content',
   pinterest: 'pinterest_content',
+  bluesky: 'bluesky_content',
 };
 
 // Normalize channel aliases to canonical names used in DB columns
@@ -570,6 +571,7 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'threads_content',
   'pinterest_content',
   'pinterest_title',
+  'bluesky_content',
   'created_at',
   'updated_at',
 ]);
@@ -1865,6 +1867,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         tiktok: { min: 20, max: 60, unit: "từ" },
         threads: { min: 30, max: 100, unit: "từ" },
         pinterest: { min: 30, max: 80, unit: "từ" },
+        bluesky: { min: 30, max: 80, unit: "từ" },
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
@@ -1881,6 +1884,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         tiktok: "TikTok",
         threads: "Threads",
         pinterest: "Pinterest",
+        bluesky: "Bluesky",
       };
 
       const channelLabel = PREVIEW_CHANNEL_LABELS[previewChannel] || previewChannel;
@@ -3571,7 +3575,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               const dedupWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
               const { data: existingContent } = await supabase
                 .from('multi_channel_contents')
-                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
+                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, bluesky_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
                 .eq('user_id', userId)
                 .eq('topic', formData.topic)
                 .gte('created_at', dedupWindow)
@@ -3651,6 +3655,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   threads_content: channelResults.threads || null,
                   pinterest_content: channelResults.pinterest || null,
                   pinterest_title: channelResults.pinterest_title || null,
+                  bluesky_content: channelResults.bluesky || null,
                 }))
                 .select()
                 .single();
@@ -4052,6 +4057,7 @@ const channelDescriptions: Record<string, string> = {
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
       pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine, KHÔNG phải feed mạng xã hội). Viết keyword-rich, long-tail keywords tự nhiên trong câu, tập trung MÔ TẢ LỢI ÍCH/GIÁ TRỊ/HƯỚNG DẪN (how-to, listicle, tip, idea). Không bán hàng cứng, không tự xưng kênh. Kết thúc bằng CTA mềm dạng 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. Tối đa 2-5 hashtag tự nhiên cuối bài (không spam). Ảnh đi kèm là vertical 2:3 (1000×1500).",
+      bluesky: "Nội dung Bluesky (≤300 ký tự). Phong cách casual, conversational, dễ tương tác. Inline link nếu cần. KHÔNG dùng hashtag. Kết thúc bằng câu hỏi hoặc observation thú vị để mời bình luận.",
     };
 
     formData.channels.forEach(channel => {
@@ -4234,6 +4240,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
         pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine). Long-tail keyword tự nhiên, mô tả lợi ích/hướng dẫn (how-to, listicle, idea), kết thúc CTA mềm 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. 2-5 hashtag tự nhiên cuối. Ảnh đi kèm vertical 2:3.",
+        bluesky: "Nội dung Bluesky (≤300 ký tự). Casual, conversational, dễ tương tác. Inline link nếu cần. KHÔNG hashtag. Kết thúc câu hỏi hoặc observation.",
       };
       
       for (const channel of channels) {
@@ -5660,6 +5667,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
           pinterest_content: (generatedData.pinterest_content && generatedData.pinterest_content.length > 0) ? generatedData.pinterest_content : null,
           pinterest_title: (generatedData.pinterest_title && generatedData.pinterest_title.length > 0) ? generatedData.pinterest_title : null,
+          bluesky_content: (generatedData.bluesky_content && generatedData.bluesky_content.length > 0) ? generatedData.bluesky_content : null,
         }))
         .select()
         .single();

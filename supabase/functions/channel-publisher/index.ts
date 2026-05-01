@@ -21,6 +21,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   blogger: 'publish-blogger',
   wordpress: 'publish-wordpress',
   pinterest: 'publish-pinterest',
+  bluesky: 'publish-bluesky',
 };
 
 // Map action back to the channel key used in selected_channels / channel_statuses
@@ -40,6 +41,7 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   blogger: 'website',
   wordpress: 'website',
   pinterest: 'pinterest',
+  bluesky: 'bluesky',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
