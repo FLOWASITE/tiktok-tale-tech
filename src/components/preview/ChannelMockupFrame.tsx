@@ -1232,6 +1232,13 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
+  // Sanitize content: Bluesky là plain text, không phải markdown.
+  const cleanContent = useMemo(() => stripMarkdownForBluesky(content || ''), [content]);
+  const segments = useMemo(() => segmentBlueskyText(cleanContent), [cleanContent]);
+  const graphemeCount = useMemo(() => countGraphemes(cleanContent), [cleanContent]);
+  const overflow = graphemeCount > BLUESKY_MAX_GRAPHEMES;
+  const firstUrl = useMemo(() => extractFirstUrl(cleanContent), [cleanContent]);
+
   return (
     <div className="bg-white dark:bg-[#161e27] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e1e8ed] dark:border-[#2e3a47] max-w-[440px] mx-auto">
 
