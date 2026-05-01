@@ -138,6 +138,12 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
           if (traits.length) line += `\nAppearance: ${traits.join(', ')}.`;
           if (cp.description) line += `\nDetails: ${cp.description}`;
           if (cp.wardrobe) line += `\nWardrobe: ${cp.wardrobe}.`;
+          // Speech personality
+          const speechParts: string[] = [];
+          if (app.regional_accent) speechParts.push(`Accent: ${app.regional_accent}`);
+          if (app.honorific) speechParts.push(`Xưng hô: ${app.honorific}`);
+          if (app.speech_style) speechParts.push(`Style: ${app.speech_style}`);
+          if (speechParts.length) line += `\nSpeech: ${speechParts.join(', ')}.`;
           if (cp.default_voice_id) line += `\nVoice: ${cp.default_voice_id} (${cp.default_voice_provider || 'default'}) — lip sync must match this voice.`;
           line += `\nIMPORTANT: Describe "${cp.name}" with EXACT appearance above in the generated prompt.`;
           blocks.push(line);

@@ -79,7 +79,7 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
       ? `\n\nNHÂN VẬT ĐÃ CÓ (KHÔNG tạo trùng tên hoặc ngoại hình giống): ${existing_names.join(', ')}`
       : '';
 
-    const systemPrompt = `Bạn là chuyên gia xây dựng nhân vật đại diện thương hiệu cho content marketing video.
+    const systemPrompt = `Bạn là chuyên gia xây dựng nhân vật đại diện thương hiệu cho content marketing video tại Việt Nam.
 Dựa trên thông tin brand, tạo ${numCharacters} nhân vật phù hợp để xuất hiện trong video/content.
 Nhân vật phải khớp tone, đối tượng mục tiêu, và ngành nghề của brand.
 
@@ -89,6 +89,9 @@ Quy tắc:
 - Mô tả chi tiết để AI video giữ nhất quán xuyên suốt các scene
 - Nếu có ${numCharacters} nhân vật, tạo sự đa dạng (tuổi, vai trò, giới tính) nhưng cùng aesthetic
 - suggested_voice_style: mô tả ngắn phong cách giọng nói phù hợp (VD: "Trầm ấm, chậm rãi", "Tươi sáng, năng động")
+- honorific: đại từ xưng hô phù hợp vai trò và tông brand (VD: bác sĩ 40 tuổi thì "tôi" hoặc "mình"; nhân vật trẻ gần gũi thì "mình" hoặc "em")
+- speech_style: phong cách diễn đạt khi nói (VD: "Nhẹ nhàng thuyết phục, dùng nhiều ví dụ thực tế" hoặc "Năng động, hay dùng từ trend")
+- regional_accent: giọng vùng miền phù hợp brand (VD: "Bắc Hà Nội" cho brand chuyên nghiệp, "Nam Sài Gòn" cho brand trẻ trung)
 ${role_hint ? `- Gợi ý vai trò từ user: ${role_hint}` : ''}${existingList}`;
 
     const userPrompt = `BRAND: ${brand.name}
@@ -141,8 +144,11 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
                         distinctive_features: { type: "string", description: "Đặc điểm nhận dạng nổi bật (kính, nốt ruồi, hình xăm...)" },
                         wardrobe: { type: "string", description: "Trang phục mặc định phù hợp brand và ngành" },
                         suggested_voice_style: { type: "string", description: "Phong cách giọng nói gợi ý (VD: Trầm ấm chậm rãi, Tươi sáng năng động)" },
+                        honorific: { type: "string", description: "Đại từ xưng hô mặc định (VD: tôi, mình, em, chị, anh)" },
+                        speech_style: { type: "string", description: "Phong cách diễn đạt khi nói (VD: Nhẹ nhàng thuyết phục, Năng động hay dùng từ trend)" },
+                        regional_accent: { type: "string", description: "Giọng vùng miền (VD: Bắc Hà Nội, Nam Sài Gòn, Trung Huế)" },
                       },
-                      required: ["name", "description", "gender", "age_range", "hair", "skin_tone", "body_type", "wardrobe", "suggested_voice_style"],
+                      required: ["name", "description", "gender", "age_range", "hair", "skin_tone", "body_type", "wardrobe", "suggested_voice_style", "honorific", "speech_style", "regional_accent"],
                     },
                   },
                 },
@@ -220,6 +226,9 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
         skin_tone: c.skin_tone,
         body_type: c.body_type || '',
         distinctive_features: c.distinctive_features || '',
+        honorific: c.honorific || '',
+        speech_style: c.speech_style || '',
+        regional_accent: c.regional_accent || '',
       },
       wardrobe: c.wardrobe || '',
       suggested_voice_style: c.suggested_voice_style || '',

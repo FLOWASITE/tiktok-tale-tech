@@ -10,6 +10,12 @@ export interface CharacterAppearance {
   skin_tone?: string;
   body_type?: string;
   distinctive_features?: string;
+  /** Xưng hô mặc định (VD: "tôi", "mình", "em", "chị") */
+  honorific?: string;
+  /** Phong cách thoại (VD: "Nhẹ nhàng thuyết phục", "Năng động trẻ trung") */
+  speech_style?: string;
+  /** Giọng vùng miền (VD: "Bắc Hà Nội", "Nam Sài Gòn", "Trung Huế") */
+  regional_accent?: string;
 }
 
 export type ReferenceImageLabel = 'front' | 'side' | 'full-body' | 'close-up' | 'outfit';
@@ -160,6 +166,13 @@ export function buildCharacterBlock(profile: CharacterProfile): string {
   if (profile.description) parts.push(`Details: ${profile.description}`);
   if (profile.wardrobe) parts.push(`Wardrobe: ${profile.wardrobe}.`);
   if (app.distinctive_features) parts.push(`Distinctive: ${app.distinctive_features}.`);
+
+  // Voice & speech personality
+  const voiceTraits: string[] = [];
+  if (app.regional_accent) voiceTraits.push(`Accent: ${app.regional_accent}`);
+  if (app.honorific) voiceTraits.push(`Xưng hô: ${app.honorific}`);
+  if (app.speech_style) voiceTraits.push(`Style: ${app.speech_style}`);
+  if (voiceTraits.length) parts.push(`Speech: ${voiceTraits.join(', ')}.`);
 
   parts.push('IMPORTANT: Maintain this EXACT character appearance consistently across ALL scenes. Same face, hair, clothing, body proportions.');
 
