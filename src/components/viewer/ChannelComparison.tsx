@@ -22,6 +22,8 @@ interface ChannelComparisonProps {
 function getContentForChannel(content: MultiChannelContent, channel: Channel): string | null {
   switch (channel) {
     case 'website': return content.website_content;
+    case 'blogger': return content.blogger_content || content.website_content;
+    case 'wordpress': return content.wordpress_content || content.website_content;
     case 'facebook': return content.facebook_content;
     case 'instagram': return content.instagram_content;
     case 'twitter': return content.twitter_content;
