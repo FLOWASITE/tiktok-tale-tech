@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { User, X, Sparkles, Loader2, Check, Plus, ArrowUp, ArrowDown, Star } from 'lucide-react';
+import { User, X, Sparkles, Loader2, Check, Plus, ArrowUp, ArrowDown, Star, Mic, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,7 +25,9 @@ interface GeneratedChar {
   description: string;
   appearance: CharacterAppearance;
   wardrobe: string;
+  suggested_voice_style: string;
   selected: boolean;
+  editing: boolean;
 }
 
 export function MultiCharacterPicker({ value, onChange, className, max = 3 }: MultiCharacterPickerProps) {
@@ -33,6 +36,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
 
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [roleHint, setRoleHint] = useState('');
+  const [charCount, setCharCount] = useState('2');
   const [generating, setGenerating] = useState(false);
   const [generatedChars, setGeneratedChars] = useState<GeneratedChar[]>([]);
   const [saving, setSaving] = useState(false);
@@ -67,14 +71,12 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
     setGenerating(true);
     setGeneratedChars([]);
     try {
-      const remaining = max - value.length;
-      const count = Math.max(1, Math.min(remaining, 2));
-
       const { data, error } = await supabase.functions.invoke('generate-character', {
         body: {
           brand_template_id: currentBrand.id,
           role_hint: roleHint.trim() || undefined,
-          count,
+          count: parseInt(charCount) || 2,
+          existing_names: profiles.map(p => p.name),
         },
       });
 
@@ -87,6 +89,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
       const chars: GeneratedChar[] = (data.characters || []).map((c: any) => ({
         ...c,
         selected: true,
+        editing: false,
       }));
       setGeneratedChars(chars);
     } catch (e: any) {
@@ -95,7 +98,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
     } finally {
       setGenerating(false);
     }
-  }, [currentBrand?.id, roleHint, max, value.length]);
+  }, [currentBrand?.id, roleHint, charCount, profiles]);
 
   const saveSelected = useCallback(async () => {
     const toSave = generatedChars.filter(c => c.selected);
@@ -116,24 +119,34 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
           newIds.push(result.id);
         }
       }
-      // After profiles are saved and query invalidated, update selection
-      // Small delay to let query refetch
+      // Auto-select: wait for query cache to refresh, then update selection
       setTimeout(() => {
+        onChange(newIds, profiles.filter(p => newIds.includes(p.id)));
         setShowAIDialog(false);
         setGeneratedChars([]);
         setRoleHint('');
-        toast.success(`Đã tạo ${toSave.length} nhân vật từ AI`);
-      }, 500);
+        toast.success(`Đã tạo và chọn ${toSave.length} nhân vật từ AI`);
+      }, 600);
     } catch (e: any) {
       toast.error(e.message || 'Lỗi khi lưu nhân vật');
     } finally {
       setSaving(false);
     }
-  }, [generatedChars, value, max, createProfile, currentBrand?.id]);
+  }, [generatedChars, value, max, createProfile, currentBrand?.id, onChange, profiles]);
 
   const toggleChar = (idx: number) => {
     setGeneratedChars(prev => prev.map((c, i) => i === idx ? { ...c, selected: !c.selected } : c));
   };
+
+  const toggleEdit = (idx: number) => {
+    setGeneratedChars(prev => prev.map((c, i) => i === idx ? { ...c, editing: !c.editing } : c));
+  };
+
+  const updateField = (idx: number, field: keyof GeneratedChar, val: string) => {
+    setGeneratedChars(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
+  };
+
+  const remaining = max - value.length;
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -168,7 +181,6 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                     : "border-border bg-muted/30"
                 )}
               >
-                {/* Reorder buttons */}
                 {selected.length > 1 && (
                   <div className="flex flex-col -my-0.5">
                     <button
@@ -190,7 +202,6 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                   </div>
                 )}
 
-                {/* Avatar */}
                 {p.reference_image_url ? (
                   <img src={p.reference_image_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
                 ) : (
@@ -199,24 +210,18 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                   </div>
                 )}
 
-                {/* Name + role */}
                 <div className="flex-1 min-w-0">
                   <span className="font-medium truncate block">{p.name}</span>
                 </div>
 
-                {/* Role badge */}
                 <Badge
                   variant={idx === 0 ? "default" : "outline"}
-                  className={cn(
-                    "text-[9px] h-4 shrink-0",
-                    idx === 0 && "gap-0.5"
-                  )}
+                  className={cn("text-[9px] h-4 shrink-0", idx === 0 && "gap-0.5")}
                 >
                   {idx === 0 && <Star className="w-2 h-2" />}
                   {roleLabel}
                 </Badge>
 
-                {/* Remove */}
                 <button
                   onClick={() => removeCharacter(p.id)}
                   className="shrink-0 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
@@ -228,7 +233,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
           })}
           {selected.length > 1 && (
             <p className="text-[10px] text-muted-foreground italic">
-              ↕ Kéo thứ tự để đổi vai chính / phụ
+              ↕ Dùng mũi tên để đổi vai chính / phụ
             </p>
           )}
         </div>
@@ -260,7 +265,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
         </Select>
       )}
 
-      {/* Empty state with AI button */}
+      {/* Empty state */}
       {!isLoading && profiles.length === 0 && currentBrand && (
         <Button
           variant="outline"
@@ -275,31 +280,52 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
 
       {/* AI Generation Dialog */}
       <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               AI tạo nhân vật từ Brand
             </DialogTitle>
             <DialogDescription>
-              AI sẽ phân tích brand "{currentBrand?.name}" để tạo nhân vật phù hợp với tone, đối tượng và ngành nghề.
+              AI phân tích brand &ldquo;{currentBrand?.name}&rdquo; để tạo nhân vật phù hợp tone, đối tượng và ngành nghề.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="role-hint" className="text-xs">
-                Gợi ý vai trò (tuỳ chọn)
-              </Label>
-              <Input
-                id="role-hint"
-                placeholder="VD: Bác sĩ tư vấn, KOL review, Nhân viên chăm sóc..."
-                value={roleHint}
-                onChange={e => setRoleHint(e.target.value)}
-                className="text-sm"
-                disabled={generating}
-              />
+            {/* Controls row */}
+            <div className="grid grid-cols-[1fr_80px] gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="role-hint" className="text-xs">Gợi ý vai trò</Label>
+                <Input
+                  id="role-hint"
+                  placeholder="VD: Bác sĩ tư vấn, KOL review..."
+                  value={roleHint}
+                  onChange={e => setRoleHint(e.target.value)}
+                  className="text-sm h-9"
+                  disabled={generating}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Số lượng</Label>
+                <Select value={charCount} onValueChange={setCharCount} disabled={generating}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    {remaining >= 3 && <SelectItem value="3">3</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Existing profiles info */}
+            {profiles.length > 0 && generatedChars.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                Đã có {profiles.length} nhân vật — AI sẽ tránh tạo trùng.
+              </p>
+            )}
 
             {generatedChars.length === 0 ? (
               <Button
@@ -321,48 +347,108 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
               </Button>
             ) : (
               <div className="space-y-3">
-                <Label className="text-xs text-muted-foreground">Kết quả — chọn nhân vật muốn lưu:</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Kết quả — chọn nhân vật muốn lưu, bấm ✏️ để chỉnh sửa:
+                </Label>
+
                 {generatedChars.map((c, idx) => (
-                  <button
+                  <div
                     key={idx}
-                    type="button"
-                    onClick={() => toggleChar(idx)}
                     className={cn(
-                      "w-full text-left p-3 rounded-lg border transition-colors",
+                      "rounded-lg border transition-colors overflow-hidden",
                       c.selected
                         ? "border-primary/50 bg-primary/5"
                         : "border-border bg-muted/30 opacity-60"
                     )}
                   >
-                    <div className="flex items-start gap-2">
-                      <div className={cn(
-                        "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0",
-                        c.selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
-                      )}>
-                        {c.selected && <Check className="w-3 h-3" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{c.name}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {c.appearance.gender} · {c.appearance.age_range}
-                          </span>
+                    {/* Header row */}
+                    <button
+                      type="button"
+                      onClick={() => toggleChar(idx)}
+                      className="w-full text-left p-3 pb-2"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0",
+                          c.selected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                        )}>
+                          {c.selected && <Check className="w-3 h-3" />}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.description}</p>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {c.appearance.hair && (
-                            <Badge variant="outline" className="text-[9px] h-4">Tóc: {c.appearance.hair}</Badge>
-                          )}
-                          {c.appearance.skin_tone && (
-                            <Badge variant="outline" className="text-[9px] h-4">Da: {c.appearance.skin_tone}</Badge>
-                          )}
-                          {c.wardrobe && (
-                            <Badge variant="outline" className="text-[9px] h-4">🧥 {c.wardrobe}</Badge>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{c.name}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {c.appearance.gender} · {c.appearance.age_range}
+                            </span>
+                          </div>
+                          {!c.editing && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.description}</p>
                           )}
                         </div>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); toggleEdit(idx); }}
+                          className="shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          title="Chỉnh sửa"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
                       </div>
+                    </button>
+
+                    {/* Inline edit */}
+                    {c.editing && (
+                      <div className="px-3 pb-3 space-y-2 border-t border-border/50 pt-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Tên</Label>
+                          <Input
+                            value={c.name}
+                            onChange={e => updateField(idx, 'name', e.target.value)}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Mô tả</Label>
+                          <Textarea
+                            value={c.description}
+                            onChange={e => updateField(idx, 'description', e.target.value)}
+                            className="text-xs min-h-[48px] resize-none"
+                            rows={2}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Trang phục</Label>
+                          <Input
+                            value={c.wardrobe}
+                            onChange={e => updateField(idx, 'wardrobe', e.target.value)}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tags row */}
+                    <div className="px-3 pb-2.5 flex flex-wrap gap-1">
+                      {c.appearance.hair && (
+                        <Badge variant="outline" className="text-[9px] h-4">Tóc: {c.appearance.hair}</Badge>
+                      )}
+                      {c.appearance.skin_tone && (
+                        <Badge variant="outline" className="text-[9px] h-4">Da: {c.appearance.skin_tone}</Badge>
+                      )}
+                      {c.appearance.body_type && (
+                        <Badge variant="outline" className="text-[9px] h-4">Dáng: {c.appearance.body_type}</Badge>
+                      )}
+                      {c.wardrobe && !c.editing && (
+                        <Badge variant="outline" className="text-[9px] h-4">🧥 {c.wardrobe}</Badge>
+                      )}
+                      {c.suggested_voice_style && (
+                        <Badge variant="secondary" className="text-[9px] h-4 gap-0.5">
+                          <Mic className="w-2 h-2" />
+                          {c.suggested_voice_style}
+                        </Badge>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))}
 
                 <Button
@@ -394,7 +480,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                 ) : (
                   <Plus className="w-3.5 h-3.5" />
                 )}
-                Lưu {generatedChars.filter(c => c.selected).length} nhân vật
+                Lưu & chọn {generatedChars.filter(c => c.selected).length} nhân vật
               </Button>
             </DialogFooter>
           )}
