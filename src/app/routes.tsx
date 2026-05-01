@@ -63,6 +63,7 @@ import WordPressComCallback from "@/pages/WordPressComCallback";
 import XCallback from "@/pages/XCallback";
 import TikTokCallback from "@/pages/TikTokCallback";
 import PinterestCallback from "@/pages/PinterestCallback";
+import BlueskyCallback from "@/pages/BlueskyCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
 import GEODashboard from "@/pages/GEODashboard";
 import FlowaChatPage from "@/pages/FlowaChatPage";
