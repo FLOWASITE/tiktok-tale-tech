@@ -2,6 +2,7 @@ import { decrypt as decryptGCM } from "../_shared/crypto.ts";
 import { createDecipheriv } from "node:crypto";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { Buffer } from "node:buffer";
+import { Resvg, initWasm } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,11 +66,83 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Transient FB error codes worth retrying
 const TRANSIENT_CODES = new Set([1, 2, 4, 17, 341, 368, -1]);
 
+const isSvgUrl = (u: string) => /\.svg(\?|$)/i.test(u) || u.startsWith('data:image/svg');
+
+let resvgReady: Promise<void> | null = null;
+function ensureResvg(): Promise<void> {
+  if (!resvgReady) {
+    resvgReady = (async () => {
+      const wasmRes = await fetch("https://esm.sh/@resvg/resvg-wasm@2.6.2/index_bg.wasm");
+      if (!wasmRes.ok) throw new Error(`Resvg wasm fetch failed: ${wasmRes.status}`);
+      await initWasm(await wasmRes.arrayBuffer());
+      console.log('[FB] Resvg WASM initialized for SVG fallback rasterization');
+    })().catch((e) => {
+      resvgReady = null;
+      throw e;
+    });
+  }
+  return resvgReady;
+}
+
+async function svgUrlToPngBlob(svgUrl: string): Promise<Blob> {
+  let svg: string;
+  if (svgUrl.startsWith('data:image/svg')) {
+    const [, payload = ''] = svgUrl.split(',', 2);
+    svg = svgUrl.includes(';base64,') ? atob(payload) : decodeURIComponent(payload);
+  } else {
+    const res = await fetch(svgUrl);
+    if (!res.ok) throw new Error(`Không tải được ảnh SVG để chuyển PNG: ${res.status}`);
+    svg = await res.text();
+  }
+
+  await ensureResvg();
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: 'width', value: 1080 },
+    font: { loadSystemFonts: false },
+    background: 'rgba(255,255,255,0)',
+  });
+  const png = resvg.render();
+  const bytes = png.asPng();
+  png.free();
+  resvg.free();
+  return new Blob([bytes], { type: 'image/png' });
+}
+
+async function uploadPhotoSource(
+  pageId: string,
+  accessToken: string,
+  pngBlob: Blob,
+  params: Record<string, string>,
+  ctx: string,
+): Promise<any> {
+  const form = new FormData();
+  form.append('access_token', accessToken);
+  Object.entries(params).forEach(([key, value]) => form.append(key, value));
+  form.append('source', pngBlob, 'flowa-facebook-image.png');
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(formatFbError(err, ctx));
+  }
+  return res.json();
+}
+
 async function uploadUnpublishedPhoto(
   pageId: string,
   accessToken: string,
   imageUrl: string,
 ): Promise<string> {
+  if (isSvgUrl(imageUrl)) {
+    console.warn('[FB] Legacy SVG image detected in multi-photo publish; rasterizing to PNG before upload');
+    const pngBlob = await svgUrlToPngBlob(imageUrl);
+    const data = await uploadPhotoSource(pageId, accessToken, pngBlob, { published: 'false' }, 'upload-photo-svg-fallback');
+    return data.id;
+  }
+
   const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
