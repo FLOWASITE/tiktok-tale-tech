@@ -72,7 +72,7 @@ export function useCarouselGallery() {
     }
     setLoading(true);
     try {
-      const [carouselRes, channelRes, videoGenRes, videoRenderRes] = await Promise.all([
+      const [carouselRes, channelRes, channelJsonRes, videoGenRes, videoRenderRes] = await Promise.all([
         supabase
           .from('carousel_images')
           .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, created_by, carousels(title, brand_name, user_id)')
@@ -83,6 +83,12 @@ export function useCarouselGallery() {
           .select('id, image_url, content_id, channel, version, is_selected, created_at, created_by, multi_channel_contents(title, brand_template_id, user_id)')
           .eq('organization_id', orgId)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('multi_channel_contents')
+          .select('id, title, channel_images, brand_template_id, user_id, organization_id, created_at, updated_at')
+          .eq('organization_id', orgId)
+          .not('channel_images', 'is', null)
+          .order('updated_at', { ascending: false }),
         supabase
           .from('video_generations')
           .select('id, video_url, thumbnail_url, prompt, duration_seconds, aspect_ratio, status, script_id, storyboard_id, scene_number, created_at, user_id, scripts:script_id(title)')
@@ -101,6 +107,7 @@ export function useCarouselGallery() {
 
       if (carouselRes.error) throw carouselRes.error;
       if (channelRes.error) throw channelRes.error;
+      if (channelJsonRes.error) throw channelJsonRes.error;
       if (videoGenRes.error) console.warn('video_generations fetch error:', videoGenRes.error);
       if (videoRenderRes.error) console.warn('video_render_jobs fetch error:', videoRenderRes.error);
 
@@ -115,6 +122,10 @@ export function useCarouselGallery() {
         if (row.created_by) userIds.add(row.created_by);
         if (row.multi_channel_contents?.user_id) userIds.add(row.multi_channel_contents.user_id);
         if (row.multi_channel_contents?.brand_template_id) brandTemplateIds.add(row.multi_channel_contents.brand_template_id);
+      });
+      (channelJsonRes.data || []).forEach((row: any) => {
+        if (row.user_id) userIds.add(row.user_id);
+        if (row.brand_template_id) brandTemplateIds.add(row.brand_template_id);
       });
       (videoGenRes.data || []).forEach((row: any) => { if (row.user_id) userIds.add(row.user_id); });
       (videoRenderRes.data || []).forEach((row: any) => { if (row.user_id) userIds.add(row.user_id); });
@@ -196,6 +207,48 @@ export function useCarouselGallery() {
         };
       });
 
+      const knownChannelUrls = new Set(
+        channelImages.map(img => `${img.carouselId}:${img.channel || ''}:${img.imageUrl}`)
+      );
+
+      const channelJsonImages: GalleryImage[] = (channelJsonRes.data || []).flatMap((row: any) => {
+        const userId = row.user_id;
+        const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
+        const brand = row.brand_template_id ? brandMap.get(row.brand_template_id) : undefined;
+        const channelImagesJson = row.channel_images && typeof row.channel_images === 'object' && !Array.isArray(row.channel_images)
+          ? row.channel_images as Record<string, any>
+          : {};
+
+        return Object.entries(channelImagesJson).flatMap(([channel, value], index) => {
+          const image = typeof value === 'string' ? { url: value } : (value || {});
+          const url = image.url || image.imageUrl || image.image_url;
+          if (!url) return [];
+          const dedupeKey = `${row.id}:${channel}:${url}`;
+          if (knownChannelUrls.has(dedupeKey)) return [];
+          return [{
+            id: `content-image-${row.id}-${channel}-${index}`,
+            imageUrl: url,
+            carouselId: row.id,
+            carouselTitle: row.title || 'Không rõ',
+            slideNumber: index + 1,
+            version: index + 1,
+            isSelected: true,
+            createdAt: image.generatedAt || row.updated_at || row.created_at,
+            source: 'multichannel' as ImageSource,
+            mediaType: 'image' as MediaType,
+            channel,
+            createdByName: profile?.name,
+            createdByEmail: profile?.email,
+            createdByAvatar: profile?.avatar,
+            createdByUserId: userId,
+            isOrgMember: isMember,
+            brandName: brand?.name,
+            brandLogoUrl: brand?.logoUrl,
+          }];
+        });
+      });
+
       const videoClips: GalleryImage[] = (videoGenRes.data || []).map((row: any) => {
         const userId = row.user_id;
         const profile = userId ? profileMap.get(userId) : undefined;
@@ -254,7 +307,7 @@ export function useCarouselGallery() {
         };
       });
 
-      const all = [...carouselImages, ...channelImages, ...videoClips, ...videoRenders].sort(
+      const all = [...carouselImages, ...channelImages, ...channelJsonImages, ...videoClips, ...videoRenders].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
@@ -278,6 +331,7 @@ export function useCarouselGallery() {
       .channel(`gallery-realtime-${orgId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'carousel_images', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'channel_image_history', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'multi_channel_contents', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'video_generations', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'video_render_jobs', filter: `organization_id=eq.${orgId}` }, () => fetchImages())
       .subscribe();
