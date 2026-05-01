@@ -1,93 +1,73 @@
 
-# Tích hợp Bluesky vào hệ thống Social
+# Tối ưu nội dung và ảnh cho Bluesky
 
-Bluesky sử dụng AT Protocol với xác thực qua App Password (tương tự Twitter manual credentials). Không cần OAuth callback — user nhập handle + app password trực tiếp.
+## Vấn đề hiện tại
 
-## Tổng quan kỹ thuật
+1. **Truncation sai**: Dùng `.length` (UTF-16) thay vì grapheme count — tiếng Việt có dấu bị đếm sai
+2. **Ảnh >1MB bị bỏ qua**: Không compress/resize, user mất ảnh mà không biết
+3. **Alt text trống**: Mọi ảnh đều `alt: ''` — giảm accessibility và reach trên Bluesky
+4. **Không có link card embed**: Link trong text chỉ hiện dạng text, không preview card
+5. **Prompt chưa tối ưu**: Chưa hướng dẫn AI tận dụng thread/reply chain, chưa có cultural context
 
-**Bluesky AT Protocol API:**
-- Auth: `POST https://bsky.social/xrpc/com.atproto.server.createSession` (handle + app password -> JWT)
-- Post: `POST https://bsky.social/xrpc/com.atproto.repo.createRecord` (app.bsky.feed.post)
-- Upload image: `POST https://bsky.social/xrpc/com.atproto.repo.uploadBlob` (max 1MB/image, max 4 images)
-- Token refresh: `POST /xrpc/com.atproto.server.refreshSession` (dùng refreshJwt)
-- Giới hạn: 300 ký tự/post, tối đa 4 ảnh, hỗ trợ rich text (mentions, links, hashtags)
+## Thay đổi
 
----
+### 1. `publish-bluesky/index.ts` — Content & Image Engine
 
-## Các bước triển khai
+- **Grapheme-safe truncation** bằng `Intl.Segmenter` (có sẵn trong Deno) thay vì `.slice()`
+- **Image auto-resize**: Nếu ảnh >1MB, fetch với quality giảm qua image proxy hoặc resize bằng canvas-free approach (re-encode JPEG quality thấp hơn). Fallback: log warning thay vì skip im lặng
+- **Alt text tự động**: Dùng nội dung post (truncated 200 chars) làm alt text cho ảnh đầu tiên
+- **Link card embed**: Khi content chứa URL nhưng không có ảnh, tạo `app.bsky.embed.external` với URL đầu tiên (fetch OG metadata nếu có thể, hoặc dùng URL trực tiếp)
+- **Mention DID resolution**: Resolve `@handle` thành DID thực qua `com.atproto.identity.resolveHandle`
 
-### 1. Database Migration
-- Thêm cột `bluesky_content` (text) vào `multi_channel_contents`
-- Không cần OAuth callback table — Bluesky dùng App Password lưu encrypted trong `social_connections.credentials`
+### 2. `generate-multichannel/index.ts` — Prompt Rules
 
-### 2. Frontend - Type & UI Updates
+- Cải thiện prompt Bluesky: thêm hướng dẫn "viết như đang trò chuyện với bạn bè", khuyến khích dùng emoji vừa phải, nhấn mạnh tối đa 280 grapheme (chừa margin cho link)
+- Thêm instruction: khi topic có link, đặt link cuối post thay vì giữa để không phá flow đọc
 
-**SocialPlatform type** (`useSocialConnections.ts`):
-- Thêm `'bluesky'` vào union type `SocialPlatform`
+### 3. `channelImageConfig.ts` — Image Specs
 
-**ChannelIcon** (`streaming/ChannelIcon.tsx`):
-- Tạo `BlueskyIcon` SVG trong `SocialIcons.tsx` (butterfly logo)
-- Đăng ký vào `channelConfig` với bgClass `bg-[#0085FF] text-white`
+- Cập nhật size Bluesky từ `1200x675` sang `1200x1200` (1:1 square) — format phổ biến nhất trên Bluesky feed, tương tự Threads
+- Thêm `maxFileSizeKB: 976` (< 1MB) vào renderSpec
 
-**BrandViewConnectionsTab** (`BrandViewConnectionsTab.tsx`):
-- Thêm `bluesky` vào `PLATFORM_CONFIG` 
-- Tạo dialog nhập Bluesky Handle + App Password (pattern giống Twitter manual setup)
-- Thêm `bluesky` vào `PLATFORM_DIAG_MAP`
+### 4. `channelSettings.ts` — Channel Rules
 
-**ChannelSettingsEditor**:
-- Thêm bluesky vào channel list, emoji/hashtag config
-- Thêm prompt rules cho Bluesky (300 ký tự, casual/conversational tone)
+- Tăng `emoji_limit` từ 3 lên 5 (Bluesky culture thân thiện với emoji hơn Twitter)
+- Thêm `max_images: 4` vào format_description cho rõ ràng
 
-### 3. Edge Functions
+## Technical Details
 
-**`connect-social`** (update):
-- Xử lý `platform: 'bluesky'` — nhận `handle` + `appPassword`
-- Gọi `com.atproto.server.createSession` để verify credentials
-- Lưu encrypted credentials (handle, appPassword, DID, accessJwt, refreshJwt) vào `social_connections`
+**Grapheme counting (Deno)**:
+```typescript
+function graphemeLength(text: string): number {
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  return [...segmenter.segment(text)].length;
+}
 
-**`publish-bluesky`** (mới):
-- Tạo session via createSession
-- Upload images (nếu có) via uploadBlob
-- Parse rich text facets (URLs, mentions, hashtags) 
-- Tạo post via createRecord với app.bsky.feed.post
-- Lưu post URI + CID vào publishing_logs
+function graphemeTruncate(text: string, max: number): string {
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  const segments = [...segmenter.segment(text)];
+  if (segments.length <= max) return text;
+  return segments.slice(0, max - 1).map(s => s.segment).join('') + '…';
+}
+```
 
-**`test-bluesky-connection`** (mới):
-- Verify handle + app password bằng createSession
-- Trả về profile info (displayName, avatar)
+**Link card embed**:
+```typescript
+// app.bsky.embed.external — khi có URL nhưng không có ảnh
+record.embed = {
+  $type: 'app.bsky.embed.external',
+  external: { uri, title, description, thumb }
+};
+```
 
-**`refresh-bluesky-token`** (mới):
-- Gọi refreshSession với refreshJwt
-- Update credentials trong social_connections
+**Image compression strategy**: 
+Bluesky limit 1MB. Thay vì skip, sẽ thử re-fetch image với `?w=1200&q=80` nếu URL hỗ trợ (Supabase Storage transform). Nếu vẫn >1MB, log rõ ràng và trả warning trong response.
 
-**`social-diagnostics`** (update):
-- Thêm `'bluesky'` vào `PLATFORM_NAMES`
+## Files sửa
 
-**`channel-publisher/resolve-social-payload`** (update):
-- Thêm entry `bluesky` vào `SOCIAL_RESOLVE_MAP`
-
-### 4. Multichannel Generation
-
-**`generate-multichannel`** (update):
-- Thêm bluesky vào channel prompt rules (300 ký tự, casual, hashtag-light)
-- Map `bluesky` -> `bluesky_content` column
-- Lưu generated content vào `bluesky_content`
-
-### 5. Các file UI cần cập nhật
-- `MultiChannelViewer.tsx`, `MultiChannelPreviewDialog.tsx` — hiển thị bluesky content
-- `ChannelImagesGallery.tsx` — gallery cho bluesky images
-- `CalendarDayView.tsx` — hiển thị scheduled bluesky posts
-- `ChannelSettingsEditor.tsx` — channel config
-- `useCampaignChannelIntegration.ts` — channel status tracking
-
-### 6. Supabase Config
-- Thêm `publish-bluesky`, `test-bluesky-connection`, `refresh-bluesky-token` vào config.toml nếu cần verify_jwt = false
-
----
-
-## Bluesky-specific Rules
-- **300 ký tự** limit (không phải 280 như Twitter)
-- **Rich text facets**: links và mentions cần byte-offset positions (không phải character offset)
-- **4 images max**, mỗi ảnh <= 1MB
-- **App Password** thay vì OAuth — user tạo tại bsky.app/settings/app-passwords
-- **DID** (Decentralized Identifier) là user ID chính, không phải handle
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/publish-bluesky/index.ts` | Grapheme truncation, image resize, alt text, link card embed, DID resolution |
+| `supabase/functions/generate-multichannel/index.ts` | Prompt Bluesky cải thiện (2 chỗ) |
+| `src/config/channelImageConfig.ts` | Size 1:1, maxFileSize |
+| `src/types/channelSettings.ts` | emoji_limit, format_description |

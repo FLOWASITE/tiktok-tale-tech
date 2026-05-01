@@ -32,7 +32,8 @@ export interface ChannelImageSpec {
     headlineBudget: number;
     ctaBudget: number;
     footerBudget: number;
-    layoutBias: 'hero-led' | 'stacked-cards' | 'split-editorial' | 'footer-contact' | 'stat-focus';
+    layoutBias: 'hero-led' | 'stacked-cards' | 'split-editorial' | 'footer-contact' | 'stat-focus' | 'centered-hero';
+    maxFileSizeKB?: number;
   };
 }
 
@@ -411,22 +412,23 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
     },
   },
   bluesky: {
-    size: '1200x675',
-    aspectRatio: '16:9',
-    style: 'Clean, modern, conversational',
-    tips: 'Simple visuals, text overlay OK',
-    mood: 'casual, friendly, informative',
-    composition: 'clean layout, single focal point',
-    visualDirections: ['Clean minimal design', 'Friendly approachable tone', 'Good contrast for readability'],
-    avoidElements: ['Cluttered layouts', 'Too many text elements'],
+    size: '1200x1200',
+    aspectRatio: '1:1',
+    style: 'Clean, modern, conversational, community-driven',
+    tips: 'Square images perform best on Bluesky feed. Simple visuals, text overlay OK. Max 1MB per image, max 4 images.',
+    mood: 'casual, friendly, authentic, approachable',
+    composition: 'clean layout, single focal point, breathing space',
+    visualDirections: ['Clean minimal design', 'Friendly approachable tone', 'Good contrast for readability', 'Square format optimized'],
+    avoidElements: ['Cluttered layouts', 'Too many text elements', 'Heavy branding', 'Stock photo feel'],
     renderSpec: {
       safeZones: { top: 40, right: 40, bottom: 40, left: 40 },
       preferredLogoPositions: ['bottom-right'],
-      textDensityBudget: 0.35,
-      headlineBudget: 50,
+      textDensityBudget: 0.30,
+      headlineBudget: 45,
       ctaBudget: 0,
-      footerBudget: 30,
-      layoutBias: 'centered-hero' as any,
+      footerBudget: 25,
+      layoutBias: 'centered-hero',
+      maxFileSizeKB: 976,
     },
   },
 };
@@ -474,5 +476,5 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   zalo_oa: '16:9',
   telegram: '1:1',
   google_maps: '1:1',
-  bluesky: '16:9',
+  bluesky: '1:1',
 };

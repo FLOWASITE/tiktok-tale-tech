@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 const BSKY_SERVICE = 'https://bsky.social';
+const MAX_BLOB_SIZE = 1_000_000; // 1MB Bluesky limit
+const MAX_GRAPHEMES = 300;
 
 interface BlueskySession {
   did: string;
@@ -14,6 +16,22 @@ interface BlueskySession {
   refreshJwt: string;
   handle: string;
 }
+
+// --- Grapheme-safe text utilities ---
+
+function graphemeLength(text: string): number {
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  return [...segmenter.segment(text)].length;
+}
+
+function graphemeTruncate(text: string, max: number): string {
+  const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+  const segments = [...segmenter.segment(text)];
+  if (segments.length <= max) return text;
+  return segments.slice(0, max - 1).map(s => s.segment).join('') + '…';
+}
+
+// --- Auth ---
 
 async function createSession(identifier: string, password: string): Promise<BlueskySession> {
   const res = await fetch(`${BSKY_SERVICE}/xrpc/com.atproto.server.createSession`, {
@@ -28,13 +46,28 @@ async function createSession(identifier: string, password: string): Promise<Blue
   return await res.json();
 }
 
-/** Parse URLs in text and return rich text facets with byte offsets */
-function parseRichTextFacets(text: string): any[] {
+// --- Rich text facets with byte offsets ---
+
+async function resolveDID(handle: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${BSKY_SERVICE}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`,
+      { signal: AbortSignal.timeout(3000) }
+    );
+    if (!res.ok) { await res.text(); return null; }
+    const data = await res.json();
+    return data.did || null;
+  } catch {
+    return null;
+  }
+}
+
+async function parseRichTextFacets(text: string): Promise<any[]> {
   const facets: any[] = [];
   const encoder = new TextEncoder();
 
   // URL detection
-  const urlRegex = /https?:\/\/[^\s<>\"]+/g;
+  const urlRegex = /https?:\/\/[^\s<>")\]]+/g;
   let match;
   while ((match = urlRegex.exec(text)) !== null) {
     const beforeBytes = encoder.encode(text.slice(0, match.index)).byteLength;
@@ -45,15 +78,19 @@ function parseRichTextFacets(text: string): any[] {
     });
   }
 
-  // Mention detection @handle.bsky.social
+  // Mention detection @handle.bsky.social — resolve DID
   const mentionRegex = /@([a-zA-Z0-9._-]+\.[a-zA-Z]+)/g;
   while ((match = mentionRegex.exec(text)) !== null) {
-    const beforeBytes = encoder.encode(text.slice(0, match.index)).byteLength;
-    const matchBytes = encoder.encode(match[0]).byteLength;
-    facets.push({
-      index: { byteStart: beforeBytes, byteEnd: beforeBytes + matchBytes },
-      features: [{ $type: 'app.bsky.richtext.facet#mention', did: '' }], // DID resolved later if needed
-    });
+    const handleStr = match[1];
+    const did = await resolveDID(handleStr);
+    if (did) {
+      const beforeBytes = encoder.encode(text.slice(0, match.index)).byteLength;
+      const matchBytes = encoder.encode(match[0]).byteLength;
+      facets.push({
+        index: { byteStart: beforeBytes, byteEnd: beforeBytes + matchBytes },
+        features: [{ $type: 'app.bsky.richtext.facet#mention', did }],
+      });
+    }
   }
 
   // Hashtag detection
@@ -70,26 +107,82 @@ function parseRichTextFacets(text: string): any[] {
   return facets;
 }
 
-async function uploadBlob(session: BlueskySession, imageUrl: string): Promise<any> {
-  // Download image
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`);
-  const imageBytes = new Uint8Array(await imgRes.arrayBuffer());
-  const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+// --- Image handling with compression fallback ---
 
-  // Upload to Bluesky (max 1MB)
-  if (imageBytes.length > 1_000_000) {
-    console.warn(`[publish-bluesky] Image too large (${imageBytes.length} bytes), skipping`);
+async function downloadAndPrepareImage(imageUrl: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  // Try original first
+  let imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) {
+    console.warn(`[publish-bluesky] Failed to download image: ${imgRes.status}`);
+    await imgRes.text();
     return null;
   }
+  let imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+  let contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+
+  // If within limit, return as-is
+  if (imageBytes.length <= MAX_BLOB_SIZE) {
+    return { bytes: imageBytes, contentType };
+  }
+
+  // Try Supabase Storage transform (resize + quality reduction)
+  // Pattern: add ?width=1200&quality=75 if the URL is from Supabase Storage
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  if (imageUrl.includes(supabaseUrl) || imageUrl.includes('/storage/v1/')) {
+    const separator = imageUrl.includes('?') ? '&' : '?';
+    const transformedUrl = `${imageUrl}${separator}width=1200&quality=70`;
+    console.log(`[publish-bluesky] Image too large (${imageBytes.length}B), trying transform: ${transformedUrl}`);
+    
+    try {
+      imgRes = await fetch(transformedUrl);
+      if (imgRes.ok) {
+        imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+        contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        if (imageBytes.length <= MAX_BLOB_SIZE) {
+          console.log(`[publish-bluesky] Transformed image size: ${imageBytes.length}B — OK`);
+          return { bytes: imageBytes, contentType };
+        }
+      } else {
+        await imgRes.text();
+      }
+    } catch (e) {
+      console.warn(`[publish-bluesky] Transform fetch failed: ${e}`);
+    }
+
+    // Try even more aggressive quality
+    try {
+      const aggressiveUrl = `${imageUrl}${separator}width=800&quality=50`;
+      imgRes = await fetch(aggressiveUrl);
+      if (imgRes.ok) {
+        imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+        contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        if (imageBytes.length <= MAX_BLOB_SIZE) {
+          console.log(`[publish-bluesky] Aggressive transform: ${imageBytes.length}B — OK`);
+          return { bytes: imageBytes, contentType };
+        }
+      } else {
+        await imgRes.text();
+      }
+    } catch (e) {
+      console.warn(`[publish-bluesky] Aggressive transform failed: ${e}`);
+    }
+  }
+
+  console.warn(`[publish-bluesky] Image still too large after transforms (${imageBytes.length}B > ${MAX_BLOB_SIZE}B), skipping`);
+  return null;
+}
+
+async function uploadBlob(session: BlueskySession, imageUrl: string): Promise<any> {
+  const prepared = await downloadAndPrepareImage(imageUrl);
+  if (!prepared) return null;
 
   const uploadRes = await fetch(`${BSKY_SERVICE}/xrpc/com.atproto.repo.uploadBlob`, {
     method: 'POST',
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': prepared.contentType,
       'Authorization': `Bearer ${session.accessJwt}`,
     },
-    body: imageBytes,
+    body: prepared.bytes,
   });
 
   if (!uploadRes.ok) {
@@ -101,12 +194,47 @@ async function uploadBlob(session: BlueskySession, imageUrl: string): Promise<an
   return blob;
 }
 
+// --- Link card embed (app.bsky.embed.external) ---
+
+function extractFirstUrl(text: string): string | null {
+  const match = text.match(/https?:\/\/[^\s<>")\]]+/);
+  return match ? match[0] : null;
+}
+
+async function fetchOGMetadata(url: string): Promise<{ title: string; description: string } | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Flowa-Bot/1.0' },
+      signal: AbortSignal.timeout(5000),
+      redirect: 'follow',
+    });
+    if (!res.ok) { await res.text(); return null; }
+    const html = await res.text();
+    
+    const titleMatch = html.match(/<meta\s+(?:property|name)="og:title"\s+content="([^"]*)"/) ||
+                        html.match(/<title>([^<]*)<\/title>/);
+    const descMatch = html.match(/<meta\s+(?:property|name)="og:description"\s+content="([^"]*)"/) ||
+                       html.match(/<meta\s+name="description"\s+content="([^"]*)"/);
+    
+    return {
+      title: titleMatch?.[1]?.slice(0, 200) || url,
+      description: descMatch?.[1]?.slice(0, 300) || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// --- Main handler ---
+
 Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  const warnings: string[] = [];
+
   try {
     const supabase = getServiceClient();
-    const { connectionId, content, mediaUrls, contentId, scheduleId } = await req.json();
+    const { connectionId, content, mediaUrls, contentId, scheduleId, altText } = await req.json();
 
     if (!connectionId || !content) {
       return new Response(JSON.stringify({ error: 'connectionId và content là bắt buộc' }), {
@@ -129,8 +257,8 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
     }
 
     // Decrypt credentials
-    const handle = await decryptCredential(connection.access_token); // stored as handle
-    const appPassword = await decryptCredential(connection.refresh_token); // stored as app password
+    const handle = await decryptCredential(connection.access_token);
+    const appPassword = await decryptCredential(connection.refresh_token);
 
     if (!handle || !appPassword) {
       return new Response(JSON.stringify({ error: 'Không thể giải mã credentials Bluesky' }), {
@@ -141,8 +269,13 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
     // Create session
     const session = await createSession(handle, appPassword);
 
-    // Truncate content to 300 chars (graphemes)
-    const truncatedContent = content.length > 300 ? content.slice(0, 297) + '...' : content;
+    // Grapheme-safe truncation (300 grapheme limit)
+    let truncatedContent = content;
+    const originalLength = graphemeLength(content);
+    if (originalLength > MAX_GRAPHEMES) {
+      truncatedContent = graphemeTruncate(content, MAX_GRAPHEMES);
+      warnings.push(`Nội dung bị cắt từ ${originalLength} xuống ${MAX_GRAPHEMES} graphemes`);
+    }
 
     // Build post record
     const record: any = {
@@ -151,29 +284,55 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
       createdAt: new Date().toISOString(),
     };
 
-    // Add rich text facets
-    const facets = parseRichTextFacets(truncatedContent);
+    // Add rich text facets (with DID resolution for mentions)
+    const facets = await parseRichTextFacets(truncatedContent);
     if (facets.length > 0) {
       record.facets = facets;
     }
 
-    // Upload images (max 4)
-    if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+    // Upload images (max 4) with auto-compression
+    const hasImages = mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0;
+    if (hasImages) {
       const images: any[] = [];
+      let imageIndex = 0;
       for (const url of mediaUrls.slice(0, 4)) {
         try {
           const blob = await uploadBlob(session, url);
           if (blob) {
-            images.push({ alt: '', image: blob });
+            // Auto alt text: use provided altText, or content snippet for first image
+            const autoAlt = imageIndex === 0
+              ? (altText || graphemeTruncate(content, 200))
+              : (altText || '');
+            images.push({ alt: autoAlt, image: blob });
+          } else {
+            warnings.push(`Ảnh ${imageIndex + 1} bị bỏ qua (quá lớn sau khi nén)`);
           }
         } catch (e) {
-          console.warn(`[publish-bluesky] Failed to upload image: ${e}`);
+          console.warn(`[publish-bluesky] Failed to upload image ${imageIndex + 1}: ${e}`);
+          warnings.push(`Ảnh ${imageIndex + 1} upload thất bại: ${(e as Error).message?.slice(0, 100)}`);
         }
+        imageIndex++;
       }
       if (images.length > 0) {
         record.embed = {
           $type: 'app.bsky.embed.images',
           images,
+        };
+      }
+    }
+
+    // Link card embed — only when NO images and text contains a URL
+    if (!record.embed) {
+      const firstUrl = extractFirstUrl(truncatedContent);
+      if (firstUrl) {
+        const og = await fetchOGMetadata(firstUrl);
+        record.embed = {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: firstUrl,
+            title: og?.title || firstUrl,
+            description: og?.description || '',
+          },
         };
       }
     }
@@ -232,6 +391,7 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
       postId: postUri,
       postUrl,
       cid: postResult.cid,
+      warnings: warnings.length > 0 ? warnings : undefined,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -241,6 +401,7 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
     return new Response(JSON.stringify({
       success: false,
       error: err instanceof Error ? err.message : 'Lỗi không xác định',
+      warnings: warnings.length > 0 ? warnings : undefined,
     }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
