@@ -4,7 +4,7 @@ import {
   stripMarkdownForBluesky,
   segmentBlueskyText,
   countGraphemes,
-  extractFirstUrl,
+  // extractFirstUrl no longer needed — embedTarget picks last link
   getDomain,
   truncateUrlForDisplay,
   isLikelyResolvableMention,
