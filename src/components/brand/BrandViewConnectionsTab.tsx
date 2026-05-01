@@ -266,6 +266,12 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
+    // Bluesky — manual App Password
+    if (platform === 'bluesky') {
+      setBlueskyDialogOpen(true);
+      return;
+    }
+
     // OAuth platforms (Facebook, Instagram, LinkedIn, Threads, Zalo OA, Google Business)
     setOauthConnecting(platform);
     try {
