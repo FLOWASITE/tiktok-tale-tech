@@ -455,4 +455,5 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   zalo_oa: '16:9',
   telegram: '1:1',
   google_maps: '1:1',
+  bluesky: '16:9',
 };

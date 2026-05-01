@@ -106,6 +106,7 @@ export const CHANNEL_HOOK_TYPES: Record<Channel, string[]> = {
   telegram: ['News alert', 'Exclusive content', 'Community update', 'Quick tip'],
   google_maps: ['Review response', 'Local highlight', 'Event announcement', 'Promotion'],
   threads: ['Conversation starter', 'Hot take', 'Story thread', 'Opinion piece'],
+  bluesky: ['Short take', 'Conversation starter', 'Hot take', 'Quick insight'],
 };
 
 // Shared caches
