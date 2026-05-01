@@ -632,4 +632,71 @@ export const SEASONAL_EVENTS: SeasonalEvent[] = [
       'Countdown năm mới',
     ],
   },
+  // === Thailand Holidays ===
+  {
+    id: 'songkran',
+    name: 'Songkran (สงกรานต์)',
+    date: nextOccurrence(3, 13), // April 13
+    type: 'holiday',
+    suggestedTopics: [
+      'Songkran promotion campaign',
+      'Water festival lifestyle content',
+      'Thai New Year greeting from brand',
+    ],
+  },
+  {
+    id: 'visakha-bucha',
+    name: 'Visakha Bucha (วิสาขบูชา)',
+    date: nextOccurrence(4, 31), // ~May, varies by lunar
+    type: 'holiday',
+    suggestedTopics: [
+      'Mindfulness & wellness content',
+      'Buddhist heritage appreciation',
+      'Peaceful brand messaging',
+    ],
+  },
+  {
+    id: 'king-birthday-th',
+    name: 'HM King Birthday (วันเฉลิมฯ)',
+    date: nextOccurrence(6, 28), // July 28
+    type: 'holiday',
+    suggestedTopics: [
+      'Royal tribute & well-wishes',
+      'Thai pride content',
+      'Yellow-themed campaign',
+    ],
+  },
+  {
+    id: 'mothers-day-th',
+    name: 'Mother\'s Day Thailand (วันแม่)',
+    date: nextOccurrence(7, 12), // August 12
+    type: 'holiday',
+    suggestedTopics: [
+      'Mother appreciation campaign',
+      'Family bonding content',
+      'Gift guide for mom',
+    ],
+  },
+  {
+    id: 'loy-krathong',
+    name: 'Loy Krathong (ลอยกระทง)',
+    date: nextOccurrence(10, 15), // ~November, varies by lunar
+    type: 'holiday',
+    suggestedTopics: [
+      'Loy Krathong themed campaign',
+      'Lantern & water festival content',
+      'Romantic seasonal promotion',
+    ],
+  },
+  {
+    id: 'fathers-day-th',
+    name: 'Father\'s Day Thailand (วันพ่อ)',
+    date: nextOccurrence(11, 5), // December 5
+    type: 'holiday',
+    suggestedTopics: [
+      'Father tribute content',
+      'Family values campaign',
+      'Yellow-themed campaign',
+    ],
+  },
 ];
