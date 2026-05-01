@@ -2272,7 +2272,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       try {
         const { data: charProfiles } = await supabase
           .from('character_profiles')
-          .select('id, name, description, appearance, wardrobe')
+          .select('id, name, description, appearance, wardrobe, default_voice_id, default_voice_provider')
           .in('id', resolvedCharIds);
 
         if (charProfiles && charProfiles.length > 0) {
@@ -2293,15 +2293,22 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
             if (app.body_type) traits.push(app.body_type);
             if (app.distinctive_features) traits.push(app.distinctive_features);
 
-            blocks.push(`[${role} — "${cp.name}"]
+            let block = `[${role} — "${cp.name}"]
 Ngoại hình: ${traits.join(', ')}.
 ${cp.description || ''}
-${cp.wardrobe ? `Trang phục: ${cp.wardrobe}.` : ''}
-QUAN TRỌNG: Mọi PROMPT block PHẢI mô tả nhân vật "${cp.name}" với CHÍNH XÁC ngoại hình trên.`);
+${cp.wardrobe ? `Trang phục: ${cp.wardrobe}.` : ''}`;
+            if (cp.default_voice_id) {
+              block += `\nGiọng nói: voice_id=${cp.default_voice_id} (${cp.default_voice_provider || 'default'}). Khẩu hình và biểu cảm miệng phải khớp với giọng này.`;
+            }
+            block += `\nQUAN TRỌNG: Mọi PROMPT block PHẢI mô tả nhân vật "${cp.name}" với CHÍNH XÁC ngoại hình trên.`;
+            blocks.push(block);
           }
 
-          characterProfileContext = '\n\n' + blocks.join('\n\n') +
-            '\nGiữ đồng nhất khuôn mặt, tóc, trang phục, vóc dáng xuyên suốt TẤT CẢ scene.';
+          let suffix = '\nGiữ đồng nhất khuôn mặt, tóc, trang phục, vóc dáng xuyên suốt TẤT CẢ scene.';
+          if (sorted.length > 1) {
+            suffix += `\nCÓ ${sorted.length} NHÂN VẬT RIÊNG BIỆT — KHÔNG được trộn lẫn ngoại hình, giọng nói, hoặc trang phục giữa các nhân vật.`;
+          }
+          characterProfileContext = '\n\n' + blocks.join('\n\n') + suffix;
           console.log(`[generate-script] Injected ${sorted.length} character profile(s): ${sorted.map(c => c.name).join(', ')}`);
         }
       } catch (e) {
