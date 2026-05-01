@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       platform_avatar_url: profile.avatar || null,
       access_token: encAccess,
       refresh_token: encRefresh,
-      expires_at: new Date(tokenSet.expires_at).toISOString(),
+      token_expires_at: new Date(tokenSet.expires_at).toISOString(),
       is_active: true,
       connected_at: new Date().toISOString(),
       last_error: null,
