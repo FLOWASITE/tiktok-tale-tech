@@ -449,19 +449,27 @@ export function useCarouselGallery() {
     video: images.filter(i => i.mediaType === 'video').length,
   }), [images]);
 
+  const tableForSource = (s: ImageSource): 'carousel_images' | 'channel_image_history' | 'video_generations' | 'video_render_jobs' => {
+    switch (s) {
+      case 'carousel': return 'carousel_images';
+      case 'multichannel': return 'channel_image_history';
+      case 'video': return 'video_generations';
+      case 'video_render': return 'video_render_jobs';
+    }
+  };
+
   const deleteImage = async (imageId: string) => {
     const img = images.find(i => i.id === imageId);
     if (!img) return;
     try {
-      const table = img.source === 'carousel' ? 'carousel_images' : 'channel_image_history';
-      const { error } = await supabase.from(table).delete().eq('id', imageId);
+      const { error } = await supabase.from(tableForSource(img.source)).delete().eq('id', imageId);
       if (error) throw error;
       setImages(prev => prev.filter(i => i.id !== imageId));
       setSelectedIds(prev => { const n = new Set(prev); n.delete(imageId); return n; });
-      toast.success('Đã xóa ảnh');
+      toast.success(img.mediaType === 'video' ? 'Đã xóa video' : 'Đã xóa ảnh');
     } catch (err) {
-      console.error('Failed to delete image:', err);
-      toast.error('Không thể xóa ảnh');
+      console.error('Failed to delete media:', err);
+      toast.error('Không thể xóa');
     }
   };
 
