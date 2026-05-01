@@ -2263,32 +2263,49 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
     }
     // ───────── CHARACTER PROFILE INJECTION ─────────
     let characterProfileContext = '';
-    if (character_profile_id) {
-      try {
-        const { data: charProfile } = await supabase
-          .from('character_profiles')
-          .select('name, description, appearance, wardrobe, reference_image_url, reference_images')
-          .eq('id', character_profile_id)
-          .maybeSingle();
-        if (charProfile) {
-          const app = (charProfile.appearance || {}) as Record<string, string>;
-          const traits: string[] = [];
-          if (app.gender) traits.push(app.gender);
-          if (app.age_range) traits.push(`tuổi ${app.age_range}`);
-          if (app.hair) traits.push(`tóc ${app.hair}`);
-          if (app.skin_tone) traits.push(`da ${app.skin_tone}`);
-          if (app.body_type) traits.push(app.body_type);
-          if (app.distinctive_features) traits.push(app.distinctive_features);
+    // Resolve character IDs: prefer array, fallback to single
+    const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
+      ? character_profile_ids
+      : character_profile_id ? [character_profile_id] : [];
 
-          characterProfileContext = `\n\n[NHÂN VẬT CHÍNH — "${charProfile.name}"]
+    if (resolvedCharIds.length > 0) {
+      try {
+        const { data: charProfiles } = await supabase
+          .from('character_profiles')
+          .select('id, name, description, appearance, wardrobe')
+          .in('id', resolvedCharIds);
+
+        if (charProfiles && charProfiles.length > 0) {
+          const sorted = resolvedCharIds
+            .map(id => charProfiles.find(p => p.id === id))
+            .filter(Boolean) as typeof charProfiles;
+
+          const blocks: string[] = [];
+          for (let i = 0; i < sorted.length; i++) {
+            const cp = sorted[i];
+            const role = i === 0 ? 'NHÂN VẬT CHÍNH' : `NHÂN VẬT PHỤ ${i}`;
+            const app = (cp.appearance || {}) as Record<string, string>;
+            const traits: string[] = [];
+            if (app.gender) traits.push(app.gender);
+            if (app.age_range) traits.push(`tuổi ${app.age_range}`);
+            if (app.hair) traits.push(`tóc ${app.hair}`);
+            if (app.skin_tone) traits.push(`da ${app.skin_tone}`);
+            if (app.body_type) traits.push(app.body_type);
+            if (app.distinctive_features) traits.push(app.distinctive_features);
+
+            blocks.push(`[${role} — "${cp.name}"]
 Ngoại hình: ${traits.join(', ')}.
-${charProfile.description || ''}
-${charProfile.wardrobe ? `Trang phục: ${charProfile.wardrobe}.` : ''}
-QUAN TRỌNG: Mọi PROMPT block PHẢI mô tả nhân vật "${charProfile.name}" với CHÍNH XÁC ngoại hình trên. Giữ đồng nhất khuôn mặt, tóc, trang phục, vóc dáng xuyên suốt TẤT CẢ scene.`;
-          console.log(`[generate-script] Injected character profile "${charProfile.name}"`);
+${cp.description || ''}
+${cp.wardrobe ? `Trang phục: ${cp.wardrobe}.` : ''}
+QUAN TRỌNG: Mọi PROMPT block PHẢI mô tả nhân vật "${cp.name}" với CHÍNH XÁC ngoại hình trên.`);
+          }
+
+          characterProfileContext = '\n\n' + blocks.join('\n\n') +
+            '\nGiữ đồng nhất khuôn mặt, tóc, trang phục, vóc dáng xuyên suốt TẤT CẢ scene.';
+          console.log(`[generate-script] Injected ${sorted.length} character profile(s): ${sorted.map(c => c.name).join(', ')}`);
         }
       } catch (e) {
-        console.warn('[generate-script] Failed to fetch character profile:', e);
+        console.warn('[generate-script] Failed to fetch character profiles:', e);
       }
     }
 
