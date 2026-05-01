@@ -179,7 +179,7 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     icon: <ChannelIcon channel="bluesky" className="text-[#0085FF]" size={20} />,
     color: 'bg-[#0085FF]/10',
     available: true,
-    description: 'Đăng bài lên Bluesky (App Password)',
+    description: 'Đăng bài lên Bluesky qua OAuth 2.0 (DPoP)',
   },
 };
 
@@ -214,9 +214,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     accessToken: '',
     accessTokenSecret: '',
   });
-  const [blueskyForm, setBlueskyForm] = useState({ handle: '', appPassword: '' });
-  const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
-  const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
   const [oauthConnecting, setOauthConnecting] = useState<SocialPlatform | null>(null);
   const [showInactiveFb, setShowInactiveFb] = useState(false);
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
@@ -266,9 +263,36 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    // Bluesky — manual App Password
+    // Bluesky — OAuth 2.0 (Confidential Client + DPoP)
     if (platform === 'bluesky') {
-      setBlueskyDialogOpen(true);
+      setOauthConnecting('bluesky');
+      try {
+        const { data, error } = await supabase.functions.invoke('bluesky-oauth-start', {
+          body: { brand_template_id: template.id },
+        });
+        if (error || !data?.authorization_url) {
+          throw new Error(error?.message || data?.error || 'Không khởi tạo được OAuth');
+        }
+        window.open(data.authorization_url, '_blank', 'width=620,height=720');
+        toast.info('Đã mở trang đăng nhập Bluesky', {
+          description: 'Hoàn tất đăng nhập trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
+        });
+        // Poll for new connection
+        const start = Date.now();
+        const poll = setInterval(async () => {
+          if (Date.now() - start > 120_000) { clearInterval(poll); setOauthConnecting(null); return; }
+          await refetch();
+          const conn = getConnectionForPlatform('bluesky');
+          if (conn?.is_active) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            toast.success('Đã kết nối Bluesky qua OAuth!');
+          }
+        }, 3000);
+      } catch (e: any) {
+        setOauthConnecting(null);
+        toast.error('Lỗi kết nối Bluesky', { description: e.message });
+      }
       return;
     }
 
@@ -1621,97 +1645,7 @@ try {
         </DialogContent>
       </Dialog>
 
-      {/* Bluesky App Password Dialog */}
-      <Dialog open={blueskyDialogOpen} onOpenChange={setBlueskyDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ChannelIcon channel="bluesky" size={20} />
-              Kết nối Bluesky
-            </DialogTitle>
-            <DialogDescription>
-              Nhập handle và App Password để kết nối tài khoản Bluesky. Tạo App Password tại{' '}
-              <a href="https://bsky.app/settings/app-passwords" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                bsky.app/settings/app-passwords
-              </a>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="bluesky-handle">Handle</Label>
-              <Input
-                id="bluesky-handle"
-                placeholder="yourname.bsky.social"
-                value={blueskyForm.handle}
-                onChange={(e) => setBlueskyForm(prev => ({ ...prev, handle: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bluesky-password">App Password</Label>
-              <div className="relative">
-                <Input
-                  id="bluesky-password"
-                  type={showSecrets.blueskyPw ? 'text' : 'password'}
-                  placeholder="xxxx-xxxx-xxxx-xxxx"
-                  value={blueskyForm.appPassword}
-                  onChange={(e) => setBlueskyForm(prev => ({ ...prev, appPassword: e.target.value }))}
-                  className="pr-10"
-                />
-                <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('blueskyPw')}>
-                  {showSecrets.blueskyPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription className="text-xs">
-                App Password là mật khẩu riêng, không phải mật khẩu tài khoản chính. Nó chỉ cho phép đăng bài, không thể thay đổi cài đặt tài khoản.
-              </AlertDescription>
-            </Alert>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBlueskyDialogOpen(false)}>
-              Hủy
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!blueskyForm.handle || !blueskyForm.appPassword) {
-                  toast.error('Vui lòng nhập handle và App Password');
-                  return;
-                }
-                setIsBlueskyConnecting(true);
-                try {
-                  const { data, error } = await supabase.functions.invoke('connect-social', {
-                    body: {
-                      platform: 'bluesky',
-                      brandTemplateId: template.id,
-                      blueskyHandle: blueskyForm.handle.replace(/^@/, ''),
-                      blueskyAppPassword: blueskyForm.appPassword,
-                    },
-                  });
-                  if (error || !data?.success) throw new Error(data?.error || error?.message || 'Kết nối thất bại');
-                  toast.success('Đã kết nối Bluesky thành công!', {
-                    description: `@${data.connection?.username || blueskyForm.handle}`,
-                  });
-                  setBlueskyDialogOpen(false);
-                  setBlueskyForm({ handle: '', appPassword: '' });
-                  refetch();
-                } catch (err: unknown) {
-                  toast.error('Lỗi kết nối Bluesky', {
-                    description: err instanceof Error ? err.message : String(err),
-                  });
-                } finally {
-                  setIsBlueskyConnecting(false);
-                }
-              }}
-              disabled={isBlueskyConnecting || !blueskyForm.handle || !blueskyForm.appPassword}
-            >
-              {isBlueskyConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Kết nối
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Bluesky now uses OAuth 2.0 — no dialog needed */}
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
