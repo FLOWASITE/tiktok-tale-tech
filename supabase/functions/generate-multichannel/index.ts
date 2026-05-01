@@ -5636,6 +5636,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           pinterest_content: (generatedData.pinterest_content && generatedData.pinterest_content.length > 0) ? generatedData.pinterest_content : null,
           pinterest_title: (generatedData.pinterest_title && generatedData.pinterest_title.length > 0) ? generatedData.pinterest_title : null,
           bluesky_content: (generatedData.bluesky_content && generatedData.bluesky_content.length > 0) ? generatedData.bluesky_content : null,
+          blogger_content: (generatedData.blogger_content && generatedData.blogger_content.length > 0) ? generatedData.blogger_content : null,
+          wordpress_content: (generatedData.wordpress_content && generatedData.wordpress_content.length > 0) ? generatedData.wordpress_content : null,
         }))
         .select()
         .single();
