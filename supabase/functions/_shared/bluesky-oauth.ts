@@ -552,6 +552,20 @@ export async function pdsFetch(opts: {
 }): Promise<{ response: Response; newNonce?: string }> {
   let nonce = opts.nonce;
 
+  // Snapshot binary body so retry sends a fresh copy (ArrayBuffer can be detached
+  // by the runtime after the first fetch in some Deno builds).
+  const isBinaryBody = opts.body instanceof ArrayBuffer;
+  const bodySnapshot = isBinaryBody
+    ? new Uint8Array(opts.body as ArrayBuffer).slice().buffer
+    : null;
+  const getBody = (): BodyInit | null | undefined => {
+    if (isBinaryBody && bodySnapshot) {
+      // Fresh copy each attempt
+      return bodySnapshot.slice(0);
+    }
+    return opts.body;
+  };
+
   for (let attempt = 0; attempt < 2; attempt++) {
     const proof = await makeDpopProof(opts.dpopKey, {
       htm: opts.method, htu: opts.url, nonce, accessToken: opts.accessToken,
@@ -562,19 +576,24 @@ export async function pdsFetch(opts: {
     };
     if (opts.contentType) headers["Content-Type"] = opts.contentType;
 
-    const res = await fetch(opts.url, { method: opts.method, headers, body: opts.body });
+    const res = await fetch(opts.url, { method: opts.method, headers, body: getBody() });
     const newNonce = res.headers.get("DPoP-Nonce") || undefined;
     if (newNonce) nonce = newNonce;
 
     if (res.status === 401 && attempt === 0) {
-      // Read once to inspect; clone so callers can still use body if no retry
       const clone = res.clone();
       try {
         const errJson = await clone.json();
-        if (errJson?.error === "use_dpop_nonce") continue;
+        if (errJson?.error === "use_dpop_nonce") {
+          console.log(`[pdsFetch] use_dpop_nonce retry: ${opts.url.split('/').slice(-2).join('/')}`);
+          continue;
+        }
       } catch { /* fall-through */ }
       const wwwAuth = res.headers.get("WWW-Authenticate") || "";
-      if (/use_dpop_nonce/.test(wwwAuth)) continue;
+      if (/use_dpop_nonce/.test(wwwAuth)) {
+        console.log(`[pdsFetch] use_dpop_nonce (www-auth) retry: ${opts.url.split('/').slice(-2).join('/')}`);
+        continue;
+      }
     }
 
     return { response: res, newNonce: nonce };
