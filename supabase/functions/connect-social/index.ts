@@ -1121,8 +1121,8 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
 
     // Bluesky — App Password based (similar to Twitter manual)
     if (platform === 'bluesky') {
-      const handle = (body as any).handle;
-      const appPassword = (body as any).appPassword;
+      const handle = ((body as any).handle || (body as any).blueskyHandle || '').replace(/^@/, '').trim();
+      const appPassword = ((body as any).appPassword || (body as any).blueskyAppPassword || '').trim();
       if (!handle || !appPassword) {
         throw new Error('Bluesky Handle và App Password là bắt buộc');
       }
