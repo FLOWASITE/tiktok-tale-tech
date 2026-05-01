@@ -1310,18 +1310,19 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
                 {segments.map((seg, idx) => {
                   if (seg.type === 'link') {
                     return (
-                      <a
-                        key={idx}
-                        href={seg.value}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[#0085ff] hover:underline"
-                      >
+                      <a key={idx} href={seg.value} target="_blank" rel="noreferrer" className="text-[#0085ff] hover:underline">
                         {seg.value}
                       </a>
                     );
                   }
-                  if (seg.type === 'mention') {
+                  if (seg.type === 'bareLink') {
+                    return (
+                      <a key={idx} href={`https://${seg.value}`} target="_blank" rel="noreferrer" className="text-[#0085ff] hover:underline">
+                        {seg.value}
+                      </a>
+                    );
+                  }
+                  if (seg.type === 'mention' || seg.type === 'hashtag') {
                     return (
                       <span key={idx} className="text-[#0085ff] hover:underline cursor-pointer">
                         {seg.value}

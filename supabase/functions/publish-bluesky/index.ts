@@ -62,49 +62,113 @@ async function resolveDID(handle: string): Promise<string | null> {
   }
 }
 
+// Bluesky hashtag rules: max 64 chars, alnum/underscore/diacritics, no leading digit-only.
+const MAX_TAG_LEN = 64;
+
+interface RawFacet {
+  byteStart: number;
+  byteEnd: number;
+  feature: any;
+  needsResolve?: { handle: string };
+}
+
 async function parseRichTextFacets(text: string): Promise<any[]> {
-  const facets: any[] = [];
   const encoder = new TextEncoder();
+  const raw: RawFacet[] = [];
+  // Track byte ranges already claimed (URL > mention > hashtag) to avoid overlap
+  // (e.g. `#tag` inside a URL, or `@user.com` inside a URL).
+  const claimed: Array<[number, number]> = [];
+  const overlaps = (s: number, e: number) =>
+    claimed.some(([cs, ce]) => s < ce && e > cs);
+  const claim = (s: number, e: number) => claimed.push([s, e]);
 
-  // URL detection
+  const byteRange = (matchIndex: number, matchStr: string): [number, number] => {
+    const start = encoder.encode(text.slice(0, matchIndex)).byteLength;
+    const end = start + encoder.encode(matchStr).byteLength;
+    return [start, end];
+  };
+
+  // 1. URLs (full http/https first — highest precedence)
   const urlRegex = /https?:\/\/[^\s<>")\]]+/g;
-  let match;
-  while ((match = urlRegex.exec(text)) !== null) {
-    const beforeBytes = encoder.encode(text.slice(0, match.index)).byteLength;
-    const matchBytes = encoder.encode(match[0]).byteLength;
-    facets.push({
-      index: { byteStart: beforeBytes, byteEnd: beforeBytes + matchBytes },
-      features: [{ $type: 'app.bsky.richtext.facet#link', uri: match[0] }],
+  // Trim trailing punctuation (., ,, ;, !, ?, :) that AT Protocol typically excludes.
+  const trimUrlTail = (u: string) => u.replace(/[.,;:!?)\]]+$/, '');
+  let m: RegExpExecArray | null;
+  while ((m = urlRegex.exec(text)) !== null) {
+    const cleaned = trimUrlTail(m[0]);
+    const [s, e] = byteRange(m.index, cleaned);
+    if (overlaps(s, e)) continue;
+    claim(s, e);
+    raw.push({
+      byteStart: s,
+      byteEnd: e,
+      feature: { $type: 'app.bsky.richtext.facet#link', uri: cleaned },
     });
   }
 
-  // Mention detection @handle.bsky.social — resolve DID
-  const mentionRegex = /@([a-zA-Z0-9._-]+\.[a-zA-Z]+)/g;
-  while ((match = mentionRegex.exec(text)) !== null) {
-    const handleStr = match[1];
-    const did = await resolveDID(handleStr);
-    if (did) {
-      const beforeBytes = encoder.encode(text.slice(0, match.index)).byteLength;
-      const matchBytes = encoder.encode(match[0]).byteLength;
-      facets.push({
-        index: { byteStart: beforeBytes, byteEnd: beforeBytes + matchBytes },
-        features: [{ $type: 'app.bsky.richtext.facet#mention', did }],
-      });
-    }
-  }
-
-  // Hashtag detection
-  const hashtagRegex = /#([a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]+)/g;
-  while ((match = hashtagRegex.exec(text)) !== null) {
-    const beforeBytes = encoder.encode(text.slice(0, match.index)).byteLength;
-    const matchBytes = encoder.encode(match[0]).byteLength;
-    facets.push({
-      index: { byteStart: beforeBytes, byteEnd: beforeBytes + matchBytes },
-      features: [{ $type: 'app.bsky.richtext.facet#tag', tag: match[1] }],
+  // 2. Bare domains (no scheme) — common in Bluesky. Conservative TLDs only.
+  // Avoid matching things inside emails or already-claimed URLs.
+  const bareDomainRegex = /(?:^|[\s(])((?:[a-z0-9-]+\.)+(?:com|net|org|io|ai|co|app|dev|xyz|one|vn|me|so|cloud|tech|store|shop|blog|news|info|gg|to)(?:\/[^\s<>")\]]*)?)/gi;
+  while ((m = bareDomainRegex.exec(text)) !== null) {
+    const domain = trimUrlTail(m[1]);
+    // Skip if preceded by '@' (email) or '/' (path fragment) or '.' (sub).
+    const prevChar = text[m.index + m[0].indexOf(m[1]) - 1] || '';
+    if (prevChar === '@' || prevChar === '/' || prevChar === '.') continue;
+    const idx = m.index + m[0].indexOf(m[1]);
+    const [s, e] = byteRange(idx, domain);
+    if (overlaps(s, e)) continue;
+    claim(s, e);
+    raw.push({
+      byteStart: s,
+      byteEnd: e,
+      feature: { $type: 'app.bsky.richtext.facet#link', uri: `https://${domain}` },
     });
   }
 
-  return facets;
+  // 3. Mentions @handle.tld — collect first, resolve DIDs in parallel.
+  const mentionRegex = /@([a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z][a-zA-Z0-9.-]*)/g;
+  const mentionCandidates: Array<{ s: number; e: number; handle: string }> = [];
+  while ((m = mentionRegex.exec(text)) !== null) {
+    const cleanedHandle = m[1].replace(/[.]+$/, '');
+    const [s, e] = byteRange(m.index, '@' + cleanedHandle);
+    if (overlaps(s, e)) continue;
+    mentionCandidates.push({ s, e, handle: cleanedHandle });
+  }
+  const dids = await Promise.all(mentionCandidates.map(c => resolveDID(c.handle)));
+  mentionCandidates.forEach((c, i) => {
+    const did = dids[i];
+    if (!did) return;
+    claim(c.s, c.e);
+    raw.push({
+      byteStart: c.s,
+      byteEnd: c.e,
+      feature: { $type: 'app.bsky.richtext.facet#mention', did },
+    });
+  });
+
+  // 4. Hashtags — Vietnamese diacritics supported, strip leading digits, cap 64 chars.
+  const hashtagRegex = /#([a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF\u00C0-\u1EF9]+)/g;
+  while ((m = hashtagRegex.exec(text)) !== null) {
+    let tag = m[1];
+    // Reject pure-numeric tags (Bluesky convention)
+    if (/^\d+$/.test(tag)) continue;
+    if (tag.length > MAX_TAG_LEN) tag = tag.slice(0, MAX_TAG_LEN);
+    const [s, e] = byteRange(m.index, '#' + tag);
+    if (overlaps(s, e)) continue;
+    claim(s, e);
+    raw.push({
+      byteStart: s,
+      byteEnd: e,
+      feature: { $type: 'app.bsky.richtext.facet#tag', tag },
+    });
+  }
+
+  // 5. Sort by byteStart (AT Protocol expects ordered facets)
+  raw.sort((a, b) => a.byteStart - b.byteStart);
+
+  return raw.map(r => ({
+    index: { byteStart: r.byteStart, byteEnd: r.byteEnd },
+    features: [r.feature],
+  }));
 }
 
 // --- Image handling with compression fallback ---
