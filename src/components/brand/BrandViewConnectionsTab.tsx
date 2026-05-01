@@ -214,9 +214,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     accessToken: '',
     accessTokenSecret: '',
   });
-  const [blueskyForm, setBlueskyForm] = useState({ handle: '', appPassword: '' });
-  const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
-  const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
   const [oauthConnecting, setOauthConnecting] = useState<SocialPlatform | null>(null);
   const [showInactiveFb, setShowInactiveFb] = useState(false);
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
