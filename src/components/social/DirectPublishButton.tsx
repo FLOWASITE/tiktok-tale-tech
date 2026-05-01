@@ -124,6 +124,7 @@ const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {
   twitter: 280,
   facebook: 63206,
   zalo_oa: 2000,
+  bluesky: 300,
 };
 
 type DialogState = 'confirm' | 'success' | 'blog';
