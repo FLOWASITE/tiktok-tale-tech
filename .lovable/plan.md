@@ -1,21 +1,25 @@
 ## Vấn đề
-Trong sidebar danh sách kênh của view Đa kênh (`MultiChannelViewer`), kênh Bluesky vẫn hiển thị icon Globe (quả địa cầu) thay vì biểu tượng butterfly đúng thương hiệu.
+
+Khi xem nội dung đa kênh, slide Bluesky luôn hiển thị "0 từ" và không có text — mặc dù backend (`generate-multichannel`) đã sinh và lưu `bluesky_content` vào DB chuẩn (đã có map column, prompt, label, limit).
 
 ## Nguyên nhân
-File `src/components/MultiChannelViewer.tsx` định nghĩa `channelConfig` riêng (dòng 113-249). Entry `bluesky` (dòng 241-248) đang dùng `<Globe className="..." />` thay vì `<BlueskyIcon />`. Đây là file bị bỏ sót trong lần fix trước (chỉ fix các file trong `src/components/multichannel/`).
 
-## Thay đổi
-**File:** `src/components/MultiChannelViewer.tsx`
+Trong `src/components/MultiChannelViewer.tsx`, hàm `getContentForChannel(content, channel)` (dòng 257–276) là một `switch` thủ công ánh xạ từ tên kênh sang cột DB tương ứng. Tất cả kênh khác (facebook, instagram, threads, pinterest, …) đều có `case`, **nhưng `bluesky` bị thiếu** → rơi xuống `default: return null` → viewer hiển thị `null` ⇒ 0 từ, không có nội dung dù DB có `bluesky_content`.
 
-1. Thêm `BlueskyIcon` vào import từ `@/components/icons/SocialIcons` (hiện đã import `ZaloIcon, XIcon, WordPressIcon, BloggerIcon, PinterestIcon` từ đó).
-2. Trong `channelConfig.bluesky`, đổi:
-   ```tsx
-   icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-   ```
-   thành:
-   ```tsx
-   icon: <BlueskyIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-   ```
+(Backend, types, hook `useMultiChannelContents`, `channelConfig` icon/label, mockup… đều đã hỗ trợ Bluesky đầy đủ.)
 
-## Kết quả
-Icon Bluesky trong sidebar (cả khi active và không active) sẽ hiển thị butterfly logo đúng thương hiệu, đồng nhất với các view khác đã fix trước đó.
+## Sửa
+
+Trong `src/components/MultiChannelViewer.tsx`, thêm vào `switch` của `getContentForChannel`:
+
+```tsx
+case 'bluesky': return content.bluesky_content;
+```
+
+(Đặt ngay trước `default`, cùng vị trí với pinterest/threads để đồng nhất.)
+
+## Tác động
+
+- Slide Bluesky hiển thị đúng nội dung đã sinh, đếm từ chuẩn.
+- Không thay đổi logic nào khác, không cần migration, không đụng backend.
+- Chỉ 1 dòng thay đổi trong 1 file.
