@@ -1,45 +1,64 @@
 
-# Hoàn thiện UI Video đã tạo
+# Tối ưu nội dung kịch bản & thời lượng video
 
-## Các cải tiến
+## Vấn đề hiện tại
 
-### 1. Video Gallery Tab (Thư viện chính)
-- Thêm `ModelUsedBadge` hiển thị model đã dùng (Seedance 2, Veo 3.1 Fast, v.v.) trên mỗi card
-- Aspect-ratio-aware video preview: card 9:16 hiện đúng tỉ lệ dọc thay vì ép `aspect-video` (16:9) cho tất cả
-- Dùng `LazyVideo` thay vì `<video>` trực tiếp (tiết kiệm bandwidth, UX tốt hơn)
-- Thêm generation time badge (VD: "Render trong 45s") khi có `generation_time_ms`
-- Thêm cost estimate badge khi có `cost_estimate`
+Phân tích code `generate-script/index.ts` cho thấy mấy điểm yếu:
 
-### 2. Quick Clip Tab - Active Job Result
-- Thêm `ModelUsedBadge` vào kết quả video hoàn thành
-- Thêm `PublishVideoMenu` ngay dưới video hoàn thành để publish nhanh
-- Thêm nút Download trực tiếp bên cạnh publish
+1. **Tốc độ đọc (WPM) không được kiểm soát**: System prompt không hướng dẫn AI về số từ/giây phù hợp. Tiếng Việt nói tự nhiên khoảng 2.5-3 từ/giây, nhưng AI hay nhồi quá nhiều lời thoại vào 1 prompt ngắn (5-10s) hoặc quá ít vào prompt dài.
 
-### 3. VideoJobStatusPanel (Trạng thái realtime)
-- Thêm `ModelUsedBadge` thay vì text thô `model_used`
-- Video preview dùng `LazyVideo` thay vì auto-load `<video>`
-- Aspect-ratio-aware preview thay vì cố định `aspect-video`
+2. **Line 2001 sai cố định**: `Mỗi ${blockLabel} ≈ 8 giây` — hardcoded 8s bất kể platform spec đã tính scenePlan chi tiết (có thể 2s hook, 3.5s body).
 
-### 4. ScriptSceneGrid (Lưới scene kịch bản)
-- Thêm `ModelUsedBadge` khi clip đã hoàn thành
-- Thêm `PublishVideoMenu` trong dropdown menu cho scene đã render
+3. **Dialogue length không ràng buộc theo duration**: Prompt format yêu cầu DIALOGUE nhưng không giới hạn số từ/câu theo thời lượng scene.
 
-### 5. ScriptMovieGallery (Phim đã ghép)
-- Thêm `ModelUsedBadge` cho model đã dùng
-- Dùng `LazyVideo` cho phim đã ghép
+4. **Thiếu content density guideline**: Không có hướng dẫn về "1 ý chính / scene" hay "max 2 câu / 5s scene".
 
-### 6. ScriptVideoGalleryGrouped - VersionCard
-- Thêm `ModelUsedBadge` cho mỗi version
-- Hiển thị duration + generation time
+## Thay đổi kỹ thuật
 
-## Technical Details
+### 1. Thêm WPM constraint vào system prompt (generate-script/index.ts)
 
-**Files cần sửa:**
-- `src/components/video/VideoGalleryTab.tsx` - import ModelUsedBadge, LazyVideo, PublishVideoMenu; cập nhật card layout
-- `src/components/video/QuickClipTab.tsx` - thêm actions row cho active job completed
-- `src/components/script/VideoJobStatusPanel.tsx` - dùng ModelUsedBadge + LazyVideo
-- `src/components/script/ScriptSceneGrid.tsx` - thêm ModelUsedBadge + PublishVideoMenu
-- `src/components/script/ScriptMovieGallery.tsx` - dùng LazyVideo
-- `src/components/script/ScriptVideoGalleryGrouped.tsx` - thêm ModelUsedBadge + duration info
+Trong `buildSystemPrompt()`, thêm section mới "CONTENT DENSITY RULES":
 
-**Không cần migration hay edge function changes** - chỉ là cải thiện frontend UI.
+```
+## CONTENT DENSITY — BẮT BUỘC
+- Tốc độ nói tiếng Việt tự nhiên: ~2.5 từ/giây (150 WPM)
+- Scene Xs → tối đa X×2.5 = Y từ dialogue
+- Mỗi scene CHỈ truyền tải 1 Ý CHÍNH duy nhất
+- KHÔNG nhồi nhiều ý vào 1 scene ngắn
+- Scene ≤5s: max 2 câu ngắn (12 từ)
+- Scene 6-8s: max 3 câu (18-20 từ)  
+- Scene 9-10s: max 4 câu (25 từ)
+```
+
+### 2. Fix hardcoded "≈ 8 giây" (line 2001)
+
+Thay bằng giá trị dynamic từ `spec.avgSceneSec` hoặc `Math.round(duration / promptCount)`.
+
+### 3. Thêm word count vào scene plan format
+
+Trong `formatSceneDurationPlan()`, thêm word budget:
+```
+PROMPT 1: 2s (~5 từ) · PROMPT 2: 3.5s (~9 từ) · ...
+```
+
+### 4. Cập nhật self-check checklist
+
+Thêm mục kiểm tra content density:
+```
+□ DIALOGUE CÓ VỪA THỜI LƯỢNG?
+  - Mỗi scene Xs có ≤ X×2.5 từ dialogue?
+  - Không có scene nào im lặng >2s (trừ visual-only scene)?
+  - Không có scene nào nhồi quá 4 từ/giây?
+```
+
+### 5. Cập nhật output format template
+
+Thêm word budget hint vào mỗi PROMPT template:
+```
+[DIALOGUE - max ~Y từ cho Xs scene]
+```
+
+### Files thay đổi
+
+- `supabase/functions/generate-script/index.ts` — tất cả thay đổi trên
+- `.lovable/memory/features/video/smart-model-pick-vn.md` — ghi nhận content density rules
