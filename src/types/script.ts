@@ -191,8 +191,10 @@ export interface ScriptFormData {
   aspect_ratio?: '9:16' | '16:9' | '1:1' | '2:3' | '4:5';
   /** ID của social format preset đã chọn (vd 'tiktok-short') */
   social_format_id?: string;
-  /** Character profile ID for visual consistency across scenes */
+  /** Character profile ID for visual consistency across scenes (legacy single) */
   character_profile_id?: string;
+  /** Character profile IDs for multi-character consistency (primary first) */
+  character_profile_ids?: string[];
 }
 
 // ============================================
