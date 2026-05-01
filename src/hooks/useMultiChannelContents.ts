@@ -28,6 +28,8 @@ const transformContent = (data: any): MultiChannelContent => ({
   primary_color: data.primary_color,
   // Normalize all content fields to prevent react-markdown crashes
   website_content: normalizeContentField(data.website_content),
+  blogger_content: normalizeContentField((data as any).blogger_content),
+  wordpress_content: normalizeContentField((data as any).wordpress_content),
   facebook_content: normalizeContentField(data.facebook_content),
   instagram_content: normalizeContentField(data.instagram_content),
   twitter_content: normalizeContentField(data.twitter_content),
