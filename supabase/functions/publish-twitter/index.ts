@@ -210,25 +210,108 @@ async function uploadMediaToTwitter(
 
 // ==================== THREAD SUPPORT ====================
 
+const TWEET_MAX_CHARS = 280;
+// Reserve room for " n/N" suffix (~6 chars) when we need to renumber
+const TWEET_SAFE_CHARS = 274;
+
+/**
+ * Twitter weighted length: URLs count as 23 chars regardless of length.
+ * https://developer.x.com/en/docs/counting-characters
+ */
+function tweetWeightedLength(text: string): number {
+  // Replace URLs with 23-char placeholder
+  const urlRegex = /https?:\/\/\S+/g;
+  const normalized = text.replace(urlRegex, 'x'.repeat(23));
+  // Use grapheme count (emoji safe). Twitter counts most code points as 1,
+  // but some emoji as 2. For safety we count code points (Array.from).
+  return Array.from(normalized).length;
+}
+
+function sliceByGraphemes(text: string, max: number): string {
+  const arr = Array.from(text);
+  if (arr.length <= max) return text;
+  return arr.slice(0, max).join('');
+}
+
+/**
+ * Hard-enforce a single tweet ≤ max chars by splitting at sentence/word boundary.
+ * Returns array of chunks, each ≤ max chars (weighted length).
+ */
+function enforceTweetLimit(text: string, max: number = TWEET_MAX_CHARS): string[] {
+  const trimmed = text.trim();
+  if (tweetWeightedLength(trimmed) <= max) return [trimmed];
+
+  const chunks: string[] = [];
+  let remaining = trimmed;
+
+  while (tweetWeightedLength(remaining) > max) {
+    // Try to slice ~max graphemes then back off to last sentence/space boundary
+    let slice = sliceByGraphemes(remaining, max);
+    // Adjust if weighted length still > max (URLs counted as 23)
+    while (tweetWeightedLength(slice) > max && slice.length > 1) {
+      slice = sliceByGraphemes(slice, Array.from(slice).length - 1);
+    }
+
+    // Prefer breaking at sentence end (. ! ? \n) within last 80 chars
+    const sentenceMatch = slice.match(/^([\s\S]*[\.!\?\n])\s+\S/);
+    let cut = slice;
+    if (sentenceMatch && sentenceMatch[1].length >= max * 0.5) {
+      cut = sentenceMatch[1];
+    } else {
+      // Fall back to last whitespace
+      const lastSpace = slice.lastIndexOf(' ');
+      if (lastSpace > max * 0.5) {
+        cut = slice.slice(0, lastSpace);
+      }
+    }
+
+    chunks.push(cut.trim());
+    remaining = remaining.slice(cut.length).trim();
+  }
+  if (remaining.length > 0) chunks.push(remaining);
+  return chunks;
+}
+
 /**
  * Split content into individual tweets for thread posting.
  * Detects patterns like "1/", "2/", "3/" at start of lines.
+ * Always enforces 280-char limit per tweet (auto-splits oversized tweets).
  */
 function splitThreadContent(content: string): string[] {
-  // Try to split by numbered pattern: "1/ ...", "2/ ...", etc.
   const threadPattern = /(?:^|\n)\s*(\d+)\s*[/\.]\s*/;
+  let rawTweets: string[];
 
   if (threadPattern.test(content)) {
-    // Split by the pattern, keeping content
     const parts = content.split(/(?:^|\n)\s*\d+\s*[/\.]\s*/).filter(p => p.trim().length > 0);
-    if (parts.length >= 2) {
-      // Re-add numbering prefix for clarity
-      return parts.map((part, i) => `${i + 1}/ ${part.trim()}`);
-    }
+    rawTweets = parts.length >= 2 ? parts.map(p => p.trim()) : [content.trim()];
+  } else {
+    rawTweets = [content.trim()];
   }
 
-  // No thread pattern detected — return as single tweet
-  return [content.trim()];
+  // Enforce 280-char limit per tweet — auto-split if any exceeds
+  const isThread = rawTweets.length > 1;
+  const limit = isThread ? TWEET_SAFE_CHARS : TWEET_MAX_CHARS;
+  const expanded: string[] = [];
+  for (const t of rawTweets) {
+    expanded.push(...enforceTweetLimit(t, limit));
+  }
+
+  // Re-number if thread (more than 1 tweet after enforcement)
+  if (expanded.length > 1) {
+    const total = expanded.length;
+    return expanded.map((part, i) => {
+      const prefix = `${i + 1}/${total} `;
+      // Strip any pre-existing "n/" prefix that might leak through
+      const cleaned = part.replace(/^\d+\/\d*\s+/, '').trim();
+      // Ensure final string still ≤ 280 (prefix is small, but be safe)
+      const withPrefix = prefix + cleaned;
+      if (tweetWeightedLength(withPrefix) <= TWEET_MAX_CHARS) return withPrefix;
+      // Last-resort hard truncate
+      return prefix + sliceByGraphemes(cleaned, TWEET_MAX_CHARS - prefix.length - 1) + '…';
+    });
+  }
+
+  return expanded;
 }
 
 // ==================== POST TWEET V2 ====================
