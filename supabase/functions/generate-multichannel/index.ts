@@ -1867,7 +1867,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         tiktok: { min: 20, max: 60, unit: "từ" },
         threads: { min: 30, max: 100, unit: "từ" },
         pinterest: { min: 30, max: 80, unit: "từ" },
-        bluesky: { min: 30, max: 80, unit: "từ" },
+        bluesky: { min: 50, max: 280, unit: "ký tự" },
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
