@@ -38,10 +38,12 @@ Deno.serve(async (req) => {
     const voiceId: string = body.voice_id ?? DEFAULT_VOICE_ID;
     const language: string = body.language ?? "vi";
     const scriptId: string | null = body.script_id ?? null;
+    const preview: boolean = body.preview === true;
     let organizationId: string | null = body.organization_id ?? null;
 
     if (!text || text.length < 2) return json({ error: "text too short" }, 400);
-    if (text.length > 5000) return json({ error: "text > 5000 chars" }, 400);
+    if (preview && text.length > 500) return json({ error: "preview text > 500 chars" }, 400);
+    if (!preview && text.length > 5000) return json({ error: "text > 5000 chars" }, 400);
 
     // Resolve org_id if not provided
     if (!organizationId) {
