@@ -288,7 +288,7 @@ export default function Account() {
     },
     { 
       key: "scripts" as const, 
-      label: "Kịch bản Video", 
+      label: "Video Studio", 
       icon: FileText,
       limit: currentPlanLimits?.monthly_scripts || 0,
       used: usage?.scripts || 0,
@@ -653,7 +653,7 @@ export default function Account() {
             <div className="space-y-6">
               <div className="grid gap-6 sm:grid-cols-2">
                 {[
-                  { label: "Kịch bản Video", icon: FileText, value: historyQuery.data?.scripts ?? 0 },
+                  { label: "Video Studio", icon: FileText, value: historyQuery.data?.scripts ?? 0 },
                   { label: "Carousel", icon: Images, value: historyQuery.data?.carousels ?? 0 },
                   { label: "Bài trên Social", icon: Layers, value: historyQuery.data?.multichannel_social_posts ?? 0 },
                   { label: "Ảnh AI", icon: Wand2, value: historyQuery.data?.images ?? 0 },

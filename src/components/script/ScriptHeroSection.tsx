@@ -108,7 +108,7 @@ export function ScriptHeroSection({
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-foreground">
-                Kịch bản Video
+                Kịch bản
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Tạo kịch bản video chuyên nghiệp với AI

@@ -22,11 +22,11 @@ export function Header() {
           {/* Navigation Tabs */}
           <nav className="flex items-center gap-1 ml-4">
             <NavLink
-              to="/"
+              to="/videos"
               className="px-4 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-muted"
               activeClassName="bg-primary/10 text-primary"
             >
-              Kịch bản Video
+              Video Studio
             </NavLink>
             <NavLink
               to="/carousel"
