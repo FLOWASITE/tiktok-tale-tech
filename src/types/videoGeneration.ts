@@ -65,6 +65,7 @@ export interface VideoGenerationRequest {
   script_id?: string;
   storyboard_id?: string;
   scene_number?: number;
+  character_profile_id?: string;
 }
 
 export const VIDEO_PROVIDER_CONFIG: Record<VideoProvider, {
