@@ -348,6 +348,31 @@ export function CharacterProfileManager() {
     }
   };
 
+  const handleAiAnalyze = async () => {
+    if (!form.reference_image_url) return;
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-character-image', {
+        body: { image_url: form.reference_image_url },
+      });
+      if (error) throw error;
+      if (data?.appearance) {
+        setForm((p) => ({
+          ...p,
+          appearance: { ...p.appearance, ...data.appearance },
+          description: data.description || p.description,
+          wardrobe: data.wardrobe || p.wardrobe,
+        }));
+        toast.success('AI đã phân tích ảnh và điền thông tin nhân vật');
+      }
+    } catch (e) {
+      console.error('[AI analyze]', e);
+      toast.error('Không thể phân tích ảnh — thử lại sau');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) return;
     if (editingId) {
