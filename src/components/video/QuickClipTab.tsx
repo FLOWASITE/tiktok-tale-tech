@@ -148,6 +148,7 @@ export function QuickClipTab() {
           industry_id: (currentBrand as { industry_template_id?: string } | null)?.industry_template_id,
           language: 'vi',
           character_profile_id: selectedCharacterIds[0] || undefined,
+          character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
         },
       });
       if (error) throw error;
@@ -196,6 +197,7 @@ export function QuickClipTab() {
       // Reference image from character profile
       starting_frame_url: selectedCharacters[0]?.reference_image_url || undefined,
       character_profile_id: selectedCharacters[0]?.id || undefined,
+      character_profile_ids: selectedCharacters.length > 0 ? selectedCharacters.map(c => c.id) : undefined,
     });
     if (result) {
       setActiveJobId(result.id);

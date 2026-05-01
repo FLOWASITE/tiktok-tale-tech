@@ -23,6 +23,7 @@ interface PromptRequest {
   language?: 'vi' | 'en' | 'th';
   tone?: string;
   character_profile_id?: string;
+  character_profile_ids?: string[];
 }
 
 interface PromptResponse {
@@ -68,6 +69,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       language = 'vi',
       tone,
       character_profile_id,
+      character_profile_ids,
     } = body;
 
     if (!idea || idea.trim().length < 3) {
@@ -102,23 +104,38 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       }
     }
 
-    // Fetch character profile for consistency
+    // Fetch character profiles for consistency (multi-character support)
     let characterContext = '';
-    if (character_profile_id) {
-      const { data: charProfile } = await supabase
+    const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
+      ? character_profile_ids
+      : character_profile_id ? [character_profile_id] : [];
+
+    if (resolvedCharIds.length > 0) {
+      const { data: charProfiles } = await supabase
         .from('character_profiles')
-        .select('name, description, appearance, wardrobe')
-        .eq('id', character_profile_id)
-        .maybeSingle();
-      if (charProfile) {
-        const app = (charProfile.appearance || {}) as Record<string, string>;
-        const traits: string[] = [];
-        if (app.gender) traits.push(app.gender);
-        if (app.age_range) traits.push(`age ${app.age_range}`);
-        if (app.hair) traits.push(`${app.hair} hair`);
-        if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
-        if (app.distinctive_features) traits.push(app.distinctive_features);
-        characterContext = `\nCHARACTER "${charProfile.name}": ${traits.join(', ')}. ${charProfile.description || ''}${charProfile.wardrobe ? ` Wearing: ${charProfile.wardrobe}.` : ''}\nCRITICAL: The generated prompt MUST describe this character's appearance precisely so the video maintains character consistency across scenes.`;
+        .select('id, name, description, appearance, wardrobe')
+        .in('id', resolvedCharIds);
+
+      if (charProfiles && charProfiles.length > 0) {
+        const sorted = resolvedCharIds
+          .map(id => charProfiles.find(p => p.id === id))
+          .filter(Boolean) as typeof charProfiles;
+
+        const blocks: string[] = [];
+        for (let i = 0; i < sorted.length; i++) {
+          const cp = sorted[i];
+          const role = i === 0 ? 'MAIN CHARACTER' : `SECONDARY CHARACTER ${i}`;
+          const app = (cp.appearance || {}) as Record<string, string>;
+          const traits: string[] = [];
+          if (app.gender) traits.push(app.gender);
+          if (app.age_range) traits.push(`age ${app.age_range}`);
+          if (app.hair) traits.push(`${app.hair} hair`);
+          if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+          if (app.distinctive_features) traits.push(app.distinctive_features);
+          blocks.push(`${role} "${cp.name}": ${traits.join(', ')}. ${cp.description || ''}${cp.wardrobe ? ` Wearing: ${cp.wardrobe}.` : ''}`);
+        }
+        characterContext = '\n' + blocks.join('\n') +
+          '\nCRITICAL: The generated prompt MUST describe each character\'s appearance precisely so the video maintains character consistency across scenes.';
       }
     }
 
