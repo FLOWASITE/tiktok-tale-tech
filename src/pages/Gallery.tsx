@@ -56,7 +56,7 @@ export default function Gallery() {
         ) : (
           <>
             <h1 className="text-2xl font-bold text-foreground">Gallery</h1>
-            <p className="text-sm text-muted-foreground mt-1">Quản lý tất cả ảnh được tạo trong toàn bộ ứng dụng</p>
+            <p className="text-sm text-muted-foreground mt-1">Quản lý tất cả ảnh và video được tạo trong toàn bộ ứng dụng</p>
           </>
         )}
       </div>
