@@ -37,6 +37,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
   const [showAllClips, setShowAllClips] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number; currentScene?: number }>({ done: 0, total: 0 });
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(activeScript?.characterProfileId ?? null);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterProfile | null>(null);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
