@@ -2,7 +2,7 @@ import React from 'react';
 import { Channel } from '@/types/multichannel';
 import { Globe, Mail } from 'lucide-react';
 
-type ExtraChannel = 'pinterest';
+type ExtraChannel = 'pinterest' | 'bluesky';
 const svgIcons: Partial<Record<Channel | ExtraChannel, React.FC<{ className?: string }>>> = {
   facebook: ({ className }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
