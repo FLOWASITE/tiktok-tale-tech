@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { VideoCompletionWizard } from './VideoCompletionWizard';
+import { CharacterPicker } from './CharacterPicker';
+import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
