@@ -253,6 +253,14 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     // ───────── ASYNC MODE (default) — submit only ─────────
     let providerTaskId: string | null = null;
     let submitError: string | null = null;
+    let actualProvider: VideoProvider = provider;
+
+    // Helper: map PoYo model → GeminiGen equivalent for fallback
+    const POYO_TO_GEMINIGEN_MAP: Record<string, string> = {
+      'poyo/seedance-2': 'geminigen/veo-3.1-fast',
+      'poyo/sora-2': 'geminigen/sora-2',
+      'poyo/happy-horse': 'geminigen/veo-3.1-fast',
+    };
 
     try {
       if (provider === 'geminigen') {
@@ -283,8 +291,42 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         throw new Error(`Provider "${provider}" not supported in async mode (use sync=true).`);
       }
     } catch (e) {
-      submitError = e instanceof Error ? e.message : 'Submit failed';
+      const errMsg = e instanceof Error ? e.message : 'Submit failed';
       console.error(`[generate-video] submit ${provider} error:`, e);
+
+      // ───── AUTO-FALLBACK: PoYo 402/credits → GeminiGen ─────
+      const isPoyoCreditsError = provider === 'poyo' &&
+        (errMsg.includes('402') || errMsg.includes('CREDITS_EXHAUSTED') || errMsg.includes('insufficient_credits'));
+      const geminigenKey = Deno.env.get("GEMINIGEN_API_KEY");
+
+      if (isPoyoCreditsError && geminigenKey) {
+        const fallbackModel = POYO_TO_GEMINIGEN_MAP[model || 'poyo/seedance-2'] || 'geminigen/veo-3.1-fast';
+        console.log(`[generate-video] PoYo credits exhausted → fallback to GeminiGen model=${fallbackModel}`);
+
+        try {
+          providerTaskId = await submitGeminiGenVideoTask({
+            prompt, model: fallbackModel,
+            aspectRatio: aspect_ratio,
+            resolution: resolution === '720p' ? '720p' : '1080p',
+            duration, negativePrompt: negative_prompt,
+            startingFrameUrl: starting_frame_url,
+          }, geminigenKey);
+          actualProvider = 'geminigen';
+
+          // Update job row with new provider info
+          await supabase.from('video_generations').update({
+            provider: 'geminigen',
+            model_used: fallbackModel,
+          }).eq('id', job.id);
+
+          console.log(`[generate-video] GeminiGen fallback succeeded: task=${providerTaskId}`);
+        } catch (fallbackErr) {
+          console.error(`[generate-video] GeminiGen fallback also failed:`, fallbackErr);
+          submitError = `PoYo hết credits, GeminiGen fallback cũng thất bại: ${fallbackErr instanceof Error ? fallbackErr.message : 'Unknown'}`;
+        }
+      } else {
+        submitError = errMsg;
+      }
     }
 
     if (submitError || !providerTaskId) {
