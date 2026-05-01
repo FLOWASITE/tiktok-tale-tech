@@ -15,7 +15,7 @@ import {
   type ReferenceImage,
   type ReferenceImageLabel,
 } from '@/hooks/useCharacterProfiles';
-import { Plus, Trash2, Edit2, User, Upload, Loader2, ImagePlus, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, User, Upload, Loader2, ImagePlus, X, Sparkles, Mic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
