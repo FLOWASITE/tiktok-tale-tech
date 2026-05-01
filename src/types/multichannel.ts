@@ -162,6 +162,7 @@ export interface MultiChannelContent {
   tiktok_content: string | null;
   threads_content: string | null;
   pinterest_content: string | null;
+  bluesky_content: string | null;
   pinterest_title: string | null;
   pinterest_pin_type?: 'auto' | 'image' | 'carousel' | 'video' | 'idea' | null;
   pinterest_post_id?: string | null;
