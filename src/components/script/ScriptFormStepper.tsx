@@ -62,7 +62,7 @@ import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { ConfigChipSelector } from '@/components/script/ConfigChipSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
-import { CharacterPicker } from '@/components/video/CharacterPicker';
+import { MultiCharacterPicker } from '@/components/video/MultiCharacterPicker';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
 import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
@@ -939,9 +939,13 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </ConfigChipSelector>
 
                 {/* Character Profile — nhân vật cụ thể từ hồ sơ */}
-                <CharacterPicker
-                  value={formData.character_profile_id ?? null}
-                  onChange={(id) => setFormData((prev) => ({ ...prev, character_profile_id: id ?? undefined }))}
+                <MultiCharacterPicker
+                  value={formData.character_profile_ids ?? (formData.character_profile_id ? [formData.character_profile_id] : [])}
+                  onChange={(ids) => setFormData((prev) => ({
+                    ...prev,
+                    character_profile_ids: ids.length > 0 ? ids : undefined,
+                    character_profile_id: ids[0] ?? undefined,
+                  }))}
                 />
 
                 {/* Voice & Dialogue chip */}
