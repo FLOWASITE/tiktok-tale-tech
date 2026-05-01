@@ -54,7 +54,22 @@ import {
   Settings2,
   Megaphone,
 } from 'lucide-react';
-import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
+import {
+  ZaloIcon,
+  XIcon,
+  WordPressIcon,
+  BloggerIcon,
+  BlueskyIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  YouTubeIcon,
+  TikTokIcon,
+  ThreadsIcon,
+  TelegramIcon,
+  GoogleBusinessIcon,
+  PinterestIcon,
+} from '@/components/icons/SocialIcons';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -154,20 +169,20 @@ const LOADING_PHASES = [
 
 const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
-  blogger: <ChannelIcon channel="blogger" size="sm" />,
-  wordpress: <ChannelIcon channel="wordpress" size="sm" />,
-  facebook: <Facebook className="w-4 h-4" />,
-  instagram: <Instagram className="w-4 h-4" />,
-  pinterest: <ChannelIcon channel="pinterest" size="sm" />,
+  blogger: <BloggerIcon className="w-4 h-4" />,
+  wordpress: <WordPressIcon className="w-4 h-4" />,
+  facebook: <FacebookIcon className="w-4 h-4" />,
+  instagram: <InstagramIcon className="w-4 h-4" />,
+  pinterest: <PinterestIcon className="w-4 h-4" />,
   twitter: <XIcon className="w-4 h-4" />,
-  google_maps: <MapPin className="w-4 h-4" />,
-  linkedin: <Linkedin className="w-4 h-4" />,
+  google_maps: <GoogleBusinessIcon className="w-4 h-4" />,
+  linkedin: <LinkedInIcon className="w-4 h-4" />,
   email: <Mail className="w-4 h-4" />,
-  youtube: <Youtube className="w-4 h-4" />,
+  youtube: <YouTubeIcon className="w-4 h-4" />,
   zalo_oa: <ZaloIcon className="w-4 h-4" />,
-  telegram: <Send className="w-4 h-4" />,
-  tiktok: <Music2 className="w-4 h-4" />,
-  threads: <AtSign className="w-4 h-4" />,
+  telegram: <TelegramIcon className="w-4 h-4" />,
+  tiktok: <TikTokIcon className="w-4 h-4" />,
+  threads: <ThreadsIcon className="w-4 h-4" />,
   bluesky: <BlueskyIcon className="w-4 h-4" />,
 };
 

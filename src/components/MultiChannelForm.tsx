@@ -13,7 +13,22 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Loader2, Sparkles, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
-import { ZaloIcon, XIcon, WordPressIcon, BloggerIcon } from '@/components/icons/SocialIcons';
+import {
+  ZaloIcon,
+  XIcon,
+  WordPressIcon,
+  BloggerIcon,
+  BlueskyIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  YouTubeIcon,
+  TikTokIcon,
+  ThreadsIcon,
+  TelegramIcon,
+  GoogleBusinessIcon,
+  PinterestIcon,
+} from '@/components/icons/SocialIcons';
 import { MultiChannelFormData, ContentGoal, ContentAngle, Channel, CHANNELS } from '@/types/multichannel';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
@@ -50,19 +65,19 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   blogger: <BloggerIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   wordpress: <WordPressIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  facebook: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  instagram: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  pinterest: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  facebook: <FacebookIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  instagram: <InstagramIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  pinterest: <PinterestIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   twitter: <XIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  google_maps: <MapPin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  linkedin: <Linkedin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  google_maps: <GoogleBusinessIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  linkedin: <LinkedInIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   email: <Mail className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  youtube: <Youtube className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  youtube: <YouTubeIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   zalo_oa: <ZaloIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  telegram: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  tiktok: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  threads: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  bluesky: <Globe className="w-4 h-4" />,
+  telegram: <TelegramIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  tiktok: <TikTokIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  threads: <ThreadsIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  bluesky: <BlueskyIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
 };
 
 const channelColors: Record<Channel, string> = {

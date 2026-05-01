@@ -1,62 +1,32 @@
-# Plan: Đồng bộ Brand Icon cho Social Channels
+Mình đã xác định đúng nguyên nhân trong screenshot: bước “Kênh xuất bản” của form tạo mới Nội dung đa kênh đang render qua `CompactChannelGrid`, và dữ liệu icon được truyền từ `MultiChannelFormWizard.tsx`. Component này vẫn đang dùng map `channelIcons` cục bộ với các icon Lucide generic như `Send`, `Music2`, `AtSign`, `MapPin`, `Globe` cho Telegram/TikTok/Threads/Google Maps/Website/Bluesky, nên alias trước đó không làm thay đổi toàn bộ phần này.
 
-## Mục tiêu
-Thay toàn bộ icon Lucide generic (Facebook, Instagram, Linkedin, Youtube, Music2-cho-TikTok, AtSign-cho-Threads, Send-cho-Telegram, Mail, MapPin) bằng SVG brand chính thức. Giữ nguyên 3 icon đã đúng: **Pinterest, Blogger, WordPress** + **Bluesky, X (Twitter)** đã có sẵn trong `SocialIcons.tsx`.
+Kế hoạch sửa:
 
-## Phạm vi icon cần bổ sung
-Thêm vào `src/components/icons/SocialIcons.tsx` các SVG brand chính thức (simpleicons.org-style, viewBox 24x24, fill="currentColor"):
+1. Tạo nguồn icon social chuẩn dùng chung cho channel
+- Mở rộng `src/components/icons/SocialIcons.tsx` nếu còn thiếu icon brand cần dùng trong form: TikTok, Threads, Telegram, Google Business/Maps, Facebook, Instagram, LinkedIn, YouTube, Zalo, X, Bluesky, Pinterest, Blogger, WordPress.
+- Giữ nguyên 3 icon đã đúng: Pinterest, Blogger, WordPress.
 
-| Icon | Hiện tại (sai/generic) | Sẽ thêm |
-|---|---|---|
-| Facebook | Lucide `Facebook` (outline) | `FacebookIcon` — logo "f" filled chính thức |
-| Instagram | Lucide `Instagram` (outline) | `InstagramIcon` — camera mark filled |
-| LinkedIn | Lucide `Linkedin` (outline) | `LinkedInIcon` — "in" filled |
-| YouTube | Lucide `Youtube` | `YouTubeIcon` — play button đỏ chuẩn |
-| TikTok | Lucide `Music2` | `TikTokIcon` — note logo (đã có inline trong PlatformSelector → tách ra) |
-| Threads | Lucide `AtSign` | `ThreadsIcon` — @ cách điệu chính thức |
-| Telegram | Lucide `Send` | `TelegramIcon` — paper plane brand |
-| Zalo | Chữ "Z" trong vòng tròn (không phải logo) | `ZaloIcon` — wordmark "Zalo" chính thức (giữ tên, sửa path) |
-| Google Business | `MapPin` | `GoogleBusinessIcon` — "G" multi-color hoặc mono |
-| Email | `Mail` (giữ — không phải brand) | giữ Lucide `Mail` |
+2. Sửa trực tiếp form trong screenshot
+- Trong `src/components/multichannel/MultiChannelFormWizard.tsx`, thay `channelIcons` cục bộ bằng icon brand SVG thật cho toàn bộ kênh social.
+- Các kênh cần đổi rõ ràng trong màn hình này:
+  - LinkedIn: `LinkedInIcon`
+  - Threads: `ThreadsIcon`, không dùng `AtSign`
+  - Telegram: `TelegramIcon`, không dùng `Send`
+  - TikTok: `TikTokIcon`, không dùng `Music2`
+  - YouTube: `YouTubeIcon`
+  - Google Maps: `GoogleBusinessIcon` hoặc icon Google phù hợp hơn, không dùng `MapPin`
+  - Bluesky: `BlueskyIcon`, không dùng `Globe`
+  - Facebook/Instagram: dùng SVG brand trực tiếp, không phụ thuộc shim
+  - Website/Blog và Email giữ icon UI generic nếu không có brand chính thức cụ thể.
 
-## Các file phải cập nhật
+3. Đồng bộ các form tạo nội dung đa kênh còn lại để tránh lệch UI
+- Cập nhật `MultiChannelFormStepper.tsx` và `MultiChannelForm.tsx` vì cũng có `channelIcons` cục bộ tương tự.
+- Mục tiêu: mọi biến thể của form tạo mới đều dùng cùng bộ brand icon, không bị phụ thuộc vào alias `lucide-react`.
 
-### 1. `src/components/icons/SocialIcons.tsx` (nguồn duy nhất)
-Thêm 8 export mới + sửa `ZaloIcon`. Mỗi icon là functional component nhận `SVGProps<SVGSVGElement>`.
+4. Giảm rủi ro alias/shim không áp dụng
+- Giữ alias hiện tại nếu không gây lỗi, nhưng không dựa vào nó cho màn hình này nữa.
+- Import icon brand trực tiếp từ `@/components/icons/SocialIcons` để đảm bảo preview đổi ngay tại đúng component.
 
-### 2. `src/components/multichannel/streaming/ChannelIcon.tsx` (hub icon chính)
-- Replace import Lucide `Facebook, Instagram, Linkedin, Youtube, Music2, AtSign, Send` → wrapper từ `SocialIcons`.
-- Cập nhật `channelConfig` map cho: facebook, instagram, tiktok, threads, linkedin, youtube, zalo, zalo_oa, telegram, google_maps.
-- Wrapper pattern (như `ZaloLucide` hiện có) để đồng nhất `LucideIcon` interface — KHÔNG đổi API public của `ChannelIcon`.
-
-### 3. `src/components/carousel/PlatformSelector.tsx`
-- Bỏ `TikTokIcon` inline; import từ `@/components/icons/SocialIcons`.
-- Replace Lucide `Facebook, Instagram, Linkedin` → brand version.
-
-### 4. `src/components/multichannel/ExpandChannelsDialog.tsx` + `ExpandChannelsStreamingDialog.tsx`
-- Replace import Lucide social icons → SocialIcons brand version.
-- Giữ `Globe`, `Mail`, `MapPin` (Email/Maps không có brand SVG riêng — Mail là generic OK; MapPin → đổi thành `GoogleBusinessIcon` cho Google Maps/Business entry).
-
-### 5. (Optional, low-risk) `src/components/icons/index.ts`
-Tạo barrel export nếu chưa có để tất cả nơi import gọn: `import { FacebookIcon } from '@/components/icons'`.
-
-## Nguyên tắc thiết kế
-- **Single source of truth**: tất cả icon social đi qua `SocialIcons.tsx`. Cấm dùng Lucide cho: Facebook, Instagram, Linkedin, Youtube, TikTok, Threads, Telegram, Pinterest, Blogger, WordPress, Bluesky, X, Zalo.
-- **viewBox 24x24, `fill="currentColor"`** → giữ tương thích với `bgClass` color trong `ChannelIcon` (vd `bg-blue-500 text-white`).
-- **Không đổi màu nền** (`channelConfig.bgClass`) — chỉ đổi glyph. Soft Luxury palette giữ nguyên.
-- **Backward compat**: API `<ChannelIcon channel="..." size="..." />` không đổi → 100+ call site không cần sửa.
-
-## Verification sau khi đổi
-1. Mở wizard "Tạo nội dung" (như screenshot user gửi) → check 16 channel hiển thị đúng brand glyph.
-2. Mở `MultiChannelViewer`, `KanbanCard`, `PipelineKanban`, `SocialConnectionsManager` → kiểm tra icon đồng nhất.
-3. Dark mode: icon `text-white` trên `bg-blue-500` v.v. vẫn render rõ.
-4. TikTok ở `PlatformSelector` (carousel) khớp với TikTok ở `ChannelIcon`.
-
-## Ngoài phạm vi
-- Không động vào logic publishing, OAuth, types.
-- Không đổi `bgClass`/màu thương hiệu (nếu cần thì lần sau).
-- Không refactor các call site dùng trực tiếp Lucide `Mail` cho Email (đó là icon generic chấp nhận được).
-
-## Risk
-- **Thấp**: chỉ thay glyph, giữ interface. Nếu SVG path lỗi → chỉ ảnh hưởng visual, không crash.
-- Test thủ công 1 màn hình mỗi nhóm (wizard, kanban, viewer, connections page) là đủ.
+5. Kiểm tra sau sửa
+- Kiểm tra bằng search rằng trong 3 form chính không còn dùng `AtSign`, `Send`, `Music2`, `MapPin`, `Globe` cho các social đã có icon brand.
+- Kiểm tra giao diện bước “Kênh xuất bản” ở form Nội dung đa kênh: các icon trong screenshot đổi thành icon brand SVG đúng, đặc biệt Threads/Telegram/LinkedIn/Google Maps/Bluesky/TikTok/YouTube.
