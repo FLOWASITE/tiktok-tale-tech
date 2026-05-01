@@ -3575,7 +3575,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               const dedupWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
               const { data: existingContent } = await supabase
                 .from('multi_channel_contents')
-                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
+                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, bluesky_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
                 .eq('user_id', userId)
                 .eq('topic', formData.topic)
                 .gte('created_at', dedupWindow)
