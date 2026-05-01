@@ -150,7 +150,7 @@ const channelConfig: Record<Channel, {
   },
   bluesky: { 
     label: 'Bluesky', 
-    icon: <ChannelIcon channel="bluesky" size="sm" />, 
+    icon: <Globe className="w-3 h-3" />, 
     color: 'text-[#0085FF]',
     bgColor: 'bg-[#0085FF]/20',
   },
