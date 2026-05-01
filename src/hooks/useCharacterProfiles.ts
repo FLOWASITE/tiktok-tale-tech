@@ -100,6 +100,7 @@ export function useCharacterProfiles() {
       if (input.appearance !== undefined) updateData.appearance = input.appearance as any;
       if (input.wardrobe !== undefined) updateData.wardrobe = input.wardrobe;
       if (input.reference_image_url !== undefined) updateData.reference_image_url = input.reference_image_url;
+      if (input.reference_images !== undefined) updateData.reference_images = input.reference_images as any;
       if (input.brand_template_id !== undefined) updateData.brand_template_id = input.brand_template_id;
 
       const { data, error } = await supabase
