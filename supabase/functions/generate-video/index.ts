@@ -165,53 +165,70 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
     console.log(`[generate-video] provider=${provider} model=${model} (admin=${!clientModel}) duration=${duration}s aspect=${aspect_ratio} res=${resolution} sync=${sync}`);
 
-    // ───────── CHARACTER CONSISTENCY — inject character block into prompt ─────────
+    // ───────── CHARACTER CONSISTENCY — multi-character support ─────────
     let enrichedPrompt = prompt;
     let characterRefUrl = starting_frame_url;
-    if (character_profile_id) {
+
+    // Resolve character IDs: prefer array, fallback to single
+    const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
+      ? character_profile_ids
+      : character_profile_id ? [character_profile_id] : [];
+
+    if (resolvedCharIds.length > 0) {
       try {
-        const { data: charProfile } = await supabase
+        const { data: charProfiles } = await supabase
           .from('character_profiles')
-          .select('name, description, appearance, wardrobe, reference_image_url, reference_images')
-          .eq('id', character_profile_id)
-          .maybeSingle();
-        if (charProfile) {
-          const app = (charProfile.appearance || {}) as Record<string, string>;
-          const traits: string[] = [];
-          if (app.gender) traits.push(app.gender);
-          if (app.age_range) traits.push(`age ${app.age_range}`);
-          if (app.hair) traits.push(`${app.hair} hair`);
-          if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
-          if (app.body_type) traits.push(app.body_type);
+          .select('id, name, description, appearance, wardrobe, reference_image_url, reference_images')
+          .in('id', resolvedCharIds);
 
-          let charBlock = `[CHARACTER CONSISTENCY — "${charProfile.name}"]`;
-          if (traits.length) charBlock += `\nAppearance: ${traits.join(', ')}.`;
-          if (charProfile.description) charBlock += `\nDetails: ${charProfile.description}`;
-          if (charProfile.wardrobe) charBlock += `\nWardrobe: ${charProfile.wardrobe}.`;
-          if (app.distinctive_features) charBlock += `\nDistinctive: ${app.distinctive_features}.`;
-          charBlock += '\nIMPORTANT: Maintain this EXACT character appearance consistently. Same face, hair, clothing, body proportions.';
+        if (charProfiles && charProfiles.length > 0) {
+          // Sort to match input order (primary first)
+          const sorted = resolvedCharIds
+            .map(id => charProfiles.find(p => p.id === id))
+            .filter(Boolean) as typeof charProfiles;
 
-          enrichedPrompt = `${charBlock}\n\n${enrichedPrompt}`;
-          console.log(`[generate-video] Injected character "${charProfile.name}" into prompt`);
+          const charBlocks: string[] = [];
+          for (let i = 0; i < sorted.length; i++) {
+            const cp = sorted[i];
+            const role = i === 0 ? 'MAIN CHARACTER' : `SECONDARY CHARACTER ${i}`;
+            const app = (cp.appearance || {}) as Record<string, string>;
+            const traits: string[] = [];
+            if (app.gender) traits.push(app.gender);
+            if (app.age_range) traits.push(`age ${app.age_range}`);
+            if (app.hair) traits.push(`${app.hair} hair`);
+            if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+            if (app.body_type) traits.push(app.body_type);
 
-          // Smart reference image selection from multi-reference images
+            let block = `[${role} — "${cp.name}"]`;
+            if (traits.length) block += `\nAppearance: ${traits.join(', ')}.`;
+            if (cp.description) block += `\nDetails: ${cp.description}`;
+            if (cp.wardrobe) block += `\nWardrobe: ${cp.wardrobe}.`;
+            if (app.distinctive_features) block += `\nDistinctive: ${app.distinctive_features}.`;
+            block += `\nIMPORTANT: Maintain "${cp.name}" EXACT appearance consistently.`;
+            charBlocks.push(block);
+          }
+
+          enrichedPrompt = `${charBlocks.join('\n\n')}\n\n${enrichedPrompt}`;
+          console.log(`[generate-video] Injected ${sorted.length} character(s): ${sorted.map(c => c.name).join(', ')}`);
+
+          // Reference image from primary character
+          const primary = sorted[0];
           if (!characterRefUrl) {
-            const refImages = Array.isArray(charProfile.reference_images) ? charProfile.reference_images as { url: string; label: string }[] : [];
+            const refImages = Array.isArray(primary.reference_images) ? primary.reference_images as { url: string; label: string }[] : [];
             if (refImages.length > 0) {
-              // Pick best image: prefer 'front' for first scene, 'close-up' for close-up prompts
               const promptLower = prompt.toLowerCase();
               const isCloseUp = promptLower.includes('close-up') || promptLower.includes('cận') || promptLower.includes('macro');
               const preferred = isCloseUp ? 'close-up' : 'front';
               const picked = refImages.find(r => r.label === preferred) || refImages[0];
               characterRefUrl = picked.url;
               console.log(`[generate-video] Using multi-ref image: ${picked.label}`);
-            } else if (charProfile.reference_image_url) {
-              characterRefUrl = charProfile.reference_image_url;
+            } else if (primary.reference_image_url) {
+              characterRefUrl = primary.reference_image_url;
             }
           }
         }
       } catch (e) {
-        console.warn('[generate-video] Failed to fetch character profile:', e);
+        console.warn('[generate-video] Failed to fetch character profiles:', e);
       }
     }
 
