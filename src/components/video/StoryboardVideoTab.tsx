@@ -158,6 +158,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
           script_id: activeScript.id,
           scene_number: scene.sceneNumber,
           character_profile_id: selectedCharacterIds[0] || undefined,
+          character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
           starting_frame_url: startingFrame,
         });
         if (res) {
