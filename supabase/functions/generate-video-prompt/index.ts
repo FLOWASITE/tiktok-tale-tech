@@ -165,7 +165,7 @@ Return JSON shape:
   "recommended_music_mood": "e.g. uplifting cinematic, lo-fi calm, dramatic orchestral"
 }`;
 
-    const userPrompt = `IDEA: ${idea}\n${brandContext}${industryContext}\n\nReturn the JSON now.`;
+    const userPrompt = `IDEA: ${idea}\n${brandContext}${industryContext}${characterContext}\n\nReturn the JSON now.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
