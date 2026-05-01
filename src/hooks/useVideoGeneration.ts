@@ -146,20 +146,42 @@ export function useVideoGeneration() {
       });
 
       if (error) {
-        if (error.message?.includes('429')) {
+        const msg = error.message ?? '';
+        // Try to parse the response body for more detail
+        let bodyError = '';
+        try {
+          if (error.context?.body) {
+            const bodyText = await new Response(error.context.body).text();
+            bodyError = bodyText;
+          }
+        } catch { /* ignore */ }
+
+        const combined = `${msg} ${bodyError}`;
+
+        if (combined.includes('429')) {
           toast.error('Đã vượt giới hạn API. Vui lòng thử lại sau.');
-        } else if (error.message?.includes('402')) {
-          toast.error('Cần nạp thêm credits để tiếp tục.');
-        } else if (error.message?.includes('MINIMAX_API_KEY')) {
+        } else if (combined.includes('402') || combined.includes('CREDITS_EXHAUSTED') || combined.includes('Insufficient')) {
+          toast.error('Credits video đã hết. Vui lòng nạp thêm credits để tiếp tục tạo video.', {
+            duration: 6000,
+          });
+        } else if (combined.includes('MINIMAX_API_KEY')) {
           toast.error('Chưa cấu hình Minimax API key. Vui lòng thêm trong Settings.');
         } else {
-          throw error;
+          console.error('[generate-video] Unhandled error:', msg, bodyError);
+          toast.error(msg || 'Không thể tạo video. Vui lòng thử lại.');
         }
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        const errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+        if (errMsg.includes('CREDITS_EXHAUSTED') || errMsg.includes('Insufficient')) {
+          toast.error('Credits video đã hết. Vui lòng nạp thêm credits để tiếp tục tạo video.', {
+            duration: 6000,
+          });
+        } else {
+          toast.error(errMsg);
+        }
         return null;
       }
 
