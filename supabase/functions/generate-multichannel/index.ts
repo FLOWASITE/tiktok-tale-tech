@@ -3655,6 +3655,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   threads_content: channelResults.threads || null,
                   pinterest_content: channelResults.pinterest || null,
                   pinterest_title: channelResults.pinterest_title || null,
+                  bluesky_content: channelResults.bluesky || null,
                 }))
                 .select()
                 .single();
@@ -5666,6 +5667,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
           pinterest_content: (generatedData.pinterest_content && generatedData.pinterest_content.length > 0) ? generatedData.pinterest_content : null,
           pinterest_title: (generatedData.pinterest_title && generatedData.pinterest_title.length > 0) ? generatedData.pinterest_title : null,
+          bluesky_content: (generatedData.bluesky_content && generatedData.bluesky_content.length > 0) ? generatedData.bluesky_content : null,
         }))
         .select()
         .single();
