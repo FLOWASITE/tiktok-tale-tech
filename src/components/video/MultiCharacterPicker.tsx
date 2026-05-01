@@ -127,6 +127,7 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
         setShowAIDialog(false);
         setGeneratedChars([]);
         setRoleHint('');
+        setVideoType('');
         toast.success(`Đã tạo và chọn ${toSave.length} nhân vật từ AI`);
       }, 600);
     } catch (e: any) {
