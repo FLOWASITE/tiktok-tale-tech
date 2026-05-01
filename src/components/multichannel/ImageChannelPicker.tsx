@@ -5,7 +5,7 @@ import {
   Facebook, Instagram, Linkedin, Globe, MapPin,
   Youtube, Mail, Music2, AtSign, Send,
 } from 'lucide-react';
-import { ZaloIcon, XIcon, BloggerIcon, WordPressIcon, PinterestIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, BloggerIcon, WordPressIcon, PinterestIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 
 interface ImageChannelPickerProps {
   availableChannels: Channel[];
