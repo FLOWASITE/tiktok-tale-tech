@@ -150,6 +150,8 @@ export interface MultiChannelContent {
   primary_color: string | null;
   website_content: string | null;
   website_seo_data?: WebsiteSEOData | null;
+  blogger_content: string | null;
+  wordpress_content: string | null;
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;

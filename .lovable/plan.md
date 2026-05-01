@@ -1,78 +1,67 @@
-# Format chuẩn hơn cho bài viết Bluesky
+## Vấn đề
 
-## Vấn đề hiện tại
+Hiện tại `Website`, `Blogger`, `WordPress` là 3 nút chọn riêng trên UI nhưng pipeline cố ý gộp chung vào **1 cột `website_content`** + chạy long-form pipeline **1 lần duy nhất**. Hệ quả: chọn cả 3 → cùng một bài. Khi publish ra Blogger / WordPress / website đều đăng nội dung giống hệt.
 
-1. **Giới hạn sai**: Đang ép ≤280 ký tự (giới hạn Twitter), nhưng Bluesky thực ra là **300 graphemes**.
-2. **Prompt mâu thuẫn**: 1 prompt (line 4060) ghi "≤280", 1 prompt khác (line 4243) cũng "≤280", còn channel settings (line 308) lại để **300**. Output AI bị lệch.
-3. **Format không đúng văn hóa Bluesky**:
-   - Bluesky là **plain text** — không render `**bold**`, `# heading`, `- bullet`. Nhưng AI hay sinh markdown vì prompt chung chung → render ra ký tự `**` thô trong mockup.
-   - Link nên là **URL trần đặt riêng 1 dòng cuối** (Bluesky tự tạo facet/embed card) — không nên `[text](url)` markdown.
-   - Mention dùng `@handle.bsky.social`, không phải `@brand`.
-4. **Mockup render bằng `ReactMarkdown`** → nếu AI lỡ trả markdown thì hiển thị OK trên preview nhưng SAI khi publish thật. Bluesky render plain text + auto-link.
-5. **Thiếu line-break style native**: posts Bluesky hay có 2-3 đoạn ngắn cách bằng dòng trống, mỗi đoạn 1-2 câu.
+Bạn muốn **3 bài hoàn toàn khác nhau**, đặc thù chính là **độ dài & cấu trúc heading**.
 
-## Giải pháp
+## Định hướng
 
-### 1. Sửa prompt AI (`supabase/functions/generate-multichannel/index.ts`)
+Tách 3 kênh thành 3 dòng dữ liệu độc lập, mỗi dòng có cấu hình riêng:
 
-Cập nhật **cả 2 chỗ** mô tả Bluesky (line 4060 và 4243) thành spec chính xác:
+| Kênh | Độ dài | Cấu trúc | Tone |
+|------|--------|----------|------|
+| **Website** | 800–1200 từ | H1 → 3-4× H2, đoạn ngắn, có CTA cuối, schema-friendly | Corporate, súc tích |
+| **Blogger** | 500–800 từ | H1 → 2× H2 + bullet list, paragraph thoáng, conversational | Casual / personal blog, có labels |
+| **WordPress** | 1200–2000 từ | H1 → 4-6× H2 + H3 lồng, có TOC, FAQ block, callout, internal-link suggestions | Chuyên môn sâu, in-depth guide |
 
-```text
-Nội dung Bluesky (≤300 graphemes — đếm chặt, chừa 30 ký tự cho link nếu có).
-- PLAIN TEXT thuần, KHÔNG markdown (không **bold**, không # heading, không - bullet, không [text](url)).
-- Cấu trúc: 2-3 đoạn rất ngắn (1-2 câu/đoạn), cách nhau bằng dòng trống.
-- Hook ngay câu đầu: hot take, observation, hoặc câu hỏi gây tò mò.
-- Giọng casual như chat với bạn — first person, có cá tính, không corporate.
-- Emoji 0-3 (rải tự nhiên trong câu, không spam đầu/cuối).
-- KHÔNG hashtag (văn hóa Bluesky).
-- Link (nếu có): đặt URL TRẦN ở dòng cuối, cách 1 dòng trống với body.
-  Ví dụ: "https://flowa.one" — KHÔNG bọc markdown.
-- Mention (nếu có): dạng @handle.bsky.social.
-- Kết: câu hỏi mở HOẶC observation thú vị mời tương tác.
-```
+Mỗi kênh chạy AI call riêng (~3× token long-form, có cảnh báo cost trên UI).
 
-### 2. Đồng bộ `channel-transform.ts` map độ dài
+## Các thay đổi
 
-`src/types/channel-transform.ts` line 1870 đang để `bluesky: { min: 30, max: 80, unit: "từ" }`. Đổi thành `{ min: 30, max: 300, unit: "ký tự" }` cho khớp.
+### 1. Database (migration mới)
+Thêm 2 cột vào `multi_channel_contents`:
+- `blogger_content text`
+- `wordpress_content text`
+(Giữ nguyên `website_content` để không phá data cũ.)
 
-### 3. Thắt rule trong `channelSettings.ts`
+### 2. Channel settings (`src/types/channelSettings.ts`)
+- `website`: 800–1200 từ, format guidance "H1 + 3-4 H2, paragraph 2-3 câu, CTA cuối"
+- `blogger`: 500–800 từ, format "casual blog, H1 + 2 H2, bullet list, conversational"
+- `wordpress`: 1200–2000 từ, format "in-depth guide, H1 + 4-6 H2 + H3, TOC, FAQ block, callouts"
 
-Cập nhật `format_description` (line 322) cho khớp prompt mới và thêm:
-- `emoji_limit: 3` (giảm từ 5 → match văn hóa Bluesky chuẩn hơn)
-- `format_description`: nhấn mạnh "plain text, no markdown, link trần dòng cuối"
+### 3. Generator (`supabase/functions/generate-multichannel/index.ts`)
+- **Bỏ logic collapse** `blogger`/`wordpress` → `website` (dòng ~1537–1560).
+- Trong `CHANNEL_CONTENT_FIELD` map: `blogger` → `blogger_content`, `wordpress` → `wordpress_content`.
+- Mở rộng `LONG_FORM_CHANNELS` để cả 3 đều chạy long-form pipeline song song (mỗi cái 1 prompt riêng dùng `format_description` + `min/max_length` từ channel settings).
+- Áp dụng **deduplication Jaccard** giữa 3 output để tránh AI vô tình viết giống nhau (đã có sẵn pattern dedup).
+- Cảnh báo cost ở response metadata khi user chọn ≥2 trong nhóm long-form.
 
-### 4. Sửa `BlueskyMockup` render đúng spec native
+### 4. Frontend
+- `src/types/multichannel.ts`: thêm `blogger_content`, `wordpress_content` vào `MultiChannelContent` interface + `LONG_FORM_FIELDS`.
+- `useContentAnalysis.ts`, viewer/editor: đọc đúng cột theo channel thay vì luôn fallback `website_content`.
+- `ContentMockupToggle` / preview: render Blogger và WordPress với mockup riêng (header style khác) thay vì dùng chung "general" frame.
+- Cảnh báo nhỏ khi user tick cả 3: "Sẽ tạo 3 bài khác nhau (~3× tokens long-form)".
 
-Trong `src/components/preview/ChannelMockupFrame.tsx` (function `BlueskyMockup` line 1221):
+### 5. Publishers
+- `publish-blogger`: đọc `blogger_content` (fallback `website_content` nếu null cho data cũ).
+- `publish-wordpress`: đọc `wordpress_content` (fallback `website_content`).
+- `publish-blog` / website publisher: giữ `website_content`.
 
-- **Bỏ `ReactMarkdown`**, thay bằng plain text renderer + auto-link regex:
-  - Render text với `whitespace-pre-wrap` (giữ line breaks).
-  - Detect URL bằng regex → bọc thành `<a class="text-[#0085ff] hover:underline">`.
-  - Detect `@xxx.bsky.social` → bọc link xanh.
-  - Strip residual markdown (`**`, `__`, leading `# `, leading `- `) trước khi render — phòng AI lỡ sinh.
-- **Embed card cho link**: nếu post có URL, hiển thị thêm khối "link card" giả lập dưới text (border xám nhẹ, favicon placeholder + domain) — đây là behavior native Bluesky.
-- **Counter ký tự** dạng nhỏ ở góc nếu vượt 300 (cảnh báo overflow như Twitter mockup).
+### 6. Backward compatibility
+- Data cũ: nếu `blogger_content` / `wordpress_content` NULL → tự động dùng `website_content` (read-side fallback). Không cần backfill.
+- Regenerate đơn lẻ: chọn "Regenerate Blogger" sẽ ghi `blogger_content`, không đụng `website_content`.
 
-### 5. Helper utility mới
+## Tệp dự kiến chỉnh sửa
 
-Tạo `src/utils/blueskyFormatter.ts`:
-- `stripMarkdownForBluesky(text: string)`: xóa `**`, `__`, `#`, `-` đầu dòng, `[text](url)` → giữ `text` + tách url.
-- `extractFirstUrl(text: string)`: trả URL đầu tiên để dùng cho embed card.
-- `countGraphemes(text: string)`: đếm grapheme chuẩn (dùng `Intl.Segmenter`) — vì Bluesky đếm grapheme chứ không phải char.
+- `supabase/migrations/<timestamp>_add_blogger_wordpress_columns.sql` (mới)
+- `src/types/channelSettings.ts`
+- `src/types/multichannel.ts`
+- `supabase/functions/generate-multichannel/index.ts`
+- `supabase/functions/publish-blogger/index.ts`
+- `supabase/functions/publish-wordpress/index.ts`
+- `src/hooks/useContentAnalysis.ts`
+- `src/components/viewer/ContentMockupToggle.tsx` (+ mockup riêng cho Blogger / WordPress nếu cần)
+- Memory: `mem://features/multichannel/longform-channel-separation-vn.md` (mới)
 
-Dùng utility này cả ở **mockup** (sanitize trước khi render) và **`useContentAnalysis`** (đếm đúng graphemes cho Bluesky thay vì `text.length`).
-
-## Files sẽ chỉnh
-
-- `supabase/functions/generate-multichannel/index.ts` (2 chỗ prompt Bluesky)
-- `src/types/channelSettings.ts` (bluesky settings)
-- `src/types/channel-transform.ts` (length map)
-- `src/components/preview/ChannelMockupFrame.tsx` (BlueskyMockup render)
-- `src/utils/blueskyFormatter.ts` (mới)
-- `src/hooks/useContentAnalysis.ts` (dùng grapheme count cho bluesky)
-
-## Kết quả mong đợi
-
-- AI sinh post Bluesky đúng văn hóa: plain text, ngắn, casual, có khoảng trắng giữa đoạn, link riêng dòng cuối.
-- Mockup hiển thị giống native Bluesky thật (không còn `**` thô, có link card).
-- Đếm độ dài chính xác bằng grapheme — không bị lệch khi có emoji.
+## Ghi chú cost
+Mỗi long-form ~ 1.5–2k output tokens. Chọn cả 3 sẽ tốn gấp 3 → khoảng 4.5–6k tokens output cho phần long-form. Sẽ hiển thị badge cảnh báo trong UI khi tick nhiều hơn 1 kênh long-form.

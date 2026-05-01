@@ -37,9 +37,10 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   website: 'website',
   blog: 'website',
   'flowa_blog': 'website',
-  // Blogger/WordPress are publishing targets of the website channel — mark website as published when they succeed
-  blogger: 'website',
-  wordpress: 'website',
+  // 2026-05: Blogger/WordPress are now SEPARATE channels with their own
+  // content columns. They no longer mark 'website' as published.
+  blogger: 'blogger',
+  wordpress: 'wordpress',
   pinterest: 'pinterest',
   bluesky: 'bluesky',
 };
@@ -110,20 +111,27 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
       }
     }
 
-    // === Resolve for BLOGGER/WORDPRESS actions — uses website_content + dedicated connection ===
+    // === Resolve for BLOGGER/WORDPRESS actions ===
+    // 2026-05: Each platform has its OWN content column (blogger_content, wordpress_content).
+    // Falls back to website_content for older records that don't have the new columns yet.
     if ((action === 'blogger' || action === 'wordpress') && typeof contentIdForResolve === 'string' &&
         (!finalPayload.connectionId || !finalPayload.content || !finalPayload.title)) {
       try {
         const supabase = getServiceClient();
+        const contentColumn = action === 'blogger' ? 'blogger_content' : 'wordpress_content';
         const { data: mcc } = await supabase
           .from('multi_channel_contents')
-          .select('title, website_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data')
+          .select(`title, website_content, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data`)
           .eq('id', contentIdForResolve)
           .maybeSingle();
 
-        if (!mcc?.website_content) {
+        // Prefer dedicated column; fallback to website_content for backward compat with old records.
+        const resolvedContent = (mcc as any)?.[contentColumn] || mcc?.website_content || null;
+
+        if (!resolvedContent) {
+          const label = action === 'wordpress' ? 'WordPress' : 'Blogger';
           return new Response(
-            JSON.stringify({ success: false, error: 'Bài chưa có nội dung website/blog. Vui lòng tạo nội dung kênh website trước.' }),
+            JSON.stringify({ success: false, error: `Bài chưa có nội dung ${label}. Vui lòng tạo nội dung kênh ${label} trước.` }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -134,9 +142,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             .select('id')
             .eq('platform', action)
             .eq('is_active', true)
-            .eq('organization_id', mcc.organization_id);
-          if (mcc.brand_template_id) {
-            connQuery = connQuery.eq('brand_template_id', mcc.brand_template_id);
+            .eq('organization_id', mcc!.organization_id);
+          if (mcc!.brand_template_id) {
+            connQuery = connQuery.eq('brand_template_id', mcc!.brand_template_id);
           }
           const { data: conn } = await connQuery.limit(1).maybeSingle();
           if (!conn?.id) {
@@ -149,8 +157,8 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           finalPayload.connectionId = conn.id;
         }
 
-        if (!finalPayload.title) finalPayload.title = mcc.title || 'Bài viết mới';
-        if (!finalPayload.content) finalPayload.content = mcc.website_content;
+        if (!finalPayload.title) finalPayload.title = mcc!.title || 'Bài viết mới';
+        if (!finalPayload.content) finalPayload.content = resolvedContent;
         if (!finalPayload.featuredImageUrl) {
           const ci = mcc.channel_images as Record<string, any> | null;
           const channelImg = ci?.[action]?.url || ci?.[action]?.image_url;
@@ -268,13 +276,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             const selectedChannels: string[] = contentData.selected_channels || [];
             const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
 
-            // For blogger/wordpress: mark blogger/wordpress=published if user selected it; fall back to website otherwise
-            let effectiveChannelKey = channelKey;
-            if (action === 'blogger') {
-              effectiveChannelKey = selectedChannels.includes('blogger') ? 'blogger' : 'website';
-            } else if (action === 'wordpress') {
-              effectiveChannelKey = selectedChannels.includes('wordpress') ? 'wordpress' : 'website';
-            }
+            // 2026-05: blogger/wordpress are independent channels.
+            // channelKey from CHANNEL_STATUS_KEY_MAP already resolves correctly.
+            const effectiveChannelKey = channelKey;
             channelStatuses[effectiveChannelKey] = 'published';
 
             const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');

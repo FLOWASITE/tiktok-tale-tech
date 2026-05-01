@@ -341,11 +341,13 @@ PHONG CÁCH HARVEST:
 }
 
 // Channel content column mapping (for expand mode)
+// NOTE: website / blogger / wordpress are SEPARATE long-form channels with
+// distinct columns + distinct prompts (different length, structure, tone).
 const CHANNEL_COLUMN_MAP: Record<string, string> = {
   website: 'website_content',
-  blog: 'website_content', // blog is alias for website
-  blogger: 'website_content', // blogger publishes to same website_content column
-  wordpress: 'website_content', // wordpress publishes to same website_content column
+  blog: 'website_content', // 'blog' is the only alias kept for backward-compat
+  blogger: 'blogger_content',
+  wordpress: 'wordpress_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -362,9 +364,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
 };
 
 // Normalize channel aliases to canonical names used in DB columns
-// NOTE: 'blogger' is intentionally NOT aliased to 'website' so the UI can
-// keep showing it as a separate channel. Both still write to website_content
-// via CHANNEL_COLUMN_MAP.
+// 'blog' is the only true alias; blogger/wordpress are SEPARATE channels.
 const CHANNEL_ALIASES: Record<string, string> = {
   blog: 'website',
 };
@@ -1080,7 +1080,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
 // Khi brand cho emoji → dùng emoji như thường
 // Compact adaptive format based on emoji mode
 function getAdaptiveFormatDescription(channel: string, brandAllowEmoji: boolean): string {
-  const noEmojiChannels = ['website', 'google_maps', 'email', 'zalo_oa', 'telegram', 'twitter'];
+  const noEmojiChannels = ['website', 'blogger', 'wordpress', 'google_maps', 'email', 'zalo_oa', 'telegram', 'twitter'];
   if (noEmojiChannels.includes(channel)) {
     return DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
   }
@@ -1529,37 +1529,25 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
     const requestStartTime = Date.now();
     const formData: FormData = await req.json();
 
-    // Capture original channels (preserves 'blogger' for selected_channels persistence)
+    // Capture original channels (preserves alias spellings for selected_channels persistence)
     const originalChannels: string[] = Array.isArray(formData.channels) ? [...formData.channels] : [];
     const originalNewChannels: string[] = Array.isArray(formData.newChannels) ? [...(formData.newChannels as string[])] : [];
     const originalSingleChannel: string | undefined = formData.channel;
 
-    // Collapse 'blogger'/'wordpress' INTO 'website' (they share the website_content column + long-form pipeline).
-    // Previously we EXPANDED (added website BESIDE wordpress), which caused the AI to run the long-form
-    // pipeline TWICE in parallel — wasting quota and showing duplicate columns in the streaming UI.
-    // We still keep 'blogger'/'wordpress' in selected_channels at the end (see persistedSelectedChannels below).
-    const collapseLongFormAliases = (chs: string[]): string[] => {
-      if (!Array.isArray(chs)) return chs;
-      const hasLongFormAlias = chs.includes('blogger') || chs.includes('wordpress');
-      if (!hasLongFormAlias) return chs;
-      const filtered = chs.filter((c) => c !== 'blogger' && c !== 'wordpress');
-      if (!filtered.includes('website')) filtered.push('website');
-      return filtered;
-    };
+    // NOTE (2026-05): blogger / wordpress / website are now SEPARATE long-form channels
+    // (distinct columns, distinct prompts, distinct length & structure).
+    // We no longer collapse blogger/wordpress → website. Each runs its own AI call.
     if (formData.channels) {
-      formData.channels = normalizeChannels(collapseLongFormAliases(formData.channels));
+      formData.channels = normalizeChannels(formData.channels);
     }
     if (formData.newChannels) {
-      formData.newChannels = normalizeChannels(collapseLongFormAliases(formData.newChannels as string[])) as any;
+      formData.newChannels = normalizeChannels(formData.newChannels as string[]) as any;
     }
-    if (formData.channel === 'blogger' || formData.channel === 'wordpress') {
-      // For single-channel regenerate of blogger/wordpress, generate website body
-      formData.channel = 'website';
-    } else if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
+    if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
       formData.channel = CHANNEL_ALIASES[formData.channel];
     }
     console.log("Generating multi-channel content for:", formData.topic, { originalChannels, originalSingleChannel });
-    console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (wordpress/blogger collapse to website internally; UI keeps original alias)`);
+    console.log(`[channel-alias] original=[${originalChannels.join(',')}] generation=[${(formData.channels||[]).join(',')}] (website/blogger/wordpress are now separate long-form channels)`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -3093,39 +3081,13 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
           
           // ─────────────────────────────────────────────────────────
           // Channel display mapping (alias-aware SSE)
-          // The pipeline collapses 'wordpress'/'blogger' → 'website' for generation.
-          // The UI must still see only the alias the user picked, otherwise it
-          // shows 2 columns (Website + WordPress) for a single long-form post.
-          //
-          // Rule: if user picked 'wordpress' (or 'blogger') WITHOUT also picking
-          // 'website', map every outgoing 'website' channel reference back to
-          // that alias. If user picked both, leave channels untouched.
+          // After 2026-05: website/blogger/wordpress are SEPARATE channels
+          // with distinct columns + prompts. No collapsing → no alias remap needed.
+          // Kept as no-op shims for downstream call sites.
           // ─────────────────────────────────────────────────────────
-          const _origCh: string[] = Array.isArray(originalChannels) ? originalChannels : [];
-          const _userPickedWebsite = _origCh.includes('website') || originalSingleChannel === 'website';
-          const _userPickedWordpress = _origCh.includes('wordpress') || originalSingleChannel === 'wordpress';
-          const _userPickedBloggerSse = _origCh.includes('blogger') || originalSingleChannel === 'blogger';
-          // Only one alias can replace 'website' for display. Prefer wordpress over blogger.
-          const _websiteDisplayAlias: string | null = _userPickedWebsite
-            ? null
-            : (_userPickedWordpress ? 'wordpress' : (_userPickedBloggerSse ? 'blogger' : null));
-
-          const mapChannelForDisplay = (ch: string | undefined): string | undefined => {
-            if (!ch) return ch;
-            if (ch === 'website' && _websiteDisplayAlias) return _websiteDisplayAlias;
-            return ch;
-          };
-          const mapChannelsForDisplay = (chs: string[] | undefined): string[] | undefined => {
-            if (!Array.isArray(chs)) return chs;
-            if (!_websiteDisplayAlias) return chs;
-            // De-dup after mapping in case both 'website' and alias somehow co-exist
-            const out: string[] = [];
-            for (const c of chs) {
-              const m = mapChannelForDisplay(c)!;
-              if (!out.includes(m)) out.push(m);
-            }
-            return out;
-          };
+          const _websiteDisplayAlias: string | null = null;
+          const mapChannelForDisplay = (ch: string | undefined): string | undefined => ch;
+          const mapChannelsForDisplay = (chs: string[] | undefined): string[] | undefined => chs;
 
           const emit = (event: StreamingProgressEvent): boolean => {
             if (clientDisconnected) return false;
@@ -3575,7 +3537,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               const dedupWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
               const { data: existingContent } = await supabase
                 .from('multi_channel_contents')
-                .select('id, title, topic, selected_channels, website_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, bluesky_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
+                .select('id, title, topic, selected_channels, website_content, blogger_content, wordpress_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, bluesky_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
                 .eq('user_id', userId)
                 .eq('topic', formData.topic)
                 .gte('created_at', dedupWindow)
@@ -3656,6 +3618,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   pinterest_content: channelResults.pinterest || null,
                   pinterest_title: channelResults.pinterest_title || null,
                   bluesky_content: channelResults.bluesky || null,
+                  blogger_content: channels.includes('blogger') ? (channelResults.blogger || null) : null,
+                  wordpress_content: channels.includes('wordpress') ? (channelResults.wordpress || null) : null,
                 }))
                 .select()
                 .single();

@@ -7749,6 +7749,7 @@ export type Database = {
       }
       multi_channel_contents: {
         Row: {
+          blogger_content: string | null
           bluesky_content: string | null
           bluesky_post_id: string | null
           bluesky_post_url: string | null
@@ -7801,10 +7802,12 @@ export type Database = {
           was_refined: boolean | null
           website_content: string | null
           website_seo_data: Json | null
+          wordpress_content: string | null
           youtube_content: string | null
           zalo_oa_content: string | null
         }
         Insert: {
+          blogger_content?: string | null
           bluesky_content?: string | null
           bluesky_post_id?: string | null
           bluesky_post_url?: string | null
@@ -7857,10 +7860,12 @@ export type Database = {
           was_refined?: boolean | null
           website_content?: string | null
           website_seo_data?: Json | null
+          wordpress_content?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
         Update: {
+          blogger_content?: string | null
           bluesky_content?: string | null
           bluesky_post_id?: string | null
           bluesky_post_url?: string | null
@@ -7913,6 +7918,7 @@ export type Database = {
           was_refined?: boolean | null
           website_content?: string | null
           website_seo_data?: Json | null
+          wordpress_content?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
