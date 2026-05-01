@@ -14,13 +14,7 @@ import {
 import {
   Settings2,
   Globe,
-  Facebook,
-  Instagram,
-  MapPin,
-  Linkedin,
   Mail,
-  Youtube,
-  Send,
   ChevronDown,
   ChevronUp,
   Type,
@@ -29,10 +23,23 @@ import {
   Smile,
   Link as LinkIcon,
   Shield,
-  Music2,
-  AtSign,
 } from 'lucide-react';
-import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
+import {
+  ZaloIcon,
+  XIcon,
+  WordPressIcon,
+  BloggerIcon,
+  PinterestIcon,
+  BlueskyIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  YouTubeIcon,
+  TikTokIcon,
+  ThreadsIcon,
+  TelegramIcon,
+  GoogleBusinessIcon,
+} from '@/components/icons/SocialIcons';
 
 // Derive from single source of truth (CHANNELS) so newly added channels (Blogger, TikTok, Threads, ...) appear automatically.
 // Order: keep website + blogger first (text/long-form), then the rest in CHANNELS order.
