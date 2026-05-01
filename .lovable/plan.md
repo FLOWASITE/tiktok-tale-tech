@@ -1,32 +1,45 @@
-Mình đã xác định đúng nguyên nhân trong screenshot: bước “Kênh xuất bản” của form tạo mới Nội dung đa kênh đang render qua `CompactChannelGrid`, và dữ liệu icon được truyền từ `MultiChannelFormWizard.tsx`. Component này vẫn đang dùng map `channelIcons` cục bộ với các icon Lucide generic như `Send`, `Music2`, `AtSign`, `MapPin`, `Globe` cho Telegram/TikTok/Threads/Google Maps/Website/Bluesky, nên alias trước đó không làm thay đổi toàn bộ phần này.
+## Vấn đề
 
-Kế hoạch sửa:
+Trong `Channel Settings` (form Brand), thấy **Blogger xuất hiện 2 lần** — thực ra entry thứ 2 (1200-2000 chữ) chính là **WordPress** nhưng bị gán nhãn sai thành "Blogger" do bug trong `channelLabels` ở `src/components/brand/BrandViewChannelsTab.tsx` (line 68).
 
-1. Tạo nguồn icon social chuẩn dùng chung cho channel
-- Mở rộng `src/components/icons/SocialIcons.tsx` nếu còn thiếu icon brand cần dùng trong form: TikTok, Threads, Telegram, Google Business/Maps, Facebook, Instagram, LinkedIn, YouTube, Zalo, X, Bluesky, Pinterest, Blogger, WordPress.
-- Giữ nguyên 3 icon đã đúng: Pinterest, Blogger, WordPress.
+Kiểm tra thêm trong cùng file phát hiện một số lỗi label/icon khác cùng dạng:
+- `wordpress: 'Blogger'` → đúng phải là **WordPress**
+- `pinterest: 'Instagram'` → đúng phải là **Pinterest**
+- Nhiều channel vẫn dùng generic Lucide icon (Globe, AtSign, Music2, Send...) thay vì brand SVG đã có sẵn trong `@/components/icons/SocialIcons` — không nhất quán với phần còn lại của hệ thống đã được chuẩn hoá ở các tin nhắn trước.
 
-2. Sửa trực tiếp form trong screenshot
-- Trong `src/components/multichannel/MultiChannelFormWizard.tsx`, thay `channelIcons` cục bộ bằng icon brand SVG thật cho toàn bộ kênh social.
-- Các kênh cần đổi rõ ràng trong màn hình này:
-  - LinkedIn: `LinkedInIcon`
-  - Threads: `ThreadsIcon`, không dùng `AtSign`
-  - Telegram: `TelegramIcon`, không dùng `Send`
-  - TikTok: `TikTokIcon`, không dùng `Music2`
-  - YouTube: `YouTubeIcon`
-  - Google Maps: `GoogleBusinessIcon` hoặc icon Google phù hợp hơn, không dùng `MapPin`
-  - Bluesky: `BlueskyIcon`, không dùng `Globe`
-  - Facebook/Instagram: dùng SVG brand trực tiếp, không phụ thuộc shim
-  - Website/Blog và Email giữ icon UI generic nếu không có brand chính thức cụ thể.
+## Phạm vi sửa
 
-3. Đồng bộ các form tạo nội dung đa kênh còn lại để tránh lệch UI
-- Cập nhật `MultiChannelFormStepper.tsx` và `MultiChannelForm.tsx` vì cũng có `channelIcons` cục bộ tương tự.
-- Mục tiêu: mọi biến thể của form tạo mới đều dùng cùng bộ brand icon, không bị phụ thuộc vào alias `lucide-react`.
+**File duy nhất:** `src/components/brand/BrandViewChannelsTab.tsx`
 
-4. Giảm rủi ro alias/shim không áp dụng
-- Giữ alias hiện tại nếu không gây lỗi, nhưng không dựa vào nó cho màn hình này nữa.
-- Import icon brand trực tiếp từ `@/components/icons/SocialIcons` để đảm bảo preview đổi ngay tại đúng component.
+### 1. Sửa `channelLabels` (line 65-82)
+- `wordpress: 'Blogger'` → `wordpress: 'WordPress'`
+- `pinterest: 'Instagram'` → `pinterest: 'Pinterest'`
 
-5. Kiểm tra sau sửa
-- Kiểm tra bằng search rằng trong 3 form chính không còn dùng `AtSign`, `Send`, `Music2`, `MapPin`, `Globe` cho các social đã có icon brand.
-- Kiểm tra giao diện bước “Kênh xuất bản” ở form Nội dung đa kênh: các icon trong screenshot đổi thành icon brand SVG đúng, đặc biệt Threads/Telegram/LinkedIn/Google Maps/Bluesky/TikTok/YouTube.
+### 2. Chuẩn hoá `channelIcons` (line 46-63) sang brand SVG
+Import thêm từ `@/components/icons/SocialIcons`: `WordPressIcon`, `BloggerIcon`, `PinterestIcon`, `BlueskyIcon`, `FacebookIcon`, `InstagramIcon`, `LinkedInIcon`, `YouTubeIcon`, `TikTokIcon`, `ThreadsIcon`, `TelegramIcon`, `GoogleBusinessIcon` (đã được dùng ở `MultiChannelForm.tsx` và `streaming/ChannelIcon.tsx`).
+
+Mapping mới:
+- `blogger` → `BloggerIcon`
+- `wordpress` → `WordPressIcon`
+- `pinterest` → `PinterestIcon`
+- `bluesky` → `BlueskyIcon`
+- `facebook` → `FacebookIcon` (thay Facebook lucide)
+- `instagram` → `InstagramIcon`
+- `linkedin` → `LinkedInIcon`
+- `youtube` → `YouTubeIcon`
+- `tiktok` → `TikTokIcon` (thay Music2)
+- `threads` → `ThreadsIcon` (thay AtSign)
+- `telegram` → `TelegramIcon` (thay Send)
+- `google_maps` → `GoogleBusinessIcon` (thay MapPin)
+- `website`, `email`, `twitter`, `zalo_oa` giữ nguyên (Globe / Mail / XIcon / ZaloIcon đã đúng)
+
+### 3. Dọn import lucide không còn dùng
+Bỏ các import không còn cần: `Facebook`, `Instagram`, `Linkedin`, `Youtube`, `Music2`, `AtSign`, `Send`, `MapPin` (giữ `Globe`, `Mail`).
+
+## Kết quả
+
+- Channel Settings hiển thị **Website / Blogger / WordPress** là 3 dòng riêng biệt với label & icon đúng.
+- Pinterest hiện đúng tên Pinterest (không còn nhãn Instagram).
+- Toàn bộ icon nhất quán với các form khác trong hệ thống (đã chuẩn hoá brand SVG ở các bước trước).
+
+Không có thay đổi DB, không cần migration, không ảnh hưởng logic save/load.
