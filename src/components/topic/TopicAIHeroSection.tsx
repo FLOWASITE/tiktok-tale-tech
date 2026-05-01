@@ -77,7 +77,7 @@ export function TopicAIHeroSection({
     
     const paths = {
       multichannel: '/multichannel',
-      script: '/scripts',
+      script: '/videos?tab=scripts',
       carousel: '/carousel',
     };
     

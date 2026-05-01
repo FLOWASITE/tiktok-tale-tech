@@ -78,7 +78,7 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
       icon: FileVideo,
       color: 'bg-rose-500',
       label: t('app.dashboard.scriptLabel'),
-      href: '/scripts',
+      href: '/videos?tab=scripts',
     },
     carousel: {
       icon: Images,

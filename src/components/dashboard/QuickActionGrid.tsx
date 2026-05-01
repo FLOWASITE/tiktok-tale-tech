@@ -41,7 +41,7 @@ const quickActions: QuickAction[] = [
     titleKey: 'app.dashboard.videoScript', 
     descKey: 'app.dashboard.videoScriptDesc',
     icon: FileVideo,
-    href: '/scripts',
+    href: '/videos?tab=scripts',
     gradient: 'from-rose-500 to-pink-600',
     shortcut: '⌘V',
     shortcutKey: 'v',

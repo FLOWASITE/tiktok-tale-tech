@@ -41,6 +41,6 @@ export const TOPIC_CATEGORY_MAP: Record<string, string> = {
 // Navigation paths for topic actions
 export const TOPIC_ACTION_PATHS = {
   multichannel: '/multichannel',
-  script: '/scripts',
+  script: '/videos?tab=scripts',
   carousel: '/carousel',
 } as const;
