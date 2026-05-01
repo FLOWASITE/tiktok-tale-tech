@@ -394,6 +394,8 @@ export function CharacterProfileManager() {
       wardrobe: profile.wardrobe || '',
       reference_image_url: profile.reference_image_url || '',
       reference_images: (Array.isArray(profile.reference_images) ? profile.reference_images : []) as ReferenceImage[],
+      default_voice_id: profile.default_voice_id || '',
+      default_voice_provider: profile.default_voice_provider || '',
     });
     setOpen(true);
   };
