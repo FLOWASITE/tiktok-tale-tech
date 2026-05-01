@@ -359,13 +359,17 @@ Deno.serve(withPerf({ functionName: 'publish-bluesky' }, async (req) => {
     // Create session
     const session = await createSession(handle, appPassword);
 
-    // Grapheme-safe truncation (300 grapheme limit)
+    // Grapheme + UTF-8 byte safe truncation (300 graphemes AND 3000 bytes)
     let truncatedContent = content;
     const originalLength = graphemeLength(content);
-    if (originalLength > MAX_GRAPHEMES) {
-      truncatedContent = graphemeTruncate(content, MAX_GRAPHEMES);
-      warnings.push(`Nội dung bị cắt từ ${originalLength} xuống ${MAX_GRAPHEMES} graphemes`);
+    const originalBytes = utf8ByteLength(content);
+    if (originalLength > MAX_GRAPHEMES || originalBytes > MAX_BYTES) {
+      truncatedContent = graphemeTruncate(content, MAX_GRAPHEMES, MAX_BYTES);
+      warnings.push(
+        `Nội dung bị cắt: ${originalLength}g/${originalBytes}b → ${graphemeLength(truncatedContent)}g/${utf8ByteLength(truncatedContent)}b (giới hạn ${MAX_GRAPHEMES}g/${MAX_BYTES}b)`
+      );
     }
+    console.log(`[publish-bluesky] text final: ${graphemeLength(truncatedContent)} graphemes, ${utf8ByteLength(truncatedContent)} bytes`);
 
     // Build post record
     const record: any = {
