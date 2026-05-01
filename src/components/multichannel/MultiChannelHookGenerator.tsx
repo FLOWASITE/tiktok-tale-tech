@@ -123,7 +123,7 @@ const channelIcons: Record<Channel, React.ComponentType<{ className?: string }>>
   telegram: Send,
   tiktok: Music2,
   threads: AtSign,
-  bluesky: Globe,
+  bluesky: BlueskyIcon,
 };
 
 // Skeleton loading component for hook cards
