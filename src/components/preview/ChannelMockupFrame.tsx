@@ -6,6 +6,9 @@ import {
   countGraphemes,
   extractFirstUrl,
   getDomain,
+  truncateUrlForDisplay,
+  isLikelyResolvableMention,
+  isInvalidHashtag,
   BLUESKY_MAX_GRAPHEMES,
 } from '@/utils/blueskyFormatter';
 import { Link as LinkIcon } from 'lucide-react';
