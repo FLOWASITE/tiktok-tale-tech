@@ -321,6 +321,15 @@ export function QuickClipTab() {
         />
       </div>
 
+      {/* Character consistency */}
+      <CharacterPicker
+        value={selectedCharacterId}
+        onChange={(id, profile) => {
+          setSelectedCharacterId(id);
+          setSelectedCharacter(profile);
+        }}
+      />
+
       {/* Aspect ratio */}
       <div className="space-y-2">
         <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
