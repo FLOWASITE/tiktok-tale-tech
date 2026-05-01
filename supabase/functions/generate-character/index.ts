@@ -1,12 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withPerf } from "../_shared/middleware/perf.ts";
+import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const traceId = generateTraceId();
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -28,7 +32,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { brand_template_id, role_hint, count } = await req.json();
+    const { brand_template_id, role_hint, count, existing_names } = await req.json();
     if (!brand_template_id) {
       return new Response(JSON.stringify({ error: "brand_template_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -61,7 +65,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const numCharacters = Math.min(count || 1, 3);
+    const numCharacters = Math.min(Math.max(count || 1, 1), 3);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -70,16 +74,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = `Bạn là chuyên gia xây dựng nhân vật đại diện thương hiệu cho content marketing.
+    // Build deduplication context
+    const existingList = Array.isArray(existing_names) && existing_names.length > 0
+      ? `\n\nNHÂN VẬT ĐÃ CÓ (KHÔNG tạo trùng tên hoặc ngoại hình giống): ${existing_names.join(', ')}`
+      : '';
+
+    const systemPrompt = `Bạn là chuyên gia xây dựng nhân vật đại diện thương hiệu cho content marketing video.
 Dựa trên thông tin brand, tạo ${numCharacters} nhân vật phù hợp để xuất hiện trong video/content.
 Nhân vật phải khớp tone, đối tượng mục tiêu, và ngành nghề của brand.
 
 Quy tắc:
 - Mỗi nhân vật có ngoại hình rõ ràng, dễ nhận diện, phù hợp văn hóa Việt Nam
 - Trang phục phải phù hợp ngành và tông brand
-- Mô tả chi tiết để AI video giữ nhất quán
-- Nếu có ${numCharacters} nhân vật, tạo sự đa dạng (tuổi, vai trò) nhưng cùng aesthetic
-${role_hint ? `- Gợi ý vai trò: ${role_hint}` : ''}`;
+- Mô tả chi tiết để AI video giữ nhất quán xuyên suốt các scene
+- Nếu có ${numCharacters} nhân vật, tạo sự đa dạng (tuổi, vai trò, giới tính) nhưng cùng aesthetic
+- suggested_voice_style: mô tả ngắn phong cách giọng nói phù hợp (VD: "Trầm ấm, chậm rãi", "Tươi sáng, năng động")
+${role_hint ? `- Gợi ý vai trò từ user: ${role_hint}` : ''}${existingList}`;
 
     const userPrompt = `BRAND: ${brand.name}
 TONE: ${brand.tone_of_voice || 'chuyên nghiệp'}
@@ -90,6 +100,10 @@ KHÔNG NÊN: ${(brand.dont_list || []).join(', ')}
 TRỤ CỘT NỘI DUNG: ${(brand.content_pillars || []).join(', ')}${industryContext}
 
 Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand này.`;
+
+    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0}`);
+
+    const startMs = Date.now();
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -118,16 +132,17 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
                       type: "object",
                       properties: {
                         name: { type: "string", description: "Tên nhân vật (tiếng Việt)" },
-                        description: { type: "string", description: "Mô tả 2-3 câu về nhân vật, vai trò và phong cách" },
+                        description: { type: "string", description: "Mô tả 2-3 câu về nhân vật, vai trò và phong cách giao tiếp" },
                         gender: { type: "string", enum: ["Nam", "Nữ"] },
                         age_range: { type: "string", enum: ["18-25", "25-35", "35-45", "45-55", "55+"] },
-                        hair: { type: "string", description: "Kiểu tóc và màu tóc (tiếng Việt)" },
+                        hair: { type: "string", description: "Kiểu tóc và màu tóc chi tiết (tiếng Việt)" },
                         skin_tone: { type: "string", enum: ["Trắng sáng", "Ngăm", "Nâu ấm", "Da ngâm đậm"] },
-                        body_type: { type: "string", description: "Vóc dáng ngắn gọn (tiếng Việt)" },
-                        distinctive_features: { type: "string", description: "Đặc điểm nhận dạng nổi bật" },
-                        wardrobe: { type: "string", description: "Trang phục mặc định phù hợp brand" },
+                        body_type: { type: "string", description: "Vóc dáng ngắn gọn (tiếng Việt, VD: Thon gọn, Cân đối, Tráng kiện)" },
+                        distinctive_features: { type: "string", description: "Đặc điểm nhận dạng nổi bật (kính, nốt ruồi, hình xăm...)" },
+                        wardrobe: { type: "string", description: "Trang phục mặc định phù hợp brand và ngành" },
+                        suggested_voice_style: { type: "string", description: "Phong cách giọng nói gợi ý (VD: Trầm ấm chậm rãi, Tươi sáng năng động)" },
                       },
-                      required: ["name", "description", "gender", "age_range", "hair", "skin_tone", "wardrobe"],
+                      required: ["name", "description", "gender", "age_range", "hair", "skin_tone", "body_type", "wardrobe", "suggested_voice_style"],
                     },
                   },
                 },
@@ -140,10 +155,22 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
       }),
     });
 
+    const latencyMs = Date.now() - startMs;
+
     if (!aiResponse.ok) {
       const status = aiResponse.status;
       const errText = await aiResponse.text();
-      console.error("[generate-character] AI error:", status, errText);
+      console.error(`[generate-character] traceId=${traceId} AI error: ${status}`, errText);
+
+      saveMetrics({
+        functionName: 'generate-character',
+        traceId,
+        model: 'google/gemini-2.5-flash',
+        latencyMs,
+        status: 'error',
+        errorMessage: `AI ${status}`,
+      }, supabase).catch(() => {});
+
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited, vui lòng thử lại sau." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -161,6 +188,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
 
     const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const usage = aiData.usage;
 
     let characters: any[] = [];
     if (toolCall?.function?.arguments) {
@@ -194,18 +222,30 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
         distinctive_features: c.distinctive_features || '',
       },
       wardrobe: c.wardrobe || '',
+      suggested_voice_style: c.suggested_voice_style || '',
     }));
 
-    console.log(`[generate-character] Generated ${profiles.length} character(s) for brand "${brand.name}"`);
+    console.log(`[generate-character] traceId=${traceId} Generated ${profiles.length} character(s) for brand "${brand.name}" in ${latencyMs}ms`);
+
+    // Save metrics
+    saveMetrics({
+      functionName: 'generate-character',
+      traceId,
+      model: 'google/gemini-2.5-flash',
+      latencyMs,
+      status: 'success',
+      inputTokens: usage?.prompt_tokens,
+      outputTokens: usage?.completion_tokens,
+    }, supabase).catch(() => {});
 
     return new Response(JSON.stringify({ characters: profiles }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (e) {
-    console.error("[generate-character] Error:", e);
+    console.error(`[generate-character] traceId=${traceId} Error:`, e);
     return new Response(JSON.stringify({ error: e.message || "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+}));

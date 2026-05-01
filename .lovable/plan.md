@@ -1,24 +1,34 @@
 
-# Hoàn thiện còn lại: generate-video-prompt + cleanup
+# Hoàn thiện AI tạo nhân vật
 
-## 1. Edge function `generate-video-prompt` -- Multi-character
+## Vấn đề hiện tại
 
-Hiện tại chỉ xử lý 1 `character_profile_id`. Cần nâng cấp giống `generate-video`:
-- Thêm `character_profile_ids?: string[]` vào interface
-- Destructure `character_profile_ids` từ body  
-- Resolve array (prefer `character_profile_ids`, fallback `character_profile_id`)
-- Fetch all profiles with `.in('id', ids)`, build multi-character context block
+1. **Edge function thiếu middleware chuẩn** -- không dùng `withPerf`, không log metrics
+2. **Không tránh trùng** -- AI có thể tạo nhân vật giống nhân vật đã tồn tại trong org
+3. **Dialog không cho chỉnh sửa** -- user phải lưu rồi sửa, không thể chỉnh tên/mô tả inline trước khi lưu
+4. **Không auto-select sau lưu** -- nhân vật mới tạo không được tự động thêm vào danh sách đã chọn
+5. **Thiếu số lượng linh hoạt** -- luôn tạo `min(remaining, 2)`, user không chọn được 1 hay 3
 
-## 2. QuickClipTab -- gửi `character_profile_ids` cho Smart Prompt
+## Thay đổi
 
-Line 150: thay `character_profile_id: selectedCharacterIds[0]` bằng gửi cả `character_profile_ids: selectedCharacterIds` (giữ `character_profile_id` cho backward compat).
+### 1. Edge function `generate-character` -- nâng cấp
 
-## 3. Deploy edge functions
+- Thêm `withPerf` wrapper + `saveMetrics` cho observability
+- Nhận thêm `existing_names: string[]` từ client -> inject vào prompt để AI tránh trùng tên/ngoại hình
+- Thêm `body_type` vào `required` trong tool schema (hiện chỉ optional)
+- Thêm field `suggested_voice_style` để AI gợi ý phong cách giọng phù hợp (VD: "Trầm ấm, chậm rãi")
 
-Deploy `generate-video`, `generate-script`, `generate-video-prompt` để test.
+### 2. Frontend `MultiCharacterPicker.tsx` -- cải thiện UX
 
----
+- Gửi `existing_names` (tên các profile hiện có) lên edge function khi generate
+- Thêm dropdown chọn số lượng nhân vật muốn tạo (1-3)
+- Cho phép inline edit tên + mô tả + trang phục trên mỗi card kết quả trước khi lưu
+- Auto-select nhân vật mới vào picker sau khi lưu thành công (thay vì chỉ close dialog)
+- Hiển thị `suggested_voice_style` trên card kết quả
 
-### Files modified
-- `supabase/functions/generate-video-prompt/index.ts` -- multi-character fetch + context
-- `src/components/video/QuickClipTab.tsx` -- send `character_profile_ids` to Smart Prompt
+### 3. File thay đổi
+
+| File | Thay đổi |
+|---|---|
+| `supabase/functions/generate-character/index.ts` | withPerf, existing_names dedup, suggested_voice_style, body_type required |
+| `src/components/video/MultiCharacterPicker.tsx` | count picker, inline edit, auto-select, existing_names pass-through |
