@@ -56,6 +56,8 @@ export function QuickClipTab() {
   const [duration, setDuration] = useState(10); // Default 10s cho 9:16 (Seedance 2 cap)
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<CharacterProfile | null>(null);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
   const { currentOrganization } = useOrganizationContext();
