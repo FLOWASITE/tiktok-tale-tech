@@ -163,6 +163,45 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
     console.log(`[generate-video] provider=${provider} model=${model} (admin=${!clientModel}) duration=${duration}s aspect=${aspect_ratio} res=${resolution} sync=${sync}`);
 
+    // ───────── CHARACTER CONSISTENCY — inject character block into prompt ─────────
+    let enrichedPrompt = prompt;
+    let characterRefUrl = starting_frame_url;
+    if (character_profile_id) {
+      try {
+        const { data: charProfile } = await supabase
+          .from('character_profiles')
+          .select('name, description, appearance, wardrobe, reference_image_url')
+          .eq('id', character_profile_id)
+          .maybeSingle();
+        if (charProfile) {
+          const app = (charProfile.appearance || {}) as Record<string, string>;
+          const traits: string[] = [];
+          if (app.gender) traits.push(app.gender);
+          if (app.age_range) traits.push(`age ${app.age_range}`);
+          if (app.hair) traits.push(`${app.hair} hair`);
+          if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+          if (app.body_type) traits.push(app.body_type);
+
+          let charBlock = `[CHARACTER CONSISTENCY — "${charProfile.name}"]`;
+          if (traits.length) charBlock += `\nAppearance: ${traits.join(', ')}.`;
+          if (charProfile.description) charBlock += `\nDetails: ${charProfile.description}`;
+          if (charProfile.wardrobe) charBlock += `\nWardrobe: ${charProfile.wardrobe}.`;
+          if (app.distinctive_features) charBlock += `\nDistinctive: ${app.distinctive_features}.`;
+          charBlock += '\nIMPORTANT: Maintain this EXACT character appearance consistently. Same face, hair, clothing, body proportions.';
+
+          enrichedPrompt = `${charBlock}\n\n${enrichedPrompt}`;
+          console.log(`[generate-video] Injected character "${charProfile.name}" into prompt`);
+
+          // Use character reference image as starting frame if none provided
+          if (!characterRefUrl && charProfile.reference_image_url) {
+            characterRefUrl = charProfile.reference_image_url;
+          }
+        }
+      } catch (e) {
+        console.warn('[generate-video] Failed to fetch character profile:', e);
+      }
+    }
+
     // Create job row (pending → will flip to processing after submit)
     const { data: job, error: jobError } = await supabase
       .from('video_generations')
