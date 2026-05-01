@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { useCarouselGallery } from '@/hooks/useCarouselGallery';
 import { Card, CardContent } from '@/components/ui/card';
-import { Image as ImageIcon, Layers, Share2, ArrowLeft } from 'lucide-react';
+import { Image as ImageIcon, Layers, Share2, ArrowLeft, Video } from 'lucide-react';
 import { AnimatedNumber } from '@/components/dashboard/AnimatedNumber';
 import { Button } from '@/components/ui/button';
 import { MediaRetentionNotice } from '@/components/MediaRetentionNotice';
