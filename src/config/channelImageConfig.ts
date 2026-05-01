@@ -32,7 +32,8 @@ export interface ChannelImageSpec {
     headlineBudget: number;
     ctaBudget: number;
     footerBudget: number;
-    layoutBias: 'hero-led' | 'stacked-cards' | 'split-editorial' | 'footer-contact' | 'stat-focus';
+    layoutBias: 'hero-led' | 'stacked-cards' | 'split-editorial' | 'footer-contact' | 'stat-focus' | 'centered-hero';
+    maxFileSizeKB?: number;
   };
 }
 
