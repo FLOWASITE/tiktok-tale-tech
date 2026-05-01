@@ -67,12 +67,17 @@ function VideoStudioInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Also check URL search params for tab
+  // Also check URL search params for tab and view
+  const [initialViewScriptId, setInitialViewScriptId] = useState<string | undefined>();
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
     if (tabParam && TABS.some(t => t.value === tabParam)) {
       setTab(tabParam as TabValue);
+    }
+    const viewParam = params.get('view');
+    if (viewParam && tabParam === 'scripts') {
+      setInitialViewScriptId(viewParam);
     }
   }, [location.search]);
 
