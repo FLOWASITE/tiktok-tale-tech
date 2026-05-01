@@ -2261,7 +2261,38 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       console.log('[generate-script] Scene plan:', formatSceneDurationPlan(platformSpec.scenePlan), `(sum=${platformSpec.scenePlan.reduce((a, b) => a + b, 0)}s vs target ${duration}s)`);
       console.log('[generate-script] 🎬 Recommended video model:', platformSpec.recommendedVideoModelLabel, `(${platformSpec.recommendedVideoModel})`, '—', platformSpec.videoModelReason);
     }
-    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec);
+    // ───────── CHARACTER PROFILE INJECTION ─────────
+    let characterProfileContext = '';
+    if (character_profile_id) {
+      try {
+        const { data: charProfile } = await supabase
+          .from('character_profiles')
+          .select('name, description, appearance, wardrobe, reference_image_url, reference_images')
+          .eq('id', character_profile_id)
+          .maybeSingle();
+        if (charProfile) {
+          const app = (charProfile.appearance || {}) as Record<string, string>;
+          const traits: string[] = [];
+          if (app.gender) traits.push(app.gender);
+          if (app.age_range) traits.push(`tuổi ${app.age_range}`);
+          if (app.hair) traits.push(`tóc ${app.hair}`);
+          if (app.skin_tone) traits.push(`da ${app.skin_tone}`);
+          if (app.body_type) traits.push(app.body_type);
+          if (app.distinctive_features) traits.push(app.distinctive_features);
+
+          characterProfileContext = `\n\n[NHÂN VẬT CHÍNH — "${charProfile.name}"]
+Ngoại hình: ${traits.join(', ')}.
+${charProfile.description || ''}
+${charProfile.wardrobe ? `Trang phục: ${charProfile.wardrobe}.` : ''}
+QUAN TRỌNG: Mọi PROMPT block PHẢI mô tả nhân vật "${charProfile.name}" với CHÍNH XÁC ngoại hình trên. Giữ đồng nhất khuôn mặt, tóc, trang phục, vóc dáng xuyên suốt TẤT CẢ scene.`;
+          console.log(`[generate-script] Injected character profile "${charProfile.name}"`);
+        }
+      } catch (e) {
+        console.warn('[generate-script] Failed to fetch character profile:', e);
+      }
+    }
+
+    const systemPrompt = buildSystemPrompt(topic, duration, video_type, character_type, brandVoice, mergedRules, hook, angle, script_purpose, voice_region, dialogue_style, platformSpec) + characterProfileContext;
 
     // Get AI config from Admin Panel for model override
     const aiConfig = await getAIConfig('generate-script', requestOrgId || undefined);
