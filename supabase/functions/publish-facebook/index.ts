@@ -190,25 +190,28 @@ async function publishToFacebook(
   const { linkUrl, scheduleTime } = options;
   let { mediaUrls } = options;
 
-  // Facebook KHÔNG hỗ trợ SVG → loại bỏ khỏi mediaUrls trước khi gọi Graph API
+  // Facebook KHÔNG nhận SVG qua url=...; ảnh legacy SVG được rasterize và upload bằng binary source.
   if (mediaUrls && mediaUrls.length > 0) {
-    const isSvg = (u: string) => /\.svg(\?|$)/i.test(u) || u.startsWith('data:image/svg');
-    const filtered = mediaUrls.filter((u) => !isSvg(u));
-    if (filtered.length !== mediaUrls.length) {
-      console.warn(
-        `[FB] Đã loại ${mediaUrls.length - filtered.length} ảnh SVG (Facebook không hỗ trợ SVG). Còn lại: ${filtered.length}`
-      );
-      if (filtered.length === 0) {
-        console.error(
-          `[FB] ⚠️ Tất cả ${mediaUrls.length} ảnh đều là SVG → post sẽ KHÔNG có ảnh. ` +
-          `Kiểm tra overlay-text-canvas: phải rasterize SVG → PNG trước khi upload.`
-        );
-      }
+    const svgCount = mediaUrls.filter(isSvgUrl).length;
+    if (svgCount > 0) {
+      console.warn(`[FB] Phát hiện ${svgCount} ảnh SVG legacy → rasterize/upload PNG fallback trước khi đăng.`);
     }
-    mediaUrls = filtered.length > 0 ? filtered : undefined;
   }
 
   if (mediaUrls && mediaUrls.length === 1) {
+    if (isSvgUrl(mediaUrls[0])) {
+      const pngBlob = await svgUrlToPngBlob(mediaUrls[0]);
+      const data = await uploadPhotoSource(pageId, accessToken, pngBlob, {
+        caption: content,
+        ...(scheduleTime ? {
+          published: 'false',
+          scheduled_publish_time: Math.floor(new Date(scheduleTime).getTime() / 1000).toString(),
+        } : {}),
+      }, 'single-photo-svg-fallback');
+      const postId = data.post_id || data.id;
+      return { postId, postUrl: `https://www.facebook.com/${postId}` };
+    }
+
     // Single photo post — direct upload
     const photoParams: Record<string, string> = {
       access_token: accessToken,
