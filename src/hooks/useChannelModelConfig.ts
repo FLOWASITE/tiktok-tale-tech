@@ -41,7 +41,11 @@ export const ALL_CHANNELS = [
   { id: 'email', name: 'Email', icon: 'mail' },
   { id: 'zalo_oa', name: 'Zalo OA', icon: 'message-circle' },
   { id: 'telegram', name: 'Telegram', icon: 'send' },
-  { id: 'google_maps', name: 'Google Maps', icon: 'map-pin' },
+  { id: 'google_maps', name: 'Google Business', icon: 'map-pin' },
+  { id: 'pinterest', name: 'Pinterest', icon: 'pinterest' },
+  { id: 'blogger', name: 'Blogger', icon: 'blogger' },
+  { id: 'wordpress', name: 'WordPress', icon: 'wordpress' },
+  { id: 'bluesky', name: 'Bluesky', icon: 'bluesky' },
 ] as const;
 
 export type ChannelId = typeof ALL_CHANNELS[number]['id'];
