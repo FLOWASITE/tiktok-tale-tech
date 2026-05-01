@@ -308,6 +308,16 @@ async function handleSuggest(
     hasIndustry: !!industryToSearch,
   });
 
+  // Hard override: if web search has been killed in this isolate (no API key OR
+  // 401/402/429 already seen), skip both calls regardless of forceRefresh.
+  // This prevents wasted 4s timeouts on every cold start when keys are bad.
+  const webSearchKilled = isWebSearchKilled();
+  if (webSearchKilled) {
+    webSearchDecision.shouldSkipIndustrySearch = true;
+    webSearchDecision.shouldSkipAudienceQA = true;
+    webSearchDecision.reason = 'kill_switch_active';
+  }
+
   console.log(`[topic-ai:suggest] Web search decision: ${webSearchDecision.reason}, skip industry: ${webSearchDecision.shouldSkipIndustrySearch}, skip QA: ${webSearchDecision.shouldSkipAudienceQA}`);
 
   // Fetch industry data from Perplexity ONLY if needed (conditional parallel calls)
