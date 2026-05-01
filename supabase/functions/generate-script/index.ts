@@ -2012,7 +2012,7 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn)' : `- 
 ## 1. CẤU TRÚC (Theo thể loại ${videoTypeName})
 - PHẢI tuân theo CẤU TRÚC BẮT BUỘC trong VIDEO TYPE INSTRUCTIONS
 - Tổng thời lượng: ${duration} giây
-- Mỗi ${blockLabel} ≈ 8 giây
+- Mỗi ${blockLabel} trung bình ≈ ${spec ? spec.avgSceneSec : Math.round(duration / (parseInt(promptCount.split('-')[0])))} giây
 - Số lượng: ${promptCount}
 
 ## 2. NHÂN VẬT (Theo ${characterTypeName})
