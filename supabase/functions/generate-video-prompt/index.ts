@@ -102,6 +102,26 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       }
     }
 
+    // Fetch character profile for consistency
+    let characterContext = '';
+    if (character_profile_id) {
+      const { data: charProfile } = await supabase
+        .from('character_profiles')
+        .select('name, description, appearance, wardrobe')
+        .eq('id', character_profile_id)
+        .maybeSingle();
+      if (charProfile) {
+        const app = (charProfile.appearance || {}) as Record<string, string>;
+        const traits: string[] = [];
+        if (app.gender) traits.push(app.gender);
+        if (app.age_range) traits.push(`age ${app.age_range}`);
+        if (app.hair) traits.push(`${app.hair} hair`);
+        if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
+        if (app.distinctive_features) traits.push(app.distinctive_features);
+        characterContext = `\nCHARACTER "${charProfile.name}": ${traits.join(', ')}. ${charProfile.description || ''}${charProfile.wardrobe ? ` Wearing: ${charProfile.wardrobe}.` : ''}\nCRITICAL: The generated prompt MUST describe this character's appearance precisely so the video maintains character consistency across scenes.`;
+      }
+    }
+
     // Channel-specific cinematic guidance
     const channelGuidance: Record<string, string> = {
       tiktok: 'Vertical 9:16, hook in first 1.5s, fast cuts, trending text-on-screen style, vibrant colors, handheld feel.',
