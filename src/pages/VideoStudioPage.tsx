@@ -12,6 +12,8 @@ import { VideoCostTracker } from '@/components/video/VideoCostTracker';
 import { ScriptLinkBanner } from '@/components/video/ScriptLinkBanner';
 import { ScriptsTab } from '@/components/video/ScriptsTab';
 import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
+import { CharacterProfileManager } from '@/components/video/CharacterProfileManager';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const TABS = [
   { value: 'scripts', label: 'Kịch bản', icon: Clapperboard, hint: 'Viết kịch bản AI cho video' },
