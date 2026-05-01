@@ -412,3 +412,12 @@ verify_jwt = false
 
 [functions.render-job-poller]
 verify_jwt = false
+
+[functions.bluesky-oauth-start]
+verify_jwt = false
+
+[functions.bluesky-oauth-callback]
+verify_jwt = false
+
+[functions.refresh-bluesky-token]
+verify_jwt = false
