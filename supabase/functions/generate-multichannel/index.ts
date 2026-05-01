@@ -4009,6 +4009,8 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     const channelProperties: Record<string, object> = {};
 const channelDescriptions: Record<string, string> = {
       website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections với bullet points (- item) và numbered lists (1. item) để dễ đọc, blockquote cho trích dẫn quan trọng, **bold** cho keyword, conclusion với CTA mềm. BẮT BUỘC dùng bullet list hoặc numbered list trong ít nhất 2 section. Markdown format.",
+      blogger: "Bài Blogger (500-900 chữ, casual blog tone, ngôi 'tôi/mình', kể chuyện cá nhân + 1-2 bullet list ngắn, mở bài có hook, kết bài câu hỏi mời comment. Markdown nhẹ: ## heading, **bold**, - bullet. Ưu tiên giọng người thật, không cần SEO chặt như website.",
+      wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA rõ ràng. Markdown chuẩn (## ###, **bold**, - bullet, > blockquote, [link](url)). Sâu và dài hơn website một bậc.",
       facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
       instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
       twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -4192,6 +4194,8 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const channelProps: Record<string, object> = {};
       const channelDescs: Record<string, string> = {
         website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections với bullet points (- item) và numbered lists (1. item) để dễ đọc, blockquote cho trích dẫn quan trọng, **bold** cho keyword, conclusion với CTA mềm. BẮT BUỘC dùng bullet list hoặc numbered list trong ít nhất 2 section. Markdown format.",
+        blogger: "Bài Blogger (500-900 chữ, casual blog tone, ngôi 'tôi/mình', kể chuyện cá nhân + 1-2 bullet list ngắn, mở bài có hook, kết bài câu hỏi mời comment. Markdown nhẹ. Ưu tiên giọng người thật, không cần SEO chặt.",
+        wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA. Markdown chuẩn. Sâu và dài hơn website một bậc.",
         facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
         instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
         twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
