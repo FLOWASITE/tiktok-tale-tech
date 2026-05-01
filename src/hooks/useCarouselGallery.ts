@@ -446,6 +446,7 @@ export function useCarouselGallery() {
     all: images.length,
     carousel: images.filter(i => i.source === 'carousel').length,
     multichannel: images.filter(i => i.source === 'multichannel').length,
+    video: images.filter(i => i.mediaType === 'video').length,
   }), [images]);
 
   const deleteImage = async (imageId: string) => {
