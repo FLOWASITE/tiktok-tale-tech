@@ -443,8 +443,40 @@ Secondary color: ${secondaryColor}`;
         raw = raw.replace(/[\x00-\x1F\x7F]/g, ' ');
         // Remove trailing commas before } or ]
         raw = raw.replace(/,\s*([}\]])/g, '$1');
-        
+
+        // FIRST: try to extract the first balanced JSON object/array
+        // (handles "trailing garbage after JSON" — the most common Qwen failure mode)
+        const firstChar = raw.search(/[\{\[]/);
+        if (firstChar !== -1) {
+          const openCh = raw[firstChar];
+          const closeCh = openCh === '{' ? '}' : ']';
+          let depth = 0;
+          let inStr = false;
+          let escape = false;
+          let endIdx = -1;
+          for (let i = firstChar; i < raw.length; i++) {
+            const c = raw[i];
+            if (escape) { escape = false; continue; }
+            if (c === '\\') { escape = true; continue; }
+            if (c === '"') { inStr = !inStr; continue; }
+            if (inStr) continue;
+            if (c === openCh) depth++;
+            else if (c === closeCh) {
+              depth--;
+              if (depth === 0) { endIdx = i; break; }
+            }
+          }
+          if (endIdx !== -1) {
+            const candidate = raw.substring(firstChar, endIdx + 1);
+            try {
+              parsed = JSON.parse(candidate);
+              console.log('[decompose-image-request] JSON recovery succeeded by extracting first balanced object');
+            } catch { /* fall through to progressive repair */ }
+          }
+        }
+
         // Progressive repair: trim trailing incomplete content and try parsing
+        if (!parsed)
         for (let attempt = 0; attempt < 5; attempt++) {
           // Remove trailing incomplete key-value pairs
           raw = raw
