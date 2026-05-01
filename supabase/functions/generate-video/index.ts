@@ -83,6 +83,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       scene_number,
       sync = false,
       character_profile_id,
+      character_profile_ids,
     } = body;
 
     if (!prompt || prompt.trim().length < 5) {
