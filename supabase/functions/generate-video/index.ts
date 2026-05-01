@@ -178,7 +178,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       try {
         const { data: charProfiles } = await supabase
           .from('character_profiles')
-          .select('id, name, description, appearance, wardrobe, reference_image_url, reference_images')
+          .select('id, name, description, appearance, wardrobe, reference_image_url, reference_images, default_voice_id, default_voice_provider')
           .in('id', resolvedCharIds);
 
         if (charProfiles && charProfiles.length > 0) {
