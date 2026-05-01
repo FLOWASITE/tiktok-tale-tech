@@ -28,6 +28,8 @@ export interface CharacterProfile {
   wardrobe: string | null;
   reference_image_url: string | null;
   reference_images: ReferenceImage[];
+  default_voice_id: string | null;
+  default_voice_provider: string | null;
   brand_template_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -41,6 +43,8 @@ export interface CharacterProfileInput {
   wardrobe?: string;
   reference_image_url?: string;
   reference_images?: ReferenceImage[];
+  default_voice_id?: string;
+  default_voice_provider?: string;
   brand_template_id?: string | null;
 }
 
