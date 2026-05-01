@@ -340,7 +340,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         if (!apiKey) throw new Error('GEMINIGEN_API_KEY not configured');
         const selectedModel = model || GEMINIGEN_VIDEO_MODELS[0].id;
         providerTaskId = await submitGeminiGenVideoTask({
-          prompt, model: selectedModel,
+          prompt: enrichedPrompt, model: selectedModel,
           aspectRatio: aspect_ratio,
           resolution: resolution === '720p' ? '720p' : '1080p',
           duration, negativePrompt: negative_prompt,
