@@ -2072,7 +2072,7 @@ Deno.serve(withPerf({ functionName: 'generate-script', slowThresholdMs: 45000 },
   }
 
   try {
-    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, social_format_id, aspect_ratio, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId, character_profile_id } = await req.json();
+    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, social_format_id, aspect_ratio, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId, character_profile_id, character_profile_ids } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
