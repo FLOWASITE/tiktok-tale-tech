@@ -6,6 +6,7 @@ import {
   Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign, Star,
   Type, AlignCenter, AlignLeft, AlignRight, Quote, Send
 } from 'lucide-react';
+import { BlueskyIcon } from '@/components/icons/SocialIcons';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
