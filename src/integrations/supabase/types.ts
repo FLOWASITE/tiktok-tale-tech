@@ -7989,6 +7989,66 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_pending_states: {
+        Row: {
+          authorization_endpoint: string | null
+          authz_issuer: string
+          brand_template_id: string | null
+          created_at: string
+          did: string | null
+          dpop_nonce: string | null
+          dpop_private_jwk: Json
+          expires_at: string
+          handle: string | null
+          organization_id: string | null
+          par_endpoint: string | null
+          pds_url: string
+          pkce_verifier: string
+          platform: string
+          state: string
+          token_endpoint: string
+          user_id: string
+        }
+        Insert: {
+          authorization_endpoint?: string | null
+          authz_issuer: string
+          brand_template_id?: string | null
+          created_at?: string
+          did?: string | null
+          dpop_nonce?: string | null
+          dpop_private_jwk: Json
+          expires_at?: string
+          handle?: string | null
+          organization_id?: string | null
+          par_endpoint?: string | null
+          pds_url: string
+          pkce_verifier: string
+          platform: string
+          state: string
+          token_endpoint: string
+          user_id: string
+        }
+        Update: {
+          authorization_endpoint?: string | null
+          authz_issuer?: string
+          brand_template_id?: string | null
+          created_at?: string
+          did?: string | null
+          dpop_nonce?: string | null
+          dpop_private_jwk?: Json
+          expires_at?: string
+          handle?: string | null
+          organization_id?: string | null
+          par_endpoint?: string | null
+          pds_url?: string
+          pkce_verifier?: string
+          platform?: string
+          state?: string
+          token_endpoint?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       orchestrator_daily_stats: {
         Row: {
           avg_duration_ms: number | null
@@ -11610,6 +11670,7 @@ export type Database = {
       cleanup_expired_cache: { Args: never; Returns: number }
       cleanup_expired_facebook_oauth_sessions: { Args: never; Returns: number }
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
+      cleanup_expired_oauth_pending_states: { Args: never; Returns: undefined }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_old_checkpoints: { Args: never; Returns: number }
       cleanup_old_edge_metrics: { Args: never; Returns: number }
