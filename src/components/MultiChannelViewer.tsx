@@ -241,7 +241,7 @@ const channelConfig: Record<Channel, {
   bluesky: { 
     label: 'Bluesky', 
     shortLabel: 'Bluesky',
-    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <BlueskyIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-[#0085FF]',
     bgColor: 'bg-[#0085FF]/10',
     maxLength: 'Tối đa 300 ký tự'
