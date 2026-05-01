@@ -172,9 +172,15 @@ export function QuickClipTab() {
       return;
     }
     const provider = selectedModel?.provider ?? 'geminigen';
+    // Inject character consistency block if a character is selected
+    let finalPrompt = prompt.trim();
+    if (selectedCharacter) {
+      const charBlock = buildCharacterBlock(selectedCharacter);
+      finalPrompt = `${charBlock}\n\n${finalPrompt}`;
+    }
     const result = await generateVideo({
       provider,
-      prompt: prompt.trim(),
+      prompt: finalPrompt,
       // Gửi model auto-pick để override admin default (Seedance 2 cho 9:16/1:1, Veo 3.1 Fast cho 16:9)
       model: selectedModel.id,
       duration,
@@ -184,6 +190,9 @@ export function QuickClipTab() {
       // Liên kết với scene của kịch bản nếu có
       script_id: activeScript?.id,
       scene_number: currentScene?.sceneNumber,
+      // Reference image from character profile
+      starting_frame_url: selectedCharacter?.reference_image_url || undefined,
+      character_profile_id: selectedCharacter?.id || undefined,
     });
     if (result) {
       setActiveJobId(result.id);
