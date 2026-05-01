@@ -77,6 +77,7 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-green-600',
     border: 'border-green-500/30',
   },
+  bluesky: { label: 'Bluesky', icon: <Globe className="w-4 h-4" />, color: 'text-[#0085FF]' },
 };
 
 export const getChannelColorClasses = (channel: Channel): string => {

@@ -116,6 +116,7 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
     zalo_oa: '9:00 - 11:00, 14:00 - 16:00',
     telegram: '10:00 - 12:00, 20:00 - 22:00',
     threads: '11:00 - 13:00, 19:00 - 21:00',
+  bluesky: 'Bluesky',
   };
 
   // Counts

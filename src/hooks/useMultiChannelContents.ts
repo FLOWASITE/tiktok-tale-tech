@@ -295,6 +295,7 @@ export function useMultiChannelContents() {
         telegram: 'telegram_content',
         tiktok: 'tiktok_content',
         threads: 'threads_content',
+  bluesky: 'Bluesky',
       };
 
       const updateField = fieldMap[channel];

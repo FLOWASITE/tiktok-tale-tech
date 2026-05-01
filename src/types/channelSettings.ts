@@ -303,6 +303,7 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_type: 'plain',
     format_description: 'Text thuần, casual, conversational, không hashtag',
   },
+  bluesky: { icon: <Globe className=\"w-4 h-4\" />, label: 'Bluesky' },
 };
 
 // Helper: Build chi tiết rules prompt cho AI từ settings
@@ -447,6 +448,7 @@ export const BASE_CHANNEL_CONFIG: Record<Channel, {
   telegram: { label: 'Telegram', color: 'text-sky-400', bgColor: 'bg-sky-500/10', descriptionSuffix: 'community' },
   tiktok: { label: 'TikTok', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'short script' },
   threads: { label: 'Threads', color: 'text-slate-400', bgColor: 'bg-slate-500/10', descriptionSuffix: 'conversational' },
+  bluesky: { icon: <Globe className=\"w-4 h-4\" />, label: 'Bluesky' },
 };
 
 // Helper: Get full channel description with dynamic length from brand overrides

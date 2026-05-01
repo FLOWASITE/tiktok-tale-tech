@@ -123,6 +123,7 @@ const channelIcons: Record<Channel, React.ComponentType<{ className?: string }>>
   telegram: Send,
   tiktok: Music2,
   threads: AtSign,
+  bluesky: Globe,
 };
 
 // Skeleton loading component for hook cards
@@ -184,6 +185,7 @@ export function MultiChannelHookGenerator({
     zalo_oa: 'general',
     telegram: 'general',
     threads: 'general',
+  bluesky: 'Bluesky',
   };
 
   // Check if a hook is selected
