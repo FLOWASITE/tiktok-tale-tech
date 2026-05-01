@@ -4117,6 +4117,7 @@ export type Database = {
           name: string
           organization_id: string
           reference_image_url: string | null
+          reference_images: Json | null
           updated_at: string
           wardrobe: string | null
         }
@@ -4130,6 +4131,7 @@ export type Database = {
           name: string
           organization_id: string
           reference_image_url?: string | null
+          reference_images?: Json | null
           updated_at?: string
           wardrobe?: string | null
         }
@@ -4143,6 +4145,7 @@ export type Database = {
           name?: string
           organization_id?: string
           reference_image_url?: string | null
+          reference_images?: Json | null
           updated_at?: string
           wardrobe?: string | null
         }
