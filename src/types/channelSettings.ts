@@ -465,7 +465,7 @@ export const BASE_CHANNEL_CONFIG: Record<Channel, {
   telegram: { label: 'Telegram', color: 'text-sky-400', bgColor: 'bg-sky-500/10', descriptionSuffix: 'community' },
   tiktok: { label: 'TikTok', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'short script' },
   threads: { label: 'Threads', color: 'text-slate-400', bgColor: 'bg-slate-500/10', descriptionSuffix: 'conversational' },
-  bluesky: { icon: <Globe className="w-4 h-4" />, label: 'Bluesky' },
+  bluesky: { label: 'Bluesky', color: 'text-[#0085FF]', bgColor: 'bg-[#0085FF]/10', descriptionSuffix: 'short post 300 chars' },
 };
 
 // Helper: Get full channel description with dynamic length from brand overrides
