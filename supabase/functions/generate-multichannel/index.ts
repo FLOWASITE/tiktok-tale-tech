@@ -3081,39 +3081,13 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
           
           // ─────────────────────────────────────────────────────────
           // Channel display mapping (alias-aware SSE)
-          // The pipeline collapses 'wordpress'/'blogger' → 'website' for generation.
-          // The UI must still see only the alias the user picked, otherwise it
-          // shows 2 columns (Website + WordPress) for a single long-form post.
-          //
-          // Rule: if user picked 'wordpress' (or 'blogger') WITHOUT also picking
-          // 'website', map every outgoing 'website' channel reference back to
-          // that alias. If user picked both, leave channels untouched.
+          // After 2026-05: website/blogger/wordpress are SEPARATE channels
+          // with distinct columns + prompts. No collapsing → no alias remap needed.
+          // Kept as no-op shims for downstream call sites.
           // ─────────────────────────────────────────────────────────
-          const _origCh: string[] = Array.isArray(originalChannels) ? originalChannels : [];
-          const _userPickedWebsite = _origCh.includes('website') || originalSingleChannel === 'website';
-          const _userPickedWordpress = _origCh.includes('wordpress') || originalSingleChannel === 'wordpress';
-          const _userPickedBloggerSse = _origCh.includes('blogger') || originalSingleChannel === 'blogger';
-          // Only one alias can replace 'website' for display. Prefer wordpress over blogger.
-          const _websiteDisplayAlias: string | null = _userPickedWebsite
-            ? null
-            : (_userPickedWordpress ? 'wordpress' : (_userPickedBloggerSse ? 'blogger' : null));
-
-          const mapChannelForDisplay = (ch: string | undefined): string | undefined => {
-            if (!ch) return ch;
-            if (ch === 'website' && _websiteDisplayAlias) return _websiteDisplayAlias;
-            return ch;
-          };
-          const mapChannelsForDisplay = (chs: string[] | undefined): string[] | undefined => {
-            if (!Array.isArray(chs)) return chs;
-            if (!_websiteDisplayAlias) return chs;
-            // De-dup after mapping in case both 'website' and alias somehow co-exist
-            const out: string[] = [];
-            for (const c of chs) {
-              const m = mapChannelForDisplay(c)!;
-              if (!out.includes(m)) out.push(m);
-            }
-            return out;
-          };
+          const _websiteDisplayAlias: string | null = null;
+          const mapChannelForDisplay = (ch: string | undefined): string | undefined => ch;
+          const mapChannelsForDisplay = (chs: string[] | undefined): string[] | undefined => chs;
 
           const emit = (event: StreamingProgressEvent): boolean => {
             if (clientDisconnected) return false;
