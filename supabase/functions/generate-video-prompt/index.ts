@@ -113,7 +113,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
     if (resolvedCharIds.length > 0) {
       const { data: charProfiles } = await supabase
         .from('character_profiles')
-        .select('id, name, description, appearance, wardrobe')
+        .select('id, name, description, appearance, wardrobe, default_voice_id, default_voice_provider')
         .in('id', resolvedCharIds);
 
       if (charProfiles && charProfiles.length > 0) {
@@ -124,7 +124,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
         const blocks: string[] = [];
         for (let i = 0; i < sorted.length; i++) {
           const cp = sorted[i];
-          const role = i === 0 ? 'MAIN CHARACTER' : `SECONDARY CHARACTER ${i}`;
+          const role = i === 0 ? 'MAIN CHARACTER' : `SUPPORTING CHARACTER ${i}`;
           const app = (cp.appearance || {}) as Record<string, string>;
           const traits: string[] = [];
           if (app.gender) traits.push(app.gender);
@@ -132,10 +132,15 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
           if (app.hair) traits.push(`${app.hair} hair`);
           if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
           if (app.distinctive_features) traits.push(app.distinctive_features);
-          blocks.push(`${role} "${cp.name}": ${traits.join(', ')}. ${cp.description || ''}${cp.wardrobe ? ` Wearing: ${cp.wardrobe}.` : ''}`);
+          let line = `${role} "${cp.name}": ${traits.join(', ')}. ${cp.description || ''}${cp.wardrobe ? ` Wearing: ${cp.wardrobe}.` : ''}`;
+          if (cp.default_voice_id) line += ` Voice: ${cp.default_voice_id} (${cp.default_voice_provider || 'default'}) — lip sync must match this voice.`;
+          blocks.push(line);
         }
-        characterContext = '\n' + blocks.join('\n') +
-          '\nCRITICAL: The generated prompt MUST describe each character\'s appearance precisely so the video maintains character consistency across scenes.';
+        characterContext = '\n' + blocks.join('\n');
+        if (sorted.length > 1) {
+          characterContext += `\nIMPORTANT: There are ${sorted.length} DISTINCT characters. Never merge or swap their features.`;
+        }
+        characterContext += '\nCRITICAL: The generated prompt MUST describe each character\'s appearance precisely so the video maintains character consistency across scenes.';
       }
     }
 

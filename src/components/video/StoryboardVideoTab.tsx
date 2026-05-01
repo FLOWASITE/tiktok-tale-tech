@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { VideoCompletionWizard } from './VideoCompletionWizard';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
-import { buildCharacterBlock, type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
@@ -135,14 +135,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
       const scene = todo[i];
       setBatchProgress({ done: i, total: todo.length, currentScene: scene.sceneNumber });
       try {
-        // Build prompt with character consistency
-        let finalPrompt = scene.prompt;
-        if (selectedCharacters.length > 0) {
-          const charBlocks = selectedCharacters.map((c, i) =>
-            buildCharacterBlock(c) + (i === 0 ? ' [VAI CHÍNH]' : ` [VAI PHỤ ${i}]`)
-          ).join('\n\n');
-          finalPrompt = `${charBlocks}\n\n${finalPrompt}`;
-        }
+        // Character injection is handled server-side by generate-video edge function
 
         // Last-frame chaining: use previous video URL as starting frame for continuity
         const startingFrame = previousVideoUrl
@@ -151,7 +144,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
 
         const res = await generateVideo({
           provider: 'geminigen',
-          prompt: finalPrompt,
+          prompt: scene.prompt,
           duration: Math.max(3, Math.min(scene.duration ?? 5, 10)),
           aspect_ratio: scene.aspect ?? aspect,
           resolution: '1080p',
