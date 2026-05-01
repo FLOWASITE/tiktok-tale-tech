@@ -102,7 +102,7 @@ export function TopicQuickPreview({
   const getContentPath = (contentType: string, contentId: string) => {
     switch (contentType) {
       case 'multichannel': return `/multichannel/${contentId}`;
-      case 'script': return `/scripts?view=${contentId}`;
+      case 'script': return `/videos?tab=scripts&view=${contentId}`;
       case 'carousel': return `/carousel?view=${contentId}`;
       default: return '#';
     }

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
@@ -30,10 +30,13 @@ interface ScriptsTabProps {
   prefillTopic?: string;
   topicHistoryId?: string;
   autoOpenNew?: boolean;
+  initialViewScriptId?: string;
+  onSwitchTab?: (tab: string) => void;
 }
 
-export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew }: ScriptsTabProps) {
+export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialViewScriptId, onSwitchTab }: ScriptsTabProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { scripts, loading, deleteScript, updateScript, generating, generateScript } = useScripts();
   const { templates: brandTemplates } = useBrandTemplates();
   const { createLink } = useTopicContentLinks({ enabled: false });
@@ -67,6 +70,21 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew }: Script
       setShowNewForm(true);
     }
   }, [prefillTopic]);
+
+  // Deep-link: auto-open script viewer when ?view=scriptId is in URL
+  useEffect(() => {
+    if (!initialViewScriptId || loading || scripts.length === 0) return;
+    const target = scripts.find(s => s.id === initialViewScriptId);
+    if (target) {
+      setSelectedScript(target);
+      setViewerOpen(true);
+      // Clean up the URL param
+      const params = new URLSearchParams(location.search);
+      params.delete('view');
+      const newSearch = params.toString();
+      navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: true });
+    }
+  }, [initialViewScriptId, loading, scripts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);

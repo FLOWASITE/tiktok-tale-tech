@@ -8,8 +8,7 @@ import { TopicErrorBoundary } from "@/components/topic/TopicErrorBoundary";
 // App pages
 import Dashboard from "@/pages/Dashboard";
 import Topics from "@/pages/Topics";
-import Index from "@/pages/Index";
-import ScriptNew from "@/pages/ScriptNew";
+// Index and ScriptNew pages deprecated — merged into VideoStudioPage ScriptsTab
 import Carousel from "@/pages/Carousel";
 import Brands from "@/pages/Brands";
 import BrandView from "@/pages/BrandView";
