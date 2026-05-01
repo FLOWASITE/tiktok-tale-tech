@@ -242,6 +242,8 @@ export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewPro
                   <BreadcrumbPage className="flex items-center gap-1.5">
                     {selectedFolder.source === 'carousel' ? (
                       <Layers className="w-3.5 h-3.5 text-primary" />
+                    ) : selectedFolder.mediaType === 'video' ? (
+                      <VideoIcon className="w-3.5 h-3.5 text-purple-500" />
                     ) : (
                       <Share2 className="w-3.5 h-3.5 text-emerald-500" />
                     )}
