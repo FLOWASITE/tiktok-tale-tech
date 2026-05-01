@@ -3,12 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 
-export type ImageSource = 'carousel' | 'multichannel';
+export type ImageSource = 'carousel' | 'multichannel' | 'video' | 'video_render';
+export type MediaType = 'image' | 'video';
 export type SortBy = 'newest' | 'oldest';
 
 export interface GalleryImage {
   id: string;
-  imageUrl: string;
+  imageUrl: string; // for video: thumbnail_url (fallback first frame placeholder)
   carouselId: string;
   carouselTitle: string;
   slideNumber: number;
@@ -16,6 +17,10 @@ export interface GalleryImage {
   isSelected: boolean;
   createdAt: string;
   source: ImageSource;
+  mediaType: MediaType;
+  videoUrl?: string;
+  durationSeconds?: number;
+  aspectRatio?: string;
   channel?: string;
   createdByName?: string;
   createdByEmail?: string;
