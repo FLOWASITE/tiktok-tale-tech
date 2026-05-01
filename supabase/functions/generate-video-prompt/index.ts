@@ -67,6 +67,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       industry_id,
       language = 'vi',
       tone,
+      character_profile_id,
     } = body;
 
     if (!idea || idea.trim().length < 3) {
