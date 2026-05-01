@@ -1,40 +1,66 @@
-## Vấn đề
 
-Thiếu nhiều ngày lễ quan trọng của Việt Nam:
-- **Code** (`SEASONAL_EVENTS` trong `topicDiscovery.ts`): Không có Giỗ Tổ Hùng Vương, 30/4, 1/5, Halloween, Singles Day 11/11, Tất Niên
-- **Database** (`curated_events`): Không có dữ liệu H1 2026 (Tết 2026, Valentine, 8/3, Giỗ Tổ Hùng Vương 2026, 30/4/2026, 1/5/2026)
+## Mục tiêu
 
-## Thay đổi
+Gộp 2 trang riêng biệt:
+- **Kịch bản Video** (`/scripts`) — tạo + quản lý kịch bản AI
+- **Video Studio** (`/videos`) — Quick Clip, Storyboard, Audio, Gallery, Chi phí
 
-### 1. Bổ sung `SEASONAL_EVENTS` trong `src/types/topicDiscovery.ts`
+thành **1 trang duy nhất** tại `/videos` với tên "Video Studio", thêm tab Kịch bản vào hệ thống tab hiện có.
 
-Thêm các event còn thiếu vào array, sử dụng `nextOccurrence()` đã có:
+## Cấu trúc mới
 
-| ID | Tên | Tháng/Ngày |
-|----|-----|-----------|
-| hung-kings | Giỗ Tổ Hùng Vương | ~4/16 (approximate lunar) |
-| liberation-day | Giải phóng miền Nam 30/4 | 4/30 |
-| labor-day | Quốc tế Lao động 1/5 | 5/1 |
-| halloween | Halloween | 10/31 |
-| singles-day | Singles Day 11/11 | 11/11 |
-| year-end | Tất Niên | 12/31 |
+```text
+Video Studio (/videos)
+├─ Tab: Kịch bản       (mới — gộp từ /scripts)
+│   ├─ Danh sách scripts (grid/list + filters + pagination)
+│   └─ Tạo mới → mở dialog/inline stepper (thay vì navigate /scripts/new)
+├─ Tab: Quick Clip      (giữ nguyên)
+├─ Tab: Từ Storyboard   (giữ nguyên)
+├─ Tab: Audio Studio    (giữ nguyên)
+├─ Tab: Thư viện        (giữ nguyên)
+└─ Tab: Chi phí         (giữ nguyên)
+```
 
-Mỗi event có 3 `suggestedTopics` phù hợp ngành marketing.
+## Thay đổi chi tiết
 
-### 2. Insert dữ liệu H1 2026 vào `curated_events`
+### 1. `VideoStudioPage.tsx` — thêm tab "Kịch bản"
 
-Dùng Supabase insert tool để thêm các ngày lễ H1 2026 đã qua nhưng cần có cho đầy đủ, và các ngày sắp tới:
+- Thêm tab `scripts` vào đầu mảng `TABS` (icon: `Clapperboard`, hint: "Viết kịch bản AI cho video")
+- Tab content render `ScriptsTab` component mới (xem mục 2)
+- Default tab vẫn là `quick`, trừ khi navigate từ link cũ `/scripts` → auto chọn tab `scripts`
 
-- Tết Nguyên Đán 2026 (17/02/2026)
-- Valentine 2026 (14/02/2026)  
-- Quốc tế Phụ nữ 8/3/2026
-- Giỗ Tổ Hùng Vương 2026 (16/04/2026)
-- Giải phóng miền Nam 30/4/2026
-- Quốc tế Lao động 1/5/2026
+### 2. Component mới: `src/components/video/ScriptsTab.tsx`
 
-Các event bao gồm `suggested_topics`, `suggested_angles`, `event_type`, `priority`.
+Tổng hợp logic từ `Index.tsx` (scripts list) + `ScriptNew.tsx`:
+- Hiện danh sách scripts với filters, pagination, grid/list toggle (lấy từ `Index.tsx`)
+- Button "Tạo mới" mở ScriptForm inline hoặc trong dialog (thay vì navigate)
+- ScriptViewer dialog khi click vào script
+- Nút "Chuyển sang Video" từ script → set activeScript + switch tab sang Quick Clip/Storyboard
 
-### Không thay đổi
+### 3. Routes (`src/app/routes.tsx`)
 
-- Logic `nextOccurrence()` và `getUpcomingEvents()` giữ nguyên
-- Không ảnh hưởng UI components
+- Giữ `/videos` route
+- `/scripts` → redirect sang `/videos?tab=scripts` (backward compat)
+- Xóa `/scripts/new` route riêng
+
+### 4. Sidebar (`AppSidebar.tsx`)
+
+- Xóa item "Kịch bản Video" (`/scripts`)
+- Giữ "Video Studio" (`/videos`) — đổi icon thành `Clapperboard` hoặc giữ `Video`
+
+### 5. Navigation links
+
+- Tất cả `navigate('/scripts')` → `navigate('/videos', { state: { tab: 'scripts' } })` hoặc dùng query param
+- `navigate('/scripts/new')` → `navigate('/videos', { state: { tab: 'scripts', action: 'new' } })`
+
+### 6. Dọn dẹp
+
+- `src/pages/Index.tsx` — rename hoặc xóa (hiện đang serve `/scripts`)
+- `src/pages/ScriptNew.tsx` — logic chuyển vào ScriptsTab, file có thể xóa
+
+## Không thay đổi
+
+- Database schema, edge functions, hooks (`useScripts`, `useScriptToVideo`)
+- Logic ScriptForm, ScriptViewer, ScriptCard, ScriptFilters — reuse nguyên
+- ScriptToVideoContext — vẫn hoạt động, chỉ không cần navigate giữa 2 page nữa
+- Các tab hiện có của Video Studio (Quick Clip, Storyboard, Audio, Gallery, Costs)
