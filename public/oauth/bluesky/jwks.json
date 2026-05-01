@@ -1,0 +1,17 @@
+{
+  "keys": [
+    {
+      "crv": "P-256",
+      "ext": true,
+      "key_ops": [
+        "verify"
+      ],
+      "kty": "EC",
+      "x": "WXDinKrIRraFjbjR50tb9z2eILhRrkBA1da0AYh1Kvw",
+      "y": "15GVcxIWN4XsebCKbqpfsgj_NSmLXVBtYSrI_nlQNnU",
+      "kid": "flowa-bsky-1777645491471",
+      "use": "sig",
+      "alg": "ES256"
+    }
+  ]
+}
