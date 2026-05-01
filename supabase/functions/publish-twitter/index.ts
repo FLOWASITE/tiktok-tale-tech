@@ -344,13 +344,13 @@ function splitThreadContent(content: string): string[] {
     const total = expanded.length;
     return expanded.map((part, i) => {
       const prefix = `${i + 1}/${total} `;
+      const prefixWeight = tweetWeightedLength(prefix);
       // Strip any pre-existing "n/" prefix that might leak through
       const cleaned = part.replace(/^\d+\/\d*\s+/, '').trim();
-      // Ensure final string still ≤ 280 (prefix is small, but be safe)
       const withPrefix = prefix + cleaned;
       if (tweetWeightedLength(withPrefix) <= TWEET_MAX_CHARS) return withPrefix;
-      // Last-resort hard truncate
-      return prefix + sliceByGraphemes(cleaned, TWEET_MAX_CHARS - prefix.length - 1) + '…';
+      // Last-resort: weighted-length aware truncate, leaving room for "…"
+      return prefix + sliceByWeightedLength(cleaned, TWEET_MAX_CHARS - prefixWeight - 1) + '…';
     });
   }
 
