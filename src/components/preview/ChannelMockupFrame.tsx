@@ -1,5 +1,14 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { ensureMarkdownFormat } from '@/utils/contentFormatter';
+import {
+  stripMarkdownForBluesky,
+  segmentBlueskyText,
+  countGraphemes,
+  extractFirstUrl,
+  getDomain,
+  BLUESKY_MAX_GRAPHEMES,
+} from '@/utils/blueskyFormatter';
+import { Link as LinkIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
 import { WebsiteSEOData } from '@/types/multichannel';
@@ -1223,6 +1232,13 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
+  // Sanitize content: Bluesky là plain text, không phải markdown.
+  const cleanContent = useMemo(() => stripMarkdownForBluesky(content || ''), [content]);
+  const segments = useMemo(() => segmentBlueskyText(cleanContent), [cleanContent]);
+  const graphemeCount = useMemo(() => countGraphemes(cleanContent), [cleanContent]);
+  const overflow = graphemeCount > BLUESKY_MAX_GRAPHEMES;
+  const firstUrl = useMemo(() => extractFirstUrl(cleanContent), [cleanContent]);
+
   return (
     <div className="bg-white dark:bg-[#161e27] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e1e8ed] dark:border-[#2e3a47] max-w-[440px] mx-auto">
 
@@ -1281,7 +1297,7 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
             <span className="text-[14px] text-[#788896]">2h</span>
           </div>
 
-          {/* Content */}
+          {/* Content - PLAIN TEXT (Bluesky không render markdown) */}
           <div className="mt-1">
             {isGenerating ? (
               <div className="space-y-2 animate-pulse">
@@ -1290,17 +1306,67 @@ function BlueskyMockup({ content, brandName, logoUrl, isGenerating, channelImage
                 <div className="h-3.5 bg-[#eef3f6] dark:bg-[#243240] rounded w-3/4" />
               </div>
             ) : (
-              <div className="text-[15px] text-[#0f1419] dark:text-[#f1f3f5] leading-[1.45] whitespace-pre-wrap">
-                <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+              <div className="text-[15px] text-[#0f1419] dark:text-[#f1f3f5] leading-[1.45] whitespace-pre-wrap break-words">
+                {segments.map((seg, idx) => {
+                  if (seg.type === 'link') {
+                    return (
+                      <a
+                        key={idx}
+                        href={seg.value}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#0085ff] hover:underline"
+                      >
+                        {seg.value}
+                      </a>
+                    );
+                  }
+                  if (seg.type === 'mention') {
+                    return (
+                      <span key={idx} className="text-[#0085ff] hover:underline cursor-pointer">
+                        {seg.value}
+                      </span>
+                    );
+                  }
+                  return <React.Fragment key={idx}>{seg.value}</React.Fragment>;
+                })}
               </div>
             )}
           </div>
+
+          {/* Grapheme counter (chỉ hiện khi gần/quá limit) */}
+          {!isGenerating && graphemeCount > BLUESKY_MAX_GRAPHEMES - 30 && (
+            <div className={cn(
+              "mt-1.5 text-[11px] font-medium text-right",
+              overflow ? "text-[#f4212e]" : "text-[#788896]"
+            )}>
+              {graphemeCount}/{BLUESKY_MAX_GRAPHEMES}
+            </div>
+          )}
 
           {/* Image */}
           {channelImage && (
             <div className="mt-2.5 rounded-xl overflow-hidden border border-[#e1e8ed] dark:border-[#2e3a47]">
               <img src={channelImage} alt="Post" className="w-full aspect-[4/3] object-cover" />
             </div>
+          )}
+
+          {/* Link embed card (native Bluesky behavior) */}
+          {!isGenerating && firstUrl && !channelImage && (
+            <a
+              href={firstUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2.5 flex items-center gap-2.5 rounded-xl border border-[#e1e8ed] dark:border-[#2e3a47] px-3 py-2.5 hover:bg-[#f7f9fa] dark:hover:bg-[#1c2733] transition-colors"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#eef3f6] dark:bg-[#243240] flex items-center justify-center shrink-0">
+                <LinkIcon className="w-4 h-4 text-[#788896]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] text-[#788896] truncate">{getDomain(firstUrl)}</div>
+                <div className="text-[13px] text-[#0f1419] dark:text-[#f1f3f5] truncate">{firstUrl}</div>
+              </div>
+            </a>
           )}
 
           {/* Action buttons - Bluesky has 4: reply, repost, like, share */}

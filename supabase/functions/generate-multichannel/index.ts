@@ -1867,7 +1867,7 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         tiktok: { min: 20, max: 60, unit: "từ" },
         threads: { min: 30, max: 100, unit: "từ" },
         pinterest: { min: 30, max: 80, unit: "từ" },
-        bluesky: { min: 30, max: 80, unit: "từ" },
+        bluesky: { min: 50, max: 280, unit: "ký tự" },
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
@@ -4057,7 +4057,7 @@ const channelDescriptions: Record<string, string> = {
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
       pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine, KHÔNG phải feed mạng xã hội). Viết keyword-rich, long-tail keywords tự nhiên trong câu, tập trung MÔ TẢ LỢI ÍCH/GIÁ TRỊ/HƯỚNG DẪN (how-to, listicle, tip, idea). Không bán hàng cứng, không tự xưng kênh. Kết thúc bằng CTA mềm dạng 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. Tối đa 2-5 hashtag tự nhiên cuối bài (không spam). Ảnh đi kèm là vertical 2:3 (1000×1500).",
-      bluesky: "Nội dung Bluesky (≤280 ký tự — chừa margin cho link). Viết như đang trò chuyện với bạn bè: casual, chân thật, có cá tính. Emoji vừa phải (2-5). KHÔNG dùng hashtag (Bluesky culture). Inline link đặt CUỐI post (không phá flow đọc). Kết thúc bằng câu hỏi mở hoặc observation thú vị để mời bình luận. Ưu tiên chia sẻ góc nhìn cá nhân, hot take, hoặc behind-the-scenes.",
+      bluesky: "Nội dung Bluesky (≤300 graphemes — đếm chặt, chừa ~30 ký tự cho URL nếu có). QUAN TRỌNG: Bluesky render PLAIN TEXT, KHÔNG markdown. TUYỆT ĐỐI KHÔNG dùng **bold**, __bold__, # heading, ## heading, *italic*, danh sách `- ` `* `, blockquote `> `, hay [text](url). Cấu trúc: 2-3 đoạn rất ngắn (1-2 câu/đoạn), cách nhau bằng MỘT dòng trống. Câu đầu là hook: hot take, observation sắc bén, hoặc câu hỏi gây tò mò. Giọng casual như chat với bạn — first person, có cá tính, không corporate. Emoji 0-3 rải tự nhiên trong câu (không spam đầu/cuối). KHÔNG hashtag (văn hóa Bluesky). Link (nếu có): đặt URL TRẦN ở DÒNG CUỐI, cách body 1 dòng trống — Bluesky tự render embed card. Mention (nếu có): dạng @handle.bsky.social. Kết bằng câu hỏi mở HOẶC observation thú vị để mời bình luận.",
     };
 
     formData.channels.forEach(channel => {
@@ -4240,7 +4240,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
         threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
         pinterest: "Pinterest Pin DESCRIPTION (200-500 ký tự — Pinterest là search engine). Long-tail keyword tự nhiên, mô tả lợi ích/hướng dẫn (how-to, listicle, idea), kết thúc CTA mềm 'Lưu Pin để xem sau' hoặc 'Click vào ảnh để xem chi tiết'. 2-5 hashtag tự nhiên cuối. Ảnh đi kèm vertical 2:3.",
-        bluesky: "Nội dung Bluesky (≤280 ký tự). Casual, conversational, có cá tính. Emoji vừa phải (2-5). KHÔNG hashtag. Link đặt cuối. Kết thúc câu hỏi mở hoặc observation thú vị.",
+        bluesky: "Bluesky post (≤300 graphemes). PLAIN TEXT, KHÔNG markdown (no **bold**, no # heading, no `- ` bullet, no [text](url)). 2-3 đoạn ngắn 1-2 câu, cách dòng trống. Hook ngay câu đầu. Casual, first-person, có cá tính. Emoji 0-3. KHÔNG hashtag. Link (nếu có) là URL TRẦN dòng cuối, cách body 1 dòng trống. Kết bằng câu hỏi mở hoặc observation.",
       };
       
       for (const channel of channels) {

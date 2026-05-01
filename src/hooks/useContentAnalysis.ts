@@ -100,7 +100,14 @@ export function analyzeContent(
   };
   
   const wordCount = countWords(content);
-  const charCount = countCharacters(content);
+  // Bluesky đếm grapheme (1 emoji = 1), không phải char.
+  let charCount = countCharacters(content);
+  if (channel === 'bluesky' && typeof Intl !== 'undefined' && (Intl as any).Segmenter) {
+    const seg = new (Intl as any).Segmenter(undefined, { granularity: 'grapheme' });
+    let n = 0;
+    for (const _ of seg.segment(content || '')) n++;
+    charCount = n;
+  }
   const emojiCount = countEmojis(content);
   const hashtagCount = countHashtags(content);
   const hasHook = detectHook(content);
