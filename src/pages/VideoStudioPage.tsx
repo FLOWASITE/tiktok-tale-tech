@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard } from 'lucide-react';
+import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users } from 'lucide-react';
 import { QuickClipTab } from '@/components/video/QuickClipTab';
 import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
