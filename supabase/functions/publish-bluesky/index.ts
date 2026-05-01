@@ -32,11 +32,20 @@ interface PublishCtx {
 }
 
 async function loadOAuthContext(supabase: any, connectionId: string): Promise<PublishCtx> {
-  const { data: conn, error } = await supabase
-    .from("social_connections").select("*").eq("id", connectionId).eq("platform", "bluesky").single();
-  if (error || !conn) throw new Error("Không tìm thấy kết nối Bluesky");
+  // Refresh lock TTL — concurrent publishes wait this long for the leader to finish
+  const REFRESH_LOCK_TTL_MS = 15_000;
+  const REFRESH_WAIT_POLL_MS = 400;
+  const REFRESH_WAIT_MAX_MS = 12_000;
 
-  const meta = conn.metadata || {};
+  async function fetchConn() {
+    const { data, error } = await supabase
+      .from("social_connections").select("*").eq("id", connectionId).eq("platform", "bluesky").single();
+    if (error || !data) throw new Error("Không tìm thấy kết nối Bluesky");
+    return data;
+  }
+
+  let conn = await fetchConn();
+  let meta = conn.metadata || {};
   if (!meta.token_endpoint || !meta.dpop_jwk_encrypted || !meta.pds_url) {
     throw new Error("Kết nối Bluesky cũ (App Password) không còn được hỗ trợ. Vui lòng kết nối lại bằng OAuth.");
   }
@@ -45,40 +54,90 @@ async function loadOAuthContext(supabase: any, connectionId: string): Promise<Pu
   const dpopJwk = JSON.parse(dpopJwkPlain);
   const dpopKey = await importDpopPrivateJwk(dpopJwk);
 
-  let accessToken = await decrypt(conn.access_token);
+  const needsRefresh = () => {
+    const expiresAtMs = conn.expires_at ? new Date(conn.expires_at).getTime() : 0;
+    return !expiresAtMs || expiresAtMs - Date.now() < 60_000;
+  };
 
-  // Auto-refresh if within 60s of expiry
-  const expiresAtMs = conn.expires_at ? new Date(conn.expires_at).getTime() : 0;
-  if (!expiresAtMs || expiresAtMs - Date.now() < 60_000) {
-    console.log(`[publish-bluesky] Access token expired/expiring, refreshing...`);
-    const refreshTokenPlain = await decrypt(conn.refresh_token);
-    const authServer: AuthServerMetadata = {
-      issuer: meta.authz_issuer,
-      authorization_endpoint: "",
-      token_endpoint: meta.token_endpoint,
-      pushed_authorization_request_endpoint: "",
-    };
-    const newToken = await refreshAccessToken({
-      authServer, refreshToken: refreshTokenPlain, dpopKey,
-      initialNonce: meta.dpop_nonce || undefined,
-    });
-    accessToken = newToken.access_token;
+  if (needsRefresh()) {
+    // Try to claim the refresh lock atomically. Only ONE concurrent request will succeed.
+    const lockUntil = new Date(Date.now() + REFRESH_LOCK_TTL_MS).toISOString();
+    const previousLock = meta.refresh_lock_until || null;
+    const lockExpired = !previousLock || new Date(previousLock).getTime() < Date.now();
 
-    await supabase.from("social_connections").update({
-      access_token: await encrypt(newToken.access_token),
-      refresh_token: await encrypt(newToken.refresh_token),
-      expires_at: new Date(newToken.expires_at).toISOString(),
-      metadata: { ...meta, dpop_nonce: newToken.dpop_nonce || meta.dpop_nonce },
-    }).eq("id", connectionId);
+    let claimed = false;
+    if (lockExpired) {
+      // Use updated_at version of the row as compare-and-swap proxy
+      const { data: claimRow, error: claimErr } = await supabase
+        .from("social_connections")
+        .update({ metadata: { ...meta, refresh_lock_until: lockUntil } })
+        .eq("id", connectionId)
+        .eq("updated_at", conn.updated_at)
+        .select("id")
+        .maybeSingle();
+      claimed = !claimErr && !!claimRow;
+    }
 
-    meta.dpop_nonce = newToken.dpop_nonce || meta.dpop_nonce;
+    if (claimed) {
+      console.log(`[publish-bluesky] Claimed refresh lock, refreshing token...`);
+      try {
+        const refreshTokenPlain = await decrypt(conn.refresh_token);
+        const authServer: AuthServerMetadata = {
+          issuer: meta.authz_issuer,
+          authorization_endpoint: "",
+          token_endpoint: meta.token_endpoint,
+          pushed_authorization_request_endpoint: "",
+        };
+        const newToken = await refreshAccessToken({
+          authServer, refreshToken: refreshTokenPlain, dpopKey,
+          initialNonce: meta.dpop_nonce || undefined,
+        });
+
+        const nextMeta = { ...meta, dpop_nonce: newToken.dpop_nonce || meta.dpop_nonce, refresh_lock_until: null };
+        await supabase.from("social_connections").update({
+          access_token: await encrypt(newToken.access_token),
+          refresh_token: await encrypt(newToken.refresh_token),
+          expires_at: new Date(newToken.expires_at).toISOString(),
+          metadata: nextMeta,
+        }).eq("id", connectionId);
+
+        return {
+          did: meta.did || conn.platform_user_id,
+          handle: conn.platform_username,
+          pdsUrl: String(meta.pds_url).replace(/\/$/, ""),
+          accessToken: newToken.access_token,
+          dpopKey,
+          dpopNonce: newToken.dpop_nonce || meta.dpop_nonce || undefined,
+          connectionId,
+        };
+      } catch (e) {
+        // Release lock on failure so the next request can retry
+        await supabase.from("social_connections")
+          .update({ metadata: { ...meta, refresh_lock_until: null } })
+          .eq("id", connectionId);
+        throw e;
+      }
+    } else {
+      // Another worker is refreshing — poll until token is updated
+      console.log(`[publish-bluesky] Another worker is refreshing, waiting...`);
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < REFRESH_WAIT_MAX_MS) {
+        await new Promise((r) => setTimeout(r, REFRESH_WAIT_POLL_MS));
+        conn = await fetchConn();
+        meta = conn.metadata || {};
+        if (!needsRefresh()) break;
+      }
+      if (needsRefresh()) {
+        throw new Error("Timeout chờ refresh token Bluesky từ request khác");
+      }
+    }
   }
 
   return {
     did: meta.did || conn.platform_user_id,
     handle: conn.platform_username,
     pdsUrl: String(meta.pds_url).replace(/\/$/, ""),
-    accessToken,
+    accessToken: await decrypt(conn.access_token),
     dpopKey,
     dpopNonce: meta.dpop_nonce || undefined,
     connectionId,
