@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { PublishVideoMenu } from './PublishVideoMenu';
 import { VideoCompletionWizard } from './VideoCompletionWizard';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
+import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 
 interface Props {
@@ -262,6 +263,13 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                 }}
                 className="mt-1"
               />
+              {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (
+                <CharacterVoicePreview
+                  characters={selectedCharacters}
+                  scenePrompts={activeScript?.scenes?.map(s => s.prompt)}
+                  className="mt-2"
+                />
+              )}
               <Button
                 size="sm"
                 onClick={runBatchGenerate}

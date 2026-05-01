@@ -38,10 +38,12 @@ Deno.serve(async (req) => {
     const voiceId: string = body.voice_id ?? DEFAULT_VOICE_ID;
     const language: string = body.language ?? "vi";
     const scriptId: string | null = body.script_id ?? null;
+    const preview: boolean = body.preview === true;
     let organizationId: string | null = body.organization_id ?? null;
 
     if (!text || text.length < 2) return json({ error: "text too short" }, 400);
-    if (text.length > 5000) return json({ error: "text > 5000 chars" }, 400);
+    if (preview && text.length > 500) return json({ error: "preview text > 500 chars" }, 400);
+    if (!preview && text.length > 5000) return json({ error: "text > 5000 chars" }, 400);
 
     // Resolve org_id if not provided
     if (!organizationId) {
@@ -87,6 +89,13 @@ Deno.serve(async (req) => {
     }
 
     const audioBuf = await ttsRes.arrayBuffer();
+
+    // Preview mode: return base64 audio without persisting
+    if (preview) {
+      const b64 = base64Encode(audioBuf);
+      return json({ success: true, preview: true, audio_base64: b64, format: 'mp3', chars: text.length });
+    }
+
     const filename = `${user.id}/voiceover-${Date.now()}.mp3`;
 
     // Upload to storage
