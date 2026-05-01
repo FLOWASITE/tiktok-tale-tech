@@ -73,29 +73,62 @@ export function countGraphemes(text: string): number {
 }
 
 /**
- * Tách text Bluesky thành các segment để render: text | link | mention.
+ * Tách text Bluesky thành segment khớp với facets ở publish-bluesky:
+ * text | link (full URL) | bareLink (domain) | mention | hashtag.
+ * Đảm bảo preview = output thật khi publish.
  */
 export type BlueskySegment =
   | { type: 'text'; value: string }
   | { type: 'link'; value: string }
-  | { type: 'mention'; value: string };
+  | { type: 'bareLink'; value: string }
+  | { type: 'mention'; value: string }
+  | { type: 'hashtag'; value: string };
 
 export function segmentBlueskyText(input: string): BlueskySegment[] {
   if (!input) return [];
-  const tokenRegex = /(https?:\/\/[^\s]+|@[a-z0-9][a-z0-9-]*\.[a-z0-9.-]+)/gi;
+  const tokenRegex = new RegExp(
+    [
+      'https?:\\/\\/[^\\s<>")\\]]+',
+      '@[a-zA-Z0-9][a-zA-Z0-9._-]*\\.[a-zA-Z][a-zA-Z0-9.-]*',
+      '#[a-zA-Z0-9_\\u00C0-\\u024F\\u1E00-\\u1EFF]+',
+      '(?:[a-z0-9-]+\\.)+(?:com|net|org|io|ai|co|app|dev|xyz|one|vn|me|so|cloud|tech|store|shop|blog|news|info|gg|to)(?:\\/[^\\s<>")\\]]*)?',
+    ].join('|'),
+    'gi'
+  );
+
   const segments: BlueskySegment[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = tokenRegex.exec(input)) !== null) {
+    const token = match[0];
+    const prevChar = input[match.index - 1] || '';
+
     if (match.index > lastIndex) {
       segments.push({ type: 'text', value: input.slice(lastIndex, match.index) });
     }
-    const token = match[0];
-    if (token.startsWith('@')) {
+
+    if (token.startsWith('http')) {
+      const trimmed = token.replace(/[.,;:!?)\]]+$/, '');
+      segments.push({ type: 'link', value: trimmed });
+      if (trimmed.length < token.length) {
+        segments.push({ type: 'text', value: token.slice(trimmed.length) });
+      }
+    } else if (token.startsWith('@')) {
       segments.push({ type: 'mention', value: token });
+    } else if (token.startsWith('#')) {
+      if (/^#\d+$/.test(token)) {
+        segments.push({ type: 'text', value: token });
+      } else {
+        segments.push({ type: 'hashtag', value: token });
+      }
     } else {
-      segments.push({ type: 'link', value: token });
+      // bare domain — skip nếu là email/path/subdomain noise
+      if (prevChar === '@' || prevChar === '/' || prevChar === '.') {
+        segments.push({ type: 'text', value: token });
+      } else {
+        segments.push({ type: 'bareLink', value: token });
+      }
     }
     lastIndex = match.index + token.length;
   }
