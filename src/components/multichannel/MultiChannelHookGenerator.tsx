@@ -58,7 +58,7 @@ import {
   ArrowUpDown,
   Eye,
 } from 'lucide-react';
-import { BloggerIcon, WordPressIcon, PinterestIcon } from '@/components/icons/SocialIcons';
+import { BloggerIcon, WordPressIcon, PinterestIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { Channel, CHANNELS } from '@/types/multichannel';
 import { MultiChannelHook, useMultiChannelHooks } from '@/hooks/useMultiChannelHooks';
