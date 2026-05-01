@@ -362,13 +362,13 @@ export function CarouselViewer({
   const queryClient = useQueryClient();
 
   // Channels available for this carousel based on platform + active connections
-  const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok'];
+  const ALL_CAROUSEL_CHANNELS = ['facebook', 'instagram', 'linkedin', 'twitter', 'tiktok', 'bluesky'];
 
   // Set of channels that have an active social connection
   const connectedChannelSet = useMemo(() => {
     const CHANNEL_TO_PLATFORM: Record<string, string> = {
       facebook: 'facebook', instagram: 'instagram', linkedin: 'linkedin',
-      twitter: 'twitter', tiktok: 'tiktok',
+      twitter: 'twitter', tiktok: 'tiktok', bluesky: 'bluesky',
     };
     const set = new Set<string>();
     for (const ch of ALL_CAROUSEL_CHANNELS) {
