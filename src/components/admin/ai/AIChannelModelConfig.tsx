@@ -19,30 +19,38 @@ import { ModelSelector } from './ModelSelector';
 import { ProviderIndicator } from './ModelCard';
 import { 
   Settings, Check, X, RotateCcw, Sparkles, Zap, Star,
-  Facebook, Instagram, Linkedin, Youtube, Twitter, Globe, 
-  Mail, Send, MapPin, MessageCircle, AtSign, Music2,
+  Globe, Mail,
   Gauge, Lightbulb, Target, DollarSign, Hash, AlertTriangle
 } from 'lucide-react';
+import {
+  FacebookIcon, InstagramIcon, LinkedInIcon, YouTubeIcon, XIcon,
+  TikTokIcon, ThreadsIcon, TelegramIcon, GoogleBusinessIcon,
+  ZaloIcon, PinterestIcon, BloggerIcon, WordPressIcon, BlueskyIcon,
+} from '@/components/icons/SocialIcons';
 import { cn } from '@/lib/utils';
 
 interface AIChannelModelConfigProps {
   organizationId?: string;
 }
 
-// Channel icons map
+// Channel icons map — official brand SVGs
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
-  facebook: <Facebook className="h-4 w-4" />,
-  instagram: <Instagram className="h-4 w-4" />,
-  linkedin: <Linkedin className="h-4 w-4" />,
-  tiktok: <Music2 className="h-4 w-4" />,
-  threads: <AtSign className="h-4 w-4" />,
-  youtube: <Youtube className="h-4 w-4" />,
-  twitter: <Twitter className="h-4 w-4" />,
+  facebook: <FacebookIcon className="h-4 w-4" />,
+  instagram: <InstagramIcon className="h-4 w-4" />,
+  linkedin: <LinkedInIcon className="h-4 w-4" />,
+  tiktok: <TikTokIcon className="h-4 w-4" />,
+  threads: <ThreadsIcon className="h-4 w-4" />,
+  youtube: <YouTubeIcon className="h-4 w-4" />,
+  twitter: <XIcon className="h-4 w-4" />,
   website: <Globe className="h-4 w-4" />,
   email: <Mail className="h-4 w-4" />,
-  zalo_oa: <MessageCircle className="h-4 w-4" />,
-  telegram: <Send className="h-4 w-4" />,
-  google_maps: <MapPin className="h-4 w-4" />,
+  zalo_oa: <ZaloIcon className="h-4 w-4" />,
+  telegram: <TelegramIcon className="h-4 w-4" />,
+  google_maps: <GoogleBusinessIcon className="h-4 w-4" />,
+  pinterest: <PinterestIcon className="h-4 w-4" />,
+  blogger: <BloggerIcon className="h-4 w-4" />,
+  wordpress: <WordPressIcon className="h-4 w-4" />,
+  bluesky: <BlueskyIcon className="h-4 w-4" />,
 };
 
 // Hook types available
