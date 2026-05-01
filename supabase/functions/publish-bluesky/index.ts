@@ -9,6 +9,7 @@ const corsHeaders = {
 const BSKY_SERVICE = 'https://bsky.social';
 const MAX_BLOB_SIZE = 1_000_000; // 1MB Bluesky limit
 const MAX_GRAPHEMES = 300;
+const MAX_BYTES = 3000; // AT Protocol app.bsky.feed.post text byte limit
 
 interface BlueskySession {
   did: string;
@@ -24,11 +25,36 @@ function graphemeLength(text: string): number {
   return [...segmenter.segment(text)].length;
 }
 
-function graphemeTruncate(text: string, max: number): string {
+function utf8ByteLength(text: string): number {
+  return new TextEncoder().encode(text).length;
+}
+
+/**
+ * Truncate text so it satisfies BOTH grapheme limit AND UTF-8 byte limit.
+ * Reserves room for ellipsis "…" (3 bytes UTF-8, 1 grapheme) when truncated.
+ */
+function graphemeTruncate(text: string, maxGraphemes: number, maxBytes: number = MAX_BYTES): string {
   const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-  const segments = [...segmenter.segment(text)];
-  if (segments.length <= max) return text;
-  return segments.slice(0, max - 1).map(s => s.segment).join('') + '…';
+  const segments = [...segmenter.segment(text)].map(s => s.segment);
+  const fitsGraphemes = segments.length <= maxGraphemes;
+  const fitsBytes = utf8ByteLength(text) <= maxBytes;
+  if (fitsGraphemes && fitsBytes) return text;
+
+  const ellipsis = '…';
+  const ellipsisBytes = utf8ByteLength(ellipsis);
+  const targetGraphemes = maxGraphemes - 1; // reserve 1 for "…"
+  const targetBytes = maxBytes - ellipsisBytes;
+
+  let acc = '';
+  let count = 0;
+  for (const seg of segments) {
+    if (count + 1 > targetGraphemes) break;
+    const next = acc + seg;
+    if (utf8ByteLength(next) > targetBytes) break;
+    acc = next;
+    count++;
+  }
+  return acc + ellipsis;
 }
 
 // --- Auth ---
