@@ -76,6 +76,7 @@ const channelIcons: Record<Channel, string> = {
   telegram: '✈️',
   tiktok: '🎵',
   threads: '🧵',
+  bluesky: 'Bluesky',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -94,6 +95,7 @@ const channelColors: Record<Channel, string> = {
   telegram: 'border-l-cyan-500',
   tiktok: 'border-l-pink-500',
   threads: 'border-l-slate-500',
+  bluesky: 'Bluesky',
 };
 
 export function PublishingQueue({ onViewContent }: PublishingQueueProps) {

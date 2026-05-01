@@ -122,6 +122,7 @@ const channelLabels: Record<Channel, string> = {
   telegram: 'Telegram',
   tiktok: 'TikTok',
   threads: 'Threads',
+  bluesky: 'Bluesky',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -140,6 +141,7 @@ const channelColors: Record<Channel, string> = {
   telegram: 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-400',
   tiktok: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
   threads: 'bg-slate-500/20 text-slate-700 dark:text-slate-400',
+  bluesky: 'Bluesky',
 };
 
 interface MultiChannelListViewProps {

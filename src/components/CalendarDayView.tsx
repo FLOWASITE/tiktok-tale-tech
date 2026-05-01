@@ -54,6 +54,7 @@ const channelColors: Record<Channel, string> = {
   telegram: 'border-l-sky-500 bg-sky-500/10',
   tiktok: 'border-l-pink-500 bg-pink-500/10',
   threads: 'border-l-slate-500 bg-slate-500/10',
+  bluesky: 'Bluesky',
 };
 
 // Generate hours array (0-23)

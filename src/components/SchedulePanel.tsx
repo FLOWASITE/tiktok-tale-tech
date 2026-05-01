@@ -47,6 +47,7 @@ const channelLabels: Record<Channel, string> = {
   telegram: 'Telegram',
   tiktok: 'TikTok',
   threads: 'Threads',
+  bluesky: 'Bluesky',
 };
 
 export function SchedulePanel({ content, onScheduleChange, onBack }: SchedulePanelProps) {

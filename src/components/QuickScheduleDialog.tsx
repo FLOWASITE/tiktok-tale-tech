@@ -45,6 +45,7 @@ const channelLabels: Record<Channel, string> = {
   telegram: 'Telegram',
   tiktok: 'TikTok',
   threads: 'Threads',
+  bluesky: 'Bluesky',
 };
 
 const channelColors: Record<Channel, string> = {
@@ -63,6 +64,7 @@ const channelColors: Record<Channel, string> = {
   telegram: 'bg-sky-500/10 text-sky-600 border-sky-200',
   tiktok: 'bg-pink-500/10 text-pink-600 border-pink-200',
   threads: 'bg-slate-500/10 text-slate-600 border-slate-200',
+  bluesky: 'Bluesky',
 };
 
 export function QuickScheduleDialog({ 
