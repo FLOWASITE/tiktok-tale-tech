@@ -1,49 +1,24 @@
 
-# Hoàn thiện Character Consistency System
+# Hoàn thiện còn lại: generate-video-prompt + cleanup
 
-## Tổng quan
+## 1. Edge function `generate-video-prompt` -- Multi-character
 
-Hiện tại MultiCharacterPicker đã tích hợp vào QuickClip và Storyboard. Còn lại cần hoàn thiện:
+Hiện tại chỉ xử lý 1 `character_profile_id`. Cần nâng cấp giống `generate-video`:
+- Thêm `character_profile_ids?: string[]` vào interface
+- Destructure `character_profile_ids` từ body  
+- Resolve array (prefer `character_profile_ids`, fallback `character_profile_id`)
+- Fetch all profiles with `.in('id', ids)`, build multi-character context block
 
-1. **ScriptFormStepper**: Vẫn dùng single CharacterPicker -- nâng lên MultiCharacterPicker
-2. **Edge function `generate-video`**: Chỉ xử lý 1 `character_profile_id` -- cần hỗ trợ mảng `character_profile_ids`
-3. **Edge function `generate-script`**: Tương tự, inject multi-character vào script generation
-4. **ScriptToVideoContext**: `characterProfileId` (string) cần thành `characterProfileIds` (string[]) để propagate multi-character từ script sang video
+## 2. QuickClipTab -- gửi `character_profile_ids` cho Smart Prompt
 
----
+Line 150: thay `character_profile_id: selectedCharacterIds[0]` bằng gửi cả `character_profile_ids: selectedCharacterIds` (giữ `character_profile_id` cho backward compat).
 
-## 1. ScriptFormStepper -- MultiCharacterPicker
+## 3. Deploy edge functions
 
-Thay `CharacterPicker` bằng `MultiCharacterPicker` trong form tạo kịch bản. Cập nhật `formData.character_profile_id` thành `character_profile_ids: string[]`.
-
-## 2. ScriptToVideoContext -- Multi-character propagation
-
-- Thêm `characterProfileIds?: string[]` vào `ActiveScript` interface (giữ backward compat với `characterProfileId`)
-- Khi chuyển script sang Video Studio, propagate danh sách nhân vật
-
-## 3. Edge function `generate-video` -- Multi-character prompt injection
-
-- Accept `character_profile_ids: string[]` (fallback `character_profile_id` cho backward compat)
-- Fetch tất cả profiles, build block cho từng nhân vật với tag `[MAIN CHARACTER]` / `[SECONDARY CHARACTER N]`
-- Reference image uu tien nhan vat chinh
-
-## 4. Edge function `generate-script` -- Multi-character in script AI
-
-- Accept `character_profile_ids` array
-- Inject structured description cho moi nhan vat vao continuityRules
-
-## 5. Script types update
-
-- `ScriptFormData.character_profile_ids?: string[]` thay cho `character_profile_id`
+Deploy `generate-video`, `generate-script`, `generate-video-prompt` để test.
 
 ---
-
-## Technical details
 
 ### Files modified
-- `src/components/script/ScriptFormStepper.tsx` -- swap CharacterPicker -> MultiCharacterPicker
-- `src/contexts/ScriptToVideoContext.tsx` -- add `characterProfileIds` to ActiveScript
-- `src/types/script.ts` -- update ScriptFormData type
-- `supabase/functions/generate-video/index.ts` -- multi-character fetch + prompt build
-- `supabase/functions/generate-script/index.ts` -- multi-character injection
-- `mem://features/video/character-consistency-vn.md` -- update docs
+- `supabase/functions/generate-video-prompt/index.ts` -- multi-character fetch + context
+- `src/components/video/QuickClipTab.tsx` -- send `character_profile_ids` to Smart Prompt

@@ -23,6 +23,7 @@ interface PromptRequest {
   language?: 'vi' | 'en' | 'th';
   tone?: string;
   character_profile_id?: string;
+  character_profile_ids?: string[];
 }
 
 interface PromptResponse {
