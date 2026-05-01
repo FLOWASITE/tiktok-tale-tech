@@ -227,6 +227,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   });
   const [isWebsiteConnecting, setIsWebsiteConnecting] = useState(false);
   const [wpDialogOpen, setWpDialogOpen] = useState(false);
+  const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
+  const [blueskyHandle, setBlueskyHandle] = useState('');
+  const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
