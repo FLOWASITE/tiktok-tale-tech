@@ -3,9 +3,10 @@
 ## Status
 - ✅ Phase 1 (Critical fixes): domain align, og-image, base JSON-LD
 - ✅ Phase 3 (Dynamic sitemap): edge function generate-sitemap
-- ⏭️ Phase 2 (Prerender): SKIPPED — ROI thấp với SPA hiện tại, cần refactor providers lớn. Google Bot 2024+ render JS tốt; SEOHead inject đủ meta/JSON-LD client-side.
-- ✅ Phase 4 (Structured Data nâng cao): SoftwareApplication mở rộng, Review[] từ testimonials, Organization+contactPoint+address, LocalBusiness ở /contact, FAQPage đã wire trong FAQSection
-- ⏳ Phase 5 (Performance), Phase 6 (Content), Phase 7 (i18n hreflang), Phase 8 (GSC/GA4)
+- ⏭️ Phase 2 (Prerender): SKIPPED — ROI thấp với SPA hiện tại
+- ✅ Phase 4 (Structured Data nâng cao): SoftwareApplication, Review[], Organization, LocalBusiness, FAQPage
+- ✅ Phase 5 (Performance): preconnect Supabase + storage CDN, preload favicon, lazy/decoding async cho images dưới fold, width/height tránh CLS, fetchPriority=high cho logo nav, manualChunks tách react/motion/embla/supabase/tanstack
+- ⏳ Phase 6 (Content), Phase 7 (i18n hreflang), Phase 8 (GSC/GA4)
 
 ## Hiện trạng (đã có)
 - `SEOHead` component với JSON-LD (Article, Breadcrumb, FAQ, HowTo, Organization, WebSite)
