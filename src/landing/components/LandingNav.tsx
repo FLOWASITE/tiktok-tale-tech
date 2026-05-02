@@ -70,6 +70,10 @@ export function LandingNav() {
                 src={logo} 
                 alt="Flowa Logo" 
                 className="w-9 h-9 object-contain"
+                width="36"
+                height="36"
+                fetchPriority="high"
+                decoding="async"
               />
               <span className="text-xl font-bold text-primary">
                 Flowa

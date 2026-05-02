@@ -19,4 +19,18 @@ export default defineConfig(({ mode }) => ({
       { find: "@", replacement: path.resolve(__dirname, "./src") },
     ],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Tách các vendor lib nặng để cache tốt hơn + giảm initial bundle landing
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "motion": ["framer-motion"],
+          "embla": ["embla-carousel-react", "embla-carousel-autoplay"],
+          "supabase": ["@supabase/supabase-js"],
+          "tanstack": ["@tanstack/react-query"],
+        },
+      },
+    },
+  },
 }));

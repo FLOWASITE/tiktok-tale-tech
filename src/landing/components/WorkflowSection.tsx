@@ -92,7 +92,7 @@ function ImageCarousel({ images, altPrefix }: { images: string[]; altPrefix: str
           {images.map((img, idx) => (
             <div key={idx} className="flex-[0_0_100%] min-w-0">
               <motion.div className="relative aspect-video overflow-hidden rounded-2xl shadow-lg border border-border/20" whileHover={{ boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }} transition={{ duration: 0.3 }}>
-                <img src={img} alt={`${altPrefix} ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover object-top" />
+                <img src={img} alt={`${altPrefix} ${idx + 1}`} className="absolute inset-0 w-full h-full object-cover object-top" loading="lazy" decoding="async" />
               </motion.div>
             </div>
           ))}
