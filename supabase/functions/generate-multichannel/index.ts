@@ -5731,6 +5731,37 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       }
     }
 
+    // ============================================
+    // LONG-FORM GUARD (Non-streaming) — Blogger / WordPress
+    // Nếu kênh được chọn nhưng AI trả rỗng/quá ngắn → retry độc lập 1 lần.
+    // ============================================
+    try {
+      const longformBuf: Record<string, string> = {};
+      for (const ch of ['blogger', 'wordpress'] as const) {
+        if ((formData.channels || []).includes(ch)) {
+          longformBuf[ch] = normalizeLongformText(generatedData[`${ch}_content`]);
+        }
+      }
+      if (Object.keys(longformBuf).length > 0) {
+        await ensureLongformChannelsFilled(formData.channels || [], longformBuf, {
+          topic: formData.topic,
+          industry,
+          brandName,
+          organizationId,
+          defaultModel: aiConfig.model,
+          defaultTemperature: aiConfig.temperature,
+          channelModelConfigs,
+        });
+        for (const ch of Object.keys(longformBuf)) {
+          if (longformBuf[ch]) {
+            generatedData[`${ch}_content`] = longformBuf[ch];
+          }
+        }
+      }
+    } catch (guardErr) {
+      console.warn('[generate-multichannel][longform-guard] failed:', guardErr);
+    }
+
     // Save to database with Industry Memory version tracking + critique metadata
     // EXPAND MODE: Update existing content | CREATE MODE: Insert new
     // Debug: log persisted length per channel to catch silent gaps (e.g. AI not returning blogger_content/wordpress_content).
