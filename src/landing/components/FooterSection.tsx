@@ -97,6 +97,10 @@ export function FooterSection() {
                   src={logo} 
                   alt="Flowa Logo" 
                   className="w-8 h-8 object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  width="32"
+                  height="32"
                 />
               </motion.div>
               <span className="text-xl font-bold text-gradient">Flowa</span>

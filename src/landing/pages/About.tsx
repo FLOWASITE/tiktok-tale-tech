@@ -161,6 +161,10 @@ export default function About() {
                   src={founderImage}
                   alt="Duy Vo - Founder & CEO"
                   className="relative rounded-2xl w-full max-w-sm mx-auto object-cover aspect-[3/4] shadow-lg"
+                  loading="lazy"
+                  decoding="async"
+                  width="384"
+                  height="512"
                 />
               </div>
             </motion.div>

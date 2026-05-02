@@ -25,6 +25,8 @@ export function LinhAvatar({ size = 'md', showOnline = false, className }: LinhA
       <img
         src={linhAvatarImg}
         alt="Thùy Linh - Tư vấn viên Flowa"
+        loading="lazy"
+        decoding="async"
         className={cn(
           sizeClasses[size],
           "rounded-full object-cover ring-2 ring-white/80 shadow-md"
