@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, FlaskConical, FolderTree, Upload, BarChart3, FileText, LineChart, Link2, Target } from "lucide-react";
 import KeywordDashboardTab from "@/components/admin/seo-keywords/KeywordDashboardTab";
