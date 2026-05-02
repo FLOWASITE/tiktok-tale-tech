@@ -132,6 +132,7 @@ import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichanne
 import { FloatingStatusStack } from '@/components/multichannel/FloatingStatusStack';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { PromptPreview } from '@/components/multichannel/PromptPreview';
+import ClusterPicker from '@/components/seo/ClusterPicker';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 import { cn } from '@/lib/utils';
@@ -1283,6 +1284,28 @@ export function MultiChannelFormWizard({
                 {formData.topic.length > 0 && formData.topic.length < TOPIC_MIN_LENGTH_FOR_REFINEMENT && (
                   <p className="text-xs text-amber-500">
                     Chủ đề nên có ít nhất {TOPIC_MIN_LENGTH_FOR_REFINEMENT} ký tự để AI có thể gợi ý tốt hơn
+                  </p>
+                )}
+              </div>
+
+              {/* SEO Pillar Cluster picker - link content to a topic silo */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Pillar SEO (tùy chọn)
+                </label>
+                <ClusterPicker
+                  value={formData.clusterId ?? null}
+                  onChange={(clusterId, meta) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      clusterId: clusterId,
+                      targetKeywordIds: meta?.keywordIds ?? prev.targetKeywordIds ?? [],
+                    }));
+                  }}
+                />
+                {formData.clusterId && (formData.targetKeywordIds?.length ?? 0) > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Đã gắn {formData.targetKeywordIds?.length} keyword mục tiêu từ pillar này.
                   </p>
                 )}
               </div>

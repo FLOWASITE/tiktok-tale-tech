@@ -48,16 +48,17 @@ Deno.serve(async (req) => {
     // Get query embedding: either fetch from existing content or generate from query_text
     let queryEmbedding: number[] | null = null;
     let excludeId: string | null = content_id ?? null;
+    let sourceClusterId: string | null = null;
 
     if (content_id) {
       const { data: src } = await supabase
         .from("multi_channel_contents")
-        .select("content_embedding, title, topic, website_content")
+        .select("content_embedding, title, topic, website_content, cluster_id")
         .eq("id", content_id).maybeSingle();
+      sourceClusterId = (src as any)?.cluster_id ?? null;
       if (src?.content_embedding) {
         queryEmbedding = src.content_embedding as any;
       } else if (src) {
-        // Generate on the fly
         const txt = [src.title, src.topic, (src.website_content || "").slice(0, 2000)].filter(Boolean).join("\n");
         queryEmbedding = await embed(txt);
       }
@@ -80,16 +81,34 @@ Deno.serve(async (req) => {
     });
     if (error) throw error;
 
-    const suggestions = (related ?? []).map((r: any) => ({
-      id: r.id,
-      title: r.title,
-      topic: r.topic,
-      similarity: Number(r.similarity).toFixed(3),
-      anchor_suggestion: r.title,
-      url_hint: `/blog/${r.id}`,
-    }));
+    // Fetch cluster_id for related items to enable same-silo boosting
+    const ids = (related ?? []).map((r: any) => r.id);
+    let clusterMap: Record<string, string | null> = {};
+    if (ids.length) {
+      const { data: rows } = await supabase
+        .from("multi_channel_contents")
+        .select("id, cluster_id")
+        .in("id", ids);
+      clusterMap = Object.fromEntries((rows ?? []).map((r: any) => [r.id, r.cluster_id]));
+    }
 
-    return new Response(JSON.stringify({ suggestions }), {
+    const suggestions = (related ?? []).map((r: any) => {
+      const cId = clusterMap[r.id] ?? null;
+      const sameCluster = !!sourceClusterId && cId === sourceClusterId;
+      const baseSim = Number(r.similarity);
+      const boosted = sameCluster ? Math.min(1, baseSim + 0.1) : baseSim;
+      return {
+        id: r.id,
+        title: r.title,
+        topic: r.topic,
+        similarity: boosted.toFixed(3),
+        same_cluster: sameCluster,
+        anchor_suggestion: r.title,
+        url_hint: `/blog/${r.id}`,
+      };
+    }).sort((a: any, b: any) => Number(b.similarity) - Number(a.similarity));
+
+    return new Response(JSON.stringify({ suggestions, source_cluster_id: sourceClusterId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {

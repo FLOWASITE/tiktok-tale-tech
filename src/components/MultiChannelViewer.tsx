@@ -250,6 +250,7 @@ const channelConfig: Record<Channel, {
 
 import { analyzeContent } from '@/hooks/useContentAnalysis';
 import { PinterestAnalyticsCard } from '@/components/viewer/PinterestAnalyticsCard';
+import ClusterContextBadge from '@/components/seo/ClusterContextBadge';
 
 // Brand Voice Apply instruction
 const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo đúng Brand Voice profile đã cấu hình: giữ nguyên ý chính nhưng điều chỉnh giọng điệu, phong cách ngôn ngữ, mức độ formal, và tuân thủ các từ ưu tiên/từ cấm theo brand guidelines";
@@ -934,6 +935,11 @@ export function MultiChannelViewer({
                     <Target className="w-3 h-3" />
                     {goalLabel}
                   </Badge>
+
+                  {/* SEO Pillar Cluster Badge */}
+                  {(content as any).cluster_id && (
+                    <ClusterContextBadge clusterId={(content as any).cluster_id} />
+                  )}
 
                   {/* Core Content Source Badge - Hidden on mobile, shown in sidebar instead */}
                   {content.core_content_id && (
