@@ -42,6 +42,18 @@ export default function PillarsTab() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const p = params.get("pillar");
+    if (p && p !== activeId) setActiveId(p);
+  }, [params]);
+  const openPillar = (id: string | null) => {
+    setActiveId(id);
+    const next = new URLSearchParams(params);
+    if (id) next.set("pillar", id);
+    else next.delete("pillar");
+    setParams(next, { replace: true });
+  };
 
   const { data: clusters = [], isLoading } = useQuery({
     queryKey: ["seo-clusters", orgId],
