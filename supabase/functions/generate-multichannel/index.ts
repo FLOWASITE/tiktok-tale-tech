@@ -1843,6 +1843,8 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
 
       const PREVIEW_CHANNEL_LIMITS: Record<string, { min: number; max: number; unit: string }> = {
         website: { min: 300, max: 500, unit: "từ" },
+        blogger: { min: 200, max: 400, unit: "từ" },
+        wordpress: { min: 400, max: 700, unit: "từ" },
         facebook: { min: 80, max: 150, unit: "từ" },
         instagram: { min: 30, max: 80, unit: "từ" },
         twitter: { min: 0, max: 280, unit: "ký tự" },
@@ -1859,7 +1861,9 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
       };
 
       const PREVIEW_CHANNEL_LABELS: Record<string, string> = {
-        website: "Website/Blog",
+        website: "Website (corporate SEO)",
+        blogger: "Blogger (casual blog)",
+        wordpress: "WordPress (in-depth article)",
         facebook: "Facebook",
         instagram: "Instagram",
         twitter: "X (Twitter)",
@@ -1875,9 +1879,16 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
         bluesky: "Bluesky",
       };
 
+      const PREVIEW_CHANNEL_STYLE: Record<string, string> = {
+        website: "Tone corporate, schema-friendly, có H2/H3, bullet, CTA mềm. Markdown thuần.",
+        blogger: "Tone casual/personal, ngôi 'tôi/mình', kể chuyện, mở bài hook, kết câu hỏi mời comment. Markdown nhẹ. PHẢI khác Website/WordPress về tone & độ dài.",
+        wordpress: "Tone authority/expert, H2+H3 chi tiết, có thể có FAQ/callout, sâu hơn Website một bậc. Markdown chuẩn. PHẢI khác Website (chi tiết hơn) và Blogger (formal hơn).",
+      };
+
       const channelLabel = PREVIEW_CHANNEL_LABELS[previewChannel] || previewChannel;
       const channelLimit = PREVIEW_CHANNEL_LIMITS[previewChannel] || { min: 50, max: 150, unit: "từ" };
       const goalLabel = PREVIEW_GOAL_LABELS[formData.contentGoal] || formData.contentGoal;
+      const channelStyleHint = PREVIEW_CHANNEL_STYLE[previewChannel] || "";
 
       const systemPrompt = `Bạn là chuyên gia content marketing tại Việt Nam. 
 Viết nội dung PREVIEW ngắn gọn cho kênh ${channelLabel}.
@@ -1889,6 +1900,7 @@ QUY TẮC:
 - Mục tiêu: ${goalLabel}
 - Ngôn ngữ: Tiếng Việt tự nhiên
 - Phong cách phù hợp với kênh ${channelLabel}
+${channelStyleHint ? `- ${channelStyleHint}` : ""}
 - KHÔNG giải thích, chỉ viết nội dung
 - Format phù hợp với kênh (có thể dùng emoji nếu phù hợp)`;
 
