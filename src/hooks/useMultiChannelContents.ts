@@ -288,7 +288,7 @@ export function useMultiChannelContents() {
         wordpress: 'wordpress_content',
         facebook: 'facebook_content',
         instagram: 'instagram_content',
-        pinterest: 'instagram_content',
+        pinterest: 'pinterest_content',
         twitter: 'twitter_content',
         google_maps: 'google_maps_content',
         linkedin: 'linkedin_content',
@@ -298,7 +298,7 @@ export function useMultiChannelContents() {
         telegram: 'telegram_content',
         tiktok: 'tiktok_content',
         threads: 'threads_content',
-  bluesky: 'Bluesky',
+        bluesky: 'bluesky_content',
       };
 
       const updateField = fieldMap[channel];
