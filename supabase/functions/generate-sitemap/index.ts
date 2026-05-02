@@ -60,25 +60,34 @@ Deno.serve(async (req) => {
 
     const today = new Date().toISOString().split("T")[0];
 
+    const LANGS = ["vi", "en", "th"];
+    const hreflangFor = (loc: string) =>
+      LANGS.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${loc}"/>`).join("\n") +
+      `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}"/>`;
+
     const urls: string[] = [];
 
     // Static pages
     for (const u of STATIC_URLS) {
+      const loc = `${SITE_URL}${u.loc}`;
       urls.push(`  <url>
-    <loc>${SITE_URL}${u.loc}</loc>
+    <loc>${loc}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>${u.changefreq}</changefreq>
     <priority>${u.priority}</priority>
+${hreflangFor(loc)}
   </url>`);
     }
 
     // Legacy hardcoded blog
     for (const slug of LEGACY_BLOG_SLUGS) {
+      const loc = `${SITE_URL}/blog/${escapeXml(slug)}`;
       urls.push(`  <url>
-    <loc>${SITE_URL}/blog/${escapeXml(slug)}</loc>
+    <loc>${loc}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+${hreflangFor(loc)}
   </url>`);
     }
 
@@ -88,16 +97,19 @@ Deno.serve(async (req) => {
       if (!p.slug || seen.has(p.slug)) continue;
       seen.add(p.slug);
       const lastmod = p.updated_at ? p.updated_at.split("T")[0] : today;
+      const loc = `${SITE_URL}/blog/${escapeXml(p.slug)}`;
       urls.push(`  <url>
-    <loc>${SITE_URL}/blog/${escapeXml(p.slug)}</loc>
+    <loc>${loc}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
+${hreflangFor(loc)}
   </url>`);
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${urls.join("\n")}
 </urlset>`;
 
