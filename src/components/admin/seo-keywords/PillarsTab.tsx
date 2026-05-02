@@ -60,12 +60,12 @@ export default function PillarsTab() {
     queryKey: ["seo-cluster-coverage", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cluster_coverage" as any)
+      const { data, error } = await (supabase as any)
+        .from("cluster_coverage")
         .select("*")
         .eq("organization_id", orgId!);
       if (error) throw error;
-      return (data || []) as Coverage[];
+      return ((data || []) as unknown) as Coverage[];
     },
   });
 
