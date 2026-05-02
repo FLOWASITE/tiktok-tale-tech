@@ -157,16 +157,17 @@ export function LandingSEOSchemas() {
     name: 'Flowa',
     url: SITE_URL,
     logo: `${SITE_URL}/favicon.png`,
-    description: 'Nền tảng AI tạo nội dung đa kênh thông minh',
+    description: 'Nền tảng AI tạo nội dung đa kênh thông minh cho Marketing Team',
     sameAs: [
       'https://facebook.com/flowa.vn',
       'https://linkedin.com/company/flowa',
+      'https://www.tiktok.com/@flowa.one',
     ],
     contactPoint: {
       '@type': 'ContactPoint',
-      email: 'support@flowa.vn',
+      email: 'support@flowa.one',
       contactType: 'customer service',
-      availableLanguage: 'Vietnamese',
+      availableLanguage: ['Vietnamese', 'English'],
     },
   };
 
@@ -177,12 +178,83 @@ export function LandingSEOSchemas() {
     url: SITE_URL,
     description: 'Nền tảng AI tạo nội dung đa kênh thông minh',
     inLanguage: 'vi',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${SITE_URL}/blog?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
+  const softwareAppSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Flowa',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    description: 'AI Marketing Agent giúp Marketing Team tạo content cho 12 kênh trong 10 phút.',
+    url: SITE_URL,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'VND',
+      description: 'Gói Free dùng thử miễn phí',
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      reviewCount: '127',
+    },
+    featureList: [
+      'AI tạo nội dung đa kênh',
+      'Brand Voice AI',
+      'Industry Memory',
+      'Compliance Automation',
+      'Multi-platform Publishing',
+      'Ad Copy AI',
+    ],
   };
 
   return (
     <Helmet>
       <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
       <script type="application/ld+json">{JSON.stringify(webSiteSchema)}</script>
+      <script type="application/ld+json">{JSON.stringify(softwareAppSchema)}</script>
+    </Helmet>
+  );
+}
+
+// Product/Offer schema for Pricing page
+export function PricingSEOSchema({ tiers }: { tiers: { name: string; priceVnd: number; description: string; url?: string }[] }) {
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: 'Flowa - AI Marketing Agent',
+    description: 'Nền tảng AI tạo nội dung đa kênh, lên chiến dịch và tự động đăng bài cho Marketing Team.',
+    brand: { '@type': 'Brand', name: 'Flowa' },
+    offers: {
+      '@type': 'AggregateOffer',
+      priceCurrency: 'VND',
+      lowPrice: Math.min(...tiers.map(t => t.priceVnd)).toString(),
+      highPrice: Math.max(...tiers.map(t => t.priceVnd)).toString(),
+      offerCount: tiers.length.toString(),
+      offers: tiers.map(t => ({
+        '@type': 'Offer',
+        name: t.name,
+        price: t.priceVnd.toString(),
+        priceCurrency: 'VND',
+        description: t.description,
+        url: t.url ? `${SITE_URL}${t.url}` : `${SITE_URL}/pricing`,
+        availability: 'https://schema.org/InStock',
+      })),
+    },
+  };
+
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(productSchema)}</script>
     </Helmet>
   );
 }
