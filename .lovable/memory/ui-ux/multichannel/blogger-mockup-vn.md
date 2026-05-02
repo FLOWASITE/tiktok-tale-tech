@@ -1,16 +1,14 @@
 ---
-name: Blogger Mockup Standalone
-description: Blogger preview dùng BloggerMockup riêng (Blogspot classic look), không share WebsiteMockup
+name: Long-form Mockup Separation
+description: Mỗi long-form channel có mockup riêng — WebsiteMockup (corporate), BloggerMockup (Blogspot classic), WordPressMockup (Twenty Twenty-Four)
 type: design
 ---
 
-`channelToMockupType.blogger = 'blogger'` → render `BloggerMockup` (file `src/components/preview/BloggerMockup.tsx`), KHÔNG dùng `WebsiteMockup`/`general`.
+Mỗi long-form channel render mockup riêng để phản ánh đúng nơi publish, không share `WebsiteMockup` corporate cho tất cả.
 
-**Look:** Blogspot classic (Notable/Soho/Contempo)
-- Header center: logo bubble + brand name serif + `<brand>.blogspot.com` small caps + nav strip Home/About/Posts/Contact
-- Body: date strap, title `font-serif` 3xl center, meta line "Posted by · X min read · label", optional hero image full-bleed, prose markdown (Georgia)
-- Footer: Labels chips (lấy từ `seoData.focus_keyword` + `secondary_keywords`), Reactions (Funny/Interesting/Cool checkboxes), Comments stub, "Powered by Blogger"
-- Theme accent dùng `primaryColor` (mặc định `#1a73e8`)
-- KHÔNG có browser address bar / FAQ schema / corporate breadcrumb
+**Files:**
+- `src/components/preview/WebsiteMockup.tsx` (inline trong `ChannelMockupFrame.tsx`) — corporate look với browser bar, FAQ, schema. Dùng cho `website`, `google_maps`, `youtube`, `zalo_oa`, `telegram`.
+- `src/components/preview/BloggerMockup.tsx` — Blogspot classic: header center, font Georgia serif, "Labels" chips, "Powered by Blogger" footer.
+- `src/components/preview/WordPressMockup.tsx` — Twenty Twenty-Four/Five style: sans-serif header + nav strip, serif title (Source Serif/Georgia) align trái, categories chip phía trên title, author bio card, "Leave a Reply" stub, "Proudly powered by WordPress" footer. Domain hint: `{brand}.wordpress.com` hoặc lấy từ `seoData.canonical_url`.
 
-WordPress vẫn share `general` (WebsiteMockup) cho tới khi cần tách riêng.
+**Routing:** `ContentMockupToggle.channelToMockupType` map channel → mockup type. `ChannelMockupFrame` switch case render đúng component. Khi thêm long-form channel mới, tạo standalone mockup file riêng theo cùng pattern (props: `content, brandName, logoUrl, primaryColor, isGenerating, seoData, channelImage`; reuse `ensureMarkdownFormat` + `ReactMarkdown remarkGfm` + strip duplicate title logic).
