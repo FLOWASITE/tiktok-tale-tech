@@ -3551,7 +3551,16 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               // Note: not re-emitting streaming_text for retried channels — UI receives
               // final content via the 'result' event below to avoid duplicating tokens.
             } catch (guardErr) {
-              console.warn('[streaming-mode][longform-guard] failed:', guardErr);
+              const message = 'Không kiểm tra được nội dung Blogger/WordPress. Backend đã chặn lưu bài trống, vui lòng thử lại.';
+              console.error('[streaming-mode][longform-guard] failed — blocking persistence:', guardErr);
+              if (taskId) {
+                await failTask(supabase, taskId, message);
+              }
+              if (!clientDisconnected) {
+                emit({ type: 'error', step: 'longform-guard', progress: 76, message, data: { errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT' } });
+                try { controller.close(); } catch {}
+              }
+              return;
             }
             
             // Stop heartbeat
@@ -5845,7 +5854,14 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         }
       }
     } catch (guardErr) {
-      console.warn('[generate-multichannel][longform-guard] failed:', guardErr);
+      console.error('[generate-multichannel][longform-guard] failed — blocking persistence:', guardErr);
+      return new Response(
+        JSON.stringify({
+          error: 'Không kiểm tra được nội dung Blogger/WordPress. Backend đã chặn lưu bài trống, vui lòng thử lại.',
+          errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT',
+        }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Save to database with Industry Memory version tracking + critique metadata
