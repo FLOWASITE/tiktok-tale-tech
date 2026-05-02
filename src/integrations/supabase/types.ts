@@ -9949,6 +9949,70 @@ export type Database = {
           },
         ]
       }
+      seo_clusters: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+          pillar_content_id: string | null
+          pillar_keyword_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          pillar_content_id?: string | null
+          pillar_keyword_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          pillar_content_id?: string | null
+          pillar_keyword_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_clusters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_clusters_pillar_content_id_fkey"
+            columns: ["pillar_content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_clusters_pillar_keyword_id_fkey"
+            columns: ["pillar_keyword_id"]
+            isOneToOne: false
+            referencedRelation: "seo_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_keywords: {
         Row: {
           assigned_landing_page_id: string | null
@@ -11045,6 +11109,7 @@ export type Database = {
           brand_template_id: string | null
           campaign_id: string | null
           category: string
+          cluster_id: string | null
           content_goal: string
           content_id: string | null
           content_type: string | null
@@ -11074,6 +11139,7 @@ export type Database = {
           brand_template_id?: string | null
           campaign_id?: string | null
           category: string
+          cluster_id?: string | null
           content_goal: string
           content_id?: string | null
           content_type?: string | null
@@ -11103,6 +11169,7 @@ export type Database = {
           brand_template_id?: string | null
           campaign_id?: string | null
           category?: string
+          cluster_id?: string | null
           content_goal?: string
           content_id?: string | null
           content_type?: string | null
@@ -11140,6 +11207,20 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_history_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "cluster_coverage"
+            referencedColumns: ["cluster_id"]
+          },
+          {
+            foreignKeyName: "topic_history_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "seo_clusters"
             referencedColumns: ["id"]
           },
           {
@@ -11884,6 +11965,28 @@ export type Database = {
       }
     }
     Views: {
+      cluster_coverage: {
+        Row: {
+          cluster_id: string | null
+          coverage_pct: number | null
+          keyword_count: number | null
+          keywords_covered: number | null
+          name: string | null
+          organization_id: string | null
+          status: string | null
+          topic_count: number | null
+          topics_used: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_clusters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_memory_packs: {
         Row: {
           category_code: string | null
