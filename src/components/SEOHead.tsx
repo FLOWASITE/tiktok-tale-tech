@@ -1,8 +1,15 @@
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 
 const SITE_URL = 'https://flowa.one';
 const SITE_NAME = 'Flowa';
 const DEFAULT_OG_IMAGE = 'https://flowa.one/og-image.jpg';
+
+const LOCALE_MAP: Record<string, string> = {
+  vi: 'vi_VN',
+  en: 'en_US',
+  th: 'th_TH',
+};
 
 export interface ArticleData {
   author: string;
@@ -45,6 +52,13 @@ export function SEOHead({
   noIndex = false,
   children,
 }: SEOHeadProps) {
+  const { i18n } = useTranslation();
+  const activeLang = (i18n.language?.split('-')[0] || 'vi') as keyof typeof LOCALE_MAP;
+  const ogLocale = LOCALE_MAP[activeLang] || 'vi_VN';
+  const alternateLocales = Object.entries(LOCALE_MAP)
+    .filter(([k]) => k !== activeLang)
+    .map(([, v]) => v);
+
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
   const fullTitle = title.includes('Flowa') ? title : `${title} | Flowa`;
 
@@ -104,6 +118,12 @@ export function SEOHead({
       <meta name="description" content={description} />
       <link rel="canonical" href={canonicalUrl} />
 
+      {/* hreflang — landing serves vi/en/th from same URL via i18next auto-detect */}
+      <link rel="alternate" hrefLang="vi" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="en" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="th" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
+
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
       {/* Open Graph */}
@@ -113,7 +133,10 @@ export function SEOHead({
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:image" content={ogImage} />
       <meta property="og:site_name" content={SITE_NAME} />
-      <meta property="og:locale" content="vi_VN" />
+      <meta property="og:locale" content={ogLocale} />
+      {alternateLocales.map((loc) => (
+        <meta key={loc} property="og:locale:alternate" content={loc} />
+      ))}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
