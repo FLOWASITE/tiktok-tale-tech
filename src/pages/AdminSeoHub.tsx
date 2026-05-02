@@ -39,7 +39,7 @@ export default function AdminSeoHub() {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
+      <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-9 max-w-6xl">
           <TabsTrigger value="dashboard" className="gap-1.5">
             <BarChart3 className="h-4 w-4" /> Dashboard
