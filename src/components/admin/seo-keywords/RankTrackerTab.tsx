@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Loader2 } from "lucide-react";
-import { useOrganization } from "@/contexts/OrganizationContext";
+import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
 
 export default function RankTrackerTab() {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useOrganizationContext();
   const [running, setRunning] = useState(false);
 
   const { data: keywords, refetch, isLoading } = useQuery({
