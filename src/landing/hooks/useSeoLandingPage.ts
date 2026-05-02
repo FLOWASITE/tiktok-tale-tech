@@ -53,7 +53,7 @@ export function useSeoLandingPage(slug: string | undefined, pageType?: SeoLandin
 
       const { data, error } = await q.maybeSingle();
       if (error) throw error;
-      return data as SeoLandingPageRow | null;
+      return (data as unknown) as SeoLandingPageRow | null;
     },
     staleTime: 5 * 60 * 1000, // 5 min
   });
