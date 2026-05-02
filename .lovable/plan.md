@@ -1,147 +1,66 @@
 ## Mục tiêu
+Nghiên cứu bộ từ khóa SEO cho **flowa.one** (AI Marketing Agent cho VN/SEA, vertical aesthetic/beauty) và nạp thẳng vào `seo_keywords` + `keyword_clusters` của workspace **"Công ty CP Công nghệ Flowa"** (`bccfec38-...`).
 
-Xây hệ thống **Keyword Intelligence** cho flowa.one: nghiên cứu sâu (qua AI + web search) → phân loại theo cluster/intent → quản lý vòng đời (planned → assigned → published → tracking) → liên kết trực tiếp với `seo_landing_pages` để programmatic SEO scale có chiến lược.
+Sau khi xong, bạn vào **Admin → SEO Hub → Keywords** là thấy đầy đủ, sẵn sàng dùng tab **Pages** để generate landing.
 
-Hiện tại keyword mới là `text[]` nhúng trong landing page. Plan này tách thành **bảng độc lập** + dashboard riêng.
+## Phương pháp nghiên cứu
+Kết hợp 3 nguồn (không tốn API trả phí):
+1. **Phân tích positioning flowa.one** (đã fetch homepage): AI Agent điều phối content pipeline, 12 channels, replace content team, VN/TH/EN.
+2. **Gemini 2.5 Pro** (qua Lovable AI Gateway) → expand seed keywords thành long-tail VN, ước lượng `volume`/`difficulty`/`intent`/`funnel_stage`.
+3. **Heuristic** cho intent (regex trong `keyword-bulk-import` đã có sẵn).
 
----
+## Bộ seed keyword (10 cụm chính)
+Định hướng 3 lớp: brand+category, problem-solving (TOFU), solution comparison (MOFU), conversion (BOFU).
 
-## 1. Database Schema (3 bảng mới)
+| Cluster | Seed examples |
+|---|---|
+| AI Marketing Agent | "AI marketing agent", "AI agent marketing tự động", "agentic marketing platform" |
+| Content Automation | "tự động hóa content marketing", "phần mềm tạo content AI", "tool viết content tự động" |
+| Multi-channel Publishing | "đăng bài đa kênh", "publish content nhiều nền tảng", "tool quản lý social media" |
+| AI Content Generation VN | "AI viết bài tiếng Việt", "AI tạo caption", "AI viết content facebook" |
+| Carousel/Visual AI | "AI tạo carousel instagram", "tool thiết kế post tự động" |
+| Video Script AI | "AI viết kịch bản video", "tạo script TikTok bằng AI", "AI làm video marketing" |
+| Beauty/Aesthetic Vertical | "marketing thẩm mỹ viện", "content cho spa", "quảng cáo phòng khám da liễu" |
+| SEO/GEO | "GEO optimization là gì", "SEO cho AI search", "tối ưu nội dung cho ChatGPT" |
+| Brand Voice / Compliance | "AI clone giọng văn thương hiệu", "kiểm duyệt content quảng cáo y tế" |
+| Competitor/Comparison | "Jasper AI thay thế", "Buffer alternative Vietnam", "so sánh tool marketing AI" |
 
-**`seo_keywords`** — kho từ khóa trung tâm
-```text
-id, organization_id, keyword (unique per org), locale='vi'
-search_volume (int)         -- ước lượng/tháng
-difficulty (0-100)           -- KD score
-cpc_vnd (numeric)            -- giá trị thương mại
-intent (enum: informational | commercial | transactional | navigational)
-funnel_stage (TOFU | MOFU | BOFU)
-serp_features (jsonb)        -- featured_snippet, paa, video, local_pack...
-top_competitors (jsonb)      -- [{domain, url, title}] top 10
-content_gap_score (0-100)    -- AI tính: gap so với competitor
-priority_score (0-100)       -- volume × intent × (100-difficulty) / 100
-cluster_id (FK → keyword_clusters)
-status (new | researching | planned | assigned | published | tracking | archived)
-assigned_landing_page_id (FK → seo_landing_pages, nullable)
-current_rank (int, nullable) -- vị trí hiện tại trên Google
-last_checked_at, source (manual|ai_suggested|gsc_import|competitor_scrape)
-notes, created_at, updated_at
-```
+Mục tiêu: **~150 keyword** sau khi expand (15 long-tail × 10 cluster).
 
-**`keyword_clusters`** — nhóm topic (semantic cluster)
-```text
-id, organization_id, name (vd: "AI Marketing cho Spa")
-description, parent_cluster_id (nullable, hỗ trợ tree 2 cấp)
-pillar_keyword_id (FK → seo_keywords, keyword chính)
-target_pillar_page_slug, color (hex cho UI)
-keyword_count (cached), avg_priority (cached)
-created_at, updated_at
-```
+## Triển khai (sequential, ~3-5 phút)
 
-**`keyword_research_jobs`** — lịch sử AI research
-```text
-id, organization_id, seed_keyword, mode (expand|cluster|gap_analysis|serp_scan)
-status (queued|running|done|failed), result (jsonb), keywords_added (int)
-ai_model, cost_usd, created_by, created_at, completed_at
-```
+### Bước 1 — Tạo 10 cluster
+Migration nhẹ hoặc trực tiếp INSERT vào `keyword_clusters` cho org `bccfec38-...`, mỗi cluster có `name` + `description` + `seed_keywords`.
 
-RLS: org isolation theo `organization_id` (pattern chuẩn của project).
+### Bước 2 — Sinh keyword bằng AI script
+Dùng skill `ai-gateway` (script `lovable_ai.py`, model `google/gemini-2.5-pro`) chạy trong sandbox:
+- Input: 10 seed cluster + brief về flowa.one + yêu cầu output JSON schema.
+- Output schema mỗi keyword: `{keyword, search_volume_est, difficulty_est, intent, funnel_stage, cluster_name, rationale}`.
+- Mỗi cluster sinh ~15 long-tail tiếng Việt + 2-3 tiếng Anh (cho thị trường SEA).
 
----
+### Bước 3 — Insert vào `seo_keywords`
+- Map `cluster_name` → `cluster_id` vừa tạo.
+- `priority_score` để DB trigger `calc_keyword_priority` tự tính (đã có sẵn từ migration trước).
+- `status = 'new'`, `source = 'ai_research_initial_seed'`, `locale = 'vi'` (hoặc 'en' cho keyword tiếng Anh).
+- Dùng `psql COPY FROM STDIN` (insert tool có quyền INSERT) — bulk ~150 row trong 1 query.
 
-## 2. Edge Functions (3 functions mới)
+### Bước 4 — Verify
+SELECT count theo cluster + top 10 priority để show user kết quả.
 
-**`keyword-research`** — research engine chính
-- Input: `{ seed: string, mode: 'expand'|'cluster'|'gap', orgId, locale }`
-- Pipeline:
-  1. **Expand**: Gemini 2.5 Pro sinh 30-50 keyword variants tiếng Việt (long-tail, question-based, modifier-based) + web search qua Perplexity/Lovable AI search để verify volume tendencies
-  2. **SERP scan**: gọi Perplexity sonar lấy top-10 URLs cho mỗi keyword → trích domain + title
-  3. **Gap analysis**: AI so sánh content competitor vs flowa.one để score `content_gap_score`
-  4. **Auto-cluster**: embedding `gte-small` (đã có sẵn) → cosine similarity ≥ 0.78 group thành cluster
-  5. Bulk insert vào `seo_keywords` với `priority_score` tính sẵn
-- Background persistence pattern (đã có trong codebase)
-- Trace + cost log qua `_shared/logger.ts`
+## Tech notes
+- Gọi AI qua `/tmp/lovable_ai.py --schema /tmp/kw_schema.json --model google/gemini-2.5-pro` để có structured output ổn định.
+- Cluster trigger `update_cluster_stats` đã có → tự động cập nhật `keyword_count` + `avg_priority` sau khi insert.
+- KHÔNG cần edit code, KHÔNG cần migration mới (schema đã sẵn từ task trước).
+- KHÔNG ảnh hưởng workspace khác (strict org filter).
 
-**`keyword-bulk-import`** — import CSV/GSC
-- Parse CSV (keyword, volume, kd, cpc) hoặc GSC export (query, impressions, clicks, position)
-- Dedupe theo `(organization_id, keyword)`
-- Auto-assign cluster nếu có embedding match
+## Deliverables
+1. 10 cluster mới trong workspace Flowa.
+2. ~150 keyword với volume/KD/intent/funnel/priority đầy đủ.
+3. Báo cáo tóm tắt: top 10 priority, phân bố TOFU/MOFU/BOFU, gợi ý 5 landing page nên build trước.
 
-**`keyword-assign-to-page`** — gán keyword cho landing page
-- Update `assigned_landing_page_id`, set status='assigned'
-- Trigger regenerate `keywords` array trong `seo_landing_pages` (tổng hợp pillar + secondary)
+## Câu hỏi nhanh trước khi chạy
+1. **Workspace target**: dùng "Công ty CP Công nghệ Flowa" (`bccfec38-...`) đúng không, hay workspace khác?
+2. **Vertical focus**: giữ trọng số 70% generic AI marketing + 30% beauty/aesthetic vertical, hay đảo lại (vertical là priority chính)?
+3. **Locale**: ~80% VI + 20% EN (cho SEA expansion), OK không?
 
----
-
-## 3. Admin UI — `/admin/seo-keywords`
-
-**Tab 1: Dashboard**
-- 4 KPI cards: Total keywords, Clusters, Assigned/Unassigned ratio, Avg priority
-- Funnel chart: TOFU/MOFU/BOFU distribution
-- Top 10 high-priority unassigned keywords (action: "Tạo landing page" → pre-fill `generate-seo-landing`)
-
-**Tab 2: Keyword Explorer** (data table)
-- Columns: keyword, volume, KD, intent, cluster, status, priority_score, assigned page
-- Filters: cluster, intent, funnel_stage, status, priority range
-- Bulk actions: assign cluster, change status, delete, export CSV
-- Row click → side drawer: SERP top-10, gap analysis, history
-
-**Tab 3: Cluster Manager**
-- Tree view 2 cấp (pillar → sub-clusters)
-- Drag-drop keyword giữa clusters
-- Mỗi cluster card: pillar keyword, count, avg priority, link tới pillar page
-
-**Tab 4: Research Lab**
-- Form: seed keyword + mode → trigger `keyword-research` job
-- Job history table với status realtime (Supabase realtime channel)
-- Preview kết quả trước khi commit vào DB
-
-**Tab 5: Import/Export**
-- Upload CSV (template downloadable)
-- Connect GSC: nếu có GA4/GSC connection (đã thấy trong context trước) → import top queries auto
-
----
-
-## 4. Tích hợp với hệ thống SEO hiện có
-
-- **`generate-seo-landing`** mở rộng: nhận thêm `cluster_id` hoặc `keyword_ids[]` → AI nhận full SERP context, top competitors, gap analysis làm input → output chất lượng cao hơn nhiều so với chỉ truyền topic string
-- **`AdminSeoPages`**: thêm cột "Keywords assigned" + filter theo cluster
-- **`DynamicLandingPage`**: render `keywords` từ assigned keywords (đã có sẵn)
-- **Sitemap**: priority trong sitemap.xml tính từ `priority_score` của keyword chính
-- Sidebar admin: thêm "SEO Keywords" (icon `KeySquare`) ngay dưới "SEO Pages"
-
----
-
-## 5. Technical details
-
-- **Embedding cho cluster**: dùng pipeline `gte-small` 384-dim đã có (`industry_knowledge_nodes` pattern), tạo IVF index `WITH (lists=50)` cho `seo_keywords.embedding`
-- **Priority formula** (function SQL `calc_keyword_priority`):
-  ```text
-  ROUND(LEAST(100, (LOG(volume+1) * 12) * (intent_weight) * (100-difficulty)/100))
-  intent_weight: transactional=1.5, commercial=1.3, informational=1.0, navigational=0.7
-  ```
-- **Trigger**: sau insert/update keyword → recompute `keyword_count` & `avg_priority` cho cluster
-- **AI model**: `google/gemini-2.5-pro` cho research (long context, reasoning), `google/gemini-2.5-flash` cho clustering nhanh
-- **Cache**: SERP scan kết quả cache 7 ngày qua `withCache` (key = hash(keyword+locale))
-- **Cost guard**: research job > 50 keywords cần confirm; max 200 keyword/job
-
----
-
-## 6. Deliverables (theo thứ tự build)
-
-1. Migration: 3 bảng + RLS + indexes + `calc_keyword_priority` function + cluster trigger
-2. Edge function `keyword-research` (core, có Perplexity + Gemini)
-3. Edge function `keyword-bulk-import` (CSV parser)
-4. UI page `/admin/seo-keywords` với 5 tabs
-5. Sidebar entry + route registration
-6. Update `generate-seo-landing` nhận `cluster_id` / `keyword_ids[]`
-7. Update `AdminSeoPages` hiển thị keyword links
-8. Optional: GSC auto-import (nếu connection đã sẵn)
-
----
-
-## Câu hỏi trước khi build
-
-1. **Nguồn data volume/KD**: Plan đang dùng AI ước lượng (free) + manual import CSV. Bạn có muốn tích hợp luôn API trả phí (DataForSEO ~$50/mo, hoặc Ahrefs API)? Hay chỉ AI estimate + GSC thật là đủ?
-2. **Scope MVP**: Build hết 8 deliverables 1 lần, hay chia 2 phase (Phase 1: schema + research + UI cơ bản, Phase 2: cluster manager + GSC import)?
-3. **Bulk research budget**: Default tôi đặt giới hạn 200 keyword/job. OK không, hay cần lớn hơn (vd 1000)?
+Nếu bạn approve mà không trả lời 3 câu trên, tôi sẽ dùng default: workspace Flowa, 70/30 generic/vertical, 80/20 VI/EN.
