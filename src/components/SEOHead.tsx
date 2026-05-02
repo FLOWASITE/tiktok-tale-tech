@@ -52,6 +52,13 @@ export function SEOHead({
   noIndex = false,
   children,
 }: SEOHeadProps) {
+  const { i18n } = useTranslation();
+  const activeLang = (i18n.language?.split('-')[0] || 'vi') as keyof typeof LOCALE_MAP;
+  const ogLocale = LOCALE_MAP[activeLang] || 'vi_VN';
+  const alternateLocales = Object.entries(LOCALE_MAP)
+    .filter(([k]) => k !== activeLang)
+    .map(([, v]) => v);
+
   const canonicalUrl = `${SITE_URL}${canonicalPath}`;
   const fullTitle = title.includes('Flowa') ? title : `${title} | Flowa`;
 
