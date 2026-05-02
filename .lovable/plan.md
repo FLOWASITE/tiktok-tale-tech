@@ -1,50 +1,54 @@
-# Nâng cấp Internal Links: Duyệt & Lưu
+# Phase 4 — Hoàn thiện vòng đời Pillar Cluster
 
-## Mục tiêu
-Biến `InternalLinksPanel` từ "chỉ gợi ý + copy" thành workflow **Quét → Duyệt (chọn + sửa anchor) → Lưu vào DB**, có quản lý liên kết đã duyệt.
+Sau 3 phase trước (schema, UI form, prompt injection), còn lại 2 mảnh để Pillar Cluster thực sự "tự vận hành":
 
-## Migration: bảng `internal_links`
-Lưu các liên kết user đã duyệt giữa 2 content.
+## 1. AI gợi topic từ keyword chưa có content
+**Edge function mới**: `supabase/functions/suggest-cluster-topics/index.ts`
+- Input: `{ clusterId }`
+- Logic:
+  - Fetch cluster + pillar keyword + tất cả `seo_keywords` thuộc cluster có `assigned_landing_page_id IS NULL` (uncovered)
+  - Fetch brand context (tên brand, industry, tone) từ `brand_templates`
+  - Gọi `callAI` (Gemini 2.5 Flash) với prompt: "Đề xuất 5-10 topic ý tưởng phủ các keyword sau, mỗi topic gắn 1-3 keyword, intent rõ ràng (TOFU/MOFU/BOFU), tiêu đề tiếng Việt, angle ngắn"
+  - Output JSON `{ suggestions: [{ title, angle, keyword_ids[], intent }] }`
+- Đăng ký `verify_jwt = false` trong `config.toml`, validate JWT trong code (pattern singleton service client)
 
-**Cột:**
-- `id`, `organization_id`, `created_by`, `created_at`, `updated_at`
-- `source_content_id` → `multi_channel_contents(id)` ON DELETE CASCADE
-- `target_content_id` → `multi_channel_contents(id)` ON DELETE CASCADE
-- `anchor_text` TEXT (user có thể edit trước khi lưu)
-- `url` TEXT
-- `similarity` NUMERIC (snapshot tại lúc duyệt)
-- `status` TEXT default `'approved'` (approved | inserted | dismissed)
-- UNIQUE `(source_content_id, target_content_id)` — chống duplicate
+**UI**: nút "Gợi ý topic bằng AI" trong `PillarDetailView.tsx` →
+- Mở dialog list các suggestion (checkbox + edit title)
+- Khi user "Tạo topic đã chọn" → bulk insert `topic_history` rows với `cluster_id` đã set, redirect sang `/multi-channel/create?topic=...&clusterId=...` cho từng cái (hoặc lưu nháp).
 
-**Index:** `source_content_id`, `organization_id`
+## 2. ClusterContextCard trong MultiChannelViewer
+Hiện tại đã có `ClusterContextBadge` (chỉ tên + count). Bổ sung **`ClusterContextCard.tsx`** xuất hiện ở sidebar/bottom của viewer:
+- Header: tên pillar + status + coverage % (từ `cluster_coverage` view)
+- **Sister Content** (3-5 bài cùng cluster): list link → `/multi-channel/{id}`, mỗi item hiển thị title + channel icons + ngày tạo
+- **Pillar Content link**: nếu cluster có `pillar_content_id` → CTA "Xem trang trụ"
+- **Suggested internal links**: gọi `suggest-internal-links` (đã có cluster boost) — hiện 3 anchor đề xuất + nút copy markdown
+- **Keyword phủ trong bài này**: list `target_keyword_ids` đã link
 
-**RLS:** SELECT/INSERT/UPDATE/DELETE chỉ cho thành viên `organization_members` cùng `organization_id`.
+Mount card trong `MultiChannelViewer.tsx` chỉ khi `content.cluster_id` có giá trị; collapse được.
 
-## UI: `src/components/seo/InternalLinksPanel.tsx` (rewrite)
+## 3. Cluster status auto-update (trigger)
+Migration nhỏ:
+- Trigger sau INSERT/UPDATE/DELETE `multi_channel_contents` → recompute `seo_clusters.status`:
+  - `coverage_pct >= 80%` & có `pillar_content_id` → `completed`
+  - `coverage_pct > 0` → `active`
+  - else → giữ `planning`
+- Hoặc đơn giản hơn: làm function SQL `refresh_cluster_status(cluster_id uuid)` rồi gọi từ frontend sau khi tạo content.
 
-### Bố cục
-1. **Header** — nút "Gợi ý liên kết nội bộ" (đổi tên rõ ràng theo yêu cầu user) + badge "X đã lưu"
-2. **Danh sách "Đã duyệt"** (load từ DB) — mỗi link: anchor, URL, nút Copy MD, nút Xóa (xanh nhạt highlight)
-3. **Danh sách "Gợi ý mới"** sau khi quét:
-   - Checkbox mỗi item, "Chọn tất cả"
-   - Khi check → hiện ô input anchor có sẵn `anchor_suggestion` để user sửa
-   - Hiển thị similarity %, URL, nút Copy MD lẻ
-   - Filter bỏ những target đã có trong `internal_links` (tránh re-suggest)
-4. **Nút "Lưu N liên kết đã chọn"** — bulk insert vào `internal_links`, refresh "Đã duyệt"
-
-### Flow
-- Mount → load saved từ DB
-- Click "Gợi ý liên kết nội bộ" → invoke edge `suggest-internal-links` (match_count: 8) → filter ra targets chưa có saved
-- Tick → optionally edit anchor → "Lưu" → bulk insert (status='approved') → suggestions list cập nhật, removed items biến mất
-- Saved item: nút Copy markdown `[anchor](url)` hoặc Xóa
-
-### Copy markdown
-`[anchor_text](/blog/<target_id>)` — user paste vào content editor để chèn link thực sự.
+→ Chọn approach **function SQL + gọi từ MultiChannelCreate** (nhẹ hơn trigger, dễ debug).
 
 ## Files
-- **Mới**: migration `internal_links` table
-- **Rewrite**: `src/components/seo/InternalLinksPanel.tsx`
-- **Không đổi**: `CoverageTab.tsx` (đã có dialog gọi panel này), edge function `suggest-internal-links`
+**New:**
+- `supabase/functions/suggest-cluster-topics/index.ts`
+- `src/components/seo/ClusterContextCard.tsx`
+- `src/components/admin/seo-keywords/SuggestTopicsDialog.tsx`
+- 1 migration: `refresh_cluster_status()` function + entry trong `config.toml` cho function mới
 
-## Out of scope
-- Không tự động chèn anchor vào nội dung bài viết (user copy markdown thủ công). Nếu sau này cần auto-insert sẽ build separate "Apply links to content" action update `website_content`.
+**Modified:**
+- `src/components/admin/seo-keywords/PillarDetailView.tsx` — thêm nút "Gợi ý topic AI"
+- `src/components/MultiChannelViewer.tsx` — mount `ClusterContextCard` dưới badge
+- `src/pages/MultiChannelCreate.tsx` — gọi `refresh_cluster_status` sau khi insert
+
+## Out of scope phase này
+- Không tự động generate full content khi accept suggestion (user vẫn click qua wizard)
+- Không build pillar-page generator riêng (tận dụng MultiChannelCreate với channel=website)
+- Không track ranking per cluster (đã có RankTrackerTab riêng)
