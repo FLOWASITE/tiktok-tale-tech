@@ -1481,23 +1481,8 @@ export function MultiChannelViewer({
                             onPublishSuccess?.();
                           }}
                         />
-                        {channel === 'website' && (
-                          <DirectPublishButton
-                            content={channelContent || ''}
-                            contentId={content.id}
-                            channel="blogger"
-                            brandTemplateId={content.brand_template_id || undefined}
-                            mediaUrls={(() => {
-                              const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
-                              return imgUrl ? [imgUrl] : undefined;
-                            })()}
-                            variant="outline"
-                            size="sm"
-                            onPublishSuccess={() => {
-                              onPublishSuccess?.();
-                            }}
-                          />
-                        )}
+                        {/* Blogger / WordPress / Website are SEPARATE channels — each tab publishes only its own content.
+                            Do NOT add a hidden Blogger publish button on the Website tab. */}
                       </div>
                     )}
 
