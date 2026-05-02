@@ -48,16 +48,17 @@ Deno.serve(async (req) => {
     // Get query embedding: either fetch from existing content or generate from query_text
     let queryEmbedding: number[] | null = null;
     let excludeId: string | null = content_id ?? null;
+    let sourceClusterId: string | null = null;
 
     if (content_id) {
       const { data: src } = await supabase
         .from("multi_channel_contents")
-        .select("content_embedding, title, topic, website_content")
+        .select("content_embedding, title, topic, website_content, cluster_id")
         .eq("id", content_id).maybeSingle();
+      sourceClusterId = (src as any)?.cluster_id ?? null;
       if (src?.content_embedding) {
         queryEmbedding = src.content_embedding as any;
       } else if (src) {
-        // Generate on the fly
         const txt = [src.title, src.topic, (src.website_content || "").slice(0, 2000)].filter(Boolean).join("\n");
         queryEmbedding = await embed(txt);
       }
