@@ -3266,15 +3266,23 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
           formData.channels.map(ch => {
             const cfg = channelModelConfigs.get(ch);
             const channelOpt = channelOptimizations[ch];
+            const model = cfg?.model || aiConfig.model;
             // Apply cost priority to maxTokens
-            const baseMaxTokens = cfg?.maxTokens ?? null;
+            const channelSettings = mergeChannelSettings(ch, channelOverrides);
+            const dynamicMaxTokens = calculateChannelMaxTokens(ch, {
+              contentGoal,
+              qualityMode: formData.qualityMode || 'balanced',
+              channelMaxLength: channelSettings.max_length,
+              lengthUnit: channelSettings.length_unit === 'chars' ? 'chars' : 'words',
+            });
+            const baseMaxTokens = cfg?.maxTokens ?? dynamicMaxTokens;
             const optimizedMaxTokens = baseMaxTokens && channelOpt
               ? applyTokenOptimization(baseMaxTokens, channelOpt)
               : baseMaxTokens;
             return [ch, {
-              model: cfg?.model || aiConfig.model,
+              model,
               temperature: cfg?.temperature ?? aiConfig.temperature,
-              maxTokens: optimizedMaxTokens,
+              maxTokens: clampMaxTokensForModel(model, optimizedMaxTokens),
             }];
           })
         ),
