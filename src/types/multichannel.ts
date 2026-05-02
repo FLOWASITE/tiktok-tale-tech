@@ -348,6 +348,9 @@ export interface MultiChannelFormData {
   coreContentId?: string; // Optional: transform from Core Content instead of topic-only generation
   // Content Role for Content Orchestration Flow (required when using Core Content)
   contentRole?: ContentRole;
+  // SEO Pillar Cluster linking
+  clusterId?: string | null;
+  targetKeywordIds?: string[];
 }
 
 // ============================================
