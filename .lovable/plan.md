@@ -1,62 +1,50 @@
-# Bổ sung UI cho SEO Linking (Keyword ↔ Content + Internal Links)
+# Nâng cấp Internal Links: Duyệt & Lưu
 
-## Vấn đề
-Lần trước đã build backend (`target_keyword_ids` column, RPC `find_related_content`, edge `suggest-internal-links`, `embed-content`) nhưng **chưa có UI** để dùng. Người dùng không thấy chỗ link keyword vào content, cũng không thấy gợi ý internal link.
+## Mục tiêu
+Biến `InternalLinksPanel` từ "chỉ gợi ý + copy" thành workflow **Quét → Duyệt (chọn + sửa anchor) → Lưu vào DB**, có quản lý liên kết đã duyệt.
 
-## Phạm vi bổ sung
+## Migration: bảng `internal_links`
+Lưu các liên kết user đã duyệt giữa 2 content.
 
-### 1. SEO Hub → Tab "Coverage" (mới)
-Tab thứ 8 trong `AdminSeoHub.tsx`, đặt cạnh tab Ranks.
+**Cột:**
+- `id`, `organization_id`, `created_by`, `created_at`, `updated_at`
+- `source_content_id` → `multi_channel_contents(id)` ON DELETE CASCADE
+- `target_content_id` → `multi_channel_contents(id)` ON DELETE CASCADE
+- `anchor_text` TEXT (user có thể edit trước khi lưu)
+- `url` TEXT
+- `similarity` NUMERIC (snapshot tại lúc duyệt)
+- `status` TEXT default `'approved'` (approved | inserted | dismissed)
+- UNIQUE `(source_content_id, target_content_id)` — chống duplicate
 
-**Mục đích**: Bird-eye view xem keyword nào đã có content phủ, keyword nào còn "orphan".
+**Index:** `source_content_id`, `organization_id`
 
-**Layout**:
-- **KPI cards**: Tổng keyword | Đã có content | Chưa phủ (orphan) | Avg content/keyword
-- **Bảng Orphan Keywords** (priority cao chưa có content): cột Keyword, Volume, Priority, Cluster, nút "Tạo content" → mở `MultiChannelFormWizard` với keyword pre-fill vào topic.
-- **Bảng Coverage** (keyword đã link): Keyword, số content liên kết, danh sách title content (popover), nút unlink.
+**RLS:** SELECT/INSERT/UPDATE/DELETE chỉ cho thành viên `organization_members` cùng `organization_id`.
 
-Query: `seo_keywords` JOIN `multi_channel_contents` qua `target_keyword_ids @> ARRAY[keyword.id]`.
+## UI: `src/components/seo/InternalLinksPanel.tsx` (rewrite)
 
-### 2. Keyword Picker khi tạo/sửa Multichannel Content
-Component mới `KeywordTargetPicker.tsx` đặt vào `MultiChannelFormWizard` (bước Topic) và một nút "Edit keywords" trong viewer content.
+### Bố cục
+1. **Header** — nút "Gợi ý liên kết nội bộ" (đổi tên rõ ràng theo yêu cầu user) + badge "X đã lưu"
+2. **Danh sách "Đã duyệt"** (load từ DB) — mỗi link: anchor, URL, nút Copy MD, nút Xóa (xanh nhạt highlight)
+3. **Danh sách "Gợi ý mới"** sau khi quét:
+   - Checkbox mỗi item, "Chọn tất cả"
+   - Khi check → hiện ô input anchor có sẵn `anchor_suggestion` để user sửa
+   - Hiển thị similarity %, URL, nút Copy MD lẻ
+   - Filter bỏ những target đã có trong `internal_links` (tránh re-suggest)
+4. **Nút "Lưu N liên kết đã chọn"** — bulk insert vào `internal_links`, refresh "Đã duyệt"
 
-**UX**:
-- Multi-select combobox (search keyword theo `ilike`), chip hiển thị, max 5
-- Hiển thị badge `volume`, `KD`, `intent` để user chọn đúng
-- Lưu vào cột `target_keyword_ids` (uuid[]) khi submit/save
+### Flow
+- Mount → load saved từ DB
+- Click "Gợi ý liên kết nội bộ" → invoke edge `suggest-internal-links` (match_count: 8) → filter ra targets chưa có saved
+- Tick → optionally edit anchor → "Lưu" → bulk insert (status='approved') → suggestions list cập nhật, removed items biến mất
+- Saved item: nút Copy markdown `[anchor](url)` hoặc Xóa
 
-### 3. Internal Links Panel trong Content Viewer
-Trong page xem chi tiết multichannel content (tìm component view, vd `ChannelGroupView` hoặc viewer page), thêm panel **"Gợi ý liên kết nội bộ"**:
+### Copy markdown
+`[anchor_text](/blog/<target_id>)` — user paste vào content editor để chèn link thực sự.
 
-- Nút "Quét gợi ý" → gọi edge `suggest-internal-links` với `content_id`
-- Hiển thị list 5 content liên quan: title, similarity score, anchor đề xuất, nút "Copy link markdown" (`[anchor](/blog/<id>)`)
-- Cache kết quả vào local state, có nút refresh
-
-### 4. Auto-embed hook
-Khi content multichannel được tạo/cập nhật `website_content`, tự động fire-and-forget gọi edge `embed-content` để cập nhật `content_embedding`. Đặt vào `useMultiChannelContent` save handler (tìm hook tương ứng).
-
-## Technical details
-
-### Files mới
-- `src/components/admin/seo-keywords/CoverageTab.tsx`
-- `src/components/admin/seo-keywords/OrphanKeywordsTable.tsx`
-- `src/components/seo/KeywordTargetPicker.tsx` (reusable)
-- `src/components/seo/InternalLinksPanel.tsx`
-- `src/hooks/useKeywordCoverage.ts`
-- `src/hooks/useInternalLinkSuggestions.ts`
-
-### Files sửa
-- `src/pages/AdminSeoHub.tsx` — thêm tab "Coverage" (icon `Link2`), grid-cols-7 → grid-cols-8
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — chèn `<KeywordTargetPicker>` ở step Topic
-- Viewer content (xác định khi build: `ChannelGroupView` hoặc page chi tiết) — chèn `<InternalLinksPanel>` sidebar
-- Hook lưu multichannel — thêm fire-and-forget `embed-content` invoke sau khi save thành công
-
-### Không cần migration
-Schema đã có sẵn từ batch trước (`target_keyword_ids`, `content_embedding`, RPC, edge functions).
-
-### RLS
-Mọi query đều filter `organization_id = currentOrganization.id` (multi-tenancy core rule).
+## Files
+- **Mới**: migration `internal_links` table
+- **Rewrite**: `src/components/seo/InternalLinksPanel.tsx`
+- **Không đổi**: `CoverageTab.tsx` (đã có dialog gọi panel này), edge function `suggest-internal-links`
 
 ## Out of scope
-- Không thay đổi rank tracker hay embedding model
-- Không tự động chèn link vào content (chỉ gợi ý + copy markdown — user quyết định chèn)
+- Không tự động chèn anchor vào nội dung bài viết (user copy markdown thủ công). Nếu sau này cần auto-insert sẽ build separate "Apply links to content" action update `website_content`.
