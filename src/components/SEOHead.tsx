@@ -1,8 +1,15 @@
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 
 const SITE_URL = 'https://flowa.one';
 const SITE_NAME = 'Flowa';
 const DEFAULT_OG_IMAGE = 'https://flowa.one/og-image.jpg';
+
+const LOCALE_MAP: Record<string, string> = {
+  vi: 'vi_VN',
+  en: 'en_US',
+  th: 'th_TH',
+};
 
 export interface ArticleData {
   author: string;
