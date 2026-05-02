@@ -10124,7 +10124,14 @@ export type Database = {
             foreignKeyName: "seo_keywords_cluster_id_fkey"
             columns: ["cluster_id"]
             isOneToOne: false
-            referencedRelation: "keyword_clusters"
+            referencedRelation: "cluster_coverage"
+            referencedColumns: ["cluster_id"]
+          },
+          {
+            foreignKeyName: "seo_keywords_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "seo_clusters"
             referencedColumns: ["id"]
           },
         ]
