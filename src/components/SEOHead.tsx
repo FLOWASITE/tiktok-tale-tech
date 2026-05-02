@@ -133,7 +133,10 @@ export function SEOHead({
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:image" content={ogImage} />
       <meta property="og:site_name" content={SITE_NAME} />
-      <meta property="og:locale" content="vi_VN" />
+      <meta property="og:locale" content={ogLocale} />
+      {alternateLocales.map((loc) => (
+        <meta key={loc} property="og:locale:alternate" content={loc} />
+      ))}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
