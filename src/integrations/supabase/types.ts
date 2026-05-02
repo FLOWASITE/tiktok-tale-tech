@@ -7924,6 +7924,7 @@ export type Database = {
           brand_voice_variant_id: string | null
           channel_images: Json | null
           channel_statuses: Json | null
+          cluster_id: string | null
           content_calendar_color: string | null
           content_embedding: string | null
           content_goal: string
@@ -7984,6 +7985,7 @@ export type Database = {
           brand_voice_variant_id?: string | null
           channel_images?: Json | null
           channel_statuses?: Json | null
+          cluster_id?: string | null
           content_calendar_color?: string | null
           content_embedding?: string | null
           content_goal: string
@@ -8044,6 +8046,7 @@ export type Database = {
           brand_voice_variant_id?: string | null
           channel_images?: Json | null
           channel_statuses?: Json | null
+          cluster_id?: string | null
           content_calendar_color?: string | null
           content_embedding?: string | null
           content_goal?: string
@@ -8106,6 +8109,20 @@ export type Database = {
             columns: ["brand_voice_variant_id"]
             isOneToOne: false
             referencedRelation: "brand_voice_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "multi_channel_contents_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "cluster_coverage"
+            referencedColumns: ["cluster_id"]
+          },
+          {
+            foreignKeyName: "multi_channel_contents_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "seo_clusters"
             referencedColumns: ["id"]
           },
           {
