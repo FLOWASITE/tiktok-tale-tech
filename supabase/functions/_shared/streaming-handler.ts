@@ -456,7 +456,11 @@ export function getChannelDisplayName(channel: string): string {
     telegram: 'Telegram',
     email: 'Email',
     website: 'Website',
+    blogger: 'Blogger',
+    wordpress: 'WordPress',
     google_maps: 'Google Maps',
+    pinterest: 'Pinterest',
+    bluesky: 'Bluesky',
   };
   return names[channel] || channel;
 }
