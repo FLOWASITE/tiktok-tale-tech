@@ -65,3 +65,15 @@ Sau nhiều vòng fix prompt/guard/retry mà DB Blogger/WordPress vẫn NULL: ng
 **Fix:** thêm `'blogger_content'` và `'wordpress_content'` vào Set `MULTI_CHANNEL_CONTENT_COLUMNS` (cạnh `website_content`).
 
 **Bài học:** mỗi khi thêm cột content channel mới vào DB, PHẢI thêm tên cột vào whitelist này — nếu không, payload sẽ bị filter trắng mà không có cảnh báo. Nên có test đảm bảo mọi cột `*_content` trong schema đều xuất hiện trong whitelist.
+
+## 2026-05 — Defense-in-depth: Pre-insert assert + Post-write verify-and-patch
+Whitelist fix vẫn chưa đủ — đã có thêm tầng "không-thể-rỗng-mà-báo-thành-công":
+
+1. **Pre-insert assert** (streaming create): trước khi insert, normalize `channelResults.blogger`/`channelResults.wordpress`, log `pre-insert lens={...}`. Nếu kênh được chọn nhưng còn rỗng/quá ngắn → emit SSE `error` `EMPTY_GENERATED_CHANNEL_CONTENT` + fail task + close stream. KHÔNG cho insert record trống.
+2. **Post-write verify-and-patch** (`verifyAndPatchLongformPersisted`): sau insert/update (cả streaming, non-streaming, expand), re-read row từ DB. Nếu cột Blogger/WordPress được chọn mà DB persist NULL/quá ngắn → patch update lại bằng text in-memory. Nếu patch vẫn không thành công → trả lỗi 422 `EMPTY_PERSISTED_CHANNEL_CONTENT`.
+3. Event `result` SSE và response non-streaming dùng row sau verify, không dùng `savedContent` cũ — đảm bảo viewer/mockup nhận object đầy đủ `blogger_content`/`wordpress_content`.
+
+## Frontend invariants (2026-05)
+- `useMultiChannelContents.updateChannelContent.fieldMap` sửa lại: `pinterest → pinterest_content` và `bluesky → bluesky_content` (trước đây map sai sang `instagram_content` / `'Bluesky'`).
+- `MultiChannelViewer` regenerate `onComplete`: không gọi `onUpdateContent` để ghi đè text từ stream nữa. Backend regenerate đã tự update DB → FE refetch full row qua `supabase.from('multi_channel_contents').select('*').eq('id', ...)` rồi push qua `onContentUpdated` để viewer/mockup nhận object canonical từ DB.
+
