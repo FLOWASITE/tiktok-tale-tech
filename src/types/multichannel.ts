@@ -410,9 +410,9 @@ export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: str
 
 export const CHANNELS: { value: Channel; label: string; icon: string; color: string; category: string; description: string }[] = [
   // 📝 Thiên về Text — nội dung chủ yếu là văn bản
-  { value: 'website', label: 'Website/Blog', icon: 'Globe', color: 'blue', category: 'text', description: 'Bài viết dài, SEO friendly, có CTA' },
-  { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'text', description: 'Đăng bài lên Blogger (Google) - nội dung dùng chung Website' },
-  { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'text', description: 'WordPress (self-hosted hoặc .com) - long-form, SEO, tags/categories, featured image' },
+  { value: 'website', label: 'Website', icon: 'Globe', color: 'blue', category: 'text', description: 'Bài corporate SEO 1000-2000 từ, H1/H2/H3, schema-friendly, có CTA' },
+  { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'text', description: 'Bài Blogger casual 500-900 từ, ngôi tôi/mình, kể chuyện, kết bằng câu hỏi (KHÁC Website)' },
+  { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'text', description: 'Bài WordPress in-depth 1200-2200 từ, H2+H3, FAQ, callout, expert tone (KHÁC Website & Blogger)' },
   { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'text', description: 'Chuyên nghiệp, không emoji quá nhiều' },
   { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'text', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
   { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
