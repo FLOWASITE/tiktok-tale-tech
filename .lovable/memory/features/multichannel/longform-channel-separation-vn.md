@@ -58,3 +58,10 @@ Trước fix này: khi streaming mode chạy parallel, AI vẫn thường trả 
 - Regenerate streaming/non-streaming inject thêm `## ĐẶC TẢ BẮT BUỘC CHO BLOGGER/WORDPRESS` vào systemPrompt.
 
 Kết quả: bài mới luôn có text riêng cho 3 kênh long-form đã chọn; bài cũ bấm "Tạo lại" sẽ thực sự sinh text hoặc báo lỗi rõ — không còn trạng thái "xong nhưng vẫn trống".
+
+## 2026-05 — ROOT CAUSE THẬT SỰ: whitelist sanitize thiếu cột
+Sau nhiều vòng fix prompt/guard/retry mà DB Blogger/WordPress vẫn NULL: nguyên nhân gốc là `MULTI_CHANNEL_CONTENT_COLUMNS` (whitelist của `sanitizeMultiChannelPayload` ở `generate-multichannel/index.ts`) **THIẾU `blogger_content` và `wordpress_content`**. Mọi insert/update đi qua `buildMultiChannelCreatePayload`/`buildMultiChannelUpdatePayload` → sanitize → 2 trường này bị strip → DB nhận NULL dù logs cho thấy AI generate đủ text + retry OK.
+
+**Fix:** thêm `'blogger_content'` và `'wordpress_content'` vào Set `MULTI_CHANNEL_CONTENT_COLUMNS` (cạnh `website_content`).
+
+**Bài học:** mỗi khi thêm cột content channel mới vào DB, PHẢI thêm tên cột vào whitelist này — nếu không, payload sẽ bị filter trắng mà không có cảnh báo. Nên có test đảm bảo mọi cột `*_content` trong schema đều xuất hiện trong whitelist.
