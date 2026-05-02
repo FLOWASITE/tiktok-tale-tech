@@ -1,8 +1,8 @@
 import { Helmet } from 'react-helmet-async';
 
-const SITE_URL = 'https://tiktok-tale-tech.lovable.app';
+const SITE_URL = 'https://flowa.one';
 const SITE_NAME = 'Flowa';
-const DEFAULT_OG_IMAGE = 'https://storage.googleapis.com/gpt-engineer-file-uploads/ap5jSIXLX5NQqukPwVUDGUi3VdW2/social-images/social-1767767626719-Untitled.jpg';
+const DEFAULT_OG_IMAGE = 'https://flowa.one/og-image.jpg';
 
 export interface ArticleData {
   author: string;
