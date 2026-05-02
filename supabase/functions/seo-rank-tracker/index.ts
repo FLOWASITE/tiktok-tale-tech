@@ -42,15 +42,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get target domains per org
+    // Get target domains per org from brand_templates.website_url
     const orgIds = [...new Set(keywords.map(k => k.organization_id))];
-    const { data: orgs } = await supabase
-      .from("organizations").select("id, website_url, name").in("id", orgIds);
+    const { data: brands } = await supabase
+      .from("brand_templates").select("organization_id, website_url").in("organization_id", orgIds);
     const orgDomain = new Map<string, string>();
-    for (const o of orgs ?? []) {
-      const url = (o as any).website_url as string | null;
-      if (url) {
-        try { orgDomain.set(o.id, new URL(url).hostname.replace(/^www\./, "")); } catch {}
+    for (const b of brands ?? []) {
+      const url = (b as any).website_url as string | null;
+      if (url && !orgDomain.has(b.organization_id)) {
+        try { orgDomain.set(b.organization_id, new URL(url).hostname.replace(/^www\./, "")); } catch {}
       }
     }
 
