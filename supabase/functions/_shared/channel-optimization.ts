@@ -112,6 +112,22 @@ const CHANNEL_DEFAULTS: Record<string, ChannelOptimization> = {
     preferredHookTypes: ['SEO headline', 'Problem-solution', 'How-to'],
     allowUserOverride: true,
   },
+  blogger: {
+    qualityMode: 'balanced',
+    promptStyle: 'detailed',
+    hookIntensity: 'soft',
+    costPriority: 'balanced',
+    preferredHookTypes: ['Story opener', 'Personal anecdote', 'Question'],
+    allowUserOverride: true,
+  },
+  wordpress: {
+    qualityMode: 'quality',
+    promptStyle: 'detailed',
+    hookIntensity: 'soft',
+    costPriority: 'quality',
+    preferredHookTypes: ['SEO headline', 'Statistic', 'Problem-solution', 'How-to'],
+    allowUserOverride: true,
+  },
   youtube: {
     qualityMode: 'quality',
     promptStyle: 'detailed',
