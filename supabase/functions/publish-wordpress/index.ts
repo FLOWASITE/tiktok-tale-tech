@@ -122,7 +122,7 @@ Deno.serve(
         .from("social_connections")
         .select("*")
         .eq("id", connectionId)
-        .eq("platform", "wordpress")
+        .in("platform", ["wordpress", "wordpress_com"])
         .single();
 
       if (connError || !connection) {
@@ -131,6 +131,8 @@ Deno.serve(
       if (!connection.is_active) {
         throw new Error("WordPress connection bị vô hiệu hoá. Hãy kết nối lại.");
       }
+
+      const isDotCom = connection.platform === "wordpress_com";
 
       const siteUrl: string = connection.metadata?.site_url;
       const username: string = connection.metadata?.username;
