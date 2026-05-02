@@ -22,6 +22,7 @@ export default function PillarDetailView({ clusterId, onBack }: Props) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   const { data: cluster } = useQuery({
     queryKey: ["seo-cluster", clusterId],
