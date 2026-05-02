@@ -449,10 +449,28 @@ export function MultiChannelViewer({
     regeneratingChannel: streamingRegeneratingChannel,
     progress: regenerateProgress,
   } = useStreamingRegenerate({
-    onComplete: (channel, newContent) => {
-      // Refresh content after regeneration completes
-      if (onUpdateContent && content) {
-        onUpdateContent(content.id, channel, newContent);
+    onComplete: async (channel, newContent) => {
+      // Backend regenerate already persisted the new column.
+      // Re-fetch the full row so viewer state has the canonical DB value
+      // (avoids overwriting via onUpdateContent which would double-write a possibly-truncated stream).
+      if (!content) return;
+      try {
+        const { data: fresh } = await supabase
+          .from('multi_channel_contents')
+          .select('*')
+          .eq('id', content.id)
+          .maybeSingle();
+        if (fresh) {
+          onContentUpdated?.(fresh as unknown as MultiChannelContent);
+        } else if (onUpdateContent) {
+          // Fallback: write back streamed text if refetch failed
+          await onUpdateContent(content.id, channel, newContent);
+        }
+      } catch (err) {
+        console.warn('[viewer] regenerate refetch failed, falling back to update', err);
+        if (onUpdateContent) {
+          await onUpdateContent(content.id, channel, newContent);
+        }
       }
     },
     onError: (error) => {

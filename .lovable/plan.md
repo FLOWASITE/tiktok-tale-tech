@@ -1,46 +1,49 @@
-## Nguyên nhân gốc (đã xác nhận từ DB + logs + code)
+Tôi đã kiểm tra trực tiếp record mới nhất `c2e83af5...`: `website_content` có 6139 ký tự nhưng `blogger_content = 0`, `wordpress_content = 0`. Nghĩa là mockup không nhận text vì DB vẫn đang lưu rỗng, không phải do component mockup render sai.
 
-Logs `generate-multichannel` cho thấy backend tạo nội dung Blogger (1257 chars) và WordPress (sau retry: 4071 chars) thành công, đoạn code insert cũng truyền đúng:
+Nguyên nhân cụ thể hiện tại:
+1. Backend streaming có log AI đã sinh Blogger 1549 chars và WordPress retry 3207 chars.
+2. Nhưng sau đó record lưu vào DB vẫn `blogger_content/wordpress_content = NULL`.
+3. Nhánh streaming đang lấy kết quả từ `parallelResult.channelResults` rồi ghi thẳng sang DB. Kết quả retry/guard có thể nằm trong buffer nội bộ `channelResults`, nhưng chưa có lớp “assert trước insert + assert sau insert”. Vì vậy backend vẫn có đường thoát ghi thành công record thiếu text.
+4. Frontend mockup đang đọc đúng cột riêng (`blogger_content`, `wordpress_content`) và không fallback website, nên khi DB rỗng thì mockup rỗng là đúng.
 
-```ts
-blogger_content: channels.includes('blogger') ? (channelResults.blogger || null) : null,
-wordpress_content: channels.includes('wordpress') ? (channelResults.wordpress || null) : null,
-```
+Plan sửa dứt điểm:
 
-NHƯNG truy vấn DB cho 7 record gần nhất (kể cả `86cd337f...`) đều cho `blogger_content` và `wordpress_content` = NULL, dù `selected_channels` chứa `blogger`/`wordpress` và `website_content` đầy đủ vài nghìn chars.
+1. Khóa backend streaming trước khi lưu
+- Trong `supabase/functions/generate-multichannel/index.ts`, ngay trước `.insert(buildMultiChannelCreatePayload(...))` và `.update(...)`, tạo payload vào biến riêng.
+- Ép lấy text Blogger/WordPress bằng helper chuẩn hóa từ `channelResults.blogger` / `channelResults.wordpress`.
+- Nếu kênh được chọn mà payload vẫn thiếu text sau retry: trả lỗi 422, fail task, không cho insert/update record rỗng.
+- Log rõ `pre-insert lens={blogger=..., wordpress=...}`.
 
-Lý do: payload đi qua `sanitizeMultiChannelPayload()` ở `supabase/functions/generate-multichannel/index.ts:736`. Hàm này filter tất cả key không nằm trong whitelist `MULTI_CHANNEL_CONTENT_COLUMNS` (line 684-734). Whitelist này có `website_content`, `facebook_content`, `instagram_content`, ... **nhưng KHÔNG có `blogger_content` và `wordpress_content`**. Hai trường này bị strip trước khi gửi xuống Postgres → DB nhận NULL → UI mockup hiển thị trống dù streaming đã thấy text chạy.
+2. Kiểm chứng sau khi lưu DB
+- Sau insert/update, đọc lại chính record vừa lưu với `select('id, blogger_content, wordpress_content, website_content')`.
+- Nếu kênh được chọn nhưng DB trả về rỗng: lập tức patch update lại bằng text đã có trong memory.
+- Nếu patch vẫn không thành công: trả lỗi thay vì báo success.
+- Điều này chặn hoàn toàn case “AI có text nhưng DB lưu NULL mà UI báo xong”.
 
-Đây là lý do bug "lặp đi lặp lại": mọi guard/retry/prompt fix đều đúng, nhưng giá trị bị filter ngay tại bước cuối cùng nên không bao giờ tới được DB.
+3. Trả result cho frontend bằng record đã verify
+- Event `result` trong SSE sẽ dùng record sau verify/patch, không dùng object cũ `savedContent` có thể thiếu cột.
+- Như vậy khi chuyển sang viewer/mockup, object nhận được đã có `blogger_content` và `wordpress_content`.
 
-## Fix
+4. Sửa regenerate để cập nhật viewer state đúng cách
+- Trong `MultiChannelViewer`, callback regenerate hiện đang gọi `onUpdateContent(content.id, channel, newContent)` sau khi backend đã regenerate. Cách này có thể ghi đè bằng text từ stream nếu result parse thiếu.
+- Đổi sang: sau regenerate success, refetch/update bằng full row backend trả về hoặc gọi `onRegenerate` non-stream fallback chỉ khi cần. Mục tiêu: viewer state luôn nhận full `MultiChannelContent` mới, không chỉ string.
 
-1 thay đổi nhỏ trong `supabase/functions/generate-multichannel/index.ts`:
+5. Sửa lỗi phụ đang có trong update map
+- Trong `useMultiChannelContents.ts`, `updateChannelContent` đang map sai:
+  - `pinterest: 'instagram_content'`
+  - `bluesky: 'Bluesky'`
+- Tôi sẽ sửa thành `pinterest_content` và `bluesky_content` để tránh các kênh khác bị ghi nhầm khi edit/save.
 
-Thêm 2 dòng vào `MULTI_CHANNEL_CONTENT_COLUMNS` (sau dòng `'website_seo_data'`):
+6. Bổ sung fallback frontend cho bài cũ đang rỗng
+- Với các record cũ như `c2e83af5...` đã bị lưu rỗng, mockup vẫn sẽ hiển thị banner “Chưa có nội dung riêng”.
+- Nút “Tạo nội dung riêng” sẽ regenerate và sau fix sẽ cập nhật đúng cột + refresh mockup ngay.
+- Không copy website sang Blogger/WordPress vì yêu cầu đã chốt là 3 kênh long-form độc lập.
 
-```ts
-'blogger_content',
-'wordpress_content',
-```
+Files cần sửa:
+- `supabase/functions/generate-multichannel/index.ts`
+- `src/hooks/useStreamingRegenerate.ts`
+- `src/components/MultiChannelViewer.tsx`
+- `src/hooks/useMultiChannelContents.ts`
+- cập nhật memory longform để ghi lại invariant: “selected Blogger/WordPress must be non-empty in DB before success”.
 
-Tác động:
-- Áp dụng cho cả 2 path (streaming `insert` line 3880 và non-streaming `insert` line 5991) vì cả 2 đều dùng `buildMultiChannelCreatePayload` → `sanitizeMultiChannelPayload`.
-- Cũng fix path `expand` (update) vì dùng chung `sanitizeMultiChannelPayload`.
-- Cũng fix path regenerate single-channel cho blogger/wordpress vì update payload chạy qua cùng sanitize.
-
-## Bonus hardening (cùng file, không bắt buộc nhưng nên làm)
-
-- Thêm `industry`, `content_role` đã có rồi — kiểm tra nhanh các cột long-form khác có thể bị thiếu (ví dụ nếu sau này thêm channel mới): viết unit test đảm bảo whitelist đồng bộ với schema. Hiện tại chỉ thêm 2 cột thiếu để fix dứt điểm bug user đang gặp.
-- Sau khi deploy, các record cũ (NULL) vẫn cần user bấm "Tạo lại nội dung" trong tab Blogger/WordPress để sinh text mới. Bài mới tạo sau khi fix sẽ tự có text Blogger/WordPress đúng.
-
-## Files thay đổi
-
-- `supabase/functions/generate-multichannel/index.ts` (chỉ thêm 2 entry vào Set)
-- `.lovable/memory/features/multichannel/longform-channel-separation-vn.md` (note bug + fix để tránh tái diễn)
-
-## Test sau deploy
-
-1. Tạo bài mới chọn cả Website + Blogger + WordPress.
-2. Chạy SQL: `SELECT length(blogger_content), length(wordpress_content) FROM multi_channel_contents WHERE id = '<new_id>'` → cả 2 phải > 0.
-3. Mở viewer → tab Blogger và tab WordPress phải hiển thị nội dung trong mockup, không còn banner "Chưa có nội dung riêng".
+Sau khi approve, tôi sẽ implement ngay và triển khai edge function để test bằng record mới/regenerate.

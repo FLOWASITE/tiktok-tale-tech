@@ -520,6 +520,64 @@ async function regenerateLongformChannelDirect(
 }
 
 /**
+ * After insert/update, re-read the row and verify Blogger/WordPress columns
+ * actually contain text matching what was generated. If a column was selected
+ * but persisted as NULL/empty (e.g. silent sanitize/trigger drop), patch the
+ * row with the in-memory text. Returns the latest row or null if patching failed.
+ *
+ * This is the FINAL guarantee that a record returned to the client has
+ * Blogger/WordPress text populated when those channels were selected.
+ */
+async function verifyAndPatchLongformPersisted(
+  supabase: any,
+  contentId: string,
+  selectedChannels: string[],
+  channelTexts: { blogger?: string; wordpress?: string },
+): Promise<{ row: any; missing: string[] }> {
+  const { data: row, error } = await supabase
+    .from('multi_channel_contents')
+    .select('*')
+    .eq('id', contentId)
+    .maybeSingle();
+  if (error || !row) {
+    console.error('[longform-verify] could not re-read row', contentId, error);
+    return { row: null, missing: [] };
+  }
+  const patch: Record<string, string> = {};
+  for (const ch of ['blogger', 'wordpress'] as const) {
+    if (!selectedChannels.includes(ch)) continue;
+    const persisted = normalizeLongformText(row[`${ch}_content`]);
+    if (!isLongformContentMissing(ch, persisted)) continue;
+    const inMemory = normalizeLongformText(channelTexts[ch]);
+    if (!isLongformContentMissing(ch, inMemory)) {
+      patch[`${ch}_content`] = inMemory;
+      console.warn(`[longform-verify] ${ch}: DB persisted empty (${persisted.length}) but in-memory has ${inMemory.length} — patching`);
+    }
+  }
+  if (Object.keys(patch).length > 0) {
+    const { data: patched, error: patchErr } = await supabase
+      .from('multi_channel_contents')
+      .update(patch)
+      .eq('id', contentId)
+      .select()
+      .maybeSingle();
+    if (patchErr) {
+      console.error('[longform-verify] patch failed', patchErr);
+    } else if (patched) {
+      console.log(`[longform-verify] patched ${Object.keys(patch).join(',')} for ${contentId}`);
+      const missingAfter = ['blogger', 'wordpress'].filter((ch) =>
+        selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(patched[`${ch}_content`]))
+      );
+      return { row: patched, missing: missingAfter };
+    }
+  }
+  const missing = ['blogger', 'wordpress'].filter((ch) =>
+    selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(row[`${ch}_content`]))
+  );
+  return { row, missing };
+}
+
+/**
  * Ensure that any selected long-form channel (blogger/wordpress) has real text.
  * Mutates `channelResults` in-place. Returns list of channels still missing after retry.
  */
@@ -3876,6 +3934,30 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               if (existingMissingLongform) {
                 console.warn(`[streaming-mode] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
               }
+              // PRE-INSERT ASSERT: Blogger/WordPress text must be present in memory before writing.
+              {
+                const preLens: string[] = [];
+                const missingPre: string[] = [];
+                for (const ch of ['blogger', 'wordpress'] as const) {
+                  if (!channels.includes(ch)) continue;
+                  const t = normalizeLongformText(channelResults[ch]);
+                  preLens.push(`${ch}=${t.length}`);
+                  if (isLongformContentMissing(ch, t)) missingPre.push(ch);
+                }
+                if (preLens.length > 0) {
+                  console.log(`[streaming-mode][pre-insert] longform lens={${preLens.join(', ')}}`);
+                }
+                if (missingPre.length > 0) {
+                  const message = `${missingPre.map(getChannelDisplayName).join(', ')} chưa tạo được nội dung riêng. Backend đã chặn lưu bài trống, vui lòng thử lại.`;
+                  console.error(`[streaming-mode][pre-insert] blocking — missing: ${missingPre.join(', ')}`);
+                  if (taskId) await failTask(supabase, taskId, message);
+                  if (!clientDisconnected) {
+                    emit({ type: 'error', step: 'pre-insert', progress: 88, message, data: { errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT', missingChannels: missingPre } });
+                    try { controller.close(); } catch {}
+                  }
+                  return;
+                }
+              }
               // Insert new content
               const result = await supabase
                 .from('multi_channel_contents')
@@ -3970,12 +4052,35 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
             }
             
             console.log('[streaming-mode] Saved content with ID:', savedContent.id);
-            
+
+            // POST-INSERT VERIFY: re-read row & patch any silently-dropped Blogger/WordPress text
+            try {
+              const verify = await verifyAndPatchLongformPersisted(
+                supabase,
+                savedContent.id,
+                channels,
+                { blogger: channelResults.blogger, wordpress: channelResults.wordpress },
+              );
+              if (verify.row) savedContent = verify.row;
+              if (verify.missing.length > 0) {
+                const message = `${verify.missing.map(getChannelDisplayName).join(', ')} đã sinh nhưng không lưu được vào DB. Vui lòng thử lại.`;
+                console.error(`[streaming-mode][post-verify] still missing after patch: ${verify.missing.join(', ')}`);
+                if (taskId) await failTask(supabase, taskId, message);
+                if (!clientDisconnected) {
+                  emit({ type: 'error', step: 'post-verify', progress: 95, message, data: { errorCode: 'EMPTY_PERSISTED_CHANNEL_CONTENT', missingChannels: verify.missing } });
+                  try { controller.close(); } catch {}
+                }
+                return;
+              }
+            } catch (verifyErr) {
+              console.error('[streaming-mode][post-verify] verify failed', verifyErr);
+            }
+
             // NEW: Mark task as completed with result reference
             if (taskId) {
               await completeTask(supabase, taskId, savedContent.id, 'multi_channel_contents');
             }
-            
+
             // ============================================
             // PHASE 1: METRICS LOGGING (Streaming mode)
             // ============================================
@@ -6068,6 +6173,32 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
     }
 
     console.log("Content saved with ID:", content.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
+
+    // POST-WRITE VERIFY: re-read & patch dropped Blogger/WordPress text
+    try {
+      const channelsForVerify = (formData.action === 'expand' ? (formData.channels || []) : (formData.channels || [])) as string[];
+      const verify = await verifyAndPatchLongformPersisted(
+        supabase,
+        content.id,
+        channelsForVerify,
+        {
+          blogger: typeof generatedData.blogger_content === 'string' ? generatedData.blogger_content : undefined,
+          wordpress: typeof generatedData.wordpress_content === 'string' ? generatedData.wordpress_content : undefined,
+        },
+      );
+      if (verify.row) content = verify.row;
+      if (verify.missing.length > 0) {
+        const message = `${verify.missing.map(getChannelDisplayName).join(', ')} đã sinh nhưng không lưu được vào DB. Vui lòng thử lại.`;
+        console.error(`[non-streaming][post-verify] still missing after patch: ${verify.missing.join(', ')}`);
+        if (formData.taskId) await failTask(supabase, formData.taskId, message);
+        return new Response(
+          JSON.stringify({ error: message, errorCode: 'EMPTY_PERSISTED_CHANNEL_CONTENT', missingChannels: verify.missing }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } catch (verifyErr) {
+      console.error('[non-streaming][post-verify] verify failed', verifyErr);
+    }
 
     // Mark background task as completed if taskId provided
     if (formData.taskId && content?.id) {
