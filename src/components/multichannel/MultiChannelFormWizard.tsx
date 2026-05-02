@@ -132,6 +132,7 @@ import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichanne
 import { FloatingStatusStack } from '@/components/multichannel/FloatingStatusStack';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { PromptPreview } from '@/components/multichannel/PromptPreview';
+import ClusterPicker from '@/components/seo/ClusterPicker';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 import { cn } from '@/lib/utils';
