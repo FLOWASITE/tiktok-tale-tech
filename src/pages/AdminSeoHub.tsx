@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, FlaskConical, FolderTree, Upload, BarChart3, FileText, LineChart, Link2 } from "lucide-react";
+import { Search, FlaskConical, FolderTree, Upload, BarChart3, FileText, LineChart, Link2, Target } from "lucide-react";
 import KeywordDashboardTab from "@/components/admin/seo-keywords/KeywordDashboardTab";
 import KeywordExplorerTab from "@/components/admin/seo-keywords/KeywordExplorerTab";
 import KeywordClusterTab from "@/components/admin/seo-keywords/KeywordClusterTab";
+import PillarsTab from "@/components/admin/seo-keywords/PillarsTab";
 import KeywordResearchLabTab from "@/components/admin/seo-keywords/KeywordResearchLabTab";
 import KeywordImportTab from "@/components/admin/seo-keywords/KeywordImportTab";
 import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
