@@ -110,7 +110,12 @@ export default function PillarDetailView({ clusterId, onBack }: Props) {
         <span className="text-muted-foreground">/</span>
         <h2 className="text-lg font-semibold">{cluster.name}</h2>
         <Badge variant="outline" className="capitalize">{cluster.status}</Badge>
+        <Button size="sm" variant="outline" className="ml-auto gap-1" onClick={() => setSuggestOpen(true)}>
+          <Sparkles className="h-3.5 w-3.5" /> Gợi ý topic AI
+        </Button>
       </div>
+
+      <SuggestTopicsDialog open={suggestOpen} onOpenChange={setSuggestOpen} clusterId={clusterId} />
 
       {/* Pillar card */}
       <Card>
