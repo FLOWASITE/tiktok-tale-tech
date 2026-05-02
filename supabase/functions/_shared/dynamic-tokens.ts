@@ -28,6 +28,16 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
     maxTokens: 8000,
     bufferMultiplier: 1.3, // 30% buffer for SEO structure
   },
+  blogger: {
+    minTokens: 1500,
+    maxTokens: 5000,
+    bufferMultiplier: 1.3, // 500-900 từ casual blog
+  },
+  wordpress: {
+    minTokens: 2500,
+    maxTokens: 9000,
+    bufferMultiplier: 1.3, // 1200-2200 từ in-depth + headings/FAQ
+  },
   
   // Medium-form content
   linkedin: {
