@@ -1288,6 +1288,28 @@ export function MultiChannelFormWizard({
                 )}
               </div>
 
+              {/* SEO Pillar Cluster picker - link content to a topic silo */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Pillar SEO (tùy chọn)
+                </label>
+                <ClusterPicker
+                  value={formData.clusterId ?? null}
+                  onChange={(clusterId, meta) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      clusterId: clusterId,
+                      targetKeywordIds: meta?.keywordIds ?? prev.targetKeywordIds ?? [],
+                    }));
+                  }}
+                />
+                {formData.clusterId && (formData.targetKeywordIds?.length ?? 0) > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Đã gắn {formData.targetKeywordIds?.length} keyword mục tiêu từ pillar này.
+                  </p>
+                )}
+              </div>
+
               {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
               <TopicIdeaHub
                 suggestions={topicSuggestions}
