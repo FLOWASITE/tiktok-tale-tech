@@ -118,10 +118,9 @@ export function SEOHead({
       <meta name="description" content={description} />
       <link rel="canonical" href={canonicalUrl} />
 
-      {/* hreflang — landing serves vi/en/th from same URL via i18next auto-detect */}
-      <link rel="alternate" hrefLang="vi" href={canonicalUrl} />
-      <link rel="alternate" hrefLang="en" href={canonicalUrl} />
-      <link rel="alternate" hrefLang="th" href={canonicalUrl} />
+      {/* hreflang — landing serves vi/en/th from the SAME URL via i18next auto-detect.
+          Emitting separate vi/en/th entries pointing to the same URL signals duplicate
+          content to Google. Only x-default is correct here until we add /en /th routes. */}
       <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
 
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
