@@ -149,25 +149,68 @@ export function SEOHead({
   );
 }
 
-// Organization + WebSite schema for landing page
-export function LandingSEOSchemas() {
+export interface ReviewItem {
+  author: string;
+  role?: string;
+  company?: string;
+  rating: number; // 1-5
+  text: string;
+}
+
+interface LandingSchemasProps {
+  reviews?: ReviewItem[];
+}
+
+// Organization + WebSite + SoftwareApplication schema for landing page
+export function LandingSEOSchemas({ reviews }: LandingSchemasProps = {}) {
   const orgSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': `${SITE_URL}/#organization`,
     name: 'Flowa',
+    legalName: 'Flowa Technology',
     url: SITE_URL,
-    logo: `${SITE_URL}/favicon.png`,
-    description: 'Nền tảng AI tạo nội dung đa kênh thông minh cho Marketing Team',
+    logo: {
+      '@type': 'ImageObject',
+      url: `${SITE_URL}/favicon.png`,
+      width: 512,
+      height: 512,
+    },
+    image: `${SITE_URL}/og-image.jpg`,
+    description: 'Nền tảng AI Marketing Agent giúp Marketing Team tạo nội dung đa kênh, tự động hóa chiến dịch và publishing.',
+    foundingDate: '2024',
+    areaServed: ['VN', 'TH', 'SG', 'PH', 'ID', 'MY'],
+    knowsLanguage: ['vi', 'en', 'th'],
     sameAs: [
       'https://facebook.com/flowa.vn',
+      'https://www.facebook.com/profile.php?id=61575157292883',
       'https://linkedin.com/company/flowa',
+      'https://www.linkedin.com/in/flowaone/',
       'https://www.tiktok.com/@flowa.one',
+      'https://zalo.me/flowa',
     ],
-    contactPoint: {
-      '@type': 'ContactPoint',
-      email: 'support@flowa.one',
-      contactType: 'customer service',
-      availableLanguage: ['Vietnamese', 'English'],
+    contactPoint: [
+      {
+        '@type': 'ContactPoint',
+        email: 'support@flowa.one',
+        telephone: '+84-83-822-6363',
+        contactType: 'customer service',
+        areaServed: 'VN',
+        availableLanguage: ['Vietnamese', 'English'],
+      },
+      {
+        '@type': 'ContactPoint',
+        email: 'sales@flowa.one',
+        contactType: 'sales',
+        areaServed: ['VN', 'SEA'],
+        availableLanguage: ['Vietnamese', 'English'],
+      },
+    ],
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Ho Chi Minh City',
+      addressRegion: 'HCM',
+      addressCountry: 'VN',
     },
   };
 
