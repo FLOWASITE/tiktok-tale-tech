@@ -3543,7 +3543,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   await failTask(supabase, taskId, message);
                 }
                 if (!clientDisconnected) {
-                  emit({ type: 'error', step: 'longform-guard', progress: 76, message, errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT' });
+                  emit({ type: 'error', step: 'longform-guard', progress: 76, message, data: { errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT', missingChannels: stillMissing } });
                   try { controller.close(); } catch {}
                 }
                 return;
