@@ -11,6 +11,7 @@ const Pricing = lazy(() => import("@/landing/pages/Pricing"));
 const TermsOfService = lazy(() => import("@/landing/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/landing/pages/PrivacyPolicy"));
 const Sitemap = lazy(() => import("@/landing/pages/Sitemap"));
+const DynamicLandingPage = lazy(() => import("@/landing/pages/DynamicLandingPage"));
 
 function LandingFallback() {
   return (
@@ -35,8 +36,17 @@ export function LandingRoutes() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/sitemap" element={<Sitemap />} />
+
+        {/* Programmatic SEO landing pages */}
+        <Route path="/giai-phap/:slug" element={<DynamicLandingPage pageType="industry" routePrefix="/giai-phap" />} />
+        <Route path="/so-sanh/:slug" element={<DynamicLandingPage pageType="comparison" routePrefix="/so-sanh" />} />
+        <Route path="/tinh-nang/:slug" element={<DynamicLandingPage pageType="feature" routePrefix="/tinh-nang" />} />
+        <Route path="/use-case/:slug" element={<DynamicLandingPage pageType="use_case" routePrefix="/use-case" />} />
+        <Route path="/cong-cu/:slug" element={<DynamicLandingPage pageType="tool" routePrefix="/cong-cu" />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );
 }
+
