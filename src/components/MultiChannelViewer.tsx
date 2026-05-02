@@ -1599,6 +1599,27 @@ export function MultiChannelViewer({
                           /* View Mode - Always Mockup */
                           (
                             <div className="space-y-4">
+                              {/* Missing-content notice for long-form channels (Website/Blogger/WordPress are independent — no fallback) */}
+                              {!channelContent && (channel === 'blogger' || channel === 'wordpress' || channel === 'website') && (
+                                <div className="rounded-lg border border-amber-300/50 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm">
+                                  <p className="font-medium text-amber-900 dark:text-amber-200 mb-1">
+                                    Chưa có nội dung riêng cho {channelConfig[channel].label}
+                                  </p>
+                                  <p className="text-amber-800 dark:text-amber-300/90 mb-3">
+                                    Website / Blogger / WordPress là 3 kênh độc lập với độ dài, tone và cấu trúc khác nhau. Bài này chưa có bản riêng cho kênh hiện tại.
+                                  </p>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleRegenerate(channel)}
+                                    disabled={isRegenerating || isStreamingRegenerating}
+                                    className="gap-2"
+                                  >
+                                    {isRegenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                    Tạo nội dung riêng cho {channelConfig[channel].label}
+                                  </Button>
+                                </div>
+                              )}
                               <div className="relative">
                               <ContentMockupToggle
                                   channel={channel}
