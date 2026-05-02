@@ -6185,6 +6185,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           global_hook: formData.globalHook || null,
           // Core Content Layer - link to parent Core Content
           core_content_id: formData.coreContentId || null,
+          // SEO Pillar Cluster linkage
+          cluster_id: formData.clusterId || null,
+          target_keyword_ids: formData.targetKeywordIds || [],
           website_content: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content?.content || null 
             : generatedData.website_content || null,
