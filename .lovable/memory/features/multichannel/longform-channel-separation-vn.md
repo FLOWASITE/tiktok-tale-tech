@@ -41,3 +41,18 @@ Chọn cả 3 → AI chạy 3 long-form calls song song → ~3x output tokens. C
 
 ## Backward compat
 Dữ liệu cũ chỉ có `website_content` cho các record đã chọn `blogger`/`wordpress`: KHÔNG copy ngầm. UI hiện banner missing state để user chủ động bấm "Tạo lại nội dung" cho đúng kênh.
+
+## 2026-05 — Long-form Guard (Blogger/WordPress không bao giờ rỗng nữa)
+Trước fix này: khi streaming mode chạy parallel, AI vẫn thường trả rỗng/quá ngắn cho `blogger_content` hoặc `wordpress_content` → backend lưu NULL → UI hiện banner "Chưa có nội dung riêng" mãi mãi. Bấm Regenerate cũng có thể trả rỗng và update DB bằng rỗng.
+
+**Fix tại `generate-multichannel/index.ts`:**
+- Thêm `LONGFORM_MIN_CHARS = { blogger: 800, wordpress: 1500, website: 1500 }`.
+- Thêm helper `regenerateLongformChannelDirect(channel)` gọi AI riêng với prompt cứng theo đúng đặc tả từng kênh (tone/độ dài/cấu trúc).
+- Thêm `ensureLongformChannelsFilled(channels, channelResults, deps)` chạy retry 1 lần cho `blogger`/`wordpress` khi rỗng/quá ngắn.
+- Wire vào 3 path:
+  1. **Streaming create**: sau `generateChannelsParallel`, trước critique/dedup/insert.
+  2. **Non-streaming create/expand**: ngay trước log `[persist]` và insert/update.
+  3. **Regenerate (streaming + non-streaming)**: nếu output Blogger/WordPress vẫn rỗng/quá ngắn sau retry → trả lỗi 422 `EMPTY_GENERATED_CHANNEL_CONTENT`, KHÔNG update DB bằng rỗng.
+- Regenerate streaming/non-streaming inject thêm `## ĐẶC TẢ BẮT BUỘC CHO BLOGGER/WORDPRESS` vào systemPrompt.
+
+Kết quả: bài mới luôn có text riêng cho 3 kênh long-form đã chọn; bài cũ bấm "Tạo lại" sẽ thực sự sinh text hoặc báo lỗi rõ — không còn trạng thái "xong nhưng vẫn trống".
