@@ -40,6 +40,23 @@ interface DBPost {
   published_at?: string | null;
 }
 
+interface SeoLandingRow {
+  slug: string;
+  page_type: string;
+  title?: string | null;
+  hero_image?: string | null;
+  updated_at?: string | null;
+  published_at?: string | null;
+}
+
+const PAGE_TYPE_PREFIX: Record<string, string> = {
+  industry: "/giai-phap",
+  comparison: "/so-sanh",
+  feature: "/tinh-nang",
+  use_case: "/use-case",
+  tool: "/cong-cu",
+};
+
 async function fetchDbPosts(): Promise<DBPost[]> {
   try {
     const url = `${SUPABASE_URL}/rest/v1/blog_posts?select=slug,title,cover_image,updated_at,published_at&is_public=eq.true&status=eq.published&order=published_at.desc&limit=500`;
@@ -56,6 +73,26 @@ async function fetchDbPosts(): Promise<DBPost[]> {
     return (await res.json()) as DBPost[];
   } catch (err) {
     console.warn("[sitemap] DB fetch error:", err);
+    return [];
+  }
+}
+
+async function fetchSeoLandingPages(): Promise<SeoLandingRow[]> {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/seo_landing_pages?select=slug,page_type,title,hero_image,updated_at,published_at&is_published=eq.true&limit=2000`;
+    const res = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!res.ok) {
+      console.warn(`[sitemap] SEO landing fetch failed: ${res.status}`);
+      return [];
+    }
+    return (await res.json()) as SeoLandingRow[];
+  } catch (err) {
+    console.warn("[sitemap] SEO landing fetch error:", err);
     return [];
   }
 }
