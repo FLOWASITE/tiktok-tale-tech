@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { PublicPageLayout } from "@/landing/components/PublicPageLayout";
 import { toast } from "sonner";
-import { SEOHead } from "@/components/SEOHead";
+import { SEOHead, LocalBusinessSchema } from "@/components/SEOHead";
 
 const contactInfo = [
   {
@@ -113,6 +113,7 @@ export default function Contact() {
           { name: 'Liên hệ', url: '/contact' },
         ]}
       />
+      <LocalBusinessSchema />
       {/* Hero Section - Simple */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
