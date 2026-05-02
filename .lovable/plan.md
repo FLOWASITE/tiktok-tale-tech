@@ -1,54 +1,51 @@
-# Phase 4 — Hoàn thiện vòng đời Pillar Cluster
+# Fix: Keyword đã chọn nhưng AI không dùng
 
-Sau 3 phase trước (schema, UI form, prompt injection), còn lại 2 mảnh để Pillar Cluster thực sự "tự vận hành":
+## Nguyên nhân (đã xác minh trong code)
 
-## 1. AI gợi topic từ keyword chưa có content
-**Edge function mới**: `supabase/functions/suggest-cluster-topics/index.ts`
-- Input: `{ clusterId }`
-- Logic:
-  - Fetch cluster + pillar keyword + tất cả `seo_keywords` thuộc cluster có `assigned_landing_page_id IS NULL` (uncovered)
-  - Fetch brand context (tên brand, industry, tone) từ `brand_templates`
-  - Gọi `callAI` (Gemini 2.5 Flash) với prompt: "Đề xuất 5-10 topic ý tưởng phủ các keyword sau, mỗi topic gắn 1-3 keyword, intent rõ ràng (TOFU/MOFU/BOFU), tiêu đề tiếng Việt, angle ngắn"
-  - Output JSON `{ suggestions: [{ title, angle, keyword_ids[], intent }] }`
-- Đăng ký `verify_jwt = false` trong `config.toml`, validate JWT trong code (pattern singleton service client)
+`generate-multichannel/index.ts` có **2 nhánh sinh nội dung**:
 
-**UI**: nút "Gợi ý topic bằng AI" trong `PillarDetailView.tsx` →
-- Mở dialog list các suggestion (checkbox + edit title)
-- Khi user "Tạo topic đã chọn" → bulk insert `topic_history` rows với `cluster_id` đã set, redirect sang `/multi-channel/create?topic=...&clusterId=...` cho từng cái (hoặc lưu nháp).
+| Nhánh | Vị trí | Inject SEO Cluster? |
+|---|---|---|
+| Normal mode (non-stream) | line 4321–4378, dùng tại 4455 | ✅ Có |
+| **Streaming mode** (mặc định UI) | line 3143–3236 | ❌ **KHÔNG** |
 
-## 2. ClusterContextCard trong MultiChannelViewer
-Hiện tại đã có `ClusterContextBadge` (chỉ tên + count). Bổ sung **`ClusterContextCard.tsx`** xuất hiện ở sidebar/bottom của viewer:
-- Header: tên pillar + status + coverage % (từ `cluster_coverage` view)
-- **Sister Content** (3-5 bài cùng cluster): list link → `/multi-channel/{id}`, mỗi item hiển thị title + channel icons + ngày tạo
-- **Pillar Content link**: nếu cluster có `pillar_content_id` → CTA "Xem trang trụ"
-- **Suggested internal links**: gọi `suggest-internal-links` (đã có cluster boost) — hiện 3 anchor đề xuất + nút copy markdown
-- **Keyword phủ trong bài này**: list `target_keyword_ids` đã link
+UI `MultiChannelCreate` luôn gọi `useStreamingGeneration` → toàn bộ user **luôn rơi vào nhánh streaming**. Frontend đã gửi `clusterId` + `targetKeywordIds` xuống (verified ở `useStreamingGeneration.ts:185`), nhưng nhánh streaming chỉ build `targetedProductContext` + `targetedPersonaContext` rồi nhồi vào `userPrompt` (line 3226–3236) — bỏ qua hoàn toàn block `## 🎯 SEO PILLAR CLUSTER`.
 
-Mount card trong `MultiChannelViewer.tsx` chỉ khi `content.cluster_id` có giá trị; collapse được.
+Hậu quả: keyword được lưu vào `multi_channel_contents.target_keyword_ids` **sau khi** AI đã sinh xong — AI không hề biết keyword nào để tối ưu mật độ / H2 / hashtag. Đúng triệu chứng "có keyword nhưng hệ thống không dùng".
 
-## 3. Cluster status auto-update (trigger)
-Migration nhỏ:
-- Trigger sau INSERT/UPDATE/DELETE `multi_channel_contents` → recompute `seo_clusters.status`:
-  - `coverage_pct >= 80%` & có `pillar_content_id` → `completed`
-  - `coverage_pct > 0` → `active`
-  - else → giữ `planning`
-- Hoặc đơn giản hơn: làm function SQL `refresh_cluster_status(cluster_id uuid)` rồi gọi từ frontend sau khi tạo content.
+## Sửa
 
-→ Chọn approach **function SQL + gọi từ MultiChannelCreate** (nhẹ hơn trigger, dễ debug).
+**1 file duy nhất**: `supabase/functions/generate-multichannel/index.ts`
 
-## Files
-**New:**
-- `supabase/functions/suggest-cluster-topics/index.ts`
-- `src/components/seo/ClusterContextCard.tsx`
-- `src/components/admin/seo-keywords/SuggestTopicsDialog.tsx`
-- 1 migration: `refresh_cluster_status()` function + entry trong `config.toml` cho function mới
+Trong nhánh streaming, ngay sau khối build `targetedPersonaContext` (~line 3220, trước `buildHookOverview`), thêm block load SEO cluster context **giống hệt** logic đang có ở normal-mode (line 4326–4378):
 
-**Modified:**
-- `src/components/admin/seo-keywords/PillarDetailView.tsx` — thêm nút "Gợi ý topic AI"
-- `src/components/MultiChannelViewer.tsx` — mount `ClusterContextCard` dưới badge
-- `src/pages/MultiChannelCreate.tsx` — gọi `refresh_cluster_status` sau khi insert
+- Nếu `formData.clusterId` → fetch `seo_clusters` (name, description, pillar_keyword_id)
+- Nếu có `pillar_keyword_id` → fetch keyword
+- Nếu `formData.targetKeywordIds?.length` → fetch `seo_keywords` (keyword, search_intent, search_volume, is_pillar) bằng `.in('id', ...)`
+- Build `seoClusterContext` string với block `## 🎯 SEO PILLAR CLUSTER` + 5 quy tắc on-page (density 0.8–1.5%, H2/H3 cho long-form, keyword trong 2 dòng đầu cho social, hashtag #keyword cho IG/Threads/X)
 
-## Out of scope phase này
-- Không tự động generate full content khi accept suggestion (user vẫn click qua wizard)
-- Không build pillar-page generator riêng (tận dụng MultiChannelCreate với channel=website)
-- Không track ranking per cluster (đã có RankTrackerTab riêng)
+Inject vào `userPrompt` (line 3226+) ngay sau `${targetedPersonaContext}`:
+
+```
+${targetedProductContext}
+${targetedPersonaContext}
+${seoClusterContext}
+${hookOverview}
+```
+
+Bọc trong `try/catch` + `console.warn('[streaming-mode] Failed to load SEO cluster context')` y hệt nhánh normal để không phá generation nếu DB lỗi.
+
+## Refactor nhỏ (khuyến nghị, optional)
+
+Hai khối build SEO context giờ giống hệt nhau ở 2 nhánh → tách thành helper `buildSeoClusterContext(supabase, formData)` đặt cuối file (cạnh các helper khác trong cùng `index.ts`, không tạo file mới vì rule edge function "no subfolders/no shared imports cross-function"). Cả normal mode và streaming mode cùng gọi. Giảm duplication và tránh drift trong tương lai.
+
+## Out of scope
+- Không đổi schema, không migration mới
+- Không đụng UI (`ClusterPicker`, `KeywordTargetPicker` đang chạy đúng)
+- Không đụng `MultiChannelCreate.tsx` (đã update DB đúng sau khi tạo)
+- Không đụng nhánh agent / regenerate (kiểm tra riêng nếu user báo)
+
+## Test sau khi sửa
+1. Mở `/multi-channel/create`, chọn 1 Pillar trong `ClusterPicker` → keyword auto-fill
+2. Generate → check edge function logs `generate-multichannel` thấy log `[streaming-mode] Loaded SEO cluster: <name>`
+3. Output content phải chứa keyword đã chọn trong tiêu đề / 2 dòng đầu / hashtag
