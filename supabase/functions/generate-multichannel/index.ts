@@ -3291,6 +3291,7 @@ QUY TẮC SEO ON-PAGE:
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
 ${targetedProductContext}
 ${targetedPersonaContext}
+${seoClusterContext}
 ${hookOverview}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
