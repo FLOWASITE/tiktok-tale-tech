@@ -520,6 +520,64 @@ async function regenerateLongformChannelDirect(
 }
 
 /**
+ * After insert/update, re-read the row and verify Blogger/WordPress columns
+ * actually contain text matching what was generated. If a column was selected
+ * but persisted as NULL/empty (e.g. silent sanitize/trigger drop), patch the
+ * row with the in-memory text. Returns the latest row or null if patching failed.
+ *
+ * This is the FINAL guarantee that a record returned to the client has
+ * Blogger/WordPress text populated when those channels were selected.
+ */
+async function verifyAndPatchLongformPersisted(
+  supabase: any,
+  contentId: string,
+  selectedChannels: string[],
+  channelTexts: { blogger?: string; wordpress?: string },
+): Promise<{ row: any; missing: string[] }> {
+  const { data: row, error } = await supabase
+    .from('multi_channel_contents')
+    .select('*')
+    .eq('id', contentId)
+    .maybeSingle();
+  if (error || !row) {
+    console.error('[longform-verify] could not re-read row', contentId, error);
+    return { row: null, missing: [] };
+  }
+  const patch: Record<string, string> = {};
+  for (const ch of ['blogger', 'wordpress'] as const) {
+    if (!selectedChannels.includes(ch)) continue;
+    const persisted = normalizeLongformText(row[`${ch}_content`]);
+    if (!isLongformContentMissing(ch, persisted)) continue;
+    const inMemory = normalizeLongformText(channelTexts[ch]);
+    if (!isLongformContentMissing(ch, inMemory)) {
+      patch[`${ch}_content`] = inMemory;
+      console.warn(`[longform-verify] ${ch}: DB persisted empty (${persisted.length}) but in-memory has ${inMemory.length} — patching`);
+    }
+  }
+  if (Object.keys(patch).length > 0) {
+    const { data: patched, error: patchErr } = await supabase
+      .from('multi_channel_contents')
+      .update(patch)
+      .eq('id', contentId)
+      .select()
+      .maybeSingle();
+    if (patchErr) {
+      console.error('[longform-verify] patch failed', patchErr);
+    } else if (patched) {
+      console.log(`[longform-verify] patched ${Object.keys(patch).join(',')} for ${contentId}`);
+      const missingAfter = ['blogger', 'wordpress'].filter((ch) =>
+        selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(patched[`${ch}_content`]))
+      );
+      return { row: patched, missing: missingAfter };
+    }
+  }
+  const missing = ['blogger', 'wordpress'].filter((ch) =>
+    selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(row[`${ch}_content`]))
+  );
+  return { row, missing };
+}
+
+/**
  * Ensure that any selected long-form channel (blogger/wordpress) has real text.
  * Mutates `channelResults` in-place. Returns list of channels still missing after retry.
  */
