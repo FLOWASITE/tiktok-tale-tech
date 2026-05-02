@@ -7582,6 +7582,114 @@ export type Database = {
           },
         ]
       }
+      keyword_clusters: {
+        Row: {
+          avg_priority: number
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          keyword_count: number
+          name: string
+          organization_id: string
+          parent_cluster_id: string | null
+          pillar_keyword_id: string | null
+          target_pillar_page_slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          avg_priority?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          keyword_count?: number
+          name: string
+          organization_id: string
+          parent_cluster_id?: string | null
+          pillar_keyword_id?: string | null
+          target_pillar_page_slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avg_priority?: number
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          keyword_count?: number
+          name?: string
+          organization_id?: string
+          parent_cluster_id?: string | null
+          pillar_keyword_id?: string | null
+          target_pillar_page_slug?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_pillar_keyword"
+            columns: ["pillar_keyword_id"]
+            isOneToOne: false
+            referencedRelation: "seo_keywords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "keyword_clusters_parent_cluster_id_fkey"
+            columns: ["parent_cluster_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      keyword_research_jobs: {
+        Row: {
+          ai_model: string | null
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          id: string
+          keywords_added: number
+          mode: string
+          organization_id: string
+          result: Json | null
+          seed_keyword: string
+          status: string
+        }
+        Insert: {
+          ai_model?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          id?: string
+          keywords_added?: number
+          mode?: string
+          organization_id: string
+          result?: Json | null
+          seed_keyword: string
+          status?: string
+        }
+        Update: {
+          ai_model?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          id?: string
+          keywords_added?: number
+          mode?: string
+          organization_id?: string
+          result?: Json | null
+          seed_keyword?: string
+          status?: string
+        }
+        Relationships: []
+      }
       knowledge_graph_analytics: {
         Row: {
           created_at: string | null
@@ -9778,6 +9886,96 @@ export type Database = {
           },
         ]
       }
+      seo_keywords: {
+        Row: {
+          assigned_landing_page_id: string | null
+          cluster_id: string | null
+          content_gap_score: number | null
+          cpc_vnd: number | null
+          created_at: string
+          current_rank: number | null
+          difficulty: number | null
+          funnel_stage: string
+          id: string
+          intent: string
+          keyword: string
+          last_checked_at: string | null
+          locale: string
+          notes: string | null
+          organization_id: string
+          priority_score: number | null
+          search_volume: number | null
+          serp_features: Json | null
+          source: string
+          status: string
+          top_competitors: Json | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_landing_page_id?: string | null
+          cluster_id?: string | null
+          content_gap_score?: number | null
+          cpc_vnd?: number | null
+          created_at?: string
+          current_rank?: number | null
+          difficulty?: number | null
+          funnel_stage?: string
+          id?: string
+          intent?: string
+          keyword: string
+          last_checked_at?: string | null
+          locale?: string
+          notes?: string | null
+          organization_id: string
+          priority_score?: number | null
+          search_volume?: number | null
+          serp_features?: Json | null
+          source?: string
+          status?: string
+          top_competitors?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_landing_page_id?: string | null
+          cluster_id?: string | null
+          content_gap_score?: number | null
+          cpc_vnd?: number | null
+          created_at?: string
+          current_rank?: number | null
+          difficulty?: number | null
+          funnel_stage?: string
+          id?: string
+          intent?: string
+          keyword?: string
+          last_checked_at?: string | null
+          locale?: string
+          notes?: string | null
+          organization_id?: string
+          priority_score?: number | null
+          search_volume?: number | null
+          serp_features?: Json | null
+          source?: string
+          status?: string
+          top_competitors?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_keywords_assigned_landing_page_id_fkey"
+            columns: ["assigned_landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "seo_landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_keywords_cluster_id_fkey"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_landing_pages: {
         Row: {
           ai_generated: boolean | null
@@ -11741,6 +11939,10 @@ export type Database = {
       }
       aggregate_edge_function_stats: {
         Args: { p_date?: string }
+        Returns: number
+      }
+      calc_keyword_priority: {
+        Args: { _difficulty: number; _intent: string; _volume: number }
         Returns: number
       }
       calculate_next_crawl_at: {
