@@ -2704,7 +2704,7 @@ Nội dung sẵn sàng đăng ngay.`;
                   { role: "user", content: userPrompt },
                 ],
                 stream: true,
-                maxTokensOverride: channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096,
+                maxTokensOverride: clampMaxTokensForModel(effectiveModel, channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096),
               });
               
               if (!streamResult.success || !streamResult.data) {
@@ -2869,7 +2869,7 @@ Nội dung sẵn sàng đăng ngay.`;
           ],
           tools,
           toolChoice: { type: "function", function: { name: "generate_channel_content" } },
-          maxTokensOverride: channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096,
+          maxTokensOverride: clampMaxTokensForModel(effectiveModel, channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096),
         });
 
         if (!result.success) {
