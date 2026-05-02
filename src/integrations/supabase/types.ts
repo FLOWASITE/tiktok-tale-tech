@@ -7868,6 +7868,7 @@ export type Database = {
           channel_images: Json | null
           channel_statuses: Json | null
           content_calendar_color: string | null
+          content_embedding: string | null
           content_goal: string
           content_role: string | null
           core_content_id: string | null
@@ -7899,6 +7900,7 @@ export type Database = {
           selected_hooks: Json | null
           status: string | null
           tags: string[] | null
+          target_keyword_ids: string[] | null
           telegram_content: string | null
           threads_content: string | null
           tiktok_content: string | null
@@ -7926,6 +7928,7 @@ export type Database = {
           channel_images?: Json | null
           channel_statuses?: Json | null
           content_calendar_color?: string | null
+          content_embedding?: string | null
           content_goal: string
           content_role?: string | null
           core_content_id?: string | null
@@ -7957,6 +7960,7 @@ export type Database = {
           selected_hooks?: Json | null
           status?: string | null
           tags?: string[] | null
+          target_keyword_ids?: string[] | null
           telegram_content?: string | null
           threads_content?: string | null
           tiktok_content?: string | null
@@ -7984,6 +7988,7 @@ export type Database = {
           channel_images?: Json | null
           channel_statuses?: Json | null
           content_calendar_color?: string | null
+          content_embedding?: string | null
           content_goal?: string
           content_role?: string | null
           core_content_id?: string | null
@@ -8015,6 +8020,7 @@ export type Database = {
           selected_hooks?: Json | null
           status?: string | null
           tags?: string[] | null
+          target_keyword_ids?: string[] | null
           telegram_content?: string | null
           threads_content?: string | null
           tiktok_content?: string | null
@@ -9903,12 +9909,15 @@ export type Database = {
           locale: string
           notes: string | null
           organization_id: string
+          previous_rank: number | null
           priority_score: number | null
+          rank_change: number | null
           search_volume: number | null
           serp_features: Json | null
           source: string
           status: string
           top_competitors: Json | null
+          tracking_url: string | null
           updated_at: string
         }
         Insert: {
@@ -9927,12 +9936,15 @@ export type Database = {
           locale?: string
           notes?: string | null
           organization_id: string
+          previous_rank?: number | null
           priority_score?: number | null
+          rank_change?: number | null
           search_volume?: number | null
           serp_features?: Json | null
           source?: string
           status?: string
           top_competitors?: Json | null
+          tracking_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -9951,12 +9963,15 @@ export type Database = {
           locale?: string
           notes?: string | null
           organization_id?: string
+          previous_rank?: number | null
           priority_score?: number | null
+          rank_change?: number | null
           search_volume?: number | null
           serp_features?: Json | null
           source?: string
           status?: string
           top_competitors?: Json | null
+          tracking_url?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -10074,6 +10089,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      seo_rank_history: {
+        Row: {
+          checked_at: string
+          id: string
+          keyword_id: string
+          organization_id: string
+          rank: number | null
+          serp_features: Json | null
+          serp_url: string | null
+          source: string | null
+        }
+        Insert: {
+          checked_at?: string
+          id?: string
+          keyword_id: string
+          organization_id: string
+          rank?: number | null
+          serp_features?: Json | null
+          serp_url?: string | null
+          source?: string | null
+        }
+        Update: {
+          checked_at?: string
+          id?: string
+          keyword_id?: string
+          organization_id?: string
+          rank?: number | null
+          serp_features?: Json | null
+          serp_url?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_rank_history_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "seo_keywords"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       social_connections: {
         Row: {
@@ -12021,6 +12077,24 @@ export type Database = {
           created_at: string
           object_name: string
           size_bytes: number
+        }[]
+      }
+      find_related_content: {
+        Args: {
+          exclude_id?: string
+          match_count?: number
+          org_id: string
+          query_embedding: string
+          similarity_threshold?: number
+        }
+        Returns: {
+          blogger_content: string
+          id: string
+          similarity: number
+          title: string
+          topic: string
+          website_content: string
+          wordpress_content: string
         }[]
       }
       get_batch_processing_stats: {
