@@ -1,75 +1,124 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://flowa.one/</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/"/>
   </url>
   <url>
     <loc>https://flowa.one/pricing</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/pricing"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/pricing"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/pricing"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/pricing"/>
   </url>
   <url>
     <loc>https://flowa.one/about</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/about"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/about"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/about"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/about"/>
   </url>
   <url>
     <loc>https://flowa.one/contact</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/contact"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/contact"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/contact"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/contact"/>
   </url>
   <url>
     <loc>https://flowa.one/careers</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/careers"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/careers"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/careers"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/careers"/>
   </url>
   <url>
     <loc>https://flowa.one/blog</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/blog"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/blog"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/blog"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/blog"/>
   </url>
   <url>
     <loc>https://flowa.one/blog/flowa-content-marketing-da-kenh</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/blog/flowa-content-marketing-da-kenh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/blog/flowa-content-marketing-da-kenh"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/blog/flowa-content-marketing-da-kenh"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/blog/flowa-content-marketing-da-kenh"/>
   </url>
   <url>
     <loc>https://flowa.one/blog/cach-tao-content-da-kenh</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/blog/cach-tao-content-da-kenh"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/blog/cach-tao-content-da-kenh"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/blog/cach-tao-content-da-kenh"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/blog/cach-tao-content-da-kenh"/>
   </url>
   <url>
     <loc>https://flowa.one/blog/ai-content-marketing-huong-dan</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/blog/ai-content-marketing-huong-dan"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/blog/ai-content-marketing-huong-dan"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/blog/ai-content-marketing-huong-dan"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/blog/ai-content-marketing-huong-dan"/>
   </url>
   <url>
     <loc>https://flowa.one/blog/content-repurposing-chien-luoc</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/blog/content-repurposing-chien-luoc"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/blog/content-repurposing-chien-luoc"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/blog/content-repurposing-chien-luoc"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/blog/content-repurposing-chien-luoc"/>
   </url>
   <url>
     <loc>https://flowa.one/terms</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/terms"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/terms"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/terms"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/terms"/>
   </url>
   <url>
     <loc>https://flowa.one/privacy</loc>
     <lastmod>2026-05-02</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://flowa.one/privacy"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://flowa.one/privacy"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://flowa.one/privacy"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://flowa.one/privacy"/>
   </url>
 </urlset>
