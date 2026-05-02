@@ -38,6 +38,8 @@ interface SEOHeadProps {
   article?: ArticleData;
   breadcrumbs?: BreadcrumbItem[];
   noIndex?: boolean;
+  /** Optional plain-text fallback rendered into <noscript> for non-JS crawlers (Bing/FB/LinkedIn). */
+  noscriptContent?: string;
   children?: React.ReactNode;
 }
 
