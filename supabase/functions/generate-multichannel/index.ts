@@ -3182,6 +3182,29 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             // Build user prompt for each channel (with channel-specific hook and transformation rules)
             const coreContentWordCount = coreContent?.word_count || coreContent?.content?.split(/\s+/).length || 0;
             
+            // Per-channel format guidance — INJECT vào streaming prompt để mỗi kênh
+            // sinh nội dung KHÁC nhau về độ dài/tone/cấu trúc (đặc biệt website vs blogger vs wordpress).
+            const CHANNEL_FORMAT_GUIDANCE: Record<string, string> = {
+              website:   "Bài chuẩn SEO 1000-2000 từ. H1 + H2/H3, intro 50-100 từ, ≥2 section có bullet/numbered list, blockquote, **bold** keyword, conclusion + CTA mềm. Markdown thuần (KHÔNG HTML). Tone: corporate, schema-friendly.",
+              blogger:   "Bài Blogger 500-900 từ, casual blog tone, ngôi 'tôi/mình', kể chuyện cá nhân/trải nghiệm thật, hook mở bài bằng 1 câu chuyện hoặc câu hỏi, 1-2 bullet ngắn, kết bằng câu hỏi mời comment. Markdown nhẹ (## heading, **bold**, - bullet). KHÔNG SEO chặt như website. Phải KHÁC website rõ rệt về tone & độ dài (ngắn hơn, đời thường hơn).",
+              wordpress: "Bài WordPress in-depth 1200-2200 từ, tone authority/expert, H2 + H3 chi tiết, intro 80-120 từ, 4-6 sections lớn với bullet/numbered list, ≥1 blockquote, **bold** keyword, conclusion + CTA rõ ràng, có thể thêm FAQ. Markdown chuẩn. Sâu hơn & dài hơn website một bậc. Phải KHÁC blogger (formal hơn, dài hơn) và KHÁC website (chi tiết/chuyên sâu hơn).",
+              facebook:  "Facebook 250-500 từ, hook mạnh đầu bài, cấu trúc tiêu đề-giới thiệu-case study-giải pháp-CTA.",
+              instagram: "Instagram 50-150 từ, ngắn gọn, hashtag cuối bài.",
+              twitter:   "X/Twitter thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số.",
+              linkedin:  "LinkedIn 300-600 từ, B2B authority, insight sâu, case study, expert advice.",
+              email:     "Email 250-500 từ: subject line + body có depth + CTA rõ ràng.",
+              youtube:   "YouTube script 500-800 từ: hook + content + CTA.",
+              tiktok:    "TikTok script 60-150 từ, hook 3s đầu, năng lượng cao, CTA cuối.",
+              threads:   "Threads 50-200 từ, conversational, quan điểm cá nhân, dễ tương tác.",
+              pinterest: "Pinterest description 200-500 ký tự, search-engine copy, long-tail keyword tự nhiên, CTA mềm 'Lưu Pin để xem sau', 2-5 hashtag cuối.",
+              bluesky:   "Bluesky ≤300 graphemes, PLAIN TEXT (KHÔNG markdown, KHÔNG hashtag), 2-3 đoạn ngắn, hook câu đầu, kết câu hỏi mở.",
+              zalo_oa:   "Zalo OA 60-150 từ, thân thiện, local Vietnam.",
+              telegram:  "Telegram 200-500 từ, bullet, có chiều sâu.",
+              google_maps: "Google Maps 80-150 từ, trung tính, không emoji/hashtag.",
+            };
+
+            const LONGFORM_CHANNELS = new Set(['website', 'blogger', 'wordpress']);
+
             const buildChannelUserPrompt = (channel: string) => {
               const channelHookSection = buildHookSection(channel, formData.selectedHooks, formData.globalHook);
               
@@ -3196,13 +3219,20 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
                 const targetWords = calculateChannelWordCount(channel, coreContentWordCount);
                 console.log(`[streaming-mode][transform] ${channel}: ${targetWords.min}-${targetWords.max} words target (from ${coreContentWordCount} core)`);
               }
+
+              const guidance = CHANNEL_FORMAT_GUIDANCE[channel] || '';
+              const longformWarning = LONGFORM_CHANNELS.has(channel)
+                ? `\n⚠️ QUAN TRỌNG: website / blogger / wordpress là 3 kênh long-form ĐỘC LẬP. Nội dung kênh ${channel.toUpperCase()} PHẢI khác hoàn toàn 2 kênh kia về độ dài, tone và cấu trúc (xem hướng dẫn ở trên). TUYỆT ĐỐI không copy/paraphrase cùng 1 bài cho cả 3.\n`
+                : '';
               
               return `${userPrompt}
 ${channelHookSection}
 ${transformSection}
 
-Bây giờ viết nội dung cho kênh: ${channel.toUpperCase()}
-Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
+## KÊNH HIỆN TẠI: ${channel.toUpperCase()}
+${guidance}
+${longformWarning}
+Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hướng dẫn trên, KHÔNG giải thích hay bình luận.`;
             };
             
             // Log hook usage
