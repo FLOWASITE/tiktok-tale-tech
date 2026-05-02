@@ -4449,6 +4449,7 @@ ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPers
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
 ${targetedProductContext}
 ${targetedPersonaContext}
+${seoClusterContext}
 ${hookOverviewNonStreaming}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
