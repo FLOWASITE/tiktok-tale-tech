@@ -935,6 +935,11 @@ export function MultiChannelViewer({
                     {goalLabel}
                   </Badge>
 
+                  {/* SEO Pillar Cluster Badge */}
+                  {(content as any).cluster_id && (
+                    <ClusterContextBadge clusterId={(content as any).cluster_id} />
+                  )}
+
                   {/* Core Content Source Badge - Hidden on mobile, shown in sidebar instead */}
                   {content.core_content_id && (
                     <CoreContentSourceBadge
