@@ -275,6 +275,9 @@ interface FormData {
   // When true, skip cache LOOKUP and always regenerate fresh content.
   // Used by Telegram /generate where user expects a brand new post each time.
   skipCache?: boolean;
+  // SEO Pillar Cluster linkage
+  clusterId?: string | null;
+  targetKeywordIds?: string[];
 }
 
 // ============================================
@@ -3986,6 +3989,9 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   // Hook integration - save selected hooks with content
                   selected_hooks: formData.selectedHooks || [],
                   global_hook: formData.globalHook || null,
+                  // SEO Pillar Cluster linkage
+                  cluster_id: formData.clusterId || null,
+                  target_keyword_ids: formData.targetKeywordIds || [],
                   // Channel contents
                   website_content: (() => {
                     if (!channels.includes('website')) return null;
@@ -4314,7 +4320,63 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
     // Fetch targeted product/persona if specified
     let targetedProductContext = '';
     let targetedPersonaContext = '';
-    
+    let seoClusterContext = '';
+
+    // SEO Pillar Cluster context — gắn keywords mục tiêu + pillar vào prompt
+    if (formData.clusterId || (formData.targetKeywordIds && formData.targetKeywordIds.length > 0)) {
+      try {
+        let clusterRow: any = null;
+        if (formData.clusterId) {
+          const { data } = await supabase
+            .from('seo_clusters')
+            .select('id,name,description,pillar_keyword_id')
+            .eq('id', formData.clusterId)
+            .maybeSingle();
+          clusterRow = data;
+        }
+        let pillarKeyword: string | null = null;
+        if (clusterRow?.pillar_keyword_id) {
+          const { data: pk } = await supabase
+            .from('seo_keywords')
+            .select('keyword')
+            .eq('id', clusterRow.pillar_keyword_id)
+            .maybeSingle();
+          pillarKeyword = (pk as any)?.keyword || null;
+        }
+        let kwRows: any[] = [];
+        if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
+          const { data } = await supabase
+            .from('seo_keywords')
+            .select('keyword,search_intent,search_volume,is_pillar')
+            .in('id', formData.targetKeywordIds);
+          kwRows = data || [];
+        }
+        if (clusterRow || kwRows.length) {
+          const kwLines = kwRows.slice(0, 12).map((k: any) =>
+            `- ${k.keyword}${k.is_pillar ? ' (PILLAR)' : ''}${k.search_intent ? ` · intent: ${k.search_intent}` : ''}${k.search_volume ? ` · vol: ${k.search_volume}` : ''}`
+          ).join('\n');
+          seoClusterContext = `
+## 🎯 SEO PILLAR CLUSTER (BẮT BUỘC ÁP DỤNG)
+${clusterRow?.name ? `**Pillar**: ${clusterRow.name}` : ''}
+${clusterRow?.description ? `**Mô tả pillar**: ${clusterRow.description}` : ''}
+${pillarKeyword ? `**Pillar keyword (chính)**: "${pillarKeyword}" — phải xuất hiện tự nhiên trong tiêu đề + đoạn mở bài.` : ''}
+
+**Keyword mục tiêu của bài (ưu tiên cao → thấp):**
+${kwLines || '- (không có keyword cụ thể)'}
+
+QUY TẮC SEO ON-PAGE:
+1. Bài thuộc silo "${clusterRow?.name || 'pillar'}" — giọng và góc nhìn phải nhất quán với pillar.
+2. Lồng pillar keyword + 2-3 keyword phụ tự nhiên (KHÔNG nhồi nhét), mật độ ~0.8-1.5%.
+3. Với kênh long-form (website/blogger/wordpress): dùng keyword làm H2/H3, có internal-link gợi ý đến pillar/sister content.
+4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
+5. Tuyệt đối không bịa số liệu để nhồi keyword.
+`;
+        }
+      } catch (err) {
+        console.warn('[normal-mode] Failed to load SEO cluster context:', err);
+      }
+    }
+
     if (formData.targetProductId && formData.brandTemplateId) {
       const { data: targetProduct } = await supabase
         .from('brand_products')
@@ -4390,6 +4452,7 @@ ${targetPersona.communication_style ? `**Phong cách giao tiếp**: ${targetPers
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
 ${targetedProductContext}
 ${targetedPersonaContext}
+${seoClusterContext}
 ${hookOverviewNonStreaming}
 
 Các kênh cần tạo nội dung: ${formData.channels.join(", ")}
@@ -6125,6 +6188,9 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           global_hook: formData.globalHook || null,
           // Core Content Layer - link to parent Core Content
           core_content_id: formData.coreContentId || null,
+          // SEO Pillar Cluster linkage
+          cluster_id: formData.clusterId || null,
+          target_keyword_ids: formData.targetKeywordIds || [],
           website_content: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content?.content || null 
             : generatedData.website_content || null,
