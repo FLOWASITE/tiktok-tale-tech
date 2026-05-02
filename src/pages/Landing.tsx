@@ -32,7 +32,7 @@ export default function Landing() {
         description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán với AI."
         canonicalPath="/"
       />
-      <LandingSEOSchemas />
+      <LandingSEOSchemas reviews={reviews} />
       <ScrollProgress />
       <LandingNav />
       <main>
