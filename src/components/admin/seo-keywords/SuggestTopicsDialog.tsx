@@ -73,10 +73,14 @@ export default function SuggestTopicsDialog({ open, onOpenChange, clusterId }: P
       const rows = picks.map((s) => ({
         organization_id: orgId,
         topic: s.title,
+        category: "seo",
+        content_goal: s.intent === "BOFU" ? "convert" : s.intent === "MOFU" ? "educate" : "awareness",
+        format: "blog",
+        pillar: clusterId,
         cluster_id: clusterId,
-        target_keyword_ids: s.keyword_ids,
-        notes: s.angle,
-        status: "draft" as const,
+        related_keywords: s.keyword_ids,
+        reasoning: s.angle,
+        usage_status: "suggested",
       }));
       const { error } = await supabase.from("topic_history").insert(rows as any);
       if (error) throw error;
