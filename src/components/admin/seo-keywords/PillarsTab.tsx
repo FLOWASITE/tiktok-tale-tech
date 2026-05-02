@@ -112,7 +112,7 @@ export default function PillarsTab() {
     return (
       <PillarDetailView
         clusterId={activeId}
-        onBack={() => setActiveId(null)}
+        onBack={() => openPillar(null)}
       />
     );
   }
