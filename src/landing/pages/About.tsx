@@ -93,6 +93,7 @@ export default function About() {
           { name: 'Trang chủ', url: '/' },
           { name: 'Về Flowa', url: '/about' },
         ]}
+        noscriptContent={`<h2>Về Flowa</h2><p>Flowa là nền tảng AI Marketing Agent đầu tiên tại Việt Nam tích hợp Industry Memory + Brand Voice AI + Multi-channel Publishing trong một hệ thống thống nhất.</p><p><strong>Sứ mệnh:</strong> Giúp Marketing Team Việt Nam và Đông Nam Á tự động hóa 90% công việc content, giải phóng thời gian cho chiến lược.</p><p><strong>Trụ sở:</strong> TP. Hồ Chí Minh, Việt Nam. Phục vụ khách hàng tại VN, TH, SG, PH, ID, MY.</p>`}
       />
       {/* Hero Section */}
       <section className="py-20 md:py-28 lg:py-32">

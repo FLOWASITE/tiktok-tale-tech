@@ -132,3 +132,9 @@
 **P1 (tuần này)**: Phase 2 (prerender) + Phase 3 (dynamic sitemap) + Phase 5 (perf)
 **P2 (tuần sau)**: Phase 6 (content) + Phase 8 (tracking)
 **P3 (khi cần)**: Phase 7 (i18n)
+
+## P1 Round (post-Phase 8 audit)
+- ✅ #3 Edge sitemap: thêm image:image cho blog posts có cover_image (Google Images SEO); static sitemap.xml regenerate với lastmod hôm nay
+- ✅ #4 hreflang fix: bỏ vi/en/th alternates trỏ cùng URL (duplicate-content signal); chỉ giữ x-default trong SEOHead + sitemap
+- ✅ #5 noscript per-page: SEOHead nhận `noscriptContent` prop, render <noscript> fallback cho 6 trang public (Landing, Pricing, About, Contact, Blog, Careers) — Bing/FB/LinkedIn crawler giờ thấy nội dung text
+- ✅ #6 Image sitemap: edge function generate-sitemap emit <image:image> cho blog posts từ DB

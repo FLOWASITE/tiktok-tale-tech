@@ -112,6 +112,7 @@ export default function Contact() {
           { name: 'Trang chủ', url: '/' },
           { name: 'Liên hệ', url: '/contact' },
         ]}
+        noscriptContent={`<h2>Liên hệ Flowa</h2><ul><li><strong>Email hỗ trợ:</strong> <a href="mailto:support@flowa.one">support@flowa.one</a></li><li><strong>Email kinh doanh:</strong> <a href="mailto:sales@flowa.one">sales@flowa.one</a></li><li><strong>Điện thoại:</strong> +84-83-822-6363</li><li><strong>Địa chỉ:</strong> TP. Hồ Chí Minh, Việt Nam</li><li><strong>Giờ làm việc:</strong> Thứ 2 - Thứ 6, 09:00 - 18:00 (GMT+7)</li></ul>`}
       />
       <LocalBusinessSchema />
       {/* Hero Section - Simple */}

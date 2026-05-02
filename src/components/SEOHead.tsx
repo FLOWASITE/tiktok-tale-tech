@@ -38,6 +38,8 @@ interface SEOHeadProps {
   article?: ArticleData;
   breadcrumbs?: BreadcrumbItem[];
   noIndex?: boolean;
+  /** Optional plain-text fallback rendered into <noscript> for non-JS crawlers (Bing/FB/LinkedIn). */
+  noscriptContent?: string;
   children?: React.ReactNode;
 }
 
@@ -50,6 +52,7 @@ export function SEOHead({
   article,
   breadcrumbs,
   noIndex = false,
+  noscriptContent,
   children,
 }: SEOHeadProps) {
   const { i18n } = useTranslation();
@@ -113,62 +116,75 @@ export function SEOHead({
     : null;
 
   return (
-    <Helmet>
-      <title>{fullTitle}</title>
-      <meta name="description" content={description} />
-      <link rel="canonical" href={canonicalUrl} />
+    <>
+      <Helmet>
+        <title>{fullTitle}</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={canonicalUrl} />
 
-      {/* hreflang — landing serves vi/en/th from same URL via i18next auto-detect */}
-      <link rel="alternate" hrefLang="vi" href={canonicalUrl} />
-      <link rel="alternate" hrefLang="en" href={canonicalUrl} />
-      <link rel="alternate" hrefLang="th" href={canonicalUrl} />
-      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
+        {/* hreflang — landing serves vi/en/th from the SAME URL via i18next auto-detect.
+            Emitting separate vi/en/th entries pointing to the same URL signals duplicate
+            content to Google. Only x-default is correct here until we add /en /th routes. */}
+        <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
 
-      {noIndex && <meta name="robots" content="noindex, nofollow" />}
+        {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
-      {/* Open Graph */}
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={description} />
-      <meta property="og:type" content={ogType} />
-      <meta property="og:url" content={canonicalUrl} />
-      <meta property="og:image" content={ogImage} />
-      <meta property="og:site_name" content={SITE_NAME} />
-      <meta property="og:locale" content={ogLocale} />
-      {alternateLocales.map((loc) => (
-        <meta key={loc} property="og:locale:alternate" content={loc} />
-      ))}
+        {/* Open Graph */}
+        <meta property="og:title" content={fullTitle} />
+        <meta property="og:description" content={description} />
+        <meta property="og:type" content={ogType} />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:locale" content={ogLocale} />
+        {alternateLocales.map((loc) => (
+          <meta key={loc} property="og:locale:alternate" content={loc} />
+        ))}
 
-      {/* Twitter */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={ogImage} />
-      <meta name="twitter:site" content="@Flowa" />
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={fullTitle} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={ogImage} />
+        <meta name="twitter:site" content="@Flowa" />
 
-      {/* Article meta */}
-      {article && (
-        <>
-          <meta property="article:published_time" content={article.publishDate} />
-          <meta property="article:modified_time" content={article.modifiedDate || article.publishDate} />
-          <meta property="article:author" content={article.author} />
-          <meta property="article:section" content={article.section} />
-        </>
+        {/* Article meta */}
+        {article && (
+          <>
+            <meta property="article:published_time" content={article.publishDate} />
+            <meta property="article:modified_time" content={article.modifiedDate || article.publishDate} />
+            <meta property="article:author" content={article.author} />
+            <meta property="article:section" content={article.section} />
+          </>
+        )}
+
+        {/* JSON-LD */}
+        {articleJsonLd && (
+          <script type="application/ld+json">
+            {JSON.stringify(articleJsonLd)}
+          </script>
+        )}
+        {breadcrumbJsonLd && (
+          <script type="application/ld+json">
+            {JSON.stringify(breadcrumbJsonLd)}
+          </script>
+        )}
+
+        {children}
+      </Helmet>
+
+      {/* Non-JS crawler fallback (Bing, FB, LinkedIn) — rendered into body */}
+      {noscriptContent && (
+        <noscript>
+          <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px', fontFamily: 'system-ui, sans-serif', lineHeight: 1.7 }}>
+            <h1>{title}</h1>
+            <p>{description}</p>
+            <div dangerouslySetInnerHTML={{ __html: noscriptContent }} />
+            <p><a href="https://flowa.one">flowa.one</a> · <a href="mailto:info@flowa.one">info@flowa.one</a></p>
+          </div>
+        </noscript>
       )}
-
-      {/* JSON-LD */}
-      {articleJsonLd && (
-        <script type="application/ld+json">
-          {JSON.stringify(articleJsonLd)}
-        </script>
-      )}
-      {breadcrumbJsonLd && (
-        <script type="application/ld+json">
-          {JSON.stringify(breadcrumbJsonLd)}
-        </script>
-      )}
-
-      {children}
-    </Helmet>
+    </>
   );
 }
 

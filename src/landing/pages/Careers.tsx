@@ -144,6 +144,7 @@ export default function Careers() {
           { name: 'Trang chủ', url: '/' },
           { name: 'Tuyển dụng', url: '/careers' },
         ]}
+        noscriptContent={`<h2>Tuyển dụng tại Flowa</h2><p>Gia nhập đội ngũ xây dựng nền tảng AI Marketing Agent hàng đầu Đông Nam Á.</p><ul><li><strong>Văn hóa:</strong> Remote-first, ownership cao, ship fast</li><li><strong>Công nghệ:</strong> React 18, TypeScript, Vite, Supabase, Lovable Cloud, AI Gateway (GPT-5, Gemini)</li><li><strong>Vị trí mở:</strong> Senior FE Engineer, AI Engineer, Growth Marketer, Customer Success</li></ul><p>Gửi CV: <a href="mailto:careers@flowa.one">careers@flowa.one</a></p>`}
       />
       {/* Hero Section */}
       <section className="relative py-24 lg:py-32 overflow-hidden">

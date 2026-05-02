@@ -1,5 +1,6 @@
 // Public dynamic sitemap.xml generator for flowa.one
 // No JWT required - serves XML to crawlers
+// Includes image sitemap entries for blog posts (Google Images SEO)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SITE_URL = "https://flowa.one";
@@ -11,6 +12,7 @@ const STATIC_URLS: Array<{ loc: string; changefreq: string; priority: string }> 
   { loc: "/contact", changefreq: "monthly", priority: "0.7" },
   { loc: "/careers", changefreq: "monthly", priority: "0.6" },
   { loc: "/blog", changefreq: "weekly", priority: "0.9" },
+  { loc: "/sitemap", changefreq: "weekly", priority: "0.5" },
   { loc: "/terms", changefreq: "yearly", priority: "0.4" },
   { loc: "/privacy", changefreq: "yearly", priority: "0.4" },
 ];
@@ -44,26 +46,33 @@ Deno.serve(async (req) => {
     );
 
     // Pull public blog posts from DB (best-effort, ignore errors)
-    let dbPosts: Array<{ slug: string; updated_at: string }> = [];
+    let dbPosts: Array<{ slug: string; updated_at: string; title?: string; cover_image?: string }> = [];
     try {
       const { data } = await supabase
         .from("blog_posts")
-        .select("slug, updated_at, published_at")
+        .select("slug, updated_at, published_at, title, cover_image")
         .eq("is_public", true)
         .eq("status", "published")
         .order("published_at", { ascending: false })
         .limit(500);
-      if (data) dbPosts = data.map((p: any) => ({ slug: p.slug, updated_at: p.updated_at || p.published_at }));
+      if (data) {
+        dbPosts = data.map((p: any) => ({
+          slug: p.slug,
+          updated_at: p.updated_at || p.published_at,
+          title: p.title,
+          cover_image: p.cover_image,
+        }));
+      }
     } catch (e) {
       console.warn("[generate-sitemap] DB pull failed:", e);
     }
 
     const today = new Date().toISOString().split("T")[0];
 
-    const LANGS = ["vi", "en", "th"];
+    // hreflang: landing serves same URL for all langs (i18next auto-detect),
+    // so only emit x-default to avoid duplicate-content signals to Google
     const hreflangFor = (loc: string) =>
-      LANGS.map((l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${loc}"/>`).join("\n") +
-      `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}"/>`;
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}"/>`;
 
     const urls: string[] = [];
 
@@ -91,25 +100,34 @@ ${hreflangFor(loc)}
   </url>`);
     }
 
-    // DB blog posts (skip duplicates with legacy)
+    // DB blog posts (skip duplicates with legacy) + image sitemap entries
     const seen = new Set(LEGACY_BLOG_SLUGS);
     for (const p of dbPosts) {
       if (!p.slug || seen.has(p.slug)) continue;
       seen.add(p.slug);
       const lastmod = p.updated_at ? p.updated_at.split("T")[0] : today;
       const loc = `${SITE_URL}/blog/${escapeXml(p.slug)}`;
+
+      const imageBlock = p.cover_image
+        ? `\n    <image:image>
+      <image:loc>${escapeXml(p.cover_image)}</image:loc>
+      ${p.title ? `<image:title>${escapeXml(p.title)}</image:title>` : ""}
+    </image:image>`
+        : "";
+
       urls.push(`  <url>
     <loc>${loc}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
-${hreflangFor(loc)}
+${hreflangFor(loc)}${imageBlock}
   </url>`);
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls.join("\n")}
 </urlset>`;
 
