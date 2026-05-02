@@ -2919,6 +2919,28 @@ Nội dung sẵn sàng đăng ngay.`;
         }
       }
       
+      // Long-form guard for Blogger / WordPress regenerate (non-streaming)
+      if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, normalizeLongformText(newContent))) {
+        console.warn(`[regenerate-mode] ${channel} too short (${newContent?.length || 0} chars) — running direct retry`);
+        const retried = await regenerateLongformChannelDirect(channel, {
+          topic: formData.topic,
+          industry,
+          brandName,
+          organizationId,
+          defaultModel: aiConfig.model,
+          defaultTemperature: aiConfig.temperature,
+          channelModelConfigs,
+        });
+        if (retried && !isLongformContentMissing(channel, retried)) {
+          newContent = retried;
+        } else {
+          return new Response(
+            JSON.stringify({ error: `Không tạo được nội dung riêng cho ${channel}. Vui lòng thử lại.`, errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT' }),
+            { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       // Update database
       const columnName = CHANNEL_COLUMN_MAP[channel];
       const { data: updatedContent, error: updateError } = await supabase
