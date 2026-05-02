@@ -10047,7 +10047,6 @@ export type Database = {
           locale: string
           notes: string | null
           organization_id: string
-          pillar_id: string | null
           previous_rank: number | null
           priority_score: number | null
           rank_change: number | null
@@ -10075,7 +10074,6 @@ export type Database = {
           locale?: string
           notes?: string | null
           organization_id: string
-          pillar_id?: string | null
           previous_rank?: number | null
           priority_score?: number | null
           rank_change?: number | null
@@ -10103,7 +10101,6 @@ export type Database = {
           locale?: string
           notes?: string | null
           organization_id?: string
-          pillar_id?: string | null
           previous_rank?: number | null
           priority_score?: number | null
           rank_change?: number | null
@@ -10127,19 +10124,12 @@ export type Database = {
             foreignKeyName: "seo_keywords_cluster_id_fkey"
             columns: ["cluster_id"]
             isOneToOne: false
-            referencedRelation: "keyword_clusters"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "seo_keywords_pillar_id_fkey"
-            columns: ["pillar_id"]
-            isOneToOne: false
             referencedRelation: "cluster_coverage"
             referencedColumns: ["cluster_id"]
           },
           {
-            foreignKeyName: "seo_keywords_pillar_id_fkey"
-            columns: ["pillar_id"]
+            foreignKeyName: "seo_keywords_cluster_id_fkey"
+            columns: ["cluster_id"]
             isOneToOne: false
             referencedRelation: "seo_clusters"
             referencedColumns: ["id"]
