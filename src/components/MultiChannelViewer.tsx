@@ -1217,6 +1217,15 @@ export function MultiChannelViewer({
                   />
                 </div>
               )}
+              {/* SEO Pillar Cluster Context */}
+              {(content as any).cluster_id && (
+                <div className="p-2 border-b border-border/30">
+                  <ClusterContextCard
+                    clusterId={(content as any).cluster_id}
+                    currentContentId={content.id}
+                  />
+                </div>
+              )}
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {(content?.selected_channels ?? []).map((channel) => {
