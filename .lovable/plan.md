@@ -1,74 +1,75 @@
-Mình đã rà soát code và dữ liệu. Vấn đề không chỉ ở mockup: dữ liệu hiện tại cho Blogger/WordPress đang bị rỗng ở DB nên UI/publish fallback sang `website_content`, làm người dùng thấy Blog / WordPress / Web giống nhau.
+Mình đã kiểm tra trực tiếp code và dữ liệu mới nhất. Hiện lỗi không phải do mockup nữa, mà do pipeline vẫn cho phép lưu Blogger/WordPress rỗng.
 
-Số liệu DB hiện tại:
-- `blogger` selected: 8 bản, `blogger_content` thiếu: 8 bản.
-- `wordpress` selected: 7 bản, `wordpress_content` thiếu: 7 bản.
-- `website` selected: 132 bản, `website_content` thiếu: 6 bản.
+Dữ liệu hiện tại xác nhận vấn đề:
+- Các bài mới chọn `blogger`/`wordpress` vẫn có `blogger_content = 0`, `wordpress_content = 0`.
+- Ví dụ bài mới nhất `e18f220a...` chọn `[blogger, bluesky, facebook, website, wordpress]`: `website_len = 5830`, nhưng `blogger_len = 0`, `wordpress_len = 0`.
 
-Nguyên nhân chính cần xử lý dứt điểm:
-1. Frontend vẫn fallback `blogger_content || website_content` và `wordpress_content || website_content` trong viewer/export/compare.
-2. Nút phụ trong Website viewer đang đăng `channel="blogger"` nhưng truyền chính `website_content`, nên Blogger có thể bị đăng bằng nội dung Website.
-3. Streaming generation có prompt riêng cho 3 kênh, nhưng vẫn cho phép lưu record khi Blogger/WordPress trả rỗng; sau đó UI/publish fallback làm lỗi bị che giấu.
-4. Preview mode chưa có rule riêng cho Blogger/WordPress nên preview cũng dễ giống Website.
-5. Dữ liệu cũ đã thiếu nội dung riêng, cần được đánh dấu/không fallback thay vì âm thầm dùng Website.
+Nguyên nhân chính mình thấy trong code:
+1. Streaming create path vẫn chỉ `console.warn` khi Blogger/WordPress rỗng rồi insert `null`.
+2. Non-streaming create/expand cũng vẫn lưu `null` nếu AI không trả `blogger_content` / `wordpress_content`.
+3. Regenerate path cho Blogger/WordPress dùng prompt chung, không có hard validation sau khi AI stream xong; nếu AI trả rỗng vẫn update DB bằng rỗng.
+4. UI có banner “Tạo nội dung riêng”, nhưng nếu regenerate trả rỗng thì người dùng vẫn thấy không có text.
+5. Sidebar vẫn chỉ hiện `0 từ`, chưa đánh dấu rõ kênh bị thiếu text.
 
-Kế hoạch xử lý:
+Kế hoạch xử lý dứt điểm:
 
-1. Bỏ fallback hiển thị/xuất/so sánh sang Website
-- Sửa `MultiChannelViewer.getContentForChannel`:
-  - `website` chỉ đọc `website_content`.
-  - `blogger` chỉ đọc `blogger_content`.
-  - `wordpress` chỉ đọc `wordpress_content`.
-- Sửa `ChannelComparison` và `EnhancedExportMenu` tương tự.
-- Khi kênh được chọn nhưng chưa có nội dung riêng, hiển thị trạng thái rõ ràng: “Kênh này chưa có nội dung riêng. Bấm Tạo lại nội dung cho kênh này.” thay vì hiển thị bài Website.
+1. Thêm guard bắt buộc nội dung cho Blogger/WordPress trước khi lưu
+- Trong `generate-multichannel`, tạo helper dùng chung:
+  - `normalizeGeneratedText(value)` để unwrap string/object an toàn.
+  - `isLongformContentMissing(channel, text)` để check rỗng/quá ngắn.
+  - `getLongformMinimumChars(channel)` với ngưỡng tối thiểu thực dụng:
+    - Blogger: tối thiểu khoảng 800 ký tự.
+    - WordPress: tối thiểu khoảng 1500 ký tự.
+- Áp dụng cho `website`, `blogger`, `wordpress` khi kênh được selected.
+- Nếu Blogger/WordPress rỗng hoặc quá ngắn: không được âm thầm insert/update `null`.
 
-2. Gỡ nút đăng Blogger ẩn trong tab Website
-- Trong `MultiChannelViewer`, xóa block `channel === 'website'` đang render thêm `DirectPublishButton channel="blogger"` với `content={website_content}`.
-- Mỗi kênh chỉ đăng từ tab của chính nó:
-  - Website/Blog nội bộ dùng `website_content`.
-  - Blogger dùng `blogger_content`.
-  - WordPress dùng `wordpress_content`.
+2. Auto-retry riêng Blogger/WordPress ngay trong backend
+- Sau lần generate chính, nếu `blogger_content` hoặc `wordpress_content` thiếu:
+  - Gọi AI lại riêng đúng kênh đó 1 lần bằng prompt tối giản nhưng rất chặt.
+  - Blogger prompt: 500-900 từ, casual/personal, ngôi “tôi/mình”, markdown nhẹ, kết bằng câu hỏi.
+  - WordPress prompt: 1200-2200 từ, expert/in-depth, H2/H3, FAQ/callout, markdown chuẩn.
+- Nếu retry thành công thì lưu đúng cột riêng.
+- Nếu retry vẫn rỗng: trả lỗi rõ `EMPTY_GENERATED_CHANNEL_CONTENT` thay vì tạo bài “không có text”.
 
-3. Siết publish backend để không đăng sai nội dung
-- Trong `channel-publisher`:
-  - Blogger/WordPress chỉ dùng `blogger_content` / `wordpress_content`.
-  - Không fallback sang `website_content` cho record mới.
-  - Nếu thiếu nội dung riêng, trả 400 `EMPTY_CHANNEL_CONTENT` với hướng dẫn tạo lại kênh đó.
-- Giữ backward-compat có kiểm soát nếu cần: chỉ cho fallback với dữ liệu cũ khi kênh không nằm trong `selected_channels` hoặc khi có flag rõ ràng; mặc định không fallback.
+3. Sửa streaming create path
+- Sau `generateChannelsParallel`, kiểm tra các kênh long-form selected.
+- Auto-retry Blogger/WordPress nếu thiếu.
+- Chỉ emit `result` và insert DB khi các kênh required có text hợp lệ.
+- Nếu fail, emit SSE error rõ: “Blogger/WordPress chưa tạo được nội dung riêng, vui lòng thử lại”.
 
-4. Chặn generation lưu thiếu nội dung riêng cho long-form
-- Trong `generate-multichannel` streaming create/expand:
-  - Sau khi `generateChannelsParallel` xong, kiểm tra các kênh selected: `website`, `blogger`, `wordpress`.
-  - Nếu kênh nào thiếu nội dung hoặc quá ngắn, không âm thầm insert null.
-  - Thử auto-regenerate riêng kênh thiếu 1 lần bằng prompt đặc thù.
-  - Nếu vẫn thiếu, trả lỗi rõ: “Blogger/WordPress chưa tạo được nội dung riêng, vui lòng tạo lại kênh.”
-- Khi expand thêm Blogger/WordPress vào content cũ, cũng áp dụng rule này trước khi update DB.
+4. Sửa non-streaming create/expand path
+- Trước khi insert/update DB, validate `generatedData.blogger_content` và `generatedData.wordpress_content`.
+- Auto-retry thiếu text giống streaming.
+- Expand thêm Blogger/WordPress vào bài cũ cũng phải tạo được text trước khi update `selected_channels`.
 
-5. Làm prompt/preview tách biệt hơn
-- Update preview mode trong `generate-multichannel`:
-  - Thêm `blogger` và `wordpress` vào `PREVIEW_CHANNEL_LIMITS` và `PREVIEW_CHANNEL_LABELS`.
-  - Inject rule khác nhau:
-    - Website: corporate SEO, schema-friendly.
-    - Blogger: casual/personal, ngắn hơn, không SEO chặt.
-    - WordPress: in-depth/expert, dài hơn, có H2/H3/FAQ/callout.
-- Update `MultiChannelPreviewDialog` mapping để Blogger dùng mockup Blogger và WordPress dùng mockup WordPress thay vì `general`.
+5. Sửa regenerate path cho Blogger/WordPress
+- Inject channel-specific hard prompt vào `systemPrompt`/`userPrompt` khi `channel === 'blogger'` hoặc `channel === 'wordpress'`.
+- Tăng token budget nếu cần để WordPress không bị cắt ngắn.
+- Sau streaming/non-streaming regenerate:
+  - Nếu output rỗng/quá ngắn, thử regenerate lại 1 lần bằng fallback non-streaming prompt.
+  - Nếu vẫn fail, không update DB bằng rỗng; trả lỗi cho UI.
 
-6. Cập nhật metadata/label gây hiểu nhầm
-- Sửa `CHANNELS` description:
-  - Blogger không còn “nội dung dùng chung Website”.
-  - Website / Blogger / WordPress mô tả rõ 3 output độc lập.
-- Sửa `BASE_CHANNEL_CONFIG` label cho Blogger/WordPress nếu còn hiển thị “Website/Blog”.
-- Sửa length label trong viewer cho Blogger/WordPress theo settings hiện tại.
+6. Sửa UI feedback để người dùng thấy đúng trạng thái
+- Sidebar kênh Blogger/WordPress nếu text rỗng: hiện badge “Thiếu text” thay vì chỉ `0 từ`.
+- Nút “Tạo nội dung riêng” đang có sẵn sẽ giữ lại, nhưng khi backend trả lỗi rỗng thì toast hiển thị message dễ hiểu.
+- Khi regenerate thành công, refetch/update content để text hiện ngay trong mockup.
 
-7. Dọn dữ liệu cũ theo hướng an toàn
-- Không tự copy `website_content` sang `blogger_content`/`wordpress_content` vì sẽ tiếp tục sai logic “cùng 1 nội dung”.
-- Với các bản cũ đang selected Blogger/WordPress nhưng content riêng rỗng:
-  - UI sẽ hiện missing state và nút “Tạo lại”.
-  - Người dùng có thể regenerate từng kênh để sinh nội dung riêng đúng format.
-- Nếu muốn, có thể thêm một tác vụ sau để batch-generate lại 8 Blogger + 7 WordPress records, nhưng mình không làm tự động trong plan này để tránh tốn credits/ghi sai hàng loạt.
+7. Không fallback về Website
+- Giữ nguyên quyết định đã chốt: Blogger/WordPress không fallback `website_content`.
+- Publish vẫn bị chặn nếu thiếu text riêng.
 
-8. Kiểm tra sau sửa
-- Tạo nội dung mới chọn cùng lúc `website + blogger + wordpress` và xác nhận DB có đủ 3 cột khác nhau.
-- Mở viewer, compare, export: mỗi kênh đọc đúng cột riêng, không fallback.
-- Publish Blogger/WordPress khi thiếu content riêng phải bị chặn với message rõ, không đăng bài Website.
-- Publish từng kênh khi có content riêng phải gửi đúng nội dung tương ứng.
+8. Dữ liệu cũ
+- Không tự copy Website sang Blogger/WordPress.
+- Các bài cũ đang `0 từ` sẽ được sửa bằng cách bấm “Tạo nội dung riêng” từng kênh.
+- Sau khi backend guard xong, việc bấm tạo lại sẽ phải sinh text thật hoặc báo lỗi rõ, không còn trạng thái “xong nhưng vẫn trống”.
+
+Các file dự kiến chỉnh:
+- `supabase/functions/generate-multichannel/index.ts`
+- `src/hooks/useStreamingRegenerate.ts`
+- `src/components/MultiChannelViewer.tsx`
+- Có thể cập nhật memory `longform-channel-separation-vn` để ghi rule mới: “selected Blogger/WordPress mà output rỗng thì fail, không lưu null”.
+
+Kết quả mong đợi:
+- Tạo mới chọn Website + Blogger + WordPress: DB phải có đủ 3 cột text riêng.
+- Tạo lại Blogger/WordPress từ bài cũ: text xuất hiện trong đúng tab.
+- Không còn trường hợp AI/backend báo hoàn thành nhưng Blogger/WordPress vẫn không có text.
