@@ -122,7 +122,7 @@ Deno.serve(
         .from("social_connections")
         .select("*")
         .eq("id", connectionId)
-        .eq("platform", "wordpress")
+        .in("platform", ["wordpress", "wordpress_com"])
         .single();
 
       if (connError || !connection) {
@@ -132,6 +132,69 @@ Deno.serve(
         throw new Error("WordPress connection bị vô hiệu hoá. Hãy kết nối lại.");
       }
 
+      const isDotCom = connection.platform === "wordpress_com";
+
+      const html = buildHtmlContent(content);
+
+      // ============= WordPress.com branch (OAuth Bearer) =============
+      if (isDotCom) {
+        const siteId = connection.metadata?.selected_site_id;
+        const siteUrlMeta = connection.metadata?.selected_site_url;
+        if (!siteId) {
+          throw new Error("WordPress.com connection thiếu selected_site_id. Hãy kết nối lại.");
+        }
+        const accessToken = await decryptCredential(connection.access_token);
+        if (!accessToken) {
+          throw new Error("Không decrypt được WordPress.com access token");
+        }
+
+        const status = requestedStatus || connection.metadata?.default_status || "publish";
+        const wpcomPayload: Record<string, unknown> = {
+          title,
+          content: html,
+          status,
+        };
+        if (excerpt) wpcomPayload.excerpt = excerpt;
+        if (slug) wpcomPayload.slug = slug;
+        if (featuredImageUrl) wpcomPayload.featured_image = featuredImageUrl;
+        if (Array.isArray(tags) && tags.length) {
+          wpcomPayload.tags = tags.filter((t) => typeof t === "string").join(",");
+        }
+        if (Array.isArray(categories) && categories.length) {
+          wpcomPayload.categories = categories.filter((c) => typeof c === "string").join(",");
+        }
+
+        const wpcomRes = await fetch(
+          `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(String(siteId))}/posts/new`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(wpcomPayload),
+          },
+        );
+        if (!wpcomRes.ok) {
+          const txt = await wpcomRes.text();
+          throw new Error(
+            `WordPress.com publish failed (${wpcomRes.status}): ${txt.slice(0, 500)}`,
+          );
+        }
+        const post = await wpcomRes.json();
+        return new Response(
+          JSON.stringify({
+            success: true,
+            postId: String(post?.ID),
+            postUrl: post?.URL,
+            status: post?.status,
+            site: siteUrlMeta,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // ============= Self-hosted WordPress branch (Application Password) =============
       const siteUrl: string = connection.metadata?.site_url;
       const username: string = connection.metadata?.username;
       if (!siteUrl || !username) {
@@ -144,7 +207,6 @@ Deno.serve(
       }
 
       const authString = btoa(`${username}:${appPassword}`);
-      const html = buildHtmlContent(content);
 
       // Upload featured image first
       let featuredMediaId: number | null = null;
