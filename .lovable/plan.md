@@ -1,49 +1,124 @@
-Tôi đã kiểm tra trực tiếp record mới nhất `c2e83af5...`: `website_content` có 6139 ký tự nhưng `blogger_content = 0`, `wordpress_content = 0`. Nghĩa là mockup không nhận text vì DB vẫn đang lưu rỗng, không phải do component mockup render sai.
+# Plan: Tối ưu SEO cho Flowa
 
-Nguyên nhân cụ thể hiện tại:
-1. Backend streaming có log AI đã sinh Blogger 1549 chars và WordPress retry 3207 chars.
-2. Nhưng sau đó record lưu vào DB vẫn `blogger_content/wordpress_content = NULL`.
-3. Nhánh streaming đang lấy kết quả từ `parallelResult.channelResults` rồi ghi thẳng sang DB. Kết quả retry/guard có thể nằm trong buffer nội bộ `channelResults`, nhưng chưa có lớp “assert trước insert + assert sau insert”. Vì vậy backend vẫn có đường thoát ghi thành công record thiếu text.
-4. Frontend mockup đang đọc đúng cột riêng (`blogger_content`, `wordpress_content`) và không fallback website, nên khi DB rỗng thì mockup rỗng là đúng.
+## Hiện trạng (đã có)
+- `SEOHead` component với JSON-LD (Article, Breadcrumb, FAQ, HowTo, Organization, WebSite)
+- Meta tags + OG/Twitter cards trong `index.html`
+- `<noscript>` fallback chứa nội dung text cho crawler không chạy JS
+- `robots.txt` + `sitemap.xml` tĩnh (9 URLs)
+- `BlogPost.tsx` dynamic + `Pricing.tsx` (chưa có SEOHead)
 
-Plan sửa dứt điểm:
+## Vấn đề cần sửa
 
-1. Khóa backend streaming trước khi lưu
-- Trong `supabase/functions/generate-multichannel/index.ts`, ngay trước `.insert(buildMultiChannelCreatePayload(...))` và `.update(...)`, tạo payload vào biến riêng.
-- Ép lấy text Blogger/WordPress bằng helper chuẩn hóa từ `channelResults.blogger` / `channelResults.wordpress`.
-- Nếu kênh được chọn mà payload vẫn thiếu text sau retry: trả lỗi 422, fail task, không cho insert/update record rỗng.
-- Log rõ `pre-insert lens={blogger=..., wordpress=...}`.
+### 1. Domain mismatch nghiêm trọng (CRITICAL)
+- `SEOHead.tsx` hard-code `https://tiktok-tale-tech.lovable.app`
+- `sitemap.xml` + `robots.txt` cũng dùng domain Lovable preview
+- `index.html` canonical lại trỏ `https://flowa.one`
+- → Google index sai domain, canonical conflict, mất authority
 
-2. Kiểm chứng sau khi lưu DB
-- Sau insert/update, đọc lại chính record vừa lưu với `select('id, blogger_content, wordpress_content, website_content')`.
-- Nếu kênh được chọn nhưng DB trả về rỗng: lập tức patch update lại bằng text đã có trong memory.
-- Nếu patch vẫn không thành công: trả lỗi thay vì báo success.
-- Điều này chặn hoàn toàn case “AI có text nhưng DB lưu NULL mà UI báo xong”.
+**Fix**: Đổi tất cả sang `https://flowa.one` (primary domain).
 
-3. Trả result cho frontend bằng record đã verify
-- Event `result` trong SSE sẽ dùng record sau verify/patch, không dùng object cũ `savedContent` có thể thiếu cột.
-- Như vậy khi chuyển sang viewer/mockup, object nhận được đã có `blogger_content` và `wordpress_content`.
+### 2. SPA không prerender (CRITICAL cho SEO)
+- React SPA → bot Google render được nhưng chậm; Bing/Facebook/LinkedIn crawler **không** chạy JS
+- Mỗi route trả cùng 1 `index.html` với title/description giống nhau cho đến khi React mount
+- `SEOHead` (react-helmet-async) chỉ chạy client-side → meta tags không có trong HTML response
 
-4. Sửa regenerate để cập nhật viewer state đúng cách
-- Trong `MultiChannelViewer`, callback regenerate hiện đang gọi `onUpdateContent(content.id, channel, newContent)` sau khi backend đã regenerate. Cách này có thể ghi đè bằng text từ stream nếu result parse thiếu.
-- Đổi sang: sau regenerate success, refetch/update bằng full row backend trả về hoặc gọi `onRegenerate` non-stream fallback chỉ khi cần. Mục tiêu: viewer state luôn nhận full `MultiChannelContent` mới, không chỉ string.
+**Fix**: Cài `vite-plugin-prerender` hoặc `react-snap` để build-time prerender các trang public (Landing, About, Pricing, Contact, Careers, Blog list, 4 blog posts, Terms, Privacy).
 
-5. Sửa lỗi phụ đang có trong update map
-- Trong `useMultiChannelContents.ts`, `updateChannelContent` đang map sai:
-  - `pinterest: 'instagram_content'`
-  - `bluesky: 'Bluesky'`
-- Tôi sẽ sửa thành `pinterest_content` và `bluesky_content` để tránh các kênh khác bị ghi nhầm khi edit/save.
+### 3. Sitemap tĩnh, không sync DB
+- 9 URLs hardcode trong `public/sitemap.xml`
+- `BlogPost.tsx` (dynamic từ DB?) không có trong sitemap
+- Không có `lastmod` thực
 
-6. Bổ sung fallback frontend cho bài cũ đang rỗng
-- Với các record cũ như `c2e83af5...` đã bị lưu rỗng, mockup vẫn sẽ hiển thị banner “Chưa có nội dung riêng”.
-- Nút “Tạo nội dung riêng” sẽ regenerate và sau fix sẽ cập nhật đúng cột + refresh mockup ngay.
-- Không copy website sang Blogger/WordPress vì yêu cầu đã chốt là 3 kênh long-form độc lập.
+**Fix**: Tạo edge function `generate-sitemap` query `multi_channel_contents` (hoặc bảng blog) → trả XML động. Route `/sitemap.xml` proxy qua function. Hoặc build-time script generate từ static blog list + DB.
 
-Files cần sửa:
-- `supabase/functions/generate-multichannel/index.ts`
-- `src/hooks/useStreamingRegenerate.ts`
-- `src/components/MultiChannelViewer.tsx`
-- `src/hooks/useMultiChannelContents.ts`
-- cập nhật memory longform để ghi lại invariant: “selected Blogger/WordPress must be non-empty in DB before success”.
+### 4. Pricing page chưa có SEOHead
+- Trang quan trọng convert nhất nhưng thiếu meta + JSON-LD
+- Thiếu schema `Product`/`Offer` cho 4 tier (Free/Starter/Pro/Enterprise)
 
-Sau khi approve, tôi sẽ implement ngay và triển khai edge function để test bằng record mới/regenerate.
+### 5. Thiếu structured data quan trọng
+- `SoftwareApplication` schema cho Flowa (rating, price, features)
+- `BreadcrumbList` chưa được dùng ở Pricing/About/Contact/Careers
+- `LocalBusiness` (nếu có địa chỉ VN)
+- `Review`/`AggregateRating` từ testimonials trong landing
+
+### 6. Performance & Core Web Vitals
+- Font không có `display=swap` hint
+- Không có `<link rel="preconnect">` cho font/image CDN
+- Không lazy-load images dưới fold
+- Bundle lớn (chưa biết size) → cần code-split landing khỏi app
+
+### 7. Internal linking & content
+- `<noscript>` chứa nhiều text policy nhưng không có internal link tới blog posts
+- Blog posts không có related posts section
+- Không có HTML sitemap (`/sitemap` page) cho user
+
+### 8. Multi-language SEO
+- App có vi/en/th nhưng không có `hreflang` tags
+- Không có route `/en/`, `/th/` cho landing
+
+### 9. Image SEO
+- OG image dùng googleapis URL (chậm, không cache CDN của mình)
+- Blog images thiếu `alt` text consistent
+- Không có image sitemap
+
+### 10. Analytics & Search Console
+- Chưa thấy GSC verification meta
+- Chưa có GA4/Plausible tracking để đo organic traffic
+
+## Implementation Plan
+
+### Phase 1: Fix critical (1 commit)
+1. Đổi `SITE_URL` trong `SEOHead.tsx` → `https://flowa.one`
+2. Update `public/sitemap.xml` + `robots.txt` → flowa.one
+3. Thêm `<SEOHead>` vào `Pricing.tsx` với schema `Product` + `Offer` cho 4 tiers
+4. Thêm `BreadcrumbList` cho About, Pricing, Contact, Careers
+
+### Phase 2: Prerender (1 commit)
+1. Cài `vite-plugin-prerender-spa` hoặc dùng custom puppeteer script
+2. Config prerender cho 11 routes public
+3. Verify HTML response có title/meta/JSON-LD
+
+### Phase 3: Dynamic sitemap (1 commit)
+1. Edge function `generate-sitemap` → query blog posts từ DB
+2. Tạo Vite plugin/middleware route `/sitemap.xml` proxy edge function
+3. Submit sitemap mới lên GSC
+
+### Phase 4: Structured data nâng cao (1 commit)
+1. `SoftwareApplication` schema ở Landing (price, rating từ testimonials)
+2. `Review` + `AggregateRating` schema từ TestimonialsSection
+3. `LocalBusiness` schema nếu có địa chỉ VN trong Contact
+4. FAQ schema mở rộng từ FAQSection (đã có FAQ component, chỉ cần wire)
+
+### Phase 5: Performance (1 commit)
+1. Preconnect cho fonts.googleapis.com, storage.googleapis.com
+2. `loading="lazy"` cho images dưới fold
+3. Self-host OG image vào `/public/og-image.jpg`
+4. Code-split landing bundle (lazy chunks)
+5. Add `font-display: swap`
+
+### Phase 6: Content & links (ongoing)
+1. Related posts section trong BlogPost
+2. HTML sitemap page `/sitemap`
+3. Footer internal links optimization
+4. Add 4-6 blog posts mới (long-tail keywords VN)
+
+### Phase 7: i18n SEO (optional)
+1. `hreflang` tags trong SEOHead
+2. Locale-prefixed routes nếu cần serve EN/TH
+
+### Phase 8: Tracking (1 commit)
+1. GSC verification meta tag (cần user cung cấp code)
+2. GA4/Plausible script trong index.html
+3. Track Core Web Vitals → reportWebVitals
+
+## Câu hỏi cho user trước khi implement
+- Domain chính xác để dùng làm canonical: `flowa.one` hay `app.flowa.one`?
+- Đã verify GSC chưa? Có sẵn verification code?
+- Có muốn prerender ngay (tăng build time ~30s) hay làm sau?
+- Blog posts hiện hardcode trong code hay đã chuyển vào DB?
+
+## Ưu tiên triển khai
+**P0 (làm ngay)**: Phase 1 (fix domain) + Phase 4 partial (Pricing schema)
+**P1 (tuần này)**: Phase 2 (prerender) + Phase 3 (dynamic sitemap) + Phase 5 (perf)
+**P2 (tuần sau)**: Phase 6 (content) + Phase 8 (tracking)
+**P3 (khi cần)**: Phase 7 (i18n)
