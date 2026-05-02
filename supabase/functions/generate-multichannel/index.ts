@@ -3269,6 +3269,8 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 } else {
                   channelResults[channel] = content;
                 }
+                const _stored = channelResults[channel] || '';
+                console.log(`[streaming-mode] channel=${channel} length=${typeof _stored === 'string' ? _stored.length : JSON.stringify(_stored).length} chars`);
                 
                 const displayName = getChannelDisplayName(channel);
                 const completionProgress = 20 + ((completedChannelsSet.size / channels.length) * 55);
