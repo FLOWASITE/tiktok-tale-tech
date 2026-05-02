@@ -13,7 +13,19 @@ import CoverageTab from "@/components/admin/seo-keywords/CoverageTab";
 import AdminSeoPages from "@/pages/AdminSeoPages";
 
 export default function AdminSeoHub() {
-  const [tab, setTab] = useState("dashboard");
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useState(params.get("tab") || "dashboard");
+  useEffect(() => {
+    const t = params.get("tab");
+    if (t && t !== tab) setTab(t);
+  }, [params]);
+  const handleTabChange = (v: string) => {
+    setTab(v);
+    const next = new URLSearchParams(params);
+    next.set("tab", v);
+    if (v !== "pillars") next.delete("pillar");
+    setParams(next, { replace: true });
+  };
 
   return (
     <div className="space-y-6 p-6">
