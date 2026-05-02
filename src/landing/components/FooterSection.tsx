@@ -49,7 +49,7 @@ export function FooterSection() {
       links: [
         { name: t("footer.sections.legal.links.0"), href: "/terms", isInternal: true },
         { name: t("footer.sections.legal.links.1"), href: "/privacy", isInternal: true },
-        { name: t("footer.sections.legal.links.2"), href: "#" },
+        { name: "Sitemap", href: "/sitemap", isInternal: true },
         { name: t("footer.sections.legal.links.3"), href: "#" },
       ],
     },
