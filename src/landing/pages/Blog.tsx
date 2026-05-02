@@ -132,6 +132,7 @@ const Blog = () => {
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
         ]}
+        noscriptContent={`<h2>Blog Flowa - Content Marketing & AI</h2><p>Chia sẻ kiến thức, trends và chiến lược content marketing từ đội ngũ Flowa: AI content generation, brand voice, multi-channel publishing, GEO optimization, video script AI.</p><p><a href="https://flowa.one/blog/flowa-content-marketing-da-kenh">Flowa giải pháp content đa kênh</a> · <a href="https://flowa.one/blog/cach-tao-content-da-kenh">Cách tạo content đa kênh</a> · <a href="https://flowa.one/blog/ai-content-marketing-huong-dan">Hướng dẫn AI content marketing</a> · <a href="https://flowa.one/blog/content-repurposing-chien-luoc">Chiến lược content repurposing</a></p>`}
       />
       <CollectionPageSchema
         posts={allPosts.map((post) => ({

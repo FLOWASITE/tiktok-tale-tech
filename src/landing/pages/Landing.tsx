@@ -42,6 +42,7 @@ export default function Landing() {
         title="Flowa — AI Marketing Agent | Tự Động Hóa Content Marketing"
         description="Flowa là AI Marketing Agent tự nghiên cứu thị trường, lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài tự động."
         canonicalPath="/"
+        noscriptContent={`<h2>Flowa giúp Marketing Team làm gì?</h2><ul><li>Tạo content cho 12 kênh (Facebook, TikTok, Instagram, LinkedIn, Blog, Email, X, Threads, Pinterest, YouTube, Zalo, Bluesky)</li><li>Brand Voice AI giữ giọng điệu nhất quán</li><li>Industry Memory tự động tuân thủ quy định ngành</li><li>Multi-platform Publishing</li><li>Carousel AI sequential generation</li><li>AI Video Script & Generation</li></ul><p><strong>Liên kết:</strong> <a href="https://flowa.one/pricing">Bảng giá</a> · <a href="https://flowa.one/blog">Blog</a> · <a href="https://flowa.one/about">Về Flowa</a> · <a href="https://flowa.one/contact">Liên hệ</a></p>`}
       />
       <LandingSEOSchemas reviews={reviews} />
       <ScrollProgress />

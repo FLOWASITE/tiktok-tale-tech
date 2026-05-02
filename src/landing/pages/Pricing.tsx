@@ -201,6 +201,7 @@ export default function Pricing() {
           { name: 'Trang chủ', url: '/' },
           { name: 'Bảng giá', url: '/pricing' },
         ]}
+        noscriptContent={`<h2>Bảng giá Flowa</h2><ul><li><strong>Free</strong> — 0đ/tháng. 1 brand, 2 nội dung/tháng, AI chat không giới hạn</li><li><strong>Starter</strong> — 299.000đ/tháng. 3 brand, 20 nội dung, 20 ảnh, 10 kịch bản, 3 carousel, publishing đa kênh</li><li><strong>Professional</strong> — 549.000đ/tháng. 5 brand, 100 nội dung, AI Pro 5-Agent, analytics, team 5 người</li><li><strong>Enterprise</strong> — Tùy chỉnh. Unlimited, SLA 99.9%, dedicated CSM</li></ul><p>Tất cả gói đều bao gồm: Brand Voice AI, Industry Memory, Compliance Engine, GEO Optimization. <a href="https://flowa.one/contact">Liên hệ tư vấn</a></p>`}
       />
       <PricingSEOSchema
         tiers={[
