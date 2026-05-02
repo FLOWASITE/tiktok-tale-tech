@@ -224,7 +224,7 @@ export default function PillarsTab() {
                       size="sm"
                       variant="outline"
                       className="flex-1 gap-1"
-                      onClick={() => setActiveId(c.id)}
+                      onClick={() => openPillar(c.id)}
                     >
                       Mở <ArrowRight className="h-3 w-3" />
                     </Button>
