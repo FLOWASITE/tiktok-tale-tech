@@ -5,10 +5,11 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, X, FileText, ExternalLink } from "lucide-react";
+import { ArrowLeft, Plus, X, FileText, ExternalLink, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
+import SuggestTopicsDialog from "./SuggestTopicsDialog";
 
 interface Props {
   clusterId: string;
