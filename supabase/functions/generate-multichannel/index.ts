@@ -4578,7 +4578,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         contentGoal: contentGoal,
         qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
       });
-      const effectiveMaxTokens = modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens);
+      const effectiveMaxTokens = clampMaxTokensForModel(modelConfig.model, modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens));
       console.log(`[dynamic-tokens] Grouped channels [${channelsToGenerate.join(', ')}]: ${effectiveMaxTokens} tokens (dynamic=${dynamicMaxTokens}, fallback=${aiConfig.max_tokens})`);
       
       console.log(`Calling AI (${modelConfig.model}) for channels: ${channelsToGenerate.join(', ')}`);
@@ -5013,7 +5013,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
               channelMaxLength: channelSettingsEarly.max_length,
               lengthUnit: channelSettingsEarly.length_unit === 'chars' ? 'chars' : 'words',
             });
-            const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
+            const maxTokens = clampMaxTokensForModel(model, channelConfig?.maxTokens ?? dynamicTokens);
             console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${channelSettingsEarly.max_length} ${channelSettingsEarly.length_unit})`);
             
             // Use channelSettings from DB (same as Manual Mode) instead of hardcoded descriptions
