@@ -7514,6 +7514,63 @@ export type Database = {
           },
         ]
       }
+      internal_links: {
+        Row: {
+          anchor_text: string
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string
+          similarity: number | null
+          source_content_id: string
+          status: string
+          target_content_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          anchor_text: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id: string
+          similarity?: number | null
+          source_content_id: string
+          status?: string
+          target_content_id: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          anchor_text?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string
+          similarity?: number | null
+          source_content_id?: string
+          status?: string
+          target_content_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_links_source_content_id_fkey"
+            columns: ["source_content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_links_target_content_id_fkey"
+            columns: ["target_content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journey_stage_messaging: {
         Row: {
           avoid_messages: string[] | null
