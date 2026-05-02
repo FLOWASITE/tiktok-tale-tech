@@ -40,6 +40,23 @@ interface DBPost {
   published_at?: string | null;
 }
 
+interface SeoLandingRow {
+  slug: string;
+  page_type: string;
+  title?: string | null;
+  hero_image?: string | null;
+  updated_at?: string | null;
+  published_at?: string | null;
+}
+
+const PAGE_TYPE_PREFIX: Record<string, string> = {
+  industry: "/giai-phap",
+  comparison: "/so-sanh",
+  feature: "/tinh-nang",
+  use_case: "/use-case",
+  tool: "/cong-cu",
+};
+
 async function fetchDbPosts(): Promise<DBPost[]> {
   try {
     const url = `${SUPABASE_URL}/rest/v1/blog_posts?select=slug,title,cover_image,updated_at,published_at&is_public=eq.true&status=eq.published&order=published_at.desc&limit=500`;
@@ -60,7 +77,27 @@ async function fetchDbPosts(): Promise<DBPost[]> {
   }
 }
 
-function buildXml(posts: DBPost[]): string {
+async function fetchSeoLandingPages(): Promise<SeoLandingRow[]> {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/seo_landing_pages?select=slug,page_type,title,hero_image,updated_at,published_at&is_published=eq.true&limit=2000`;
+    const res = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
+    if (!res.ok) {
+      console.warn(`[sitemap] SEO landing fetch failed: ${res.status}`);
+      return [];
+    }
+    return (await res.json()) as SeoLandingRow[];
+  } catch (err) {
+    console.warn("[sitemap] SEO landing fetch error:", err);
+    return [];
+  }
+}
+
+function buildXml(posts: DBPost[], seoPages: SeoLandingRow[]): string {
   const today = new Date().toISOString().split("T")[0];
   const hreflangFor = (loc: string) =>
     `    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}"/>`;
@@ -110,6 +147,28 @@ ${hreflangFor(loc)}${imageBlock}
   </url>`);
   }
 
+  // Programmatic SEO landing pages
+  for (const p of seoPages) {
+    if (!p.slug || !p.page_type) continue;
+    const prefix = PAGE_TYPE_PREFIX[p.page_type];
+    if (!prefix) continue;
+    const lastmod = (p.updated_at || p.published_at || "").split("T")[0] || today;
+    const loc = `${SITE_URL}${prefix}/${escapeXml(p.slug)}`;
+    const imageBlock = p.hero_image
+      ? `\n    <image:image>
+      <image:loc>${escapeXml(p.hero_image)}</image:loc>
+      ${p.title ? `<image:title>${escapeXml(p.title)}</image:title>` : ""}
+    </image:image>`
+      : "";
+    urls.push(`  <url>
+    <loc>${loc}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+${hreflangFor(loc)}${imageBlock}
+  </url>`);
+  }
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml"
@@ -120,11 +179,10 @@ ${urls.join("\n")}
 
 /**
  * Vite plugin: generate sitemap.xml at build time, merging static landing pages
- * with published blog posts from the Supabase DB. Output written to dist/sitemap.xml.
+ * with published blog posts + programmatic SEO landing pages from the Supabase DB.
  *
  * Why build-time: Lovable hosting is static SPA — no server-side rewrite/proxy.
- * Google Search Console requires sitemap on same domain (flowa.one), so we
- * cannot point GSC directly at the Supabase edge function URL.
+ * Google Search Console requires sitemap on same domain (flowa.one).
  */
 export function sitemapPlugin(): Plugin {
   let outDir = "dist";
@@ -136,14 +194,15 @@ export function sitemapPlugin(): Plugin {
     },
     async closeBundle() {
       console.log("[sitemap] generating sitemap.xml...");
-      const posts = await fetchDbPosts();
-      const xml = buildXml(posts);
+      const [posts, seoPages] = await Promise.all([fetchDbPosts(), fetchSeoLandingPages()]);
+      const xml = buildXml(posts, seoPages);
       const target = resolve(process.cwd(), outDir, "sitemap.xml");
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, xml, "utf-8");
       console.log(
-        `[sitemap] wrote ${target} (${STATIC_URLS.length} static + ${LEGACY_BLOG_SLUGS.length} legacy + ${posts.length} db posts)`,
+        `[sitemap] wrote ${target} (${STATIC_URLS.length} static + ${LEGACY_BLOG_SLUGS.length} legacy + ${posts.length} db posts + ${seoPages.length} SEO landing pages)`,
       );
     },
   };
 }
+

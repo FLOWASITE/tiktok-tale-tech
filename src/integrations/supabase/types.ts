@@ -9778,6 +9778,105 @@ export type Database = {
           },
         ]
       }
+      seo_landing_pages: {
+        Row: {
+          ai_generated: boolean | null
+          comparison_table: Json | null
+          competitor_name: string | null
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          cta_url: string | null
+          faqs: Json | null
+          feature_key: string | null
+          generation_prompt_version: string | null
+          h1: string
+          hero_image: string | null
+          id: string
+          industry_id: string | null
+          intro_html: string | null
+          is_published: boolean
+          key_stats: Json | null
+          keywords: string[] | null
+          last_seo_score: number | null
+          locale: string
+          meta_description: string
+          og_image: string | null
+          page_type: string
+          published_at: string | null
+          related_slugs: string[] | null
+          sections: Json | null
+          slug: string
+          title: string
+          tldr: Json | null
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          comparison_table?: Json | null
+          competitor_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_url?: string | null
+          faqs?: Json | null
+          feature_key?: string | null
+          generation_prompt_version?: string | null
+          h1: string
+          hero_image?: string | null
+          id?: string
+          industry_id?: string | null
+          intro_html?: string | null
+          is_published?: boolean
+          key_stats?: Json | null
+          keywords?: string[] | null
+          last_seo_score?: number | null
+          locale?: string
+          meta_description: string
+          og_image?: string | null
+          page_type: string
+          published_at?: string | null
+          related_slugs?: string[] | null
+          sections?: Json | null
+          slug: string
+          title: string
+          tldr?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean | null
+          comparison_table?: Json | null
+          competitor_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_url?: string | null
+          faqs?: Json | null
+          feature_key?: string | null
+          generation_prompt_version?: string | null
+          h1?: string
+          hero_image?: string | null
+          id?: string
+          industry_id?: string | null
+          intro_html?: string | null
+          is_published?: boolean
+          key_stats?: Json | null
+          keywords?: string[] | null
+          last_seo_score?: number | null
+          locale?: string
+          meta_description?: string
+          og_image?: string | null
+          page_type?: string
+          published_at?: string | null
+          related_slugs?: string[] | null
+          sections?: Json | null
+          slug?: string
+          title?: string
+          tldr?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       social_connections: {
         Row: {
           access_token: string
