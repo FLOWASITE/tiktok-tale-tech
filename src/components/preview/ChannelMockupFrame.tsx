@@ -2335,6 +2335,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <BlueskyMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'email':
       return <EmailMockup {...rest} brandName={safeBrandName} />;
+    case 'blogger':
+      return <BloggerMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'general':
       return <WebsiteMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     default:
