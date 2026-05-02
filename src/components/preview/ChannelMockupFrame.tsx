@@ -46,6 +46,7 @@ import {
 import { PinterestIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { BloggerMockup } from './BloggerMockup';
 
 // Shared markdown components for mockups
 const mockupMarkdownComponents = {
