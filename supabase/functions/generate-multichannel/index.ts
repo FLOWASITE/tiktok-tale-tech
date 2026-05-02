@@ -3218,7 +3218,69 @@ ${buildPersonaFitBoostPrompt(targetPersonaData)}
           console.log("[streaming-mode] Targeted persona loaded:", targetPersona.name);
         }
       }
-      
+
+      // ============================================
+      // SEO PILLAR CLUSTER CONTEXT (Streaming mode)
+      // Inject pillar + target keywords vào prompt để AI tối ưu on-page SEO.
+      // BUG FIX: trước đây chỉ normal-mode build block này, streaming mode bỏ qua
+      // → keyword được lưu DB nhưng AI không hề biết để dùng.
+      // ============================================
+      let seoClusterContext = '';
+      if (formData.clusterId || (formData.targetKeywordIds && formData.targetKeywordIds.length > 0)) {
+        try {
+          let clusterRow: any = null;
+          if (formData.clusterId) {
+            const { data } = await supabase
+              .from('seo_clusters')
+              .select('id,name,description,pillar_keyword_id')
+              .eq('id', formData.clusterId)
+              .maybeSingle();
+            clusterRow = data;
+          }
+          let pillarKeyword: string | null = null;
+          if (clusterRow?.pillar_keyword_id) {
+            const { data: pk } = await supabase
+              .from('seo_keywords')
+              .select('keyword')
+              .eq('id', clusterRow.pillar_keyword_id)
+              .maybeSingle();
+            pillarKeyword = (pk as any)?.keyword || null;
+          }
+          let kwRows: any[] = [];
+          if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
+            const { data } = await supabase
+              .from('seo_keywords')
+              .select('keyword,search_intent,search_volume,is_pillar')
+              .in('id', formData.targetKeywordIds);
+            kwRows = data || [];
+          }
+          if (clusterRow || kwRows.length) {
+            const kwLines = kwRows.slice(0, 12).map((k: any) =>
+              `- ${k.keyword}${k.is_pillar ? ' (PILLAR)' : ''}${k.search_intent ? ` · intent: ${k.search_intent}` : ''}${k.search_volume ? ` · vol: ${k.search_volume}` : ''}`
+            ).join('\n');
+            seoClusterContext = `
+## 🎯 SEO PILLAR CLUSTER (BẮT BUỘC ÁP DỤNG)
+${clusterRow?.name ? `**Pillar**: ${clusterRow.name}` : ''}
+${clusterRow?.description ? `**Mô tả pillar**: ${clusterRow.description}` : ''}
+${pillarKeyword ? `**Pillar keyword (chính)**: "${pillarKeyword}" — phải xuất hiện tự nhiên trong tiêu đề + đoạn mở bài.` : ''}
+
+**Keyword mục tiêu của bài (ưu tiên cao → thấp):**
+${kwLines || '- (không có keyword cụ thể)'}
+
+QUY TẮC SEO ON-PAGE:
+1. Bài thuộc silo "${clusterRow?.name || 'pillar'}" — giọng và góc nhìn phải nhất quán với pillar.
+2. Lồng pillar keyword + 2-3 keyword phụ tự nhiên (KHÔNG nhồi nhét), mật độ ~0.8-1.5%.
+3. Với kênh long-form (website/blogger/wordpress): dùng keyword làm H2/H3, có internal-link gợi ý đến pillar/sister content.
+4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
+5. Tuyệt đối không bịa số liệu để nhồi keyword.
+`;
+            console.log(`[streaming-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" keywords=${kwRows.length}`);
+          }
+        } catch (err) {
+          console.warn('[streaming-mode] Failed to load SEO cluster context:', err);
+        }
+      }
+
       // Build hook overview for all channels
       const hookOverview = buildHookOverview(formData.selectedHooks, formData.globalHook);
       
