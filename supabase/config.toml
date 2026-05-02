@@ -421,3 +421,6 @@ verify_jwt = false
 
 [functions.refresh-bluesky-token]
 verify_jwt = false
+
+[functions.generate-sitemap]
+verify_jwt = false
