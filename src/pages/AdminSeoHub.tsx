@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, FlaskConical, FolderTree, Upload, BarChart3, FileText, LineChart, Link2 } from "lucide-react";
+import { Search, FlaskConical, FolderTree, Upload, BarChart3, FileText, LineChart, Link2, Target } from "lucide-react";
 import KeywordDashboardTab from "@/components/admin/seo-keywords/KeywordDashboardTab";
 import KeywordExplorerTab from "@/components/admin/seo-keywords/KeywordExplorerTab";
 import KeywordClusterTab from "@/components/admin/seo-keywords/KeywordClusterTab";
+import PillarsTab from "@/components/admin/seo-keywords/PillarsTab";
 import KeywordResearchLabTab from "@/components/admin/seo-keywords/KeywordResearchLabTab";
 import KeywordImportTab from "@/components/admin/seo-keywords/KeywordImportTab";
 import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
@@ -26,12 +27,15 @@ export default function AdminSeoHub() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8 max-w-6xl">
+        <TabsList className="grid w-full grid-cols-9 max-w-6xl">
           <TabsTrigger value="dashboard" className="gap-1.5">
             <BarChart3 className="h-4 w-4" /> Dashboard
           </TabsTrigger>
           <TabsTrigger value="explorer" className="gap-1.5">
             <Search className="h-4 w-4" /> Keywords
+          </TabsTrigger>
+          <TabsTrigger value="pillars" className="gap-1.5">
+            <Target className="h-4 w-4" /> Pillars
           </TabsTrigger>
           <TabsTrigger value="clusters" className="gap-1.5">
             <FolderTree className="h-4 w-4" /> Clusters
@@ -55,6 +59,7 @@ export default function AdminSeoHub() {
 
         <TabsContent value="dashboard" className="mt-6"><KeywordDashboardTab /></TabsContent>
         <TabsContent value="explorer" className="mt-6"><KeywordExplorerTab /></TabsContent>
+        <TabsContent value="pillars" className="mt-6"><PillarsTab /></TabsContent>
         <TabsContent value="clusters" className="mt-6"><KeywordClusterTab /></TabsContent>
         <TabsContent value="coverage" className="mt-6"><CoverageTab /></TabsContent>
         <TabsContent value="research" className="mt-6"><KeywordResearchLabTab /></TabsContent>
