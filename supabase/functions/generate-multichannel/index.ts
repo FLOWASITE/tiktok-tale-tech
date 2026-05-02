@@ -715,6 +715,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'tags',
   'website_content',
   'website_seo_data',
+  'blogger_content',
+  'wordpress_content',
   'facebook_content',
   'instagram_content',
   'twitter_content',
