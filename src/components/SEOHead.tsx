@@ -52,6 +52,7 @@ export function SEOHead({
   article,
   breadcrumbs,
   noIndex = false,
+  noscriptContent,
   children,
 }: SEOHeadProps) {
   const { i18n } = useTranslation();
