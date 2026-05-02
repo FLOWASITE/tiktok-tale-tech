@@ -229,6 +229,21 @@ export default function MultiChannelCreate() {
       setGeneratedContentId(result.id);
       setGenerationState('complete');
 
+      // Persist SEO Pillar Cluster + target keywords to the content row (best-effort)
+      if (data.clusterId || (data.targetKeywordIds && data.targetKeywordIds.length > 0)) {
+        try {
+          await supabase
+            .from('multi_channel_contents')
+            .update({
+              cluster_id: data.clusterId ?? null,
+              target_keyword_ids: data.targetKeywordIds ?? [],
+            })
+            .eq('id', result.id);
+        } catch (err) {
+          console.warn('[MultiChannelCreate] Failed to attach pillar/keywords:', err);
+        }
+      }
+
       if (selectedBrandId && data.channels?.length) {
         // Only auto-generate images for visual channels (skip pure-text channels like email/telegram)
         const visualChannels = data.channels.filter((ch) => VISUAL_IMAGE_CHANNELS.has(ch));
