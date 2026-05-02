@@ -239,6 +239,10 @@ export default function MultiChannelCreate() {
               target_keyword_ids: data.targetKeywordIds ?? [],
             })
             .eq('id', result.id);
+          if (data.clusterId) {
+            // Recompute pillar lifecycle status (planning → active → completed)
+            await (supabase as any).rpc('refresh_cluster_status', { _cluster_id: data.clusterId });
+          }
         } catch (err) {
           console.warn('[MultiChannelCreate] Failed to attach pillar/keywords:', err);
         }
