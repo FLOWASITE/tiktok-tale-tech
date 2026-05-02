@@ -108,6 +108,10 @@ export default function Contact() {
         title="Liên Hệ Flowa - Tư Vấn Content Marketing AI"
         description="Liên hệ Flowa để được tư vấn giải pháp content marketing đa kênh với AI. Email, điện thoại, hoặc đặt lịch demo."
         canonicalPath="/contact"
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Liên hệ', url: '/contact' },
+        ]}
       />
       {/* Hero Section - Simple */}
       <section className="py-16 md:py-24">

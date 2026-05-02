@@ -13,6 +13,7 @@ import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { SEOHead, PricingSEOSchema } from "@/components/SEOHead";
 
 const PLANS = [
   {
@@ -192,6 +193,23 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Bảng giá Flowa — Gói Free, Starter, Pro & Enterprise | AI Marketing"
+        description="So sánh các gói Flowa: Free 0đ, Starter 299k, Pro và Enterprise. Chọn gói AI Marketing phù hợp cho cá nhân, team SME hoặc doanh nghiệp lớn tại Việt Nam."
+        canonicalPath="/pricing"
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Bảng giá', url: '/pricing' },
+        ]}
+      />
+      <PricingSEOSchema
+        tiers={[
+          { name: 'Free', priceVnd: 0, description: 'Dùng thử miễn phí, 1 brand, 2 nội dung/tháng' },
+          { name: 'Starter', priceVnd: 299000, description: '50 nội dung/tháng cho cá nhân & freelancer' },
+          { name: 'Pro', priceVnd: 799000, description: '200 nội dung/tháng cho SME team' },
+          { name: 'Enterprise', priceVnd: 2490000, description: '600 nội dung/tháng + SLA cho doanh nghiệp' },
+        ]}
+      />
       {/* Hero */}
       <section className="pt-12 pb-8 lg:pt-20 lg:pb-12">
         <div className="container mx-auto px-4 max-w-6xl text-center">

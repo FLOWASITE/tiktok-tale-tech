@@ -89,6 +89,10 @@ export default function About() {
         title="Về Flowa - Đội Ngũ & Sứ Mệnh"
         description="Tìm hiểu về Flowa - nền tảng AI giúp tự động hóa content marketing đa kênh. Đội ngũ, giá trị cốt lõi và câu chuyện thành lập."
         canonicalPath="/about"
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Về Flowa', url: '/about' },
+        ]}
       />
       {/* Hero Section */}
       <section className="py-20 md:py-28 lg:py-32">
