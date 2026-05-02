@@ -19,4 +19,8 @@ Disallow: /admin/
 Disallow: /auth
 Disallow: /api/
 
+# Static sitemap (always available)
 Sitemap: https://flowa.one/sitemap.xml
+
+# Dynamic sitemap from edge function (includes DB blog posts)
+Sitemap: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/generate-sitemap
