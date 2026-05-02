@@ -3934,6 +3934,30 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               if (existingMissingLongform) {
                 console.warn(`[streaming-mode] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
               }
+              // PRE-INSERT ASSERT: Blogger/WordPress text must be present in memory before writing.
+              {
+                const preLens: string[] = [];
+                const missingPre: string[] = [];
+                for (const ch of ['blogger', 'wordpress'] as const) {
+                  if (!channels.includes(ch)) continue;
+                  const t = normalizeLongformText(channelResults[ch]);
+                  preLens.push(`${ch}=${t.length}`);
+                  if (isLongformContentMissing(ch, t)) missingPre.push(ch);
+                }
+                if (preLens.length > 0) {
+                  console.log(`[streaming-mode][pre-insert] longform lens={${preLens.join(', ')}}`);
+                }
+                if (missingPre.length > 0) {
+                  const message = `${missingPre.map(getChannelDisplayName).join(', ')} chưa tạo được nội dung riêng. Backend đã chặn lưu bài trống, vui lòng thử lại.`;
+                  console.error(`[streaming-mode][pre-insert] blocking — missing: ${missingPre.join(', ')}`);
+                  if (taskId) await failTask(supabase, taskId, message);
+                  if (!clientDisconnected) {
+                    emit({ type: 'error', step: 'pre-insert', progress: 88, message, data: { errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT', missingChannels: missingPre } });
+                    try { controller.close(); } catch {}
+                  }
+                  return;
+                }
+              }
               // Insert new content
               const result = await supabase
                 .from('multi_channel_contents')
