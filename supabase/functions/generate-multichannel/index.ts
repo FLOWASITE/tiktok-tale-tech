@@ -275,6 +275,9 @@ interface FormData {
   // When true, skip cache LOOKUP and always regenerate fresh content.
   // Used by Telegram /generate where user expects a brand new post each time.
   skipCache?: boolean;
+  // SEO Pillar Cluster linkage
+  clusterId?: string | null;
+  targetKeywordIds?: string[];
 }
 
 // ============================================
