@@ -2599,6 +2599,21 @@ ${coreKeyMessages.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n')}` :
 Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.
 
 ${channelRulesPrompt}
+${channel === 'blogger' ? `
+## ĐẶC TẢ BẮT BUỘC CHO BLOGGER
+- Viết 500-900 từ tiếng Việt, tone casual/personal, ngôi "tôi/mình".
+- Mở bài bằng câu chuyện ngắn HOẶC câu hỏi gây tò mò (KHÔNG mở bằng định nghĩa khô khan).
+- Dùng 2-3 ## heading nhỏ + 1-2 đoạn bullet.
+- Kết bằng 1 câu hỏi mời comment.
+- Markdown nhẹ. KHÔNG copy phong cách website corporate.
+` : ''}${channel === 'wordpress' ? `
+## ĐẶC TẢ BẮT BUỘC CHO WORDPRESS
+- Viết 1200-2200 từ tiếng Việt, tone authority/expert, in-depth.
+- Cấu trúc: intro 80-120 từ → 4-6 section ## (có thể có ###) → conclusion + CTA → có thể thêm 2-4 FAQ.
+- Có ít nhất 1 bullet/numbered list và 1 blockquote (>).
+- **Bold** keyword 3-5 lần. Markdown chuẩn.
+- PHẢI dài hơn và chi tiết hơn một bài Website thông thường.
+` : ''}
 
 ## KIỂM TRA CUỐI (BẮT BUỘC)
 1. **DƯỚI min length?** → VIẾT THÊM nội dung chi tiết, ví dụ, giải thích
