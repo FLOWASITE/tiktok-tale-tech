@@ -398,6 +398,153 @@ function extractWebsiteContent(value: unknown): { text: string | null; seoData: 
   return { text: null, seoData: null };
 }
 
+// ============================================
+// LONG-FORM CHANNEL CONTENT GUARD
+// Blogger / WordPress luôn phải có text riêng. Nếu AI trả rỗng/quá ngắn,
+// chạy retry độc lập với prompt chặt theo đúng đặc tả của kênh.
+// KHÔNG fallback sang website_content.
+// ============================================
+const LONGFORM_MIN_CHARS: Record<string, number> = {
+  blogger: 800,    // ~ 200-250 từ tiếng Việt — sàn an toàn dưới target 500-900 từ
+  wordpress: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1200-2200 từ
+  website: 1500,
+};
+
+function normalizeLongformText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'object') {
+    const { text } = extractWebsiteContent(value);
+    return (text || '').trim();
+  }
+  return String(value).trim();
+}
+
+function isLongformContentMissing(channel: string, text: string): boolean {
+  const min = LONGFORM_MIN_CHARS[channel] ?? 0;
+  if (!text || text.length === 0) return true;
+  return text.length < min;
+}
+
+const LONGFORM_RETRY_PROMPTS: Record<string, { system: string; user: (topic: string, industry: string | null, brandName: string) => string }> = {
+  blogger: {
+    system: `Bạn là blogger Việt Nam viết bài cho Blogger.com. Viết DUY NHẤT phần thân bài bằng Markdown nhẹ.
+
+QUY TẮC BẮT BUỘC:
+- 500-900 từ tiếng Việt.
+- Tone casual/personal, ngôi "tôi/mình", kể chuyện thật, có cảm xúc.
+- Mở bài bằng 1 câu chuyện ngắn HOẶC 1 câu hỏi gây tò mò (tuyệt đối KHÔNG mở bằng định nghĩa khô khan).
+- Có 2-3 ## heading nhỏ, 1-2 đoạn bullet ngắn (- ...).
+- Kết bài bằng 1 câu hỏi mời người đọc comment.
+- KHÔNG dùng HTML. KHÔNG dùng tiêu đề "Bài viết:", "Nội dung:". Chỉ trả thẳng nội dung.
+- KHÔNG copy phong cách website corporate.`,
+    user: (topic, industry, brandName) =>
+      `Viết bài Blogger cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả thẳng phần thân bài (Markdown nhẹ), KHÔNG giải thích.`,
+  },
+  wordpress: {
+    system: `Bạn là tác giả WordPress chuyên ngành. Viết bài in-depth bằng Markdown chuẩn.
+
+QUY TẮC BẮT BUỘC:
+- 1200-2200 từ tiếng Việt.
+- Tone authority/expert, có chiều sâu, có dẫn chứng.
+- Cấu trúc: intro 80-120 từ → 4-6 section dùng ## heading (có thể có ### sub-heading) → conclusion + CTA → khuyến khích thêm 2-4 câu FAQ ở cuối nếu phù hợp.
+- Trong bài có ít nhất 1 đoạn bullet/numbered list và 1 blockquote (>).
+- **Bold** keyword chính 3-5 lần.
+- KHÔNG HTML. KHÔNG mở bằng "Bài viết:" / "Nội dung:". Chỉ trả thẳng bài.
+- PHẢI dài hơn và chi tiết hơn một bài Website thông thường.`,
+    user: (topic, industry, brandName) =>
+      `Viết bài WordPress in-depth cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả thẳng bài viết Markdown, KHÔNG giải thích.`,
+  },
+};
+
+interface LongformRetryDeps {
+  topic: string;
+  industry: string | null;
+  brandName: string;
+  organizationId: string | null;
+  defaultModel: string;
+  defaultTemperature: number;
+  channelModelConfigs: Map<string, { model: string; temperature: number; maxTokens: number | null }>;
+}
+
+async function regenerateLongformChannelDirect(
+  channel: 'blogger' | 'wordpress',
+  deps: LongformRetryDeps,
+): Promise<string> {
+  const tpl = LONGFORM_RETRY_PROMPTS[channel];
+  if (!tpl) return '';
+
+  const channelConfig = deps.channelModelConfigs.get(channel);
+  const model = channelConfig?.model || deps.defaultModel;
+  const temperature = channelConfig?.temperature ?? deps.defaultTemperature;
+  const maxTokens = channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' });
+
+  console.log(`[longform-retry] ${channel}: invoking direct AI retry (model=${model}, maxTokens=${maxTokens})`);
+
+  try {
+    const result = await callAI({
+      functionName: 'generate-multichannel',
+      organizationId: deps.organizationId || undefined,
+      modelOverride: model,
+      temperatureOverride: temperature,
+      maxTokensOverride: maxTokens,
+      messages: [
+        { role: 'system', content: tpl.system },
+        { role: 'user', content: tpl.user(deps.topic, deps.industry, deps.brandName) },
+      ],
+    });
+
+    if (!result.success || !result.data) {
+      console.warn(`[longform-retry] ${channel}: AI call failed:`, result.error);
+      return '';
+    }
+
+    const text = result.data?.choices?.[0]?.message?.content;
+    const normalized = typeof text === 'string' ? text.trim() : '';
+    console.log(`[longform-retry] ${channel}: got ${normalized.length} chars`);
+    return normalized;
+  } catch (err) {
+    console.warn(`[longform-retry] ${channel}: exception`, err);
+    return '';
+  }
+}
+
+/**
+ * Ensure that any selected long-form channel (blogger/wordpress) has real text.
+ * Mutates `channelResults` in-place. Returns list of channels still missing after retry.
+ */
+async function ensureLongformChannelsFilled(
+  selectedChannels: string[],
+  channelResults: Record<string, string>,
+  deps: LongformRetryDeps,
+): Promise<string[]> {
+  const stillMissing: string[] = [];
+  for (const ch of ['blogger', 'wordpress'] as const) {
+    if (!selectedChannels.includes(ch)) continue;
+
+    const current = normalizeLongformText(channelResults[ch]);
+    if (!isLongformContentMissing(ch, current)) {
+      channelResults[ch] = current;
+      continue;
+    }
+
+    console.warn(`[longform-guard] ${ch}: missing/short (${current.length} chars), retrying once...`);
+    const retried = await regenerateLongformChannelDirect(ch, deps);
+    if (retried && !isLongformContentMissing(ch, retried)) {
+      channelResults[ch] = retried;
+      console.log(`[longform-guard] ${ch}: retry OK (${retried.length} chars)`);
+    } else {
+      console.error(`[longform-guard] ${ch}: retry still empty/short (${retried.length} chars) — leaving as-is for caller to handle`);
+      // Keep whatever we have (may still be partial) so user sees something rather than null.
+      channelResults[ch] = retried || current;
+      if (isLongformContentMissing(ch, channelResults[ch])) {
+        stillMissing.push(ch);
+      }
+    }
+  }
+  return stillMissing;
+}
+
 const DEFAULT_BUNDLE_TITLE = 'Bài đăng';
 const TITLE_MAX_LENGTH = 100;
 
