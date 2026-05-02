@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, FlaskConical, FolderTree, Upload, BarChart3, FileText, LineChart, Link2, Target } from "lucide-react";
 import KeywordDashboardTab from "@/components/admin/seo-keywords/KeywordDashboardTab";
@@ -12,7 +13,19 @@ import CoverageTab from "@/components/admin/seo-keywords/CoverageTab";
 import AdminSeoPages from "@/pages/AdminSeoPages";
 
 export default function AdminSeoHub() {
-  const [tab, setTab] = useState("dashboard");
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useState(params.get("tab") || "dashboard");
+  useEffect(() => {
+    const t = params.get("tab");
+    if (t && t !== tab) setTab(t);
+  }, [params]);
+  const handleTabChange = (v: string) => {
+    setTab(v);
+    const next = new URLSearchParams(params);
+    next.set("tab", v);
+    if (v !== "pillars") next.delete("pillar");
+    setParams(next, { replace: true });
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -26,7 +39,7 @@ export default function AdminSeoHub() {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
+      <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-9 max-w-6xl">
           <TabsTrigger value="dashboard" className="gap-1.5">
             <BarChart3 className="h-4 w-4" /> Dashboard

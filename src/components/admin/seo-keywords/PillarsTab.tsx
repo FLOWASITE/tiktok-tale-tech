@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -41,6 +42,18 @@ export default function PillarsTab() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const p = params.get("pillar");
+    if (p && p !== activeId) setActiveId(p);
+  }, [params]);
+  const openPillar = (id: string | null) => {
+    setActiveId(id);
+    const next = new URLSearchParams(params);
+    if (id) next.set("pillar", id);
+    else next.delete("pillar");
+    setParams(next, { replace: true });
+  };
 
   const { data: clusters = [], isLoading } = useQuery({
     queryKey: ["seo-clusters", orgId],
@@ -99,7 +112,7 @@ export default function PillarsTab() {
     return (
       <PillarDetailView
         clusterId={activeId}
-        onBack={() => setActiveId(null)}
+        onBack={() => openPillar(null)}
       />
     );
   }
@@ -211,7 +224,7 @@ export default function PillarsTab() {
                       size="sm"
                       variant="outline"
                       className="flex-1 gap-1"
-                      onClick={() => setActiveId(c.id)}
+                      onClick={() => openPillar(c.id)}
                     >
                       Mở <ArrowRight className="h-3 w-3" />
                     </Button>

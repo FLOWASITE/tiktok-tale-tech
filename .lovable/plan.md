@@ -1,51 +1,59 @@
-# Fix: Keyword đã chọn nhưng AI không dùng
+## Vấn đề hiện tại
 
-## Nguyên nhân (đã xác minh trong code)
+Pillar SEO (`seo_clusters`) và tab **Keywords** (`KeywordExplorerTab`) đang **rời rạc**:
 
-`generate-multichannel/index.ts` có **2 nhánh sinh nội dung**:
+- Tab **Keywords** chỉ hiển thị cột "Cluster" lấy từ bảng `keyword_clusters` cũ (grouping đơn thuần), KHÔNG phải Pillar (`seo_clusters`).
+- Từ tab Keywords không có cách nào gán keyword vào Pillar — phải vào tab Pillars → mở từng pillar → "Thêm keyword".
+- Filter trong Keywords tab cũng chỉ filter theo cluster cũ, không filter được theo Pillar.
 
-| Nhánh | Vị trí | Inject SEO Cluster? |
-|---|---|---|
-| Normal mode (non-stream) | line 4321–4378, dùng tại 4455 | ✅ Có |
-| **Streaming mode** (mặc định UI) | line 3143–3236 | ❌ **KHÔNG** |
+## Mục tiêu
 
-UI `MultiChannelCreate` luôn gọi `useStreamingGeneration` → toàn bộ user **luôn rơi vào nhánh streaming**. Frontend đã gửi `clusterId` + `targetKeywordIds` xuống (verified ở `useStreamingGeneration.ts:185`), nhưng nhánh streaming chỉ build `targetedProductContext` + `targetedPersonaContext` rồi nhồi vào `userPrompt` (line 3226–3236) — bỏ qua hoàn toàn block `## 🎯 SEO PILLAR CLUSTER`.
+Cho phép user **gán / chuyển / lọc** keyword theo **Pillar (seo_clusters)** trực tiếp từ tab Keywords, đồng thời vẫn giữ được tab Pillars chi tiết như hiện tại.
 
-Hậu quả: keyword được lưu vào `multi_channel_contents.target_keyword_ids` **sau khi** AI đã sinh xong — AI không hề biết keyword nào để tối ưu mật độ / H2 / hashtag. Đúng triệu chứng "có keyword nhưng hệ thống không dùng".
+## Thay đổi UI — `KeywordExplorerTab.tsx`
 
-## Sửa
+1. **Thêm cột "Pillar"** (sau cột "Cluster" cũ, hoặc thay thế tùy quyết định cuối):
+   - Hiển thị tên + chấm màu pillar (`seo_clusters.color`).
+   - Inline `Select` cho phép đổi pillar ngay trên row (giống cách đổi `status` đang làm) — gồm option "— Không pillar —" để gỡ.
 
-**1 file duy nhất**: `supabase/functions/generate-multichannel/index.ts`
+2. **Thêm filter "Pillar"** ở thanh filter trên cùng, bên cạnh filter Cluster cũ:
+   - Load danh sách `seo_clusters` của org.
+   - Option "all" / "none" (chưa gán pillar) / từng pillar.
 
-Trong nhánh streaming, ngay sau khối build `targetedPersonaContext` (~line 3220, trước `buildHookOverview`), thêm block load SEO cluster context **giống hệt** logic đang có ở normal-mode (line 4326–4378):
+3. **Bulk action "Gán vào Pillar"**:
+   - Thêm checkbox column ở mỗi row + checkbox header.
+   - Khi có ≥1 row được chọn, hiện thanh action sticky: dropdown chọn pillar + nút "Gán" → update `cluster_id` (cột seo_clusters) của tất cả keyword đã chọn trong 1 query, sau đó gọi `refresh_cluster_status` RPC cho mỗi pillar bị ảnh hưởng (cũ + mới).
 
-- Nếu `formData.clusterId` → fetch `seo_clusters` (name, description, pillar_keyword_id)
-- Nếu có `pillar_keyword_id` → fetch keyword
-- Nếu `formData.targetKeywordIds?.length` → fetch `seo_keywords` (keyword, search_intent, search_volume, is_pillar) bằng `.in('id', ...)`
-- Build `seoClusterContext` string với block `## 🎯 SEO PILLAR CLUSTER` + 5 quy tắc on-page (density 0.8–1.5%, H2/H3 cho long-form, keyword trong 2 dòng đầu cho social, hashtag #keyword cho IG/Threads/X)
+4. **Quick link** từ tên pillar trên row → set state mở `PillarDetailView` (cần lift state lên `AdminSeoHub` hoặc dùng query param `?pillar=<id>` để chuyển sang tab Pillars và auto-open). Phương án nhẹ: dùng query param và `PillarsTab` đọc nó để auto setActiveId.
 
-Inject vào `userPrompt` (line 3226+) ngay sau `${targetedPersonaContext}`:
+## Schema check
 
+`seo_keywords.cluster_id` đã reference cả `keyword_clusters` (cũ) **và** `seo_clusters` (mới)? Cần xác nhận:
+- Nếu **dùng chung 1 cột `cluster_id`** cho 2 hệ → conflict, phải tách thành cột riêng (`pillar_cluster_id` hoặc tương tự).
+- Nếu **đã có cột riêng cho pillar** (theo memory `seo_keywords.cluster_id` thuộc `seo_clusters`, còn `keyword_clusters` cũ join qua bảng khác) → dùng luôn.
+
+→ Bước đầu sẽ `read_query` confirm. Nếu cần tách cột, tạo migration:
+```sql
+ALTER TABLE public.seo_keywords ADD COLUMN pillar_id uuid REFERENCES public.seo_clusters(id) ON DELETE SET NULL;
+CREATE INDEX idx_seo_keywords_pillar_id ON public.seo_keywords(pillar_id);
+-- backfill nếu cluster_id hiện đang trỏ vào seo_clusters
 ```
-${targetedProductContext}
-${targetedPersonaContext}
-${seoClusterContext}
-${hookOverview}
-```
+Đồng thời update `PillarDetailView`, `cluster_coverage` view, và `refresh_cluster_status` RPC để dùng cột mới.
 
-Bọc trong `try/catch` + `console.warn('[streaming-mode] Failed to load SEO cluster context')` y hệt nhánh normal để không phá generation nếu DB lỗi.
+## Backend tasks
 
-## Refactor nhỏ (khuyến nghị, optional)
+- `refresh_cluster_status` RPC: gọi cho cả pillar cũ (bị remove keyword) và pillar mới sau bulk assign.
+- Invalidate queries: `seo-keywords`, `seo-cluster-coverage`, `seo-cluster-keywords`, `seo-clusters`.
 
-Hai khối build SEO context giờ giống hệt nhau ở 2 nhánh → tách thành helper `buildSeoClusterContext(supabase, formData)` đặt cuối file (cạnh các helper khác trong cùng `index.ts`, không tạo file mới vì rule edge function "no subfolders/no shared imports cross-function"). Cả normal mode và streaming mode cùng gọi. Giảm duplication và tránh drift trong tương lai.
+## Files dự kiến chỉnh sửa
+
+- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` — thêm cột Pillar, filter, bulk action, checkbox.
+- `src/components/admin/seo-keywords/PillarsTab.tsx` — đọc query param `?pillar=` để auto open detail.
+- `src/pages/AdminSeoHub.tsx` — wire query param tab switch (nếu cần).
+- `src/components/admin/seo-keywords/PillarDetailView.tsx` — refresh status sau remove keyword.
+- (Tùy schema) `supabase/migrations/<ts>_pillar_id.sql` + types regenerate.
 
 ## Out of scope
-- Không đổi schema, không migration mới
-- Không đụng UI (`ClusterPicker`, `KeywordTargetPicker` đang chạy đúng)
-- Không đụng `MultiChannelCreate.tsx` (đã update DB đúng sau khi tạo)
-- Không đụng nhánh agent / regenerate (kiểm tra riêng nếu user báo)
 
-## Test sau khi sửa
-1. Mở `/multi-channel/create`, chọn 1 Pillar trong `ClusterPicker` → keyword auto-fill
-2. Generate → check edge function logs `generate-multichannel` thấy log `[streaming-mode] Loaded SEO cluster: <name>`
-3. Output content phải chứa keyword đã chọn trong tiêu đề / 2 dòng đầu / hashtag
+- Không đụng `keyword_clusters` cũ (giữ nguyên grouping song song như memory đã lưu).
+- Không đổi UX tab Pillars hiện tại — chỉ thêm entry point từ Keywords.
