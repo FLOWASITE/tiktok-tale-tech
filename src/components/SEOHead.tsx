@@ -104,6 +104,12 @@ export function SEOHead({
       <meta name="description" content={description} />
       <link rel="canonical" href={canonicalUrl} />
 
+      {/* hreflang — landing serves vi/en/th from same URL via i18next auto-detect */}
+      <link rel="alternate" hrefLang="vi" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="en" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="th" href={canonicalUrl} />
+      <link rel="alternate" hrefLang="x-default" href={canonicalUrl} />
+
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
       {/* Open Graph */}
