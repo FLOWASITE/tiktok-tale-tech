@@ -112,8 +112,9 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
     }
 
     // === Resolve for BLOGGER/WORDPRESS actions ===
-    // 2026-05: Each platform has its OWN content column (blogger_content, wordpress_content).
-    // Falls back to website_content for older records that don't have the new columns yet.
+    // 2026-05: Blogger / WordPress / Website are 3 INDEPENDENT long-form channels.
+    // Each platform MUST publish its OWN content column. NO fallback to website_content
+    // (đã từng gây bug "Blog/Web/WordPress cùng 1 nội dung").
     if ((action === 'blogger' || action === 'wordpress') && typeof contentIdForResolve === 'string' &&
         (!finalPayload.connectionId || !finalPayload.content || !finalPayload.title)) {
       try {
@@ -121,19 +122,18 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         const contentColumn = action === 'blogger' ? 'blogger_content' : 'wordpress_content';
         const { data: mcc } = await supabase
           .from('multi_channel_contents')
-          .select(`title, website_content, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data`)
+          .select(`title, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data`)
           .eq('id', contentIdForResolve)
           .maybeSingle();
 
-        // Prefer dedicated column; fallback to website_content for backward compat with old records.
-        const resolvedContent = (mcc as any)?.[contentColumn] || mcc?.website_content || null;
+        const resolvedContent = (mcc as any)?.[contentColumn] || null;
 
         if (!resolvedContent || (typeof resolvedContent === 'string' && resolvedContent.trim().length === 0)) {
           const label = action === 'wordpress' ? 'WordPress' : 'Blogger';
           return new Response(
             JSON.stringify({
               success: false,
-              error: `Bài chưa có nội dung ${label}. Vào trang chỉnh sửa bài, bấm "Tạo lại nội dung" cho kênh ${label} rồi thử đăng lại.`,
+              error: `Bài chưa có nội dung riêng cho ${label}. Mở bài, chọn tab ${label} và bấm "Tạo lại nội dung" để sinh bản ${label} riêng (không dùng chung Website).`,
               errorCode: 'EMPTY_CHANNEL_CONTENT',
             }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
