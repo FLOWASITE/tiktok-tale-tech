@@ -251,6 +251,7 @@ const channelConfig: Record<Channel, {
 import { analyzeContent } from '@/hooks/useContentAnalysis';
 import { PinterestAnalyticsCard } from '@/components/viewer/PinterestAnalyticsCard';
 import ClusterContextBadge from '@/components/seo/ClusterContextBadge';
+import ClusterContextCard from '@/components/seo/ClusterContextCard';
 
 // Brand Voice Apply instruction
 const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo đúng Brand Voice profile đã cấu hình: giữ nguyên ý chính nhưng điều chỉnh giọng điệu, phong cách ngôn ngữ, mức độ formal, và tuân thủ các từ ưu tiên/từ cấm theo brand guidelines";
@@ -1214,6 +1215,15 @@ export function MultiChannelViewer({
                     coreContentId={content.core_content_id}
                     className="w-full justify-center"
                     onViewSource={(coreContent) => setViewingCoreContent(coreContent)}
+                  />
+                </div>
+              )}
+              {/* SEO Pillar Cluster Context */}
+              {(content as any).cluster_id && (
+                <div className="p-2 border-b border-border/30">
+                  <ClusterContextCard
+                    clusterId={(content as any).cluster_id}
+                    currentContentId={content.id}
                   />
                 </div>
               )}

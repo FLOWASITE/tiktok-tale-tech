@@ -5,10 +5,11 @@ import { useOrganization } from "@/hooks/useOrganization";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, X, FileText, ExternalLink } from "lucide-react";
+import { ArrowLeft, Plus, X, FileText, ExternalLink, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
+import SuggestTopicsDialog from "./SuggestTopicsDialog";
 
 interface Props {
   clusterId: string;
@@ -21,6 +22,7 @@ export default function PillarDetailView({ clusterId, onBack }: Props) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   const { data: cluster } = useQuery({
     queryKey: ["seo-cluster", clusterId],
@@ -108,7 +110,12 @@ export default function PillarDetailView({ clusterId, onBack }: Props) {
         <span className="text-muted-foreground">/</span>
         <h2 className="text-lg font-semibold">{cluster.name}</h2>
         <Badge variant="outline" className="capitalize">{cluster.status}</Badge>
+        <Button size="sm" variant="outline" className="ml-auto gap-1" onClick={() => setSuggestOpen(true)}>
+          <Sparkles className="h-3.5 w-3.5" /> Gợi ý topic AI
+        </Button>
       </div>
+
+      <SuggestTopicsDialog open={suggestOpen} onOpenChange={setSuggestOpen} clusterId={clusterId} />
 
       {/* Pillar card */}
       <Card>

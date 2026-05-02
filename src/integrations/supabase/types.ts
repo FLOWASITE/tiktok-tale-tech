@@ -12513,6 +12513,7 @@ export type Database = {
       }
       normalize_vn_text: { Args: { input_text: string }; Returns: string }
       recover_stuck_generation_tasks: { Args: never; Returns: number }
+      refresh_cluster_status: { Args: { _cluster_id: string }; Returns: string }
       refresh_compliance_rules_mv: { Args: never; Returns: undefined }
       search_brand_memory: {
         Args: {
