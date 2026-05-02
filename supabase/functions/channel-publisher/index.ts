@@ -141,10 +141,12 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         }
 
         if (!finalPayload.connectionId) {
+          // wordpress action accepts both self-hosted ('wordpress') and WordPress.com ('wordpress_com') connections
+          const platforms = action === 'wordpress' ? ['wordpress', 'wordpress_com'] : [action];
           let connQuery = supabase
             .from('social_connections')
-            .select('id')
-            .eq('platform', action)
+            .select('id, platform')
+            .in('platform', platforms)
             .eq('is_active', true)
             .eq('organization_id', mcc!.organization_id);
           if (mcc!.brand_template_id) {
