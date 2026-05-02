@@ -1,0 +1,2 @@
+ALTER TABLE public.seo_keywords ADD COLUMN IF NOT EXISTS pillar_id uuid REFERENCES public.seo_clusters(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_seo_keywords_pillar_id ON public.seo_keywords(pillar_id);
