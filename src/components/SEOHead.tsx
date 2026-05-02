@@ -231,40 +231,120 @@ export function LandingSEOSchemas({ reviews }: LandingSchemasProps = {}) {
     },
   };
 
+  // Compute aggregate rating from real reviews if provided
+  const computedRating = reviews && reviews.length
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : '4.8';
+  const computedReviewCount = reviews && reviews.length ? reviews.length.toString() : '127';
+
   const softwareAppSchema = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
+    '@id': `${SITE_URL}/#software`,
     name: 'Flowa',
     applicationCategory: 'BusinessApplication',
-    operatingSystem: 'Web',
-    description: 'AI Marketing Agent giúp Marketing Team tạo content cho 12 kênh trong 10 phút.',
+    applicationSubCategory: 'Marketing Automation',
+    operatingSystem: 'Web, iOS, Android',
+    description: 'AI Marketing Agent giúp Marketing Team tự nghiên cứu thị trường, lên chiến dịch, tạo nội dung 12 kênh, chấm điểm chất lượng và đăng bài tự động.',
     url: SITE_URL,
+    image: `${SITE_URL}/og-image.jpg`,
+    screenshot: `${SITE_URL}/og-image.jpg`,
+    inLanguage: ['vi', 'en', 'th'],
+    publisher: { '@id': `${SITE_URL}/#organization` },
     offers: {
-      '@type': 'Offer',
-      price: '0',
+      '@type': 'AggregateOffer',
       priceCurrency: 'VND',
-      description: 'Gói Free dùng thử miễn phí',
+      lowPrice: '0',
+      highPrice: '2990000',
+      offerCount: '4',
     },
     aggregateRating: {
       '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      reviewCount: '127',
+      ratingValue: computedRating,
+      reviewCount: computedReviewCount,
+      bestRating: '5',
+      worstRating: '1',
     },
     featureList: [
-      'AI tạo nội dung đa kênh',
-      'Brand Voice AI',
-      'Industry Memory',
-      'Compliance Automation',
-      'Multi-platform Publishing',
-      'Ad Copy AI',
+      'AI tạo nội dung đa kênh (12 platforms)',
+      'Brand Voice AI tự học giọng điệu',
+      'Industry Memory & Compliance Automation',
+      'AI Marketing Agent tự động lên chiến dịch',
+      'Multi-platform Publishing (FB, IG, TikTok, LinkedIn, X, Threads, Zalo, YouTube)',
+      'Carousel AI sequential generation',
+      'Video Script & AI Video generation',
+      'GEO Optimization Engine',
     ],
   };
+
+  // Real reviews → individual Review schema items
+  const reviewSchemas = (reviews ?? []).slice(0, 10).map((r) => ({
+    '@context': 'https://schema.org',
+    '@type': 'Review',
+    itemReviewed: { '@id': `${SITE_URL}/#software` },
+    author: {
+      '@type': 'Person',
+      name: r.author,
+      ...(r.role && { jobTitle: r.role }),
+      ...(r.company && { worksFor: { '@type': 'Organization', name: r.company } }),
+    },
+    reviewRating: {
+      '@type': 'Rating',
+      ratingValue: r.rating.toString(),
+      bestRating: '5',
+      worstRating: '1',
+    },
+    reviewBody: r.text,
+    publisher: { '@id': `${SITE_URL}/#organization` },
+  }));
 
   return (
     <Helmet>
       <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
       <script type="application/ld+json">{JSON.stringify(webSiteSchema)}</script>
       <script type="application/ld+json">{JSON.stringify(softwareAppSchema)}</script>
+      {reviewSchemas.map((schema, i) => (
+        <script key={`review-${i}`} type="application/ld+json">
+          {JSON.stringify(schema)}
+        </script>
+      ))}
+    </Helmet>
+  );
+}
+
+// LocalBusiness schema for Contact page (VN office)
+export function LocalBusinessSchema() {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    '@id': `${SITE_URL}/#localbusiness`,
+    name: 'Flowa',
+    image: `${SITE_URL}/og-image.jpg`,
+    url: SITE_URL,
+    telephone: '+84-83-822-6363',
+    email: 'support@flowa.one',
+    priceRange: '0₫ - 2.990.000₫',
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Ho Chi Minh City',
+      addressRegion: 'HCM',
+      addressCountry: 'VN',
+    },
+    openingHoursSpecification: [{
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      opens: '09:00',
+      closes: '18:00',
+    }],
+    sameAs: [
+      'https://www.facebook.com/profile.php?id=61575157292883',
+      'https://www.linkedin.com/in/flowaone/',
+      'https://www.tiktok.com/@flowa.one',
+    ],
+  };
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(schema)}</script>
     </Helmet>
   );
 }
