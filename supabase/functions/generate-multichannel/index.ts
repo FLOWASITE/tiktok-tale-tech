@@ -5817,7 +5817,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         }
       }
       if (Object.keys(longformBuf).length > 0) {
-        await ensureLongformChannelsFilled(formData.channels || [], longformBuf, {
+        const stillMissing = await ensureLongformChannelsFilled(formData.channels || [], longformBuf, {
           topic: formData.topic,
           industry,
           brandName,
@@ -5826,6 +5826,18 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           defaultTemperature: aiConfig.temperature,
           channelModelConfigs,
         });
+        if (stillMissing.length > 0) {
+          const missingNames = stillMissing.map((c) => getChannelDisplayName(c)).join(', ');
+          console.error(`[generate-multichannel][longform-guard] blocking persistence: ${stillMissing.join(', ')}`);
+          return new Response(
+            JSON.stringify({
+              error: `${missingNames} chưa tạo được nội dung riêng. Backend đã chặn lưu bài trống, vui lòng thử lại.`,
+              errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT',
+              missingChannels: stillMissing,
+            }),
+            { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         for (const ch of Object.keys(longformBuf)) {
           if (longformBuf[ch]) {
             generatedData[`${ch}_content`] = longformBuf[ch];
@@ -5928,11 +5940,18 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         .limit(1)
         .maybeSingle();
 
-      if (existingContent) {
+      const existingMissingLongform = existingContent && ['blogger', 'wordpress'].some((ch) =>
+        (formData.channels || []).includes(ch) && isLongformContentMissing(ch, normalizeLongformText((existingContent as any)[`${ch}_content`]))
+      );
+
+      if (existingContent && !existingMissingLongform) {
         console.log(`[non-streaming] Dedup: returning existing content ${existingContent.id}`);
         content = existingContent;
         dbError = null;
       } else {
+      if (existingMissingLongform) {
+        console.warn(`[non-streaming] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
+      }
       const result = await supabase
         .from("multi_channel_contents")
         .insert(buildMultiChannelCreatePayload({
