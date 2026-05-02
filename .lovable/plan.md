@@ -1,75 +1,46 @@
-Mình đã kiểm tra trực tiếp code và dữ liệu mới nhất. Hiện lỗi không phải do mockup nữa, mà do pipeline vẫn cho phép lưu Blogger/WordPress rỗng.
+## Nguyên nhân gốc (đã xác nhận từ DB + logs + code)
 
-Dữ liệu hiện tại xác nhận vấn đề:
-- Các bài mới chọn `blogger`/`wordpress` vẫn có `blogger_content = 0`, `wordpress_content = 0`.
-- Ví dụ bài mới nhất `e18f220a...` chọn `[blogger, bluesky, facebook, website, wordpress]`: `website_len = 5830`, nhưng `blogger_len = 0`, `wordpress_len = 0`.
+Logs `generate-multichannel` cho thấy backend tạo nội dung Blogger (1257 chars) và WordPress (sau retry: 4071 chars) thành công, đoạn code insert cũng truyền đúng:
 
-Nguyên nhân chính mình thấy trong code:
-1. Streaming create path vẫn chỉ `console.warn` khi Blogger/WordPress rỗng rồi insert `null`.
-2. Non-streaming create/expand cũng vẫn lưu `null` nếu AI không trả `blogger_content` / `wordpress_content`.
-3. Regenerate path cho Blogger/WordPress dùng prompt chung, không có hard validation sau khi AI stream xong; nếu AI trả rỗng vẫn update DB bằng rỗng.
-4. UI có banner “Tạo nội dung riêng”, nhưng nếu regenerate trả rỗng thì người dùng vẫn thấy không có text.
-5. Sidebar vẫn chỉ hiện `0 từ`, chưa đánh dấu rõ kênh bị thiếu text.
+```ts
+blogger_content: channels.includes('blogger') ? (channelResults.blogger || null) : null,
+wordpress_content: channels.includes('wordpress') ? (channelResults.wordpress || null) : null,
+```
 
-Kế hoạch xử lý dứt điểm:
+NHƯNG truy vấn DB cho 7 record gần nhất (kể cả `86cd337f...`) đều cho `blogger_content` và `wordpress_content` = NULL, dù `selected_channels` chứa `blogger`/`wordpress` và `website_content` đầy đủ vài nghìn chars.
 
-1. Thêm guard bắt buộc nội dung cho Blogger/WordPress trước khi lưu
-- Trong `generate-multichannel`, tạo helper dùng chung:
-  - `normalizeGeneratedText(value)` để unwrap string/object an toàn.
-  - `isLongformContentMissing(channel, text)` để check rỗng/quá ngắn.
-  - `getLongformMinimumChars(channel)` với ngưỡng tối thiểu thực dụng:
-    - Blogger: tối thiểu khoảng 800 ký tự.
-    - WordPress: tối thiểu khoảng 1500 ký tự.
-- Áp dụng cho `website`, `blogger`, `wordpress` khi kênh được selected.
-- Nếu Blogger/WordPress rỗng hoặc quá ngắn: không được âm thầm insert/update `null`.
+Lý do: payload đi qua `sanitizeMultiChannelPayload()` ở `supabase/functions/generate-multichannel/index.ts:736`. Hàm này filter tất cả key không nằm trong whitelist `MULTI_CHANNEL_CONTENT_COLUMNS` (line 684-734). Whitelist này có `website_content`, `facebook_content`, `instagram_content`, ... **nhưng KHÔNG có `blogger_content` và `wordpress_content`**. Hai trường này bị strip trước khi gửi xuống Postgres → DB nhận NULL → UI mockup hiển thị trống dù streaming đã thấy text chạy.
 
-2. Auto-retry riêng Blogger/WordPress ngay trong backend
-- Sau lần generate chính, nếu `blogger_content` hoặc `wordpress_content` thiếu:
-  - Gọi AI lại riêng đúng kênh đó 1 lần bằng prompt tối giản nhưng rất chặt.
-  - Blogger prompt: 500-900 từ, casual/personal, ngôi “tôi/mình”, markdown nhẹ, kết bằng câu hỏi.
-  - WordPress prompt: 1200-2200 từ, expert/in-depth, H2/H3, FAQ/callout, markdown chuẩn.
-- Nếu retry thành công thì lưu đúng cột riêng.
-- Nếu retry vẫn rỗng: trả lỗi rõ `EMPTY_GENERATED_CHANNEL_CONTENT` thay vì tạo bài “không có text”.
+Đây là lý do bug "lặp đi lặp lại": mọi guard/retry/prompt fix đều đúng, nhưng giá trị bị filter ngay tại bước cuối cùng nên không bao giờ tới được DB.
 
-3. Sửa streaming create path
-- Sau `generateChannelsParallel`, kiểm tra các kênh long-form selected.
-- Auto-retry Blogger/WordPress nếu thiếu.
-- Chỉ emit `result` và insert DB khi các kênh required có text hợp lệ.
-- Nếu fail, emit SSE error rõ: “Blogger/WordPress chưa tạo được nội dung riêng, vui lòng thử lại”.
+## Fix
 
-4. Sửa non-streaming create/expand path
-- Trước khi insert/update DB, validate `generatedData.blogger_content` và `generatedData.wordpress_content`.
-- Auto-retry thiếu text giống streaming.
-- Expand thêm Blogger/WordPress vào bài cũ cũng phải tạo được text trước khi update `selected_channels`.
+1 thay đổi nhỏ trong `supabase/functions/generate-multichannel/index.ts`:
 
-5. Sửa regenerate path cho Blogger/WordPress
-- Inject channel-specific hard prompt vào `systemPrompt`/`userPrompt` khi `channel === 'blogger'` hoặc `channel === 'wordpress'`.
-- Tăng token budget nếu cần để WordPress không bị cắt ngắn.
-- Sau streaming/non-streaming regenerate:
-  - Nếu output rỗng/quá ngắn, thử regenerate lại 1 lần bằng fallback non-streaming prompt.
-  - Nếu vẫn fail, không update DB bằng rỗng; trả lỗi cho UI.
+Thêm 2 dòng vào `MULTI_CHANNEL_CONTENT_COLUMNS` (sau dòng `'website_seo_data'`):
 
-6. Sửa UI feedback để người dùng thấy đúng trạng thái
-- Sidebar kênh Blogger/WordPress nếu text rỗng: hiện badge “Thiếu text” thay vì chỉ `0 từ`.
-- Nút “Tạo nội dung riêng” đang có sẵn sẽ giữ lại, nhưng khi backend trả lỗi rỗng thì toast hiển thị message dễ hiểu.
-- Khi regenerate thành công, refetch/update content để text hiện ngay trong mockup.
+```ts
+'blogger_content',
+'wordpress_content',
+```
 
-7. Không fallback về Website
-- Giữ nguyên quyết định đã chốt: Blogger/WordPress không fallback `website_content`.
-- Publish vẫn bị chặn nếu thiếu text riêng.
+Tác động:
+- Áp dụng cho cả 2 path (streaming `insert` line 3880 và non-streaming `insert` line 5991) vì cả 2 đều dùng `buildMultiChannelCreatePayload` → `sanitizeMultiChannelPayload`.
+- Cũng fix path `expand` (update) vì dùng chung `sanitizeMultiChannelPayload`.
+- Cũng fix path regenerate single-channel cho blogger/wordpress vì update payload chạy qua cùng sanitize.
 
-8. Dữ liệu cũ
-- Không tự copy Website sang Blogger/WordPress.
-- Các bài cũ đang `0 từ` sẽ được sửa bằng cách bấm “Tạo nội dung riêng” từng kênh.
-- Sau khi backend guard xong, việc bấm tạo lại sẽ phải sinh text thật hoặc báo lỗi rõ, không còn trạng thái “xong nhưng vẫn trống”.
+## Bonus hardening (cùng file, không bắt buộc nhưng nên làm)
 
-Các file dự kiến chỉnh:
-- `supabase/functions/generate-multichannel/index.ts`
-- `src/hooks/useStreamingRegenerate.ts`
-- `src/components/MultiChannelViewer.tsx`
-- Có thể cập nhật memory `longform-channel-separation-vn` để ghi rule mới: “selected Blogger/WordPress mà output rỗng thì fail, không lưu null”.
+- Thêm `industry`, `content_role` đã có rồi — kiểm tra nhanh các cột long-form khác có thể bị thiếu (ví dụ nếu sau này thêm channel mới): viết unit test đảm bảo whitelist đồng bộ với schema. Hiện tại chỉ thêm 2 cột thiếu để fix dứt điểm bug user đang gặp.
+- Sau khi deploy, các record cũ (NULL) vẫn cần user bấm "Tạo lại nội dung" trong tab Blogger/WordPress để sinh text mới. Bài mới tạo sau khi fix sẽ tự có text Blogger/WordPress đúng.
 
-Kết quả mong đợi:
-- Tạo mới chọn Website + Blogger + WordPress: DB phải có đủ 3 cột text riêng.
-- Tạo lại Blogger/WordPress từ bài cũ: text xuất hiện trong đúng tab.
-- Không còn trường hợp AI/backend báo hoàn thành nhưng Blogger/WordPress vẫn không có text.
+## Files thay đổi
+
+- `supabase/functions/generate-multichannel/index.ts` (chỉ thêm 2 entry vào Set)
+- `.lovable/memory/features/multichannel/longform-channel-separation-vn.md` (note bug + fix để tránh tái diễn)
+
+## Test sau deploy
+
+1. Tạo bài mới chọn cả Website + Blogger + WordPress.
+2. Chạy SQL: `SELECT length(blogger_content), length(wordpress_content) FROM multi_channel_contents WHERE id = '<new_id>'` → cả 2 phải > 0.
+3. Mở viewer → tab Blogger và tab WordPress phải hiển thị nội dung trong mockup, không còn banner "Chưa có nội dung riêng".
