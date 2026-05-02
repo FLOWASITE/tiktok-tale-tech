@@ -25,7 +25,8 @@ import {
   TrendingUp,
   Brain,
   Server,
-  HardDrive
+  HardDrive,
+  Search
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
@@ -365,6 +366,15 @@ export default function AdminDashboard() {
       href: "/admin/packs",
       color: "text-orange-500",
       bgColor: "bg-orange-500/10"
+    },
+    {
+      title: "SEO Pages",
+      icon: Search,
+      total: 0,
+      active: 0,
+      href: "/admin/seo-pages",
+      color: "text-pink-500",
+      bgColor: "bg-pink-500/10"
     }
   ];
 
