@@ -10,6 +10,7 @@ const Careers = lazy(() => import("@/landing/pages/Careers"));
 const Pricing = lazy(() => import("@/landing/pages/Pricing"));
 const TermsOfService = lazy(() => import("@/landing/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/landing/pages/PrivacyPolicy"));
+const Sitemap = lazy(() => import("@/landing/pages/Sitemap"));
 
 function LandingFallback() {
   return (
@@ -33,6 +34,7 @@ export function LandingRoutes() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/sitemap" element={<Sitemap />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
