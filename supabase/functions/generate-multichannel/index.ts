@@ -3454,6 +3454,45 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               console.warn(`[streaming-mode] Errors:`, parallelResult.errors);
             }
             
+            // ============================================
+            // LONG-FORM GUARD (Blogger / WordPress)
+            // Nếu kênh được chọn nhưng AI trả rỗng/quá ngắn → retry độc lập 1 lần
+            // bằng prompt chặt theo đúng đặc tả kênh. KHÔNG fallback Website.
+            // ============================================
+            try {
+              const stillMissing = await ensureLongformChannelsFilled(
+                channels,
+                channelResults,
+                {
+                  topic: formData.topic,
+                  industry,
+                  brandName,
+                  organizationId,
+                  defaultModel: aiConfig.model,
+                  defaultTemperature: aiConfig.temperature,
+                  channelModelConfigs,
+                },
+              );
+              if (stillMissing.length > 0 && !clientDisconnected) {
+                emit({
+                  type: 'progress',
+                  step: 'longform-guard',
+                  progress: 76,
+                  message: `⚠️ ${stillMissing.map((c) => getChannelDisplayName(c)).join(', ')} chưa có nội dung riêng — đã thử tạo lại`,
+                });
+              }
+              for (const ch of ['blogger', 'wordpress'] as const) {
+                if (channels.includes(ch) && channelResults[ch] && !clientDisconnected) {
+                  emit({
+                    type: 'streaming_text',
+                    streamingChunk: { channel: ch, text: channelResults[ch], isComplete: true },
+                  });
+                }
+              }
+            } catch (guardErr) {
+              console.warn('[streaming-mode][longform-guard] failed:', guardErr);
+            }
+            
             // Stop heartbeat
             if (heartbeatInterval) {
               clearInterval(heartbeatInterval);
