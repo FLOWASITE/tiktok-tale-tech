@@ -3989,6 +3989,9 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   // Hook integration - save selected hooks with content
                   selected_hooks: formData.selectedHooks || [],
                   global_hook: formData.globalHook || null,
+                  // SEO Pillar Cluster linkage
+                  cluster_id: formData.clusterId || null,
+                  target_keyword_ids: formData.targetKeywordIds || [],
                   // Channel contents
                   website_content: (() => {
                     if (!channels.includes('website')) return null;
