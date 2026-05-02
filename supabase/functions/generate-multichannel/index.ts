@@ -426,6 +426,16 @@ function isLongformContentMissing(channel: string, text: string): boolean {
   return text.length < min;
 }
 
+function clampMaxTokensForModel(model: string, tokens: number): number {
+  const safeTokens = Math.max(1, Math.floor(Number.isFinite(tokens) ? tokens : 4096));
+  const isDashScopeModel = /^(qwen-|qwen2|qwen3)/i.test(model);
+  if (isDashScopeModel && safeTokens > 8192) {
+    console.warn(`[ai-token-guard] ${model}: clamped max_tokens ${safeTokens} → 8192 to avoid DashScope 400`);
+    return 8192;
+  }
+  return safeTokens;
+}
+
 const LONGFORM_RETRY_PROMPTS: Record<string, { system: string; user: (topic: string, industry: string | null, brandName: string) => string }> = {
   blogger: {
     system: `Bạn là blogger Việt Nam viết bài cho Blogger.com. Viết DUY NHẤT phần thân bài bằng Markdown nhẹ.
@@ -477,7 +487,7 @@ async function regenerateLongformChannelDirect(
   const channelConfig = deps.channelModelConfigs.get(channel);
   const model = channelConfig?.model || deps.defaultModel;
   const temperature = channelConfig?.temperature ?? deps.defaultTemperature;
-  const maxTokens = channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' });
+  const maxTokens = clampMaxTokensForModel(model, channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' }));
 
   console.log(`[longform-retry] ${channel}: invoking direct AI retry (model=${model}, maxTokens=${maxTokens})`);
 
