@@ -23,7 +23,7 @@ Bug "Blog/Web/WordPress cùng 1 nội dung" quay lại nhiều lần vì code fa
 - **Viewer**: nếu `website/blogger/wordpress` chưa có nội dung riêng → hiển thị banner amber "Chưa có nội dung riêng cho {Channel}" + nút "Tạo lại" gọi `regenerate` cho đúng kênh.
 - **Không nhồi nút Blogger trong tab Website**: trước đây tab Website render thêm `DirectPublishButton channel="blogger"` với `content={website_content}` → đăng nhầm. Đã gỡ.
 - **`channel-publisher`** (Blogger/WordPress): chỉ resolve từ cột riêng. Nếu rỗng → 400 `EMPTY_CHANNEL_CONTENT` với hướng dẫn vào tab kênh đó bấm Tạo lại. KHÔNG fallback `website_content`.
-- **Generate streaming/non-streaming**: lưu `blogger_content`/`wordpress_content` đúng cột; nếu kênh được chọn nhưng AI trả rỗng → log warn và lưu NULL (UI sẽ hiện missing state, không che bằng Website).
+- **Generate streaming/non-streaming**: lưu `blogger_content`/`wordpress_content` đúng cột; nếu Blogger/WordPress được chọn mà AI/retry vẫn rỗng hoặc guard lỗi → trả 422/SSE error `EMPTY_GENERATED_CHANNEL_CONTENT`, KHÔNG lưu NULL.
 - **Preview mode** (`action='preview'`): có entry riêng cho `blogger` (200-400 từ casual) và `wordpress` (400-700 từ in-depth) + `PREVIEW_CHANNEL_STYLE` hint nhấn mạnh "PHẢI khác Website/Blogger/WordPress".
 - **Mockup mapping** (`MultiChannelPreviewDialog.channelToMockupType`, `ContentMockupToggle.channelToMockupType`): `blogger → 'blogger'`, `wordpress → 'wordpress'` (không còn `'general'`).
 - **Labels**: `BASE_CHANNEL_CONFIG` và `CHANNELS` description nói rõ 3 kênh độc lập; không còn dòng "nội dung dùng chung Website".
@@ -53,6 +53,8 @@ Trước fix này: khi streaming mode chạy parallel, AI vẫn thường trả 
   1. **Streaming create**: sau `generateChannelsParallel`, trước critique/dedup/insert.
   2. **Non-streaming create/expand**: ngay trước log `[persist]` và insert/update.
   3. **Regenerate (streaming + non-streaming)**: nếu output Blogger/WordPress vẫn rỗng/quá ngắn sau retry → trả lỗi 422 `EMPTY_GENERATED_CHANNEL_CONTENT`, KHÔNG update DB bằng rỗng.
+- Dedup 2 phút phải bỏ qua record cũ nếu record đó có selected Blogger/WordPress nhưng cột text riêng rỗng; không được trả lại bài cũ trống rồi báo thành công.
+- UI streaming regenerate phải propagate event `type:'error'` ra toast; không được nuốt lỗi trong catch parse JSON.
 - Regenerate streaming/non-streaming inject thêm `## ĐẶC TẢ BẮT BUỘC CHO BLOGGER/WORDPRESS` vào systemPrompt.
 
 Kết quả: bài mới luôn có text riêng cho 3 kênh long-form đã chọn; bài cũ bấm "Tạo lại" sẽ thực sự sinh text hoặc báo lỗi rõ — không còn trạng thái "xong nhưng vẫn trống".

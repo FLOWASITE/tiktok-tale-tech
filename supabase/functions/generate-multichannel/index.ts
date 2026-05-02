@@ -426,6 +426,16 @@ function isLongformContentMissing(channel: string, text: string): boolean {
   return text.length < min;
 }
 
+function clampMaxTokensForModel(model: string, tokens: number): number {
+  const safeTokens = Math.max(1, Math.floor(Number.isFinite(tokens) ? tokens : 4096));
+  const isDashScopeModel = /^(qwen-|qwen2|qwen3)/i.test(model);
+  if (isDashScopeModel && safeTokens > 8192) {
+    console.warn(`[ai-token-guard] ${model}: clamped max_tokens ${safeTokens} → 8192 to avoid DashScope 400`);
+    return 8192;
+  }
+  return safeTokens;
+}
+
 const LONGFORM_RETRY_PROMPTS: Record<string, { system: string; user: (topic: string, industry: string | null, brandName: string) => string }> = {
   blogger: {
     system: `Bạn là blogger Việt Nam viết bài cho Blogger.com. Viết DUY NHẤT phần thân bài bằng Markdown nhẹ.
@@ -477,7 +487,7 @@ async function regenerateLongformChannelDirect(
   const channelConfig = deps.channelModelConfigs.get(channel);
   const model = channelConfig?.model || deps.defaultModel;
   const temperature = channelConfig?.temperature ?? deps.defaultTemperature;
-  const maxTokens = channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' });
+  const maxTokens = clampMaxTokensForModel(model, channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' }));
 
   console.log(`[longform-retry] ${channel}: invoking direct AI retry (model=${model}, maxTokens=${maxTokens})`);
 
@@ -2694,7 +2704,7 @@ Nội dung sẵn sàng đăng ngay.`;
                   { role: "user", content: userPrompt },
                 ],
                 stream: true,
-                maxTokensOverride: channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096,
+                maxTokensOverride: clampMaxTokensForModel(effectiveModel, channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096),
               });
               
               if (!streamResult.success || !streamResult.data) {
@@ -2859,7 +2869,7 @@ Nội dung sẵn sàng đăng ngay.`;
           ],
           tools,
           toolChoice: { type: "function", function: { name: "generate_channel_content" } },
-          maxTokensOverride: channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096,
+          maxTokensOverride: clampMaxTokensForModel(effectiveModel, channelConfig?.maxTokens ?? aiConfig.max_tokens ?? 4096),
         });
 
         if (!result.success) {
@@ -3256,15 +3266,23 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
           formData.channels.map(ch => {
             const cfg = channelModelConfigs.get(ch);
             const channelOpt = channelOptimizations[ch];
+            const model = cfg?.model || aiConfig.model;
             // Apply cost priority to maxTokens
-            const baseMaxTokens = cfg?.maxTokens ?? null;
+            const channelSettings = mergeChannelSettings(ch, channelOverrides);
+            const dynamicMaxTokens = calculateChannelMaxTokens(ch, {
+              contentGoal,
+              qualityMode: formData.qualityMode || 'balanced',
+              channelMaxLength: channelSettings.max_length,
+              lengthUnit: channelSettings.length_unit === 'chars' ? 'chars' : 'words',
+            });
+            const baseMaxTokens = cfg?.maxTokens ?? dynamicMaxTokens;
             const optimizedMaxTokens = baseMaxTokens && channelOpt
               ? applyTokenOptimization(baseMaxTokens, channelOpt)
               : baseMaxTokens;
             return [ch, {
-              model: cfg?.model || aiConfig.model,
+              model,
               temperature: cfg?.temperature ?? aiConfig.temperature,
-              maxTokens: optimizedMaxTokens,
+              maxTokens: clampMaxTokensForModel(model, optimizedMaxTokens),
             }];
           })
         ),
@@ -3535,18 +3553,32 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   channelModelConfigs,
                 },
               );
-              if (stillMissing.length > 0 && !clientDisconnected) {
-                emit({
-                  type: 'progress',
-                  step: 'longform-guard',
-                  progress: 76,
-                  message: `⚠️ ${stillMissing.map((c) => getChannelDisplayName(c)).join(', ')} chưa có nội dung riêng — đã thử tạo lại`,
-                });
+              if (stillMissing.length > 0) {
+                const missingNames = stillMissing.map((c) => getChannelDisplayName(c)).join(', ');
+                const message = `${missingNames} chưa tạo được nội dung riêng. Backend đã chặn lưu bài trống, vui lòng thử lại.`;
+                console.error(`[streaming-mode][longform-guard] blocking persistence: ${stillMissing.join(', ')}`);
+                if (taskId) {
+                  await failTask(supabase, taskId, message);
+                }
+                if (!clientDisconnected) {
+                  emit({ type: 'error', step: 'longform-guard', progress: 76, message, data: { errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT', missingChannels: stillMissing } });
+                  try { controller.close(); } catch {}
+                }
+                return;
               }
               // Note: not re-emitting streaming_text for retried channels — UI receives
               // final content via the 'result' event below to avoid duplicating tokens.
             } catch (guardErr) {
-              console.warn('[streaming-mode][longform-guard] failed:', guardErr);
+              const message = 'Không kiểm tra được nội dung Blogger/WordPress. Backend đã chặn lưu bài trống, vui lòng thử lại.';
+              console.error('[streaming-mode][longform-guard] failed — blocking persistence:', guardErr);
+              if (taskId) {
+                await failTask(supabase, taskId, message);
+              }
+              if (!clientDisconnected) {
+                emit({ type: 'error', step: 'longform-guard', progress: 76, message, data: { errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT' } });
+                try { controller.close(); } catch {}
+              }
+              return;
             }
             
             // Stop heartbeat
@@ -3830,11 +3862,18 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 .limit(1)
                 .maybeSingle();
 
-              if (existingContent) {
+              const existingMissingLongform = existingContent && ['blogger', 'wordpress'].some((ch) =>
+                channels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText((existingContent as any)[`${ch}_content`]))
+              );
+
+              if (existingContent && !existingMissingLongform) {
                 console.log(`[streaming-mode] Dedup: returning existing content ${existingContent.id}`);
                 savedContent = existingContent;
                 dbError = null;
               } else {
+              if (existingMissingLongform) {
+                console.warn(`[streaming-mode] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
+              }
               // Insert new content
               const result = await supabase
                 .from('multi_channel_contents')
@@ -4547,7 +4586,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         contentGoal: contentGoal,
         qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
       });
-      const effectiveMaxTokens = modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens);
+      const effectiveMaxTokens = clampMaxTokensForModel(modelConfig.model, modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens));
       console.log(`[dynamic-tokens] Grouped channels [${channelsToGenerate.join(', ')}]: ${effectiveMaxTokens} tokens (dynamic=${dynamicMaxTokens}, fallback=${aiConfig.max_tokens})`);
       
       console.log(`Calling AI (${modelConfig.model}) for channels: ${channelsToGenerate.join(', ')}`);
@@ -4982,7 +5021,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
               channelMaxLength: channelSettingsEarly.max_length,
               lengthUnit: channelSettingsEarly.length_unit === 'chars' ? 'chars' : 'words',
             });
-            const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
+            const maxTokens = clampMaxTokensForModel(model, channelConfig?.maxTokens ?? dynamicTokens);
             console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens}, max_length=${channelSettingsEarly.max_length} ${channelSettingsEarly.length_unit})`);
             
             // Use channelSettings from DB (same as Manual Mode) instead of hardcoded descriptions
@@ -5805,7 +5844,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         }
       }
       if (Object.keys(longformBuf).length > 0) {
-        await ensureLongformChannelsFilled(formData.channels || [], longformBuf, {
+        const stillMissing = await ensureLongformChannelsFilled(formData.channels || [], longformBuf, {
           topic: formData.topic,
           industry,
           brandName,
@@ -5814,6 +5853,18 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           defaultTemperature: aiConfig.temperature,
           channelModelConfigs,
         });
+        if (stillMissing.length > 0) {
+          const missingNames = stillMissing.map((c) => getChannelDisplayName(c)).join(', ');
+          console.error(`[generate-multichannel][longform-guard] blocking persistence: ${stillMissing.join(', ')}`);
+          return new Response(
+            JSON.stringify({
+              error: `${missingNames} chưa tạo được nội dung riêng. Backend đã chặn lưu bài trống, vui lòng thử lại.`,
+              errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT',
+              missingChannels: stillMissing,
+            }),
+            { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         for (const ch of Object.keys(longformBuf)) {
           if (longformBuf[ch]) {
             generatedData[`${ch}_content`] = longformBuf[ch];
@@ -5821,7 +5872,14 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         }
       }
     } catch (guardErr) {
-      console.warn('[generate-multichannel][longform-guard] failed:', guardErr);
+      console.error('[generate-multichannel][longform-guard] failed — blocking persistence:', guardErr);
+      return new Response(
+        JSON.stringify({
+          error: 'Không kiểm tra được nội dung Blogger/WordPress. Backend đã chặn lưu bài trống, vui lòng thử lại.',
+          errorCode: 'EMPTY_GENERATED_CHANNEL_CONTENT',
+        }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Save to database with Industry Memory version tracking + critique metadata
@@ -5916,11 +5974,18 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         .limit(1)
         .maybeSingle();
 
-      if (existingContent) {
+      const existingMissingLongform = existingContent && ['blogger', 'wordpress'].some((ch) =>
+        (formData.channels || []).includes(ch) && isLongformContentMissing(ch, normalizeLongformText((existingContent as any)[`${ch}_content`]))
+      );
+
+      if (existingContent && !existingMissingLongform) {
         console.log(`[non-streaming] Dedup: returning existing content ${existingContent.id}`);
         content = existingContent;
         dbError = null;
       } else {
+      if (existingMissingLongform) {
+        console.warn(`[non-streaming] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
+      }
       const result = await supabase
         .from("multi_channel_contents")
         .insert(buildMultiChannelCreatePayload({
