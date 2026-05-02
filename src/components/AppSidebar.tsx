@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack, Clock, HardDrive, Video } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Users, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar, Bot, Send, Slack, Clock, HardDrive, Video, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -302,6 +302,7 @@ export function AppSidebar() {
     { title: 'AI Management', titleKey: 'app.sidebar.adminAI', url: '/admin/ai', icon: Sparkles },
     { title: 'Social Platforms', titleKey: 'app.sidebar.adminSocial', url: '/admin/social-settings', icon: Globe },
     { title: 'Industry Park', titleKey: 'app.sidebar.adminIndustry', url: '/admin/industries', icon: Layers },
+    { title: 'SEO Pages', titleKey: 'app.sidebar.adminSeoPages', url: '/admin/seo-pages', icon: Search },
     { title: 'Knowledge Graph', titleKey: 'app.sidebar.adminKnowledgeGraph', url: '/admin/knowledge-graph', icon: Network },
     { title: 'Countries', titleKey: 'app.sidebar.adminCountries', url: '/admin/countries', icon: Flag },
     { title: 'Help Articles', titleKey: 'app.sidebar.adminHelp', url: '/admin/help-articles', icon: BookOpen },
