@@ -2725,6 +2725,31 @@ Nội dung sẵn sàng đăng ngay.`;
                 }
               }
               
+              // Long-form guard for Blogger / WordPress regenerate
+              if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, generatedContent.trim())) {
+                console.warn(`[regenerate-mode][streaming] ${channel} too short (${generatedContent.length} chars) — running direct retry`);
+                emit({ type: 'progress', step: 'longform-retry', progress: 80, message: `Đang viết lại ${getChannelDisplayName(channel)}...` });
+                const retried = await regenerateLongformChannelDirect(channel, {
+                  topic: formData.topic,
+                  industry,
+                  brandName,
+                  organizationId,
+                  defaultModel: aiConfig.model,
+                  defaultTemperature: aiConfig.temperature,
+                  channelModelConfigs,
+                });
+                if (retried && !isLongformContentMissing(channel, retried)) {
+                  generatedContent = retried;
+                }
+              }
+
+              // Refuse to overwrite DB with empty/insufficient long-form content
+              if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, generatedContent.trim())) {
+                emit({ type: 'error', message: `Không tạo được nội dung riêng cho ${getChannelDisplayName(channel)}. Vui lòng thử lại.` });
+                try { controller.close(); } catch {}
+                return;
+              }
+
               emit({ type: 'channel_complete', channel, content: generatedContent });
               emit({ type: 'progress', step: 'finalize', progress: 85, message: 'Đang lưu...' });
               
