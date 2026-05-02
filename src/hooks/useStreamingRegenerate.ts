@@ -112,53 +112,55 @@ export function useStreamingRegenerate(options: UseStreamingRegenerateOptions = 
               continue;
             }
 
+            let event: any;
             try {
-              const event = JSON.parse(jsonStr);
+              event = JSON.parse(jsonStr);
+            } catch {
+              // Ignore parse errors for incomplete JSON chunks
+              continue;
+            }
 
-              // Handle streaming text chunks - support both formats:
-              // 1. event.streamingChunk.text (from useStreamingGeneration format)
-              // 2. event.content (from backend regenerate format)
-              if (event.type === 'streaming_text') {
-                const deltaText = event.streamingChunk?.text ?? event.content ?? '';
-                if (deltaText) {
-                  accumulatedText += deltaText;
-                  setStreamingText(accumulatedText);
-                }
-                
-                if (event.streamingChunk?.isComplete) {
-                  setProgress({ progress: 90, message: 'Đang hoàn thiện...', isComplete: false });
-                }
-              }
-
-              // Handle progress events
-              if (event.type === 'progress') {
-                setProgress({
-                  progress: event.progress || 0,
-                  message: event.message || '',
-                  isComplete: false,
-                });
+            // Handle streaming text chunks - support both formats:
+            // 1. event.streamingChunk.text (from useStreamingGeneration format)
+            // 2. event.content (from backend regenerate format)
+            if (event.type === 'streaming_text') {
+              const deltaText = event.streamingChunk?.text ?? event.content ?? '';
+              if (deltaText) {
+                accumulatedText += deltaText;
+                setStreamingText(accumulatedText);
               }
               
-              // Handle channel_complete event
-              if (event.type === 'channel_complete') {
-                accumulatedText = event.content || accumulatedText;
-                setStreamingText(accumulatedText);
-                setProgress({ progress: 95, message: 'Đang lưu...', isComplete: false });
+              if (event.streamingChunk?.isComplete) {
+                setProgress({ progress: 90, message: 'Đang hoàn thiện...', isComplete: false });
               }
+            }
 
-              // Handle result
-              if (event.type === 'result') {
-                finalResult = accumulatedText || event.data?.[`${channel}_content`];
-                setProgress({ progress: 100, message: 'Hoàn thành!', isComplete: true });
-                options.onComplete?.(channel, finalResult || '');
-              }
+            // Handle progress events
+            if (event.type === 'progress') {
+              setProgress({
+                progress: event.progress || 0,
+                message: event.message || '',
+                isComplete: false,
+              });
+            }
+            
+            // Handle channel_complete event
+            if (event.type === 'channel_complete') {
+              accumulatedText = event.content || accumulatedText;
+              setStreamingText(accumulatedText);
+              setProgress({ progress: 95, message: 'Đang lưu...', isComplete: false });
+            }
 
-              // Handle error
-              if (event.type === 'error') {
-                throw new Error(event.message || 'Lỗi không xác định');
-              }
-            } catch (parseError) {
-              // Ignore parse errors for incomplete JSON
+            // Handle result
+            if (event.type === 'result') {
+              finalResult = event.data?.[`${channel}_content`] || accumulatedText;
+              setProgress({ progress: 100, message: 'Hoàn thành!', isComplete: true });
+              options.onComplete?.(channel, finalResult || '');
+            }
+
+            // Handle error (do not swallow inside JSON parse catch)
+            if (event.type === 'error') {
+              throw new Error(event.message || 'Lỗi không xác định');
             }
           }
         }
