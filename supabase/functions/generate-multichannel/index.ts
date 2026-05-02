@@ -4052,12 +4052,35 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
             }
             
             console.log('[streaming-mode] Saved content with ID:', savedContent.id);
-            
+
+            // POST-INSERT VERIFY: re-read row & patch any silently-dropped Blogger/WordPress text
+            try {
+              const verify = await verifyAndPatchLongformPersisted(
+                supabase,
+                savedContent.id,
+                channels,
+                { blogger: channelResults.blogger, wordpress: channelResults.wordpress },
+              );
+              if (verify.row) savedContent = verify.row;
+              if (verify.missing.length > 0) {
+                const message = `${verify.missing.map(getChannelDisplayName).join(', ')} đã sinh nhưng không lưu được vào DB. Vui lòng thử lại.`;
+                console.error(`[streaming-mode][post-verify] still missing after patch: ${verify.missing.join(', ')}`);
+                if (taskId) await failTask(supabase, taskId, message);
+                if (!clientDisconnected) {
+                  emit({ type: 'error', step: 'post-verify', progress: 95, message, data: { errorCode: 'EMPTY_PERSISTED_CHANNEL_CONTENT', missingChannels: verify.missing } });
+                  try { controller.close(); } catch {}
+                }
+                return;
+              }
+            } catch (verifyErr) {
+              console.error('[streaming-mode][post-verify] verify failed', verifyErr);
+            }
+
             // NEW: Mark task as completed with result reference
             if (taskId) {
               await completeTask(supabase, taskId, savedContent.id, 'multi_channel_contents');
             }
-            
+
             // ============================================
             // PHASE 1: METRICS LOGGING (Streaming mode)
             // ============================================
