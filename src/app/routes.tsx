@@ -47,6 +47,7 @@ import AdminPlans from "@/pages/AdminPlans";
 import AdminCronMonitor from "@/pages/AdminCronMonitor";
 const AdminStorageMemory = lazy(() => import("@/pages/AdminStorageMemory"));
 const AdminSeoPages = lazy(() => import("@/pages/AdminSeoPages"));
+const AdminSeoKeywords = lazy(() => import("@/pages/AdminSeoKeywords"));
 import Campaigns from "@/pages/Campaigns";
 const Reports = lazy(() => import("@/pages/Reports"));
 import CampaignCreate from "@/pages/CampaignCreate";
@@ -226,6 +227,7 @@ export function AppRoutes() {
       <Route path="/admin/edge-functions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEdgeFunctions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/plans" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminPlans /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/seo-pages" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminSeoPages /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/seo-keywords" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminSeoKeywords /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/cron-monitor" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminCronMonitor /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/storage" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminStorageMemory /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/telegram-auth-check" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminTelegramAuthCheck /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />

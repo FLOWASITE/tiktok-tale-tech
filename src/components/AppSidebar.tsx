@@ -303,6 +303,7 @@ export function AppSidebar() {
     { title: 'Social Platforms', titleKey: 'app.sidebar.adminSocial', url: '/admin/social-settings', icon: Globe },
     { title: 'Industry Park', titleKey: 'app.sidebar.adminIndustry', url: '/admin/industries', icon: Layers },
     { title: 'SEO Pages', titleKey: 'app.sidebar.adminSeoPages', url: '/admin/seo-pages', icon: Search },
+    { title: 'SEO Keywords', titleKey: 'app.sidebar.adminSeoKeywords', url: '/admin/seo-keywords', icon: Search },
     { title: 'Knowledge Graph', titleKey: 'app.sidebar.adminKnowledgeGraph', url: '/admin/knowledge-graph', icon: Network },
     { title: 'Countries', titleKey: 'app.sidebar.adminCountries', url: '/admin/countries', icon: Flag },
     { title: 'Help Articles', titleKey: 'app.sidebar.adminHelp', url: '/admin/help-articles', icon: BookOpen },
