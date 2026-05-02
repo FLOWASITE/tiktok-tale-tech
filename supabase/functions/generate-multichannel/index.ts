@@ -6174,6 +6174,32 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     console.log("Content saved with ID:", content.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
 
+    // POST-WRITE VERIFY: re-read & patch dropped Blogger/WordPress text
+    try {
+      const channelsForVerify = (formData.action === 'expand' ? (formData.channels || []) : (formData.channels || [])) as string[];
+      const verify = await verifyAndPatchLongformPersisted(
+        supabase,
+        content.id,
+        channelsForVerify,
+        {
+          blogger: typeof generatedData.blogger_content === 'string' ? generatedData.blogger_content : undefined,
+          wordpress: typeof generatedData.wordpress_content === 'string' ? generatedData.wordpress_content : undefined,
+        },
+      );
+      if (verify.row) content = verify.row;
+      if (verify.missing.length > 0) {
+        const message = `${verify.missing.map(getChannelDisplayName).join(', ')} đã sinh nhưng không lưu được vào DB. Vui lòng thử lại.`;
+        console.error(`[non-streaming][post-verify] still missing after patch: ${verify.missing.join(', ')}`);
+        if (formData.taskId) await failTask(supabase, formData.taskId, message);
+        return new Response(
+          JSON.stringify({ error: message, errorCode: 'EMPTY_PERSISTED_CHANNEL_CONTENT', missingChannels: verify.missing }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } catch (verifyErr) {
+      console.error('[non-streaming][post-verify] verify failed', verifyErr);
+    }
+
     // Mark background task as completed if taskId provided
     if (formData.taskId && content?.id) {
       await completeTask(supabase, formData.taskId, content.id, 'multi_channel_contents');
