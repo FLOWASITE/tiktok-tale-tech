@@ -8,7 +8,7 @@
 - ✅ Phase 5 (Performance): preconnect Supabase + storage CDN, preload favicon, lazy/decoding async cho images dưới fold, width/height tránh CLS, fetchPriority=high cho logo nav, manualChunks tách react/motion/embla/supabase/tanstack
 - ✅ Phase 7 (i18n hreflang): hreflang vi/en/th + x-default trong SEOHead, og:locale động + og:locale:alternate, sitemap.xml + edge generate-sitemap có xhtml:link
 - ✅ Phase 6 (Content): RelatedPosts đã có sẵn trong cả static + dynamic blog post; HTML sitemap page `/sitemap` (group: trang chính / blog / pháp lý, query DB blog_posts public); footer thêm link Sitemap; sitemap.xml include `/sitemap`
-- ⏳ Phase 8 (GSC/GA4)
+- ✅ Phase 8 (GSC + GA4): GSC verification meta + GA4 `G-C9Z5EE13EM` (anonymize_ip) + web-vitals → GA4 custom events (CLS/INP/LCP/FCP/TTFB)
 
 ## Hiện trạng (đã có)
 - `SEOHead` component với JSON-LD (Article, Breadcrumb, FAQ, HowTo, Organization, WebSite)
