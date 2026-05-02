@@ -1,72 +1,41 @@
-## Vấn đề
-Hiện tại kênh `blogger` dùng chung `WebsiteMockup` (`channelToMockupType.blogger = 'general'`) → preview trông giống hệt Website corporate (browser bar, breadcrumb, FAQ, schema markup). Không phản ánh đúng cảm giác "blog cá nhân Blogspot": header tối giản, post-title to, meta dòng "Posted by … on …", labels chip dưới cuối, không có browser chrome corporate.
-
 ## Mục tiêu
-- Mockup Blogger riêng, look-and-feel giống template mặc định Blogger (Notable / Soho / Contempo): header brand-name center, post hero, title sans-serif đậm, meta line, body, labels footer, comment placeholder.
-- Vẫn giữ: dark mode, brand `primaryColor` accent, `channelImage` hero, `seoData` (title/meta/keywords), score bar, normalize markdown.
-- Bỏ: browser address bar Apple-style, schema FAQ, breadcrumb shop-style, "Read more articles" CTA corporate.
+Tách mockup WordPress ra thành component riêng (`WordPressMockup.tsx`) với look-and-feel của theme WordPress mặc định (Twenty Twenty-Four / Twenty Twenty-Five) — thay vì dùng chung `WebsiteMockup` corporate như hiện nay.
 
-## Thiết kế mockup mới
+## Vì sao cần
+Hiện `wordpress` đang map về `'general'` → render `WebsiteMockup` (browser bar, FAQ, schema, breadcrumbs corporate). Người xem không nhận ra đây là blog WordPress. Sau khi đã có Blogger mockup riêng, WordPress cũng cần identity riêng để mockup phản ánh đúng nơi bài sẽ được publish.
 
-```text
-┌─────────────────────────────────────────┐
-│   [logo]  BRAND NAME · BLOGSPOT         │  ← header center, serif tagline
-│   ─────────────────────────────────     │
-├─────────────────────────────────────────┤
-│  [ hero image — channelImage / fallback]│
-│                                         │
-│   Post Title Here Goes Big              │  ← 2xl, font-serif (Georgia-ish)
-│   ─────                                 │
-│   Posted by Brand · 2 May 2026 · 5 min  │  ← meta line muted
-│                                         │
-│   <article body — prose, markdown>      │
-│   ...                                   │
-│                                         │
-│   Labels:  [tag1] [tag2] [tag3]         │  ← chip outline
-│                                         │
-│   ── Comments (0) ──────────            │
-│   [💬 Post a Comment]                   │
-└─────────────────────────────────────────┘
-│  © Brand · Powered by Blogger           │  ← footer
-```
+## Đặc điểm thiết kế WordPressMockup
+Lấy cảm hứng từ Twenty Twenty-Four (theme mặc định WordPress hiện tại):
 
-Khác biệt với Website:
-- Không có browser tab/URL bar
-- Title dùng `font-serif` (Blogger classic) thay vì sans corporate
-- Meta line kiểu "Posted by … · date · read time" thay vì breadcrumb
-- "Labels" chips outline (Blogger gọi tag là Labels) thay vì keyword pill
-- Footer "Powered by Blogger" small caps
-- Background trắng hoặc cream nhẹ, không có dark hero overlay corporate
-- Bỏ FAQ schema, TOC mạnh (giữ TOC nhẹ optional)
+- **Header**: tên site to, sans-serif (Inter / system-ui), nav menu ngang đơn giản (Home · Blog · About · Contact), không browser bar.
+- **Post hero**: ảnh full-bleed (nếu có), categories nhỏ phía trên tiêu đề.
+- **Title**: serif lớn (Source Serif / Georgia), align trái, font-weight 400.
+- **Meta line**: avatar nhỏ + "By **{brand}** · {date} · {readTime} min read".
+- **Body**: typography prose chuẩn WordPress (line-height 1.7, paragraph spacing rộng), blockquote có border trái dày, code block nền xám.
+- **Tags**: chip "Tagged: {keyword1}, {keyword2}…" theo style WP classic.
+- **Comments section stub**: "Leave a Reply" form mock + "0 responses".
+- **Footer**: "Proudly powered by **WordPress**" — signature WP cổ điển.
+- **Màu accent**: dùng `primaryColor` của brand cho link/tag, nền trắng/`#1a1a1a` (dark mode WP standard).
+- **Domain hint**: `{brand}.wordpress.com` hoặc `{brand}.com` nếu self-hosted (lấy từ `seoData?.canonical_url` nếu có).
 
-## Thay đổi code
+## Thay đổi file
 
-1. **Tạo `src/components/preview/BloggerMockup.tsx`**
-   - Standalone component, props giống `WebsiteMockup` (`content`, `brandName`, `logoUrl`, `primaryColor`, `isGenerating`, `seoData`, `channelImage`).
-   - Render header / hero / title / meta / prose body (dùng `react-markdown` + `remark-gfm` như WebsiteMockup) / labels / comments stub / footer.
-   - Tận dụng `seoData.seo_title`, `seoData.meta_description`, `seoData.secondary_keywords` cho title + labels.
-   - Title format: nếu có `seoData.seo_title` → dùng, fallback dòng heading đầu tiên trong content.
+### 1. Tạo `src/components/preview/WordPressMockup.tsx`
+Component standalone, props giống `BloggerMockup` (`content`, `brandName`, `logoUrl`, `primaryColor`, `isGenerating`, `seoData`, `channelImage`). Tái sử dụng pattern: `ensureMarkdownFormat`, ReactMarkdown + remarkGfm, strip duplicate title, derive `readTime` từ `seoData.reading_time_minutes` hoặc word count.
 
-2. **Cập nhật `src/components/preview/ChannelMockupFrame.tsx`**
-   - Thêm `'blogger'` vào union `ChannelType`.
-   - Thêm `case 'blogger'` trong switch → render `<BloggerMockup />`.
+### 2. `src/components/preview/ChannelMockupFrame.tsx`
+- Thêm `'wordpress'` vào union `ChannelType` (dòng 61).
+- Import `WordPressMockup`.
+- Thêm `case 'wordpress'` trong switch render (gần dòng 2338) trả về `<WordPressMockup {...rest} ... />`.
+- Cập nhật `isWebsiteLike` check (dòng 87) bao gồm `'wordpress'`.
 
-3. **Cập nhật `src/components/viewer/ContentMockupToggle.tsx`**
-   - `channelToMockupType.blogger = 'blogger'` (thay vì `'general'`).
-   - Giữ `isWebsiteLike` cho score bar (vẫn cần SEO score cho long-form).
+### 3. `src/components/viewer/ContentMockupToggle.tsx`
+- Mở rộng union type `channelToMockupType` (dòng 37) để chứa `'wordpress'`.
+- Đổi `wordpress: 'general'` → `wordpress: 'wordpress'` (dòng 48).
 
-4. **Memory**
-   - Cập nhật `mem://ui-ux/multichannel/mockup-preview-specs-vn` để ghi nhận Blogger có mockup riêng (không còn share WebsiteMockup).
+## Không thay đổi
+- Generic `WebsiteMockup` vẫn dùng cho `website`, `google_maps`, `youtube`, `zalo_oa`, `telegram`.
+- Không động vào edge functions, prompt, hay DB schema — chỉ là UI preview.
 
-## Files chỉnh sửa
-- `src/components/preview/BloggerMockup.tsx` — **mới**
-- `src/components/preview/ChannelMockupFrame.tsx` — thêm type + case
-- `src/components/viewer/ContentMockupToggle.tsx` — đổi mapping
-- `.lovable/memory/ui-ux/multichannel/mockup-preview-specs-vn.md` — ghi spec
-
-## Out of scope
-- Không động đến `WordPressMockup` (vẫn share `general` cho bây giờ — có thể tách sau khi user yêu cầu).
-- Không đổi prompt generation (Blogger content vẫn dùng `blogger_content` column riêng đã có).
-- Không đổi publishing logic.
-
-Confirm để mình code nhé.
+## Memory update
+Cập nhật `mem://ui-ux/multichannel/blogger-mockup-vn` thành "Longform mockup separation" tổng quát, ghi nhận thêm `WordPressMockup` để thống nhất pattern: mỗi long-form channel có mockup riêng (`WebsiteMockup` cho corporate, `BloggerMockup`, `WordPressMockup`).
