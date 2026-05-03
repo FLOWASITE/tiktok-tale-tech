@@ -601,10 +601,19 @@ Deno.serve(async (req) => {
     if (seeds.length < 3) {
       const ind = brandCtx.industry || "";
       const name = brandCtx.brand_name || "";
+      // 6. USP/positioning/mission noun-phrases — quan trọng nhất khi brand thiếu industry/pillars
+      const uspPool = [brandCtx.unique_value_proposition, brandCtx.brand_positioning, brandCtx.mission, brandCtx.tagline]
+        .filter(Boolean).join(" ");
+      if (uspPool) {
+        for (const term of extractTerms(uspPool, 6)) {
+          if (term && term.length >= 4) push(term, "usp_term");
+          if (seeds.length >= 5) break;
+        }
+      }
       if (name && ind) push(`${name} ${ind}`, "fallback");
       if (ind) push(`${ind} là gì`, "fallback");
       if (ind) push(`cách chọn ${ind}`, "fallback");
-      if (name) push(name, "fallback");
+      if (name && seeds.length < 2) push(name, "fallback");
     }
     seeds = seeds.slice(0, 5);
     seedStrategy = seedStrategy.slice(0, 5);
