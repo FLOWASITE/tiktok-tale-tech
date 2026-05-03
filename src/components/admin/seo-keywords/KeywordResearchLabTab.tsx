@@ -336,6 +336,18 @@ export default function KeywordResearchLabTab() {
                 </div>
               </div>
 
+              {/* Warning: brand thiếu DNA → keyword sẽ kém chất lượng */}
+              {!currentBrand.industry && !hasPillars && (
+                <div className="flex items-start gap-2 px-2.5 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-[11px]">
+                  <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="text-amber-700 dark:text-amber-300 font-medium">Brand thiếu DNA — keyword sẽ kém chính xác.</span>
+                    <span className="text-muted-foreground"> Bổ sung Industry, Content Pillars, USP để AI hiểu brand sâu hơn. </span>
+                    <Link to="/brand" className="underline text-foreground hover:opacity-80">Mở Brand settings →</Link>
+                  </div>
+                </div>
+              )}
+
               {/* Brand DNA detail */}
               {(() => {
                 const usp = (currentBrand as any).unique_value_proposition;
