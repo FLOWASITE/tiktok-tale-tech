@@ -363,9 +363,25 @@ Deno.serve(async (req) => {
             send("expanded_seeds", { seeds: expandedSeeds });
           }
 
-          // 4. AI generate
+          // 4. AI generate (with heartbeat to keep SSE stream alive through proxies)
           send("progress", { pct: 50, message: `AI sinh ${limit} keyword${brandCtx ? " (brand-aware)" : ""}...` });
-          const { suggestions } = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx);
+          let hbPct = 50;
+          const hb = setInterval(() => {
+            try {
+              // ticker progress 50 → 78 trong lúc chờ AI
+              hbPct = Math.min(78, hbPct + 2);
+              send("progress", { pct: hbPct, message: `AI đang sinh keyword... (${hbPct}%)` });
+              // SSE comment để chống buffering
+              controller.enqueue(encoder.encode(`: ping\n\n`));
+            } catch { /* stream closed */ }
+          }, 5000);
+          let suggestions: KeywordSuggestion[] = [];
+          try {
+            const r = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx);
+            suggestions = r.suggestions;
+          } finally {
+            clearInterval(hb);
+          }
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
           // 5. Gap detection
