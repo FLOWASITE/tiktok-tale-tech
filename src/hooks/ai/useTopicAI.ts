@@ -44,6 +44,10 @@ export interface UseTopicAIOptions {
   format?: TopicFormat;
   autoFetch?: boolean;
   enabled?: boolean;
+  /** SEO Pillar (cluster) ID — bias suggestions theo cluster context */
+  clusterId?: string;
+  /** Keyword target strings — AI sẽ bám tự nhiên các keyword này */
+  targetKeywords?: string[];
 }
 
 // ============== REFINEMENT MODULE ==============
@@ -143,7 +147,7 @@ export interface UseTopicAIResult {
 }
 
 export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
-  const { brandTemplateId, contentGoal, format, autoFetch = false, enabled = true } = options;
+  const { brandTemplateId, contentGoal, format, autoFetch = false, enabled = true, clusterId, targetKeywords } = options;
   const { handleApiError } = useAIErrorHandler();
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
@@ -834,6 +838,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           enhanced: true,
           forceRefresh: forceRefresh || !!categoryHint,
           categoryHint: categoryHint || undefined,
+          clusterId: clusterId || undefined,
+          targetKeywords: targetKeywords && targetKeywords.length > 0 ? targetKeywords : undefined,
         },
         timeoutMs: 90_000, // 90s to handle slow LLM generation
       });
@@ -922,7 +928,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   }, [brandTemplateId, contentGoal, format]);
 
   useEffect(() => {
-    const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
+    const kwKey = (targetKeywords ?? []).slice().sort().join('|');
+    const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}:${clusterId || ''}:${kwKey}`;
     
     if (paramsKey !== suggestPrevParamsRef.current) {
       suggestHasLoadedRef.current = false;
@@ -947,7 +954,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);
+  }, [contentGoal, brandTemplateId, format, enabled, clusterId, targetKeywords, fetchSuggestions]);
 
   const refreshSuggestions = useCallback((categoryHint?: string) => {
     suggestPrevParamsRef.current = '';

@@ -270,15 +270,22 @@ async function handleSuggest(
   startTime: number
 ): Promise<Response> {
   const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, categoryHint, query, topic, instruction } = params as TopicAIRequest & { query?: string; instruction?: string };
+  const clusterId: string | undefined = (params as any)?.clusterId || undefined;
+  const targetKeywords: string[] = Array.isArray((params as any)?.targetKeywords)
+    ? ((params as any).targetKeywords as string[]).filter((k) => typeof k === 'string' && k.trim().length > 0).slice(0, 10)
+    : [];
 
-  console.log(`[topic-ai:suggest] categoryHint: ${categoryHint || 'none'}`);
+  console.log(`[topic-ai:suggest] categoryHint=${categoryHint || 'none'} cluster=${clusterId || 'none'} targetKeywords=${targetKeywords.length}`);
 
   // Phase 4: Enhanced cache key with context hash + query hash for unique results per query
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets (reduced from 8h for freshness)
   const contextHash = hashContextData(brandContext);
   const queryHash = query ? hashContextData({ q: query } as any) : 'no-query';
   const categoryHash = categoryHint ? hashContextData({ cat: categoryHint } as any) : 'no-cat';
-  const cacheKey = `topic-suggestions-v14-flex-80-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
+  const seoHash = (clusterId || targetKeywords.length > 0)
+    ? hashContextData({ c: clusterId || '', kw: targetKeywords.slice().sort().join('|') } as any)
+    : 'no-seo';
+  const cacheKey = `topic-suggestions-v15-seo:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${seoHash}:${hourBucket}`;
   
   // Parallel: Check cache + fetch learning context simultaneously
   const [cachedResult, learningContext] = await Promise.all([
@@ -364,6 +371,7 @@ async function handleSuggest(
     categoryHint,
     topic,
     instruction,
+    targetKeywords,
   });
 
   // Force a fast model for `suggest`: this action returns 6 short topics, doesn't
@@ -1506,8 +1514,9 @@ function buildSuggestPrompts(params: {
   categoryHint?: string;
   topic?: string;
   instruction?: string;
+  targetKeywords?: string[];
 }): { systemPrompt: string; userPrompt: string } {
-  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query, categoryHint, topic, instruction } = params;
+  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query, categoryHint, topic, instruction, targetKeywords } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
@@ -1700,12 +1709,17 @@ Trả về JSON array với ${topic ? '3-5' : '5-6'} topics:
   };
   const categoryGuidance = categoryHint ? (categoryHintMap[categoryHint] || `🎯 HƯỚNG ĐI: Tập trung gợi ý các chủ đề theo hướng "${categoryHint}". Tất cả topics phải phù hợp với hướng đi này.`) : '';
 
+  const seoTargetGuidance = (targetKeywords && targetKeywords.length > 0)
+    ? `\n🎯 SEO TARGET (BẮT BUỘC): Mỗi topic gợi ý PHẢI bám tự nhiên ít nhất 1 trong các keyword sau (chứa nguyên cụm hoặc paraphrase sát nghĩa trong "topic"):\n${targetKeywords.map((k) => `- ${k}`).join('\n')}\n→ KHÔNG nhồi nhét, viết tự nhiên. Field "relatedKeywords" phải liệt kê keyword đã dùng.`
+    : '';
+
   const userPrompt = `Gợi ý ${topic ? '3-5' : '5-6'} chủ đề content cho:
 - Mục tiêu: ${goalLabels[contentGoal || 'education']}
 - Format: ${format || 'all'}
 ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
 ${topic ? `\n🎯 CHỦ ĐỀ BẮT BUỘC: "${topic}"\n→ TẤT CẢ topics PHẢI xoay quanh chủ đề này. Gợi ý các góc tiếp cận khác nhau (educational, comparison, case study, tips & tricks, storytelling, myth-busting).` : ''}
 ${categoryGuidance ? `\n${categoryGuidance}` : ''}
+${seoTargetGuidance}
 ${query ? `\n🎯 YÊU CẦU CỤ THỂ CỦA USER: "${query}"\n→ ƯU TIÊN CAO: Các topic phải liên quan trực tiếp đến yêu cầu trên.` : ''}
 ${recentTopics?.length ? `\nTRÁNH topics tương tự: ${recentTopics.slice(0, 5).join('; ')}` : ''}
 

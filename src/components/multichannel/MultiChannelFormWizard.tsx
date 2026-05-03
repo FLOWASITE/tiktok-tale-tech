@@ -119,6 +119,7 @@ import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySe
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { useKeywordsByIds } from '@/hooks/useKeywordsByIds';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { resolveOverlayText } from '@/lib/imageOverlayText';
@@ -658,6 +659,9 @@ export function MultiChannelFormWizard({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
+  // Resolve target keyword IDs → keyword strings để bias topic suggestions theo SEO
+  const { data: targetKeywordsText = [] } = useKeywordsByIds(formData.targetKeywordIds);
+
   // Enhanced Topic Suggestions (carousel-style)
   const {
     suggestions: topicSuggestions,
@@ -673,6 +677,8 @@ export function MultiChannelFormWizard({
     brandTemplateId: formData.brandTemplateId,
     contentGoal: formData.contentGoal || 'education',
     enabled: currentStep === 1,
+    clusterId: formData.clusterId ?? undefined,
+    targetKeywords: targetKeywordsText,
   });
 
 
@@ -1187,17 +1193,6 @@ export function MultiChannelFormWizard({
                   onKeywordIdsChange={(ids) =>
                     setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
                   }
-                  onPickTopic={(title, keywordIds) => {
-                    setTopicFromQuickAction(false);
-                    setFormData(prev => ({
-                      ...prev,
-                      topic: title,
-                      targetKeywordIds: keywordIds && keywordIds.length > 0
-                        ? keywordIds
-                        : (prev.targetKeywordIds ?? []),
-                    }));
-                    toast.success('Đã chọn topic gợi ý từ keyword');
-                  }}
                   disabled={isGenerating}
                 />
               )}
