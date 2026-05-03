@@ -438,19 +438,31 @@ export default function OverviewTab() {
                   <TableRow>
                     <TableHead>Keyword</TableHead>
                     <TableHead className="text-right"># Content</TableHead>
-                    <TableHead>Đang cạnh tranh</TableHead>
+                    <TableHead>Chọn winner (giữ keyword, gỡ khỏi các content khác)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {cannibalized.map(({ keyword, contents: list }) => (
                     <TableRow key={keyword.id}>
-                      <TableCell className="font-medium">{keyword.keyword}</TableCell>
-                      <TableCell className="text-right"><Badge variant="destructive">{list.length}</Badge></TableCell>
-                      <TableCell className="text-xs space-y-0.5">
+                      <TableCell className="font-medium align-top pt-3">{keyword.keyword}</TableCell>
+                      <TableCell className="text-right align-top pt-3">
+                        <Badge variant="destructive">{list.length}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs space-y-1">
                         {list.map((c) => (
-                          <div key={c.id} className="truncate max-w-md text-muted-foreground">
-                            · {c.title || c.topic || c.id.slice(0, 8)}{" "}
-                            <Badge variant="outline" className="text-[9px] ml-1">{c.status || "—"}</Badge>
+                          <div key={c.id} className="flex items-center justify-between gap-2 py-0.5">
+                            <span className="truncate max-w-md text-muted-foreground flex-1">
+                              · {c.title || c.topic || c.id.slice(0, 8)}{" "}
+                              <Badge variant="outline" className="text-[9px] ml-1">{c.status || "—"}</Badge>
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px] shrink-0"
+                              onClick={() => keepWinner(keyword.id, c.id, list)}
+                            >
+                              <CheckCircle2 className="h-3 w-3 mr-1" /> Giữ làm winner
+                            </Button>
                           </div>
                         ))}
                       </TableCell>
