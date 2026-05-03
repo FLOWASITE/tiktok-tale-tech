@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export function useKeywordsByIds(ids: string[] | undefined) {
   const sortedIds = [...(ids ?? [])].sort();
-  return useQuery({
+  const query = useQuery({
     queryKey: ['seo-keywords-by-ids', sortedIds],
     enabled: sortedIds.length > 0,
     staleTime: 60_000,
@@ -20,4 +20,5 @@ export function useKeywordsByIds(ids: string[] | undefined) {
       return (data || []).map((k: any) => k.keyword as string).filter(Boolean);
     },
   });
+  return query;
 }

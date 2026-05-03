@@ -282,10 +282,22 @@ async function handleSuggest(
   const contextHash = hashContextData(brandContext);
   const queryHash = query ? hashContextData({ q: query } as any) : 'no-query';
   const categoryHash = categoryHint ? hashContextData({ cat: categoryHint } as any) : 'no-cat';
-  const seoHash = (clusterId || targetKeywords.length > 0)
-    ? hashContextData({ c: clusterId || '', kw: targetKeywords.slice().sort().join('|') } as any)
-    : 'no-seo';
-  const cacheKey = `topic-suggestions-v15-seo:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${seoHash}:${hourBucket}`;
+  // SEO hash MUST reflect actual clusterId + targetKeywords, not just brand context shape.
+  // Previous bug: hashContextData(brandContext) ignored {c,kw} fields → cache collisions
+  // across different keyword sets, returning stale pillar-only suggestions.
+  const sortedKws = targetKeywords.slice().sort().join('|');
+  const seoRaw = `${clusterId || ''}::${sortedKws}`;
+  let seoHash = 'no-seo';
+  if (clusterId || targetKeywords.length > 0) {
+    let h = 0;
+    for (let i = 0; i < seoRaw.length; i++) {
+      h = ((h << 5) - h) + seoRaw.charCodeAt(i);
+      h = h & h;
+    }
+    seoHash = Math.abs(h).toString(36).substring(0, 10);
+  }
+  const cacheKey = `topic-suggestions-v16-seo:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${seoHash}:${hourBucket}`;
+  console.log(`[topic-ai:suggest] cacheKey seoRaw="${seoRaw}" seoHash=${seoHash}`);
   
   // Parallel: Check cache + fetch learning context simultaneously
   const [cachedResult, learningContext] = await Promise.all([
