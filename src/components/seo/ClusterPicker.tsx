@@ -39,11 +39,13 @@ export default function ClusterPicker({ value, onChange, className }: Props) {
       onChange(null);
       return;
     }
-    // Fetch keyword ids for this cluster
+    // Pre-fill TOP-5 keywords by priority_score (not full cluster) — keeps AI focus tight
     const { data } = await supabase
       .from("seo_keywords")
       .select("id")
-      .eq("cluster_id", next);
+      .eq("cluster_id", next)
+      .order("priority_score", { ascending: false })
+      .limit(5);
     const keywordIds = (data || []).map((r) => r.id);
     onChange(next, { keywordIds });
   };
