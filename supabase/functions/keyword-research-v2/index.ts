@@ -711,11 +711,28 @@ Deno.serve(async (req) => {
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
           const existingSet = new Set((existing || []).map((r: any) => r.keyword));
+          // Build social-alignment lookup (lowercased)
+          const socialTerms = new Set<string>();
+          const ssCtx = brandCtx?.social_signals;
+          if (ssCtx) {
+            ssCtx.recent_topics.forEach(t => t && socialTerms.add(t.toLowerCase()));
+            ssCtx.frequent_terms.forEach(t => t && socialTerms.add(t.toLowerCase()));
+            ssCtx.recent_hashtags.forEach(t => t && socialTerms.add(t.replace(/^#/, "").toLowerCase()));
+          }
           let enriched = suggestions.map(s => {
             const e: any = { ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) };
             const priority = computePriority(e);
-            const fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
+            let fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
+            // Social alignment bonus: keyword chứa term từ social footprint → +15 (cap 100)
+            let socialMatch: string | null = null;
+            if (socialTerms.size) {
+              for (const term of socialTerms) {
+                if (term.length >= 3 && e.keyword.includes(term)) { socialMatch = term; break; }
+              }
+              if (socialMatch) fit = Math.min(100, fit + 15);
+            }
             e.brand_fit_score = fit;
+            e.social_match = socialMatch;
             // Blend: 60% volume/KD/intent + 40% brand fit (only when brand context exists)
             e.final_score = brandCtx ? Math.round(priority * 0.6 + fit * 0.4) : priority;
             return e;
