@@ -1187,17 +1187,6 @@ export function MultiChannelFormWizard({
                   onKeywordIdsChange={(ids) =>
                     setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
                   }
-                  onPickTopic={(title, keywordIds) => {
-                    setTopicFromQuickAction(false);
-                    setFormData(prev => ({
-                      ...prev,
-                      topic: title,
-                      targetKeywordIds: keywordIds && keywordIds.length > 0
-                        ? keywordIds
-                        : (prev.targetKeywordIds ?? []),
-                    }));
-                    toast.success('Đã chọn topic gợi ý từ keyword');
-                  }}
                   disabled={isGenerating}
                 />
               )}
