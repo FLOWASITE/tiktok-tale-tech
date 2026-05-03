@@ -42,6 +42,7 @@ export function SeoFirstEntry({
         </div>
         <SuggestedTopicsFromKeyword
           clusterId={clusterId}
+          selectedKeywordIds={selectedKeywordIds}
           onPick={onPickTopic}
           disabled={disabled}
         />

@@ -1,20 +1,38 @@
 ## Mục tiêu
-Khi user chọn pillar (cả Mode SEO và Mode Idea), chỉ **pre-fill top-5 keyword theo `priority_score`** thay vì auto-attach TOÀN BỘ keyword của cluster. Giúp AI focus đúng intent, tránh dilute prompt khi cluster có 20–50+ keyword.
+Cache 10 phút cho kết quả `suggest-cluster-topics` ở client, key = `[clusterId, sortedKeywordIds]`, để tránh gọi lại edge function/AI khi user bấm "Gợi ý topic" lặp lại với cùng pillar + bộ keyword đã chọn.
 
-## Vấn đề hiện tại
-`src/components/seo/ClusterPicker.tsx` (lines 37–49) đang `select id` không limit → trả về tất cả keyword IDs → parent setFormData `targetKeywordIds` = full list.
+## Phạm vi & cách tiếp cận
+Cache **client-side** (in-memory + `sessionStorage` fallback) là đủ — request hiện chỉ phụ thuộc `clusterId` + bộ keyword được chọn ở UI; không đụng edge function nên không phát sinh chi phí backend mới.
 
-`PillarKeywordSection` đã có effect pre-fill top-5, NHƯNG chỉ chạy khi `selectedKeywordIds.length === 0`, mà ClusterPicker đã set sẵn full list rồi nên effect không trigger → top-5 logic bị bỏ qua.
+## Các thay đổi
 
-## Thay đổi
+### 1. New: `src/lib/topicSuggestionCache.ts`
+Utility nhỏ quản lý cache:
+- API: `getCached(key)`, `setCached(key, value)`, `buildKey(clusterId, keywordIds)`.
+- TTL = `10 * 60 * 1000` ms.
+- Storage: Map in-memory (singleton module-level) + mirror sang `sessionStorage` (`mc:topic_suggest_cache:v1`) để giữ khi user navigate giữa các step của wizard.
+- `buildKey`: `${clusterId}::${[...keywordIds].sort().join(',')}` (sort để bộ keyword cùng tập nhưng khác thứ tự vẫn hit cache).
+- Tự cleanup entry hết hạn khi đọc; giới hạn ~30 entry để tránh phình.
 
-### `src/components/seo/ClusterPicker.tsx`
-Thêm `.order('priority_score', { ascending: false }).limit(5)` vào query trong `handleChange`. Comment rõ "TOP-5 by priority_score — keeps AI focus tight".
+### 2. Edit: `src/components/seo/SuggestedTopicsFromKeyword.tsx`
+- Thêm prop `selectedKeywordIds: string[]` (đã có sẵn ở `SeoFirstEntry`, chỉ cần truyền xuống).
+- Trong `generate()`:
+  1. Tính `key = buildKey(clusterId, selectedKeywordIds)`.
+  2. Nếu có cache hợp lệ → set state từ cache, hiển thị badge "Cached" nhỏ + toast nhẹ "Dùng kết quả gần đây", **không** gọi `supabase.functions.invoke`.
+  3. Nếu user bấm nút "Tạo lại" (đã `hasFetched`) → bypass cache (force refresh) và ghi đè entry mới.
+- Khi nhận data thành công từ edge function → `setCached(key, suggestions)`.
+- Khi `clusterId` hoặc `selectedKeywordIds` đổi → reset `hasFetched=false`, clear suggestions hiện hành (tránh hiển thị data lệch context).
 
-### Không cần đổi
-- `PillarKeywordSection`: effect pre-fill top-5 vẫn giữ làm fallback (trường hợp parent set clusterId mà không qua picker, vd: từ heuristic suggestion `onAcceptSuggestion` đã đang làm đúng top-5).
-- `KeywordTargetPicker`: `max=5` đã giới hạn UI, user vẫn có thể bỏ/đổi.
+### 3. Edit: `src/components/multichannel/SeoFirstEntry.tsx`
+- Truyền `selectedKeywordIds={selectedKeywordIds}` xuống `<SuggestedTopicsFromKeyword />`.
 
-## Out of scope
-- Không đổi backend prompt — `generate-multichannel` vẫn nhận `targetKeywordIds` như cũ.
-- Không đổi UI pillar context.
+## Ghi chú kỹ thuật
+- Không cần đổi edge function `suggest-cluster-topics`; nếu sau này backend nhận thêm `keywordIds` thì cache key đã sẵn sàng.
+- Không cache khi response rỗng (`suggestions.length === 0`) để user có thể retry sau khi bổ sung keyword.
+- Force-refresh: nút "Tạo lại" đã có icon `RefreshCw` → reuse, chỉ cần thêm flag `force=true` khi gọi.
+- Không thêm dependency mới.
+
+## Files
+- New: `src/lib/topicSuggestionCache.ts`
+- Edit: `src/components/seo/SuggestedTopicsFromKeyword.tsx`
+- Edit: `src/components/multichannel/SeoFirstEntry.tsx`
