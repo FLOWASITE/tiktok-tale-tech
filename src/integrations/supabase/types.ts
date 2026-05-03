@@ -7639,66 +7639,6 @@ export type Database = {
           },
         ]
       }
-      keyword_clusters: {
-        Row: {
-          avg_priority: number
-          color: string | null
-          created_at: string
-          description: string | null
-          id: string
-          keyword_count: number
-          name: string
-          organization_id: string
-          parent_cluster_id: string | null
-          pillar_keyword_id: string | null
-          target_pillar_page_slug: string | null
-          updated_at: string
-        }
-        Insert: {
-          avg_priority?: number
-          color?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          keyword_count?: number
-          name: string
-          organization_id: string
-          parent_cluster_id?: string | null
-          pillar_keyword_id?: string | null
-          target_pillar_page_slug?: string | null
-          updated_at?: string
-        }
-        Update: {
-          avg_priority?: number
-          color?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          keyword_count?: number
-          name?: string
-          organization_id?: string
-          parent_cluster_id?: string | null
-          pillar_keyword_id?: string | null
-          target_pillar_page_slug?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_pillar_keyword"
-            columns: ["pillar_keyword_id"]
-            isOneToOne: false
-            referencedRelation: "seo_keywords"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "keyword_clusters_parent_cluster_id_fkey"
-            columns: ["parent_cluster_id"]
-            isOneToOne: false
-            referencedRelation: "keyword_clusters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       keyword_research_jobs: {
         Row: {
           ai_model: string | null
@@ -12616,6 +12556,8 @@ export type Database = {
           similarity: number
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       traverse_knowledge_graph: {
         Args: {
           p_edge_types?: string[]

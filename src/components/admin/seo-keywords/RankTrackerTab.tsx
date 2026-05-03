@@ -55,7 +55,9 @@ export default function RankTrackerTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Rank Tracker</h2>
-          <p className="text-sm text-muted-foreground">Theo dõi vị trí Google SERP cho keywords đã đăng ký.</p>
+          <p className="text-sm text-muted-foreground">
+            Theo dõi vị trí Google SERP. Tự động chạy mỗi <span className="font-medium">thứ Hai 02:00 UTC</span>.
+          </p>
         </div>
         <Button onClick={runTracker} disabled={running} className="gap-2">
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

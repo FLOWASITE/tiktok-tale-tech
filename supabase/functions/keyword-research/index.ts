@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
         const clusterMap = new Map<string, string>();
 
         for (const name of clusterNames) {
-          const { data: existing } = await supabase.from("keyword_clusters")
+          const { data: existing } = await supabase.from("seo_clusters")
             .select("id")
             .eq("organization_id", organizationId)
             .eq("name", name)
@@ -165,8 +165,8 @@ Deno.serve(async (req) => {
           if (existing) {
             clusterMap.set(name, existing.id);
           } else {
-            const { data: created } = await supabase.from("keyword_clusters")
-              .insert({ organization_id: organizationId, name, description: `Auto từ seed "${seed}"` })
+            const { data: created } = await supabase.from("seo_clusters")
+              .insert({ organization_id: organizationId, name, description: `Auto từ seed "${seed}"`, status: "planning" })
               .select("id")
               .single();
             if (created) clusterMap.set(name, created.id);
