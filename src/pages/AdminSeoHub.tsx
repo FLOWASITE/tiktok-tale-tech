@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Compass, BarChart3, FileText, LineChart, Target } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Search, Compass, BarChart3, FileText, LineChart, Target, AlertCircle, Copy } from "lucide-react";
 import OverviewTab from "@/components/admin/seo-keywords/OverviewTab";
 import KeywordExplorerTab from "@/components/admin/seo-keywords/KeywordExplorerTab";
 import PillarsTab from "@/components/admin/seo-keywords/PillarsTab";
 import DiscoverTab from "@/components/admin/seo-keywords/DiscoverTab";
 import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
 import AdminSeoPages from "@/pages/AdminSeoPages";
+import { useSeoOverviewCounts } from "@/hooks/useSeoOverviewCounts";
 
 // Map URL cũ → tab mới (backward compat)
 const LEGACY_MAP: Record<string, string> = {
@@ -24,6 +27,7 @@ export default function AdminSeoHub() {
   const initial = params.get("tab") || "overview";
   const normalized = LEGACY_MAP[initial] || (VALID.has(initial) ? initial : "overview");
   const [tab, setTab] = useState(normalized);
+  const { orphan, cannibal } = useSeoOverviewCounts();
 
   useEffect(() => {
     const t = params.get("tab");
@@ -61,6 +65,28 @@ export default function AdminSeoHub() {
         <TabsList className="grid w-full grid-cols-6 max-w-5xl">
           <TabsTrigger value="overview" className="gap-1.5">
             <BarChart3 className="h-4 w-4" /> Overview
+            {(orphan > 0 || cannibal > 0) && (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant={cannibal > 0 ? "destructive" : "secondary"}
+                      className="ml-1 h-5 px-1.5 text-[10px] tabular-nums"
+                    >
+                      {orphan + cannibal}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <AlertCircle className="h-3 w-3" /> {orphan} orphan
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Copy className="h-3 w-3" /> {cannibal} cannibalization
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </TabsTrigger>
           <TabsTrigger value="explorer" className="gap-1.5">
             <Search className="h-4 w-4" /> Keywords

@@ -88,12 +88,13 @@ export default function OverviewTab() {
     keywordId: string,
     patch: { cluster_id?: string | null; assigned_landing_page_id?: string | null }
   ) => {
-    // Optimistic patch — instant UI, no refetch of 1000 rows
+    // Optimistic patch + snapshot for rollback (no refetch)
+    const snap = kwCache.snapshot();
     kwCache.patch(keywordId, patch);
     const { error } = await supabase.from("seo_keywords").update(patch).eq("id", keywordId);
     if (error) {
+      kwCache.restore(snap);
       toast.error(error.message);
-      kwCache.invalidate(); // rollback by refetch
       return;
     }
     toast.success("Đã gán");
@@ -101,8 +102,11 @@ export default function OverviewTab() {
 
   const keepWinner = async (keywordId: string, winnerContentId: string, allContents: ContentRow[]) => {
     const losers = allContents.filter((c) => c.id !== winnerContentId);
+    const key = ["overview-contents", orgId] as const;
+    // Snapshot for rollback
+    const prevSnap = qc.getQueryData<ContentRow[]>(key);
     // Optimistic update on contents cache
-    qc.setQueryData<ContentRow[]>(["overview-contents", orgId], (prev) =>
+    qc.setQueryData<ContentRow[]>(key, (prev) =>
       (prev || []).map((c) =>
         losers.find((l) => l.id === c.id)
           ? { ...c, target_keyword_ids: (c.target_keyword_ids || []).filter((id) => id !== keywordId) }
@@ -120,8 +124,8 @@ export default function OverviewTab() {
     const results = await Promise.all(updates);
     const err = results.find((r) => r.error)?.error;
     if (err) {
+      if (prevSnap) qc.setQueryData<ContentRow[]>(key, prevSnap);
       toast.error(err.message);
-      qc.invalidateQueries({ queryKey: ["overview-contents"] });
       return;
     }
     toast.success(`Giữ winner, gỡ keyword khỏi ${losers.length} content khác`);
