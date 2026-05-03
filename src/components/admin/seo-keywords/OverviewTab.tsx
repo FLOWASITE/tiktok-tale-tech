@@ -293,7 +293,7 @@ export default function OverviewTab() {
       </div>
 
       {/* Action items */}
-      <Tabs defaultValue="orphan">
+      <Tabs value={sub} onValueChange={setSub}>
         <TabsList>
           <TabsTrigger value="orphan" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Orphan ({orphanKeywords.length})
