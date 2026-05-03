@@ -117,7 +117,7 @@ export default function KeywordResearchLabTab() {
           Authorization: `Bearer ${session?.access_token || ""}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ seeds, competitorUrls, preset, organizationId: orgId, locale: "vi", limit }),
+        body: JSON.stringify({ seeds, competitorUrls, preset, organizationId: orgId, brandTemplateId: currentBrand?.id, locale: "vi", limit }),
         signal: ctrl.signal,
       });
       if (!resp.ok || !resp.body) {
