@@ -351,11 +351,50 @@ export default function KeywordExplorerTab() {
             </div>
 
             {/* Virtualized body */}
-            {rows.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8 text-sm">
-                Chưa có keyword. Vào tab Research Lab để bắt đầu.
-              </div>
-            ) : (
+            {rows.length === 0 ? (() => {
+              const hasFilter = !!debouncedSearch || statusFilter !== "all" || intentFilter !== "all" || pillarFilter !== "all" || brandScope;
+              const clearAll = () => {
+                setSearch(""); setDebouncedSearch("");
+                setStatusFilter("all"); setIntentFilter("all"); setPillarFilter("all");
+                setBrandScope(false);
+              };
+              return (
+                <div className="flex flex-col items-center justify-center text-center py-10 px-4 gap-3">
+                  <div className="h-10 w-10 rounded-full bg-muted/60 flex items-center justify-center">
+                    <Sparkles className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  {hasFilter ? (
+                    <>
+                      <p className="text-sm font-medium">Không có keyword nào khớp filter hiện tại</p>
+                      <p className="text-xs text-muted-foreground max-w-md">
+                        Thử bỏ bớt filter, tắt scope brand, hoặc chạy Deep research để mở rộng pool.
+                      </p>
+                      <div className="flex gap-2 flex-wrap justify-center">
+                        <Button size="sm" variant="outline" onClick={clearAll}>Xoá filter</Button>
+                        <Button size="sm" onClick={() => navigate("/admin/seo?tab=discover")}>
+                          <Wand2 className="h-3.5 w-3.5 mr-1" /> Mở Discover
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium">Pool keyword đang trống</p>
+                      <p className="text-xs text-muted-foreground max-w-md">
+                        {currentBrand
+                          ? <>Hệ thống có thể tự nghiên cứu bộ keyword cho brand <strong>«{currentBrand.brand_name}»</strong> chỉ với 1 click.</>
+                          : <>Chọn brand rồi vào Discover để AI tự nghiên cứu bộ keyword.</>
+                        }
+                      </p>
+                      <div className="flex gap-2 flex-wrap justify-center">
+                        <Button size="sm" onClick={() => navigate("/admin/seo?tab=discover")}>
+                          <Wand2 className="h-3.5 w-3.5 mr-1" /> Deep research ngay
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })() : (
               <div
                 ref={parentRef}
                 className="overflow-auto"
