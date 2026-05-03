@@ -147,15 +147,28 @@ async function firecrawlSearch(
   }
 }
 
-async function classifyIntent(keyword: string, results: SerpResult[]): Promise<string | null> {
+async function resolveModel(supabase: any, organizationId: string): Promise<string> {
+  try {
+    let q = supabase.from("ai_function_configs")
+      .select("model_override")
+      .eq("function_name", "enrich-keyword-serp")
+      .eq("is_enabled", true)
+      .or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    const { data } = await q.order("organization_id", { nullsFirst: false }).limit(1);
+    return data?.[0]?.model_override || "google/gemini-2.5-flash-lite";
+  } catch { return "google/gemini-2.5-flash-lite"; }
+}
+
+async function classifyIntent(supabase: any, organizationId: string, keyword: string, results: SerpResult[]): Promise<string | null> {
   if (!LOVABLE_API_KEY) return null;
   const snippet = results.slice(0, 5).map((r, i) => `${i + 1}. ${r.title || ""} — ${r.description || ""}`).join("\n");
+  const model = await resolveModel(supabase, organizationId);
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model,
         messages: [
           { role: "system", content: "Bạn là SEO analyst. Phân loại search intent của keyword dựa trên SERP. Chỉ chọn 1 trong: informational, commercial, transactional, navigational." },
           { role: "user", content: `Keyword: "${keyword}"\n\nTop SERP results:\n${snippet || "(no data)"}\n\nTrả về intent.` },
