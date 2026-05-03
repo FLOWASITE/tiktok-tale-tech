@@ -77,14 +77,10 @@ async function getCachedSerp(
     .maybeSingle();
   if (error || !data) return null;
   if (new Date(data.expires_at).getTime() <= Date.now()) return null;
-  // bump hit_count async (best-effort)
-  supabase.rpc("noop").catch(() => {});
-  supabase
-    .from("firecrawl_serp_cache")
-    .update({ hit_count: (data as any).hit_count ? undefined : undefined })
-    .eq("keyword_normalized", norm)
-    .eq("lang", lang)
-    .eq("country", country);
+  // bump hit_count (best-effort, fire-and-forget)
+  supabase.rpc("increment_firecrawl_cache_hit", {
+    _kw: norm, _lang: lang, _country: country,
+  }).then(() => {}).catch(() => {});
   return Array.isArray(data.results) ? (data.results as SerpResult[]) : null;
 }
 
