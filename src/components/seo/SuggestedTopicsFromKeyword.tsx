@@ -92,14 +92,18 @@ export function SuggestedTopicsFromKeyword({
     );
   }
 
+  const blockedNoKeyword = requireKeywords && selectedKeywordIds.length === 0;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          {hasFetched
-            ? `${suggestions.length} gợi ý topic từ keyword chưa có content`
-            : 'Để AI đề xuất topic bám sát keyword target'}
-          {fromCache && (
+          {blockedNoKeyword
+            ? 'Chọn ít nhất 1 keyword target ở trên để AI gợi ý topic bám Pillar.'
+            : hasFetched
+              ? `${suggestions.length} gợi ý topic bám Pillar + Keyword đã chọn`
+              : 'AI sẽ đề xuất topic bám đúng Pillar + Keyword target'}
+          {fromCache && !blockedNoKeyword && (
             <Badge variant="outline" className="text-[10px] h-4 px-1 border-border/60 text-muted-foreground">
               cached
             </Badge>
@@ -110,7 +114,8 @@ export function SuggestedTopicsFromKeyword({
           size="sm"
           variant={hasFetched ? 'outline' : 'default'}
           onClick={() => generate(hasFetched)}
-          disabled={loading || disabled}
+          disabled={loading || disabled || blockedNoKeyword}
+          title={blockedNoKeyword ? 'Cần chọn ≥1 keyword target trước' : undefined}
           className="h-7 text-xs gap-1.5"
         >
           {loading ? (
