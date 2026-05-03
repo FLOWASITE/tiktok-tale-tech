@@ -1,80 +1,59 @@
 ## Mục tiêu
-Bỏ yêu cầu nhập seed thủ công. Khi bấm **Run research**, hệ thống **tự suy ra seed** từ brand đang chọn (content pillars + keywords + industry + audience + website), rồi chạy pipeline AI Research v2 như cũ. Người dùng vẫn có thể mở "Tuỳ chỉnh nâng cao" để override seed/competitor nếu muốn.
+Tối ưu UI/UX của tab **AI Research Lab v2** (`KeywordResearchLabTab.tsx`) để:
+- Hành động chính (Deep research) trở thành CTA rõ ràng, không bị Run research lấn át.
+- Brand context và seed hiển thị gọn, có hierarchy.
+- Tiến trình research dễ hiểu hơn (timeline phases thay vì 1 thanh % + dòng text).
+- Tuân thủ Soft Luxury: neutral gray, minimalist spacing, không màu loè loẹt (bỏ amber bg).
 
----
+## Thay đổi UI
 
-## 1. UX mới — `KeywordResearchLabTab.tsx`
+### 1. Hero header gọn gàng
+- Bỏ 2 badge "SERP grounded" + "Auto từ brand" trong title (di chuyển thành sub-text).
+- Title một dòng: `AI Research Lab` + dot + brand context inline (nếu có).
+- Khi không có brand: thay banner amber bằng inline text muted + link "Chọn brand →".
 
-**Default view (gọn)**:
-- Hiển thị **brand context card** thay cho ô seed:
-  - Badge `Context: {brand_name}`
-  - Tóm tắt: "Sẽ research dựa trên: 3 pillars · ngành {industry} · audience {target_audience}"
-  - Chip danh sách seed sẽ dùng (preview readonly, derived từ brand) — user thấy minh bạch
-- Nút chính: **`Run research`** (luôn enabled khi có brand)
-- Nếu **chưa có brand** → hiển thị empty state + CTA "Chọn brand" (link `/brand`)
-- Nếu brand **không có pillars** → fallback: dùng `brand_name` + `industry` làm seed, hiện hint "Brand chưa có content pillars — research sẽ generic. Cấu hình pillars để chính xác hơn."
+### 2. Brand seed panel — gộp 1 khối
+- Layout 2 cột nhỏ: trái = brand summary (name · industry · N pillars), phải = chip seed (tối đa 5).
+- Border `border-border/50`, bg `bg-muted/30` — đúng Soft Luxury.
+- Override active → đổi label chip "Manual seeds" với dot accent neutral, không primary.
+- Empty seed → inline warning icon + text muted (không bg amber).
 
-**Advanced toggle** (collapsed, accordion):
-- "Tuỳ chỉnh nâng cao (override)" → mở ra:
-  - Textarea seeds (override) — placeholder = seeds auto
-  - Textarea competitor URLs
-  - Preset chips
-  - Limit input
+### 3. CTA primary = Deep research
+- **Deep research** thành nút primary lớn (full text "Auto research bộ keyword brand"), có sub-label "AI mở rộng 2 vòng → lưu 100-200 keyword".
+- **Run preview** thành nút secondary nhỏ ở bên cạnh (variant ghost/outline) — dành cho user muốn xem trước rồi chọn.
+- Bỏ dòng "N seed · preset: default" → di chuyển vào subtle footer dưới CTA.
 
-**Logic seed derivation** (`useMemo`):
+### 4. Progress phases timeline
+Thay block progress hiện tại bằng **stepper 4 bước**:
+```text
+[●] SERP grounding → [●] Expand seeds → [○] AI generation → [○] Save pool
 ```
-1. Lấy top 5 pillars (sort theo weight) → mỗi pillar: ưu tiên keywords[0], fallback name
-2. Nếu < 3 seed → bổ sung: brand_name + " " + industry, "{industry} là gì", "cách chọn {industry}"
-3. Dedupe + lowercase + trim, cap 5
-```
+- Bước đang chạy: dot pulse, label đậm.
+- Mỗi bước hoàn tất: dot filled muted-foreground.
+- Thanh `Progress` mỏng (h-1) đặt dưới stepper.
+- `serpInfo` + `expandedSeeds` chỉ show inline dưới step tương ứng (collapsed nếu không liên quan).
+- Cancel button đặt cạnh % thay vì rời rạc.
 
-User override (nếu có nhập) sẽ thắng auto-derivation.
+Mapping pct → phase: 0-15 SERP, 15-40 Expand, 40-90 Generation, 90-100 Save.
 
----
+### 5. Advanced collapsible — minimal
+- Trigger ngắn: `⚙ Tùy chỉnh nâng cao` (không liệt kê dài).
+- Khi mở: 3 row gọn — Seed override + Competitor URLs + (preset chips inline + limit).
+- Border-top thay vì padding-top, separator nhẹ.
 
-## 2. Edge function — `keyword-research-v2/index.ts`
+### 6. History jobs polish
+- Compact rows hơn (py-2.5).
+- Status badge dùng dot-color thay vì variant nhiều màu — outline đơn giản.
 
-**Thay đổi nhỏ** (BE đã nhận seeds từ FE rồi):
-- Khi `seeds` rỗng/missing nhưng có `brandTemplateId`:
-  - Server-side derive seeds từ `brand_templates` (cùng logic FE) → dùng làm seed
-  - Tránh case FE bug → vẫn chạy được
-- Bổ sung **`brand_website` scrape** (1 URL): nếu brand có `website_url`, auto add vào `competitorUrls` (không tính vào limit 3) → AI lấy được nội dung thực của brand để sinh keyword sát hơn.
-- SSE `progress` 10%: "Đang phân tích brand «{name}» để tự suy seed..."
+## Technical notes (cho dev)
+- File duy nhất: `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`.
+- Không đổi logic SSE/handleRun/data fetching — chỉ refactor JSX + thêm helper `getPhase(progress)` thuần client.
+- Component mới inline (không tạo file riêng): `<PhaseStepper progress={progress} running={running} />`.
+- Dùng tokens: `bg-muted/30`, `border-border/50`, `text-muted-foreground`, `text-foreground`. Không dùng `amber-*`, `primary/5` cho background lớn.
+- Giữ nguyên Brand context panel khi `!currentBrand` nhưng đổi sang style neutral (bg-muted/40, icon `Info` thay `AlertTriangle`).
+- Giữ nguyên KeywordPreviewTable, IntentFunnelMatrix, jobs query, deriveBrandSeeds.
 
----
-
-## 3. Hint khi đang dùng auto seeds
-
-- Trong panel "Seed mở rộng" hiện 2 nhóm chip với label rõ:
-  - **"Seed từ brand"** (màu primary nhạt) — derived seeds
-  - **"Seed mở rộng"** (muted) — Autocomplete + PAA như cũ
-
----
-
-## 4. Files thay đổi
-
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`:
-  - Tách `deriveBrandSeeds(brand)` helper
-  - Default UI: brand context card + auto seed chips + Run button
-  - Advanced accordion (shadcn `Collapsible` hoặc `Accordion`) chứa textarea seed/competitor + preset + limit
-  - Bỏ requirement `!seedsText.trim()` disable button → enable khi có brand HOẶC seeds
-  - Submit body: `seeds = userOverride.length > 0 ? userOverride : autoSeeds`
-
-- `supabase/functions/keyword-research-v2/index.ts`:
-  - Nếu `seeds.length === 0` và có brand → fetch brand → derive seeds (top pillars)
-  - Auto-include `website_url` vào scrape list (không trừ vào max 3 user URLs)
-  - Emit progress message mới
-
-- `.lovable/memory/features/seo/research-lab-v2-vn.md`:
-  - Ghi chú: auto-seed mode mặc định, manual override qua advanced toggle, server-side fallback seed derivation, brand website auto-scrape
-
----
-
-## 5. QA
-
-1. Vào tab Discover với brand có pillars → thấy chip seed auto + Run button enabled, không có ô textarea bắt buộc.
-2. Bấm Run → SSE chạy bình thường, keyword sinh ra bám pillars.
-3. Mở "Tuỳ chỉnh nâng cao" → nhập 2 seed thủ công → Run → BE nhận đúng 2 seed user.
-4. Brand không có pillars → hint xuất hiện, vẫn Run được với fallback seed (brand_name + industry).
-5. Brand có `website_url` → log scrape có URL website, AI prompt có nội dung từ brand site.
-6. Không chọn brand → empty state + CTA, không cho Run.
+## Out of scope
+- Không sửa edge function `keyword-research-v2`.
+- Không sửa `KeywordExplorerTab` (đã polish ở turn trước).
+- Không thay đổi data model / SSE event names.
