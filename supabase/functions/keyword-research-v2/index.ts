@@ -2,7 +2,7 @@
 // + Brand/Industry context + Seed expansion (Autocomplete + PAA) + SERP cache
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
-import { expandSeeds } from "../_shared/seed-expander.ts";
+import { expandSeeds, expandWithModifiers, generateBrandDominationSeeds } from "../_shared/seed-expander.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
