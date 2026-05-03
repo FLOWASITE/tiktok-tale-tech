@@ -297,7 +297,10 @@ Deno.serve(async (req) => {
   const organizationId = body.organizationId;
   const brandTemplateId: string | undefined = body.brandTemplateId;
   const locale = body.locale || "vi";
-  const limit = Math.min(100, Math.max(5, parseInt(body.limit) || 30));
+  const mode: "preview" | "deep" = body.mode === "deep" ? "deep" : "preview";
+  const defaultLimit = mode === "deep" ? 150 : 30;
+  const maxLimit = mode === "deep" ? 200 : 100;
+  const limit = Math.min(maxLimit, Math.max(5, parseInt(body.limit) || defaultLimit));
 
   if (!organizationId) {
     return new Response(JSON.stringify({ error: "organizationId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
