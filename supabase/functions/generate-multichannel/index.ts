@@ -767,6 +767,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'selected_hooks',
   'global_hook',
   'core_content_id',
+  'cluster_id',
+  'target_keyword_ids',
   'channel_statuses',
   'channel_images',
   'content_calendar_color',
@@ -3247,12 +3249,26 @@ ${buildPersonaFitBoostPrompt(targetPersonaData)}
             pillarKeyword = (pk as any)?.keyword || null;
           }
           let kwRows: any[] = [];
+          let kwSource: 'user' | 'fallback' = 'user';
           if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
             const { data } = await supabase
               .from('seo_keywords')
               .select('keyword,search_intent,search_volume,is_pillar')
               .in('id', formData.targetKeywordIds);
             kwRows = data || [];
+          } else if (formData.clusterId) {
+            // Fallback: pillar chosen but no keywords selected → auto load top 5
+            const { data } = await supabase
+              .from('seo_keywords')
+              .select('id,keyword,search_intent,search_volume,is_pillar')
+              .eq('cluster_id', formData.clusterId)
+              .order('priority_score', { ascending: false, nullsFirst: false })
+              .limit(5);
+            kwRows = data || [];
+            if (kwRows.length > 0) {
+              formData.targetKeywordIds = kwRows.map((k: any) => k.id);
+              kwSource = 'fallback';
+            }
           }
           if (clusterRow || kwRows.length) {
             const kwLines = kwRows.slice(0, 12).map((k: any) =>
@@ -3274,7 +3290,7 @@ QUY TẮC SEO ON-PAGE:
 4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
 5. Tuyệt đối không bịa số liệu để nhồi keyword.
 `;
-            console.log(`[streaming-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" keywords=${kwRows.length}`);
+            console.log(`[streaming-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" cluster_id=${formData.clusterId || 'n/a'} keywords=${kwRows.length} source=${kwSource}`);
           }
         } catch (err) {
           console.warn('[streaming-mode] Failed to load SEO cluster context:', err);
@@ -3949,6 +3965,9 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 was_refined: wasRefined,
                 refinement_count: refinementCount,
                 needs_manual_review: needsManualReview,
+                ...(formData.clusterId ? { cluster_id: formData.clusterId } : {}),
+                ...(formData.targetKeywordIds && formData.targetKeywordIds.length > 0
+                  ? { target_keyword_ids: formData.targetKeywordIds } : {}),
               };
               
               // Add new channel contents
@@ -4407,12 +4426,25 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
           pillarKeyword = (pk as any)?.keyword || null;
         }
         let kwRows: any[] = [];
+        let kwSource: 'user' | 'fallback' = 'user';
         if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
           const { data } = await supabase
             .from('seo_keywords')
             .select('keyword,search_intent,search_volume,is_pillar')
             .in('id', formData.targetKeywordIds);
           kwRows = data || [];
+        } else if (formData.clusterId) {
+          const { data } = await supabase
+            .from('seo_keywords')
+            .select('id,keyword,search_intent,search_volume,is_pillar')
+            .eq('cluster_id', formData.clusterId)
+            .order('priority_score', { ascending: false, nullsFirst: false })
+            .limit(5);
+          kwRows = data || [];
+          if (kwRows.length > 0) {
+            formData.targetKeywordIds = kwRows.map((k: any) => k.id);
+            kwSource = 'fallback';
+          }
         }
         if (clusterRow || kwRows.length) {
           const kwLines = kwRows.slice(0, 12).map((k: any) =>
@@ -4434,6 +4466,7 @@ QUY TẮC SEO ON-PAGE:
 4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
 5. Tuyệt đối không bịa số liệu để nhồi keyword.
 `;
+          console.log(`[normal-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" cluster_id=${formData.clusterId || 'n/a'} keywords=${kwRows.length} source=${kwSource}`);
         }
       } catch (err) {
         console.warn('[normal-mode] Failed to load SEO cluster context:', err);
