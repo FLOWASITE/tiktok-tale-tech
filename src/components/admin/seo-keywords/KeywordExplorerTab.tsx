@@ -41,6 +41,7 @@ export default function KeywordExplorerTab() {
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { enrich, job: enrichJob, starting: enrichStarting } = useKeywordEnrichment();
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
