@@ -21,7 +21,7 @@ const LEGACY_MAP: Record<string, string> = {
   import: "discover",
 };
 
-const VALID = new Set(["overview", "explorer", "pillars", "discover", "ranks", "pages"]);
+const VALID = new Set(["overview", "explorer", "pillars", "discover", "ranks", "enrichment", "pages"]);
 
 export default function AdminSeoHub() {
   const [params, setParams] = useSearchParams();
