@@ -168,8 +168,9 @@ Deno.serve(async (req) => {
     // Background work
     const work = async () => {
       try {
-        const suggestions = await expandKeywords(seed, locale, Math.min(limit, 100));
-        console.log(`[keyword-research] Generated ${suggestions.length} keywords for "${seed}"`);
+        const { suggestions, model: usedModel } = await expandKeywords(supabase, organizationId, seed, locale, Math.min(limit, 100));
+        console.log(`[keyword-research] Generated ${suggestions.length} keywords for "${seed}" with ${usedModel}`);
+        await supabase.from("keyword_research_jobs").update({ ai_model: usedModel }).eq("id", jobId);
 
         // Lấy/tạo cluster theo cluster_name
         const clusterNames = [...new Set(suggestions.map(s => s.cluster_name).filter(Boolean))];
