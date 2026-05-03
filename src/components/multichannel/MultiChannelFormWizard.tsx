@@ -658,6 +658,9 @@ export function MultiChannelFormWizard({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
+  // Resolve target keyword IDs → keyword strings để bias topic suggestions theo SEO
+  const { data: targetKeywordsText = [] } = useKeywordsByIds(formData.targetKeywordIds);
+
   // Enhanced Topic Suggestions (carousel-style)
   const {
     suggestions: topicSuggestions,
@@ -673,6 +676,8 @@ export function MultiChannelFormWizard({
     brandTemplateId: formData.brandTemplateId,
     contentGoal: formData.contentGoal || 'education',
     enabled: currentStep === 1,
+    clusterId: formData.clusterId ?? undefined,
+    targetKeywords: targetKeywordsText,
   });
 
 
