@@ -270,15 +270,22 @@ async function handleSuggest(
   startTime: number
 ): Promise<Response> {
   const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, categoryHint, query, topic, instruction } = params as TopicAIRequest & { query?: string; instruction?: string };
+  const clusterId: string | undefined = (params as any)?.clusterId || undefined;
+  const targetKeywords: string[] = Array.isArray((params as any)?.targetKeywords)
+    ? ((params as any).targetKeywords as string[]).filter((k) => typeof k === 'string' && k.trim().length > 0).slice(0, 10)
+    : [];
 
-  console.log(`[topic-ai:suggest] categoryHint: ${categoryHint || 'none'}`);
+  console.log(`[topic-ai:suggest] categoryHint=${categoryHint || 'none'} cluster=${clusterId || 'none'} targetKeywords=${targetKeywords.length}`);
 
   // Phase 4: Enhanced cache key with context hash + query hash for unique results per query
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets (reduced from 8h for freshness)
   const contextHash = hashContextData(brandContext);
   const queryHash = query ? hashContextData({ q: query } as any) : 'no-query';
   const categoryHash = categoryHint ? hashContextData({ cat: categoryHint } as any) : 'no-cat';
-  const cacheKey = `topic-suggestions-v14-flex-80-300:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
+  const seoHash = (clusterId || targetKeywords.length > 0)
+    ? hashContextData({ c: clusterId || '', kw: targetKeywords.slice().sort().join('|') } as any)
+    : 'no-seo';
+  const cacheKey = `topic-suggestions-v15-seo:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${seoHash}:${hourBucket}`;
   
   // Parallel: Check cache + fetch learning context simultaneously
   const [cachedResult, learningContext] = await Promise.all([
