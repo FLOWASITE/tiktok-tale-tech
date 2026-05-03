@@ -624,7 +624,7 @@ Deno.serve(async (req) => {
           await supabase.from("keyword_research_jobs").update({
             preview: enriched,
             serp_grounding: serpGround,
-            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null, mode, inserted },
+            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null, mode, inserted, seedStrategy, brandFitAvg: brandCtx ? Math.round(enriched.reduce((s, e) => s + (e.brand_fit_score || 0), 0) / Math.max(1, enriched.length)) : null },
             status: mode === "deep" ? "done" : "preview_ready",
             keywords_added: inserted,
             completed_at: mode === "deep" ? new Date().toISOString() : null,
