@@ -3,12 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Compass, BarChart3, FileText, LineChart, Target, AlertCircle, Copy } from "lucide-react";
+import { Search, Compass, BarChart3, FileText, LineChart, Target, AlertCircle, Copy, Sparkles } from "lucide-react";
 import OverviewTab from "@/components/admin/seo-keywords/OverviewTab";
 import KeywordExplorerTab from "@/components/admin/seo-keywords/KeywordExplorerTab";
 import PillarsTab from "@/components/admin/seo-keywords/PillarsTab";
 import DiscoverTab from "@/components/admin/seo-keywords/DiscoverTab";
 import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
+import EnrichmentJobsTab from "@/components/admin/seo-keywords/EnrichmentJobsTab";
 import AdminSeoPages from "@/pages/AdminSeoPages";
 import { useSeoOverviewCounts } from "@/hooks/useSeoOverviewCounts";
 
