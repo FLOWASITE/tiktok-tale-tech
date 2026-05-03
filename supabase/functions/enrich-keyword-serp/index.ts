@@ -240,7 +240,7 @@ async function runJob(supabase: any, jobId: string, orgId: string, keywordIds: s
       const kw = queue.shift();
       if (!kw) break;
       try {
-        await enrichOne(supabase, kw);
+        await enrichOne(supabase, orgId, kw);
       } catch (e: any) {
         errors.push({ id: kw.id, error: e?.message || String(e) });
       }
