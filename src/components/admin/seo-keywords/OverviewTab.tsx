@@ -195,6 +195,16 @@ export default function OverviewTab() {
       .sort((a, b) => a.ratio - b.ratio);
   }, [keywords, pillars, coverage]);
 
+  // Pre-built option arrays — shared by every LazyAssignSelect (zero per-row cost)
+  const pillarOptions = useMemo(
+    () => pillars.map((p) => ({ value: p.id, label: p.name, color: p.color })),
+    [pillars]
+  );
+  const landingOptions = useMemo(
+    () => (landingPages as any[]).map((p) => ({ value: p.id, label: p.title || p.slug })),
+    [landingPages]
+  );
+
   const topUnassigned = useMemo(
     () => keywords.filter((k) => !k.assigned_landing_page_id).slice(0, 10),
     [keywords]
@@ -330,41 +340,22 @@ export default function OverviewTab() {
                       <TableCell className="text-right">{k.search_volume?.toLocaleString() ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono">{k.priority_score ?? 0}</TableCell>
                       <TableCell>
-                        <Select
-                          value={k.cluster_id || "__none__"}
-                          onValueChange={(v) => quickAssign(k.id, { cluster_id: v === "__none__" ? null : v })}
-                        >
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn pillar" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— Không gắn —</SelectItem>
-                            {pillars.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color || "#6B7280" }} />
-                                  {p.name}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <LazyAssignSelect
+                          value={k.cluster_id}
+                          options={pillarOptions}
+                          placeholder="Chọn pillar"
+                          noneLabel="— Không gắn —"
+                          onChange={(v) => quickAssign(k.id, { cluster_id: v })}
+                        />
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={k.assigned_landing_page_id || "__none__"}
-                          onValueChange={(v) =>
-                            quickAssign(k.id, { assigned_landing_page_id: v === "__none__" ? null : v })
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn page" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">— Chưa gán —</SelectItem>
-                            {landingPages.map((p: any) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.title || p.slug}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <LazyAssignSelect
+                          value={k.assigned_landing_page_id}
+                          options={landingOptions}
+                          placeholder="Chọn page"
+                          noneLabel="— Chưa gán —"
+                          onChange={(v) => quickAssign(k.id, { assigned_landing_page_id: v })}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
