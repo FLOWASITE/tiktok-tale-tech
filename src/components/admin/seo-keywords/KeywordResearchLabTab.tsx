@@ -127,6 +127,7 @@ export default function KeywordResearchLabTab() {
     setPreviewKeywords([]);
     setSerpInfo(null);
     setExpandedSeeds([]);
+    setBrandSignals(null);
     setActiveJobId(null);
 
     abortRef.current?.abort();
