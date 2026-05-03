@@ -1,87 +1,75 @@
-# Social-aware Keyword Research v3.1
+## Chẩn đoán
 
-Mở rộng "Brand-aware research" hiện tại bằng một lớp **Social Signals** — đọc các kênh social brand đã kết nối + nội dung gần đây + engagement để AI hiểu brand đang thực sự nói gì, ai tương tác, từ khoá nào đang work.
+Job gần nhất (`Công ty TNHH Tư vấn Kiểm toán TAF`, brand `188f65cc...`) chỉ trả **5 keyword** dù `limit=150`, expanded seeds bị **mojibake** (`"c�ng ty tnhh tư vấn kiểm to�n taf"`), và **0 keyword được lưu** vào pool. Brand DNA cho TAF gần như trống — không pillars, không industry, không evergreen, không social → AI thiếu context để sinh keyword chất lượng.
 
-## Mục tiêu
-- Keyword gợi ý phản ánh **giọng thực** của brand trên social (không chỉ profile khai báo)
-- Phát hiện **theme/hashtag/từ khóa hot** từ post gần đây để mở rộng seed
-- Ưu tiên platform brand đang active (vd brand chỉ có TikTok+IG → seed nghiêng video/visual intent)
-- Giữ guardrails Industry Memory như cũ
+### 4 root causes
 
-## 1. Backend — `supabase/functions/keyword-research-v2/index.ts`
+**1. Brand thiếu DNA → seed quá nghèo**
+- TAF brand: `industry=null`, `content_pillars=[]`, `evergreen_themes=null`, không social connection.
+- Smart seed derivation rơi hết vào nhánh `if (seeds.length < 3)` nhưng `ind=""` → tất cả `push(\`${ind} là gì\`)` cho ra `" là gì"` rỗng → cuối cùng seed duy nhất = brand name.
+- AI chỉ thấy 1 seed brand-name → sinh 5 biến thể loanh quanh tên brand (`taf tuyển dụng`, `taf tư vấn thành lập`...) – không phải keyword SEO thực sự.
 
-### 1.1 New helper: `fetchSocialSignals(supabase, brandTemplateId, organizationId)`
-Trả về `SocialSignals | null`:
-```ts
-{
-  active_platforms: string[];           // ['facebook','instagram','tiktok',...]
-  platform_handles: { platform, username, display_name }[];
-  recent_topics: string[];              // top 10 title/topic từ multi_channel_contents 60 ngày
-  recent_hashtags: string[];            // top 15 hashtag tần suất cao
-  frequent_terms: string[];             // top 20 noun phrase từ caption gần đây (regex/freq)
-  top_engaged_topics: string[];         // topic của posts có engagement cao (join post_metrics)
-  audience_questions: string[];         // câu hỏi từ social_post_engagements (event_type='comment') — top 5
-}
-```
-Truy vấn:
-- `social_connections` filter `brand_template_id` + `is_active=true` → list platform/handle
-- `multi_channel_contents` last 60d cùng brand → đọc fields `<platform>_content`, `tags`, `topic`
-- `social_post_metrics` (nếu có) join `content_publishing_logs` → top engaged
-- `social_post_engagements` event_type comment → extract câu hỏi (regex `?$`)
+**2. Seed expander corrupt UTF-8**
+- `expandedSeeds` log ra `"c�ng ty tnhh tư vấn kiểm to�n taf"` → `expandSeeds()` trong `_shared/seed-expander.ts` đang gọi Google Suggest/Firecrawl với encoding sai (latin-1?) → AI nhận seed hỏng, càng off-topic.
 
-Tất cả wrap try/catch, fail mềm (return null) — không block research.
+**3. Tool-loop không lặp đủ — chỉ trả 5 keyword khi limit 150**
+- Prompt nói "Gọi tool nhiều lần cho đến khi đủ ${limit}" nhưng implementation chỉ gọi AI **1 lần** rồi gom hết tool_calls. Model `qwen-plus` (group override) thường chỉ trả 1 batch 5 cái rồi dừng.
+- Cần loop multi-turn: feed lại tool result → ép AI tiếp tục cho đến khi đủ limit hoặc max 6 vòng.
 
-### 1.2 Mở rộng `fetchBrandCtx` → nhận thêm `organizationId`, gọi `fetchSocialSignals` song song với `Promise.all`. Gắn signals vào `BrandCtx.social_signals`.
+**4. Insert constraint violation → "0 inserted" dù mode deep**
+- Log: `seo_keywords_source_check` reject `source: "ai_research_deep"`. Constraint chỉ allow tập cũ (`manual`, `ai_research`, `import`...). User thấy keyword preview nhưng pool không nhận.
 
-### 1.3 `buildBrandBlock` — thêm section mới:
-```
-## SOCIAL FOOTPRINT (giọng thực tế của brand)
-- Active channels: tiktok, instagram, facebook
-- Handles: @flowa.vn (IG), @flowa (TikTok)
-- Recent topics (60d): "AI marketing", "carousel trend", ...
-- Trending hashtags brand đang dùng: #aimarketing #flowa ...
-- High-engagement themes: "case study agency", "tutorial Canva"
-- Audience đang hỏi: "Flowa có hỗ trợ TikTok không?", ...
+---
 
-→ Khi sinh keyword, ƯU TIÊN intent + chủ đề khớp social footprint.
-   Nếu brand không có TikTok → hạn chế keyword "tiktok ...".
-```
+## Kế hoạch sửa
 
-### 1.4 Smart seed derivation — bổ sung nguồn:
-- `recent_topics` (weight cao nhất, 4 seed)
-- `frequent_terms` (2 seed)
-- `audience_questions` → seed dạng long-tail/question
-- Loại trùng với pillar seeds đã có
+### A. Edge function `keyword-research-v2`
 
-### 1.5 Brand Fit scoring — thêm tiêu chí:
-- `social_alignment_bonus`: +10 nếu keyword chứa term trong `recent_topics`/`frequent_terms`
-- Final score giữ formula `priority*0.6 + brand_fit*0.4` nhưng `brand_fit` nay tính cả social alignment
+**A1. Smart seed derivation cứng cáp hơn**
+- Khi brand không có industry/pillars → fallback dùng **brand name + chunk noun-phrases từ USP/positioning/mission** (TAF có USP rất giàu: "kiểm toán", "chính trực", "độc lập", "chuẩn mực nghề nghiệp"...).
+- Thêm helper `extractSeedsFromText()` tái sử dụng `extractTerms()` (đã có) để lấy 3-5 cụm 2-3 từ từ USP+positioning+mission làm seed.
+- Bỏ nhánh `${ind} là gì` khi `ind` rỗng (đang sinh seed `" là gì"` invalid).
+- Skip seeds < 2 ký tự thực (sau trim).
 
-## 2. Frontend
+**A2. Multi-turn tool loop để đạt đủ limit**
+- Wrap `tryCall` thành loop tối đa 6 vòng, mỗi vòng:
+  - Append `assistant` message với tool_calls + `tool` message với `{"ack":true,"received":N,"need_more":limit-collected}`
+  - Yêu cầu "tiếp tục sinh keyword đa dạng, KHÔNG lặp các keyword đã gửi: [list]"
+  - Dừng khi đủ `limit` hoặc model không call tool nữa.
+- Dedupe theo `keyword.toLowerCase().trim()` cuối loop.
 
-### 2.1 `KeywordResearchLabTab.tsx` — Brand DNA panel
-Thêm sub-section **"Tín hiệu Social"** trong panel collapsible hiện có:
-- Badge mỗi platform đã connect (icon + handle)
-- Chip top 5 recent topics + top 5 hashtags
-- Empty state: "Chưa kết nối social — kết nối để keyword chính xác hơn" + nút deep-link tới Brand Connections
+**A3. Sửa seed expander encoding**
+- Đọc `_shared/seed-expander.ts` → đảm bảo `encodeURIComponent(seed)` thay cho concat trực tiếp (90% là vấn đề ở đây).
+- Validate kết quả: nếu chứa `\uFFFD` (replacement char) → bỏ.
 
-### 2.2 `KeywordPreviewTable.tsx`
-- Tooltip "Brand Fit" mở rộng: nếu match social signal → hiển thị "📱 Khớp social: <topic>"
-- Filter mới: "Chỉ hiện keyword khớp social footprint"
+**A4. Sửa source value để không vi phạm check constraint**
+- Đổi `source: "ai_research_deep"` → `"ai_research"` (giá trị đã tồn tại) **HOẶC** tạo migration mở rộng constraint thêm `'ai_research_deep'`.
+- Khuyến nghị: dùng `"ai_research"` + thêm column metadata `source_detail='deep'` hoặc gắn vào `tags` — không cần migration.
 
-## 3. Memory
-Cập nhật `mem://features/seo/research-lab-v2-vn.md` ghi rõ:
-- Social signals là input bổ sung cho brand context
-- Fail-soft khi không có social hoặc query lỗi
-- Không lưu raw post content vào prompt — chỉ aggregate (privacy + token budget)
+### B. Frontend `KeywordResearchLabTab.tsx`
 
-## File thay đổi
-- `supabase/functions/keyword-research-v2/index.ts` (helper + prompt + seed + scoring)
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (Social signals panel)
-- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (badge/filter)
+**B1. Cảnh báo khi brand thiếu DNA**
+- Nếu brand được chọn nhưng `industry` trống và `content_pillars` rỗng → hiện **inline alert vàng** trong panel "Brand DNA" với CTA "Bổ sung thông tin brand" (link đến Brand settings) trước khi bấm Research.
+- Vẫn cho chạy nhưng cảnh báo "Kết quả sẽ kém chính xác".
+
+**B2. Hiển thị thông báo khi có 0 keyword được lưu**
+- Khi `done.inserted === 0` mà `total > 0` ở mode deep → toast warning "Không lưu được keyword vào pool" (giúp user thấy bug constraint nếu còn).
+
+### C. Memory update
+- Cập nhật `mem://features/seo/research-lab-v2-vn.md`: bổ sung note (1) tool-loop multi-turn để hit limit, (2) source value chuẩn, (3) seed fallback từ USP khi brand DNA trống.
+
+---
+
+## Files thay đổi
+
+- `supabase/functions/keyword-research-v2/index.ts` (smart seeds, tool loop, source value)
+- `supabase/functions/_shared/seed-expander.ts` (fix UTF-8 encoding)
+- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (alert brand thiếu DNA + toast 0 inserted)
 - `.lovable/memory/features/seo/research-lab-v2-vn.md`
 
-## Edge cases
-- Brand chưa connect social nào → skip section, fallback brand profile như hiện tại (no regression)
-- Brand có social nhưng chưa publish → vẫn dùng platform list để định hướng intent
-- Token budget: cap mỗi list 5–15 items, total social block <600 tokens
+## Không cần migration
+Dùng `source="ai_research"` (đã hợp lệ) thay vì mở rộng constraint.
+
+## Edge case
+- Brand có DNA đầy đủ → behavior cũ giữ nguyên, chỉ thêm tool-loop (tăng số keyword về đúng `limit`).
+- Seed expander fail toàn bộ → vẫn chạy với seeds gốc (đã có try/catch sẵn).

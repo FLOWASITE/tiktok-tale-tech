@@ -271,7 +271,7 @@ async function fetchSocialSignals(supabase: any, brandTemplateId?: string, organ
   }
 }
 
-
+async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<BrandCtx | null> {
   if (!brandTemplateId) return null;
   const { data: brand } = await supabase
     .from("brand_templates")
@@ -483,31 +483,66 @@ async function callAI(supabase: any, organizationId: string, userId: string, see
   const sys = buildSystemPrompt(preset, limit, brandCtx);
   const user = buildUserPrompt(seeds, expandedSeeds, serpGround, competitorContext, locale);
 
-  const tryCall = async (modelOverride?: string) => {
-    const res = await callAIWithMetrics(supabase, {
-      functionName: "keyword-research-v2",
-      organizationId,
-      userId,
-      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-      tools: [TOOL_SCHEMA],
-      modelOverride,
-      actionType: "keyword_research",
-    });
-    if (!res.success) {
-      const err: any = new Error(res.error || "AI call failed");
-      if (res.error?.includes("Rate limit")) err.status = 429;
-      else if (res.error?.includes("Payment")) err.status = 402;
-      throw err;
+  const tryCall = async (modelOverride?: string): Promise<KeywordSuggestion[]> => {
+    const collected: KeywordSuggestion[] = [];
+    const seenKw = new Set<string>();
+    const messages: any[] = [
+      { role: "system", content: sys },
+      { role: "user", content: user },
+    ];
+    const MAX_ROUNDS = 6;
+    for (let round = 0; round < MAX_ROUNDS && collected.length < limit; round++) {
+      const res = await callAIWithMetrics(supabase, {
+        functionName: "keyword-research-v2",
+        organizationId,
+        userId,
+        messages,
+        tools: [TOOL_SCHEMA],
+        modelOverride,
+        actionType: "keyword_research",
+      });
+      if (!res.success) {
+        const err: any = new Error(res.error || "AI call failed");
+        if (res.error?.includes("Rate limit")) err.status = 429;
+        else if (res.error?.includes("Payment")) err.status = 402;
+        throw err;
+      }
+      const msg = res.data?.choices?.[0]?.message;
+      const calls = msg?.tool_calls || [];
+      if (!calls.length) break;
+      let added = 0;
+      for (const c of calls) {
+        try {
+          const args = JSON.parse(c.function.arguments);
+          if (Array.isArray(args.keywords)) {
+            for (const kw of args.keywords) {
+              const k = String(kw?.keyword || "").toLowerCase().trim();
+              if (!k || seenKw.has(k)) continue;
+              seenKw.add(k);
+              collected.push(kw);
+              added++;
+            }
+          }
+        } catch { /* skip */ }
+      }
+      if (collected.length >= limit) break;
+      if (added === 0) break;
+      // Feed tool results back, ask for more
+      messages.push({ role: "assistant", content: msg.content || "", tool_calls: calls });
+      for (const c of calls) {
+        messages.push({
+          role: "tool",
+          tool_call_id: c.id,
+          content: JSON.stringify({ ack: true, received: added, total_so_far: collected.length, need_more: limit - collected.length }),
+        });
+      }
+      const recent = collected.slice(-20).map(k => k.keyword).join(", ");
+      messages.push({
+        role: "user",
+        content: `Đã nhận ${collected.length}/${limit}. Tiếp tục sinh ${Math.min(20, limit - collected.length)} keyword MỚI, ĐA DẠNG (khác cluster/intent/funnel với batch trước). KHÔNG lặp các keyword đã gửi: ${recent}`,
+      });
     }
-    const calls = res.data?.choices?.[0]?.message?.tool_calls || [];
-    const all: KeywordSuggestion[] = [];
-    for (const c of calls) {
-      try {
-        const args = JSON.parse(c.function.arguments);
-        if (Array.isArray(args.keywords)) all.push(...args.keywords);
-      } catch { /* skip */ }
-    }
-    return all;
+    return collected.slice(0, limit);
   };
 
   try {
@@ -601,10 +636,19 @@ Deno.serve(async (req) => {
     if (seeds.length < 3) {
       const ind = brandCtx.industry || "";
       const name = brandCtx.brand_name || "";
+      // 6. USP/positioning/mission noun-phrases — quan trọng nhất khi brand thiếu industry/pillars
+      const uspPool = [brandCtx.unique_value_proposition, brandCtx.brand_positioning, brandCtx.mission, brandCtx.tagline]
+        .filter(Boolean).join(" ");
+      if (uspPool) {
+        for (const term of extractTerms(uspPool, 6)) {
+          if (term && term.length >= 4) push(term, "usp_term");
+          if (seeds.length >= 5) break;
+        }
+      }
       if (name && ind) push(`${name} ${ind}`, "fallback");
       if (ind) push(`${ind} là gì`, "fallback");
       if (ind) push(`cách chọn ${ind}`, "fallback");
-      if (name) push(name, "fallback");
+      if (name && seeds.length < 2) push(name, "fallback");
     }
     seeds = seeds.slice(0, 5);
     seedStrategy = seedStrategy.slice(0, 5);
@@ -788,7 +832,7 @@ Deno.serve(async (req) => {
               funnel_stage: e.funnel_stage || null,
               priority_score: e.final_score ?? computePriority(e),
               status: "new",
-              source: "ai_research_deep",
+              source: "ai_research",
               locale,
               cluster_id: clusterMap.get((e.pillar_match || "").toLowerCase().trim()) || null,
             }));

@@ -203,7 +203,11 @@ export default function KeywordResearchLabTab() {
                 const isDeep = data.mode === "deep";
                 if (isDeep) {
                   setProgressMsg(`Deep research hoàn tất: lưu ${data.inserted}/${data.total} keyword vào pool`);
-                  toast.success(`Đã lưu ${data.inserted} keyword mới vào pool. Mở Plan để xem.`);
+                  if (data.inserted === 0 && data.total > 0) {
+                    toast.warning(`AI sinh ${data.total} keyword nhưng KHÔNG lưu được vào pool. Có thể do trùng hoặc lỗi constraint — kiểm tra log.`);
+                  } else {
+                    toast.success(`Đã lưu ${data.inserted} keyword mới vào pool. Mở Plan để xem.`);
+                  }
                 } else {
                   setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
                   toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
@@ -331,6 +335,18 @@ export default function KeywordResearchLabTab() {
                   )}
                 </div>
               </div>
+
+              {/* Warning: brand thiếu DNA → keyword sẽ kém chất lượng */}
+              {!currentBrand.industry && !hasPillars && (
+                <div className="flex items-start gap-2 px-2.5 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-[11px]">
+                  <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="text-amber-700 dark:text-amber-300 font-medium">Brand thiếu DNA — keyword sẽ kém chính xác.</span>
+                    <span className="text-muted-foreground"> Bổ sung Industry, Content Pillars, USP để AI hiểu brand sâu hơn. </span>
+                    <Link to="/brand" className="underline text-foreground hover:opacity-80">Mở Brand settings →</Link>
+                  </div>
+                </div>
+              )}
 
               {/* Brand DNA detail */}
               {(() => {
