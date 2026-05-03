@@ -47,35 +47,12 @@ export default function OverviewTab() {
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
+  const [orphanLimit, setOrphanLimit] = useState(25);
+  const [cannibalLimit, setCannibalLimit] = useState(25);
 
-  const { data: pillars = [] } = useQuery({
-    queryKey: ["overview-pillars", orgId],
-    enabled: !!orgId,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("seo_clusters")
-        .select("id,name,color")
-        .eq("organization_id", orgId!)
-        .order("name");
-      return data || [];
-    },
-  });
-
-  const { data: keywords = [], isLoading: kwLoading } = useQuery({
-    queryKey: ["overview-keywords", orgId],
-    enabled: !!orgId,
-    staleTime: 30_000,
-    queryFn: async (): Promise<KeywordRow[]> => {
-      const { data } = await supabase
-        .from("seo_keywords")
-        .select("id,keyword,search_volume,priority_score,status,cluster_id,funnel_stage,intent,assigned_landing_page_id")
-        .eq("organization_id", orgId!)
-        .order("priority_score", { ascending: false })
-        .limit(1000);
-      return (data as KeywordRow[]) || [];
-    },
-  });
+  const { data: pillars = [] } = useSeoPillars();
+  const { data: keywords = [], isLoading: kwLoading } = useSeoKeywords();
+  const kwCache = useSeoKeywordsCache();
 
   const { data: contents = [], isLoading: cLoading } = useQuery({
     queryKey: ["overview-contents", orgId],
@@ -109,14 +86,27 @@ export default function OverviewTab() {
     keywordId: string,
     patch: { cluster_id?: string | null; assigned_landing_page_id?: string | null }
   ) => {
+    // Optimistic patch — instant UI, no refetch of 1000 rows
+    kwCache.patch(keywordId, patch);
     const { error } = await supabase.from("seo_keywords").update(patch).eq("id", keywordId);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      kwCache.invalidate(); // rollback by refetch
+      return;
+    }
     toast.success("Đã gán");
-    qc.invalidateQueries({ queryKey: ["overview-keywords"] });
   };
 
   const keepWinner = async (keywordId: string, winnerContentId: string, allContents: ContentRow[]) => {
     const losers = allContents.filter((c) => c.id !== winnerContentId);
+    // Optimistic update on contents cache
+    qc.setQueryData<ContentRow[]>(["overview-contents", orgId], (prev) =>
+      (prev || []).map((c) =>
+        losers.find((l) => l.id === c.id)
+          ? { ...c, target_keyword_ids: (c.target_keyword_ids || []).filter((id) => id !== keywordId) }
+          : c
+      )
+    );
     const updates = losers.map((c) =>
       supabase
         .from("multi_channel_contents")
@@ -127,9 +117,12 @@ export default function OverviewTab() {
     );
     const results = await Promise.all(updates);
     const err = results.find((r) => r.error)?.error;
-    if (err) return toast.error(err.message);
+    if (err) {
+      toast.error(err.message);
+      qc.invalidateQueries({ queryKey: ["overview-contents"] });
+      return;
+    }
     toast.success(`Giữ winner, gỡ keyword khỏi ${losers.length} content khác`);
-    qc.invalidateQueries({ queryKey: ["overview-contents"] });
   };
 
 
