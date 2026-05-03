@@ -119,6 +119,7 @@ import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySe
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { useKeywordsByIds } from '@/hooks/useKeywordsByIds';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { resolveOverlayText } from '@/lib/imageOverlayText';
