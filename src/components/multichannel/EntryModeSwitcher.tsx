@@ -11,7 +11,7 @@ interface Props {
 export function EntryModeSwitcher({ mode, onChange, disabled }: Props) {
   const options: { value: EntryMode; label: string; desc: string; icon: JSX.Element }[] = [
     { value: 'idea', label: 'Theo ý tưởng', desc: 'Bắt đầu từ chủ đề', icon: <Lightbulb className="w-4 h-4" /> },
-    { value: 'seo',  label: 'Theo Cần cho SEO', desc: 'Bắt đầu từ keyword', icon: <Target className="w-4 h-4" /> },
+    { value: 'seo',  label: 'Cần cho SEO', desc: 'Bắt đầu từ keyword', icon: <Target className="w-4 h-4" /> },
   ];
 
   return (
