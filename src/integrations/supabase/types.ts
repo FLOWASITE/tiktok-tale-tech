@@ -5576,6 +5576,42 @@ export type Database = {
         }
         Relationships: []
       }
+      firecrawl_serp_cache: {
+        Row: {
+          country: string
+          created_at: string
+          expires_at: string
+          hit_count: number
+          id: string
+          keyword_normalized: string
+          lang: string
+          results: Json
+          updated_at: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          keyword_normalized: string
+          lang?: string
+          results?: Json
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          keyword_normalized?: string
+          lang?: string
+          results?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       generation_signals: {
         Row: {
           accepted: boolean | null
