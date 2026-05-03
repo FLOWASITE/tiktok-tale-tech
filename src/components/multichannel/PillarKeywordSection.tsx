@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/hooks/useOrganization';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Target, Sparkles, ArrowRight } from 'lucide-react';
+import { Target, Sparkles, ArrowRight, AlertTriangle } from 'lucide-react';
 import ClusterPicker from '@/components/seo/ClusterPicker';
 import KeywordTargetPicker from '@/components/seo/KeywordTargetPicker';
 
@@ -148,6 +148,35 @@ export function PillarKeywordSection({
           </p>
         </div>
       )}
+
+      {/* Inline warning khi đang bật SEO (variant=card) nhưng chưa đủ dữ liệu */}
+      {variant === 'card' && (() => {
+        let msg: string | null = null;
+        let cta: { to: string; label: string } | null = null;
+        if (!clusterId) {
+          msg = 'Bạn đang bật chế độ SEO nhưng chưa chọn nhóm Pillar — AI sẽ thiếu định hướng từ khoá.';
+          cta = { to: '/seo?tab=plan', label: 'Chọn hoặc tạo Pillar →' };
+        } else if (ctx && ctx.keywordCount === 0) {
+          msg = 'Pillar này chưa có keyword nào — AI không có target cụ thể để tối ưu.';
+          cta = { to: '/seo?tab=discover', label: 'Research keyword →' };
+        } else if (ctx && ctx.keywordCount > 0 && selectedKeywordIds.length === 0) {
+          msg = 'Pillar đã chọn nhưng chưa tick keyword mục tiêu — chọn ít nhất 1 keyword để AI tập trung.';
+        }
+        if (!msg) return null;
+        return (
+          <div className="flex items-start gap-2 p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 text-[11px]">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-foreground/80">{msg}</p>
+              {cta && (
+                <Link to={cta.to} className="text-amber-700 dark:text-amber-400 hover:underline mt-0.5 inline-block">
+                  {cta.label}
+                </Link>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {empty && (
         <p className="text-[11px] text-muted-foreground">
