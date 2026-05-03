@@ -1,63 +1,82 @@
-## Còn gì có thể tối ưu cho SEO Hub
+## Keyword Difficulty + SERP Intent Enrichment
 
-Sau khi rà OverviewTab + cấu trúc 6 tabs hiện tại, còn 5 nhóm tối ưu có ROI rõ ràng. Tôi đề xuất chọn lọc, không làm tất cả tránh over-engineering.
+Bổ sung **KD score chuẩn hoá**, **SERP features** (PAA, Featured Snippet, Video, Shopping...) và **intent re-classify** cho keyword đã có. Một edge function chạy theo batch, có UI trigger trong Explorer.
 
-### 1. Gom shared queries (đã ghi trong plan.md nhưng chưa làm)
-Hiện `seo_keywords` được fetch riêng ở 4 nơi (Overview, Explorer, Pillars, RankTracker) với 4 cache keys khác nhau → 4 round-trip cho cùng dataset.
+### Why
+Hiện `seo_keywords.difficulty` mặc định 50, `serp_features` rỗng `[]`, `intent` chỉ heuristic từ Research Lab lúc tạo. Sau vài tuần dữ liệu lệch:
+- Không lọc được "easy wins" (KD thấp + volume cao)
+- Không biết keyword nào có PAA/snippet để target featured
+- Intent gán sai → assign nhầm landing page/funnel
 
-**Fix:** Tạo `src/hooks/useSeoKeywords.ts` + `useSeoPillars.ts` dùng chung `queryKey: ["seo-keywords", orgId]` với `staleTime: 30s`. Refactor 4 components qua hooks.
+### Approach
 
-**Lợi ích:** sau lần đầu mở Overview, chuyển sang Explorer/Pillars là instant (cache hit), invalidate 1 chỗ là toàn bộ tab cập nhật.
+**1. Edge function `enrich-keyword-serp`** (Deno, batch 1-50 keyword/lần)
+- Input: `{ keywordIds: string[], organizationId }`
+- Cho mỗi keyword: gọi **Firecrawl `/v2/search`** với `query=keyword`, `limit=10`, `country=VN`, `lang=vi`
+- Parse 10 SERP results → trích:
+  - `serp_features`: detect PAA, featured snippet, video carousel, shopping, local pack, news, image pack (heuristic theo title/url/structured fields Firecrawl trả)
+  - `kd_signals`: tính KD 0-100 dựa trên (avg domain authority proxy: số kết quả từ top domains như facebook, youtube, wiki, .gov, .edu) + mức cạnh tranh title length & exact-match
+  - `intent`: gọi Lovable AI Gateway (`google/gemini-3-flash-preview`) tool-call structured: input top 5 titles+snippets, output 1 trong 4 intent enum
+- Update `seo_keywords` SET difficulty, serp_features (jsonb), intent, top_competitors (top 3 domains)
+- Track job qua bảng mới `keyword_enrichment_jobs` (id, org, status, total, done, errors[], created_at)
+- Background persistence: `EdgeRuntime.waitUntil` để tiếp tục dù client disconnect
 
-### 2. OverviewTab: phân trang/virtualize
-- `orphanKeywords.slice(0, 100)` đang render 100 row table có 2 Select mỗi row → 200 Radix Select instances. Trên viewport 707px khá nặng.
-- `cannibalized` không giới hạn, có thể vài chục hàng.
+**2. UI trong `KeywordExplorerTab.tsx`**
+- Nút "Enrich SERP" trong bulk action bar (xuất hiện khi chọn ≥1 keyword) → POST với selectedIds
+- Toast "Đang enrich N keyword (1-2 phút)..."
+- Polling job status mỗi 3s, hiện progress bar inline ở action bar
+- Sau khi xong → invalidate `seo-keywords` queries → row tự cập nhật KD/intent/serp badge
 
-**Fix:**
-- Mặc định show 25, có "Hiện thêm" button.
-- Hoặc dùng `useDeferredValue` cho list khi search/filter (sẽ thêm ở mục 4).
+**3. Hiển thị SERP features**
+- Thêm cột nhỏ icon row trong bảng Explorer (sau cột Funnel): icon nhỏ cho PAA (?), Snippet (★), Video (▶), Shopping ($), Local (📍). Tooltip liệt kê.
+- Hoặc collapse vào popover khi nhiều — quyết định lúc build.
 
-### 3. Bulk actions cho Orphan
-Hiện phải sửa từng row. Thêm:
-- Checkbox chọn nhiều orphan keyword.
-- Action bar: "Gán vào pillar X" / "Gán vào page Y" / "Tạo content gộp" cho selection.
+**4. Connector Firecrawl**
+- Project chưa có `FIRECRAWL_API_KEY`. Sẽ yêu cầu connect Firecrawl connector trước khi deploy edge function.
+- Fallback: nếu không có key, edge function chỉ chạy intent re-classify bằng AI (không có SERP data).
 
-Giảm 10 click thành 1 khi triage 20 orphan cùng pillar.
+### Schema change
 
-### 4. Search/filter ngay trong Overview
-Hiện 4 sub-tab Orphan/Gap/Cannibal/Contents đều list-only. Thêm 1 ô `Input` search keyword + `Select` filter funnel stage (TOFU/MOFU/BOFU) ở đầu mỗi tab. Persist qua query param `?q=&stage=` để deep-link.
+```sql
+-- New table
+CREATE TABLE keyword_enrichment_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'queued', -- queued|running|done|failed
+  total int NOT NULL DEFAULT 0,
+  done int NOT NULL DEFAULT 0,
+  errors jsonb DEFAULT '[]'::jsonb,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+ALTER TABLE keyword_enrichment_jobs ENABLE ROW LEVEL SECURITY;
+-- Org members CRUD policy theo organization_id (giống các bảng khác)
+```
 
-### 5. Optimistic update + auto-refresh cho mutations
-- `quickAssign` đang `invalidateQueries` → refetch full 1000 keyword. Đổi sang `setQueryData` patch local row → instant UI, không round-trip thừa.
-- `keepWinner` tương tự.
-
-### 6. Background warning badges trên TabsList chính
-Trên `AdminSeoHub`, badge nhỏ cạnh tab Overview hiển thị số orphan + cannibal cao (vd `Overview ⚠ 12`). Không cần mở tab cũng biết có việc cần làm. Badge tính từ shared hook ở mục 1 → free.
-
----
-
-## Đề xuất scope sprint này
-
-Làm **mục 1, 2, 5** (đụng nhau, nên gộp):
-- Tạo 2 hooks shared.
-- Refactor OverviewTab + KeywordExplorerTab + PillarsTab + RankTrackerTab dùng hooks.
-- Thêm pagination (25/page) cho Orphan + Cannibal.
-- Optimistic update cho `quickAssign` + `keepWinner`.
-
-Hoãn **3, 4, 6** sang sprint sau (cần thiết kế UX kỹ hơn, dễ over-build).
+Không thay đổi cột của `seo_keywords` (đã có sẵn `difficulty`, `serp_features`, `intent`, `top_competitors`).
 
 ### Files
 
 **Tạo**
-- `src/hooks/useSeoKeywords.ts`
-- `src/hooks/useSeoPillars.ts`
+- `supabase/functions/enrich-keyword-serp/index.ts`
+- `src/hooks/useKeywordEnrichment.ts` (mutation + job polling)
+- Migration: `keyword_enrichment_jobs` table + RLS
 
 **Sửa**
-- `src/components/admin/seo-keywords/OverviewTab.tsx` — dùng hooks, paginate, optimistic
-- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` — dùng hooks
-- `src/components/admin/seo-keywords/PillarsTab.tsx` — dùng hooks
-- `src/components/admin/seo-keywords/RankTrackerTab.tsx` — dùng hooks (nếu fetch keywords)
+- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` — nút "Enrich SERP" trong bulk bar + cột SERP features icons
+- `supabase/config.toml` — entry function (default verify_jwt=true)
 
-**Không đổi:** DB schema, RLS, edge functions.
+**Không đổi:** schema `seo_keywords`, các tab Overview/Pillars.
 
-Approve để tôi triển khai, hoặc cho biết muốn thêm/bớt mục nào.
+### Risk / cost
+- Firecrawl: 1 search ≈ 1 credit. 50 keyword/batch = 50 credits.
+- AI intent classify: Gemini Flash, ~200 tokens/keyword, rất rẻ.
+- Rate limit: throttle 5 concurrent requests trong edge function tránh 429 Firecrawl.
+
+### Out of scope (hoãn)
+- Auto-schedule enrich định kỳ (cron)
+- KD score dùng Ahrefs/Semrush API thật (cần key trả phí riêng)
+- Re-enrich tự động khi keyword cũ >30 ngày
+
+Approve để tôi triển khai (sẽ hỏi connect Firecrawl nếu chưa có).
