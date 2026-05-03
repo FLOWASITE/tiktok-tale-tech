@@ -537,10 +537,19 @@ Deno.serve(async (req) => {
   }
 
   // Brand context (optional)
-  const brandCtx = await fetchBrandCtx(supabase, brandTemplateId).catch((e) => {
-    console.warn("[keyword-research-v2] brand ctx fail:", e);
-    return null;
-  });
+  const [brandCtxBase, socialSignals] = await Promise.all([
+    fetchBrandCtx(supabase, brandTemplateId).catch((e) => {
+      console.warn("[keyword-research-v2] brand ctx fail:", e);
+      return null;
+    }),
+    fetchSocialSignals(supabase, brandTemplateId, organizationId).catch((e) => {
+      console.warn("[keyword-research-v2] social signals fail:", e);
+      return null;
+    }),
+  ]);
+  const brandCtx: BrandCtx | null = brandCtxBase
+    ? { ...brandCtxBase, social_signals: socialSignals }
+    : (socialSignals ? ({ pillars: [], forbidden_terms: [], social_signals: socialSignals } as BrandCtx) : null);
 
   // Smart seed derivation: pillars (weighted) + USP + evergreen + location
   let seedStrategy: string[] = [];
