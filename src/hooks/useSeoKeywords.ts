@@ -51,6 +51,10 @@ export function useSeoKeywordsCache() {
         (prev || []).map((k) => (k.id === id ? { ...k, ...patch } : k))
       );
     },
+    snapshot: () => qc.getQueryData<SeoKeywordRow[]>(SHARED_KEY(orgId)),
+    restore: (snap?: SeoKeywordRow[]) => {
+      if (snap) qc.setQueryData<SeoKeywordRow[]>(SHARED_KEY(orgId), snap);
+    },
     invalidate: () => qc.invalidateQueries({ queryKey: SHARED_KEY(orgId) }),
   };
 }
