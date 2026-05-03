@@ -3290,7 +3290,7 @@ QUY TẮC SEO ON-PAGE:
 4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
 5. Tuyệt đối không bịa số liệu để nhồi keyword.
 `;
-            console.log(`[streaming-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" keywords=${kwRows.length}`);
+            console.log(`[streaming-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" cluster_id=${formData.clusterId || 'n/a'} keywords=${kwRows.length} source=${kwSource}`);
           }
         } catch (err) {
           console.warn('[streaming-mode] Failed to load SEO cluster context:', err);
