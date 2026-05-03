@@ -16,7 +16,7 @@ interface TopicSuggestion {
 interface Props {
   clusterId: string | null | undefined;
   selectedKeywordIds?: string[];
-  onPick: (title: string) => void;
+  onPick: (title: string, keywordIds: string[]) => void;
   disabled?: boolean;
 }
 
@@ -62,7 +62,7 @@ export function SuggestedTopicsFromKeyword({
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('suggest-cluster-topics', {
-        body: { clusterId },
+        body: { clusterId, selectedKeywordIds },
       });
       if (error) throw error;
       const list = (data?.suggestions || []) as TopicSuggestion[];
@@ -127,7 +127,7 @@ export function SuggestedTopicsFromKeyword({
             <button
               key={i}
               type="button"
-              onClick={() => onPick(s.title)}
+              onClick={() => onPick(s.title, s.keyword_ids || [])}
               disabled={disabled}
               className="w-full text-left p-2.5 rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-accent/40 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
             >

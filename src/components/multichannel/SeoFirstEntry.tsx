@@ -9,7 +9,7 @@ interface Props {
   selectedKeywordIds: string[];
   onClusterChange: (clusterId: string | null, keywordIds: string[]) => void;
   onKeywordIdsChange: (ids: string[]) => void;
-  onPickTopic: (title: string) => void;
+  onPickTopic: (title: string, keywordIds: string[]) => void;
   disabled?: boolean;
 }
 
@@ -25,6 +25,7 @@ export function SeoFirstEntry({
   onPickTopic,
   disabled,
 }: Props) {
+  const needKeywordHint = !!clusterId && selectedKeywordIds.length === 0;
   return (
     <div className="space-y-3">
       <PillarKeywordSection
@@ -46,6 +47,11 @@ export function SeoFirstEntry({
           onPick={onPickTopic}
           disabled={disabled}
         />
+        {needKeywordHint && (
+          <p className="text-[11px] text-muted-foreground">
+            Mẹo: chọn 1–5 keyword target ở trên để AI tập trung đúng intent.
+          </p>
+        )}
       </Card>
     </div>
   );
