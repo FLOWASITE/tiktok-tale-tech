@@ -7717,47 +7717,71 @@ export type Database = {
       keyword_research_jobs: {
         Row: {
           ai_model: string | null
+          auto_enrich: boolean | null
+          competitor_urls: Json | null
           completed_at: string | null
           cost_usd: number | null
           created_at: string
           created_by: string
+          enrich_job_id: string | null
           error_message: string | null
           id: string
           keywords_added: number
           mode: string
           organization_id: string
+          preset: string | null
+          preview: Json | null
           result: Json | null
           seed_keyword: string
+          seeds: Json | null
+          selected_count: number | null
+          serp_grounding: Json | null
           status: string
         }
         Insert: {
           ai_model?: string | null
+          auto_enrich?: boolean | null
+          competitor_urls?: Json | null
           completed_at?: string | null
           cost_usd?: number | null
           created_at?: string
           created_by: string
+          enrich_job_id?: string | null
           error_message?: string | null
           id?: string
           keywords_added?: number
           mode?: string
           organization_id: string
+          preset?: string | null
+          preview?: Json | null
           result?: Json | null
           seed_keyword: string
+          seeds?: Json | null
+          selected_count?: number | null
+          serp_grounding?: Json | null
           status?: string
         }
         Update: {
           ai_model?: string | null
+          auto_enrich?: boolean | null
+          competitor_urls?: Json | null
           completed_at?: string | null
           cost_usd?: number | null
           created_at?: string
           created_by?: string
+          enrich_job_id?: string | null
           error_message?: string | null
           id?: string
           keywords_added?: number
           mode?: string
           organization_id?: string
+          preset?: string | null
+          preview?: Json | null
           result?: Json | null
           seed_keyword?: string
+          seeds?: Json | null
+          selected_count?: number | null
+          serp_grounding?: Json | null
           status?: string
         }
         Relationships: []
