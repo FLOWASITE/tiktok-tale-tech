@@ -1,16 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useKeywordEnrichment } from "@/hooks/useKeywordEnrichment";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, RefreshCw, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Clock, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, Clock, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users, Sparkles, Copy, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const SERP_ICONS: Record<string, { icon: typeof HelpCircle; label: string }> = {
   paa: { icon: HelpCircle, label: "People Also Ask" },
