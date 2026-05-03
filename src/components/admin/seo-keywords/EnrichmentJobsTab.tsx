@@ -38,6 +38,7 @@ interface Job {
   total: number;
   done: number;
   errors: { id: string; error: string }[];
+  keyword_ids: string[];
   created_at: string;
   completed_at: string | null;
 }
@@ -46,7 +47,15 @@ export default function EnrichmentJobsTab() {
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id;
   const { enrich, job: activeJob, starting } = useKeywordEnrichment();
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const focusedJobId = params.get("jobId");
+  const [expanded, setExpanded] = useState<string | null>(focusedJobId);
+  const [search, setSearch] = useState("");
+
+  // Auto-expand focused job
+  useEffect(() => {
+    if (focusedJobId) setExpanded(focusedJobId);
+  }, [focusedJobId]);
 
   const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ["keyword-enrichment-jobs", orgId, activeJob?.status],
@@ -55,7 +64,7 @@ export default function EnrichmentJobsTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("keyword_enrichment_jobs")
-        .select("id,status,total,done,errors,created_at,completed_at")
+        .select("id,status,total,done,errors,keyword_ids,created_at,completed_at")
         .eq("organization_id", orgId!)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -63,38 +72,69 @@ export default function EnrichmentJobsTab() {
       return (data || []).map(j => ({
         ...j,
         errors: Array.isArray(j.errors) ? (j.errors as Job["errors"]) : [],
+        keyword_ids: Array.isArray(j.keyword_ids) ? (j.keyword_ids as string[]) : [],
       })) as Job[];
     },
   });
+
+  const filteredJobs = useMemo(() => {
+    if (!search.trim()) return jobs;
+    const q = search.trim().toLowerCase();
+    return jobs.filter(j => j.id.toLowerCase().includes(q));
+  }, [jobs, search]);
+
+  const clearFocus = () => {
+    const next = new URLSearchParams(params);
+    next.delete("jobId");
+    setParams(next, { replace: true });
+  };
 
   if (!orgId) return <p className="text-muted-foreground">Chọn workspace.</p>;
 
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h3 className="text-sm font-semibold">Lịch sử Enrich SERP</h3>
             <p className="text-xs text-muted-foreground">
-              Xem KD score, SERP features, intent của từng keyword. Retry các keyword lỗi.
+              Xem KD score, SERP features, intent theo từng job. Retry các keyword lỗi.
             </p>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw className={cn("h-3.5 w-3.5 mr-1", isLoading && "animate-spin")} /> Làm mới
-          </Button>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Lọc theo Job ID..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="h-8 w-56 text-xs font-mono"
+            />
+            <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isLoading}>
+              <RefreshCw className={cn("h-3.5 w-3.5 mr-1", isLoading && "animate-spin")} /> Làm mới
+            </Button>
+          </div>
         </div>
+
+        {focusedJobId && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/20 rounded text-xs">
+            <span className="text-muted-foreground">Đang xem job:</span>
+            <code className="font-mono text-[11px]">{focusedJobId}</code>
+            <button onClick={clearFocus} className="ml-auto text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm py-6">
             <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
           </div>
-        ) : jobs.length === 0 ? (
+        ) : filteredJobs.length === 0 ? (
           <div className="text-center text-sm text-muted-foreground py-10 border rounded">
-            Chưa có lần enrich nào. Vào tab <strong>Keywords</strong>, chọn keyword và bấm <strong>Enrich SERP</strong>.
+            {search ? "Không khớp Job ID nào." : <>Chưa có lần enrich nào. Vào tab <strong>Keywords</strong>, chọn keyword và bấm <strong>Enrich SERP</strong>.</>}
           </div>
         ) : (
           <div className="border rounded divide-y">
-            {jobs.map(job => (
+            {filteredJobs.map(job => (
               <JobRow
                 key={job.id}
                 job={job}
