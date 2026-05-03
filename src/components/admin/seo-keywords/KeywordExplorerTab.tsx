@@ -22,9 +22,19 @@ const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "
 const NONE = "__none__";
 const NO_PILLAR = "__no_pillar__";
 
-// Grid template aligned for header + each row (10 columns)
+// Grid template aligned for header + each row (11 columns: + SERP icons col)
 const GRID_COLS =
-  "grid grid-cols-[32px_minmax(220px,2fr)_88px_64px_120px_120px_180px_88px_140px_44px] items-center gap-2 px-3";
+  "grid grid-cols-[32px_minmax(220px,2fr)_88px_64px_120px_110px_120px_180px_88px_140px_44px] items-center gap-2 px-3";
+
+const SERP_ICONS: Record<string, { icon: typeof HelpCircle; label: string }> = {
+  paa: { icon: HelpCircle, label: "People Also Ask" },
+  snippet: { icon: Star, label: "Featured Snippet" },
+  video: { icon: Play, label: "Video" },
+  shopping: { icon: ShoppingBag, label: "Shopping" },
+  local: { icon: MapPin, label: "Local Pack" },
+  news: { icon: Newspaper, label: "News" },
+  social: { icon: Users, label: "Social" },
+};
 
 export default function KeywordExplorerTab() {
   const { currentOrganization } = useOrganization();
