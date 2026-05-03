@@ -371,6 +371,7 @@ async function handleSuggest(
     categoryHint,
     topic,
     instruction,
+    targetKeywords,
   });
 
   // Force a fast model for `suggest`: this action returns 6 short topics, doesn't
