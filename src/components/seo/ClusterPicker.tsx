@@ -56,11 +56,11 @@ export default function ClusterPicker({ value, onChange, className }: Props) {
         <SelectTrigger className="h-9">
           <div className="flex items-center gap-1.5 min-w-0">
             <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <SelectValue placeholder="Không gắn pillar" />
+            <SelectValue placeholder='Không gắn "Cần cho SEO"' />
           </div>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="__none__">Không gắn pillar</SelectItem>
+          <SelectItem value="__none__">Không gắn "Cần cho SEO"</SelectItem>
           {clusters.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               <div className="flex items-center gap-2">
