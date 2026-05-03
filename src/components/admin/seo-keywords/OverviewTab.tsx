@@ -47,8 +47,9 @@ export default function OverviewTab() {
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
-  const [orphanLimit, setOrphanLimit] = useState(25);
-  const [cannibalLimit, setCannibalLimit] = useState(25);
+  const PAGE_SIZE = 25;
+  const [orphanPage, setOrphanPage] = useState(1);
+  const [cannibalPage, setCannibalPage] = useState(1);
 
   const { data: pillars = [] } = useSeoPillars();
   const { data: keywords = [], isLoading: kwLoading } = useSeoKeywords();
