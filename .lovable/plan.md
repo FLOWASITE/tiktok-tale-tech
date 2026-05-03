@@ -1,42 +1,63 @@
 ## Mục tiêu
-Trong mode "Cần cho SEO", nút **Gợi ý topic** chỉ hoạt động khi user đã chọn cả Pillar **và** ít nhất 1 Keyword target — tránh case AI gợi ý chung chung không bám context.
+Trong mode "Cần cho SEO":
+- **Bỏ** card "3. Topic gợi ý từ Pillar + Keyword" (khoanh đỏ trong screenshot).
+- **Dùng lại** "Ý tưởng chủ đề" (TopicIdeaHub) đã có sẵn ngay phía dưới.
+- Topic ý tưởng phải **gắn trực tiếp với Pillar + Keyword target** đã chọn.
 
-## Vấn đề hiện tại
-`SuggestedTopicsFromKeyword.tsx`:
-- Khi `!clusterId` → hiển thị hint, không có nút.
-- Khi có `clusterId` nhưng `selectedKeywordIds = []` → nút "Gợi ý topic" vẫn enable, edge function vẫn chạy với toàn bộ uncovered keywords (không bias).
+## Thay đổi
 
-→ Gợi ý topic không thực sự gắn Pillar/Keyword như tên mode hứa hẹn.
+### 1. `src/components/multichannel/SeoFirstEntry.tsx`
+- Xóa block `<Card>` chứa `<SuggestedTopicsFromKeyword>` + icon Sparkles + tiêu đề "3. Topic gợi ý...".
+- Bỏ prop `onPickTopic` (không còn được dùng từ đây).
+- Component chỉ còn render `PillarKeywordSection` (Pillar + Keyword picker).
 
-## Giải pháp
+### 2. `src/components/multichannel/MultiChannelFormWizard.tsx`
+- Bỏ prop `onPickTopic` truyền vào `SeoFirstEntry` (lines 1190–1199).
+- Truyền thêm `clusterId` + `selectedKeywordIds` (resolved sang keyword strings) vào `useEnhancedTopicSuggestions` để TopicIdeaHub fetch suggestions có bias theo SEO context.
 
-### 1. `src/components/seo/SuggestedTopicsFromKeyword.tsx`
-- Thêm prop `requireKeywords?: boolean` (default `false`, mode SEO truyền `true`).
-- Khi `requireKeywords && selectedKeywordIds.length === 0`:
-  - Disable nút "Gợi ý topic".
-  - Thay caption thành: *"Chọn ít nhất 1 keyword target để AI gợi ý topic bám Pillar."*
-  - Tooltip trên nút giải thích lý do disable.
-- Giữ nguyên hành vi cũ cho idea-mode (không bắt buộc).
+### 3. `src/hooks/useEnhancedTopicSuggestions.ts` + `src/hooks/ai/useTopicAI.ts`
+- Thêm option `clusterId?: string` và `targetKeywords?: string[]` vào `UseTopicAIOptions`.
+- Trong `fetchSuggestions`, gửi 2 field này xuống edge function `topic-ai` body.
+- Khi giá trị đổi → trigger refetch (giống cách `brandTemplateId` đang làm).
 
-### 2. `src/components/multichannel/SeoFirstEntry.tsx`
-- Truyền `requireKeywords={true}` cho `SuggestedTopicsFromKeyword`.
-- Bỏ block hint `needKeywordHint` cũ (đã merge vào component con).
-- Title section "3. Topic gợi ý từ keyword" → đổi thành **"3. Topic gợi ý từ Pillar + Keyword"** cho rõ ràng.
+### 4. `supabase/functions/topic-ai/index.ts`
+- `handleSuggest`: nhận `clusterId`, `targetKeywords` từ body.
+- Khi có `targetKeywords.length > 0`:
+  - Inject vào prompt ngay sau `categoryGuidance`:
+    ```
+    🎯 SEO TARGET: Mỗi topic gợi ý phải bám tự nhiên ít nhất 1 keyword sau:
+    - <kw1>
+    - <kw2>
+    ...
+    Topic title nên chứa hoặc paraphrase keyword target.
+    ```
+  - Include `clusterId` vào cache key để không lẫn cache giữa các Pillar.
+- Log `console.log('[topic-ai:suggest] targetKeywords:', targetKeywords?.length)` cho observability.
 
-### 3. (Nhỏ) `supabase/functions/suggest-cluster-topics/index.ts`
-- Khi nhận request mà `selectedKeywordIds.length === 0` từ SEO-mode (sau frontend gating, không nên xảy ra) → vẫn giữ logic cũ cho safety, không đổi.
-- Thêm log `console.log('[suggest-cluster-topics] target keywords:', selectedKeywordIds.length)` để observability.
+### 5. (Cleanup nhẹ — không bắt buộc)
+- `SuggestedTopicsFromKeyword.tsx` không còn caller trong wizard nhưng vẫn giữ file (có thể dùng nơi khác như SEO Hub). Không xóa.
+
+## Resolve keyword IDs → keyword strings
+Trong `MultiChannelFormWizard`, sau khi user chọn `targetKeywordIds`, cần fetch `seo_keywords.keyword` để gửi xuống. 
+- Dùng hook nhỏ `useKeywordsByIds(ids)` (TanStack Query, query `seo_keywords` where `id in (...)`, staleTime 60s).
+- Hoặc đơn giản hơn: tận dụng data đã có trong `PillarKeywordSection` (kiểm tra trước; nếu component đã expose qua callback `onKeywordIdsChange` được, có thể đổi signature thành `(ids, keywords)`).
+
+→ Approach chọn: **mở rộng `onKeywordIdsChange(ids, keywordObjects)`** trong `PillarKeywordSection` (đã có sẵn dữ liệu keyword). Wizard cache `targetKeywordsText: string[]` trong state để pass xuống hook.
 
 ## Files sửa
-- `src/components/seo/SuggestedTopicsFromKeyword.tsx` — thêm `requireKeywords` gating + UX message.
-- `src/components/multichannel/SeoFirstEntry.tsx` — pass prop + đổi tiêu đề + bỏ hint trùng.
-- `supabase/functions/suggest-cluster-topics/index.ts` — log nhỏ (optional, không đổi behavior).
+- `src/components/multichannel/SeoFirstEntry.tsx` — xóa card suggest.
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — bỏ onPickTopic, pass cluster+keywords vào hook suggestions, lưu `targetKeywordsText`.
+- `src/components/multichannel/PillarKeywordSection.tsx` — mở rộng callback trả thêm keyword strings (nếu chưa).
+- `src/hooks/useEnhancedTopicSuggestions.ts` — pass-through option mới.
+- `src/hooks/ai/useTopicAI.ts` — accept option, gửi xuống edge function, depend trong refetch effect.
+- `supabase/functions/topic-ai/index.ts` — đọc field, inject vào prompt, đưa vào cache key.
 
 ## Không đụng
-- Idea mode flow.
-- Schema, RLS, edge function contract.
-- `MultiChannelFormWizard`, `PillarKeywordSection`.
+- Idea mode flow (đã đúng sẵn).
+- Schema DB, RLS.
+- TopicIdeaHub UI (chỉ data đầu vào thay đổi).
 
 ## Kết quả
-- Mode "Cần cho SEO": nút Gợi ý topic chỉ active khi đủ Pillar + ≥1 Keyword → AI luôn bias đúng intent user chọn.
-- Hint inline rõ ràng, không cần message rời rạc bên dưới.
+- UI gọn: 1 chỗ duy nhất hiển thị topic ý tưởng (TopicIdeaHub).
+- Khi user chọn Pillar + Keyword trong SEO mode → topic suggestions ở TopicIdeaHub tự refresh và bám đúng keyword target.
+- Khi user đổi keyword selection → suggestions tự cập nhật.
