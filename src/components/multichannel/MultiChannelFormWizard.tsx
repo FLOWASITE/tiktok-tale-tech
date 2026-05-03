@@ -1308,6 +1308,12 @@ export function MultiChannelFormWizard({
                     Đã gắn {formData.targetKeywordIds?.length} keyword mục tiêu từ pillar này.
                   </p>
                 )}
+                {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                    <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                    <span>Bạn đang tạo nội dung long-form. Cân nhắc gắn Pillar để tận dụng topic cluster, internal linking và boost SEO authority.</span>
+                  </p>
+                )}
               </div>
 
               {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
