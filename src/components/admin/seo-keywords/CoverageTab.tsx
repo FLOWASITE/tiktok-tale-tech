@@ -273,6 +273,108 @@ export default function CoverageTab() {
             </p>
           </TabsContent>
 
+          {/* Gap by Pillar */}
+          <TabsContent value="gap" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pillar</TableHead>
+                      <TableHead className="text-right">Coverage</TableHead>
+                      <TableHead className="text-right">Orphan</TableHead>
+                      <TableHead>Top orphan keywords</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pillarGap.map(({ pillar, total, covered, orphans, ratio }) => (
+                      <TableRow key={pillar.id}>
+                        <TableCell className="font-medium">
+                          <span className="inline-flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: pillar.color || "#6B7280" }} />
+                            {pillar.name}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <Badge variant={ratio < 0.3 ? "destructive" : ratio < 0.7 ? "outline" : "secondary"}>
+                            {covered}/{total} ({Math.round(ratio * 100)}%)
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{orphans.length}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {orphans.slice(0, 3).map((k) => k.keyword).join(", ")}
+                          {orphans.length > 3 && ` +${orphans.length - 3}`}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="ghost" className="h-7"
+                            onClick={() => navigate(`/admin/seo?tab=pillars&pillar=${pillar.id}`)}>
+                            Mở pillar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {pillarGap.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          Chưa có keyword nào được gắn vào pillar.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+            <p className="text-xs text-muted-foreground mt-2">
+              Sắp xếp theo % coverage thấp nhất — pillar cần ưu tiên viết content.
+            </p>
+          </TabsContent>
+
+          {/* Cannibalization */}
+          <TabsContent value="cannibal" className="mt-4">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Keyword</TableHead>
+                      <TableHead className="text-right"># Content</TableHead>
+                      <TableHead>Đang cạnh tranh</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cannibalized.map(({ keyword, contents: list }) => (
+                      <TableRow key={keyword.id}>
+                        <TableCell className="font-medium">{keyword.keyword}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="destructive">{list.length}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs space-y-0.5">
+                          {list.map((c) => (
+                            <div key={c.id} className="truncate max-w-md text-muted-foreground">
+                              · {c.title || c.topic || c.id.slice(0, 8)}{" "}
+                              <Badge variant="outline" className="text-[9px] ml-1">{c.status || "—"}</Badge>
+                            </div>
+                          ))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {cannibalized.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                          🎉 Không có keyword bị cannibalize.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+            <p className="text-xs text-muted-foreground mt-2">
+              Keyword bị target bởi ≥2 content — cân nhắc gộp content hoặc đổi target keyword phụ.
+            </p>
+          </TabsContent>
+
           {/* Covered keywords */}
           <TabsContent value="covered" className="mt-4">
             <Card>
