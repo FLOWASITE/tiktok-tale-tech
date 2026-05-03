@@ -14,6 +14,8 @@ export function useEnhancedTopicSuggestions(options: {
   contentGoal: ContentGoal;
   format?: TopicFormat;
   enabled?: boolean;
+  clusterId?: string;
+  targetKeywords?: string[];
 }) {
   const topicAI = useTopicAI(options);
   const suggestionsModule = topicAI.suggestions;
