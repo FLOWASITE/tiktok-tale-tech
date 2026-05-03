@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Sparkles, X, Globe, Target, MapPin, Telescope, ChevronDown, Wand2, Info, Settings2, Search, Layers, Database, Check } from "lucide-react";
+import { Loader2, Sparkles, X, Globe, Target, MapPin, Telescope, ChevronDown, Wand2, Info, Settings2, Search, Layers, Database, Check, Download, FileJson } from "lucide-react";
+import { buildCsv, downloadCsv } from "@/lib/reports/csvBuilder";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -601,6 +602,85 @@ export default function KeywordResearchLabTab() {
 
       {previewKeywords.length > 0 && activeJobId && (
         <>
+          <div className="flex flex-wrap items-center gap-2 px-1">
+            <span className="text-xs text-muted-foreground mr-auto">
+              Xuất báo cáo QA: {effectiveSeeds.length} seed · {expandedSeeds.length} expanded · {previewKeywords.length} keyword
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                const headers = ["#", "keyword", "intent", "funnel_stage", "cluster", "search_volume", "difficulty", "cpc_vnd", "brand_fit_score", "audience_match", "pillar_match", "social_match", "source_seed", "is_gap", "rationale"];
+                const rows = previewKeywords.map((k, i) => [
+                  i + 1, k.keyword, k.intent, k.funnel_stage, k.cluster_name,
+                  k.search_volume ?? "", k.difficulty ?? "", k.cpc_vnd ?? "",
+                  k.brand_fit_score ?? "", k.audience_match ?? "", k.pillar_match ?? "",
+                  k.social_match ?? "", k.source_seed ?? "", k.is_gap ? "yes" : "",
+                  k.rationale ?? "",
+                ]);
+                // Append meta block as separate sections
+                const meta = buildCsv(["section", "value"], [
+                  ["job_id", activeJobId],
+                  ["brand", currentBrand?.brand_name ?? ""],
+                  ["preset", preset],
+                  ["seeds", effectiveSeeds.join(" | ")],
+                  ["expanded_seeds", expandedSeeds.join(" | ")],
+                  ["social_active_platforms", brandSignals?.active_platforms?.join(", ") ?? ""],
+                  ["social_recent_topics", brandSignals?.recent_topics?.join(" | ") ?? ""],
+                  ["social_hashtags", brandSignals?.recent_hashtags?.join(" ") ?? ""],
+                  ["social_frequent_terms", brandSignals?.frequent_terms?.join(" | ") ?? ""],
+                  ["social_match_count", String(previewKeywords.filter(k => k.social_match).length)],
+                ]);
+                const csv = meta + "\n\n" + buildCsv(headers, rows);
+                downloadCsv(`keyword-research-${activeJobId.slice(0, 8)}-${ts}.csv`, csv);
+                toast.success("Đã xuất CSV");
+              }}
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> Xuất CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const ts = new Date().toISOString().replace(/[:.]/g, "-");
+                const payload = {
+                  exported_at: new Date().toISOString(),
+                  job_id: activeJobId,
+                  brand: currentBrand ? {
+                    id: currentBrand.id,
+                    name: currentBrand.brand_name,
+                    industry: (currentBrand as any).industry ?? null,
+                  } : null,
+                  preset,
+                  limit,
+                  seeds: effectiveSeeds,
+                  expanded_seeds: expandedSeeds,
+                  brand_signals: brandSignals,
+                  serp: serpInfo,
+                  stats: {
+                    total: previewKeywords.length,
+                    social_match: previewKeywords.filter(k => k.social_match).length,
+                    gaps: previewKeywords.filter(k => k.is_gap).length,
+                    avg_brand_fit: Math.round(previewKeywords.reduce((s, k) => s + (k.brand_fit_score || 0), 0) / Math.max(1, previewKeywords.length)),
+                  },
+                  keywords: previewKeywords,
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `keyword-research-${activeJobId.slice(0, 8)}-${ts}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast.success("Đã xuất JSON");
+              }}
+            >
+              <FileJson className="h-3.5 w-3.5 mr-1" /> Xuất JSON
+            </Button>
+          </div>
           <KeywordPreviewTable
             jobId={activeJobId}
             keywords={previewKeywords}
