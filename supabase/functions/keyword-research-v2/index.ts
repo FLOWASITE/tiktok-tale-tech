@@ -385,11 +385,21 @@ Deno.serve(async (req) => {
           }));
           send("serp", { hasFirecrawl: !!FIRECRAWL_API_KEY, results: Object.fromEntries(Object.entries(serpGround).map(([k, v]) => [k, v.length])) });
 
-          // 3. Seed expansion
-          send("progress", { pct: 35, message: "Mở rộng seed (Autocomplete + PAA)..." });
+          // 3. Seed expansion (deep = 2 rounds)
+          send("progress", { pct: 35, message: mode === "deep" ? "Mở rộng seed vòng 1..." : "Mở rộng seed (Autocomplete + PAA)..." });
           let expandedSeeds: string[] = [];
           try {
             expandedSeeds = await expandSeeds(seeds, serpGround, locale);
+            if (mode === "deep" && expandedSeeds.length > 0) {
+              send("progress", { pct: 40, message: `Mở rộng seed vòng 2 (từ ${Math.min(5, expandedSeeds.length)} biến thể)...` });
+              const round2Seeds = expandedSeeds.slice(0, 5);
+              // Quick SERP for round-2 seeds (parallel, capped)
+              const round2Serp: Record<string, any[]> = {};
+              await Promise.all(round2Seeds.map(async (s) => { round2Serp[s] = await firecrawlSearch(s); }));
+              const round2 = await expandSeeds(round2Seeds, round2Serp, locale);
+              const merged = new Set([...expandedSeeds, ...round2]);
+              expandedSeeds = Array.from(merged).slice(0, 15);
+            }
           } catch (e) {
             console.warn("[keyword-research-v2] expand seeds failed:", (e as Error).message);
           }
