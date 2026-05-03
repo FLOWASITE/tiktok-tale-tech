@@ -147,7 +147,7 @@ export interface UseTopicAIResult {
 }
 
 export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
-  const { brandTemplateId, contentGoal, format, autoFetch = false, enabled = true } = options;
+  const { brandTemplateId, contentGoal, format, autoFetch = false, enabled = true, clusterId, targetKeywords } = options;
   const { handleApiError } = useAIErrorHandler();
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
