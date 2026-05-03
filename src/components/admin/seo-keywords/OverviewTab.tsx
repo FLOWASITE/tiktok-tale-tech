@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,14 @@ export default function OverviewTab() {
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const VALID_SUB = new Set(["orphan", "gap", "cannibal", "contents"]);
+  const sub = VALID_SUB.has(params.get("sub") || "") ? (params.get("sub") as string) : "orphan";
+  const setSub = (v: string) => {
+    const next = new URLSearchParams(params);
+    next.set("sub", v);
+    setParams(next, { replace: true });
+  };
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
@@ -293,7 +301,7 @@ export default function OverviewTab() {
       </div>
 
       {/* Action items */}
-      <Tabs defaultValue="orphan">
+      <Tabs value={sub} onValueChange={setSub}>
         <TabsList>
           <TabsTrigger value="orphan" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Orphan ({orphanKeywords.length})
