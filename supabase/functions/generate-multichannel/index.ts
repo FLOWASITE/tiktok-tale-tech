@@ -3965,6 +3965,9 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 was_refined: wasRefined,
                 refinement_count: refinementCount,
                 needs_manual_review: needsManualReview,
+                ...(formData.clusterId ? { cluster_id: formData.clusterId } : {}),
+                ...(formData.targetKeywordIds && formData.targetKeywordIds.length > 0
+                  ? { target_keyword_ids: formData.targetKeywordIds } : {}),
               };
               
               // Add new channel contents
