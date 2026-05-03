@@ -239,169 +239,279 @@ export default function KeywordResearchLabTab() {
 
   const canRun = !running && effectiveSeeds.length > 0;
 
+  // Phase mapping for stepper
+  const PHASES = [
+    { id: "serp", label: "SERP grounding", icon: Search, range: [0, 15] },
+    { id: "expand", label: "Expand seeds", icon: Layers, range: [15, 40] },
+    { id: "generate", label: "AI generation", icon: Sparkles, range: [40, 90] },
+    { id: "save", label: "Save pool", icon: Database, range: [90, 100] },
+  ] as const;
+  const currentPhaseIdx = PHASES.findIndex(p => progress >= p.range[0] && progress < p.range[1]);
+  const activeIdx = progress >= 100 ? PHASES.length - 1 : (currentPhaseIdx === -1 ? 0 : currentPhaseIdx);
+
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="border-border/60">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-            <Sparkles className="h-4 w-4 text-primary" /> AI Research Lab v2
-            <Badge variant="outline" className="text-[10px]">SERP grounded</Badge>
-            <Badge variant="outline" className="text-[10px] gap-1"><Wand2 className="h-2.5 w-2.5" /> Auto từ brand</Badge>
+            <Sparkles className="h-4 w-4 text-foreground/70" />
+            <span>AI Research Lab</span>
             {currentBrand && (
-              <Badge variant="secondary" className="text-[10px] font-normal">
-                Context: {currentBrand.brand_name}
-              </Badge>
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  {currentBrand.brand_name}
+                </span>
+              </>
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           {/* Brand context panel */}
           {!currentBrand ? (
-            <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-foreground/80">Chưa có brand được chọn — AI cần brand context để tự nghiên cứu keyword.</p>
-                <Link to="/brand" className="text-amber-700 dark:text-amber-400 hover:underline mt-1 inline-block">
-                  Chọn hoặc tạo brand →
-                </Link>
-              </div>
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border/50 bg-muted/30 text-xs">
+              <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground flex-1">
+                AI cần brand context để tự nghiên cứu keyword.
+              </span>
+              <Link to="/brand" className="text-foreground hover:underline font-medium">
+                Chọn brand →
+              </Link>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <p className="text-xs text-muted-foreground">
-                  Sẽ research dựa trên brand{" "}
-                  <strong className="text-foreground">«{currentBrand.brand_name}»</strong>
-                  {currentBrand.industry && <> · ngành <strong className="text-foreground">{currentBrand.industry}</strong></>}
-                  {hasPillars && <> · {currentBrand.content_pillars.length} pillars</>}
-                </p>
-              </div>
-              {effectiveSeeds.length > 0 ? (
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1">
-                    {overrideSeeds.length > 0 ? "Seed (override thủ công):" : "Seed AI sẽ dùng (auto từ brand):"}
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3.5">
+              <div className="grid md:grid-cols-[minmax(0,180px)_1fr] gap-4">
+                {/* Brand summary */}
+                <div className="space-y-1 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">Brand context</p>
+                  <p className="text-sm font-medium text-foreground truncate">{currentBrand.brand_name}</p>
+                  <p className="text-xs text-muted-foreground space-x-1">
+                    {currentBrand.industry && <span>{currentBrand.industry}</span>}
+                    {hasPillars && (
+                      <>
+                        <span className="text-muted-foreground/40">·</span>
+                        <span>{currentBrand.content_pillars.length} pillars</span>
+                      </>
+                    )}
                   </p>
-                  <div className="flex flex-wrap gap-1">
-                    {effectiveSeeds.map((s, i) => (
-                      <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full border ${overrideSeeds.length > 0 ? "bg-background border-border" : "bg-primary/5 border-primary/20 text-foreground"}`}>
-                        {s}
+                </div>
+                {/* Seeds */}
+                <div className="space-y-1.5 min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                    {overrideSeeds.length > 0 ? "Manual seeds" : "Auto seeds"}
+                  </p>
+                  {effectiveSeeds.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {effectiveSeeds.map((s, i) => (
+                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full border border-border/60 bg-background text-foreground inline-flex items-center gap-1.5">
+                          {overrideSeeds.length > 0 && <span className="h-1 w-1 rounded-full bg-muted-foreground/50" />}
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Info className="w-3 h-3" />
+                      <span>
+                        Brand chưa có pillars/industry.{" "}
+                        <Link to="/brand" className="underline hover:text-foreground">Cấu hình →</Link>
                       </span>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>
-                    Brand chưa có pillars/industry để suy ra seed.{" "}
-                    <Link to="/brand" className="underline">Cấu hình brand →</Link>
-                    {" "}hoặc nhập seed thủ công bên dưới.
-                  </span>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
-          {/* Run / Cancel */}
-          <div className="flex flex-wrap items-center gap-2">
-            {running ? (
-              <Button variant="outline" onClick={handleCancel}><X className="h-4 w-4 mr-1" />Huỷ</Button>
-            ) : (
-              <>
-                <Button onClick={() => handleRun(false)} disabled={!canRun}>
-                  <Sparkles className="h-4 w-4 mr-1" />Run research
-                </Button>
+          {/* Primary CTA */}
+          {!running ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-stretch gap-2">
                 <Button
-                  variant="secondary"
+                  size="lg"
                   onClick={() => handleRun(true)}
                   disabled={!canRun}
-                  title="Multi-round expand + auto-lưu 100-200 keyword vào pool"
+                  className="flex-1 min-w-[260px] h-auto py-3 px-4 flex items-center justify-start gap-3 text-left"
                 >
-                  <Wand2 className="h-4 w-4 mr-1" />Deep research →
+                  <Wand2 className="h-5 w-5 shrink-0" />
+                  <div className="flex flex-col items-start gap-0 leading-tight">
+                    <span className="font-semibold">Auto research bộ keyword brand</span>
+                    <span className="text-[11px] font-normal opacity-80">AI mở rộng 2 vòng → lưu 100-200 keyword vào pool</span>
+                  </div>
                 </Button>
-              </>
-            )}
-            <span className="text-[11px] text-muted-foreground">
-              {effectiveSeeds.length} seed · preset: {preset === "default" ? "default" : preset}
-            </span>
-          </div>
-
-          {/* Advanced overrides */}
-          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ChevronDown className={`h-3 w-3 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
-              Tuỳ chỉnh nâng cao (override seed, đối thủ, preset, limit)
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-3 pt-3">
-              <div className="grid md:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Seed override (1 dòng = 1 seed, max 5)</Label>
-                  <Textarea
-                    rows={4}
-                    value={overrideSeedsText}
-                    onChange={e => setOverrideSeedsText(e.target.value)}
-                    placeholder={autoSeeds.length > 0 ? `Để trống = dùng auto từ brand:\n${autoSeeds.join("\n")}` : `nhập seed...`}
-                    className="font-mono text-sm"
-                  />
+                <Button
+                  variant="outline"
+                  onClick={() => handleRun(false)}
+                  disabled={!canRun}
+                  className="h-auto py-3 px-4 flex flex-col items-start gap-0 leading-tight"
+                  title="Sinh preview để chọn keyword muốn lưu"
+                >
+                  <span className="font-medium text-sm flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5" /> Run preview
+                  </span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Xem trước · chọn lọc</span>
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {effectiveSeeds.length} seed · preset <span className="text-foreground/70">{preset === "default" ? "default" : preset}</span> · limit {limit}
+              </p>
+            </div>
+          ) : (
+            /* Progress phases */
+            <div className="space-y-3 rounded-lg border border-border/50 bg-muted/20 p-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <span className="text-foreground font-medium">{progressMsg || "Đang khởi động..."}</span>
                 </div>
-                <div>
-                  <Label className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> URL đối thủ (optional, max 3)</Label>
-                  <Textarea rows={4} value={competitorText} onChange={e => setCompetitorText(e.target.value)}
-                    placeholder={`https://competitor.com/blog\n...`} className="font-mono text-xs" />
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums text-xs text-muted-foreground">{progress}%</span>
+                  <Button size="sm" variant="ghost" onClick={handleCancel} className="h-7 px-2 text-xs">
+                    <X className="h-3 w-3 mr-1" /> Huỷ
+                  </Button>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <span className="text-xs text-muted-foreground self-center mr-1">Preset:</span>
-                {PRESETS.map(p => {
+              {/* Stepper */}
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {PHASES.map((p, i) => {
                   const Icon = p.icon;
-                  const active = preset === p.id;
+                  const done = i < activeIdx || progress >= 100;
+                  const active = i === activeIdx && progress < 100;
                   return (
-                    <button key={p.id} type="button" onClick={() => setPreset(active ? "default" : p.id)}
-                      className={`text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}>
-                      <Icon className="h-3 w-3" /> {p.label}
-                    </button>
+                    <div key={p.id} className="flex items-center gap-1 flex-1 min-w-0">
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] whitespace-nowrap",
+                        done && "text-foreground",
+                        active && "text-foreground font-medium bg-background border border-border/60",
+                        !done && !active && "text-muted-foreground/60"
+                      )}>
+                        <span className={cn(
+                          "h-1.5 w-1.5 rounded-full shrink-0",
+                          done && "bg-foreground",
+                          active && "bg-foreground animate-pulse",
+                          !done && !active && "bg-muted-foreground/30"
+                        )} />
+                        {done && !active ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                        <span>{p.label}</span>
+                      </div>
+                      {i < PHASES.length - 1 && (
+                        <div className={cn(
+                          "h-px flex-1 min-w-[8px]",
+                          done ? "bg-foreground/40" : "bg-border/60"
+                        )} />
+                      )}
+                    </div>
                   );
                 })}
               </div>
 
-              <div className="max-w-[180px]">
-                <Label className="text-xs">Số lượng (5-100)</Label>
-                <Input type="number" min={5} max={100} value={limit}
-                  onChange={e => setLimit(Math.min(100, Math.max(5, parseInt(e.target.value) || 30)))} />
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+              <Progress value={progress} className="h-1" />
 
-          {(running || progress > 0) && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground flex items-center gap-1.5">
-                  {running && <Loader2 className="h-3 w-3 animate-spin" />}
-                  {progressMsg}
-                </span>
-                <span className="tabular-nums text-muted-foreground">{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-1.5" />
-              {serpInfo && (
-                <p className="text-[10px] text-muted-foreground">
-                  {serpInfo.hasFirecrawl ? "✓" : "⚠"} Firecrawl: {Object.entries(serpInfo.results).map(([k, v]) => `${k} (${v} results)`).join(", ") || "không có data"}
-                </p>
-              )}
-              {expandedSeeds.length > 0 && (
-                <div className="pt-1.5">
-                  <p className="text-[10px] text-muted-foreground mb-1">Seed mở rộng (Autocomplete + PAA):</p>
-                  <div className="flex flex-wrap gap-1">
-                    {expandedSeeds.map((s, i) => (
-                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border">
-                        {s}
+              {/* Inline phase details */}
+              {(serpInfo || expandedSeeds.length > 0) && (
+                <div className="space-y-2 pt-1 border-t border-border/40">
+                  {serpInfo && (
+                    <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+                      <span className={cn("mt-0.5", serpInfo.hasFirecrawl ? "text-foreground/70" : "text-muted-foreground")}>
+                        {serpInfo.hasFirecrawl ? "✓" : "○"}
                       </span>
-                    ))}
-                  </div>
+                      <span>
+                        SERP · {Object.entries(serpInfo.results).map(([k, v]) => `${k} (${v})`).join(" · ") || "no data"}
+                      </span>
+                    </div>
+                  )}
+                  {expandedSeeds.length > 0 && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Seed mở rộng:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {expandedSeeds.map((s, i) => (
+                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-background text-muted-foreground border border-border/50">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
+
+          {/* Advanced collapsible */}
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <div className="border-t border-border/40 pt-3">
+              <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition">
+                <Settings2 className="h-3.5 w-3.5" />
+                <span>Tuỳ chỉnh nâng cao</span>
+                <ChevronDown className={cn("h-3 w-3 transition-transform", advancedOpen && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 pt-3">
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Seed override (1 dòng = 1 seed, max 5)</Label>
+                    <Textarea
+                      rows={3}
+                      value={overrideSeedsText}
+                      onChange={e => setOverrideSeedsText(e.target.value)}
+                      placeholder={autoSeeds.length > 0 ? `Để trống = dùng auto:\n${autoSeeds.slice(0, 2).join("\n")}` : `nhập seed...`}
+                      className="font-mono text-sm resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Globe className="h-3 w-3" /> URL đối thủ (max 3)
+                    </Label>
+                    <Textarea
+                      rows={3}
+                      value={competitorText}
+                      onChange={e => setCompetitorText(e.target.value)}
+                      placeholder={`https://competitor.com/blog`}
+                      className="font-mono text-xs resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[260px]">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Preset</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PRESETS.map(p => {
+                        const Icon = p.icon;
+                        const active = preset === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setPreset(active ? "default" : p.id)}
+                            className={cn(
+                              "text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition",
+                              active
+                                ? "bg-foreground text-background border-foreground"
+                                : "bg-background hover:bg-muted/60 border-border/60 text-muted-foreground"
+                            )}
+                          >
+                            <Icon className="h-3 w-3" /> {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="w-[120px]">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Số lượng</Label>
+                    <Input
+                      type="number"
+                      min={5}
+                      max={100}
+                      value={limit}
+                      onChange={e => setLimit(Math.min(100, Math.max(5, parseInt(e.target.value) || 30)))}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         </CardContent>
       </Card>
 
