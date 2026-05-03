@@ -134,6 +134,16 @@ interface BrandCtx {
   preferred_terms?: string[];
   claim_restrictions?: { claim: string; alternative: string }[];
   jurisdiction?: string;
+  social_signals?: SocialSignals | null;
+}
+
+interface SocialSignals {
+  active_platforms: string[];
+  handles: { platform: string; handle: string }[];
+  recent_topics: string[];
+  recent_hashtags: string[];
+  frequent_terms: string[];
+  audience_questions: string[];
 }
 
 function trim(s: any, n = 200): string {
