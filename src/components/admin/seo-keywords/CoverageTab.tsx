@@ -217,6 +217,12 @@ export default function CoverageTab() {
             <TabsTrigger value="orphan" className="gap-1.5">
               <AlertCircle className="h-4 w-4" /> Orphan ({orphanKeywords.length})
             </TabsTrigger>
+            <TabsTrigger value="gap" className="gap-1.5">
+              <TargetIcon className="h-4 w-4" /> Gap by Pillar ({pillarGap.length})
+            </TabsTrigger>
+            <TabsTrigger value="cannibal" className="gap-1.5">
+              <Copy className="h-4 w-4" /> Cannibalization ({cannibalized.length})
+            </TabsTrigger>
             <TabsTrigger value="covered" className="gap-1.5">
               <CheckCircle2 className="h-4 w-4" /> Đã phủ ({coveredKeywords.length})
             </TabsTrigger>
