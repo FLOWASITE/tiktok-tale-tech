@@ -259,6 +259,7 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                 <th className="p-2 w-8"></th>
                 <th className="p-2 text-left">Keyword</th>
                 <th className="p-2 text-right">Score</th>
+                {hasBrandFit && <th className="p-2 text-right">Brand fit</th>}
                 <th className="p-2 text-right">Vol</th>
                 <th className="p-2 text-right">KD</th>
                 <th className="p-2 text-left">Intent</th>
@@ -270,6 +271,10 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
             <tbody>
               {filtered.map((k, i) => {
                 const isSel = selected.has(k.keyword);
+                const fitColor = k._fit === null ? "bg-muted text-muted-foreground border-border"
+                  : k._fit >= 70 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : k._fit >= 40 ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-rose-50 text-rose-700 border-rose-200";
                 return (
                   <tr key={i} className={`border-t hover:bg-muted/30 cursor-pointer ${isSel ? "bg-primary/5" : ""}`} onClick={() => toggle(k.keyword)}>
                     <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} /></td>
@@ -277,6 +282,18 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                     <td className="p-2 text-right">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${scoreColor(k._score)}`}>{k._score}</span>
                     </td>
+                    {hasBrandFit && (
+                      <td className="p-2 text-right">
+                        {k._fit !== null ? (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
+                            title={k.brand_fit_reason || (k.audience_match ? `audience: ${k.audience_match}` : "")}
+                          >
+                            {k._fit}
+                          </span>
+                        ) : <span className="text-[10px] text-muted-foreground">—</span>}
+                      </td>
+                    )}
                     <td className="p-2 text-right tabular-nums">{k.search_volume?.toLocaleString() || 0}</td>
                     <td className="p-2 text-right tabular-nums">{k.difficulty || 0}</td>
                     <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${INTENT_COLORS[k.intent] || ""}`}>{k.intent}</span></td>
@@ -290,7 +307,7 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                 );
               })}
               {filtered.length === 0 && !isStreaming && (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground text-xs">Không có keyword khớp filter.</td></tr>
+                <tr><td colSpan={hasBrandFit ? 10 : 9} className="p-6 text-center text-muted-foreground text-xs">Không có keyword khớp filter.</td></tr>
               )}
             </tbody>
           </table>
