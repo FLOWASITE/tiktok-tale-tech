@@ -17,7 +17,6 @@ interface KeywordRow {
   search_volume: number | null;
   difficulty: number | null;
   intent: string | null;
-  is_pillar?: boolean | null;
   priority_score?: number | null;
 }
 
@@ -103,10 +102,9 @@ function ClusterScopedPicker({
     queryFn: async (): Promise<KeywordRow[]> => {
       const { data } = await supabase
         .from("seo_keywords")
-        .select("id,keyword,search_volume,difficulty,intent,is_pillar,priority_score")
+        .select("id,keyword,search_volume,difficulty,intent,priority_score")
         .eq("organization_id", orgId!)
         .eq("cluster_id", clusterId)
-        .order("is_pillar", { ascending: false })
         .order("priority_score", { ascending: false, nullsFirst: false })
         .limit(50);
       return (data as KeywordRow[]) || [];
@@ -124,7 +122,7 @@ function ClusterScopedPicker({
     queryFn: async (): Promise<KeywordRow[]> => {
       const { data } = await supabase
         .from("seo_keywords")
-        .select("id,keyword,search_volume,difficulty,intent,is_pillar,priority_score")
+        .select("id,keyword,search_volume,difficulty,intent,priority_score")
         .in("id", missingIds);
       return (data as KeywordRow[]) || [];
     },
