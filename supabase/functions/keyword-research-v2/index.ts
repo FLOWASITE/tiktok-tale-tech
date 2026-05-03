@@ -602,7 +602,7 @@ Deno.serve(async (req) => {
               cpc_vnd: e.cpc_vnd || null,
               intent: e.intent || null,
               funnel_stage: e.funnel_stage || null,
-              priority_score: Math.round((e.search_volume || 0) * 0.5 + (100 - (e.difficulty || 50)) * 0.3 + ({ transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any)[e.intent || "informational"] * 0.2),
+              priority_score: e.final_score ?? computePriority(e),
               status: "new",
               source: "ai_research_deep",
               locale,
