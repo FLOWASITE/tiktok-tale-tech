@@ -838,6 +838,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           enhanced: true,
           forceRefresh: forceRefresh || !!categoryHint,
           categoryHint: categoryHint || undefined,
+          clusterId: clusterId || undefined,
+          targetKeywords: targetKeywords && targetKeywords.length > 0 ? targetKeywords : undefined,
         },
         timeoutMs: 90_000, // 90s to handle slow LLM generation
       });
