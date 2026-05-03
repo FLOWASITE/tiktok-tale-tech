@@ -973,32 +973,16 @@ export function TopicSuggestionPanel({
               </PopoverContent>
             </Popover>
 
-            {/* Source Badge */}
-            <Badge 
-              variant="outline" 
+            {/* Source Badge — small, subtle, hidden on mobile */}
+            <Badge
+              variant="outline"
               className={cn(
-                "text-[9px] xs:text-[10px] px-1.5 xs:px-2 py-0 h-4 xs:h-5 gap-0.5 xs:gap-1 border",
-                currentSource.className
+                "hidden xs:inline-flex text-[9px] xs:text-[10px] px-1.5 py-0 h-4 xs:h-5 gap-0.5 xs:gap-1 border-border/60 text-muted-foreground bg-transparent",
               )}
             >
               <SourceIcon className="w-2 h-2 xs:w-2.5 xs:h-2.5" />
               {currentSource.label}
             </Badge>
-
-            {/* Refresh Button */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRefresh()}
-              disabled={isLoading || disabled}
-              className="h-5 xs:h-6 w-5 xs:w-6 p-0"
-            >
-              <RefreshCw className={cn(
-                "w-2.5 h-2.5 xs:w-3 xs:h-3",
-                isLoading && "animate-spin"
-              )} />
-            </Button>
           </div>
         </div>
 
