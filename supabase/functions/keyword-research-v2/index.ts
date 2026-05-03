@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
 
           // 3. AI generate
           send("progress", { pct: 50, message: `AI sinh ${limit} keyword...` });
-          const suggestions = await callAI(supabase, organizationId, seeds, serpGround, competitorContext, preset, locale, limit);
+          const { suggestions } = await callAI(supabase, organizationId, user.id, seeds, serpGround, competitorContext, preset, locale, limit);
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
           // 4. Gap detection
