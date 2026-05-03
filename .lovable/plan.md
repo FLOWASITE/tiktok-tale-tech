@@ -1,129 +1,80 @@
 ## Mục tiêu
-Nâng cấp **SEO Hub → Discover → AI Research Lab** trên 4 trục: chất lượng keyword (brand+industry context), tốc độ/chi phí (cache + streaming), coverage (Autocomplete + PAA), UX preview/save (filter, cluster merge, priority score).
+Bỏ yêu cầu nhập seed thủ công. Khi bấm **Run research**, hệ thống **tự suy ra seed** từ brand đang chọn (content pillars + keywords + industry + audience + website), rồi chạy pipeline AI Research v2 như cũ. Người dùng vẫn có thể mở "Tuỳ chỉnh nâng cao" để override seed/competitor nếu muốn.
 
 ---
 
-## 1. Chất lượng — Brand + Industry context vào AI
+## 1. UX mới — `KeywordResearchLabTab.tsx`
 
-**File**: `supabase/functions/keyword-research-v2/index.ts`
+**Default view (gọn)**:
+- Hiển thị **brand context card** thay cho ô seed:
+  - Badge `Context: {brand_name}`
+  - Tóm tắt: "Sẽ research dựa trên: 3 pillars · ngành {industry} · audience {target_audience}"
+  - Chip danh sách seed sẽ dùng (preview readonly, derived từ brand) — user thấy minh bạch
+- Nút chính: **`Run research`** (luôn enabled khi có brand)
+- Nếu **chưa có brand** → hiển thị empty state + CTA "Chọn brand" (link `/brand`)
+- Nếu brand **không có pillars** → fallback: dùng `brand_name` + `industry` làm seed, hiện hint "Brand chưa có content pillars — research sẽ generic. Cấu hình pillars để chính xác hơn."
 
-- FE truyền thêm `brandTemplateId` (optional) trong body request.
-- Edge function fetch `brand_templates` theo id → lấy: `brand_name`, `industry`, `brand_voice`, `target_audience`, `content_pillars[]`, `industry_template_id`.
-- Nếu có `industry_template_id` → join `industry_templates` → lấy `forbidden_terms`, `claim_restrictions`, `jurisdiction`.
-- `buildSystemPrompt()` thêm block:
-  ```
-  ## Brand context
-  Tên: {brand_name} | Ngành: {industry}
-  Tone: {brand_voice}
-  Audience: {target_audience}
-  Pillars (priority): {top 3 pillars + keywords}
-  
-  ## Output bias
-  - Keyword phải sát ngành & audience trên (không sinh keyword chung chung)
-  - Mỗi keyword `cluster_name` ưu tiên ánh xạ vào 1 trong 3 pillars
-  - TRÁNH dùng các thuật ngữ: {forbidden_terms[:20]}
-  ```
-- Thêm field `pillar_match` (string|null) vào tool schema → AI gắn pillar tương ứng để FE hiển thị badge.
+**Advanced toggle** (collapsed, accordion):
+- "Tuỳ chỉnh nâng cao (override)" → mở ra:
+  - Textarea seeds (override) — placeholder = seeds auto
+  - Textarea competitor URLs
+  - Preset chips
+  - Limit input
 
-**File**: `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`
-- Truyền `brandTemplateId: currentBrand?.id` trong fetch body.
-- Hiện badge nhỏ "Đang dùng context: {brand_name}" cạnh tiêu đề khi có brand.
+**Logic seed derivation** (`useMemo`):
+```
+1. Lấy top 5 pillars (sort theo weight) → mỗi pillar: ưu tiên keywords[0], fallback name
+2. Nếu < 3 seed → bổ sung: brand_name + " " + industry, "{industry} là gì", "cách chọn {industry}"
+3. Dedupe + lowercase + trim, cap 5
+```
 
----
-
-## 2. Tốc độ + chi phí — Cache SERP + AI streaming sớm
-
-**Cache Firecrawl SERP** (giảm Firecrawl credits & latency từ ~8s → ~50ms khi hit):
-- Reuse `_shared/cache-utils.ts` (`withCache`).
-- Key: `firecrawl:search:{seed}:{country}:{lang}` — TTL 24h, scope `global`.
-- Wrap cả `firecrawlSearch` và `firecrawlScrape(url)` (TTL 6h cho scrape).
-
-**AI streaming sớm** (UX: batch đầu hiện sau ~5-8s thay vì chờ ~30s):
-- `callAIWithMetrics` đã hỗ trợ `stream: true` (xem pattern carousel streaming). Bật stream cho tool-calls.
-- Parse từng `tool_call` chunk → emit SSE `keyword_batch` ngay khi gom đủ 5 keyword (không chờ end-of-stream).
-- Watchdog 60s không có chunk → abort + fallback flash.
-
-**Frontend**: không đổi (đã consume SSE batch sẵn).
+User override (nếu có nhập) sẽ thắng auto-derivation.
 
 ---
 
-## 3. Mở rộng seed tự động — Autocomplete + PAA
+## 2. Edge function — `keyword-research-v2/index.ts`
 
-**File mới**: `supabase/functions/_shared/seed-expander.ts`
-- `expandSeeds(seeds, locale)` → return `expandedSeeds: string[]` (cap 15).
-- 2 nguồn (chạy song song qua `Promise.all`):
-  1. **Google Autocomplete** (free, không cần API): 
-     `GET https://suggestqueries.google.com/complete/search?client=firefox&q={seed}&hl=vi&gl=vn`
-     → JSON array, lấy 5 suggestion đầu/seed.
-  2. **People Also Ask** từ Firecrawl SERP grounding đã có: regex extract câu hỏi từ titles/descriptions (`/^(làm sao|cách|tại sao|có nên|là gì|khi nào|ở đâu)/i`).
-- Dedupe + filter trùng với seed gốc.
-- Cache 24h key `autocomplete:{seed}:{locale}`.
-
-**Tích hợp** trong `keyword-research-v2`:
-- Sau bước SERP grounding → gọi `expandSeeds()` → merge vào `seeds` trước khi build prompt.
-- Send SSE `progress` 35%: "Mở rộng seed: {n} biến thể từ Autocomplete".
-- Đảm bảo cap tổng seed ≤ 10 để không bloat prompt.
-
-**FE**: không đổi input UX (vẫn 5 seed user nhập); hiện expanded list trong panel "Seed mở rộng (auto)" dạng readonly chip dưới textarea.
+**Thay đổi nhỏ** (BE đã nhận seeds từ FE rồi):
+- Khi `seeds` rỗng/missing nhưng có `brandTemplateId`:
+  - Server-side derive seeds từ `brand_templates` (cùng logic FE) → dùng làm seed
+  - Tránh case FE bug → vẫn chạy được
+- Bổ sung **`brand_website` scrape** (1 URL): nếu brand có `website_url`, auto add vào `competitorUrls` (không tính vào limit 3) → AI lấy được nội dung thực của brand để sinh keyword sát hơn.
+- SSE `progress` 10%: "Đang phân tích brand «{name}» để tự suy seed..."
 
 ---
 
-## 4. UX preview + save
+## 3. Hint khi đang dùng auto seeds
 
-**File**: `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (đọc + extend)
-
-a) **Priority score** hiển thị inline:
-- Công thức: `score = round(volume × 0.5 + (100-difficulty) × 0.3 + intentBonus × 0.2)`  
-  với `intentBonus = {transactional: 100, commercial: 80, informational: 50, navigational: 30}`.
-- Cột mới "Score" sortable (default sort desc).
-- Color chip: ≥70 emerald, 40-69 amber, <40 muted.
-
-b) **Bulk filter chips** (above table):
-- Intent: All / Info / Commercial / Transactional / Navigational
-- Funnel: All / TOFU / MOFU / BOFU
-- "Chỉ gap" toggle (đã có) — giữ nguyên
-- "Match pillar" toggle (chỉ keyword có `pillar_match`)
-
-c) **Cluster auto-merge** (giảm cluster trùng do AI sinh):
-- Trước khi render, group keywords theo `cluster_name` lowercased + simple stem (bỏ dấu, hyphen).
-- Merge cluster có Jaccard token similarity ≥ 0.6 → dùng cluster lớn hơn làm canonical.
-- Hiển thị merged cluster header (có "+N gộp" badge nếu merge).
-
-d) **Save UX**:
-- Button "Lưu top 20 theo score" (one-click) bên cạnh "Lưu đã chọn".
-- Sau save → toast "Đã lưu N keyword vào pool, top {min(10, N)} đang enrich SERP".
+- Trong panel "Seed mở rộng" hiện 2 nhóm chip với label rõ:
+  - **"Seed từ brand"** (màu primary nhạt) — derived seeds
+  - **"Seed mở rộng"** (muted) — Autocomplete + PAA như cũ
 
 ---
 
-## 5. Memory update
+## 4. Files thay đổi
 
-Cập nhật `mem://features/seo/research-lab-v2-vn`:
-- Thêm: brand context injection (pillars + forbidden_terms), Autocomplete+PAA seed expansion, SERP cache 24h, AI streaming tool-calls, cluster Jaccard merge, priority_score formula, pillar_match badge.
+- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`:
+  - Tách `deriveBrandSeeds(brand)` helper
+  - Default UI: brand context card + auto seed chips + Run button
+  - Advanced accordion (shadcn `Collapsible` hoặc `Accordion`) chứa textarea seed/competitor + preset + limit
+  - Bỏ requirement `!seedsText.trim()` disable button → enable khi có brand HOẶC seeds
+  - Submit body: `seeds = userOverride.length > 0 ? userOverride : autoSeeds`
 
----
+- `supabase/functions/keyword-research-v2/index.ts`:
+  - Nếu `seeds.length === 0` và có brand → fetch brand → derive seeds (top pillars)
+  - Auto-include `website_url` vào scrape list (không trừ vào max 3 user URLs)
+  - Emit progress message mới
 
-## Files thay đổi
-
-**Edge functions**:
-- `supabase/functions/keyword-research-v2/index.ts` (brand context, cache wrap, streaming, expand seeds, pillar_match)
-- `supabase/functions/_shared/seed-expander.ts` (mới)
-
-**Frontend**:
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (truyền brandTemplateId, badge brand context, panel expanded seeds)
-- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (score column, bulk filters, cluster merge, save top-20)
-
-**DB**: không cần migration — dùng `keyword_research_jobs.preview` JSONB sẵn có để chứa `pillar_match` + `score`.
-
-**Memory**:
-- `.lovable/memory/features/seo/research-lab-v2-vn.md` (cập nhật)
+- `.lovable/memory/features/seo/research-lab-v2-vn.md`:
+  - Ghi chú: auto-seed mode mặc định, manual override qua advanced toggle, server-side fallback seed derivation, brand website auto-scrape
 
 ---
 
-## QA
+## 5. QA
 
-1. Chạy research với brand có 3 pillars + industry_template → keyword sinh ra phải bám pillar (badge "Pillar: X" xuất hiện), không có forbidden term.
-2. Chạy research lần 2 cùng seeds → SERP cache hit (xem console "[cache] hit firecrawl:search:..."), latency giảm rõ.
-3. Bật Devtools network → SSE `keyword_batch` đầu tiên xuất hiện < 10s.
-4. Seed = "spa" → expanded chip hiện "spa giá rẻ", "cách chọn spa", "spa gần tôi"... (Autocomplete + PAA).
-5. Preview table: sort theo Score desc, filter "Commercial" + "BOFU" → giữ đúng row; bấm "Lưu top 20" → 20 keyword lưu xong, top 10 vào enrich queue.
-6. Cluster có "chăm sóc da" và "chăm sóc da mặt" → merge thành 1 với badge "+1 gộp".
+1. Vào tab Discover với brand có pillars → thấy chip seed auto + Run button enabled, không có ô textarea bắt buộc.
+2. Bấm Run → SSE chạy bình thường, keyword sinh ra bám pillars.
+3. Mở "Tuỳ chỉnh nâng cao" → nhập 2 seed thủ công → Run → BE nhận đúng 2 seed user.
+4. Brand không có pillars → hint xuất hiện, vẫn Run được với fallback seed (brand_name + industry).
+5. Brand có `website_url` → log scrape có URL website, AI prompt có nội dung từ brand site.
+6. Không chọn brand → empty state + CTA, không cho Run.

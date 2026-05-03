@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
   let body: any;
   try { body = await req.json(); } catch { return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 
-  const seeds: string[] = (Array.isArray(body.seeds) ? body.seeds : [body.seed]).map((s: any) => String(s || "").trim()).filter(Boolean).slice(0, 5);
+  let seeds: string[] = (Array.isArray(body.seeds) ? body.seeds : [body.seed]).map((s: any) => String(s || "").trim()).filter(Boolean).slice(0, 5);
   const competitorUrls: string[] = (body.competitorUrls || []).map((u: any) => String(u || "").trim()).filter(Boolean).slice(0, 3);
   const preset: Preset = PRESET_PROMPTS[body.preset as Preset] ? body.preset : "default";
   const organizationId = body.organizationId;
@@ -299,8 +299,8 @@ Deno.serve(async (req) => {
   const locale = body.locale || "vi";
   const limit = Math.min(100, Math.max(5, parseInt(body.limit) || 30));
 
-  if (!seeds.length || !organizationId) {
-    return new Response(JSON.stringify({ error: "seeds & organizationId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  if (!organizationId) {
+    return new Response(JSON.stringify({ error: "organizationId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   // Brand context (optional)
@@ -308,6 +308,37 @@ Deno.serve(async (req) => {
     console.warn("[keyword-research-v2] brand ctx fail:", e);
     return null;
   });
+
+  // Auto-derive seeds from brand context if FE didn't send any
+  if (seeds.length === 0 && brandCtx) {
+    const seen = new Set<string>();
+    const push = (s: string) => {
+      const t = (s || "").trim();
+      if (!t || seen.has(t.toLowerCase())) return;
+      seen.add(t.toLowerCase());
+      seeds.push(t);
+    };
+    const sortedPillars = [...brandCtx.pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
+    for (const p of sortedPillars) {
+      const kw = Array.isArray(p?.keywords) && p.keywords[0] ? String(p.keywords[0]) : String(p?.name || "");
+      push(kw);
+      if (seeds.length >= 5) break;
+    }
+    if (seeds.length < 3) {
+      const ind = brandCtx.industry || "";
+      const name = brandCtx.brand_name || "";
+      if (name && ind) push(`${name} ${ind}`);
+      if (ind) push(`${ind} là gì`);
+      if (ind) push(`cách chọn ${ind}`);
+      if (name) push(name);
+    }
+    seeds = seeds.slice(0, 5);
+    console.log(`[keyword-research-v2] auto-derived ${seeds.length} seeds from brand`, seeds);
+  }
+
+  if (!seeds.length) {
+    return new Response(JSON.stringify({ error: "Không có seed: brand chưa có pillars/industry và FE không gửi seed thủ công." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   // Create job
   const { data: job, error: jobErr } = await supabase.from("keyword_research_jobs").insert({

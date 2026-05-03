@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Sparkles, X, Globe, Target, MapPin, Telescope } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, Sparkles, X, Globe, Target, MapPin, Telescope, ChevronDown, Wand2, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -26,16 +28,48 @@ const PRESETS: { id: Preset; label: string; icon: any }[] = [
   { id: "competitor_gaps", label: "Competitor gaps", icon: Globe },
 ];
 
+function deriveBrandSeeds(brand: any): string[] {
+  if (!brand) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (s: string) => {
+    const t = (s || "").trim();
+    if (!t) return;
+    const k = t.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(t);
+  };
+  const pillars = Array.isArray(brand.content_pillars) ? [...brand.content_pillars] : [];
+  pillars.sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
+  for (const p of pillars) {
+    const kw = Array.isArray(p?.keywords) && p.keywords[0] ? String(p.keywords[0]) : String(p?.name || "");
+    push(kw);
+    if (out.length >= 5) break;
+  }
+  // Fallback nếu chưa đủ 3 seed
+  const industry = brand.industry || "";
+  const name = brand.brand_name || brand.name || "";
+  if (out.length < 3) {
+    if (name && industry) push(`${name} ${industry}`);
+    if (industry) push(`${industry} là gì`);
+    if (industry) push(`cách chọn ${industry}`);
+    if (name) push(name);
+  }
+  return out.slice(0, 5);
+}
+
 export default function KeywordResearchLabTab() {
   const { currentOrganization } = useOrganization();
   const { currentBrand } = useCurrentBrand();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
 
-  const [seedsText, setSeedsText] = useState("");
+  const [overrideSeedsText, setOverrideSeedsText] = useState("");
   const [competitorText, setCompetitorText] = useState("");
   const [preset, setPreset] = useState<Preset>("default");
   const [limit, setLimit] = useState(30);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -46,36 +80,13 @@ export default function KeywordResearchLabTab() {
   const [expandedSeeds, setExpandedSeeds] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Pre-fill seeds từ content_pillars của brand active
-  const suggestedSeeds = useMemo<string[]>(() => {
-    const pillars = currentBrand?.content_pillars;
-    if (!Array.isArray(pillars) || pillars.length === 0) return [];
-    const sorted = [...pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const p of sorted) {
-      const candidate = (Array.isArray((p as any)?.keywords) && (p as any).keywords[0])
-        ? String((p as any).keywords[0])
-        : String((p as any)?.name || "");
-      const trimmed = candidate.trim();
-      if (!trimmed) continue;
-      const key = trimmed.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(trimmed);
-      if (out.length >= 5) break;
-    }
-    return out;
-  }, [currentBrand?.id, currentBrand?.content_pillars]);
-
-  // Auto-fill khi đổi brand và textarea còn trống
-  useEffect(() => {
-    if (suggestedSeeds.length > 0 && seedsText.trim() === "") {
-      setSeedsText(suggestedSeeds.join("\n"));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentBrand?.id]);
-
+  const autoSeeds = useMemo(() => deriveBrandSeeds(currentBrand), [currentBrand?.id, currentBrand?.content_pillars, currentBrand?.industry, currentBrand?.brand_name]);
+  const overrideSeeds = useMemo(
+    () => overrideSeedsText.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 5),
+    [overrideSeedsText]
+  );
+  const effectiveSeeds = overrideSeeds.length > 0 ? overrideSeeds : autoSeeds;
+  const hasPillars = Array.isArray(currentBrand?.content_pillars) && currentBrand.content_pillars.length > 0;
 
   const { data: jobs } = useQuery({
     queryKey: ["keyword-jobs-v2", orgId],
@@ -91,12 +102,16 @@ export default function KeywordResearchLabTab() {
   });
 
   const handleRun = async () => {
-    const seeds = seedsText.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 5);
-    const competitorUrls = competitorText.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 3);
-    if (!seeds.length || !orgId) {
-      toast.error("Cần ít nhất 1 seed keyword");
+    if (!orgId) return;
+    if (!currentBrand && overrideSeeds.length === 0) {
+      toast.error("Chọn brand hoặc nhập seed thủ công ở Tuỳ chỉnh nâng cao");
       return;
     }
+    if (effectiveSeeds.length === 0) {
+      toast.error("Brand chưa có pillars/industry — nhập seed thủ công ở Tuỳ chỉnh nâng cao");
+      return;
+    }
+    const competitorUrls = competitorText.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 3);
     setRunning(true);
     setProgress(0);
     setProgressMsg("Đang khởi động...");
@@ -117,7 +132,16 @@ export default function KeywordResearchLabTab() {
           Authorization: `Bearer ${session?.access_token || ""}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ seeds, competitorUrls, preset, organizationId: orgId, brandTemplateId: currentBrand?.id, locale: "vi", limit }),
+        body: JSON.stringify({
+          seeds: effectiveSeeds,
+          competitorUrls,
+          preset,
+          organizationId: orgId,
+          brandTemplateId: currentBrand?.id,
+          locale: "vi",
+          limit,
+          autoFromBrand: overrideSeeds.length === 0,
+        }),
         signal: ctrl.signal,
       });
       if (!resp.ok || !resp.body) {
@@ -203,6 +227,8 @@ export default function KeywordResearchLabTab() {
 
   if (!orgId) return <p className="text-muted-foreground">Chọn workspace.</p>;
 
+  const canRun = !running && effectiveSeeds.length > 0;
+
   return (
     <div className="space-y-4">
       <Card>
@@ -210,6 +236,7 @@ export default function KeywordResearchLabTab() {
           <CardTitle className="text-base flex items-center gap-2 flex-wrap">
             <Sparkles className="h-4 w-4 text-primary" /> AI Research Lab v2
             <Badge variant="outline" className="text-[10px]">SERP grounded</Badge>
+            <Badge variant="outline" className="text-[10px] gap-1"><Wand2 className="h-2.5 w-2.5" /> Auto từ brand</Badge>
             {currentBrand && (
               <Badge variant="secondary" className="text-[10px] font-normal">
                 Context: {currentBrand.brand_name}
@@ -218,61 +245,113 @@ export default function KeywordResearchLabTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid md:grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <Label className="text-xs">Seed keywords (1 dòng = 1 seed, max 5)</Label>
-                {suggestedSeeds.length > 0 && seedsText.trim() === "" && currentBrand && (
-                  <button
-                    type="button"
-                    onClick={() => setSeedsText(suggestedSeeds.join("\n"))}
-                    className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition"
-                  >
-                    Dùng gợi ý từ «{currentBrand.brand_name}»
-                  </button>
-                )}
+          {/* Brand context panel */}
+          {!currentBrand ? (
+            <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-foreground/80">Chưa có brand được chọn — AI cần brand context để tự nghiên cứu keyword.</p>
+                <Link to="/brand" className="text-amber-700 dark:text-amber-400 hover:underline mt-1 inline-block">
+                  Chọn hoặc tạo brand →
+                </Link>
               </div>
-              <Textarea rows={4} value={seedsText} onChange={e => setSeedsText(e.target.value)}
-                placeholder={currentBrand && suggestedSeeds.length > 0
-                  ? `Auto-fill từ content pillars của brand, hoặc gõ tay...`
-                  : `AI tạo content cho spa\ncách viết caption Instagram\n...`}
-                className="font-mono text-sm" />
             </div>
-            <div>
-              <Label className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> URL đối thủ (optional, max 3)</Label>
-              <Textarea rows={4} value={competitorText} onChange={e => setCompetitorText(e.target.value)}
-                placeholder={`https://competitor.com/blog\n...`} className="font-mono text-xs" />
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-xs text-muted-foreground">
+                  Sẽ research dựa trên brand{" "}
+                  <strong className="text-foreground">«{currentBrand.brand_name}»</strong>
+                  {currentBrand.industry && <> · ngành <strong className="text-foreground">{currentBrand.industry}</strong></>}
+                  {hasPillars && <> · {currentBrand.content_pillars.length} pillars</>}
+                </p>
+              </div>
+              {effectiveSeeds.length > 0 ? (
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1">
+                    {overrideSeeds.length > 0 ? "Seed (override thủ công):" : "Seed AI sẽ dùng (auto từ brand):"}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {effectiveSeeds.map((s, i) => (
+                      <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full border ${overrideSeeds.length > 0 ? "bg-background border-border" : "bg-primary/5 border-primary/20 text-foreground"}`}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Brand chưa có pillars/industry để suy ra seed.{" "}
+                    <Link to="/brand" className="underline">Cấu hình brand →</Link>
+                    {" "}hoặc nhập seed thủ công bên dưới.
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-muted-foreground self-center mr-1">Preset:</span>
-            {PRESETS.map(p => {
-              const Icon = p.icon;
-              const active = preset === p.id;
-              return (
-                <button key={p.id} type="button" onClick={() => setPreset(active ? "default" : p.id)}
-                  className={`text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}>
-                  <Icon className="h-3 w-3" /> {p.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-end gap-2">
-            <div className="flex-1 max-w-[180px]">
-              <Label className="text-xs">Số lượng (5-100)</Label>
-              <Input type="number" min={5} max={100} value={limit}
-                onChange={e => setLimit(Math.min(100, Math.max(5, parseInt(e.target.value) || 30)))} />
-            </div>
+          {/* Run / Cancel */}
+          <div className="flex items-center gap-2">
             {running ? (
               <Button variant="outline" onClick={handleCancel}><X className="h-4 w-4 mr-1" />Huỷ</Button>
             ) : (
-              <Button onClick={handleRun} disabled={!seedsText.trim()}>
+              <Button onClick={handleRun} disabled={!canRun}>
                 <Sparkles className="h-4 w-4 mr-1" />Run research
               </Button>
             )}
+            <span className="text-[11px] text-muted-foreground">
+              {effectiveSeeds.length} seed · preset: {preset === "default" ? "default" : preset} · limit {limit}
+            </span>
           </div>
+
+          {/* Advanced overrides */}
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className={`h-3 w-3 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
+              Tuỳ chỉnh nâng cao (override seed, đối thủ, preset, limit)
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-3">
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Seed override (1 dòng = 1 seed, max 5)</Label>
+                  <Textarea
+                    rows={4}
+                    value={overrideSeedsText}
+                    onChange={e => setOverrideSeedsText(e.target.value)}
+                    placeholder={autoSeeds.length > 0 ? `Để trống = dùng auto từ brand:\n${autoSeeds.join("\n")}` : `nhập seed...`}
+                    className="font-mono text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> URL đối thủ (optional, max 3)</Label>
+                  <Textarea rows={4} value={competitorText} onChange={e => setCompetitorText(e.target.value)}
+                    placeholder={`https://competitor.com/blog\n...`} className="font-mono text-xs" />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs text-muted-foreground self-center mr-1">Preset:</span>
+                {PRESETS.map(p => {
+                  const Icon = p.icon;
+                  const active = preset === p.id;
+                  return (
+                    <button key={p.id} type="button" onClick={() => setPreset(active ? "default" : p.id)}
+                      className={`text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}>
+                      <Icon className="h-3 w-3" /> {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="max-w-[180px]">
+                <Label className="text-xs">Số lượng (5-100)</Label>
+                <Input type="number" min={5} max={100} value={limit}
+                  onChange={e => setLimit(Math.min(100, Math.max(5, parseInt(e.target.value) || 30)))} />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {(running || progress > 0) && (
             <div className="space-y-1">
