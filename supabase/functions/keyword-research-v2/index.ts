@@ -109,31 +109,78 @@ interface BrandCtx {
   brand_name?: string;
   industry?: string;
   tone_of_voice?: string;
+  formality?: string;
+  language_style?: string;
   target_audience?: string;
-  pillars: { name: string; keywords?: string[]; weight?: number }[];
+  target_locations?: string[];
+  target_gender?: string;
+  pillars: { name: string; keywords?: string[]; weight?: number; description?: string }[];
+  evergreen_themes?: string[];
+  brand_hashtags?: string[];
+  signature_phrases?: string[];
+  unique_value_proposition?: string;
+  brand_positioning?: string;
+  mission?: string;
+  tagline?: string;
+  main_competitors?: string[];
+  competitive_advantages?: string[];
+  preferred_words?: string[];
   forbidden_terms: string[];
+  high_risk_keywords?: string[];
+  preferred_terms?: string[];
+  claim_restrictions?: { claim: string; alternative: string }[];
   jurisdiction?: string;
+}
+
+function trim(s: any, n = 200): string {
+  return String(s || "").trim().slice(0, n);
+}
+function arr(v: any, n = 5): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x || "").trim()).filter(Boolean).slice(0, n);
 }
 
 async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<BrandCtx | null> {
   if (!brandTemplateId) return null;
   const { data: brand } = await supabase
     .from("brand_templates")
-    .select("brand_name,name,industry,tone_of_voice,target_age_range,market_segment,content_pillars,forbidden_words,industry_template_id,jurisdiction_code")
+    .select(`
+      brand_name,name,industry,tone_of_voice,formality_level,language_style,
+      target_age_range,target_gender,market_segment,target_locations,
+      content_pillars,evergreen_themes,brand_hashtags,signature_phrases,
+      unique_value_proposition,brand_positioning,mission,tagline,
+      main_competitors,competitive_advantages,
+      preferred_words,forbidden_words,
+      industry_template_id,jurisdiction_code
+    `)
     .eq("id", brandTemplateId)
     .maybeSingle();
   if (!brand) return null;
 
-  let forbidden: string[] = Array.isArray(brand.forbidden_words) ? brand.forbidden_words : [];
-  let jurisdiction = brand.jurisdiction_code as string | undefined;
+  let forbidden: string[] = Array.isArray(brand.forbidden_words) ? brand.forbidden_words.map(String) : [];
+  let preferredTerms: string[] = [];
+  let highRisk: string[] = [];
+  let claimRestrictions: { claim: string; alternative: string }[] = [];
+  const jurisdiction = brand.jurisdiction_code as string | undefined;
+
   if (brand.industry_template_id) {
     const { data: ind } = await supabase
       .from("industry_templates")
-      .select("forbidden_terms")
+      .select("forbidden_terms,preferred_terms,high_risk_keywords,claim_restrictions")
       .eq("id", brand.industry_template_id)
       .maybeSingle();
-    if (ind?.forbidden_terms && Array.isArray(ind.forbidden_terms)) {
-      forbidden = [...new Set([...forbidden, ...ind.forbidden_terms.map(String)])];
+    if (ind) {
+      if (Array.isArray(ind.forbidden_terms)) {
+        forbidden = [...new Set([...forbidden, ...ind.forbidden_terms.map(String)])];
+      }
+      if (Array.isArray(ind.preferred_terms)) preferredTerms = ind.preferred_terms.map(String).slice(0, 10);
+      if (Array.isArray(ind.high_risk_keywords)) highRisk = ind.high_risk_keywords.map(String).slice(0, 10);
+      if (Array.isArray(ind.claim_restrictions)) {
+        claimRestrictions = ind.claim_restrictions
+          .filter((c: any) => c?.claim && c?.alternative)
+          .slice(0, 6)
+          .map((c: any) => ({ claim: trim(c.claim, 80), alternative: trim(c.alternative, 80) }));
+      }
     }
   }
 
@@ -142,33 +189,82 @@ async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<B
     brand_name: brand.brand_name || brand.name,
     industry: brand.industry,
     tone_of_voice: brand.tone_of_voice,
+    formality: brand.formality_level,
+    language_style: brand.language_style,
     target_audience: [brand.target_age_range, brand.market_segment].filter(Boolean).join(" / "),
+    target_locations: arr(brand.target_locations, 5),
+    target_gender: brand.target_gender,
     pillars: pillars.slice(0, 5),
-    forbidden_terms: forbidden.slice(0, 20),
+    evergreen_themes: arr(brand.evergreen_themes, 5),
+    brand_hashtags: arr(brand.brand_hashtags, 8),
+    signature_phrases: arr(brand.signature_phrases, 5),
+    unique_value_proposition: trim(brand.unique_value_proposition, 220),
+    brand_positioning: trim(brand.brand_positioning, 220),
+    mission: trim(brand.mission, 160),
+    tagline: trim(brand.tagline, 100),
+    main_competitors: arr(brand.main_competitors, 5),
+    competitive_advantages: arr(brand.competitive_advantages, 5),
+    preferred_words: arr(brand.preferred_words, 10),
+    forbidden_terms: forbidden.slice(0, 25),
+    high_risk_keywords: highRisk,
+    preferred_terms: preferredTerms,
+    claim_restrictions: claimRestrictions,
     jurisdiction,
   };
 }
 
 function buildBrandBlock(ctx: BrandCtx | null): string {
   if (!ctx) return "";
-  const pillarLines = ctx.pillars
-    .sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0))
-    .slice(0, 3)
-    .map((p, i) => {
-      const kws = Array.isArray(p.keywords) ? p.keywords.slice(0, 3).join(", ") : "";
-      return `  ${i + 1}. ${p.name}${kws ? ` — keywords: ${kws}` : ""}`;
-    }).join("\n");
-  const lines: string[] = ["", "## BRAND CONTEXT (priority cao)"];
-  if (ctx.brand_name) lines.push(`Brand: ${ctx.brand_name}${ctx.industry ? ` | Ngành: ${ctx.industry}` : ""}`);
-  if (ctx.tone_of_voice) lines.push(`Tone: ${ctx.tone_of_voice}`);
-  if (ctx.target_audience) lines.push(`Audience: ${ctx.target_audience}`);
-  if (pillarLines) lines.push(`Content pillars (top 3):\n${pillarLines}`);
-  lines.push("");
-  lines.push("## Output bias");
-  lines.push("- Keyword PHẢI bám sát ngành & audience trên (không sinh keyword chung chung)");
-  if (ctx.pillars.length) lines.push(`- Mỗi keyword GẮN field 'pillar_match' = tên 1 pillar phù hợp nhất (hoặc null nếu không khớp)`);
-  if (ctx.forbidden_terms.length) lines.push(`- TUYỆT ĐỐI tránh thuật ngữ: ${ctx.forbidden_terms.join(", ")}`);
-  return lines.join("\n");
+  const L: string[] = ["", "## BRAND DNA (ưu tiên cao)"];
+  L.push(`- Brand: ${ctx.brand_name || "—"}${ctx.industry ? ` · Ngành: ${ctx.industry}` : ""}${ctx.jurisdiction ? ` · Jurisdiction: ${ctx.jurisdiction}` : ""}`);
+  if (ctx.unique_value_proposition) L.push(`- USP: ${ctx.unique_value_proposition}`);
+  if (ctx.brand_positioning) L.push(`- Positioning: ${ctx.brand_positioning}`);
+  if (ctx.tagline) L.push(`- Tagline: "${ctx.tagline}"`);
+  if (ctx.mission) L.push(`- Mission: ${ctx.mission}`);
+
+  L.push("", "## AUDIENCE");
+  L.push(`- Profile: ${ctx.target_audience || "không rõ"}${ctx.target_gender ? ` · ${ctx.target_gender}` : ""}`);
+  if (ctx.target_locations?.length) L.push(`- Locations: ${ctx.target_locations.join(", ")}`);
+
+  L.push("", "## VOICE");
+  if (ctx.tone_of_voice) L.push(`- Tone: ${ctx.tone_of_voice}${ctx.formality ? ` · Formality: ${ctx.formality}` : ""}${ctx.language_style ? ` · Style: ${ctx.language_style}` : ""}`);
+  if (ctx.signature_phrases?.length) L.push(`- Signature phrases (có thể dùng làm modifier): ${ctx.signature_phrases.join(" | ")}`);
+
+  if (ctx.pillars.length) {
+    const sorted = [...ctx.pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0)).slice(0, 5);
+    L.push("", "## CONTENT TERRITORY");
+    L.push("- Pillars (sort theo weight):");
+    sorted.forEach((p: any, i) => {
+      const kws = Array.isArray(p.keywords) ? p.keywords.slice(0, 4).join(", ") : "";
+      const w = typeof p.weight === "number" ? ` [w=${p.weight}]` : "";
+      L.push(`  ${i + 1}. ${p.name}${w}${kws ? ` — keywords: ${kws}` : ""}`);
+    });
+    if (ctx.evergreen_themes?.length) L.push(`- Evergreen themes: ${ctx.evergreen_themes.join(", ")}`);
+    if (ctx.brand_hashtags?.length) L.push(`- Brand hashtags: ${ctx.brand_hashtags.join(" ")}`);
+  }
+
+  if (ctx.main_competitors?.length || ctx.competitive_advantages?.length) {
+    L.push("", "## COMPETITIVE LANDSCAPE");
+    if (ctx.main_competitors?.length) L.push(`- Đối thủ chính: ${ctx.main_competitors.join(", ")} (gợi ý keyword cạnh tranh "vs", "so sánh", "thay thế")`);
+    if (ctx.competitive_advantages?.length) L.push(`- Lợi thế cạnh tranh: ${ctx.competitive_advantages.join(" | ")} (xoáy vào điểm này khi tạo BOFU keyword)`);
+  }
+
+  L.push("", "## INDUSTRY GUARDRAILS (BLOCK CỨNG)");
+  if (ctx.forbidden_terms.length) L.push(`- ⛔ Forbidden (KHÔNG được sinh keyword chứa): ${ctx.forbidden_terms.join(", ")}`);
+  if (ctx.high_risk_keywords?.length) L.push(`- ⚠️ High-risk (chỉ dùng khi context rõ): ${ctx.high_risk_keywords.join(", ")}`);
+  if (ctx.claim_restrictions?.length) {
+    L.push("- 🚫 Claim restrictions (paraphrase nếu gặp):");
+    ctx.claim_restrictions.forEach((c) => L.push(`  · "${c.claim}" → "${c.alternative}"`));
+  }
+  if (ctx.preferred_terms?.length) L.push(`- 👍 Preferred industry terms: ${ctx.preferred_terms.join(", ")}`);
+  if (ctx.preferred_words?.length) L.push(`- 👍 Brand preferred: ${ctx.preferred_words.join(", ")}`);
+
+  L.push("", "## OUTPUT BIAS");
+  L.push("- Keyword PHẢI bám brand DNA + audience + pillars; tuyệt đối tránh chung chung.");
+  L.push("- Mỗi keyword GẮN: pillar_match (tên pillar khớp nhất hoặc null), audience_match (core/adjacent/off-target), brand_fit_score (0-100), brand_fit_reason (≤80 ký tự).");
+  L.push("- brand_fit_score ≥ 70 = bám sát pillar + audience core + voice fit; 40-69 = adjacent; <40 = off-brand (ĐỪNG sinh trừ khi user chọn preset 'competitor_gaps').");
+
+  return L.join("\n");
 }
 
 function buildSystemPrompt(preset: Preset, limit: number, brandCtx: BrandCtx | null): string {
