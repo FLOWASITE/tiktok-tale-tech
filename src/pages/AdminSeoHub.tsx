@@ -3,12 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Compass, BarChart3, FileText, LineChart, Target, AlertCircle, Copy } from "lucide-react";
+import { Search, Compass, BarChart3, FileText, LineChart, Target, AlertCircle, Copy, Sparkles } from "lucide-react";
 import OverviewTab from "@/components/admin/seo-keywords/OverviewTab";
 import KeywordExplorerTab from "@/components/admin/seo-keywords/KeywordExplorerTab";
 import PillarsTab from "@/components/admin/seo-keywords/PillarsTab";
 import DiscoverTab from "@/components/admin/seo-keywords/DiscoverTab";
 import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
+import EnrichmentJobsTab from "@/components/admin/seo-keywords/EnrichmentJobsTab";
 import AdminSeoPages from "@/pages/AdminSeoPages";
 import { useSeoOverviewCounts } from "@/hooks/useSeoOverviewCounts";
 
@@ -20,7 +21,7 @@ const LEGACY_MAP: Record<string, string> = {
   import: "discover",
 };
 
-const VALID = new Set(["overview", "explorer", "pillars", "discover", "ranks", "pages"]);
+const VALID = new Set(["overview", "explorer", "pillars", "discover", "ranks", "enrichment", "pages"]);
 
 export default function AdminSeoHub() {
   const [params, setParams] = useSearchParams();
@@ -62,7 +63,7 @@ export default function AdminSeoHub() {
       </div>
 
       <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 max-w-5xl">
+        <TabsList className="grid w-full grid-cols-7 max-w-5xl">
           <TabsTrigger value="overview" className="gap-1.5">
             <BarChart3 className="h-4 w-4" /> Overview
             {(orphan > 0 || cannibal > 0) && (
@@ -100,6 +101,9 @@ export default function AdminSeoHub() {
           <TabsTrigger value="ranks" className="gap-1.5">
             <LineChart className="h-4 w-4" /> Ranks
           </TabsTrigger>
+          <TabsTrigger value="enrichment" className="gap-1.5">
+            <Sparkles className="h-4 w-4" /> Enrichment
+          </TabsTrigger>
           <TabsTrigger value="pages" className="gap-1.5">
             <FileText className="h-4 w-4" /> Pages
           </TabsTrigger>
@@ -110,6 +114,7 @@ export default function AdminSeoHub() {
         <TabsContent value="pillars" className="mt-6"><PillarsTab /></TabsContent>
         <TabsContent value="discover" className="mt-6"><DiscoverTab /></TabsContent>
         <TabsContent value="ranks" className="mt-6"><RankTrackerTab /></TabsContent>
+        <TabsContent value="enrichment" className="mt-6"><EnrichmentJobsTab /></TabsContent>
         <TabsContent value="pages" className="mt-6 -m-6"><AdminSeoPages /></TabsContent>
       </Tabs>
     </div>
