@@ -44,6 +44,14 @@ export default function OverviewTab() {
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const VALID_SUB = new Set(["orphan", "gap", "cannibal", "contents"]);
+  const sub = VALID_SUB.has(params.get("sub") || "") ? (params.get("sub") as string) : "orphan";
+  const setSub = (v: string) => {
+    const next = new URLSearchParams(params);
+    next.set("sub", v);
+    setParams(next, { replace: true });
+  };
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
