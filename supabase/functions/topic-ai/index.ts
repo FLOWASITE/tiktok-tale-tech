@@ -1514,8 +1514,9 @@ function buildSuggestPrompts(params: {
   categoryHint?: string;
   topic?: string;
   instruction?: string;
+  targetKeywords?: string[];
 }): { systemPrompt: string; userPrompt: string } {
-  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query, categoryHint, topic, instruction } = params;
+  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query, categoryHint, topic, instruction, targetKeywords } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
