@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     // Background work
     const work = async () => {
       try {
-        const { suggestions, model: usedModel } = await expandKeywords(supabase, organizationId, seed, locale, Math.min(limit, 100));
+        const { suggestions, model: usedModel } = await expandKeywords(supabase, organizationId, user.id, seed, locale, Math.min(limit, 100));
         console.log(`[keyword-research] Generated ${suggestions.length} keywords for "${seed}" with ${usedModel}`);
         await supabase.from("keyword_research_jobs").update({ ai_model: usedModel }).eq("id", jobId);
 
