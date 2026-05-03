@@ -96,7 +96,7 @@ export default function PillarsTab() {
     setName("");
     setDesc("");
     setOpen(false);
-    qc.invalidateQueries({ queryKey: ["seo-clusters"] });
+    qc.invalidateQueries({ queryKey: ["seo-clusters"] }); qc.invalidateQueries({ queryKey: ["seo-pillars-shared"] });
   };
 
   const handleDelete = async (id: string, kwCount: number) => {
@@ -104,7 +104,7 @@ export default function PillarsTab() {
     const { error } = await supabase.from("seo_clusters").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Đã xóa");
-    qc.invalidateQueries({ queryKey: ["seo-clusters"] });
+    qc.invalidateQueries({ queryKey: ["seo-clusters"] }); qc.invalidateQueries({ queryKey: ["seo-pillars-shared"] });
     qc.invalidateQueries({ queryKey: ["seo-cluster-coverage"] });
   };
 

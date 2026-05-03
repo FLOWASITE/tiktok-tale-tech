@@ -92,7 +92,7 @@ export default function KeywordExplorerTab() {
     if (error) return toast.error(error.message);
     toast.success("Đã xóa");
     if (oldPillar) await refreshPillarStatuses([oldPillar]);
-    qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+    qc.invalidateQueries({ queryKey: ["seo-keywords"] }); qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
     qc.invalidateQueries({ queryKey: ["seo-keywords-dashboard"] });
     qc.invalidateQueries({ queryKey: ["seo-cluster-coverage"] });
   }, [qc, refreshPillarStatuses]);
@@ -100,7 +100,7 @@ export default function KeywordExplorerTab() {
   const handleStatusChange = useCallback(async (id: string, newStatus: string) => {
     const { error } = await supabase.from("seo_keywords").update({ status: newStatus }).eq("id", id);
     if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+    qc.invalidateQueries({ queryKey: ["seo-keywords"] }); qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
   }, [qc]);
 
   const handlePillarChange = useCallback(async (id: string, newPillar: string, oldPillar?: string | null) => {
@@ -109,7 +109,7 @@ export default function KeywordExplorerTab() {
     if (error) return toast.error(error.message);
     toast.success(value ? "Đã gán vào pillar" : "Đã gỡ khỏi pillar");
     await refreshPillarStatuses([oldPillar, value]);
-    qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+    qc.invalidateQueries({ queryKey: ["seo-keywords"] }); qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
     qc.invalidateQueries({ queryKey: ["seo-cluster-coverage"] });
     qc.invalidateQueries({ queryKey: ["seo-cluster-keywords"] });
   }, [qc, refreshPillarStatuses]);
@@ -140,7 +140,7 @@ export default function KeywordExplorerTab() {
     await refreshPillarStatuses([...oldPillars, value]);
     setSelectedIds(new Set());
     setBulkPillar("");
-    qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+    qc.invalidateQueries({ queryKey: ["seo-keywords"] }); qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
     qc.invalidateQueries({ queryKey: ["seo-cluster-coverage"] });
     qc.invalidateQueries({ queryKey: ["seo-cluster-keywords"] });
   };

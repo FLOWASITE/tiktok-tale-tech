@@ -35,7 +35,7 @@ export default function KeywordImportTab() {
       if (error) throw error;
       toast.success(`Đã import ${data?.inserted}/${data?.total_parsed} keyword`);
       setCsv("");
-      qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+      qc.invalidateQueries({ queryKey: ["seo-keywords"] }); qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
       qc.invalidateQueries({ queryKey: ["seo-keywords-dashboard"] });
     } catch (e: any) {
       toast.error(e.message || "Lỗi import");

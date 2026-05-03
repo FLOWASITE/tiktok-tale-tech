@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useSeoKeywords, useSeoKeywordsCache, type SeoKeywordRow } from "@/hooks/useSeoKeywords";
+import { useSeoPillars } from "@/hooks/useSeoPillars";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,17 +21,7 @@ import { toast } from "sonner";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
 
-interface KeywordRow {
-  id: string;
-  keyword: string;
-  search_volume: number | null;
-  priority_score: number | null;
-  status: string;
-  cluster_id: string | null;
-  funnel_stage: string | null;
-  intent: string | null;
-  assigned_landing_page_id: string | null;
-}
+type KeywordRow = SeoKeywordRow;
 interface ContentRow {
   id: string;
   title: string | null;
@@ -55,35 +47,12 @@ export default function OverviewTab() {
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
+  const [orphanLimit, setOrphanLimit] = useState(25);
+  const [cannibalLimit, setCannibalLimit] = useState(25);
 
-  const { data: pillars = [] } = useQuery({
-    queryKey: ["overview-pillars", orgId],
-    enabled: !!orgId,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("seo_clusters")
-        .select("id,name,color")
-        .eq("organization_id", orgId!)
-        .order("name");
-      return data || [];
-    },
-  });
-
-  const { data: keywords = [], isLoading: kwLoading } = useQuery({
-    queryKey: ["overview-keywords", orgId],
-    enabled: !!orgId,
-    staleTime: 30_000,
-    queryFn: async (): Promise<KeywordRow[]> => {
-      const { data } = await supabase
-        .from("seo_keywords")
-        .select("id,keyword,search_volume,priority_score,status,cluster_id,funnel_stage,intent,assigned_landing_page_id")
-        .eq("organization_id", orgId!)
-        .order("priority_score", { ascending: false })
-        .limit(1000);
-      return (data as KeywordRow[]) || [];
-    },
-  });
+  const { data: pillars = [] } = useSeoPillars();
+  const { data: keywords = [], isLoading: kwLoading } = useSeoKeywords();
+  const kwCache = useSeoKeywordsCache();
 
   const { data: contents = [], isLoading: cLoading } = useQuery({
     queryKey: ["overview-contents", orgId],
@@ -117,14 +86,27 @@ export default function OverviewTab() {
     keywordId: string,
     patch: { cluster_id?: string | null; assigned_landing_page_id?: string | null }
   ) => {
+    // Optimistic patch — instant UI, no refetch of 1000 rows
+    kwCache.patch(keywordId, patch);
     const { error } = await supabase.from("seo_keywords").update(patch).eq("id", keywordId);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      kwCache.invalidate(); // rollback by refetch
+      return;
+    }
     toast.success("Đã gán");
-    qc.invalidateQueries({ queryKey: ["overview-keywords"] });
   };
 
   const keepWinner = async (keywordId: string, winnerContentId: string, allContents: ContentRow[]) => {
     const losers = allContents.filter((c) => c.id !== winnerContentId);
+    // Optimistic update on contents cache
+    qc.setQueryData<ContentRow[]>(["overview-contents", orgId], (prev) =>
+      (prev || []).map((c) =>
+        losers.find((l) => l.id === c.id)
+          ? { ...c, target_keyword_ids: (c.target_keyword_ids || []).filter((id) => id !== keywordId) }
+          : c
+      )
+    );
     const updates = losers.map((c) =>
       supabase
         .from("multi_channel_contents")
@@ -135,9 +117,12 @@ export default function OverviewTab() {
     );
     const results = await Promise.all(updates);
     const err = results.find((r) => r.error)?.error;
-    if (err) return toast.error(err.message);
+    if (err) {
+      toast.error(err.message);
+      qc.invalidateQueries({ queryKey: ["overview-contents"] });
+      return;
+    }
     toast.success(`Giữ winner, gỡ keyword khỏi ${losers.length} content khác`);
-    qc.invalidateQueries({ queryKey: ["overview-contents"] });
   };
 
 
@@ -168,10 +153,11 @@ export default function OverviewTab() {
     return { total, assigned, avgPriority, funnel };
   }, [keywords]);
 
-  const orphanKeywords = useMemo(
-    () => keywords.filter((k) => !coverage.has(k.id)).slice(0, 100),
+  const orphanAll = useMemo(
+    () => keywords.filter((k) => !coverage.has(k.id)),
     [keywords, coverage]
   );
+  const orphanKeywords = useMemo(() => orphanAll.slice(0, orphanLimit), [orphanAll, orphanLimit]);
   const coveredCount = keywords.length - keywords.filter((k) => !coverage.has(k.id)).length;
 
   const cannibalized = useMemo(() => {
@@ -304,7 +290,7 @@ export default function OverviewTab() {
       <Tabs value={sub} onValueChange={setSub}>
         <TabsList>
           <TabsTrigger value="orphan" className="gap-1.5">
-            <AlertCircle className="h-4 w-4" /> Orphan ({orphanKeywords.length})
+            <AlertCircle className="h-4 w-4" /> Orphan ({orphanAll.length})
           </TabsTrigger>
           <TabsTrigger value="gap" className="gap-1.5">
             <TargetIcon className="h-4 w-4" /> Gap by Pillar ({pillarGap.length})
@@ -384,7 +370,16 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
-          <p className="text-xs text-muted-foreground mt-2">Tối đa 100 orphan, sắp theo priority. Chọn pillar/page để lưu ngay.</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              Hiển thị {orphanKeywords.length}/{orphanAll.length} orphan, sắp theo priority.
+            </p>
+            {orphanLimit < orphanAll.length && (
+              <Button size="sm" variant="ghost" onClick={() => setOrphanLimit((n) => n + 25)}>
+                Hiện thêm 25
+              </Button>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="gap" className="mt-4">
@@ -450,7 +445,7 @@ export default function OverviewTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cannibalized.map(({ keyword, contents: list }) => (
+                  {cannibalized.slice(0, cannibalLimit).map(({ keyword, contents: list }) => (
                     <TableRow key={keyword.id}>
                       <TableCell className="font-medium align-top pt-3">{keyword.keyword}</TableCell>
                       <TableCell className="text-right align-top pt-3">
@@ -485,6 +480,13 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
+          {cannibalLimit < cannibalized.length && (
+            <div className="flex justify-center mt-2">
+              <Button size="sm" variant="ghost" onClick={() => setCannibalLimit((n) => n + 25)}>
+                Hiện thêm 25 (còn {cannibalized.length - cannibalLimit})
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="contents" className="mt-4">
