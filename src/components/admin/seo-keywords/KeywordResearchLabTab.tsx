@@ -355,6 +355,35 @@ export default function KeywordResearchLabTab() {
                       {audience && <div><span className="text-muted-foreground/70">Audience: </span><span className="text-foreground">{audience}</span>{locations.length > 0 && <span className="text-muted-foreground"> · {locations.join(", ")}</span>}</div>}
                       {competitors.length > 0 && <div><span className="text-muted-foreground/70">Đối thủ: </span><span className="text-foreground">{competitors.slice(0, 4).join(", ")}</span></div>}
                       {evergreen.length > 0 && <div><span className="text-muted-foreground/70">Evergreen: </span><span className="text-foreground">{evergreen.slice(0, 4).join(" · ")}</span></div>}
+                      {brandSignals && (brandSignals.active_platforms.length > 0 || brandSignals.recent_topics.length > 0) && (
+                        <div className="mt-2 pt-2 border-t border-border/40 space-y-1">
+                          <div className="text-muted-foreground/70 uppercase tracking-wider text-[10px]">Tín hiệu Social (60d)</div>
+                          {brandSignals.active_platforms.length > 0 && (
+                            <div><span className="text-muted-foreground/70">Active: </span><span className="text-foreground">{brandSignals.active_platforms.join(", ")}</span></div>
+                          )}
+                          {brandSignals.recent_topics.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {brandSignals.recent_topics.slice(0, 5).map((t, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-background border border-border/50 text-foreground/80">{t}</span>
+                              ))}
+                            </div>
+                          )}
+                          {brandSignals.recent_hashtags.length > 0 && (
+                            <div className="text-foreground/70">{brandSignals.recent_hashtags.slice(0, 6).join(" ")}</div>
+                          )}
+                          {brandSignals.frequent_terms.length > 0 && (
+                            <div><span className="text-muted-foreground/70">Cụm từ hay dùng: </span><span className="text-foreground">{brandSignals.frequent_terms.slice(0, 6).join(", ")}</span></div>
+                          )}
+                          {brandSignals.audience_questions.length > 0 && (
+                            <div className="text-muted-foreground italic">"{brandSignals.audience_questions[0]}"</div>
+                          )}
+                        </div>
+                      )}
+                      {!brandSignals && (
+                        <div className="mt-1.5 text-[10px] text-muted-foreground">
+                          💡 Tip: kết nối social (FB/IG/TikTok…) ở Brand → AI sẽ đọc topic + hashtag + caption gần đây để gợi ý keyword sát giọng thực.
+                        </div>
+                      )}
                     </CollapsibleContent>
                   </Collapsible>
                 );
