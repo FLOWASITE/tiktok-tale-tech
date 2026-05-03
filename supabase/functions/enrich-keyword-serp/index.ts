@@ -184,14 +184,14 @@ async function classifyIntent(supabase: any, organizationId: string, userId: str
   }
 }
 
-async function enrichOne(supabase: any, organizationId: string, kw: { id: string; keyword: string; lang?: string; country?: string }) {
+async function enrichOne(supabase: any, organizationId: string, userId: string | undefined, kw: { id: string; keyword: string; lang?: string; country?: string }) {
   const lang = kw.lang || "vi";
   const country = kw.country || "VN";
   const { results } = await firecrawlSearch(supabase, kw.keyword, lang, country);
   const serp_features = detectSerpFeatures(results);
   const difficulty = computeKD(results);
   const top_competitors = topDomains(results);
-  const intent = await classifyIntent(supabase, organizationId, kw.keyword, results);
+  const intent = await classifyIntent(supabase, organizationId, userId, kw.keyword, results);
 
   const patch: Record<string, unknown> = {
     serp_features,
@@ -205,7 +205,7 @@ async function enrichOne(supabase: any, organizationId: string, kw: { id: string
   if (error) throw new Error(error.message);
 }
 
-async function runJob(supabase: any, jobId: string, orgId: string, keywordIds: string[]) {
+async function runJob(supabase: any, jobId: string, orgId: string, userId: string | undefined, keywordIds: string[]) {
   await supabase.from("keyword_enrichment_jobs").update({ status: "running", total: keywordIds.length }).eq("id", jobId);
 
   const { data: kws = [] } = await supabase
@@ -224,7 +224,7 @@ async function runJob(supabase: any, jobId: string, orgId: string, keywordIds: s
       const kw = queue.shift();
       if (!kw) break;
       try {
-        await enrichOne(supabase, orgId, kw);
+        await enrichOne(supabase, orgId, userId, kw);
       } catch (e: any) {
         errors.push({ id: kw.id, error: e?.message || String(e) });
       }
