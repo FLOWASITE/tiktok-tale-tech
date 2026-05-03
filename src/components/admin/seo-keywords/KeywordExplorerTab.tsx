@@ -74,7 +74,7 @@ export default function KeywordExplorerTab() {
     placeholderData: keepPreviousData,
     queryFn: async () => {
       let q = supabase.from("seo_keywords")
-        .select("id,keyword,search_volume,difficulty,intent,funnel_stage,priority_score,status,cluster_id,assigned_landing_page_id,cpc_vnd")
+        .select("id,keyword,search_volume,difficulty,intent,funnel_stage,priority_score,status,cluster_id,assigned_landing_page_id,cpc_vnd,serp_features,top_competitors")
         .eq("organization_id", orgId!)
         .order("priority_score", { ascending: false })
         .limit(500);
