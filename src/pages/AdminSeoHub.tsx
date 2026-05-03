@@ -101,6 +101,9 @@ export default function AdminSeoHub() {
           <TabsTrigger value="ranks" className="gap-1.5">
             <LineChart className="h-4 w-4" /> Ranks
           </TabsTrigger>
+          <TabsTrigger value="enrichment" className="gap-1.5">
+            <Sparkles className="h-4 w-4" /> Enrichment
+          </TabsTrigger>
           <TabsTrigger value="pages" className="gap-1.5">
             <FileText className="h-4 w-4" /> Pages
           </TabsTrigger>
@@ -111,6 +114,7 @@ export default function AdminSeoHub() {
         <TabsContent value="pillars" className="mt-6"><PillarsTab /></TabsContent>
         <TabsContent value="discover" className="mt-6"><DiscoverTab /></TabsContent>
         <TabsContent value="ranks" className="mt-6"><RankTrackerTab /></TabsContent>
+        <TabsContent value="enrichment" className="mt-6"><EnrichmentJobsTab /></TabsContent>
         <TabsContent value="pages" className="mt-6 -m-6"><AdminSeoPages /></TabsContent>
       </Tabs>
     </div>
