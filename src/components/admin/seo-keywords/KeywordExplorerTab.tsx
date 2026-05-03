@@ -254,6 +254,22 @@ export default function KeywordExplorerTab() {
               ))}
             </SelectContent>
           </Select>
+          {currentBrand && (
+            <button
+              type="button"
+              onClick={() => setBrandScope(v => !v)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition self-center",
+                brandScope ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted text-muted-foreground"
+              )}
+              title="Chỉ hiện keyword thuộc pillar/keyword của brand đang chọn"
+            >
+              <Target className="h-3 w-3" /> Chỉ brand «{currentBrand.brand_name}»
+            </button>
+          )}
+          <Button size="sm" variant="outline" onClick={handleExportCsv} className="ml-auto">
+            <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+          </Button>
           {isFetching && !isLoading && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground self-center">
               <Loader2 className="h-3 w-3 animate-spin" /> Đang lọc...
