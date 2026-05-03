@@ -1,0 +1,32 @@
+import { useSearchParams } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Activity, LineChart } from "lucide-react";
+import OverviewTab from "@/components/admin/seo-keywords/OverviewTab";
+import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
+
+const VALID = new Set(["health", "ranks"]);
+
+export default function TrackWorkspace() {
+  const [params, setParams] = useSearchParams();
+  const sub = VALID.has(params.get("sub") || "") ? (params.get("sub") as string) : "health";
+  const setSub = (v: string) => {
+    const next = new URLSearchParams(params);
+    next.set("sub", v);
+    setParams(next, { replace: true });
+  };
+
+  return (
+    <Tabs value={sub} onValueChange={setSub} className="w-full">
+      <TabsList>
+        <TabsTrigger value="health" className="gap-1.5">
+          <Activity className="h-4 w-4" /> Sức khoẻ
+        </TabsTrigger>
+        <TabsTrigger value="ranks" className="gap-1.5">
+          <LineChart className="h-4 w-4" /> Rank tracker
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="health" className="mt-4"><OverviewTab /></TabsContent>
+      <TabsContent value="ranks" className="mt-4"><RankTrackerTab /></TabsContent>
+    </Tabs>
+  );
+}

@@ -1,82 +1,79 @@
-## Keyword Difficulty + SERP Intent Enrichment
+## Vấn đề hiện tại
 
-Bổ sung **KD score chuẩn hoá**, **SERP features** (PAA, Featured Snippet, Video, Shopping...) và **intent re-classify** cho keyword đã có. Một edge function chạy theo batch, có UI trigger trong Explorer.
+SEO Hub có 7 tabs ngang hàng (Overview, Keywords, Pillars, Discover, Ranks, Enrichment, Pages) khiến user không biết bắt đầu từ đâu. Discover và Enrichment trùng chức năng "làm giàu keyword". Pillars / Keywords / Pages là 3 mảnh của cùng một workflow nhưng tách rời, không có đường đi rõ ràng.
 
-### Why
-Hiện `seo_keywords.difficulty` mặc định 50, `serp_features` rỗng `[]`, `intent` chỉ heuristic từ Research Lab lúc tạo. Sau vài tuần dữ liệu lệch:
-- Không lọc được "easy wins" (KD thấp + volume cao)
-- Không biết keyword nào có PAA/snippet để target featured
-- Intent gán sai → assign nhầm landing page/funnel
+## Định hướng mới: 4 tabs theo workflow SEO chuẩn
 
-### Approach
-
-**1. Edge function `enrich-keyword-serp`** (Deno, batch 1-50 keyword/lần)
-- Input: `{ keywordIds: string[], organizationId }`
-- Cho mỗi keyword: gọi **Firecrawl `/v2/search`** với `query=keyword`, `limit=10`, `country=VN`, `lang=vi`
-- Parse 10 SERP results → trích:
-  - `serp_features`: detect PAA, featured snippet, video carousel, shopping, local pack, news, image pack (heuristic theo title/url/structured fields Firecrawl trả)
-  - `kd_signals`: tính KD 0-100 dựa trên (avg domain authority proxy: số kết quả từ top domains như facebook, youtube, wiki, .gov, .edu) + mức cạnh tranh title length & exact-match
-  - `intent`: gọi Lovable AI Gateway (`google/gemini-3-flash-preview`) tool-call structured: input top 5 titles+snippets, output 1 trong 4 intent enum
-- Update `seo_keywords` SET difficulty, serp_features (jsonb), intent, top_competitors (top 3 domains)
-- Track job qua bảng mới `keyword_enrichment_jobs` (id, org, status, total, done, errors[], created_at)
-- Background persistence: `EdgeRuntime.waitUntil` để tiếp tục dù client disconnect
-
-**2. UI trong `KeywordExplorerTab.tsx`**
-- Nút "Enrich SERP" trong bulk action bar (xuất hiện khi chọn ≥1 keyword) → POST với selectedIds
-- Toast "Đang enrich N keyword (1-2 phút)..."
-- Polling job status mỗi 3s, hiện progress bar inline ở action bar
-- Sau khi xong → invalidate `seo-keywords` queries → row tự cập nhật KD/intent/serp badge
-
-**3. Hiển thị SERP features**
-- Thêm cột nhỏ icon row trong bảng Explorer (sau cột Funnel): icon nhỏ cho PAA (?), Snippet (★), Video (▶), Shopping ($), Local (📍). Tooltip liệt kê.
-- Hoặc collapse vào popover khi nhiều — quyết định lúc build.
-
-**4. Connector Firecrawl**
-- Project chưa có `FIRECRAWL_API_KEY`. Sẽ yêu cầu connect Firecrawl connector trước khi deploy edge function.
-- Fallback: nếu không có key, edge function chỉ chạy intent re-classify bằng AI (không có SERP data).
-
-### Schema change
-
-```sql
--- New table
-CREATE TABLE keyword_enrichment_jobs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL,
-  status text NOT NULL DEFAULT 'queued', -- queued|running|done|failed
-  total int NOT NULL DEFAULT 0,
-  done int NOT NULL DEFAULT 0,
-  errors jsonb DEFAULT '[]'::jsonb,
-  created_by uuid,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  completed_at timestamptz
-);
-ALTER TABLE keyword_enrichment_jobs ENABLE ROW LEVEL SECURITY;
--- Org members CRUD policy theo organization_id (giống các bảng khác)
+```text
+1. DISCOVER   →   2. PLAN       →   3. PRODUCE   →   4. TRACK
+   (tìm KW)        (cluster +        (landing       (rank +
+                    mapping)          pages)         enrich logs)
 ```
 
-Không thay đổi cột của `seo_keywords` (đã có sẵn `difficulty`, `serp_features`, `intent`, `top_competitors`).
+### Tab 1 — Discover (gộp Discover cũ + Enrichment trigger)
+**Mục đích**: Tìm keyword mới + làm giàu data
+- Sub-tabs: **AI Research Lab** | **CSV Import** | **Enrich queue** (mini, chỉ hiện job đang chạy)
+- Nút "Enrich keywords" nổi lên khi có keyword chưa có KD/intent
+- Enrichment Jobs cũ (full log) → ẩn vào Drawer "Lịch sử enrichment" mở từ icon góc trên
 
-### Files
+### Tab 2 — Plan (gộp Pillars + Keywords Explorer)
+**Mục đích**: Tổ chức keyword thành chiến lược nội dung
+- **Layout 2 panel**: 
+  - Trái: Pillar tree (sidebar collapse được) — list pillars + "Unassigned keywords" bucket
+  - Phải: Bảng keyword của pillar đang chọn, có inline edit cluster, intent, funnel stage
+- Click pillar → filter keywords. Click "Tất cả keywords" → full Explorer view
+- Card metric trên đầu: Total KW, Pillars, Coverage %, Orphan count
 
-**Tạo**
-- `supabase/functions/enrich-keyword-serp/index.ts`
-- `src/hooks/useKeywordEnrichment.ts` (mutation + job polling)
-- Migration: `keyword_enrichment_jobs` table + RLS
+### Tab 3 — Produce (đổi tên từ Pages)
+**Mục đích**: Quản lý landing pages + content gắn với keyword
+- Giữ `AdminSeoPages` hiện tại
+- Thêm cột "Cluster" + "Target keywords" hiển thị link ngược về Plan
+- Quick action "Tạo content cho keyword này" → navigate `/multi-channel/create?keywordIds=...`
 
-**Sửa**
-- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` — nút "Enrich SERP" trong bulk bar + cột SERP features icons
-- `supabase/config.toml` — entry function (default verify_jwt=true)
+### Tab 4 — Track (gộp Ranks + Overview signals)
+**Mục đích**: Theo dõi performance + phát hiện vấn đề
+- Sub-tabs: **Rank tracker** | **Health** (orphan, cannibalization, low coverage)
+- Health view = phần Overview cũ nhưng actionable: mỗi vấn đề có nút "Fix" dẫn về Plan/Produce
 
-**Không đổi:** schema `seo_keywords`, các tab Overview/Pillars.
+## Overview tab → biến mất, thay bằng "Home banner"
 
-### Risk / cost
-- Firecrawl: 1 search ≈ 1 credit. 50 keyword/batch = 50 credits.
-- AI intent classify: Gemini Flash, ~200 tokens/keyword, rất rẻ.
-- Rate limit: throttle 5 concurrent requests trong edge function tránh 429 Firecrawl.
+Phần đầu trang (trên TabsList) trở thành **Hero strip**:
+- 4 KPI cards: Keywords, Pillars active, Pages published, Avg rank
+- Stepper trực quan "Discover → Plan → Produce → Track" — click bước nào nhảy tab đó
+- Empty state: nếu org chưa có keyword → CTA lớn "Bắt đầu với AI Research Lab"
 
-### Out of scope (hoãn)
-- Auto-schedule enrich định kỳ (cron)
-- KD score dùng Ahrefs/Semrush API thật (cần key trả phí riêng)
-- Re-enrich tự động khi keyword cũ >30 ngày
+## Technical changes
 
-Approve để tôi triển khai (sẽ hỏi connect Firecrawl nếu chưa có).
+### Files mới
+- `src/components/admin/seo-hub/SeoHubHero.tsx` — KPI strip + workflow stepper
+- `src/components/admin/seo-hub/PlanWorkspace.tsx` — 2-panel layout gộp Pillars + Keywords
+- `src/components/admin/seo-hub/EnrichmentDrawer.tsx` — Sheet drawer chứa EnrichmentJobsTab cũ
+- `src/components/admin/seo-hub/HealthPanel.tsx` — orphan/cannibal cards với CTA Fix
+
+### Files sửa
+- `src/pages/AdminSeoHub.tsx` — rebuild với 4 tabs mới + Hero
+  - URL mapping: `?tab=overview|explorer|pillars|enrichment` → `track` (Health) hoặc `plan`
+  - Giữ backward compat cho `?tab=enrichment&jobId=...` → mở Drawer
+- `src/components/admin/seo-keywords/DiscoverTab.tsx` — thêm sub-tab "Enrich queue"
+- `src/components/admin/seo-keywords/PillarsTab.tsx` + `KeywordExplorerTab.tsx` — refactor thành sub-component dùng trong PlanWorkspace
+- `src/components/admin/seo-keywords/EnrichmentJobsTab.tsx` — bóc thành component dùng trong Drawer
+- `AdminSeoPages` — thêm cột Cluster/Keywords + quick action
+
+### URL backward compat
+| URL cũ | Redirect tới |
+|---|---|
+| `?tab=overview` | `?tab=track&sub=health` |
+| `?tab=explorer` | `?tab=plan` |
+| `?tab=pillars` | `?tab=plan&pillar=...` |
+| `?tab=enrichment` | `?tab=discover` + auto open Drawer |
+| `?tab=ranks` | `?tab=track&sub=ranks` |
+| `?tab=pages` | `?tab=produce` |
+
+### Không đụng
+- Edge functions, schema DB, RLS — pure frontend IA refactor
+- Logic enrichment, pillar CRUD, rank tracker giữ nguyên — chỉ tái sắp xếp UI
+
+## Risk & rollout
+- Risk thấp: chỉ frontend, có URL redirect, không mất dữ liệu
+- Rollout 1 lần, không cần feature flag
+- Sau khi merge, cập nhật memory `mem://features/seo/topic-cluster-architecture-vn` về IA mới
