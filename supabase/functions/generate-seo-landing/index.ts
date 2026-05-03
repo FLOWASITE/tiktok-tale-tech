@@ -3,6 +3,7 @@
 // Admin-only. Uses Lovable AI Gateway (Gemini 2.5 Flash) for cost-efficient bulk generation.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
