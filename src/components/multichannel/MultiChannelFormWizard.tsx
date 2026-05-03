@@ -493,7 +493,16 @@ export function MultiChannelFormWizard({
   // Hybrid entry mode: 'idea' (topic-first) vs 'seo' (pillar-first).
   // Auto-switches when long-form channel toggled; user override persisted.
   const { mode: entryMode, setMode: setEntryMode } = useEntryMode(formData.channels);
-  const suggestedPillar = useSuggestedPillar(formData.topic, formData.clusterId);
+
+  // Reset SEO state khi chuyển sang mode "Theo ý tưởng" — tránh leak xuống backend
+  useEffect(() => {
+    if (entryMode === 'idea') {
+      setFormData(prev => {
+        if (!prev.clusterId && (!prev.targetKeywordIds || prev.targetKeywordIds.length === 0)) return prev;
+        return { ...prev, clusterId: null, targetKeywordIds: [] };
+      });
+    }
+  }, [entryMode]);
 
   // Track if user manually changed the goal (to avoid overriding)
   const userManuallySetGoal = useRef(!!initialData?.contentGoal);
@@ -677,8 +686,8 @@ export function MultiChannelFormWizard({
     brandTemplateId: formData.brandTemplateId,
     contentGoal: formData.contentGoal || 'education',
     enabled: currentStep === 1,
-    clusterId: formData.clusterId ?? undefined,
-    targetKeywords: targetKeywordsText,
+    clusterId: entryMode === 'seo' ? (formData.clusterId ?? undefined) : undefined,
+    targetKeywords: entryMode === 'seo' ? targetKeywordsText : [],
   });
 
 
@@ -1339,51 +1348,6 @@ export function MultiChannelFormWizard({
                   </p>
                 )}
               </div>
-
-              {/* Pillar/Keyword block (idea mode) — heuristic AI suggest banner */}
-              {entryMode === 'idea' && (
-                <>
-                  <PillarKeywordSection
-                    variant="inline"
-                    clusterId={formData.clusterId}
-                    selectedKeywordIds={formData.targetKeywordIds ?? []}
-                    onClusterChange={(cid, kwIds) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        clusterId: cid,
-                        targetKeywordIds: kwIds.length > 0 ? kwIds : (prev.targetKeywordIds ?? []),
-                      }));
-                    }}
-                    onKeywordIdsChange={(ids) =>
-                      setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
-                    }
-                    suggestion={suggestedPillar ? { clusterId: suggestedPillar.clusterId, name: suggestedPillar.name, color: suggestedPillar.color } : null}
-                    onAcceptSuggestion={async () => {
-                      if (!suggestedPillar) return;
-                      // Fetch top-5 keywords for this cluster
-                      const { data } = await supabase
-                        .from('seo_keywords')
-                        .select('id')
-                        .eq('cluster_id', suggestedPillar.clusterId)
-                        .order('priority_score', { ascending: false })
-                        .limit(5);
-                      const ids = (data || []).map((r: any) => r.id);
-                      setFormData(prev => ({
-                        ...prev,
-                        clusterId: suggestedPillar.clusterId,
-                        targetKeywordIds: ids,
-                      }));
-                      toast.success(`Đã gắn "Cần cho SEO": ${suggestedPillar.name}`);
-                    }}
-                  />
-                  {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
-                      <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
-                      <span>Đang tạo long-form. Cân nhắc gắn "Cần cho SEO" để tận dụng topic cluster + internal linking.</span>
-                    </p>
-                  )}
-                </>
-              )}
 
               {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
               <TopicIdeaHub
