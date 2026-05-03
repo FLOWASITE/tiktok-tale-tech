@@ -277,6 +277,7 @@ export default function KeywordExplorerTab() {
               <div className="text-right">KD</div>
               <div>Intent</div>
               <div>Funnel</div>
+              <div>SERP</div>
               <div>Pillar</div>
               <div className="text-right">Priority</div>
               <div>Status</div>
