@@ -45,13 +45,58 @@ export default function PillarDetailView({ clusterId, onBack }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("seo_keywords")
-        .select("id,keyword,search_volume,difficulty,intent,assigned_landing_page_id")
+        .select("id,keyword,search_volume,difficulty,intent,funnel_stage,priority_score,assigned_landing_page_id")
         .eq("cluster_id", clusterId)
         .order("priority_score", { ascending: false });
       if (error) throw error;
       return data || [];
     },
   });
+
+  const { data: contents = [] } = useQuery({
+    queryKey: ["seo-cluster-contents", orgId, clusterId],
+    enabled: !!orgId && !!clusterId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("multi_channel_contents")
+        .select("id,title,topic,target_keyword_ids")
+        .eq("organization_id", orgId!)
+        .limit(500);
+      return data || [];
+    },
+  });
+
+  const coverageMap = useMemo(() => {
+    const map = new Map<string, { id: string; title: string | null; topic: string | null }[]>();
+    contents.forEach((c) => {
+      (c.target_keyword_ids || []).forEach((kid: string) => {
+        if (!map.has(kid)) map.set(kid, []);
+        map.get(kid)!.push(c);
+      });
+    });
+    return map;
+  }, [contents]);
+
+  const stats = useMemo(() => {
+    const total = keywords.length;
+    const covered = keywords.filter((k) => coverageMap.has(k.id)).length;
+    const orphans = keywords.filter((k) => !coverageMap.has(k.id));
+    const byStage = (stage: string) => keywords.filter((k) => (k.funnel_stage || "TOFU") === stage);
+    const stages = (["TOFU", "MOFU", "BOFU"] as const).map((s) => {
+      const list = byStage(s);
+      const cov = list.filter((k) => coverageMap.has(k.id)).length;
+      return { stage: s, total: list.length, covered: cov, orphans: list.length - cov };
+    });
+    const topOrphans = [...orphans]
+      .sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
+      .slice(0, 8);
+    const topCovered = keywords
+      .filter((k) => coverageMap.has(k.id))
+      .sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0))
+      .slice(0, 5);
+    return { total, covered, orphans, stages, topOrphans, topCovered, ratio: total ? covered / total : 0 };
+  }, [keywords, coverageMap]);
+
 
   const { data: pillarKw } = useQuery({
     queryKey: ["seo-pillar-kw", cluster?.pillar_keyword_id],
