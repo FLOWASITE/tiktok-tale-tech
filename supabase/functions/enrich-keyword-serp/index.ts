@@ -311,9 +311,9 @@ Deno.serve(async (req) => {
     // @ts-ignore EdgeRuntime
     if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
       // @ts-ignore
-      EdgeRuntime.waitUntil(runJob(supabase, job.id, organizationId, keywordIds));
+      EdgeRuntime.waitUntil(runJob(supabase, job.id, organizationId, userData.user.id, keywordIds));
     } else {
-      runJob(supabase, job.id, organizationId, keywordIds).catch(e => console.error("[runJob]", e));
+      runJob(supabase, job.id, organizationId, userData.user.id, keywordIds).catch(e => console.error("[runJob]", e));
     }
 
     return new Response(JSON.stringify({ jobId: job.id, total: keywordIds.length, hasFirecrawl: !!FIRECRAWL_API_KEY }), {
