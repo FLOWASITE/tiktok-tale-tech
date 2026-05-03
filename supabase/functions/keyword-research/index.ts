@@ -21,7 +21,22 @@ interface KeywordSuggestion {
   rationale?: string;
 }
 
-async function expandKeywords(seed: string, locale: string, limit: number): Promise<KeywordSuggestion[]> {
+async function resolveAdminModel(supabase: any, organizationId: string): Promise<{ model: string; temperature: number | null }> {
+  try {
+    let q = supabase.from("ai_function_configs")
+      .select("model_override, temperature")
+      .eq("function_name", "keyword-research")
+      .eq("is_enabled", true);
+    q = q.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    const { data } = await q.order("organization_id", { nullsFirst: false }).limit(1);
+    const row = data?.[0];
+    return { model: row?.model_override || "google/gemini-2.5-pro", temperature: row?.temperature ?? null };
+  } catch {
+    return { model: "google/gemini-2.5-pro", temperature: null };
+  }
+}
+
+async function expandKeywords(supabase: any, organizationId: string, seed: string, locale: string, limit: number): Promise<{ suggestions: KeywordSuggestion[]; model: string }> {
   const sys = `Bạn là chuyên gia SEO Việt Nam, chuyên programmatic SEO cho ngành AI marketing.
 Sinh ${limit} biến thể keyword tiếng Việt từ seed keyword. Bao gồm:
 - Long-tail (4+ từ)
@@ -40,11 +55,13 @@ Locale: ${locale}
 Sinh chính xác ${limit} keyword. Format JSON:
 [{"keyword":"...","search_volume":1200,"difficulty":35,"cpc_vnd":8500,"intent":"commercial","funnel_stage":"MOFU","cluster_name":"...","rationale":"ngắn"}]`;
 
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+  const adminCfg = await resolveAdminModel(supabase, organizationId);
+  const payload: any = {
+    model: adminCfg.model,
+    messages: [
+      { role: "system", content: sys },
+      { role: "user", content: userPrompt },
+    ],
       messages: [
         { role: "system", content: sys },
         { role: "user", content: userPrompt },
