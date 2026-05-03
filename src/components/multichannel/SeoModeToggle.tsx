@@ -1,6 +1,11 @@
-import { Target } from 'lucide-react';
+import { Target, Info } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -11,35 +16,71 @@ interface Props {
 
 export function SeoModeToggle({ enabled, onChange, disabled }: Props) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <label
-            className={cn(
-              'inline-flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2 cursor-pointer transition-colors',
-              enabled && 'border-primary/40 bg-primary/5',
-              disabled && 'opacity-50 cursor-not-allowed'
-            )}
-          >
-            <Target className={cn('w-4 h-4', enabled ? 'text-primary' : 'text-muted-foreground')} />
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-medium text-foreground">Chế độ SEO</span>
-              <span className="text-[11px] text-muted-foreground">
-                {enabled ? 'Bắt đầu từ pillar + keyword' : 'Bắt đầu từ ý tưởng (mặc định)'}
-              </span>
-            </div>
-            <Switch
-              checked={enabled}
-              onCheckedChange={onChange}
-              disabled={disabled}
-              aria-label="Bật chế độ SEO"
-            />
-          </label>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-xs">
-          Bật khi bạn muốn tạo nội dung long-form (Website/Blog/WordPress) bám theo keyword SEO. AI sẽ gợi ý topic từ pillar + keyword bạn chọn.
-        </TooltipContent>
-      </Tooltip>
+    <TooltipProvider delayDuration={150}>
+      <div
+        className={cn(
+          'inline-flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2 transition-colors',
+          enabled && 'border-primary/40 bg-primary/5',
+          disabled && 'opacity-50',
+        )}
+      >
+        <Target
+          className={cn('w-4 h-4 shrink-0', enabled ? 'text-primary' : 'text-muted-foreground')}
+        />
+        <div className="flex flex-col leading-tight">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium text-foreground">Chế độ SEO</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Thông tin về chế độ SEO"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="end" className="max-w-xs space-y-2 text-xs">
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Khi nào nên bật?</p>
+                  <p className="text-muted-foreground">
+                    Khi bạn cần nội dung long-form (Website / Blog / WordPress) bám sát keyword để
+                    lên top Google.
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Bật xong cần điền gì?</p>
+                  <ol className="list-decimal pl-4 space-y-0.5 text-muted-foreground">
+                    <li>
+                      Chọn <b>Pillar</b> (cụm chủ đề lớn).
+                    </li>
+                    <li>
+                      Chọn 1–5 <b>Keyword</b> trong pillar đó.
+                    </li>
+                    <li>
+                      AI sẽ gợi ý <b>Topic</b> phù hợp → bạn chọn 1.
+                    </li>
+                  </ol>
+                </div>
+                <p className="text-muted-foreground italic">
+                  Tắt = bắt đầu tự do từ ý tưởng, AI sẽ tự gợi pillar sau.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {enabled
+              ? 'Cần chọn Pillar → Keyword trước khi tạo'
+              : 'Bắt đầu từ ý tưởng (mặc định)'}
+          </span>
+        </div>
+        <Switch
+          checked={enabled}
+          onCheckedChange={onChange}
+          disabled={disabled}
+          aria-label="Bật chế độ SEO"
+        />
+      </div>
     </TooltipProvider>
   );
 }

@@ -1,40 +1,38 @@
-## Vấn đề
-Hiện tại Step 1 hiển thị **2 tab "Theo ý tưởng" / "Cần cho SEO"** (EntryModeSwitcher). User muốn:
-- Bỏ tab "Theo ý tưởng" (vì đã là mặc định hệ thống, hiển thị tab gây thừa).
-- Thay bằng **1 nút bật/tắt SEO mode rõ ràng** — off = idea (mặc định), on = seo.
+## Mục tiêu
+Bổ sung context UI ngay cạnh Switch "Chế độ SEO" để user hiểu **khi nào nên bật** và **bật xong phải điền gì**.
 
-## Thay đổi
+## Thay đổi: `src/components/multichannel/SeoModeToggle.tsx`
 
-### 1. Tạo component mới `src/components/multichannel/SeoModeToggle.tsx`
-Một toggle gọn dùng `Switch` + label + icon `Target`, với mô tả phụ:
-- Off: "Chế độ SEO — Tắt" · "Bắt đầu từ ý tưởng (mặc định)"
-- On: "Chế độ SEO — Bật" · "Chọn pillar + keyword trước, AI gợi ý topic"
+### A. Thêm icon `Info` (lucide-react) ngay cạnh chữ "Chế độ SEO"
+- Click/hover vào icon → mở Tooltip giàu nội dung (multi-section).
+- Giữ Switch on/off như hiện tại.
 
-Props: `enabled: boolean`, `onChange: (v: boolean) => void`, `disabled?: boolean`.
+### B. Tooltip nội dung (cấu trúc 3 phần)
+1. **Khi nào nên bật?**
+   "Khi bạn cần nội dung long-form (Website / Blog / WordPress) bám sát keyword để lên top Google."
+2. **Bật xong cần điền gì?** (ordered list)
+   1. Chọn **Pillar** (cụm chủ đề lớn).
+   2. Chọn 1–5 **Keyword** trong pillar đó.
+   3. AI sẽ gợi ý **Topic** phù hợp → bạn chọn 1.
+3. *Italic note:* "Tắt = bắt đầu tự do từ ý tưởng, AI sẽ tự gợi pillar sau."
 
-UI gợi ý:
+### C. Mô tả phụ ngay dưới label (luôn hiển thị, không cần hover)
+- Off: "Bắt đầu từ ý tưởng (mặc định)" (giữ nguyên)
+- On: đổi thành **"Cần chọn Pillar → Keyword trước khi tạo"** (rõ requirement hơn câu cũ "Bắt đầu từ pillar + keyword")
+
+### D. Cấu trúc layout
 ```
-[🎯 Chế độ SEO          ◉━━○ ]
-   Bắt đầu từ keyword cho long-form
+[🎯  Chế độ SEO  ⓘ                    ◉━━○]
+     Cần chọn Pillar → Keyword trước khi tạo
 ```
-Có hover tooltip giải thích khi nào nên bật (Website/Blog/WordPress).
-
-### 2. `src/components/multichannel/MultiChannelFormWizard.tsx` (Step 1 header, dòng 1186-1201)
-- Bỏ block `EntryModeSwitcher` + 2 dòng mô tả "Cách bắt đầu".
-- Thay bằng `<SeoModeToggle enabled={entryMode === 'seo'} onChange={(v) => setEntryMode(v ? 'seo' : 'idea')} disabled={isGenerating} />` đặt ở góc phải, hoặc 1 hàng riêng phía trên các block còn lại.
-- Giữ nguyên nhánh `{entryMode === 'seo' && <SeoFirstEntry ... />}` bên dưới.
-
-### 3. (Không xoá file) `EntryModeSwitcher.tsx` giữ nguyên (có thể dùng nơi khác sau), nhưng gỡ import khỏi wizard.
-
-### 4. Cập nhật memory `.lovable/memory/features/multichannel/hybrid-entry-mode-vn.md`
-- Đổi mô tả UI: "EntryModeSwitcher 2-tab" → "SeoModeToggle (Switch on/off)".
-- Idea-first vẫn là mặc định; SEO chỉ bật khi user gạt switch.
+- Icon Info dùng `w-3.5 h-3.5 text-muted-foreground hover:text-foreground`.
+- Tooltip `side="bottom" align="end" max-w-xs`, content dùng `text-xs` với heading bold + list.
+- Bỏ Tooltip wrap toàn bộ label hiện tại (chuyển sang trigger trên Info icon) để click switch không vô tình mở tooltip lớn.
 
 ## Không đổi
-- `useEntryMode` hook giữ nguyên (đã đúng: default `idea`, persist localStorage).
-- `formData` shape, backend, `SeoFirstEntry`, `PillarKeywordSection` không đổi.
+- Props `SeoModeToggle` (`enabled`, `onChange`, `disabled`) giữ nguyên.
+- `MultiChannelFormWizard.tsx` không cần sửa.
+- Hook `useEntryMode`, `SeoFirstEntry` không đổi.
 
 ## Kết quả
-- Step 1 không còn 2 tab; chỉ 1 switch "Chế độ SEO" rõ ràng.
-- Mặc định tắt → user thấy giao diện ý tưởng đơn giản.
-- Bật switch → hiện block Pillar/Keyword/SuggestedTopics như trước.
+User nhìn thấy ngay dòng mô tả "Cần chọn Pillar → Keyword trước khi tạo" khi bật, và có thể hover icon ⓘ để đọc hướng dẫn 3 bước chi tiết.
