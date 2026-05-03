@@ -527,9 +527,52 @@ export default function KeywordResearchLabTab() {
         </>
       )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Lịch sử jobs</CardTitle></CardHeader>
-        <CardContent>
+      <Card className="border-border/60">
+        <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Lịch sử jobs</CardTitle></CardHeader>
+        <CardContent className="pt-0">
+          {(!jobs || jobs.length === 0) ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">Chưa có job nào.</p>
+          ) : (
+            <div className="divide-y divide-border/40">
+              {jobs.map((j: any) => {
+                const seedsList: string[] = Array.isArray(j.seeds) ? j.seeds : [j.seed_keyword];
+                const hasPreview = Array.isArray(j.preview) && j.preview.length > 0;
+                const dotColor =
+                  j.status === "done" ? "bg-foreground" :
+                  j.status === "failed" ? "bg-destructive" :
+                  j.status === "running" ? "bg-foreground animate-pulse" :
+                  "bg-muted-foreground/40";
+                return (
+                  <div key={j.id} className="flex items-center justify-between gap-3 py-2.5 hover:bg-muted/20 -mx-2 px-2 rounded transition">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dotColor)} />
+                        <span className="text-sm font-medium truncate text-foreground">
+                          {seedsList.slice(0, 2).join(", ")}{seedsList.length > 2 && ` +${seedsList.length - 2}`}
+                        </span>
+                        {j.preset && j.preset !== "default" && (
+                          <Badge variant="outline" className="text-[10px] font-normal h-4 px-1.5">{j.preset}</Badge>
+                        )}
+                        <span className="text-[11px] text-muted-foreground">
+                          {j.status === "preview_ready" ? "preview chờ chọn" : j.status}
+                        </span>
+                      </div>
+                      {j.error_message && <p className="text-xs text-destructive mt-0.5 ml-3.5">{j.error_message}</p>}
+                      <p className="text-[11px] text-muted-foreground mt-0.5 ml-3.5">
+                        {formatDistanceToNow(new Date(j.created_at), { addSuffix: true, locale: vi })}
+                        {j.status === "done" && ` · đã lưu ${j.keywords_added}/${j.selected_count || j.keywords_added}`}
+                      </p>
+                    </div>
+                    {hasPreview && j.status === "preview_ready" && (
+                      <Button size="sm" variant="ghost" onClick={() => loadJobPreview(j.id)} className="h-7 text-xs">Mở preview</Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
           {(!jobs || jobs.length === 0) ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Chưa có job nào.</p>
           ) : (
