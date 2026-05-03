@@ -203,7 +203,11 @@ export default function KeywordResearchLabTab() {
                 const isDeep = data.mode === "deep";
                 if (isDeep) {
                   setProgressMsg(`Deep research hoàn tất: lưu ${data.inserted}/${data.total} keyword vào pool`);
-                  toast.success(`Đã lưu ${data.inserted} keyword mới vào pool. Mở Plan để xem.`);
+                  if (data.inserted === 0 && data.total > 0) {
+                    toast.warning(`AI sinh ${data.total} keyword nhưng KHÔNG lưu được vào pool. Có thể do trùng hoặc lỗi constraint — kiểm tra log.`);
+                  } else {
+                    toast.success(`Đã lưu ${data.inserted} keyword mới vào pool. Mở Plan để xem.`);
+                  }
                 } else {
                   setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
                   toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
