@@ -228,8 +228,36 @@ export default function KeywordExplorerTab() {
               </SelectContent>
             </Select>
             <Button size="sm" onClick={handleBulkAssign} disabled={!bulkPillar}>Gán</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => enrich(Array.from(selectedIds))}
+              disabled={enrichStarting || !!enrichJob || selectedIds.size > 50}
+              title={selectedIds.size > 50 ? "Tối đa 50 keyword/lần" : "Lấy KD, SERP features, intent từ Google"}
+            >
+              {enrichStarting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+              Enrich SERP
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Hủy</Button>
           </div>
+        )}
+
+        {enrichJob && (
+          <div className="flex items-center gap-2 p-2 bg-muted/30 border rounded-md text-xs">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            <span className="text-muted-foreground">Đang enrich {enrichJob.done}/{enrichJob.total} keyword...</span>
+            <div className="flex-1 h-1.5 bg-muted rounded overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${enrichJob.total ? (enrichJob.done / enrichJob.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* keep-orig-bulk-end */}
+        {false && (
+          <div>{/* placeholder to balance JSX */}</div>
         )}
 
         {isLoading ? (
