@@ -199,6 +199,108 @@ export default function PillarDetailView({ clusterId, onBack }: Props) {
         </CardContent>
       </Card>
 
+      {/* Drill-down summary */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Coverage</p>
+                <p className="text-2xl font-bold mt-1">
+                  {stats.covered}/{stats.total}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {Math.round(stats.ratio * 100)}% keywords có content
+                </p>
+              </div>
+              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <Progress value={stats.ratio * 100} className="h-1.5 mt-3" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-xs text-muted-foreground">Funnel breakdown</p>
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="space-y-2">
+              {stats.stages.map((s) => {
+                const pct = s.total ? (s.covered / s.total) * 100 : 0;
+                return (
+                  <div key={s.stage}>
+                    <div className="flex justify-between text-[11px] mb-0.5">
+                      <span className="font-medium">{s.stage}</span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {s.covered}/{s.total}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between mb-2">
+              <p className="text-xs text-muted-foreground">Top orphans (priority)</p>
+              <AlertCircle className="h-5 w-5 text-muted-foreground" />
+            </div>
+            {stats.topOrphans.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">🎉 Không có orphan.</p>
+            ) : (
+              <ul className="space-y-1">
+                {stats.topOrphans.slice(0, 5).map((k) => (
+                  <li key={k.id} className="flex items-center justify-between text-xs gap-2">
+                    <span className="truncate flex-1">{k.keyword}</span>
+                    <Badge variant="secondary" className="h-4 text-[10px]">
+                      {k.priority_score ?? 0}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {stats.topOrphans.length > 5 && (
+              <p className="text-[10px] text-muted-foreground mt-1.5">
+                +{stats.topOrphans.length - 5} orphan khác
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {stats.topCovered.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground mb-2">Top covered keywords (đã có content)</p>
+            <div className="space-y-1.5">
+              {stats.topCovered.map((k) => {
+                const list = coverageMap.get(k.id) || [];
+                return (
+                  <div key={k.id} className="flex items-start justify-between gap-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{k.keyword}</div>
+                      <div className="text-muted-foreground text-[10px] truncate">
+                        {list.map((c) => c.title || c.topic || c.id.slice(0, 8)).join(" · ")}
+                      </div>
+                    </div>
+                    <Badge variant={list.length >= 2 ? "destructive" : "outline"} className="h-4 text-[10px] shrink-0">
+                      {list.length} content
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Keywords list */}
       <div>
         <div className="flex items-center justify-between mb-2">
