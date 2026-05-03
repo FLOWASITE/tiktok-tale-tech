@@ -16,3 +16,6 @@ Mỗi edge function tự query `ai_function_configs` (function_name + org/global
 - pro: keyword-research-v2, keyword-research
 - flash: suggest-cluster-topics, generate-seo-landing
 - flash-lite: enrich-keyword-serp, keyword-research-save, seo-rank-tracker
+
+## Guardrail trong callAI
+`_shared/ai-provider.ts` `callAI()` THROW nếu `functionName` rỗng và CẢNH BÁO console.error nếu không có trong DEFAULT_CONFIGS (admin override sẽ bị bỏ qua). `generate-seo-landing` + `suggest-cluster-topics` đã chuyển sang `callAI()` để hưởng guardrail + admin override thay vì fetch trực tiếp.

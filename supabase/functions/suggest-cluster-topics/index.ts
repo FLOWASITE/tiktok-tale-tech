@@ -105,7 +105,10 @@ Trả về CHÍNH XÁC JSON object:
       ],
     } as any);
 
-    const text = aiResult?.content || aiResult?.text || "";
+    const text = aiResult?.data?.choices?.[0]?.message?.content
+      || (aiResult as any)?.content
+      || aiResult?.data?.content
+      || "";
     let parsed: any = {};
     try {
       parsed = JSON.parse(text);
