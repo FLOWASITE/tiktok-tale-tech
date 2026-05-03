@@ -1,6 +1,6 @@
 ---
 name: Hybrid Entry Mode (Multichannel)
-description: MultiChannelFormWizard 2-mode entry (idea-first vs SEO-first), smart-default theo long-form channel, persisted localStorage
+description: MultiChannelFormWizard 2-mode entry — idea-first là mặc định hệ thống, SEO opt-in qua switcher, persist localStorage
 type: feature
 ---
 
@@ -8,29 +8,28 @@ type: feature
 
 Step 1 của form tạo nội dung đa kênh có **2 chế độ**:
 
-## Mode A — `seo` (Pillar-first)
-Flow: **Pillar → Keyword target (top-5) → AI gợi ý Topics → Chọn 1 → Generate**
-- Component: `SeoFirstEntry` → `PillarKeywordSection (variant=card)` + `SuggestedTopicsFromKeyword`
-- Edge function: `suggest-cluster-topics` (đã có, category=`seo`)
-- Mặc định khi user chọn ≥1 long-form channel: `website` | `blogger` | `wordpress`
-
-## Mode B — `idea` (Topic-first, flow cũ)
+## Mode B — `idea` (Topic-first) — **MẶC ĐỊNH HỆ THỐNG**
 Flow: **Topic → AI gợi ý Pillar phù hợp (heuristic) → Generate**
 - Component: TopicIdeaHub + `PillarKeywordSection (variant=inline)` (banner suggest)
 - Heuristic match: `useSuggestedPillar` tokenize topic ↔ cluster.name + keyword names, score≥1
-- Mặc định khi không có long-form channel
+- **Áp dụng cho mọi tổ hợp kênh**, kể cả khi chọn long-form (Website/Blog/WordPress)
 
-## Smart default & override (`useEntryMode`)
-- Auto-switch khi `formData.channels` thay đổi (chưa override).
-- User click switcher = set override flag `mc:entry_mode_override=1` → ngừng auto.
-- Persist mode trong localStorage `mc:entry_mode`.
-- Toast info khi auto chuyển sang `seo`.
+## Mode A — `seo` (Pillar-first) — **OPT-IN**
+Flow: **Pillar → Keyword target (top-5) → AI gợi ý Topics → Chọn 1 → Generate**
+- Component: `SeoFirstEntry` → `PillarKeywordSection (variant=card)` + `SuggestedTopicsFromKeyword`
+- Edge function: `suggest-cluster-topics` (đã có, category=`seo`)
+- **Chỉ kích hoạt khi user tự click vào EntryModeSwitcher** — không bao giờ auto
+
+## Persist (`useEntryMode`)
+- Lưu mode trong localStorage `mc:entry_mode` để nhớ lựa chọn user qua các session.
+- KHÔNG có auto-switch theo channels, KHÔNG có override flag, KHÔNG có toast.
+- Mặc định khi chưa có gì trong localStorage = `'idea'`.
 
 ## State shape (KHÔNG đổi)
 `formData.{topic, clusterId, targetKeywordIds}` giữ nguyên. Backend pipeline `generate-multichannel` không phải sửa.
 
 ## Files
-- `src/hooks/useEntryMode.ts`
+- `src/hooks/useEntryMode.ts` (signature: `useEntryMode()` — không tham số)
 - `src/hooks/useSuggestedPillar.ts`
 - `src/components/multichannel/EntryModeSwitcher.tsx`
 - `src/components/multichannel/SeoFirstEntry.tsx`
@@ -39,4 +38,4 @@ Flow: **Topic → AI gợi ý Pillar phù hợp (heuristic) → Generate**
 - Wired vào `src/components/multichannel/MultiChannelFormWizard.tsx` Step 1
 
 ## Best practice rationale
-SEO chuẩn: **Keyword → Topic** (volume/intent có thật). Long-form (Website/Blog) bắt buộc theo hướng này. Social-first (FB/IG/TikTok) cho phép ngược (Topic-first vì ý tưởng quan trọng hơn search volume).
+SEO chuẩn (Keyword → Topic) là nâng cao — không phải user nào cũng có pillar/keyword sẵn. Idea-first giảm rào cản cho user mới. Power user muốn SEO discipline thì tự bật.

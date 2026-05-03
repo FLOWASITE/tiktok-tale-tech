@@ -490,7 +490,7 @@ export function MultiChannelFormWizard({
 
   // Hybrid entry mode: 'idea' (topic-first) vs 'seo' (pillar-first).
   // Auto-switches when long-form channel toggled; user override persisted.
-  const { mode: entryMode, setMode: setEntryMode } = useEntryMode(formData.channels);
+  const { mode: entryMode, setMode: setEntryMode } = useEntryMode();
 
   // Reset SEO state khi chuyển sang mode "Theo ý tưởng" — tránh leak xuống backend
   useEffect(() => {
