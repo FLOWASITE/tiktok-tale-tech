@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Trash2, Target, ArrowRight } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, Trash2, Target, ArrowRight, Sparkles, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useKeywordEnrichment } from "@/hooks/useKeywordEnrichment";
 
 const STATUS_OPTIONS = ["all", "new", "researching", "planned", "assigned", "published", "tracking", "archived"];
 const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "navigational"];
@@ -20,15 +22,26 @@ const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "
 const NONE = "__none__";
 const NO_PILLAR = "__no_pillar__";
 
-// Grid template aligned for header + each row (10 columns)
+// Grid template aligned for header + each row (11 columns: + SERP icons col)
 const GRID_COLS =
-  "grid grid-cols-[32px_minmax(220px,2fr)_88px_64px_120px_120px_180px_88px_140px_44px] items-center gap-2 px-3";
+  "grid grid-cols-[32px_minmax(220px,2fr)_88px_64px_120px_110px_120px_180px_88px_140px_44px] items-center gap-2 px-3";
+
+const SERP_ICONS: Record<string, { icon: typeof HelpCircle; label: string }> = {
+  paa: { icon: HelpCircle, label: "People Also Ask" },
+  snippet: { icon: Star, label: "Featured Snippet" },
+  video: { icon: Play, label: "Video" },
+  shopping: { icon: ShoppingBag, label: "Shopping" },
+  local: { icon: MapPin, label: "Local Pack" },
+  news: { icon: Newspaper, label: "News" },
+  social: { icon: Users, label: "Social" },
+};
 
 export default function KeywordExplorerTab() {
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { enrich, job: enrichJob, starting: enrichStarting } = useKeywordEnrichment();
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -62,7 +75,7 @@ export default function KeywordExplorerTab() {
     placeholderData: keepPreviousData,
     queryFn: async () => {
       let q = supabase.from("seo_keywords")
-        .select("id,keyword,search_volume,difficulty,intent,funnel_stage,priority_score,status,cluster_id,assigned_landing_page_id,cpc_vnd")
+        .select("id,keyword,search_volume,difficulty,intent,funnel_stage,priority_score,status,cluster_id,assigned_landing_page_id,cpc_vnd,serp_features,top_competitors")
         .eq("organization_id", orgId!)
         .order("priority_score", { ascending: false })
         .limit(500);
@@ -215,7 +228,30 @@ export default function KeywordExplorerTab() {
               </SelectContent>
             </Select>
             <Button size="sm" onClick={handleBulkAssign} disabled={!bulkPillar}>Gán</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => enrich(Array.from(selectedIds))}
+              disabled={enrichStarting || !!enrichJob || selectedIds.size > 50}
+              title={selectedIds.size > 50 ? "Tối đa 50 keyword/lần" : "Lấy KD, SERP features, intent từ Google"}
+            >
+              {enrichStarting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+              Enrich SERP
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Hủy</Button>
+          </div>
+        )}
+
+        {enrichJob && (
+          <div className="flex items-center gap-2 p-2 bg-muted/30 border rounded-md text-xs">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            <span className="text-muted-foreground">Đang enrich {enrichJob.done}/{enrichJob.total} keyword...</span>
+            <div className="flex-1 h-1.5 bg-muted rounded overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${enrichJob.total ? (enrichJob.done / enrichJob.total) * 100 : 0}%` }}
+              />
+            </div>
           </div>
         )}
 
@@ -236,6 +272,7 @@ export default function KeywordExplorerTab() {
               <div className="text-right">KD</div>
               <div>Intent</div>
               <div>Funnel</div>
+              <div>SERP</div>
               <div>Pillar</div>
               <div className="text-right">Priority</div>
               <div>Status</div>
@@ -282,6 +319,31 @@ export default function KeywordExplorerTab() {
                         <div className="text-right tabular-nums">{k.difficulty}</div>
                         <div><Badge variant="outline" className="text-xs">{k.intent}</Badge></div>
                         <div><Badge variant="secondary" className="text-xs">{k.funnel_stage}</Badge></div>
+                        <div className="flex items-center gap-1">
+                          {(() => {
+                            const feats = Array.isArray(k.serp_features) ? (k.serp_features as string[]) : [];
+                            if (feats.length === 0) return <span className="text-xs text-muted-foreground/60">—</span>;
+                            return (
+                              <TooltipProvider delayDuration={150}>
+                                {feats.slice(0, 4).map(f => {
+                                  const def = SERP_ICONS[f];
+                                  if (!def) return null;
+                                  const Icon = def.icon;
+                                  return (
+                                    <Tooltip key={f}>
+                                      <TooltipTrigger asChild>
+                                        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-muted text-muted-foreground">
+                                          <Icon className="h-3 w-3" />
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{def.label}</TooltipContent>
+                                    </Tooltip>
+                                  );
+                                })}
+                              </TooltipProvider>
+                            );
+                          })()}
+                        </div>
                         <div className="flex items-center gap-1 min-w-0">
                           <Select
                             value={k.cluster_id || NONE}
