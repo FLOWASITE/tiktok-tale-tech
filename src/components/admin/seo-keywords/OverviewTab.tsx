@@ -153,10 +153,11 @@ export default function OverviewTab() {
     return { total, assigned, avgPriority, funnel };
   }, [keywords]);
 
-  const orphanKeywords = useMemo(
-    () => keywords.filter((k) => !coverage.has(k.id)).slice(0, 100),
+  const orphanAll = useMemo(
+    () => keywords.filter((k) => !coverage.has(k.id)),
     [keywords, coverage]
   );
+  const orphanKeywords = useMemo(() => orphanAll.slice(0, orphanLimit), [orphanAll, orphanLimit]);
   const coveredCount = keywords.length - keywords.filter((k) => !coverage.has(k.id)).length;
 
   const cannibalized = useMemo(() => {
