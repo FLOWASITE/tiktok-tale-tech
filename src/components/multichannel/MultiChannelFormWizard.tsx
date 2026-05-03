@@ -666,8 +666,23 @@ export function MultiChannelFormWizard({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
-  // Resolve target keyword IDs → keyword strings để bias topic suggestions theo SEO
-  const { data: targetKeywordsText = [] } = useKeywordsByIds(formData.targetKeywordIds);
+  // Resolve target keyword IDs → keyword strings để bias topic suggestions theo SEO.
+  // Quan trọng: phải đợi resolve xong trước khi gọi topic-ai trong SEO mode,
+  // tránh request đầu tiên chỉ có clusterId (cache key khác → trả gợi ý không bám keyword).
+  const {
+    data: targetKeywordsText = [],
+    isLoading: isLoadingTargetKeywords,
+    isFetching: isFetchingTargetKeywords,
+  } = useKeywordsByIds(formData.targetKeywordIds);
+
+  const seoMode = entryMode === 'seo';
+  const hasSelectedKeywordIds = (formData.targetKeywordIds?.length ?? 0) > 0;
+  const seoKeywordsReady =
+    !seoMode ||
+    !hasSelectedKeywordIds ||
+    (targetKeywordsText.length === (formData.targetKeywordIds?.length ?? 0) &&
+      !isLoadingTargetKeywords &&
+      !isFetchingTargetKeywords);
 
   // Enhanced Topic Suggestions (carousel-style)
   const {
@@ -683,9 +698,9 @@ export function MultiChannelFormWizard({
   } = useEnhancedTopicSuggestions({
     brandTemplateId: formData.brandTemplateId,
     contentGoal: formData.contentGoal || 'education',
-    enabled: currentStep === 1,
-    clusterId: entryMode === 'seo' ? (formData.clusterId ?? undefined) : undefined,
-    targetKeywords: entryMode === 'seo' ? targetKeywordsText : [],
+    enabled: currentStep === 1 && seoKeywordsReady,
+    clusterId: seoMode ? (formData.clusterId ?? undefined) : undefined,
+    targetKeywords: seoMode ? targetKeywordsText : [],
   });
 
 
