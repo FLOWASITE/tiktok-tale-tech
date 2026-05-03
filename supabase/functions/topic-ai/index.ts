@@ -1709,12 +1709,17 @@ Trả về JSON array với ${topic ? '3-5' : '5-6'} topics:
   };
   const categoryGuidance = categoryHint ? (categoryHintMap[categoryHint] || `🎯 HƯỚNG ĐI: Tập trung gợi ý các chủ đề theo hướng "${categoryHint}". Tất cả topics phải phù hợp với hướng đi này.`) : '';
 
+  const seoTargetGuidance = (targetKeywords && targetKeywords.length > 0)
+    ? `\n🎯 SEO TARGET (BẮT BUỘC): Mỗi topic gợi ý PHẢI bám tự nhiên ít nhất 1 trong các keyword sau (chứa nguyên cụm hoặc paraphrase sát nghĩa trong "topic"):\n${targetKeywords.map((k) => `- ${k}`).join('\n')}\n→ KHÔNG nhồi nhét, viết tự nhiên. Field "relatedKeywords" phải liệt kê keyword đã dùng.`
+    : '';
+
   const userPrompt = `Gợi ý ${topic ? '3-5' : '5-6'} chủ đề content cho:
 - Mục tiêu: ${goalLabels[contentGoal || 'education']}
 - Format: ${format || 'all'}
 ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
 ${topic ? `\n🎯 CHỦ ĐỀ BẮT BUỘC: "${topic}"\n→ TẤT CẢ topics PHẢI xoay quanh chủ đề này. Gợi ý các góc tiếp cận khác nhau (educational, comparison, case study, tips & tricks, storytelling, myth-busting).` : ''}
 ${categoryGuidance ? `\n${categoryGuidance}` : ''}
+${seoTargetGuidance}
 ${query ? `\n🎯 YÊU CẦU CỤ THỂ CỦA USER: "${query}"\n→ ƯU TIÊN CAO: Các topic phải liên quan trực tiếp đến yêu cầu trên.` : ''}
 ${recentTopics?.length ? `\nTRÁNH topics tương tự: ${recentTopics.slice(0, 5).join('; ')}` : ''}
 
