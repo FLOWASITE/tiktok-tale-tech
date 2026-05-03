@@ -3249,12 +3249,26 @@ ${buildPersonaFitBoostPrompt(targetPersonaData)}
             pillarKeyword = (pk as any)?.keyword || null;
           }
           let kwRows: any[] = [];
+          let kwSource: 'user' | 'fallback' = 'user';
           if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
             const { data } = await supabase
               .from('seo_keywords')
               .select('keyword,search_intent,search_volume,is_pillar')
               .in('id', formData.targetKeywordIds);
             kwRows = data || [];
+          } else if (formData.clusterId) {
+            // Fallback: pillar chosen but no keywords selected → auto load top 5
+            const { data } = await supabase
+              .from('seo_keywords')
+              .select('id,keyword,search_intent,search_volume,is_pillar')
+              .eq('cluster_id', formData.clusterId)
+              .order('priority_score', { ascending: false, nullsFirst: false })
+              .limit(5);
+            kwRows = data || [];
+            if (kwRows.length > 0) {
+              formData.targetKeywordIds = kwRows.map((k: any) => k.id);
+              kwSource = 'fallback';
+            }
           }
           if (clusterRow || kwRows.length) {
             const kwLines = kwRows.slice(0, 12).map((k: any) =>
