@@ -188,10 +188,18 @@ export default function KeywordResearchLabTab() {
                 setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
               } else if (currentEvent === "done") {
                 setProgress(100);
-                setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
+                const isDeep = data.mode === "deep";
+                if (isDeep) {
+                  setProgressMsg(`Deep research hoàn tất: lưu ${data.inserted}/${data.total} keyword vào pool`);
+                  toast.success(`Đã lưu ${data.inserted} keyword mới vào pool. Mở Plan để xem.`);
+                } else {
+                  setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
+                  toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
+                }
                 setActiveJobId(data.jobId);
-                toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
                 qc.invalidateQueries({ queryKey: ["keyword-jobs-v2"] });
+                qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+                qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
               } else if (currentEvent === "error") {
                 throw new Error(data.message || "Stream error");
               }
