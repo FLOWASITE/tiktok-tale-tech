@@ -1,48 +1,32 @@
 ---
-name: AI Research Lab v2
-description: Auto-seed từ brand context (pillars/industry) + Multi-seed override + Firecrawl SERP grounding + Autocomplete/PAA expansion + cache + UX preview score/merge
+name: AI Research Lab v3 (Brand-aware)
+description: Brand DNA sâu (USP/positioning/competitors/evergreen/locations) + smart seed derivation + brand_fit_score + final_score blend 60/40 + UI Brand Fit column
 type: feature
 ---
 
-## Auto-research mode (default)
-- **FE không yêu cầu nhập seed**. Tab Discover hiển thị **brand context card** với:
-  - Badge "Auto từ brand" + "Context: {brand_name}"
-  - Chip readonly các seed sẽ dùng (derived từ `content_pillars` top 5 sort theo weight, fallback `brand_name + industry`)
-- Nút **Run research** enabled khi có brand HOẶC user mở "Tuỳ chỉnh nâng cao" và nhập seed override
-- Empty state khi chưa chọn brand → CTA `/brand`
-- Hint khi brand không có pillars → khuyến nghị cấu hình hoặc nhập seed thủ công
+## Brand DNA fetcher (`fetchBrandCtx` v3)
+Fetch full brand: USP, brand_positioning, mission, tagline, signature_phrases, evergreen_themes, brand_hashtags, main_competitors, competitive_advantages, target_locations, target_gender, preferred_words. Industry template fetch thêm: preferred_terms, high_risk_keywords, claim_restrictions.
 
-## Override flow
-- Collapsible "Tuỳ chỉnh nâng cao" chứa: textarea seeds (override), competitor URLs, preset chips, limit input
-- `effectiveSeeds = overrideSeeds.length > 0 ? overrideSeeds : autoSeeds`
-- Body gửi BE thêm flag `autoFromBrand: boolean` để log/analytics
+## System prompt sections
+`BRAND DNA` → `AUDIENCE` → `VOICE` → `CONTENT TERRITORY` (pillars+evergreen+hashtags) → `COMPETITIVE LANDSCAPE` → `INDUSTRY GUARDRAILS` (forbidden + high-risk + claim X→Y + preferred) → `OUTPUT BIAS`.
 
-## Backend fallback (`keyword-research-v2/index.ts`)
-- Nếu `seeds` rỗng nhưng có `brandTemplateId` → server tự derive (cùng logic FE) từ `brand_templates.content_pillars`
-- Trả 400 nếu cả brand lẫn seeds đều thiếu
+## Smart Seed Derivation (server-side khi seeds rỗng)
+1. Top 2 pillar keywords (weighted)
+2. USP/positioning noun phrase (first 6 words)
+3. 1 evergreen theme
+4. Location-modified seed `{industry} {target_location[0]}`
+Lưu `seedStrategy: ["pillar:...", "usp:...", "evergreen:...", "local:..."]` vào `keyword_research_jobs.result`.
 
-## Pipeline (giữ nguyên)
-1. Fetch brand_templates + industry_templates → `brandCtx` (pillars, forbidden_terms)
-2. Firecrawl scrape competitor (cache 6h) + search mỗi seed (cache 24h)
-3. Seed expansion: Google Autocomplete + PAA (cache 24h) → SSE `expanded_seeds`
-4. Lovable AI gemini-2.5-pro với BRAND CONTEXT block + tool `submit_keyword_batch` (có `pillar_match`)
-5. Gap detection vs `seo_keywords`
-6. Lưu preview vào `keyword_research_jobs.preview`
+## Tool schema mở rộng (`submit_keyword_batch`)
+Thêm 3 fields/keyword: `audience_match` (core/adjacent/off-target), `brand_fit_score` (0-100), `brand_fit_reason` (≤80 chars).
 
-## SSE events
-- `progress` (5/8/15/25/35/...), `serp`, `expanded_seeds`, `keyword_batch`, `done`, `error`
-- Heartbeat `: ping` mỗi 5s khi chờ AI để tránh proxy buffering
-- Header `X-Accel-Buffering: no`
+## Final score blend
+```
+priority = vol*0.5 + (100-KD)*0.3 + intentBonus*0.2  (vol normalized to 0-100)
+final_score = brandCtx ? priority*0.6 + brand_fit*0.4 : priority
+```
+Auto-filter `brand_fit_score < 40` trừ preset `competitor_gaps`. Sort theo `final_score` desc trước khi stream. DB `priority_score` cũng dùng `final_score`.
 
-## FE preview table
-- Priority score = vol*0.5 + (100-KD)*0.3 + intentBonus*0.2; chip emerald/amber/muted
-- Filter: intent, funnel, gap-only, match pillar
-- Cluster auto-merge Jaccard ≥ 0.6
-- "Top 20 theo score" + "Lưu N keyword"
-
-## Resilience
-- Firecrawl thiếu key → skip grounding
-- Autocomplete fail → skip expanded
-- Brand fetch fail → null ctx, generic prompt
-- AI 429/402 → SSE error; non-quota fail → fallback gemini-2.5-flash
-- Watchdog FE: abort sau 90s không có chunk
+## UI
+- KeywordResearchLabTab: Collapsible "Brand DNA AI đang áp dụng" (USP / Positioning / Audience+locations / Đối thủ / Evergreen).
+- KeywordPreviewTable: cột **Brand fit** (emerald ≥70, amber 40-69, rose <40, tooltip = brand_fit_reason); filter "Core audience" + slider min brand_fit; sort default theo final_score.
