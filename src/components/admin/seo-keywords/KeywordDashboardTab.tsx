@@ -18,8 +18,8 @@ export default function KeywordDashboardTab() {
         supabase.from("seo_keywords")
           .select("id,status,priority_score,funnel_stage,intent,keyword,assigned_landing_page_id")
           .eq("organization_id", orgId!),
-        supabase.from("keyword_clusters")
-          .select("id,name,keyword_count,avg_priority")
+        supabase.from("seo_clusters")
+          .select("id,name")
           .eq("organization_id", orgId!),
       ]);
       if (kwRes.error) throw kwRes.error;
