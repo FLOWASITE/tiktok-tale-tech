@@ -390,6 +390,18 @@ function buildBrandBlock(ctx: BrandCtx | null): string {
   if (ctx.preferred_terms?.length) L.push(`- 👍 Preferred industry terms: ${ctx.preferred_terms.join(", ")}`);
   if (ctx.preferred_words?.length) L.push(`- 👍 Brand preferred: ${ctx.preferred_words.join(", ")}`);
 
+  const ss = ctx.social_signals;
+  if (ss && (ss.active_platforms.length || ss.recent_topics.length || ss.frequent_terms.length)) {
+    L.push("", "## SOCIAL FOOTPRINT (giọng thực tế brand đang phát trên social)");
+    if (ss.active_platforms.length) L.push(`- Active channels: ${ss.active_platforms.join(", ")}`);
+    if (ss.handles.length) L.push(`- Handles: ${ss.handles.map(h => `@${h.handle} (${h.platform})`).join(" · ")}`);
+    if (ss.recent_topics.length) L.push(`- Chủ đề gần đây (60d): ${ss.recent_topics.slice(0, 8).map(t => `"${t}"`).join(", ")}`);
+    if (ss.recent_hashtags.length) L.push(`- Hashtag brand đang dùng: ${ss.recent_hashtags.slice(0, 8).join(" ")}`);
+    if (ss.frequent_terms.length) L.push(`- Cụm tần suất cao trong caption: ${ss.frequent_terms.slice(0, 10).join(", ")}`);
+    if (ss.audience_questions.length) L.push(`- Audience đang hỏi: ${ss.audience_questions.slice(0, 4).map(q => `"${q}"`).join(" | ")}`);
+    L.push("- → Ưu tiên keyword khớp social footprint. Nếu brand KHÔNG có một platform, hạn chế keyword chứa tên platform đó.");
+  }
+
   L.push("", "## OUTPUT BIAS");
   L.push("- Keyword PHẢI bám brand DNA + audience + pillars; tuyệt đối tránh chung chung.");
   L.push("- Mỗi keyword GẮN: pillar_match (tên pillar khớp nhất hoặc null), audience_match (core/adjacent/off-target), brand_fit_score (0-100), brand_fit_reason (≤80 ký tự).");
