@@ -480,6 +480,13 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
+          {cannibalLimit < cannibalized.length && (
+            <div className="flex justify-center mt-2">
+              <Button size="sm" variant="ghost" onClick={() => setCannibalLimit((n) => n + 25)}>
+                Hiện thêm 25 (còn {cannibalized.length - cannibalLimit})
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="contents" className="mt-4">
