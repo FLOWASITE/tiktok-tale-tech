@@ -21,17 +21,7 @@ import { toast } from "sonner";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
 
-interface KeywordRow {
-  id: string;
-  keyword: string;
-  search_volume: number | null;
-  priority_score: number | null;
-  status: string;
-  cluster_id: string | null;
-  funnel_stage: string | null;
-  intent: string | null;
-  assigned_landing_page_id: string | null;
-}
+type KeywordRow = SeoKeywordRow;
 interface ContentRow {
   id: string;
   title: string | null;
