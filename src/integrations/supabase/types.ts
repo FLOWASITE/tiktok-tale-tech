@@ -7647,6 +7647,7 @@ export type Database = {
           done: number
           errors: Json
           id: string
+          keyword_ids: string[]
           organization_id: string
           status: string
           total: number
@@ -7658,6 +7659,7 @@ export type Database = {
           done?: number
           errors?: Json
           id?: string
+          keyword_ids?: string[]
           organization_id: string
           status?: string
           total?: number
@@ -7669,6 +7671,7 @@ export type Database = {
           done?: number
           errors?: Json
           id?: string
+          keyword_ids?: string[]
           organization_id?: string
           status?: string
           total?: number
