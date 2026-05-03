@@ -4423,12 +4423,25 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
           pillarKeyword = (pk as any)?.keyword || null;
         }
         let kwRows: any[] = [];
+        let kwSource: 'user' | 'fallback' = 'user';
         if (formData.targetKeywordIds && formData.targetKeywordIds.length > 0) {
           const { data } = await supabase
             .from('seo_keywords')
             .select('keyword,search_intent,search_volume,is_pillar')
             .in('id', formData.targetKeywordIds);
           kwRows = data || [];
+        } else if (formData.clusterId) {
+          const { data } = await supabase
+            .from('seo_keywords')
+            .select('id,keyword,search_intent,search_volume,is_pillar')
+            .eq('cluster_id', formData.clusterId)
+            .order('priority_score', { ascending: false, nullsFirst: false })
+            .limit(5);
+          kwRows = data || [];
+          if (kwRows.length > 0) {
+            formData.targetKeywordIds = kwRows.map((k: any) => k.id);
+            kwSource = 'fallback';
+          }
         }
         if (clusterRow || kwRows.length) {
           const kwLines = kwRows.slice(0, 12).map((k: any) =>
@@ -4450,6 +4463,7 @@ QUY TẮC SEO ON-PAGE:
 4. Với kênh social ngắn: ít nhất 1 keyword chính trong 2 dòng đầu + hashtag dạng #keyword cho IG/Threads/X.
 5. Tuyệt đối không bịa số liệu để nhồi keyword.
 `;
+          console.log(`[normal-mode] Loaded SEO cluster context: pillar="${clusterRow?.name || 'n/a'}" cluster_id=${formData.clusterId || 'n/a'} keywords=${kwRows.length} source=${kwSource}`);
         }
       } catch (err) {
         console.warn('[normal-mode] Failed to load SEO cluster context:', err);
