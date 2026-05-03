@@ -134,7 +134,7 @@ import { FloatingStatusStack } from '@/components/multichannel/FloatingStatusSta
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { PromptPreview } from '@/components/multichannel/PromptPreview';
 import ClusterPicker from '@/components/seo/ClusterPicker';
-import { EntryModeSwitcher } from '@/components/multichannel/EntryModeSwitcher';
+import { SeoModeToggle } from '@/components/multichannel/SeoModeToggle';
 import { SeoFirstEntry } from '@/components/multichannel/SeoFirstEntry';
 import { useEntryMode } from '@/hooks/useEntryMode';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
