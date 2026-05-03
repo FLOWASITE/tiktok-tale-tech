@@ -489,6 +489,11 @@ export function MultiChannelFormWizard({
     contentRole: initialData?.contentRole,
   });
 
+  // Hybrid entry mode: 'idea' (topic-first) vs 'seo' (pillar-first).
+  // Auto-switches when long-form channel toggled; user override persisted.
+  const { mode: entryMode, setMode: setEntryMode } = useEntryMode(formData.channels);
+  const suggestedPillar = useSuggestedPillar(formData.topic, formData.clusterId);
+
   // Track if user manually changed the goal (to avoid overriding)
   const userManuallySetGoal = useRef(!!initialData?.contentGoal);
   const lastAutoDetectedTopic = useRef('');
