@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +7,6 @@ const corsHeaders = {
 };
 
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const TOP_AUTHORITY_DOMAINS = [
   "wikipedia.org", "youtube.com", "facebook.com", "amazon.com", "reddit.com",
@@ -147,50 +147,34 @@ async function firecrawlSearch(
   }
 }
 
-async function resolveModel(supabase: any, organizationId: string): Promise<string> {
-  try {
-    let q = supabase.from("ai_function_configs")
-      .select("model_override")
-      .eq("function_name", "enrich-keyword-serp")
-      .eq("is_enabled", true)
-      .or(`organization_id.eq.${organizationId},organization_id.is.null`);
-    const { data } = await q.order("organization_id", { nullsFirst: false }).limit(1);
-    return data?.[0]?.model_override || "google/gemini-2.5-flash-lite";
-  } catch { return "google/gemini-2.5-flash-lite"; }
-}
-
-async function classifyIntent(supabase: any, organizationId: string, keyword: string, results: SerpResult[]): Promise<string | null> {
-  if (!LOVABLE_API_KEY) return null;
+async function classifyIntent(supabase: any, organizationId: string, userId: string | undefined, keyword: string, results: SerpResult[]): Promise<string | null> {
   const snippet = results.slice(0, 5).map((r, i) => `${i + 1}. ${r.title || ""} — ${r.description || ""}`).join("\n");
-  const model = await resolveModel(supabase, organizationId);
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: "Bạn là SEO analyst. Phân loại search intent của keyword dựa trên SERP. Chỉ chọn 1 trong: informational, commercial, transactional, navigational." },
-          { role: "user", content: `Keyword: "${keyword}"\n\nTop SERP results:\n${snippet || "(no data)"}\n\nTrả về intent.` },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "set_intent",
-            description: "Set the classified search intent",
-            parameters: {
-              type: "object",
-              properties: { intent: { type: "string", enum: ["informational", "commercial", "transactional", "navigational"] } },
-              required: ["intent"],
-            },
+    const res = await callAIWithMetrics(supabase, {
+      functionName: "enrich-keyword-serp",
+      organizationId,
+      userId,
+      messages: [
+        { role: "system", content: "Bạn là SEO analyst. Phân loại search intent của keyword dựa trên SERP. Chỉ chọn 1 trong: informational, commercial, transactional, navigational." },
+        { role: "user", content: `Keyword: "${keyword}"\n\nTop SERP results:\n${snippet || "(no data)"}\n\nTrả về intent.` },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "set_intent",
+          description: "Set the classified search intent",
+          parameters: {
+            type: "object",
+            properties: { intent: { type: "string", enum: ["informational", "commercial", "transactional", "navigational"] } },
+            required: ["intent"],
           },
-        }],
-        tool_choice: { type: "function", function: { name: "set_intent" } },
-      }),
+        },
+      }],
+      toolChoice: { type: "function", function: { name: "set_intent" } },
+      actionType: "intent_classification",
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!res.success) return null;
+    const args = res.data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return null;
     const parsed = JSON.parse(args);
     return parsed.intent || null;
@@ -200,14 +184,14 @@ async function classifyIntent(supabase: any, organizationId: string, keyword: st
   }
 }
 
-async function enrichOne(supabase: any, organizationId: string, kw: { id: string; keyword: string; lang?: string; country?: string }) {
+async function enrichOne(supabase: any, organizationId: string, userId: string | undefined, kw: { id: string; keyword: string; lang?: string; country?: string }) {
   const lang = kw.lang || "vi";
   const country = kw.country || "VN";
   const { results } = await firecrawlSearch(supabase, kw.keyword, lang, country);
   const serp_features = detectSerpFeatures(results);
   const difficulty = computeKD(results);
   const top_competitors = topDomains(results);
-  const intent = await classifyIntent(supabase, organizationId, kw.keyword, results);
+  const intent = await classifyIntent(supabase, organizationId, userId, kw.keyword, results);
 
   const patch: Record<string, unknown> = {
     serp_features,
@@ -221,7 +205,7 @@ async function enrichOne(supabase: any, organizationId: string, kw: { id: string
   if (error) throw new Error(error.message);
 }
 
-async function runJob(supabase: any, jobId: string, orgId: string, keywordIds: string[]) {
+async function runJob(supabase: any, jobId: string, orgId: string, userId: string | undefined, keywordIds: string[]) {
   await supabase.from("keyword_enrichment_jobs").update({ status: "running", total: keywordIds.length }).eq("id", jobId);
 
   const { data: kws = [] } = await supabase
@@ -240,7 +224,7 @@ async function runJob(supabase: any, jobId: string, orgId: string, keywordIds: s
       const kw = queue.shift();
       if (!kw) break;
       try {
-        await enrichOne(supabase, orgId, kw);
+        await enrichOne(supabase, orgId, userId, kw);
       } catch (e: any) {
         errors.push({ id: kw.id, error: e?.message || String(e) });
       }
@@ -327,9 +311,9 @@ Deno.serve(async (req) => {
     // @ts-ignore EdgeRuntime
     if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
       // @ts-ignore
-      EdgeRuntime.waitUntil(runJob(supabase, job.id, organizationId, keywordIds));
+      EdgeRuntime.waitUntil(runJob(supabase, job.id, organizationId, userData.user.id, keywordIds));
     } else {
-      runJob(supabase, job.id, organizationId, keywordIds).catch(e => console.error("[runJob]", e));
+      runJob(supabase, job.id, organizationId, userData.user.id, keywordIds).catch(e => console.error("[runJob]", e));
     }
 
     return new Response(JSON.stringify({ jobId: job.id, total: keywordIds.length, hasFirecrawl: !!FIRECRAWL_API_KEY }), {

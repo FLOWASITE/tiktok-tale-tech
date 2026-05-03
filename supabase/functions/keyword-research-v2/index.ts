@@ -1,12 +1,12 @@
 // AI Research Lab v2 — Multi-seed + SERP grounding + competitor scrape + streaming
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -139,46 +139,27 @@ const TOOL_SCHEMA = {
   },
 };
 
-async function resolveAdminModel(supabase: any, organizationId: string): Promise<{ model: string; temperature: number | null }> {
-  try {
-    let q = supabase.from("ai_function_configs")
-      .select("model_override, temperature")
-      .eq("function_name", "keyword-research-v2")
-      .eq("is_enabled", true);
-    q = q.or(`organization_id.eq.${organizationId},organization_id.is.null`);
-    const { data } = await q.order("organization_id", { nullsFirst: false }).limit(1);
-    const row = data?.[0];
-    return { model: row?.model_override || "google/gemini-2.5-pro", temperature: row?.temperature ?? null };
-  } catch {
-    return { model: "google/gemini-2.5-pro", temperature: null };
-  }
-}
-
-async function callAI(supabase: any, organizationId: string, seeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number): Promise<KeywordSuggestion[]> {
+async function callAI(supabase: any, organizationId: string, userId: string, seeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number): Promise<{ suggestions: KeywordSuggestion[]; usedFallback: boolean }> {
   const sys = buildSystemPrompt(preset, limit);
   const user = buildUserPrompt(seeds, serpGround, competitorContext, locale);
-  const adminCfg = await resolveAdminModel(supabase, organizationId);
 
-  const tryModel = async (model: string) => {
-    const payload: any = {
-      model,
+  const tryCall = async (modelOverride?: string) => {
+    const res = await callAIWithMetrics(supabase, {
+      functionName: "keyword-research-v2",
+      organizationId,
+      userId,
       messages: [{ role: "system", content: sys }, { role: "user", content: user }],
       tools: [TOOL_SCHEMA],
-    };
-    if (adminCfg.temperature !== null) payload.temperature = adminCfg.temperature;
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      modelOverride,
+      actionType: "keyword_research",
     });
-    if (!resp.ok) {
-      const t = await resp.text();
-      const err: any = new Error(`AI ${resp.status}: ${t}`);
-      err.status = resp.status;
+    if (!res.success) {
+      const err: any = new Error(res.error || "AI call failed");
+      if (res.error?.includes("Rate limit")) err.status = 429;
+      else if (res.error?.includes("Payment")) err.status = 402;
       throw err;
     }
-    const data = await resp.json();
-    const calls = data.choices?.[0]?.message?.tool_calls || [];
+    const calls = res.data?.choices?.[0]?.message?.tool_calls || [];
     const all: KeywordSuggestion[] = [];
     for (const c of calls) {
       try {
@@ -190,11 +171,13 @@ async function callAI(supabase: any, organizationId: string, seeds: string[], se
   };
 
   try {
-    return await tryModel(adminCfg.model);
+    const suggestions = await tryCall();
+    return { suggestions, usedFallback: false };
   } catch (e: any) {
     if (e.status === 429 || e.status === 402) throw e;
-    console.warn("[keyword-research-v2] Primary model failed, fallback flash:", e.message);
-    return await tryModel("google/gemini-2.5-flash");
+    console.warn("[keyword-research-v2] Primary failed, fallback to flash:", e.message);
+    const suggestions = await tryCall("google/gemini-2.5-flash");
+    return { suggestions, usedFallback: true };
   }
 }
 
@@ -262,7 +245,7 @@ Deno.serve(async (req) => {
 
           // 3. AI generate
           send("progress", { pct: 50, message: `AI sinh ${limit} keyword...` });
-          const suggestions = await callAI(supabase, organizationId, seeds, serpGround, competitorContext, preset, locale, limit);
+          const { suggestions } = await callAI(supabase, organizationId, user.id, seeds, serpGround, competitorContext, preset, locale, limit);
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
           // 4. Gap detection
