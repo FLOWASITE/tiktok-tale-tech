@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
+import { LazyAssignSelect } from "./LazyAssignSelect";
 
 type KeywordRow = SeoKeywordRow;
 interface ContentRow {
