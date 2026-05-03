@@ -91,6 +91,48 @@ export default function OverviewTab() {
     },
   });
 
+  const { data: landingPages = [] } = useQuery({
+    queryKey: ["overview-landing-pages", orgId],
+    enabled: !!orgId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("seo_landing_pages")
+        .select("id,slug,title")
+        .order("updated_at", { ascending: false })
+        .limit(200);
+      return data || [];
+    },
+  });
+
+  const quickAssign = async (
+    keywordId: string,
+    patch: { cluster_id?: string | null; assigned_landing_page_id?: string | null }
+  ) => {
+    const { error } = await supabase.from("seo_keywords").update(patch).eq("id", keywordId);
+    if (error) return toast.error(error.message);
+    toast.success("Đã gán");
+    qc.invalidateQueries({ queryKey: ["overview-keywords"] });
+  };
+
+  const keepWinner = async (keywordId: string, winnerContentId: string, allContents: ContentRow[]) => {
+    const losers = allContents.filter((c) => c.id !== winnerContentId);
+    const updates = losers.map((c) =>
+      supabase
+        .from("multi_channel_contents")
+        .update({
+          target_keyword_ids: (c.target_keyword_ids || []).filter((id) => id !== keywordId),
+        })
+        .eq("id", c.id)
+    );
+    const results = await Promise.all(updates);
+    const err = results.find((r) => r.error)?.error;
+    if (err) return toast.error(err.message);
+    toast.success(`Giữ winner, gỡ keyword khỏi ${losers.length} content khác`);
+    qc.invalidateQueries({ queryKey: ["overview-contents"] });
+  };
+
+
   // Index keyword_id -> contents
   const coverage = useMemo(() => {
     const map = new Map<string, ContentRow[]>();
