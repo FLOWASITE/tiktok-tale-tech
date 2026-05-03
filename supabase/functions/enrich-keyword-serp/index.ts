@@ -200,14 +200,14 @@ async function classifyIntent(supabase: any, organizationId: string, keyword: st
   }
 }
 
-async function enrichOne(supabase: any, kw: { id: string; keyword: string; lang?: string; country?: string }) {
+async function enrichOne(supabase: any, organizationId: string, kw: { id: string; keyword: string; lang?: string; country?: string }) {
   const lang = kw.lang || "vi";
   const country = kw.country || "VN";
   const { results } = await firecrawlSearch(supabase, kw.keyword, lang, country);
   const serp_features = detectSerpFeatures(results);
   const difficulty = computeKD(results);
   const top_competitors = topDomains(results);
-  const intent = await classifyIntent(kw.keyword, results);
+  const intent = await classifyIntent(supabase, organizationId, kw.keyword, results);
 
   const patch: Record<string, unknown> = {
     serp_features,
