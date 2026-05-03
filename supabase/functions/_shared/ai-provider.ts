@@ -769,6 +769,28 @@ async function callGeminiDirect(
 export async function callAI(options: AICallOptions): Promise<AICallResult> {
   const { functionName, organizationId, messages, modelOverride, temperatureOverride } = options;
 
+  // ✅ Guardrail: validate functionName presence + registration
+  if (!functionName || typeof functionName !== "string" || !functionName.trim()) {
+    const err = new Error(
+      "[ai-provider] callAI() called WITHOUT functionName. " +
+      "Every caller must pass a registered functionName so admin overrides + cost tracking work. " +
+      `Stack: ${new Error().stack?.split("\n").slice(2, 5).join(" | ")}`
+    );
+    console.error(err.message);
+    throw err;
+  }
+  try {
+    const known = getDefaultConfigs();
+    if (!known[functionName]) {
+      console.error(
+        `[ai-provider] ⚠️ functionName="${functionName}" is NOT registered in DEFAULT_CONFIGS. ` +
+        `Admin model overrides will be ignored. Register it in _shared/ai-config.ts and src/hooks/useAIConfig.ts.`
+      );
+    }
+  } catch (e) {
+    console.error("[ai-provider] DEFAULT_CONFIGS check failed:", (e as Error).message);
+  }
+
   // Get AI config for this function
   const config = await getAIConfig(functionName, organizationId);
   
