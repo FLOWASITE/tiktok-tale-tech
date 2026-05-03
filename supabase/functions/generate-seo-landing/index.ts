@@ -150,7 +150,7 @@ ${OUTPUT_SCHEMA}`;
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    
 
     let parsed: any;
     try {
