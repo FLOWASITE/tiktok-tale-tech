@@ -318,7 +318,8 @@ export default function OverviewTab() {
                     <TableHead>Keyword</TableHead>
                     <TableHead className="text-right">Volume</TableHead>
                     <TableHead className="text-right">Priority</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[180px]">Pillar</TableHead>
+                    <TableHead className="w-[200px]">Landing page</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -327,11 +328,47 @@ export default function OverviewTab() {
                       <TableCell className="font-medium">{k.keyword}</TableCell>
                       <TableCell className="text-right">{k.search_volume?.toLocaleString() ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono">{k.priority_score ?? 0}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{k.status}</Badge></TableCell>
+                      <TableCell>
+                        <Select
+                          value={k.cluster_id || "__none__"}
+                          onValueChange={(v) => quickAssign(k.id, { cluster_id: v === "__none__" ? null : v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn pillar" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Không gắn —</SelectItem>
+                            {pillars.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color || "#6B7280" }} />
+                                  {p.name}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={k.assigned_landing_page_id || "__none__"}
+                          onValueChange={(v) =>
+                            quickAssign(k.id, { assigned_landing_page_id: v === "__none__" ? null : v })
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn page" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Chưa gán —</SelectItem>
+                            {landingPages.map((p: any) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.title || p.slug}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {orphanKeywords.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       🎉 Tất cả keyword đã có content phủ.
                     </TableCell></TableRow>
                   )}
@@ -339,7 +376,7 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
-          <p className="text-xs text-muted-foreground mt-2">Tối đa 100 orphan, sắp theo priority.</p>
+          <p className="text-xs text-muted-foreground mt-2">Tối đa 100 orphan, sắp theo priority. Chọn pillar/page để lưu ngay.</p>
         </TabsContent>
 
         <TabsContent value="gap" className="mt-4">
