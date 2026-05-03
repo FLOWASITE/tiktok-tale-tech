@@ -44,6 +44,10 @@ export interface UseTopicAIOptions {
   format?: TopicFormat;
   autoFetch?: boolean;
   enabled?: boolean;
+  /** SEO Pillar (cluster) ID — bias suggestions theo cluster context */
+  clusterId?: string;
+  /** Keyword target strings — AI sẽ bám tự nhiên các keyword này */
+  targetKeywords?: string[];
 }
 
 // ============== REFINEMENT MODULE ==============
