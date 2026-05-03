@@ -187,8 +187,10 @@ async function classifyIntent(keyword: string, results: SerpResult[]): Promise<s
   }
 }
 
-async function enrichOne(supabase: any, kw: { id: string; keyword: string }) {
-  const results = await firecrawlSearch(kw.keyword);
+async function enrichOne(supabase: any, kw: { id: string; keyword: string; lang?: string; country?: string }) {
+  const lang = kw.lang || "vi";
+  const country = kw.country || "VN";
+  const { results } = await firecrawlSearch(supabase, kw.keyword, lang, country);
   const serp_features = detectSerpFeatures(results);
   const difficulty = computeKD(results);
   const top_competitors = topDomains(results);
