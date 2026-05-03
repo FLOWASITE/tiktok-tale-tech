@@ -194,6 +194,8 @@ export default function KeywordResearchLabTab() {
                 setSerpInfo(data);
               } else if (currentEvent === "expanded_seeds") {
                 setExpandedSeeds(Array.isArray(data.seeds) ? data.seeds : []);
+              } else if (currentEvent === "brand_signals") {
+                setBrandSignals(data);
               } else if (currentEvent === "keyword_batch") {
                 setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
               } else if (currentEvent === "done") {
