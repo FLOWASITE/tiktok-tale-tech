@@ -290,7 +290,7 @@ export default function OverviewTab() {
       <Tabs value={sub} onValueChange={setSub}>
         <TabsList>
           <TabsTrigger value="orphan" className="gap-1.5">
-            <AlertCircle className="h-4 w-4" /> Orphan ({orphanKeywords.length})
+            <AlertCircle className="h-4 w-4" /> Orphan ({orphanAll.length})
           </TabsTrigger>
           <TabsTrigger value="gap" className="gap-1.5">
             <TargetIcon className="h-4 w-4" /> Gap by Pillar ({pillarGap.length})
@@ -370,7 +370,16 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
-          <p className="text-xs text-muted-foreground mt-2">Tối đa 100 orphan, sắp theo priority. Chọn pillar/page để lưu ngay.</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              Hiển thị {orphanKeywords.length}/{orphanAll.length} orphan, sắp theo priority.
+            </p>
+            {orphanLimit < orphanAll.length && (
+              <Button size="sm" variant="ghost" onClick={() => setOrphanLimit((n) => n + 25)}>
+                Hiện thêm 25
+              </Button>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="gap" className="mt-4">
@@ -436,7 +445,7 @@ export default function OverviewTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cannibalized.map(({ keyword, contents: list }) => (
+                  {cannibalized.slice(0, cannibalLimit).map(({ keyword, contents: list }) => (
                     <TableRow key={keyword.id}>
                       <TableCell className="font-medium align-top pt-3">{keyword.keyword}</TableCell>
                       <TableCell className="text-right align-top pt-3">
