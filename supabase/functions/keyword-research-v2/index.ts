@@ -34,7 +34,11 @@ interface KeywordSuggestion {
   rationale?: string;
   source_seed?: string;
   pillar_match?: string | null;
+  audience_match?: "core" | "adjacent" | "off-target";
+  brand_fit_score?: number;
+  brand_fit_reason?: string;
   is_gap?: boolean;
+  final_score?: number;
 }
 
 // Simple in-memory TTL cache for Firecrawl (24h search, 6h scrape)
@@ -109,31 +113,78 @@ interface BrandCtx {
   brand_name?: string;
   industry?: string;
   tone_of_voice?: string;
+  formality?: string;
+  language_style?: string;
   target_audience?: string;
-  pillars: { name: string; keywords?: string[]; weight?: number }[];
+  target_locations?: string[];
+  target_gender?: string;
+  pillars: { name: string; keywords?: string[]; weight?: number; description?: string }[];
+  evergreen_themes?: string[];
+  brand_hashtags?: string[];
+  signature_phrases?: string[];
+  unique_value_proposition?: string;
+  brand_positioning?: string;
+  mission?: string;
+  tagline?: string;
+  main_competitors?: string[];
+  competitive_advantages?: string[];
+  preferred_words?: string[];
   forbidden_terms: string[];
+  high_risk_keywords?: string[];
+  preferred_terms?: string[];
+  claim_restrictions?: { claim: string; alternative: string }[];
   jurisdiction?: string;
+}
+
+function trim(s: any, n = 200): string {
+  return String(s || "").trim().slice(0, n);
+}
+function arr(v: any, n = 5): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => String(x || "").trim()).filter(Boolean).slice(0, n);
 }
 
 async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<BrandCtx | null> {
   if (!brandTemplateId) return null;
   const { data: brand } = await supabase
     .from("brand_templates")
-    .select("brand_name,name,industry,tone_of_voice,target_age_range,market_segment,content_pillars,forbidden_words,industry_template_id,jurisdiction_code")
+    .select(`
+      brand_name,name,industry,tone_of_voice,formality_level,language_style,
+      target_age_range,target_gender,market_segment,target_locations,
+      content_pillars,evergreen_themes,brand_hashtags,signature_phrases,
+      unique_value_proposition,brand_positioning,mission,tagline,
+      main_competitors,competitive_advantages,
+      preferred_words,forbidden_words,
+      industry_template_id,jurisdiction_code
+    `)
     .eq("id", brandTemplateId)
     .maybeSingle();
   if (!brand) return null;
 
-  let forbidden: string[] = Array.isArray(brand.forbidden_words) ? brand.forbidden_words : [];
-  let jurisdiction = brand.jurisdiction_code as string | undefined;
+  let forbidden: string[] = Array.isArray(brand.forbidden_words) ? brand.forbidden_words.map(String) : [];
+  let preferredTerms: string[] = [];
+  let highRisk: string[] = [];
+  let claimRestrictions: { claim: string; alternative: string }[] = [];
+  const jurisdiction = brand.jurisdiction_code as string | undefined;
+
   if (brand.industry_template_id) {
     const { data: ind } = await supabase
       .from("industry_templates")
-      .select("forbidden_terms")
+      .select("forbidden_terms,preferred_terms,high_risk_keywords,claim_restrictions")
       .eq("id", brand.industry_template_id)
       .maybeSingle();
-    if (ind?.forbidden_terms && Array.isArray(ind.forbidden_terms)) {
-      forbidden = [...new Set([...forbidden, ...ind.forbidden_terms.map(String)])];
+    if (ind) {
+      if (Array.isArray(ind.forbidden_terms)) {
+        forbidden = [...new Set([...forbidden, ...ind.forbidden_terms.map(String)])];
+      }
+      if (Array.isArray(ind.preferred_terms)) preferredTerms = ind.preferred_terms.map(String).slice(0, 10);
+      if (Array.isArray(ind.high_risk_keywords)) highRisk = ind.high_risk_keywords.map(String).slice(0, 10);
+      if (Array.isArray(ind.claim_restrictions)) {
+        claimRestrictions = ind.claim_restrictions
+          .filter((c: any) => c?.claim && c?.alternative)
+          .slice(0, 6)
+          .map((c: any) => ({ claim: trim(c.claim, 80), alternative: trim(c.alternative, 80) }));
+      }
     }
   }
 
@@ -142,33 +193,82 @@ async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<B
     brand_name: brand.brand_name || brand.name,
     industry: brand.industry,
     tone_of_voice: brand.tone_of_voice,
+    formality: brand.formality_level,
+    language_style: brand.language_style,
     target_audience: [brand.target_age_range, brand.market_segment].filter(Boolean).join(" / "),
+    target_locations: arr(brand.target_locations, 5),
+    target_gender: brand.target_gender,
     pillars: pillars.slice(0, 5),
-    forbidden_terms: forbidden.slice(0, 20),
+    evergreen_themes: arr(brand.evergreen_themes, 5),
+    brand_hashtags: arr(brand.brand_hashtags, 8),
+    signature_phrases: arr(brand.signature_phrases, 5),
+    unique_value_proposition: trim(brand.unique_value_proposition, 220),
+    brand_positioning: trim(brand.brand_positioning, 220),
+    mission: trim(brand.mission, 160),
+    tagline: trim(brand.tagline, 100),
+    main_competitors: arr(brand.main_competitors, 5),
+    competitive_advantages: arr(brand.competitive_advantages, 5),
+    preferred_words: arr(brand.preferred_words, 10),
+    forbidden_terms: forbidden.slice(0, 25),
+    high_risk_keywords: highRisk,
+    preferred_terms: preferredTerms,
+    claim_restrictions: claimRestrictions,
     jurisdiction,
   };
 }
 
 function buildBrandBlock(ctx: BrandCtx | null): string {
   if (!ctx) return "";
-  const pillarLines = ctx.pillars
-    .sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0))
-    .slice(0, 3)
-    .map((p, i) => {
-      const kws = Array.isArray(p.keywords) ? p.keywords.slice(0, 3).join(", ") : "";
-      return `  ${i + 1}. ${p.name}${kws ? ` — keywords: ${kws}` : ""}`;
-    }).join("\n");
-  const lines: string[] = ["", "## BRAND CONTEXT (priority cao)"];
-  if (ctx.brand_name) lines.push(`Brand: ${ctx.brand_name}${ctx.industry ? ` | Ngành: ${ctx.industry}` : ""}`);
-  if (ctx.tone_of_voice) lines.push(`Tone: ${ctx.tone_of_voice}`);
-  if (ctx.target_audience) lines.push(`Audience: ${ctx.target_audience}`);
-  if (pillarLines) lines.push(`Content pillars (top 3):\n${pillarLines}`);
-  lines.push("");
-  lines.push("## Output bias");
-  lines.push("- Keyword PHẢI bám sát ngành & audience trên (không sinh keyword chung chung)");
-  if (ctx.pillars.length) lines.push(`- Mỗi keyword GẮN field 'pillar_match' = tên 1 pillar phù hợp nhất (hoặc null nếu không khớp)`);
-  if (ctx.forbidden_terms.length) lines.push(`- TUYỆT ĐỐI tránh thuật ngữ: ${ctx.forbidden_terms.join(", ")}`);
-  return lines.join("\n");
+  const L: string[] = ["", "## BRAND DNA (ưu tiên cao)"];
+  L.push(`- Brand: ${ctx.brand_name || "—"}${ctx.industry ? ` · Ngành: ${ctx.industry}` : ""}${ctx.jurisdiction ? ` · Jurisdiction: ${ctx.jurisdiction}` : ""}`);
+  if (ctx.unique_value_proposition) L.push(`- USP: ${ctx.unique_value_proposition}`);
+  if (ctx.brand_positioning) L.push(`- Positioning: ${ctx.brand_positioning}`);
+  if (ctx.tagline) L.push(`- Tagline: "${ctx.tagline}"`);
+  if (ctx.mission) L.push(`- Mission: ${ctx.mission}`);
+
+  L.push("", "## AUDIENCE");
+  L.push(`- Profile: ${ctx.target_audience || "không rõ"}${ctx.target_gender ? ` · ${ctx.target_gender}` : ""}`);
+  if (ctx.target_locations?.length) L.push(`- Locations: ${ctx.target_locations.join(", ")}`);
+
+  L.push("", "## VOICE");
+  if (ctx.tone_of_voice) L.push(`- Tone: ${ctx.tone_of_voice}${ctx.formality ? ` · Formality: ${ctx.formality}` : ""}${ctx.language_style ? ` · Style: ${ctx.language_style}` : ""}`);
+  if (ctx.signature_phrases?.length) L.push(`- Signature phrases (có thể dùng làm modifier): ${ctx.signature_phrases.join(" | ")}`);
+
+  if (ctx.pillars.length) {
+    const sorted = [...ctx.pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0)).slice(0, 5);
+    L.push("", "## CONTENT TERRITORY");
+    L.push("- Pillars (sort theo weight):");
+    sorted.forEach((p: any, i) => {
+      const kws = Array.isArray(p.keywords) ? p.keywords.slice(0, 4).join(", ") : "";
+      const w = typeof p.weight === "number" ? ` [w=${p.weight}]` : "";
+      L.push(`  ${i + 1}. ${p.name}${w}${kws ? ` — keywords: ${kws}` : ""}`);
+    });
+    if (ctx.evergreen_themes?.length) L.push(`- Evergreen themes: ${ctx.evergreen_themes.join(", ")}`);
+    if (ctx.brand_hashtags?.length) L.push(`- Brand hashtags: ${ctx.brand_hashtags.join(" ")}`);
+  }
+
+  if (ctx.main_competitors?.length || ctx.competitive_advantages?.length) {
+    L.push("", "## COMPETITIVE LANDSCAPE");
+    if (ctx.main_competitors?.length) L.push(`- Đối thủ chính: ${ctx.main_competitors.join(", ")} (gợi ý keyword cạnh tranh "vs", "so sánh", "thay thế")`);
+    if (ctx.competitive_advantages?.length) L.push(`- Lợi thế cạnh tranh: ${ctx.competitive_advantages.join(" | ")} (xoáy vào điểm này khi tạo BOFU keyword)`);
+  }
+
+  L.push("", "## INDUSTRY GUARDRAILS (BLOCK CỨNG)");
+  if (ctx.forbidden_terms.length) L.push(`- ⛔ Forbidden (KHÔNG được sinh keyword chứa): ${ctx.forbidden_terms.join(", ")}`);
+  if (ctx.high_risk_keywords?.length) L.push(`- ⚠️ High-risk (chỉ dùng khi context rõ): ${ctx.high_risk_keywords.join(", ")}`);
+  if (ctx.claim_restrictions?.length) {
+    L.push("- 🚫 Claim restrictions (paraphrase nếu gặp):");
+    ctx.claim_restrictions.forEach((c) => L.push(`  · "${c.claim}" → "${c.alternative}"`));
+  }
+  if (ctx.preferred_terms?.length) L.push(`- 👍 Preferred industry terms: ${ctx.preferred_terms.join(", ")}`);
+  if (ctx.preferred_words?.length) L.push(`- 👍 Brand preferred: ${ctx.preferred_words.join(", ")}`);
+
+  L.push("", "## OUTPUT BIAS");
+  L.push("- Keyword PHẢI bám brand DNA + audience + pillars; tuyệt đối tránh chung chung.");
+  L.push("- Mỗi keyword GẮN: pillar_match (tên pillar khớp nhất hoặc null), audience_match (core/adjacent/off-target), brand_fit_score (0-100), brand_fit_reason (≤80 ký tự).");
+  L.push("- brand_fit_score ≥ 70 = bám sát pillar + audience core + voice fit; 40-69 = adjacent; <40 = off-brand (ĐỪNG sinh trừ khi user chọn preset 'competitor_gaps').");
+
+  return L.join("\n");
 }
 
 function buildSystemPrompt(preset: Preset, limit: number, brandCtx: BrandCtx | null): string {
@@ -226,7 +326,10 @@ const TOOL_SCHEMA = {
               cluster_name: { type: "string" },
               rationale: { type: "string" },
               source_seed: { type: "string" },
-              pillar_match: { type: "string", description: "Tên pillar phù hợp nhất (nếu có brand context); null nếu không khớp" },
+              pillar_match: { type: "string", description: "Tên pillar phù hợp nhất; null nếu không khớp" },
+              audience_match: { type: "string", enum: ["core", "adjacent", "off-target"], description: "Mức khớp với audience brand" },
+              brand_fit_score: { type: "integer", minimum: 0, maximum: 100, description: "0-100 điểm bám sát brand DNA" },
+              brand_fit_reason: { type: "string", description: "≤80 ký tự lý do fit/lệch brand" },
             },
             required: ["keyword", "search_volume", "difficulty", "cpc_vnd", "intent", "funnel_stage", "cluster_name"],
           },
@@ -312,31 +415,47 @@ Deno.serve(async (req) => {
     return null;
   });
 
-  // Auto-derive seeds from brand context if FE didn't send any
+  // Smart seed derivation: pillars (weighted) + USP + evergreen + location
+  let seedStrategy: string[] = [];
   if (seeds.length === 0 && brandCtx) {
     const seen = new Set<string>();
-    const push = (s: string) => {
+    const push = (s: string, tag: string) => {
       const t = (s || "").trim();
-      if (!t || seen.has(t.toLowerCase())) return;
+      if (!t || t.length < 2 || seen.has(t.toLowerCase())) return;
       seen.add(t.toLowerCase());
       seeds.push(t);
+      seedStrategy.push(`${tag}:${t}`);
     };
+    // 1. Top 2 pillar keywords (weighted)
     const sortedPillars = [...brandCtx.pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
-    for (const p of sortedPillars) {
+    for (const p of sortedPillars.slice(0, 2)) {
       const kw = Array.isArray(p?.keywords) && p.keywords[0] ? String(p.keywords[0]) : String(p?.name || "");
-      push(kw);
-      if (seeds.length >= 5) break;
+      push(kw, "pillar");
     }
+    // 2. USP / positioning noun phrase (first 6 words)
+    const uspSrc = brandCtx.unique_value_proposition || brandCtx.brand_positioning || "";
+    if (uspSrc) {
+      const phrase = uspSrc.split(/[.!?,;:|]/)[0].split(/\s+/).slice(0, 6).join(" ").trim();
+      if (phrase) push(phrase.toLowerCase(), "usp");
+    }
+    // 3. Evergreen theme
+    if (brandCtx.evergreen_themes?.length) push(brandCtx.evergreen_themes[0], "evergreen");
+    // 4. Location-modified seed
+    if (brandCtx.target_locations?.length && brandCtx.industry) {
+      push(`${brandCtx.industry} ${brandCtx.target_locations[0]}`, "local");
+    }
+    // Fallback if still thin
     if (seeds.length < 3) {
       const ind = brandCtx.industry || "";
       const name = brandCtx.brand_name || "";
-      if (name && ind) push(`${name} ${ind}`);
-      if (ind) push(`${ind} là gì`);
-      if (ind) push(`cách chọn ${ind}`);
-      if (name) push(name);
+      if (name && ind) push(`${name} ${ind}`, "fallback");
+      if (ind) push(`${ind} là gì`, "fallback");
+      if (ind) push(`cách chọn ${ind}`, "fallback");
+      if (name) push(name, "fallback");
     }
     seeds = seeds.slice(0, 5);
-    console.log(`[keyword-research-v2] auto-derived ${seeds.length} seeds from brand`, seeds);
+    seedStrategy = seedStrategy.slice(0, 5);
+    console.log(`[keyword-research-v2] smart-derived ${seeds.length} seeds`, seedStrategy);
   }
 
   if (!seeds.length) {
@@ -428,13 +547,34 @@ Deno.serve(async (req) => {
           }
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
-          // 5. Gap detection
-          send("progress", { pct: 80, message: "Gap analysis..." });
+          // 5. Gap detection + brand fit filter + final score
+          send("progress", { pct: 80, message: "Gap analysis + brand fit scoring..." });
+          const intentBonus = { transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any;
+          const computePriority = (e: any) =>
+            Math.round(Math.min(100, ((e.search_volume || 0) / 5000) * 100) * 0.5 +
+              (100 - (e.difficulty || 50)) * 0.3 +
+              (intentBonus[e.intent || "informational"] ?? 50) * 0.2);
           const keywords = suggestions.map(s => s.keyword.toLowerCase().trim());
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
           const existingSet = new Set((existing || []).map((r: any) => r.keyword));
-          const enriched = suggestions.map(s => ({ ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) }));
+          let enriched = suggestions.map(s => {
+            const e: any = { ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) };
+            const priority = computePriority(e);
+            const fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
+            e.brand_fit_score = fit;
+            // Blend: 60% volume/KD/intent + 40% brand fit (only when brand context exists)
+            e.final_score = brandCtx ? Math.round(priority * 0.6 + fit * 0.4) : priority;
+            return e;
+          });
+          // Filter off-brand unless competitor_gaps preset
+          if (brandCtx && preset !== "competitor_gaps") {
+            const before = enriched.length;
+            enriched = enriched.filter(e => (e.brand_fit_score ?? 50) >= 40);
+            if (before !== enriched.length) console.log(`[keyword-research-v2] filtered ${before - enriched.length} off-brand keywords`);
+          }
+          // Sort by final_score desc for streaming order
+          enriched.sort((a, b) => (b.final_score || 0) - (a.final_score || 0));
 
           // Stream batches of 5 to FE
           for (let i = 0; i < enriched.length; i += 5) {
@@ -462,7 +602,7 @@ Deno.serve(async (req) => {
               cpc_vnd: e.cpc_vnd || null,
               intent: e.intent || null,
               funnel_stage: e.funnel_stage || null,
-              priority_score: Math.round((e.search_volume || 0) * 0.5 + (100 - (e.difficulty || 50)) * 0.3 + ({ transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any)[e.intent || "informational"] * 0.2),
+              priority_score: e.final_score ?? computePriority(e),
               status: "new",
               source: "ai_research_deep",
               locale,
@@ -484,7 +624,7 @@ Deno.serve(async (req) => {
           await supabase.from("keyword_research_jobs").update({
             preview: enriched,
             serp_grounding: serpGround,
-            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null, mode, inserted },
+            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null, mode, inserted, seedStrategy, brandFitAvg: brandCtx ? Math.round(enriched.reduce((s, e) => s + (e.brand_fit_score || 0), 0) / Math.max(1, enriched.length)) : null },
             status: mode === "deep" ? "done" : "preview_ready",
             keywords_added: inserted,
             completed_at: mode === "deep" ? new Date().toISOString() : null,

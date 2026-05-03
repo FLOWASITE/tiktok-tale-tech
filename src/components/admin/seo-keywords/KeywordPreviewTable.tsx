@@ -19,6 +19,10 @@ export interface PreviewKeyword {
   rationale?: string;
   source_seed?: string;
   pillar_match?: string | null;
+  audience_match?: "core" | "adjacent" | "off-target";
+  brand_fit_score?: number;
+  brand_fit_reason?: string;
+  final_score?: number;
   is_gap?: boolean;
 }
 
@@ -102,18 +106,30 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null);
   const [gapOnly, setGapOnly] = useState(false);
   const [pillarOnly, setPillarOnly] = useState(false);
+  const [coreAudienceOnly, setCoreAudienceOnly] = useState(false);
+  const [minBrandFit, setMinBrandFit] = useState(0);
   const [sortByScore, setSortByScore] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const hasPillarData = useMemo(() => keywords.some(k => k.pillar_match), [keywords]);
+  const hasBrandFit = useMemo(() => keywords.some(k => typeof k.brand_fit_score === "number"), [keywords]);
 
   const clusterMap = useMemo(() => buildClusterMap(keywords), [keywords]);
 
-  const enriched = useMemo(() => keywords.map(k => ({
-    ...k,
-    _score: computeScore(k),
-    _cluster: clusterMap.get(normalizeCluster(k.cluster_name)) || k.cluster_name,
-  })), [keywords, clusterMap]);
+  const enriched = useMemo(() => keywords.map(k => {
+    const priority = computeScore(k);
+    const fit = typeof k.brand_fit_score === "number" ? k.brand_fit_score : null;
+    const final = typeof k.final_score === "number"
+      ? k.final_score
+      : (fit !== null ? Math.round(priority * 0.6 + fit * 0.4) : priority);
+    return {
+      ...k,
+      _score: final,
+      _priority: priority,
+      _fit: fit,
+      _cluster: clusterMap.get(normalizeCluster(k.cluster_name)) || k.cluster_name,
+    };
+  }), [keywords, clusterMap]);
 
   const filtered = useMemo(() => {
     let list = enriched.filter(k => {
@@ -122,11 +138,13 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
       if (funnelFilter && k.funnel_stage !== funnelFilter) return false;
       if (gapOnly && !k.is_gap) return false;
       if (pillarOnly && !k.pillar_match) return false;
+      if (coreAudienceOnly && k.audience_match !== "core") return false;
+      if (minBrandFit > 0 && (k._fit ?? 0) < minBrandFit) return false;
       return true;
     });
     if (sortByScore) list = [...list].sort((a, b) => b._score - a._score);
     return list;
-  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, sortByScore]);
+  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, coreAudienceOnly, minBrandFit, sortByScore]);
 
   const toggle = (kw: string) => {
     const next = new Set(selected);
@@ -210,6 +228,20 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
               <Checkbox checked={pillarOnly} onCheckedChange={v => setPillarOnly(!!v)} /> Match pillar
             </label>
           )}
+          {hasBrandFit && (
+            <>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <Checkbox checked={coreAudienceOnly} onCheckedChange={v => setCoreAudienceOnly(!!v)} /> Core audience
+              </label>
+              <label className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">Brand fit ≥</span>
+                <input type="range" min={0} max={100} step={10} value={minBrandFit}
+                  onChange={e => setMinBrandFit(parseInt(e.target.value))}
+                  className="w-20 accent-foreground" />
+                <span className="tabular-nums w-7 text-right text-foreground">{minBrandFit}</span>
+              </label>
+            </>
+          )}
           <label className="flex items-center gap-1.5 text-xs cursor-pointer">
             <Checkbox checked={sortByScore} onCheckedChange={v => setSortByScore(!!v)} /> Sort theo score
           </label>
@@ -227,6 +259,7 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                 <th className="p-2 w-8"></th>
                 <th className="p-2 text-left">Keyword</th>
                 <th className="p-2 text-right">Score</th>
+                {hasBrandFit && <th className="p-2 text-right">Brand fit</th>}
                 <th className="p-2 text-right">Vol</th>
                 <th className="p-2 text-right">KD</th>
                 <th className="p-2 text-left">Intent</th>
@@ -238,6 +271,10 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
             <tbody>
               {filtered.map((k, i) => {
                 const isSel = selected.has(k.keyword);
+                const fitColor = k._fit === null ? "bg-muted text-muted-foreground border-border"
+                  : k._fit >= 70 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : k._fit >= 40 ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-rose-50 text-rose-700 border-rose-200";
                 return (
                   <tr key={i} className={`border-t hover:bg-muted/30 cursor-pointer ${isSel ? "bg-primary/5" : ""}`} onClick={() => toggle(k.keyword)}>
                     <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} /></td>
@@ -245,6 +282,18 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                     <td className="p-2 text-right">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${scoreColor(k._score)}`}>{k._score}</span>
                     </td>
+                    {hasBrandFit && (
+                      <td className="p-2 text-right">
+                        {k._fit !== null ? (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
+                            title={k.brand_fit_reason || (k.audience_match ? `audience: ${k.audience_match}` : "")}
+                          >
+                            {k._fit}
+                          </span>
+                        ) : <span className="text-[10px] text-muted-foreground">—</span>}
+                      </td>
+                    )}
                     <td className="p-2 text-right tabular-nums">{k.search_volume?.toLocaleString() || 0}</td>
                     <td className="p-2 text-right tabular-nums">{k.difficulty || 0}</td>
                     <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${INTENT_COLORS[k.intent] || ""}`}>{k.intent}</span></td>
@@ -258,7 +307,7 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                 );
               })}
               {filtered.length === 0 && !isStreaming && (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground text-xs">Không có keyword khớp filter.</td></tr>
+                <tr><td colSpan={hasBrandFit ? 10 : 9} className="p-6 text-center text-muted-foreground text-xs">Không có keyword khớp filter.</td></tr>
               )}
             </tbody>
           </table>

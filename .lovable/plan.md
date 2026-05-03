@@ -1,59 +1,100 @@
 ## Mục tiêu
-Tối ưu UI/UX của tab **AI Research Lab v2** (`KeywordResearchLabTab.tsx`) để:
-- Hành động chính (Deep research) trở thành CTA rõ ràng, không bị Run research lấn át.
-- Brand context và seed hiển thị gọn, có hierarchy.
-- Tiến trình research dễ hiểu hơn (timeline phases thay vì 1 thanh % + dòng text).
-- Tuân thủ Soft Luxury: neutral gray, minimalist spacing, không màu loè loẹt (bỏ amber bg).
+Nâng chất lượng keyword bằng cách cho AI **hiểu sâu brand** — không chỉ pillars + forbidden, mà toàn bộ DNA brand (USP, audience, vị thế, đối thủ, evergreen themes, signature phrases, jurisdiction). Keyword sinh ra phải bám sát brand voice + có **Brand Fit Score** rõ ràng.
 
-## Thay đổi UI
+## Vấn đề hiện tại
+- `fetchBrandCtx` chỉ lấy 7 trường (name, industry, tone, audience, pillars, forbidden, jurisdiction) → bỏ qua 15+ trường brand quan trọng (USP, positioning, competitors, evergreen themes, signature phrases, target_locations, mission/vision…)
+- Seed auto-derive chỉ dùng pillar name/keyword đầu tiên → bỏ qua weight nuance + competitor + USP
+- AI prompt chưa có **industry memory v2** (forbidden_terms ngành, claim restrictions, preferred terms) — chỉ có forbidden_words flat
+- Không có **Brand Fit Score** — chỉ có `pillar_match` boolean-ish
+- Không re-rank theo brand alignment, chỉ priority_score (volume/KD/intent)
+- FE preview không show vì sao keyword fit/not fit brand
 
-### 1. Hero header gọn gàng
-- Bỏ 2 badge "SERP grounded" + "Auto từ brand" trong title (di chuyển thành sub-text).
-- Title một dòng: `AI Research Lab` + dot + brand context inline (nếu có).
-- Khi không có brand: thay banner amber bằng inline text muted + link "Chọn brand →".
+## Phạm vi (3 lớp)
 
-### 2. Brand seed panel — gộp 1 khối
-- Layout 2 cột nhỏ: trái = brand summary (name · industry · N pillars), phải = chip seed (tối đa 5).
-- Border `border-border/50`, bg `bg-muted/30` — đúng Soft Luxury.
-- Override active → đổi label chip "Manual seeds" với dot accent neutral, không primary.
-- Empty seed → inline warning icon + text muted (không bg amber).
+### Lớp 1 — Brand Context sâu (BE)
+File: `supabase/functions/keyword-research-v2/index.ts`
 
-### 3. CTA primary = Deep research
-- **Deep research** thành nút primary lớn (full text "Auto research bộ keyword brand"), có sub-label "AI mở rộng 2 vòng → lưu 100-200 keyword".
-- **Run preview** thành nút secondary nhỏ ở bên cạnh (variant ghost/outline) — dành cho user muốn xem trước rồi chọn.
-- Bỏ dòng "N seed · preset: default" → di chuyển vào subtle footer dưới CTA.
+Mở rộng `fetchBrandCtx` lấy thêm:
+- `unique_value_proposition`, `brand_positioning`, `mission`, `tagline`
+- `signature_phrases`, `evergreen_themes`, `brand_hashtags`
+- `main_competitors`, `competitive_advantages`
+- `target_locations`, `target_gender`
+- `preferred_words` (whitelist song song với forbidden)
+- Industry template: thêm `preferred_terms`, `claim_restrictions`, `high_risk_keywords`, `target_audience` (từ resolved_rules nếu có) — fetch qua `_shared/data-fetchers/industry-fetcher-v2.ts`
 
-### 4. Progress phases timeline
-Thay block progress hiện tại bằng **stepper 4 bước**:
-```text
-[●] SERP grounding → [●] Expand seeds → [○] AI generation → [○] Save pool
+`buildBrandBlock` viết lại theo cấu trúc:
 ```
-- Bước đang chạy: dot pulse, label đậm.
-- Mỗi bước hoàn tất: dot filled muted-foreground.
-- Thanh `Progress` mỏng (h-1) đặt dưới stepper.
-- `serpInfo` + `expandedSeeds` chỉ show inline dưới step tương ứng (collapsed nếu không liên quan).
-- Cancel button đặt cạnh % thay vì rời rạc.
+## BRAND DNA
+- Brand / Industry / Jurisdiction
+- USP: ...
+- Positioning: ...
+- Mission/Tagline
+## AUDIENCE
+- Age / Gender / Segment / Locations
+## VOICE
+- Tone / Formality / Language style / Emoji policy
+- Signature phrases (dùng làm modifier khi hợp lý)
+## CONTENT TERRITORY
+- Pillars (top 5 với weight + keywords)
+- Evergreen themes
+- Brand hashtags
+## COMPETITIVE LANDSCAPE
+- Main competitors (gợi ý keyword cạnh tranh)
+- Competitive advantages (xoáy vào điểm mạnh)
+## INDUSTRY GUARDRAILS (priority cao nhất)
+- Forbidden terms (brand + industry)
+- High-risk keywords (cần context)
+- Claim restrictions (X → Y)
+- Preferred terms
+```
 
-Mapping pct → phase: 0-15 SERP, 15-40 Expand, 40-90 Generation, 90-100 Save.
+### Lớp 2 — Smart Seed Derivation (BE)
+Khi `seeds` rỗng, derive 5 seed có chiến lược (không chỉ pillars):
+1. Top 2 pillar keywords (weighted)
+2. 1 USP/positioning keyword (extract noun phrase từ `unique_value_proposition`)
+3. 1 evergreen theme
+4. 1 location-modified seed nếu có `target_locations` (vd "{industry} {location}")
 
-### 5. Advanced collapsible — minimal
-- Trigger ngắn: `⚙ Tùy chỉnh nâng cao` (không liệt kê dài).
-- Khi mở: 3 row gọn — Seed override + Competitor URLs + (preset chips inline + limit).
-- Border-top thay vì padding-top, separator nhẹ.
+Log strategy used → lưu vào `keyword_research_jobs.result.seed_strategy` để debug.
 
-### 6. History jobs polish
-- Compact rows hơn (py-2.5).
-- Status badge dùng dot-color thay vì variant nhiều màu — outline đơn giản.
+### Lớp 3 — Brand Fit Scoring + Re-rank
+Thêm field vào tool schema `submit_keyword_batch`:
+- `brand_fit_score`: integer 0-100 (AI tự đánh giá)
+- `brand_fit_reason`: string ngắn (vì sao fit / lệch)
+- `pillar_match`: giữ nguyên
+- `audience_match`: enum `core | adjacent | off-target`
 
-## Technical notes (cho dev)
-- File duy nhất: `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`.
-- Không đổi logic SSE/handleRun/data fetching — chỉ refactor JSX + thêm helper `getPhase(progress)` thuần client.
-- Component mới inline (không tạo file riêng): `<PhaseStepper progress={progress} running={running} />`.
-- Dùng tokens: `bg-muted/30`, `border-border/50`, `text-muted-foreground`, `text-foreground`. Không dùng `amber-*`, `primary/5` cho background lớn.
-- Giữ nguyên Brand context panel khi `!currentBrand` nhưng đổi sang style neutral (bg-muted/40, icon `Info` thay `AlertTriangle`).
-- Giữ nguyên KeywordPreviewTable, IntentFunnelMatrix, jobs query, deriveBrandSeeds.
+System prompt yêu cầu:
+- Chấm `brand_fit_score` dựa: pillar coverage, audience match, voice fit (signature/evergreen), không vi phạm forbidden/claim
+- Tự loại keyword `brand_fit_score < 40` trừ khi user chọn preset `competitor_gaps`
 
-## Out of scope
-- Không sửa edge function `keyword-research-v2`.
-- Không sửa `KeywordExplorerTab` (đã polish ở turn trước).
-- Không thay đổi data model / SSE event names.
+Re-rank `priority_score` (giữ công thức cũ) **+ blend brand_fit**:
+```
+final_score = priority_score * 0.6 + brand_fit_score * 0.4
+```
+
+### Lớp 4 — UI Surface (FE)
+Files: 
+- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`
+- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` (preview table)
+
+Thay đổi:
+- Brand Context Panel: hiện thêm USP / Positioning / Audience locations / Top competitors (collapsible "Brand DNA đang áp dụng")
+- Preview table: thêm cột **Brand Fit** (badge emerald/amber/red theo score) + tooltip show `brand_fit_reason`
+- Filter mới: "Chỉ keyword core audience" + slider min brand_fit
+- Sort default theo `final_score` thay vì `priority_score`
+
+## Không làm
+- Không đổi DB schema (`keyword_research_jobs.preview` là JSONB, brand_fit fields nằm trong)
+- Không đụng `seo_keywords` table
+- Không đổi pricing/quota
+
+## Risks
+- Token budget tăng ~30% do brand DNA block dài → mitigate: cap mỗi field 200 chars, top 3 evergreen/competitors only
+- AI có thể "overfit" brand → giảm long-tail diversity → preset `default` giữ instruction "đa dạng"
+
+## Files to edit
+- `supabase/functions/keyword-research-v2/index.ts` (chính)
+- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (Brand DNA panel)
+- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` (Brand Fit column + filter)
+- Memory: cập nhật `mem://features/seo/research-lab-v2-vn.md` → v3

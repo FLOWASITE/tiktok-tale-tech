@@ -279,7 +279,7 @@ export default function KeywordResearchLabTab() {
               </Link>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/50 bg-muted/30 p-3.5">
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3.5 space-y-2.5">
               <div className="grid md:grid-cols-[minmax(0,180px)_1fr] gap-4">
                 {/* Brand summary */}
                 <div className="space-y-1 min-w-0">
@@ -298,7 +298,7 @@ export default function KeywordResearchLabTab() {
                 {/* Seeds */}
                 <div className="space-y-1.5 min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
-                    {overrideSeeds.length > 0 ? "Manual seeds" : "Auto seeds"}
+                    {overrideSeeds.length > 0 ? "Manual seeds" : "Auto seeds (smart-derived)"}
                   </p>
                   {effectiveSeeds.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
@@ -320,6 +320,34 @@ export default function KeywordResearchLabTab() {
                   )}
                 </div>
               </div>
+
+              {/* Brand DNA detail */}
+              {(() => {
+                const usp = (currentBrand as any).unique_value_proposition;
+                const positioning = (currentBrand as any).brand_positioning;
+                const audience = [(currentBrand as any).target_age_range, (currentBrand as any).market_segment, (currentBrand as any).target_gender].filter(Boolean).join(" / ");
+                const locations: string[] = Array.isArray((currentBrand as any).target_locations) ? (currentBrand as any).target_locations : [];
+                const competitors: string[] = Array.isArray((currentBrand as any).main_competitors) ? (currentBrand as any).main_competitors : [];
+                const evergreen: string[] = Array.isArray((currentBrand as any).evergreen_themes) ? (currentBrand as any).evergreen_themes : [];
+                const hasDna = !!(usp || positioning || audience || locations.length || competitors.length || evergreen.length);
+                if (!hasDna) return null;
+                return (
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition w-full pt-1.5 border-t border-border/40">
+                      <Sparkles className="h-3 w-3" />
+                      <span>Brand DNA AI đang áp dụng</span>
+                      <ChevronDown className="h-3 w-3 ml-auto transition-transform data-[state=open]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1.5 pt-2 text-[11px]">
+                      {usp && <div><span className="text-muted-foreground/70">USP: </span><span className="text-foreground">{usp}</span></div>}
+                      {positioning && <div><span className="text-muted-foreground/70">Positioning: </span><span className="text-foreground">{positioning}</span></div>}
+                      {audience && <div><span className="text-muted-foreground/70">Audience: </span><span className="text-foreground">{audience}</span>{locations.length > 0 && <span className="text-muted-foreground"> · {locations.join(", ")}</span>}</div>}
+                      {competitors.length > 0 && <div><span className="text-muted-foreground/70">Đối thủ: </span><span className="text-foreground">{competitors.slice(0, 4).join(", ")}</span></div>}
+                      {evergreen.length > 0 && <div><span className="text-muted-foreground/70">Evergreen: </span><span className="text-foreground">{evergreen.slice(0, 4).join(" · ")}</span></div>}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })()}
             </div>
           )}
 
