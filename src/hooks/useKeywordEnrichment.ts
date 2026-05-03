@@ -35,13 +35,14 @@ export function useKeywordEnrichment() {
         .eq("id", jobId)
         .maybeSingle();
       if (!data) return;
-      setJob(data as EnrichmentJob);
+      const errorsArr = Array.isArray(data.errors) ? (data.errors as { id: string; error: string }[]) : [];
+      setJob({ id: data.id, status: data.status as EnrichmentJob["status"], total: data.total, done: data.done, errors: errorsArr });
       if (data.status === "done" || data.status === "failed") {
         stopPolling();
         if (data.status === "done") {
-          toast.success(`Enrich xong ${data.done}/${data.total} keyword${data.errors?.length ? ` (${data.errors.length} lỗi)` : ""}`);
+          toast.success(`Enrich xong ${data.done}/${data.total} keyword${errorsArr.length ? ` (${errorsArr.length} lỗi)` : ""}`);
         } else {
-          toast.error(`Enrich thất bại (${data.errors?.length || 0} lỗi)`);
+          toast.error(`Enrich thất bại (${errorsArr.length} lỗi)`);
         }
         qc.invalidateQueries({ queryKey: ["seo-keywords"] });
         qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
