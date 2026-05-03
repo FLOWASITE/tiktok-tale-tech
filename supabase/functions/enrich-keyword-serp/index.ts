@@ -234,6 +234,7 @@ Deno.serve(async (req) => {
         organization_id: organizationId,
         status: "queued",
         total: keywordIds.length,
+        keyword_ids: keywordIds,
         created_by: userData.user.id,
       })
       .select("id")
