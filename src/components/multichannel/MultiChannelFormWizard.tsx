@@ -1187,9 +1187,15 @@ export function MultiChannelFormWizard({
                   onKeywordIdsChange={(ids) =>
                     setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
                   }
-                  onPickTopic={(title) => {
+                  onPickTopic={(title, keywordIds) => {
                     setTopicFromQuickAction(false);
-                    setFormData(prev => ({ ...prev, topic: title }));
+                    setFormData(prev => ({
+                      ...prev,
+                      topic: title,
+                      targetKeywordIds: keywordIds && keywordIds.length > 0
+                        ? keywordIds
+                        : (prev.targetKeywordIds ?? []),
+                    }));
                     toast.success('Đã chọn topic gợi ý từ keyword');
                   }}
                   disabled={isGenerating}
@@ -1340,44 +1346,48 @@ export function MultiChannelFormWizard({
               </div>
 
               {/* Pillar/Keyword block (idea mode) — heuristic AI suggest banner */}
-              <PillarKeywordSection
-                variant="inline"
-                clusterId={formData.clusterId}
-                selectedKeywordIds={formData.targetKeywordIds ?? []}
-                onClusterChange={(cid, kwIds) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    clusterId: cid,
-                    targetKeywordIds: kwIds.length > 0 ? kwIds : (prev.targetKeywordIds ?? []),
-                  }));
-                }}
-                onKeywordIdsChange={(ids) =>
-                  setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
-                }
-                suggestion={suggestedPillar ? { clusterId: suggestedPillar.clusterId, name: suggestedPillar.name, color: suggestedPillar.color } : null}
-                onAcceptSuggestion={async () => {
-                  if (!suggestedPillar) return;
-                  // Fetch top-5 keywords for this cluster
-                  const { data } = await supabase
-                    .from('seo_keywords')
-                    .select('id')
-                    .eq('cluster_id', suggestedPillar.clusterId)
-                    .order('priority_score', { ascending: false })
-                    .limit(5);
-                  const ids = (data || []).map((r: any) => r.id);
-                  setFormData(prev => ({
-                    ...prev,
-                    clusterId: suggestedPillar.clusterId,
-                    targetKeywordIds: ids,
-                  }));
-                  toast.success(`Đã gắn "Cần cho SEO": ${suggestedPillar.name}`);
-                }}
-              />
-              {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
-                  <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span>Đang tạo long-form. Cân nhắc gắn "Cần cho SEO" để tận dụng topic cluster + internal linking.</span>
-                </p>
+              {entryMode === 'idea' && (
+                <>
+                  <PillarKeywordSection
+                    variant="inline"
+                    clusterId={formData.clusterId}
+                    selectedKeywordIds={formData.targetKeywordIds ?? []}
+                    onClusterChange={(cid, kwIds) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        clusterId: cid,
+                        targetKeywordIds: kwIds.length > 0 ? kwIds : (prev.targetKeywordIds ?? []),
+                      }));
+                    }}
+                    onKeywordIdsChange={(ids) =>
+                      setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
+                    }
+                    suggestion={suggestedPillar ? { clusterId: suggestedPillar.clusterId, name: suggestedPillar.name, color: suggestedPillar.color } : null}
+                    onAcceptSuggestion={async () => {
+                      if (!suggestedPillar) return;
+                      // Fetch top-5 keywords for this cluster
+                      const { data } = await supabase
+                        .from('seo_keywords')
+                        .select('id')
+                        .eq('cluster_id', suggestedPillar.clusterId)
+                        .order('priority_score', { ascending: false })
+                        .limit(5);
+                      const ids = (data || []).map((r: any) => r.id);
+                      setFormData(prev => ({
+                        ...prev,
+                        clusterId: suggestedPillar.clusterId,
+                        targetKeywordIds: ids,
+                      }));
+                      toast.success(`Đã gắn "Cần cho SEO": ${suggestedPillar.name}`);
+                    }}
+                  />
+                  {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                      <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                      <span>Đang tạo long-form. Cân nhắc gắn "Cần cho SEO" để tận dụng topic cluster + internal linking.</span>
+                    </p>
+                  )}
+                </>
               )}
 
               {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
