@@ -1,25 +1,27 @@
 ---
-name: AI Research Lab v3.1 (Brand + Social-aware)
-description: Brand DNA + Social Footprint (active platforms, recent topics/hashtags/captions, audience questions từ social_connections + multi_channel_contents 60d + social_post_engagements) → smart seeds + brand_fit + social alignment +15 bonus, UI Tín hiệu Social panel + 📱 badge
+name: AI Research Lab v3.2 (Brand + Social-aware + Multi-turn)
+description: Brand DNA + Social Footprint + multi-turn tool loop (max 6 vòng) hit limit, USP noun-phrase fallback khi brand thiếu industry/pillars, source="ai_research" hợp constraint, seed-expander UTF-8 force decode
 type: feature
 ---
 
 ## Backend `keyword-research-v2`
-- `fetchSocialSignals(brandTemplateId, organizationId)` chạy song song với `fetchBrandCtx`:
-  - `social_connections` (is_active, scoped by brand_template_id) → active_platforms + handles
-  - `multi_channel_contents` 60d → recent_topics, tags, hashtags, frequent_terms (bigram + word freq, có STOPWORDS VI/EN)
-  - `social_post_engagements` (event_type='comment') → audience_questions (regex `?`)
-  - Fail-soft: try/catch toàn bộ, return null không block research
-- `buildBrandBlock` thêm section **SOCIAL FOOTPRINT** (active channels, handles, topics, hashtags, frequent terms, audience questions)
-- Smart seed derivation thêm 2 nguồn: `social_topic` (recent_topics[0]) + `social_term` (frequent_terms[0])
-- Scoring: keyword chứa term thuộc social footprint → `brand_fit_score += 15` (cap 100), gắn `social_match` field
-- SSE event mới: `brand_signals` emit ở pct 8-10
+- `fetchBrandCtx(brandTemplateId)` — đọc brand_templates + industry_templates merge forbidden/preferred/claim_restrictions
+  - **Bug đã fix**: header function `async function fetchBrandCtx(...)` từng bị xoá → ReferenceError silent (catch swallow), brandCtx luôn null. Đã restore.
+- `fetchSocialSignals` chạy song song qua Promise.all, fail-soft
+- **Smart seed derivation** ưu tiên: pillar → USP phrase → evergreen → location → social_topic → social_term. Khi brand thiếu industry/pillars → fallback `extractTerms(usp+positioning+mission+tagline)` lấy 6 noun-phrases làm seed (rất quan trọng cho brand mới).
+- **Multi-turn tool loop** (`MAX_ROUNDS=6`): mỗi round feed lại tool result `{ack, received, total_so_far, need_more}` + user msg "tiếp tục, không lặp [last 20]" cho đến khi đủ `limit` hoặc model dừng call tool. Dedupe theo `keyword.toLowerCase()`. Fix lỗi qwen-plus chỉ trả 1 batch 5 cái dù limit=150.
+- **Source value**: insert `seo_keywords` dùng `source="ai_research"` (KHÔNG dùng `"ai_research_deep"` → vi phạm `seo_keywords_source_check`).
+
+## Seed Expander (`_shared/seed-expander.ts`)
+- Force `TextDecoder("utf-8")` decode response từ Google Suggest (charset header sai → mojibake `c�ng ty`).
+- Filter `\uFFFD` replacement char khỏi output.
 
 ## Frontend
-- `KeywordResearchLabTab`: state `brandSignals`, listen SSE `brand_signals`, render trong Brand DNA collapsible:
-  - Section "Tín hiệu Social (60d)": active platforms, top topics chips, hashtags, frequent terms, 1 audience question
-  - Empty state: tip kết nối social
-- `KeywordPreviewTable`: badge 📱 inline cạnh keyword nếu có `social_match`, tooltip Brand Fit ghép thêm "📱 Khớp social: ..."
+- `KeywordResearchLabTab`:
+  - Inline amber warning khi `!brand.industry && !hasPillars`: "Brand thiếu DNA — keyword sẽ kém chính xác" + link `/brand`.
+  - Toast warning khi `done.inserted === 0 && total > 0` ở mode deep (báo bug constraint/dedupe).
+  - SSE event `brand_signals` render tín hiệu social trong Brand DNA panel.
+- `KeywordPreviewTable`: badge 📱 cho `social_match` keyword.
 
 ## Privacy/budget
 - KHÔNG nhồi raw caption vào prompt — chỉ aggregate (topics + bigram terms + hashtag freq)
