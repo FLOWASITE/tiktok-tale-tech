@@ -23,6 +23,7 @@ export interface PreviewKeyword {
   brand_fit_score?: number;
   brand_fit_reason?: string;
   final_score?: number;
+  social_match?: string | null;
   is_gap?: boolean;
 }
 
@@ -278,7 +279,17 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                 return (
                   <tr key={i} className={`border-t hover:bg-muted/30 cursor-pointer ${isSel ? "bg-primary/5" : ""}`} onClick={() => toggle(k.keyword)}>
                     <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} /></td>
-                    <td className="p-2 font-medium">{k.keyword}</td>
+                    <td className="p-2 font-medium">
+                      <span className="inline-flex items-center gap-1">
+                        {k.keyword}
+                        {k.social_match && (
+                          <span
+                            className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 border border-border/50 text-foreground/70"
+                            title={`Khớp social footprint: "${k.social_match}"`}
+                          >📱</span>
+                        )}
+                      </span>
+                    </td>
                     <td className="p-2 text-right">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${scoreColor(k._score)}`}>{k._score}</span>
                     </td>
@@ -287,7 +298,7 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                         {k._fit !== null ? (
                           <span
                             className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
-                            title={k.brand_fit_reason || (k.audience_match ? `audience: ${k.audience_match}` : "")}
+                            title={[k.brand_fit_reason, k.social_match ? `📱 Khớp social: "${k.social_match}"` : null, k.audience_match ? `audience: ${k.audience_match}` : null].filter(Boolean).join(" · ")}
                           >
                             {k._fit}
                           </span>

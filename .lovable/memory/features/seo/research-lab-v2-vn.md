@@ -1,32 +1,26 @@
 ---
-name: AI Research Lab v3 (Brand-aware)
-description: Brand DNA sâu (USP/positioning/competitors/evergreen/locations) + smart seed derivation + brand_fit_score + final_score blend 60/40 + UI Brand Fit column
+name: AI Research Lab v3.1 (Brand + Social-aware)
+description: Brand DNA + Social Footprint (active platforms, recent topics/hashtags/captions, audience questions từ social_connections + multi_channel_contents 60d + social_post_engagements) → smart seeds + brand_fit + social alignment +15 bonus, UI Tín hiệu Social panel + 📱 badge
 type: feature
 ---
 
-## Brand DNA fetcher (`fetchBrandCtx` v3)
-Fetch full brand: USP, brand_positioning, mission, tagline, signature_phrases, evergreen_themes, brand_hashtags, main_competitors, competitive_advantages, target_locations, target_gender, preferred_words. Industry template fetch thêm: preferred_terms, high_risk_keywords, claim_restrictions.
+## Backend `keyword-research-v2`
+- `fetchSocialSignals(brandTemplateId, organizationId)` chạy song song với `fetchBrandCtx`:
+  - `social_connections` (is_active, scoped by brand_template_id) → active_platforms + handles
+  - `multi_channel_contents` 60d → recent_topics, tags, hashtags, frequent_terms (bigram + word freq, có STOPWORDS VI/EN)
+  - `social_post_engagements` (event_type='comment') → audience_questions (regex `?`)
+  - Fail-soft: try/catch toàn bộ, return null không block research
+- `buildBrandBlock` thêm section **SOCIAL FOOTPRINT** (active channels, handles, topics, hashtags, frequent terms, audience questions)
+- Smart seed derivation thêm 2 nguồn: `social_topic` (recent_topics[0]) + `social_term` (frequent_terms[0])
+- Scoring: keyword chứa term thuộc social footprint → `brand_fit_score += 15` (cap 100), gắn `social_match` field
+- SSE event mới: `brand_signals` emit ở pct 8-10
 
-## System prompt sections
-`BRAND DNA` → `AUDIENCE` → `VOICE` → `CONTENT TERRITORY` (pillars+evergreen+hashtags) → `COMPETITIVE LANDSCAPE` → `INDUSTRY GUARDRAILS` (forbidden + high-risk + claim X→Y + preferred) → `OUTPUT BIAS`.
+## Frontend
+- `KeywordResearchLabTab`: state `brandSignals`, listen SSE `brand_signals`, render trong Brand DNA collapsible:
+  - Section "Tín hiệu Social (60d)": active platforms, top topics chips, hashtags, frequent terms, 1 audience question
+  - Empty state: tip kết nối social
+- `KeywordPreviewTable`: badge 📱 inline cạnh keyword nếu có `social_match`, tooltip Brand Fit ghép thêm "📱 Khớp social: ..."
 
-## Smart Seed Derivation (server-side khi seeds rỗng)
-1. Top 2 pillar keywords (weighted)
-2. USP/positioning noun phrase (first 6 words)
-3. 1 evergreen theme
-4. Location-modified seed `{industry} {target_location[0]}`
-Lưu `seedStrategy: ["pillar:...", "usp:...", "evergreen:...", "local:..."]` vào `keyword_research_jobs.result`.
-
-## Tool schema mở rộng (`submit_keyword_batch`)
-Thêm 3 fields/keyword: `audience_match` (core/adjacent/off-target), `brand_fit_score` (0-100), `brand_fit_reason` (≤80 chars).
-
-## Final score blend
-```
-priority = vol*0.5 + (100-KD)*0.3 + intentBonus*0.2  (vol normalized to 0-100)
-final_score = brandCtx ? priority*0.6 + brand_fit*0.4 : priority
-```
-Auto-filter `brand_fit_score < 40` trừ preset `competitor_gaps`. Sort theo `final_score` desc trước khi stream. DB `priority_score` cũng dùng `final_score`.
-
-## UI
-- KeywordResearchLabTab: Collapsible "Brand DNA AI đang áp dụng" (USP / Positioning / Audience+locations / Đối thủ / Evergreen).
-- KeywordPreviewTable: cột **Brand fit** (emerald ≥70, amber 40-69, rose <40, tooltip = brand_fit_reason); filter "Core audience" + slider min brand_fit; sort default theo final_score.
+## Privacy/budget
+- KHÔNG nhồi raw caption vào prompt — chỉ aggregate (topics + bigram terms + hashtag freq)
+- Cap mỗi list 5–12 item; total social block <600 token

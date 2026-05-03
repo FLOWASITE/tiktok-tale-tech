@@ -134,6 +134,16 @@ interface BrandCtx {
   preferred_terms?: string[];
   claim_restrictions?: { claim: string; alternative: string }[];
   jurisdiction?: string;
+  social_signals?: SocialSignals | null;
+}
+
+interface SocialSignals {
+  active_platforms: string[];
+  handles: { platform: string; handle: string }[];
+  recent_topics: string[];
+  recent_hashtags: string[];
+  frequent_terms: string[];
+  audience_questions: string[];
 }
 
 function trim(s: any, n = 200): string {
@@ -144,7 +154,124 @@ function arr(v: any, n = 5): string[] {
   return v.map((x) => String(x || "").trim()).filter(Boolean).slice(0, n);
 }
 
-async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<BrandCtx | null> {
+const STOPWORDS = new Set([
+  "và","của","là","có","cho","với","trong","để","các","những","này","đó","khi","như","một","được","đã","sẽ","không","tôi","bạn","mình","chúng","rất","cũng","nên","theo","tại","từ","ra","vào","trên","dưới","mà","thì","hay","hoặc","bằng","về","đi","làm","ai","gì","sao","đâu","the","and","for","with","that","this","you","your","are","was","but","not","all","new","more","best","top","how","why","what","when","where",
+]);
+
+function extractTerms(text: string, max = 5): string[] {
+  const words = String(text || "")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[#@][\w\u00C0-\u1EF9]+/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/).filter(w => w.length >= 3 && !STOPWORDS.has(w));
+  const freq = new Map<string, number>();
+  // bigrams
+  for (let i = 0; i < words.length - 1; i++) {
+    const bg = `${words[i]} ${words[i + 1]}`;
+    freq.set(bg, (freq.get(bg) || 0) + 2);
+  }
+  for (const w of words) freq.set(w, (freq.get(w) || 0) + 1);
+  return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, max).map(([k]) => k);
+}
+
+function extractHashtags(text: string): string[] {
+  const m = String(text || "").match(/#[\w\u00C0-\u1EF9]+/g) || [];
+  return m.map(x => x.toLowerCase());
+}
+
+async function fetchSocialSignals(supabase: any, brandTemplateId?: string, organizationId?: string): Promise<SocialSignals | null> {
+  if (!brandTemplateId && !organizationId) return null;
+  try {
+    // 1. Active social connections for this brand
+    let connQ = supabase.from("social_connections")
+      .select("platform,platform_username,platform_display_name,page_name")
+      .eq("is_active", true).limit(20);
+    if (brandTemplateId) connQ = connQ.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) connQ = connQ.eq("organization_id", organizationId);
+    const { data: conns } = await connQ;
+    const platforms = new Set<string>();
+    const handles: { platform: string; handle: string }[] = [];
+    for (const c of (conns || [])) {
+      const p = String(c.platform || "").toLowerCase();
+      if (!p) continue;
+      platforms.add(p);
+      const h = c.platform_username || c.page_name || c.platform_display_name;
+      if (h && handles.length < 10) handles.push({ platform: p, handle: String(h) });
+    }
+
+    // 2. Recent multi-channel content (60d)
+    const since = new Date(Date.now() - 60 * 24 * 3600_000).toISOString();
+    let mcQ = supabase.from("multi_channel_contents")
+      .select("title,topic,tags,facebook_content,instagram_content,linkedin_content,twitter_content,tiktok_content,threads_content,zalo_oa_content")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (brandTemplateId) mcQ = mcQ.eq("brand_template_id", brandTemplateId);
+    else if (organizationId) mcQ = mcQ.eq("organization_id", organizationId);
+    const { data: contents } = await mcQ;
+
+    const topicSet = new Set<string>();
+    const tagSet = new Set<string>();
+    const captionParts: string[] = [];
+    const hashtagFreq = new Map<string, number>();
+    for (const c of (contents || [])) {
+      if (c.title) topicSet.add(String(c.title).slice(0, 80));
+      if (c.topic) topicSet.add(String(c.topic).slice(0, 80));
+      if (Array.isArray(c.tags)) c.tags.forEach((t: any) => t && tagSet.add(String(t)));
+      const captions = [c.facebook_content, c.instagram_content, c.linkedin_content, c.twitter_content, c.tiktok_content, c.threads_content, c.zalo_oa_content]
+        .filter(Boolean).map(String).join(" ");
+      if (captions) {
+        captionParts.push(captions.slice(0, 500));
+        for (const h of extractHashtags(captions)) hashtagFreq.set(h, (hashtagFreq.get(h) || 0) + 1);
+      }
+    }
+
+    const recent_topics = [...topicSet].slice(0, 10);
+    const recent_hashtags = [
+      ...new Set([
+        ...[...hashtagFreq.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k),
+        ...[...tagSet].map(t => t.startsWith("#") ? t.toLowerCase() : `#${t.toLowerCase()}`),
+      ]),
+    ].slice(0, 10);
+    const frequent_terms = extractTerms(captionParts.join(" "), 12);
+
+    // 3. Audience questions from comments (best-effort)
+    const audience_questions: string[] = [];
+    try {
+      let engQ = supabase.from("social_post_engagements")
+        .select("event_data")
+        .eq("event_type", "comment")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (brandTemplateId) engQ = engQ.eq("brand_template_id", brandTemplateId);
+      else if (organizationId) engQ = engQ.eq("organization_id", organizationId);
+      const { data: engs } = await engQ;
+      for (const e of (engs || [])) {
+        const msg = String(e.event_data?.message || e.event_data?.text || "").trim();
+        if (msg.length >= 8 && msg.length <= 200 && /\?/.test(msg)) {
+          audience_questions.push(msg);
+          if (audience_questions.length >= 5) break;
+        }
+      }
+    } catch { /* table may not exist for some envs */ }
+
+    if (!platforms.size && !recent_topics.length && !frequent_terms.length) return null;
+    return {
+      active_platforms: [...platforms],
+      handles,
+      recent_topics,
+      recent_hashtags,
+      frequent_terms,
+      audience_questions,
+    };
+  } catch (e) {
+    console.warn("[keyword-research-v2] fetchSocialSignals failed:", (e as Error).message);
+    return null;
+  }
+}
+
+
   if (!brandTemplateId) return null;
   const { data: brand } = await supabase
     .from("brand_templates")
@@ -262,6 +389,18 @@ function buildBrandBlock(ctx: BrandCtx | null): string {
   }
   if (ctx.preferred_terms?.length) L.push(`- 👍 Preferred industry terms: ${ctx.preferred_terms.join(", ")}`);
   if (ctx.preferred_words?.length) L.push(`- 👍 Brand preferred: ${ctx.preferred_words.join(", ")}`);
+
+  const ss = ctx.social_signals;
+  if (ss && (ss.active_platforms.length || ss.recent_topics.length || ss.frequent_terms.length)) {
+    L.push("", "## SOCIAL FOOTPRINT (giọng thực tế brand đang phát trên social)");
+    if (ss.active_platforms.length) L.push(`- Active channels: ${ss.active_platforms.join(", ")}`);
+    if (ss.handles.length) L.push(`- Handles: ${ss.handles.map(h => `@${h.handle} (${h.platform})`).join(" · ")}`);
+    if (ss.recent_topics.length) L.push(`- Chủ đề gần đây (60d): ${ss.recent_topics.slice(0, 8).map(t => `"${t}"`).join(", ")}`);
+    if (ss.recent_hashtags.length) L.push(`- Hashtag brand đang dùng: ${ss.recent_hashtags.slice(0, 8).join(" ")}`);
+    if (ss.frequent_terms.length) L.push(`- Cụm tần suất cao trong caption: ${ss.frequent_terms.slice(0, 10).join(", ")}`);
+    if (ss.audience_questions.length) L.push(`- Audience đang hỏi: ${ss.audience_questions.slice(0, 4).map(q => `"${q}"`).join(" | ")}`);
+    L.push("- → Ưu tiên keyword khớp social footprint. Nếu brand KHÔNG có một platform, hạn chế keyword chứa tên platform đó.");
+  }
 
   L.push("", "## OUTPUT BIAS");
   L.push("- Keyword PHẢI bám brand DNA + audience + pillars; tuyệt đối tránh chung chung.");
@@ -410,10 +549,19 @@ Deno.serve(async (req) => {
   }
 
   // Brand context (optional)
-  const brandCtx = await fetchBrandCtx(supabase, brandTemplateId).catch((e) => {
-    console.warn("[keyword-research-v2] brand ctx fail:", e);
-    return null;
-  });
+  const [brandCtxBase, socialSignals] = await Promise.all([
+    fetchBrandCtx(supabase, brandTemplateId).catch((e) => {
+      console.warn("[keyword-research-v2] brand ctx fail:", e);
+      return null;
+    }),
+    fetchSocialSignals(supabase, brandTemplateId, organizationId).catch((e) => {
+      console.warn("[keyword-research-v2] social signals fail:", e);
+      return null;
+    }),
+  ]);
+  const brandCtx: BrandCtx | null = brandCtxBase
+    ? { ...brandCtxBase, social_signals: socialSignals }
+    : (socialSignals ? ({ pillars: [], forbidden_terms: [], social_signals: socialSignals } as BrandCtx) : null);
 
   // Smart seed derivation: pillars (weighted) + USP + evergreen + location
   let seedStrategy: string[] = [];
@@ -444,7 +592,12 @@ Deno.serve(async (req) => {
     if (brandCtx.target_locations?.length && brandCtx.industry) {
       push(`${brandCtx.industry} ${brandCtx.target_locations[0]}`, "local");
     }
-    // Fallback if still thin
+    // 5. Social signals — recent topics + frequent terms (rất giá trị, nói lên giọng thật brand)
+    const ss = brandCtx.social_signals;
+    if (ss) {
+      if (ss.recent_topics[0]) push(ss.recent_topics[0], "social_topic");
+      if (ss.frequent_terms[0]) push(ss.frequent_terms[0], "social_term");
+    }
     if (seeds.length < 3) {
       const ind = brandCtx.industry || "";
       const name = brandCtx.brand_name || "";
@@ -486,6 +639,20 @@ Deno.serve(async (req) => {
           send("progress", { pct: 5, jobId, message: "Khởi tạo job..." });
           if (brandCtx?.brand_name) {
             send("progress", { pct: 8, message: `Áp brand context: ${brandCtx.brand_name}` });
+          }
+          if (brandCtx?.social_signals) {
+            const ss = brandCtx.social_signals;
+            send("brand_signals", {
+              active_platforms: ss.active_platforms,
+              handles: ss.handles,
+              recent_topics: ss.recent_topics.slice(0, 6),
+              recent_hashtags: ss.recent_hashtags.slice(0, 8),
+              frequent_terms: ss.frequent_terms.slice(0, 8),
+              audience_questions: ss.audience_questions.slice(0, 3),
+            });
+            if (ss.active_platforms.length) {
+              send("progress", { pct: 10, message: `Đọc tín hiệu social: ${ss.active_platforms.join(", ")}` });
+            }
           }
 
           // 1. Competitor scrape
@@ -558,11 +725,28 @@ Deno.serve(async (req) => {
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
           const existingSet = new Set((existing || []).map((r: any) => r.keyword));
+          // Build social-alignment lookup (lowercased)
+          const socialTerms = new Set<string>();
+          const ssCtx = brandCtx?.social_signals;
+          if (ssCtx) {
+            ssCtx.recent_topics.forEach(t => t && socialTerms.add(t.toLowerCase()));
+            ssCtx.frequent_terms.forEach(t => t && socialTerms.add(t.toLowerCase()));
+            ssCtx.recent_hashtags.forEach(t => t && socialTerms.add(t.replace(/^#/, "").toLowerCase()));
+          }
           let enriched = suggestions.map(s => {
             const e: any = { ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) };
             const priority = computePriority(e);
-            const fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
+            let fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
+            // Social alignment bonus: keyword chứa term từ social footprint → +15 (cap 100)
+            let socialMatch: string | null = null;
+            if (socialTerms.size) {
+              for (const term of socialTerms) {
+                if (term.length >= 3 && e.keyword.includes(term)) { socialMatch = term; break; }
+              }
+              if (socialMatch) fit = Math.min(100, fit + 15);
+            }
             e.brand_fit_score = fit;
+            e.social_match = socialMatch;
             // Blend: 60% volume/KD/intent + 40% brand fit (only when brand context exists)
             e.final_score = brandCtx ? Math.round(priority * 0.6 + fit * 0.4) : priority;
             return e;
