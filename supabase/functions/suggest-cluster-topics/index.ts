@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
       ? body.selectedKeywordIds.filter((x: any) => typeof x === 'string')
       : [];
     if (!clusterId) return json({ error: "Missing clusterId" }, 400);
+    console.log(`[suggest-cluster-topics] cluster=${clusterId} target_keywords=${selectedKeywordIds.length}`);
 
     // Fetch cluster + uncovered keywords
     const { data: cluster } = await supabase

@@ -25,7 +25,6 @@ export function SeoFirstEntry({
   onPickTopic,
   disabled,
 }: Props) {
-  const needKeywordHint = !!clusterId && selectedKeywordIds.length === 0;
   return (
     <div className="space-y-3">
       <PillarKeywordSection
@@ -39,19 +38,15 @@ export function SeoFirstEntry({
       <Card className="p-4 space-y-2 border-border/60 bg-muted/20">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
-          <Label className="text-sm font-semibold">3. Topic gợi ý từ keyword</Label>
+          <Label className="text-sm font-semibold">3. Topic gợi ý từ Pillar + Keyword</Label>
         </div>
         <SuggestedTopicsFromKeyword
           clusterId={clusterId}
           selectedKeywordIds={selectedKeywordIds}
           onPick={onPickTopic}
           disabled={disabled}
+          requireKeywords
         />
-        {needKeywordHint && (
-          <p className="text-[11px] text-muted-foreground">
-            Mẹo: chọn 1–5 keyword target ở trên để AI tập trung đúng intent.
-          </p>
-        )}
       </Card>
     </div>
   );
