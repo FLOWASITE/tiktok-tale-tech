@@ -6,7 +6,7 @@
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { getAIConfig, AIFunctionConfig } from "./ai-config.ts";
+import { getAIConfig, AIFunctionConfig, getDefaultConfigs } from "./ai-config.ts";
 import { decrypt, isEncryptionConfigured } from "./crypto.ts";
 import { saveMetrics, estimateTokens, generateTraceId, AIMetrics } from "./logger.ts";
 import { estimateCost } from "./cost-estimator.ts";
