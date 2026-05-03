@@ -271,7 +271,7 @@ async function fetchSocialSignals(supabase: any, brandTemplateId?: string, organ
   }
 }
 
-
+async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<BrandCtx | null> {
   if (!brandTemplateId) return null;
   const { data: brand } = await supabase
     .from("brand_templates")
