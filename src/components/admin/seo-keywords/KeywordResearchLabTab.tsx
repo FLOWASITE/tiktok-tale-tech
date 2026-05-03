@@ -302,16 +302,26 @@ export default function KeywordResearchLabTab() {
           )}
 
           {/* Run / Cancel */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {running ? (
               <Button variant="outline" onClick={handleCancel}><X className="h-4 w-4 mr-1" />Huỷ</Button>
             ) : (
-              <Button onClick={handleRun} disabled={!canRun}>
-                <Sparkles className="h-4 w-4 mr-1" />Run research
-              </Button>
+              <>
+                <Button onClick={() => handleRun(false)} disabled={!canRun}>
+                  <Sparkles className="h-4 w-4 mr-1" />Run research
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleRun(true)}
+                  disabled={!canRun}
+                  title="Multi-round expand + auto-lưu 100-200 keyword vào pool"
+                >
+                  <Wand2 className="h-4 w-4 mr-1" />Deep research →
+                </Button>
+              </>
             )}
             <span className="text-[11px] text-muted-foreground">
-              {effectiveSeeds.length} seed · preset: {preset === "default" ? "default" : preset} · limit {limit}
+              {effectiveSeeds.length} seed · preset: {preset === "default" ? "default" : preset}
             </span>
           </div>
 
