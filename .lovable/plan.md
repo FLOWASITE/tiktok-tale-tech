@@ -1,65 +1,45 @@
 ## Mục tiêu
-Mở **SEO Hub** cho mọi user của workspace (không chỉ admin), vì dữ liệu SEO (`seo_clusters`, `seo_keywords`, `seo_keyword_enrichment_jobs`, `seo_rank_tracking`) đã RLS theo `organization_id` — mỗi org chỉ thấy data của mình.
+Khi user mở **SEO Hub → Discover → AI Research Lab** với một brand active, ô **Seed keywords** sẽ tự động được điền từ `content_pillars` của brand đó, để workflow "brand mới → research" mượt hơn — không phải nhập tay.
 
-## Bối cảnh hiện trạng
-- Route `/admin/seo` được bọc `<AdminProtectedRoute>` → chỉ admin app vào được.
-- Sidebar chỉ hiển thị mục SEO Hub trong nhóm Admin.
-- 4 tab: **Discover / Plan / Track** đều dùng `useOrganization` + RLS org-scope ⇒ an toàn cho user thường.
-- Tab **Produce** (`AdminSeoPages.tsx`) thao tác `seo_landing_pages` — bảng này RLS chỉ cho `app_role='admin'` (landing pages public của flowa.one) → **phải ẩn** khỏi user thường.
+## Nguồn dữ liệu
+- `useCurrentBrand()` (BrandContext) → `currentBrand.content_pillars: ContentPillar[]`
+- Mỗi pillar có shape: `{ name: string; weight: number; keywords: string[]; color?: string }`
 
-## Kế hoạch
+## Logic pre-fill
+Trong `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`:
 
-### 1. Tạo route mới `/seo` cho user thường (`src/app/routes.tsx`)
-- Thêm:
-  ```tsx
-  <Route path="/seo" element={
-    <ProtectedRoute><AppLayout>
-      <Suspense fallback={<LoadingFallback />}><SeoHub /></Suspense>
-    </AppLayout></ProtectedRoute>
-  } />
-  ```
-- Giữ nguyên `/admin/seo` (admin vẫn có full quyền + tab Produce).
-- Thêm legacy redirect: không cần (route admin còn nguyên).
-
-### 2. Tách `AdminSeoHub.tsx` → `SeoHub.tsx` (component dùng chung)
-Tạo `src/pages/SeoHub.tsx` nhận prop `isAdmin?: boolean`:
-- Render 3 tab Discover/Plan/Track cho mọi user.
-- Chỉ render tab **Produce** + `<AdminSeoPages />` khi `isAdmin === true`.
-- TabsList grid columns: `grid-cols-3` (user) hoặc `grid-cols-4` (admin) — dynamic theo prop.
-- Cập nhật `AdminSeoHub.tsx` chỉ là wrapper: `<SeoHub isAdmin />`.
-
-### 3. Sidebar — thêm mục SEO Hub cho user thường (`src/components/AppSidebar.tsx`)
-- Thêm vào `managementItems` (nhóm 3 — Management) hoặc tạo mục riêng dưới Content tools:
-  ```ts
-  { title: 'SEO Hub', titleKey: 'app.sidebar.seoHub', url: '/seo', icon: Search }
-  ```
-- Giữ `SEO Hub` trong `adminItems` (admin vẫn vào `/admin/seo`).
-- Bổ sung i18n key `app.sidebar.seoHub` (vi/en/th) — value: "SEO Hub".
-
-### 4. Kiểm tra component con không có lệnh hardcoded admin
-- `DiscoverWorkspace`, `PlanWorkspace`, `TrackWorkspace` và các tab keyword (Overview/Pillars/KeywordExplorer/Enrichment/RankTracker) đã dùng `useOrganization` + `organization_id`. **Không sửa.**
-- `SuggestTopicsDialog`, edge functions `keyword-research-v2`, `seo-rank-tracker`, `suggest-cluster-topics` đều check JWT user — không yêu cầu admin role ⇒ giữ nguyên.
-
-### 5. (Tuỳ chọn) Quota/limit
-- Hiện chưa có limit per-tier cho keyword research. Để sau; chỉ flag note: nếu Free abuse → cân nhắc thêm `can_use_unit('seo_research')` ở edge function.
-
-### 6. Memory update
-Cập nhật `.lovable/memory/features/seo/hub-ia-v2-vn.md`:
-- "Truy cập: mọi user qua `/seo` (3 tab Discover/Plan/Track). Admin có thêm tab Produce qua `/admin/seo`."
+1. Import `useCurrentBrand` từ `@/contexts/BrandContext`.
+2. Tính `suggestedSeeds` từ `currentBrand?.content_pillars`:
+   - Sort pillars theo `weight` desc.
+   - Với mỗi pillar lấy `keywords[0]` (keyword đại diện); nếu pillar không có keywords → dùng `name`.
+   - Dedupe (case-insensitive, trim) và cắt còn **tối đa 5 dòng** (đúng giới hạn seed).
+3. **Auto-fill chỉ khi `seedsText` còn rỗng** và brand đổi:
+   - `useEffect` deps `[currentBrand?.id]`: nếu `seedsText.trim() === ""` và có suggestions → `setSeedsText(suggestions.join("\n"))`.
+   - Không ghi đè nếu user đã gõ.
+4. Thêm UI hint nhỏ:
+   - Nếu có suggestions và user đã xoá hết → hiện 1 hàng chip "Gợi ý từ brand <tên>" với nút **"Dùng gợi ý"** để re-fill thủ công.
+   - Nếu brand chưa có content_pillars → không show gì (giữ placeholder cũ).
+5. Cập nhật `placeholder` của Textarea thành `"Auto-fill từ content pillars của brand, hoặc gõ tay..."` khi có brand active.
 
 ## Files thay đổi
-- **Mới**: `src/pages/SeoHub.tsx`
-- **Sửa**: `src/pages/AdminSeoHub.tsx` (wrapper trả `<SeoHub isAdmin />`)
-- **Sửa**: `src/app/routes.tsx` (thêm route `/seo`)
-- **Sửa**: `src/components/AppSidebar.tsx` (thêm menu user)
-- **Sửa**: `src/i18n/locales/{vi,en,th}.ts` (key `app.sidebar.seoHub`)
-- **Sửa**: `.lovable/memory/features/seo/hub-ia-v2-vn.md`
+- **Edit**: `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`
+  - Import `useCurrentBrand`
+  - Thêm `useMemo` tính `suggestedSeeds`
+  - Thêm `useEffect` auto-fill khi brand đổi và seeds trống
+  - Thêm hint chip + nút "Dùng gợi ý"
 
-## Không đổi
-- Schema DB, RLS policies, edge functions.
-- Tab Produce vẫn admin-only.
-- `AdminProtectedRoute` cho `/admin/seo` giữ nguyên.
+## Không thay đổi
+- Edge function `keyword-research-v2`: không cần đổi (vẫn nhận `seeds` array).
+- Không gắn keyword vào brand ở DB layer — keyword vẫn scope theo `organization_id` như cũ. Brand chỉ dùng làm gợi ý input.
+- Không động tới `KeywordPreviewTable`, `IntentFunnelMatrix`, history jobs.
 
-## Kết quả
-- User thường: vào `/seo` từ sidebar → Discover (research keyword), Plan (pillar/cluster), Track (rank). Mọi data scoped theo workspace họ đang chọn.
-- Admin: `/admin/seo` vẫn có đủ 4 tab gồm Produce (quản lý landing pages public).
+## Edge cases
+- **Không có brand active** → không pre-fill, giữ behavior hiện tại.
+- **Brand không có content_pillars** → không show suggestions.
+- **User đổi brand giữa session** → chỉ auto-fill nếu textarea còn rỗng; nếu đã gõ thì show chip "Dùng gợi ý từ <brand mới>" để user chủ động chọn.
+- **Pillar keywords trùng nhau** → dedupe.
+
+## QA
+1. Tạo brand mới có 3 pillars với keywords → vào Research Lab → seed text auto-fill 3 dòng.
+2. Gõ tay rồi đổi brand → text giữ nguyên, hint chip xuất hiện.
+3. Brand không có pillars → placeholder mặc định, không có chip.

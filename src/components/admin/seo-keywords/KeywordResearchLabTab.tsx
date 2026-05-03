@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
+import { useCurrentBrand } from "@/contexts/BrandContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +28,7 @@ const PRESETS: { id: Preset; label: string; icon: any }[] = [
 
 export default function KeywordResearchLabTab() {
   const { currentOrganization } = useOrganization();
+  const { currentBrand } = useCurrentBrand();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
 
@@ -42,6 +44,37 @@ export default function KeywordResearchLabTab() {
   const [previewKeywords, setPreviewKeywords] = useState<PreviewKeyword[]>([]);
   const [serpInfo, setSerpInfo] = useState<{ hasFirecrawl: boolean; results: Record<string, number> } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Pre-fill seeds từ content_pillars của brand active
+  const suggestedSeeds = useMemo<string[]>(() => {
+    const pillars = currentBrand?.content_pillars;
+    if (!Array.isArray(pillars) || pillars.length === 0) return [];
+    const sorted = [...pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of sorted) {
+      const candidate = (Array.isArray((p as any)?.keywords) && (p as any).keywords[0])
+        ? String((p as any).keywords[0])
+        : String((p as any)?.name || "");
+      const trimmed = candidate.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(trimmed);
+      if (out.length >= 5) break;
+    }
+    return out;
+  }, [currentBrand?.id, currentBrand?.content_pillars]);
+
+  // Auto-fill khi đổi brand và textarea còn trống
+  useEffect(() => {
+    if (suggestedSeeds.length > 0 && seedsText.trim() === "") {
+      setSeedsText(suggestedSeeds.join("\n"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBrand?.id]);
+
 
   const { data: jobs } = useQuery({
     queryKey: ["keyword-jobs-v2", orgId],
@@ -166,9 +199,23 @@ export default function KeywordResearchLabTab() {
         <CardContent className="space-y-3">
           <div className="grid md:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Seed keywords (1 dòng = 1 seed, max 5)</Label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <Label className="text-xs">Seed keywords (1 dòng = 1 seed, max 5)</Label>
+                {suggestedSeeds.length > 0 && seedsText.trim() === "" && currentBrand && (
+                  <button
+                    type="button"
+                    onClick={() => setSeedsText(suggestedSeeds.join("\n"))}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                  >
+                    Dùng gợi ý từ «{currentBrand.brand_name}»
+                  </button>
+                )}
+              </div>
               <Textarea rows={4} value={seedsText} onChange={e => setSeedsText(e.target.value)}
-                placeholder={`AI tạo content cho spa\ncách viết caption Instagram\n...`} className="font-mono text-sm" />
+                placeholder={currentBrand && suggestedSeeds.length > 0
+                  ? `Auto-fill từ content pillars của brand, hoặc gõ tay...`
+                  : `AI tạo content cho spa\ncách viết caption Instagram\n...`}
+                className="font-mono text-sm" />
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> URL đối thủ (optional, max 3)</Label>
