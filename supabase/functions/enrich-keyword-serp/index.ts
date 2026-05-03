@@ -16,7 +16,7 @@ const TOP_AUTHORITY_DOMAINS = [
 
 interface SerpResult { url: string; title?: string; description?: string; }
 
-function detectSerpFeatures(results: SerpResult[]): string[] {
+export function detectSerpFeatures(results: SerpResult[]): string[] {
   const features = new Set<string>();
   for (const r of results) {
     const u = (r.url || "").toLowerCase();
@@ -31,7 +31,7 @@ function detectSerpFeatures(results: SerpResult[]): string[] {
   return Array.from(features);
 }
 
-function computeKD(results: SerpResult[]): number {
+export function computeKD(results: SerpResult[]): number {
   if (results.length === 0) return 50;
   let authorityHits = 0;
   for (const r of results) {
