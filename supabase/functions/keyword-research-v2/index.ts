@@ -640,6 +640,20 @@ Deno.serve(async (req) => {
           if (brandCtx?.brand_name) {
             send("progress", { pct: 8, message: `Áp brand context: ${brandCtx.brand_name}` });
           }
+          if (brandCtx?.social_signals) {
+            const ss = brandCtx.social_signals;
+            send("brand_signals", {
+              active_platforms: ss.active_platforms,
+              handles: ss.handles,
+              recent_topics: ss.recent_topics.slice(0, 6),
+              recent_hashtags: ss.recent_hashtags.slice(0, 8),
+              frequent_terms: ss.frequent_terms.slice(0, 8),
+              audience_questions: ss.audience_questions.slice(0, 3),
+            });
+            if (ss.active_platforms.length) {
+              send("progress", { pct: 10, message: `Đọc tín hiệu social: ${ss.active_platforms.join(", ")}` });
+            }
+          }
 
           // 1. Competitor scrape
           let competitorContext = "";
