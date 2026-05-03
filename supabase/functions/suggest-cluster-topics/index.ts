@@ -28,6 +28,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const clusterId: string | undefined = body?.clusterId;
+    const selectedKeywordIds: string[] = Array.isArray(body?.selectedKeywordIds)
+      ? body.selectedKeywordIds.filter((x: any) => typeof x === 'string')
+      : [];
     if (!clusterId) return json({ error: "Missing clusterId" }, 400);
 
     // Fetch cluster + uncovered keywords
@@ -68,10 +71,26 @@ Deno.serve(async (req) => {
       pillarKw = pk?.keyword || null;
     }
 
-    const kwBlock = uncovered
+    const targetSet = new Set(selectedKeywordIds);
+    // Sort: target keywords first (preserve priority order within group)
+    const ordered = targetSet.size > 0
+      ? [
+          ...uncovered.filter((k: any) => targetSet.has(k.id)),
+          ...uncovered.filter((k: any) => !targetSet.has(k.id)),
+        ]
+      : uncovered;
+
+    const kwBlock = ordered
       .slice(0, 30)
-      .map((k: any, i: number) => `${i + 1}. id=${k.id} | "${k.keyword}" | intent=${k.intent || "n/a"} | vol=${k.search_volume ?? "?"}`)
+      .map((k: any, i: number) => {
+        const tag = targetSet.has(k.id) ? ' [TARGET]' : '';
+        return `${i + 1}. id=${k.id} | "${k.keyword}"${tag} | intent=${k.intent || "n/a"} | vol=${k.search_volume ?? "?"}`;
+      })
       .join("\n");
+
+    const targetInstruction = targetSet.size > 0
+      ? `\nƯU TIÊN TUYỆT ĐỐI: tập trung phủ trước các keyword được đánh dấu [TARGET] (${targetSet.size} keyword). Mỗi topic gợi ý phải gắn ít nhất 1 keyword [TARGET] nếu có thể.`
+      : '';
 
     const prompt = `Bạn là SEO content strategist. Dựa trên Pillar Cluster sau, đề xuất 5-8 topic bài viết để PHỦ các keyword chưa có content.
 
@@ -81,6 +100,7 @@ ${brand ? `Brand: ${brand.brand_name} | Industry: ${brand.industry || "n/a"} | T
 
 KEYWORD CHƯA CÓ CONTENT (uncovered):
 ${kwBlock}
+${targetInstruction}
 
 YÊU CẦU:
 - Mỗi topic gắn 1-3 keyword id từ list trên (group keyword cùng intent vào 1 bài)
@@ -125,7 +145,7 @@ Trả về CHÍNH XÁC JSON object:
       intent: ["TOFU", "MOFU", "BOFU"].includes(s.intent) ? s.intent : "MOFU",
     })).filter((s: any) => s.title && s.keyword_ids.length > 0);
 
-    return json({ suggestions });
+    return json({ suggestions, usedTargetIds: Array.from(targetSet) });
   } catch (error: any) {
     console.error("[suggest-cluster-topics] Error:", error);
     return json({ error: error.message }, 500);

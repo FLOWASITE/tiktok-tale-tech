@@ -1,38 +1,57 @@
 ## Mục tiêu
-Cache 10 phút cho kết quả `suggest-cluster-topics` ở client, key = `[clusterId, sortedKeywordIds]`, để tránh gọi lại edge function/AI khi user bấm "Gợi ý topic" lặp lại với cùng pillar + bộ keyword đã chọn.
+Hoàn thiện chế độ "Cần cho SEO" cho `MultiChannelFormWizard`: bỏ UI bị trùng, truyền đúng context xuống edge function, và đồng bộ keyword khi user pick 1 topic gợi ý. Không đổi schema/route, không đụng các hệ khác.
 
-## Phạm vi & cách tiếp cận
-Cache **client-side** (in-memory + `sessionStorage` fallback) là đủ — request hiện chỉ phụ thuộc `clusterId` + bộ keyword được chọn ở UI; không đụng edge function nên không phát sinh chi phí backend mới.
+## Vấn đề phát hiện
 
-## Các thay đổi
+1. **Trùng UI Pillar/Keyword khi mode = `seo`**  
+   `SeoFirstEntry` đã render `PillarKeywordSection variant="card"` (dòng 1177), nhưng phía dưới (dòng 1343) lại render thêm `PillarKeywordSection variant="inline"` cộng banner heuristic của idea-mode + cảnh báo long-form (1376). User thấy 2 ô "Cần cho SEO" + 2 ô Keyword target.
 
-### 1. New: `src/lib/topicSuggestionCache.ts`
-Utility nhỏ quản lý cache:
-- API: `getCached(key)`, `setCached(key, value)`, `buildKey(clusterId, keywordIds)`.
-- TTL = `10 * 60 * 1000` ms.
-- Storage: Map in-memory (singleton module-level) + mirror sang `sessionStorage` (`mc:topic_suggest_cache:v1`) để giữ khi user navigate giữa các step của wizard.
-- `buildKey`: `${clusterId}::${[...keywordIds].sort().join(',')}` (sort để bộ keyword cùng tập nhưng khác thứ tự vẫn hit cache).
-- Tự cleanup entry hết hạn khi đọc; giới hạn ~30 entry để tránh phình.
+2. **Edge `suggest-cluster-topics` bỏ qua keyword đã chọn**  
+   Cache key client gồm `selectedKeywordIds`, nhưng edge function chỉ nhận `clusterId` → đổi keyword không đổi kết quả AI. Mode SEO mất ý nghĩa "thu hẹp top-5".
 
-### 2. Edit: `src/components/seo/SuggestedTopicsFromKeyword.tsx`
-- Thêm prop `selectedKeywordIds: string[]` (đã có sẵn ở `SeoFirstEntry`, chỉ cần truyền xuống).
-- Trong `generate()`:
-  1. Tính `key = buildKey(clusterId, selectedKeywordIds)`.
-  2. Nếu có cache hợp lệ → set state từ cache, hiển thị badge "Cached" nhỏ + toast nhẹ "Dùng kết quả gần đây", **không** gọi `supabase.functions.invoke`.
-  3. Nếu user bấm nút "Tạo lại" (đã `hasFetched`) → bypass cache (force refresh) và ghi đè entry mới.
-- Khi nhận data thành công từ edge function → `setCached(key, suggestions)`.
-- Khi `clusterId` hoặc `selectedKeywordIds` đổi → reset `hasFetched=false`, clear suggestions hiện hành (tránh hiển thị data lệch context).
+3. **Pick topic gợi ý không đồng bộ keyword target**  
+   `SuggestedTopicsFromKeyword` gửi `s.keyword_ids` ra, nhưng wizard chỉ nhận `title`. Topic được gắn nhưng `targetKeywordIds` của form không cập nhật theo bài AI gợi ý → lệch context khi generate.
 
-### 3. Edit: `src/components/multichannel/SeoFirstEntry.tsx`
-- Truyền `selectedKeywordIds={selectedKeywordIds}` xuống `<SuggestedTopicsFromKeyword />`.
+4. **Thiếu chỉ dẫn flow**  
+   Trong mode SEO chưa có hint "đã chọn pillar → nhấn Gợi ý topic" rõ ràng khi cluster chưa chọn keyword.
 
-## Ghi chú kỹ thuật
-- Không cần đổi edge function `suggest-cluster-topics`; nếu sau này backend nhận thêm `keywordIds` thì cache key đã sẵn sàng.
-- Không cache khi response rỗng (`suggestions.length === 0`) để user có thể retry sau khi bổ sung keyword.
-- Force-refresh: nút "Tạo lại" đã có icon `RefreshCw` → reuse, chỉ cần thêm flag `force=true` khi gọi.
-- Không thêm dependency mới.
+## Giải pháp
 
-## Files
-- New: `src/lib/topicSuggestionCache.ts`
-- Edit: `src/components/seo/SuggestedTopicsFromKeyword.tsx`
-- Edit: `src/components/multichannel/SeoFirstEntry.tsx`
+### A. Wizard — chỉ render 1 block Pillar/Keyword theo mode
+File: `src/components/multichannel/MultiChannelFormWizard.tsx`
+- Wrap khối `PillarKeywordSection variant="inline"` (1342–1381) và banner cảnh báo long-form trong điều kiện `entryMode === 'idea'`. Mode `seo` đã có block đầy đủ ở `SeoFirstEntry`.
+- Mở rộng `onPickTopic` của `SeoFirstEntry` để nhận thêm `keywordIds` và set vào `formData.targetKeywordIds` khi user chọn 1 topic gợi ý.
+
+### B. `SeoFirstEntry` & `SuggestedTopicsFromKeyword` — emit keyword khi pick
+- Đổi prop `onPick(title)` → `onPick(title, keywordIds)` trong `SuggestedTopicsFromKeyword`.
+- `SeoFirstEntry` forward đúng signature ra wizard.
+
+### C. Edge `suggest-cluster-topics` — nhận `selectedKeywordIds`
+File: `supabase/functions/suggest-cluster-topics/index.ts`
+- Đọc thêm `selectedKeywordIds: string[]` từ body (optional).
+- Nếu có và non-empty: ưu tiên đẩy các keyword này lên đầu `kwBlock` + thêm chỉ thị "Tập trung phủ trước các keyword được đánh dấu [TARGET]".
+- Vẫn giữ logic uncovered để không lệch.
+- Trả thêm `usedTargetIds` để client log/debug.
+
+### D. Client gọi đúng payload
+- `SuggestedTopicsFromKeyword.generate()` truyền `selectedKeywordIds` xuống edge function.
+- Cache key giữ nguyên (đã include sortedKeywordIds → đúng).
+
+### E. Hint UX nhỏ
+- Trong `SeoFirstEntry` thêm hint một dòng phía dưới topic suggestions khi `clusterId` đã chọn nhưng `selectedKeywordIds.length === 0`: "Chọn 1–5 keyword target để AI tập trung."
+
+## Phạm vi không đụng
+- Schema DB, RLS, route, tên cột `pillar_keyword_id`.
+- `useEntryMode`, `EntryModeSwitcher`, `ClusterPicker`, `KeywordTargetPicker` (đã ổn).
+- Idea mode flow.
+
+## Files sẽ sửa
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — gate inline block theo mode + nhận keywordIds khi pick topic.
+- `src/components/multichannel/SeoFirstEntry.tsx` — đổi signature `onPickTopic` + hint khi chưa chọn keyword.
+- `src/components/seo/SuggestedTopicsFromKeyword.tsx` — emit keywordIds + truyền `selectedKeywordIds` vào invoke.
+- `supabase/functions/suggest-cluster-topics/index.ts` — nhận & ưu tiên `selectedKeywordIds` trong prompt.
+
+## Kết quả mong đợi
+- Mode "Cần cho SEO": chỉ 1 block Pillar/Keyword duy nhất, gọn.
+- Click "Gợi ý topic" → AI bias theo top-5 keyword đã chọn (đổi keyword → đổi gợi ý).
+- Click 1 topic → cả `topic` và `targetKeywordIds` được set đồng bộ → step generate dùng đúng keyword AI đã chọn.
