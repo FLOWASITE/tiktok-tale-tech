@@ -767,6 +767,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'selected_hooks',
   'global_hook',
   'core_content_id',
+  'cluster_id',
+  'target_keyword_ids',
   'channel_statuses',
   'channel_images',
   'content_calendar_color',
