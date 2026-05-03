@@ -195,9 +195,14 @@ export default function KeywordResearchLabTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2 flex-wrap">
             <Sparkles className="h-4 w-4 text-primary" /> AI Research Lab v2
             <Badge variant="outline" className="text-[10px]">SERP grounded</Badge>
+            {currentBrand && (
+              <Badge variant="secondary" className="text-[10px] font-normal">
+                Context: {currentBrand.brand_name}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
