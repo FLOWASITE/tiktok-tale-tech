@@ -125,67 +125,32 @@ ${body.feature_key ? `- Tính năng: ${body.feature_key}` : ""}
 Trả về CHỈ JSON đúng schema:
 ${OUTPUT_SCHEMA}`;
 
-    // Call Lovable AI Gateway (Gemini 2.5 Flash — fast & cheap for bulk gen)
-    const aiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!aiKey) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Resolve admin override for model + temperature
-    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    let modelToUse = "google/gemini-2.5-flash";
-    let tempOverride: number | null = null;
+    // Call via shared callAI (validates functionName + applies admin overrides)
+    let content: string | undefined;
     try {
-      const { data: cfg } = await supabaseAdmin
-        .from("ai_function_configs")
-        .select("model_override, temperature")
-        .eq("function_name", "generate-seo-landing")
-        .eq("is_enabled", true)
-        .is("organization_id", null)
-        .limit(1);
-      if (cfg?.[0]?.model_override) modelToUse = cfg[0].model_override;
-      if (cfg?.[0]?.temperature != null) tempOverride = cfg[0].temperature;
-    } catch (e) { console.warn("[generate-seo-landing] resolve cfg failed", e); }
-
-    const aiPayload: any = {
-      model: modelToUse,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-    };
-    if (tempOverride !== null) aiPayload.temperature = tempOverride;
-
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${aiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(aiPayload),
-    });
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("[generate-seo-landing] AI error:", aiRes.status, errText);
-      return new Response(JSON.stringify({ error: `AI gateway error ${aiRes.status}`, detail: errText }), {
+      const aiResult = await callAI({
+        functionName: "generate-seo-landing",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        responseFormat: { type: "json_object" },
+      } as any);
+      content = aiResult?.content || aiResult?.text;
+    } catch (e: any) {
+      console.error("[generate-seo-landing] callAI error:", e?.message);
+      return new Response(JSON.stringify({ error: `AI gateway error: ${e?.message || "unknown"}` }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const aiJson = await aiRes.json();
-    const content = aiJson.choices?.[0]?.message?.content;
     if (!content) {
       return new Response(JSON.stringify({ error: "AI returned empty content" }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     let parsed: any;
     try {
