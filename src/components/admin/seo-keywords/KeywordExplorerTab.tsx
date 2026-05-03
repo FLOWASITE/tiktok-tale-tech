@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Trash2, Target, ArrowRight, Sparkles, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users } from "lucide-react";
+import { Loader2, Trash2, Target, ArrowRight, Sparkles, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users, Download, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useKeywordEnrichment } from "@/hooks/useKeywordEnrichment";
+import { useCurrentBrand } from "@/contexts/BrandContext";
 
 const STATUS_OPTIONS = ["all", "new", "researching", "planned", "assigned", "published", "tracking", "archived"];
 const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "navigational"];
@@ -38,6 +39,7 @@ const SERP_ICONS: Record<string, { icon: typeof HelpCircle; label: string }> = {
 
 export default function KeywordExplorerTab() {
   const { currentOrganization } = useOrganization();
+  const { currentBrand } = useCurrentBrand();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -48,8 +50,15 @@ export default function KeywordExplorerTab() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [intentFilter, setIntentFilter] = useState("all");
   const [pillarFilter, setPillarFilter] = useState("all");
+  const [brandScope, setBrandScope] = useState<boolean>(() => {
+    try { return localStorage.getItem("seo-explorer-brand-scope") === "1"; } catch { return false; }
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPillar, setBulkPillar] = useState<string>("");
+
+  useEffect(() => {
+    try { localStorage.setItem("seo-explorer-brand-scope", brandScope ? "1" : "0"); } catch {}
+  }, [brandScope]);
 
   // Debounce search to avoid refetching on every keystroke
   useEffect(() => {
@@ -68,8 +77,24 @@ export default function KeywordExplorerTab() {
     },
   });
 
+  // Brand scope: cluster IDs whose name matches a brand pillar name + pillar keywords for OR text match
+  const brandScopeData = useMemo(() => {
+    if (!brandScope || !currentBrand) return null;
+    const pillarsArr = Array.isArray(currentBrand.content_pillars) ? currentBrand.content_pillars : [];
+    const pillarNames = new Set(pillarsArr.map((p: any) => String(p?.name || "").toLowerCase().trim()).filter(Boolean));
+    const clusterIds = pillars.filter(p => pillarNames.has(String(p.name).toLowerCase().trim())).map(p => p.id);
+    const pillarKeywords: string[] = [];
+    for (const p of pillarsArr) {
+      if (Array.isArray((p as any)?.keywords)) for (const k of (p as any).keywords) {
+        const t = String(k || "").trim();
+        if (t) pillarKeywords.push(t);
+      }
+    }
+    return { clusterIds, pillarKeywords: pillarKeywords.slice(0, 20) };
+  }, [brandScope, currentBrand, pillars]);
+
   const { data: keywords, isLoading, isFetching } = useQuery({
-    queryKey: ["seo-keywords", orgId, debouncedSearch, statusFilter, intentFilter, pillarFilter],
+    queryKey: ["seo-keywords", orgId, debouncedSearch, statusFilter, intentFilter, pillarFilter, brandScope, brandScopeData?.clusterIds.join(","), brandScopeData?.pillarKeywords.join(",")],
     enabled: !!orgId,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
@@ -84,11 +109,41 @@ export default function KeywordExplorerTab() {
       if (intentFilter !== "all") q = q.eq("intent", intentFilter);
       if (pillarFilter === NO_PILLAR) q = q.is("cluster_id", null);
       else if (pillarFilter !== "all") q = q.eq("cluster_id", pillarFilter);
+      if (brandScopeData) {
+        const orParts: string[] = [];
+        if (brandScopeData.clusterIds.length) orParts.push(`cluster_id.in.(${brandScopeData.clusterIds.join(",")})`);
+        for (const kw of brandScopeData.pillarKeywords) {
+          const safe = kw.replace(/[(),]/g, " ");
+          orParts.push(`keyword.ilike.%${safe}%`);
+        }
+        if (orParts.length) q = q.or(orParts.join(","));
+        else q = q.eq("id", "00000000-0000-0000-0000-000000000000"); // brand has no pillars → empty
+      }
       const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
   });
+
+  const handleExportCsv = useCallback(() => {
+    const rows = keywords || [];
+    if (rows.length === 0) { toast.info("Không có keyword để export"); return; }
+    const header = ["keyword", "volume", "kd", "intent", "funnel", "pillar", "status", "priority"];
+    const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [header.join(",")];
+    for (const k of rows) {
+      const pname = k.cluster_id ? (pillars.find(p => p.id === k.cluster_id)?.name ?? "") : "";
+      lines.push([k.keyword, k.search_volume ?? "", k.difficulty ?? "", k.intent ?? "", k.funnel_stage ?? "", pname, k.status ?? "", k.priority_score ?? ""].map(esc).join(","));
+    }
+    const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `keywords-${currentBrand?.brand_name || "all"}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Đã export ${rows.length} keyword`);
+  }, [keywords, pillars, currentBrand]);
 
   const pillarMap = useMemo(() => new Map(pillars.map(p => [p.id, p])), [pillars]);
 
@@ -199,6 +254,22 @@ export default function KeywordExplorerTab() {
               ))}
             </SelectContent>
           </Select>
+          {currentBrand && (
+            <button
+              type="button"
+              onClick={() => setBrandScope(v => !v)}
+              className={cn(
+                "text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition self-center",
+                brandScope ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted text-muted-foreground"
+              )}
+              title="Chỉ hiện keyword thuộc pillar/keyword của brand đang chọn"
+            >
+              <Target className="h-3 w-3" /> Chỉ brand «{currentBrand.brand_name}»
+            </button>
+          )}
+          <Button size="sm" variant="outline" onClick={handleExportCsv} className="ml-auto">
+            <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+          </Button>
           {isFetching && !isLoading && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground self-center">
               <Loader2 className="h-3 w-3 animate-spin" /> Đang lọc...

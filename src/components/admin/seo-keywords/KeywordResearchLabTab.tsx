@@ -101,7 +101,7 @@ export default function KeywordResearchLabTab() {
     refetchInterval: 5000,
   });
 
-  const handleRun = async () => {
+  const handleRun = async (deep = false) => {
     if (!orgId) return;
     if (!currentBrand && overrideSeeds.length === 0) {
       toast.error("Chọn brand hoặc nhập seed thủ công ở Tuỳ chỉnh nâng cao");
@@ -139,7 +139,8 @@ export default function KeywordResearchLabTab() {
           organizationId: orgId,
           brandTemplateId: currentBrand?.id,
           locale: "vi",
-          limit,
+          limit: deep ? 150 : limit,
+          mode: deep ? "deep" : "preview",
           autoFromBrand: overrideSeeds.length === 0,
         }),
         signal: ctrl.signal,
@@ -187,10 +188,18 @@ export default function KeywordResearchLabTab() {
                 setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
               } else if (currentEvent === "done") {
                 setProgress(100);
-                setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
+                const isDeep = data.mode === "deep";
+                if (isDeep) {
+                  setProgressMsg(`Deep research hoàn tất: lưu ${data.inserted}/${data.total} keyword vào pool`);
+                  toast.success(`Đã lưu ${data.inserted} keyword mới vào pool. Mở Plan để xem.`);
+                } else {
+                  setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
+                  toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
+                }
                 setActiveJobId(data.jobId);
-                toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
                 qc.invalidateQueries({ queryKey: ["keyword-jobs-v2"] });
+                qc.invalidateQueries({ queryKey: ["seo-keywords"] });
+                qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] });
               } else if (currentEvent === "error") {
                 throw new Error(data.message || "Stream error");
               }
@@ -293,16 +302,26 @@ export default function KeywordResearchLabTab() {
           )}
 
           {/* Run / Cancel */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {running ? (
               <Button variant="outline" onClick={handleCancel}><X className="h-4 w-4 mr-1" />Huỷ</Button>
             ) : (
-              <Button onClick={handleRun} disabled={!canRun}>
-                <Sparkles className="h-4 w-4 mr-1" />Run research
-              </Button>
+              <>
+                <Button onClick={() => handleRun(false)} disabled={!canRun}>
+                  <Sparkles className="h-4 w-4 mr-1" />Run research
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleRun(true)}
+                  disabled={!canRun}
+                  title="Multi-round expand + auto-lưu 100-200 keyword vào pool"
+                >
+                  <Wand2 className="h-4 w-4 mr-1" />Deep research →
+                </Button>
+              </>
             )}
             <span className="text-[11px] text-muted-foreground">
-              {effectiveSeeds.length} seed · preset: {preset === "default" ? "default" : preset} · limit {limit}
+              {effectiveSeeds.length} seed · preset: {preset === "default" ? "default" : preset}
             </span>
           </div>
 

@@ -297,7 +297,10 @@ Deno.serve(async (req) => {
   const organizationId = body.organizationId;
   const brandTemplateId: string | undefined = body.brandTemplateId;
   const locale = body.locale || "vi";
-  const limit = Math.min(100, Math.max(5, parseInt(body.limit) || 30));
+  const mode: "preview" | "deep" = body.mode === "deep" ? "deep" : "preview";
+  const defaultLimit = mode === "deep" ? 150 : 30;
+  const maxLimit = mode === "deep" ? 200 : 100;
+  const limit = Math.min(maxLimit, Math.max(5, parseInt(body.limit) || defaultLimit));
 
   if (!organizationId) {
     return new Response(JSON.stringify({ error: "organizationId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -345,7 +348,7 @@ Deno.serve(async (req) => {
     organization_id: organizationId,
     seed_keyword: seeds[0],
     seeds, competitor_urls: competitorUrls, preset,
-    mode: "expand", status: "running",
+    mode: mode === "deep" ? "deep" : "expand", status: "running",
     ai_model: "google/gemini-2.5-pro",
     created_by: user.id,
   }).select("id").single();
@@ -382,11 +385,21 @@ Deno.serve(async (req) => {
           }));
           send("serp", { hasFirecrawl: !!FIRECRAWL_API_KEY, results: Object.fromEntries(Object.entries(serpGround).map(([k, v]) => [k, v.length])) });
 
-          // 3. Seed expansion
-          send("progress", { pct: 35, message: "Mở rộng seed (Autocomplete + PAA)..." });
+          // 3. Seed expansion (deep = 2 rounds)
+          send("progress", { pct: 35, message: mode === "deep" ? "Mở rộng seed vòng 1..." : "Mở rộng seed (Autocomplete + PAA)..." });
           let expandedSeeds: string[] = [];
           try {
             expandedSeeds = await expandSeeds(seeds, serpGround, locale);
+            if (mode === "deep" && expandedSeeds.length > 0) {
+              send("progress", { pct: 40, message: `Mở rộng seed vòng 2 (từ ${Math.min(5, expandedSeeds.length)} biến thể)...` });
+              const round2Seeds = expandedSeeds.slice(0, 5);
+              // Quick SERP for round-2 seeds (parallel, capped)
+              const round2Serp: Record<string, any[]> = {};
+              await Promise.all(round2Seeds.map(async (s) => { round2Serp[s] = await firecrawlSearch(s); }));
+              const round2 = await expandSeeds(round2Seeds, round2Serp, locale);
+              const merged = new Set([...expandedSeeds, ...round2]);
+              expandedSeeds = Array.from(merged).slice(0, 15);
+            }
           } catch (e) {
             console.warn("[keyword-research-v2] expand seeds failed:", (e as Error).message);
           }
@@ -428,16 +441,56 @@ Deno.serve(async (req) => {
             send("keyword_batch", { batch: enriched.slice(i, i + 5), index: i, total: enriched.length });
           }
 
-          // 6. Save preview
+          // 6a. Auto-insert into seo_keywords if deep mode
+          let inserted = 0;
+          if (mode === "deep") {
+            send("progress", { pct: 90, message: `Đang lưu ${enriched.length} keyword vào pool...` });
+            // Find clusters by pillar_match name (best-effort) — only for this org
+            const pillarNames = Array.from(new Set(enriched.map(e => (e.pillar_match || "").trim()).filter(Boolean)));
+            const clusterMap = new Map<string, string>(); // lowercased name -> id
+            if (pillarNames.length) {
+              const { data: clusters } = await supabase
+                .from("seo_clusters").select("id,name").eq("organization_id", organizationId);
+              for (const c of (clusters || [])) clusterMap.set(String(c.name).toLowerCase().trim(), c.id);
+            }
+            // Only insert keywords that aren't already in the pool
+            const toInsert = enriched.filter(e => e.is_gap).map(e => ({
+              organization_id: organizationId,
+              keyword: e.keyword,
+              search_volume: e.search_volume || null,
+              difficulty: e.difficulty || null,
+              cpc_vnd: e.cpc_vnd || null,
+              intent: e.intent || null,
+              funnel_stage: e.funnel_stage || null,
+              priority_score: Math.round((e.search_volume || 0) * 0.5 + (100 - (e.difficulty || 50)) * 0.3 + ({ transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any)[e.intent || "informational"] * 0.2),
+              status: "new",
+              source: "ai_research_deep",
+              locale,
+              cluster_id: clusterMap.get((e.pillar_match || "").toLowerCase().trim()) || null,
+            }));
+            if (toInsert.length) {
+              // Insert in chunks of 50 to be safe
+              for (let i = 0; i < toInsert.length; i += 50) {
+                const chunk = toInsert.slice(i, i + 50);
+                const { error: insErr, count } = await supabase.from("seo_keywords")
+                  .insert(chunk, { count: "exact" });
+                if (insErr) console.warn("[keyword-research-v2] insert chunk failed:", insErr.message);
+                else inserted += (count ?? chunk.length);
+              }
+            }
+          }
+
+          // 6b. Save job result
           await supabase.from("keyword_research_jobs").update({
             preview: enriched,
             serp_grounding: serpGround,
-            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null },
-            status: "preview_ready",
-            keywords_added: 0,
+            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null, mode, inserted },
+            status: mode === "deep" ? "done" : "preview_ready",
+            keywords_added: inserted,
+            completed_at: mode === "deep" ? new Date().toISOString() : null,
           }).eq("id", jobId);
 
-          send("done", { jobId, total: enriched.length, gaps: enriched.filter(e => e.is_gap).length });
+          send("done", { jobId, total: enriched.length, gaps: enriched.filter(e => e.is_gap).length, inserted, mode });
         } catch (e: any) {
           console.error("[keyword-research-v2] Error:", e);
           const status = e.status === 429 ? 429 : e.status === 402 ? 402 : 500;
