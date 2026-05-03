@@ -298,7 +298,7 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                         {k._fit !== null ? (
                           <span
                             className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
-                            title={k.brand_fit_reason || (k.audience_match ? `audience: ${k.audience_match}` : "")}
+                            title={[k.brand_fit_reason, k.social_match ? `📱 Khớp social: "${k.social_match}"` : null, k.audience_match ? `audience: ${k.audience_match}` : null].filter(Boolean).join(" · ")}
                           >
                             {k._fit}
                           </span>
