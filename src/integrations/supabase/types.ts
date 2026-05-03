@@ -7639,6 +7639,42 @@ export type Database = {
           },
         ]
       }
+      keyword_enrichment_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          done: number
+          errors: Json
+          id: string
+          organization_id: string
+          status: string
+          total: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          done?: number
+          errors?: Json
+          id?: string
+          organization_id: string
+          status?: string
+          total?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          done?: number
+          errors?: Json
+          id?: string
+          organization_id?: string
+          status?: string
+          total?: number
+        }
+        Relationships: []
+      }
       keyword_research_jobs: {
         Row: {
           ai_model: string | null
