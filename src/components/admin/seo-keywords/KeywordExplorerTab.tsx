@@ -77,8 +77,24 @@ export default function KeywordExplorerTab() {
     },
   });
 
+  // Brand scope: cluster IDs whose name matches a brand pillar name + pillar keywords for OR text match
+  const brandScopeData = useMemo(() => {
+    if (!brandScope || !currentBrand) return null;
+    const pillarsArr = Array.isArray(currentBrand.content_pillars) ? currentBrand.content_pillars : [];
+    const pillarNames = new Set(pillarsArr.map((p: any) => String(p?.name || "").toLowerCase().trim()).filter(Boolean));
+    const clusterIds = pillars.filter(p => pillarNames.has(String(p.name).toLowerCase().trim())).map(p => p.id);
+    const pillarKeywords: string[] = [];
+    for (const p of pillarsArr) {
+      if (Array.isArray((p as any)?.keywords)) for (const k of (p as any).keywords) {
+        const t = String(k || "").trim();
+        if (t) pillarKeywords.push(t);
+      }
+    }
+    return { clusterIds, pillarKeywords: pillarKeywords.slice(0, 20) };
+  }, [brandScope, currentBrand, pillars]);
+
   const { data: keywords, isLoading, isFetching } = useQuery({
-    queryKey: ["seo-keywords", orgId, debouncedSearch, statusFilter, intentFilter, pillarFilter],
+    queryKey: ["seo-keywords", orgId, debouncedSearch, statusFilter, intentFilter, pillarFilter, brandScope, brandScopeData?.clusterIds.join(","), brandScopeData?.pillarKeywords.join(",")],
     enabled: !!orgId,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
@@ -93,11 +109,41 @@ export default function KeywordExplorerTab() {
       if (intentFilter !== "all") q = q.eq("intent", intentFilter);
       if (pillarFilter === NO_PILLAR) q = q.is("cluster_id", null);
       else if (pillarFilter !== "all") q = q.eq("cluster_id", pillarFilter);
+      if (brandScopeData) {
+        const orParts: string[] = [];
+        if (brandScopeData.clusterIds.length) orParts.push(`cluster_id.in.(${brandScopeData.clusterIds.join(",")})`);
+        for (const kw of brandScopeData.pillarKeywords) {
+          const safe = kw.replace(/[(),]/g, " ");
+          orParts.push(`keyword.ilike.%${safe}%`);
+        }
+        if (orParts.length) q = q.or(orParts.join(","));
+        else q = q.eq("id", "00000000-0000-0000-0000-000000000000"); // brand has no pillars → empty
+      }
       const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
   });
+
+  const handleExportCsv = useCallback(() => {
+    const rows = keywords || [];
+    if (rows.length === 0) { toast.info("Không có keyword để export"); return; }
+    const header = ["keyword", "volume", "kd", "intent", "funnel", "pillar", "status", "priority"];
+    const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [header.join(",")];
+    for (const k of rows) {
+      const pname = k.cluster_id ? (pillars.find(p => p.id === k.cluster_id)?.name ?? "") : "";
+      lines.push([k.keyword, k.search_volume ?? "", k.difficulty ?? "", k.intent ?? "", k.funnel_stage ?? "", pname, k.status ?? "", k.priority_score ?? ""].map(esc).join(","));
+    }
+    const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `keywords-${currentBrand?.brand_name || "all"}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Đã export ${rows.length} keyword`);
+  }, [keywords, pillars, currentBrand]);
 
   const pillarMap = useMemo(() => new Map(pillars.map(p => [p.id, p])), [pillars]);
 
