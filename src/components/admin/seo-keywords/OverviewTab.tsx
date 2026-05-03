@@ -47,8 +47,9 @@ export default function OverviewTab() {
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
-  const [orphanLimit, setOrphanLimit] = useState(25);
-  const [cannibalLimit, setCannibalLimit] = useState(25);
+  const PAGE_SIZE = 25;
+  const [orphanPage, setOrphanPage] = useState(1);
+  const [cannibalPage, setCannibalPage] = useState(1);
 
   const { data: pillars = [] } = useSeoPillars();
   const { data: keywords = [], isLoading: kwLoading } = useSeoKeywords();
@@ -157,7 +158,12 @@ export default function OverviewTab() {
     () => keywords.filter((k) => !coverage.has(k.id)),
     [keywords, coverage]
   );
-  const orphanKeywords = useMemo(() => orphanAll.slice(0, orphanLimit), [orphanAll, orphanLimit]);
+  const orphanTotalPages = Math.max(1, Math.ceil(orphanAll.length / PAGE_SIZE));
+  const orphanCurPage = Math.min(orphanPage, orphanTotalPages);
+  const orphanKeywords = useMemo(
+    () => orphanAll.slice((orphanCurPage - 1) * PAGE_SIZE, orphanCurPage * PAGE_SIZE),
+    [orphanAll, orphanCurPage]
+  );
   const coveredCount = keywords.length - keywords.filter((k) => !coverage.has(k.id)).length;
 
   const cannibalized = useMemo(() => {
@@ -372,13 +378,18 @@ export default function OverviewTab() {
           </Card>
           <div className="flex items-center justify-between mt-2">
             <p className="text-xs text-muted-foreground">
-              Hiển thị {orphanKeywords.length}/{orphanAll.length} orphan, sắp theo priority.
+              Trang {orphanCurPage}/{orphanTotalPages} • {orphanAll.length} orphan tổng cộng
             </p>
-            {orphanLimit < orphanAll.length && (
-              <Button size="sm" variant="ghost" onClick={() => setOrphanLimit((n) => n + 25)}>
-                Hiện thêm 25
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" disabled={orphanCurPage <= 1}
+                onClick={() => setOrphanPage((p) => Math.max(1, p - 1))}>
+                ← Trước
               </Button>
-            )}
+              <Button size="sm" variant="ghost" disabled={orphanCurPage >= orphanTotalPages}
+                onClick={() => setOrphanPage((p) => Math.min(orphanTotalPages, p + 1))}>
+                Sau →
+              </Button>
+            </div>
           </div>
         </TabsContent>
 
@@ -445,7 +456,10 @@ export default function OverviewTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cannibalized.slice(0, cannibalLimit).map(({ keyword, contents: list }) => (
+                  {cannibalized
+                    .slice((Math.min(cannibalPage, Math.max(1, Math.ceil(cannibalized.length / PAGE_SIZE))) - 1) * PAGE_SIZE,
+                           Math.min(cannibalPage, Math.max(1, Math.ceil(cannibalized.length / PAGE_SIZE))) * PAGE_SIZE)
+                    .map(({ keyword, contents: list }) => (
                     <TableRow key={keyword.id}>
                       <TableCell className="font-medium align-top pt-3">{keyword.keyword}</TableCell>
                       <TableCell className="text-right align-top pt-3">
@@ -480,13 +494,27 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
-          {cannibalLimit < cannibalized.length && (
-            <div className="flex justify-center mt-2">
-              <Button size="sm" variant="ghost" onClick={() => setCannibalLimit((n) => n + 25)}>
-                Hiện thêm 25 (còn {cannibalized.length - cannibalLimit})
-              </Button>
-            </div>
-          )}
+          {cannibalized.length > 0 && (() => {
+            const totalPages = Math.max(1, Math.ceil(cannibalized.length / PAGE_SIZE));
+            const cur = Math.min(cannibalPage, totalPages);
+            return (
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-muted-foreground">
+                  Trang {cur}/{totalPages} • {cannibalized.length} keyword
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" disabled={cur <= 1}
+                    onClick={() => setCannibalPage((p) => Math.max(1, p - 1))}>
+                    ← Trước
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={cur >= totalPages}
+                    onClick={() => setCannibalPage((p) => Math.min(totalPages, p + 1))}>
+                    Sau →
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="contents" className="mt-4">
