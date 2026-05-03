@@ -592,7 +592,12 @@ Deno.serve(async (req) => {
     if (brandCtx.target_locations?.length && brandCtx.industry) {
       push(`${brandCtx.industry} ${brandCtx.target_locations[0]}`, "local");
     }
-    // Fallback if still thin
+    // 5. Social signals — recent topics + frequent terms (rất giá trị, nói lên giọng thật brand)
+    const ss = brandCtx.social_signals;
+    if (ss) {
+      if (ss.recent_topics[0]) push(ss.recent_topics[0], "social_topic");
+      if (ss.frequent_terms[0]) push(ss.frequent_terms[0], "social_term");
+    }
     if (seeds.length < 3) {
       const ind = brandCtx.industry || "";
       const name = brandCtx.brand_name || "";
