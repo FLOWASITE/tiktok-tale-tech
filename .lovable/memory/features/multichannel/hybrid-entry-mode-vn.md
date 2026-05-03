@@ -14,11 +14,11 @@ Flow: **Topic → AI gợi ý Pillar phù hợp (heuristic) → Generate**
 - Heuristic match: `useSuggestedPillar` tokenize topic ↔ cluster.name + keyword names, score≥1
 - **Áp dụng cho mọi tổ hợp kênh**, kể cả khi chọn long-form (Website/Blog/WordPress)
 
-## Mode A — `seo` (Pillar-first) — **OPT-IN**
+## Mode A — `seo` (Pillar-first) — **OPT-IN qua Switch**
 Flow: **Pillar → Keyword target (top-5) → AI gợi ý Topics → Chọn 1 → Generate**
 - Component: `SeoFirstEntry` → `PillarKeywordSection (variant=card)` + `SuggestedTopicsFromKeyword`
 - Edge function: `suggest-cluster-topics` (đã có, category=`seo`)
-- **Chỉ kích hoạt khi user tự click vào EntryModeSwitcher** — không bao giờ auto
+- **UI:** 1 Switch "Chế độ SEO" (`SeoModeToggle`) ở góc phải Step 1. Off = idea (mặc định), On = seo. KHÔNG còn 2-tab `EntryModeSwitcher`.
 
 ## Persist (`useEntryMode`)
 - Lưu mode trong localStorage `mc:entry_mode` để nhớ lựa chọn user qua các session.
