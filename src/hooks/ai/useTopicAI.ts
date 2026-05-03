@@ -918,7 +918,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       // Clear loading flag if we set it (user-triggered refresh path)
       if (forceRefresh) setSuggestLoading(false);
     }
-  }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
+  }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id, clusterId, targetKeywords]);
 
   // Auto-fetch suggestions with STALE-WHILE-REVALIDATE strategy
   // Keep old suggestions visible while fetching new ones
