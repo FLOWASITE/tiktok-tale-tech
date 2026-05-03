@@ -102,6 +102,7 @@ export default function KeywordResearchLabTab() {
     setProgressMsg("Đang khởi động...");
     setPreviewKeywords([]);
     setSerpInfo(null);
+    setExpandedSeeds([]);
     setActiveJobId(null);
 
     abortRef.current?.abort();
