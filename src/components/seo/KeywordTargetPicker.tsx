@@ -265,14 +265,6 @@ function ClusterScopedPicker({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm truncate">{k.keyword}</span>
-                    {k.is_pillar && (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] h-4 px-1 border-primary/40 text-primary bg-primary/5"
-                      >
-                        PILLAR
-                      </Badge>
-                    )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {intent && (
