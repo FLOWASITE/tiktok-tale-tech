@@ -5576,6 +5576,42 @@ export type Database = {
         }
         Relationships: []
       }
+      firecrawl_serp_cache: {
+        Row: {
+          country: string
+          created_at: string
+          expires_at: string
+          hit_count: number
+          id: string
+          keyword_normalized: string
+          lang: string
+          results: Json
+          updated_at: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          keyword_normalized: string
+          lang?: string
+          results?: Json
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          keyword_normalized?: string
+          lang?: string
+          results?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       generation_signals: {
         Row: {
           accepted: boolean | null
@@ -12423,6 +12459,10 @@ export type Database = {
         Returns: boolean
       }
       increment_cache_hit: { Args: { p_cache_key: string }; Returns: undefined }
+      increment_firecrawl_cache_hit: {
+        Args: { _country: string; _kw: string; _lang: string }
+        Returns: undefined
+      }
       increment_industry_version: {
         Args: { current_version: string }
         Returns: string

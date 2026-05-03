@@ -57,26 +57,93 @@ function topDomains(results: SerpResult[], n = 3): string[] {
   return out;
 }
 
-async function firecrawlSearch(query: string): Promise<SerpResult[]> {
-  if (!FIRECRAWL_API_KEY) return [];
+function normalizeKeyword(s: string): string {
+  return (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+async function getCachedSerp(
+  supabase: any,
+  keyword: string,
+  lang: string,
+  country: string,
+): Promise<SerpResult[] | null> {
+  const norm = normalizeKeyword(keyword);
+  const { data, error } = await supabase
+    .from("firecrawl_serp_cache")
+    .select("results, expires_at")
+    .eq("keyword_normalized", norm)
+    .eq("lang", lang)
+    .eq("country", country)
+    .maybeSingle();
+  if (error || !data) return null;
+  if (new Date(data.expires_at).getTime() <= Date.now()) return null;
+  // bump hit_count (best-effort, fire-and-forget)
+  supabase.rpc("increment_firecrawl_cache_hit", {
+    _kw: norm, _lang: lang, _country: country,
+  }).then(() => {}).catch(() => {});
+  return Array.isArray(data.results) ? (data.results as SerpResult[]) : null;
+}
+
+async function setCachedSerp(
+  supabase: any,
+  keyword: string,
+  lang: string,
+  country: string,
+  results: SerpResult[],
+  ttlDays = 7,
+): Promise<void> {
+  const norm = normalizeKeyword(keyword);
+  const expires = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from("firecrawl_serp_cache")
+    .upsert(
+      {
+        keyword_normalized: norm,
+        lang,
+        country,
+        results,
+        updated_at: new Date().toISOString(),
+        expires_at: expires,
+      },
+      { onConflict: "keyword_normalized,lang,country" },
+    );
+  if (error) console.error("[cache] upsert error", error.message);
+}
+
+async function firecrawlSearch(
+  supabase: any,
+  query: string,
+  lang = "vi",
+  country = "VN",
+): Promise<{ results: SerpResult[]; cached: boolean }> {
+  // 1) cache lookup
+  const cached = await getCachedSerp(supabase, query, lang, country);
+  if (cached) {
+    console.log(`[cache HIT] ${query} (${lang}/${country})`);
+    return { results: cached, cached: true };
+  }
+  if (!FIRECRAWL_API_KEY) return { results: [], cached: false };
   try {
     const res = await fetch("https://api.firecrawl.dev/v2/search", {
       method: "POST",
       headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ query, limit: 10, lang: "vi", country: "VN" }),
+      body: JSON.stringify({ query, limit: 10, lang, country }),
     });
     if (!res.ok) {
       console.error("[firecrawl]", res.status, await res.text().catch(() => ""));
-      return [];
+      return { results: [], cached: false };
     }
     const data = await res.json();
     const items = data?.data?.web || data?.web || data?.data || [];
-    return (Array.isArray(items) ? items : []).map((x: any) => ({
+    const results: SerpResult[] = (Array.isArray(items) ? items : []).map((x: any) => ({
       url: x.url, title: x.title, description: x.description || x.snippet,
     })).filter((x: SerpResult) => !!x.url);
+    // 2) write-through cache (only if non-empty)
+    if (results.length > 0) await setCachedSerp(supabase, query, lang, country, results);
+    return { results, cached: false };
   } catch (e) {
     console.error("[firecrawl] exception", e);
-    return [];
+    return { results: [], cached: false };
   }
 }
 
@@ -120,8 +187,10 @@ async function classifyIntent(keyword: string, results: SerpResult[]): Promise<s
   }
 }
 
-async function enrichOne(supabase: any, kw: { id: string; keyword: string }) {
-  const results = await firecrawlSearch(kw.keyword);
+async function enrichOne(supabase: any, kw: { id: string; keyword: string; lang?: string; country?: string }) {
+  const lang = kw.lang || "vi";
+  const country = kw.country || "VN";
+  const { results } = await firecrawlSearch(supabase, kw.keyword, lang, country);
   const serp_features = detectSerpFeatures(results);
   const difficulty = computeKD(results);
   const top_competitors = topDomains(results);
