@@ -133,20 +133,39 @@ ${OUTPUT_SCHEMA}`;
       });
     }
 
+    // Resolve admin override for model + temperature
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    let modelToUse = "google/gemini-2.5-flash";
+    let tempOverride: number | null = null;
+    try {
+      const { data: cfg } = await supabaseAdmin
+        .from("ai_function_configs")
+        .select("model_override, temperature")
+        .eq("function_name", "generate-seo-landing")
+        .eq("is_enabled", true)
+        .is("organization_id", null)
+        .limit(1);
+      if (cfg?.[0]?.model_override) modelToUse = cfg[0].model_override;
+      if (cfg?.[0]?.temperature != null) tempOverride = cfg[0].temperature;
+    } catch (e) { console.warn("[generate-seo-landing] resolve cfg failed", e); }
+
+    const aiPayload: any = {
+      model: modelToUse,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    };
+    if (tempOverride !== null) aiPayload.temperature = tempOverride;
+
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${aiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
-      }),
+      body: JSON.stringify(aiPayload),
     });
 
     if (!aiRes.ok) {

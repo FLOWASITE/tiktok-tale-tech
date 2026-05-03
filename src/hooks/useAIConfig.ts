@@ -129,6 +129,15 @@ export const AI_FUNCTIONS = [
   // Utility - Data Operations
   { name: 'migrate-to-knowledge-graph', description: 'Migrate dữ liệu sang knowledge graph', category: 'utility', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash', tags: ['knowledge-graph'] as AIFunctionTag[] },
   { name: 'apply-regulation-propagation', description: 'Áp dụng propagation quy định', category: 'utility', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite', tags: ['knowledge-graph', 'regulation'] as AIFunctionTag[] },
+
+  // SEO - Keyword research, clustering, ranking, landing pages
+  { name: 'keyword-research-v2', description: 'AI Research Lab v2 (multi-seed + SERP grounding + streaming)', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-pro' },
+  { name: 'keyword-research', description: 'Keyword research (legacy)', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-pro' },
+  { name: 'keyword-research-save', description: 'Save selected keywords + auto-enrich top 10', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'enrich-keyword-serp', description: 'Enrich keyword với SERP + KD chính xác', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'suggest-cluster-topics', description: 'Gợi ý topic cho SEO cluster', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'generate-seo-landing', description: 'Tạo SEO landing page', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'seo-rank-tracker', description: 'Theo dõi thứ hạng SEO', category: 'seo', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
 ] as const;
 
 // Models by function type for filtering

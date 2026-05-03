@@ -1,120 +1,48 @@
-# AI Research Lab v2 — Refactor toàn diện
+## Vấn đề
+Các edge function liên quan đến SEO (keyword research, enrichment, clustering, landing, rank tracker) **chưa xuất hiện** trong Admin → AI Management → Functions, nên admin không thể đổi model / cache TTL / temperature như các function khác. Hiện chúng hard-code model trực tiếp trong code (`gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`).
 
-## Mục tiêu
-Biến tab Research từ "AI đoán mò keyword → auto-save" thành workflow grounded:
-**Input đa nguồn → SERP grounding → Stream preview → User chọn → Save → Auto-enrich → Gap/Intent matrix.**
+GEO functions đã có sẵn trong category `analysis`; SEO thì thiếu hoàn toàn.
 
-## Kiến trúc tổng thể
+## Phạm vi
 
-```text
-[Multi-seed + Competitor URLs + Preset]
-          │
-          ▼
-  keyword-research-v2 (SSE)
-   ├─ 1. Firecrawl scrape competitor URLs (nếu có)
-   ├─ 2. Firecrawl /search top 10 SERP cho mỗi seed (grounding)
-   ├─ 3. Gemini stream keyword (tool-call từng batch 5)
-   │     → SSE event "keyword" cho FE render live
-   ├─ 4. Gap detection: so với seo_keywords hiện có
-   └─ 5. SSE event "done" với jobId
-          │
-          ▼
-  Live Preview Table (FE)
-   ├─ Tick chọn keyword muốn giữ
-   ├─ Filter Intent × Funnel matrix
-   └─ Save button → upsert + cluster
-          │
-          ▼
-  Auto-trigger enrich-keyword-serp cho top N (priority cao)
-```
+### 1. Thêm category mới `seo`
+- Migration insert vào `ai_function_categories` (system-level, `organization_id IS NULL`):
+  - slug `seo`, label `SEO`, icon `search`, sort_order `7` (đẩy `research`/`utility`/`video`/`audio` xuống 1 nấc — hoặc dùng `7.5` bằng cách set `sort_order=7` cho seo, các slug khác giữ nguyên thì seo nằm cạnh research, chấp nhận tie).
 
-## Backend changes
+### 2. Đăng ký 7 function vào `AI_FUNCTIONS` (`src/hooks/useAIConfig.ts`)
+| Function | Type | Default model |
+|---|---|---|
+| `keyword-research-v2` | text | google/gemini-2.5-pro |
+| `keyword-research` | text | google/gemini-2.5-pro |
+| `keyword-research-save` | text | google/gemini-2.5-flash-lite |
+| `enrich-keyword-serp` | text | google/gemini-2.5-flash-lite |
+| `suggest-cluster-topics` | text | google/gemini-2.5-flash |
+| `generate-seo-landing` | text | google/gemini-2.5-flash |
+| `seo-rank-tracker` | text | google/gemini-2.5-flash-lite |
 
-### 1. Edge function mới: `keyword-research-v2`
-- `verify_jwt = false`, JWT validate trong code (theo project pattern)
-- Input: `{ seeds: string[], competitorUrls?: string[], preset?: string, organizationId, locale, limit }`
-- Steps:
-  1. **Competitor scrape** (nếu có URL): Firecrawl `/v2/scrape` format `markdown`, extract H1/H2/keywords từ content → đưa vào context.
-  2. **SERP grounding** cho từng seed: Firecrawl `/v2/search` lấy 10 results (title+description), inject vào prompt → AI estimate dựa data thật.
-  3. **Stream generation**: gọi Lovable AI `stream:true` với tool-call `submit_keyword_batch` (5 keyword/batch). Parse SSE từ gateway, mỗi batch hoàn chỉnh emit SSE event `keyword_batch` về FE.
-  4. **Gap detection**: query `seo_keywords` existing trong org → mark `is_gap: true` cho keyword chưa có.
-  5. **Không auto-insert**. Trả về `previewToken` + lưu kết quả tạm vào `keyword_research_jobs.result.preview` để user chọn.
+Tất cả category `'seo'`. Bổ sung tương ứng vào `DEFAULT_CONFIGS` trong `supabase/functions/_shared/ai-config.ts` (model + temperature + cacheTtlHours).
 
-### 2. Edge function mới: `keyword-research-save`
-- Input: `{ jobId, selectedKeywords: string[] }` (mảng keyword đã tick)
-- Logic: filter preview theo selected → upsert vào `seo_keywords` + tạo cluster (giữ logic cũ từ v1).
-- Trả về `{ inserted, autoEnrichJobId }`.
-- **Auto-enrich**: nếu top N (10) keyword priority cao chưa có SERP data → fire-and-forget gọi `enrich-keyword-serp` cho từng keyword, gom thành 1 enrichment job.
+### 3. Refactor edge functions để đọc override từ DB
+Thay vì hard-code `model: "google/gemini-2.5-..."`, gọi `getAIConfig(functionName, organizationId)` và dùng `config.model` + `config.temperature` + `config.maxTokens` khi build payload tới Lovable Gateway.
 
-### 3. Preset templates (server-side prompt fragments)
-Lưu trong code, không cần DB:
-- `long_tail_questions` — focus 4+ words + question modifiers
-- `commercial_intent` — "giá", "mua", "đăng ký", "tốt nhất"
-- `local_seo_vn` — thêm city/quận VN
-- `competitor_gaps` — đòi hỏi competitorUrls, focus keyword đối thủ rank nhưng mình không có
+Áp dụng cho:
+- `supabase/functions/keyword-research-v2/index.ts` (cả Pro chính + fallback Flash giữ nguyên — chỉ override model chính)
+- `supabase/functions/keyword-research/index.ts`
+- `supabase/functions/enrich-keyword-serp/index.ts`
+- `supabase/functions/suggest-cluster-topics/index.ts`
+- `supabase/functions/generate-seo-landing/index.ts`
+- `supabase/functions/seo-rank-tracker/index.ts` (kiểm tra & wire nếu có gọi LLM)
+- `supabase/functions/keyword-research-save/index.ts` (chỉ wire nếu có LLM call; nếu chỉ DB upsert thì skip — vẫn đăng ký metadata cho admin biết)
 
-### 4. Migration
-- `keyword_research_jobs`: thêm cột `preview JSONB` (lưu suggestions trước khi user chọn) + `serp_grounding JSONB` (raw Firecrawl) + `selected_count INT`.
-- Index `(organization_id, created_at DESC)`.
+Pattern dùng lại từ `web-search-fallback.ts` đã có sẵn trong codebase.
 
-## Frontend changes
+### 4. Memory
+Update `mem://features/seo/research-lab-v2-vn.md` ghi chú: model giờ ưu tiên admin override → default → hardcoded fallback.
 
-### 1. `KeywordResearchLabTab.tsx` — refactor (giữ structure UI hiện tại)
-Layout giữ nguyên 2 card (Input + History), nhưng nâng:
+## Không thay đổi
+- Không tạo lại GEO functions (đã đăng ký).
+- Không động vào `topic-ai`, `chat-topics` (đã có sẵn).
+- Không thay đổi UI Admin AI page — function mới sẽ tự xuất hiện trong category SEO mới (collapsed by default).
 
-**Card Input:**
-- Textarea multi-seed (1 dòng = 1 seed, max 5)
-- Optional: textarea "Competitor URLs" (1 URL/dòng, max 3)
-- Preset chips: 4 preset (click → highlight, gửi flag lên backend)
-- Limit slider 5-100
-- Toggle "Live preview" (default ON) — nếu OFF thì auto-save như v1
-
-**Khi Run:**
-- Gọi v2 endpoint qua `fetch` SSE (giống pattern carousel streaming)
-- Hiển thị progress bar + counter "Đã sinh: 23/30"
-- Stream từng keyword vào table preview ngay khi nhận
-
-### 2. Component mới: `KeywordPreviewTable.tsx`
-- Hiện trong Card thứ 3 (chỉ khi đang stream hoặc có preview)
-- Cột: ☑ | Keyword | Volume | KD | Intent badge | Funnel badge | Cluster | Gap (badge xanh "Mới")
-- Filter: Intent multi-select + Funnel multi-select + "Chỉ hiện gap"
-- Bulk: "Chọn tất", "Bỏ chọn", "Chọn gap only"
-- CTA: "Lưu N keyword đã chọn" → gọi `keyword-research-save`
-
-### 3. Component mới: `IntentFunnelMatrix.tsx`
-- Hiện sau khi save xong hoặc trên History job
-- 3×4 grid: rows = TOFU/MOFU/BOFU, cols = informational/commercial/transactional/navigational
-- Mỗi ô: count + click drill-down
-
-### 4. Card History (giữ + nâng):
-- Thêm badge "preview pending" cho job có preview chưa save
-- Click job → mở lại preview table (resume flow)
-
-## Streaming pattern (theo Carousel Prompt Streaming memory)
-- Server: `Deno.serve` trả `text/event-stream`, watchdog 30s/150s
-- Events: `progress` (10-90%), `keyword_batch` (mảng 5), `gap_summary`, `done`, `error`
-- Client: line-by-line parser, AbortController để cancel
-
-## Resilience
-- Firecrawl fail → fallback skip grounding (log warning), vẫn chạy AI
-- Lovable AI 429/402 → surface lỗi qua SSE `error` event
-- Gemini không trả tool-call → retry 1 lần với gemini-2.5-flash
-
-## Files
-
-**Tạo mới:**
-- `supabase/functions/keyword-research-v2/index.ts`
-- `supabase/functions/keyword-research-save/index.ts`
-- `supabase/migrations/<ts>_keyword_research_v2.sql`
-- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx`
-- `src/components/admin/seo-keywords/IntentFunnelMatrix.tsx`
-- `.lovable/memory/features/seo/research-lab-v2-vn.md`
-
-**Sửa:**
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (refactor input + tích hợp stream + preview)
-- `supabase/config.toml` (thêm 2 function với `verify_jwt = false`)
-- `mem://index.md` (link memory mới)
-
-**Giữ nguyên:**
-- `keyword-research` v1 (backward compat, ẩn dần)
-- `enrich-keyword-serp` (gọi từ save flow)
+## Kết quả
+Admin vào `/admin/ai → Functions` sẽ thấy section **SEO** với 7 function, đổi được model/temperature/cache như các category khác. Edge function tự nhận override qua `getAIConfig()`.

@@ -139,19 +139,37 @@ const TOOL_SCHEMA = {
   },
 };
 
-async function callAI(seeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number): Promise<KeywordSuggestion[]> {
+async function resolveAdminModel(supabase: any, organizationId: string): Promise<{ model: string; temperature: number | null }> {
+  try {
+    let q = supabase.from("ai_function_configs")
+      .select("model_override, temperature")
+      .eq("function_name", "keyword-research-v2")
+      .eq("is_enabled", true);
+    q = q.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    const { data } = await q.order("organization_id", { nullsFirst: false }).limit(1);
+    const row = data?.[0];
+    return { model: row?.model_override || "google/gemini-2.5-pro", temperature: row?.temperature ?? null };
+  } catch {
+    return { model: "google/gemini-2.5-pro", temperature: null };
+  }
+}
+
+async function callAI(supabase: any, organizationId: string, seeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number): Promise<KeywordSuggestion[]> {
   const sys = buildSystemPrompt(preset, limit);
   const user = buildUserPrompt(seeds, serpGround, competitorContext, locale);
+  const adminCfg = await resolveAdminModel(supabase, organizationId);
 
   const tryModel = async (model: string) => {
+    const payload: any = {
+      model,
+      messages: [{ role: "system", content: sys }, { role: "user", content: user }],
+      tools: [TOOL_SCHEMA],
+    };
+    if (adminCfg.temperature !== null) payload.temperature = adminCfg.temperature;
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-        tools: [TOOL_SCHEMA],
-      }),
+      body: JSON.stringify(payload),
     });
     if (!resp.ok) {
       const t = await resp.text();
@@ -172,10 +190,10 @@ async function callAI(seeds: string[], serpGround: Record<string, any[]>, compet
   };
 
   try {
-    return await tryModel("google/gemini-2.5-pro");
+    return await tryModel(adminCfg.model);
   } catch (e: any) {
     if (e.status === 429 || e.status === 402) throw e;
-    console.warn("[keyword-research-v2] Pro failed, fallback flash:", e.message);
+    console.warn("[keyword-research-v2] Primary model failed, fallback flash:", e.message);
     return await tryModel("google/gemini-2.5-flash");
   }
 }
@@ -244,7 +262,7 @@ Deno.serve(async (req) => {
 
           // 3. AI generate
           send("progress", { pct: 50, message: `AI sinh ${limit} keyword...` });
-          const suggestions = await callAI(seeds, serpGround, competitorContext, preset, locale, limit);
+          const suggestions = await callAI(supabase, organizationId, seeds, serpGround, competitorContext, preset, locale, limit);
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
           // 4. Gap detection

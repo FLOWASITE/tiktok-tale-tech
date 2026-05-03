@@ -232,6 +232,63 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'low',
   },
+  // ============ SEO functions ============
+  'keyword-research-v2': {
+    model: 'google/gemini-2.5-pro',
+    temperature: 0.4,
+    max_tokens: 8000,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'keyword-research': {
+    model: 'google/gemini-2.5-pro',
+    temperature: 0.4,
+    max_tokens: 8000,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'keyword-research-save': {
+    model: 'google/gemini-2.5-flash-lite',
+    temperature: 0.2,
+    max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'low',
+  },
+  'enrich-keyword-serp': {
+    model: 'google/gemini-2.5-flash-lite',
+    temperature: 0.3,
+    max_tokens: 2048,
+    cache_ttl_seconds: 86400,
+    is_enabled: true,
+    priority_level: 'low',
+  },
+  'suggest-cluster-topics': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.7,
+    max_tokens: 4096,
+    cache_ttl_seconds: 3600,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'generate-seo-landing': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.6,
+    max_tokens: 8000,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  'seo-rank-tracker': {
+    model: 'google/gemini-2.5-flash-lite',
+    temperature: 0.2,
+    max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'low',
+  },
 };
 
 /**
@@ -246,6 +303,10 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
     'reviewer-agent', 'learning-agent', 'decompose-image-request', 'suggest-usp',
     'telegram-intent',
+    // SEO group
+    'keyword-research-v2', 'keyword-research', 'keyword-research-save',
+    'enrich-keyword-serp', 'suggest-cluster-topics', 'generate-seo-landing',
+    'seo-rank-tracker',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
