@@ -148,6 +148,8 @@ export default function KeywordResearchLabTab() {
               if (data.jobId) setActiveJobId(data.jobId);
             } else if (currentEvent === "serp") {
               setSerpInfo(data);
+            } else if (currentEvent === "expanded_seeds") {
+              setExpandedSeeds(Array.isArray(data.seeds) ? data.seeds : []);
             } else if (currentEvent === "keyword_batch") {
               setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
             } else if (currentEvent === "done") {
