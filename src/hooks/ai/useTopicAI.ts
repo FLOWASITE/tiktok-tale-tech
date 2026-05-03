@@ -954,7 +954,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);
+  }, [contentGoal, brandTemplateId, format, enabled, clusterId, targetKeywords, fetchSuggestions]);
 
   const refreshSuggestions = useCallback((categoryHint?: string) => {
     suggestPrevParamsRef.current = '';
