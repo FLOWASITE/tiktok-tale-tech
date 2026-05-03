@@ -1,69 +1,33 @@
-## Vấn đề UI hiện tại
+Mình đã kiểm tra nhanh và thấy đúng lỗi:
 
-Sau khi chọn pillar, KeywordTargetPicker:
-1. **Popover search trộn toàn bộ keyword org** — không scope theo cluster, user phải gõ tay tìm keyword pillar
-2. **Hai bước remove → add** mới đổi được keyword (vì 5/5 disabled nút Thêm)
-3. **Chip chỉ hiển thị volume** — thiếu intent/KD để user judge nhanh nên giữ keyword nào
-4. **Không có quick action** — không reset, không "chọn top 5", không thấy còn keyword nào trong cluster chưa được dùng
+- Request đầu tiên lên `topic-ai` chỉ có `clusterId`, chưa có `targetKeywords` vì frontend gọi gợi ý trước khi hook resolve keyword text xong.
+- Request sau đó có `targetKeywords`, ví dụ `ai viết content tiktok`, `ai viết caption facebook`, nhưng response vẫn trả cache cũ không bám keyword.
+- Nguyên nhân backend: cache key đang dùng `hashContextData({ c, kw })`, nhưng hàm này chỉ hash cấu trúc brand context, không hash field `c/kw`, nên nhiều bộ keyword khác nhau có thể trùng cache và trả lại gợi ý cũ.
 
-## UX Mục tiêu
+Kế hoạch fix:
 
-Thay cách "popover search" bằng **inline checklist scope-cluster** với 1-click toggle:
-- User thấy NGAY top 8-10 keyword của pillar đang chọn (xếp theo priority_score)
-- Click checkbox = toggle on/off, KHÔNG cần remove trước
-- Mỗi row có chip Vol / KD / Intent để judge nhanh
-- Counter "5/5 đã chọn" + warning soft khi vượt
-- Nút "Top 5" và "Bỏ chọn" reset nhanh
-- Search-in-cluster (optional input) nếu cluster có >10 keyword
+1. Sửa frontend SEO-mode để không fetch topic suggestion quá sớm
+   - Trong `MultiChannelFormWizard.tsx`, lấy thêm trạng thái loading từ `useKeywordsByIds`.
+   - Khi `entryMode === 'seo'` và đã chọn keyword ID nhưng keyword text chưa resolve xong, tạm disable `useEnhancedTopicSuggestions`.
+   - Chỉ gọi `topic-ai` khi đã có `targetKeywordsText`, tránh request đầu tiên chỉ có pillar.
 
-## Implementation
+2. Tăng độ rõ UI để người dùng biết gợi ý đang bám keyword nào
+   - Truyền context SEO xuống `TopicIdeaHub` / `TopicSuggestionPanel` hoặc hiển thị ngay trên khối “Ý tưởng chủ đề”.
+   - Thêm dòng nhỏ dạng: `Đang gợi ý theo 3 keyword: ai viết content tiktok, ai viết caption facebook, ...`.
+   - Khi keyword đổi, show loading/refresh rõ ràng để không nhìn nhầm cache cũ.
 
-### 1. Refactor `KeywordTargetPicker.tsx` → thêm prop `clusterId`
-```ts
-interface Props {
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
-  max?: number;
-  clusterId?: string | null;   // NEW: scope keywords to cluster
-}
-```
+3. Sửa backend cache key của `topic-ai`
+   - Trong `supabase/functions/topic-ai/index.ts`, thay phần hash SEO bằng một hash local ổn định dựa trên chính `clusterId + sorted targetKeywords`.
+   - Không sửa `_shared/topic-utils.ts` để tránh ảnh hưởng rộng các function khác.
+   - Bump cache version từ `topic-suggestions-v15-seo` sang version mới để bỏ cache sai hiện tại.
 
-Khi có `clusterId`:
-- Query top 50 keyword của cluster đó (sort priority_score desc)
-- Render **inline checklist** thay vì popover. Layout:
-  ```
-  ┌─────────────────────────────────────────┐
-  │ Keyword mục tiêu        [Top 5] [Bỏ]    │
-  │ 5/5 đã chọn  ·  3 keyword chưa dùng     │
-  ├─────────────────────────────────────────┤
-  │ ☑ chăm sóc da mặt   [Info] Vol 12K KD 45│
-  │ ☑ skincare routine  [Info] Vol 8K  KD 32│
-  │ ☐ kem dưỡng ẩm      [Comm] Vol 5K  KD 28│
-  │ ☐ serum vitamin C   [Trans]Vol 3K  KD 51│
-  │ ... (max 8 visible, "Xem thêm 12" link) │
-  └─────────────────────────────────────────┘
-  ```
-- Khi user check vượt `max=5` → hiện toast "Đã đạt giới hạn 5 keyword" thay vì silent disable. Cho phép check tới 7 nhưng đánh dấu ngoài-target (xám hơn) — KHÔNG, scope nhỏ thôi: hard cap 5 kèm shake animation feedback.
-- Search input trên cùng nếu `keywords.length > 10`
+4. Chặn kết quả cache không khớp keyword
+   - Với request có `targetKeywords`, backend sẽ dùng cache key mới riêng theo keyword.
+   - Prompt hiện đã có rule bắt buộc bám keyword; sau khi cache đúng, AI sẽ nhận đúng context.
+   - Có thể thêm log rõ hơn: `targetKeywords=[...] seoHash=... source=cache|ai` để debug sau này.
 
-Khi KHÔNG có `clusterId`:
-- Giữ nguyên popover hiện tại (legacy fallback cho idea-mode-không-cluster)
-
-### 2. Cập nhật `PillarKeywordSection.tsx`
-Truyền `clusterId={clusterId}` xuống KeywordTargetPicker.
-
-### 3. Bỏ helper text "Mặc định gắn 5 keyword..." — thay bằng counter inline (đã có trong layout mới)
-
-### 4. Quick actions
-- **"Top 5"**: `onChange(top5IdsByPriority)` 
-- **"Bỏ chọn"**: `onChange([])` (kèm confirm nếu user đã thay đổi)
-- Pillar keyword (is_pillar=true) luôn pin lên đầu list + có badge "PILLAR"
-
-### 5. Empty state
-Nếu cluster không có keyword nào: show CTA "Thêm keyword vào nhóm này →" link tới `/seo?tab=plan&clusterId=X`
-
-## Không thay đổi
-
-- Backend đã có fallback top-5 (vừa fix tuần trước), giữ nguyên làm safety net
-- `selectedKeywordIds` state shape không đổi — chỉ improve cách user interact
-- Pop-up search org-wide vẫn dùng được khi `clusterId=null` (idea mode)
+5. Kiểm tra lại luồng
+   - Chọn Pillar → auto Top keyword → “Ý tưởng chủ đề” chỉ tải sau khi keyword text sẵn sàng.
+   - Đổi/bỏ keyword → request mới có `targetKeywords` tương ứng.
+   - Response không còn lấy cache của pillar-only.
+   - Tooltip/card gợi ý hiển thị `relatedKeywords` bám keyword đã chọn.
