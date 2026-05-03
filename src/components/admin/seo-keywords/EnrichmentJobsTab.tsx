@@ -244,45 +244,41 @@ interface KeywordDetail {
 
 function JobDetail({ job, onRetry, retryDisabled }: { job: Job; onRetry: (ids: string[]) => void; retryDisabled: boolean }) {
   const errorMap = useMemo(() => new Map(job.errors.map(e => [e.id, e.error])), [job.errors]);
+  const failedIds = useMemo(() => job.errors.map(e => e.id), [job.errors]);
 
-  // Reconstruct keyword IDs: succeed = (done up to total) — but we don't store ids per job.
-  // Strategy: fetch keywords updated around job window OR fetch failed IDs explicitly.
-  // For now: load failed details + show "successful keywords aren't tracked per-job" hint.
-  const failedIds = job.errors.map(e => e.id);
+  // Use exact keyword_ids stored on the job. Fallback (jobs cũ chưa có cột) → fetch theo failedIds.
+  const allIds = job.keyword_ids.length > 0 ? job.keyword_ids : failedIds;
 
-  const { data: failedKws = [] } = useQuery({
-    queryKey: ["enrich-job-failed-kws", job.id],
-    enabled: failedIds.length > 0,
+  const { data: kws = [], isLoading } = useQuery({
+    queryKey: ["enrich-job-kws", job.id, allIds.length],
+    enabled: allIds.length > 0,
     queryFn: async () => {
       const { data } = await supabase
         .from("seo_keywords")
         .select("id,keyword,difficulty,intent,serp_features,top_competitors")
-        .in("id", failedIds);
+        .in("id", allIds);
       return (data || []) as KeywordDetail[];
     },
   });
 
-  // Successful keywords = updated near completed_at (best-effort heuristic)
-  const { data: successKws = [] } = useQuery({
-    queryKey: ["enrich-job-success-kws", job.id, job.completed_at],
-    enabled: !!job.completed_at && job.done > 0,
-    queryFn: async () => {
-      const start = new Date(job.created_at).toISOString();
-      const end = new Date(new Date(job.completed_at!).getTime() + 60_000).toISOString();
-      const { data } = await supabase
-        .from("seo_keywords")
-        .select("id,keyword,difficulty,intent,serp_features,top_competitors,updated_at")
-        .gte("updated_at", start)
-        .lte("updated_at", end)
-        .not("difficulty", "is", null)
-        .order("updated_at", { ascending: false })
-        .limit(job.total + 10);
-      return ((data || []) as (KeywordDetail & { updated_at: string })[]).filter(k => !errorMap.has(k.id));
-    },
-  });
+  const failedKws = useMemo(() => kws.filter(k => errorMap.has(k.id)), [kws, errorMap]);
+  const successKws = useMemo(() => kws.filter(k => !errorMap.has(k.id)), [kws, errorMap]);
+  const isLegacy = job.keyword_ids.length === 0 && job.done > 0;
 
   return (
     <div className="bg-muted/20 px-3 py-3 space-y-3 border-t">
+      {isLegacy && (
+        <p className="text-[11px] text-muted-foreground italic">
+          Job cũ — chỉ liệt kê keyword lỗi (danh sách thành công không lưu).
+        </p>
+      )}
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> Đang tải chi tiết...
+        </div>
+      )}
+
       {failedKws.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
