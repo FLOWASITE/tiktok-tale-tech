@@ -389,17 +389,43 @@ export function TopicSuggestionPanel({
           </CollapsibleTrigger>
 
           <div className="flex items-center gap-1.5 xs:gap-2">
-            {/* Topic History Button */}
+            {/* Refresh Button — primary action */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => onRefresh()}
+                  disabled={isLoading || disabled}
+                  className="h-6 xs:h-7 text-[10px] xs:text-[11px] px-2 xs:px-3 gap-1 xs:gap-1.5 rounded-full shadow-sm"
+                >
+                  <RefreshCw className={cn(
+                    "w-3 h-3 xs:w-3.5 xs:h-3.5",
+                    isLoading && "animate-spin"
+                  )} />
+                  <span className="hidden xs:inline">{isLoading ? 'Đang tạo...' : 'Làm mới'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                <p>Tạo lại gợi ý chủ đề mới</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Nguồn: {currentSource.label}</p>
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Topic History Button — secondary */}
             <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-5 xs:h-6 text-[10px] xs:text-[11px] px-2 xs:px-2.5 gap-1 rounded-full bg-primary/10 border-primary/30 text-primary hover:bg-primary/20 hover:border-primary/50 transition-all"
+                  className="h-6 xs:h-7 text-[10px] xs:text-[11px] px-2 xs:px-2.5 gap-1 rounded-full transition-all"
                 >
                   <FolderOpen className="w-2.5 h-2.5 xs:w-3 xs:h-3" />
-                  Kho chủ đề {allCount > 0 && `(${allCount})`}
+                  <span className="hidden xs:inline">Kho chủ đề</span>
+                  <span className="xs:hidden">Kho</span>
+                  {allCount > 0 && ` (${allCount})`}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-[40rem] p-0">
@@ -947,32 +973,16 @@ export function TopicSuggestionPanel({
               </PopoverContent>
             </Popover>
 
-            {/* Source Badge */}
-            <Badge 
-              variant="outline" 
+            {/* Source Badge — small, subtle, hidden on mobile */}
+            <Badge
+              variant="outline"
               className={cn(
-                "text-[9px] xs:text-[10px] px-1.5 xs:px-2 py-0 h-4 xs:h-5 gap-0.5 xs:gap-1 border",
-                currentSource.className
+                "hidden xs:inline-flex text-[9px] xs:text-[10px] px-1.5 py-0 h-4 xs:h-5 gap-0.5 xs:gap-1 border-border/60 text-muted-foreground bg-transparent",
               )}
             >
               <SourceIcon className="w-2 h-2 xs:w-2.5 xs:h-2.5" />
               {currentSource.label}
             </Badge>
-
-            {/* Refresh Button */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRefresh()}
-              disabled={isLoading || disabled}
-              className="h-5 xs:h-6 w-5 xs:w-6 p-0"
-            >
-              <RefreshCw className={cn(
-                "w-2.5 h-2.5 xs:w-3 xs:h-3",
-                isLoading && "animate-spin"
-              )} />
-            </Button>
           </div>
         </div>
 
