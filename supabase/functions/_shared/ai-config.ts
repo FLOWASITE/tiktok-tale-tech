@@ -303,6 +303,10 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
     'reviewer-agent', 'learning-agent', 'decompose-image-request', 'suggest-usp',
     'telegram-intent',
+    // SEO group
+    'keyword-research-v2', 'keyword-research', 'keyword-research-save',
+    'enrich-keyword-serp', 'suggest-cluster-topics', 'generate-seo-landing',
+    'seo-rank-tracker',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
