@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganization } from '@/hooks/useOrganization';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Target, Sparkles, ArrowRight } from 'lucide-react';
+import { Target, Sparkles, ArrowRight, AlertTriangle } from 'lucide-react';
 import ClusterPicker from '@/components/seo/ClusterPicker';
 import KeywordTargetPicker from '@/components/seo/KeywordTargetPicker';
 
