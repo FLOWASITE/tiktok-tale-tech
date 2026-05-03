@@ -1362,11 +1362,44 @@ export function MultiChannelFormWizard({
                 )}
               </div>
 
+              {/* SEO context strip — show user which keywords AI is biasing on */}
+              {seoMode && (formData.clusterId || hasSelectedKeywordIds) && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 flex items-start gap-2 flex-wrap">
+                  <Target className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-[11px] text-foreground/80">
+                      {targetKeywordsText.length > 0 ? (
+                        <>
+                          Đang gợi ý chủ đề bám <strong>{targetKeywordsText.length} keyword</strong> đã chọn:
+                        </>
+                      ) : !seoKeywordsReady ? (
+                        <>Đang tải keyword target...</>
+                      ) : (
+                        <>Chưa chọn keyword target — gợi ý chỉ bám Pillar.</>
+                      )}
+                    </p>
+                    {targetKeywordsText.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {targetKeywordsText.map((kw, i) => (
+                          <Badge
+                            key={`${kw}-${i}`}
+                            variant="secondary"
+                            className="text-[10px] h-5 px-1.5 bg-background border border-primary/30 text-foreground"
+                          >
+                            {kw}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
               <TopicIdeaHub
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
-                isLoading={isSuggestionsEnhancing || isSuggestionsLoading}
+                isLoading={isSuggestionsEnhancing || isSuggestionsLoading || (seoMode && hasSelectedKeywordIds && !seoKeywordsReady)}
                 onSelect={(topic, historyId, fullSuggestion) => {
                   setTopicFromQuickAction(false);
                   setFormData(prev => ({ ...prev, topic }));
