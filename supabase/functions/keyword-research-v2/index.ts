@@ -34,7 +34,11 @@ interface KeywordSuggestion {
   rationale?: string;
   source_seed?: string;
   pillar_match?: string | null;
+  audience_match?: "core" | "adjacent" | "off-target";
+  brand_fit_score?: number;
+  brand_fit_reason?: string;
   is_gap?: boolean;
+  final_score?: number;
 }
 
 // Simple in-memory TTL cache for Firecrawl (24h search, 6h scrape)
