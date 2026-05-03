@@ -13,12 +13,19 @@ async function googleAutocomplete(seed: string, hl = "vi", gl = "vn"): Promise<s
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 5000);
     const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(seed)}&hl=${hl}&gl=${gl}`;
-    const res = await fetch(url, { signal: ctrl.signal });
+    const res = await fetch(url, { signal: ctrl.signal, headers: { "Accept-Charset": "utf-8" } });
     clearTimeout(t);
     if (!res.ok) return [];
-    const data = await res.json();
+    // Force UTF-8 decode (Google suggest sometimes mislabels charset → mojibake on Vietnamese diacritics)
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder("utf-8").decode(buf);
+    let data: any;
+    try { data = JSON.parse(text); } catch { return []; }
     const arr: string[] = Array.isArray(data?.[1]) ? data[1] : [];
-    const out = arr.slice(0, 5).map((s) => String(s).trim()).filter(Boolean);
+    const out = arr
+      .slice(0, 5)
+      .map((s) => String(s).trim())
+      .filter((s) => s && !s.includes("\uFFFD")); // drop replacement-char garbage
     memCache.set(key, { data: out, exp: Date.now() + 24 * 3600_000 });
     return out;
   } catch (e) {
