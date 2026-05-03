@@ -1,5 +1,11 @@
 project_id = "rllyipiyuptkibqinotz"
 
+[functions.keyword-research-v2]
+verify_jwt = false
+
+[functions.keyword-research-save]
+verify_jwt = false
+
 [functions.generate-script]
 verify_jwt = false
 
