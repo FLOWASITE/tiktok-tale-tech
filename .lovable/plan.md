@@ -1,55 +1,63 @@
-# Gọn SEO Hub — Sprint 3
+## Còn gì có thể tối ưu cho SEO Hub
 
-## Hiện trạng
-8 tabs: Dashboard | Keywords | Pillars | Coverage | Research | Ranks | Import | Pages.
-Vấn đề:
-- **Dashboard ↔ Coverage trùng vai trò**: Dashboard show "Top 10 unassigned" + funnel; Coverage show Orphan/Gap/Cannibal. Cùng dùng để "biết phải làm gì tiếp".
-- **Research ↔ Import trùng vai trò**: cả 2 đều là "thu nạp keyword mới vào pool" — chỉ khác nguồn (AI lab vs CSV).
-- **8 tabs trên viewport 707px** vẫn chật, đã giảm từ 9 nhưng chưa đủ thoáng.
-- **Query duplicate**: `seo_keywords` + `seo_clusters` được fetch riêng ở Dashboard, Explorer, Coverage, Pillars — 4 cache keys khác nhau cho cùng dataset.
+Sau khi rà OverviewTab + cấu trúc 6 tabs hiện tại, còn 5 nhóm tối ưu có ROI rõ ràng. Tôi đề xuất chọn lọc, không làm tất cả tránh over-engineering.
 
-## Đề xuất gom xuống 6 tabs
+### 1. Gom shared queries (đã ghi trong plan.md nhưng chưa làm)
+Hiện `seo_keywords` được fetch riêng ở 4 nơi (Overview, Explorer, Pillars, RankTracker) với 4 cache keys khác nhau → 4 round-trip cho cùng dataset.
 
-```text
-Overview  |  Keywords  |  Pillars  |  Discover  |  Ranks  |  Pages
-```
+**Fix:** Tạo `src/hooks/useSeoKeywords.ts` + `useSeoPillars.ts` dùng chung `queryKey: ["seo-keywords", orgId]` với `staleTime: 30s`. Refactor 4 components qua hooks.
 
-| Tab mới | Gồm gì |
-|---|---|
-| **Overview** | KPIs (Dashboard cũ) + sub-tabs Gap/Cannibalization/Orphan/Top-priority (Coverage cũ). Một nơi để "biết tuần này làm gì" |
-| **Keywords** | KeywordExplorerTab (giữ nguyên) |
-| **Pillars** | PillarsTab + PillarDetailView (giữ nguyên) |
-| **Discover** | Sub-tabs: Research Lab (AI suggest) / CSV Import |
-| **Ranks** | RankTrackerTab (giữ nguyên) |
-| **Pages** | AdminSeoPages (giữ nguyên) |
+**Lợi ích:** sau lần đầu mở Overview, chuyển sang Explorer/Pillars là instant (cache hit), invalidate 1 chỗ là toàn bộ tab cập nhật.
 
-## Refactor đồng thời
+### 2. OverviewTab: phân trang/virtualize
+- `orphanKeywords.slice(0, 100)` đang render 100 row table có 2 Select mỗi row → 200 Radix Select instances. Trên viewport 707px khá nặng.
+- `cannibalized` không giới hạn, có thể vài chục hàng.
 
-1. **Tạo `src/hooks/useSeoKeywords.ts`** — single query `seo_keywords` + filter helpers. Dashboard/Explorer/Coverage cùng dùng → giảm 3 round-trip xuống 1 cache (TanStack Query staleTime 30s).
-2. **Tạo `src/hooks/useSeoPillars.ts`** — tương tự cho `seo_clusters`.
-3. **Xoá `KeywordDashboardTab.tsx`** sau khi merge KPI + funnel + top-unassigned vào `OverviewTab.tsx` mới.
-4. **Wrapper `DiscoverTab.tsx`** — chỉ là 2 sub-tabs render `KeywordResearchLabTab` + `KeywordImportTab` (không xoá 2 file gốc, chỉ host).
+**Fix:**
+- Mặc định show 25, có "Hiện thêm" button.
+- Hoặc dùng `useDeferredValue` cho list khi search/filter (sẽ thêm ở mục 4).
 
-## Files
+### 3. Bulk actions cho Orphan
+Hiện phải sửa từng row. Thêm:
+- Checkbox chọn nhiều orphan keyword.
+- Action bar: "Gán vào pillar X" / "Gán vào page Y" / "Tạo content gộp" cho selection.
+
+Giảm 10 click thành 1 khi triage 20 orphan cùng pillar.
+
+### 4. Search/filter ngay trong Overview
+Hiện 4 sub-tab Orphan/Gap/Cannibal/Contents đều list-only. Thêm 1 ô `Input` search keyword + `Select` filter funnel stage (TOFU/MOFU/BOFU) ở đầu mỗi tab. Persist qua query param `?q=&stage=` để deep-link.
+
+### 5. Optimistic update + auto-refresh cho mutations
+- `quickAssign` đang `invalidateQueries` → refetch full 1000 keyword. Đổi sang `setQueryData` patch local row → instant UI, không round-trip thừa.
+- `keepWinner` tương tự.
+
+### 6. Background warning badges trên TabsList chính
+Trên `AdminSeoHub`, badge nhỏ cạnh tab Overview hiển thị số orphan + cannibal cao (vd `Overview ⚠ 12`). Không cần mở tab cũng biết có việc cần làm. Badge tính từ shared hook ở mục 1 → free.
+
+---
+
+## Đề xuất scope sprint này
+
+Làm **mục 1, 2, 5** (đụng nhau, nên gộp):
+- Tạo 2 hooks shared.
+- Refactor OverviewTab + KeywordExplorerTab + PillarsTab + RankTrackerTab dùng hooks.
+- Thêm pagination (25/page) cho Orphan + Cannibal.
+- Optimistic update cho `quickAssign` + `keepWinner`.
+
+Hoãn **3, 4, 6** sang sprint sau (cần thiết kế UX kỹ hơn, dễ over-build).
+
+### Files
 
 **Tạo**
 - `src/hooks/useSeoKeywords.ts`
 - `src/hooks/useSeoPillars.ts`
-- `src/components/admin/seo-keywords/OverviewTab.tsx` (merge Dashboard + Coverage)
-- `src/components/admin/seo-keywords/DiscoverTab.tsx` (host Research + Import)
 
 **Sửa**
-- `src/pages/AdminSeoHub.tsx` — TabsList từ `grid-cols-8` → `grid-cols-6`, route lại
-- `KeywordExplorerTab.tsx`, `PillarsTab.tsx` — chuyển sang dùng shared hooks (giữ behavior)
+- `src/components/admin/seo-keywords/OverviewTab.tsx` — dùng hooks, paginate, optimistic
+- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` — dùng hooks
+- `src/components/admin/seo-keywords/PillarsTab.tsx` — dùng hooks
+- `src/components/admin/seo-keywords/RankTrackerTab.tsx` — dùng hooks (nếu fetch keywords)
 
-**Xoá**
-- `src/components/admin/seo-keywords/KeywordDashboardTab.tsx`
-- `src/components/admin/seo-keywords/CoverageTab.tsx` (logic chuyển vào OverviewTab)
+**Không đổi:** DB schema, RLS, edge functions.
 
-## Backward compat
-URL cũ `?tab=dashboard` / `?tab=coverage` / `?tab=research` / `?tab=import` → redirect sang `?tab=overview` hoặc `?tab=discover` trong `useEffect` của `AdminSeoHub`. Không break bookmark.
-
-## Không trong scope
-- Không đổi DB schema
-- Không đổi RLS
-- Không đổi edge functions
+Approve để tôi triển khai, hoặc cho biết muốn thêm/bớt mục nào.
