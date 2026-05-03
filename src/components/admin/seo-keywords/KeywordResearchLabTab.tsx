@@ -101,7 +101,7 @@ export default function KeywordResearchLabTab() {
     refetchInterval: 5000,
   });
 
-  const handleRun = async () => {
+  const handleRun = async (deep = false) => {
     if (!orgId) return;
     if (!currentBrand && overrideSeeds.length === 0) {
       toast.error("Chọn brand hoặc nhập seed thủ công ở Tuỳ chỉnh nâng cao");
