@@ -31,7 +31,7 @@ export function detectSerpFeatures(results: SerpResult[]): string[] {
   return Array.from(features);
 }
 
-function computeKD(results: SerpResult[]): number {
+export function computeKD(results: SerpResult[]): number {
   if (results.length === 0) return 50;
   let authorityHits = 0;
   for (const r of results) {
