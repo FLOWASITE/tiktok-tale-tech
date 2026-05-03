@@ -573,40 +573,6 @@ export default function KeywordResearchLabTab() {
           )}
         </CardContent>
       </Card>
-          {(!jobs || jobs.length === 0) ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có job nào.</p>
-          ) : (
-            <div className="space-y-2">
-              {jobs.map((j: any) => {
-                const seedsList: string[] = Array.isArray(j.seeds) ? j.seeds : [j.seed_keyword];
-                const hasPreview = Array.isArray(j.preview) && j.preview.length > 0;
-                return (
-                  <div key={j.id} className="flex items-center justify-between p-3 rounded border text-sm hover:bg-muted/30">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium truncate">{seedsList.slice(0, 2).join(", ")}{seedsList.length > 2 && ` +${seedsList.length - 2}`}</span>
-                        {j.preset && j.preset !== "default" && <Badge variant="outline" className="text-[10px]">{j.preset}</Badge>}
-                        <Badge variant={j.status === "done" ? "default" : j.status === "failed" ? "destructive" : j.status === "preview_ready" ? "outline" : "secondary"} className="text-xs">
-                          {j.status === "running" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                          {j.status === "preview_ready" ? "preview chờ chọn" : j.status}
-                        </Badge>
-                      </div>
-                      {j.error_message && <p className="text-xs text-destructive mt-1">{j.error_message}</p>}
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatDistanceToNow(new Date(j.created_at), { addSuffix: true, locale: vi })}
-                        {j.status === "done" && ` • Đã lưu ${j.keywords_added}/${j.selected_count || j.keywords_added}`}
-                      </p>
-                    </div>
-                    {hasPreview && j.status === "preview_ready" && (
-                      <Button size="sm" variant="ghost" onClick={() => loadJobPreview(j.id)}>Mở preview</Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
