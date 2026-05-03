@@ -63,7 +63,7 @@ export default function AdminSeoHub() {
       </div>
 
       <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 max-w-5xl">
+        <TabsList className="grid w-full grid-cols-7 max-w-5xl">
           <TabsTrigger value="overview" className="gap-1.5">
             <BarChart3 className="h-4 w-4" /> Overview
             {(orphan > 0 || cannibal > 0) && (
