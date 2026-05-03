@@ -928,7 +928,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   }, [brandTemplateId, contentGoal, format]);
 
   useEffect(() => {
-    const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
+    const kwKey = (targetKeywords ?? []).slice().sort().join('|');
+    const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}:${clusterId || ''}:${kwKey}`;
     
     if (paramsKey !== suggestPrevParamsRef.current) {
       suggestHasLoadedRef.current = false;
