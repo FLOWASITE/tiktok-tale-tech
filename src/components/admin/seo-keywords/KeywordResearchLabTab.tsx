@@ -43,6 +43,7 @@ export default function KeywordResearchLabTab() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [previewKeywords, setPreviewKeywords] = useState<PreviewKeyword[]>([]);
   const [serpInfo, setSerpInfo] = useState<{ hasFirecrawl: boolean; results: Record<string, number> } | null>(null);
+  const [expandedSeeds, setExpandedSeeds] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Pre-fill seeds từ content_pillars của brand active
