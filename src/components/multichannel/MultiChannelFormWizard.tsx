@@ -1298,33 +1298,46 @@ export function MultiChannelFormWizard({
                 )}
               </div>
 
-              {/* SEO Pillar Cluster picker - link content to a topic silo */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Pillar SEO (tùy chọn)
-                </label>
-                <ClusterPicker
-                  value={formData.clusterId ?? null}
-                  onChange={(clusterId, meta) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      clusterId: clusterId,
-                      targetKeywordIds: meta?.keywordIds ?? prev.targetKeywordIds ?? [],
-                    }));
-                  }}
-                />
-                {formData.clusterId && (formData.targetKeywordIds?.length ?? 0) > 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Đã gắn {formData.targetKeywordIds?.length} keyword mục tiêu từ pillar này.
-                  </p>
-                )}
-                {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
-                    <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
-                    <span>Bạn đang tạo nội dung long-form. Cân nhắc gắn Pillar để tận dụng topic cluster, internal linking và boost SEO authority.</span>
-                  </p>
-                )}
-              </div>
+              {/* Pillar/Keyword block (idea mode) — heuristic AI suggest banner */}
+              <PillarKeywordSection
+                variant="inline"
+                clusterId={formData.clusterId}
+                selectedKeywordIds={formData.targetKeywordIds ?? []}
+                onClusterChange={(cid, kwIds) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    clusterId: cid,
+                    targetKeywordIds: kwIds.length > 0 ? kwIds : (prev.targetKeywordIds ?? []),
+                  }));
+                }}
+                onKeywordIdsChange={(ids) =>
+                  setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
+                }
+                suggestion={suggestedPillar ? { clusterId: suggestedPillar.clusterId, name: suggestedPillar.name, color: suggestedPillar.color } : null}
+                onAcceptSuggestion={async () => {
+                  if (!suggestedPillar) return;
+                  // Fetch top-5 keywords for this cluster
+                  const { data } = await supabase
+                    .from('seo_keywords')
+                    .select('id')
+                    .eq('cluster_id', suggestedPillar.clusterId)
+                    .order('priority_score', { ascending: false })
+                    .limit(5);
+                  const ids = (data || []).map((r: any) => r.id);
+                  setFormData(prev => ({
+                    ...prev,
+                    clusterId: suggestedPillar.clusterId,
+                    targetKeywordIds: ids,
+                  }));
+                  toast.success(`Đã gắn pillar "${suggestedPillar.name}"`);
+                }}
+              />
+              {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                  <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span>Đang tạo long-form. Cân nhắc gắn Pillar để tận dụng topic cluster + internal linking.</span>
+                </p>
+              )}
 
               {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
               <TopicIdeaHub
