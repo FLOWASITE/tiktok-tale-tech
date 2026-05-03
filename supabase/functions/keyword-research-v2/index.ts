@@ -788,7 +788,7 @@ Deno.serve(async (req) => {
               funnel_stage: e.funnel_stage || null,
               priority_score: e.final_score ?? computePriority(e),
               status: "new",
-              source: "ai_research_deep",
+              source: "ai_research",
               locale,
               cluster_id: clusterMap.get((e.pillar_match || "").toLowerCase().trim()) || null,
             }));
