@@ -47,6 +47,7 @@ import AdminPlans from "@/pages/AdminPlans";
 import AdminCronMonitor from "@/pages/AdminCronMonitor";
 const AdminStorageMemory = lazy(() => import("@/pages/AdminStorageMemory"));
 const AdminSeoHub = lazy(() => import("@/pages/AdminSeoHub"));
+const SeoHub = lazy(() => import("@/pages/SeoHub"));
 import Campaigns from "@/pages/Campaigns";
 const Reports = lazy(() => import("@/pages/Reports"));
 import CampaignCreate from "@/pages/CampaignCreate";
@@ -225,6 +226,7 @@ export function AppRoutes() {
       <Route path="/admin/vouchers" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminVouchers /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/edge-functions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEdgeFunctions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/plans" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminPlans /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/seo" element={<ProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><SeoHub /></Suspense></AppLayout></ProtectedRoute>} />
       <Route path="/admin/seo" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><AdminSeoHub /></Suspense></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/seo-pages" element={<Navigate to="/admin/seo" replace />} />
       <Route path="/admin/seo-keywords" element={<Navigate to="/admin/seo" replace />} />
