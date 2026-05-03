@@ -191,8 +191,23 @@ function JobRow({
               </Badge>
             )}
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: vi })}
+          <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+            <span>{formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: vi })}</span>
+            <span className="text-muted-foreground/50">·</span>
+            <code className="font-mono text-[10px]">{job.id.slice(0, 8)}</code>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={e => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(job.id);
+                toast.success("Đã copy Job ID");
+              }}
+              className="text-muted-foreground/60 hover:text-foreground cursor-pointer"
+              title="Copy Job ID"
+            >
+              <Copy className="h-2.5 w-2.5" />
+            </span>
           </div>
         </div>
         {isActive && (
