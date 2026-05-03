@@ -62,42 +62,44 @@ Sinh chính xác ${limit} keyword. Format JSON:
       { role: "system", content: sys },
       { role: "user", content: userPrompt },
     ],
-      messages: [
-        { role: "system", content: sys },
-        { role: "user", content: userPrompt },
-      ],
-      tools: [{
-        type: "function",
-        function: {
-          name: "submit_keywords",
-          description: "Submit expanded keyword suggestions",
-          parameters: {
-            type: "object",
-            properties: {
-              keywords: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    keyword: { type: "string" },
-                    search_volume: { type: "integer" },
-                    difficulty: { type: "integer" },
-                    cpc_vnd: { type: "integer" },
-                    intent: { type: "string", enum: ["informational", "commercial", "transactional", "navigational"] },
-                    funnel_stage: { type: "string", enum: ["TOFU", "MOFU", "BOFU"] },
-                    cluster_name: { type: "string" },
-                    rationale: { type: "string" },
-                  },
-                  required: ["keyword", "search_volume", "difficulty", "cpc_vnd", "intent", "funnel_stage", "cluster_name"],
+    tools: [{
+      type: "function",
+      function: {
+        name: "submit_keywords",
+        description: "Submit expanded keyword suggestions",
+        parameters: {
+          type: "object",
+          properties: {
+            keywords: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  keyword: { type: "string" },
+                  search_volume: { type: "integer" },
+                  difficulty: { type: "integer" },
+                  cpc_vnd: { type: "integer" },
+                  intent: { type: "string", enum: ["informational", "commercial", "transactional", "navigational"] },
+                  funnel_stage: { type: "string", enum: ["TOFU", "MOFU", "BOFU"] },
+                  cluster_name: { type: "string" },
+                  rationale: { type: "string" },
                 },
+                required: ["keyword", "search_volume", "difficulty", "cpc_vnd", "intent", "funnel_stage", "cluster_name"],
               },
             },
-            required: ["keywords"],
           },
+          required: ["keywords"],
         },
-      }],
-      tool_choice: { type: "function", function: { name: "submit_keywords" } },
-    }),
+      },
+    }],
+    tool_choice: { type: "function", function: { name: "submit_keywords" } },
+  };
+  if (adminCfg.temperature !== null) payload.temperature = adminCfg.temperature;
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!resp.ok) {
@@ -109,7 +111,7 @@ Sinh chính xác ${limit} keyword. Format JSON:
   const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) throw new Error("No tool call response");
   const parsed = JSON.parse(args);
-  return parsed.keywords || [];
+  return { suggestions: parsed.keywords || [], model: adminCfg.model };
 }
 
 Deno.serve(async (req) => {
