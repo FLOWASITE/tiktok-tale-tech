@@ -79,6 +79,14 @@ export default function KeywordResearchLabTab() {
   const [previewKeywords, setPreviewKeywords] = useState<PreviewKeyword[]>([]);
   const [serpInfo, setSerpInfo] = useState<{ hasFirecrawl: boolean; results: Record<string, number> } | null>(null);
   const [expandedSeeds, setExpandedSeeds] = useState<string[]>([]);
+  const [brandSignals, setBrandSignals] = useState<{
+    active_platforms: string[];
+    handles: { platform: string; handle: string }[];
+    recent_topics: string[];
+    recent_hashtags: string[];
+    frequent_terms: string[];
+    audience_questions: string[];
+  } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const autoSeeds = useMemo(() => deriveBrandSeeds(currentBrand), [currentBrand?.id, currentBrand?.content_pillars, currentBrand?.industry, currentBrand?.brand_name]);
