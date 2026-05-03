@@ -19,6 +19,10 @@ export interface PreviewKeyword {
   rationale?: string;
   source_seed?: string;
   pillar_match?: string | null;
+  audience_match?: "core" | "adjacent" | "off-target";
+  brand_fit_score?: number;
+  brand_fit_reason?: string;
+  final_score?: number;
   is_gap?: boolean;
 }
 
