@@ -1,6 +1,6 @@
 ---
 name: Hybrid Entry Mode (Multichannel)
-description: MultiChannelFormWizard 2-mode entry — idea-first là mặc định hệ thống, SEO opt-in qua switcher, persist localStorage
+description: Step 1 mặc định Idea-first; SEO mode là 1 Switch on/off (SeoModeToggle), persist localStorage
 type: feature
 ---
 
