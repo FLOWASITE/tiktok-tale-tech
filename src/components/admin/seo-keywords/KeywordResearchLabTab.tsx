@@ -199,9 +199,23 @@ export default function KeywordResearchLabTab() {
         <CardContent className="space-y-3">
           <div className="grid md:grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Seed keywords (1 dòng = 1 seed, max 5)</Label>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <Label className="text-xs">Seed keywords (1 dòng = 1 seed, max 5)</Label>
+                {suggestedSeeds.length > 0 && seedsText.trim() === "" && currentBrand && (
+                  <button
+                    type="button"
+                    onClick={() => setSeedsText(suggestedSeeds.join("\n"))}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                  >
+                    Dùng gợi ý từ «{currentBrand.brand_name}»
+                  </button>
+                )}
+              </div>
               <Textarea rows={4} value={seedsText} onChange={e => setSeedsText(e.target.value)}
-                placeholder={`AI tạo content cho spa\ncách viết caption Instagram\n...`} className="font-mono text-sm" />
+                placeholder={currentBrand && suggestedSeeds.length > 0
+                  ? `Auto-fill từ content pillars của brand, hoặc gõ tay...`
+                  : `AI tạo content cho spa\ncách viết caption Instagram\n...`}
+                className="font-mono text-sm" />
             </div>
             <div>
               <Label className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> URL đối thủ (optional, max 3)</Label>
