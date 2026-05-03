@@ -1,6 +1,8 @@
 // AI Research Lab v2 — Multi-seed + SERP grounding + competitor scrape + streaming
+// + Brand/Industry context + Seed expansion (Autocomplete + PAA) + SERP cache
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { expandSeeds } from "../_shared/seed-expander.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,11 +33,30 @@ interface KeywordSuggestion {
   cluster_name: string;
   rationale?: string;
   source_seed?: string;
+  pillar_match?: string | null;
   is_gap?: boolean;
+}
+
+// Simple in-memory TTL cache for Firecrawl (24h search, 6h scrape)
+const fcCache = new Map<string, { data: any; exp: number }>();
+function fcGet<T>(key: string): T | null {
+  const hit = fcCache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.data as T;
+  if (hit) fcCache.delete(key);
+  return null;
+}
+function fcSet(key: string, data: any, ttlMs: number) {
+  fcCache.set(key, { data, exp: Date.now() + ttlMs });
 }
 
 async function firecrawlSearch(query: string, country = "vn", lang = "vi"): Promise<{ title: string; description: string; url: string }[]> {
   if (!FIRECRAWL_API_KEY) return [];
+  const cacheKey = `fc:search:${query.toLowerCase()}:${country}:${lang}`;
+  const cached = fcGet<{ title: string; description: string; url: string }[]>(cacheKey);
+  if (cached) {
+    console.log(`[keyword-research-v2] SERP cache HIT: ${query}`);
+    return cached;
+  }
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 15000);
@@ -49,7 +70,9 @@ async function firecrawlSearch(query: string, country = "vn", lang = "vi"): Prom
     if (!res.ok) return [];
     const j = await res.json();
     const arr = j.data?.web || j.data || [];
-    return arr.slice(0, 10).map((r: any) => ({ title: r.title || "", description: r.description || r.snippet || "", url: r.url || "" }));
+    const out = arr.slice(0, 10).map((r: any) => ({ title: r.title || "", description: r.description || r.snippet || "", url: r.url || "" }));
+    fcSet(cacheKey, out, 24 * 3600_000);
+    return out;
   } catch (e) {
     console.warn("[keyword-research-v2] Firecrawl search failed:", e);
     return [];
@@ -58,6 +81,9 @@ async function firecrawlSearch(query: string, country = "vn", lang = "vi"): Prom
 
 async function firecrawlScrape(url: string): Promise<string> {
   if (!FIRECRAWL_API_KEY) return "";
+  const cacheKey = `fc:scrape:${url}`;
+  const cached = fcGet<string>(cacheKey);
+  if (cached !== null) return cached;
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 20000);
@@ -70,26 +96,97 @@ async function firecrawlScrape(url: string): Promise<string> {
     clearTimeout(t);
     if (!res.ok) return "";
     const j = await res.json();
-    const md = j.data?.markdown || j.markdown || "";
-    return String(md).slice(0, 4000);
+    const md = String(j.data?.markdown || j.markdown || "").slice(0, 4000);
+    fcSet(cacheKey, md, 6 * 3600_000);
+    return md;
   } catch (e) {
     console.warn("[keyword-research-v2] Firecrawl scrape failed:", e);
     return "";
   }
 }
 
-function buildSystemPrompt(preset: Preset, limit: number): string {
+interface BrandCtx {
+  brand_name?: string;
+  industry?: string;
+  tone_of_voice?: string;
+  target_audience?: string;
+  pillars: { name: string; keywords?: string[]; weight?: number }[];
+  forbidden_terms: string[];
+  jurisdiction?: string;
+}
+
+async function fetchBrandCtx(supabase: any, brandTemplateId?: string): Promise<BrandCtx | null> {
+  if (!brandTemplateId) return null;
+  const { data: brand } = await supabase
+    .from("brand_templates")
+    .select("brand_name,name,industry,tone_of_voice,target_age_range,market_segment,content_pillars,forbidden_words,industry_template_id,jurisdiction_code")
+    .eq("id", brandTemplateId)
+    .maybeSingle();
+  if (!brand) return null;
+
+  let forbidden: string[] = Array.isArray(brand.forbidden_words) ? brand.forbidden_words : [];
+  let jurisdiction = brand.jurisdiction_code as string | undefined;
+  if (brand.industry_template_id) {
+    const { data: ind } = await supabase
+      .from("industry_templates")
+      .select("forbidden_terms")
+      .eq("id", brand.industry_template_id)
+      .maybeSingle();
+    if (ind?.forbidden_terms && Array.isArray(ind.forbidden_terms)) {
+      forbidden = [...new Set([...forbidden, ...ind.forbidden_terms.map(String)])];
+    }
+  }
+
+  const pillars = Array.isArray(brand.content_pillars) ? brand.content_pillars : [];
+  return {
+    brand_name: brand.brand_name || brand.name,
+    industry: brand.industry,
+    tone_of_voice: brand.tone_of_voice,
+    target_audience: [brand.target_age_range, brand.market_segment].filter(Boolean).join(" / "),
+    pillars: pillars.slice(0, 5),
+    forbidden_terms: forbidden.slice(0, 20),
+    jurisdiction,
+  };
+}
+
+function buildBrandBlock(ctx: BrandCtx | null): string {
+  if (!ctx) return "";
+  const pillarLines = ctx.pillars
+    .sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0))
+    .slice(0, 3)
+    .map((p, i) => {
+      const kws = Array.isArray(p.keywords) ? p.keywords.slice(0, 3).join(", ") : "";
+      return `  ${i + 1}. ${p.name}${kws ? ` — keywords: ${kws}` : ""}`;
+    }).join("\n");
+  const lines: string[] = ["", "## BRAND CONTEXT (priority cao)"];
+  if (ctx.brand_name) lines.push(`Brand: ${ctx.brand_name}${ctx.industry ? ` | Ngành: ${ctx.industry}` : ""}`);
+  if (ctx.tone_of_voice) lines.push(`Tone: ${ctx.tone_of_voice}`);
+  if (ctx.target_audience) lines.push(`Audience: ${ctx.target_audience}`);
+  if (pillarLines) lines.push(`Content pillars (top 3):\n${pillarLines}`);
+  lines.push("");
+  lines.push("## Output bias");
+  lines.push("- Keyword PHẢI bám sát ngành & audience trên (không sinh keyword chung chung)");
+  if (ctx.pillars.length) lines.push(`- Mỗi keyword GẮN field 'pillar_match' = tên 1 pillar phù hợp nhất (hoặc null nếu không khớp)`);
+  if (ctx.forbidden_terms.length) lines.push(`- TUYỆT ĐỐI tránh thuật ngữ: ${ctx.forbidden_terms.join(", ")}`);
+  return lines.join("\n");
+}
+
+function buildSystemPrompt(preset: Preset, limit: number, brandCtx: BrandCtx | null): string {
   return `Bạn là chuyên gia SEO tiếng Việt. Sinh chính xác ${limit} keyword biến thể.
 
 ${PRESET_PROMPTS[preset]}
 
 Mỗi keyword có: search_volume (tháng/VN, 0-50000), difficulty (0-100), cpc_vnd (0-50000), intent, funnel_stage (TOFU/MOFU/BOFU), cluster_name (3-5 từ).
 Khi có SERP grounding (titles/descriptions thật), ƯỚC LƯỢNG dựa trên độ cạnh tranh thật từ SERP — KHÔNG bịa số.
-Trả qua tool call 'submit_keyword_batch', mỗi batch 5 keyword. Gọi tool nhiều lần cho đến khi đủ ${limit}.`;
+Trả qua tool call 'submit_keyword_batch', mỗi batch 5 keyword. Gọi tool nhiều lần cho đến khi đủ ${limit}.${buildBrandBlock(brandCtx)}`;
 }
 
-function buildUserPrompt(seeds: string[], serpGround: Record<string, any[]>, competitorContext: string, locale: string): string {
-  let p = `SEEDS: ${seeds.map(s => `"${s}"`).join(", ")}\nLOCALE: ${locale}\n\n`;
+function buildUserPrompt(seeds: string[], expandedSeeds: string[], serpGround: Record<string, any[]>, competitorContext: string, locale: string): string {
+  let p = `SEEDS (user): ${seeds.map(s => `"${s}"`).join(", ")}\nLOCALE: ${locale}\n`;
+  if (expandedSeeds.length) {
+    p += `SEEDS MỞ RỘNG (Autocomplete + PAA): ${expandedSeeds.map(s => `"${s}"`).join(", ")}\n`;
+  }
+  p += `\n`;
   if (Object.keys(serpGround).length) {
     p += "=== SERP GROUNDING (top 10 thực tế) ===\n";
     for (const [seed, results] of Object.entries(serpGround)) {
@@ -103,7 +200,7 @@ function buildUserPrompt(seeds: string[], serpGround: Record<string, any[]>, com
   if (competitorContext) {
     p += `=== NỘI DUNG ĐỐI THỦ (đã scrape) ===\n${competitorContext.slice(0, 3000)}\n\n`;
   }
-  p += `Sinh keyword đa dạng từ tất cả seeds. Mỗi keyword gắn source_seed = seed gốc.`;
+  p += `Sinh keyword đa dạng từ tất cả seeds + seeds mở rộng. Mỗi keyword gắn source_seed = seed gốc gần nhất.`;
   return p;
 }
 
@@ -129,6 +226,7 @@ const TOOL_SCHEMA = {
               cluster_name: { type: "string" },
               rationale: { type: "string" },
               source_seed: { type: "string" },
+              pillar_match: { type: "string", description: "Tên pillar phù hợp nhất (nếu có brand context); null nếu không khớp" },
             },
             required: ["keyword", "search_volume", "difficulty", "cpc_vnd", "intent", "funnel_stage", "cluster_name"],
           },
@@ -139,9 +237,9 @@ const TOOL_SCHEMA = {
   },
 };
 
-async function callAI(supabase: any, organizationId: string, userId: string, seeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number): Promise<{ suggestions: KeywordSuggestion[]; usedFallback: boolean }> {
-  const sys = buildSystemPrompt(preset, limit);
-  const user = buildUserPrompt(seeds, serpGround, competitorContext, locale);
+async function callAI(supabase: any, organizationId: string, userId: string, seeds: string[], expandedSeeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number, brandCtx: BrandCtx | null): Promise<{ suggestions: KeywordSuggestion[]; usedFallback: boolean }> {
+  const sys = buildSystemPrompt(preset, limit, brandCtx);
+  const user = buildUserPrompt(seeds, expandedSeeds, serpGround, competitorContext, locale);
 
   const tryCall = async (modelOverride?: string) => {
     const res = await callAIWithMetrics(supabase, {
@@ -197,12 +295,19 @@ Deno.serve(async (req) => {
   const competitorUrls: string[] = (body.competitorUrls || []).map((u: any) => String(u || "").trim()).filter(Boolean).slice(0, 3);
   const preset: Preset = PRESET_PROMPTS[body.preset as Preset] ? body.preset : "default";
   const organizationId = body.organizationId;
+  const brandTemplateId: string | undefined = body.brandTemplateId;
   const locale = body.locale || "vi";
   const limit = Math.min(100, Math.max(5, parseInt(body.limit) || 30));
 
   if (!seeds.length || !organizationId) {
     return new Response(JSON.stringify({ error: "seeds & organizationId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
+
+  // Brand context (optional)
+  const brandCtx = await fetchBrandCtx(supabase, brandTemplateId).catch((e) => {
+    console.warn("[keyword-research-v2] brand ctx fail:", e);
+    return null;
+  });
 
   // Create job
   const { data: job, error: jobErr } = await supabase.from("keyword_research_jobs").insert({
@@ -226,6 +331,9 @@ Deno.serve(async (req) => {
       const work = async () => {
         try {
           send("progress", { pct: 5, jobId, message: "Khởi tạo job..." });
+          if (brandCtx?.brand_name) {
+            send("progress", { pct: 8, message: `Áp brand context: ${brandCtx.brand_name}` });
+          }
 
           // 1. Competitor scrape
           let competitorContext = "";
@@ -236,24 +344,36 @@ Deno.serve(async (req) => {
           }
 
           // 2. SERP grounding
-          send("progress", { pct: 30, message: "SERP grounding (Firecrawl)..." });
+          send("progress", { pct: 25, message: "SERP grounding (Firecrawl)..." });
           const serpGround: Record<string, any[]> = {};
           await Promise.all(seeds.map(async (s) => {
             serpGround[s] = await firecrawlSearch(s);
           }));
           send("serp", { hasFirecrawl: !!FIRECRAWL_API_KEY, results: Object.fromEntries(Object.entries(serpGround).map(([k, v]) => [k, v.length])) });
 
-          // 3. AI generate
-          send("progress", { pct: 50, message: `AI sinh ${limit} keyword...` });
-          const { suggestions } = await callAI(supabase, organizationId, user.id, seeds, serpGround, competitorContext, preset, locale, limit);
+          // 3. Seed expansion
+          send("progress", { pct: 35, message: "Mở rộng seed (Autocomplete + PAA)..." });
+          let expandedSeeds: string[] = [];
+          try {
+            expandedSeeds = await expandSeeds(seeds, serpGround, locale);
+          } catch (e) {
+            console.warn("[keyword-research-v2] expand seeds failed:", (e as Error).message);
+          }
+          if (expandedSeeds.length) {
+            send("expanded_seeds", { seeds: expandedSeeds });
+          }
+
+          // 4. AI generate
+          send("progress", { pct: 50, message: `AI sinh ${limit} keyword${brandCtx ? " (brand-aware)" : ""}...` });
+          const { suggestions } = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx);
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
-          // 4. Gap detection
+          // 5. Gap detection
           send("progress", { pct: 80, message: "Gap analysis..." });
           const keywords = suggestions.map(s => s.keyword.toLowerCase().trim());
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
-          const existingSet = new Set((existing || []).map(r => r.keyword));
+          const existingSet = new Set((existing || []).map((r: any) => r.keyword));
           const enriched = suggestions.map(s => ({ ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) }));
 
           // Stream batches of 5 to FE
@@ -261,11 +381,11 @@ Deno.serve(async (req) => {
             send("keyword_batch", { batch: enriched.slice(i, i + 5), index: i, total: enriched.length });
           }
 
-          // 5. Save preview
+          // 6. Save preview
           await supabase.from("keyword_research_jobs").update({
             preview: enriched,
             serp_grounding: serpGround,
-            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY },
+            result: { suggestions: enriched.length, gaps: enriched.filter(e => e.is_gap).length, hasFirecrawl: !!FIRECRAWL_API_KEY, expandedSeeds, brandTemplateId: brandTemplateId || null },
             status: "preview_ready",
             keywords_added: 0,
           }).eq("id", jobId);

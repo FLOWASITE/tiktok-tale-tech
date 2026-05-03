@@ -43,6 +43,7 @@ export default function KeywordResearchLabTab() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [previewKeywords, setPreviewKeywords] = useState<PreviewKeyword[]>([]);
   const [serpInfo, setSerpInfo] = useState<{ hasFirecrawl: boolean; results: Record<string, number> } | null>(null);
+  const [expandedSeeds, setExpandedSeeds] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Pre-fill seeds từ content_pillars của brand active
@@ -101,6 +102,7 @@ export default function KeywordResearchLabTab() {
     setProgressMsg("Đang khởi động...");
     setPreviewKeywords([]);
     setSerpInfo(null);
+    setExpandedSeeds([]);
     setActiveJobId(null);
 
     abortRef.current?.abort();
@@ -115,7 +117,7 @@ export default function KeywordResearchLabTab() {
           Authorization: `Bearer ${session?.access_token || ""}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ seeds, competitorUrls, preset, organizationId: orgId, locale: "vi", limit }),
+        body: JSON.stringify({ seeds, competitorUrls, preset, organizationId: orgId, brandTemplateId: currentBrand?.id, locale: "vi", limit }),
         signal: ctrl.signal,
       });
       if (!resp.ok || !resp.body) {
@@ -146,6 +148,8 @@ export default function KeywordResearchLabTab() {
               if (data.jobId) setActiveJobId(data.jobId);
             } else if (currentEvent === "serp") {
               setSerpInfo(data);
+            } else if (currentEvent === "expanded_seeds") {
+              setExpandedSeeds(Array.isArray(data.seeds) ? data.seeds : []);
             } else if (currentEvent === "keyword_batch") {
               setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
             } else if (currentEvent === "done") {
@@ -191,9 +195,14 @@ export default function KeywordResearchLabTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-base flex items-center gap-2 flex-wrap">
             <Sparkles className="h-4 w-4 text-primary" /> AI Research Lab v2
             <Badge variant="outline" className="text-[10px]">SERP grounded</Badge>
+            {currentBrand && (
+              <Badge variant="secondary" className="text-[10px] font-normal">
+                Context: {currentBrand.brand_name}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -267,6 +276,18 @@ export default function KeywordResearchLabTab() {
                 <p className="text-[10px] text-muted-foreground">
                   {serpInfo.hasFirecrawl ? "✓" : "⚠"} Firecrawl: {Object.entries(serpInfo.results).map(([k, v]) => `${k} (${v} results)`).join(", ") || "không có data"}
                 </p>
+              )}
+              {expandedSeeds.length > 0 && (
+                <div className="pt-1.5">
+                  <p className="text-[10px] text-muted-foreground mb-1">Seed mở rộng (Autocomplete + PAA):</p>
+                  <div className="flex flex-wrap gap-1">
+                    {expandedSeeds.map((s, i) => (
+                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
