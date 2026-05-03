@@ -134,9 +134,11 @@ ${OUTPUT_SCHEMA}`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        responseFormat: { type: "json_object" },
       } as any);
-      content = aiResult?.content || aiResult?.text;
+      if (!aiResult?.success) throw new Error(aiResult?.error || "AI call failed");
+      content = aiResult?.data?.choices?.[0]?.message?.content
+        || aiResult?.data?.content
+        || (aiResult as any)?.content;
     } catch (e: any) {
       console.error("[generate-seo-landing] callAI error:", e?.message);
       return new Response(JSON.stringify({ error: `AI gateway error: ${e?.message || "unknown"}` }), {
