@@ -39,6 +39,7 @@ const SERP_ICONS: Record<string, { icon: typeof HelpCircle; label: string }> = {
 
 export default function KeywordExplorerTab() {
   const { currentOrganization } = useOrganization();
+  const { currentBrand } = useCurrentBrand();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -49,8 +50,15 @@ export default function KeywordExplorerTab() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [intentFilter, setIntentFilter] = useState("all");
   const [pillarFilter, setPillarFilter] = useState("all");
+  const [brandScope, setBrandScope] = useState<boolean>(() => {
+    try { return localStorage.getItem("seo-explorer-brand-scope") === "1"; } catch { return false; }
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPillar, setBulkPillar] = useState<string>("");
+
+  useEffect(() => {
+    try { localStorage.setItem("seo-explorer-brand-scope", brandScope ? "1" : "0"); } catch {}
+  }, [brandScope]);
 
   // Debounce search to avoid refetching on every keystroke
   useEffect(() => {
