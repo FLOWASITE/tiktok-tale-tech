@@ -106,18 +106,30 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
   const [funnelFilter, setFunnelFilter] = useState<string | null>(null);
   const [gapOnly, setGapOnly] = useState(false);
   const [pillarOnly, setPillarOnly] = useState(false);
+  const [coreAudienceOnly, setCoreAudienceOnly] = useState(false);
+  const [minBrandFit, setMinBrandFit] = useState(0);
   const [sortByScore, setSortByScore] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const hasPillarData = useMemo(() => keywords.some(k => k.pillar_match), [keywords]);
+  const hasBrandFit = useMemo(() => keywords.some(k => typeof k.brand_fit_score === "number"), [keywords]);
 
   const clusterMap = useMemo(() => buildClusterMap(keywords), [keywords]);
 
-  const enriched = useMemo(() => keywords.map(k => ({
-    ...k,
-    _score: computeScore(k),
-    _cluster: clusterMap.get(normalizeCluster(k.cluster_name)) || k.cluster_name,
-  })), [keywords, clusterMap]);
+  const enriched = useMemo(() => keywords.map(k => {
+    const priority = computeScore(k);
+    const fit = typeof k.brand_fit_score === "number" ? k.brand_fit_score : null;
+    const final = typeof k.final_score === "number"
+      ? k.final_score
+      : (fit !== null ? Math.round(priority * 0.6 + fit * 0.4) : priority);
+    return {
+      ...k,
+      _score: final,
+      _priority: priority,
+      _fit: fit,
+      _cluster: clusterMap.get(normalizeCluster(k.cluster_name)) || k.cluster_name,
+    };
+  }), [keywords, clusterMap]);
 
   const filtered = useMemo(() => {
     let list = enriched.filter(k => {
@@ -126,11 +138,13 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
       if (funnelFilter && k.funnel_stage !== funnelFilter) return false;
       if (gapOnly && !k.is_gap) return false;
       if (pillarOnly && !k.pillar_match) return false;
+      if (coreAudienceOnly && k.audience_match !== "core") return false;
+      if (minBrandFit > 0 && (k._fit ?? 0) < minBrandFit) return false;
       return true;
     });
     if (sortByScore) list = [...list].sort((a, b) => b._score - a._score);
     return list;
-  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, sortByScore]);
+  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, coreAudienceOnly, minBrandFit, sortByScore]);
 
   const toggle = (kw: string) => {
     const next = new Set(selected);
