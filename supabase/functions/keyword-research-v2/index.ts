@@ -547,13 +547,34 @@ Deno.serve(async (req) => {
           }
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
-          // 5. Gap detection
-          send("progress", { pct: 80, message: "Gap analysis..." });
+          // 5. Gap detection + brand fit filter + final score
+          send("progress", { pct: 80, message: "Gap analysis + brand fit scoring..." });
+          const intentBonus = { transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any;
+          const computePriority = (e: any) =>
+            Math.round(Math.min(100, ((e.search_volume || 0) / 5000) * 100) * 0.5 +
+              (100 - (e.difficulty || 50)) * 0.3 +
+              (intentBonus[e.intent || "informational"] ?? 50) * 0.2);
           const keywords = suggestions.map(s => s.keyword.toLowerCase().trim());
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
           const existingSet = new Set((existing || []).map((r: any) => r.keyword));
-          const enriched = suggestions.map(s => ({ ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) }));
+          let enriched = suggestions.map(s => {
+            const e: any = { ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) };
+            const priority = computePriority(e);
+            const fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
+            e.brand_fit_score = fit;
+            // Blend: 60% volume/KD/intent + 40% brand fit (only when brand context exists)
+            e.final_score = brandCtx ? Math.round(priority * 0.6 + fit * 0.4) : priority;
+            return e;
+          });
+          // Filter off-brand unless competitor_gaps preset
+          if (brandCtx && preset !== "competitor_gaps") {
+            const before = enriched.length;
+            enriched = enriched.filter(e => (e.brand_fit_score ?? 50) >= 40);
+            if (before !== enriched.length) console.log(`[keyword-research-v2] filtered ${before - enriched.length} off-brand keywords`);
+          }
+          // Sort by final_score desc for streaming order
+          enriched.sort((a, b) => (b.final_score || 0) - (a.final_score || 0));
 
           // Stream batches of 5 to FE
           for (let i = 0; i < enriched.length; i += 5) {
