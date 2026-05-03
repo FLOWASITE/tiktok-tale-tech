@@ -415,31 +415,47 @@ Deno.serve(async (req) => {
     return null;
   });
 
-  // Auto-derive seeds from brand context if FE didn't send any
+  // Smart seed derivation: pillars (weighted) + USP + evergreen + location
+  let seedStrategy: string[] = [];
   if (seeds.length === 0 && brandCtx) {
     const seen = new Set<string>();
-    const push = (s: string) => {
+    const push = (s: string, tag: string) => {
       const t = (s || "").trim();
-      if (!t || seen.has(t.toLowerCase())) return;
+      if (!t || t.length < 2 || seen.has(t.toLowerCase())) return;
       seen.add(t.toLowerCase());
       seeds.push(t);
+      seedStrategy.push(`${tag}:${t}`);
     };
+    // 1. Top 2 pillar keywords (weighted)
     const sortedPillars = [...brandCtx.pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
-    for (const p of sortedPillars) {
+    for (const p of sortedPillars.slice(0, 2)) {
       const kw = Array.isArray(p?.keywords) && p.keywords[0] ? String(p.keywords[0]) : String(p?.name || "");
-      push(kw);
-      if (seeds.length >= 5) break;
+      push(kw, "pillar");
     }
+    // 2. USP / positioning noun phrase (first 6 words)
+    const uspSrc = brandCtx.unique_value_proposition || brandCtx.brand_positioning || "";
+    if (uspSrc) {
+      const phrase = uspSrc.split(/[.!?,;:|]/)[0].split(/\s+/).slice(0, 6).join(" ").trim();
+      if (phrase) push(phrase.toLowerCase(), "usp");
+    }
+    // 3. Evergreen theme
+    if (brandCtx.evergreen_themes?.length) push(brandCtx.evergreen_themes[0], "evergreen");
+    // 4. Location-modified seed
+    if (brandCtx.target_locations?.length && brandCtx.industry) {
+      push(`${brandCtx.industry} ${brandCtx.target_locations[0]}`, "local");
+    }
+    // Fallback if still thin
     if (seeds.length < 3) {
       const ind = brandCtx.industry || "";
       const name = brandCtx.brand_name || "";
-      if (name && ind) push(`${name} ${ind}`);
-      if (ind) push(`${ind} là gì`);
-      if (ind) push(`cách chọn ${ind}`);
-      if (name) push(name);
+      if (name && ind) push(`${name} ${ind}`, "fallback");
+      if (ind) push(`${ind} là gì`, "fallback");
+      if (ind) push(`cách chọn ${ind}`, "fallback");
+      if (name) push(name, "fallback");
     }
     seeds = seeds.slice(0, 5);
-    console.log(`[keyword-research-v2] auto-derived ${seeds.length} seeds from brand`, seeds);
+    seedStrategy = seedStrategy.slice(0, 5);
+    console.log(`[keyword-research-v2] smart-derived ${seeds.length} seeds`, seedStrategy);
   }
 
   if (!seeds.length) {
