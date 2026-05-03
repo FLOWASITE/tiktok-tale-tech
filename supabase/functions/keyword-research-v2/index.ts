@@ -348,7 +348,7 @@ Deno.serve(async (req) => {
     organization_id: organizationId,
     seed_keyword: seeds[0],
     seeds, competitor_urls: competitorUrls, preset,
-    mode: "expand", status: "running",
+    mode: mode === "deep" ? "deep" : "expand", status: "running",
     ai_model: "google/gemini-2.5-pro",
     created_by: user.id,
   }).select("id").single();
