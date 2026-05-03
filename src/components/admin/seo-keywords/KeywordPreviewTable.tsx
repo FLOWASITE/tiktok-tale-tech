@@ -228,6 +228,20 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
               <Checkbox checked={pillarOnly} onCheckedChange={v => setPillarOnly(!!v)} /> Match pillar
             </label>
           )}
+          {hasBrandFit && (
+            <>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <Checkbox checked={coreAudienceOnly} onCheckedChange={v => setCoreAudienceOnly(!!v)} /> Core audience
+              </label>
+              <label className="flex items-center gap-1.5 text-xs">
+                <span className="text-muted-foreground">Brand fit ≥</span>
+                <input type="range" min={0} max={100} step={10} value={minBrandFit}
+                  onChange={e => setMinBrandFit(parseInt(e.target.value))}
+                  className="w-20 accent-foreground" />
+                <span className="tabular-nums w-7 text-right text-foreground">{minBrandFit}</span>
+              </label>
+            </>
+          )}
           <label className="flex items-center gap-1.5 text-xs cursor-pointer">
             <Checkbox checked={sortByScore} onCheckedChange={v => setSortByScore(!!v)} /> Sort theo score
           </label>
