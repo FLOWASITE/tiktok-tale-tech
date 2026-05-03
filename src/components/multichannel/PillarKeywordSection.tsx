@@ -141,9 +141,10 @@ export function PillarKeywordSection({
             selectedIds={selectedKeywordIds}
             onChange={onKeywordIdsChange}
             max={5}
+            clusterId={clusterId}
           />
           <p className="text-[11px] text-muted-foreground">
-            Mặc định gắn 5 keyword ưu tiên cao nhất. Bỏ/thêm để AI tập trung đúng intent.
+            Tick để chọn/bỏ — không cần thao tác 2 bước. AI ưu tiên keyword theo thứ tự bạn chọn.
           </p>
         </div>
       )}
