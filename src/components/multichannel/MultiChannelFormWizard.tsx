@@ -1161,8 +1161,8 @@ export function MultiChannelFormWizard({
                   <p className="text-xs font-semibold text-foreground">Cách bắt đầu</p>
                   <p className="text-[11px] text-muted-foreground">
                     {entryMode === 'seo'
-                      ? 'Chọn Pillar/Keyword trước → AI gợi ý topic'
-                      : 'Bắt đầu từ ý tưởng → AI gợi ý pillar phù hợp'}
+                      ? 'Chọn "Cần cho SEO" + Keyword trước → AI gợi ý topic'
+                      : 'Bắt đầu từ ý tưởng → AI gợi ý nhóm "Cần cho SEO" phù hợp'}
                   </p>
                 </div>
                 <EntryModeSwitcher
@@ -1370,13 +1370,13 @@ export function MultiChannelFormWizard({
                     clusterId: suggestedPillar.clusterId,
                     targetKeywordIds: ids,
                   }));
-                  toast.success(`Đã gắn pillar "${suggestedPillar.name}"`);
+                  toast.success(`Đã gắn "Cần cho SEO": ${suggestedPillar.name}`);
                 }}
               />
               {!formData.clusterId && formData.channels.some(c => ['website', 'blogger', 'wordpress'].includes(c)) && (
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
                   <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span>Đang tạo long-form. Cân nhắc gắn Pillar để tận dụng topic cluster + internal linking.</span>
+                  <span>Đang tạo long-form. Cân nhắc gắn "Cần cho SEO" để tận dụng topic cluster + internal linking.</span>
                 </p>
               )}
 

@@ -41,7 +41,7 @@ export function useEntryMode(channels: Channel[]) {
       setModeState(next);
       try { localStorage.setItem(STORAGE_KEY, next); } catch {}
       if (next === 'seo') {
-        toast.info('Đã chuyển sang chế độ SEO Pillar', {
+        toast.info('Đã chuyển sang chế độ Cần cho SEO', {
           description: 'Bạn vừa chọn kênh long-form (Website/Blog).',
         });
       }

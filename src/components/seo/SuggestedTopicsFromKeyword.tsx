@@ -84,7 +84,7 @@ export function SuggestedTopicsFromKeyword({
   if (!clusterId) {
     return (
       <p className="text-xs text-muted-foreground italic">
-        Chọn Pillar ở trên để AI gợi ý topic title bám sát keyword.
+        Chọn "Cần cho SEO" ở trên để AI gợi ý topic title bám sát keyword.
       </p>
     );
   }

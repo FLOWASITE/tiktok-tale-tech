@@ -104,7 +104,7 @@ export function PillarKeywordSection({
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles className="w-4 h-4 text-primary shrink-0" />
             <span className="text-xs">
-              Có vẻ liên quan đến pillar{' '}
+              Có vẻ liên quan đến nhóm "Cần cho SEO"{' '}
               <strong className="text-primary">{suggestion.name}</strong> — gắn ngay?
             </span>
           </div>
@@ -114,7 +114,7 @@ export function PillarKeywordSection({
 
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">
-          {variant === 'card' ? '1. Pillar SEO' : 'Pillar SEO (tùy chọn)'}
+          {variant === 'card' ? '1. Cần cho SEO' : 'Cần cho SEO (tùy chọn)'}
         </Label>
         <ClusterPicker
           value={clusterId ?? null}
@@ -126,7 +126,7 @@ export function PillarKeywordSection({
             <span>· Avg vol: {ctx.avgVolume.toLocaleString()}</span>
             <span>· Đã dùng: {ctx.usedCount}</span>
             <Link to="/seo?tab=plan" className="text-primary hover:underline ml-auto">
-              Xem pillar →
+              Xem chi tiết →
             </Link>
           </div>
         )}
@@ -150,9 +150,9 @@ export function PillarKeywordSection({
 
       {empty && (
         <p className="text-[11px] text-muted-foreground">
-          Chưa có pillar nào.{' '}
+          Chưa có nhóm "Cần cho SEO" nào.{' '}
           <Link to="/seo?tab=plan" className="text-primary hover:underline">
-            Tạo pillar đầu tiên →
+            Tạo nhóm đầu tiên →
           </Link>
         </p>
       )}
