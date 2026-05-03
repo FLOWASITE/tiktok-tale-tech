@@ -1,100 +1,87 @@
+# Social-aware Keyword Research v3.1
+
+Mở rộng "Brand-aware research" hiện tại bằng một lớp **Social Signals** — đọc các kênh social brand đã kết nối + nội dung gần đây + engagement để AI hiểu brand đang thực sự nói gì, ai tương tác, từ khoá nào đang work.
+
 ## Mục tiêu
-Nâng chất lượng keyword bằng cách cho AI **hiểu sâu brand** — không chỉ pillars + forbidden, mà toàn bộ DNA brand (USP, audience, vị thế, đối thủ, evergreen themes, signature phrases, jurisdiction). Keyword sinh ra phải bám sát brand voice + có **Brand Fit Score** rõ ràng.
+- Keyword gợi ý phản ánh **giọng thực** của brand trên social (không chỉ profile khai báo)
+- Phát hiện **theme/hashtag/từ khóa hot** từ post gần đây để mở rộng seed
+- Ưu tiên platform brand đang active (vd brand chỉ có TikTok+IG → seed nghiêng video/visual intent)
+- Giữ guardrails Industry Memory như cũ
 
-## Vấn đề hiện tại
-- `fetchBrandCtx` chỉ lấy 7 trường (name, industry, tone, audience, pillars, forbidden, jurisdiction) → bỏ qua 15+ trường brand quan trọng (USP, positioning, competitors, evergreen themes, signature phrases, target_locations, mission/vision…)
-- Seed auto-derive chỉ dùng pillar name/keyword đầu tiên → bỏ qua weight nuance + competitor + USP
-- AI prompt chưa có **industry memory v2** (forbidden_terms ngành, claim restrictions, preferred terms) — chỉ có forbidden_words flat
-- Không có **Brand Fit Score** — chỉ có `pillar_match` boolean-ish
-- Không re-rank theo brand alignment, chỉ priority_score (volume/KD/intent)
-- FE preview không show vì sao keyword fit/not fit brand
+## 1. Backend — `supabase/functions/keyword-research-v2/index.ts`
 
-## Phạm vi (3 lớp)
-
-### Lớp 1 — Brand Context sâu (BE)
-File: `supabase/functions/keyword-research-v2/index.ts`
-
-Mở rộng `fetchBrandCtx` lấy thêm:
-- `unique_value_proposition`, `brand_positioning`, `mission`, `tagline`
-- `signature_phrases`, `evergreen_themes`, `brand_hashtags`
-- `main_competitors`, `competitive_advantages`
-- `target_locations`, `target_gender`
-- `preferred_words` (whitelist song song với forbidden)
-- Industry template: thêm `preferred_terms`, `claim_restrictions`, `high_risk_keywords`, `target_audience` (từ resolved_rules nếu có) — fetch qua `_shared/data-fetchers/industry-fetcher-v2.ts`
-
-`buildBrandBlock` viết lại theo cấu trúc:
+### 1.1 New helper: `fetchSocialSignals(supabase, brandTemplateId, organizationId)`
+Trả về `SocialSignals | null`:
+```ts
+{
+  active_platforms: string[];           // ['facebook','instagram','tiktok',...]
+  platform_handles: { platform, username, display_name }[];
+  recent_topics: string[];              // top 10 title/topic từ multi_channel_contents 60 ngày
+  recent_hashtags: string[];            // top 15 hashtag tần suất cao
+  frequent_terms: string[];             // top 20 noun phrase từ caption gần đây (regex/freq)
+  top_engaged_topics: string[];         // topic của posts có engagement cao (join post_metrics)
+  audience_questions: string[];         // câu hỏi từ social_post_engagements (event_type='comment') — top 5
+}
 ```
-## BRAND DNA
-- Brand / Industry / Jurisdiction
-- USP: ...
-- Positioning: ...
-- Mission/Tagline
-## AUDIENCE
-- Age / Gender / Segment / Locations
-## VOICE
-- Tone / Formality / Language style / Emoji policy
-- Signature phrases (dùng làm modifier khi hợp lý)
-## CONTENT TERRITORY
-- Pillars (top 5 với weight + keywords)
-- Evergreen themes
-- Brand hashtags
-## COMPETITIVE LANDSCAPE
-- Main competitors (gợi ý keyword cạnh tranh)
-- Competitive advantages (xoáy vào điểm mạnh)
-## INDUSTRY GUARDRAILS (priority cao nhất)
-- Forbidden terms (brand + industry)
-- High-risk keywords (cần context)
-- Claim restrictions (X → Y)
-- Preferred terms
+Truy vấn:
+- `social_connections` filter `brand_template_id` + `is_active=true` → list platform/handle
+- `multi_channel_contents` last 60d cùng brand → đọc fields `<platform>_content`, `tags`, `topic`
+- `social_post_metrics` (nếu có) join `content_publishing_logs` → top engaged
+- `social_post_engagements` event_type comment → extract câu hỏi (regex `?$`)
+
+Tất cả wrap try/catch, fail mềm (return null) — không block research.
+
+### 1.2 Mở rộng `fetchBrandCtx` → nhận thêm `organizationId`, gọi `fetchSocialSignals` song song với `Promise.all`. Gắn signals vào `BrandCtx.social_signals`.
+
+### 1.3 `buildBrandBlock` — thêm section mới:
+```
+## SOCIAL FOOTPRINT (giọng thực tế của brand)
+- Active channels: tiktok, instagram, facebook
+- Handles: @flowa.vn (IG), @flowa (TikTok)
+- Recent topics (60d): "AI marketing", "carousel trend", ...
+- Trending hashtags brand đang dùng: #aimarketing #flowa ...
+- High-engagement themes: "case study agency", "tutorial Canva"
+- Audience đang hỏi: "Flowa có hỗ trợ TikTok không?", ...
+
+→ Khi sinh keyword, ƯU TIÊN intent + chủ đề khớp social footprint.
+   Nếu brand không có TikTok → hạn chế keyword "tiktok ...".
 ```
 
-### Lớp 2 — Smart Seed Derivation (BE)
-Khi `seeds` rỗng, derive 5 seed có chiến lược (không chỉ pillars):
-1. Top 2 pillar keywords (weighted)
-2. 1 USP/positioning keyword (extract noun phrase từ `unique_value_proposition`)
-3. 1 evergreen theme
-4. 1 location-modified seed nếu có `target_locations` (vd "{industry} {location}")
+### 1.4 Smart seed derivation — bổ sung nguồn:
+- `recent_topics` (weight cao nhất, 4 seed)
+- `frequent_terms` (2 seed)
+- `audience_questions` → seed dạng long-tail/question
+- Loại trùng với pillar seeds đã có
 
-Log strategy used → lưu vào `keyword_research_jobs.result.seed_strategy` để debug.
+### 1.5 Brand Fit scoring — thêm tiêu chí:
+- `social_alignment_bonus`: +10 nếu keyword chứa term trong `recent_topics`/`frequent_terms`
+- Final score giữ formula `priority*0.6 + brand_fit*0.4` nhưng `brand_fit` nay tính cả social alignment
 
-### Lớp 3 — Brand Fit Scoring + Re-rank
-Thêm field vào tool schema `submit_keyword_batch`:
-- `brand_fit_score`: integer 0-100 (AI tự đánh giá)
-- `brand_fit_reason`: string ngắn (vì sao fit / lệch)
-- `pillar_match`: giữ nguyên
-- `audience_match`: enum `core | adjacent | off-target`
+## 2. Frontend
 
-System prompt yêu cầu:
-- Chấm `brand_fit_score` dựa: pillar coverage, audience match, voice fit (signature/evergreen), không vi phạm forbidden/claim
-- Tự loại keyword `brand_fit_score < 40` trừ khi user chọn preset `competitor_gaps`
+### 2.1 `KeywordResearchLabTab.tsx` — Brand DNA panel
+Thêm sub-section **"Tín hiệu Social"** trong panel collapsible hiện có:
+- Badge mỗi platform đã connect (icon + handle)
+- Chip top 5 recent topics + top 5 hashtags
+- Empty state: "Chưa kết nối social — kết nối để keyword chính xác hơn" + nút deep-link tới Brand Connections
 
-Re-rank `priority_score` (giữ công thức cũ) **+ blend brand_fit**:
-```
-final_score = priority_score * 0.6 + brand_fit_score * 0.4
-```
+### 2.2 `KeywordPreviewTable.tsx`
+- Tooltip "Brand Fit" mở rộng: nếu match social signal → hiển thị "📱 Khớp social: <topic>"
+- Filter mới: "Chỉ hiện keyword khớp social footprint"
 
-### Lớp 4 — UI Surface (FE)
-Files: 
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx`
-- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` (preview table)
+## 3. Memory
+Cập nhật `mem://features/seo/research-lab-v2-vn.md` ghi rõ:
+- Social signals là input bổ sung cho brand context
+- Fail-soft khi không có social hoặc query lỗi
+- Không lưu raw post content vào prompt — chỉ aggregate (privacy + token budget)
 
-Thay đổi:
-- Brand Context Panel: hiện thêm USP / Positioning / Audience locations / Top competitors (collapsible "Brand DNA đang áp dụng")
-- Preview table: thêm cột **Brand Fit** (badge emerald/amber/red theo score) + tooltip show `brand_fit_reason`
-- Filter mới: "Chỉ keyword core audience" + slider min brand_fit
-- Sort default theo `final_score` thay vì `priority_score`
+## File thay đổi
+- `supabase/functions/keyword-research-v2/index.ts` (helper + prompt + seed + scoring)
+- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (Social signals panel)
+- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (badge/filter)
+- `.lovable/memory/features/seo/research-lab-v2-vn.md`
 
-## Không làm
-- Không đổi DB schema (`keyword_research_jobs.preview` là JSONB, brand_fit fields nằm trong)
-- Không đụng `seo_keywords` table
-- Không đổi pricing/quota
-
-## Risks
-- Token budget tăng ~30% do brand DNA block dài → mitigate: cap mỗi field 200 chars, top 3 evergreen/competitors only
-- AI có thể "overfit" brand → giảm long-tail diversity → preset `default` giữ instruction "đa dạng"
-
-## Files to edit
-- `supabase/functions/keyword-research-v2/index.ts` (chính)
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (Brand DNA panel)
-- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` (Brand Fit column + filter)
-- Memory: cập nhật `mem://features/seo/research-lab-v2-vn.md` → v3
+## Edge cases
+- Brand chưa connect social nào → skip section, fallback brand profile như hiện tại (no regression)
+- Brand có social nhưng chưa publish → vẫn dùng platform list để định hướng intent
+- Token budget: cap mỗi list 5–15 items, total social block <600 tokens
