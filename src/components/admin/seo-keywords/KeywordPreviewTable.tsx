@@ -23,6 +23,7 @@ export interface PreviewKeyword {
   brand_fit_score?: number;
   brand_fit_reason?: string;
   final_score?: number;
+  social_match?: string | null;
   is_gap?: boolean;
 }
 
