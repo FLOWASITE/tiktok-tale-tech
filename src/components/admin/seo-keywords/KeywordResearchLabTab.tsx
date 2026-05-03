@@ -277,6 +277,18 @@ export default function KeywordResearchLabTab() {
                   {serpInfo.hasFirecrawl ? "✓" : "⚠"} Firecrawl: {Object.entries(serpInfo.results).map(([k, v]) => `${k} (${v} results)`).join(", ") || "không có data"}
                 </p>
               )}
+              {expandedSeeds.length > 0 && (
+                <div className="pt-1.5">
+                  <p className="text-[10px] text-muted-foreground mb-1">Seed mở rộng (Autocomplete + PAA):</p>
+                  <div className="flex flex-wrap gap-1">
+                    {expandedSeeds.map((s, i) => (
+                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
