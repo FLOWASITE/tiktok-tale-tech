@@ -255,11 +255,6 @@ export default function KeywordExplorerTab() {
           </div>
         )}
 
-        {/* keep-orig-bulk-end */}
-        {false && (
-          <div>{/* placeholder to balance JSX */}</div>
-        )}
-
         {isLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>
         ) : (
