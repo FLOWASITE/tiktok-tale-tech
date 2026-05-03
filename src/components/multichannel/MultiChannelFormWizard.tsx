@@ -133,6 +133,11 @@ import { FloatingStatusStack } from '@/components/multichannel/FloatingStatusSta
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { PromptPreview } from '@/components/multichannel/PromptPreview';
 import ClusterPicker from '@/components/seo/ClusterPicker';
+import { EntryModeSwitcher } from '@/components/multichannel/EntryModeSwitcher';
+import { SeoFirstEntry } from '@/components/multichannel/SeoFirstEntry';
+import { PillarKeywordSection } from '@/components/multichannel/PillarKeywordSection';
+import { useEntryMode } from '@/hooks/useEntryMode';
+import { useSuggestedPillar } from '@/hooks/useSuggestedPillar';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 import { cn } from '@/lib/utils';
