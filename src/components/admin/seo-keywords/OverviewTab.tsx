@@ -158,7 +158,12 @@ export default function OverviewTab() {
     () => keywords.filter((k) => !coverage.has(k.id)),
     [keywords, coverage]
   );
-  const orphanKeywords = useMemo(() => orphanAll.slice(0, orphanLimit), [orphanAll, orphanLimit]);
+  const orphanTotalPages = Math.max(1, Math.ceil(orphanAll.length / PAGE_SIZE));
+  const orphanCurPage = Math.min(orphanPage, orphanTotalPages);
+  const orphanKeywords = useMemo(
+    () => orphanAll.slice((orphanCurPage - 1) * PAGE_SIZE, orphanCurPage * PAGE_SIZE),
+    [orphanAll, orphanCurPage]
+  );
   const coveredCount = keywords.length - keywords.filter((k) => !coverage.has(k.id)).length;
 
   const cannibalized = useMemo(() => {
