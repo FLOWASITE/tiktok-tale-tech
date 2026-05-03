@@ -18,6 +18,8 @@ interface Props {
   selectedKeywordIds?: string[];
   onPick: (title: string, keywordIds: string[]) => void;
   disabled?: boolean;
+  /** Khi true, bắt buộc phải có ≥1 keyword target mới enable nút Gợi ý topic (SEO mode). */
+  requireKeywords?: boolean;
 }
 
 const INTENT_COLORS: Record<string, string> = {
