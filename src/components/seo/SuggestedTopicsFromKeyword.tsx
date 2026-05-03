@@ -33,6 +33,7 @@ export function SuggestedTopicsFromKeyword({
   selectedKeywordIds = [],
   onPick,
   disabled,
+  requireKeywords = false,
 }: Props) {
   const [suggestions, setSuggestions] = useState<TopicSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
