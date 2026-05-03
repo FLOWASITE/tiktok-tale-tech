@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Search, FolderTree, Link2, TrendingUp, AlertCircle, CheckCircle2,
   Copy, Target as TargetIcon, FileText, Sparkles, Loader2,
@@ -89,6 +90,48 @@ export default function OverviewTab() {
       return (data as ContentRow[]) || [];
     },
   });
+
+  const { data: landingPages = [] } = useQuery({
+    queryKey: ["overview-landing-pages", orgId],
+    enabled: !!orgId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("seo_landing_pages")
+        .select("id,slug,title")
+        .order("updated_at", { ascending: false })
+        .limit(200);
+      return data || [];
+    },
+  });
+
+  const quickAssign = async (
+    keywordId: string,
+    patch: { cluster_id?: string | null; assigned_landing_page_id?: string | null }
+  ) => {
+    const { error } = await supabase.from("seo_keywords").update(patch).eq("id", keywordId);
+    if (error) return toast.error(error.message);
+    toast.success("Đã gán");
+    qc.invalidateQueries({ queryKey: ["overview-keywords"] });
+  };
+
+  const keepWinner = async (keywordId: string, winnerContentId: string, allContents: ContentRow[]) => {
+    const losers = allContents.filter((c) => c.id !== winnerContentId);
+    const updates = losers.map((c) =>
+      supabase
+        .from("multi_channel_contents")
+        .update({
+          target_keyword_ids: (c.target_keyword_ids || []).filter((id) => id !== keywordId),
+        })
+        .eq("id", c.id)
+    );
+    const results = await Promise.all(updates);
+    const err = results.find((r) => r.error)?.error;
+    if (err) return toast.error(err.message);
+    toast.success(`Giữ winner, gỡ keyword khỏi ${losers.length} content khác`);
+    qc.invalidateQueries({ queryKey: ["overview-contents"] });
+  };
+
 
   // Index keyword_id -> contents
   const coverage = useMemo(() => {
@@ -275,7 +318,8 @@ export default function OverviewTab() {
                     <TableHead>Keyword</TableHead>
                     <TableHead className="text-right">Volume</TableHead>
                     <TableHead className="text-right">Priority</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[180px]">Pillar</TableHead>
+                    <TableHead className="w-[200px]">Landing page</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -284,11 +328,47 @@ export default function OverviewTab() {
                       <TableCell className="font-medium">{k.keyword}</TableCell>
                       <TableCell className="text-right">{k.search_volume?.toLocaleString() ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono">{k.priority_score ?? 0}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{k.status}</Badge></TableCell>
+                      <TableCell>
+                        <Select
+                          value={k.cluster_id || "__none__"}
+                          onValueChange={(v) => quickAssign(k.id, { cluster_id: v === "__none__" ? null : v })}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn pillar" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Không gắn —</SelectItem>
+                            {pillars.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color || "#6B7280" }} />
+                                  {p.name}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={k.assigned_landing_page_id || "__none__"}
+                          onValueChange={(v) =>
+                            quickAssign(k.id, { assigned_landing_page_id: v === "__none__" ? null : v })
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Chọn page" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Chưa gán —</SelectItem>
+                            {landingPages.map((p: any) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.title || p.slug}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {orphanKeywords.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       🎉 Tất cả keyword đã có content phủ.
                     </TableCell></TableRow>
                   )}
@@ -296,7 +376,7 @@ export default function OverviewTab() {
               </Table>
             </CardContent>
           </Card>
-          <p className="text-xs text-muted-foreground mt-2">Tối đa 100 orphan, sắp theo priority.</p>
+          <p className="text-xs text-muted-foreground mt-2">Tối đa 100 orphan, sắp theo priority. Chọn pillar/page để lưu ngay.</p>
         </TabsContent>
 
         <TabsContent value="gap" className="mt-4">
@@ -358,19 +438,31 @@ export default function OverviewTab() {
                   <TableRow>
                     <TableHead>Keyword</TableHead>
                     <TableHead className="text-right"># Content</TableHead>
-                    <TableHead>Đang cạnh tranh</TableHead>
+                    <TableHead>Chọn winner (giữ keyword, gỡ khỏi các content khác)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {cannibalized.map(({ keyword, contents: list }) => (
                     <TableRow key={keyword.id}>
-                      <TableCell className="font-medium">{keyword.keyword}</TableCell>
-                      <TableCell className="text-right"><Badge variant="destructive">{list.length}</Badge></TableCell>
-                      <TableCell className="text-xs space-y-0.5">
+                      <TableCell className="font-medium align-top pt-3">{keyword.keyword}</TableCell>
+                      <TableCell className="text-right align-top pt-3">
+                        <Badge variant="destructive">{list.length}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs space-y-1">
                         {list.map((c) => (
-                          <div key={c.id} className="truncate max-w-md text-muted-foreground">
-                            · {c.title || c.topic || c.id.slice(0, 8)}{" "}
-                            <Badge variant="outline" className="text-[9px] ml-1">{c.status || "—"}</Badge>
+                          <div key={c.id} className="flex items-center justify-between gap-2 py-0.5">
+                            <span className="truncate max-w-md text-muted-foreground flex-1">
+                              · {c.title || c.topic || c.id.slice(0, 8)}{" "}
+                              <Badge variant="outline" className="text-[9px] ml-1">{c.status || "—"}</Badge>
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px] shrink-0"
+                              onClick={() => keepWinner(keyword.id, c.id, list)}
+                            >
+                              <CheckCircle2 className="h-3 w-3 mr-1" /> Giữ làm winner
+                            </Button>
                           </div>
                         ))}
                       </TableCell>
