@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Link2, Sparkles, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Link2, Sparkles, FileText, AlertCircle, CheckCircle2, Copy, Target as TargetIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
 
