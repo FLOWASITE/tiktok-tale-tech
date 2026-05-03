@@ -36,9 +36,24 @@ export default function CoverageTab() {
   const { currentOrganization } = useOrganization();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState<ContentRow | null>(null);
   const [editIds, setEditIds] = useState<string[]>([]);
   const [linksFor, setLinksFor] = useState<string | null>(null);
+
+  const { data: pillars = [] } = useQuery({
+    queryKey: ["coverage-pillars", orgId],
+    enabled: !!orgId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("seo_clusters")
+        .select("id,name,color")
+        .eq("organization_id", orgId!)
+        .order("name");
+      return data || [];
+    },
+  });
 
   const { data: keywords = [], isLoading: kwLoading } = useQuery({
     queryKey: ["coverage-keywords", orgId],
