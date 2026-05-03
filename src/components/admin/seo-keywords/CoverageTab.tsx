@@ -104,6 +104,35 @@ export default function CoverageTab() {
     [keywords, coverage]
   );
 
+  // Cannibalization: keyword bị target bởi >= 2 content
+  const cannibalized = useMemo(() => {
+    return coveredKeywords
+      .map((k) => ({ keyword: k, contents: coverage.get(k.id) || [] }))
+      .filter((row) => row.contents.length >= 2)
+      .sort((a, b) => b.contents.length - a.contents.length);
+  }, [coveredKeywords, coverage]);
+
+  // Gap-by-pillar: pillar nào còn nhiều orphan
+  const pillarGap = useMemo(() => {
+    const pillarMap = new Map(pillars.map((p) => [p.id, p]));
+    const buckets = new Map<string, { pillar: any; total: number; covered: number; orphans: KeywordRow[] }>();
+    keywords.forEach((k) => {
+      if (!k.cluster_id) return;
+      const p = pillarMap.get(k.cluster_id);
+      if (!p) return;
+      if (!buckets.has(k.cluster_id)) {
+        buckets.set(k.cluster_id, { pillar: p, total: 0, covered: 0, orphans: [] });
+      }
+      const b = buckets.get(k.cluster_id)!;
+      b.total += 1;
+      if (coverage.has(k.id)) b.covered += 1;
+      else b.orphans.push(k);
+    });
+    return Array.from(buckets.values())
+      .map((b) => ({ ...b, ratio: b.total ? b.covered / b.total : 0 }))
+      .sort((a, b) => a.ratio - b.ratio);
+  }, [keywords, pillars, coverage]);
+
   const totalLinks = useMemo(
     () => contents.reduce((sum, c) => sum + (c.target_keyword_ids?.length || 0), 0),
     [contents]
