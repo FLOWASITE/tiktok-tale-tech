@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Loader2, RefreshCw, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { buildKey, getCached, setCached } from '@/lib/topicSuggestionCache';
 
 interface TopicSuggestion {
   title: string;
@@ -14,6 +15,7 @@ interface TopicSuggestion {
 
 interface Props {
   clusterId: string | null | undefined;
+  selectedKeywordIds?: string[];
   onPick: (title: string) => void;
   disabled?: boolean;
 }
@@ -24,13 +26,39 @@ const INTENT_COLORS: Record<string, string> = {
   BOFU: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
 };
 
-export function SuggestedTopicsFromKeyword({ clusterId, onPick, disabled }: Props) {
+export function SuggestedTopicsFromKeyword({
+  clusterId,
+  selectedKeywordIds = [],
+  onPick,
+  disabled,
+}: Props) {
   const [suggestions, setSuggestions] = useState<TopicSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
 
-  const generate = async () => {
-    if (!clusterId) return;
+  const cacheKey = clusterId ? buildKey(clusterId, selectedKeywordIds) : null;
+
+  // Reset state khi clusterId hoặc bộ keyword đổi để tránh hiển thị lệch context
+  useEffect(() => {
+    setSuggestions([]);
+    setHasFetched(false);
+    setFromCache(false);
+  }, [cacheKey]);
+
+  const generate = async (force = false) => {
+    if (!clusterId || !cacheKey) return;
+
+    if (!force) {
+      const cached = getCached<TopicSuggestion[]>(cacheKey);
+      if (cached && cached.length > 0) {
+        setSuggestions(cached);
+        setHasFetched(true);
+        setFromCache(true);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('suggest-cluster-topics', {
@@ -40,7 +68,10 @@ export function SuggestedTopicsFromKeyword({ clusterId, onPick, disabled }: Prop
       const list = (data?.suggestions || []) as TopicSuggestion[];
       setSuggestions(list);
       setHasFetched(true);
-      if (list.length === 0) {
+      setFromCache(false);
+      if (list.length > 0) {
+        setCached(cacheKey, list);
+      } else {
         toast.info(data?.message || 'Chưa có gợi ý phù hợp');
       }
     } catch (e: any) {
@@ -60,17 +91,22 @@ export function SuggestedTopicsFromKeyword({ clusterId, onPick, disabled }: Prop
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           {hasFetched
             ? `${suggestions.length} gợi ý topic từ keyword chưa có content`
             : 'Để AI đề xuất topic bám sát keyword target'}
+          {fromCache && (
+            <Badge variant="outline" className="text-[10px] h-4 px-1 border-border/60 text-muted-foreground">
+              cached
+            </Badge>
+          )}
         </p>
         <Button
           type="button"
           size="sm"
           variant={hasFetched ? 'outline' : 'default'}
-          onClick={generate}
+          onClick={() => generate(hasFetched)}
           disabled={loading || disabled}
           className="h-7 text-xs gap-1.5"
         >
