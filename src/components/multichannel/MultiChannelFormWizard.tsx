@@ -134,7 +134,7 @@ import { FloatingStatusStack } from '@/components/multichannel/FloatingStatusSta
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { PromptPreview } from '@/components/multichannel/PromptPreview';
 import ClusterPicker from '@/components/seo/ClusterPicker';
-import { EntryModeSwitcher } from '@/components/multichannel/EntryModeSwitcher';
+import { SeoModeToggle } from '@/components/multichannel/SeoModeToggle';
 import { SeoFirstEntry } from '@/components/multichannel/SeoFirstEntry';
 import { useEntryMode } from '@/hooks/useEntryMode';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
@@ -1183,19 +1183,11 @@ export function MultiChannelFormWizard({
           {/* ========== STEP 1: CHỦ ĐỀ (Progressive Smart Input) ========== */}
           {currentStep === 1 && (
             <div className="space-y-5 animate-fade-in">
-              {/* Hybrid Entry Mode switcher */}
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <p className="text-xs font-semibold text-foreground">Cách bắt đầu</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {entryMode === 'seo'
-                      ? 'Chọn "Cần cho SEO" + Keyword trước → AI gợi ý topic'
-                      : 'Bắt đầu từ ý tưởng → AI gợi ý nhóm "Cần cho SEO" phù hợp'}
-                  </p>
-                </div>
-                <EntryModeSwitcher
-                  mode={entryMode}
-                  onChange={setEntryMode}
+              {/* SEO mode toggle (off = idea-first default) */}
+              <div className="flex items-center justify-end">
+                <SeoModeToggle
+                  enabled={entryMode === 'seo'}
+                  onChange={(v) => setEntryMode(v ? 'seo' : 'idea')}
                   disabled={isGenerating}
                 />
               </div>

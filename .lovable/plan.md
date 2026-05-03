@@ -1,47 +1,40 @@
 ## Vấn đề
-Hiện tại `useEntryMode` auto-switch sang `seo` khi user chọn kênh long-form (Website/Blogger/WordPress), kèm toast "Đã chuyển sang chế độ Cần cho SEO". Điều này ép buộc user, trái với mong muốn: **Idea-first là mặc định hệ thống, SEO chỉ là tùy chọn khi user chủ động bật**.
-
-## Mục tiêu
-- Mặc định luôn là `idea` cho mọi user mới / mọi tổ hợp kênh.
-- SEO mode chỉ kích hoạt khi user **tự click** vào switcher.
-- Bỏ toast auto-switch gây nhiễu.
-- Giữ persist lựa chọn user qua localStorage (nếu user đã chọn `seo` lần trước, vẫn nhớ).
+Hiện tại Step 1 hiển thị **2 tab "Theo ý tưởng" / "Cần cho SEO"** (EntryModeSwitcher). User muốn:
+- Bỏ tab "Theo ý tưởng" (vì đã là mặc định hệ thống, hiển thị tab gây thừa).
+- Thay bằng **1 nút bật/tắt SEO mode rõ ràng** — off = idea (mặc định), on = seo.
 
 ## Thay đổi
 
-### 1. `src/hooks/useEntryMode.ts` — bỏ auto-switch
-- Xóa toàn bộ `useEffect` auto-switch theo `channels`.
-- Xóa khái niệm `OVERRIDE_KEY` / `overrideRef` / `resetOverride` (không còn cần vì không auto nữa).
-- Mặc định khởi tạo: đọc localStorage; nếu chưa có → `'idea'`.
-- `setMode(next)`: chỉ persist vào localStorage + setState. Bỏ logic override.
-- Bỏ `import { toast }` và `LONG_FORM_CHANNELS` (nếu chỉ dùng nội bộ); export `LONG_FORM_CHANNELS` chỉ giữ nếu nơi khác import.
+### 1. Tạo component mới `src/components/multichannel/SeoModeToggle.tsx`
+Một toggle gọn dùng `Switch` + label + icon `Target`, với mô tả phụ:
+- Off: "Chế độ SEO — Tắt" · "Bắt đầu từ ý tưởng (mặc định)"
+- On: "Chế độ SEO — Bật" · "Chọn pillar + keyword trước, AI gợi ý topic"
 
-Signature mới:
-```ts
-export function useEntryMode(): { mode: EntryMode; setMode: (m: EntryMode) => void }
+Props: `enabled: boolean`, `onChange: (v: boolean) => void`, `disabled?: boolean`.
+
+UI gợi ý:
 ```
-(Bỏ tham số `channels` vì không dùng.)
+[🎯 Chế độ SEO          ◉━━○ ]
+   Bắt đầu từ keyword cho long-form
+```
+Có hover tooltip giải thích khi nào nên bật (Website/Blog/WordPress).
 
-### 2. `src/components/multichannel/MultiChannelFormWizard.tsx` — cập nhật call site
-- Sửa chỗ gọi `useEntryMode(formData.channels)` → `useEntryMode()`.
-- Bỏ destructure `resetOverride`, `isOverridden` nếu có.
-- Giữ nguyên việc render `EntryModeSwitcher` + nhánh `seo` / `idea`.
+### 2. `src/components/multichannel/MultiChannelFormWizard.tsx` (Step 1 header, dòng 1186-1201)
+- Bỏ block `EntryModeSwitcher` + 2 dòng mô tả "Cách bắt đầu".
+- Thay bằng `<SeoModeToggle enabled={entryMode === 'seo'} onChange={(v) => setEntryMode(v ? 'seo' : 'idea')} disabled={isGenerating} />` đặt ở góc phải, hoặc 1 hàng riêng phía trên các block còn lại.
+- Giữ nguyên nhánh `{entryMode === 'seo' && <SeoFirstEntry ... />}` bên dưới.
 
-### 3. (Tuỳ chọn UX nhỏ) `EntryModeSwitcher.tsx`
-- Thêm subtitle nhỏ "Tùy chọn nâng cao" cạnh nhãn "Cần cho SEO" để báo hiệu đây là opt-in. Không bắt buộc.
+### 3. (Không xoá file) `EntryModeSwitcher.tsx` giữ nguyên (có thể dùng nơi khác sau), nhưng gỡ import khỏi wizard.
 
-### 4. Cập nhật memory
-- Sửa `.lovable/memory/features/multichannel/hybrid-entry-mode-vn.md`:
-  - Mode A (`seo`): đổi từ "Mặc định khi user chọn ≥1 long-form channel" → **"Opt-in: chỉ kích hoạt khi user tự chọn switcher"**.
-  - Mode B (`idea`): đổi thành **"Mặc định hệ thống cho mọi tổ hợp kênh"**.
-  - Bỏ section "Smart default & override" → thay bằng "Persist: localStorage `mc:entry_mode` nhớ lựa chọn user".
+### 4. Cập nhật memory `.lovable/memory/features/multichannel/hybrid-entry-mode-vn.md`
+- Đổi mô tả UI: "EntryModeSwitcher 2-tab" → "SeoModeToggle (Switch on/off)".
+- Idea-first vẫn là mặc định; SEO chỉ bật khi user gạt switch.
 
 ## Không đổi
-- `formData.{topic, clusterId, targetKeywordIds}` shape giữ nguyên.
-- Backend `generate-multichannel` không sửa.
-- `SeoFirstEntry`, `PillarKeywordSection`, `SuggestedTopicsFromKeyword` không sửa.
+- `useEntryMode` hook giữ nguyên (đã đúng: default `idea`, persist localStorage).
+- `formData` shape, backend, `SeoFirstEntry`, `PillarKeywordSection` không đổi.
 
 ## Kết quả
-- User mở form → luôn ở "Theo ý tưởng".
-- Muốn SEO-first → bấm tab "Cần cho SEO" → hệ thống nhớ cho lần sau.
-- Không còn toast bất ngờ khi tick chọn kênh Website/Blog.
+- Step 1 không còn 2 tab; chỉ 1 switch "Chế độ SEO" rõ ràng.
+- Mặc định tắt → user thấy giao diện ý tưởng đơn giản.
+- Bật switch → hiện block Pillar/Keyword/SuggestedTopics như trước.
