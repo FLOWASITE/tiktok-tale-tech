@@ -28,6 +28,7 @@ const PRESETS: { id: Preset; label: string; icon: any }[] = [
 
 export default function KeywordResearchLabTab() {
   const { currentOrganization } = useOrganization();
+  const { currentBrand } = useCurrentBrand();
   const orgId = currentOrganization?.id;
   const qc = useQueryClient();
 
@@ -43,6 +44,37 @@ export default function KeywordResearchLabTab() {
   const [previewKeywords, setPreviewKeywords] = useState<PreviewKeyword[]>([]);
   const [serpInfo, setSerpInfo] = useState<{ hasFirecrawl: boolean; results: Record<string, number> } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Pre-fill seeds từ content_pillars của brand active
+  const suggestedSeeds = useMemo<string[]>(() => {
+    const pillars = currentBrand?.content_pillars;
+    if (!Array.isArray(pillars) || pillars.length === 0) return [];
+    const sorted = [...pillars].sort((a: any, b: any) => (b?.weight ?? 0) - (a?.weight ?? 0));
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const p of sorted) {
+      const candidate = (Array.isArray((p as any)?.keywords) && (p as any).keywords[0])
+        ? String((p as any).keywords[0])
+        : String((p as any)?.name || "");
+      const trimmed = candidate.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(trimmed);
+      if (out.length >= 5) break;
+    }
+    return out;
+  }, [currentBrand?.id, currentBrand?.content_pillars]);
+
+  // Auto-fill khi đổi brand và textarea còn trống
+  useEffect(() => {
+    if (suggestedSeeds.length > 0 && seedsText.trim() === "") {
+      setSeedsText(suggestedSeeds.join("\n"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBrand?.id]);
+
 
   const { data: jobs } = useQuery({
     queryKey: ["keyword-jobs-v2", orgId],
