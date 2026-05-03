@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Trash2, Target, ArrowRight, Sparkles, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users } from "lucide-react";
+import { Loader2, Trash2, Target, ArrowRight, Sparkles, HelpCircle, Star, Play, ShoppingBag, MapPin, Newspaper, Users, Download, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useKeywordEnrichment } from "@/hooks/useKeywordEnrichment";
+import { useCurrentBrand } from "@/contexts/BrandContext";
 
 const STATUS_OPTIONS = ["all", "new", "researching", "planned", "assigned", "published", "tracking", "archived"];
 const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "navigational"];
