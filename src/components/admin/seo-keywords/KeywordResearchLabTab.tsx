@@ -128,41 +128,53 @@ export default function KeywordResearchLabTab() {
       const dec = new TextDecoder();
       let buf = "";
       let currentEvent = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let nl: number;
-        while ((nl = buf.indexOf("\n")) !== -1) {
-          let line = buf.slice(0, nl);
-          buf = buf.slice(nl + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith("event: ")) { currentEvent = line.slice(7).trim(); continue; }
-          if (!line.startsWith("data: ")) continue;
-          const json = line.slice(6);
-          try {
-            const data = JSON.parse(json);
-            if (currentEvent === "progress") {
-              setProgress(data.pct || 0);
-              if (data.message) setProgressMsg(data.message);
-              if (data.jobId) setActiveJobId(data.jobId);
-            } else if (currentEvent === "serp") {
-              setSerpInfo(data);
-            } else if (currentEvent === "expanded_seeds") {
-              setExpandedSeeds(Array.isArray(data.seeds) ? data.seeds : []);
-            } else if (currentEvent === "keyword_batch") {
-              setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
-            } else if (currentEvent === "done") {
-              setProgress(100);
-              setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
-              setActiveJobId(data.jobId);
-              toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
-              qc.invalidateQueries({ queryKey: ["keyword-jobs-v2"] });
-            } else if (currentEvent === "error") {
-              throw new Error(data.message || "Stream error");
-            }
-          } catch (e) { /* partial json — ignore */ }
+      let lastChunkAt = Date.now();
+      const watchdog = setInterval(() => {
+        if (Date.now() - lastChunkAt > 90_000) {
+          ctrl.abort();
+          clearInterval(watchdog);
         }
+      }, 5000);
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          lastChunkAt = Date.now();
+          buf += dec.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) !== -1) {
+            let line = buf.slice(0, nl);
+            buf = buf.slice(nl + 1);
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (line.startsWith("event: ")) { currentEvent = line.slice(7).trim(); continue; }
+            if (!line.startsWith("data: ")) continue;
+            const json = line.slice(6);
+            try {
+              const data = JSON.parse(json);
+              if (currentEvent === "progress") {
+                setProgress(data.pct || 0);
+                if (data.message) setProgressMsg(data.message);
+                if (data.jobId) setActiveJobId(data.jobId);
+              } else if (currentEvent === "serp") {
+                setSerpInfo(data);
+              } else if (currentEvent === "expanded_seeds") {
+                setExpandedSeeds(Array.isArray(data.seeds) ? data.seeds : []);
+              } else if (currentEvent === "keyword_batch") {
+                setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
+              } else if (currentEvent === "done") {
+                setProgress(100);
+                setProgressMsg(`Hoàn tất: ${data.total} keyword (${data.gaps} gap mới)`);
+                setActiveJobId(data.jobId);
+                toast.success(`AI sinh xong ${data.total} keyword. Chọn để lưu.`);
+                qc.invalidateQueries({ queryKey: ["keyword-jobs-v2"] });
+              } else if (currentEvent === "error") {
+                throw new Error(data.message || "Stream error");
+              }
+            } catch (e) { /* partial json — ignore */ }
+          }
+        }
+      } finally {
+        clearInterval(watchdog);
       }
     } catch (e: any) {
       if (e.name !== "AbortError") {
