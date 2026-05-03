@@ -1155,6 +1155,47 @@ export function MultiChannelFormWizard({
           {/* ========== STEP 1: CHỦ ĐỀ (Progressive Smart Input) ========== */}
           {currentStep === 1 && (
             <div className="space-y-5 animate-fade-in">
+              {/* Hybrid Entry Mode switcher */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Cách bắt đầu</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {entryMode === 'seo'
+                      ? 'Chọn Pillar/Keyword trước → AI gợi ý topic'
+                      : 'Bắt đầu từ ý tưởng → AI gợi ý pillar phù hợp'}
+                  </p>
+                </div>
+                <EntryModeSwitcher
+                  mode={entryMode}
+                  onChange={setEntryMode}
+                  disabled={isGenerating}
+                />
+              </div>
+
+              {/* SEO-first entry: Pillar → Keyword → AI suggested topics */}
+              {entryMode === 'seo' && (
+                <SeoFirstEntry
+                  clusterId={formData.clusterId}
+                  selectedKeywordIds={formData.targetKeywordIds ?? []}
+                  onClusterChange={(cid, kwIds) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      clusterId: cid,
+                      targetKeywordIds: kwIds.length > 0 ? kwIds : (prev.targetKeywordIds ?? []),
+                    }));
+                  }}
+                  onKeywordIdsChange={(ids) =>
+                    setFormData(prev => ({ ...prev, targetKeywordIds: ids }))
+                  }
+                  onPickTopic={(title) => {
+                    setTopicFromQuickAction(false);
+                    setFormData(prev => ({ ...prev, topic: title }));
+                    toast.success('Đã chọn topic gợi ý từ keyword');
+                  }}
+                  disabled={isGenerating}
+                />
+              )}
+
               {/* Content Goal Selector - ALWAYS VISIBLE */}
               <div className="space-y-2">
                 <Label className="text-foreground font-semibold flex items-center gap-2">
