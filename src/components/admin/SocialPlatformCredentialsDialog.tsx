@@ -86,6 +86,18 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://developers.pinterest.com/apps/',
     instructions: 'Tạo App tại Pinterest Developer Portal → Apps → Tạo app mới (yêu cầu Business account). Lấy App ID và App Secret. Thêm scope: boards:read, pins:read, pins:write, user_accounts:read.',
   },
+  bluesky: {
+    url: 'https://bsky.app/settings/app-passwords',
+    instructions: 'Bluesky dùng OAuth confidential client (đã cấu hình sẵn ở app.flowa.one). Không cần nhập credential ở đây.',
+  },
+  wordpress_com: {
+    url: 'https://developer.wordpress.com/apps/',
+    instructions: 'Tạo App tại WordPress.com Developer → Client ID & Client Secret. Redirect URL phải khớp với edge function callback.',
+  },
+  shopify: {
+    url: 'https://partners.shopify.com/',
+    instructions: 'Tạo Public App tại Shopify Partners → App setup → App URL: https://app.flowa.one. Allowed redirection URL: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/shopify-oauth-callback. Scopes: read_content, write_content, read_products. Lưu Client ID & Secret vào Edge Function Secrets (SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET) — không cần nhập ở đây.',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {

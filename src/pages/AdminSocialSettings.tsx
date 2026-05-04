@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe, ShoppingBag } from 'lucide-react';
 import { PinterestIcon } from '@/components/icons/SocialIcons';
 import {
   AlertDialog,
@@ -41,6 +41,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'website', name: 'Website', icon: Globe, color: 'text-green-600', available: true },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: true },
   { platform: 'pinterest', name: 'Pinterest', icon: PinterestIcon, color: 'text-[#E60023]', available: true },
+  { platform: 'shopify', name: 'Shopify', icon: ShoppingBag, color: 'text-[#96bf48]', available: true },
 ];
 
 export default function AdminSocialSettings() {
