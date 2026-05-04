@@ -60,6 +60,7 @@ import {
   WordPressIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
   BloggerIcon,
   BlueskyIcon,
   FacebookIcon,
