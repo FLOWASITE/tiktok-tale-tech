@@ -159,6 +159,7 @@ import {
 } from '@/types/multichannel';
 import { GOAL_TO_ROLE_MAP, CoreContentLengthMode, CORE_CONTENT_LENGTH_MODES } from '@/types/coreContent';
 import { MultiChannelHook } from '@/hooks/useMultiChannelHooks';
+import { useFrequentChannels } from '@/hooks/useFrequentChannels';
 
 interface BrandTemplate {
   id: string;
@@ -472,11 +473,16 @@ export function MultiChannelFormWizard({
     },
   });
 
+  const { frequent: frequentChannels, counts: frequentCounts, recordUsage: recordChannelUsage } =
+    useFrequentChannels(organizationId, brandTemplateId);
+
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialData?.topic || '',
     contentGoal: initialData?.contentGoal || 'education',
     contentAngle: initialData?.contentAngle,
-    channels: initialData?.channels || ['facebook', 'instagram'],
+    channels:
+      initialData?.channels ||
+      (frequentChannels.length > 0 ? frequentChannels : ['facebook', 'instagram']),
     brandTemplateId: brandTemplateId,
     brandVoiceVariantId: voiceVariantId,
     productId: initialData?.productId,
@@ -844,6 +850,11 @@ export function MultiChannelFormWizard({
     setFormData(prev => ({ ...prev, channels: [] }));
   };
 
+  const handleSelectFrequent = () => {
+    if (!frequentChannels.length) return;
+    setFormData(prev => ({ ...prev, channels: [...frequentChannels] }));
+  };
+
   // Hook selection handlers
   const handleSelectHook = (hook: MultiChannelHook) => {
     setFormData(prev => {
@@ -944,6 +955,7 @@ export function MultiChannelFormWizard({
     // Has Core Content - proceed with generation
     submittingRef.current = true;
     try {
+      recordChannelUsage(formData.channels);
       await onGenerate({ ...formData, topicHistoryId });
     } finally {
       submittingRef.current = false;
@@ -2105,6 +2117,9 @@ export function MultiChannelFormWizard({
                   channelIcons={channelIcons}
                   brandTemplate={brandTemplate}
                   disabled={isGenerating}
+                  frequentChannels={frequentChannels}
+                  frequentCounts={frequentCounts}
+                  onSelectFrequent={handleSelectFrequent}
                 />
               </div>
 
