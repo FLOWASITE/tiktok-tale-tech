@@ -496,7 +496,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     setIsShopifyConnecting(true);
     try {
       const { data, error } = await supabase.functions.invoke('shopify-oauth-start', {
-        body: { shop, brandTemplateId: template.id },
+        body: { shopDomain: shop, shop, brandTemplateId: template.id, frontendOrigin: window.location.origin },
       });
 
       let errBody: any = null;
