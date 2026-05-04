@@ -20,6 +20,10 @@ interface ConnectWebsiteRequest {
     username: string;
     applicationPassword: string;
   };
+  wixConfig?: {
+    siteId: string;
+    accountId: string;
+  };
 }
 
 function encrypt(text: string, key: string): string {
