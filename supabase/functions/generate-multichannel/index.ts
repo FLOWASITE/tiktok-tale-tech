@@ -3697,6 +3697,7 @@ BẮT BUỘC sau body, append đúng 1 block JSON:
 \`\`\`
 
 Phải KHÁC website (commerce-driven, ngắn hơn), KHÁC blogger (không ngôi 'tôi', focus product), KHÁC wordpress (không expert/E-E-A-T mà là shopping inspiration).`,
+              wix:       `Bài Wix Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Wix blog dùng HTML). Cấu trúc tương tự Shopify nhưng tone sáng tạo/visual-first hơn (Wix mạnh về design portfolio, lifestyle). CTA: "Khám phá", "Đặt lịch", "Liên hệ". Append seo-meta block JSON như Shopify.`,
               facebook:  "Facebook 250-500 từ, hook mạnh đầu bài, cấu trúc tiêu đề-giới thiệu-case study-giải pháp-CTA.",
               instagram: "Instagram 50-150 từ, ngắn gọn, hashtag cuối bài.",
               twitter:   "X/Twitter thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số.",
