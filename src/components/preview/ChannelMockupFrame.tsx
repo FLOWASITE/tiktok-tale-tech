@@ -48,6 +48,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { BloggerMockup } from './BloggerMockup';
 import { WordPressMockup } from './WordPressMockup';
+import { ShopifyMockup } from './ShopifyMockup';
 
 // Shared markdown components for mockups
 const mockupMarkdownComponents = {
