@@ -60,17 +60,19 @@ export default function BacklinksTab({ embedded = false }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi icon={<Link2 className="h-4 w-4" />} label="Tổng backlinks" value={stats?.total ?? 0} />
-        <Kpi icon={<FileText className="h-4 w-4" />} label="Long-form (SEO cao)"
-             value={Object.entries(stats?.byPlatform ?? {})
-               .filter(([p]) => isLongformPlatform(p))
-               .reduce((s, [, v]) => s + v, 0)} />
-        <Kpi icon={<ExternalLink className="h-4 w-4" />} label="7 ngày qua" value={stats?.last7 ?? 0} />
-        <Kpi icon={<Info className="h-4 w-4" />} label="Lỗi" value={stats?.byStatus?.failed ?? 0}
-             tone={stats?.byStatus?.failed ? "warn" : "default"} />
-      </div>
+      {/* KPI strip — hide when embedded inside LinksWorkspace (already shows unified KPIs) */}
+      {!embedded && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Kpi icon={<Link2 className="h-4 w-4" />} label="Tổng backlinks" value={stats?.total ?? 0} />
+          <Kpi icon={<FileText className="h-4 w-4" />} label="Long-form (SEO cao)"
+               value={Object.entries(stats?.byPlatform ?? {})
+                 .filter(([p]) => isLongformPlatform(p))
+                 .reduce((s, [, v]) => s + v, 0)} />
+          <Kpi icon={<ExternalLink className="h-4 w-4" />} label="7 ngày qua" value={stats?.last7 ?? 0} />
+          <Kpi icon={<Info className="h-4 w-4" />} label="Lỗi" value={stats?.byStatus?.failed ?? 0}
+               tone={stats?.byStatus?.failed ? "warn" : "default"} />
+        </div>
+      )}
 
       {/* Filters + bulk actions */}
       <Card>
