@@ -490,7 +490,7 @@ export function MultiChannelFormWizard({
 
   // Hybrid entry mode: 'idea' (topic-first) vs 'seo' (pillar-first).
   // Auto-switches when long-form channel toggled; user override persisted.
-  const { mode: entryMode, setMode: setEntryMode } = useEntryMode();
+  const { mode: entryMode, setMode: setEntryMode, isCurrentDefault: isEntryModeDefault, setAsDefault: setEntryModeAsDefault } = useEntryMode();
 
   // Reset SEO state khi chuyển sang mode "Theo ý tưởng" — tránh leak xuống backend
   useEffect(() => {
@@ -1189,6 +1189,13 @@ export function MultiChannelFormWizard({
                   enabled={entryMode === 'seo'}
                   onChange={(v) => setEntryMode(v ? 'seo' : 'idea')}
                   disabled={isGenerating}
+                  isDefault={isEntryModeDefault}
+                  onSetAsDefault={() => {
+                    setEntryModeAsDefault();
+                    toast.success('Đã lưu mặc định', {
+                      description: `Chế độ SEO ${entryMode === 'seo' ? 'BẬT' : 'TẮT'} sẽ tự áp dụng cho lần tạo sau.`,
+                    });
+                  }}
                 />
               </div>
 
