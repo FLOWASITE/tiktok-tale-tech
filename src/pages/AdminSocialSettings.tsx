@@ -41,6 +41,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'website', name: 'Website', icon: Globe, color: 'text-green-600', available: true },
   { platform: 'tiktok', name: 'TikTok', icon: Music2, color: 'text-foreground', available: true },
   { platform: 'pinterest', name: 'Pinterest', icon: PinterestIcon, color: 'text-[#E60023]', available: true },
+  { platform: 'shopify', name: 'Shopify', icon: ShoppingBag, color: 'text-[#96bf48]', available: true },
 ];
 
 export default function AdminSocialSettings() {
