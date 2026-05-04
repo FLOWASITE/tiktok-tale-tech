@@ -10,7 +10,7 @@ const ALLOWED_FIELDS = new Set(["consumer_key", "consumer_secret"]);
 const ALLOWED_PLATFORMS = new Set([
   "twitter", "facebook", "instagram", "threads", "linkedin",
   "tiktok", "youtube", "zalo_oa", "google_business", "blogger",
-  "wordpress", "website",
+  "wordpress", "wordpress_com", "website", "pinterest", "bluesky", "shopify",
 ]);
 
 Deno.serve(withPerf({ functionName: "reveal-platform-credential" }, async (req) => {
