@@ -166,3 +166,18 @@ export function WixIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Medium official logo - black circle with white "M" wordmark (three-dot mark variant). */
+export function MediumIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 448 448" {...props}>
+      <title>Medium</title>
+      <circle cx="224" cy="224" r="224" fill="#000" />
+      <g fill="#fff">
+        <circle cx="138" cy="224" r="74" />
+        <ellipse cx="280" cy="224" rx="36" ry="74" />
+        <ellipse cx="346" cy="224" rx="14" ry="68" />
+      </g>
+    </svg>
+  );
+}
+
