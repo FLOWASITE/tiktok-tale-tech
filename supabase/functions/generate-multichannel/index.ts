@@ -409,6 +409,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   wordpress: 'wordpress_content',
   shopify: 'shopify_content',
   wix: 'wix_content',
+  medium: 'medium_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
