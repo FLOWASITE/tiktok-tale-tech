@@ -1,6 +1,7 @@
 import React from 'react';
 import { Channel } from '@/types/multichannel';
 import { Globe, Mail } from 'lucide-react';
+import { ShopifyIcon, WixIcon } from '@/components/icons/SocialIcons';
 
 type ExtraChannel = 'pinterest' | 'bluesky';
 const svgIcons: Partial<Record<Channel | ExtraChannel, React.FC<{ className?: string }>>> = {
@@ -98,6 +99,20 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
         <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
           <path d="M12 0C5.383 0 0 5.383 0 12s5.383 12 12 12 12-5.383 12-12S18.617 0 12 0zM1.214 12c0-1.566.336-3.052.937-4.396l5.157 14.131C3.728 20.124 1.214 16.354 1.214 12zm10.786 10.788a10.78 10.78 0 01-3.046-.439l3.236-9.398 3.314 9.078a.946.946 0 00.078.151c-1.118.394-2.32.608-3.582.608zm1.487-15.85c.65-.034 1.234-.103 1.234-.103.581-.069.512-.92-.069-.886 0 0-1.747.137-2.875.137-1.06 0-2.842-.137-2.842-.137-.581-.034-.65.852-.069.886 0 0 .55.069 1.131.103l1.679 4.6-2.358 7.07-3.925-11.67c.65-.034 1.234-.103 1.234-.103.581-.069.512-.92-.069-.886 0 0-1.747.137-2.875.137-.202 0-.44-.005-.694-.013C4.029 4.139 7.79 1.214 12 1.214c3.137 0 5.989 1.198 8.131 3.16-.052-.003-.103-.01-.157-.01-1.06 0-1.812.92-1.812 1.91 0 .886.512 1.636 1.06 2.523.41.72.886 1.64.886 2.978 0 .92-.355 1.99-.82 3.482l-1.075 3.59-3.9-11.594zm3.585 14.93l3.296-9.527c.616-1.539.82-2.77.82-3.864 0-.398-.026-.766-.072-1.11.842 1.535 1.32 3.297 1.32 5.173 0 3.98-2.156 7.452-5.364 9.328z"/>
         </svg>
+      </span>
+    );
+  }
+  if (channel === 'shopify') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center text-[#96BF48] ${className}`}>
+        <ShopifyIcon width={size} height={size} />
+      </span>
+    );
+  }
+  if (channel === 'wix') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center text-foreground ${className}`}>
+        <WixIcon width={size} height={size} />
       </span>
     );
   }
