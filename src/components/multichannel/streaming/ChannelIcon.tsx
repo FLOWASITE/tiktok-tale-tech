@@ -132,6 +132,11 @@ const channelConfig: Record<string, {
     bgClass: "bg-[#96BF48] text-white",
     label: "Shopify"
   },
+  wix: {
+    icon: Globe,
+    bgClass: "bg-black text-white",
+    label: "Wix"
+  },
   google_maps: { 
     icon: GoogleBusinessLucide, 
     bgClass: "bg-white text-[#4285F4] border border-border",

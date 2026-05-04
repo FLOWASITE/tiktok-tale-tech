@@ -31,10 +31,12 @@ interface ContentMockupToggleProps {
   industryLabel?: string;
   // Pinterest-only: dedicated Pin title
   pinterestTitle?: string;
+  // Wix override: when website channel is connected via Wix, render WixMockup
+  useWixMockup?: boolean;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
-const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'general'> = {
+const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'wix' | 'general'> = {
   facebook: 'facebook',
   linkedin: 'linkedin',
   instagram: 'instagram',
@@ -74,8 +76,9 @@ export function ContentMockupToggle({
   footerInfo,
   industryLabel,
   pinterestTitle,
+  useWixMockup,
 }: ContentMockupToggleProps) {
-  const mockupType = channelToMockupType[channel];
+  const mockupType = useWixMockup && channel === 'website' ? 'wix' : channelToMockupType[channel];
   
   // Normalize content to prevent react-markdown crashes
   const safeContent = normalizeMarkdownText(content);
