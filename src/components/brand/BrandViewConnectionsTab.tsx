@@ -250,22 +250,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    // Blogger dùng chung Website dialog với integrationType preset
-    if (platform === 'blogger') {
-      setSelectedPlatform(platform);
-      setWebsiteForm((prev) => ({
-        ...prev,
-        integrationType: 'blogger',
-        websiteUrl: '',
-        username: '',
-        appPassword: '',
-        apiKey: '',
-        apiEndpoint: '',
-      }));
-      setWebsiteDialogOpen(true);
-      return;
-    }
-
     // Bluesky — OAuth 2.0 (Confidential Client + DPoP). Open dialog to collect handle.
     if (platform === 'bluesky') {
       setBlueskyHandle('');
