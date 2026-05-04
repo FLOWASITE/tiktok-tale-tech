@@ -45,6 +45,8 @@ interface CompactChannelGridProps {
   frequentCounts?: Partial<Record<Channel, number>>;
   onSelectFrequent?: () => void;
   frequentAllSelected?: boolean;
+  onRemoveFrequent?: (channel: Channel) => void;
+  onClearFrequent?: () => void;
 }
 
 export function CompactChannelGrid({
