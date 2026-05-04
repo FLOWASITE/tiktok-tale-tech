@@ -136,18 +136,29 @@ export default function AdminSocialSettings() {
 
   const handleTestConnection = async (platform: SocialPlatform) => {
     const platformSettings = getSettingsForPlatform(platform);
-    if (!platformSettings?.has_credentials) {
+    const isShopify = platform === 'shopify';
+    if (!isShopify && !platformSettings?.has_credentials) {
       toast.error('Chưa có credentials để test');
       return;
     }
 
     setTestingPlatform(platform);
     try {
+      if (isShopify) {
+        const { data, error } = await supabase.functions.invoke('test-shopify-credentials', { body: {} });
+        if (error) throw error;
+        if (data?.success) {
+          toast.success(data.message || 'Shopify secrets hợp lệ!');
+        } else {
+          toast.error(data?.error || 'Test thất bại');
+        }
+        return;
+      }
+
       const platformMap: Record<string, string> = {
         twitter: 'twitter', facebook: 'facebook', instagram: 'instagram',
         threads: 'threads', linkedin: 'linkedin', zalo_oa: 'zalo',
         google_business: 'google-business', website: 'website', pinterest: 'pinterest',
-        shopify: 'shopify',
       };
       const diagnosticPlatform = platformMap[platform] || platform;
       const { data, error } = await supabase.functions.invoke('social-diagnostics', {
