@@ -232,7 +232,7 @@ const PLATFORM_GROUPS: PlatformGroup[] = [
   },
 ];
 
-
+interface TwitterSetupForm {
   accessToken: string;
   accessTokenSecret: string;
 }
