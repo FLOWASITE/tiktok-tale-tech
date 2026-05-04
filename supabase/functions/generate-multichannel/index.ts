@@ -407,6 +407,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   blog: 'website_content', // 'blog' is the only alias kept for backward-compat
   blogger: 'blogger_content',
   wordpress: 'wordpress_content',
+  shopify: 'shopify_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -467,6 +468,7 @@ const LONGFORM_MIN_CHARS: Record<string, number> = {
   blogger: 800,    // ~ 200-250 từ tiếng Việt — sàn an toàn dưới target 500-900 từ
   wordpress: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1200-2200 từ
   website: 1500,
+  shopify: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ
 };
 
 function normalizeLongformText(value: unknown): string {
@@ -842,7 +844,11 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'website_content',
   'website_seo_data',
   'blogger_content',
+  'blogger_seo_data',
   'wordpress_content',
+  'wordpress_seo_data',
+  'shopify_content',
+  'shopify_seo_data',
   'facebook_content',
   'instagram_content',
   'twitter_content',
