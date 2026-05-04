@@ -597,7 +597,7 @@ interface LongformRetryDeps {
 }
 
 async function regenerateLongformChannelDirect(
-  channel: 'blogger' | 'wordpress',
+  channel: 'blogger' | 'wordpress' | 'shopify' | 'wix' | 'medium',
   deps: LongformRetryDeps,
 ): Promise<string> {
   const tpl = LONGFORM_RETRY_PROMPTS[channel];
@@ -2969,8 +2969,8 @@ Nội dung sẵn sàng đăng ngay.`;
                 }
               }
               
-              // Long-form guard for Blogger / WordPress regenerate
-              if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, generatedContent.trim())) {
+              // Long-form guard for every dedicated long-form channel
+              if (LONGFORM_MIN_CHARS[channel] && isLongformContentMissing(channel, generatedContent.trim())) {
                 console.warn(`[regenerate-mode][streaming] ${channel} too short (${generatedContent.length} chars) — running direct retry`);
                 emit({ type: 'progress', step: 'longform-retry', progress: 80, message: `Đang viết lại ${getChannelDisplayName(channel)}...` });
                 const retried = await regenerateLongformChannelDirect(channel, {
@@ -2988,7 +2988,7 @@ Nội dung sẵn sàng đăng ngay.`;
               }
 
               // Refuse to overwrite DB with empty/insufficient long-form content
-              if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, generatedContent.trim())) {
+              if (LONGFORM_MIN_CHARS[channel] && isLongformContentMissing(channel, generatedContent.trim())) {
                 emit({ type: 'error', message: `Không tạo được nội dung riêng cho ${getChannelDisplayName(channel)}. Vui lòng thử lại.` });
                 try { controller.close(); } catch {}
                 return;
