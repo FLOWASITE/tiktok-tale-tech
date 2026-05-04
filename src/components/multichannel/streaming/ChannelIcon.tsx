@@ -141,6 +141,11 @@ const channelConfig: Record<string, {
     bgClass: "bg-transparent text-foreground",
     label: "Wix"
   },
+  medium: {
+    icon: MediumLucide,
+    bgClass: "bg-black text-white dark:bg-white dark:text-black",
+    label: "Medium"
+  },
   google_maps: { 
     icon: GoogleBusinessLucide, 
     bgClass: "bg-white text-[#4285F4] border border-border",
