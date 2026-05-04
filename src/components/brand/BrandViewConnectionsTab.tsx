@@ -481,8 +481,75 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
+  const SHOPIFY_SHOP_RE = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
 
-  const handleDisconnect = async (connectionId: string) => {
+  const handleShopifySubmit = async () => {
+    let shop = shopifyShop.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (shop && !shop.includes('.')) shop = `${shop}.myshopify.com`;
+    if (!SHOPIFY_SHOP_RE.test(shop)) {
+      toast.error('Shop domain không hợp lệ', {
+        description: 'Nhập dạng your-store.myshopify.com (chỉ chữ thường, số, dấu gạch).',
+      });
+      return;
+    }
+
+    setIsShopifyConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('shopify-oauth-start', {
+        body: { shop, brandTemplateId: template.id },
+      });
+
+      let errBody: any = null;
+      if (error) {
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') errBody = await ctx.json();
+        } catch { /* ignore */ }
+      }
+
+      if (error || !data?.authorization_url) {
+        const msg = errBody?.error || data?.error || error?.message || 'Không khởi tạo được OAuth';
+        throw new Error(msg);
+      }
+
+      window.open(data.authorization_url, '_blank', 'width=620,height=720');
+      toast.info('Đã mở trang cài đặt Shopify', {
+        description: 'Cấp quyền cho ứng dụng trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
+      });
+      setShopifyDialogOpen(false);
+
+      setOauthConnecting('shopify');
+      const start = Date.now();
+      const poll = setInterval(async () => {
+        if (Date.now() - start > 180_000) {
+          clearInterval(poll);
+          setOauthConnecting(null);
+          return;
+        }
+        try {
+          const { data: rows } = await supabase
+            .from('social_connections')
+            .select('id, is_active, platform_username')
+            .eq('brand_template_id', template.id)
+            .eq('platform', 'shopify')
+            .eq('is_active', true)
+            .limit(1);
+          if (rows && rows.length > 0) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            await refetch();
+            toast.success(`Đã kết nối Shopify: ${rows[0].platform_username}`);
+          }
+        } catch { /* ignore polling errors */ }
+      }, 3000);
+    } catch (e: any) {
+      toast.error('Lỗi kết nối Shopify', { description: e?.message || String(e) });
+    } finally {
+      setIsShopifyConnecting(false);
+    }
+  };
+
+
     try {
       await disconnect(connectionId);
     } catch (error) {
