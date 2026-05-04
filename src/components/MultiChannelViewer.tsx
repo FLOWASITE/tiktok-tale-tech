@@ -1218,35 +1218,18 @@ export function MultiChannelViewer({
                   />
                 </div>
               )}
-              {/* SEO Pillar Cluster Context */}
-              {(content as any).cluster_id && (
-                <div className="p-2 border-b border-border/30">
-                  <ClusterContextCard
-                    clusterId={(content as any).cluster_id}
-                    currentContentId={content.id}
-                  />
-                </div>
-              )}
-              {/* Keyword Coverage Audit (long-form channels) */}
-              {Array.isArray((content as any).target_keyword_ids) &&
-                (content as any).target_keyword_ids.length > 0 &&
-                ['website', 'blogger', 'wordpress'].includes(selectedChannel) && (
-                  <div className="p-2 border-b border-border/30">
-                    <KeywordCoveragePanel
-                      contentId={content.id}
-                      targetKeywordIds={(content as any).target_keyword_ids}
-                      clusterId={(content as any).cluster_id}
-                      contentText={getContentForChannel(content, selectedChannel) || (content as any).website_content || ''}
-                      title={(content as any).title || (content as any).topic}
-                    />
-                  </div>
-                )}
-              {/* Internal Links (long-form channels) */}
-              {['website', 'blogger', 'wordpress'].includes(selectedChannel) && (
-                <div className="p-2 border-b border-border/30">
-                  <InternalLinksPanel contentId={content.id} />
-                </div>
-              )}
+              {/* SEO Insights — unified popup (Cluster + Keyword Coverage + Internal Links) */}
+              <div className="p-2 border-b border-border/30">
+                <SeoInsightsSheet
+                  contentId={content.id}
+                  clusterId={(content as any).cluster_id}
+                  targetKeywordIds={(content as any).target_keyword_ids}
+                  contentText={getContentForChannel(content, selectedChannel) || (content as any).website_content || ''}
+                  title={(content as any).title || (content as any).topic}
+                  isLongForm={['website', 'blogger', 'wordpress'].includes(selectedChannel)}
+                />
+              </div>
+
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {(content?.selected_channels ?? []).map((channel) => {
