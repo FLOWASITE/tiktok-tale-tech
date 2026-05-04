@@ -249,6 +249,7 @@ export default function OverviewTab() {
 
   return (
     <div className="space-y-6">
+      <EmbeddingBackfillCard />
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpis.map((k) => (
