@@ -472,6 +472,7 @@ const LONGFORM_MIN_CHARS: Record<string, number> = {
   website: 1500,
   shopify: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ
   wix: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ,
+  medium: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1000-1800 từ
 };
 
 function normalizeLongformText(value: unknown): string {
