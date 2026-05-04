@@ -95,12 +95,6 @@ const channelConfig: Record<Channel, {
     color: 'text-foreground',
     bgColor: 'bg-muted',
   },
-  medium: {
-    label: 'Wix', 
-    icon: <Globe className="w-3 h-3" />, 
-    color: 'text-foreground',
-    bgColor: 'bg-muted',
-  },
   facebook: { 
     label: 'Facebook', 
     icon: <Facebook className="w-3 h-3" />, 
