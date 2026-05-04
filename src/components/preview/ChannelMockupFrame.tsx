@@ -50,6 +50,7 @@ import { BloggerMockup } from './BloggerMockup';
 import { WordPressMockup } from './WordPressMockup';
 import { ShopifyMockup } from './ShopifyMockup';
 import { WixMockup } from './WixMockup';
+import { MediumMockup } from './MediumMockup';
 
 // Shared markdown components for mockups
 const mockupMarkdownComponents = {
