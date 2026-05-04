@@ -298,7 +298,12 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                       </span>
                     </td>
                     <td className="p-2 text-right">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${scoreColor(k._score)}`}>{k._score}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums cursor-help ${scoreColor(k._score)}`}
+                        title={k.priority_breakdown
+                          ? `Priority = (relevance ${k.priority_breakdown.relevance} × intent ${k.priority_breakdown.intent_weight}× × log10(${k.priority_breakdown.volume}+10)) / sqrt(${k.priority_breakdown.difficulty}+1)\nIntent: ${k.priority_breakdown.intent}`
+                          : `Score: ${k._score}`}
+                      >{k._score}</span>
                     </td>
                     {hasBrandFit && (
                       <td className="p-2 text-right">
