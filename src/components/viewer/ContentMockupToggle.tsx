@@ -46,6 +46,7 @@ const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram'
   website: 'general',
   blogger: 'blogger',
   wordpress: 'wordpress',
+  shopify: 'wordpress',
   google_maps: 'general',
   youtube: 'general',
   zalo_oa: 'general',

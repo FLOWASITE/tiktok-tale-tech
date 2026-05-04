@@ -19,6 +19,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   google_business: 'google_business',
   blogger: 'blogger',
   wordpress: 'blogger',
+  shopify: 'blogger',
   bluesky: 'bluesky',
 };
 
@@ -37,6 +38,7 @@ const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
   google_business: 'Google Business',
   blogger: 'Blogger',
   wordpress: 'Blogger',
+  shopify: 'Blogger',
   bluesky: 'Bluesky',
 };
 

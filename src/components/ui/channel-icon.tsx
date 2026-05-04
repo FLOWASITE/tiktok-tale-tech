@@ -125,6 +125,7 @@ export const channelIconColors: Record<Channel | ExtraChannel, string> = {
   website: 'text-muted-foreground',
   blogger: 'text-[#F57C00]',
   wordpress: 'text-[#21759b] dark:text-sky-400',
+  shopify: 'text-[#21759b] dark:text-sky-400',
   pinterest: 'text-[#E60023]',
   email: 'text-muted-foreground',
   bluesky: 'text-[#0085FF]',

@@ -135,6 +135,7 @@ const channelConfig: Record<Channel, {
     maxLength: '800-1500 chữ'
   },
   wordpress: { 
+  shopify: { 
     label: 'WordPress', 
     shortLabel: 'WordPress',
     icon: <WordPressIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
