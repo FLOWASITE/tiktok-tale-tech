@@ -550,6 +550,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   };
 
 
+  const handleDisconnect = async (connectionId: string) => {
     try {
       await disconnect(connectionId);
     } catch (error) {
