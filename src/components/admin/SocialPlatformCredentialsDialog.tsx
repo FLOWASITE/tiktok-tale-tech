@@ -385,7 +385,7 @@ export function SocialPlatformCredentialsDialog({
                 onChange={(e) => setConsumerKey(e.target.value)}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_key || '••••'} — nhập mới để thay đổi`
-                  : isInstagram ? 'Nhập Instagram App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
+                  : `Nhập ${keyLabel}`}
                 className="pr-10"
               />
               <Button
@@ -426,7 +426,7 @@ export function SocialPlatformCredentialsDialog({
                 onChange={(e) => setConsumerSecret(e.target.value)}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_secret || '••••'} — nhập mới để thay đổi`
-                  : isInstagram ? 'Nhập Instagram App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
+                  : `Nhập ${secretLabel}`}
                 className="pr-10"
               />
               <Button
