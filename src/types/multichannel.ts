@@ -152,6 +152,10 @@ export interface MultiChannelContent {
   website_seo_data?: WebsiteSEOData | null;
   blogger_content: string | null;
   wordpress_content: string | null;
+  shopify_content: string | null;
+  shopify_post_id?: string | null;
+  shopify_post_url?: string | null;
+  shopify_seo_data?: WebsiteSEOData | null;
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
@@ -416,6 +420,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'website', label: 'Website', icon: 'Globe', color: 'blue', category: 'text', description: 'Bài corporate SEO 1000-2000 từ, H1/H2/H3, schema-friendly, có CTA' },
   { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'text', description: 'Bài Blogger casual 500-900 từ, ngôi tôi/mình, kể chuyện, kết bằng câu hỏi (KHÁC Website)' },
   { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'text', description: 'Bài WordPress in-depth 1200-2200 từ, H2+H3, FAQ, callout, expert tone (KHÁC Website & Blogger)' },
+  { value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'text', description: 'Bài Shopify Blog 800-1500 từ, e-commerce storytelling, HTML-ready, CTA Shop now (KHÁC Website/Blogger/WordPress)' },
   { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'text', description: 'Chuyên nghiệp, không emoji quá nhiều' },
   { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'text', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
   { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
