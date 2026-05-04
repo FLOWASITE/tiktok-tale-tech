@@ -409,6 +409,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   wordpress: 'wordpress_content',
   shopify: 'shopify_content',
   wix: 'wix_content',
+  medium: 'medium_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -471,6 +472,7 @@ const LONGFORM_MIN_CHARS: Record<string, number> = {
   website: 1500,
   shopify: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ
   wix: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ,
+  medium: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1000-1800 từ
 };
 
 function normalizeLongformText(value: unknown): string {
@@ -599,7 +601,7 @@ async function verifyAndPatchLongformPersisted(
   supabase: any,
   contentId: string,
   selectedChannels: string[],
-  channelTexts: { blogger?: string; wordpress?: string },
+  channelTexts: { blogger?: string; wordpress?: string; shopify?: string; wix?: string; medium?: string },
 ): Promise<{ row: any; missing: string[] }> {
   const { data: row, error } = await supabase
     .from('multi_channel_contents')
@@ -610,18 +612,18 @@ async function verifyAndPatchLongformPersisted(
     console.error('[longform-verify] could not re-read row', contentId, error);
     return { row: null, missing: [] };
   }
+  const LONGFORM_LIST = ['blogger', 'wordpress', 'shopify', 'wix', 'medium'] as const;
   const patch: Record<string, any> = {};
-  for (const ch of ['blogger', 'wordpress'] as const) {
+  for (const ch of LONGFORM_LIST) {
     if (!selectedChannels.includes(ch)) continue;
     const persisted = normalizeLongformText(row[`${ch}_content`]);
     if (!isLongformContentMissing(ch, persisted)) continue;
-    const inMemoryRaw = normalizeLongformText(channelTexts[ch]);
+    const inMemoryRaw = normalizeLongformText((channelTexts as any)[ch]);
     if (!isLongformContentMissing(ch, inMemoryRaw)) {
-      // Strip seo-meta block + persist meta JSON in *_seo_data
       const ex = extractSeoMetaBlock(inMemoryRaw);
       patch[`${ch}_content`] = ex.stripped;
       if (ex.meta) patch[`${ch}_seo_data`] = ex.meta;
-      console.warn(`[longform-verify] ${ch}: DB persisted empty (${persisted.length}) but in-memory has ${inMemoryRaw.length} — patching${ex.meta ? ' (with seo-meta)' : ''}`);
+      console.warn(`[longform-verify] ${ch}: DB empty (${persisted.length}) but in-memory has ${inMemoryRaw.length} — patching${ex.meta ? ' (+seo-meta)' : ''}`);
     }
   }
   if (Object.keys(patch).length > 0) {
@@ -635,13 +637,13 @@ async function verifyAndPatchLongformPersisted(
       console.error('[longform-verify] patch failed', patchErr);
     } else if (patched) {
       console.log(`[longform-verify] patched ${Object.keys(patch).join(',')} for ${contentId}`);
-      const missingAfter = ['blogger', 'wordpress'].filter((ch) =>
+      const missingAfter = LONGFORM_LIST.filter((ch) =>
         selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(patched[`${ch}_content`]))
       );
       return { row: patched, missing: missingAfter };
     }
   }
-  const missing = ['blogger', 'wordpress'].filter((ch) =>
+  const missing = LONGFORM_LIST.filter((ch) =>
     selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(row[`${ch}_content`]))
   );
   return { row, missing };
@@ -853,6 +855,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'shopify_seo_data',
   'wix_content',
   'wix_seo_data',
+  'medium_content',
+  'medium_seo_data',
   'facebook_content',
   'instagram_content',
   'twitter_content',
@@ -3700,6 +3704,7 @@ BẮT BUỘC sau body, append đúng 1 block JSON:
 
 Phải KHÁC website (commerce-driven, ngắn hơn), KHÁC blogger (không ngôi 'tôi', focus product), KHÁC wordpress (không expert/E-E-A-T mà là shopping inspiration).`,
               wix:       `Bài Wix Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Wix blog dùng HTML). Cấu trúc tương tự Shopify nhưng tone sáng tạo/visual-first hơn (Wix mạnh về design portfolio, lifestyle). CTA: "Khám phá", "Đặt lịch", "Liên hệ". Append seo-meta block JSON như Shopify.`,
+              medium:    `Bài Medium 1000-1800 từ, story-first opening hook mạnh, voice cá nhân/expert (ngôi "tôi/I"), **CHỈ Markdown thuần — TUYỆT ĐỐI KHÔNG HTML**, sub-headers ## H2 ngắn, paragraph 2-3 câu thoáng, ≥1 pull-quote (\`>\`), kết bằng CTA mềm "Clap nếu hữu ích · Follow để xem thêm". Append seo-meta block JSON với metaTitle ≤60 ký tự, metaDescription 140-160 ký tự, focusKeyword, tags 3-5 tag (Medium tối đa 5).`,
               facebook:  "Facebook 250-500 từ, hook mạnh đầu bài, cấu trúc tiêu đề-giới thiệu-case study-giải pháp-CTA.",
               instagram: "Instagram 50-150 từ, ngắn gọn, hashtag cuối bài.",
               twitter:   "X/Twitter thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số.",
@@ -4131,7 +4136,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               const dedupWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
               const { data: existingContent } = await supabase
                 .from('multi_channel_contents')
-                .select('id, title, topic, selected_channels, website_content, blogger_content, wordpress_content, shopify_content, wix_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, bluesky_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
+                .select('id, title, topic, selected_channels, website_content, blogger_content, wordpress_content, shopify_content, wix_content, medium_content, facebook_content, instagram_content, twitter_content, linkedin_content, email_content, youtube_content, tiktok_content, threads_content, pinterest_content, pinterest_title, bluesky_content, google_maps_content, zalo_oa_content, telegram_content, status, critique_score, critique_details, was_refined, refinement_count, needs_manual_review, created_at, updated_at, brand_template_id, brand_name, content_goal, organization_id, user_id, channel_statuses, selected_hooks, global_hook')
                 .eq('user_id', userId)
                 .eq('topic', formData.topic)
                 .gte('created_at', dedupWindow)
@@ -4247,24 +4252,28 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   pinterest_title: channelResults.pinterest_title || null,
                   bluesky_content: channelResults.bluesky || null,
                   ...(() => {
-                    // Extract seo-meta block from blogger/wordpress/shopify/wix; persist meta JSON + stripped body
+                    // Extract seo-meta block from blogger/wordpress/shopify/wix/medium; persist meta JSON + stripped body
                     const wpRaw = channels.includes('wordpress') ? (channelResults.wordpress || null) : null;
                     const blRaw = channels.includes('blogger') ? (channelResults.blogger || null) : null;
                     const shRaw = channels.includes('shopify') ? (channelResults.shopify || null) : null;
                     const wxRaw = channels.includes('wix') ? (channelResults.wix || null) : null;
+                    const mdRaw = channels.includes('medium') ? (channelResults.medium || null) : null;
                     const wpEx = wpRaw ? extractSeoMetaBlock(wpRaw) : { stripped: null, meta: null };
                     const blEx = blRaw ? extractSeoMetaBlock(blRaw) : { stripped: null, meta: null };
                     const shEx = shRaw ? extractSeoMetaBlock(shRaw) : { stripped: null, meta: null };
                     const wxEx = wxRaw ? extractSeoMetaBlock(wxRaw) : { stripped: null, meta: null };
+                    const mdEx = mdRaw ? extractSeoMetaBlock(mdRaw) : { stripped: null, meta: null };
                     return {
                       blogger_content: blEx.stripped,
                       wordpress_content: wpEx.stripped,
                       shopify_content: shEx.stripped,
                       wix_content: wxEx.stripped,
+                      medium_content: mdEx.stripped,
                       blogger_seo_data: blEx.meta,
                       wordpress_seo_data: wpEx.meta,
                       shopify_seo_data: shEx.meta,
                       wix_seo_data: wxEx.meta,
+                      medium_seo_data: mdEx.meta,
                     };
                   })(),
                 }))
@@ -4764,6 +4773,7 @@ const channelDescriptions: Record<string, string> = {
       wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA rõ ràng. Markdown chuẩn (## ###, **bold**, - bullet, > blockquote, [link](url)). Sâu và dài hơn website một bậc.",
       shopify: "Bài Shopify Blog (800-1500 chữ, e-commerce storytelling, HTML-ready, đoạn ≤80 từ mobile-friendly, 4-6 ## H2, ≥1 bullet list lợi ích + ≥1 numbered list how-to, CTA thương mại 'Khám phá BST/Shop now', tags sản phẩm. KHÁC website (commerce, ngắn hơn) & wordpress (không expert mà inspiration).",
       wix: "Bài Wix Blog (800-1500 chữ, visual-first storytelling, HTML-ready, đoạn ≤80 từ, 4-6 ## H2, ≥1 bullet list, ≥1 numbered list, tone sáng tạo/lifestyle/portfolio (Wix mạnh về design), CTA mềm 'Khám phá', 'Đặt lịch', 'Liên hệ'. KHÁC shopify (không commerce-focus).",
+      medium: "Bài Medium (1000-1800 chữ, story-first opening hook mạnh, voice cá nhân/expert ngôi 'tôi/I', **CHỈ Markdown thuần — TUYỆT ĐỐI KHÔNG HTML**, ## H2 ngắn, paragraph 2-3 câu thoáng, ≥1 pull-quote (>), ≥1 bullet list, kết bằng CTA mềm 'Clap nếu hữu ích · Follow để xem thêm'. Append seo-meta block JSON với tags ≤5.",
       facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
       instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
       twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -4951,6 +4961,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA. Markdown chuẩn. Sâu và dài hơn website một bậc.",
         shopify: "Bài Shopify Blog (800-1500 chữ, e-commerce storytelling, HTML-ready, đoạn ≤80 từ, 4-6 H2, bullet+numbered list, CTA thương mại Shop now/Khám phá BST. KHÁC website & wordpress.",
         wix: "Bài Wix Blog (800-1500 chữ, visual-first storytelling, HTML-ready, đoạn ≤80 từ, 4-6 H2, bullet+numbered list, tone sáng tạo/lifestyle/portfolio, CTA mềm Khám phá/Đặt lịch/Liên hệ. KHÁC shopify (không commerce-focus).",
+        medium: "Bài Medium (1000-1800 chữ, story-first opening hook, voice cá nhân/expert ngôi 'tôi/I', CHỈ Markdown thuần TUYỆT ĐỐI KHÔNG HTML, ## H2 ngắn, paragraph 2-3 câu thoáng, ≥1 pull-quote (>), CTA Clap/Follow. seo-meta tags ≤5.",
         facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
         instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
         twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
@@ -6476,19 +6487,23 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
             const blRaw = (generatedData.blogger_content && generatedData.blogger_content.length > 0) ? generatedData.blogger_content : null;
             const shRaw = (generatedData.shopify_content && generatedData.shopify_content.length > 0) ? generatedData.shopify_content : null;
             const wxRaw = (generatedData.wix_content && generatedData.wix_content.length > 0) ? generatedData.wix_content : null;
+            const mdRaw = (generatedData.medium_content && generatedData.medium_content.length > 0) ? generatedData.medium_content : null;
             const wpEx = wpRaw ? extractSeoMetaBlock(wpRaw) : { stripped: null, meta: null };
             const blEx = blRaw ? extractSeoMetaBlock(blRaw) : { stripped: null, meta: null };
             const shEx = shRaw ? extractSeoMetaBlock(shRaw) : { stripped: null, meta: null };
             const wxEx = wxRaw ? extractSeoMetaBlock(wxRaw) : { stripped: null, meta: null };
+            const mdEx = mdRaw ? extractSeoMetaBlock(mdRaw) : { stripped: null, meta: null };
             return {
               blogger_content: blEx.stripped,
               wordpress_content: wpEx.stripped,
               shopify_content: shEx.stripped,
               wix_content: wxEx.stripped,
+              medium_content: mdEx.stripped,
               blogger_seo_data: blEx.meta,
               wordpress_seo_data: wpEx.meta,
               shopify_seo_data: shEx.meta,
               wix_seo_data: wxEx.meta,
+              medium_seo_data: mdEx.meta,
             };
           })(),
         }))
@@ -6530,6 +6545,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           wordpress: typeof generatedData.wordpress_content === 'string' ? generatedData.wordpress_content : undefined,
           shopify: typeof generatedData.shopify_content === 'string' ? generatedData.shopify_content : undefined,
           wix: typeof generatedData.wix_content === 'string' ? generatedData.wix_content : undefined,
+          medium: typeof generatedData.medium_content === 'string' ? generatedData.medium_content : undefined,
         },
       );
       if (verify.row) content = verify.row;
