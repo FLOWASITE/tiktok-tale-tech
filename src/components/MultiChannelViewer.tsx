@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ZaloIcon, XIcon, PinterestIcon, BloggerIcon, WordPressIcon, BlueskyIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, PinterestIcon, BloggerIcon, WordPressIcon, BlueskyIcon, ShopifyIcon, WixIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
@@ -145,7 +145,7 @@ const channelConfig: Record<Channel, {
   shopify: { 
     label: 'Shopify Blog', 
     shortLabel: 'Shopify',
-    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <ShopifyIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-[#5e8e3e]',
     bgColor: 'bg-[#96bf48]/10',
     maxLength: '800-1500 chữ'
@@ -153,7 +153,7 @@ const channelConfig: Record<Channel, {
   wix: {
     label: 'Wix Blog',
     shortLabel: 'Wix',
-    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+    icon: <WixIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
     color: 'text-foreground',
     bgColor: 'bg-muted',
     maxLength: '800-1500 chữ'
