@@ -216,6 +216,7 @@ export function SocialPlatformCredentialsDialog({
     setShowSecret(false);
     setRevealedKey(null);
     setRevealedSecret(null);
+    setValidationError(null);
   }, [open, existingSettings]);
 
   const handleToggleReveal = async (field: 'consumer_key' | 'consumer_secret') => {
