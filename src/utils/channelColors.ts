@@ -62,6 +62,11 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-[#5e8e3e] dark:text-[#96bf48]',
     border: 'border-[#96bf48]/30',
   },
+  wix: {
+    bg: 'bg-muted',
+    text: 'text-foreground',
+    border: 'border-border',
+  },
   email: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-600',
