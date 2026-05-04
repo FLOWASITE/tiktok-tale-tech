@@ -4312,7 +4312,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
 
             // Fire-and-forget: embed content for semantic internal-link suggestions
             try {
-              const embedText = [savedContent.title, savedContent.topic, savedContent.website_content, savedContent.blogger_content, savedContent.wordpress_content]
+              const embedText = [savedContent.title, savedContent.topic, savedContent.website_content, savedContent.blogger_content, savedContent.wordpress_content, savedContent.shopify_content]
                 .filter((x: any) => typeof x === 'string' && x.trim().length > 0).join('\n\n').slice(0, 8000);
               if (embedText.length > 50) {
                 supabase.functions.invoke('embed-content', { body: { content_id: savedContent.id, text: embedText } })
@@ -6513,6 +6513,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         {
           blogger: typeof generatedData.blogger_content === 'string' ? generatedData.blogger_content : undefined,
           wordpress: typeof generatedData.wordpress_content === 'string' ? generatedData.wordpress_content : undefined,
+          shopify: typeof generatedData.shopify_content === 'string' ? generatedData.shopify_content : undefined,
         },
       );
       if (verify.row) content = verify.row;
@@ -6536,7 +6537,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
 
     // Fire-and-forget: embed content for semantic internal-link suggestions
     try {
-      const embedText = [content?.title, content?.topic, content?.website_content, content?.blogger_content, content?.wordpress_content]
+      const embedText = [content?.title, content?.topic, content?.website_content, content?.blogger_content, content?.wordpress_content, content?.shopify_content]
         .filter((x: any) => typeof x === 'string' && x.trim().length > 0).join('\n\n').slice(0, 8000);
       if (content?.id && embedText.length > 50) {
         supabase.functions.invoke('embed-content', { body: { content_id: content.id, text: embedText } })
