@@ -114,6 +114,7 @@ function analyzeContentMetrics(content: string, channel: Channel): AnalyticsResu
     wordpress: 'Bất kỳ lúc nào',
     shopify: 'Bất kỳ lúc nào',
     wix: 'Bất kỳ lúc nào',
+    medium: 'Bất kỳ lúc nào',
     google_maps: 'Bất kỳ lúc nào',
     zalo_oa: '9:00 - 11:00, 14:00 - 16:00',
     telegram: '10:00 - 12:00, 20:00 - 22:00',

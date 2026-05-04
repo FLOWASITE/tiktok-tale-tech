@@ -7988,6 +7988,10 @@ export type Database = {
           industry_template_version: string | null
           instagram_content: string | null
           linkedin_content: string | null
+          medium_content: string | null
+          medium_post_id: string | null
+          medium_post_url: string | null
+          medium_seo_data: Json | null
           needs_manual_review: boolean | null
           organization_id: string | null
           pinterest_content: string | null
@@ -8067,6 +8071,10 @@ export type Database = {
           industry_template_version?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
+          medium_content?: string | null
+          medium_post_id?: string | null
+          medium_post_url?: string | null
+          medium_seo_data?: Json | null
           needs_manual_review?: boolean | null
           organization_id?: string | null
           pinterest_content?: string | null
@@ -8146,6 +8154,10 @@ export type Database = {
           industry_template_version?: string | null
           instagram_content?: string | null
           linkedin_content?: string | null
+          medium_content?: string | null
+          medium_post_id?: string | null
+          medium_post_url?: string | null
+          medium_seo_data?: Json | null
           needs_manual_review?: boolean | null
           organization_id?: string | null
           pinterest_content?: string | null

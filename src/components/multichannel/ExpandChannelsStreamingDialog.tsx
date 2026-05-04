@@ -38,6 +38,7 @@ const CHANNEL_ICONS: Record<Channel, React.ReactNode> = {
   wordpress: <ChannelIcon channel="wordpress" size="sm" />,
   shopify: <ChannelIcon channel="shopify" size="sm" />,
   wix: <ChannelIcon channel="wix" size="sm" />,
+  medium: <ChannelIcon channel="wix" size="sm" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   pinterest: <ChannelIcon channel="pinterest" size="sm" />,

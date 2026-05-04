@@ -1,42 +1,76 @@
-## Mục tiêu
-Bổ sung phần **Hướng dẫn từng bước** vào dialog "Kết nối Shopify" trong `BrandViewConnectionsTab.tsx` (lines 1639-1677) để user tránh lỗi `ERR_BLOCKED_BY_RESPONSE` khi store bị Shopify chặn (do password protection / app chưa cài).
+# Thêm Social Medium
 
-## File chỉnh sửa
-`src/components/brand/BrandViewConnectionsTab.tsx` — chỉ sửa block Dialog Shopify (lines 1639-1677), không động phần khác.
+Medium là blogging platform long-form, story-first. Triển khai như channel độc lập song song với Website/Blogger/WordPress/Shopify/Wix.
 
-## Nội dung bổ sung trong Dialog
+## 1. Database (migration)
 
-### 1. Thêm Alert hướng dẫn 3 bước (trước Input)
-Block màu amber, icon `Info`, gồm 3 checklist:
+Thêm cột vào `multi_channel_contents`:
+- `medium_content text`
+- `medium_post_id text`
+- `medium_post_url text`
+- `medium_seo_data jsonb`
 
-1. **Tắt Password Protection** (cho Development Store)
-   `Online Store → Preferences → bỏ chọn "Restrict access with password"`
+Thêm vào `social_connections.platform` enum value `medium` (nếu là enum) hoặc chỉ allow string.
 
-2. **Cài Flowa App vào store**
-   Nếu chưa cài → mở `partners.shopify.com → Apps → Flowa → Test → Select store → Install`
+## 2. Types & Channel Registry
 
-3. **Đảm bảo shop domain đúng**
-   Định dạng `your-store.myshopify.com` (chỉ chữ thường, số, dấu gạch)
+- `src/types/multichannel.ts`:
+  - Thêm `'medium'` vào `Channel` union
+  - Thêm vào `CHANNEL_TO_COLUMN_MAP`: `medium: 'medium_content'`
+  - Thêm token budget `medium: 1500`
+  - Thêm vào `MULTI_CHANNEL_CONTENT_COLUMNS` allowlist (`medium_content`, `medium_seo_data`)
+  - Thêm entry vào `CHANNELS` array: `{ value: 'medium', label: 'Medium', icon: 'BookOpen', color: 'emerald', category: 'longform', description: 'Bài Medium 1000-1800 từ, story-first, voice cá nhân/expert, không HTML, dùng Markdown thuần, kết bằng claps CTA' }`
+- `src/types/channelSettings.ts`:
+  - Thêm DEFAULT_CHANNEL_SETTINGS.medium (1000-1800 words, story tone)
+  - Thêm channel meta label "Medium"
+- `src/hooks/useChannelModelConfig.ts` ALL_CHANNELS: thêm `{ id: 'medium', name: 'Medium', icon: 'medium' }`
+- `src/hooks/useEntryMode.ts` LONG_FORM_CHANNELS: thêm `'medium'`
+- `src/hooks/useBacklinks.ts` LONGFORM set: thêm `'medium'`
+- `src/hooks/useSocialConnections.ts` + `useSocialPlatformSettings.ts` SocialPlatform union: thêm `'medium'`
 
-### 2. Thêm Collapsible "Gặp lỗi không kết nối được?" (sau Input)
-Liệt kê 3 nguyên nhân + cách khắc phục lỗi `ERR_BLOCKED_BY_RESPONSE`:
-- Store bật Password Protection → tắt theo bước 1
-- Shopify App chưa được cài → cài theo bước 2
-- Shop domain không tồn tại → kiểm tra trong Shopify Admin
+## 3. Icon
 
-### 3. Thêm link tài liệu Shopify (footer dialog)
-Link nhỏ: "Xem hướng dẫn chi tiết" → mở `help.shopify.com/en/manual/online-store/themes/password-page` ở tab mới.
+- `src/components/icons/SocialIcons.tsx`: thêm `MediumIcon` (SVG chữ "M" trong vòng tròn, brand color #000)
+- Map vào tất cả channel icon registries:
+  - `src/components/admin/ai/AIChannelModelConfig.tsx` CHANNEL_ICONS
+  - `src/components/brand/BrandViewChannelsTab.tsx` channelIcons + channelLabels
+  - `src/components/ChannelSettingsEditor.tsx` channelIcons + override defaults
 
-### 4. Tăng max-width dialog
-`max-w-md` → `max-w-lg` để hướng dẫn không bị chật.
+## 4. AI Generation (edge function)
 
-## Components dùng
-- `Alert`, `AlertDescription` từ `@/components/ui/alert` (đã có)
-- `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` từ `@/components/ui/collapsible` (đã có)
-- Icon `Info`, `ChevronDown`, `ExternalLink` từ `lucide-react`
-- Giữ nguyên logic `handleShopifySubmit` và state hiện tại — không thay đổi backend/edge function.
+`supabase/functions/generate-multichannel/index.ts`:
+- Thêm `medium` vào `channelDescriptions`/`channelDescs`: "Bài Medium 1000-1800 từ, story-first, voice cá nhân/expert, opening hook strong, sub-headers H2 (##) ngắn, paragraph 2-3 câu thoáng, KHÔNG HTML, kết bằng CTA claps/follow + 2-3 internal links"
+- Mở rộng `select` re-read thêm `medium_content, medium_seo_data`
+- SEO meta extraction: thêm block xử lý `mediumRaw` giống `wxRaw`, lưu `medium_content` + `medium_seo_data`
 
-## Không thay đổi
-- Edge function `shopify-oauth-start` (đã đúng)
-- State management và validation regex
-- Layout các dialog khác trong file
+## 5. Mockup
+
+- Tạo `src/components/multichannel/mockups/MediumMockup.tsx` (Medium reading layout: serif font, narrow column 680px, byline + read time + claps button)
+- `src/utils/channelToMockupType.ts`: route `medium` → `MediumMockup`
+- Frontend `ChannelGroupView.ALL_CHANNELS`: thêm `medium`
+
+## 6. Publishing
+
+- Tạo edge function `publish-medium/index.ts`:
+  - Dùng Medium Integration Token (deprecated nhưng vẫn live cho personal accounts) HOẶC OAuth (Medium đã ngừng OAuth public 2018, hiện chỉ Integration Token)
+  - POST `https://api.medium.com/v1/users/{userId}/posts` với title/contentFormat=markdown/content/tags/publishStatus
+  - Lưu `medium_post_id` + `medium_post_url`
+- `supabase/config.toml`: thêm `[functions.publish-medium]` (giữ verify_jwt mặc định)
+- Frontend `useDirectPublish.ts`: thêm action route cho `medium`
+
+## 7. Connection UI
+
+- `BrandViewConnectionsTab.tsx`: thêm card Medium với dialog nhập **Integration Token** (Medium → Settings → Security & apps → Integration tokens) + auto-fetch user_id qua `GET /v1/me`
+- `SocialPlatformCredentialsDialog.tsx` (admin): thêm `medium` mapping
+- `READ_ONLY_PLATFORMS` không thêm (cho phép publish)
+
+## 8. Helper notes
+
+- Medium không hỗ trợ schedule API → publishStatus chỉ có `public/draft/unlisted`. Schedule sẽ chạy ở cron Flowa rồi publish ngay
+- Tag tối đa 5
+- Markdown native support → tận dụng output từ generate-multichannel không cần HTML conversion
+
+## Câu hỏi xác nhận trước khi build
+
+1. Connection method: dùng **Medium Integration Token** (đơn giản, user paste token) hay skip publish chỉ generate content?
+2. Có cần publish-to-Publication (org Medium) không hay chỉ user profile?

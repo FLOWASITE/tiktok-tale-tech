@@ -50,6 +50,7 @@ const channelToMockupType: Record<Channel, 'facebook' | 'linkedin' | 'instagram'
   wordpress: 'wordpress',
   shopify: 'shopify',
   wix: 'wix',
+  medium: 'wix',
   google_maps: 'general',
   youtube: 'general',
   zalo_oa: 'general',

@@ -56,6 +56,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   wordpress: <Globe className="w-4 h-4" />,
   shopify: <Globe className="w-4 h-4" />,
   wix: <Globe className="w-4 h-4" />,
+  medium: <Globe className="w-4 h-4" />,
   bluesky: <Globe className="w-4 h-4" />,
 };
 

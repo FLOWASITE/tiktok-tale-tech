@@ -72,6 +72,7 @@ export type Channel =
   | 'wordpress'
   | 'shopify'
   | 'wix'
+  | 'medium'
   | 'facebook'
   | 'instagram'
   | 'twitter'
@@ -162,6 +163,10 @@ export interface MultiChannelContent {
   wix_post_id?: string | null;
   wix_post_url?: string | null;
   wix_seo_data?: WebsiteSEOData | null;
+  medium_content: string | null;
+  medium_post_id?: string | null;
+  medium_post_url?: string | null;
+  medium_seo_data?: WebsiteSEOData | null;
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
