@@ -44,6 +44,7 @@ interface CompactChannelGridProps {
   frequentChannels?: Channel[];
   frequentCounts?: Partial<Record<Channel, number>>;
   onSelectFrequent?: () => void;
+  frequentAllSelected?: boolean;
 }
 
 export function CompactChannelGrid({
