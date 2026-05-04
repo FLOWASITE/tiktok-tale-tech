@@ -67,6 +67,11 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-foreground',
     border: 'border-border',
   },
+  medium: {
+    bg: 'bg-muted',
+    text: 'text-foreground',
+    border: 'border-border',
+  },
   email: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-600',

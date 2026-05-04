@@ -142,6 +142,7 @@ export const channelIconColors: Record<Channel | ExtraChannel, string> = {
   wordpress: 'text-[#21759b] dark:text-sky-400',
   shopify: 'text-[#21759b] dark:text-sky-400',
   wix: 'text-[#21759b] dark:text-sky-400',
+  medium: 'text-[#21759b] dark:text-sky-400',
   pinterest: 'text-[#E60023]',
   email: 'text-muted-foreground',
   bluesky: 'text-[#0085FF]',
