@@ -36,6 +36,7 @@ const channelLabels: Record<Channel, string> = {
   blogger: 'Website/Blog',
   wordpress: 'Website/Blog',
   shopify: 'Website/Blog',
+  wix: 'Website/Blog',
   facebook: 'Facebook',
   instagram: 'Instagram',
   pinterest: 'Instagram',

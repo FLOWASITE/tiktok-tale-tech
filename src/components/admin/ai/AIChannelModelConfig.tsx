@@ -51,6 +51,7 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
   blogger: <BloggerIcon className="h-4 w-4" />,
   wordpress: <WordPressIcon className="h-4 w-4" />,
   shopify: <WordPressIcon className="h-4 w-4" />,
+  wix: <WordPressIcon className="h-4 w-4" />,
   bluesky: <BlueskyIcon className="h-4 w-4" />,
 };
 

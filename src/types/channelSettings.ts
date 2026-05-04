@@ -472,6 +472,7 @@ export const BASE_CHANNEL_CONFIG: Record<Channel, {
   blogger: { label: 'Blogger', color: 'text-orange-500', bgColor: 'bg-orange-500/10', descriptionSuffix: 'casual blog' },
   wordpress: { label: 'WordPress', color: 'text-sky-500', bgColor: 'bg-sky-500/10', descriptionSuffix: 'in-depth article' },
   shopify: { label: 'WordPress', color: 'text-sky-500', bgColor: 'bg-sky-500/10', descriptionSuffix: 'in-depth article' },
+  wix: { label: 'WordPress', color: 'text-sky-500', bgColor: 'bg-sky-500/10', descriptionSuffix: 'in-depth article' },
   facebook: { label: 'Facebook', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', descriptionSuffix: 'hook + emoji' },
   instagram: { label: 'Instagram', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'visual-first' },
   pinterest: { label: 'Pinterest', color: 'text-[#E60023]', bgColor: 'bg-[#E60023]/10', descriptionSuffix: 'Pin SEO, vertical 2:3' },

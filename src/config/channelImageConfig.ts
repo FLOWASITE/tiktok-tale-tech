@@ -489,6 +489,7 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   blogger: '16:9',
   wordpress: '16:9',
   shopify: '16:9',
+  wix: '16:9',
   youtube: '16:9',
   facebook: '16:9',
   instagram: '4:5',

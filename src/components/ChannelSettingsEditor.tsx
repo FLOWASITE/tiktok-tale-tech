@@ -67,6 +67,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   blogger: <Globe className="w-4 h-4" />,
   wordpress: <Globe className="w-4 h-4" />,
   shopify: <Globe className="w-4 h-4" />,
+  wix: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
   pinterest: <Instagram className="w-4 h-4" />,
@@ -439,6 +440,7 @@ const CHANNEL_PRESETS = {
       blogger: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
       wordpress: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
       shopify: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
+      wix: { emoji_allowed: false, emoji_limit: 0, cta_policy: 'required' },
     } as ChannelOverrides,
   },
 };

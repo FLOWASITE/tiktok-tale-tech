@@ -23,6 +23,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   pinterest: 'publish-pinterest',
   bluesky: 'publish-bluesky',
   shopify: 'publish-shopify-blog',
+  wix: 'publish-wix-blog',
 };
 
 // Map action → cặp cột URL/ID trên multi_channel_contents để lưu link bài đã publish
@@ -35,6 +36,7 @@ const URL_COLUMN_MAP: Record<string, { url: string; id: string }> = {
   pinterest:  { url: 'pinterest_post_url',  id: 'pinterest_post_id' },
   bluesky:    { url: 'bluesky_post_url',    id: 'bluesky_post_id' },
   shopify:    { url: 'shopify_post_url',    id: 'shopify_post_id' },
+  wix:    { url: 'wix_post_url',    id: 'wix_post_id' },
 };
 
 // Map action back to the channel key used in selected_channels / channel_statuses
@@ -57,6 +59,7 @@ const ACTION_TO_CHANNEL: Record<string, string> = {
   pinterest: 'pinterest',
   bluesky: 'bluesky',
   shopify: 'shopify',
+  wix: 'wix',
 };
 
 Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {

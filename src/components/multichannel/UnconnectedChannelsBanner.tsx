@@ -20,6 +20,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   blogger: 'blogger',
   wordpress: 'blogger',
   shopify: 'blogger',
+  wix: 'blogger',
   bluesky: 'bluesky',
 };
 
@@ -39,6 +40,7 @@ const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
   blogger: 'Blogger',
   wordpress: 'Blogger',
   shopify: 'Blogger',
+  wix: 'Blogger',
   bluesky: 'Bluesky',
 };
 

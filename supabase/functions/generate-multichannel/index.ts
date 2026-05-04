@@ -408,6 +408,7 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   blogger: 'blogger_content',
   wordpress: 'wordpress_content',
   shopify: 'shopify_content',
+  wix: 'wix_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -469,6 +470,7 @@ const LONGFORM_MIN_CHARS: Record<string, number> = {
   wordpress: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1200-2200 từ
   website: 1500,
   shopify: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ
+  wix: 1200,   // ~ 300-400 từ — sàn an toàn dưới target 800-1500 từ,
 };
 
 function normalizeLongformText(value: unknown): string {
@@ -3669,6 +3671,7 @@ BẮT BUỘC sau body, append đúng 1 block JSON (không thêm prose):
 
 Phải KHÁC blogger (formal/long hơn) và KHÁC website (sâu chuyên môn + có meta JSON).`,
               shopify:   `Bài Shopify Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Shopify blog dùng HTML, không phải Markdown thuần).
+              wix:   `Bài Wix Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Wix blog dùng HTML, không phải Markdown thuần).,
 
 CẤU TRÚC:
 - Intro 60-120 từ: hook bằng nỗi đau/khao khát của shopper, đề cập sản phẩm/BST.
@@ -6514,6 +6517,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           blogger: typeof generatedData.blogger_content === 'string' ? generatedData.blogger_content : undefined,
           wordpress: typeof generatedData.wordpress_content === 'string' ? generatedData.wordpress_content : undefined,
           shopify: typeof generatedData.shopify_content === 'string' ? generatedData.shopify_content : undefined,
+          wix: typeof generatedData.wix_content === 'string' ? generatedData.wix_content : undefined,
         },
       );
       if (verify.row) content = verify.row;
