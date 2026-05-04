@@ -32,6 +32,7 @@ export interface PreviewKeyword {
     volume: number;
     difficulty: number;
   };
+  _pending?: boolean;
 }
 
 interface Props {
