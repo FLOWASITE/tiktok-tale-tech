@@ -356,7 +356,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       } else if (websiteForm.integrationType === 'nukeviet') {
         body.apiKey = websiteForm.apiKey;
         body.apiEndpoint = websiteForm.apiEndpoint;
-      } else if (['blogger', 'wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
+      } else if (['wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
         body.apiKey = websiteForm.apiKey;
       }
       const { data, error } = await supabase.functions.invoke('connect-website', { body });
