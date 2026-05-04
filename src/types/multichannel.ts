@@ -82,8 +82,7 @@ export type Channel =
   | 'tiktok'
   | 'threads'
   | 'pinterest'
-  | 'bluesky'
-  | 'shopify';
+  | 'bluesky';
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
