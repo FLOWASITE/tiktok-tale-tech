@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     }
 
     if (!queryEmbedding) {
-      return new Response(JSON.stringify({ suggestions: [], note: "Không có embedding nguồn" }), {
+      return new Response(JSON.stringify({ suggestions: [], note: "Không có embedding nguồn", fallback: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
