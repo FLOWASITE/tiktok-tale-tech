@@ -22,6 +22,7 @@ import {
   PinterestIcon,
   BlueskyIcon,
   ShopifyIcon,
+  MediumIcon,
 } from '@/components/icons/SocialIcons';
 import { Globe } from 'lucide-react';
 import {
