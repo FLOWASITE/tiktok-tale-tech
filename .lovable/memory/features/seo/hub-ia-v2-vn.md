@@ -14,7 +14,7 @@ type: design
 - **Discover** — sub: research / import / enrich (gộp Enrichment Jobs vào đây)
 - **Plan** — sub: pillars / keywords (gộp PillarsTab + KeywordExplorerTab)
 - **Produce** — AdminSeoPages (landing pages)
-- **Track** — sub: health (OverviewTab orphan/cannibal) / **backlinks** (BacklinksTab — quản lý URL đã publish lên social/website từ `publish_attempts`, có filter+export CSV+detail sheet) / ranks (RankTrackerTab)
+- **Track** — sub: health (OverviewTab) / **links** (LinksWorkspace gộp Backlinks + Internal Links với KPI strip chung + segmented toggle `?view=backlinks|internal`) / ranks (RankTrackerTab)
 
 ## Hero strip (`SeoHubHero.tsx`)
 - 4 KPI cards: Keywords, Pillars, Pages, Sức khoẻ (orphan+cannibal)
