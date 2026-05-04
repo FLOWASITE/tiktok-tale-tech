@@ -851,6 +851,8 @@ const MULTI_CHANNEL_CONTENT_COLUMNS = new Set([
   'wordpress_seo_data',
   'shopify_content',
   'shopify_seo_data',
+  'wix_content',
+  'wix_seo_data',
   'facebook_content',
   'instagram_content',
   'twitter_content',
