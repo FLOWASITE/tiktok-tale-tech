@@ -50,15 +50,13 @@ export function CompactChannelGrid({
   disabled,
 }: CompactChannelGridProps) {
   const channelCategories: ChannelCategoryConfig[] = [
-    { name: 'Thiên về Text', key: 'text', icon: <FileText className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'text') },
-    { name: 'Thiên về Ảnh', key: 'image', icon: <ImageIcon className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'image') },
-    { name: 'Thiên về Video', key: 'video', icon: <Video className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'video') },
+    { name: 'Website & Long-form', key: 'longform', icon: <Globe className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'longform') },
+    { name: 'Mạng xã hội', key: 'social', icon: <Users className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'social') },
   ];
 
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    text: true,
-    image: true,
-    video: true,
+    longform: true,
+    social: true,
   });
   const toggleCategory = (key: string) => {
     setExpandedCategories(prev => ({ ...prev, [key]: !prev[key] }));
