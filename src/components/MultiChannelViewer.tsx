@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type, Zap, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ZaloIcon, XIcon, PinterestIcon, BloggerIcon, WordPressIcon, BlueskyIcon, ShopifyIcon, WixIcon } from '@/components/icons/SocialIcons';
+import { ZaloIcon, XIcon, PinterestIcon, BloggerIcon, WordPressIcon, BlueskyIcon, ShopifyIcon, WixIcon, MediumIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
@@ -161,7 +161,7 @@ const channelConfig: Record<Channel, {
   medium: {
     label: 'Medium',
     shortLabel: 'Medium',
-    icon: <BookOpen className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+    icon: <MediumIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
     color: 'text-foreground',
     bgColor: 'bg-muted',
     maxLength: '1000-1800 chữ'
