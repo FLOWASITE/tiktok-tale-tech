@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,6 +41,8 @@ export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchors, setAnchors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<SavedLink[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
+  const autoScanned = useRef(false);
 
   const loadSaved = async () => {
     if (!currentOrganization?.id) return;
