@@ -1,159 +1,69 @@
 ## Mục tiêu
-Tích hợp **Shopify Public App OAuth** để mỗi merchant connect store của họ vào Flowa. Lưu access token đã mã hóa AES-256-GCM. Use case: **auto-publish blog do Flowa generate vào Shopify Online Store > Blog**, scope `read_content + write_content`.
+Bổ sung **Shopify Blog** như long-form channel thứ 4 (cùng Website, Blogger, WordPress) cho hệ thống "đăng nội dung đa kênh", để user có thể chọn Shopify khi generate + publish trực tiếp lên Shopify Blog.
 
-Pattern theo blueprint **Blogger OAuth** (đã production) — không phải `shopify--enable` (cái đó là 1 store cố định cho project owner, không phù hợp multi-tenant SaaS).
+Hiện trạng:
+- ✅ OAuth Shopify, `publish-shopify-blog`, `test-shopify-connection`, `test-shopify-credentials` đã có
+- ✅ `social_connections` đã hỗ trợ platform `shopify`
+- ❌ Shopify CHƯA xuất hiện trong picker channel multichannel
+- ❌ `generate-multichannel` chưa sinh `shopify_content`
+- ❌ `channel-publisher` chưa route `shopify` → `publish-shopify-blog`
+- ❌ Chưa có cột `shopify_content / shopify_post_url / shopify_post_id` trong `multi_channel_contents`
 
-## Bạn cần chuẩn bị trước (out-of-band)
-1. Đăng ký **Shopify Partners account**: https://partners.shopify.com
-2. Tạo **Public App** trong Partners dashboard:
-   - **App URL**: `https://app.flowa.one/connections`
-   - **Allowed redirection URL**: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/shopify-oauth-callback`
-   - **Scopes**: `read_content`, `write_content`, `read_products` (cho preview SEO meta)
-   - **Embedded app**: TẮT (Flowa không nhúng vào Shopify Admin)
-3. Lấy **Client ID** và **Client Secret** → dán vào secrets khi tôi yêu cầu
-4. Tạo **Development store** miễn phí trong Partners để test trước
+## Phạm vi (5 việc)
 
-## Kiến trúc
+### 1. Migration DB — thêm 3 cột long-form Shopify
+- `multi_channel_contents.shopify_content text`
+- `multi_channel_contents.shopify_post_url text`
+- `multi_channel_contents.shopify_post_id text`
+- `shopify_seo_data jsonb` (parity với blogger/wordpress)
 
-```text
-User clicks "Kết nối Shopify" trong BrandViewConnectionsTab
-        │
-        ▼
-[shopify-oauth-start]  ← FE truyền shop domain (vd: mystore.myshopify.com)
-   • validate shop domain regex
-   • build authorize URL với state=base64({userId, brandTemplateId, orgId, nonce})
-   • redirect → https://{shop}/admin/oauth/authorize?...
-        │
-        ▼
-   Merchant approve scopes trên Shopify
-        │
-        ▼
-[shopify-oauth-callback]  ← Shopify redirect về với code + hmac
-   • verify HMAC (HMAC-SHA256 với client_secret)
-   • verify shop domain hợp lệ (*.myshopify.com)
-   • exchange code → access_token (POST /admin/oauth/access_token)
-   • fetch shop info (GET /admin/api/2025-01/shop.json) → tên, email, locale
-   • encrypt access_token (AES-256-GCM qua _shared/crypto.ts)
-   • upsert social_connections (platform='shopify')
-   • register webhooks: app/uninstalled (để auto-cleanup connection)
-   • redirect → https://app.flowa.one/connections?shopify=success
-        │
-        ▼
-[publish-shopify-blog]  ← gọi từ Multi-channel publish flow
-   • decrypt token, fetch blogs list, pick default blog
-   • POST /admin/api/2025-01/blogs/{blog_id}/articles.json
-     { title, body_html (markdown→html via remark), tags, image, published }
-   • lưu published_url vào publishing_logs
-        │
-        ▼
-[shopify-app-uninstalled-webhook]  ← public, verify_jwt=false
-   • verify HMAC header X-Shopify-Hmac-Sha256
-   • soft-delete social_connection (is_active=false)
-```
+### 2. Generate-multichannel — Shopify như long-form channel
+- Thêm `'shopify'` vào `LONG_FORM_CHANNELS` / `SELECT` columns / mapping `channel → column` (`shopify: 'shopify_content'`)
+- Prompt rule: 800–1500 từ, e-commerce friendly, HTML-ready (Shopify blog dùng HTML), CTA hướng product, có featured image cue, KHÁC Website/Blogger/WordPress (tone: thương mại + storytelling sản phẩm)
+- Strip SEO meta giống `wpEx.stripped` pattern, save `shopify_content` + `shopify_seo_data`
 
-## Phase 1 — OAuth flow + connect (1 ngày)
+### 3. Channel-publisher routing
+- Thêm `shopify: 'publish-shopify-blog'` vào `PLATFORM_FUNCTION_MAP`
+- Thêm `shopify: { url: 'shopify_post_url', id: 'shopify_post_id' }` vào `URL_COLUMN_MAP`
+- Thêm `shopify: 'shopify'` vào `ACTION_TO_CHANNEL`
 
-### Files mới
-- `supabase/functions/shopify-oauth-start/index.ts` — build authorize URL, lưu state vào `oauth_pending_states`
-- `supabase/functions/shopify-oauth-callback/index.ts` — verify HMAC, exchange code, encrypt token, upsert connection
-- `supabase/functions/_shared/shopify.ts` — helpers: `verifyHmac()`, `validateShopDomain()`, `shopifyFetch(shop, token, path)`, `getDefaultBlog()`
-- `src/pages/ShopifyCallback.tsx` — landing page sau OAuth success/error (giống `BloggerCallback.tsx`)
+### 4. Frontend — UI picker + types
+- `src/types/multichannel.ts`:
+  - Thêm `'shopify'` vào ChannelKey union (sau `wordpress`)
+  - Thêm `shopify_content / shopify_post_url / shopify_post_id / shopify_seo_data` vào interface
+  - Thêm entry vào `CHANNEL_OPTIONS`: `{ value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'text', description: 'Bài Shopify Blog 800-1500 từ, e-commerce, HTML-ready, CTA product' }`
+- `src/utils/channelColors.ts`: thêm `shopify: { ... color #96bf48 ... }`
+- `src/components/multichannel/ChannelGroupView.tsx`: thêm `shopify` vào danh sách text channels (dòng 64) — KHÔNG map về `'website'` (Shopify là channel độc lập, theo memory `longform-channel-separation-vn`)
+- `ChannelIcon.tsx`: đã có entry `shopify` (line 130) — verify dùng `ShoppingBag` icon
 
-### Files chỉnh
-- `supabase/config.toml` → thêm `[functions.shopify-oauth-callback] verify_jwt = false`, tương tự cho webhook
-- `src/hooks/useSocialConnections.ts` → thêm `'shopify'` vào type `SocialPlatform`
-- `src/hooks/useSocialPlatformSettings.ts` → tương tự
-- `src/components/multichannel/streaming/ChannelIcon.tsx` → thêm entry `shopify` với `ShopifyIcon` (SVG mới trong `SocialIcons.tsx`, màu `#96BF48`)
-- `src/components/icons/SocialIcons.tsx` → export `ShopifyIcon` (SVG bag-with-S)
-- `src/components/brand/BrandViewConnectionsTab.tsx` → thêm card "Shopify" với input shop domain + button "Kết nối"
-- `src/App.tsx` → thêm route `/auth/shopify/callback` → `<ShopifyCallback />`
+### 5. Mockup + Direct publish
+- `src/components/multichannel/` — nếu có `WebsiteMockup/BloggerMockup/WordPressMockup` thì tạo `ShopifyMockup` hiển thị giống storefront blog post (header shop name + blog post layout). Routing qua `channelToMockupType`
+- `useDirectPublish.ts`: Shopify dùng `blogData` payload (đã có sẵn pattern `articleData/blogData`) → `channel-publisher` action `'shopify'` với `{ connectionId, content, title, tags, featuredImageUrl, ...blogData }`. Không cần code mới, chỉ verify payload mapping.
 
-### Secrets cần (sẽ yêu cầu sau khi bạn confirm)
-- `SHOPIFY_CLIENT_ID`
-- `SHOPIFY_CLIENT_SECRET`
+## Technical notes
 
-### Database
-Tận dụng tables hiện có — KHÔNG cần migration:
-- `social_connections` (đã có `metadata JSONB`) → lưu `{ shop_domain, shop_name, shop_email, locale, scope, default_blog_id }`
-- `oauth_pending_states` (đã dùng cho Bluesky) → lưu state nonce 15 phút
-- `social_platform_settings` (đã dùng cho FB/Google) → option lưu Client ID/Secret nếu muốn admin config qua UI
+**Channel separation rule (memory):** Shopify là channel long-form ĐỘC LẬP, không collapse vào `website`. Mỗi channel có cột DB riêng + prompt riêng + length riêng — giống Blogger/WordPress đã tách trước đây.
 
-## Phase 2 — Publish blog (4-6h)
+**Prompt differentiation:** để AI không sinh trùng giữa 4 long-form channels:
+- Website: corporate SEO 1000-2000 từ
+- Blogger: casual storytelling 500-900 từ
+- WordPress: in-depth expert 1200-2200 từ
+- **Shopify: e-commerce product story 800-1500 từ, HTML-ready, mỗi đoạn ≤80 từ, CTA "Shop now / Khám phá BST", featured image suggestion**
 
-### Files mới
-- `supabase/functions/publish-shopify-blog/index.ts` — convert markdown → HTML, upload featured image, POST article
-- `src/components/multichannel/preview/ShopifyBlogMockup.tsx` — mockup theme Dawn của Shopify (header + article body + tags)
+**Publish payload:** `publish-shopify-blog` đã nhận `{ connectionId, content, title, tags, featuredImageUrl, blogId, isDraft, summary, author }` → channel-publisher chỉ cần forward, không cần shape lại.
 
-### Files chỉnh
-- `supabase/functions/publish-multi-channel/index.ts` (hoặc router publish chung) → route channel `shopify_blog` → `publish-shopify-blog`
-- `src/utils/channelColors.ts` + `src/types/publishing.ts` → đăng ký channel `shopify_blog`
-- `src/components/multichannel/MockupRenderer.tsx` (hoặc tương đương) → switch case → `ShopifyBlogMockup`
+**Memory update sau implement:** cập nhật `mem://features/multichannel/longform-channel-separation-vn` từ "3 long-form" → "4 long-form (Website/Blogger/WordPress/Shopify)".
 
-### Markdown→HTML
-Dùng pipeline có sẵn trong `_shared/markdown-to-html.ts` (Blogger đã dùng). Shopify chấp nhận HTML chuẩn trong field `body_html`. Strip SEO frontmatter giống Blogger.
+## Files sẽ thay đổi
+- `supabase/migrations/<new>.sql` (3 cột)
+- `supabase/functions/generate-multichannel/index.ts` (mapping + prompt)
+- `supabase/functions/channel-publisher/index.ts` (3 maps)
+- `src/types/multichannel.ts`
+- `src/utils/channelColors.ts`
+- `src/components/multichannel/ChannelGroupView.tsx`
+- (optional) `src/components/multichannel/ShopifyMockup.tsx` + routing
 
-## Phase 3 — Resilience + lifecycle (3-4h)
-
-### Files mới
-- `supabase/functions/shopify-app-uninstalled-webhook/index.ts` — verify HMAC, soft-delete connection
-- `supabase/functions/test-shopify-connection/index.ts` — ping `/admin/api/2025-01/shop.json` để verify token còn valid (dùng cho ReconnectBanner)
-
-### Files chỉnh
-- `supabase/functions/_shared/social-token-refresh-cron.ts` (nếu có) → thêm Shopify path. **Lưu ý**: Shopify Admin API access token **không expire** (offline access), nên không cần refresh cron — chỉ cần test-connection định kỳ + handle 401 → mark `last_error` + show ReconnectBanner.
-- `src/components/social/ReconnectBanner.tsx` → đã generic, chỉ cần thêm label cho `shopify`
-- Webhook subscribe trong `shopify-oauth-callback` sau khi exchange token thành công.
-
-## UI/UX (theo Soft Luxury + Connection UI Specs)
-
-```text
-┌─ Connections Tab ──────────────────────────────────┐
-│  [ChannelIcon shopify]  Shopify                     │
-│  ─────────────────────────────────────────          │
-│  Trạng thái: [✓ Đã kết nối]  mystore.myshopify.com │
-│  Blog mặc định: News                                │
-│  Hết hạn: Không có (offline token)                  │
-│  [Đăng bài thử]  [Đổi blog]  [Ngắt kết nối]        │
-└─────────────────────────────────────────────────────┘
-
-Khi chưa kết nối:
-┌──────────────────────────────────────────┐
-│  Shop domain: [mystore.myshopify.com  ]  │
-│              [ Kết nối Shopify → ]       │
-└──────────────────────────────────────────┘
-```
-
-## Bảo mật (bắt buộc)
-1. **HMAC verification** ở callback + webhook (constant-time compare) — Shopify gửi `hmac` query param và `X-Shopify-Hmac-Sha256` header
-2. **Shop domain validation**: regex `^[a-z0-9][a-z0-9-]*\.myshopify\.com$`, reject mọi domain khác
-3. **State nonce**: random 24 bytes, lưu trong `oauth_pending_states`, TTL 15 phút, single-use
-4. **Token encryption**: AES-256-GCM qua `_shared/crypto.ts` (đã production cho Bluesky/Facebook)
-5. **Scope verification**: sau exchange, check `scope` field trong response = scope đã request, nếu thiếu → reject
-6. **RLS**: `social_connections` đã có RLS theo `organization_id` + `brand_template_id`
-7. **GDPR webhooks** (Shopify yêu cầu cho App Store, optional Phase 3.5): `customers/data_request`, `customers/redact`, `shop/redact` — chỉ cần endpoint trả 200 nếu chưa có data
-
-## Memory
-Tạo `mem://integrations/social/shopify-oauth-vn.md` ghi:
-- Public App OAuth pattern, HMAC verify
-- Token offline (no refresh)
-- Webhook app/uninstalled cleanup
-- Scopes: `read_content + write_content + read_products`
-
-## Estimate
-| Phase | Effort | Output |
-|---|---|---|
-| 1. OAuth + Connect | 1 ngày | Merchant connect được store, token encrypted, hiện trong Connections tab |
-| 2. Publish blog | 4-6h | Generate blog xong → 1-click publish vào Shopify, lấy được published_url |
-| 3. Lifecycle + webhook | 3-4h | App uninstall auto-cleanup, ReconnectBanner khi token revoked |
-| **Total** | **~2 ngày** | Production-ready Shopify blog publishing |
-
-## Out of scope (có thể làm sau)
-- Sync products vào Flowa để generate caption (cần `read_products` extended + UI Product Picker)
-- Customer/order analytics dashboard
-- Auto-publish image-based content vào Shopify Pages (không phải Blog)
-- App Store submission (cần GDPR webhooks + privacy policy page)
-
-## Bắt đầu Phase 1?
-Sau khi bạn confirm, tôi sẽ:
-1. Yêu cầu 2 secrets `SHOPIFY_CLIENT_ID` + `SHOPIFY_CLIENT_SECRET`
-2. Code đầy đủ Phase 1 trong 1 turn
-3. Hướng dẫn bạn test với development store
+## Out of scope
+- Sync products / collections (chỉ Blog post)
+- Shopify storefront customization
+- Multi-blog selection UI (auto-pick first blog đã có sẵn fallback)

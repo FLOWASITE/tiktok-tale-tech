@@ -8000,6 +8000,10 @@ export type Database = {
           refinement_count: number | null
           selected_channels: string[]
           selected_hooks: Json | null
+          shopify_content: string | null
+          shopify_post_id: string | null
+          shopify_post_url: string | null
+          shopify_seo_data: Json | null
           status: string | null
           tags: string[] | null
           target_keyword_ids: string[] | null
@@ -8071,6 +8075,10 @@ export type Database = {
           refinement_count?: number | null
           selected_channels: string[]
           selected_hooks?: Json | null
+          shopify_content?: string | null
+          shopify_post_id?: string | null
+          shopify_post_url?: string | null
+          shopify_seo_data?: Json | null
           status?: string | null
           tags?: string[] | null
           target_keyword_ids?: string[] | null
@@ -8142,6 +8150,10 @@ export type Database = {
           refinement_count?: number | null
           selected_channels?: string[]
           selected_hooks?: Json | null
+          shopify_content?: string | null
+          shopify_post_id?: string | null
+          shopify_post_url?: string | null
+          shopify_seo_data?: Json | null
           status?: string | null
           tags?: string[] | null
           target_keyword_ids?: string[] | null
