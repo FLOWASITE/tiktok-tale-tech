@@ -1525,6 +1525,20 @@ export function MultiChannelViewer({
                       </div>
                     )}
 
+                    {/* WordPress / Blogger SEO Meta Panel */}
+                    {(channel === 'wordpress' || channel === 'blogger') && !isEditing && (
+                      <WordPressSeoPanel
+                        contentId={content.id}
+                        channel={channel as 'wordpress' | 'blogger'}
+                        bodyContent={channelContent || ''}
+                        initialMeta={
+                          (channel === 'wordpress'
+                            ? (content as any).wordpress_seo_data
+                            : (content as any).blogger_seo_data) || null
+                        }
+                      />
+                    )}
+
                     {/* Content Area */}
                       <ScrollArea className="flex-1">
                         <div className="p-2">
