@@ -559,8 +559,68 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
+  const handleWixOAuthConnect = async () => {
+    setIsWixOAuthConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('wix-oauth-start', {
+        body: { brandTemplateId: template.id, frontendOrigin: window.location.origin },
+      });
 
-  const handleDisconnect = async (connectionId: string) => {
+      let errBody: any = null;
+      if (error) {
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') errBody = await ctx.json();
+        } catch { /* ignore */ }
+      }
+
+      if (error || !data?.authorization_url) {
+        const msg = errBody?.error || data?.error || error?.message || 'Không khởi tạo được Wix OAuth';
+        throw new Error(msg);
+      }
+
+      window.open(data.authorization_url, '_blank', 'width=720,height=820');
+      toast.info('Đã mở trang cài đặt Wix', {
+        description: 'Chọn site Wix và cấp quyền cho Flowa. Hệ thống sẽ tự cập nhật khi xong.',
+      });
+      setWebsiteDialogOpen(false);
+
+      setOauthConnecting('website');
+      const start = Date.now();
+      const poll = setInterval(async () => {
+        if (Date.now() - start > 180_000) {
+          clearInterval(poll);
+          setOauthConnecting(null);
+          return;
+        }
+        try {
+          const { data: rows } = await supabase
+            .from('social_connections')
+            .select('id, is_active, platform_username, metadata')
+            .eq('brand_template_id', template.id)
+            .eq('platform', 'website')
+            .eq('is_active', true)
+            .order('connected_at', { ascending: false })
+            .limit(5);
+          const wixOAuthRow = rows?.find(
+            (r: any) => r.metadata?.integration_type === 'wix_oauth',
+          );
+          if (wixOAuthRow) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            await refetch();
+            toast.success(`Đã kết nối Wix: ${wixOAuthRow.platform_username}`);
+          }
+        } catch { /* ignore polling errors */ }
+      }, 3000);
+    } catch (e: any) {
+      toast.error('Lỗi kết nối Wix', { description: e?.message || String(e) });
+    } finally {
+      setIsWixOAuthConnecting(false);
+    }
+  };
+
+
     try {
       await disconnect(connectionId);
     } catch (error) {
