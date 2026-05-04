@@ -398,7 +398,7 @@ async function handleSuggest(
     console.log(`[topic-ai:suggest] Overriding slow model ${requestedModel} -> ${FAST_SUGGEST_MODEL} for latency`);
   }
 
-  const runAICall = (model: string | undefined) => callAIWithMetrics(supabase, {
+  const runAICall = async (model: string | undefined) => callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
     userId: params._userId,
