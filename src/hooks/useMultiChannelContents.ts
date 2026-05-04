@@ -292,7 +292,7 @@ export function useMultiChannelContents() {
         wordpress: 'wordpress_content',
         shopify: 'shopify_content',
         wix: 'wix_content',
-        medium: 'wix_content',
+        medium: 'medium_content',
         facebook: 'facebook_content',
         instagram: 'instagram_content',
         pinterest: 'pinterest_content',

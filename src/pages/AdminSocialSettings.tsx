@@ -22,6 +22,7 @@ import {
   PinterestIcon,
   BlueskyIcon,
   ShopifyIcon,
+  MediumIcon,
 } from '@/components/icons/SocialIcons';
 import { Globe } from 'lucide-react';
 import {
@@ -71,6 +72,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'wordpress', name: 'WordPress (self-hosted)', icon: WordPressIcon, iconColor: 'text-[#21759b]', category: 'longform', authMode: 'per_brand', authNote: 'Mỗi brand kết nối bằng Application Password riêng — không cấu hình toàn cục.' },
   { platform: 'shopify', name: 'Shopify', icon: ShopifyIcon, iconColor: 'text-[#96bf48]', category: 'longform', authMode: 'credentials', authNote: 'Tạo Public App tại Shopify Partners. Lưu Client ID/Secret tại đây để user kết nối shop qua OAuth.' },
   { platform: 'wix', name: 'Wix', icon: Globe, iconColor: 'text-[#0C6EFC]', category: 'longform', authMode: 'credentials', authNote: 'Tạo App tại dev.wix.com/apps. Redirect URL: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/wix-oauth-callback. Lưu App ID (Client ID) + App Secret tại đây để user kết nối site qua OAuth.' },
+  { platform: 'medium', name: 'Medium', icon: MediumIcon, iconColor: 'text-foreground', category: 'longform', authMode: 'per_brand', authNote: 'Medium dùng Integration Token cá nhân (medium.com/me/settings/security → Integration tokens). Mỗi brand tự nhập token riêng — không cấu hình toàn cục.' },
   { platform: 'website', name: 'Website / Custom API', icon: Globe, iconColor: 'text-muted-foreground', category: 'longform', authMode: 'credentials' },
 ];
 

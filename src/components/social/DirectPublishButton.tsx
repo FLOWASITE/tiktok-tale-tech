@@ -120,6 +120,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   bluesky: () => <ChannelIcon channel="bluesky" size={16} />,
   shopify: () => <ChannelIcon channel={"shopify" as any} size={16} />,
   wix: () => <span>🌀</span>,
+  medium: () => <ChannelIcon channel="medium" size={16} />,
 };
 
 const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {

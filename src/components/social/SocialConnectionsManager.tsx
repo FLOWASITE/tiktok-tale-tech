@@ -213,6 +213,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'Auto-publish blog vào Wix site qua OAuth',
   },
+  medium: {
+    name: 'Medium',
+    icon: () => <ChannelIcon channel="medium" size={16} />,
+    color: 'text-foreground',
+    bgColor: 'bg-muted',
+    available: true,
+    description: 'Đăng bài lên Medium qua Integration Token',
+  },
 };
 
 interface TwitterSetupForm {
