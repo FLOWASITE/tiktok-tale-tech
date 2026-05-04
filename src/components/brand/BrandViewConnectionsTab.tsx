@@ -219,7 +219,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
   const [websiteForm, setWebsiteForm] = useState({
     websiteUrl: '',
-    integrationType: 'wordpress' as 'wordpress' | 'nukeviet' | 'blogger' | 'wix' | 'shopify_blog' | 'flowa_blog' | 'custom_api' | 'webhook' | 'manual',
+    integrationType: 'wordpress' as 'wordpress' | 'nukeviet' | 'wix' | 'shopify_blog' | 'flowa_blog' | 'custom_api' | 'webhook' | 'manual',
     username: '',
     appPassword: '',
     apiKey: '',
