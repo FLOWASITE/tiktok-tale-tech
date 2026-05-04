@@ -62,6 +62,7 @@ export default function KeywordExplorerTab() {
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPillar, setBulkPillar] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<KeywordCategory | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem("seo-explorer-brand-scope", brandScope ? "1" : "0"); } catch {}
