@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
 import { LazyAssignSelect } from "./LazyAssignSelect";
+import { cn } from "@/lib/utils";
 
 type KeywordRow = SeoKeywordRow;
 interface ContentRow {
