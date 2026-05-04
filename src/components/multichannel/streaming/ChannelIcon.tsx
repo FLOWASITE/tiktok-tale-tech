@@ -136,7 +136,7 @@ const channelConfig: Record<string, {
   },
   wix: {
     icon: WixLucide,
-    bgClass: "bg-black text-white",
+    bgClass: "bg-transparent text-foreground",
     label: "Wix"
   },
   google_maps: { 
