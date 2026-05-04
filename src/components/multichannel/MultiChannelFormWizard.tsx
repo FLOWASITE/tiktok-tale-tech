@@ -1283,6 +1283,7 @@ export function MultiChannelFormWizard({
                         </button>
                       );
                     })}
+                    </div>
                   </div>
                 );
               })()}
