@@ -4356,7 +4356,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 supabase,
                 savedContent.id,
                 channels,
-                { blogger: channelResults.blogger, wordpress: channelResults.wordpress },
+                { blogger: channelResults.blogger, wordpress: channelResults.wordpress, shopify: channelResults.shopify, wix: channelResults.wix, medium: channelResults.medium },
               );
               if (verify.row) savedContent = verify.row;
               if (verify.missing.length > 0) {
