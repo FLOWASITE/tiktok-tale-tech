@@ -334,10 +334,10 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
   }
 ]`;
 
-    // Calculate optimized max tokens
-    const baseMaxTokens = 2048;
+    // Calculate optimized max tokens (raised baseline to avoid truncation on 5+ hooks)
+    const baseMaxTokens = 4096;
     const optimizedMaxTokens = channelOptimization 
-      ? applyTokenOptimization(baseMaxTokens, channelOptimization)
+      ? Math.max(applyTokenOptimization(baseMaxTokens, channelOptimization), 3072)
       : baseMaxTokens;
 
     // Wrap AI call with semantic cache
