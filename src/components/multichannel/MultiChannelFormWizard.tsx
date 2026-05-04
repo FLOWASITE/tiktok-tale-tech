@@ -2116,6 +2116,9 @@ export function MultiChannelFormWizard({
                   channelIcons={channelIcons}
                   brandTemplate={brandTemplate}
                   disabled={isGenerating}
+                  frequentChannels={frequentChannels}
+                  frequentCounts={frequentCounts}
+                  onSelectFrequent={handleSelectFrequent}
                 />
               </div>
 
