@@ -171,6 +171,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
   blogger: <BloggerIcon className="w-4 h-4" />,
   wordpress: <WordPressIcon className="w-4 h-4" />,
+  shopify: <WordPressIcon className="w-4 h-4" />,
   facebook: <FacebookIcon className="w-4 h-4" />,
   instagram: <InstagramIcon className="w-4 h-4" />,
   pinterest: <PinterestIcon className="w-4 h-4" />,

@@ -57,6 +57,11 @@ export const CHANNEL_COLORS: Record<Channel, { bg: string; text: string; border:
     text: 'text-[#21759b] dark:text-sky-400',
     border: 'border-[#21759b]/30',
   },
+  shopify: {
+    bg: 'bg-[#96bf48]/15',
+    text: 'text-[#5e8e3e] dark:text-[#96bf48]',
+    border: 'border-[#96bf48]/30',
+  },
   email: {
     bg: 'bg-amber-500/15',
     text: 'text-amber-600',

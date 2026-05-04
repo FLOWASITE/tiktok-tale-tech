@@ -290,6 +290,7 @@ export function useMultiChannelContents() {
         website: 'website_content',
         blogger: 'blogger_content',
         wordpress: 'wordpress_content',
+        shopify: 'wordpress_content',
         facebook: 'facebook_content',
         instagram: 'instagram_content',
         pinterest: 'pinterest_content',

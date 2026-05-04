@@ -62,7 +62,7 @@ interface ChannelGroupViewProps {
 const ALL_CHANNELS: Channel[] = [
   'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin',
   'youtube', 'threads', 'telegram', 'zalo_oa', 'website', 'blogger',
-  'email', 'google_maps',
+  'wordpress', 'shopify', 'email', 'google_maps',
 ];
 
 const CHANNEL_TO_PLATFORM: Partial<Record<Channel, SocialPlatform>> = {
@@ -78,6 +78,7 @@ const CHANNEL_TO_PLATFORM: Partial<Record<Channel, SocialPlatform>> = {
   website: 'website',
   blogger: 'website',
   wordpress: 'website',
+  shopify: 'shopify',
 };
 
 function getStatusCounts(items: MultiChannelContent[]) {

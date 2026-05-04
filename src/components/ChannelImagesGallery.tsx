@@ -70,7 +70,14 @@ const channelConfig: Record<Channel, {
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
   },
-  wordpress: { 
+  wordpress: {
+    label: 'Website', 
+    icon: <Globe className="w-3 h-3" />, 
+    color: 'text-blue-400',
+    bgColor: 'bg-blue-500/20',
+  },
+
+  shopify: {
     label: 'Website', 
     icon: <Globe className="w-3 h-3" />, 
     color: 'text-blue-400',
