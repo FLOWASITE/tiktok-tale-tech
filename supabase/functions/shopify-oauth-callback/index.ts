@@ -98,10 +98,7 @@ Deno.serve(async (req) => {
     const grantedScopes = (tokenJson.scope || "").split(",").map((s) => s.trim()).filter(Boolean);
 
     // 4. Resolve org from brand if missing
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = supabaseAdmin;
     let organizationId = stateData.organizationId;
     if (!organizationId && stateData.brandTemplateId) {
       const { data: bt } = await supabase
