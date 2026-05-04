@@ -53,14 +53,23 @@ Deno.serve(async (req) => {
     if (content_id) {
       const { data: src } = await supabase
         .from("multi_channel_contents")
-        .select("content_embedding, title, topic, website_content, cluster_id")
+        .select("content_embedding, title, topic, website_content, blogger_content, wordpress_content, cluster_id")
         .eq("id", content_id).maybeSingle();
       sourceClusterId = (src as any)?.cluster_id ?? null;
       if (src?.content_embedding) {
         queryEmbedding = src.content_embedding as any;
       } else if (src) {
-        const txt = [src.title, src.topic, (src.website_content || "").slice(0, 2000)].filter(Boolean).join("\n");
-        queryEmbedding = await embed(txt);
+        const txt = [src.title, src.topic, (src as any).website_content, (src as any).blogger_content, (src as any).wordpress_content]
+          .filter((x: any) => typeof x === "string" && x.trim().length > 0).join("\n\n").slice(0, 8000);
+        if (txt.length >= 50) {
+          queryEmbedding = await embed(txt);
+          // Persist for future calls
+          try {
+            await supabase.from("multi_channel_contents")
+              .update({ content_embedding: queryEmbedding as any })
+              .eq("id", content_id);
+          } catch (e) { console.warn("[suggest-internal-links] persist embedding failed", e); }
+        }
       }
     } else if (query_text) {
       queryEmbedding = await embed(query_text);
