@@ -1,20 +1,21 @@
-## Vấn đề
-Trong màn hình slide/mockup viewer, kênh Medium ở sidebar và header đang dùng icon `BookOpen`, nên nhìn không đúng logo Medium thật.
+## Mục tiêu
+Sau khi user nhấn nút **"Kênh thường dùng"** (Sparkles, vùng header của Channel Picker step 4), hiện chỉ có 1 chiều: chọn vào. User muốn nhấn lại để **bỏ chọn** các kênh thường dùng đã thêm vào.
 
-## Kế hoạch sửa
-1. Cập nhật `src/components/MultiChannelViewer.tsx`
-   - Bỏ import `BookOpen` khỏi `lucide-react` nếu không còn dùng ở file này.
-   - Thêm import `MediumIcon` từ `@/components/icons/SocialIcons` cùng nhóm `ShopifyIcon`, `WixIcon`.
-   - Trong `channelConfig.medium`, đổi:
-     - `icon: <BookOpen ... />`
-     - thành `icon: <MediumIcon ... />`
-   - Giữ `color: 'text-foreground'` và `bgColor: 'bg-muted'` để logo Medium đen/trắng theo theme.
+## Hành vi mới (toggle)
+Trong `handleSelectFrequent` (`src/components/multichannel/MultiChannelFormWizard.tsx` ~line 854):
 
-2. Rà nhanh các nơi còn dùng icon Medium sai trong viewer
-   - Search lại `medium:` và `BookOpen` ở các component viewer/preview.
-   - Nếu có mapping Medium nào khác trong cùng UI đang dùng `BookOpen`, đổi sang `MediumIcon` để đồng bộ.
+- Nếu **toàn bộ** `frequentChannels` đã nằm trong `formData.channels` → nhấn lần nữa = **xóa** các kênh thường dùng khỏi selection (giữ nguyên các kênh khác user đã tick thủ công).
+- Ngược lại (có ít nhất 1 kênh thường dùng chưa được chọn) → **gộp thêm** vào selection hiện tại (dùng `Set` để khử trùng), không còn ghi đè làm mất các kênh khác.
 
-## Kết quả mong đợi
-- Sidebar slide social (vùng khoanh đỏ) hiển thị đúng logo Medium thay vì icon quyển sách.
-- Header của kênh Medium trong viewer cũng dùng cùng logo Medium thật.
-- Không ảnh hưởng nội dung/mockup text hay backend.
+## UI feedback (tùy chọn nhỏ)
+Trong `src/components/multichannel/CompactChannelGrid.tsx`:
+- Nút "Kênh thường dùng" đổi label động: nếu tất cả frequent đang được chọn → hiển thị **"Bỏ kênh thường dùng"** + đổi nhẹ tone (hover muted thay vì amber). Truyền thêm prop `frequentAllSelected: boolean` từ Wizard, tính bằng `frequentChannels.every(ch => formData.channels.includes(ch))`.
+- Icon đổi từ `Sparkles` → `Sparkles` (giữ) khi add, hoặc `X` khi đang ở trạng thái "Bỏ".
+
+## File chỉnh
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — sửa `handleSelectFrequent` + truyền `frequentAllSelected` vào `<CompactChannelGrid>`.
+- `src/components/multichannel/CompactChannelGrid.tsx` — thêm prop `frequentAllSelected?: boolean`, đổi label/icon nút "Kênh thường dùng" theo trạng thái.
+
+## Không thay đổi
+- Hook `useFrequentChannels` (vẫn chỉ ghi nhận usage, không xóa entry).
+- Logic chọn từng kênh lẻ trong grid bên dưới.

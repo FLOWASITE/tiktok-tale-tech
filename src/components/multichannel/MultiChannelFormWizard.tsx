@@ -853,7 +853,14 @@ export function MultiChannelFormWizard({
 
   const handleSelectFrequent = () => {
     if (!frequentChannels.length) return;
-    setFormData(prev => ({ ...prev, channels: [...frequentChannels] }));
+    setFormData(prev => {
+      const allActive = frequentChannels.every(ch => prev.channels.includes(ch));
+      if (allActive) {
+        return { ...prev, channels: prev.channels.filter(ch => !frequentChannels.includes(ch)) };
+      }
+      const merged = Array.from(new Set([...prev.channels, ...frequentChannels])) as typeof prev.channels;
+      return { ...prev, channels: merged };
+    });
   };
 
   // Hook selection handlers
@@ -2122,6 +2129,7 @@ export function MultiChannelFormWizard({
                   frequentChannels={frequentChannels}
                   frequentCounts={frequentCounts}
                   onSelectFrequent={handleSelectFrequent}
+                  frequentAllSelected={frequentChannels.length > 0 && frequentChannels.every(ch => formData.channels.includes(ch))}
                 />
               </div>
 
