@@ -1,7 +1,7 @@
 import React from 'react';
 import { Channel } from '@/types/multichannel';
 import { Globe, Mail } from 'lucide-react';
-import { ShopifyIcon, WixIcon } from '@/components/icons/SocialIcons';
+import { ShopifyIcon, WixIcon, MediumIcon } from '@/components/icons/SocialIcons';
 
 type ExtraChannel = 'pinterest' | 'bluesky';
 const svgIcons: Partial<Record<Channel | ExtraChannel, React.FC<{ className?: string }>>> = {
@@ -116,6 +116,13 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
       </span>
     );
   }
+  if (channel === 'medium') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center text-foreground ${className}`}>
+        <MediumIcon width={size} height={size} />
+      </span>
+    );
+  }
 
   const SvgIcon = svgIcons[channel as Channel];
   if (SvgIcon) {
@@ -142,7 +149,7 @@ export const channelIconColors: Record<Channel | ExtraChannel, string> = {
   wordpress: 'text-[#21759b] dark:text-sky-400',
   shopify: 'text-[#21759b] dark:text-sky-400',
   wix: 'text-[#21759b] dark:text-sky-400',
-  medium: 'text-[#21759b] dark:text-sky-400',
+  medium: 'text-foreground',
   pinterest: 'text-[#E60023]',
   email: 'text-muted-foreground',
   bluesky: 'text-[#0085FF]',

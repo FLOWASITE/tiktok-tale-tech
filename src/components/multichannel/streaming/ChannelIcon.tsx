@@ -21,6 +21,7 @@ import {
   GoogleBusinessIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
 } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
@@ -48,6 +49,7 @@ const TelegramLucide = makeLucide(TelegramIcon, 'TelegramLucide');
 const GoogleBusinessLucide = makeLucide(GoogleBusinessIcon, 'GoogleBusinessLucide');
 const ShopifyLucide = makeLucide(ShopifyIcon, 'ShopifyLucide');
 const WixLucide = makeLucide(WixIcon, 'WixLucide');
+const MediumLucide = makeLucide(MediumIcon, 'MediumLucide');
 
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
@@ -138,6 +140,11 @@ const channelConfig: Record<string, {
     icon: WixLucide,
     bgClass: "bg-transparent text-foreground",
     label: "Wix"
+  },
+  medium: {
+    icon: MediumLucide,
+    bgClass: "bg-black text-white dark:bg-white dark:text-black",
+    label: "Medium"
   },
   google_maps: { 
     icon: GoogleBusinessLucide, 
