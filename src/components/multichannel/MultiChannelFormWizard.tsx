@@ -955,6 +955,7 @@ export function MultiChannelFormWizard({
     // Has Core Content - proceed with generation
     submittingRef.current = true;
     try {
+      recordChannelUsage(formData.channels);
       await onGenerate({ ...formData, topicHistoryId });
     } finally {
       submittingRef.current = false;
