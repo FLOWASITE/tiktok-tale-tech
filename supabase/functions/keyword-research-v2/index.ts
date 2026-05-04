@@ -749,18 +749,12 @@ Deno.serve(async (req) => {
             send("expanded_seeds", { seeds: expandedSeeds });
           }
 
-          // 4. AI generate (with heartbeat to keep SSE stream alive through proxies)
+          // 4. AI generate (stream từng round → gửi keyword về FE ngay khi có)
           send("progress", { pct: 50, message: `AI sinh ${limit} keyword${brandCtx ? " (brand-aware)" : ""}...` });
-          let hbPct = 50;
-          const hb = setInterval(() => {
-            try {
-              // ticker progress 50 → 78 trong lúc chờ AI
-              hbPct = Math.min(78, hbPct + 2);
-              send("progress", { pct: hbPct, message: `AI đang sinh keyword... (${hbPct}%)` });
-              // SSE comment để chống buffering
-              controller.enqueue(encoder.encode(`: ping\n\n`));
-            } catch { /* stream closed */ }
-          }, 5000);
+          // Keep-alive ping (không bump pct giả) để chống proxy buffering
+          const ping = setInterval(() => {
+            try { controller.enqueue(encoder.encode(`: ping\n\n`)); } catch { /* closed */ }
+          }, 10000);
           let suggestions: KeywordSuggestion[] = [];
           // Brand domination: prepend hardcoded brand patterns BEFORE AI call
           const dominationSeeds: KeywordSuggestion[] = [];
@@ -781,12 +775,22 @@ Deno.serve(async (req) => {
                 audience_match: "core",
               });
             }
+            // Stream domination seeds ngay lập tức (đã có sẵn, không cần đợi AI)
+            if (dominationSeeds.length) {
+              send("ai_keywords_raw", { batch: dominationSeeds, round: -1, total: dominationSeeds.length, limit, source: "brand_domination" });
+            }
           }
+          // Callback: stream batch ngay khi AI sinh xong từng round
+          const onRoundBatch = (batch: KeywordSuggestion[], round: number, total: number) => {
+            const pct = Math.min(78, 50 + Math.round((total / Math.max(1, limit)) * 28));
+            send("progress", { pct, message: `AI vòng ${round + 1}: ${total}/${limit} keyword` });
+            send("ai_keywords_raw", { batch, round, total, limit });
+          };
           try {
-            const r = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx);
+            const r = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx, onRoundBatch);
             suggestions = r.suggestions;
           } finally {
-            clearInterval(hb);
+            clearInterval(ping);
           }
           // Merge domination seeds (dedupe by keyword)
           if (dominationSeeds.length) {
