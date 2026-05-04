@@ -197,6 +197,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'Đăng bài lên Bluesky (AT Protocol)',
   },
+  shopify: {
+    name: 'Shopify',
+    icon: () => <ChannelIcon channel="shopify" size={16} />,
+    color: 'text-[#96BF48]',
+    bgColor: 'bg-[#96BF48]/10',
+    available: true,
+    description: 'Auto-publish blog vào Shopify store',
+  },
 };
 
 interface TwitterSetupForm {
