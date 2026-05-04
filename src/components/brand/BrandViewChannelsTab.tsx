@@ -41,6 +41,7 @@ import {
   GoogleBusinessIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
 } from '@/components/icons/SocialIcons';
 
 // Derive from single source of truth (CHANNELS) so newly added channels (Blogger, TikTok, Threads, ...) appear automatically.
