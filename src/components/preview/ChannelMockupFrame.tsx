@@ -2347,6 +2347,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <ShopifyMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'wix':
       return <WixMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
+    case 'medium':
+      return <MediumMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'general':
       return <WebsiteMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     default:
