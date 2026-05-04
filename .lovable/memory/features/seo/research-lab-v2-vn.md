@@ -1,28 +1,38 @@
 ---
-name: AI Research Lab v3.2 (Brand + Social-aware + Multi-turn)
-description: Brand DNA + Social Footprint + multi-turn tool loop (max 6 vòng) hit limit, USP noun-phrase fallback khi brand thiếu industry/pillars, source="ai_research" hợp constraint, seed-expander UTF-8 force decode
+name: AI Research Lab v3.5 (Brand-aware + Modifier expander + Pro Priority)
+description: Brand DNA + Social + Multi-turn loop + USP fallback + Modifier expander (verified Google Suggest) + Brand domination preset (hardcoded patterns) + Priority công thức SEO chuẩn (relevance × intent_weight × log10(vol) / sqrt(KD)) + Funnel Health alert
 type: feature
 ---
 
 ## Backend `keyword-research-v2`
 - `fetchBrandCtx(brandTemplateId)` — đọc brand_templates + industry_templates merge forbidden/preferred/claim_restrictions
-  - **Bug đã fix**: header function `async function fetchBrandCtx(...)` từng bị xoá → ReferenceError silent (catch swallow), brandCtx luôn null. Đã restore.
 - `fetchSocialSignals` chạy song song qua Promise.all, fail-soft
-- **Smart seed derivation** ưu tiên: pillar → USP phrase → evergreen → location → social_topic → social_term. Khi brand thiếu industry/pillars → fallback `extractTerms(usp+positioning+mission+tagline)` lấy 6 noun-phrases làm seed (rất quan trọng cho brand mới).
-- **Multi-turn tool loop** (`MAX_ROUNDS=6`): mỗi round feed lại tool result `{ack, received, total_so_far, need_more}` + user msg "tiếp tục, không lặp [last 20]" cho đến khi đủ `limit` hoặc model dừng call tool. Dedupe theo `keyword.toLowerCase()`. Fix lỗi qwen-plus chỉ trả 1 batch 5 cái dù limit=150.
-- **Source value**: insert `seo_keywords` dùng `source="ai_research"` (KHÔNG dùng `"ai_research_deep"` → vi phạm `seo_keywords_source_check`).
+- **Smart seed derivation** ưu tiên: pillar → USP phrase → evergreen → location → social_topic → social_term. Khi brand thiếu industry/pillars → fallback `extractTerms(usp+positioning+mission+tagline)` lấy 6 noun-phrases làm seed.
+- **Multi-turn tool loop** (`MAX_ROUNDS=6`): mỗi round feed lại `{ack, received, total_so_far, need_more}` cho đến khi đủ `limit`. Dedupe theo `keyword.toLowerCase()`.
+- **Source value**: insert `seo_keywords` dùng `source="ai_research"` (KHÔNG `"ai_research_deep"` → vi phạm constraint).
+- **Modifier expander** (gọi từ `expandWithModifiers`): pattern `<seed> <modifier>` cho VN modifier (tốt nhất, giá rẻ, miễn phí, 2026, cho doanh nghiệp, hướng dẫn, review, mua, thay thế…), verify qua Google Suggest, chỉ giữ keyword có gợi ý thật → tránh keyword "ảo".
+- **Brand domination preset** (`generateBrandDominationSeeds`): sinh CỨNG (không cần AI) các pattern `<brand>`, `<brand> là gì/giá/review/login/đăng nhập/miễn phí/alternatives`, `<brand> vs <competitor>`, `so sánh <brand> và <competitor>`, biến thể không dấu/viết liền. Tag intent=navigational cho login, commercial cho review/giá/vs. AI vẫn chạy để bổ sung biến thể ngách. Domination seeds prepended vào `suggestions` (brand_fit_score=100, dedupe theo keyword).
+- **Priority công thức chuẩn SEO**: `Priority = (relevance × intent_weight × log10(volume+10)) / sqrt(difficulty+1)`, normalize / 18.8 → 0-100. Intent weight: transactional=4, commercial=3, navigational=2, informational=1. Mỗi keyword có thêm `priority_breakdown` để UI tooltip.
 
 ## Seed Expander (`_shared/seed-expander.ts`)
-- Force `TextDecoder("utf-8")` decode response từ Google Suggest (charset header sai → mojibake `c�ng ty`).
-- Filter `\uFFFD` replacement char khỏi output.
+- `expandSeeds` — Google Suggest + PAA, force `TextDecoder("utf-8")`, filter `\uFFFD`.
+- `expandWithModifiers(seeds, locale, max)` — modifier-based, verified qua autocomplete (max 30 candidate check).
+- `generateBrandDominationSeeds(brandName, competitors)` — pure pattern, không network call.
+- `KEYWORD_MODIFIERS` exported dùng chung.
 
 ## Frontend
 - `KeywordResearchLabTab`:
-  - Inline amber warning khi `!brand.industry && !hasPillars`: "Brand thiếu DNA — keyword sẽ kém chính xác" + link `/brand`.
-  - Toast warning khi `done.inserted === 0 && total > 0` ở mode deep (báo bug constraint/dedupe).
-  - SSE event `brand_signals` render tín hiệu social trong Brand DNA panel.
-- `KeywordPreviewTable`: badge 📱 cho `social_match` keyword.
+  - Preset chips: thêm **Brand domination** (icon Crown) — đứng đầu list.
+  - Inline amber warning khi brand thiếu DNA + toast warn `inserted===0 && total>0` (mode deep).
+  - SSE event `brand_signals` render trong Brand DNA panel.
+  - Export CSV/JSON QA report.
+- `KeywordPreviewTable`: cột Priority có tooltip breakdown `(relevance × intent_weight × log10(vol)) / sqrt(KD)`.
+- `OverviewTab` Funnel distribution:
+  - Badge sức khỏe (Healthy / Thiếu BOFU / TOFU quá nặng) khi pool ≥ 20 keyword.
+  - Vạch benchmark TOFU 50% / MOFU 30% / BOFU 20% trên progress bar.
+  - Thanh chuyển amber khi lệch benchmark > 20pp.
+  - CTA inline khi BOFU < 10%: "Chạy preset Commercial intent".
 
 ## Privacy/budget
-- KHÔNG nhồi raw caption vào prompt — chỉ aggregate (topics + bigram terms + hashtag freq)
-- Cap mỗi list 5–12 item; total social block <600 token
+- KHÔNG nhồi raw caption vào prompt — chỉ aggregate.
+- Modifier expander cap 30 autocomplete call để tránh rate limit Google.

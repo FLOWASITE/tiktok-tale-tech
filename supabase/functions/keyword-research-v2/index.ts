@@ -2,7 +2,7 @@
 // + Brand/Industry context + Seed expansion (Autocomplete + PAA) + SERP cache
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
-import { expandSeeds } from "../_shared/seed-expander.ts";
+import { expandSeeds, expandWithModifiers, generateBrandDominationSeeds } from "../_shared/seed-expander.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,13 +13,14 @@ const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-type Preset = "long_tail_questions" | "commercial_intent" | "local_seo_vn" | "competitor_gaps" | "default";
+type Preset = "long_tail_questions" | "commercial_intent" | "local_seo_vn" | "competitor_gaps" | "brand_domination" | "default";
 
 const PRESET_PROMPTS: Record<Preset, string> = {
   long_tail_questions: "TẬP TRUNG: Long-tail 4+ từ + câu hỏi (làm sao, cách, có nên, là gì, tại sao, khi nào).",
   commercial_intent: "TẬP TRUNG: Commercial/transactional intent — 'giá', 'mua', 'đăng ký', 'tốt nhất', 'so sánh', 'review'.",
   local_seo_vn: "TẬP TRUNG: Local SEO Việt Nam — thêm địa danh (Hà Nội, TP HCM, Đà Nẵng, quận, gần tôi).",
   competitor_gaps: "TẬP TRUNG: Keyword đối thủ đang rank (lấy từ SERP grounding bên dưới) mà có thể tận dụng để cạnh tranh.",
+  brand_domination: "TẬP TRUNG: Brand keyword — phủ 100% SERP cho tên brand. Sinh thêm biến thể chưa có trong danh sách cứng (sai chính tả phổ biến, slang, modifier ngách). KHÔNG sinh keyword không chứa brand name.",
   default: "Cân bằng các loại: long-tail, question, modifier, comparison, commercial.",
 };
 
@@ -715,7 +716,7 @@ Deno.serve(async (req) => {
           }));
           send("serp", { hasFirecrawl: !!FIRECRAWL_API_KEY, results: Object.fromEntries(Object.entries(serpGround).map(([k, v]) => [k, v.length])) });
 
-          // 3. Seed expansion (deep = 2 rounds)
+          // 3. Seed expansion (deep = 2 rounds) + modifier-based expansion
           send("progress", { pct: 35, message: mode === "deep" ? "Mở rộng seed vòng 1..." : "Mở rộng seed (Autocomplete + PAA)..." });
           let expandedSeeds: string[] = [];
           try {
@@ -723,12 +724,18 @@ Deno.serve(async (req) => {
             if (mode === "deep" && expandedSeeds.length > 0) {
               send("progress", { pct: 40, message: `Mở rộng seed vòng 2 (từ ${Math.min(5, expandedSeeds.length)} biến thể)...` });
               const round2Seeds = expandedSeeds.slice(0, 5);
-              // Quick SERP for round-2 seeds (parallel, capped)
               const round2Serp: Record<string, any[]> = {};
               await Promise.all(round2Seeds.map(async (s) => { round2Serp[s] = await firecrawlSearch(s); }));
               const round2 = await expandSeeds(round2Seeds, round2Serp, locale);
               const merged = new Set([...expandedSeeds, ...round2]);
               expandedSeeds = Array.from(merged).slice(0, 15);
+            }
+            // Modifier expansion (best/price/2026/audience/format) — verified qua Google Suggest
+            send("progress", { pct: 42, message: "Mở rộng theo modifier (best/giá/2026/cho ai)..." });
+            const modSeeds = await expandWithModifiers(seeds, locale, mode === "deep" ? 20 : 10);
+            if (modSeeds.length) {
+              const merged = new Set([...expandedSeeds, ...modSeeds]);
+              expandedSeeds = Array.from(merged).slice(0, mode === "deep" ? 25 : 15);
             }
           } catch (e) {
             console.warn("[keyword-research-v2] expand seeds failed:", (e as Error).message);
@@ -750,21 +757,54 @@ Deno.serve(async (req) => {
             } catch { /* stream closed */ }
           }, 5000);
           let suggestions: KeywordSuggestion[] = [];
+          // Brand domination: prepend hardcoded brand patterns BEFORE AI call
+          const dominationSeeds: KeywordSuggestion[] = [];
+          if (preset === "brand_domination" && brandCtx?.brand_name) {
+            const dom = generateBrandDominationSeeds(brandCtx.brand_name, brandCtx.main_competitors || []);
+            for (const d of dom) {
+              dominationSeeds.push({
+                keyword: d.keyword,
+                search_volume: 0, // unknown — enrichment job sẽ fill
+                difficulty: 10, // brand keyword usually easy
+                cpc_vnd: 0,
+                intent: d.intent,
+                funnel_stage: d.funnel_stage,
+                cluster_name: "Brand",
+                rationale: "Brand domination pattern (auto-generated)",
+                source_seed: brandCtx.brand_name,
+                brand_fit_score: 100,
+                audience_match: "core",
+              });
+            }
+          }
           try {
             const r = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx);
             suggestions = r.suggestions;
           } finally {
             clearInterval(hb);
           }
+          // Merge domination seeds (dedupe by keyword)
+          if (dominationSeeds.length) {
+            const seen = new Set(suggestions.map((s) => s.keyword.toLowerCase().trim()));
+            for (const d of dominationSeeds) {
+              if (!seen.has(d.keyword)) { suggestions.unshift(d); seen.add(d.keyword); }
+            }
+          }
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
           // 5. Gap detection + brand fit filter + final score
           send("progress", { pct: 80, message: "Gap analysis + brand fit scoring..." });
-          const intentBonus = { transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any;
-          const computePriority = (e: any) =>
-            Math.round(Math.min(100, ((e.search_volume || 0) / 5000) * 100) * 0.5 +
-              (100 - (e.difficulty || 50)) * 0.3 +
-              (intentBonus[e.intent || "informational"] ?? 50) * 0.2);
+          // Pro SEO formula: Priority = (relevance × intent_weight × log10(volume+10)) / sqrt(difficulty+1)
+          const intentWeight = { transactional: 4, commercial: 3, navigational: 2, informational: 1 } as any;
+          const computePriority = (e: any) => {
+            const vol = Math.max(0, e.search_volume || 0);
+            const kd = Math.min(100, Math.max(0, e.difficulty || 50));
+            const iw = intentWeight[e.intent || "informational"] ?? 1;
+            const rel = Math.max(0, Math.min(100, e.brand_fit_score ?? 50));
+            const raw = (rel * iw * Math.log10(vol + 10)) / Math.sqrt(kd + 1);
+            // Normalize to 0-100 (empirical max ~ 100 * 4 * 4.7 / 1 ≈ 1880)
+            return Math.round(Math.min(100, (raw / 18.8)));
+          };
           const keywords = suggestions.map(s => s.keyword.toLowerCase().trim());
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
@@ -779,9 +819,8 @@ Deno.serve(async (req) => {
           }
           let enriched = suggestions.map(s => {
             const e: any = { ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) };
-            const priority = computePriority(e);
+            // Resolve fit FIRST (priority formula uses brand_fit_score)
             let fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
-            // Social alignment bonus: keyword chứa term từ social footprint → +15 (cap 100)
             let socialMatch: string | null = null;
             if (socialTerms.size) {
               for (const term of socialTerms) {
@@ -791,8 +830,17 @@ Deno.serve(async (req) => {
             }
             e.brand_fit_score = fit;
             e.social_match = socialMatch;
-            // Blend: 60% volume/KD/intent + 40% brand fit (only when brand context exists)
-            e.final_score = brandCtx ? Math.round(priority * 0.6 + fit * 0.4) : priority;
+            // Pro SEO formula: relevance × intent × log(volume) / sqrt(KD)
+            const priority = computePriority(e);
+            // Breakdown for UI tooltip ("why this priority?")
+            e.priority_breakdown = {
+              relevance: fit,
+              intent: e.intent || "informational",
+              intent_weight: ({ transactional: 4, commercial: 3, navigational: 2, informational: 1 } as any)[e.intent || "informational"] ?? 1,
+              volume: e.search_volume || 0,
+              difficulty: e.difficulty || 50,
+            };
+            e.final_score = priority;
             return e;
           });
           // Filter off-brand unless competitor_gaps preset
