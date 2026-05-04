@@ -509,7 +509,7 @@ export const BASE_CHANNEL_CONFIG: Record<Channel, {
   wordpress: { label: 'WordPress', color: 'text-sky-500', bgColor: 'bg-sky-500/10', descriptionSuffix: 'in-depth article' },
   shopify: { label: 'Shopify Blog', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', descriptionSuffix: 'e-commerce blog' },
   wix: { label: 'Wix Blog', color: 'text-slate-500', bgColor: 'bg-slate-500/10', descriptionSuffix: 'brand storytelling' },
-  medium: { label: 'Wix Blog', color: 'text-slate-500', bgColor: 'bg-slate-500/10', descriptionSuffix: 'brand storytelling' },
+  medium: { label: 'Medium', color: 'text-foreground', bgColor: 'bg-muted', descriptionSuffix: 'story-first, Markdown' },
   facebook: { label: 'Facebook', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', descriptionSuffix: 'hook + emoji' },
   instagram: { label: 'Instagram', color: 'text-pink-400', bgColor: 'bg-pink-500/10', descriptionSuffix: 'visual-first' },
   pinterest: { label: 'Pinterest', color: 'text-[#E60023]', bgColor: 'bg-[#E60023]/10', descriptionSuffix: 'Pin SEO, vertical 2:3' },
