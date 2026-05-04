@@ -21,6 +21,7 @@ import {
   GoogleBusinessIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
 } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
