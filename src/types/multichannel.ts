@@ -72,6 +72,7 @@ export type Channel =
   | 'wordpress'
   | 'shopify'
   | 'wix'
+  | 'medium'
   | 'facebook'
   | 'instagram'
   | 'twitter'
