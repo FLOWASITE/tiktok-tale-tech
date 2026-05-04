@@ -198,7 +198,41 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
   },
 };
 
-interface TwitterSetupForm {
+type PlatformGroupId = 'social' | 'longform' | 'local';
+
+interface PlatformGroup {
+  id: PlatformGroupId;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  platforms: SocialPlatform[];
+}
+
+const PLATFORM_GROUPS: PlatformGroup[] = [
+  {
+    id: 'social',
+    title: 'Mạng xã hội',
+    description: 'Đăng bài ngắn, ảnh, video lên các nền tảng social',
+    icon: <Share2 className="w-4 h-4 text-primary" />,
+    platforms: ['facebook', 'instagram', 'tiktok', 'threads', 'twitter', 'linkedin', 'pinterest', 'bluesky', 'youtube'],
+  },
+  {
+    id: 'longform',
+    title: 'Website & Long-form',
+    description: 'Đăng blog, bài viết dài lên CMS / store',
+    icon: <Globe className="w-4 h-4 text-primary" />,
+    platforms: ['wordpress', 'wordpress_com', 'blogger', 'shopify', 'wix', 'website'],
+  },
+  {
+    id: 'local',
+    title: 'Local & Messaging',
+    description: 'Local business posts và tin nhắn OA',
+    icon: <MapPin className="w-4 h-4 text-primary" />,
+    platforms: ['google_business', 'zalo_oa'],
+  },
+];
+
+
   accessToken: string;
   accessTokenSecret: string;
 }
