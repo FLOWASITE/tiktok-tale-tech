@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sparkles, Target, Link2, Network, Gauge,
-  CheckCircle2, AlertTriangle, XCircle, ArrowRight, FileText, Type, Hash, ListTree,
+  CheckCircle2, AlertTriangle, XCircle, ArrowRight, FileText, Type, Hash, ListTree, Loader2,
 } from "lucide-react";
 import ClusterContextCard from "@/components/seo/ClusterContextCard";
 import KeywordCoveragePanel from "@/components/seo/KeywordCoveragePanel";
@@ -25,67 +25,83 @@ interface Props {
   contentText: string;
   title?: string;
   isLongForm: boolean;
+  channelLabel?: string;
 }
 
 type TabKey = "overview" | "keywords" | "links" | "cluster";
 
 export default function SeoInsightsSheet({
-  contentId, clusterId, targetKeywordIds, contentText, title, isLongForm,
+  contentId, clusterId, targetKeywordIds, contentText, title, isLongForm, channelLabel,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("overview");
+  const didInitTab = useRef(false);
+
   const hasKeywords = Array.isArray(targetKeywordIds) && targetKeywordIds.length > 0;
   const hasCluster = !!clusterId;
 
   const { currentOrganization } = useOrganization();
   const { data: keywords = [] } = useKeywordsByIds(targetKeywordIds ?? undefined);
 
-  // ─── Compute overview stats (cheap, runs on open) ─────────────────────────
   const stats = useMemo(() => computeStats(contentText, title, keywords), [contentText, title, keywords]);
 
-  // Internal links count (loaded when sheet opens)
+  // ─── Async loaders ────────────────────────────────────────────────────────
   const [linkCount, setLinkCount] = useState<number | null>(null);
+  const [linksLoading, setLinksLoading] = useState(false);
   useEffect(() => {
     if (!open || !isLongForm || !currentOrganization?.id) return;
     let alive = true;
+    setLinksLoading(true);
     (async () => {
       const { count } = await (supabase as any)
         .from("internal_links")
         .select("id", { count: "exact", head: true })
         .eq("source_content_id", contentId)
         .eq("organization_id", currentOrganization.id);
-      if (alive) setLinkCount(count ?? 0);
+      if (alive) {
+        setLinkCount(count ?? 0);
+        setLinksLoading(false);
+      }
     })();
     return () => { alive = false; };
   }, [open, isLongForm, contentId, currentOrganization?.id]);
 
-  // Cluster coverage (loaded when sheet opens)
   const [clusterCov, setClusterCov] = useState<{ covered: number; total: number; pct: number } | null>(null);
+  const [clusterLoading, setClusterLoading] = useState(false);
   useEffect(() => {
     if (!open || !hasCluster) return;
     let alive = true;
+    setClusterLoading(true);
     (async () => {
       const { data } = await (supabase as any)
         .from("cluster_coverage")
         .select("keyword_count, keywords_covered, coverage_pct")
         .eq("cluster_id", clusterId)
         .maybeSingle();
-      if (alive && data) setClusterCov({ covered: data.keywords_covered, total: data.keyword_count, pct: Number(data.coverage_pct) || 0 });
+      if (alive) {
+        if (data) setClusterCov({ covered: data.keywords_covered, total: data.keyword_count, pct: Number(data.coverage_pct) || 0 });
+        else setClusterCov({ covered: 0, total: 0, pct: 0 });
+        setClusterLoading(false);
+      }
     })();
     return () => { alive = false; };
   }, [open, hasCluster, clusterId]);
 
-  // Health = average of available dimensions (kw coverage, seo structure, links, cluster)
-  const dims: Array<{ key: string; label: string; value: number; weight: number; icon: any }> = [];
+  // ─── Dimensions (only include those with loaded data) ────────────────────
+  type Dim = { key: string; label: string; value: number; weight: number; icon: any; loading?: boolean };
+  const dims: Dim[] = [];
   if (hasKeywords && isLongForm) dims.push({ key: "kw", label: "Từ khóa", value: stats.kwCoveragePct, weight: 0.35, icon: Target });
   if (isLongForm) {
     dims.push({ key: "seo", label: "Cấu trúc SEO", value: stats.seoScore, weight: 0.25, icon: Gauge });
-    dims.push({ key: "links", label: "Liên kết nội bộ", value: linkPct(linkCount), weight: 0.20, icon: Link2 });
+    dims.push({ key: "links", label: "Liên kết nội bộ", value: linkPct(linkCount), weight: 0.20, icon: Link2, loading: linksLoading || linkCount === null });
   }
-  if (hasCluster) dims.push({ key: "cluster", label: "Cluster", value: clusterCov?.pct ?? 0, weight: 0.20, icon: Network });
+  if (hasCluster) dims.push({ key: "cluster", label: "Cluster", value: clusterCov?.pct ?? 0, weight: 0.20, icon: Network, loading: clusterLoading || clusterCov === null });
 
-  const totalWeight = dims.reduce((s, d) => s + d.weight, 0) || 1;
-  const health = Math.round(dims.reduce((s, d) => s + d.value * d.weight, 0) / totalWeight);
+  // Health = weighted avg of NON-loading dims only
+  const ready = dims.filter(d => !d.loading);
+  const totalWeight = ready.reduce((s, d) => s + d.weight, 0) || 1;
+  const health = ready.length > 0 ? Math.round(ready.reduce((s, d) => s + d.value * d.weight, 0) / totalWeight) : 0;
+  const isHealthLoading = ready.length === 0 && dims.length > 0;
   const tone = health >= 75 ? "good" : health >= 45 ? "warn" : "bad";
   const toneCls = tone === "good"
     ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
@@ -94,22 +110,26 @@ export default function SeoInsightsSheet({
     : "text-destructive bg-destructive/10 border-destructive/30";
   const ToneIcon = tone === "good" ? CheckCircle2 : tone === "warn" ? AlertTriangle : XCircle;
 
-  // Recommendations — based on missing pieces
   const recs = useMemo(() => buildRecs({
     isLongForm, hasKeywords, hasCluster, stats, linkCount, clusterCov,
   }), [isLongForm, hasKeywords, hasCluster, stats, linkCount, clusterCov]);
 
-  // Default tab — overview if any data, else first available
+  // Init default tab ONCE per sheet open — never override user clicks
   useEffect(() => {
-    if (!open) return;
-    if (dims.length > 0) setTab("overview");
-    else if (hasKeywords && isLongForm) setTab("keywords");
-    else if (isLongForm) setTab("links");
-    else if (hasCluster) setTab("cluster");
+    if (open && !didInitTab.current) {
+      didInitTab.current = true;
+      if (dims.length > 0) setTab("overview");
+      else if (hasKeywords && isLongForm) setTab("keywords");
+      else if (isLongForm) setTab("links");
+      else if (hasCluster) setTab("cluster");
+      else setTab("overview");
+    } else if (!open) {
+      didInitTab.current = false;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const triggerBadgeCls = !dims.length
+  const triggerBadgeCls = !dims.length || isHealthLoading
     ? ""
     : tone === "good" ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
     : tone === "warn" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
@@ -125,10 +145,13 @@ export default function SeoInsightsSheet({
         >
           <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="flex-1 text-left">SEO Insights</span>
-          {dims.length > 0 && (
+          {dims.length > 0 && !isHealthLoading && (
             <Badge variant="outline" className={cn("h-4 px-1.5 text-[10px] tabular-nums border", triggerBadgeCls)}>
               {health}
             </Badge>
+          )}
+          {isHealthLoading && (
+            <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
           )}
         </Button>
       </SheetTrigger>
@@ -137,6 +160,11 @@ export default function SeoInsightsSheet({
           <SheetTitle className="flex items-center gap-2 text-base">
             <Sparkles className="w-4 h-4 text-muted-foreground" />
             SEO Insights
+            {channelLabel && (
+              <Badge variant="secondary" className="text-[10px] font-normal h-5">
+                {channelLabel}
+              </Badge>
+            )}
           </SheetTitle>
           <SheetDescription className="text-xs line-clamp-1">
             {title || "Phân tích SEO chi tiết cho bài viết này"}
@@ -163,155 +191,170 @@ export default function SeoInsightsSheet({
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            {/* ── OVERVIEW ───────────────────────────────────────────────── */}
-            <TabsContent value="overview" className="mt-0 space-y-4">
-              {dims.length === 0 ? (
-                <EmptyState
-                  icon={<Gauge className="w-8 h-8 text-muted-foreground/40" />}
-                  title="Chưa có dữ liệu SEO"
-                  hint="Mở bài long-form (Website/Blog) hoặc gắn từ khóa SEO để bật phân tích."
-                />
-              ) : (
-                <>
-                  {/* Health score card */}
-                  <Card className={cn("border-dashed", toneCls)}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className={cn("h-12 w-12 rounded-full border flex items-center justify-center", toneCls)}>
-                          <ToneIcon className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-semibold tabular-nums">{health}</span>
-                            <span className="text-xs text-muted-foreground">/ 100</span>
-                          </div>
-                          <p className="text-xs mt-0.5 opacity-90">
-                            {tone === "good" ? "SEO tổng quan tốt — sẵn sàng publish." :
-                             tone === "warn" ? "Còn vài chỗ cần tinh chỉnh trước khi publish." :
-                             "Cần cải thiện đáng kể để xếp hạng tốt."}
-                          </p>
-                        </div>
+          <TabsContent value="overview" className="flex-1 overflow-y-auto px-5 py-4 mt-0 space-y-4 data-[state=inactive]:hidden">
+            {dims.length === 0 ? (
+              <EmptyState
+                icon={<Gauge className="w-8 h-8 text-muted-foreground/40" />}
+                title="Chưa có dữ liệu SEO"
+                hint="Mở bài long-form (Website/Blog) hoặc gắn từ khóa SEO để bật phân tích."
+              />
+            ) : (
+              <>
+                {/* Health score */}
+                <Card className={cn("border-dashed", toneCls)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("h-12 w-12 rounded-full border flex items-center justify-center", toneCls)}>
+                        {isHealthLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ToneIcon className="w-6 h-6" />}
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Dimension breakdown */}
-                  <div className="space-y-2">
-                    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                      Phân tích chi tiết
+                      <div className="flex-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-semibold tabular-nums">
+                            {isHealthLoading ? "—" : health}
+                          </span>
+                          <span className="text-xs text-muted-foreground">/ 100</span>
+                        </div>
+                        <p className="text-xs mt-0.5 opacity-90">
+                          {isHealthLoading ? "Đang tính điểm..." :
+                           tone === "good" ? "SEO tổng quan tốt — sẵn sàng publish." :
+                           tone === "warn" ? "Còn vài chỗ cần tinh chỉnh trước khi publish." :
+                           "Cần cải thiện đáng kể để xếp hạng tốt."}
+                        </p>
+                      </div>
                     </div>
-                    {dims.map((d) => {
-                      const DIcon = d.icon;
-                      const targetTab: TabKey =
-                        d.key === "kw" ? "keywords" :
-                        d.key === "links" ? "links" :
-                        d.key === "cluster" ? "cluster" : "overview";
-                      const valTone = d.value >= 75 ? "text-emerald-600 dark:text-emerald-400"
-                        : d.value >= 45 ? "text-amber-600 dark:text-amber-400"
-                        : "text-destructive";
-                      return (
-                        <button
-                          key={d.key}
-                          onClick={() => targetTab !== "overview" && setTab(targetTab)}
-                          className={cn(
-                            "w-full text-left rounded-md border bg-card p-3 space-y-1.5 transition-colors",
-                            targetTab !== "overview" && "hover:bg-muted/40 cursor-pointer"
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <DIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-xs font-medium flex-1">{d.label}</span>
+                  </CardContent>
+                </Card>
+
+                {/* Dimension breakdown */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    Phân tích chi tiết
+                  </div>
+                  {dims.map((d) => {
+                    const DIcon = d.icon;
+                    const targetTab: TabKey =
+                      d.key === "kw" ? "keywords" :
+                      d.key === "links" ? "links" :
+                      d.key === "cluster" ? "cluster" : "overview";
+                    const valTone = d.value >= 75 ? "text-emerald-600 dark:text-emerald-400"
+                      : d.value >= 45 ? "text-amber-600 dark:text-amber-400"
+                      : "text-destructive";
+                    const clickable = targetTab !== "overview";
+                    return (
+                      <div
+                        key={d.key}
+                        role={clickable ? "button" : undefined}
+                        tabIndex={clickable ? 0 : undefined}
+                        onClick={() => clickable && setTab(targetTab)}
+                        onKeyDown={(e) => clickable && (e.key === "Enter" || e.key === " ") && setTab(targetTab)}
+                        className={cn(
+                          "rounded-md border bg-card p-3 space-y-1.5 transition-colors",
+                          clickable && "hover:bg-muted/40 hover:border-border cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring/40"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <DIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium flex-1">{d.label}</span>
+                          {d.loading ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                          ) : (
                             <span className={cn("text-xs font-semibold tabular-nums", valTone)}>
                               {d.value}
                               <span className="text-muted-foreground font-normal">/100</span>
                             </span>
-                          </div>
-                          <Progress value={d.value} className="h-1" />
-                        </button>
-                      );
-                    })}
+                          )}
+                          {clickable && <ArrowRight className="w-3 h-3 text-muted-foreground/50" />}
+                        </div>
+                        <Progress value={d.loading ? 0 : d.value} className="h-1" />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Quick stats */}
+                {isLongForm && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <StatTile icon={FileText} label="Từ" value={stats.totalWords.toLocaleString()} />
+                    <StatTile icon={Type} label="H1 / H2 / H3" value={`${stats.h1}/${stats.h2}/${stats.h3}`} />
+                    <StatTile icon={Hash} label="Đoạn văn" value={stats.paragraphs.toString()} />
+                    <StatTile icon={Link2} label="Liên kết" value={linksLoading ? "…" : (linkCount ?? 0).toString()} />
                   </div>
+                )}
 
-                  {/* Quick stats grid */}
-                  {isLongForm && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <StatTile icon={FileText} label="Từ" value={stats.totalWords.toLocaleString()} />
-                      <StatTile icon={Type} label="H1 / H2 / H3" value={`${stats.h1}/${stats.h2}/${stats.h3}`} />
-                      <StatTile icon={Hash} label="Đoạn văn" value={stats.paragraphs.toString()} />
-                      <StatTile icon={Link2} label="Liên kết" value={(linkCount ?? 0).toString()} />
+                {/* Recommendations */}
+                {recs.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                      Đề xuất hành động
                     </div>
-                  )}
-
-                  {/* Recommendations */}
-                  {recs.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                        Đề xuất hành động
-                      </div>
-                      <div className="space-y-1.5">
-                        {recs.map((r, i) => (
-                          <button
-                            key={i}
-                            onClick={() => r.tab && setTab(r.tab)}
-                            className="w-full text-left flex items-start gap-2 rounded-md border border-dashed p-2.5 hover:bg-muted/40 transition-colors group"
-                          >
-                            <ListTree className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
-                            <span className="text-xs flex-1 leading-relaxed">{r.text}</span>
-                            {r.tab && (
-                              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
+                    <div className="space-y-1.5">
+                      {recs.map((r, i) => (
+                        <div
+                          key={i}
+                          role={r.tab ? "button" : undefined}
+                          tabIndex={r.tab ? 0 : undefined}
+                          onClick={() => r.tab && setTab(r.tab)}
+                          onKeyDown={(e) => r.tab && (e.key === "Enter" || e.key === " ") && setTab(r.tab)}
+                          className={cn(
+                            "flex items-start gap-2 rounded-md border border-dashed p-2.5 transition-colors group",
+                            r.tab && "hover:bg-muted/40 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring/40"
+                          )}
+                        >
+                          <ListTree className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs flex-1 leading-relaxed">{r.text}</span>
+                          {r.tab && (
+                            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </>
-              )}
-            </TabsContent>
+                  </div>
+                )}
+              </>
+            )}
+          </TabsContent>
 
-            <TabsContent value="keywords" className="mt-0 space-y-3">
-              {hasKeywords && isLongForm ? (
-                <KeywordCoveragePanel
-                  contentId={contentId}
-                  targetKeywordIds={targetKeywordIds!}
-                  clusterId={clusterId}
-                  contentText={contentText}
-                  title={title}
-                />
-              ) : (
-                <EmptyState
-                  icon={<Target className="w-8 h-8 text-muted-foreground/40" />}
-                  title="Chưa có từ khóa mục tiêu"
-                  hint={isLongForm ? "Gắn từ khóa SEO khi tạo bài để xem audit." : "Audit chỉ áp dụng cho long-form (Website/Blog)."}
-                />
-              )}
-            </TabsContent>
+          <TabsContent value="keywords" className="flex-1 overflow-y-auto px-5 py-4 mt-0 space-y-3 data-[state=inactive]:hidden">
+            {hasKeywords && isLongForm ? (
+              <KeywordCoveragePanel
+                contentId={contentId}
+                targetKeywordIds={targetKeywordIds!}
+                clusterId={clusterId}
+                contentText={contentText}
+                title={title}
+              />
+            ) : (
+              <EmptyState
+                icon={<Target className="w-8 h-8 text-muted-foreground/40" />}
+                title="Chưa có từ khóa mục tiêu"
+                hint={isLongForm ? "Gắn từ khóa SEO khi tạo bài để xem audit." : "Audit chỉ áp dụng cho long-form (Website/Blog)."}
+              />
+            )}
+          </TabsContent>
 
-            <TabsContent value="links" className="mt-0">
-              {isLongForm ? (
-                <InternalLinksPanel contentId={contentId} />
-              ) : (
-                <EmptyState
-                  icon={<Link2 className="w-8 h-8 text-muted-foreground/40" />}
-                  title="Internal link chỉ cho long-form"
-                  hint="Mở bài Website / Blogger / WordPress để xem gợi ý liên kết nội bộ."
-                />
-              )}
-            </TabsContent>
+          <TabsContent value="links" className="flex-1 overflow-y-auto px-5 py-4 mt-0 data-[state=inactive]:hidden">
+            {isLongForm ? (
+              <InternalLinksPanel contentId={contentId} autoScanOnMount />
+            ) : (
+              <EmptyState
+                icon={<Link2 className="w-8 h-8 text-muted-foreground/40" />}
+                title="Internal link chỉ cho long-form"
+                hint="Mở bài Website / Blogger / WordPress để xem gợi ý liên kết nội bộ."
+              />
+            )}
+          </TabsContent>
 
-            <TabsContent value="cluster" className="mt-0">
-              {hasCluster ? (
-                <ClusterContextCard clusterId={clusterId!} currentContentId={contentId} />
-              ) : (
-                <EmptyState
-                  icon={<Network className="w-8 h-8 text-muted-foreground/40" />}
-                  title="Bài viết chưa thuộc Pillar Cluster"
-                  hint="Gắn cluster trong wizard tạo bài để xem coverage và sister content."
-                />
-              )}
-            </TabsContent>
-          </div>
+          <TabsContent value="cluster" className="flex-1 overflow-y-auto px-5 py-4 mt-0 data-[state=inactive]:hidden">
+            {hasCluster ? (
+              <ClusterContextCard clusterId={clusterId!} currentContentId={contentId} />
+            ) : (
+              <EmptyState
+                icon={<Network className="w-8 h-8 text-muted-foreground/40" />}
+                title="Bài viết chưa thuộc Pillar Cluster"
+                hint="Gắn cluster trong wizard tạo bài để xem coverage và sister content."
+              />
+            )}
+          </TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -346,7 +389,6 @@ function EmptyState({ icon, title, hint }: { icon: React.ReactNode; title: strin
 
 function linkPct(count: number | null): number {
   if (count == null) return 0;
-  // 3+ internal links = full score; 0 = 0; linear
   return Math.min(100, Math.round((count / 3) * 100));
 }
 

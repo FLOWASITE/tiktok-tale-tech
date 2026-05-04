@@ -29,9 +29,10 @@ interface SavedLink {
 
 interface Props {
   contentId: string;
+  autoScanOnMount?: boolean;
 }
 
-export default function InternalLinksPanel({ contentId }: Props) {
+export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props) {
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
