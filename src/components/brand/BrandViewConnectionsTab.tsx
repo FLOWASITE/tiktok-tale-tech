@@ -197,6 +197,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Auto-publish blog vào Wix site qua OAuth',
   },
+  medium: {
+    name: 'Medium',
+    icon: <ChannelIcon channel="medium" className="text-foreground" size={20} />,
+    color: 'bg-muted',
+    available: true,
+    description: 'Publication / personal stories (Integration Token)',
+  },
 };
 
 type PlatformGroupId = 'social' | 'longform' | 'local';
