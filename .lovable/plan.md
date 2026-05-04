@@ -1,23 +1,58 @@
-Vấn đề đúng là: UI đã cho nhập Shopify Client ID/Secret, nhưng function `test-shopify-credentials` vẫn đang đọc `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET` từ backend secrets cũ. Vì vậy dù bạn nhập đúng trong admin form, bấm Test vẫn báo lỗi thiếu/wrong secret.
+## Mục tiêu
 
-Plan sửa gọn đúng lỗi:
+Phân loại lại kênh xuất bản trong **Nội dung đa kênh** thành **2 nhóm**:
 
-1. Sửa `supabase/functions/test-shopify-credentials/index.ts`
-   - Đổi từ đọc `Deno.env.get('SHOPIFY_CLIENT_ID')` / `SHOPIFY_CLIENT_SECRET` sang đọc row `platform = 'shopify'` trong `social_platform_settings`.
-   - Decrypt `consumer_key` và `consumer_secret` bằng helper hiện có `decryptCredential`.
-   - Giữ kiểm tra admin như hiện tại.
-   - Trả lỗi rõ: “Shopify chưa được cấu hình trong Admin Social Settings” nếu chưa lưu credential.
+1. **Website & Long-form** — bài dài có cấu trúc (CMS/blog/email)
+2. **Mạng xã hội** — post ngắn, social-first
 
-2. Sửa `supabase/functions/shopify-oauth-start/index.ts`
-   - OAuth connect brand cũng phải dùng Shopify Client ID đã lưu trong `social_platform_settings`.
-   - Chỉ fallback sang backend secret nếu DB chưa có, để không phá môi trường cũ.
+Loại bỏ **TikTok** và **YouTube** khỏi multichannel (video sẽ chỉ post từ Video Studio .
 
-3. Sửa `supabase/functions/shopify-oauth-callback/index.ts`
-   - Callback phải dùng cùng Client ID/Secret đã lưu để verify HMAC và exchange token.
-   - Nếu không, connect Shopify sau này vẫn fail dù test pass.
+## Mapping nhóm mới
 
-4. Giữ nguyên UI button vừa sửa
-   - Shopify vẫn giống Blogger: chưa cấu hình = `Cấu hình`; đã cấu hình = `Chỉnh sửa + test + xóa`.
+**Website & Long-form (7):**
 
-5. Không sửa `_shared/crypto.ts`
-   - Chỉ import và dùng helper có sẵn, tránh ảnh hưởng các function khác.
+- `website`, `blogger`, `wordpress`, `shopify`, `wix` — long-form CMS
+- `email` — newsletter dài có subject+body
+- (giữ logic đã có cho long-form separation)
+
+**Mạng xã hội (10):**
+
+- `linkedin`, `twitter`, `threads`, `bluesky`, `telegram` — text social
+- `facebook`, `instagram`, `zalo_oa`, `pinterest`, `google_maps` — visual/social
+
+**Bỏ:** `tiktok`, `youtube` — không xuất hiện trong picker multichannel.
+
+## Thay đổi
+
+### 1. `src/types/multichannel.ts`
+
+- Đổi `category` của tất cả channel: `'text'|'image'` → `'longform'|'social'` theo mapping trên.
+- **Xoá 2 entry** `tiktok` và `youtube` khỏi `CHANNELS` array.
+- Type `Channel` union: giữ `tiktok`/`youtube` để không vỡ DB columns/types cũ (`tiktok_content`, `youtube_content` vẫn tồn tại trong DB), nhưng chúng không xuất hiện trong UI picker nữa.
+
+### 2. `src/components/multichannel/CompactChannelGrid.tsx`
+
+- Thay 3 nhóm (Text/Image/Video) bằng 2 nhóm:
+  - "Website & Long-form" (icon `FileText`/`Globe`) — `category === 'longform'`
+  - "Mạng xã hội" (icon `Users` hoặc `Hash`) — `category === 'social'`
+- Bỏ import `Video` nếu không còn dùng.
+
+### 3. `src/components/multichannel/MultiChannelFormStepper.tsx` (lines 447-452)
+
+- File này filter theo `'content'|'social'|'direct'|'local'` (không khớp categories trong types). Chuẩn hoá lại thành 2 nhóm mới `'longform'|'social'` để khớp với types.
+
+### 4. Memory update
+
+- Cập nhật `mem://architecture/multichannel/channel-medium-reclassification-vn` ghi nhận classification mới: 2 nhóm Long-form / Social, TikTok/YouTube đã bị bỏ khỏi multichannel publishing (chỉ Video Studio xử lý).
+
+## Không thay đổi
+
+- DB schema (`tiktok_content`, `youtube_content` columns giữ nguyên cho dữ liệu cũ).
+- Edge function `generate-multichannel`, `publish-*` (không gọi cho 2 channel này nữa nhưng code vẫn hoạt động).
+- Video Studio vẫn publish TikTok/YouTube qua flow riêng (theo memory `Video Publish + Audio Link`).
+- Các view list/stats/filter có thể vẫn show data cũ nếu user đã từng tạo content TikTok/YouTube — chỉ chặn ở picker tạo mới.
+
+## Rủi ro
+
+- Nếu user có content TikTok/YouTube cũ, view stats/group-by-channel vẫn hiển thị bình thường (do `Channel` type giữ nguyên union).
+- Không ảnh hưởng publishing đã schedule.
