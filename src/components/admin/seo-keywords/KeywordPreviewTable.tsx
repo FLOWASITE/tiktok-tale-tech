@@ -310,12 +310,54 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
           <label className="flex items-center gap-1.5 text-xs cursor-pointer">
             <Checkbox checked={sortByScore} onCheckedChange={v => setSortByScore(!!v)} /> Sort theo score
           </label>
+          <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)}
+            className="h-8 px-2 rounded border text-xs bg-background ml-1">
+            <option value="category">Group: Category</option>
+            <option value="intent">Group: Intent</option>
+            <option value="funnel">Group: Funnel</option>
+            <option value="none">Không nhóm</option>
+          </select>
           <div className="ml-auto flex gap-1">
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={selectAll}><CheckSquare className="h-3 w-3 mr-1" />Tất cả ({filtered.length})</Button>
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={selectGaps}>Chọn gap</Button>
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clear}><Square className="h-3 w-3 mr-1" />Xoá</Button>
           </div>
         </div>
+
+        {/* Category chips: counts per Keyword Universe bucket */}
+        {keywords.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center text-xs">
+            <span className="text-muted-foreground">Universe:</span>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(null)}
+              className={cn(
+                "px-2 py-0.5 rounded-full border transition",
+                !categoryFilter ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              )}
+            >Tất cả ({enriched.length})</button>
+            {CATEGORY_ORDER.map(c => {
+              const count = enriched.filter(k => k._category === c).length;
+              if (count === 0) return null;
+              const m = CATEGORY_META[c];
+              const active = categoryFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategoryFilter(active ? null : c)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full border transition inline-flex items-center gap-1",
+                    active ? "bg-foreground text-background border-foreground" : `${m.badgeClass} hover:opacity-80`
+                  )}
+                  title={m.description}
+                >
+                  <span>{m.emoji}</span> {m.label} <span className="opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="border rounded max-h-[480px] overflow-auto">
           <table className="w-full text-sm">
