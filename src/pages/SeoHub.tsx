@@ -22,8 +22,9 @@ const LEGACY_MAP: Record<string, { tab: TabId; sub?: string }> = {
   import: { tab: "discover", sub: "import" },
   enrichment: { tab: "discover", sub: "enrich" },
   ranks: { tab: "track", sub: "ranks" },
-  backlinks: { tab: "track", sub: "backlinks" },
-  links: { tab: "track", sub: "backlinks" },
+  backlinks: { tab: "track", sub: "links" },
+  links: { tab: "track", sub: "links" },
+  internal: { tab: "track", sub: "links" },
   pages: { tab: "produce" },
 };
 
