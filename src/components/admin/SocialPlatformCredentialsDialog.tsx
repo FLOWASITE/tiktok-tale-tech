@@ -512,11 +512,18 @@ export function SocialPlatformCredentialsDialog({
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
+          {validationError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+              <p className="text-destructive">{validationError}</p>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Huỷ
             </Button>
-            <Button type="submit" disabled={!isValid || isSaving}>
+            <Button type="submit" disabled={!isValid || isSaving || revealingKey || revealingSecret}>
               {isSaving && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
               Lưu cài đặt
             </Button>
