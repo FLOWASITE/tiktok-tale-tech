@@ -81,14 +81,14 @@ export default function EmbeddingBackfillCard() {
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium">Chỉ mục ngữ nghĩa nội dung</div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Cần thiết để gợi ý liên kết nội bộ tự động. Mỗi bài được encode thành vector 384 chiều để so độ tương đồng.
+            Chỉ encode các bài <b>đã publish ra Website / Blogger / WordPress / Flowa Blog</b> (có URL công khai). Cần thiết để gợi ý liên kết nội bộ tự động.
           </p>
         </div>
       </div>
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">{done}/{total} bài đã có chỉ mục</span>
+          <span className="text-muted-foreground">{done}/{total} bài đã publish có chỉ mục</span>
           <span className="font-medium">{pct}%</span>
         </div>
         <Progress value={pct} className="h-1.5" />
