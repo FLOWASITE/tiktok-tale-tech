@@ -19,6 +19,7 @@ import {
   ThreadsIcon,
   TelegramIcon,
   GoogleBusinessIcon,
+  ShopifyIcon,
 } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
@@ -44,6 +45,7 @@ const TikTokLucide = makeLucide(TikTokIcon, 'TikTokLucide');
 const ThreadsLucide = makeLucide(ThreadsIcon, 'ThreadsLucide');
 const TelegramLucide = makeLucide(TelegramIcon, 'TelegramLucide');
 const GoogleBusinessLucide = makeLucide(GoogleBusinessIcon, 'GoogleBusinessLucide');
+const ShopifyLucide = makeLucide(ShopifyIcon, 'ShopifyLucide');
 
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
@@ -124,6 +126,11 @@ const channelConfig: Record<string, {
     icon: PinterestLucide,
     bgClass: "bg-[#E60023] text-white",
     label: "Pinterest"
+  },
+  shopify: {
+    icon: ShopifyLucide,
+    bgClass: "bg-[#96BF48] text-white",
+    label: "Shopify"
   },
   google_maps: { 
     icon: GoogleBusinessLucide, 
