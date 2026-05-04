@@ -591,6 +591,7 @@ export function useAutoImageGeneration() {
           shouldFallbackStructured ? 'structured overlay fallback bật' : null,
           shouldFallbackText ? 'text overlay fallback bật' : null,
           !backendRequestedFallback && isAiRenderMode ? 'AI accepted — no canvas double-render' : null,
+          trustedModel && rawBackendFallback && !hardSatori ? `trusted model "${imageData.modelUsed}" — bypass overlay hint` : null,
           textSuppressedBecauseTooLong ? 'text too long, auto downgraded to background_only' : null,
           textSuppressedBecauseLanguageMismatch ? `language mismatch (${detectedLanguage} != ${brandLanguage}), auto downgraded to background_only` : null,
           !isAiRenderMode ? 'satori forced mode' : null,
