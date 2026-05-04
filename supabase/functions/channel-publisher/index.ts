@@ -133,7 +133,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         const contentColumn = action === 'blogger' ? 'blogger_content' : 'wordpress_content';
         const { data: mcc } = await supabase
           .from('multi_channel_contents')
-          .select(`title, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data`)
+          .select(`title, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, blogger_seo_data, wordpress_seo_data`)
           .eq('id', contentIdForResolve)
           .maybeSingle();
 
@@ -182,7 +182,20 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           const websiteImg = ci?.website?.url || ci?.website?.image_url;
           finalPayload.featuredImageUrl = channelImg || mcc.featured_image_url || websiteImg || undefined;
         }
-        if (mcc.seo_data && !finalPayload.seoData) finalPayload.seoData = mcc.seo_data;
+        // Map per-channel SEO meta into publish payload (WordPress / Blogger)
+        const seoCol = action === 'wordpress' ? 'wordpress_seo_data' : 'blogger_seo_data';
+        const seoMeta: Record<string, any> | null = (mcc as any)[seoCol] || null;
+        if (seoMeta && typeof seoMeta === 'object') {
+          // Use AI-suggested SEO title if no explicit title was set
+          if (!finalPayload.title && seoMeta.metaTitle) finalPayload.title = seoMeta.metaTitle;
+          if (!finalPayload.excerpt) finalPayload.excerpt = seoMeta.excerpt || seoMeta.metaDescription;
+          if (!finalPayload.slug && seoMeta.slug) finalPayload.slug = seoMeta.slug;
+          if (!finalPayload.tags && Array.isArray(seoMeta.tags)) finalPayload.tags = seoMeta.tags;
+          if (!finalPayload.categories && Array.isArray(seoMeta.categories)) finalPayload.categories = seoMeta.categories;
+          if (!finalPayload.seoTitle && seoMeta.metaTitle) finalPayload.seoTitle = seoMeta.metaTitle;
+          if (!finalPayload.metaDescription && seoMeta.metaDescription) finalPayload.metaDescription = seoMeta.metaDescription;
+          if (!finalPayload.focusKeyword && seoMeta.focusKeyword) finalPayload.focusKeyword = seoMeta.focusKeyword;
+        }
         if (mcc.organization_id) finalPayload.organization_id = mcc.organization_id;
       } catch (resolveErr) {
         console.error(`[channel-publisher] ${action} resolve error:`, resolveErr);

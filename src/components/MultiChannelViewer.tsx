@@ -252,6 +252,7 @@ import { analyzeContent } from '@/hooks/useContentAnalysis';
 import { PinterestAnalyticsCard } from '@/components/viewer/PinterestAnalyticsCard';
 import ClusterContextBadge from '@/components/seo/ClusterContextBadge';
 import SeoInsightsSheet from '@/components/seo/SeoInsightsSheet';
+import { WordPressSeoPanel } from '@/components/seo/WordPressSeoPanel';
 
 // Brand Voice Apply instruction
 const APPLY_BRAND_VOICE_INSTRUCTION = "Viết lại toàn bộ nội dung theo đúng Brand Voice profile đã cấu hình: giữ nguyên ý chính nhưng điều chỉnh giọng điệu, phong cách ngôn ngữ, mức độ formal, và tuân thủ các từ ưu tiên/từ cấm theo brand guidelines";
@@ -1522,6 +1523,20 @@ export function MultiChannelViewer({
                         {/* Blogger / WordPress / Website are SEPARATE channels — each tab publishes only its own content.
                             Do NOT add a hidden Blogger publish button on the Website tab. */}
                       </div>
+                    )}
+
+                    {/* WordPress / Blogger SEO Meta Panel */}
+                    {(channel === 'wordpress' || channel === 'blogger') && !isEditing && (
+                      <WordPressSeoPanel
+                        contentId={content.id}
+                        channel={channel as 'wordpress' | 'blogger'}
+                        bodyContent={channelContent || ''}
+                        initialMeta={
+                          (channel === 'wordpress'
+                            ? (content as any).wordpress_seo_data
+                            : (content as any).blogger_seo_data) || null
+                        }
+                      />
                     )}
 
                     {/* Content Area */}

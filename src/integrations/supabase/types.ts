@@ -7956,6 +7956,7 @@ export type Database = {
           blogger_content: string | null
           blogger_post_id: string | null
           blogger_post_url: string | null
+          blogger_seo_data: Json | null
           bluesky_content: string | null
           bluesky_post_id: string | null
           bluesky_post_url: string | null
@@ -8018,6 +8019,7 @@ export type Database = {
           wordpress_content: string | null
           wordpress_post_id: string | null
           wordpress_post_url: string | null
+          wordpress_seo_data: Json | null
           youtube_content: string | null
           zalo_oa_content: string | null
         }
@@ -8025,6 +8027,7 @@ export type Database = {
           blogger_content?: string | null
           blogger_post_id?: string | null
           blogger_post_url?: string | null
+          blogger_seo_data?: Json | null
           bluesky_content?: string | null
           bluesky_post_id?: string | null
           bluesky_post_url?: string | null
@@ -8087,6 +8090,7 @@ export type Database = {
           wordpress_content?: string | null
           wordpress_post_id?: string | null
           wordpress_post_url?: string | null
+          wordpress_seo_data?: Json | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
@@ -8094,6 +8098,7 @@ export type Database = {
           blogger_content?: string | null
           blogger_post_id?: string | null
           blogger_post_url?: string | null
+          blogger_seo_data?: Json | null
           bluesky_content?: string | null
           bluesky_post_id?: string | null
           bluesky_post_url?: string | null
@@ -8156,6 +8161,7 @@ export type Database = {
           wordpress_content?: string | null
           wordpress_post_id?: string | null
           wordpress_post_url?: string | null
+          wordpress_seo_data?: Json | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
