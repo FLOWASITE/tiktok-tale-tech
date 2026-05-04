@@ -446,10 +446,8 @@ export function MultiChannelFormStepper({
 
   // Group channels by category
   const channelCategories = [
-    { name: 'Nền tảng nội dung', key: 'content', channels: CHANNELS.filter(c => c.category === 'content') },
+    { name: 'Website & Long-form', key: 'longform', channels: CHANNELS.filter(c => c.category === 'longform') },
     { name: 'Mạng xã hội', key: 'social', channels: CHANNELS.filter(c => c.category === 'social') },
-    { name: 'Kênh trực tiếp', key: 'direct', channels: CHANNELS.filter(c => c.category === 'direct') },
-    { name: 'Địa phương', key: 'local', channels: CHANNELS.filter(c => c.category === 'local') },
   ];
 
   return (
