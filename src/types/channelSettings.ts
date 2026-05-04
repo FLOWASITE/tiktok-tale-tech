@@ -123,6 +123,8 @@ export const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_type: 'markdown',
     format_description: 'Wix blog post: H1 + 3-5 H2, hero featured image, đoạn ngắn 2-4 câu, có CTA cuối bài, phù hợp với Editor X / Wix Studio rich content (Ricos format).',
   },
+  facebook: {
+    min_length: 250,
     max_length: 400,
     length_unit: 'words',
     hook_required: true,
