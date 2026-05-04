@@ -50,6 +50,7 @@ import { BloggerMockup } from './BloggerMockup';
 import { WordPressMockup } from './WordPressMockup';
 import { ShopifyMockup } from './ShopifyMockup';
 import { WixMockup } from './WixMockup';
+import { MediumMockup } from './MediumMockup';
 
 // Shared markdown components for mockups
 const mockupMarkdownComponents = {
@@ -61,7 +62,7 @@ const mockupMarkdownComponents = {
   br: () => <br className="block" />,
 };
 
-type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'wix' | 'general';
+type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'wix' | 'medium' | 'general';
 
 interface ChannelMockupFrameProps {
   channel: ChannelType;
@@ -2346,6 +2347,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <ShopifyMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'wix':
       return <WixMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
+    case 'medium':
+      return <MediumMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'general':
       return <WebsiteMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     default:
