@@ -22,6 +22,7 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   wordpress: 'publish-wordpress',
   pinterest: 'publish-pinterest',
   bluesky: 'publish-bluesky',
+  shopify: 'publish-shopify-blog',
 };
 
 // Map action → cặp cột URL/ID trên multi_channel_contents để lưu link bài đã publish
