@@ -189,11 +189,12 @@ export default function AdminSocialSettings() {
 
   const renderPlatformCard = (config: PlatformConfig) => {
     const platformSettings = getSettingsForPlatform(config.platform);
-    const isConfigured = platformSettings?.has_credentials && platformSettings?.is_active;
+    const isConfigured = Boolean(platformSettings?.has_credentials);
+    const isShopify = config.platform === 'shopify';
     const isOAuthOnly = config.authMode === 'oauth_only';
     const isPerBrand = config.authMode === 'per_brand';
-    const canEdit = config.authMode === 'credentials';
-    const authMeta = AUTH_BADGE[config.authMode];
+    const canEdit = config.authMode === 'credentials' || isShopify;
+    const authMeta = AUTH_BADGE[canEdit ? 'credentials' : config.authMode];
     const AuthIcon = authMeta.icon;
 
     return (
@@ -302,31 +303,6 @@ export default function AdminSocialSettings() {
                       </>
                     )}
                   </>
-                ) : isOAuthOnly && config.platform === 'shopify' ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleTestConnection(config.platform)}
-                      disabled={testingPlatform === config.platform}
-                    >
-                      {testingPlatform === config.platform ? (
-                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                      ) : (
-                        <Zap className="w-3.5 h-3.5 mr-1.5" />
-                      )}
-                      Test Secrets
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open('https://partners.shopify.com/', '_blank')}
-                      title="Mở Shopify Partners để lấy Client ID/Secret"
-                    >
-                      <KeyRound className="w-3.5 h-3.5" />
-                    </Button>
-                  </>
                 ) : (
                   <Button variant="outline" size="sm" className="flex-1" disabled>
                     <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
@@ -409,7 +385,7 @@ export default function AdminSocialSettings() {
           {[
             { num: '1', text: <>Admin nhập <strong>Client ID / Secret</strong> của từng nền tảng — credential mã hoá AES-256-GCM trước khi lưu.</> },
             { num: '2', text: <><strong>X (Twitter):</strong> User nhập Access Token + Secret riêng. Các nền tảng còn lại dùng OAuth tự động.</> },
-            { num: '3', text: <><strong>Bluesky / Shopify:</strong> Cấu hình sẵn ở Edge Function Secrets, không cần admin chỉnh ở đây.</> },
+            { num: '3', text: <><strong>Bluesky:</strong> Cấu hình sẵn ở Edge Function Secrets, không cần admin chỉnh ở đây. <strong>Shopify:</strong> nhập Client ID / Secret giống Blogger.</> },
             { num: '4', text: <><strong>WordPress self-hosted:</strong> Mỗi brand tự kết nối bằng Application Password.</> },
           ].map((item) => (
             <div key={item.num} className="flex gap-3">
