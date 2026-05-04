@@ -460,3 +460,7 @@ verify_jwt = false
 
 [functions.refresh-wix-token]
 verify_jwt = false
+
+[functions.refresh-all-wix-tokens]
+verify_jwt = false
+
