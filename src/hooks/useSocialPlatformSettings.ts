@@ -66,8 +66,8 @@ export function useSocialPlatformSettings() {
   const deleteMutation = useMutation({
     mutationFn: async (platform: SocialPlatform) => {
       const { data, error } = await supabase.functions.invoke(
-        `manage-social-platform-settings?platform=${platform}`,
-        { method: 'DELETE' }
+        'manage-social-platform-settings',
+        { method: 'DELETE', body: { platform } }
       );
       
       if (error) throw error;
