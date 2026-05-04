@@ -135,7 +135,7 @@ const channelConfig: Record<string, {
     label: "Shopify"
   },
   wix: {
-    icon: Globe,
+    icon: WixLucide,
     bgClass: "bg-black text-white",
     label: "Wix"
   },
