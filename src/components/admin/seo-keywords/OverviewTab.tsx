@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import KeywordTargetPicker from "@/components/seo/KeywordTargetPicker";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
+import EmbeddingBackfillCard from "@/components/seo/EmbeddingBackfillCard";
 import { LazyAssignSelect } from "./LazyAssignSelect";
 import { cn } from "@/lib/utils";
 
@@ -249,6 +250,7 @@ export default function OverviewTab() {
 
   return (
     <div className="space-y-6">
+      <EmbeddingBackfillCard />
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {kpis.map((k) => (
