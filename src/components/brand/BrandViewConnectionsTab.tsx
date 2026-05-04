@@ -232,6 +232,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     appPassword: '',
     apiKey: '',
     apiEndpoint: '',
+    wixSiteId: '',
+    wixAccountId: '',
   });
   const [isWebsiteConnecting, setIsWebsiteConnecting] = useState(false);
   const [wpDialogOpen, setWpDialogOpen] = useState(false);
