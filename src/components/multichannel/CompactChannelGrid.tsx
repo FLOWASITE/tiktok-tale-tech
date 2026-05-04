@@ -82,6 +82,19 @@ export function CompactChannelGrid({
           {selectedChannels.length}/{CHANNELS.length} kênh
         </Badge>
         <div className="flex items-center gap-1.5">
+          {frequentChannels.length > 0 && onSelectFrequent && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onSelectFrequent}
+              disabled={disabled}
+              className="text-xs h-7 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+            >
+              <Sparkles className="w-3 h-3 mr-1" />
+              Kênh thường dùng
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -106,6 +119,58 @@ export function CompactChannelGrid({
           </Button>
         </div>
       </div>
+
+      {/* Frequent channels section */}
+      {frequentChannels.length > 0 && (
+        <div className="rounded-lg border border-amber-300/40 bg-gradient-to-br from-amber-50/60 to-orange-50/40 dark:from-amber-950/20 dark:to-orange-950/10 dark:border-amber-700/30 p-2.5 space-y-2">
+          <div className="flex items-center gap-2">
+            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+            <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+              Kênh thường xuyên chọn
+            </span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-400/60 text-amber-700 dark:text-amber-400">
+              {frequentChannels.length}
+            </Badge>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {frequentChannels.map((ch) => {
+              const channel = CHANNELS.find((c) => c.value === ch);
+              if (!channel) return null;
+              const isSelected = selectedChannels.includes(ch);
+              const useCount = frequentCounts[ch] || 0;
+              return (
+                <Tooltip key={ch}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onChannelToggle(ch)}
+                      disabled={disabled}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-all',
+                        isSelected
+                          ? 'bg-amber-500/15 border-amber-400 text-amber-900 dark:text-amber-100'
+                          : 'bg-background/60 border-border/50 hover:border-amber-400/60',
+                        disabled && 'opacity-50 cursor-not-allowed'
+                      )}
+                    >
+                      <span className={isSelected ? 'text-amber-600' : 'text-muted-foreground'}>
+                        {channelIcons[ch]}
+                      </span>
+                      <span className="truncate max-w-[100px]">{channel.label}</span>
+                      <span className="text-[9px] font-medium px-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                        ×{useCount}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    Đã chọn {useCount} lần
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Category groups */}
       {channelCategories.map((category) => {
