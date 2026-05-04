@@ -3,9 +3,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, LineChart, Link2 } from "lucide-react";
 import OverviewTab from "@/components/admin/seo-keywords/OverviewTab";
 import RankTrackerTab from "@/components/admin/seo-keywords/RankTrackerTab";
-import BacklinksTab from "@/components/admin/seo-keywords/BacklinksTab";
+import LinksWorkspace from "@/components/admin/seo-keywords/LinksWorkspace";
 
-const VALID = new Set(["health", "backlinks", "ranks"]);
+const VALID = new Set(["health", "links", "ranks"]);
 
 export default function TrackWorkspace() {
   const [params, setParams] = useSearchParams();
@@ -22,15 +22,15 @@ export default function TrackWorkspace() {
         <TabsTrigger value="health" className="gap-1.5">
           <Activity className="h-4 w-4" /> Sức khoẻ
         </TabsTrigger>
-        <TabsTrigger value="backlinks" className="gap-1.5">
-          <Link2 className="h-4 w-4" /> Backlinks
+        <TabsTrigger value="links" className="gap-1.5">
+          <Link2 className="h-4 w-4" /> Liên kết
         </TabsTrigger>
         <TabsTrigger value="ranks" className="gap-1.5">
           <LineChart className="h-4 w-4" /> Rank tracker
         </TabsTrigger>
       </TabsList>
       <TabsContent value="health" className="mt-4"><OverviewTab /></TabsContent>
-      <TabsContent value="backlinks" className="mt-4"><BacklinksTab /></TabsContent>
+      <TabsContent value="links" className="mt-4"><LinksWorkspace /></TabsContent>
       <TabsContent value="ranks" className="mt-4"><RankTrackerTab /></TabsContent>
     </Tabs>
   );
