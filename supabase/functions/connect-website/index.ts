@@ -92,19 +92,8 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
       } catch (fetchError: any) {
         throw new Error(`Could not connect to WordPress: ${fetchError.message}`);
       }
-    } else if (integrationType === 'blogger' && apiKey) {
-      try {
-        const bloggerUrl = `https://www.googleapis.com/blogger/v3/blogs/byurl?url=${encodeURIComponent(websiteUrl)}&key=${apiKey}`;
-        const testResponse = await fetch(bloggerUrl);
-        if (!testResponse.ok) {
-          const errorText = await testResponse.text();
-          throw new Error(`Blogger API test failed: ${testResponse.status} - ${errorText}`);
-        }
-        const blogData = await testResponse.json();
-        console.log('Blogger API test successful, blog ID:', blogData.id);
-      } catch (fetchError: any) {
-        throw new Error(`Could not connect to Blogger: ${fetchError.message}`);
-      }
+    } else if (integrationType === 'blogger') {
+      throw new Error('Blogger không còn dùng API Key. Hãy đóng dialog này và bấm "Kết nối Blogger" để đăng nhập bằng Google OAuth.');
     } else if (integrationType === 'wix' && apiKey) {
       try {
         const wixUrl = `https://www.wixapis.com/blog/v3/posts?paging.limit=1`;
