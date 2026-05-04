@@ -850,6 +850,11 @@ export function MultiChannelFormWizard({
     setFormData(prev => ({ ...prev, channels: [] }));
   };
 
+  const handleSelectFrequent = () => {
+    if (!frequentChannels.length) return;
+    setFormData(prev => ({ ...prev, channels: [...frequentChannels] }));
+  };
+
   // Hook selection handlers
   const handleSelectHook = (hook: MultiChannelHook) => {
     setFormData(prev => {
