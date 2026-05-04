@@ -475,6 +475,16 @@ const LONGFORM_MIN_CHARS: Record<string, number> = {
   medium: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1000-1800 từ
 };
 
+const LONGFORM_TOKEN_FLOORS: Record<string, number> = {
+  shopify: 5000,
+  wix: 5000,
+  medium: 6500,
+};
+
+function applyLongformTokenFloor(channel: string, tokens: number): number {
+  return Math.max(tokens, LONGFORM_TOKEN_FLOORS[channel] ?? tokens);
+}
+
 function normalizeLongformText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value.trim();
@@ -597,7 +607,7 @@ interface LongformRetryDeps {
 }
 
 async function regenerateLongformChannelDirect(
-  channel: 'blogger' | 'wordpress',
+  channel: 'blogger' | 'wordpress' | 'shopify' | 'wix' | 'medium',
   deps: LongformRetryDeps,
 ): Promise<string> {
   const tpl = LONGFORM_RETRY_PROMPTS[channel];
@@ -606,7 +616,7 @@ async function regenerateLongformChannelDirect(
   const channelConfig = deps.channelModelConfigs.get(channel);
   const model = channelConfig?.model || deps.defaultModel;
   const temperature = channelConfig?.temperature ?? deps.defaultTemperature;
-  const maxTokens = clampMaxTokensForModel(model, channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' }));
+  const maxTokens = clampMaxTokensForModel(model, applyLongformTokenFloor(channel, channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' })));
 
   console.log(`[longform-retry] ${channel}: invoking direct AI retry (model=${model}, maxTokens=${maxTokens})`);
 
@@ -1349,6 +1359,33 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     line_break_style: 'normal', link_position: 'body',
     format_description: 'BÀI DÀI 800-2000 TỪ: H1, Intro, 4-6 H2 sections, Conclusion+CTA. Pure Markdown.',
     seo_optimized: true, heading_structure_required: true, featured_snippet_format: true,
+  },
+  shopify: {
+    min_length: 800, max_length: 1500, length_unit: 'words',
+    hook_required: true, hook_style: 'Hook commerce bằng pain/desire của shopper',
+    bullet_allowed: true, cta_policy: 'required',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Shopify Blog 800-1500 từ: e-commerce storytelling, 4-6 H2, bullet benefits, numbered how-to, CTA Shop now/Khám phá BST, seo-meta cuối bài.',
+    seo_optimized: true, heading_structure_required: true,
+  },
+  wix: {
+    min_length: 800, max_length: 1500, length_unit: 'words',
+    hook_required: true, hook_style: 'Hook visual-first/lifestyle giàu hình ảnh',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'body',
+    format_description: 'Wix Blog 800-1500 từ: visual-first storytelling, 4-6 H2, bullet + numbered list, CTA Khám phá/Đặt lịch/Liên hệ, seo-meta cuối bài.',
+    seo_optimized: true, heading_structure_required: true,
+  },
+  medium: {
+    min_length: 1000, max_length: 1800, length_unit: 'words',
+    hook_required: true, hook_style: 'Story-first opening hook, giọng cá nhân/expert',
+    bullet_allowed: true, cta_policy: 'soft',
+    emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
+    line_break_style: 'normal', link_position: 'allowed',
+    format_description: 'Medium 1000-1800 từ: Markdown thuần, ## H2 ngắn, paragraph thoáng, ≥1 pull-quote, ≥1 bullet list, CTA Clap/Follow, seo-meta tags ≤5.',
+    seo_optimized: true, heading_structure_required: true,
   },
   facebook: {
     min_length: 250, max_length: 500, length_unit: 'words',
@@ -2942,8 +2979,8 @@ Nội dung sẵn sàng đăng ngay.`;
                 }
               }
               
-              // Long-form guard for Blogger / WordPress regenerate
-              if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, generatedContent.trim())) {
+              // Long-form guard for every dedicated long-form channel
+              if (LONGFORM_MIN_CHARS[channel] && isLongformContentMissing(channel, generatedContent.trim())) {
                 console.warn(`[regenerate-mode][streaming] ${channel} too short (${generatedContent.length} chars) — running direct retry`);
                 emit({ type: 'progress', step: 'longform-retry', progress: 80, message: `Đang viết lại ${getChannelDisplayName(channel)}...` });
                 const retried = await regenerateLongformChannelDirect(channel, {
@@ -2961,7 +2998,7 @@ Nội dung sẵn sàng đăng ngay.`;
               }
 
               // Refuse to overwrite DB with empty/insufficient long-form content
-              if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, generatedContent.trim())) {
+              if (LONGFORM_MIN_CHARS[channel] && isLongformContentMissing(channel, generatedContent.trim())) {
                 emit({ type: 'error', message: `Không tạo được nội dung riêng cho ${getChannelDisplayName(channel)}. Vui lòng thử lại.` });
                 try { controller.close(); } catch {}
                 return;
@@ -3136,8 +3173,8 @@ Nội dung sẵn sàng đăng ngay.`;
         }
       }
       
-      // Long-form guard for Blogger / WordPress regenerate (non-streaming)
-      if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, normalizeLongformText(newContent))) {
+      // Long-form guard for every dedicated long-form channel regenerate (non-streaming)
+      if (LONGFORM_MIN_CHARS[channel] && isLongformContentMissing(channel, normalizeLongformText(newContent))) {
         console.warn(`[regenerate-mode] ${channel} too short (${newContent?.length || 0} chars) — running direct retry`);
         const retried = await regenerateLongformChannelDirect(channel, {
           topic: formData.topic,
@@ -3551,7 +3588,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             return [ch, {
               model,
               temperature: cfg?.temperature ?? aiConfig.temperature,
-              maxTokens: clampMaxTokensForModel(model, optimizedMaxTokens),
+              maxTokens: clampMaxTokensForModel(model, applyLongformTokenFloor(ch, optimizedMaxTokens)),
             }];
           })
         ),
@@ -3770,7 +3807,7 @@ Phải KHÁC website (commerce-driven, ngắn hơn), KHÁC blogger (không ngôi
               google_maps: "Google Maps 80-150 từ, trung tính, không emoji/hashtag.",
             };
 
-            const LONGFORM_CHANNELS = new Set(['website', 'blogger', 'wordpress']);
+              const LONGFORM_CHANNELS = new Set(['website', 'blogger', 'wordpress', 'shopify', 'wix', 'medium']);
 
             const buildChannelUserPrompt = (channel: string) => {
               const channelHookSection = buildHookSection(channel, formData.selectedHooks, formData.globalHook);
@@ -4193,7 +4230,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 .limit(1)
                 .maybeSingle();
 
-              const existingMissingLongform = existingContent && ['blogger', 'wordpress'].some((ch) =>
+              const existingMissingLongform = existingContent && ['blogger', 'wordpress', 'shopify', 'wix', 'medium'].some((ch) =>
                 channels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText((existingContent as any)[`${ch}_content`]))
               );
 
@@ -4205,11 +4242,11 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               if (existingMissingLongform) {
                 console.warn(`[streaming-mode] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
               }
-              // PRE-INSERT ASSERT: Blogger/WordPress text must be present in memory before writing.
+              // PRE-INSERT ASSERT: selected long-form text must be present in memory before writing.
               {
                 const preLens: string[] = [];
                 const missingPre: string[] = [];
-                for (const ch of ['blogger', 'wordpress'] as const) {
+                for (const ch of ['blogger', 'wordpress', 'shopify', 'wix', 'medium'] as const) {
                   if (!channels.includes(ch)) continue;
                   const t = normalizeLongformText(channelResults[ch]);
                   preLens.push(`${ch}=${t.length}`);
