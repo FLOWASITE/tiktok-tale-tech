@@ -4169,6 +4169,16 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               await completeTask(supabase, taskId, savedContent.id, 'multi_channel_contents');
             }
 
+            // Fire-and-forget: embed content for semantic internal-link suggestions
+            try {
+              const embedText = [savedContent.title, savedContent.topic, savedContent.website_content, savedContent.blogger_content, savedContent.wordpress_content]
+                .filter((x: any) => typeof x === 'string' && x.trim().length > 0).join('\n\n').slice(0, 8000);
+              if (embedText.length > 50) {
+                supabase.functions.invoke('embed-content', { body: { content_id: savedContent.id, text: embedText } })
+                  .catch((e: any) => console.warn('[streaming-mode] embed-content fire-forget failed:', e?.message));
+              }
+            } catch (e) { console.warn('[streaming-mode] embed dispatch failed', e); }
+
             // ============================================
             // PHASE 1: METRICS LOGGING (Streaming mode)
             // ============================================
