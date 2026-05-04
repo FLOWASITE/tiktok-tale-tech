@@ -237,6 +237,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
   const [blueskyHandle, setBlueskyHandle] = useState('');
   const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
+  const [shopifyDialogOpen, setShopifyDialogOpen] = useState(false);
+  const [shopifyShop, setShopifyShop] = useState('');
+  const [isShopifyConnecting, setIsShopifyConnecting] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
@@ -261,6 +264,13 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     if (platform === 'bluesky') {
       setBlueskyHandle('');
       setBlueskyDialogOpen(true);
+      return;
+    }
+
+    // Shopify — Public App OAuth (multi-store). Open dialog to collect shop domain.
+    if (platform === 'shopify') {
+      setShopifyShop('');
+      setShopifyDialogOpen(true);
       return;
     }
 
