@@ -62,7 +62,7 @@ interface ChannelGroupViewProps {
 const ALL_CHANNELS: Channel[] = [
   'facebook', 'instagram', 'tiktok', 'twitter', 'linkedin',
   'youtube', 'threads', 'telegram', 'zalo_oa', 'website', 'blogger',
-  'wordpress', 'shopify', 'email', 'google_maps',
+  'wordpress', 'shopify', 'wix', 'email', 'google_maps',
 ];
 
 const CHANNEL_TO_PLATFORM: Partial<Record<Channel, SocialPlatform>> = {
