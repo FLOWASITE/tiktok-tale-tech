@@ -480,7 +480,7 @@ const TOOL_SCHEMA = {
   },
 };
 
-async function callAI(supabase: any, organizationId: string, userId: string, seeds: string[], expandedSeeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number, brandCtx: BrandCtx | null): Promise<{ suggestions: KeywordSuggestion[]; usedFallback: boolean }> {
+async function callAI(supabase: any, organizationId: string, userId: string, seeds: string[], expandedSeeds: string[], serpGround: Record<string, any[]>, competitorContext: string, preset: Preset, locale: string, limit: number, brandCtx: BrandCtx | null, onRoundBatch?: (batch: KeywordSuggestion[], round: number, total: number) => void): Promise<{ suggestions: KeywordSuggestion[]; usedFallback: boolean }> {
   const sys = buildSystemPrompt(preset, limit, brandCtx);
   const user = buildUserPrompt(seeds, expandedSeeds, serpGround, competitorContext, locale);
 
