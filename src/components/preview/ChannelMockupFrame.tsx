@@ -48,6 +48,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { BloggerMockup } from './BloggerMockup';
 import { WordPressMockup } from './WordPressMockup';
+import { ShopifyMockup } from './ShopifyMockup';
 
 // Shared markdown components for mockups
 const mockupMarkdownComponents = {
@@ -59,7 +60,7 @@ const mockupMarkdownComponents = {
   br: () => <br className="block" />,
 };
 
-type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'general';
+type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'general';
 
 interface ChannelMockupFrameProps {
   channel: ChannelType;
@@ -2340,6 +2341,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <BloggerMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'wordpress':
       return <WordPressMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
+    case 'shopify':
+      return <ShopifyMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'general':
       return <WebsiteMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     default:
