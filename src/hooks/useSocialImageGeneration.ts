@@ -4,6 +4,7 @@ import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
+import { isTrustedTextBakingModel } from '@/lib/trustedTextBakingModels';
 import { toast } from 'sonner';
 import { CHANNEL_IMAGE_CONFIG, CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
 
@@ -255,11 +256,35 @@ export function useSocialImageGeneration() {
         }
       }
 
-      // Step 2: Apply Canvas text overlay if enabled
-      if (useCanvasFallback && imageContentType === 'with_text' && textToInclude) {
-        console.log('[useSocialImageGeneration] Applying Canvas text overlay...');
-        
-        // Get dimensions from channel config
+      // Step 2: Apply Canvas text overlay only when AI render isn't trusted
+      // OR backend explicitly requested Satori fallback. This avoids
+      // double-rendering text on top of high-quality AI output (Gemini-3-Pro-Image,
+      // Imagen, Seedream, PoYo, gpt-image…).
+      const recommendedOverlayMode: string | undefined = (data as any)?.recommendedOverlayMode;
+      const fallbackRecommended: boolean = (data as any)?.fallbackRecommended === true;
+      const backendForcesSatori = recommendedOverlayMode === 'satori';
+      const backendRequestsFallback = fallbackRecommended || (!!recommendedOverlayMode && recommendedOverlayMode !== 'ai_render');
+      const trustedModel = isTrustedTextBakingModel(modelUsed);
+      const wantsTextOverlay = !!useCanvasFallback && imageContentType === 'with_text' && !!textToInclude;
+      const shouldRunOverlay = wantsTextOverlay && (backendForcesSatori || (!trustedModel && backendRequestsFallback));
+
+      if (wantsTextOverlay && !shouldRunOverlay) {
+        console.log('[useSocialImageGeneration] ⏭ Canvas overlay SKIPPED', {
+          trustedModel,
+          modelUsed,
+          recommendedOverlayMode: recommendedOverlayMode || 'ai_render',
+          fallbackRecommended,
+          reason: trustedModel ? 'AI render trusted (text-baking model)' : 'backend did not request fallback',
+        });
+      }
+
+      if (shouldRunOverlay) {
+        console.log('[useSocialImageGeneration] Applying Canvas text overlay...', {
+          backendForcesSatori,
+          backendRequestsFallback,
+          modelUsed,
+        });
+
         const channelConfig = channel ? CHANNEL_IMAGE_CONFIG[channel] : null;
         const [widthStr, heightStr] = (channelConfig?.size || '1200x630').split('x');
         const imageWidth = parseInt(widthStr, 10) || 1200;
@@ -283,7 +308,6 @@ export function useSocialImageGeneration() {
 
         if (overlayError) {
           console.error('[useSocialImageGeneration] Canvas overlay error:', overlayError);
-          // Continue with base image if overlay fails
           toast.warning('Text overlay failed, using base image');
         } else if (overlayData?.success && overlayData?.imageUrl) {
           console.log('[useSocialImageGeneration] Canvas overlay success!');

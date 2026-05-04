@@ -5,6 +5,7 @@ import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { createImageGenerationTask } from '@/lib/imageGenerationTasks';
 import { isRecoverableBrandImageError, waitForRecoveredBrandImage } from '@/lib/recoverGeneratedBrandImage';
 import { detectOverlayTextLanguage, doesOverlayTextMatchBrandLanguage, isValidOverlayText, type OverlayTextDetectedLanguage, type OverlayTextSource } from '@/lib/imageOverlayText';
+import { isTrustedTextBakingModel } from '@/lib/trustedTextBakingModels';
 import { toast } from 'sonner';
 import { getUILanguageFromCountry } from '@/utils/countryLanguageMap';
 
@@ -552,7 +553,13 @@ export function useAutoImageGeneration() {
           });
         }
 
-        const backendRequestedFallback = imageData.fallbackRecommended === true || (isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render');
+        // Trust check: if AI used a known good text-baking model, ignore
+        // backend hint unless it's a hard satori request — avoids unnecessary
+        // canvas overlay double-render.
+        const trustedModel = isTrustedTextBakingModel(imageData.modelUsed);
+        const hardSatori = imageData.recommendedOverlayMode === 'satori';
+        const rawBackendFallback = imageData.fallbackRecommended === true || (isAiRenderMode && imageData.recommendedOverlayMode && imageData.recommendedOverlayMode !== 'ai_render');
+        const backendRequestedFallback = hardSatori || (rawBackendFallback && !trustedModel);
         const hasFallbackFooter = !!footerOverlay?.elements?.footer?.items?.length;
         const hasStructuredInput = !!(fullStructuredOverlay || structuredOverlay || footerOverlay);
         const hasChannelSpecificText = !!textsPerChannel?.[channel]?.trim();
@@ -584,6 +591,7 @@ export function useAutoImageGeneration() {
           shouldFallbackStructured ? 'structured overlay fallback bật' : null,
           shouldFallbackText ? 'text overlay fallback bật' : null,
           !backendRequestedFallback && isAiRenderMode ? 'AI accepted — no canvas double-render' : null,
+          trustedModel && rawBackendFallback && !hardSatori ? `trusted model "${imageData.modelUsed}" — bypass overlay hint` : null,
           textSuppressedBecauseTooLong ? 'text too long, auto downgraded to background_only' : null,
           textSuppressedBecauseLanguageMismatch ? `language mismatch (${detectedLanguage} != ${brandLanguage}), auto downgraded to background_only` : null,
           !isAiRenderMode ? 'satori forced mode' : null,
