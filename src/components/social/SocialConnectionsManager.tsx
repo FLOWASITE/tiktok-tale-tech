@@ -313,7 +313,7 @@ export function SocialConnectionsManager() {
             Kết nối tài khoản để đăng bài trực tiếp từ Flowa
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {(Object.entries(PLATFORM_CONFIG) as [SocialPlatform, typeof PLATFORM_CONFIG[SocialPlatform]][]).map(
             ([platform, config]) => {
               const connection = getConnectionForPlatform(platform);
@@ -323,16 +323,16 @@ export function SocialConnectionsManager() {
                 <div
                   key={platform}
                   className={cn(
-                    'flex items-center justify-between p-4 rounded-lg border',
+                    'flex flex-col gap-3 p-4 rounded-lg border min-w-0',
                     connection ? 'border-primary/20 bg-primary/5' : 'border-border',
                     !config.available && 'opacity-60'
                   )}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={cn('p-2 rounded-lg', config.bgColor)}>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={cn('p-2 rounded-lg shrink-0', config.bgColor)}>
                       <Icon className={cn('h-5 w-5', config.color)} />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{config.name}</span>
                         {connection && (
@@ -351,7 +351,7 @@ export function SocialConnectionsManager() {
                         )}
                       </div>
                       {connection?.platform_username && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground truncate">
                           @{connection.platform_username}
                         </p>
                       )}
@@ -401,12 +401,12 @@ export function SocialConnectionsManager() {
                         );
                       })()}
                       {!connection && (
-                        <p className="text-sm text-muted-foreground">{config.description}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{config.description}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-end pt-2 border-t border-border/50 mt-auto">
                     {connection ? (
                       <>
                         <Button
