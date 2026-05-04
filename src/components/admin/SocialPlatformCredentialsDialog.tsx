@@ -415,7 +415,7 @@ export function SocialPlatformCredentialsDialog({
             <Input
               id="appName"
               value={appName}
-              onChange={(e) => setAppName(e.target.value)}
+              onChange={(e) => { setAppName(e.target.value.slice(0, 100)); setValidationError(null); }}
               placeholder="Flowa App"
             />
           </div>
@@ -437,7 +437,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={showKey && !consumerKey && revealedKey ? revealedKey : consumerKey}
                 readOnly={showKey && !consumerKey && !!revealedKey}
-                onChange={(e) => setConsumerKey(e.target.value)}
+                onChange={(e) => { setConsumerKey(e.target.value.slice(0, MAX_FIELD_LEN)); setValidationError(null); }}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_key || '••••'} — nhập mới để thay đổi`
                   : `Nhập ${keyLabel}`}
@@ -478,7 +478,7 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={showSecret && !consumerSecret && revealedSecret ? revealedSecret : consumerSecret}
                 readOnly={showSecret && !consumerSecret && !!revealedSecret}
-                onChange={(e) => setConsumerSecret(e.target.value)}
+                onChange={(e) => { setConsumerSecret(e.target.value.slice(0, MAX_FIELD_LEN)); setValidationError(null); }}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_secret || '••••'} — nhập mới để thay đổi`
                   : `Nhập ${secretLabel}`}
