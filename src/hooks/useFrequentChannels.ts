@@ -97,5 +97,5 @@ export function useFrequentChannels(orgId?: string, brandId?: string) {
   for (const [k, v] of sorted) counts[k as Channel] = v?.count || 0;
   const frequent = sorted.slice(0, MAX_FREQUENT).map(([k]) => k as Channel);
 
-  return { frequent, counts, recordUsage };
+  return { frequent, counts, recordUsage, removeChannel, clearAll };
 }
