@@ -102,6 +102,20 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
       </span>
     );
   }
+  if (channel === 'shopify') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center text-[#96BF48] ${className}`}>
+        <ShopifyIcon width={size} height={size} />
+      </span>
+    );
+  }
+  if (channel === 'wix') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center text-foreground ${className}`}>
+        <WixIcon width={size} height={size} />
+      </span>
+    );
+  }
 
   const SvgIcon = svgIcons[channel as Channel];
   if (SvgIcon) {
