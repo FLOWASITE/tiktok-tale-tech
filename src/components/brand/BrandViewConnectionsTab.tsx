@@ -1833,16 +1833,16 @@ try {
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="default"
                   size="sm"
-                  disabled
+                  onClick={handleWixOAuthConnect}
+                  disabled={isWixOAuthConnecting}
                   className="w-full justify-center gap-2"
-                  title="Sẽ ra mắt trong Phase 2 - cần Wix App approval"
                 >
-                  Kết nối Wix qua OAuth (sắp ra mắt)
+                  {isWixOAuthConnecting ? 'Đang mở Wix...' : '🔐 Kết nối Wix qua OAuth (khuyến nghị)'}
                 </Button>
                 <p className="text-[11px] text-muted-foreground text-center -mt-1">
-                  Hoặc dùng API Key thủ công bên dưới ↓
+                  Khuyến nghị OAuth — không cần Site/Account ID. Hoặc dùng API Key thủ công bên dưới ↓
                 </p>
 
                 <div className="space-y-2">
