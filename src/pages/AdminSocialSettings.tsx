@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Settings, Check, X, Trash2, Zap, Loader2, Search, ShieldCheck } from 'lucide-react';
+import { Settings, Check, X, Trash2, Zap, Loader2, Search, ShieldCheck, KeyRound } from 'lucide-react';
 import {
   XIcon,
   FacebookIcon,
