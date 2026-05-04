@@ -3624,7 +3624,37 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             const CHANNEL_FORMAT_GUIDANCE: Record<string, string> = {
               website:   "Bài chuẩn SEO 1000-2000 từ. H1 + H2/H3, intro 50-100 từ, ≥2 section có bullet/numbered list, blockquote, **bold** keyword, conclusion + CTA mềm. Markdown thuần (KHÔNG HTML). Tone: corporate, schema-friendly.",
               blogger:   "Bài Blogger 500-900 từ, casual blog tone, ngôi 'tôi/mình', kể chuyện cá nhân/trải nghiệm thật, hook mở bài bằng 1 câu chuyện hoặc câu hỏi, 1-2 bullet ngắn, kết bằng câu hỏi mời comment. Markdown nhẹ (## heading, **bold**, - bullet). KHÔNG SEO chặt như website. Phải KHÁC website rõ rệt về tone & độ dài (ngắn hơn, đời thường hơn).",
-              wordpress: "Bài WordPress in-depth 1200-2200 từ, tone authority/expert, H2 + H3 chi tiết, intro 80-120 từ, 4-6 sections lớn với bullet/numbered list, ≥1 blockquote, **bold** keyword, conclusion + CTA rõ ràng, có thể thêm FAQ. Markdown chuẩn. Sâu hơn & dài hơn website một bậc. Phải KHÁC blogger (formal hơn, dài hơn) và KHÁC website (chi tiết/chuyên sâu hơn).",
+              wordpress: `Bài WordPress CHUẨN SEO E-E-A-T 1500-2500 từ, tone authority/expert, Markdown thuần (KHÔNG HTML).
+
+CẤU TRÚC:
+- Intro 80-150 từ: nêu vấn đề + lời hứa, focus keyword xuất hiện trong 100 từ đầu.
+- 5-7 ## H2 (200-400 từ/section), có thể chia ### H3. Mỗi H2 PHẢI chứa ≥1 keyword/LSI; KHÔNG đặt H2 generic kiểu "Tổng quan", "Lời kết".
+- ≥1 numbered list, ≥1 bulleted list, ≥1 blockquote (>), nếu hợp thì 1 bảng so sánh.
+- Section "## Câu hỏi thường gặp" cuối bài: 3-5 câu Q/A (## H2 = câu hỏi, body = trả lời 40-80 từ) — dùng cho FAQPage schema.
+- Conclusion 100-150 từ: tóm tắt 3 ý chính + CTA cụ thể.
+
+ON-PAGE SEO:
+- Focus keyword density 0.8-1.5%, **bold** 4-6 lần (không nhồi).
+- 5-8 LSI keyword rải tự nhiên.
+- 2-3 internal link dạng [anchor có keyword](INTERNAL_LINK_PLACEHOLDER) để hệ thống tự thay.
+- 1-2 external link đến nguồn .gov/.edu/báo lớn nếu cần dẫn chứng.
+- Ảnh (nếu có): \`![alt-text-có-keyword](IMAGE_PLACEHOLDER)\`.
+
+BẮT BUỘC sau body, append đúng 1 block JSON (không thêm prose):
+\`\`\`seo-meta
+{
+  "metaTitle": "≤60 ký tự, focus keyword đầu, có brand",
+  "metaDescription": "140-160 ký tự, có focus keyword + CTA",
+  "slug": "khong-dau-co-dau-gach-ngang-≤60-ky-tu",
+  "focusKeyword": "...",
+  "lsiKeywords": ["...", "..."],
+  "tags": ["lowercase", "4-6 cái"],
+  "categories": ["1-2 category cha"],
+  "excerpt": "2-3 câu 50-160 từ hấp dẫn"
+}
+\`\`\`
+
+Phải KHÁC blogger (formal/long hơn) và KHÁC website (sâu chuyên môn + có meta JSON).`,
               facebook:  "Facebook 250-500 từ, hook mạnh đầu bài, cấu trúc tiêu đề-giới thiệu-case study-giải pháp-CTA.",
               instagram: "Instagram 50-150 từ, ngắn gọn, hashtag cuối bài.",
               twitter:   "X/Twitter thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số.",
