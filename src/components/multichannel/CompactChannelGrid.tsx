@@ -58,6 +58,7 @@ export function CompactChannelGrid({
   frequentChannels = [],
   frequentCounts = {},
   onSelectFrequent,
+  frequentAllSelected = false,
 }: CompactChannelGridProps) {
   const channelCategories: ChannelCategoryConfig[] = [
     { name: 'Website & Long-form', key: 'longform', icon: <Globe className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'longform') },
