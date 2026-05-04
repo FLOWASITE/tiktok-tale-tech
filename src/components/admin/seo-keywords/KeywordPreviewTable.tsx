@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Save, CheckSquare, Square, Sparkles, Trophy, ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
