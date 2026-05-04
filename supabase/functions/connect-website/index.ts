@@ -20,6 +20,10 @@ interface ConnectWebsiteRequest {
     username: string;
     applicationPassword: string;
   };
+  wixConfig?: {
+    siteId: string;
+    accountId: string;
+  };
 }
 
 function encrypt(text: string, key: string): string {
@@ -65,7 +69,8 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
       apiKey, 
       webhookUrl, 
       integrationType,
-      wordpressConfig 
+      wordpressConfig,
+      wixConfig,
     } = body;
 
     if (!websiteUrl || !integrationType) {
@@ -94,13 +99,32 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
       }
     } else if (integrationType === 'blogger') {
       throw new Error('Blogger không còn dùng API Key. Hãy đóng dialog này và bấm "Kết nối Blogger" để đăng nhập bằng Google OAuth.');
-    } else if (integrationType === 'wix' && apiKey) {
+    } else if (integrationType === 'wix') {
+      if (!apiKey) {
+        throw new Error('Wix yêu cầu API Key');
+      }
+      if (!wixConfig?.siteId || !wixConfig?.accountId) {
+        throw new Error('Wix yêu cầu cả Site ID và Account ID. Lấy tại Wix Dashboard URL: /dashboard/{accountId}/site/{siteId}');
+      }
       try {
-        const wixUrl = `https://www.wixapis.com/blog/v3/posts?paging.limit=1`;
-        const testResponse = await fetch(wixUrl, { headers: { 'Authorization': apiKey, 'wix-site-id': new URL(websiteUrl).hostname } });
-        if (!testResponse.ok && testResponse.status !== 403) {
+        const testResponse = await fetch(
+          `https://www.wixapis.com/site-list/v2/sites/query`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': apiKey,
+              'wix-account-id': wixConfig.accountId,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query: { paging: { limit: 1 } } }),
+          }
+        );
+        if (!testResponse.ok) {
           const errorText = await testResponse.text();
-          throw new Error(`Wix API test failed: ${testResponse.status} - ${errorText}`);
+          if (testResponse.status === 401 || testResponse.status === 403) {
+            throw new Error(`Wix API Key không hợp lệ hoặc thiếu permission Sites.Read. Kiểm tra lại API Key và Account ID. (HTTP ${testResponse.status})`);
+          }
+          throw new Error(`Wix API test failed: ${testResponse.status} - ${errorText.slice(0, 200)}`);
         }
         console.log('Wix API test successful');
       } catch (fetchError: any) {
@@ -188,6 +212,8 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
         api_endpoint: apiEndpoint || null,
         webhook_url: webhookUrl || null,
         wordpress_username: wordpressConfig?.username || null,
+        wix_site_id: wixConfig?.siteId || null,
+        wix_account_id: wixConfig?.accountId || null,
         can_auto_publish: integrationType !== 'manual',
       },
     };

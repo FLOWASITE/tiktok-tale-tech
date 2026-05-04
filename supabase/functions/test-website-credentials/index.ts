@@ -136,16 +136,25 @@ Deno.serve(withPerf({ functionName: 'test-website-credentials' }, async (req) =>
       apiType = 'Blogger API v3';
       details = { blogName: data.name, blogId: data.id, url: data.url };
     } else if (platform === 'wix' || apiUrl.includes('wixapis.com')) {
-      console.log('Testing Wix API...');
-      const response = await fetch('https://www.wixapis.com/blog/v3/posts?paging.limit=1', {
-        headers: { 'Authorization': apiKey || '' },
+      console.log('Testing Wix API (Site List)...');
+      // Admin tier test: only checks API Key validity (Account ID không có trong global settings)
+      // Per-connection test (với Account ID) chạy trong connect-website
+      const response = await fetch('https://www.wixapis.com/site-list/v2/sites/query', {
+        method: 'POST',
+        headers: {
+          'Authorization': apiKey || '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: { paging: { limit: 1 } } }),
       });
-      if (!response.ok && response.status !== 403) {
+      // 400 = thiếu wix-account-id header (expected ở admin level - API Key vẫn hợp lệ)
+      // 401/403 = API Key sai
+      if (response.status === 401 || response.status === 403) {
         const errorText = await response.text();
-        throw new Error(`Wix API error: ${response.status} - ${errorText}`);
+        throw new Error(`Wix API Key không hợp lệ: ${response.status} - ${errorText.slice(0, 200)}`);
       }
-      apiType = 'Wix Blog API';
-      details = { url: apiUrl, hasAuth: !!apiKey };
+      apiType = 'Wix API';
+      details = { url: apiUrl, hasAuth: !!apiKey, note: 'API Key hợp lệ. Account ID + Site ID sẽ verify khi connect brand.' };
     } else if (platform === 'shopify_blog' || apiUrl.includes('myshopify.com')) {
       console.log('Testing Shopify Blog API...');
       const storeUrl = apiUrl.replace(/\/$/, '').replace(/^https?:\/\//, '');
