@@ -581,9 +581,13 @@ export function buildAiRenderPlan(input: BuildPlanInput): { renderSpec: RenderSp
   const tallDense = renderSpec.ratioVariant === 'tall' && (densityMode === 'dense' || footerLength > renderSpec.footerBudget);
   const comparisonDense = input.suggestedLayout === 'comparison_card' && hasCardDescriptions && renderSpec.ratioVariant !== 'wide';
   const overCardBudget = cardsCount > maxCards;
+  // Loosened: only trigger hybrid_footer when footer is risky AND logo is at risk.
+  // logoProtection === 'high' alone is handled by Step 2 logo overlay independently,
+  // and footerStrategy === 'minimal' is short enough for AI to bake reliably.
+  // Previous logic over-triggered overlay even when AI rendered text correctly.
   const recommendedOverlayMode: RecommendedOverlayMode = riskyBottomCenter || tallDense || comparisonDense || overCardBudget
     ? 'satori'
-    : footerStrategy !== 'none' || logoProtection === 'high'
+    : footerStrategy === 'compact' && logoProtection === 'high'
       ? 'hybrid_footer'
       : 'ai_render';
   const fallbackHint: FallbackHint = recommendedOverlayMode === 'satori'
