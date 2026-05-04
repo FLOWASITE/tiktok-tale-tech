@@ -709,7 +709,7 @@ async function ensureLongformChannelsFilled(
   deps: LongformRetryDeps,
 ): Promise<string[]> {
   const stillMissing: string[] = [];
-  for (const ch of ['blogger', 'wordpress'] as const) {
+  for (const ch of ['blogger', 'wordpress', 'shopify', 'wix', 'medium'] as const) {
     if (!selectedChannels.includes(ch)) continue;
 
     const current = normalizeLongformText(channelResults[ch]);
