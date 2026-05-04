@@ -85,7 +85,7 @@ export function ContentMockupToggle({
     ? brandName.trim() 
     : 'Brand';
 
-  const isWebsiteLike = channel === 'website' || channel === 'blogger';
+  const isWebsiteLike = channel === 'website' || channel === 'blogger' || channel === 'wordpress' || channel === 'shopify';
   const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} seoScore={isWebsiteLike ? seoScore : undefined} onTriggerGEO={onTriggerGEO} isGEOLoading={isGEOLoading} geoFactorScores={geoFactorScores} content={content} />;
 
   // Use dedicated Google Maps mockup
