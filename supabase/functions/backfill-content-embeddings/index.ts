@@ -84,18 +84,25 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Không thuộc workspace" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Chỉ xử lý bài đã có ít nhất 1 URL công khai (publish ra website/blogger/wordpress/flowa blog)
+    // → embed mới có ý nghĩa cho gợi ý liên kết nội bộ.
+    const PUBLISHED_FILTER =
+      "website_post_url.not.is.null,blogger_post_url.not.is.null,wordpress_post_url.not.is.null,flowa_blog_post_url.not.is.null";
+
     // Count remaining
     const { count: remainingBefore } = await supabase
       .from("multi_channel_contents")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", organizationId)
-      .is("content_embedding", null);
+      .is("content_embedding", null)
+      .or(PUBLISHED_FILTER);
 
     const { data: rows, error: selErr } = await supabase
       .from("multi_channel_contents")
       .select("id, title, topic, website_content, blogger_content, wordpress_content")
       .eq("organization_id", organizationId)
       .is("content_embedding", null)
+      .or(PUBLISHED_FILTER)
       .order("created_at", { ascending: false })
       .limit(batchSize);
     if (selErr) throw selErr;

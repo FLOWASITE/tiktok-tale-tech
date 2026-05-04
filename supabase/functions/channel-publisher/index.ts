@@ -24,6 +24,17 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   bluesky: 'publish-bluesky',
 };
 
+// Map action → cặp cột URL/ID trên multi_channel_contents để lưu link bài đã publish
+const URL_COLUMN_MAP: Record<string, { url: string; id: string }> = {
+  website:    { url: 'website_post_url',    id: 'website_post_id' },
+  blogger:    { url: 'blogger_post_url',    id: 'blogger_post_id' },
+  wordpress:  { url: 'wordpress_post_url',  id: 'wordpress_post_id' },
+  blog:       { url: 'flowa_blog_post_url', id: 'flowa_blog_post_id' },
+  flowa_blog: { url: 'flowa_blog_post_url', id: 'flowa_blog_post_id' },
+  pinterest:  { url: 'pinterest_post_url',  id: 'pinterest_post_id' },
+  bluesky:    { url: 'bluesky_post_url',    id: 'bluesky_post_id' },
+};
+
 // Map action back to the channel key used in selected_channels / channel_statuses
 const ACTION_TO_CHANNEL: Record<string, string> = {
   zalo: 'zalo_oa',
@@ -265,6 +276,17 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
     try { parsedResponse = JSON.parse(responseBody); } catch { /* not JSON */ }
     const isSuccess = response.ok && parsedResponse?.success === true;
 
+    // Extract real post URL/ID from publisher response (publish-* return them at root)
+    const respData = (parsedResponse?.data as Record<string, unknown> | undefined) ?? {};
+    const postUrl =
+      (parsedResponse?.postUrl as string | undefined) ||
+      (respData?.postUrl as string | undefined) ||
+      undefined;
+    const postId =
+      (parsedResponse?.postId as string | undefined) ||
+      (respData?.postId as string | undefined) ||
+      undefined;
+
     if (contentId) {
       try {
         if (isSuccess) {
@@ -290,15 +312,26 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
             const newStatus = allPublished ? 'published' : 'partially_published';
 
+            // Build patch: status + channel_statuses + (URL/ID nếu có)
+            const patch: Record<string, unknown> = {
+              status: newStatus,
+              channel_statuses: channelStatuses,
+            };
+            const cols = URL_COLUMN_MAP[action];
+            if (cols) {
+              if (postUrl) patch[cols.url] = postUrl;
+              if (postId) patch[cols.id] = postId;
+            }
+
             const { error: updateError } = await supabase
               .from('multi_channel_contents')
-              .update({ status: newStatus, channel_statuses: channelStatuses })
+              .update(patch)
               .eq('id', contentId);
 
             if (updateError) {
               console.error('[channel-publisher] Failed to update content status:', updateError.message);
             } else {
-              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${effectiveChannelKey}=published)`);
+              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${effectiveChannelKey}=published, url=${postUrl ?? 'n/a'})`);
             }
           }
 
@@ -336,7 +369,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         console.error('[channel-publisher] Status update error (non-fatal):', statusErr);
       }
 
-      // --- Telegram push: success OR failure ---
+      // --- Insert publish_attempts (audit log) + Telegram push (success OR failure) ---
       try {
         const supabase = getServiceClient();
         const [{ data: mcc }, { data: car }] = await Promise.all([
@@ -344,13 +377,30 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           supabase.from('carousels').select('title, organization_id, created_by').eq('id', contentId).maybeSingle(),
         ]);
         const contentRow = mcc || car;
+        const errMsg = !isSuccess
+          ? (parsedResponse?.error as string | undefined) || `HTTP ${response.status}`
+          : undefined;
+
+        // Insert publish_attempts row (best-effort audit)
         if (contentRow?.organization_id) {
-          const errMsg = !isSuccess
-            ? (parsedResponse?.error as string | undefined) || `HTTP ${response.status}`
-            : undefined;
-          const postUrl = isSuccess
-            ? ((parsedResponse?.data as any)?.postUrl || (parsedResponse?.postUrl as string | undefined))
-            : undefined;
+          try {
+            await supabase.from('publish_attempts').insert({
+              content_id: contentId,
+              organization_id: contentRow.organization_id,
+              connection_id: (finalPayload.connectionId as string | undefined) ?? null,
+              platform: action,
+              channel: ACTION_TO_CHANNEL[action] ?? action,
+              status: isSuccess ? 'success' : 'failed',
+              external_post_id: postId ?? null,
+              external_post_url: postUrl ?? null,
+              error_message: errMsg ?? null,
+              response_payload: parsedResponse ?? null,
+              completed_at: new Date().toISOString(),
+            });
+          } catch (auditErr) {
+            console.error('[channel-publisher] publish_attempts insert error (non-fatal):', auditErr);
+          }
+
           const { notifyPublishResult } = await import('../_shared/telegram-notifier.ts');
           await notifyPublishResult(
             supabase,
@@ -359,7 +409,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             contentRow.title || 'Bài đăng',
             isSuccess,
             errMsg,
-            { channel: action, postUrl },
+            { channel: action, postUrl: isSuccess ? postUrl : undefined },
           );
         }
       } catch (notifErr) {

@@ -125,12 +125,15 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
     // NOTE: Status update for multi_channel_contents is now handled centrally
     // by channel-publisher/index.ts after receiving a successful response.
 
+    const blogDomain = Deno.env.get('PUBLIC_BLOG_DOMAIN') || 'https://flowa.one';
+    const postUrl = `${blogDomain.replace(/\/$/, '')}/blog/${data.slug}`;
+
     return new Response(
       JSON.stringify({
         success: true,
         platform: 'blog',
         postId: data.id,
-        postUrl: `/blog/${data.slug}`,
+        postUrl,
         message: status === 'published'
           ? 'Đã đăng bài blog thành công'
           : 'Đã lưu bài blog dạng nháp',
