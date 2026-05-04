@@ -15,7 +15,7 @@ interface ConnectWebsiteRequest {
   apiEndpoint?: string;
   apiKey?: string;
   webhookUrl?: string;
-  integrationType: 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'nukeviet' | 'custom_api' | 'webhook' | 'manual';
+  integrationType: 'wordpress' | 'wix' | 'shopify_blog' | 'nukeviet' | 'custom_api' | 'webhook' | 'manual';
   wordpressConfig?: {
     username: string;
     applicationPassword: string;
