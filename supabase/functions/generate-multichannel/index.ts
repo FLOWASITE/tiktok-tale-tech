@@ -3671,7 +3671,6 @@ BẮT BUỘC sau body, append đúng 1 block JSON (không thêm prose):
 
 Phải KHÁC blogger (formal/long hơn) và KHÁC website (sâu chuyên môn + có meta JSON).`,
               shopify:   `Bài Shopify Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Shopify blog dùng HTML, không phải Markdown thuần).
-              wix:   `Bài Wix Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Wix blog dùng HTML, không phải Markdown thuần).,
 
 CẤU TRÚC:
 - Intro 60-120 từ: hook bằng nỗi đau/khao khát của shopper, đề cập sản phẩm/BST.
