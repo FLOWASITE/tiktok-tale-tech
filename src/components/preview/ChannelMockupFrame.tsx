@@ -2341,6 +2341,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <BloggerMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'wordpress':
       return <WordPressMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
+    case 'shopify':
+      return <ShopifyMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     case 'general':
       return <WebsiteMockup {...rest} brandName={safeBrandName} seoData={seoData} channelImage={channelImage} />;
     default:
