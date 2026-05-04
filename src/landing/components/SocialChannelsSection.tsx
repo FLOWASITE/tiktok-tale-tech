@@ -17,6 +17,7 @@ import {
   BloggerIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
 } from "@/components/icons/SocialIcons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
