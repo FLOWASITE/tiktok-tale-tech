@@ -6463,13 +6463,17 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           ...(() => {
             const wpRaw = (generatedData.wordpress_content && generatedData.wordpress_content.length > 0) ? generatedData.wordpress_content : null;
             const blRaw = (generatedData.blogger_content && generatedData.blogger_content.length > 0) ? generatedData.blogger_content : null;
+            const shRaw = (generatedData.shopify_content && generatedData.shopify_content.length > 0) ? generatedData.shopify_content : null;
             const wpEx = wpRaw ? extractSeoMetaBlock(wpRaw) : { stripped: null, meta: null };
             const blEx = blRaw ? extractSeoMetaBlock(blRaw) : { stripped: null, meta: null };
+            const shEx = shRaw ? extractSeoMetaBlock(shRaw) : { stripped: null, meta: null };
             return {
               blogger_content: blEx.stripped,
               wordpress_content: wpEx.stripped,
+              shopify_content: shEx.stripped,
               blogger_seo_data: blEx.meta,
               wordpress_seo_data: wpEx.meta,
+              shopify_seo_data: shEx.meta,
             };
           })(),
         }))
