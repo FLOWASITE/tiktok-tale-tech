@@ -77,7 +77,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   bluesky: <Globe className="w-4 h-4" />,
 };
 
-type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'general';
+type ChannelMockupType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'general';
 
 const channelToMockupType: Record<Channel, ChannelMockupType> = {
   facebook: 'facebook',
@@ -90,7 +90,7 @@ const channelToMockupType: Record<Channel, ChannelMockupType> = {
   website: 'general',
   blogger: 'blogger',
   wordpress: 'wordpress',
-  shopify: 'wordpress',
+  shopify: 'shopify',
   google_maps: 'general',
   youtube: 'general',
   zalo_oa: 'general',
