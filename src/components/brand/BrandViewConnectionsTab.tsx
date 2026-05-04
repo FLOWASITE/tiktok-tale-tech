@@ -40,6 +40,7 @@ import {
   Youtube,
   Plus,
   Trash2,
+  Pencil,
   Unplug,
   ExternalLink,
   Eye,
@@ -808,12 +809,27 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                   </Button>
                 </>
               )}
+              {platform === 'shopify' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShopifyShop(connection.platform_username || '');
+                    setShopifyDialogOpen(true);
+                  }}
+                  title="Đổi shop / Cấp lại quyền"
+                >
+                  <Pencil className="w-4 h-4 mr-1" />
+                  Sửa
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => handleDelete(connection.id)}
                 disabled={isDeleting}
                 className="text-destructive hover:text-destructive"
+                title="Xóa kết nối"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
