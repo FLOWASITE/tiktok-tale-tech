@@ -401,12 +401,12 @@ export function SocialConnectionsManager() {
                         );
                       })()}
                       {!connection && (
-                        <p className="text-sm text-muted-foreground">{config.description}</p>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{config.description}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-end pt-2 border-t border-border/50 mt-auto">
                     {connection ? (
                       <>
                         <Button
