@@ -165,6 +165,21 @@ Deno.serve(
         if (Array.isArray(categories) && categories.length) {
           wpcomPayload.categories = categories.filter((c) => typeof c === "string").join(",");
         }
+        // Yoast / Rank Math meta via wp.com metadata array
+        const wpcomMetadata: Array<{ key: string; value: string; operation?: string }> = [];
+        if (metaDescription) {
+          wpcomMetadata.push({ key: "_yoast_wpseo_metadesc", value: String(metaDescription) });
+          wpcomMetadata.push({ key: "rank_math_description", value: String(metaDescription) });
+        }
+        if (seoTitle) {
+          wpcomMetadata.push({ key: "_yoast_wpseo_title", value: String(seoTitle) });
+          wpcomMetadata.push({ key: "rank_math_title", value: String(seoTitle) });
+        }
+        if (focusKeyword) {
+          wpcomMetadata.push({ key: "_yoast_wpseo_focuskw", value: String(focusKeyword) });
+          wpcomMetadata.push({ key: "rank_math_focus_keyword", value: String(focusKeyword) });
+        }
+        if (wpcomMetadata.length) wpcomPayload.metadata = wpcomMetadata;
 
         const wpcomRes = await fetch(
           `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(String(siteId))}/posts/new`,
