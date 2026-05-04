@@ -120,7 +120,7 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
 };
 
 // Platforms managed entirely outside this dialog
-const READ_ONLY_PLATFORMS = new Set<SocialPlatform>(['bluesky', 'shopify', 'wordpress']);
+const READ_ONLY_PLATFORMS = new Set<SocialPlatform>(['bluesky', 'wordpress']);
 
 function getCallbackUrl(platform: SocialPlatform): string | null {
   const path = CALLBACK_URL_MAP[platform];
@@ -181,6 +181,7 @@ export function SocialPlatformCredentialsDialog({
     instagram: ['Instagram App ID', 'Instagram App Secret'],
     threads: ['Threads App ID', 'Threads App Secret'],
     twitter: ['Consumer Key (API Key)', 'Consumer Secret (API Secret)'],
+    shopify: ['Shopify Client ID', 'Shopify Client Secret'],
   };
   const [keyLabel, secretLabel] = KEY_LABELS[platform] || ['Client ID', 'Client Secret'];
 

@@ -69,7 +69,7 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'blogger', name: 'Blogger', icon: BloggerIcon, iconColor: 'text-[#F57C00]', category: 'longform', authMode: 'credentials', authNote: 'Dùng chung Google OAuth Client với Google Business — bật Blogger API v3.' },
   { platform: 'wordpress_com', name: 'WordPress.com', icon: WordPressIcon, iconColor: 'text-[#21759b]', category: 'longform', authMode: 'credentials' },
   { platform: 'wordpress', name: 'WordPress (self-hosted)', icon: WordPressIcon, iconColor: 'text-[#21759b]', category: 'longform', authMode: 'per_brand', authNote: 'Mỗi brand kết nối bằng Application Password riêng — không cấu hình toàn cục.' },
-  { platform: 'shopify', name: 'Shopify', icon: ShopifyIcon, iconColor: 'text-[#96bf48]', category: 'longform', authMode: 'oauth_only', authNote: 'Client ID/Secret lưu trong Edge Function Secrets (SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET).' },
+  { platform: 'shopify', name: 'Shopify', icon: ShopifyIcon, iconColor: 'text-[#96bf48]', category: 'longform', authMode: 'credentials', authNote: 'Tạo Public App tại Shopify Partners. Lưu Client ID/Secret tại đây để user kết nối shop qua OAuth.' },
   { platform: 'website', name: 'Website / Custom API', icon: Globe, iconColor: 'text-muted-foreground', category: 'longform', authMode: 'credentials' },
 ];
 
