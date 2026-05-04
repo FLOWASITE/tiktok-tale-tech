@@ -183,7 +183,7 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
   },
   shopify: {
     name: 'Shopify',
-    icon: <ChannelIcon channel="shopify" size={20} />,
+    icon: <ChannelIcon channel={"shopify" as any} size={20} />,
     color: 'bg-[#96BF48]/10',
     available: true,
     description: 'Auto-publish blog vào Shopify store qua OAuth',

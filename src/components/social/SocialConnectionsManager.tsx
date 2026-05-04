@@ -199,7 +199,7 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
   },
   shopify: {
     name: 'Shopify',
-    icon: () => <ChannelIcon channel="shopify" size={16} />,
+    icon: () => <ChannelIcon channel={"shopify" as any} size={16} />,
     color: 'text-[#96BF48]',
     bgColor: 'bg-[#96BF48]/10',
     available: true,
