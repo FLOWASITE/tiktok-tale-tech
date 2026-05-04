@@ -3588,7 +3588,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             return [ch, {
               model,
               temperature: cfg?.temperature ?? aiConfig.temperature,
-              maxTokens: clampMaxTokensForModel(model, optimizedMaxTokens),
+              maxTokens: clampMaxTokensForModel(model, applyLongformTokenFloor(ch, optimizedMaxTokens)),
             }];
           })
         ),
@@ -4242,11 +4242,11 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
               if (existingMissingLongform) {
                 console.warn(`[streaming-mode] Dedup bypassed: existing content ${existingContent.id} is missing Blogger/WordPress text`);
               }
-              // PRE-INSERT ASSERT: Blogger/WordPress text must be present in memory before writing.
+              // PRE-INSERT ASSERT: selected long-form text must be present in memory before writing.
               {
                 const preLens: string[] = [];
                 const missingPre: string[] = [];
-                for (const ch of ['blogger', 'wordpress'] as const) {
+                for (const ch of ['blogger', 'wordpress', 'shopify', 'wix', 'medium'] as const) {
                   if (!channels.includes(ch)) continue;
                   const t = normalizeLongformText(channelResults[ch]);
                   preLens.push(`${ch}=${t.length}`);
