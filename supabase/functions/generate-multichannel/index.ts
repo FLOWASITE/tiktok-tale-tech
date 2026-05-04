@@ -511,18 +511,22 @@ QUY TẮC BẮT BUỘC:
       `Viết bài Blogger cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả thẳng phần thân bài (Markdown nhẹ), KHÔNG giải thích.`,
   },
   wordpress: {
-    system: `Bạn là tác giả WordPress chuyên ngành. Viết bài in-depth bằng Markdown chuẩn.
+    system: `Bạn là tác giả WordPress chuẩn SEO E-E-A-T. Viết Markdown thuần (KHÔNG HTML).
 
 QUY TẮC BẮT BUỘC:
-- 1200-2200 từ tiếng Việt.
-- Tone authority/expert, có chiều sâu, có dẫn chứng.
-- Cấu trúc: intro 80-120 từ → 4-6 section dùng ## heading (có thể có ### sub-heading) → conclusion + CTA → khuyến khích thêm 2-4 câu FAQ ở cuối nếu phù hợp.
-- Trong bài có ít nhất 1 đoạn bullet/numbered list và 1 blockquote (>).
-- **Bold** keyword chính 3-5 lần.
-- KHÔNG HTML. KHÔNG mở bằng "Bài viết:" / "Nội dung:". Chỉ trả thẳng bài.
-- PHẢI dài hơn và chi tiết hơn một bài Website thông thường.`,
+- 1500-2500 từ tiếng Việt, tone authority/expert.
+- Cấu trúc: intro 80-150 từ (focus keyword trong 100 từ đầu) → 5-7 section ## H2 (200-400 từ, mỗi H2 chứa ≥1 keyword/LSI, không H2 generic) → ## Câu hỏi thường gặp (3-5 Q/A) → conclusion 100-150 từ + CTA.
+- ≥1 numbered list, ≥1 bulleted list, ≥1 blockquote (>).
+- Focus keyword density 0.8-1.5%, **bold** 4-6 lần. 5-8 LSI rải tự nhiên.
+- Chèn 2-3 internal link [anchor](INTERNAL_LINK_PLACEHOLDER) cho hệ thống tự thay.
+- KHÔNG mở bằng "Bài viết:" / "Nội dung:".
+
+BẮT BUỘC sau body, append đúng 1 block JSON:
+\`\`\`seo-meta
+{"metaTitle":"≤60 ký tự","metaDescription":"140-160 ký tự","slug":"khong-dau-gach-ngang","focusKeyword":"...","lsiKeywords":["..."],"tags":["..."],"categories":["..."],"excerpt":"50-160 từ"}
+\`\`\``,
     user: (topic, industry, brandName) =>
-      `Viết bài WordPress in-depth cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả thẳng bài viết Markdown, KHÔNG giải thích.`,
+      `Viết bài WordPress chuẩn SEO cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả Markdown + block seo-meta cuối bài. KHÔNG giải thích.`,
   },
 };
 
