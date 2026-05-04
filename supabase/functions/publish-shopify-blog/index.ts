@@ -1,6 +1,6 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
-import { shopifyAdminFetch } from "../_shared/shopify.ts";
+import { shopifyFetch } from "../_shared/shopify.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +28,7 @@ async function resolveBlogId(shop: string, accessToken: string, requested?: numb
   const id = requested ?? fallback;
   if (id) return Number(id);
   // Auto-pick first blog (most stores have a default "News" blog)
-  const resp = await shopifyAdminFetch(shop, accessToken, 'blogs.json?limit=1');
+  const resp = await shopifyFetch(shop, accessToken, 'blogs.json?limit=1');
   const data = await resp.json();
   if (!resp.ok || !data?.blogs?.length) {
     throw new Error('Shopify store has no blogs. Create one in Shopify Admin → Online Store → Blog Posts → Manage blogs.');
@@ -97,7 +97,7 @@ Deno.serve(withPerf({ functionName: 'publish-shopify-blog' }, async (req) => {
       articlePayload.image = { src: featuredImageUrl };
     }
 
-    const postResp = await shopifyAdminFetch(
+    const postResp = await shopifyFetch(
       shop,
       accessToken,
       `blogs/${blogId}/articles.json`,
