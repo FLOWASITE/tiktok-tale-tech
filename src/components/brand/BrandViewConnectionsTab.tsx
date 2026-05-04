@@ -712,6 +712,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     bluesky: 'bluesky',
     shopify: 'shopify',
     wix: 'wix',
+    medium: 'medium',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
