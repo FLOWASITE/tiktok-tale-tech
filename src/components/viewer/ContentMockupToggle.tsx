@@ -76,8 +76,9 @@ export function ContentMockupToggle({
   footerInfo,
   industryLabel,
   pinterestTitle,
+  useWixMockup,
 }: ContentMockupToggleProps) {
-  const mockupType = channelToMockupType[channel];
+  const mockupType = useWixMockup && channel === 'website' ? 'wix' : channelToMockupType[channel];
   
   // Normalize content to prevent react-markdown crashes
   const safeContent = normalizeMarkdownText(content);
