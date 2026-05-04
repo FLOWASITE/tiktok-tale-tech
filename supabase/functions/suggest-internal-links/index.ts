@@ -113,20 +113,44 @@ Deno.serve(async (req) => {
     });
   } catch (error: any) {
     console.error("[suggest-internal-links] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Graceful fallback — never crash the viewer
+    return new Response(
+      JSON.stringify({ suggestions: [], error: error?.message || "unknown", fallback: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
 
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
+let _embedSession: any = null;
+function getEmbedSession() {
+  if (!_embedSession) _embedSession = new Supabase.ai.Session("gte-small");
+  return _embedSession;
+}
+
 async function embed(text: string): Promise<number[]> {
+  // Primary: Supabase built-in gte-small (384-dim, no external API)
+  try {
+    const out = await getEmbedSession().run(text.slice(0, 8000), { mean_pool: true, normalize: true });
+    let vec = Array.from(out as Float32Array) as number[];
+    if (vec.length > 384) vec = vec.slice(0, 384);
+    else while (vec.length < 384) vec.push(0);
+    return vec;
+  } catch (e) {
+    console.warn("[suggest-internal-links] Supabase.ai embed failed, fallback to gateway:", e);
+  }
+  // Fallback: Lovable AI gateway
   const aiKey = Deno.env.get("LOVABLE_API_KEY")!;
   const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
     method: "POST",
     headers: { "Authorization": `Bearer ${aiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: "google/text-embedding-004", input: text.slice(0, 8000) }),
   });
-  if (!res.ok) throw new Error(`Embed failed: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`Embed failed: ${res.status} ${errBody.slice(0, 200)}`);
+  }
   const j = await res.json();
   let vec: number[] = j.data?.[0]?.embedding ?? [];
   if (vec.length > 384) vec = vec.slice(0, 384);
