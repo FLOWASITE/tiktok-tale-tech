@@ -99,7 +99,7 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
   },
   shopify: {
     url: 'https://partners.shopify.com/',
-    instructions: 'Tạo Public App tại Shopify Partners → App setup → App URL: https://app.flowa.one. Allowed redirection URL: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/shopify-oauth-callback. Scopes: read_content, write_content, read_products. Lưu Client ID & Secret vào Edge Function Secrets (SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET) — không cần nhập ở đây.',
+    instructions: 'Tạo Public App tại Shopify Partners → App setup → App URL: https://app.flowa.one. Allowed redirection URL phải khớp callback bên dưới. Scopes: read_content, write_content, read_products. Nhập Shopify Client ID & Secret tại đây.',
   },
 };
 
