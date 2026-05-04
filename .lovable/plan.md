@@ -1,58 +1,44 @@
 ## Mục tiêu
 
-Phân loại lại kênh xuất bản trong **Nội dung đa kênh** thành **2 nhóm**:
+Trang Kết nối hiện đổ một list dài 16 platform vào 1 Card duy nhất → khó scan, không phân biệt được "đăng social ngắn" vs "đăng blog dài" vs "local business". Nâng cấp bằng cách **phân loại theo nhóm chức năng** + cải thiện hierarchy thị giác.
 
-1. **Website & Long-form** — bài dài có cấu trúc (CMS/blog/email)
-2. **Mạng xã hội** — post ngắn, social-first
+## Phân loại 3 nhóm (đồng bộ với Multichannel reclassification)
 
-Loại bỏ **TikTok** và **YouTube** khỏi multichannel (video sẽ chỉ post từ Video Studio .
+```text
+┌─ 1. Mạng xã hội (Social) ──────────────────────────────┐
+│  Facebook · Instagram · TikTok · Threads · X (Twitter) │
+│  LinkedIn · Pinterest · Bluesky · YouTube              │
+└────────────────────────────────────────────────────────┘
 
-## Mapping nhóm mới
+┌─ 2. Website & Long-form (Blog/CMS) ────────────────────┐
+│  WordPress · WordPress.com · Blogger                   │
+│  Shopify · Wix · Website (custom API/Webhook)          │
+└────────────────────────────────────────────────────────┘
 
-**Website & Long-form (7):**
+┌─ 3. Local & Messaging ─────────────────────────────────┐
+│  Google Business · Zalo OA                             │
+└────────────────────────────────────────────────────────┘
+```
 
-- `website`, `blogger`, `wordpress`, `shopify`, `wix` — long-form CMS
-- `email` — newsletter dài có subject+body
-- (giữ logic đã có cho long-form separation)
+## Thay đổi UI
 
-**Mạng xã hội (10):**
+**File:** `src/components/brand/BrandViewConnectionsTab.tsx`
 
-- `linkedin`, `twitter`, `threads`, `bluesky`, `telegram` — text social
-- `facebook`, `instagram`, `zalo_oa`, `pinterest`, `google_maps` — visual/social
+1. Thêm hằng số `PLATFORM_GROUPS` map mỗi `SocialPlatform` → `'social' | 'longform' | 'local'` + label/description nhóm + icon nhóm (Share2 / Globe / MapPin).
+2. Thay 1 Card duy nhất bằng **3 Card riêng** theo nhóm:
+   - Mỗi Card có header: icon nhóm + tên nhóm + badge "X/Y đã kết nối".
+   - Body render đúng các platform thuộc nhóm bằng chính `renderConnection()` / `renderFacebookPlatform()` / `renderWebsitePlatform()` đã có.
+3. Sắp xếp thứ tự trong từng nhóm: ưu tiên platform `available: true` và đã có connection lên trên.
+4. Giữ nguyên dialog/handler hiện tại — chỉ tổ chức lại layout, không động code OAuth.
 
-**Bỏ:** `tiktok`, `youtube` — không xuất hiện trong picker multichannel.
+## Polish nhỏ
 
-## Thay đổi
-
-### 1. `src/types/multichannel.ts`
-
-- Đổi `category` của tất cả channel: `'text'|'image'` → `'longform'|'social'` theo mapping trên.
-- **Xoá 2 entry** `tiktok` và `youtube` khỏi `CHANNELS` array.
-- Type `Channel` union: giữ `tiktok`/`youtube` để không vỡ DB columns/types cũ (`tiktok_content`, `youtube_content` vẫn tồn tại trong DB), nhưng chúng không xuất hiện trong UI picker nữa.
-
-### 2. `src/components/multichannel/CompactChannelGrid.tsx`
-
-- Thay 3 nhóm (Text/Image/Video) bằng 2 nhóm:
-  - "Website & Long-form" (icon `FileText`/`Globe`) — `category === 'longform'`
-  - "Mạng xã hội" (icon `Users` hoặc `Hash`) — `category === 'social'`
-- Bỏ import `Video` nếu không còn dùng.
-
-### 3. `src/components/multichannel/MultiChannelFormStepper.tsx` (lines 447-452)
-
-- File này filter theo `'content'|'social'|'direct'|'local'` (không khớp categories trong types). Chuẩn hoá lại thành 2 nhóm mới `'longform'|'social'` để khớp với types.
-
-### 4. Memory update
-
-- Cập nhật `mem://architecture/multichannel/channel-medium-reclassification-vn` ghi nhận classification mới: 2 nhóm Long-form / Social, TikTok/YouTube đã bị bỏ khỏi multichannel publishing (chỉ Video Studio xử lý).
+- Sửa `Twitter` icon trong dialog Twitter setup (hiện dùng Lucide `Twitter` cũ) → `<ChannelIcon channel="twitter" />` cho đồng bộ Soft Luxury.
+- Bỏ entry trùng `Website` khỏi nhóm Long-form nếu đã có `WordPress` + `Shopify` + `Wix` + `Blogger` (Website hiện là fallback cho custom API/Webhook → giữ riêng cuối nhóm).
+- Thêm divider nhỏ (border-t neutral) giữa các Card để không gian thở "Soft Luxury".
 
 ## Không thay đổi
 
-- DB schema (`tiktok_content`, `youtube_content` columns giữ nguyên cho dữ liệu cũ).
-- Edge function `generate-multichannel`, `publish-*` (không gọi cho 2 channel này nữa nhưng code vẫn hoạt động).
-- Video Studio vẫn publish TikTok/YouTube qua flow riêng (theo memory `Video Publish + Audio Link`).
-- Các view list/stats/filter có thể vẫn show data cũ nếu user đã từng tạo content TikTok/YouTube — chỉ chặn ở picker tạo mới.
-
-## Rủi ro
-
-- Nếu user có content TikTok/YouTube cũ, view stats/group-by-channel vẫn hiển thị bình thường (do `Channel` type giữ nguyên union).
-- Không ảnh hưởng publishing đã schedule.
+- Logic kết nối, OAuth flow, dialog setup.
+- File `ChannelIcon` (đã sửa Shopify/Wix ở turn trước).
+- Trang `Connections.tsx` (chỉ redirect → `/brands/:id?tab=connections`).
