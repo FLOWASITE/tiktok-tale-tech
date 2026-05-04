@@ -20,6 +20,7 @@ import {
   TelegramIcon,
   GoogleBusinessIcon,
   ShopifyIcon,
+  WixIcon,
 } from "@/components/icons/SocialIcons";
 
 /* Wrapper to make custom SVG icons behave like LucideIcon */
