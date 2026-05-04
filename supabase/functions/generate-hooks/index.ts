@@ -174,8 +174,17 @@ Trả về CHÍNH XÁC 1 JSON object với format sau (KHÔNG có \`\`\`, KHÔNG
   try {
     hook = JSON.parse(jsonStr);
   } catch (parseErr) {
-    console.error('[generate-hooks] JSON parse error for platform:', platform, 'Raw:', content.substring(0, 200));
-    throw new Error(`Failed to parse hook JSON: ${parseErr}`);
+    // Fallback: clean trailing commas + control chars then retry
+    try {
+      const cleaned = jsonStr
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+      hook = JSON.parse(cleaned);
+    } catch {
+      console.error('[generate-hooks] JSON parse error for platform:', platform, 'Raw:', content.substring(0, 500));
+      throw new Error(`Failed to parse hook JSON: ${parseErr}`);
+    }
   }
   hook.platform = platform; // Gán platform vào hook
 
@@ -430,15 +439,24 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
         jsonStr = jsonStr.slice(objStart, objEnd + 1);
       }
       
-      hooks = JSON.parse(jsonStr);
-      
+      try {
+        hooks = JSON.parse(jsonStr);
+      } catch {
+        // Fallback: clean trailing commas + control chars
+        const cleaned = jsonStr
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        hooks = JSON.parse(cleaned);
+      }
+
       if (!Array.isArray(hooks)) {
         hooks = [hooks];
       }
     } catch (parseError) {
-      console.error('[generate-hooks] Failed to parse response:', parseError, 'Raw:', content.substring(0, 300));
+      console.error('[generate-hooks] Failed to parse response:', parseError, 'Raw:', content.substring(0, 500));
       return new Response(
-        JSON.stringify({ error: 'Failed to parse AI response' }),
+        JSON.stringify({ error: 'Failed to parse AI response', detail: String(parseError).slice(0, 200) }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
