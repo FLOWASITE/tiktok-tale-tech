@@ -133,7 +133,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         const contentColumn = action === 'blogger' ? 'blogger_content' : 'wordpress_content';
         const { data: mcc } = await supabase
           .from('multi_channel_contents')
-          .select(`title, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, seo_data`)
+          .select(`title, blogger_content, wordpress_content, organization_id, brand_template_id, featured_image_url, channel_images, blogger_seo_data, wordpress_seo_data`)
           .eq('id', contentIdForResolve)
           .maybeSingle();
 
