@@ -191,7 +191,7 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
   },
   wix: {
     name: 'Wix',
-    icon: <ChannelIcon channel={"website" as any} size={20} />,
+    icon: <ChannelIcon channel={"wix" as any} size={20} />,
     color: 'bg-[#0C6EFC]/10',
     available: true,
     description: 'Auto-publish blog vào Wix site qua OAuth',
