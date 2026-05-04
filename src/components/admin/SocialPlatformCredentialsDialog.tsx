@@ -265,15 +265,30 @@ export function SocialPlatformCredentialsDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
+
+    // If updating without changing creds — skip validation
+    const isUpdatingMetaOnly = existingSettings?.has_credentials && !consumerKey && !consumerSecret;
+    if (!isUpdatingMetaOnly) {
+      const result = validationSchema.safeParse({
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        app_name: appName,
+      });
+      if (!result.success) {
+        const firstError = result.error.errors[0]?.message || 'Dữ liệu không hợp lệ';
+        setValidationError(firstError);
+        return;
+      }
+    }
 
     const data: any = {
       platform,
       app_name: appName || undefined,
       is_active: isActive,
     };
-
-    if (consumerKey) data.consumer_key = consumerKey;
-    if (consumerSecret) data.consumer_secret = consumerSecret;
+    if (consumerKey) data.consumer_key = consumerKey.trim();
+    if (consumerSecret) data.consumer_secret = consumerSecret.trim();
 
     onSave(data);
   };
@@ -281,6 +296,45 @@ export function SocialPlatformCredentialsDialog({
   const isValid = existingSettings?.has_credentials
     ? true
     : consumerKey && consumerSecret;
+
+  // Read-only platforms — show banner only
+  if (isReadOnly) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              {platformName}
+            </DialogTitle>
+            <DialogDescription>
+              Nền tảng này không cấu hình credential ở đây.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+              <p className="font-medium text-foreground mb-1">Quản lý qua kênh khác</p>
+              <p className="text-muted-foreground leading-relaxed">{help.instructions}</p>
+            </div>
+            {help.url && (
+              <a
+                href={help.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+              >
+                Mở Developer Portal
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,9 +344,10 @@ export function SocialPlatformCredentialsDialog({
           <DialogDescription>
             {isInstagram
               ? 'Nhập Instagram App ID và Instagram App Secret từ mục "Business login settings" trong Meta App Dashboard.'
-              : `Nhập API credentials để user có thể kết nối ${platformName} chỉ với Access Token.`}
+              : `Nhập API credentials để user có thể kết nối ${platformName} qua OAuth.`}
           </DialogDescription>
         </DialogHeader>
+
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {existingSettings?.has_credentials && (
