@@ -1,57 +1,70 @@
 ## Mục tiêu
-Cho phép user **đặt mặc định "Chế độ SEO"** (ON/OFF) cho form Tạo nội dung đa kênh, để mỗi lần mở form mới không phải bật/tắt lại.
+Người dùng muốn kiểm tra: (1) bài viết có dùng keyword đã chọn không, (2) có internal link / backlink SEO không. Hiện `InternalLinksPanel` đã tồn tại nhưng **chưa được mount** vào viewer; còn audit keyword thì **chưa có**.
 
-## Vấn đề hiện tại
-`useEntryMode` đang persist mỗi lần toggle vào `localStorage['mc:entry_mode']` → mode ổn định nhưng không có khái niệm "mặc định" rõ ràng, và user không có nút chủ động set/reset default.
+## Phần 1 — Keyword Coverage Audit Panel (mới)
 
-## Thiết kế
+**File mới**: `src/components/seo/KeywordCoveragePanel.tsx`
 
-### 1. Tách "current mode" và "default mode" trong `src/hooks/useEntryMode.ts`
-- Thêm key `mc:entry_mode_default` (lưu preference mặc định).
-- Khởi tạo `mode` theo thứ tự: session state → `default` key → `'idea'`.
-- API mới:
-  ```ts
-  { mode, setMode, defaultMode, setAsDefault, resetDefault, isCurrentDefault }
-  ```
-  - `setMode(next)`: chỉ đổi session (vẫn lưu lightweight để giữ qua reload trong cùng phiên).
-  - `setAsDefault()`: ghi `mode` hiện tại vào `mc:entry_mode_default`.
-  - `resetDefault()`: xoá key default → quay về `'idea'`.
+Logic:
+- Input: `contentId`, `targetKeywordIds: string[]`, `clusterId?`, `contentText: string` (long-form như website/blog).
+- Resolve keyword strings qua `useKeywordsByIds`.
+- Với mỗi keyword tính:
+  - `count` = số lần xuất hiện (case-insensitive, word-boundary, hỗ trợ tiếng Việt diacritics qua normalize NFC).
+  - `inTitle` / `inH1` / `inH2` / `inFirstParagraph` / `inUrlSlug` (parse markdown headings).
+  - `density %` = count / totalWords * 100.
+  - Status:
+    - `missing` (count = 0) — đỏ
+    - `low` (1–2 lần, density < 0.5%) — vàng
+    - `good` (3+ lần, density 0.5–2.5%, có trong heading) — xanh
+    - `over` (density > 3%) — cam (cảnh báo nhồi nhét)
+- Hiển thị:
+  - Header: "Bao phủ từ khóa" + badge tổng quát (vd `4/6 OK`).
+  - Progress bar tổng coverage %.
+  - List từng keyword: chip status, count, density, các vị trí xuất hiện (T=Title, H2, P1...).
+  - Nút "Quét lại" (recompute on-demand vì re-render rẻ).
+  - Empty state khi `targetKeywordIds` rỗng → gợi ý link sang SEO Hub.
 
-### 2. UI: bổ sung nút "Đặt làm mặc định" trong `SeoModeToggle.tsx`
-- Thêm props: `isDefault?: boolean`, `onSetAsDefault?: () => void`.
-- Layout (giữ Soft Luxury, không emoji):
-  ```text
-  [🎯] Chế độ SEO  ⓘ            [Switch]
-       Cần chọn Pillar → Keyword
-       ── Mặc định: BẬT  •  [Đặt làm mặc định]   (link-style button)
-  ```
-- Nếu `isCurrentDefault` → hiển thị badge nhỏ "Mặc định" (neutral gray), ẩn nút.
-- Nếu khác default → hiện link "Đặt làm mặc định" (text-xs, text-primary, hover underline).
-- Tooltip Info bổ sung dòng: *"Bấm 'Đặt làm mặc định' để mọi form mới tự bật/tắt theo lựa chọn này."*
+## Phần 2 — Mount panels vào `MultiChannelViewer.tsx`
 
-### 3. Wire-up trong `MultiChannelFormWizard.tsx` (~line 1188)
+Vị trí: sidebar trái, ngay dưới `ClusterContextCard` (lines ~1221–1229).
+
 ```tsx
-const { mode: entryMode, setMode: setEntryMode, isCurrentDefault, setAsDefault } = useEntryMode();
-...
-<SeoModeToggle
-  enabled={entryMode === 'seo'}
-  onChange={(v) => setEntryMode(v ? 'seo' : 'idea')}
-  disabled={isGenerating}
-  isDefault={isCurrentDefault}
-  onSetAsDefault={() => {
-    setAsDefault();
-    toast({ title: 'Đã lưu mặc định', description: `Chế độ SEO ${entryMode === 'seo' ? 'BẬT' : 'TẮT'} sẽ áp dụng cho lần tạo sau.` });
-  }}
-/>
+{/* Keyword Coverage Audit (chỉ cho long-form) */}
+{Array.isArray((content as any).target_keyword_ids) &&
+ (content as any).target_keyword_ids.length > 0 &&
+ ['website','blogger','wordpress'].includes(selectedChannel) && (
+  <div className="p-2 border-b border-border/30">
+    <KeywordCoveragePanel
+      contentId={content.id}
+      targetKeywordIds={(content as any).target_keyword_ids}
+      clusterId={(content as any).cluster_id}
+      contentText={getContentForChannel(content, selectedChannel) || ''}
+    />
+  </div>
+)}
+
+{/* Internal Links (long-form only) */}
+{['website','blogger','wordpress'].includes(selectedChannel) && (
+  <div className="p-2 border-b border-border/30">
+    <InternalLinksPanel contentId={content.id} />
+  </div>
+)}
 ```
 
-## Files thay đổi
-- `src/hooks/useEntryMode.ts` — thêm default key + helper API.
-- `src/components/multichannel/SeoModeToggle.tsx` — thêm nút/badge "Mặc định".
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — wire 2 prop mới + toast.
+## Phần 3 — Polish
 
-## Acceptance
-- Bật/tắt switch → đổi ngay session hiện tại.
-- Bấm "Đặt làm mặc định" → toast confirm, badge "Mặc định" thay nút.
-- Reload trang / mở form mới → khởi tạo theo default đã lưu.
-- Không có default → fallback `'idea'` (giữ behavior cũ cho user mới).
+- Import `InternalLinksPanel` + `KeywordCoveragePanel` ở MultiChannelViewer.
+- Cả 2 panel dùng `Card` border-dashed style để đồng bộ với `ClusterContextCard` (Soft Luxury).
+- Không sửa edge function — `suggest-internal-links` đã sẵn sàng.
+
+## Phần kỹ thuật
+
+- **Word counting**: tách bằng `/\s+/`, lọc empty.
+- **Match keyword**: build regex `new RegExp('\\b' + escapeRegex(kw) + '\\b', 'giu')` + fallback substring nếu không match (cho cụm có dấu).
+- **Heading parse**: regex `^(#{1,3})\s+(.+)$` per line.
+- **Density thresholds** dựa SEO best practice: ideal 0.5%–2.5%, warn >3%.
+- Không cần migration; trường `target_keyword_ids` đã tồn tại trong `multi_channel_contents`.
+
+## Files chạm
+- **New**: `src/components/seo/KeywordCoveragePanel.tsx`
+- **Edit**: `src/components/MultiChannelViewer.tsx` (2 imports + 2 mount blocks)
