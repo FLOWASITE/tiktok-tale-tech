@@ -606,15 +606,18 @@ async function verifyAndPatchLongformPersisted(
     console.error('[longform-verify] could not re-read row', contentId, error);
     return { row: null, missing: [] };
   }
-  const patch: Record<string, string> = {};
+  const patch: Record<string, any> = {};
   for (const ch of ['blogger', 'wordpress'] as const) {
     if (!selectedChannels.includes(ch)) continue;
     const persisted = normalizeLongformText(row[`${ch}_content`]);
     if (!isLongformContentMissing(ch, persisted)) continue;
-    const inMemory = normalizeLongformText(channelTexts[ch]);
-    if (!isLongformContentMissing(ch, inMemory)) {
-      patch[`${ch}_content`] = inMemory;
-      console.warn(`[longform-verify] ${ch}: DB persisted empty (${persisted.length}) but in-memory has ${inMemory.length} — patching`);
+    const inMemoryRaw = normalizeLongformText(channelTexts[ch]);
+    if (!isLongformContentMissing(ch, inMemoryRaw)) {
+      // Strip seo-meta block + persist meta JSON in *_seo_data
+      const ex = extractSeoMetaBlock(inMemoryRaw);
+      patch[`${ch}_content`] = ex.stripped;
+      if (ex.meta) patch[`${ch}_seo_data`] = ex.meta;
+      console.warn(`[longform-verify] ${ch}: DB persisted empty (${persisted.length}) but in-memory has ${inMemoryRaw.length} — patching${ex.meta ? ' (with seo-meta)' : ''}`);
     }
   }
   if (Object.keys(patch).length > 0) {
