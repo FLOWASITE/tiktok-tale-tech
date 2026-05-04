@@ -92,10 +92,20 @@ export function CompactChannelGrid({
               size="sm"
               onClick={onSelectFrequent}
               disabled={disabled}
-              className="text-xs h-7 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              title={frequentAllSelected ? 'Bỏ chọn các kênh thường dùng' : 'Chọn nhanh các kênh thường dùng'}
+              className={cn(
+                "text-xs h-7 px-2",
+                frequentAllSelected
+                  ? "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  : "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              )}
             >
-              <Sparkles className="w-3 h-3 mr-1" />
-              Kênh thường dùng
+              {frequentAllSelected ? (
+                <X className="w-3 h-3 mr-1" />
+              ) : (
+                <Sparkles className="w-3 h-3 mr-1" />
+              )}
+              {frequentAllSelected ? 'Bỏ kênh thường dùng' : 'Kênh thường dùng'}
             </Button>
           )}
           <Button
