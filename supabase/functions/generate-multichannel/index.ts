@@ -343,6 +343,62 @@ PHONG CÁCH HARVEST:
   return templates[role] || '';
 }
 
+// ============================================================
+// SEO META BLOCK EXTRACTOR (for WordPress/Blogger long-form)
+// ============================================================
+// AI is instructed to append a ```seo-meta { ... } ``` block at the end of
+// long-form output. We strip that block from the body before persisting and
+// return the parsed JSON for storage in *_seo_data column.
+export interface SeoMetaParsed {
+  metaTitle?: string;
+  metaDescription?: string;
+  slug?: string;
+  focusKeyword?: string;
+  lsiKeywords?: string[];
+  tags?: string[];
+  categories?: string[];
+  excerpt?: string;
+}
+
+export function extractSeoMetaBlock(content: string | null | undefined): { stripped: string; meta: SeoMetaParsed | null } {
+  if (!content || typeof content !== 'string') return { stripped: content || '', meta: null };
+  // Match ```seo-meta ... ``` (case-insensitive, greedy until closing fence)
+  const fenceRe = /```\s*seo[-_ ]?meta\s*\n([\s\S]*?)\n```/i;
+  const m = content.match(fenceRe);
+  if (!m) return { stripped: content, meta: null };
+  const raw = m[1].trim();
+  let parsed: SeoMetaParsed | null = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Try to be lenient: strip trailing commas, BOM
+    try {
+      const cleaned = raw.replace(/,\s*([}\]])/g, '$1').replace(/^\uFEFF/, '');
+      parsed = JSON.parse(cleaned);
+    } catch (e) {
+      console.warn('[extractSeoMetaBlock] JSON parse failed, dropping block:', (e as Error).message);
+      parsed = null;
+    }
+  }
+  // Sanitize fields
+  if (parsed) {
+    if (typeof parsed.metaTitle === 'string') parsed.metaTitle = parsed.metaTitle.trim().slice(0, 80);
+    if (typeof parsed.metaDescription === 'string') parsed.metaDescription = parsed.metaDescription.trim().slice(0, 200);
+    if (typeof parsed.slug === 'string') {
+      parsed.slug = parsed.slug.trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '').slice(0, 80);
+    }
+    if (typeof parsed.excerpt === 'string') parsed.excerpt = parsed.excerpt.trim().slice(0, 500);
+    if (Array.isArray(parsed.tags)) parsed.tags = parsed.tags.filter(t => typeof t === 'string').map(t => t.trim()).filter(Boolean).slice(0, 10);
+    if (Array.isArray(parsed.categories)) parsed.categories = parsed.categories.filter(c => typeof c === 'string').map(c => c.trim()).filter(Boolean).slice(0, 4);
+    if (Array.isArray(parsed.lsiKeywords)) parsed.lsiKeywords = parsed.lsiKeywords.filter(t => typeof t === 'string').map(t => t.trim()).filter(Boolean).slice(0, 10);
+  }
+  const stripped = content.replace(fenceRe, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { stripped, meta: parsed };
+}
+
 // Channel content column mapping (for expand mode)
 // NOTE: website / blogger / wordpress are SEPARATE long-form channels with
 // distinct columns + distinct prompts (different length, structure, tone).
