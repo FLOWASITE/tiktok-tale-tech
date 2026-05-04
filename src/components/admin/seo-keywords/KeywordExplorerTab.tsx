@@ -16,6 +16,13 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useKeywordEnrichment } from "@/hooks/useKeywordEnrichment";
 import { useCurrentBrand } from "@/contexts/BrandContext";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  categorizeKeyword,
+  buildContextFromBrand,
+  type KeywordCategory,
+} from "@/lib/seo/keywordCategorizer";
 
 const STATUS_OPTIONS = ["all", "new", "researching", "planned", "assigned", "published", "tracking", "archived"];
 const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "navigational"];
