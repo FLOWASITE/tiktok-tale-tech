@@ -601,7 +601,7 @@ async function verifyAndPatchLongformPersisted(
   supabase: any,
   contentId: string,
   selectedChannels: string[],
-  channelTexts: { blogger?: string; wordpress?: string },
+  channelTexts: { blogger?: string; wordpress?: string; shopify?: string; wix?: string; medium?: string },
 ): Promise<{ row: any; missing: string[] }> {
   const { data: row, error } = await supabase
     .from('multi_channel_contents')
@@ -612,18 +612,18 @@ async function verifyAndPatchLongformPersisted(
     console.error('[longform-verify] could not re-read row', contentId, error);
     return { row: null, missing: [] };
   }
+  const LONGFORM_LIST = ['blogger', 'wordpress', 'shopify', 'wix', 'medium'] as const;
   const patch: Record<string, any> = {};
-  for (const ch of ['blogger', 'wordpress'] as const) {
+  for (const ch of LONGFORM_LIST) {
     if (!selectedChannels.includes(ch)) continue;
     const persisted = normalizeLongformText(row[`${ch}_content`]);
     if (!isLongformContentMissing(ch, persisted)) continue;
-    const inMemoryRaw = normalizeLongformText(channelTexts[ch]);
+    const inMemoryRaw = normalizeLongformText((channelTexts as any)[ch]);
     if (!isLongformContentMissing(ch, inMemoryRaw)) {
-      // Strip seo-meta block + persist meta JSON in *_seo_data
       const ex = extractSeoMetaBlock(inMemoryRaw);
       patch[`${ch}_content`] = ex.stripped;
       if (ex.meta) patch[`${ch}_seo_data`] = ex.meta;
-      console.warn(`[longform-verify] ${ch}: DB persisted empty (${persisted.length}) but in-memory has ${inMemoryRaw.length} — patching${ex.meta ? ' (with seo-meta)' : ''}`);
+      console.warn(`[longform-verify] ${ch}: DB empty (${persisted.length}) but in-memory has ${inMemoryRaw.length} — patching${ex.meta ? ' (+seo-meta)' : ''}`);
     }
   }
   if (Object.keys(patch).length > 0) {
@@ -637,13 +637,13 @@ async function verifyAndPatchLongformPersisted(
       console.error('[longform-verify] patch failed', patchErr);
     } else if (patched) {
       console.log(`[longform-verify] patched ${Object.keys(patch).join(',')} for ${contentId}`);
-      const missingAfter = ['blogger', 'wordpress'].filter((ch) =>
+      const missingAfter = LONGFORM_LIST.filter((ch) =>
         selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(patched[`${ch}_content`]))
       );
       return { row: patched, missing: missingAfter };
     }
   }
-  const missing = ['blogger', 'wordpress'].filter((ch) =>
+  const missing = LONGFORM_LIST.filter((ch) =>
     selectedChannels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText(row[`${ch}_content`]))
   );
   return { row, missing };
