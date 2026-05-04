@@ -158,6 +158,10 @@ export interface MultiChannelContent {
   shopify_post_id?: string | null;
   shopify_post_url?: string | null;
   shopify_seo_data?: WebsiteSEOData | null;
+  wix_content: string | null;
+  wix_post_id?: string | null;
+  wix_post_url?: string | null;
+  wix_seo_data?: WebsiteSEOData | null;
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
