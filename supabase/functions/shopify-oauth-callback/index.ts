@@ -4,7 +4,7 @@
 // then redirects user back to Flowa frontend.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { encrypt as encryptGCM } from "../_shared/crypto.ts";
+import { encrypt as encryptGCM, decryptCredential } from "../_shared/crypto.ts";
 import {
   validateShopDomain,
   verifyOAuthHmac,
