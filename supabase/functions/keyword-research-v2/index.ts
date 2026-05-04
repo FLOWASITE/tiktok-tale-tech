@@ -13,13 +13,14 @@ const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-type Preset = "long_tail_questions" | "commercial_intent" | "local_seo_vn" | "competitor_gaps" | "default";
+type Preset = "long_tail_questions" | "commercial_intent" | "local_seo_vn" | "competitor_gaps" | "brand_domination" | "default";
 
 const PRESET_PROMPTS: Record<Preset, string> = {
   long_tail_questions: "TẬP TRUNG: Long-tail 4+ từ + câu hỏi (làm sao, cách, có nên, là gì, tại sao, khi nào).",
   commercial_intent: "TẬP TRUNG: Commercial/transactional intent — 'giá', 'mua', 'đăng ký', 'tốt nhất', 'so sánh', 'review'.",
   local_seo_vn: "TẬP TRUNG: Local SEO Việt Nam — thêm địa danh (Hà Nội, TP HCM, Đà Nẵng, quận, gần tôi).",
   competitor_gaps: "TẬP TRUNG: Keyword đối thủ đang rank (lấy từ SERP grounding bên dưới) mà có thể tận dụng để cạnh tranh.",
+  brand_domination: "TẬP TRUNG: Brand keyword — phủ 100% SERP cho tên brand. Sinh thêm biến thể chưa có trong danh sách cứng (sai chính tả phổ biến, slang, modifier ngách). KHÔNG sinh keyword không chứa brand name.",
   default: "Cân bằng các loại: long-tail, question, modifier, comparison, commercial.",
 };
 
