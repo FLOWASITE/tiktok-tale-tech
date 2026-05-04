@@ -4205,8 +4205,19 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   pinterest_content: channelResults.pinterest || null,
                   pinterest_title: channelResults.pinterest_title || null,
                   bluesky_content: channelResults.bluesky || null,
-                  blogger_content: channels.includes('blogger') ? (channelResults.blogger || null) : null,
-                  wordpress_content: channels.includes('wordpress') ? (channelResults.wordpress || null) : null,
+                  ...(() => {
+                    // Extract seo-meta block from blogger/wordpress; persist meta JSON + stripped body
+                    const wpRaw = channels.includes('wordpress') ? (channelResults.wordpress || null) : null;
+                    const blRaw = channels.includes('blogger') ? (channelResults.blogger || null) : null;
+                    const wpEx = wpRaw ? extractSeoMetaBlock(wpRaw) : { stripped: null, meta: null };
+                    const blEx = blRaw ? extractSeoMetaBlock(blRaw) : { stripped: null, meta: null };
+                    return {
+                      blogger_content: blEx.stripped,
+                      wordpress_content: wpEx.stripped,
+                      blogger_seo_data: blEx.meta,
+                      wordpress_seo_data: wpEx.meta,
+                    };
+                  })(),
                 }))
                 .select()
                 .single();
