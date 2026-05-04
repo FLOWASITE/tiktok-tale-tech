@@ -45,6 +45,8 @@ interface CompactChannelGridProps {
   frequentCounts?: Partial<Record<Channel, number>>;
   onSelectFrequent?: () => void;
   frequentAllSelected?: boolean;
+  onRemoveFrequent?: (channel: Channel) => void;
+  onClearFrequent?: () => void;
 }
 
 export function CompactChannelGrid({
@@ -59,6 +61,8 @@ export function CompactChannelGrid({
   frequentCounts = {},
   onSelectFrequent,
   frequentAllSelected = false,
+  onRemoveFrequent,
+  onClearFrequent,
 }: CompactChannelGridProps) {
   const channelCategories: ChannelCategoryConfig[] = [
     { name: 'Website & Long-form', key: 'longform', icon: <Globe className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'longform') },
@@ -144,6 +148,20 @@ export function CompactChannelGrid({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-400/60 text-amber-700 dark:text-amber-400">
               {frequentChannels.length}
             </Badge>
+            {onClearFrequent && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onClearFrequent}
+                disabled={disabled}
+                className="ml-auto text-[10px] h-5 px-1.5 text-muted-foreground hover:text-destructive"
+                title="Xóa toàn bộ danh sách kênh thường xuyên"
+              >
+                <X className="w-3 h-3 mr-0.5" />
+                Xóa tất cả
+              </Button>
+            )}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {frequentChannels.map((ch) => {
@@ -154,29 +172,47 @@ export function CompactChannelGrid({
               return (
                 <Tooltip key={ch}>
                   <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => onChannelToggle(ch)}
-                      disabled={disabled}
+                    <div
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-all',
+                        'group inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-all',
                         isSelected
                           ? 'bg-amber-500/15 border-amber-400 text-amber-900 dark:text-amber-100'
                           : 'bg-background/60 border-border/50 hover:border-amber-400/60',
                         disabled && 'opacity-50 cursor-not-allowed'
                       )}
                     >
-                      <span className={isSelected ? 'text-amber-600' : 'text-muted-foreground'}>
-                        {channelIcons[ch]}
-                      </span>
-                      <span className="truncate max-w-[100px]">{channel.label}</span>
-                      <span className="text-[9px] font-medium px-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                        ×{useCount}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => onChannelToggle(ch)}
+                        disabled={disabled}
+                        className="inline-flex items-center gap-1.5 min-w-0"
+                      >
+                        <span className={isSelected ? 'text-amber-600' : 'text-muted-foreground'}>
+                          {channelIcons[ch]}
+                        </span>
+                        <span className="truncate max-w-[100px]">{channel.label}</span>
+                        <span className="text-[9px] font-medium px-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                          ×{useCount}
+                        </span>
+                      </button>
+                      {onRemoveFrequent && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveFrequent(ch);
+                          }}
+                          disabled={disabled}
+                          aria-label={`Bỏ ${channel.label} khỏi danh sách thường xuyên`}
+                          className="ml-0.5 -mr-0.5 p-0.5 rounded text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 opacity-60 group-hover:opacity-100 transition"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
-                    Đã chọn {useCount} lần
+                    Đã chọn {useCount} lần · Click X để bỏ khỏi danh sách
                   </TooltipContent>
                 </Tooltip>
               );

@@ -474,7 +474,7 @@ export function MultiChannelFormWizard({
     },
   });
 
-  const { frequent: frequentChannels, counts: frequentCounts, recordUsage: recordChannelUsage } =
+  const { frequent: frequentChannels, counts: frequentCounts, recordUsage: recordChannelUsage, removeChannel: removeFrequentChannel, clearAll: clearFrequentChannels } =
     useFrequentChannels(organizationId, brandTemplateId);
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
@@ -2130,6 +2130,14 @@ export function MultiChannelFormWizard({
                   frequentCounts={frequentCounts}
                   onSelectFrequent={handleSelectFrequent}
                   frequentAllSelected={frequentChannels.length > 0 && frequentChannels.every(ch => formData.channels.includes(ch))}
+                  onRemoveFrequent={(ch) => {
+                    removeFrequentChannel(ch);
+                    toast.success(`Đã bỏ "${ch}" khỏi kênh thường xuyên`);
+                  }}
+                  onClearFrequent={() => {
+                    clearFrequentChannels();
+                    toast.success('Đã xóa danh sách kênh thường xuyên');
+                  }}
                 />
               </div>
 
