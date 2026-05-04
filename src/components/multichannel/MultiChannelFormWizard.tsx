@@ -474,7 +474,7 @@ export function MultiChannelFormWizard({
     },
   });
 
-  const { frequent: frequentChannels, counts: frequentCounts, recordUsage: recordChannelUsage } =
+  const { frequent: frequentChannels, counts: frequentCounts, recordUsage: recordChannelUsage, removeChannel: removeFrequentChannel, clearAll: clearFrequentChannels } =
     useFrequentChannels(organizationId, brandTemplateId);
 
   const [formData, setFormData] = useState<MultiChannelFormData>({
