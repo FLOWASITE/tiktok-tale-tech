@@ -334,6 +334,7 @@ export default function KeywordExplorerTab() {
           </div>
         )}
 
+        {selectedIds.size > 0 && (
           <div className="flex items-center gap-2 p-2.5 bg-muted/40 border rounded-md">
             <Target className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">{selectedIds.size} keyword đã chọn</span>
