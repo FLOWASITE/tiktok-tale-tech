@@ -8020,6 +8020,10 @@ export type Database = {
           website_post_id: string | null
           website_post_url: string | null
           website_seo_data: Json | null
+          wix_content: string | null
+          wix_post_id: string | null
+          wix_post_url: string | null
+          wix_seo_data: Json | null
           wordpress_content: string | null
           wordpress_post_id: string | null
           wordpress_post_url: string | null
@@ -8095,6 +8099,10 @@ export type Database = {
           website_post_id?: string | null
           website_post_url?: string | null
           website_seo_data?: Json | null
+          wix_content?: string | null
+          wix_post_id?: string | null
+          wix_post_url?: string | null
+          wix_seo_data?: Json | null
           wordpress_content?: string | null
           wordpress_post_id?: string | null
           wordpress_post_url?: string | null
@@ -8170,6 +8178,10 @@ export type Database = {
           website_post_id?: string | null
           website_post_url?: string | null
           website_seo_data?: Json | null
+          wix_content?: string | null
+          wix_post_id?: string | null
+          wix_post_url?: string | null
+          wix_seo_data?: Json | null
           wordpress_content?: string | null
           wordpress_post_id?: string | null
           wordpress_post_url?: string | null

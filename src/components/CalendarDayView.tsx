@@ -43,6 +43,7 @@ const channelColors: Record<Channel, string> = {
   blogger: 'border-l-blue-500 bg-blue-500/10',
   wordpress: 'border-l-blue-500 bg-blue-500/10',
   shopify: 'border-l-blue-500 bg-blue-500/10',
+  wix: 'border-l-blue-500 bg-blue-500/10',
   facebook: 'border-l-indigo-500 bg-indigo-500/10',
   instagram: 'border-l-pink-500 bg-pink-500/10',
   pinterest: 'border-l-[#E60023] bg-[#E60023]/10',

@@ -150,6 +150,14 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-[#96bf48]/10',
     maxLength: '800-1500 chữ'
   },
+  wix: {
+    label: 'Wix Blog',
+    shortLabel: 'Wix',
+    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+    color: 'text-foreground',
+    bgColor: 'bg-muted',
+    maxLength: '800-1500 chữ'
+  },
   facebook: { 
     label: 'Facebook', 
     shortLabel: 'Facebook',

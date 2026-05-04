@@ -79,6 +79,7 @@ const CHANNEL_TO_PLATFORM: Partial<Record<Channel, SocialPlatform>> = {
   blogger: 'website',
   wordpress: 'website',
   shopify: 'shopify',
+  wix: 'wix',
 };
 
 function getStatusCounts(items: MultiChannelContent[]) {

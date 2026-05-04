@@ -24,6 +24,7 @@ const CHANNEL_META: Record<Channel, { icon: React.ReactNode; label: string }> = 
   blogger: { icon: <BloggerIcon className="w-3.5 h-3.5" />, label: 'Blog' },
   wordpress: { icon: <WordPressIcon className="w-3.5 h-3.5" />, label: 'WP' },
   shopify: { icon: <WordPressIcon className="w-3.5 h-3.5" />, label: 'WP' },
+  wix: { icon: <WordPressIcon className="w-3.5 h-3.5" />, label: 'WP' },
   google_maps: { icon: <MapPin className="w-3.5 h-3.5" />, label: 'Maps' },
   youtube: { icon: <Youtube className="w-3.5 h-3.5" />, label: 'YT' },
   email: { icon: <Mail className="w-3.5 h-3.5" />, label: 'Mail' },

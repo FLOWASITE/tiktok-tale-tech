@@ -71,6 +71,7 @@ export type Channel =
   | 'blogger'
   | 'wordpress'
   | 'shopify'
+  | 'wix'
   | 'facebook'
   | 'instagram'
   | 'twitter'
@@ -157,6 +158,10 @@ export interface MultiChannelContent {
   shopify_post_id?: string | null;
   shopify_post_url?: string | null;
   shopify_seo_data?: WebsiteSEOData | null;
+  wix_content: string | null;
+  wix_post_id?: string | null;
+  wix_post_url?: string | null;
+  wix_seo_data?: WebsiteSEOData | null;
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
@@ -422,6 +427,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'text', description: 'Bài Blogger casual 500-900 từ, ngôi tôi/mình, kể chuyện, kết bằng câu hỏi (KHÁC Website)' },
   { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'text', description: 'Bài WordPress in-depth 1200-2200 từ, H2+H3, FAQ, callout, expert tone (KHÁC Website & Blogger)' },
   { value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'text', description: 'Bài Shopify Blog 800-1500 từ, e-commerce storytelling, HTML-ready, CTA Shop now (KHÁC Website/Blogger/WordPress)' },
+  { value: 'wix', label: 'Wix Blog', icon: 'Globe', color: 'slate', category: 'text', description: 'Bài Wix 800-1500 từ, brand storytelling, hero featured image, đoạn ngắn 2-4 câu, format Ricos rich content (Editor X / Wix Studio)' },
   { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'text', description: 'Chuyên nghiệp, không emoji quá nhiều' },
   { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'text', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
   { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
