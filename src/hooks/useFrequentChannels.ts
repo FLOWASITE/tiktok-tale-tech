@@ -65,6 +65,24 @@ export function useFrequentChannels(orgId?: string, brandId?: string) {
     [key]
   );
 
+  const removeChannel = useCallback(
+    (channel: Channel) => {
+      setStore((prev) => {
+        if (!prev[channel]) return prev;
+        const next: Store = { ...prev };
+        delete next[channel];
+        writeStore(key, next);
+        return next;
+      });
+    },
+    [key]
+  );
+
+  const clearAll = useCallback(() => {
+    writeStore(key, {});
+    setStore({});
+  }, [key]);
+
   const counts: Partial<Record<Channel, number>> = {};
   const sorted = Object.entries(store)
     .filter(([, v]) => (v?.count || 0) >= MIN_COUNT)
