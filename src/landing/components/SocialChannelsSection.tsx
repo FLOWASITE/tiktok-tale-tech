@@ -17,6 +17,7 @@ import {
   BloggerIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
 } from "@/components/icons/SocialIcons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -65,11 +66,12 @@ const CHANNEL_GROUPS: ChannelGroup[] = [
   {
     key: "blog",
     label: "Blog · CMS · E-commerce",
-    description: "6 nền tảng long-form — bài blog dài, SEO-optimized, tự động sync ảnh.",
+    description: "7 nền tảng long-form — bài blog dài, SEO-optimized, tự động sync ảnh.",
     items: [
       { name: "WordPress.com", Icon: WordPressIcon, colorClass: "text-[#21759B]" },
       { name: "WordPress", Icon: WordPressIcon, colorClass: "text-[#21759B]" },
       { name: "Blogger", Icon: BloggerIcon, colorClass: "text-[#FF5722]" },
+      { name: "Medium", Icon: MediumIcon, colorClass: "text-foreground" },
       { name: "Shopify", Icon: ShopifyIcon, colorClass: "text-[#96BF48]" },
       { name: "Wix", Icon: WixIcon, colorClass: "text-foreground" },
       { name: "Website", Icon: Globe, colorClass: "text-primary" },
