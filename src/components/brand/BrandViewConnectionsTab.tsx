@@ -1421,6 +1421,45 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </DialogContent>
       </Dialog>
 
+      {/* Shopify OAuth — shop domain prompt dialog */}
+      <Dialog open={shopifyDialogOpen} onOpenChange={setShopifyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChannelIcon channel={"shopify" as any} size={20} />
+              Kết nối Shopify
+            </DialogTitle>
+            <DialogDescription>
+              Nhập shop domain (ví dụ: <code>your-store.myshopify.com</code>). Bạn sẽ được chuyển sang Shopify để cấp quyền.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="shopify-shop">Shop domain</Label>
+            <Input
+              id="shopify-shop"
+              autoFocus
+              placeholder="your-store.myshopify.com"
+              value={shopifyShop}
+              onChange={(e) => setShopifyShop(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isShopifyConnecting) handleShopifySubmit();
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Flowa chỉ yêu cầu quyền đọc/ghi nội dung blog. Token được mã hóa AES-256-GCM trước khi lưu.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShopifyDialogOpen(false)} disabled={isShopifyConnecting}>
+              Hủy
+            </Button>
+            <Button onClick={handleShopifySubmit} disabled={isShopifyConnecting}>
+              {isShopifyConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Tiếp tục
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <WordPressConnectDialog
         open={wpDialogOpen}
