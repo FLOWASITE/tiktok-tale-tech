@@ -86,6 +86,7 @@ import {
   WordPressIcon,
   ShopifyIcon,
   WixIcon,
+  MediumIcon,
   BloggerIcon,
   ZaloIcon,
   BlueskyIcon,
