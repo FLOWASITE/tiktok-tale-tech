@@ -1618,27 +1618,6 @@ try {
               </>
             )}
 
-            {websiteForm.integrationType === 'blogger' && (
-              <div className="space-y-2">
-                <Label htmlFor="bloggerApiKey">Google API Key</Label>
-                <div className="relative">
-                  <Input
-                    id="bloggerApiKey"
-                    type={showSecrets.apiKey ? 'text' : 'password'}
-                    placeholder="AIzaSy..."
-                    value={websiteForm.apiKey}
-                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
-                    className="pr-10"
-                  />
-                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
-                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Tạo tại Google Cloud Console → APIs & Services → Credentials. Bật Blogger API v3.
-                </p>
-              </div>
-            )}
 
             {websiteForm.integrationType === 'wix' && (
               <div className="space-y-2">
