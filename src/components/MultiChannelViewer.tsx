@@ -161,7 +161,7 @@ const channelConfig: Record<Channel, {
   medium: {
     label: 'Medium',
     shortLabel: 'Medium',
-    icon: <BookOpen className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+    icon: <MediumIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
     color: 'text-foreground',
     bgColor: 'bg-muted',
     maxLength: '1000-1800 chữ'
