@@ -105,6 +105,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://dev.wix.com/apps',
     instructions: 'Tạo App tại dev.wix.com/apps → Permissions: BLOG.MANAGE-POSTS, BLOG.MANAGE-DRAFT-POSTS, MEDIA.MANAGE-MEDIA. OAuth Redirect URL phải khớp callback bên dưới. Lưu App ID (Client ID) + App Secret tại đây.',
   },
+  medium: {
+    url: 'https://medium.com/me/settings/security',
+    instructions: 'Medium dùng Integration Token cá nhân (per-brand). Mỗi user nhập token riêng tại Brand → Connections — không cấu hình toàn cục ở đây.',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
