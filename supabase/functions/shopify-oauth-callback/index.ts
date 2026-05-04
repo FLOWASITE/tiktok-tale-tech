@@ -4,7 +4,7 @@
 // then redirects user back to Flowa frontend.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { encrypt as encryptGCM } from "../_shared/crypto.ts";
+import { encrypt as encryptGCM, decryptCredential } from "../_shared/crypto.ts";
 import {
   validateShopDomain,
   verifyOAuthHmac,
@@ -38,9 +38,30 @@ Deno.serve(async (req) => {
     const shop = validateShopDomain(shopParam);
     if (!shop) throw new Error("Invalid shop domain in callback");
 
-    const clientId = Deno.env.get("SHOPIFY_CLIENT_ID");
-    const clientSecret = Deno.env.get("SHOPIFY_CLIENT_SECRET");
-    if (!clientId || !clientSecret) throw new Error("Shopify credentials not configured");
+    // Read Shopify OAuth credentials from social_platform_settings (admin form),
+    // fallback to legacy env secrets.
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    let clientId: string | null = null;
+    let clientSecret: string | null = null;
+    const { data: spSettings } = await supabaseAdmin
+      .from('social_platform_settings')
+      .select('consumer_key, consumer_secret, is_active')
+      .eq('platform', 'shopify')
+      .maybeSingle();
+    if (spSettings?.consumer_key && spSettings?.consumer_secret && spSettings.is_active !== false) {
+      try {
+        clientId = await decryptCredential(spSettings.consumer_key);
+        clientSecret = await decryptCredential(spSettings.consumer_secret);
+      } catch (e) {
+        console.error('[shopify-oauth-callback] decrypt failed:', e);
+      }
+    }
+    if (!clientId) clientId = Deno.env.get("SHOPIFY_CLIENT_ID") || null;
+    if (!clientSecret) clientSecret = Deno.env.get("SHOPIFY_CLIENT_SECRET") || null;
+    if (!clientId || !clientSecret) throw new Error("Shopify credentials not configured (Admin → Social Settings → Shopify)");
 
     // 1. Verify HMAC
     const hmacOk = await verifyOAuthHmac(url, clientSecret);
@@ -77,10 +98,7 @@ Deno.serve(async (req) => {
     const grantedScopes = (tokenJson.scope || "").split(",").map((s) => s.trim()).filter(Boolean);
 
     // 4. Resolve org from brand if missing
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = supabaseAdmin;
     let organizationId = stateData.organizationId;
     if (!organizationId && stateData.brandTemplateId) {
       const { data: bt } = await supabase

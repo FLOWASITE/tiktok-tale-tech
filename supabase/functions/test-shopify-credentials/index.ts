@@ -1,4 +1,5 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,10 +7,11 @@ const corsHeaders = {
 };
 
 /**
- * Validates Shopify Public App credentials are configured in Edge Function secrets.
+ * Validates Shopify Public App credentials saved in social_platform_settings (admin form).
+ * Falls back to legacy SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET env vars if no DB row.
+ *
  * Shopify does NOT provide a client_credentials grant for app-level validation,
- * so we verify the secrets exist and have the expected format. Real OAuth handshake
- * is exercised when a merchant connects their shop.
+ * so we verify the saved values exist + match expected format.
  */
 Deno.serve(withPerf({ functionName: 'test-shopify-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -31,32 +33,67 @@ Deno.serve(withPerf({ functionName: 'test-shopify-credentials' }, async (req) =>
     const isAdmin = roles?.some((r: { role: string }) => r.role === 'admin');
     if (!isAdmin) throw new Error('Admin access required');
 
-    const clientId = Deno.env.get('SHOPIFY_CLIENT_ID');
-    const clientSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
+    // 1. Try social_platform_settings first
+    let clientId: string | null = null;
+    let clientSecret: string | null = null;
+    let source: 'admin_settings' | 'env' = 'admin_settings';
+
+    const { data: settings } = await supabase
+      .from('social_platform_settings')
+      .select('consumer_key, consumer_secret, is_active')
+      .eq('platform', 'shopify')
+      .maybeSingle();
+
+    if (settings?.consumer_key && settings?.consumer_secret) {
+      if (settings.is_active === false) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Shopify đang bị tắt (is_active = false). Bật lại trong form Cấu hình.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      try {
+        clientId = await decryptCredential(settings.consumer_key);
+        clientSecret = await decryptCredential(settings.consumer_secret);
+      } catch (e) {
+        console.error('[test-shopify-credentials] decrypt failed:', e);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Không giải mã được Client ID/Secret đã lưu. Hãy bấm Chỉnh sửa và nhập lại.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    } else {
+      // 2. Fallback to legacy env secrets
+      clientId = Deno.env.get('SHOPIFY_CLIENT_ID') || null;
+      clientSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET') || null;
+      source = 'env';
+    }
 
     const missing: string[] = [];
-    if (!clientId) missing.push('SHOPIFY_CLIENT_ID');
-    if (!clientSecret) missing.push('SHOPIFY_CLIENT_SECRET');
+    if (!clientId) missing.push('Shopify Client ID');
+    if (!clientSecret) missing.push('Shopify Client Secret');
 
     if (missing.length > 0) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Thiếu secret: ${missing.join(', ')}. Cấu hình tại Edge Function Secrets.`,
+          error: `Thiếu ${missing.join(' và ')}. Bấm Cấu hình để nhập tại Admin → Social Settings.`,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // Shopify Client ID/Secret: alphanumeric, thường ~32 ký tự (không bắt buộc hex)
-    const idOk = /^[a-zA-Z0-9]{20,}$/.test(clientId!.trim());
-    const secretOk = /^[a-zA-Z0-9_-]{20,}$/.test(clientSecret!.trim());
+    // Format validation — Shopify Client ID là chuỗi alphanumeric ≥20 ký tự,
+    // Client Secret thường bắt đầu shpss_ nhưng vẫn alphanumeric/underscore.
+    const id = clientId!.trim();
+    const secret = clientSecret!.trim();
+    const idOk = /^[a-zA-Z0-9]{20,}$/.test(id);
+    const secretOk = /^[a-zA-Z0-9_-]{20,}$/.test(secret);
 
     if (!idOk || !secretOk) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Client ID/Secret không đúng format. Yêu cầu: chuỗi alphanumeric ≥20 ký tự. Hiện tại: ID=${clientId!.length} ký tự, Secret=${clientSecret!.length} ký tự. Kiểm tra lại tại Shopify Partners → App → API credentials.`,
+          error: `Client ID hoặc Secret không đúng format. Yêu cầu: chuỗi alphanumeric ≥20 ký tự. Hiện tại: ID=${id.length} ký tự, Secret=${secret.length} ký tự. Lấy lại tại Shopify Partners → App → API credentials.`,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
@@ -65,8 +102,11 @@ Deno.serve(withPerf({ functionName: 'test-shopify-credentials' }, async (req) =>
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Shopify credentials đã cấu hình hợp lệ. Test thực tế sẽ chạy khi merchant kết nối shop.',
-        clientIdPreview: `${clientId!.slice(0, 6)}...${clientId!.slice(-4)}`,
+        message: source === 'admin_settings'
+          ? 'Shopify credentials hợp lệ (lấy từ Admin Social Settings). Test thực tế sẽ chạy khi merchant kết nối shop.'
+          : 'Shopify credentials hợp lệ (đang dùng Edge Function Secrets cũ).',
+        source,
+        clientIdPreview: `${id.slice(0, 6)}...${id.slice(-4)}`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );

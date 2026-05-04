@@ -5,6 +5,21 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { validateShopDomain } from "../_shared/shopify.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
+
+async function getShopifyClientId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
+  const { data } = await supabase
+    .from('social_platform_settings')
+    .select('consumer_key, is_active')
+    .eq('platform', 'shopify')
+    .maybeSingle();
+  if (data?.consumer_key && data.is_active !== false) {
+    try { return await decryptCredential(data.consumer_key); } catch (e) {
+      console.error('[shopify-oauth-start] decrypt clientId failed:', e);
+    }
+  }
+  return Deno.env.get('SHOPIFY_CLIENT_ID') || null;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,8 +56,8 @@ Deno.serve(async (req) => {
       return json({ error: "Shop domain không hợp lệ. Định dạng đúng: yourstore.myshopify.com" }, 400);
     }
 
-    const clientId = Deno.env.get("SHOPIFY_CLIENT_ID");
-    if (!clientId) return json({ error: "SHOPIFY_CLIENT_ID chưa cấu hình" }, 500);
+    const clientId = await getShopifyClientId(supabase);
+    if (!clientId) return json({ error: "Shopify Client ID chưa cấu hình. Vào Admin → Social Settings → Shopify để nhập." }, 500);
 
     // Resolve org from brand if missing
     let resolvedOrgId = organizationId || null;
