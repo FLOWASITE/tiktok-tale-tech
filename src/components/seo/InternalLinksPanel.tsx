@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/useOrganization";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,9 +29,10 @@ interface SavedLink {
 
 interface Props {
   contentId: string;
+  autoScanOnMount?: boolean;
 }
 
-export default function InternalLinksPanel({ contentId }: Props) {
+export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props) {
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -40,6 +41,8 @@ export default function InternalLinksPanel({ contentId }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchors, setAnchors] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<SavedLink[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
+  const autoScanned = useRef(false);
 
   const loadSaved = async () => {
     if (!currentOrganization?.id) return;
@@ -49,12 +52,23 @@ export default function InternalLinksPanel({ contentId }: Props) {
       .eq("source_content_id", contentId)
       .eq("organization_id", currentOrganization.id);
     setSaved(((data as any) || []) as SavedLink[]);
+    setSavedLoaded(true);
   };
 
   useEffect(() => {
     loadSaved();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentId, currentOrganization?.id]);
+
+  // Auto-scan once when mounted with no saved links
+  useEffect(() => {
+    if (!autoScanOnMount || autoScanned.current || !savedLoaded) return;
+    if (saved.length === 0 && !loading && suggestions === null) {
+      autoScanned.current = true;
+      scan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScanOnMount, savedLoaded, saved.length]);
 
   const scan = async () => {
     if (!currentOrganization?.id) return;

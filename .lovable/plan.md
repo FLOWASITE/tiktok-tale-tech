@@ -1,70 +1,48 @@
-## Mục tiêu
-Người dùng muốn kiểm tra: (1) bài viết có dùng keyword đã chọn không, (2) có internal link / backlink SEO không. Hiện `InternalLinksPanel` đã tồn tại nhưng **chưa được mount** vào viewer; còn audit keyword thì **chưa có**.
+## Vấn đề
 
-## Phần 1 — Keyword Coverage Audit Panel (mới)
+Bài long-form đang có đầy đủ data (`website_content` ~6000 ký tự, `target_keyword_ids` 2-4 keyword, `cluster_id` có) nhưng SEO Insights không hoạt động đúng:
 
-**File mới**: `src/components/seo/KeywordCoveragePanel.tsx`
+1. **Tabs không switch** — `useEffect([open])` reset `tab` về `"overview"` mỗi lần mở, nhưng khi `dims.length` đổi giữa các render, fallback đẩy về tab khác → click bị "nhảy lại". Ngoài ra `TabsContent` nằm trong `<div className="overflow-y-auto">` ngoài `<Tabs>` Root scope vẫn OK, nhưng do `setTab` bị `useEffect` ghi đè khi state phụ (linkCount, clusterCov) load xong → rerun render → `dims` đổi → effect chạy lại.
+2. **Tab "Tổng quan" hiện 0/100** vì `linkCount` và `clusterCov` ban đầu = `null` → `linkPct(null)=0` và `clusterCov?.pct ?? 0` = 0, kéo health score xuống dù chưa load xong.
+3. **Tab "Từ khóa" / "Liên kết" / "Cluster"** chưa hiện data ngay khi mở vì các effect chỉ chạy khi `open=true` — nhưng panel con (`InternalLinksPanel`) yêu cầu user bấm "Quét" mới có suggestion.
+4. **Dimension card không clickable rõ ràng** — button `<button>` lồng button bên trong Card gây nhầm UX.
 
-Logic:
-- Input: `contentId`, `targetKeywordIds: string[]`, `clusterId?`, `contentText: string` (long-form như website/blog).
-- Resolve keyword strings qua `useKeywordsByIds`.
-- Với mỗi keyword tính:
-  - `count` = số lần xuất hiện (case-insensitive, word-boundary, hỗ trợ tiếng Việt diacritics qua normalize NFC).
-  - `inTitle` / `inH1` / `inH2` / `inFirstParagraph` / `inUrlSlug` (parse markdown headings).
-  - `density %` = count / totalWords * 100.
-  - Status:
-    - `missing` (count = 0) — đỏ
-    - `low` (1–2 lần, density < 0.5%) — vàng
-    - `good` (3+ lần, density 0.5–2.5%, có trong heading) — xanh
-    - `over` (density > 3%) — cam (cảnh báo nhồi nhét)
-- Hiển thị:
-  - Header: "Bao phủ từ khóa" + badge tổng quát (vd `4/6 OK`).
-  - Progress bar tổng coverage %.
-  - List từng keyword: chip status, count, density, các vị trí xuất hiện (T=Title, H2, P1...).
-  - Nút "Quét lại" (recompute on-demand vì re-render rẻ).
-  - Empty state khi `targetKeywordIds` rỗng → gợi ý link sang SEO Hub.
+## Fix
 
-## Phần 2 — Mount panels vào `MultiChannelViewer.tsx`
+### File: `src/components/seo/SeoInsightsSheet.tsx`
 
-Vị trí: sidebar trái, ngay dưới `ClusterContextCard` (lines ~1221–1229).
+**A. Fix tab state**
+- Bỏ `useEffect([open])` reset tab. Thay bằng: chỉ set tab mặc định 1 lần khi `open` chuyển từ `false → true`, dùng `useRef` flag.
+- Đảm bảo `TabsContent` nằm TRỰC TIẾP bên trong `<Tabs>` (hiện đang OK, nhưng wrap div phải là descendant của Tabs Root — verify).
 
-```tsx
-{/* Keyword Coverage Audit (chỉ cho long-form) */}
-{Array.isArray((content as any).target_keyword_ids) &&
- (content as any).target_keyword_ids.length > 0 &&
- ['website','blogger','wordpress'].includes(selectedChannel) && (
-  <div className="p-2 border-b border-border/30">
-    <KeywordCoveragePanel
-      contentId={content.id}
-      targetKeywordIds={(content as any).target_keyword_ids}
-      clusterId={(content as any).cluster_id}
-      contentText={getContentForChannel(content, selectedChannel) || ''}
-    />
-  </div>
-)}
+**B. Tách "loading" khỏi "score = 0"**
+- Thêm state `linksLoading`, `clusterLoading`. Khi loading, dimension đó dùng badge "—" thay vì 0, và **không tính** vào health score (loại khỏi `dims` cho đến khi load xong).
+- Health score chỉ tính trên các dimension đã có data thật.
 
-{/* Internal Links (long-form only) */}
-{['website','blogger','wordpress'].includes(selectedChannel) && (
-  <div className="p-2 border-b border-border/30">
-    <InternalLinksPanel contentId={content.id} />
-  </div>
-)}
-```
+**C. Auto-scan internal links khi mở Sheet**
+- Trong tab "Liên kết", thêm prop `autoScan` cho `InternalLinksPanel`: nếu `saved.length === 0` và chưa scan, tự gọi `scan()` 1 lần khi mount.
+- Hoặc đơn giản hơn: trong `SeoInsightsSheet` load luôn count + saved internal links + nếu = 0 thì gọi `suggest-internal-links` lấy preview top 3 hiển thị inline trong overview.
 
-## Phần 3 — Polish
+**D. Cải thiện content extraction**
+- Hiện truyền `getContentForChannel(content, selectedChannel) || website_content`. Nếu user đang xem channel "blogger" mà `blogger_content` rỗng (theo data: nhiều bài blog_len=0) → fallback `website_content` đã đúng, giữ nguyên.
 
-- Import `InternalLinksPanel` + `KeywordCoveragePanel` ở MultiChannelViewer.
-- Cả 2 panel dùng `Card` border-dashed style để đồng bộ với `ClusterContextCard` (Soft Luxury).
-- Không sửa edge function — `suggest-internal-links` đã sẵn sàng.
+**E. Polish**
+- Thay nested `<button>` trong dimension cards bằng `<div role="button" tabIndex={0}>` + onClick.
+- Header sheet thêm chip channel đang phân tích ("Đang phân tích: Website").
+- Tab "Từ khóa": thêm summary "X/Y keyword đã có mặt" trên đầu (đã có trong panel, chỉ cần reuse).
+- Empty state cho mỗi tab có CTA rõ: nút "Quét gợi ý" cho tab Liên kết khi rỗng.
 
-## Phần kỹ thuật
+### File: `src/components/seo/InternalLinksPanel.tsx`
 
-- **Word counting**: tách bằng `/\s+/`, lọc empty.
-- **Match keyword**: build regex `new RegExp('\\b' + escapeRegex(kw) + '\\b', 'giu')` + fallback substring nếu không match (cho cụm có dấu).
-- **Heading parse**: regex `^(#{1,3})\s+(.+)$` per line.
-- **Density thresholds** dựa SEO best practice: ideal 0.5%–2.5%, warn >3%.
-- Không cần migration; trường `target_keyword_ids` đã tồn tại trong `multi_channel_contents`.
+- Thêm prop `autoScanOnMount?: boolean`. Khi true + `saved.length === 0` + chưa scan, tự gọi `scan()` sau khi `loadSaved()` resolve.
+
+### File: `src/components/MultiChannelViewer.tsx` (line 1223)
+
+- Truyền thêm prop `channelLabel={channelConfig[selectedChannel]?.name}` cho hiển thị chip.
 
 ## Files chạm
-- **New**: `src/components/seo/KeywordCoveragePanel.tsx`
-- **Edit**: `src/components/MultiChannelViewer.tsx` (2 imports + 2 mount blocks)
+- **Edit**: `src/components/seo/SeoInsightsSheet.tsx` (refactor tab state + loading state + auto-load)
+- **Edit**: `src/components/seo/InternalLinksPanel.tsx` (thêm `autoScanOnMount`)
+- **Edit**: `src/components/MultiChannelViewer.tsx` (truyền `channelLabel`)
+
+Không cần migration, không sửa edge function.

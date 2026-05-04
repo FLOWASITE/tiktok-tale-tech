@@ -1227,6 +1227,7 @@ export function MultiChannelViewer({
                   contentText={getContentForChannel(content, selectedChannel) || (content as any).website_content || ''}
                   title={(content as any).title || (content as any).topic}
                   isLongForm={['website', 'blogger', 'wordpress'].includes(selectedChannel)}
+                  channelLabel={channelConfig[selectedChannel]?.label}
                 />
               </div>
 
