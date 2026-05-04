@@ -198,6 +198,40 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
   },
 };
 
+type PlatformGroupId = 'social' | 'longform' | 'local';
+
+interface PlatformGroup {
+  id: PlatformGroupId;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  platforms: SocialPlatform[];
+}
+
+const PLATFORM_GROUPS: PlatformGroup[] = [
+  {
+    id: 'social',
+    title: 'Mạng xã hội',
+    description: 'Đăng bài ngắn, ảnh, video lên các nền tảng social',
+    icon: <Share2 className="w-4 h-4 text-primary" />,
+    platforms: ['facebook', 'instagram', 'tiktok', 'threads', 'twitter', 'linkedin', 'pinterest', 'bluesky', 'youtube'],
+  },
+  {
+    id: 'longform',
+    title: 'Website & Long-form',
+    description: 'Đăng blog, bài viết dài lên CMS / store',
+    icon: <Globe className="w-4 h-4 text-primary" />,
+    platforms: ['wordpress', 'wordpress_com', 'blogger', 'shopify', 'wix', 'website'],
+  },
+  {
+    id: 'local',
+    title: 'Local & Messaging',
+    description: 'Local business posts và tin nhắn OA',
+    icon: <MapPin className="w-4 h-4 text-primary" />,
+    platforms: ['google_business', 'zalo_oa'],
+  },
+];
+
 interface TwitterSetupForm {
   accessToken: string;
   accessTokenSecret: string;
@@ -1330,26 +1364,51 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     );
   }
 
+  // Helper: count connected platforms in a group
+  const countConnectedInGroup = (platforms: SocialPlatform[]) => {
+    let connected = 0;
+    for (const p of platforms) {
+      const conns = getConnectionsForPlatform(p) || [];
+      if (conns.some((c: any) => c.is_active)) connected++;
+    }
+    return connected;
+  };
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Share2 className="w-4 h-4 text-primary" />
-            Kết nối mạng xã hội
-          </CardTitle>
-          <CardDescription>
-            Kết nối tài khoản để đăng bài trực tiếp từ brand "{template.brand_name}".
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {(Object.keys(PLATFORM_CONFIG) as SocialPlatform[]).map(platform =>
-            platform === ('website' as SocialPlatform) ? renderWebsitePlatform() :
-            platform === 'facebook' ? renderFacebookPlatform() :
-            renderConnection(platform)
-          )}
-        </CardContent>
-      </Card>
+      <div className="px-1">
+        <p className="text-sm text-muted-foreground">
+          Kết nối tài khoản để đăng bài trực tiếp từ brand <span className="font-medium text-foreground">"{template.brand_name}"</span>.
+        </p>
+      </div>
+
+      {PLATFORM_GROUPS.map((group) => {
+        const connectedCount = countConnectedInGroup(group.platforms);
+        const totalCount = group.platforms.filter(p => PLATFORM_CONFIG[p]?.available).length;
+        return (
+          <Card key={group.id}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  {group.icon}
+                  {group.title}
+                </span>
+                <Badge variant={connectedCount > 0 ? 'default' : 'secondary'} className="font-normal">
+                  {connectedCount}/{totalCount} đã kết nối
+                </Badge>
+              </CardTitle>
+              <CardDescription>{group.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {group.platforms.map(platform =>
+                platform === ('website' as SocialPlatform) ? <React.Fragment key={platform}>{renderWebsitePlatform()}</React.Fragment> :
+                platform === 'facebook' ? <React.Fragment key={platform}>{renderFacebookPlatform()}</React.Fragment> :
+                <React.Fragment key={platform}>{renderConnection(platform)}</React.Fragment>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Twitter Setup Dialog */}
       <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
