@@ -11,7 +11,9 @@ import { useBacklinks, useBacklinkStats, isLongformPlatform, type BacklinkRow, t
 import BacklinksFilters from "./BacklinksFilters";
 import BacklinkDetailSheet from "./BacklinkDetailSheet";
 
-export default function BacklinksTab() {
+interface Props { embedded?: boolean }
+
+export default function BacklinksTab({ embedded = false }: Props) {
   const [filters, setFilters] = useState<BacklinksFilter>({ page: 0, pageSize: 50 });
   const [selected, setSelected] = useState<BacklinkRow | null>(null);
   const { data, isLoading } = useBacklinks(filters);
