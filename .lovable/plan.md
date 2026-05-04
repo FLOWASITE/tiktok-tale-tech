@@ -1,58 +1,159 @@
 ## Mục tiêu
+Tích hợp **Shopify Public App OAuth** để mỗi merchant connect store của họ vào Flowa. Lưu access token đã mã hóa AES-256-GCM. Use case: **auto-publish blog do Flowa generate vào Shopify Online Store > Blog**, scope `read_content + write_content`.
 
-Gộp **Internal Links** (đã có `InternalLinksPanel.tsx`) và **Backlinks** (vừa làm `BacklinksTab.tsx`) thành **1 sub-tab "Liên kết"** trong SEO Hub ▸ Track. Đây là trung tâm quản lý link equity của workspace.
+Pattern theo blueprint **Blogger OAuth** (đã production) — không phải `shopify--enable` (cái đó là 1 store cố định cho project owner, không phù hợp multi-tenant SaaS).
 
-## Cấu trúc mới
+## Bạn cần chuẩn bị trước (out-of-band)
+1. Đăng ký **Shopify Partners account**: https://partners.shopify.com
+2. Tạo **Public App** trong Partners dashboard:
+   - **App URL**: `https://app.flowa.one/connections`
+   - **Allowed redirection URL**: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/shopify-oauth-callback`
+   - **Scopes**: `read_content`, `write_content`, `read_products` (cho preview SEO meta)
+   - **Embedded app**: TẮT (Flowa không nhúng vào Shopify Admin)
+3. Lấy **Client ID** và **Client Secret** → dán vào secrets khi tôi yêu cầu
+4. Tạo **Development store** miễn phí trong Partners để test trước
 
+## Kiến trúc
+
+```text
+User clicks "Kết nối Shopify" trong BrandViewConnectionsTab
+        │
+        ▼
+[shopify-oauth-start]  ← FE truyền shop domain (vd: mystore.myshopify.com)
+   • validate shop domain regex
+   • build authorize URL với state=base64({userId, brandTemplateId, orgId, nonce})
+   • redirect → https://{shop}/admin/oauth/authorize?...
+        │
+        ▼
+   Merchant approve scopes trên Shopify
+        │
+        ▼
+[shopify-oauth-callback]  ← Shopify redirect về với code + hmac
+   • verify HMAC (HMAC-SHA256 với client_secret)
+   • verify shop domain hợp lệ (*.myshopify.com)
+   • exchange code → access_token (POST /admin/oauth/access_token)
+   • fetch shop info (GET /admin/api/2025-01/shop.json) → tên, email, locale
+   • encrypt access_token (AES-256-GCM qua _shared/crypto.ts)
+   • upsert social_connections (platform='shopify')
+   • register webhooks: app/uninstalled (để auto-cleanup connection)
+   • redirect → https://app.flowa.one/connections?shopify=success
+        │
+        ▼
+[publish-shopify-blog]  ← gọi từ Multi-channel publish flow
+   • decrypt token, fetch blogs list, pick default blog
+   • POST /admin/api/2025-01/blogs/{blog_id}/articles.json
+     { title, body_html (markdown→html via remark), tags, image, published }
+   • lưu published_url vào publishing_logs
+        │
+        ▼
+[shopify-app-uninstalled-webhook]  ← public, verify_jwt=false
+   • verify HMAC header X-Shopify-Hmac-Sha256
+   • soft-delete social_connection (is_active=false)
 ```
-SEO Hub ▸ Track
-├─ Sức khoẻ
-├─ Liên kết       ← MỚI (gộp 2 thứ)
-│  ├─ [Backlinks]  (default — owned external links từ social → blog)
-│  └─ [Internal]   (link giữa các bài blog cùng cluster)
-└─ Rank tracker
+
+## Phase 1 — OAuth flow + connect (1 ngày)
+
+### Files mới
+- `supabase/functions/shopify-oauth-start/index.ts` — build authorize URL, lưu state vào `oauth_pending_states`
+- `supabase/functions/shopify-oauth-callback/index.ts` — verify HMAC, exchange code, encrypt token, upsert connection
+- `supabase/functions/_shared/shopify.ts` — helpers: `verifyHmac()`, `validateShopDomain()`, `shopifyFetch(shop, token, path)`, `getDefaultBlog()`
+- `src/pages/ShopifyCallback.tsx` — landing page sau OAuth success/error (giống `BloggerCallback.tsx`)
+
+### Files chỉnh
+- `supabase/config.toml` → thêm `[functions.shopify-oauth-callback] verify_jwt = false`, tương tự cho webhook
+- `src/hooks/useSocialConnections.ts` → thêm `'shopify'` vào type `SocialPlatform`
+- `src/hooks/useSocialPlatformSettings.ts` → tương tự
+- `src/components/multichannel/streaming/ChannelIcon.tsx` → thêm entry `shopify` với `ShopifyIcon` (SVG mới trong `SocialIcons.tsx`, màu `#96BF48`)
+- `src/components/icons/SocialIcons.tsx` → export `ShopifyIcon` (SVG bag-with-S)
+- `src/components/brand/BrandViewConnectionsTab.tsx` → thêm card "Shopify" với input shop domain + button "Kết nối"
+- `src/App.tsx` → thêm route `/auth/shopify/callback` → `<ShopifyCallback />`
+
+### Secrets cần (sẽ yêu cầu sau khi bạn confirm)
+- `SHOPIFY_CLIENT_ID`
+- `SHOPIFY_CLIENT_SECRET`
+
+### Database
+Tận dụng tables hiện có — KHÔNG cần migration:
+- `social_connections` (đã có `metadata JSONB`) → lưu `{ shop_domain, shop_name, shop_email, locale, scope, default_blog_id }`
+- `oauth_pending_states` (đã dùng cho Bluesky) → lưu state nonce 15 phút
+- `social_platform_settings` (đã dùng cho FB/Google) → option lưu Client ID/Secret nếu muốn admin config qua UI
+
+## Phase 2 — Publish blog (4-6h)
+
+### Files mới
+- `supabase/functions/publish-shopify-blog/index.ts` — convert markdown → HTML, upload featured image, POST article
+- `src/components/multichannel/preview/ShopifyBlogMockup.tsx` — mockup theme Dawn của Shopify (header + article body + tags)
+
+### Files chỉnh
+- `supabase/functions/publish-multi-channel/index.ts` (hoặc router publish chung) → route channel `shopify_blog` → `publish-shopify-blog`
+- `src/utils/channelColors.ts` + `src/types/publishing.ts` → đăng ký channel `shopify_blog`
+- `src/components/multichannel/MockupRenderer.tsx` (hoặc tương đương) → switch case → `ShopifyBlogMockup`
+
+### Markdown→HTML
+Dùng pipeline có sẵn trong `_shared/markdown-to-html.ts` (Blogger đã dùng). Shopify chấp nhận HTML chuẩn trong field `body_html`. Strip SEO frontmatter giống Blogger.
+
+## Phase 3 — Resilience + lifecycle (3-4h)
+
+### Files mới
+- `supabase/functions/shopify-app-uninstalled-webhook/index.ts` — verify HMAC, soft-delete connection
+- `supabase/functions/test-shopify-connection/index.ts` — ping `/admin/api/2025-01/shop.json` để verify token còn valid (dùng cho ReconnectBanner)
+
+### Files chỉnh
+- `supabase/functions/_shared/social-token-refresh-cron.ts` (nếu có) → thêm Shopify path. **Lưu ý**: Shopify Admin API access token **không expire** (offline access), nên không cần refresh cron — chỉ cần test-connection định kỳ + handle 401 → mark `last_error` + show ReconnectBanner.
+- `src/components/social/ReconnectBanner.tsx` → đã generic, chỉ cần thêm label cho `shopify`
+- Webhook subscribe trong `shopify-oauth-callback` sau khi exchange token thành công.
+
+## UI/UX (theo Soft Luxury + Connection UI Specs)
+
+```text
+┌─ Connections Tab ──────────────────────────────────┐
+│  [ChannelIcon shopify]  Shopify                     │
+│  ─────────────────────────────────────────          │
+│  Trạng thái: [✓ Đã kết nối]  mystore.myshopify.com │
+│  Blog mặc định: News                                │
+│  Hết hạn: Không có (offline token)                  │
+│  [Đăng bài thử]  [Đổi blog]  [Ngắt kết nối]        │
+└─────────────────────────────────────────────────────┘
+
+Khi chưa kết nối:
+┌──────────────────────────────────────────┐
+│  Shop domain: [mystore.myshopify.com  ]  │
+│              [ Kết nối Shopify → ]       │
+└──────────────────────────────────────────┘
 ```
 
-URL: `/seo?tab=track&sub=links` (default `view=backlinks`); secondary param `&view=internal`.
+## Bảo mật (bắt buộc)
+1. **HMAC verification** ở callback + webhook (constant-time compare) — Shopify gửi `hmac` query param và `X-Shopify-Hmac-Sha256` header
+2. **Shop domain validation**: regex `^[a-z0-9][a-z0-9-]*\.myshopify\.com$`, reject mọi domain khác
+3. **State nonce**: random 24 bytes, lưu trong `oauth_pending_states`, TTL 15 phút, single-use
+4. **Token encryption**: AES-256-GCM qua `_shared/crypto.ts` (đã production cho Bluesky/Facebook)
+5. **Scope verification**: sau exchange, check `scope` field trong response = scope đã request, nếu thiếu → reject
+6. **RLS**: `social_connections` đã có RLS theo `organization_id` + `brand_template_id`
+7. **GDPR webhooks** (Shopify yêu cầu cho App Store, optional Phase 3.5): `customers/data_request`, `customers/redact`, `shop/redact` — chỉ cần endpoint trả 200 nếu chưa có data
 
-## Component mới: `LinksWorkspace.tsx`
+## Memory
+Tạo `mem://integrations/social/shopify-oauth-vn.md` ghi:
+- Public App OAuth pattern, HMAC verify
+- Token offline (no refresh)
+- Webhook app/uninstalled cleanup
+- Scopes: `read_content + write_content + read_products`
 
-`src/components/admin/seo-keywords/LinksWorkspace.tsx`:
+## Estimate
+| Phase | Effort | Output |
+|---|---|---|
+| 1. OAuth + Connect | 1 ngày | Merchant connect được store, token encrypted, hiện trong Connections tab |
+| 2. Publish blog | 4-6h | Generate blog xong → 1-click publish vào Shopify, lấy được published_url |
+| 3. Lifecycle + webhook | 3-4h | App uninstall auto-cleanup, ReconnectBanner khi token revoked |
+| **Total** | **~2 ngày** | Production-ready Shopify blog publishing |
 
-- **Header bar**: tiêu đề + 2 segmented toggle (Backlinks / Internal) + KPI strip dùng chung 4 thẻ:
-  - Owned backlinks (từ stats hiện tại)
-  - Internal links (đếm từ `internal_links` hoặc bảng tương đương)
-  - Long-form pages có ≥3 backlinks (bài "khoẻ")
-  - Bài thiếu link (≤1 internal in + 0 backlink — cần action)
+## Out of scope (có thể làm sau)
+- Sync products vào Flowa để generate caption (cần `read_products` extended + UI Product Picker)
+- Customer/order analytics dashboard
+- Auto-publish image-based content vào Shopify Pages (không phải Blog)
+- App Store submission (cần GDPR webhooks + privacy policy page)
 
-- **Body**: switch theo segmented:
-  - `backlinks` → render `<BacklinksTab />` (tái dùng nguyên)
-  - `internal` → render mới `<InternalLinksOverview />` — bảng các bài blog với cột: Title · Internal in · Internal out · Backlinks · Cluster · Action (mở `InternalLinksPanel` cho bài đó trong sheet)
-
-- **Cross-link**: trong `BacklinksTab`, click vào row long-form → mở sheet hiện cả internal links của bài đó (thêm 1 section "Internal links to this page" trong `BacklinkDetailSheet`).
-
-## File changes
-
-**Tạo:**
-- `src/components/admin/seo-keywords/LinksWorkspace.tsx` — segmented container + KPI chung
-- `src/components/admin/seo-keywords/InternalLinksOverview.tsx` — bảng tổng quan internal links toàn workspace
-- `src/hooks/useInternalLinksOverview.ts` — fetch internal links graph (dùng bảng/view sẵn có; nếu chưa có, query từ `multi_channel_contents.website_content` parse `<a href>` hoặc bảng `internal_links` nếu tồn tại)
-
-**Sửa:**
-- `src/components/admin/seo-hub/TrackWorkspace.tsx` — đổi sub-tab "Backlinks" thành "Liên kết" (icon `Link2`), value `links`, render `<LinksWorkspace />`
-- `src/pages/SeoHub.tsx` — `LEGACY_MAP`: thêm `backlinks → track/links?view=backlinks`, `internal → track/links?view=internal`
-- `src/components/admin/seo-keywords/BacklinkDetailSheet.tsx` — thêm section "Internal links" cho long-form URLs
-- `.lovable/memory/features/seo/hub-ia-v2-vn.md` — update sub-tab list
-
-## Data discovery (làm trước khi code)
-
-Kiểm tra bảng/view internal links hiện có:
-- Tìm `internal_links`, `internal_link_suggestions`, hoặc `linksuggestions`
-- Xem `InternalLinksPanel.tsx` đang fetch từ đâu để tái dùng cùng nguồn
-- Nếu chỉ có per-content suggestions (chưa có graph), fallback: query `multi_channel_contents` join với link map qua content embeddings + cluster.
-
-## Out of scope
-
-- Không tạo bảng mới — chỉ gộp UI và đọc data sẵn có
-- Không build link graph visualizer (để pha sau)
-- Không thêm rel="nofollow" / anchor analyzer
+## Bắt đầu Phase 1?
+Sau khi bạn confirm, tôi sẽ:
+1. Yêu cầu 2 secrets `SHOPIFY_CLIENT_ID` + `SHOPIFY_CLIENT_SECRET`
+2. Code đầy đủ Phase 1 trong 1 turn
+3. Hướng dẫn bạn test với development store
