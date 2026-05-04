@@ -4242,16 +4242,20 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                   pinterest_title: channelResults.pinterest_title || null,
                   bluesky_content: channelResults.bluesky || null,
                   ...(() => {
-                    // Extract seo-meta block from blogger/wordpress; persist meta JSON + stripped body
+                    // Extract seo-meta block from blogger/wordpress/shopify; persist meta JSON + stripped body
                     const wpRaw = channels.includes('wordpress') ? (channelResults.wordpress || null) : null;
                     const blRaw = channels.includes('blogger') ? (channelResults.blogger || null) : null;
+                    const shRaw = channels.includes('shopify') ? (channelResults.shopify || null) : null;
                     const wpEx = wpRaw ? extractSeoMetaBlock(wpRaw) : { stripped: null, meta: null };
                     const blEx = blRaw ? extractSeoMetaBlock(blRaw) : { stripped: null, meta: null };
+                    const shEx = shRaw ? extractSeoMetaBlock(shRaw) : { stripped: null, meta: null };
                     return {
                       blogger_content: blEx.stripped,
                       wordpress_content: wpEx.stripped,
+                      shopify_content: shEx.stripped,
                       blogger_seo_data: blEx.meta,
                       wordpress_seo_data: wpEx.meta,
+                      shopify_seo_data: shEx.meta,
                     };
                   })(),
                 }))
