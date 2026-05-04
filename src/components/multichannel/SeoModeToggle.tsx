@@ -1,4 +1,4 @@
-import { Target, Info } from 'lucide-react';
+import { Target, Info, Check } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
   Tooltip,
@@ -12,9 +12,13 @@ interface Props {
   enabled: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  isDefault?: boolean;
+  onSetAsDefault?: () => void;
 }
 
-export function SeoModeToggle({ enabled, onChange, disabled }: Props) {
+export function SeoModeToggle({ enabled, onChange, disabled, isDefault, onSetAsDefault }: Props) {
+  const showDefaultControls = typeof onSetAsDefault === 'function';
+
   return (
     <TooltipProvider delayDuration={150}>
       <div
@@ -63,7 +67,7 @@ export function SeoModeToggle({ enabled, onChange, disabled }: Props) {
                   </ol>
                 </div>
                 <p className="text-muted-foreground italic">
-                  Tắt = bắt đầu tự do từ ý tưởng, AI sẽ tự gợi pillar sau.
+                  Bấm "Đặt làm mặc định" để mọi form mới tự bật/tắt theo lựa chọn này.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -73,6 +77,25 @@ export function SeoModeToggle({ enabled, onChange, disabled }: Props) {
               ? 'Cần chọn Pillar → Keyword trước khi tạo'
               : 'Bắt đầu từ ý tưởng (mặc định)'}
           </span>
+          {showDefaultControls && (
+            <div className="mt-1 flex items-center gap-2">
+              {isDefault ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted/60 border border-border rounded-full px-1.5 py-0.5">
+                  <Check className="w-2.5 h-2.5" />
+                  Mặc định
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={onSetAsDefault}
+                  className="text-[10px] font-medium text-primary hover:underline disabled:opacity-50"
+                >
+                  Đặt làm mặc định
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <Switch
           checked={enabled}
