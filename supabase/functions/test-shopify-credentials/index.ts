@@ -48,15 +48,15 @@ Deno.serve(withPerf({ functionName: 'test-shopify-credentials' }, async (req) =>
       );
     }
 
-    // Shopify Client ID là 32 hex chars, Secret là 32+ hex chars
-    const idOk = /^[a-f0-9]{20,}$/i.test(clientId!);
-    const secretOk = (clientSecret!).length >= 20;
+    // Shopify Client ID/Secret: alphanumeric, thường ~32 ký tự (không bắt buộc hex)
+    const idOk = /^[a-zA-Z0-9]{20,}$/.test(clientId!.trim());
+    const secretOk = /^[a-zA-Z0-9_-]{20,}$/.test(clientSecret!.trim());
 
     if (!idOk || !secretOk) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Client ID/Secret không đúng format Shopify Public App. Kiểm tra lại tại Shopify Partners → App.',
+          error: `Client ID/Secret không đúng format. Yêu cầu: chuỗi alphanumeric ≥20 ký tự. Hiện tại: ID=${clientId!.length} ký tự, Secret=${clientSecret!.length} ký tự. Kiểm tra lại tại Shopify Partners → App → API credentials.`,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
