@@ -1,80 +1,96 @@
-## Vấn đề hiện tại
-
-`keyword-research-v2` đã có SSE, nhưng **chỉ stream sau khi AI chạy xong toàn bộ** (6 rounds tool-call) và làm post-processing. Trong lúc AI sinh keyword (giai đoạn 50% → 78%), FE chỉ thấy "AI đang sinh keyword..." cùng heartbeat tăng đều giả lập — không có keyword nào hiện ra. Với deep mode (150 keyword, 6 rounds, 30–60s) UX cảm giác đứng hình.
-
 ## Mục tiêu
+Nâng cấp 2 màn hình Pillar (`PillarsTab` list + `PillarDetailView`) theo 3 hướng đã chọn, ưu tiên **UX hiển thị/tổ chức** trước khi tới quick actions.
 
-Stream keyword **ngay sau mỗi round tool-call của AI** → user thấy keyword chảy ra theo nhịp 20 từ / round, kèm progress thật (theo `collected/limit`).
+---
 
-## Thay đổi
+## 1. Pillar List (`PillarsTab.tsx`) — UX richer
 
-### 1. `supabase/functions/keyword-research-v2/index.ts` — `callAI` nhận callback
+**Toolbar mới (sticky trên grid):**
+- Search box: lọc theo `name` + `description` (client-side, ~10 pillar/org là phổ biến).
+- Status filter chips: All / Planning / Active / Completed / Archived (badge count mỗi nhóm).
+- Sort dropdown: `Mới tạo ↓` (default) · `Coverage % ↓` · `Số keyword ↓` · `Tên A→Z`.
+- View toggle: Grid (hiện tại) ↔ Compact list (1 row/pillar, dùng khi >10 pillar).
+- Đếm hiển thị: "Hiển thị 8/12 pillar".
 
-```ts
-async function callAI(
-  ...,
-  onRoundBatch?: (rawKws: KeywordSuggestion[], round: number, total: number) => void
-)
-```
+**Card cải thiện:**
+- Thêm mini health dot (trái title): xanh ≥70% coverage, vàng 30-70%, đỏ <30% — purely visual hint, KHÔNG tính score phức tạp (đó là phase sau).
+- Hàng meta thêm "X orphan" nếu có (link nhanh vào detail, scroll tới block orphan).
+- Hover card → highlight border `ring-1 ring-foreground/10` (Soft Luxury).
 
-Bên trong vòng `for (round...)`:
-- Sau khi parse xong `args.keywords` của round, gọi `onRoundBatch(addedThisRound, round, collected.length)` ngay.
-- Không đổi logic tool-loop / fallback.
+**Compact list mode:**
+- 1 row: dot · name · status badge · `kw covered/total` · progress bar mini · actions (mở/xóa).
+- Phù hợp khi org có >15 pillar.
 
-### 2. Hook callback vào SSE writer
+**Empty state filter:** khi search/filter ra 0, hiện CTA "Xóa bộ lọc".
 
-Trong `Deno.serve` (đoạn 747–785):
-- Bỏ heartbeat fake-progress (`hb` interval) — thay bằng comment ping `: ping\n\n` mỗi 10s thuần để giữ keep-alive (không bump pct giả).
-- Truyền callback:
-  ```ts
-  const onRoundBatch = (raw, round, total) => {
-    const pct = Math.min(78, 50 + Math.round((total / limit) * 28));
-    send("progress", { pct, message: `AI vòng ${round + 1}: ${total}/${limit} keyword` });
-    send("ai_keywords_raw", { batch: raw, round, total, limit });
-  };
-  const r = await callAI(..., onRoundBatch);
-  ```
+---
 
-### 3. FE `KeywordResearchLabTab.tsx`
+## 2. Pillar Detail (`PillarDetailView.tsx`) — Group + Chart
 
-Thêm xử lý event mới:
-- `ai_keywords_raw` → push thẳng vào `previewKeywords` với flag `_pending: true`, hiển thị skeleton/badge "đang chấm điểm" trong `KeywordPreviewTable`.
-- Khi event `keyword_batch` (final, đã enrich) bắt đầu đến → reset `previewKeywords` về `[]` rồi mới append batch enriched (vì có thể đã filter off-brand, sort lại theo `final_score`).
+**A. Universe grouping cho Cluster Keywords list**
+- Dùng `categorizeKeyword()` (đã có ở `src/lib/seo/keywordCategorizer.ts`) để phân keyword thành 6 segment: Brand 👑 / Product 💎 / Competitor ⚔️ / Commercial 💰 / Problem 🩹 / Topical 🌐.
+- Toolbar phía trên list:
+  - Group by dropdown: **None** (hiện tại) · **Universe Category** (default mới) · **Intent** · **Funnel Stage**.
+  - Universe filter chips (count mỗi loại) — multi-select.
+  - Search box trong cluster (lọc theo keyword text).
+- Render: collapsible group header (icon + label + count + avg priority) → list keyword. Mặc định mở 3 group đầu tiên.
 
-```ts
-} else if (currentEvent === "ai_keywords_raw") {
-  setPreviewKeywords(prev => [
-    ...prev,
-    ...(data.batch || []).map((k: any) => ({ ...k, _pending: true })),
-  ]);
-} else if (currentEvent === "keyword_batch") {
-  // First final batch resets pending list
-  setPreviewKeywords(prev => {
-    const hasPending = prev.some((p: any) => p._pending);
-    return hasPending ? [...(data.batch || [])] : [...prev, ...(data.batch || [])];
-  });
-}
-```
+**B. Intent × Funnel Matrix (chart mới)**
+- Card mới đặt sau "Drill-down summary", trước "Top covered" (hoặc thay thế Funnel breakdown card hiện tại nếu chật).
+- Heatmap 4 cột (Info / Commercial / Transactional / Nav) × 3 dòng (TOFU / MOFU / BOFU).
+- Mỗi ô: số keyword + màu nền theo density (`bg-muted` → `bg-primary/40`). Click ô → filter list bên dưới.
+- Mục đích: nhanh chóng phát hiện gap (vd: BOFU-Transactional trống = thiếu landing trang chuyển đổi).
+- Reuse component `IntentFunnelMatrix.tsx` đã tồn tại (đọc lại để chắc chắn match signature; nếu không thì viết inline trong detail).
 
-### 4. `KeywordPreviewTable.tsx` — visual cho row pending
+**C. Expand row keyword (lazy)**
+- Click vào row → expand inline panel:
+  - Universe category badge + lý do match.
+  - Volume/KD/CPC/Priority breakdown (nếu có sẵn trong DB).
+  - Quick action: "Đặt làm pillar" · "Tạo content từ keyword này" (link `/multi-channel/create?clusterId=X&keywordIds=Y`) · "Bỏ khỏi pillar".
+- Không gọi API khi expand (tránh tốn) — chỉ render dữ liệu đã fetch.
 
-Khi row có `_pending: true`:
-- Cột Priority hiện skeleton nhỏ (`<Skeleton className="h-4 w-8" />`) thay vì badge.
-- Cột Volume / KD / CPC hiện "—" muted.
-- Row có `opacity-70` + `animate-pulse` nhẹ ở cột priority.
+---
 
-Không cần đổi schema, chỉ render conditional.
+## 3. Quick Actions (bulk + AI)
 
-### 5. Memory update
+**A. Bulk select trong list keyword:**
+- Checkbox đầu mỗi row + "Select all in group".
+- Action bar nổi (sticky bottom): **Move to pillar...** (dropdown chọn pillar khác) · **Remove from pillar** · **Set funnel stage** (TOFU/MOFU/BOFU).
 
-`mem://features/seo/research-lab-v2-vn.md` — bổ sung dòng:
-> Streaming AI rounds: `callAI` emit callback sau mỗi tool-round → SSE event `ai_keywords_raw` → FE hiện row pending (skeleton priority); event `keyword_batch` final reset list khi có pending.
+**B. AI Auto-cluster orphans (nút trên header detail):**
+- Nút "AI gợi ý gom orphan" → mở Dialog.
+- Edge function mới `seo-auto-cluster-orphans` (Deno):
+  - Input: `{ clusterId }` (pillar đích) hoặc `{ orgId }` (gom toàn org vào nhiều pillar).
+  - Lấy keyword `cluster_id IS NULL` của org, gọi Lovable AI Gateway (Gemini 2.5 Flash) phân loại từng keyword vào 1 trong các pillar hiện có (theo name + sample keywords) hoặc "skip".
+  - Trả `{ assignments: [{keywordId, suggestedClusterId, confidence, reason}] }`.
+- Dialog hiển thị bảng đề xuất + checkbox accept → batch update `cluster_id`.
 
-## Files
+**C. Bulk move keyword giữa pillars:**
+- Đã cover trong (A) ở trên.
 
-- `supabase/functions/keyword-research-v2/index.ts` (callAI signature + serve handler)
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (event handler)
-- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (render pending state)
-- `.lovable/memory/features/seo/research-lab-v2-vn.md`
+---
 
-Không cần migration. Không đụng `_shared/ai-provider.ts` (tận dụng tool-call non-stream sẵn có, stream ở tầng round).
+## File changes
+
+| File | Change |
+|------|--------|
+| `src/components/admin/seo-keywords/PillarsTab.tsx` | Thêm toolbar (search/filter/sort/view toggle), compact list mode, health dot, orphan count |
+| `src/components/admin/seo-keywords/PillarDetailView.tsx` | Group by + Universe chips + search; expand row; bulk select + action bar; nút AI auto-cluster |
+| `src/components/admin/seo-keywords/IntentFunnelMatrix.tsx` | Reuse hoặc refactor để nhận `keywords` + `coverageMap` props; click ô emit filter |
+| `src/components/admin/seo-keywords/AutoClusterOrphansDialog.tsx` | **NEW** — gọi edge function + render bảng đề xuất + accept |
+| `supabase/functions/seo-auto-cluster-orphans/index.ts` | **NEW** edge function (Gemini 2.5 Flash, JWT verify, category=`seo`) |
+| `supabase/config.toml` | Đăng ký function mới (verify_jwt mặc định) |
+| `.lovable/memory/features/seo/research-lab-v2-vn.md` | Update note về Pillar UX v2 |
+
+---
+
+## Acceptance criteria
+
+- [ ] List Pillar có search box, status filter, 4 sort options, grid/compact toggle.
+- [ ] Card hiện health dot màu theo coverage.
+- [ ] Detail có group by (4 mode) + Universe chip filter + search trong cluster.
+- [ ] Intent × Funnel matrix hiển thị, click ô filter list.
+- [ ] Click row keyword expand inline panel (universe badge + actions).
+- [ ] Checkbox bulk select + action bar (move/remove/set stage) hoạt động.
+- [ ] Nút "AI gợi ý gom orphan" gọi edge function mới + dialog accept hoạt động.
+- [ ] Không vỡ existing flow (set pillar keyword, suggest topics, add keyword).

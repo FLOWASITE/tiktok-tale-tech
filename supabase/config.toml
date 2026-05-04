@@ -439,3 +439,6 @@ verify_jwt = false
 
 [functions.seo-rank-tracker]
 verify_jwt = false
+
+[functions.seo-auto-cluster-orphans]
+verify_jwt = false
