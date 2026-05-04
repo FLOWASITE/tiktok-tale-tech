@@ -1769,24 +1769,66 @@ try {
 
 
             {websiteForm.integrationType === 'wix' && (
-              <div className="space-y-2">
-                <Label htmlFor="wixApiKey">Wix API Key</Label>
-                <div className="relative">
-                  <Input
-                    id="wixApiKey"
-                    type={showSecrets.apiKey ? 'text' : 'password'}
-                    placeholder="Nhập Wix API Key..."
-                    value={websiteForm.apiKey}
-                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
-                    className="pr-10"
-                  />
-                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
-                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Tạo tại Wix Dashboard → Settings → API Keys
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  className="w-full justify-center gap-2"
+                  title="Sẽ ra mắt trong Phase 2 - cần Wix App approval"
+                >
+                  Kết nối Wix qua OAuth (sắp ra mắt)
+                </Button>
+                <p className="text-[11px] text-muted-foreground text-center -mt-1">
+                  Hoặc dùng API Key thủ công bên dưới ↓
                 </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wixApiKey">Wix API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="wixApiKey"
+                      type={showSecrets.apiKey ? 'text' : 'password'}
+                      placeholder="Nhập Wix API Key..."
+                      value={websiteForm.apiKey}
+                      onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                      className="pr-10"
+                    />
+                    <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
+                      {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Wix Dashboard → Settings → Headless Settings → API Keys (cần permissions: Blog, Media, Sites.Read)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wixSiteId">Site ID</Label>
+                  <Input
+                    id="wixSiteId"
+                    placeholder="vd: a1b2c3d4-1234-5678-90ab-cdef12345678"
+                    value={websiteForm.wixSiteId}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, wixSiteId: e.target.value.trim() }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lấy từ URL Wix Dashboard: <code className="text-[11px]">/dashboard/&#123;accountId&#125;/site/<strong>&#123;siteId&#125;</strong></code>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wixAccountId">Account ID</Label>
+                  <Input
+                    id="wixAccountId"
+                    placeholder="vd: 11111111-2222-3333-4444-555555555555"
+                    value={websiteForm.wixAccountId}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, wixAccountId: e.target.value.trim() }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lấy từ URL Wix Dashboard: <code className="text-[11px]">/dashboard/<strong>&#123;accountId&#125;</strong>/site/&#123;siteId&#125;</code>
+                  </p>
+                </div>
               </div>
             )}
 
