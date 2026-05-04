@@ -451,3 +451,12 @@ verify_jwt = false
 
 [functions.shopify-app-uninstalled-webhook]
 verify_jwt = false
+
+[functions.wix-oauth-start]
+verify_jwt = true
+
+[functions.wix-oauth-callback]
+verify_jwt = false
+
+[functions.refresh-wix-token]
+verify_jwt = false

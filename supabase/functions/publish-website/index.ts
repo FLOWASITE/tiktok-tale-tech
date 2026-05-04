@@ -224,6 +224,116 @@ Deno.serve(withPerf({ functionName: 'publish-website' }, async (req) => {
       result = await response.json();
       if (result.error) throw new Error(`Blogger error: ${result.error.message}`);
 
+    } else if (integrationType === 'wix_oauth') {
+      // Wix Blog API via OAuth (App install). Auto-refresh if access token expired.
+      let accessToken = decrypt(connection.access_token, encryptionKey);
+      const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at).getTime() : 0;
+      const now = Date.now();
+      // Refresh if expired or expiring within 60s
+      if (!accessToken || expiresAt < now + 60_000) {
+        try {
+          const { refreshWixConnection } = await import('../refresh-wix-token/index.ts');
+          const refreshed = await refreshWixConnection(connection.id);
+          accessToken = refreshed.accessToken;
+        } catch (refreshErr: any) {
+          throw new Error(`Wix token refresh failed: ${refreshErr.message}. Reconnect lại Wix.`);
+        }
+      }
+
+      const wixSiteId = connection.metadata?.wix_site_id;
+      const wixInstanceId = connection.metadata?.wix_instance_id;
+      const wixHeaders: Record<string, string> = {
+        'Authorization': accessToken,
+        'Content-Type': 'application/json',
+      };
+      if (wixSiteId) wixHeaders['wix-site-id'] = wixSiteId;
+      if (wixInstanceId) wixHeaders['wix-instance-id'] = wixInstanceId;
+
+      // Convert HTML → Ricos paragraphs
+      const paragraphs = String(content)
+        .split(/<\/?p[^>]*>|\n{2,}/)
+        .map(p => p.replace(/<[^>]+>/g, '').trim())
+        .filter(Boolean);
+      const richContent = {
+        nodes: paragraphs.length > 0
+          ? paragraphs.map(text => ({
+              type: 'PARAGRAPH',
+              nodes: [{ type: 'TEXT', textData: { text, decorations: [] } }],
+            }))
+          : [{ type: 'PARAGRAPH', nodes: [{ type: 'TEXT', textData: { text: String(content).replace(/<[^>]+>/g, ''), decorations: [] } }] }],
+      };
+
+      // Upload featured image to Wix Site Media (best-effort)
+      let coverMedia: any = undefined;
+      if (featuredImageUrl) {
+        try {
+          const uploadUrlResp = await fetch('https://www.wixapis.com/site-media/v1/files/generate-upload-url', {
+            method: 'POST',
+            headers: wixHeaders,
+            body: JSON.stringify({
+              mimeType: 'image/jpeg',
+              fileName: featuredImageUrl.split('/').pop() || 'cover.jpg',
+              parentFolderId: 'media-root',
+            }),
+          });
+          const uploadUrlData = await uploadUrlResp.json();
+          if (uploadUrlData.uploadUrl) {
+            const imgResp = await fetch(featuredImageUrl);
+            const imgBlob = await imgResp.blob();
+            const putResp = await fetch(uploadUrlData.uploadUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': imgBlob.type || 'image/jpeg' },
+              body: imgBlob,
+            });
+            const putData = await putResp.json().catch(() => ({}));
+            const fileId = putData?.file?.id || putData?.fileDescriptor?.id;
+            if (fileId) coverMedia = { image: { id: fileId } };
+          }
+        } catch (imgErr) {
+          console.warn('Wix OAuth cover upload failed:', imgErr);
+        }
+      }
+
+      const draftBody: any = {
+        draftPost: {
+          title,
+          richContent,
+          excerpt: excerpt || '',
+          tags: tags?.map(t => ({ label: t })) || [],
+          slug: slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60),
+          seoData: seoData ? {
+            tags: [
+              ...(seoData.metaTitle ? [{ type: 'title', children: seoData.metaTitle }] : []),
+              ...(seoData.metaDescription ? [{ type: 'meta', props: { name: 'description', content: seoData.metaDescription } }] : []),
+              ...(seoData.focusKeyword ? [{ type: 'meta', props: { name: 'keywords', content: seoData.focusKeyword } }] : []),
+            ],
+          } : undefined,
+          ...(coverMedia ? { media: { wixMedia: coverMedia, displayed: true } } : {}),
+        },
+      };
+
+      const draftResp = await fetch('https://www.wixapis.com/blog/v3/draft-posts', {
+        method: 'POST',
+        headers: wixHeaders,
+        body: JSON.stringify(draftBody),
+      });
+      const draftResult = await draftResp.json();
+      if (!draftResp.ok || !draftResult.draftPost?.id) {
+        throw new Error(`Wix OAuth draft create failed [${draftResp.status}]: ${JSON.stringify(draftResult).slice(0, 300)}`);
+      }
+      if (status === 'publish') {
+        const publishResp = await fetch(
+          `https://www.wixapis.com/blog/v3/draft-posts/${draftResult.draftPost.id}/publish`,
+          { method: 'POST', headers: wixHeaders }
+        );
+        result = await publishResp.json();
+        if (!publishResp.ok) {
+          throw new Error(`Wix OAuth publish failed [${publishResp.status}]: ${JSON.stringify(result).slice(0, 300)}`);
+        }
+      } else {
+        result = draftResult;
+      }
+
     } else if (integrationType === 'wix') {
       // Wix Blog API - require API Key + siteId + accountId
       const wixApiKey = decrypt(connection.access_token, encryptionKey);

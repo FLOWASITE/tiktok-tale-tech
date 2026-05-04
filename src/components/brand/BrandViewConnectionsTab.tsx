@@ -189,6 +189,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Auto-publish blog vào Shopify store qua OAuth',
   },
+  wix: {
+    name: 'Wix',
+    icon: <ChannelIcon channel={"website" as any} size={20} />,
+    color: 'bg-[#0C6EFC]/10',
+    available: true,
+    description: 'Auto-publish blog vào Wix site qua OAuth',
+  },
 };
 
 interface TwitterSetupForm {
@@ -243,6 +250,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [shopifyDialogOpen, setShopifyDialogOpen] = useState(false);
   const [shopifyShop, setShopifyShop] = useState('');
   const [isShopifyConnecting, setIsShopifyConnecting] = useState(false);
+  const [isWixOAuthConnecting, setIsWixOAuthConnecting] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
@@ -558,6 +566,66 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
+  const handleWixOAuthConnect = async () => {
+    setIsWixOAuthConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('wix-oauth-start', {
+        body: { brandTemplateId: template.id, frontendOrigin: window.location.origin },
+      });
+
+      let errBody: any = null;
+      if (error) {
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') errBody = await ctx.json();
+        } catch { /* ignore */ }
+      }
+
+      if (error || !data?.authorization_url) {
+        const msg = errBody?.error || data?.error || error?.message || 'Không khởi tạo được Wix OAuth';
+        throw new Error(msg);
+      }
+
+      window.open(data.authorization_url, '_blank', 'width=720,height=820');
+      toast.info('Đã mở trang cài đặt Wix', {
+        description: 'Chọn site Wix và cấp quyền cho Flowa. Hệ thống sẽ tự cập nhật khi xong.',
+      });
+      setWebsiteDialogOpen(false);
+
+      setOauthConnecting('website');
+      const start = Date.now();
+      const poll = setInterval(async () => {
+        if (Date.now() - start > 180_000) {
+          clearInterval(poll);
+          setOauthConnecting(null);
+          return;
+        }
+        try {
+          const { data: rows } = await supabase
+            .from('social_connections')
+            .select('id, is_active, platform_username, metadata')
+            .eq('brand_template_id', template.id)
+            .eq('platform', 'website')
+            .eq('is_active', true)
+            .order('connected_at', { ascending: false })
+            .limit(5);
+          const wixOAuthRow = rows?.find(
+            (r: any) => r.metadata?.integration_type === 'wix_oauth',
+          );
+          if (wixOAuthRow) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            await refetch();
+            toast.success(`Đã kết nối Wix: ${wixOAuthRow.platform_username}`);
+          }
+        } catch { /* ignore polling errors */ }
+      }, 3000);
+    } catch (e: any) {
+      toast.error('Lỗi kết nối Wix', { description: e?.message || String(e) });
+    } finally {
+      setIsWixOAuthConnecting(false);
+    }
+  };
 
   const handleDisconnect = async (connectionId: string) => {
     try {
@@ -601,6 +669,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     pinterest: 'pinterest',
     bluesky: 'bluesky',
     shopify: 'shopify',
+    wix: 'wix',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
@@ -1772,16 +1841,16 @@ try {
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="default"
                   size="sm"
-                  disabled
+                  onClick={handleWixOAuthConnect}
+                  disabled={isWixOAuthConnecting}
                   className="w-full justify-center gap-2"
-                  title="Sẽ ra mắt trong Phase 2 - cần Wix App approval"
                 >
-                  Kết nối Wix qua OAuth (sắp ra mắt)
+                  {isWixOAuthConnecting ? 'Đang mở Wix...' : '🔐 Kết nối Wix qua OAuth (khuyến nghị)'}
                 </Button>
                 <p className="text-[11px] text-muted-foreground text-center -mt-1">
-                  Hoặc dùng API Key thủ công bên dưới ↓
+                  Khuyến nghị OAuth — không cần Site/Account ID. Hoặc dùng API Key thủ công bên dưới ↓
                 </p>
 
                 <div className="space-y-2">
