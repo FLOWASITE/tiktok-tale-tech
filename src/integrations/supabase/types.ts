@@ -7954,6 +7954,8 @@ export type Database = {
       multi_channel_contents: {
         Row: {
           blogger_content: string | null
+          blogger_post_id: string | null
+          blogger_post_url: string | null
           bluesky_content: string | null
           bluesky_post_id: string | null
           bluesky_post_url: string | null
@@ -7975,6 +7977,8 @@ export type Database = {
           deadline: string | null
           email_content: string | null
           facebook_content: string | null
+          flowa_blog_post_id: string | null
+          flowa_blog_post_url: string | null
           global_hook: Json | null
           google_maps_content: string | null
           hook_evaluations: Json | null
@@ -8008,13 +8012,19 @@ export type Database = {
           user_id: string | null
           was_refined: boolean | null
           website_content: string | null
+          website_post_id: string | null
+          website_post_url: string | null
           website_seo_data: Json | null
           wordpress_content: string | null
+          wordpress_post_id: string | null
+          wordpress_post_url: string | null
           youtube_content: string | null
           zalo_oa_content: string | null
         }
         Insert: {
           blogger_content?: string | null
+          blogger_post_id?: string | null
+          blogger_post_url?: string | null
           bluesky_content?: string | null
           bluesky_post_id?: string | null
           bluesky_post_url?: string | null
@@ -8036,6 +8046,8 @@ export type Database = {
           deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
+          flowa_blog_post_id?: string | null
+          flowa_blog_post_url?: string | null
           global_hook?: Json | null
           google_maps_content?: string | null
           hook_evaluations?: Json | null
@@ -8069,13 +8081,19 @@ export type Database = {
           user_id?: string | null
           was_refined?: boolean | null
           website_content?: string | null
+          website_post_id?: string | null
+          website_post_url?: string | null
           website_seo_data?: Json | null
           wordpress_content?: string | null
+          wordpress_post_id?: string | null
+          wordpress_post_url?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
         Update: {
           blogger_content?: string | null
+          blogger_post_id?: string | null
+          blogger_post_url?: string | null
           bluesky_content?: string | null
           bluesky_post_id?: string | null
           bluesky_post_url?: string | null
@@ -8097,6 +8115,8 @@ export type Database = {
           deadline?: string | null
           email_content?: string | null
           facebook_content?: string | null
+          flowa_blog_post_id?: string | null
+          flowa_blog_post_url?: string | null
           global_hook?: Json | null
           google_maps_content?: string | null
           hook_evaluations?: Json | null
@@ -8130,8 +8150,12 @@ export type Database = {
           user_id?: string | null
           was_refined?: boolean | null
           website_content?: string | null
+          website_post_id?: string | null
+          website_post_url?: string | null
           website_seo_data?: Json | null
           wordpress_content?: string | null
+          wordpress_post_id?: string | null
+          wordpress_post_url?: string | null
           youtube_content?: string | null
           zalo_oa_content?: string | null
         }
