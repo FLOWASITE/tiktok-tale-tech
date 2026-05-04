@@ -276,6 +276,17 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
     try { parsedResponse = JSON.parse(responseBody); } catch { /* not JSON */ }
     const isSuccess = response.ok && parsedResponse?.success === true;
 
+    // Extract real post URL/ID from publisher response (publish-* return them at root)
+    const respData = (parsedResponse?.data as Record<string, unknown> | undefined) ?? {};
+    const postUrl =
+      (parsedResponse?.postUrl as string | undefined) ||
+      (respData?.postUrl as string | undefined) ||
+      undefined;
+    const postId =
+      (parsedResponse?.postId as string | undefined) ||
+      (respData?.postId as string | undefined) ||
+      undefined;
+
     if (contentId) {
       try {
         if (isSuccess) {
@@ -301,15 +312,26 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
             const newStatus = allPublished ? 'published' : 'partially_published';
 
+            // Build patch: status + channel_statuses + (URL/ID nếu có)
+            const patch: Record<string, unknown> = {
+              status: newStatus,
+              channel_statuses: channelStatuses,
+            };
+            const cols = URL_COLUMN_MAP[action];
+            if (cols) {
+              if (postUrl) patch[cols.url] = postUrl;
+              if (postId) patch[cols.id] = postId;
+            }
+
             const { error: updateError } = await supabase
               .from('multi_channel_contents')
-              .update({ status: newStatus, channel_statuses: channelStatuses })
+              .update(patch)
               .eq('id', contentId);
 
             if (updateError) {
               console.error('[channel-publisher] Failed to update content status:', updateError.message);
             } else {
-              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${effectiveChannelKey}=published)`);
+              console.log(`[channel-publisher] Updated multi_channel_contents ${contentId} → ${newStatus} (${effectiveChannelKey}=published, url=${postUrl ?? 'n/a'})`);
             }
           }
 
