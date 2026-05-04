@@ -168,11 +168,48 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
       if (pillarOnly && !k.pillar_match) return false;
       if (coreAudienceOnly && k.audience_match !== "core") return false;
       if (minBrandFit > 0 && (k._fit ?? 0) < minBrandFit) return false;
+      if (categoryFilter && k._category !== categoryFilter) return false;
       return true;
     });
     if (sortByScore) list = [...list].sort((a, b) => b._score - a._score);
     return list;
-  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, coreAudienceOnly, minBrandFit, sortByScore]);
+  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, coreAudienceOnly, minBrandFit, sortByScore, categoryFilter]);
+
+  // ---- Group rows by selected dimension ----
+  const groups = useMemo(() => {
+    if (groupBy === "none") return [{ key: "all", label: "Tất cả", items: filtered, meta: null as any }];
+    const buckets = new Map<string, typeof filtered>();
+    for (const k of filtered) {
+      const key =
+        groupBy === "category" ? k._category :
+        groupBy === "intent" ? (k.intent || "unknown") :
+        (k.funnel_stage || "unknown");
+      if (!buckets.has(key)) buckets.set(key, [] as any);
+      buckets.get(key)!.push(k);
+    }
+    if (groupBy === "category") {
+      return CATEGORY_ORDER.filter(c => buckets.has(c)).map(c => ({
+        key: c, label: CATEGORY_META[c].label, items: buckets.get(c)!, meta: CATEGORY_META[c],
+      }));
+    }
+    return Array.from(buckets.entries()).map(([key, items]) => ({ key, label: key, items, meta: null as any }));
+  }, [filtered, groupBy]);
+
+  const toggleGroup = (key: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+  const selectGroup = (items: typeof filtered) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      items.forEach(it => next.add(it.keyword));
+      return next;
+    });
+  };
+
 
   const toggle = (kw: string) => {
     const next = new Set(selected);
