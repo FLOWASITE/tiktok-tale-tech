@@ -159,12 +159,12 @@ const channelConfig: Record<Channel, {
     maxLength: '800-1500 chữ'
   },
   medium: {
-    label: 'Wix Blog',
-    shortLabel: 'Wix',
-    icon: <WixIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+    label: 'Medium',
+    shortLabel: 'Medium',
+    icon: <BookOpen className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
     color: 'text-foreground',
     bgColor: 'bg-muted',
-    maxLength: '800-1500 chữ'
+    maxLength: '1000-1800 chữ'
   },
   facebook: { 
     label: 'Facebook', 
