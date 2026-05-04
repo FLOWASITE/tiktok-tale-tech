@@ -205,6 +205,14 @@ const PLATFORM_CONFIG: Record<SocialPlatform, {
     available: true,
     description: 'Auto-publish blog vào Shopify store',
   },
+  wix: {
+    name: 'Wix',
+    icon: () => <ChannelIcon channel={"website" as any} size={16} />,
+    color: 'text-[#0C6EFC]',
+    bgColor: 'bg-[#0C6EFC]/10',
+    available: true,
+    description: 'Auto-publish blog vào Wix site qua OAuth',
+  },
 };
 
 interface TwitterSetupForm {

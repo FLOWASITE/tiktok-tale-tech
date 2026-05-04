@@ -189,6 +189,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Auto-publish blog vào Shopify store qua OAuth',
   },
+  wix: {
+    name: 'Wix',
+    icon: <ChannelIcon channel={"website" as any} size={20} />,
+    color: 'bg-[#0C6EFC]/10',
+    available: true,
+    description: 'Auto-publish blog vào Wix site qua OAuth',
+  },
 };
 
 interface TwitterSetupForm {
@@ -662,6 +669,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     pinterest: 'pinterest',
     bluesky: 'bluesky',
     shopify: 'shopify',
+    wix: 'wix',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
