@@ -309,6 +309,22 @@ Deno.serve(
       if (featuredMediaId) postPayload.featured_media = featuredMediaId;
       if (tagIds.length) postPayload.tags = tagIds;
       if (categoryIds.length) postPayload.categories = categoryIds;
+      // Yoast / Rank Math meta — both plugins keyed; whichever is active picks up
+      // (Requires plugin registered REST meta or REST API permission to write _yoast_*).
+      const wpMeta: Record<string, string> = {};
+      if (metaDescription) {
+        wpMeta._yoast_wpseo_metadesc = String(metaDescription);
+        wpMeta.rank_math_description = String(metaDescription);
+      }
+      if (seoTitle) {
+        wpMeta._yoast_wpseo_title = String(seoTitle);
+        wpMeta.rank_math_title = String(seoTitle);
+      }
+      if (focusKeyword) {
+        wpMeta._yoast_wpseo_focuskw = String(focusKeyword);
+        wpMeta.rank_math_focus_keyword = String(focusKeyword);
+      }
+      if (Object.keys(wpMeta).length) postPayload.meta = wpMeta;
 
       const r = await fetch(`${siteUrl}/wp-json/wp/v2/posts`, {
         method: "POST",
