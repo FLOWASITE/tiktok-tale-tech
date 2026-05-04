@@ -56,6 +56,7 @@ import {
   MapPin,
   Globe,
   Info,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -1374,6 +1375,25 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     return connected;
   };
 
+  const [search, setSearch] = useState('');
+  const [activeGroup, setActiveGroup] = useState<PlatformGroupId | 'all'>('all');
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const matchesSearch = (platform: SocialPlatform) => {
+    if (!normalizedSearch) return true;
+    const cfg = PLATFORM_CONFIG[platform];
+    return (
+      platform.toLowerCase().includes(normalizedSearch) ||
+      cfg?.name.toLowerCase().includes(normalizedSearch) ||
+      cfg?.description.toLowerCase().includes(normalizedSearch)
+    );
+  };
+
+  const visibleGroups = PLATFORM_GROUPS
+    .filter((g) => activeGroup === 'all' || g.id === activeGroup)
+    .map((g) => ({ ...g, platforms: g.platforms.filter(matchesSearch) }))
+    .filter((g) => g.platforms.length > 0);
+
   return (
     <div className="space-y-4">
       <div className="px-1">
@@ -1382,7 +1402,50 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </p>
       </div>
 
-      {PLATFORM_GROUPS.map((group) => {
+      {/* Search + Filter chips */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm platform... (vd: facebook, blog, zalo)"
+            className="pl-9 h-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            variant={activeGroup === 'all' ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 px-3"
+            onClick={() => setActiveGroup('all')}
+          >
+            Tất cả
+          </Button>
+          {PLATFORM_GROUPS.map((g) => (
+            <Button
+              key={g.id}
+              type="button"
+              variant={activeGroup === g.id ? 'default' : 'outline'}
+              size="sm"
+              className="h-9 px-3 gap-1.5"
+              onClick={() => setActiveGroup(g.id)}
+            >
+              {g.icon}
+              <span>{g.title}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {visibleGroups.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            Không tìm thấy platform khớp với "{search}".
+          </CardContent>
+        </Card>
+      ) : visibleGroups.map((group) => {
         const connectedCount = countConnectedInGroup(group.platforms);
         const totalCount = group.platforms.filter(p => PLATFORM_CONFIG[p]?.available).length;
         return (
