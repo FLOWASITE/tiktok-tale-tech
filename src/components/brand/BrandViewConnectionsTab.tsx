@@ -243,6 +243,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [shopifyDialogOpen, setShopifyDialogOpen] = useState(false);
   const [shopifyShop, setShopifyShop] = useState('');
   const [isShopifyConnecting, setIsShopifyConnecting] = useState(false);
+  const [isWixOAuthConnecting, setIsWixOAuthConnecting] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
