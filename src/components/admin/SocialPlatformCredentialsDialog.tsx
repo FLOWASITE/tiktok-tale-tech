@@ -110,11 +110,17 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
   threads: 'threads-oauth-callback',
   linkedin: 'linkedin-oauth-callback',
   tiktok: 'tiktok-oauth-callback',
+  youtube: 'youtube-oauth-callback',
   zalo_oa: 'zalo-oauth-callback',
   google_business: 'google-business-oauth-callback',
   blogger: 'blogger-oauth-callback',
   pinterest: 'pinterest-oauth-callback',
+  wordpress_com: 'wordpress-com-oauth-callback',
+  shopify: 'shopify-oauth-callback',
 };
+
+// Platforms managed entirely outside this dialog
+const READ_ONLY_PLATFORMS = new Set<SocialPlatform>(['bluesky', 'shopify', 'wordpress']);
 
 function getCallbackUrl(platform: SocialPlatform): string | null {
   const path = CALLBACK_URL_MAP[platform];
