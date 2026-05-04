@@ -422,27 +422,25 @@ export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: str
 ];
 
 export const CHANNELS: { value: Channel; label: string; icon: string; color: string; category: string; description: string }[] = [
-  // 📝 Thiên về Text — nội dung chủ yếu là văn bản
-  { value: 'website', label: 'Website', icon: 'Globe', color: 'blue', category: 'text', description: 'Bài corporate SEO 1000-2000 từ, H1/H2/H3, schema-friendly, có CTA' },
-  { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'text', description: 'Bài Blogger casual 500-900 từ, ngôi tôi/mình, kể chuyện, kết bằng câu hỏi (KHÁC Website)' },
-  { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'text', description: 'Bài WordPress in-depth 1200-2200 từ, H2+H3, FAQ, callout, expert tone (KHÁC Website & Blogger)' },
-  { value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'text', description: 'Bài Shopify Blog 800-1500 từ, e-commerce storytelling, HTML-ready, CTA Shop now (KHÁC Website/Blogger/WordPress)' },
-  { value: 'wix', label: 'Wix Blog', icon: 'Globe', color: 'slate', category: 'text', description: 'Bài Wix 800-1500 từ, brand storytelling, hero featured image, đoạn ngắn 2-4 câu, format Ricos rich content (Editor X / Wix Studio)' },
-  { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'text', description: 'Chuyên nghiệp, không emoji quá nhiều' },
-  { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'text', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
-  { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
-  { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'text', description: 'Subject + body, CTA rõ ràng' },
-  { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'text', description: 'Markdown, link preview' },
-  { value: 'bluesky', label: 'Bluesky', icon: 'Globe', color: 'sky', category: 'text', description: 'Post ngắn ≤300 ký tự, casual, không hashtag' },
-  // 📸 Thiên về Ảnh — ảnh là yếu tố chính
-  { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'image', description: 'Caption ngắn, 20-30 hashtag' },
-  { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'image', description: 'Post ngắn, hashtag, emoji phù hợp' },
-  { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'image', description: 'Bài đăng ngắn cho doanh nghiệp' },
-  { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'image', description: 'Tin nhắn ngắn, thân thiện' },
-  { value: 'pinterest', label: 'Pinterest', icon: 'Image', color: 'pinterest', category: 'image', description: 'Pin SEO: Title 100 ký tự, Description 500 ký tự, link về website' },
-  // 🎬 Thiên về Video — nội dung video là core
-  { value: 'tiktok', label: 'TikTok', icon: 'Music2', color: 'pink', category: 'video', description: 'Script video ngắn 15-60s, hook 3 giây' },
-  { value: 'youtube', label: 'YouTube', icon: 'Youtube', color: 'red', category: 'video', description: 'Script video, mô tả, tags tối ưu' },
+  // 🌐 Website & Long-form — bài dài có cấu trúc, CMS/blog/email
+  { value: 'website', label: 'Website', icon: 'Globe', color: 'blue', category: 'longform', description: 'Bài corporate SEO 1000-2000 từ, H1/H2/H3, schema-friendly, có CTA' },
+  { value: 'blogger', label: 'Blogger', icon: 'Globe', color: 'orange', category: 'longform', description: 'Bài Blogger casual 500-900 từ, ngôi tôi/mình, kể chuyện, kết bằng câu hỏi (KHÁC Website)' },
+  { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'longform', description: 'Bài WordPress in-depth 1200-2200 từ, H2+H3, FAQ, callout, expert tone (KHÁC Website & Blogger)' },
+  { value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'longform', description: 'Bài Shopify Blog 800-1500 từ, e-commerce storytelling, HTML-ready, CTA Shop now (KHÁC Website/Blogger/WordPress)' },
+  { value: 'wix', label: 'Wix Blog', icon: 'Globe', color: 'slate', category: 'longform', description: 'Bài Wix 800-1500 từ, brand storytelling, hero featured image, đoạn ngắn 2-4 câu, format Ricos rich content (Editor X / Wix Studio)' },
+  { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'longform', description: 'Subject + body, CTA rõ ràng' },
+  // 💬 Mạng xã hội — post ngắn, social-first
+  { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'social', description: 'Post ngắn, hashtag, emoji phù hợp' },
+  { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'social', description: 'Caption ngắn, 20-30 hashtag' },
+  { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'social', description: 'Chuyên nghiệp, không emoji quá nhiều' },
+  { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'social', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
+  { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'social', description: 'Text-based, tối đa 500 ký tự' },
+  { value: 'bluesky', label: 'Bluesky', icon: 'Globe', color: 'sky', category: 'social', description: 'Post ngắn ≤300 ký tự, casual, không hashtag' },
+  { value: 'pinterest', label: 'Pinterest', icon: 'Image', color: 'pinterest', category: 'social', description: 'Pin SEO: Title 100 ký tự, Description 500 ký tự, link về website' },
+  { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'social', description: 'Markdown, link preview' },
+  { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'social', description: 'Tin nhắn ngắn, thân thiện' },
+  { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'social', description: 'Bài đăng ngắn cho doanh nghiệp' },
+  // ❌ TikTok / YouTube đã bị loại khỏi multichannel — chỉ post từ Video Studio
 ];
 
 // Sample topic suggestions by industry
