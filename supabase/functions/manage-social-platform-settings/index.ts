@@ -204,7 +204,17 @@ Deno.serve(withPerf({ functionName: 'manage-social-platform-settings' }, async (
     // DELETE - Remove platform settings
     if (method === "DELETE") {
       const url = new URL(req.url);
-      const platform = url.searchParams.get("platform");
+      let platform = url.searchParams.get("platform");
+
+      // Fallback: read from body (supabase-js invoke không hỗ trợ query string trong function name)
+      if (!platform) {
+        try {
+          const body = await req.json();
+          platform = body?.platform || null;
+        } catch {
+          // no body
+        }
+      }
 
       if (!platform) {
         return new Response(JSON.stringify({ error: "Platform is required" }), {
