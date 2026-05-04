@@ -3668,6 +3668,33 @@ BẮT BUỘC sau body, append đúng 1 block JSON (không thêm prose):
 \`\`\`
 
 Phải KHÁC blogger (formal/long hơn) và KHÁC website (sâu chuyên môn + có meta JSON).`,
+              shopify:   `Bài Shopify Blog 800-1500 từ, e-commerce storytelling tone, **HTML-ready** (Shopify blog dùng HTML, không phải Markdown thuần).
+
+CẤU TRÚC:
+- Intro 60-120 từ: hook bằng nỗi đau/khao khát của shopper, đề cập sản phẩm/BST.
+- 4-6 ## H2 (mỗi section 100-200 từ, đoạn ≤80 từ để mobile-friendly).
+- ≥1 bullet list mô tả lợi ích/feature, ≥1 numbered list (how to use / styling tips).
+- Suggest featured image bằng \`![alt mô tả sản phẩm](IMAGE_PLACEHOLDER)\` 1-2 lần trong bài.
+- Conclusion + CTA mạnh thương mại: "Khám phá BST", "Shop now", "Thêm vào giỏ" — link sản phẩm dạng [tên SP](PRODUCT_LINK_PLACEHOLDER).
+
+TONE & SEO:
+- Tone: cảm hứng + mô tả product hữu hình (chất liệu, công năng, dịp dùng), KHÔNG khô như corporate website.
+- Focus keyword density 1-1.5%, **bold** keyword 3-5 lần.
+- Tags 4-6 từ khoá sản phẩm (lowercase, có dấu).
+
+BẮT BUỘC sau body, append đúng 1 block JSON:
+\`\`\`seo-meta
+{
+  "metaTitle": "≤60 ký tự, focus keyword + brand/BST",
+  "metaDescription": "140-160 ký tự, có focus keyword + CTA shop",
+  "slug": "khong-dau-gach-ngang-≤60-ky-tu",
+  "focusKeyword": "...",
+  "tags": ["sản phẩm", "bst", "..."],
+  "excerpt": "2-3 câu 50-160 từ hấp dẫn về BST/sản phẩm"
+}
+\`\`\`
+
+Phải KHÁC website (commerce-driven, ngắn hơn), KHÁC blogger (không ngôi 'tôi', focus product), KHÁC wordpress (không expert/E-E-A-T mà là shopping inspiration).`,
               facebook:  "Facebook 250-500 từ, hook mạnh đầu bài, cấu trúc tiêu đề-giới thiệu-case study-giải pháp-CTA.",
               instagram: "Instagram 50-150 từ, ngắn gọn, hashtag cuối bài.",
               twitter:   "X/Twitter thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số.",
