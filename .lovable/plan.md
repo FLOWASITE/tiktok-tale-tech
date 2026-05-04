@@ -1,44 +1,23 @@
-## Mục tiêu
+## Vấn đề
 
-Trang Kết nối hiện đổ một list dài 16 platform vào 1 Card duy nhất → khó scan, không phân biệt được "đăng social ngắn" vs "đăng blog dài" vs "local business". Nâng cấp bằng cách **phân loại theo nhóm chức năng** + cải thiện hierarchy thị giác.
+Trong picker "Kênh xuất bản" của Multichannel, **Shopify Blog** và **Wix Blog** đang dùng nhầm icon `WordPressIcon` (chữ "W" trong vòng tròn) thay vì icon thật của Shopify (túi mua sắm xanh) và Wix (chữ "WiX" đen).
 
-## Phân loại 3 nhóm (đồng bộ với Multichannel reclassification)
+Lý do: nhiều file picker được clone trước khi `ShopifyIcon` / `WixIcon` được thêm vào `SocialIcons.tsx`, nên vẫn hardcode `WordPressIcon` cho cả 3 kênh.
 
-```text
-┌─ 1. Mạng xã hội (Social) ──────────────────────────────┐
-│  Facebook · Instagram · TikTok · Threads · X (Twitter) │
-│  LinkedIn · Pinterest · Bluesky · YouTube              │
-└────────────────────────────────────────────────────────┘
+## Files cần sửa
 
-┌─ 2. Website & Long-form (Blog/CMS) ────────────────────┐
-│  WordPress · WordPress.com · Blogger                   │
-│  Shopify · Wix · Website (custom API/Webhook)          │
-└────────────────────────────────────────────────────────┘
+Map `shopify` → `ShopifyIcon`, `wix` → `WixIcon`:
 
-┌─ 3. Local & Messaging ─────────────────────────────────┐
-│  Google Business · Zalo OA                             │
-└────────────────────────────────────────────────────────┘
-```
-
-## Thay đổi UI
-
-**File:** `src/components/brand/BrandViewConnectionsTab.tsx`
-
-1. Thêm hằng số `PLATFORM_GROUPS` map mỗi `SocialPlatform` → `'social' | 'longform' | 'local'` + label/description nhóm + icon nhóm (Share2 / Globe / MapPin).
-2. Thay 1 Card duy nhất bằng **3 Card riêng** theo nhóm:
-   - Mỗi Card có header: icon nhóm + tên nhóm + badge "X/Y đã kết nối".
-   - Body render đúng các platform thuộc nhóm bằng chính `renderConnection()` / `renderFacebookPlatform()` / `renderWebsitePlatform()` đã có.
-3. Sắp xếp thứ tự trong từng nhóm: ưu tiên platform `available: true` và đã có connection lên trên.
-4. Giữ nguyên dialog/handler hiện tại — chỉ tổ chức lại layout, không động code OAuth.
-
-## Polish nhỏ
-
-- Sửa `Twitter` icon trong dialog Twitter setup (hiện dùng Lucide `Twitter` cũ) → `<ChannelIcon channel="twitter" />` cho đồng bộ Soft Luxury.
-- Bỏ entry trùng `Website` khỏi nhóm Long-form nếu đã có `WordPress` + `Shopify` + `Wix` + `Blogger` (Website hiện là fallback cho custom API/Webhook → giữ riêng cuối nhóm).
-- Thêm divider nhỏ (border-t neutral) giữa các Card để không gian thở "Soft Luxury".
+1. **`src/components/multichannel/MultiChannelFormStepper.tsx`** (line 60, 174-175) — thêm import `ShopifyIcon, WixIcon`, đổi icon map.
+2. **`src/components/multichannel/MultiChannelFormWizard.tsx`** (line 86, 211-212) — tương tự.
+3. **`src/components/multichannel/ImageChannelPicker.tsx`** (line 8, 26-27) — thêm import + đổi icon + đổi label `'WP'` → `'Shop'` / `'Wix'`.
+4. **`src/components/multichannel/MultiChannelHookGenerator.tsx`** (line 61, 114-115) — thêm import + đổi icon map.
+5. **`src/components/multichannel/UnifiedImageGenerator.tsx`** (line 101-102) — đổi `<ChannelIcon channel="wordpress" />` → `channel="shopify"` / `channel="wix"`, sửa color tokens (#96BF48 cho Shopify, neutral cho Wix).
+6. **`src/components/multichannel/ExpandChannelsDialog.tsx`** (line 35-36) — đổi `channel="wordpress"` → `"shopify"` / `"wix"`.
+7. **`src/components/multichannel/ExpandChannelsStreamingDialog.tsx`** (line 39-40) — tương tự.
 
 ## Không thay đổi
 
-- Logic kết nối, OAuth flow, dialog setup.
-- File `ChannelIcon` (đã sửa Shopify/Wix ở turn trước).
-- Trang `Connections.tsx` (chỉ redirect → `/brands/:id?tab=connections`).
+- `ChannelIcon.tsx` (streaming) đã đúng từ turn trước.
+- Logic generate / publish / DB column mapping (`shopify_content`, `wix_content`) giữ nguyên.
+- `UnconnectedChannelsBanner` map `shopify→blogger` / `wix→blogger` là logic fallback connection, không phải icon hiển thị → giữ nguyên.
