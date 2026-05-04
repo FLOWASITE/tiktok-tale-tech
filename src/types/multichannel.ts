@@ -70,6 +70,7 @@ export type Channel =
   | 'website'
   | 'blogger'
   | 'wordpress'
+  | 'shopify'
   | 'facebook'
   | 'instagram'
   | 'twitter'
