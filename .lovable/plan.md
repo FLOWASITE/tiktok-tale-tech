@@ -1,23 +1,42 @@
-## Vấn đề
+## Mục tiêu
+Bổ sung phần **Hướng dẫn từng bước** vào dialog "Kết nối Shopify" trong `BrandViewConnectionsTab.tsx` (lines 1639-1677) để user tránh lỗi `ERR_BLOCKED_BY_RESPONSE` khi store bị Shopify chặn (do password protection / app chưa cài).
 
-Trong picker "Kênh xuất bản" của Multichannel, **Shopify Blog** và **Wix Blog** đang dùng nhầm icon `WordPressIcon` (chữ "W" trong vòng tròn) thay vì icon thật của Shopify (túi mua sắm xanh) và Wix (chữ "WiX" đen).
+## File chỉnh sửa
+`src/components/brand/BrandViewConnectionsTab.tsx` — chỉ sửa block Dialog Shopify (lines 1639-1677), không động phần khác.
 
-Lý do: nhiều file picker được clone trước khi `ShopifyIcon` / `WixIcon` được thêm vào `SocialIcons.tsx`, nên vẫn hardcode `WordPressIcon` cho cả 3 kênh.
+## Nội dung bổ sung trong Dialog
 
-## Files cần sửa
+### 1. Thêm Alert hướng dẫn 3 bước (trước Input)
+Block màu amber, icon `Info`, gồm 3 checklist:
 
-Map `shopify` → `ShopifyIcon`, `wix` → `WixIcon`:
+1. **Tắt Password Protection** (cho Development Store)
+   `Online Store → Preferences → bỏ chọn "Restrict access with password"`
 
-1. **`src/components/multichannel/MultiChannelFormStepper.tsx`** (line 60, 174-175) — thêm import `ShopifyIcon, WixIcon`, đổi icon map.
-2. **`src/components/multichannel/MultiChannelFormWizard.tsx`** (line 86, 211-212) — tương tự.
-3. **`src/components/multichannel/ImageChannelPicker.tsx`** (line 8, 26-27) — thêm import + đổi icon + đổi label `'WP'` → `'Shop'` / `'Wix'`.
-4. **`src/components/multichannel/MultiChannelHookGenerator.tsx`** (line 61, 114-115) — thêm import + đổi icon map.
-5. **`src/components/multichannel/UnifiedImageGenerator.tsx`** (line 101-102) — đổi `<ChannelIcon channel="wordpress" />` → `channel="shopify"` / `channel="wix"`, sửa color tokens (#96BF48 cho Shopify, neutral cho Wix).
-6. **`src/components/multichannel/ExpandChannelsDialog.tsx`** (line 35-36) — đổi `channel="wordpress"` → `"shopify"` / `"wix"`.
-7. **`src/components/multichannel/ExpandChannelsStreamingDialog.tsx`** (line 39-40) — tương tự.
+2. **Cài Flowa App vào store**
+   Nếu chưa cài → mở `partners.shopify.com → Apps → Flowa → Test → Select store → Install`
+
+3. **Đảm bảo shop domain đúng**
+   Định dạng `your-store.myshopify.com` (chỉ chữ thường, số, dấu gạch)
+
+### 2. Thêm Collapsible "Gặp lỗi không kết nối được?" (sau Input)
+Liệt kê 3 nguyên nhân + cách khắc phục lỗi `ERR_BLOCKED_BY_RESPONSE`:
+- Store bật Password Protection → tắt theo bước 1
+- Shopify App chưa được cài → cài theo bước 2
+- Shop domain không tồn tại → kiểm tra trong Shopify Admin
+
+### 3. Thêm link tài liệu Shopify (footer dialog)
+Link nhỏ: "Xem hướng dẫn chi tiết" → mở `help.shopify.com/en/manual/online-store/themes/password-page` ở tab mới.
+
+### 4. Tăng max-width dialog
+`max-w-md` → `max-w-lg` để hướng dẫn không bị chật.
+
+## Components dùng
+- `Alert`, `AlertDescription` từ `@/components/ui/alert` (đã có)
+- `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` từ `@/components/ui/collapsible` (đã có)
+- Icon `Info`, `ChevronDown`, `ExternalLink` từ `lucide-react`
+- Giữ nguyên logic `handleShopifySubmit` và state hiện tại — không thay đổi backend/edge function.
 
 ## Không thay đổi
-
-- `ChannelIcon.tsx` (streaming) đã đúng từ turn trước.
-- Logic generate / publish / DB column mapping (`shopify_content`, `wix_content`) giữ nguyên.
-- `UnconnectedChannelsBanner` map `shopify→blogger` / `wix→blogger` là logic fallback connection, không phải icon hiển thị → giữ nguyên.
+- Edge function `shopify-oauth-start` (đã đúng)
+- State management và validation regex
+- Layout các dialog khác trong file

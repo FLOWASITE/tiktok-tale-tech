@@ -1638,32 +1638,86 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
 
       {/* Shopify OAuth — shop domain prompt dialog */}
       <Dialog open={shopifyDialogOpen} onOpenChange={setShopifyDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ChannelIcon channel={"shopify" as any} size={20} />
               Kết nối Shopify
             </DialogTitle>
             <DialogDescription>
-              Nhập shop domain (ví dụ: <code>your-store.myshopify.com</code>). Bạn sẽ được chuyển sang Shopify để cấp quyền.
+              Auto-publish blog vào Shopify store qua OAuth chính thức.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label htmlFor="shopify-shop">Shop domain</Label>
-            <Input
-              id="shopify-shop"
-              autoFocus
-              placeholder="your-store.myshopify.com"
-              value={shopifyShop}
-              onChange={(e) => setShopifyShop(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !isShopifyConnecting) handleShopifySubmit();
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              Flowa chỉ yêu cầu quyền đọc/ghi nội dung blog. Token được mã hóa AES-256-GCM trước khi lưu.
-            </p>
+
+          <div className="space-y-4 py-2">
+            {/* Hướng dẫn 3 bước */}
+            <Alert className="border-amber-500/30 bg-amber-500/5">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-foreground">
+                <p className="font-medium mb-2 text-sm">Trước khi kết nối, hãy đảm bảo:</p>
+                <ol className="space-y-2 text-xs list-decimal list-inside">
+                  <li>
+                    <span className="font-medium">Tắt Password Protection</span> (cho Development Store)
+                    <div className="ml-5 mt-0.5 text-muted-foreground">
+                      Shopify Admin → <code className="px-1 bg-muted rounded">Online Store → Preferences</code> → bỏ chọn <em>"Restrict access with password"</em>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="font-medium">Cài Flowa App vào store</span>
+                    <div className="ml-5 mt-0.5 text-muted-foreground">
+                      Mở <code className="px-1 bg-muted rounded">partners.shopify.com → Apps → Flowa → Test → Select store → Install</code>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="font-medium">Đúng định dạng shop domain</span>
+                    <div className="ml-5 mt-0.5 text-muted-foreground">
+                      <code className="px-1 bg-muted rounded">your-store.myshopify.com</code> (chỉ chữ thường, số, gạch ngang)
+                    </div>
+                  </li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              <Label htmlFor="shopify-shop">Shop domain</Label>
+              <Input
+                id="shopify-shop"
+                autoFocus
+                placeholder="your-store.myshopify.com"
+                value={shopifyShop}
+                onChange={(e) => setShopifyShop(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isShopifyConnecting) handleShopifySubmit();
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Flowa chỉ yêu cầu quyền đọc/ghi nội dung blog. Token được mã hóa AES-256-GCM trước khi lưu.
+              </p>
+            </div>
+
+            {/* Troubleshoot */}
+            <details className="rounded-lg border border-border bg-muted/30 p-3 text-xs">
+              <summary className="cursor-pointer font-medium text-foreground hover:text-primary">
+                Gặp lỗi <code className="px-1 bg-muted rounded text-[10px]">ERR_BLOCKED_BY_RESPONSE</code> hoặc không mở được trang Shopify?
+              </summary>
+              <ul className="mt-2 space-y-1.5 text-muted-foreground list-disc list-inside">
+                <li><span className="text-foreground font-medium">Store đang bật Password Protection</span> → tắt theo bước 1 ở trên.</li>
+                <li><span className="text-foreground font-medium">Flowa App chưa được cài</span> vào store → cài theo bước 2.</li>
+                <li><span className="text-foreground font-medium">Shop domain không tồn tại</span> → mở <code className="px-1 bg-background rounded">https://&lt;shop&gt;.myshopify.com/admin</code> để kiểm tra.</li>
+                <li><span className="text-foreground font-medium">Trình duyệt chặn popup</span> → cho phép popup từ domain Flowa và thử lại.</li>
+              </ul>
+              <a
+                href="https://help.shopify.com/en/manual/online-store/themes/password-page"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-2 text-primary hover:underline"
+              >
+                Hướng dẫn tắt password Shopify
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </details>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShopifyDialogOpen(false)} disabled={isShopifyConnecting}>
               Hủy
