@@ -19,14 +19,19 @@ export default function EmbeddingBackfillCard() {
 
   const refresh = async () => {
     if (!currentOrganization?.id) return;
+    // Chỉ tính các bài đã publish ra ít nhất 1 kênh long-form (có URL công khai)
+    const PUBLISHED_FILTER =
+      "website_post_url.not.is.null,blogger_post_url.not.is.null,wordpress_post_url.not.is.null,flowa_blog_post_url.not.is.null";
     const [{ count: tot }, { count: rem }] = await Promise.all([
       (supabase as any).from("multi_channel_contents")
         .select("id", { count: "exact", head: true })
-        .eq("organization_id", currentOrganization.id),
+        .eq("organization_id", currentOrganization.id)
+        .or(PUBLISHED_FILTER),
       (supabase as any).from("multi_channel_contents")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", currentOrganization.id)
-        .is("content_embedding", null),
+        .is("content_embedding", null)
+        .or(PUBLISHED_FILTER),
     ]);
     setTotal(tot ?? 0);
     setRemaining(rem ?? 0);
