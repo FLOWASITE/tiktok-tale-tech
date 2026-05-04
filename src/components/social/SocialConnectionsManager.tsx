@@ -351,7 +351,7 @@ export function SocialConnectionsManager() {
                         )}
                       </div>
                       {connection?.platform_username && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground truncate">
                           @{connection.platform_username}
                         </p>
                       )}
