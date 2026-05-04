@@ -17,9 +17,8 @@ import {
   Square,
   ChevronDown,
   Settings2,
-  FileText,
-  ImageIcon,
-  Video,
+  Globe,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Channel, CHANNELS } from '@/types/multichannel';
