@@ -40,6 +40,7 @@ import {
   Youtube,
   Plus,
   Trash2,
+  Pencil,
   Unplug,
   ExternalLink,
   Eye,
