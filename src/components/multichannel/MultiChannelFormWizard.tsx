@@ -976,6 +976,7 @@ export function MultiChannelFormWizard({
       toast.success('Core Content sẵn sàng! Đang tạo nội dung đa kênh...');
       
       // Trigger generation
+      recordChannelUsage(formData.channels);
       onGenerate({ ...formData, topicHistoryId })
         .finally(() => {
           submittingRef.current = false;
