@@ -40,6 +40,9 @@ interface CompactChannelGridProps {
   channelIcons: Record<Channel, React.ReactNode>;
   brandTemplate?: { channel_overrides?: Record<string, unknown> } | null;
   disabled?: boolean;
+  frequentChannels?: Channel[];
+  frequentCounts?: Partial<Record<Channel, number>>;
+  onSelectFrequent?: () => void;
 }
 
 export function CompactChannelGrid({
@@ -50,6 +53,9 @@ export function CompactChannelGrid({
   channelIcons,
   brandTemplate,
   disabled,
+  frequentChannels = [],
+  frequentCounts = {},
+  onSelectFrequent,
 }: CompactChannelGridProps) {
   const channelCategories: ChannelCategoryConfig[] = [
     { name: 'Website & Long-form', key: 'longform', icon: <Globe className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'longform') },
