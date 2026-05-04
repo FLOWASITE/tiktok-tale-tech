@@ -198,7 +198,21 @@ export default function KeywordExplorerTab() {
     });
   }, []);
 
-  const rows = keywords || [];
+  const ctx = useMemo(() => buildContextFromBrand(currentBrand), [currentBrand]);
+  const allRows = keywords || [];
+  const rowsWithCat = useMemo(
+    () => allRows.map(k => ({ ...k, _category: categorizeKeyword(k.keyword, ctx, { intent: k.intent }) })),
+    [allRows, ctx]
+  );
+  const categoryCounts = useMemo(() => {
+    const m = new Map<KeywordCategory, number>();
+    for (const k of rowsWithCat) m.set(k._category, (m.get(k._category) || 0) + 1);
+    return m;
+  }, [rowsWithCat]);
+  const rows = useMemo(
+    () => categoryFilter ? rowsWithCat.filter(k => k._category === categoryFilter) : rowsWithCat,
+    [rowsWithCat, categoryFilter]
+  );
   const toggleAll = () => {
     if (rows.length === 0) return;
     if (selectedIds.size === rows.length) setSelectedIds(new Set());
