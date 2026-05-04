@@ -49,6 +49,7 @@ const TelegramLucide = makeLucide(TelegramIcon, 'TelegramLucide');
 const GoogleBusinessLucide = makeLucide(GoogleBusinessIcon, 'GoogleBusinessLucide');
 const ShopifyLucide = makeLucide(ShopifyIcon, 'ShopifyLucide');
 const WixLucide = makeLucide(WixIcon, 'WixLucide');
+const MediumLucide = makeLucide(MediumIcon, 'MediumLucide');
 
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
