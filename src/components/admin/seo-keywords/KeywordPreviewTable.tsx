@@ -32,6 +32,7 @@ export interface PreviewKeyword {
     volume: number;
     difficulty: number;
   };
+  _pending?: boolean;
 }
 
 interface Props {
@@ -284,11 +285,12 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                   : k._fit >= 40 ? "bg-amber-50 text-amber-700 border-amber-200"
                   : "bg-rose-50 text-rose-700 border-rose-200";
                 return (
-                  <tr key={i} className={`border-t hover:bg-muted/30 cursor-pointer ${isSel ? "bg-primary/5" : ""}`} onClick={() => toggle(k.keyword)}>
-                    <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} /></td>
+                  <tr key={i} className={`border-t hover:bg-muted/30 cursor-pointer ${isSel ? "bg-primary/5" : ""} ${k._pending ? "opacity-70" : ""}`} onClick={() => toggle(k.keyword)}>
+                    <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} disabled={k._pending} /></td>
                     <td className="p-2 font-medium">
                       <span className="inline-flex items-center gap-1">
                         {k.keyword}
+                        {k._pending && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                         {k.social_match && (
                           <span
                             className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 border border-border/50 text-foreground/70"
@@ -298,16 +300,21 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                       </span>
                     </td>
                     <td className="p-2 text-right">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums cursor-help ${scoreColor(k._score)}`}
-                        title={k.priority_breakdown
-                          ? `Priority = (relevance ${k.priority_breakdown.relevance} × intent ${k.priority_breakdown.intent_weight}× × log10(${k.priority_breakdown.volume}+10)) / sqrt(${k.priority_breakdown.difficulty}+1)\nIntent: ${k.priority_breakdown.intent}`
-                          : `Score: ${k._score}`}
-                      >{k._score}</span>
+                      {k._pending ? (
+                        <span className="inline-block h-4 w-8 rounded bg-muted animate-pulse" />
+                      ) : (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums cursor-help ${scoreColor(k._score)}`}
+                          title={k.priority_breakdown
+                            ? `Priority = (relevance ${k.priority_breakdown.relevance} × intent ${k.priority_breakdown.intent_weight}× × log10(${k.priority_breakdown.volume}+10)) / sqrt(${k.priority_breakdown.difficulty}+1)\nIntent: ${k.priority_breakdown.intent}`
+                            : `Score: ${k._score}`}
+                        >{k._score}</span>
+                      )}
                     </td>
                     {hasBrandFit && (
                       <td className="p-2 text-right">
-                        {k._fit !== null ? (
+                        {k._pending ? <span className="text-[10px] text-muted-foreground">…</span>
+                          : k._fit !== null ? (
                           <span
                             className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
                             title={[k.brand_fit_reason, k.social_match ? `📱 Khớp social: "${k.social_match}"` : null, k.audience_match ? `audience: ${k.audience_match}` : null].filter(Boolean).join(" · ")}
@@ -317,8 +324,8 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
                         ) : <span className="text-[10px] text-muted-foreground">—</span>}
                       </td>
                     )}
-                    <td className="p-2 text-right tabular-nums">{k.search_volume?.toLocaleString() || 0}</td>
-                    <td className="p-2 text-right tabular-nums">{k.difficulty || 0}</td>
+                    <td className="p-2 text-right tabular-nums">{k.search_volume ? k.search_volume.toLocaleString() : (k._pending ? <span className="text-muted-foreground">—</span> : 0)}</td>
+                    <td className="p-2 text-right tabular-nums">{k.difficulty || (k._pending ? <span className="text-muted-foreground">—</span> : 0)}</td>
                     <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${INTENT_COLORS[k.intent] || ""}`}>{k.intent}</span></td>
                     <td className="p-2 text-xs">{k.funnel_stage}</td>
                     <td className="p-2 text-xs text-muted-foreground truncate max-w-[180px]">

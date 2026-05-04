@@ -198,8 +198,17 @@ export default function KeywordResearchLabTab() {
                 setExpandedSeeds(Array.isArray(data.seeds) ? data.seeds : []);
               } else if (currentEvent === "brand_signals") {
                 setBrandSignals(data);
+              } else if (currentEvent === "ai_keywords_raw") {
+                const incoming = (data.batch || []).map((k: any) => ({ ...k, _pending: true }));
+                setPreviewKeywords(prev => [...prev, ...incoming]);
+                if (typeof data.total === "number" && typeof data.limit === "number") {
+                  setProgressMsg(`AI đang sinh: ${data.total}/${data.limit} keyword`);
+                }
               } else if (currentEvent === "keyword_batch") {
-                setPreviewKeywords(prev => [...prev, ...(data.batch || [])]);
+                setPreviewKeywords(prev => {
+                  const hasPending = prev.some((p: any) => (p as any)._pending);
+                  return hasPending ? [...(data.batch || [])] : [...prev, ...(data.batch || [])];
+                });
               } else if (currentEvent === "done") {
                 setProgress(100);
                 const isDeep = data.mode === "deep";

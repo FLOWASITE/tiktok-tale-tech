@@ -1,109 +1,80 @@
+## Vấn đề hiện tại
+
+`keyword-research-v2` đã có SSE, nhưng **chỉ stream sau khi AI chạy xong toàn bộ** (6 rounds tool-call) và làm post-processing. Trong lúc AI sinh keyword (giai đoạn 50% → 78%), FE chỉ thấy "AI đang sinh keyword..." cùng heartbeat tăng đều giả lập — không có keyword nào hiện ra. Với deep mode (150 keyword, 6 rounds, 30–60s) UX cảm giác đứng hình.
+
 ## Mục tiêu
 
-Đưa Flowa từ ~60% lên ~90% playbook keyword research chuẩn SEO, bằng 5 bổ sung tập trung vào các gap rõ rệt nhất.
+Stream keyword **ngay sau mỗi round tool-call của AI** → user thấy keyword chảy ra theo nhịp 20 từ / round, kèm progress thật (theo `collected/limit`).
 
----
+## Thay đổi
 
-## Gap 1 — Brand Domination Preset (1.1)
+### 1. `supabase/functions/keyword-research-v2/index.ts` — `callAI` nhận callback
 
-**Bối cảnh:** Hiện AI sinh keyword đa năng, không có job riêng đảm bảo phủ 100% SERP cho brand name.
+```ts
+async function callAI(
+  ...,
+  onRoundBatch?: (rawKws: KeywordSuggestion[], round: number, total: number) => void
+)
+```
 
-**Thay đổi:**
-- Thêm preset mới `brand_domination` vào `keyword-research-v2/index.ts`.
-- Generate cứng (không gọi AI) các pattern: `<brand>`, `<brand> là gì`, `<brand> giá`, `<brand> review`, `<brand> đánh giá`, `<brand> login`, `<brand> đăng nhập`, `<brand> miễn phí`, `<brand> alternatives`, `<brand> vs <competitor>` (loop qua `main_competitors`).
-- Sinh thêm biến thể: viết liền/cách, có dấu/không dấu, lowercase.
-- Tag `intent="navigational"` cho login/đăng nhập, `commercial` cho review/giá/vs.
-- Vẫn chạy qua Google Suggest expand để bắt biến thể thật user gõ.
+Bên trong vòng `for (round...)`:
+- Sau khi parse xong `args.keywords` của round, gọi `onRoundBatch(addedThisRound, round, collected.length)` ngay.
+- Không đổi logic tool-loop / fallback.
 
-**File:** `supabase/functions/keyword-research-v2/index.ts`, `KeywordResearchLabTab.tsx` (thêm option preset).
+### 2. Hook callback vào SSE writer
 
----
-
-## Gap 2 — Modifier Expander (3)
-
-**Bối cảnh:** `seed-expander.ts` chỉ làm Google Suggest + PAA, thiếu modifier-based expansion.
-
-**Thay đổi:**
-- Thêm helper `expandWithModifiers(seeds)` trong `_shared/seed-expander.ts`.
-- Modifier groups (VN + EN):
-  - **Quality:** `tốt nhất`, `chất lượng`, `uy tín`, `top`
-  - **Price:** `giá rẻ`, `miễn phí`, `bao nhiêu tiền`, `chi phí`
-  - **Time:** `2026`, `mới nhất`, `hiện nay`
-  - **Audience:** `cho người mới`, `cho doanh nghiệp`, `cho spa`, `cho startup`
-  - **Format:** `hướng dẫn`, `cách dùng`, `review`
-- Cap 8 modifier × N seed gốc = ~40 candidate, sau đó verify qua Google Suggest (chỉ giữ keyword có suggestion thật) để tránh keyword "ảo".
-
-**File:** `supabase/functions/_shared/seed-expander.ts`, `keyword-research-v2/index.ts` (gọi helper).
-
----
-
-## Gap 3 — Cannibalization Detector (6)
-
-**Bối cảnh:** `seo_keywords.assigned_landing_page_id` đã có nhưng UI không cảnh báo khi nhiều keyword cùng target 1 URL hoặc 1 keyword chưa map.
-
-**Thay đổi:**
-- Thêm component `CannibalizationAlert.tsx` trong `KeywordExplorerTab`.
-- Query group-by `assigned_landing_page_id` → đếm keyword/URL.
-- Hiển thị 3 cảnh báo:
-  - 🔴 **Cannibal:** URL có ≥3 primary keyword với cùng intent → đề xuất tách page hoặc gộp content.
-  - 🟡 **Orphan:** Keyword priority ≥70 nhưng `assigned_landing_page_id IS NULL` → CTA "Tạo landing page".
-  - 🟢 **Multi-target OK:** URL có nhiều keyword nhưng khác intent (TOFU info + BOFU transactional) → coi là healthy.
-- Quy tắc 1 page = 1 primary keyword được enforce qua dropdown trong KeywordExplorer (dùng `LazyAssignSelect` hiện có, thêm warning inline khi conflict).
-
-**File:** mới `src/components/admin/seo-keywords/CannibalizationAlert.tsx`, edit `KeywordExplorerTab.tsx`.
-
----
-
-## Gap 4 — Funnel Health Check (7)
-
-**Bối cảnh:** `IntentFunnelMatrix` chỉ hiển thị số, không score sức khỏe funnel.
-
-**Thay đổi:**
-- Thêm strip "Funnel Health" trên `OverviewTab`:
-  - % TOFU / MOFU / BOFU trên tổng keyword pool.
-  - Benchmark khuyến nghị: TOFU 50% / MOFU 30% / BOFU 20%.
-  - Cảnh báo đỏ khi BOFU < 10% ("Traffic không ra tiền — thiếu keyword chuyển đổi").
-  - Cảnh báo cam khi TOFU > 80% ("Top funnel quá nặng").
-- CTA "Sinh thêm BOFU keyword" → mở Lab với preset `commercial_intent` + filter funnel.
-
-**File:** `src/components/admin/seo-keywords/OverviewTab.tsx`, helper `src/lib/seo/funnelHealth.ts`.
-
----
-
-## Gap 5 — Priority Score chuẩn SEO (4)
-
-**Bối cảnh:** Công thức priority hiện đơn giản, thiếu component "Business Relevance × Intent".
-
-**Thay đổi:**
-- Cập nhật công thức trong `keyword-research-v2/index.ts` và migration SQL cho `seo_keywords.priority_score`:
+Trong `Deno.serve` (đoạn 747–785):
+- Bỏ heartbeat fake-progress (`hb` interval) — thay bằng comment ping `: ping\n\n` mỗi 10s thuần để giữ keep-alive (không bump pct giả).
+- Truyền callback:
+  ```ts
+  const onRoundBatch = (raw, round, total) => {
+    const pct = Math.min(78, 50 + Math.round((total / limit) * 28));
+    send("progress", { pct, message: `AI vòng ${round + 1}: ${total}/${limit} keyword` });
+    send("ai_keywords_raw", { batch: raw, round, total, limit });
+  };
+  const r = await callAI(..., onRoundBatch);
   ```
-  Priority = (brand_fit_score × intent_weight × log10(volume+10)) / sqrt(difficulty+1)
-  
-  intent_weight: transactional=4, commercial=3, navigational=2, informational=1
-  ```
-- Hiển thị breakdown trong `KeywordPreviewTable` tooltip: "70 (relevance) × 4 (BOFU) × 2.4 (vol) / 8 (KD) = 84".
-- Thêm column "Why" giải thích ngắn gọn để user hiểu vì sao keyword này priority cao.
 
-**File:** `supabase/functions/keyword-research-v2/index.ts`, `KeywordPreviewTable.tsx`, migration update column comment (optional).
+### 3. FE `KeywordResearchLabTab.tsx`
 
----
+Thêm xử lý event mới:
+- `ai_keywords_raw` → push thẳng vào `previewKeywords` với flag `_pending: true`, hiển thị skeleton/badge "đang chấm điểm" trong `KeywordPreviewTable`.
+- Khi event `keyword_batch` (final, đã enrich) bắt đầu đến → reset `previewKeywords` về `[]` rồi mới append batch enriched (vì có thể đã filter off-brand, sort lại theo `final_score`).
 
-## Files thay đổi (tổng)
+```ts
+} else if (currentEvent === "ai_keywords_raw") {
+  setPreviewKeywords(prev => [
+    ...prev,
+    ...(data.batch || []).map((k: any) => ({ ...k, _pending: true })),
+  ]);
+} else if (currentEvent === "keyword_batch") {
+  // First final batch resets pending list
+  setPreviewKeywords(prev => {
+    const hasPending = prev.some((p: any) => p._pending);
+    return hasPending ? [...(data.batch || [])] : [...prev, ...(data.batch || [])];
+  });
+}
+```
 
-- `supabase/functions/keyword-research-v2/index.ts` (preset brand_domination + modifier integration + new priority formula)
-- `supabase/functions/_shared/seed-expander.ts` (modifier expander)
-- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (UI preset mới)
-- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (priority breakdown tooltip)
-- `src/components/admin/seo-keywords/KeywordExplorerTab.tsx` (cannibal alert mount)
-- `src/components/admin/seo-keywords/CannibalizationAlert.tsx` **(mới)**
-- `src/components/admin/seo-keywords/OverviewTab.tsx` (funnel health strip)
-- `src/lib/seo/funnelHealth.ts` **(mới)**
-- `.lovable/memory/features/seo/research-lab-v2-vn.md` (cập nhật)
+### 4. `KeywordPreviewTable.tsx` — visual cho row pending
 
-## Không cần migration
-Tất cả formula tính client-side hoặc trong edge function; cột `priority_score` đã tồn tại.
+Khi row có `_pending: true`:
+- Cột Priority hiện skeleton nhỏ (`<Skeleton className="h-4 w-8" />`) thay vì badge.
+- Cột Volume / KD / CPC hiện "—" muted.
+- Row có `opacity-70` + `animate-pulse` nhẹ ở cột priority.
 
-## Edge cases
-- Brand không có `main_competitors` → skip `vs <competitor>` pattern, chỉ sinh brand-only.
-- Pool keyword < 20 → ẩn Funnel Health (chưa đủ dữ liệu).
-- Modifier expander fail Google Suggest → fallback giữ candidate nguyên (không drop).
+Không cần đổi schema, chỉ render conditional.
+
+### 5. Memory update
+
+`mem://features/seo/research-lab-v2-vn.md` — bổ sung dòng:
+> Streaming AI rounds: `callAI` emit callback sau mỗi tool-round → SSE event `ai_keywords_raw` → FE hiện row pending (skeleton priority); event `keyword_batch` final reset list khi có pending.
+
+## Files
+
+- `supabase/functions/keyword-research-v2/index.ts` (callAI signature + serve handler)
+- `src/components/admin/seo-keywords/KeywordResearchLabTab.tsx` (event handler)
+- `src/components/admin/seo-keywords/KeywordPreviewTable.tsx` (render pending state)
+- `.lovable/memory/features/seo/research-lab-v2-vn.md`
+
+Không cần migration. Không đụng `_shared/ai-provider.ts` (tận dụng tool-call non-stream sẵn có, stream ở tầng round).
