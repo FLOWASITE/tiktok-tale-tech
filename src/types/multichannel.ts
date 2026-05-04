@@ -433,6 +433,7 @@ export const CHANNELS: { value: Channel; label: string; icon: string; color: str
   { value: 'wordpress', label: 'WordPress', icon: 'Globe', color: 'wordpress', category: 'longform', description: 'Bài WordPress in-depth 1200-2200 từ, H2+H3, FAQ, callout, expert tone (KHÁC Website & Blogger)' },
   { value: 'shopify', label: 'Shopify Blog', icon: 'ShoppingBag', color: 'shopify', category: 'longform', description: 'Bài Shopify Blog 800-1500 từ, e-commerce storytelling, HTML-ready, CTA Shop now (KHÁC Website/Blogger/WordPress)' },
   { value: 'wix', label: 'Wix Blog', icon: 'Globe', color: 'slate', category: 'longform', description: 'Bài Wix 800-1500 từ, brand storytelling, hero featured image, đoạn ngắn 2-4 câu, format Ricos rich content (Editor X / Wix Studio)' },
+  { value: 'medium', label: 'Medium', icon: 'BookOpen', color: 'foreground', category: 'longform', description: 'Bài Medium 1000-1800 từ, story-first, voice cá nhân/expert, không HTML, dùng Markdown thuần, kết bằng claps CTA' },
   { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'longform', description: 'Subject + body, CTA rõ ràng' },
   // 💬 Mạng xã hội — post ngắn, social-first
   { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'social', description: 'Post ngắn, hashtag, emoji phù hợp' },
