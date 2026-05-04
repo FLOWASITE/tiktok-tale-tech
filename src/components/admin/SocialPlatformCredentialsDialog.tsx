@@ -101,6 +101,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://partners.shopify.com/',
     instructions: 'Tạo Public App tại Shopify Partners → App setup → App URL: https://app.flowa.one. Allowed redirection URL phải khớp callback bên dưới. Scopes: read_content, write_content, read_products. Nhập Shopify Client ID & Secret tại đây.',
   },
+  wix: {
+    url: 'https://dev.wix.com/apps',
+    instructions: 'Tạo App tại dev.wix.com/apps → Permissions: BLOG.MANAGE-POSTS, BLOG.MANAGE-DRAFT-POSTS, MEDIA.MANAGE-MEDIA. OAuth Redirect URL phải khớp callback bên dưới. Lưu App ID (Client ID) + App Secret tại đây.',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
