@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Sparkles, X, Globe, Target, MapPin, Telescope, ChevronDown, Wand2, Info, Settings2, Search, Layers, Database, Check, Download, FileJson } from "lucide-react";
+import { Loader2, Sparkles, X, Globe, Target, MapPin, Telescope, ChevronDown, Wand2, Info, Settings2, Search, Layers, Database, Check, Download, FileJson, Crown } from "lucide-react";
 import { buildCsv, downloadCsv } from "@/lib/reports/csvBuilder";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -21,9 +21,10 @@ import { vi } from "date-fns/locale";
 import KeywordPreviewTable, { type PreviewKeyword } from "./KeywordPreviewTable";
 import IntentFunnelMatrix from "./IntentFunnelMatrix";
 
-type Preset = "default" | "long_tail_questions" | "commercial_intent" | "local_seo_vn" | "competitor_gaps";
+type Preset = "default" | "long_tail_questions" | "commercial_intent" | "local_seo_vn" | "competitor_gaps" | "brand_domination";
 
 const PRESETS: { id: Preset; label: string; icon: any }[] = [
+  { id: "brand_domination", label: "Brand domination", icon: Crown },
   { id: "long_tail_questions", label: "Long-tail Q&A", icon: Telescope },
   { id: "commercial_intent", label: "Commercial intent", icon: Target },
   { id: "local_seo_vn", label: "Local SEO VN", icon: MapPin },
