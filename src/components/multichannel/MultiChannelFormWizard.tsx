@@ -1250,14 +1250,15 @@ export function MultiChannelFormWizard({
                 return (
                   <div
                     className={cn(
-                      "flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg px-2 py-1.5 transition-all",
+                      "rounded-lg px-2 py-1.5 transition-all space-y-1.5",
                       !hasGoal && "ring-1 ring-primary/30 bg-primary/[0.03]"
                     )}
                   >
-                    <Label className="text-foreground text-xs font-semibold flex items-center gap-1.5 mr-1 shrink-0">
+                    <Label className="text-foreground text-xs font-semibold flex items-center gap-1.5">
                       <Target className={cn("w-3.5 h-3.5 text-primary", !hasGoal && "animate-pulse")} />
                       Mục tiêu
                     </Label>
+                    <div className="flex flex-wrap gap-1.5">
                     {CONTENT_GOALS.map((goal) => {
                       const active = formData.contentGoal === goal.value;
                       return (
@@ -1282,6 +1283,7 @@ export function MultiChannelFormWizard({
                         </button>
                       );
                     })}
+                    </div>
                   </div>
                 );
               })()}
