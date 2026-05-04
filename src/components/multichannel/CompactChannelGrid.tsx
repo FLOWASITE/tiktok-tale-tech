@@ -21,6 +21,7 @@ import {
   Users,
   Star,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Channel, CHANNELS } from '@/types/multichannel';
