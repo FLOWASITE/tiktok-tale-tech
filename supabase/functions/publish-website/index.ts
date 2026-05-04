@@ -225,34 +225,110 @@ Deno.serve(withPerf({ functionName: 'publish-website' }, async (req) => {
       if (result.error) throw new Error(`Blogger error: ${result.error.message}`);
 
     } else if (integrationType === 'wix') {
-      // Wix Blog API
+      // Wix Blog API - require API Key + siteId + accountId
       const wixApiKey = decrypt(connection.access_token, encryptionKey);
+      const wixSiteId = connection.metadata?.wix_site_id;
+      const wixAccountId = connection.metadata?.wix_account_id;
 
-      // Create draft post
+      if (!wixApiKey) throw new Error('Wix API Key chưa được cấu hình');
+      if (!wixSiteId || !wixAccountId) {
+        throw new Error('Wix Site ID hoặc Account ID chưa cấu hình. Hãy reconnect Wix với đầy đủ Site ID + Account ID.');
+      }
+
+      const wixHeaders: Record<string, string> = {
+        'Authorization': wixApiKey,
+        'wix-account-id': wixAccountId,
+        'wix-site-id': wixSiteId,
+        'Content-Type': 'application/json',
+      };
+
+      // Convert HTML content → Ricos rich content (basic: split paragraphs)
+      const paragraphs = String(content)
+        .split(/<\/?p[^>]*>|\n{2,}/)
+        .map(p => p.replace(/<[^>]+>/g, '').trim())
+        .filter(Boolean);
+
+      const richContent = {
+        nodes: paragraphs.length > 0
+          ? paragraphs.map(text => ({
+              type: 'PARAGRAPH',
+              nodes: [{ type: 'TEXT', textData: { text, decorations: [] } }],
+            }))
+          : [{ type: 'PARAGRAPH', nodes: [{ type: 'TEXT', textData: { text: String(content).replace(/<[^>]+>/g, ''), decorations: [] } }] }],
+      };
+
+      // Upload featured image to Wix Site Media (if provided)
+      let coverMedia: any = undefined;
+      if (featuredImageUrl) {
+        try {
+          // Step 1: generate upload URL
+          const uploadUrlResp = await fetch('https://www.wixapis.com/site-media/v1/files/generate-upload-url', {
+            method: 'POST',
+            headers: wixHeaders,
+            body: JSON.stringify({
+              mimeType: 'image/jpeg',
+              fileName: featuredImageUrl.split('/').pop() || 'cover.jpg',
+              parentFolderId: 'media-root',
+            }),
+          });
+          const uploadUrlData = await uploadUrlResp.json();
+          if (uploadUrlData.uploadUrl) {
+            // Step 2: download source image then PUT to Wix
+            const imgResp = await fetch(featuredImageUrl);
+            const imgBlob = await imgResp.blob();
+            const putResp = await fetch(uploadUrlData.uploadUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': imgBlob.type || 'image/jpeg' },
+              body: imgBlob,
+            });
+            const putData = await putResp.json().catch(() => ({}));
+            const fileId = putData?.file?.id || putData?.fileDescriptor?.id;
+            if (fileId) {
+              coverMedia = { image: { id: fileId } };
+            }
+          }
+        } catch (imgErr) {
+          console.warn('Wix cover image upload failed, continuing without cover:', imgErr);
+        }
+      }
+
+      const draftPostBody: any = {
+        draftPost: {
+          title,
+          richContent,
+          excerpt: excerpt || '',
+          tags: tags?.map(t => ({ label: t })) || [],
+          slug: slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 60),
+          seoData: seoData ? {
+            tags: [
+              ...(seoData.metaTitle ? [{ type: 'title', children: seoData.metaTitle }] : []),
+              ...(seoData.metaDescription ? [{ type: 'meta', props: { name: 'description', content: seoData.metaDescription } }] : []),
+              ...(seoData.focusKeyword ? [{ type: 'meta', props: { name: 'keywords', content: seoData.focusKeyword } }] : []),
+            ],
+          } : undefined,
+          ...(coverMedia ? { media: { wixMedia: coverMedia, displayed: true } } : {}),
+        },
+      };
+
       const draftResp = await fetch('https://www.wixapis.com/blog/v3/draft-posts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': wixApiKey,
-        },
-        body: JSON.stringify({
-          draftPost: {
-            title,
-            richContent: { nodes: [{ type: 'PARAGRAPH', nodes: [{ type: 'TEXT', textData: { text: content } }] }] },
-            excerpt: excerpt || '',
-            tags: tags?.map(t => ({ label: t })) || [],
-          },
-        }),
+        headers: wixHeaders,
+        body: JSON.stringify(draftPostBody),
       });
       const draftResult = await draftResp.json();
+      if (!draftResp.ok || !draftResult.draftPost?.id) {
+        throw new Error(`Wix draft create failed [${draftResp.status}]: ${JSON.stringify(draftResult).slice(0, 300)}`);
+      }
 
-      if (status === 'publish' && draftResult.draftPost?.id) {
-        // Publish the draft
-        const publishResp = await fetch(`https://www.wixapis.com/blog/v3/draft-posts/${draftResult.draftPost.id}/publish`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': wixApiKey },
-        });
+      if (status === 'publish') {
+        const publishResp = await fetch(
+          `https://www.wixapis.com/blog/v3/draft-posts/${draftResult.draftPost.id}/publish`,
+          { method: 'POST', headers: wixHeaders }
+        );
         result = await publishResp.json();
+        if (!publishResp.ok) {
+          throw new Error(`Wix publish failed [${publishResp.status}]: ${JSON.stringify(result).slice(0, 300)}`);
+        }
       } else {
         result = draftResult;
       }
