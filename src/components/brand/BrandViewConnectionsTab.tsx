@@ -237,6 +237,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [blueskyDialogOpen, setBlueskyDialogOpen] = useState(false);
   const [blueskyHandle, setBlueskyHandle] = useState('');
   const [isBlueskyConnecting, setIsBlueskyConnecting] = useState(false);
+  const [shopifyDialogOpen, setShopifyDialogOpen] = useState(false);
+  const [shopifyShop, setShopifyShop] = useState('');
+  const [isShopifyConnecting, setIsShopifyConnecting] = useState(false);
 
   const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
@@ -261,6 +264,13 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     if (platform === 'bluesky') {
       setBlueskyHandle('');
       setBlueskyDialogOpen(true);
+      return;
+    }
+
+    // Shopify — Public App OAuth (multi-store). Open dialog to collect shop domain.
+    if (platform === 'shopify') {
+      setShopifyShop('');
+      setShopifyDialogOpen(true);
       return;
     }
 
@@ -468,6 +478,74 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       toast.error('Lỗi kết nối Bluesky', { description: e?.message || String(e) });
     } finally {
       setIsBlueskyConnecting(false);
+    }
+  };
+
+  const SHOPIFY_SHOP_RE = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
+
+  const handleShopifySubmit = async () => {
+    let shop = shopifyShop.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (shop && !shop.includes('.')) shop = `${shop}.myshopify.com`;
+    if (!SHOPIFY_SHOP_RE.test(shop)) {
+      toast.error('Shop domain không hợp lệ', {
+        description: 'Nhập dạng your-store.myshopify.com (chỉ chữ thường, số, dấu gạch).',
+      });
+      return;
+    }
+
+    setIsShopifyConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('shopify-oauth-start', {
+        body: { shop, brandTemplateId: template.id },
+      });
+
+      let errBody: any = null;
+      if (error) {
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === 'function') errBody = await ctx.json();
+        } catch { /* ignore */ }
+      }
+
+      if (error || !data?.authorization_url) {
+        const msg = errBody?.error || data?.error || error?.message || 'Không khởi tạo được OAuth';
+        throw new Error(msg);
+      }
+
+      window.open(data.authorization_url, '_blank', 'width=620,height=720');
+      toast.info('Đã mở trang cài đặt Shopify', {
+        description: 'Cấp quyền cho ứng dụng trong cửa sổ mới. Hệ thống sẽ tự động cập nhật khi xong.',
+      });
+      setShopifyDialogOpen(false);
+
+      setOauthConnecting('shopify');
+      const start = Date.now();
+      const poll = setInterval(async () => {
+        if (Date.now() - start > 180_000) {
+          clearInterval(poll);
+          setOauthConnecting(null);
+          return;
+        }
+        try {
+          const { data: rows } = await supabase
+            .from('social_connections')
+            .select('id, is_active, platform_username')
+            .eq('brand_template_id', template.id)
+            .eq('platform', 'shopify')
+            .eq('is_active', true)
+            .limit(1);
+          if (rows && rows.length > 0) {
+            clearInterval(poll);
+            setOauthConnecting(null);
+            await refetch();
+            toast.success(`Đã kết nối Shopify: ${rows[0].platform_username}`);
+          }
+        } catch { /* ignore polling errors */ }
+      }, 3000);
+    } catch (e: any) {
+      toast.error('Lỗi kết nối Shopify', { description: e?.message || String(e) });
+    } finally {
+      setIsShopifyConnecting(false);
     }
   };
 
@@ -1343,6 +1421,45 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         </DialogContent>
       </Dialog>
 
+      {/* Shopify OAuth — shop domain prompt dialog */}
+      <Dialog open={shopifyDialogOpen} onOpenChange={setShopifyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChannelIcon channel={"shopify" as any} size={20} />
+              Kết nối Shopify
+            </DialogTitle>
+            <DialogDescription>
+              Nhập shop domain (ví dụ: <code>your-store.myshopify.com</code>). Bạn sẽ được chuyển sang Shopify để cấp quyền.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label htmlFor="shopify-shop">Shop domain</Label>
+            <Input
+              id="shopify-shop"
+              autoFocus
+              placeholder="your-store.myshopify.com"
+              value={shopifyShop}
+              onChange={(e) => setShopifyShop(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isShopifyConnecting) handleShopifySubmit();
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Flowa chỉ yêu cầu quyền đọc/ghi nội dung blog. Token được mã hóa AES-256-GCM trước khi lưu.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShopifyDialogOpen(false)} disabled={isShopifyConnecting}>
+              Hủy
+            </Button>
+            <Button onClick={handleShopifySubmit} disabled={isShopifyConnecting}>
+              {isShopifyConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Tiếp tục
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <WordPressConnectDialog
         open={wpDialogOpen}
