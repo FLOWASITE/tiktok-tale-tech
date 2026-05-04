@@ -101,6 +101,8 @@ Deno.serve(
         slug,
         status: requestedStatus,
         seoTitle,
+        metaDescription,
+        focusKeyword,
       } = body;
       let { title } = body;
 
