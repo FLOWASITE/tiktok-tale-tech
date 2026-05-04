@@ -25,6 +25,13 @@ export interface PreviewKeyword {
   final_score?: number;
   social_match?: string | null;
   is_gap?: boolean;
+  priority_breakdown?: {
+    relevance: number;
+    intent: string;
+    intent_weight: number;
+    volume: number;
+    difficulty: number;
+  };
 }
 
 interface Props {
