@@ -1364,26 +1364,51 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     );
   }
 
+  // Helper: count connected platforms in a group
+  const countConnectedInGroup = (platforms: SocialPlatform[]) => {
+    let connected = 0;
+    for (const p of platforms) {
+      const conns = getConnectionsForPlatform(p) || [];
+      if (conns.some((c: any) => c.is_active)) connected++;
+    }
+    return connected;
+  };
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Share2 className="w-4 h-4 text-primary" />
-            Kết nối mạng xã hội
-          </CardTitle>
-          <CardDescription>
-            Kết nối tài khoản để đăng bài trực tiếp từ brand "{template.brand_name}".
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {(Object.keys(PLATFORM_CONFIG) as SocialPlatform[]).map(platform =>
-            platform === ('website' as SocialPlatform) ? renderWebsitePlatform() :
-            platform === 'facebook' ? renderFacebookPlatform() :
-            renderConnection(platform)
-          )}
-        </CardContent>
-      </Card>
+      <div className="px-1">
+        <p className="text-sm text-muted-foreground">
+          Kết nối tài khoản để đăng bài trực tiếp từ brand <span className="font-medium text-foreground">"{template.brand_name}"</span>.
+        </p>
+      </div>
+
+      {PLATFORM_GROUPS.map((group) => {
+        const connectedCount = countConnectedInGroup(group.platforms);
+        const totalCount = group.platforms.filter(p => PLATFORM_CONFIG[p]?.available).length;
+        return (
+          <Card key={group.id}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  {group.icon}
+                  {group.title}
+                </span>
+                <Badge variant={connectedCount > 0 ? 'default' : 'secondary'} className="font-normal">
+                  {connectedCount}/{totalCount} đã kết nối
+                </Badge>
+              </CardTitle>
+              <CardDescription>{group.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {group.platforms.map(platform =>
+                platform === ('website' as SocialPlatform) ? <React.Fragment key={platform}>{renderWebsitePlatform()}</React.Fragment> :
+                platform === 'facebook' ? <React.Fragment key={platform}>{renderFacebookPlatform()}</React.Fragment> :
+                <React.Fragment key={platform}>{renderConnection(platform)}</React.Fragment>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Twitter Setup Dialog */}
       <Dialog open={setupDialogOpen} onOpenChange={setSetupDialogOpen}>
