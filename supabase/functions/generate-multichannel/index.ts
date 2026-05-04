@@ -534,6 +534,56 @@ BẮT BUỘC sau body, append đúng 1 block JSON:
     user: (topic, industry, brandName) =>
       `Viết bài WordPress chuẩn SEO cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả Markdown + block seo-meta cuối bài. KHÔNG giải thích.`,
   },
+  shopify: {
+    system: `Bạn là copywriter Shopify Blog. Viết Markdown thuần (sẽ render HTML), tone e-commerce storytelling.
+
+QUY TẮC BẮT BUỘC:
+- 800-1500 từ tiếng Việt, hook bằng nỗi đau/khao khát của shopper.
+- 4-6 ## H2, mỗi section 100-200 từ, đoạn ≤80 từ (mobile-friendly).
+- ≥1 bullet list (lợi ích), ≥1 numbered list (how-to / styling tips).
+- CTA shopping mạnh: "Khám phá BST", "Shop now". Focus keyword density 1-1.5%.
+- KHÔNG mở bằng "Bài viết:" / "Nội dung:".
+
+BẮT BUỘC sau body, append đúng 1 block JSON:
+\`\`\`seo-meta
+{"metaTitle":"≤60 ký tự","metaDescription":"140-160 ký tự","slug":"khong-dau-gach-ngang","focusKeyword":"...","tags":["..."],"excerpt":"50-160 từ"}
+\`\`\``,
+    user: (topic, industry, brandName) =>
+      `Viết bài Shopify Blog cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả Markdown + block seo-meta cuối bài. KHÔNG giải thích.`,
+  },
+  wix: {
+    system: `Bạn là copywriter Wix Blog. Viết Markdown thuần (sẽ render HTML), tone visual-first / lifestyle.
+
+QUY TẮC BẮT BUỘC:
+- 800-1500 từ tiếng Việt, sáng tạo và giàu hình ảnh.
+- 4-6 ## H2, có ít nhất 1 bullet list, 1 blockquote (>).
+- CTA: "Khám phá", "Đặt lịch", "Liên hệ".
+- Focus keyword density 1-1.5%, **bold** keyword 3-5 lần.
+- KHÔNG mở bằng "Bài viết:" / "Nội dung:".
+
+BẮT BUỘC sau body, append đúng 1 block JSON:
+\`\`\`seo-meta
+{"metaTitle":"≤60 ký tự","metaDescription":"140-160 ký tự","slug":"khong-dau-gach-ngang","focusKeyword":"...","tags":["..."],"excerpt":"50-160 từ"}
+\`\`\``,
+    user: (topic, industry, brandName) =>
+      `Viết bài Wix Blog cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả Markdown + block seo-meta cuối bài. KHÔNG giải thích.`,
+  },
+  medium: {
+    system: `Bạn là tác giả Medium. CHỈ Markdown thuần — TUYỆT ĐỐI KHÔNG HTML.
+
+QUY TẮC BẮT BUỘC:
+- 1000-1800 từ tiếng Việt, story-first, voice cá nhân/expert (ngôi "tôi/I").
+- Hook mở bài mạnh, sub-headers ## H2 ngắn, paragraph 2-3 câu thoáng.
+- ≥1 pull-quote (>), ≥1 bullet list.
+- Kết bằng CTA mềm: "Clap nếu hữu ích · Follow để xem thêm".
+
+BẮT BUỘC sau body, append đúng 1 block JSON (tags tối đa 5):
+\`\`\`seo-meta
+{"metaTitle":"≤60 ký tự","metaDescription":"140-160 ký tự","slug":"khong-dau-gach-ngang","focusKeyword":"...","tags":["≤5 tag"],"excerpt":"50-160 từ"}
+\`\`\``,
+    user: (topic, industry, brandName) =>
+      `Viết bài Medium cho thương hiệu "${brandName}" về chủ đề:\n"${topic}"${industry ? `\nNgành/Bối cảnh: ${industry}` : ''}\n\nTrả Markdown + block seo-meta cuối bài. KHÔNG giải thích.`,
+  },
 };
 
 interface LongformRetryDeps {
