@@ -152,14 +152,9 @@ export function SocialPlatformCredentialsDialog({
 
   const help = PLATFORM_HELP[platform];
   const callbackUrl = getCallbackUrl(platform);
-  const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
+  const isReadOnly = READ_ONLY_PLATFORMS.has(platform);
   const isInstagram = platform === 'instagram';
-  const isLinkedIn = platform === 'linkedin';
-  const isZalo = platform === 'zalo_oa';
-  const isGoogle = platform === 'google_business';
   const isWebsite = platform === 'website';
-  const isTikTok = platform === 'tiktok';
-  const isPinterest = platform === 'pinterest';
 
   const handleCopyCallback = async () => {
     if (!callbackUrl) return;
@@ -172,37 +167,37 @@ export function SocialPlatformCredentialsDialog({
     }
   };
 
-  const keyLabel = isWebsite
-    ? 'API URL / WordPress URL'
-    : isGoogle
-      ? 'Google Client ID'
-      : isZalo
-        ? 'Zalo App ID'
-        : isTikTok
-          ? 'TikTok Client Key'
-          : isLinkedIn
-            ? 'LinkedIn Client ID'
-            : isPinterest
-              ? 'Pinterest App ID'
-              : isMetaPlatform
-                ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-                : 'Consumer Key (API Key)';
+  const KEY_LABELS: Partial<Record<SocialPlatform, [string, string]>> = {
+    website: ['API URL / WordPress URL', 'API Key / Application Password'],
+    google_business: ['Google Client ID', 'Google Client Secret'],
+    blogger: ['Google Client ID', 'Google Client Secret'],
+    zalo_oa: ['Zalo App ID', 'Zalo Secret Key'],
+    tiktok: ['TikTok Client Key', 'TikTok Client Secret'],
+    linkedin: ['LinkedIn Client ID', 'LinkedIn Client Secret'],
+    pinterest: ['Pinterest App ID', 'Pinterest App Secret'],
+    youtube: ['YouTube OAuth Client ID', 'YouTube OAuth Client Secret'],
+    wordpress_com: ['WordPress.com Client ID', 'WordPress.com Client Secret'],
+    facebook: ['App ID', 'App Secret'],
+    instagram: ['Instagram App ID', 'Instagram App Secret'],
+    threads: ['Threads App ID', 'Threads App Secret'],
+    twitter: ['Consumer Key (API Key)', 'Consumer Secret (API Secret)'],
+  };
+  const [keyLabel, secretLabel] = KEY_LABELS[platform] || ['Client ID', 'Client Secret'];
 
-  const secretLabel = isWebsite
-    ? 'API Key / Application Password'
-    : isGoogle
-      ? 'Google Client Secret'
-      : isZalo
-        ? 'Zalo Secret Key'
-        : isTikTok
-          ? 'TikTok Client Secret'
-          : isLinkedIn
-            ? 'LinkedIn Client Secret'
-            : isPinterest
-              ? 'Pinterest App Secret'
-              : isMetaPlatform
-                ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-                : 'Consumer Secret (API Secret)';
+  // Validation schema
+  const validationSchema = useMemo(() => {
+    const keyField = isWebsite
+      ? z.string().trim().url({ message: 'API URL phải là URL hợp lệ (https://…)' }).max(MAX_FIELD_LEN)
+      : z.string().trim().min(4, { message: `${keyLabel} quá ngắn` }).max(MAX_FIELD_LEN);
+    const secretField = z.string().trim().min(8, { message: `${secretLabel} quá ngắn` }).max(MAX_FIELD_LEN);
+    return z.object({
+      consumer_key: keyField,
+      consumer_secret: secretField,
+      app_name: z.string().trim().max(100).optional(),
+    });
+  }, [keyLabel, secretLabel, isWebsite]);
+
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && existingSettings) {
