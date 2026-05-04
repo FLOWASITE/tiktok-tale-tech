@@ -473,11 +473,16 @@ export function MultiChannelFormWizard({
     },
   });
 
+  const { frequent: frequentChannels, counts: frequentCounts, recordUsage: recordChannelUsage } =
+    useFrequentChannels(organizationId, brandTemplateId);
+
   const [formData, setFormData] = useState<MultiChannelFormData>({
     topic: initialData?.topic || '',
     contentGoal: initialData?.contentGoal || 'education',
     contentAngle: initialData?.contentAngle,
-    channels: initialData?.channels || ['facebook', 'instagram'],
+    channels:
+      initialData?.channels ||
+      (frequentChannels.length > 0 ? frequentChannels : ['facebook', 'instagram']),
     brandTemplateId: brandTemplateId,
     brandVoiceVariantId: voiceVariantId,
     productId: initialData?.productId,
