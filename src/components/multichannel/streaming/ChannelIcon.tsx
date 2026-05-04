@@ -127,6 +127,11 @@ const channelConfig: Record<string, {
     bgClass: "bg-[#E60023] text-white",
     label: "Pinterest"
   },
+  shopify: {
+    icon: ShopifyLucide,
+    bgClass: "bg-[#96BF48] text-white",
+    label: "Shopify"
+  },
   google_maps: { 
     icon: GoogleBusinessLucide, 
     bgClass: "bg-white text-[#4285F4] border border-border",
