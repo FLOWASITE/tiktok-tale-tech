@@ -116,6 +116,13 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
       </span>
     );
   }
+  if (channel === 'medium') {
+    return (
+      <span style={style} className={`inline-flex items-center justify-center text-foreground ${className}`}>
+        <MediumIcon width={size} height={size} />
+      </span>
+    );
+  }
 
   const SvgIcon = svgIcons[channel as Channel];
   if (SvgIcon) {
