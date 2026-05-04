@@ -121,7 +121,7 @@ function buildClusterMap(keywords: PreviewKeyword[]): Map<string, string> {
   return map;
 }
 
-export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSaved }: Props) {
+export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSaved, brand, onExpandSeed }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [intentFilter, setIntentFilter] = useState<string | null>(null);
@@ -132,11 +132,16 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
   const [minBrandFit, setMinBrandFit] = useState(0);
   const [sortByScore, setSortByScore] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [groupBy, setGroupBy] = useState<"category" | "intent" | "funnel" | "none">("category");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<KeywordCategory | null>(null);
 
   const hasPillarData = useMemo(() => keywords.some(k => k.pillar_match), [keywords]);
   const hasBrandFit = useMemo(() => keywords.some(k => typeof k.brand_fit_score === "number"), [keywords]);
 
   const clusterMap = useMemo(() => buildClusterMap(keywords), [keywords]);
+  const ctx: CategorizerContext = useMemo(() => buildContextFromBrand(brand), [brand]);
 
   const enriched = useMemo(() => keywords.map(k => {
     const priority = computeScore(k);
@@ -150,8 +155,9 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
       _priority: priority,
       _fit: fit,
       _cluster: clusterMap.get(normalizeCluster(k.cluster_name)) || k.cluster_name,
+      _category: categorizeKeyword(k.keyword, ctx, { intent: k.intent }),
     };
-  }), [keywords, clusterMap]);
+  }), [keywords, clusterMap, ctx]);
 
   const filtered = useMemo(() => {
     let list = enriched.filter(k => {
