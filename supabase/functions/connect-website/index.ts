@@ -69,7 +69,8 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
       apiKey, 
       webhookUrl, 
       integrationType,
-      wordpressConfig 
+      wordpressConfig,
+      wixConfig,
     } = body;
 
     if (!websiteUrl || !integrationType) {
