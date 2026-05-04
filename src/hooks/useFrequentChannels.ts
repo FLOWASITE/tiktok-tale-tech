@@ -3,8 +3,8 @@ import type { Channel } from '@/types/multichannel';
 
 const STORAGE_PREFIX = 'flowa.frequentChannels.v1';
 const DECAY_DAYS = 90;
-const MIN_COUNT = 2;
-const MAX_FREQUENT = 6;
+const MIN_COUNT = 1;
+const MAX_FREQUENT = 8;
 
 type Entry = { count: number; lastUsedAt: string };
 type Store = Partial<Record<Channel, Entry>>;
