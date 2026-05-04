@@ -4961,6 +4961,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         wordpress: "Bài WordPress in-depth (1200-2200 chữ, authority/expert tone, H2/H3 rõ, intro 80-120 words, 4-6 sections với bullet/numbered list, ít nhất 1 blockquote, **bold** keyword, conclusion + CTA. Markdown chuẩn. Sâu và dài hơn website một bậc.",
         shopify: "Bài Shopify Blog (800-1500 chữ, e-commerce storytelling, HTML-ready, đoạn ≤80 từ, 4-6 H2, bullet+numbered list, CTA thương mại Shop now/Khám phá BST. KHÁC website & wordpress.",
         wix: "Bài Wix Blog (800-1500 chữ, visual-first storytelling, HTML-ready, đoạn ≤80 từ, 4-6 H2, bullet+numbered list, tone sáng tạo/lifestyle/portfolio, CTA mềm Khám phá/Đặt lịch/Liên hệ. KHÁC shopify (không commerce-focus).",
+        medium: "Bài Medium (1000-1800 chữ, story-first opening hook, voice cá nhân/expert ngôi 'tôi/I', CHỈ Markdown thuần TUYỆT ĐỐI KHÔNG HTML, ## H2 ngắn, paragraph 2-3 câu thoáng, ≥1 pull-quote (>), CTA Clap/Follow. seo-meta tags ≤5.",
         facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
         instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
         twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
