@@ -47,6 +47,7 @@ export const ALL_CHANNELS = [
   { id: 'wordpress', name: 'WordPress', icon: 'wordpress' },
   { id: 'shopify', name: 'Shopify', icon: 'shopify' },
   { id: 'wix', name: 'Wix', icon: 'wix' },
+  { id: 'medium', name: 'Medium', icon: 'medium' },
   { id: 'bluesky', name: 'Bluesky', icon: 'bluesky' },
 ] as const;
 
