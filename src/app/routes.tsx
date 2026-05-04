@@ -67,6 +67,7 @@ import TikTokCallback from "@/pages/TikTokCallback";
 import PinterestCallback from "@/pages/PinterestCallback";
 import BlueskyCallback from "@/pages/BlueskyCallback";
 import ShopifyCallback from "@/pages/ShopifyCallback";
+import WixCallback from "@/pages/WixCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
 import GEODashboard from "@/pages/GEODashboard";
 import FlowaChatPage from "@/pages/FlowaChatPage";
@@ -136,6 +137,7 @@ export function AppRoutes() {
       <Route path="/auth/bluesky/callback" element={<BlueskyCallback />} />
       <Route path="/oauth/bluesky/callback" element={<BlueskyCallback />} />
       <Route path="/auth/shopify/callback" element={<ShopifyCallback />} />
+      <Route path="/auth/wix/callback" element={<WixCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
 
