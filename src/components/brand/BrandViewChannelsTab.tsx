@@ -39,6 +39,8 @@ import {
   ThreadsIcon,
   TelegramIcon,
   GoogleBusinessIcon,
+  ShopifyIcon,
+  WixIcon,
 } from '@/components/icons/SocialIcons';
 
 // Derive from single source of truth (CHANNELS) so newly added channels (Blogger, TikTok, Threads, ...) appear automatically.
@@ -54,8 +56,8 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
   blogger: <BloggerIcon className="w-4 h-4" />,
   wordpress: <WordPressIcon className="w-4 h-4" />,
-  shopify: <WordPressIcon className="w-4 h-4" />,
-  wix: <WordPressIcon className="w-4 h-4" />,
+  shopify: <ShopifyIcon className="w-4 h-4" />,
+  wix: <WixIcon className="w-4 h-4" />,
   facebook: <FacebookIcon className="w-4 h-4" />,
   instagram: <InstagramIcon className="w-4 h-4" />,
   pinterest: <PinterestIcon className="w-4 h-4" />,
@@ -75,8 +77,8 @@ const channelLabels: Record<Channel, string> = {
   website: 'Website',
   blogger: 'Blogger',
   wordpress: 'WordPress',
-  shopify: 'WordPress',
-  wix: 'WordPress',
+  shopify: 'Shopify Blog',
+  wix: 'Wix Blog',
   facebook: 'Facebook',
   instagram: 'Instagram',
   pinterest: 'Pinterest',
