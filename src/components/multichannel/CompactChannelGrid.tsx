@@ -19,6 +19,8 @@ import {
   Settings2,
   Globe,
   Users,
+  Star,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Channel, CHANNELS } from '@/types/multichannel';
