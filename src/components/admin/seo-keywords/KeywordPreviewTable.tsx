@@ -1,12 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment as FragmentGroup } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Loader2, Save, CheckSquare, Square, Sparkles, Trophy } from "lucide-react";
+import { Loader2, Save, CheckSquare, Square, Sparkles, Trophy, ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  categorizeKeyword,
+  buildContextFromBrand,
+  expandKeywordWithModifiers,
+  type KeywordCategory,
+  type CategorizerContext,
+} from "@/lib/seo/keywordCategorizer";
 
 export interface PreviewKeyword {
   keyword: string;
@@ -40,6 +50,10 @@ interface Props {
   keywords: PreviewKeyword[];
   isStreaming: boolean;
   onSaved?: (inserted: number, enrichJobId: string | null) => void;
+  /** Brand for category detection. If omitted, all keywords go to "topical". */
+  brand?: any;
+  /** Callback when user clicks "expand modifier" — to add new seeds back to research */
+  onExpandSeed?: (newSeeds: string[]) => void;
 }
 
 const INTENT_COLORS: Record<string, string> = {
@@ -108,7 +122,7 @@ function buildClusterMap(keywords: PreviewKeyword[]): Map<string, string> {
   return map;
 }
 
-export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSaved }: Props) {
+export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSaved, brand, onExpandSeed }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
   const [intentFilter, setIntentFilter] = useState<string | null>(null);
@@ -119,11 +133,16 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
   const [minBrandFit, setMinBrandFit] = useState(0);
   const [sortByScore, setSortByScore] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [groupBy, setGroupBy] = useState<"category" | "intent" | "funnel" | "none">("category");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<KeywordCategory | null>(null);
 
   const hasPillarData = useMemo(() => keywords.some(k => k.pillar_match), [keywords]);
   const hasBrandFit = useMemo(() => keywords.some(k => typeof k.brand_fit_score === "number"), [keywords]);
 
   const clusterMap = useMemo(() => buildClusterMap(keywords), [keywords]);
+  const ctx: CategorizerContext = useMemo(() => buildContextFromBrand(brand), [brand]);
 
   const enriched = useMemo(() => keywords.map(k => {
     const priority = computeScore(k);
@@ -137,8 +156,9 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
       _priority: priority,
       _fit: fit,
       _cluster: clusterMap.get(normalizeCluster(k.cluster_name)) || k.cluster_name,
+      _category: categorizeKeyword(k.keyword, ctx, { intent: k.intent }),
     };
-  }), [keywords, clusterMap]);
+  }), [keywords, clusterMap, ctx]);
 
   const filtered = useMemo(() => {
     let list = enriched.filter(k => {
@@ -149,11 +169,48 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
       if (pillarOnly && !k.pillar_match) return false;
       if (coreAudienceOnly && k.audience_match !== "core") return false;
       if (minBrandFit > 0 && (k._fit ?? 0) < minBrandFit) return false;
+      if (categoryFilter && k._category !== categoryFilter) return false;
       return true;
     });
     if (sortByScore) list = [...list].sort((a, b) => b._score - a._score);
     return list;
-  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, coreAudienceOnly, minBrandFit, sortByScore]);
+  }, [enriched, filter, intentFilter, funnelFilter, gapOnly, pillarOnly, coreAudienceOnly, minBrandFit, sortByScore, categoryFilter]);
+
+  // ---- Group rows by selected dimension ----
+  const groups = useMemo(() => {
+    if (groupBy === "none") return [{ key: "all", label: "Tất cả", items: filtered, meta: null as any }];
+    const buckets = new Map<string, typeof filtered>();
+    for (const k of filtered) {
+      const key =
+        groupBy === "category" ? k._category :
+        groupBy === "intent" ? (k.intent || "unknown") :
+        (k.funnel_stage || "unknown");
+      if (!buckets.has(key)) buckets.set(key, [] as any);
+      buckets.get(key)!.push(k);
+    }
+    if (groupBy === "category") {
+      return CATEGORY_ORDER.filter(c => buckets.has(c)).map(c => ({
+        key: c, label: CATEGORY_META[c].label, items: buckets.get(c)!, meta: CATEGORY_META[c],
+      }));
+    }
+    return Array.from(buckets.entries()).map(([key, items]) => ({ key, label: key, items, meta: null as any }));
+  }, [filtered, groupBy]);
+
+  const toggleGroup = (key: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+  const selectGroup = (items: typeof filtered) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      items.forEach(it => next.add(it.keyword));
+      return next;
+    });
+  };
+
 
   const toggle = (kw: string) => {
     const next = new Set(selected);
@@ -254,12 +311,54 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
           <label className="flex items-center gap-1.5 text-xs cursor-pointer">
             <Checkbox checked={sortByScore} onCheckedChange={v => setSortByScore(!!v)} /> Sort theo score
           </label>
+          <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)}
+            className="h-8 px-2 rounded border text-xs bg-background ml-1">
+            <option value="category">Group: Category</option>
+            <option value="intent">Group: Intent</option>
+            <option value="funnel">Group: Funnel</option>
+            <option value="none">Không nhóm</option>
+          </select>
           <div className="ml-auto flex gap-1">
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={selectAll}><CheckSquare className="h-3 w-3 mr-1" />Tất cả ({filtered.length})</Button>
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={selectGaps}>Chọn gap</Button>
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={clear}><Square className="h-3 w-3 mr-1" />Xoá</Button>
           </div>
         </div>
+
+        {/* Category chips: counts per Keyword Universe bucket */}
+        {keywords.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center text-xs">
+            <span className="text-muted-foreground">Universe:</span>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(null)}
+              className={cn(
+                "px-2 py-0.5 rounded-full border transition",
+                !categoryFilter ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              )}
+            >Tất cả ({enriched.length})</button>
+            {CATEGORY_ORDER.map(c => {
+              const count = enriched.filter(k => k._category === c).length;
+              if (count === 0) return null;
+              const m = CATEGORY_META[c];
+              const active = categoryFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategoryFilter(active ? null : c)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full border transition inline-flex items-center gap-1",
+                    active ? "bg-foreground text-background border-foreground" : `${m.badgeClass} hover:opacity-80`
+                  )}
+                  title={m.description}
+                >
+                  <span>{m.emoji}</span> {m.label} <span className="opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="border rounded max-h-[480px] overflow-auto">
           <table className="w-full text-sm">
@@ -278,62 +377,145 @@ export default function KeywordPreviewTable({ jobId, keywords, isStreaming, onSa
               </tr>
             </thead>
             <tbody>
-              {filtered.map((k, i) => {
-                const isSel = selected.has(k.keyword);
-                const fitColor = k._fit === null ? "bg-muted text-muted-foreground border-border"
-                  : k._fit >= 70 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : k._fit >= 40 ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-rose-50 text-rose-700 border-rose-200";
+              {groups.map(group => {
+                const isCollapsed = collapsed.has(group.key);
+                const colSpan = hasBrandFit ? 10 : 9;
+                const meta = group.meta;
+                const groupLabel = meta ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>{meta.emoji}</span>
+                    <span className="font-medium">{meta.label}</span>
+                    <span className="text-[10px] text-muted-foreground hidden md:inline">— {meta.description}</span>
+                  </span>
+                ) : (
+                  <span className="font-medium capitalize">{group.label}</span>
+                );
                 return (
-                  <tr key={i} className={`border-t hover:bg-muted/30 cursor-pointer ${isSel ? "bg-primary/5" : ""} ${k._pending ? "opacity-70" : ""}`} onClick={() => toggle(k.keyword)}>
-                    <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} disabled={k._pending} /></td>
-                    <td className="p-2 font-medium">
-                      <span className="inline-flex items-center gap-1">
-                        {k.keyword}
-                        {k._pending && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                        {k.social_match && (
-                          <span
-                            className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 border border-border/50 text-foreground/70"
-                            title={`Khớp social footprint: "${k.social_match}"`}
-                          >📱</span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="p-2 text-right">
-                      {k._pending ? (
-                        <span className="inline-block h-4 w-8 rounded bg-muted animate-pulse" />
-                      ) : (
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums cursor-help ${scoreColor(k._score)}`}
-                          title={k.priority_breakdown
-                            ? `Priority = (relevance ${k.priority_breakdown.relevance} × intent ${k.priority_breakdown.intent_weight}× × log10(${k.priority_breakdown.volume}+10)) / sqrt(${k.priority_breakdown.difficulty}+1)\nIntent: ${k.priority_breakdown.intent}`
-                            : `Score: ${k._score}`}
-                        >{k._score}</span>
-                      )}
-                    </td>
-                    {hasBrandFit && (
-                      <td className="p-2 text-right">
-                        {k._pending ? <span className="text-[10px] text-muted-foreground">…</span>
-                          : k._fit !== null ? (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
-                            title={[k.brand_fit_reason, k.social_match ? `📱 Khớp social: "${k.social_match}"` : null, k.audience_match ? `audience: ${k.audience_match}` : null].filter(Boolean).join(" · ")}
-                          >
-                            {k._fit}
-                          </span>
-                        ) : <span className="text-[10px] text-muted-foreground">—</span>}
-                      </td>
+                  <FragmentGroup key={group.key}>
+                    {groupBy !== "none" && (
+                      <tr className="bg-muted/40 border-t sticky">
+                        <td colSpan={colSpan + 1} className="p-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleGroup(group.key)}
+                              className="inline-flex items-center gap-1 text-xs hover:text-foreground text-muted-foreground"
+                            >
+                              {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                              {groupLabel}
+                              <span className="ml-1 text-[10px] text-muted-foreground">({group.items.length})</span>
+                            </button>
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px] ml-auto"
+                              onClick={() => selectGroup(group.items)}>
+                              Chọn nhóm
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                    <td className="p-2 text-right tabular-nums">{k.search_volume ? k.search_volume.toLocaleString() : (k._pending ? <span className="text-muted-foreground">—</span> : 0)}</td>
-                    <td className="p-2 text-right tabular-nums">{k.difficulty || (k._pending ? <span className="text-muted-foreground">—</span> : 0)}</td>
-                    <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${INTENT_COLORS[k.intent] || ""}`}>{k.intent}</span></td>
-                    <td className="p-2 text-xs">{k.funnel_stage}</td>
-                    <td className="p-2 text-xs text-muted-foreground truncate max-w-[180px]">
-                      <div className="truncate">{k._cluster}</div>
-                      {k.pillar_match && <div className="text-[10px] text-primary/80 truncate">★ {k.pillar_match}</div>}
-                    </td>
-                    <td className="p-2">{k.is_gap && <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Mới</Badge>}</td>
-                  </tr>
+                    {!isCollapsed && group.items.map((k, i) => {
+                      const rowKey = `${group.key}-${k.keyword}-${i}`;
+                      const isSel = selected.has(k.keyword);
+                      const isExpanded = expandedRow === rowKey;
+                      const fitColor = k._fit === null ? "bg-muted text-muted-foreground border-border"
+                        : k._fit >= 70 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : k._fit >= 40 ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-rose-50 text-rose-700 border-rose-200";
+                      const cm = CATEGORY_META[k._category];
+                      return (
+                        <FragmentGroup key={rowKey}>
+                          <tr className={cn("border-t hover:bg-muted/30", isSel && "bg-primary/5", k._pending && "opacity-70")}>
+                            <td className="p-2"><Checkbox checked={isSel} onCheckedChange={() => toggle(k.keyword)} disabled={k._pending} /></td>
+                            <td className="p-2 font-medium cursor-pointer" onClick={() => setExpandedRow(isExpanded ? null : rowKey)}>
+                              <span className="inline-flex items-center gap-1.5">
+                                {isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                                <span className={cn("inline-block h-1.5 w-1.5 rounded-full", cm.dotClass)} title={cm.label} />
+                                {k.keyword}
+                                {k._pending && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                                {k.social_match && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 border border-border/50 text-foreground/70" title={`Khớp social: "${k.social_match}"`}>📱</span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="p-2 text-right">
+                              {k._pending ? (
+                                <span className="inline-block h-4 w-8 rounded bg-muted animate-pulse" />
+                              ) : (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums cursor-help ${scoreColor(k._score)}`}
+                                  title={k.priority_breakdown
+                                    ? `Priority = (relevance ${k.priority_breakdown.relevance} × intent ${k.priority_breakdown.intent_weight}× × log10(${k.priority_breakdown.volume}+10)) / sqrt(${k.priority_breakdown.difficulty}+1)\nIntent: ${k.priority_breakdown.intent}`
+                                    : `Score: ${k._score}`}>{k._score}</span>
+                              )}
+                            </td>
+                            {hasBrandFit && (
+                              <td className="p-2 text-right">
+                                {k._pending ? <span className="text-[10px] text-muted-foreground">…</span>
+                                  : k._fit !== null ? (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded border tabular-nums ${fitColor}`}
+                                    title={[k.brand_fit_reason, k.social_match ? `📱 Khớp social: "${k.social_match}"` : null, k.audience_match ? `audience: ${k.audience_match}` : null].filter(Boolean).join(" · ")}>
+                                    {k._fit}
+                                  </span>
+                                ) : <span className="text-[10px] text-muted-foreground">—</span>}
+                              </td>
+                            )}
+                            <td className="p-2 text-right tabular-nums">{k.search_volume ? k.search_volume.toLocaleString() : (k._pending ? <span className="text-muted-foreground">—</span> : 0)}</td>
+                            <td className="p-2 text-right tabular-nums">{k.difficulty || (k._pending ? <span className="text-muted-foreground">—</span> : 0)}</td>
+                            <td className="p-2"><span className={`text-[10px] px-1.5 py-0.5 rounded border ${INTENT_COLORS[k.intent] || ""}`}>{k.intent}</span></td>
+                            <td className="p-2 text-xs">{k.funnel_stage}</td>
+                            <td className="p-2 text-xs text-muted-foreground truncate max-w-[180px]">
+                              <div className="truncate">{k._cluster}</div>
+                              {k.pillar_match && <div className="text-[10px] text-primary/80 truncate">★ {k.pillar_match}</div>}
+                            </td>
+                            <td className="p-2">{k.is_gap && <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Mới</Badge>}</td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="bg-muted/20 border-t">
+                              <td></td>
+                              <td colSpan={colSpan} className="p-3 space-y-2">
+                                <div className="flex flex-wrap gap-2 items-center text-xs">
+                                  <Badge variant="outline" className={cn("text-[10px]", cm.badgeClass)}>{cm.emoji} {cm.label}</Badge>
+                                  <span className="text-muted-foreground">{cm.description}</span>
+                                </div>
+                                {k.rationale && (
+                                  <div className="text-xs text-foreground/80"><span className="text-muted-foreground">Rationale:</span> {k.rationale}</div>
+                                )}
+                                {k.brand_fit_reason && (
+                                  <div className="text-xs text-foreground/80"><span className="text-muted-foreground">Brand fit:</span> {k.brand_fit_reason}</div>
+                                )}
+                                {k.priority_breakdown && (
+                                  <div className="text-[10px] text-muted-foreground tabular-nums">
+                                    Priority = (relevance {k.priority_breakdown.relevance} × intent {k.priority_breakdown.intent_weight}× × log10({k.priority_breakdown.volume}+10)) / √({k.priority_breakdown.difficulty}+1)
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                                    <Plus className="h-3 w-3" /> Mở rộng modifier (click để thêm vào seed):
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {expandKeywordWithModifiers(k.keyword, ["commercial", "problem", "long_tail"]).slice(0, 12).map((s, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => onExpandSeed?.([s.keyword])}
+                                        disabled={!onExpandSeed}
+                                        className={cn(
+                                          "text-[10px] px-2 py-0.5 rounded-full border bg-background hover:bg-muted transition",
+                                          !onExpandSeed && "opacity-60 cursor-not-allowed"
+                                        )}
+                                        title={`Group: ${s.group}`}
+                                      >
+                                        + {s.keyword}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </FragmentGroup>
+                      );
+                    })}
+                  </FragmentGroup>
                 );
               })}
               {filtered.length === 0 && !isStreaming && (

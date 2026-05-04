@@ -16,6 +16,13 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useKeywordEnrichment } from "@/hooks/useKeywordEnrichment";
 import { useCurrentBrand } from "@/contexts/BrandContext";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  categorizeKeyword,
+  buildContextFromBrand,
+  type KeywordCategory,
+} from "@/lib/seo/keywordCategorizer";
 
 const STATUS_OPTIONS = ["all", "new", "researching", "planned", "assigned", "published", "tracking", "archived"];
 const INTENT_OPTIONS = ["all", "informational", "commercial", "transactional", "navigational"];
@@ -55,6 +62,7 @@ export default function KeywordExplorerTab() {
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPillar, setBulkPillar] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<KeywordCategory | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem("seo-explorer-brand-scope", brandScope ? "1" : "0"); } catch {}
@@ -190,7 +198,21 @@ export default function KeywordExplorerTab() {
     });
   }, []);
 
-  const rows = keywords || [];
+  const ctx = useMemo(() => buildContextFromBrand(currentBrand), [currentBrand]);
+  const allRows = keywords || [];
+  const rowsWithCat = useMemo(
+    () => allRows.map(k => ({ ...k, _category: categorizeKeyword(k.keyword, ctx, { intent: k.intent }) })),
+    [allRows, ctx]
+  );
+  const categoryCounts = useMemo(() => {
+    const m = new Map<KeywordCategory, number>();
+    for (const k of rowsWithCat) m.set(k._category, (m.get(k._category) || 0) + 1);
+    return m;
+  }, [rowsWithCat]);
+  const rows = useMemo(
+    () => categoryFilter ? rowsWithCat.filter(k => k._category === categoryFilter) : rowsWithCat,
+    [rowsWithCat, categoryFilter]
+  );
   const toggleAll = () => {
     if (rows.length === 0) return;
     if (selectedIds.size === rows.length) setSelectedIds(new Set());
@@ -276,6 +298,41 @@ export default function KeywordExplorerTab() {
             </span>
           )}
         </div>
+
+        {/* Keyword Universe — phân loại theo category */}
+        {rowsWithCat.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center text-xs">
+            <span className="text-muted-foreground">Phân loại:</span>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(null)}
+              className={cn(
+                "px-2 py-0.5 rounded-full border transition",
+                !categoryFilter ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              )}
+            >Tất cả ({rowsWithCat.length})</button>
+            {CATEGORY_ORDER.map(c => {
+              const count = categoryCounts.get(c) || 0;
+              if (count === 0) return null;
+              const m = CATEGORY_META[c];
+              const active = categoryFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategoryFilter(active ? null : c)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full border transition inline-flex items-center gap-1",
+                    active ? "bg-foreground text-background border-foreground" : `${m.badgeClass} hover:opacity-80`
+                  )}
+                  title={m.description}
+                >
+                  <span>{m.emoji}</span> {m.label} <span className="opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-2 p-2.5 bg-muted/40 border rounded-md">
@@ -424,7 +481,10 @@ export default function KeywordExplorerTab() {
                         <div>
                           <Checkbox checked={selected} onCheckedChange={() => toggleOne(k.id)} />
                         </div>
-                        <div className="font-medium truncate" title={k.keyword}>{k.keyword}</div>
+                        <div className="font-medium truncate flex items-center gap-1.5" title={`${CATEGORY_META[(k as any)._category]?.label || ""} · ${k.keyword}`}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", CATEGORY_META[(k as any)._category]?.dotClass || "bg-muted")} />
+                          <span className="truncate">{k.keyword}</span>
+                        </div>
                         <div className="text-right tabular-nums">{k.search_volume?.toLocaleString()}</div>
                         <div className="text-right tabular-nums">{k.difficulty}</div>
                         <div><Badge variant="outline" className="text-xs">{k.intent}</Badge></div>
