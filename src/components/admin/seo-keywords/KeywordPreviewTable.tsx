@@ -49,6 +49,10 @@ interface Props {
   keywords: PreviewKeyword[];
   isStreaming: boolean;
   onSaved?: (inserted: number, enrichJobId: string | null) => void;
+  /** Brand for category detection. If omitted, all keywords go to "topical". */
+  brand?: any;
+  /** Callback when user clicks "expand modifier" — to add new seeds back to research */
+  onExpandSeed?: (newSeeds: string[]) => void;
 }
 
 const INTENT_COLORS: Record<string, string> = {
