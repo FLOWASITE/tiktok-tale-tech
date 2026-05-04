@@ -1244,47 +1244,47 @@ export function MultiChannelFormWizard({
                 />
               )}
 
-              {/* Content Goal Selector - ALWAYS VISIBLE */}
-              <div className="space-y-2">
-                <Label className="text-foreground font-semibold flex items-center gap-2">
-                  <Target className="w-4 h-4 text-primary" />
-                  Mục tiêu nội dung
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Xác định mục tiêu giúp AI gợi ý và tạo nội dung phù hợp hơn
-                </p>
-                
-                {/* Goal Button Group */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {CONTENT_GOALS.map((goal) => (
-                    <button
-                      key={goal.value}
-                      type="button"
-                      onClick={() => { userManuallySetGoal.current = true; setFormData(prev => ({ ...prev, contentGoal: goal.value })); }}
-                      disabled={isGenerating}
-                      className={cn(
-                        "p-2.5 rounded-lg border text-center transition-all duration-200",
-                        "flex flex-col items-center gap-1",
-                        "hover:shadow-sm",
-                        formData.contentGoal === goal.value 
-                          ? "border-primary bg-primary/10 text-primary shadow-sm" 
-                          : "border-border bg-card hover:bg-accent/50 hover:border-primary/30",
-                        isGenerating && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <span className={cn(
-                        "w-7 h-7 rounded-full flex items-center justify-center",
-                        formData.contentGoal === goal.value 
-                          ? "bg-primary/20" 
-                          : "bg-muted"
-                      )}>
-                        {GOAL_ICONS[goal.value]}
-                      </span>
-                      <span className="text-xs font-medium">{goal.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Content Goal Selector - compact chip row */}
+              {(() => {
+                const hasGoal = !!formData.contentGoal;
+                return (
+                  <div
+                    className={cn(
+                      "flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg px-2 py-1.5 transition-all",
+                      !hasGoal && "ring-1 ring-primary/30 bg-primary/[0.03]"
+                    )}
+                  >
+                    <Label className="text-foreground text-xs font-semibold flex items-center gap-1.5 mr-1 shrink-0">
+                      <Target className={cn("w-3.5 h-3.5 text-primary", !hasGoal && "animate-pulse")} />
+                      Mục tiêu
+                    </Label>
+                    {CONTENT_GOALS.map((goal) => {
+                      const active = formData.contentGoal === goal.value;
+                      return (
+                        <button
+                          key={goal.value}
+                          type="button"
+                          onClick={() => { userManuallySetGoal.current = true; setFormData(prev => ({ ...prev, contentGoal: goal.value })); }}
+                          disabled={isGenerating}
+                          title={goal.description}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-all",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground",
+                            isGenerating && "opacity-50 cursor-not-allowed"
+                          )}
+                        >
+                          <span className="[&>svg]:w-3.5 [&>svg]:h-3.5 flex items-center">
+                            {GOAL_ICONS[goal.value]}
+                          </span>
+                          <span>{goal.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {/* Topic Input with char counter Badge - carousel style */}
               <div className="space-y-2">

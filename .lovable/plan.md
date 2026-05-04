@@ -1,21 +1,35 @@
 ## Mục tiêu
-Sau khi user nhấn nút **"Kênh thường dùng"** (Sparkles, vùng header của Channel Picker step 4), hiện chỉ có 1 chiều: chọn vào. User muốn nhấn lại để **bỏ chọn** các kênh thường dùng đã thêm vào.
+Card "Mục tiêu nội dung" ở Step 1 của Multi-channel Wizard hiện chiếm nhiều không gian (5 button to, mỗi cái có icon tròn + label, grid 2-3-5 cols, kèm header + description riêng). Mục tiêu: thu gọn để tiết kiệm chiều cao nhưng vẫn giữ được sự nổi bật khi user chưa chọn / đang chọn.
 
-## Hành vi mới (toggle)
-Trong `handleSelectFrequent` (`src/components/multichannel/MultiChannelFormWizard.tsx` ~line 854):
+## Thay đổi
 
-- Nếu **toàn bộ** `frequentChannels` đã nằm trong `formData.channels` → nhấn lần nữa = **xóa** các kênh thường dùng khỏi selection (giữ nguyên các kênh khác user đã tick thủ công).
-- Ngược lại (có ít nhất 1 kênh thường dùng chưa được chọn) → **gộp thêm** vào selection hiện tại (dùng `Set` để khử trùng), không còn ghi đè làm mất các kênh khác.
+**File:** `src/components/multichannel/MultiChannelFormWizard.tsx` (lines ~1247-1287)
 
-## UI feedback (tùy chọn nhỏ)
-Trong `src/components/multichannel/CompactChannelGrid.tsx`:
-- Nút "Kênh thường dùng" đổi label động: nếu tất cả frequent đang được chọn → hiển thị **"Bỏ kênh thường dùng"** + đổi nhẹ tone (hover muted thay vì amber). Truyền thêm prop `frequentAllSelected: boolean` từ Wizard, tính bằng `frequentChannels.every(ch => formData.channels.includes(ch))`.
-- Icon đổi từ `Sparkles` → `Sparkles` (giữ) khi add, hoặc `X` khi đang ở trạng thái "Bỏ".
+### Layout mới (compact chip row)
+```text
+┌──────────────────────────────────────────────────────────┐
+│ 🎯 Mục tiêu  [● Awareness] [○ Engage] [○ Edu] [○ Conv]…  │
+└──────────────────────────────────────────────────────────┘
+```
 
-## File chỉnh
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — sửa `handleSelectFrequent` + truyền `frequentAllSelected` vào `<CompactChannelGrid>`.
-- `src/components/multichannel/CompactChannelGrid.tsx` — thêm prop `frequentAllSelected?: boolean`, đổi label/icon nút "Kênh thường dùng" theo trạng thái.
+- Gộp label "Mục tiêu nội dung" + 5 button vào **1 hàng flex-wrap** duy nhất.
+- Bỏ description dài "Xác định mục tiêu giúp AI..." → chuyển thành tooltip `?` icon hoặc bỏ hẳn (đã có gợi ý ngầm qua selected state).
+- Mỗi goal là **chip pill** nhỏ (`h-8 px-3 rounded-full`), icon `w-3.5 h-3.5` + text `text-xs`, không còn vòng tròn nền riêng.
+- Selected chip: `bg-primary text-primary-foreground` (solid, contrast cao) — đảm bảo focus mạnh.
+- Unselected: `bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground`.
 
-## Không thay đổi
-- Hook `useFrequentChannels` (vẫn chỉ ghi nhận usage, không xóa entry).
-- Logic chọn từng kênh lẻ trong grid bên dưới.
+### Focus / nổi bật khi chưa chọn
+- Khi `formData.contentGoal` rỗng/default: thêm subtle `ring-1 ring-primary/30 rounded-lg` quanh cả row + label "Mục tiêu" pulse nhẹ (`animate-pulse` trên Target icon) để nhắc user chú ý.
+- Khi đã chọn: bỏ ring, chip selected solid primary là đủ để confirm.
+
+### Responsive
+- Mobile (<640px): chip row vẫn flex-wrap, mỗi chip giữ chiều cao 32px → fit 2-3 chip/dòng, tối đa 2 dòng (so với hiện tại 3 dòng grid).
+- Desktop: 1 dòng duy nhất cùng label.
+
+## Kỹ thuật
+- Giữ nguyên logic `userManuallySetGoal.current = true` và `setFormData`.
+- Giữ `GOAL_ICONS` map.
+- Class chip dùng `cn()` conditional, không thêm dependency mới.
+- Tổng giảm chiều cao card từ ~140px xuống ~48-56px (≈60% nhỏ hơn).
+
+Không động chạm logic state, không đổi types, không ảnh hưởng các step khác.
