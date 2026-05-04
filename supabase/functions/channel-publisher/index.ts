@@ -369,7 +369,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
         console.error('[channel-publisher] Status update error (non-fatal):', statusErr);
       }
 
-      // --- Telegram push: success OR failure ---
+      // --- Insert publish_attempts (audit log) + Telegram push (success OR failure) ---
       try {
         const supabase = getServiceClient();
         const [{ data: mcc }, { data: car }] = await Promise.all([
@@ -377,13 +377,30 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
           supabase.from('carousels').select('title, organization_id, created_by').eq('id', contentId).maybeSingle(),
         ]);
         const contentRow = mcc || car;
+        const errMsg = !isSuccess
+          ? (parsedResponse?.error as string | undefined) || `HTTP ${response.status}`
+          : undefined;
+
+        // Insert publish_attempts row (best-effort audit)
         if (contentRow?.organization_id) {
-          const errMsg = !isSuccess
-            ? (parsedResponse?.error as string | undefined) || `HTTP ${response.status}`
-            : undefined;
-          const postUrl = isSuccess
-            ? ((parsedResponse?.data as any)?.postUrl || (parsedResponse?.postUrl as string | undefined))
-            : undefined;
+          try {
+            await supabase.from('publish_attempts').insert({
+              content_id: contentId,
+              organization_id: contentRow.organization_id,
+              connection_id: (finalPayload.connectionId as string | undefined) ?? null,
+              platform: action,
+              channel: ACTION_TO_CHANNEL[action] ?? action,
+              status: isSuccess ? 'success' : 'failed',
+              external_post_id: postId ?? null,
+              external_post_url: postUrl ?? null,
+              error_message: errMsg ?? null,
+              response_payload: parsedResponse ?? null,
+              completed_at: new Date().toISOString(),
+            });
+          } catch (auditErr) {
+            console.error('[channel-publisher] publish_attempts insert error (non-fatal):', auditErr);
+          }
+
           const { notifyPublishResult } = await import('../_shared/telegram-notifier.ts');
           await notifyPublishResult(
             supabase,
@@ -392,7 +409,7 @@ Deno.serve(withPerf({ functionName: 'channel-publisher' }, async (req) => {
             contentRow.title || 'Bài đăng',
             isSuccess,
             errMsg,
-            { channel: action, postUrl },
+            { channel: action, postUrl: isSuccess ? postUrl : undefined },
           );
         }
       } catch (notifErr) {
