@@ -52,12 +52,23 @@ export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props
       .eq("source_content_id", contentId)
       .eq("organization_id", currentOrganization.id);
     setSaved(((data as any) || []) as SavedLink[]);
+    setSavedLoaded(true);
   };
 
   useEffect(() => {
     loadSaved();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentId, currentOrganization?.id]);
+
+  // Auto-scan once when mounted with no saved links
+  useEffect(() => {
+    if (!autoScanOnMount || autoScanned.current || !savedLoaded) return;
+    if (saved.length === 0 && !loading && suggestions === null) {
+      autoScanned.current = true;
+      scan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScanOnMount, savedLoaded, saved.length]);
 
   const scan = async () => {
     if (!currentOrganization?.id) return;
