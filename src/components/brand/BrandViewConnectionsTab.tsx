@@ -181,6 +181,13 @@ const PLATFORM_CONFIG: Record<SocialPlatform, PlatformConfig> = {
     available: true,
     description: 'Đăng bài lên Bluesky qua OAuth 2.0 (DPoP)',
   },
+  shopify: {
+    name: 'Shopify',
+    icon: <ChannelIcon channel={"shopify" as any} size={20} />,
+    color: 'bg-[#96BF48]/10',
+    available: true,
+    description: 'Auto-publish blog vào Shopify store qua OAuth',
+  },
 };
 
 interface TwitterSetupForm {
@@ -506,6 +513,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     website: 'website',
     pinterest: 'pinterest',
     bluesky: 'bluesky',
+    shopify: 'shopify',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
