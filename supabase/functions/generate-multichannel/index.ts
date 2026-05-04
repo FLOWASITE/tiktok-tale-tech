@@ -3173,8 +3173,8 @@ Nội dung sẵn sàng đăng ngay.`;
         }
       }
       
-      // Long-form guard for Blogger / WordPress regenerate (non-streaming)
-      if ((channel === 'blogger' || channel === 'wordpress') && isLongformContentMissing(channel, normalizeLongformText(newContent))) {
+      // Long-form guard for every dedicated long-form channel regenerate (non-streaming)
+      if (LONGFORM_MIN_CHARS[channel] && isLongformContentMissing(channel, normalizeLongformText(newContent))) {
         console.warn(`[regenerate-mode] ${channel} too short (${newContent?.length || 0} chars) — running direct retry`);
         const retried = await regenerateLongformChannelDirect(channel, {
           topic: formData.topic,
@@ -3807,7 +3807,7 @@ Phải KHÁC website (commerce-driven, ngắn hơn), KHÁC blogger (không ngôi
               google_maps: "Google Maps 80-150 từ, trung tính, không emoji/hashtag.",
             };
 
-            const LONGFORM_CHANNELS = new Set(['website', 'blogger', 'wordpress']);
+              const LONGFORM_CHANNELS = new Set(['website', 'blogger', 'wordpress', 'shopify', 'wix', 'medium']);
 
             const buildChannelUserPrompt = (channel: string) => {
               const channelHookSection = buildHookSection(channel, formData.selectedHooks, formData.globalHook);
@@ -4230,7 +4230,7 @@ Viết TRỰC TIẾP nội dung kênh ${channel.toUpperCase()} theo đúng hư�
                 .limit(1)
                 .maybeSingle();
 
-              const existingMissingLongform = existingContent && ['blogger', 'wordpress'].some((ch) =>
+              const existingMissingLongform = existingContent && ['blogger', 'wordpress', 'shopify', 'wix', 'medium'].some((ch) =>
                 channels.includes(ch) && isLongformContentMissing(ch, normalizeLongformText((existingContent as any)[`${ch}_content`]))
               );
 
