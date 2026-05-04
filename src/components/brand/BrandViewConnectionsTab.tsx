@@ -376,14 +376,20 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       } else if (websiteForm.integrationType === 'nukeviet') {
         body.apiKey = websiteForm.apiKey;
         body.apiEndpoint = websiteForm.apiEndpoint;
-      } else if (['wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
+      } else if (websiteForm.integrationType === 'wix') {
+        if (!websiteForm.apiKey || !websiteForm.wixSiteId || !websiteForm.wixAccountId) {
+          throw new Error('Wix yêu cầu API Key, Site ID và Account ID');
+        }
+        body.apiKey = websiteForm.apiKey;
+        body.wixConfig = { siteId: websiteForm.wixSiteId, accountId: websiteForm.wixAccountId };
+      } else if (['shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
         body.apiKey = websiteForm.apiKey;
       }
       const { data, error } = await supabase.functions.invoke('connect-website', { body });
       if (error || !data?.success) throw new Error(data?.error || error?.message || 'Kết nối thất bại');
       toast.success('Đã kết nối Website thành công!');
       setWebsiteDialogOpen(false);
-      setWebsiteForm({ websiteUrl: '', integrationType: 'wordpress', username: '', appPassword: '', apiKey: '', apiEndpoint: '' });
+      setWebsiteForm({ websiteUrl: '', integrationType: 'wordpress', username: '', appPassword: '', apiKey: '', apiEndpoint: '', wixSiteId: '', wixAccountId: '' });
       refetch();
     } catch (err: unknown) {
       toast.error('Lỗi kết nối: ' + (err instanceof Error ? err.message : String(err)));
