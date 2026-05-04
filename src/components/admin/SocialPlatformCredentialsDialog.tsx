@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield, AlertCircle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+const MAX_FIELD_LEN = 512;
 
 interface SocialPlatformCredentialsDialogProps {
   open: boolean;
@@ -107,11 +110,17 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
   threads: 'threads-oauth-callback',
   linkedin: 'linkedin-oauth-callback',
   tiktok: 'tiktok-oauth-callback',
+  youtube: 'youtube-oauth-callback',
   zalo_oa: 'zalo-oauth-callback',
   google_business: 'google-business-oauth-callback',
   blogger: 'blogger-oauth-callback',
   pinterest: 'pinterest-oauth-callback',
+  wordpress_com: 'wordpress-com-oauth-callback',
+  shopify: 'shopify-oauth-callback',
 };
+
+// Platforms managed entirely outside this dialog
+const READ_ONLY_PLATFORMS = new Set<SocialPlatform>(['bluesky', 'shopify', 'wordpress']);
 
 function getCallbackUrl(platform: SocialPlatform): string | null {
   const path = CALLBACK_URL_MAP[platform];
@@ -143,14 +152,9 @@ export function SocialPlatformCredentialsDialog({
 
   const help = PLATFORM_HELP[platform];
   const callbackUrl = getCallbackUrl(platform);
-  const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
+  const isReadOnly = READ_ONLY_PLATFORMS.has(platform);
   const isInstagram = platform === 'instagram';
-  const isLinkedIn = platform === 'linkedin';
-  const isZalo = platform === 'zalo_oa';
-  const isGoogle = platform === 'google_business';
   const isWebsite = platform === 'website';
-  const isTikTok = platform === 'tiktok';
-  const isPinterest = platform === 'pinterest';
 
   const handleCopyCallback = async () => {
     if (!callbackUrl) return;
@@ -163,37 +167,37 @@ export function SocialPlatformCredentialsDialog({
     }
   };
 
-  const keyLabel = isWebsite
-    ? 'API URL / WordPress URL'
-    : isGoogle
-      ? 'Google Client ID'
-      : isZalo
-        ? 'Zalo App ID'
-        : isTikTok
-          ? 'TikTok Client Key'
-          : isLinkedIn
-            ? 'LinkedIn Client ID'
-            : isPinterest
-              ? 'Pinterest App ID'
-              : isMetaPlatform
-                ? (platform === 'instagram' ? 'Instagram App ID' : platform === 'threads' ? 'Threads App ID' : 'App ID')
-                : 'Consumer Key (API Key)';
+  const KEY_LABELS: Partial<Record<SocialPlatform, [string, string]>> = {
+    website: ['API URL / WordPress URL', 'API Key / Application Password'],
+    google_business: ['Google Client ID', 'Google Client Secret'],
+    blogger: ['Google Client ID', 'Google Client Secret'],
+    zalo_oa: ['Zalo App ID', 'Zalo Secret Key'],
+    tiktok: ['TikTok Client Key', 'TikTok Client Secret'],
+    linkedin: ['LinkedIn Client ID', 'LinkedIn Client Secret'],
+    pinterest: ['Pinterest App ID', 'Pinterest App Secret'],
+    youtube: ['YouTube OAuth Client ID', 'YouTube OAuth Client Secret'],
+    wordpress_com: ['WordPress.com Client ID', 'WordPress.com Client Secret'],
+    facebook: ['App ID', 'App Secret'],
+    instagram: ['Instagram App ID', 'Instagram App Secret'],
+    threads: ['Threads App ID', 'Threads App Secret'],
+    twitter: ['Consumer Key (API Key)', 'Consumer Secret (API Secret)'],
+  };
+  const [keyLabel, secretLabel] = KEY_LABELS[platform] || ['Client ID', 'Client Secret'];
 
-  const secretLabel = isWebsite
-    ? 'API Key / Application Password'
-    : isGoogle
-      ? 'Google Client Secret'
-      : isZalo
-        ? 'Zalo Secret Key'
-        : isTikTok
-          ? 'TikTok Client Secret'
-          : isLinkedIn
-            ? 'LinkedIn Client Secret'
-            : isPinterest
-              ? 'Pinterest App Secret'
-              : isMetaPlatform
-                ? (platform === 'instagram' ? 'Instagram App Secret' : platform === 'threads' ? 'Threads App Secret' : 'App Secret')
-                : 'Consumer Secret (API Secret)';
+  // Validation schema
+  const validationSchema = useMemo(() => {
+    const keyField = isWebsite
+      ? z.string().trim().url({ message: 'API URL phải là URL hợp lệ (https://…)' }).max(MAX_FIELD_LEN)
+      : z.string().trim().min(4, { message: `${keyLabel} quá ngắn` }).max(MAX_FIELD_LEN);
+    const secretField = z.string().trim().min(8, { message: `${secretLabel} quá ngắn` }).max(MAX_FIELD_LEN);
+    return z.object({
+      consumer_key: keyField,
+      consumer_secret: secretField,
+      app_name: z.string().trim().max(100).optional(),
+    });
+  }, [keyLabel, secretLabel, isWebsite]);
+
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && existingSettings) {
@@ -212,6 +216,7 @@ export function SocialPlatformCredentialsDialog({
     setShowSecret(false);
     setRevealedKey(null);
     setRevealedSecret(null);
+    setValidationError(null);
   }, [open, existingSettings]);
 
   const handleToggleReveal = async (field: 'consumer_key' | 'consumer_secret') => {
@@ -261,15 +266,30 @@ export function SocialPlatformCredentialsDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
+
+    // If updating without changing creds — skip validation
+    const isUpdatingMetaOnly = existingSettings?.has_credentials && !consumerKey && !consumerSecret;
+    if (!isUpdatingMetaOnly) {
+      const result = validationSchema.safeParse({
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        app_name: appName,
+      });
+      if (!result.success) {
+        const firstError = result.error.errors[0]?.message || 'Dữ liệu không hợp lệ';
+        setValidationError(firstError);
+        return;
+      }
+    }
 
     const data: any = {
       platform,
       app_name: appName || undefined,
       is_active: isActive,
     };
-
-    if (consumerKey) data.consumer_key = consumerKey;
-    if (consumerSecret) data.consumer_secret = consumerSecret;
+    if (consumerKey) data.consumer_key = consumerKey.trim();
+    if (consumerSecret) data.consumer_secret = consumerSecret.trim();
 
     onSave(data);
   };
@@ -277,6 +297,45 @@ export function SocialPlatformCredentialsDialog({
   const isValid = existingSettings?.has_credentials
     ? true
     : consumerKey && consumerSecret;
+
+  // Read-only platforms — show banner only
+  if (isReadOnly) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              {platformName}
+            </DialogTitle>
+            <DialogDescription>
+              Nền tảng này không cấu hình credential ở đây.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+              <p className="font-medium text-foreground mb-1">Quản lý qua kênh khác</p>
+              <p className="text-muted-foreground leading-relaxed">{help.instructions}</p>
+            </div>
+            {help.url && (
+              <a
+                href={help.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+              >
+                Mở Developer Portal
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -286,9 +345,10 @@ export function SocialPlatformCredentialsDialog({
           <DialogDescription>
             {isInstagram
               ? 'Nhập Instagram App ID và Instagram App Secret từ mục "Business login settings" trong Meta App Dashboard.'
-              : `Nhập API credentials để user có thể kết nối ${platformName} chỉ với Access Token.`}
+              : `Nhập API credentials để user có thể kết nối ${platformName} qua OAuth.`}
           </DialogDescription>
         </DialogHeader>
+
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {existingSettings?.has_credentials && (
@@ -356,7 +416,7 @@ export function SocialPlatformCredentialsDialog({
             <Input
               id="appName"
               value={appName}
-              onChange={(e) => setAppName(e.target.value)}
+              onChange={(e) => { setAppName(e.target.value.slice(0, 100)); setValidationError(null); }}
               placeholder="Flowa App"
             />
           </div>
@@ -378,10 +438,10 @@ export function SocialPlatformCredentialsDialog({
                 type={showKey ? 'text' : 'password'}
                 value={showKey && !consumerKey && revealedKey ? revealedKey : consumerKey}
                 readOnly={showKey && !consumerKey && !!revealedKey}
-                onChange={(e) => setConsumerKey(e.target.value)}
+                onChange={(e) => { setConsumerKey(e.target.value.slice(0, MAX_FIELD_LEN)); setValidationError(null); }}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_key || '••••'} — nhập mới để thay đổi`
-                  : isInstagram ? 'Nhập Instagram App ID' : `Nhập ${isMetaPlatform ? 'App ID' : 'Consumer Key'}`}
+                  : `Nhập ${keyLabel}`}
                 className="pr-10"
               />
               <Button
@@ -419,10 +479,10 @@ export function SocialPlatformCredentialsDialog({
                 type={showSecret ? 'text' : 'password'}
                 value={showSecret && !consumerSecret && revealedSecret ? revealedSecret : consumerSecret}
                 readOnly={showSecret && !consumerSecret && !!revealedSecret}
-                onChange={(e) => setConsumerSecret(e.target.value)}
+                onChange={(e) => { setConsumerSecret(e.target.value.slice(0, MAX_FIELD_LEN)); setValidationError(null); }}
                 placeholder={existingSettings?.has_credentials
                   ? `${existingSettings.consumer_secret || '••••'} — nhập mới để thay đổi`
-                  : isInstagram ? 'Nhập Instagram App Secret' : `Nhập ${isMetaPlatform ? 'App Secret' : 'Consumer Secret'}`}
+                  : `Nhập ${secretLabel}`}
                 className="pr-10"
               />
               <Button
@@ -453,11 +513,18 @@ export function SocialPlatformCredentialsDialog({
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
 
+          {validationError && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+              <p className="text-destructive">{validationError}</p>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Huỷ
             </Button>
-            <Button type="submit" disabled={!isValid || isSaving}>
+            <Button type="submit" disabled={!isValid || isSaving || revealingKey || revealingSecret}>
               {isSaving && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
               Lưu cài đặt
             </Button>
