@@ -6545,6 +6545,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           wordpress: typeof generatedData.wordpress_content === 'string' ? generatedData.wordpress_content : undefined,
           shopify: typeof generatedData.shopify_content === 'string' ? generatedData.shopify_content : undefined,
           wix: typeof generatedData.wix_content === 'string' ? generatedData.wix_content : undefined,
+          medium: typeof generatedData.medium_content === 'string' ? generatedData.medium_content : undefined,
         },
       );
       if (verify.row) content = verify.row;
