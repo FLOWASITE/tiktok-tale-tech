@@ -757,21 +757,54 @@ Deno.serve(async (req) => {
             } catch { /* stream closed */ }
           }, 5000);
           let suggestions: KeywordSuggestion[] = [];
+          // Brand domination: prepend hardcoded brand patterns BEFORE AI call
+          const dominationSeeds: KeywordSuggestion[] = [];
+          if (preset === "brand_domination" && brandCtx?.brand_name) {
+            const dom = generateBrandDominationSeeds(brandCtx.brand_name, brandCtx.main_competitors || []);
+            for (const d of dom) {
+              dominationSeeds.push({
+                keyword: d.keyword,
+                search_volume: 0, // unknown — enrichment job sẽ fill
+                difficulty: 10, // brand keyword usually easy
+                cpc_vnd: 0,
+                intent: d.intent,
+                funnel_stage: d.funnel_stage,
+                cluster_name: "Brand",
+                rationale: "Brand domination pattern (auto-generated)",
+                source_seed: brandCtx.brand_name,
+                brand_fit_score: 100,
+                audience_match: "core",
+              });
+            }
+          }
           try {
             const r = await callAI(supabase, organizationId, user.id, seeds, expandedSeeds, serpGround, competitorContext, preset, locale, limit, brandCtx);
             suggestions = r.suggestions;
           } finally {
             clearInterval(hb);
           }
+          // Merge domination seeds (dedupe by keyword)
+          if (dominationSeeds.length) {
+            const seen = new Set(suggestions.map((s) => s.keyword.toLowerCase().trim()));
+            for (const d of dominationSeeds) {
+              if (!seen.has(d.keyword)) { suggestions.unshift(d); seen.add(d.keyword); }
+            }
+          }
           if (!suggestions.length) throw new Error("AI không trả keyword nào");
 
           // 5. Gap detection + brand fit filter + final score
           send("progress", { pct: 80, message: "Gap analysis + brand fit scoring..." });
-          const intentBonus = { transactional: 100, commercial: 80, informational: 50, navigational: 30 } as any;
-          const computePriority = (e: any) =>
-            Math.round(Math.min(100, ((e.search_volume || 0) / 5000) * 100) * 0.5 +
-              (100 - (e.difficulty || 50)) * 0.3 +
-              (intentBonus[e.intent || "informational"] ?? 50) * 0.2);
+          // Pro SEO formula: Priority = (relevance × intent_weight × log10(volume+10)) / sqrt(difficulty+1)
+          const intentWeight = { transactional: 4, commercial: 3, navigational: 2, informational: 1 } as any;
+          const computePriority = (e: any) => {
+            const vol = Math.max(0, e.search_volume || 0);
+            const kd = Math.min(100, Math.max(0, e.difficulty || 50));
+            const iw = intentWeight[e.intent || "informational"] ?? 1;
+            const rel = Math.max(0, Math.min(100, e.brand_fit_score ?? 50));
+            const raw = (rel * iw * Math.log10(vol + 10)) / Math.sqrt(kd + 1);
+            // Normalize to 0-100 (empirical max ~ 100 * 4 * 4.7 / 1 ≈ 1880)
+            return Math.round(Math.min(100, (raw / 18.8)));
+          };
           const keywords = suggestions.map(s => s.keyword.toLowerCase().trim());
           const { data: existing } = await supabase.from("seo_keywords")
             .select("keyword").eq("organization_id", organizationId).in("keyword", keywords);
