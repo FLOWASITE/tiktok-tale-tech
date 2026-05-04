@@ -386,37 +386,46 @@ async function handleSuggest(
     targetKeywords,
   });
 
-  // Force a fast model for `suggest`: this action returns 6 short topics, doesn't
-  // need heavy reasoning. Slow providers (qwen-flash on DashScope) regularly take
-  // 80-120s here and blow past the 90s client timeout. Override to gemini-flash.
+  // Force a fast model for `suggest`: 6 short topics, doesn't need heavy reasoning.
+  // Slow providers (qwen, gpt-5, gemini-pro) regularly take 80-120s. Use flash-lite
+  // as default to stay well under timeout; retry once with lite if first call times out.
   const FAST_SUGGEST_MODEL = 'google/gemini-2.5-flash';
+  const FALLBACK_FAST_MODEL = 'google/gemini-2.5-flash-lite';
   const requestedModel = params.model_override;
-  const isSlowModel = requestedModel && /^qwen|gpt-5(?!-mini|-nano)/i.test(requestedModel);
+  const isSlowModel = requestedModel && /^qwen|gpt-5(?!-mini|-nano)|gemini-2\.5-pro|gemini-3\.1-pro/i.test(requestedModel);
   const effectiveModel = isSlowModel ? FAST_SUGGEST_MODEL : requestedModel;
   if (isSlowModel) {
     console.log(`[topic-ai:suggest] Overriding slow model ${requestedModel} -> ${FAST_SUGGEST_MODEL} for latency`);
   }
 
-  // Hard timeout 75s — must beat the 90s client timeout so we surface a clean
-  // error instead of letting the function be killed mid-flight.
-  const aiCallPromise = callAIWithMetrics(supabase, {
+  const runAICall = (model: string | undefined) => callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
     userId: params._userId,
     brandTemplateId,
     actionType: 'suggest',
-    ...(await buildTopicAIOverrides(organizationId, effectiveModel, params.temperature, FAST_SUGGEST_MODEL)),
+    ...(await buildTopicAIOverrides(organizationId, model, params.temperature, FAST_SUGGEST_MODEL)),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ],
   });
 
-  const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) =>
-    setTimeout(() => resolve({ success: false, error: 'AI call exceeded 75s internal timeout' }), 75000)
-  );
+  const withTimeout = (p: Promise<any>, ms: number, label: string) => Promise.race([
+    p,
+    new Promise<{ success: false; error: string; _timeout: true }>((resolve) =>
+      setTimeout(() => resolve({ success: false, error: `AI call exceeded ${ms / 1000}s internal timeout (${label})`, _timeout: true }), ms)
+    ),
+  ]);
 
-  const result = await Promise.race([aiCallPromise, timeoutPromise]);
+  // First attempt: 60s with effective model
+  let result: any = await withTimeout(runAICall(effectiveModel), 60000, 'primary');
+
+  // Retry once with flash-lite if first attempt timed out
+  if (result?._timeout) {
+    console.warn(`[topic-ai:suggest] Primary timed out, retrying with ${FALLBACK_FAST_MODEL}`);
+    result = await withTimeout(runAICall(FALLBACK_FAST_MODEL), 50000, 'fallback');
+  }
 
   if (!result.success) {
     if (result.error?.includes('Rate limit')) {
