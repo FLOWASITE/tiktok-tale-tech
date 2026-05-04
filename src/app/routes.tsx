@@ -135,6 +135,7 @@ export function AppRoutes() {
       <Route path="/auth/pinterest/callback" element={<PinterestCallback />} />
       <Route path="/auth/bluesky/callback" element={<BlueskyCallback />} />
       <Route path="/oauth/bluesky/callback" element={<BlueskyCallback />} />
+      <Route path="/auth/shopify/callback" element={<ShopifyCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
 
