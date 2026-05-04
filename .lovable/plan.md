@@ -1,143 +1,69 @@
 ## Vấn đề
 
-3/4 publisher long-form đã trả `postUrl` từ API thật, nhưng channel-publisher chỉ dùng URL đó để gửi Telegram — **không lưu xuống DB**:
+Hiện tại Blogger có **2 luồng kết nối song song mâu thuẫn**, dẫn đến UI kết nối "không đúng":
 
-| Publisher | Trả `postUrl` | Nguồn |
-|---|---|---|
-| `publish-blogger` | ✅ | `postData.url` (Blogger API) |
-| `publish-wordpress` | ✅ | `post.link` (self-hosted) hoặc `post.URL` (.com) |
-| `publish-website` | ✅ | `result.link \|\| result.url` (WP/Wix/Shopify/NukeViet) |
-| `publish-blog` | ✅ | `/blog/${slug}` (internal flowa.vn) |
+### Luồng A — OAuth chuẩn (đã có, hoạt động đúng)
+- `blogger-oauth-callback` lưu vào `social_connections` với `platform='blogger'`, có `access_token` + `refresh_token` Google + danh sách `blogs[]` + `selected_blog_id`.
+- `publish-blogger` query `eq('platform','blogger')` và dùng `selected_blog_id` để đăng bài qua Blogger API v3.
+- DB hiện có **1 connection Blogger OAuth** đang active (TAF), khớp pattern này.
 
-`multi_channel_contents` chỉ có `bluesky_post_url` + `pinterest_post_url`. `publish_attempts` có sẵn `external_post_url` & `external_post_id` nhưng channel-publisher chưa insert record nào.
+### Luồng B — Form "Website / API Key" (sai, đang dùng trong UI)
+- `BrandViewConnectionsTab.tsx` (line 254-267): khi user bấm Blogger, mở dialog Website với `integrationType='blogger'`, yêu cầu nhập **Google API Key** (line 1637-1642).
+- Submit → gọi `connect-website` (line 378), function này lưu vào `social_connections` với **`platform='website'`** (line 188), không phải `blogger`, và chỉ có `apiKey` (read-only key) — **không có OAuth token**, không thể đăng bài.
+- Hậu quả:
+  1. Connection tạo ra `publish-blogger` không bao giờ thấy (vì query `eq('platform','blogger')`).
+  2. Google Blogger API yêu cầu OAuth để POST bài; API key chỉ đọc public — về mặt nguyên tắc không thể publish.
+  3. UI hiển thị "đã kết nối Blogger" nhưng publish luôn fail.
 
-→ Hệ quả: 1 bài website đã publish, URL = trống ⇒ Internal Links không bao giờ có link để chèn.
+### Thiếu sót
+- Không có function `blogger-oauth-start` để khởi tạo OAuth từ frontend; OAuth callback đã có nhưng UI không gọi được start flow → connection OAuth hiện tại chắc chỉ tạo được qua đường vòng (có thể qua Google Business OAuth hoặc init trực tiếp).
 
-## Mục tiêu
+## Giải pháp
 
-Sau mỗi lần publish thành công, **lưu cả URL và post ID** thực tế vào 2 nơi:
-1. Cột mới trên `multi_channel_contents` (1 URL "mới nhất" mỗi kênh — dùng cho UI và Internal Links)
-2. Bảng `publish_attempts` (lịch sử đầy đủ — dùng cho audit/replay)
+Loại bỏ hoàn toàn nhánh "Blogger qua API Key", chuyển Blogger sang OAuth-only giống Google Business / WordPress.com.
 
-## Thay đổi DB (migration)
+### 1. Tạo edge function `blogger-oauth-start`
+- Đọc `social_platform_settings` cho `platform='blogger'` (fallback `google_business`) để lấy `client_id`.
+- Build Google OAuth URL với scope `https://www.googleapis.com/auth/blogger`, `access_type=offline`, `prompt=consent`, `redirect_uri = SUPABASE_URL/functions/v1/blogger-oauth-callback`.
+- `state` = base64(JSON `{ brandTemplateId, organizationId, userId, frontendOrigin }`).
+- Trả `{ authUrl }` để frontend mở popup.
+- Khai báo `verify_jwt = false` (gọi từ browser) nhưng vẫn validate JWT trong code để lấy `userId`.
 
-Thêm vào `multi_channel_contents`:
+### 2. Sửa `BrandViewConnectionsTab.tsx`
+- Bỏ block line 253-267 (Blogger dùng Website dialog).
+- Thêm Blogger vào nhánh OAuth platforms (line 276+) — popup → `blogger-oauth-start` → Google consent → callback redirect về `/auth/blogger/callback`.
+- Bỏ option `<option value="blogger">Blogger (Google)</option>` (line 1417) khỏi Website dialog.
+- Bỏ block input "Google API Key" của Blogger (line 1637-1642).
+- Cập nhật type `integrationType` (line 222) bỏ `'blogger'`.
+- Bỏ `'blogger'` khỏi check line 375.
 
-```sql
-ALTER TABLE public.multi_channel_contents
-  ADD COLUMN IF NOT EXISTS website_post_url   text,
-  ADD COLUMN IF NOT EXISTS website_post_id    text,
-  ADD COLUMN IF NOT EXISTS blogger_post_url   text,
-  ADD COLUMN IF NOT EXISTS blogger_post_id    text,
-  ADD COLUMN IF NOT EXISTS wordpress_post_url text,
-  ADD COLUMN IF NOT EXISTS wordpress_post_id  text,
-  ADD COLUMN IF NOT EXISTS flowa_blog_post_url text,
-  ADD COLUMN IF NOT EXISTS flowa_blog_post_id  text;
+### 3. Sửa `connect-website/index.ts`
+- Bỏ branch `integrationType === 'blogger'` (line 95-107) và type union (line 18) — Blogger không còn đi qua đây.
 
-CREATE INDEX IF NOT EXISTS idx_mcc_has_published_url
-  ON public.multi_channel_contents (organization_id)
-  WHERE website_post_url IS NOT NULL
-     OR blogger_post_url IS NOT NULL
-     OR wordpress_post_url IS NOT NULL
-     OR flowa_blog_post_url IS NOT NULL;
-```
+### 4. Backfill / migration nhẹ
+- Query data: nếu có connection cũ `platform='website'` + `metadata->>'integration_type'='blogger'` → đánh dấu inactive (DB hiện không có, nhưng để defensive).
+- Không xoá tự động — chỉ disable, kèm note `metadata.deprecated_reason`.
 
-(Pinterest/Bluesky đã có cột riêng nên giữ nguyên.)
+### 5. Đảm bảo `social_platform_settings` có row Blogger
+- Kiểm tra: nếu chưa có `platform='blogger'`, hướng dẫn admin hoặc fallback sang `google_business` credentials (callback đã làm sẵn).
+- Thêm note vào `AdminSocialSettings.tsx` rằng Blogger reuse Google OAuth credentials.
 
-## Thay đổi code
+## Kết quả mong đợi
 
-### `supabase/functions/channel-publisher/index.ts`
+- User bấm "Kết nối Blogger" trên BrandView → popup Google → chọn account → consent scope `blogger` → tự động về app, connection lưu đúng `platform='blogger'` với OAuth token.
+- `publish-blogger` query thành công → đăng bài thật → trả `postUrl` → `channel-publisher` lưu vào cột `blogger_post_url` (đã có từ migration trước).
+- Connection Blogger TAF hiện tại không bị ảnh hưởng (đã đúng schema).
 
-Trong block `if (isSuccess)` (~line 270), bổ sung 2 việc:
+## Technical details
 
-**1. Map action → cặp cột URL/ID** rồi update `multi_channel_contents`:
+**Files cần sửa**
+- `supabase/functions/blogger-oauth-start/index.ts` (mới)
+- `supabase/config.toml` — thêm `[functions.blogger-oauth-start] verify_jwt = false`
+- `supabase/functions/connect-website/index.ts` — bỏ nhánh blogger
+- `src/components/brand/BrandViewConnectionsTab.tsx` — chuyển Blogger sang OAuth flow
+- `src/components/social/SocialConnectionsManager.tsx` — đồng bộ nếu component này cũng dùng API key flow cho Blogger (cần kiểm tra khi build)
+- `src/pages/BloggerCallback.tsx` — xác nhận đã handle `success=true` redirect (đã có theo OAuth callback hiện tại)
 
-```ts
-const URL_COLUMN_MAP: Record<string, { url: string; id: string }> = {
-  website:     { url: 'website_post_url',    id: 'website_post_id' },
-  blogger:     { url: 'blogger_post_url',    id: 'blogger_post_id' },
-  wordpress:   { url: 'wordpress_post_url',  id: 'wordpress_post_id' },
-  blog:        { url: 'flowa_blog_post_url', id: 'flowa_blog_post_id' },
-  flowa_blog:  { url: 'flowa_blog_post_url', id: 'flowa_blog_post_id' },
-  pinterest:   { url: 'pinterest_post_url',  id: 'pinterest_post_id' },
-  bluesky:     { url: 'bluesky_post_url',    id: 'bluesky_post_id' },
-};
+**Không cần migration DB** — schema `social_connections` đã hỗ trợ đúng. Chỉ optional cleanup row `platform='website' integration_type='blogger'` (DB hiện không có row nào loại này).
 
-const postUrl = (parsedResponse?.postUrl as string) || (parsedResponse?.data as any)?.postUrl;
-const postId  = (parsedResponse?.postId  as string) || (parsedResponse?.data as any)?.postId;
-
-const cols = URL_COLUMN_MAP[action];
-if (cols && (postUrl || postId)) {
-  const patch: Record<string, unknown> = { status: newStatus, channel_statuses };
-  if (postUrl) patch[cols.url] = postUrl;
-  if (postId)  patch[cols.id]  = postId;
-  await supabase.from('multi_channel_contents').update(patch).eq('id', contentId);
-}
-```
-
-**2. Insert `publish_attempts` (success + failure)** — phục vụ audit:
-
-```ts
-await supabase.from('publish_attempts').insert({
-  content_id: contentId,
-  organization_id: contentRow?.organization_id,
-  connection_id: finalPayload.connectionId ?? null,
-  platform: action,
-  channel: ACTION_TO_CHANNEL[action] ?? action,
-  status: isSuccess ? 'success' : 'failed',
-  external_post_id: postId ?? null,
-  external_post_url: postUrl ?? null,
-  error_message: isSuccess ? null : (parsedResponse?.error as string) ?? `HTTP ${response.status}`,
-  response_payload: parsedResponse,
-  completed_at: new Date().toISOString(),
-});
-```
-
-### `publish-blog/index.ts`
-
-Đổi `postUrl` từ relative `/blog/${slug}` thành absolute, để Internal Links từ kênh khác trỏ về được:
-
-```ts
-postUrl: `https://flowa.one/blog/${data.slug}`,
-```
-
-(domain đọc từ env `PUBLIC_BLOG_DOMAIN`, fallback `https://flowa.one`.)
-
-### `EmbeddingBackfillCard.tsx` + `backfill-content-embeddings`
-
-Đổi filter "đếm bài cần embed" thành **chỉ những bài có ít nhất 1 URL đã publish**:
-
-```ts
-.or(
-  'website_post_url.not.is.null,' +
-  'blogger_post_url.not.is.null,' +
-  'wordpress_post_url.not.is.null,' +
-  'flowa_blog_post_url.not.is.null'
-)
-```
-
-UI hiển thị: `"X / Y bài đã publish có index"` thay vì `"0 / 577"`.
-
-### `InternalLinksPanel.tsx`
-
-Khi suggest, query joined URL:
-
-```ts
-.select('id, title, website_post_url, blogger_post_url, wordpress_post_url, flowa_blog_post_url')
-```
-
-Trả `{ title, url, similarity }` với `url = website_post_url ?? blogger_post_url ?? wordpress_post_url ?? flowa_blog_post_url`. Bài nào không có URL nào → loại khỏi suggestion.
-
-### `SeoInsightsSheet.tsx`
-
-Tab "Liên kết" chỉ enable khi article hiện tại có ít nhất 1 URL công khai (để user hiểu: phải publish trước mới có URL chèn).
-
-## Backfill bài cũ (one-shot, optional)
-
-Có thể chạy script đọc `publishing_logs`/`publish_attempts` cũ (nếu có data) để bơm URL cho bài đã publish trước migration. Nếu không có log cũ → để trống, các bài publish mới sẽ tự động có URL từ giờ.
-
-## Kết quả
-
-- Publish 1 bài WordPress → URL thật xuất hiện ngay trong DB → Internal Links có thể trỏ đến
-- Có lịch sử `publish_attempts` đầy đủ để debug khi user hỏi "bài này đăng ở đâu"
-- Backfill embedding chỉ chạy trên bài có URL → tiết kiệm quota, đúng mục đích
+**Câu hỏi**: cần tôi hỗ trợ thêm flow "đổi blog" (multi-blog under 1 Google account, lưu trong `metadata.blogs[]`) khi user có nhiều Blogger blog không? Mặc định plan trên auto-pick `blogs[0]`.

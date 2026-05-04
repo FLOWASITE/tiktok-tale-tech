@@ -219,7 +219,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
   const [websiteForm, setWebsiteForm] = useState({
     websiteUrl: '',
-    integrationType: 'wordpress' as 'wordpress' | 'nukeviet' | 'blogger' | 'wix' | 'shopify_blog' | 'flowa_blog' | 'custom_api' | 'webhook' | 'manual',
+    integrationType: 'wordpress' as 'wordpress' | 'nukeviet' | 'wix' | 'shopify_blog' | 'flowa_blog' | 'custom_api' | 'webhook' | 'manual',
     username: '',
     appPassword: '',
     apiKey: '',
@@ -247,22 +247,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     if (platform === 'wordpress') {
       setSelectedPlatform(platform);
       setWpDialogOpen(true);
-      return;
-    }
-
-    // Blogger dùng chung Website dialog với integrationType preset
-    if (platform === 'blogger') {
-      setSelectedPlatform(platform);
-      setWebsiteForm((prev) => ({
-        ...prev,
-        integrationType: 'blogger',
-        websiteUrl: '',
-        username: '',
-        appPassword: '',
-        apiKey: '',
-        apiEndpoint: '',
-      }));
-      setWebsiteDialogOpen(true);
       return;
     }
 
@@ -372,7 +356,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       } else if (websiteForm.integrationType === 'nukeviet') {
         body.apiKey = websiteForm.apiKey;
         body.apiEndpoint = websiteForm.apiEndpoint;
-      } else if (['blogger', 'wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
+      } else if (['wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
         body.apiKey = websiteForm.apiKey;
       }
       const { data, error } = await supabase.functions.invoke('connect-website', { body });
@@ -1414,7 +1398,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               >
                 <option value="flowa_blog">Blog Flowa (flowa.vn/blog)</option>
                 <option value="nukeviet">NukeViet CMS</option>
-                <option value="blogger">Blogger (Google)</option>
+                
                 <option value="wix">Wix Blog</option>
                 <option value="shopify_blog">Shopify Blog</option>
                 <option value="custom_api">Custom API</option>
@@ -1634,27 +1618,6 @@ try {
               </>
             )}
 
-            {websiteForm.integrationType === 'blogger' && (
-              <div className="space-y-2">
-                <Label htmlFor="bloggerApiKey">Google API Key</Label>
-                <div className="relative">
-                  <Input
-                    id="bloggerApiKey"
-                    type={showSecrets.apiKey ? 'text' : 'password'}
-                    placeholder="AIzaSy..."
-                    value={websiteForm.apiKey}
-                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
-                    className="pr-10"
-                  />
-                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
-                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Tạo tại Google Cloud Console → APIs & Services → Credentials. Bật Blogger API v3.
-                </p>
-              </div>
-            )}
 
             {websiteForm.integrationType === 'wix' && (
               <div className="space-y-2">
