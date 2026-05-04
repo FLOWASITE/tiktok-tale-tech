@@ -6377,6 +6377,16 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       await completeTask(supabase, formData.taskId, content.id, 'multi_channel_contents');
     }
 
+    // Fire-and-forget: embed content for semantic internal-link suggestions
+    try {
+      const embedText = [content?.title, content?.topic, content?.website_content, content?.blogger_content, content?.wordpress_content]
+        .filter((x: any) => typeof x === 'string' && x.trim().length > 0).join('\n\n').slice(0, 8000);
+      if (content?.id && embedText.length > 50) {
+        supabase.functions.invoke('embed-content', { body: { content_id: content.id, text: embedText } })
+          .catch((e: any) => console.warn('[non-streaming] embed-content fire-forget failed:', e?.message));
+      }
+    } catch (e) { console.warn('[non-streaming] embed dispatch failed', e); }
+
     // ============================================
     // PHASE 1: METRICS LOGGING (Non-streaming mode)
     // ============================================
