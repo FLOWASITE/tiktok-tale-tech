@@ -159,6 +159,7 @@ import {
 } from '@/types/multichannel';
 import { GOAL_TO_ROLE_MAP, CoreContentLengthMode, CORE_CONTENT_LENGTH_MODES } from '@/types/coreContent';
 import { MultiChannelHook } from '@/hooks/useMultiChannelHooks';
+import { useFrequentChannels } from '@/hooks/useFrequentChannels';
 
 interface BrandTemplate {
   id: string;
