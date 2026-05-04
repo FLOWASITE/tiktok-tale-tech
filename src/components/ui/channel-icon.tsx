@@ -1,6 +1,7 @@
 import React from 'react';
 import { Channel } from '@/types/multichannel';
 import { Globe, Mail } from 'lucide-react';
+import { ShopifyIcon, WixIcon } from '@/components/icons/SocialIcons';
 
 type ExtraChannel = 'pinterest' | 'bluesky';
 const svgIcons: Partial<Record<Channel | ExtraChannel, React.FC<{ className?: string }>>> = {
