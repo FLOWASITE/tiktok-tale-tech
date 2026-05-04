@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check, Shield, AlertCircle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+const MAX_FIELD_LEN = 512;
 
 interface SocialPlatformCredentialsDialogProps {
   open: boolean;
