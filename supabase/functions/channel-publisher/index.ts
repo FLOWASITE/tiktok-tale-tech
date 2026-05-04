@@ -24,6 +24,17 @@ const PLATFORM_FUNCTION_MAP: Record<string, string> = {
   bluesky: 'publish-bluesky',
 };
 
+// Map action → cặp cột URL/ID trên multi_channel_contents để lưu link bài đã publish
+const URL_COLUMN_MAP: Record<string, { url: string; id: string }> = {
+  website:    { url: 'website_post_url',    id: 'website_post_id' },
+  blogger:    { url: 'blogger_post_url',    id: 'blogger_post_id' },
+  wordpress:  { url: 'wordpress_post_url',  id: 'wordpress_post_id' },
+  blog:       { url: 'flowa_blog_post_url', id: 'flowa_blog_post_id' },
+  flowa_blog: { url: 'flowa_blog_post_url', id: 'flowa_blog_post_id' },
+  pinterest:  { url: 'pinterest_post_url',  id: 'pinterest_post_id' },
+  bluesky:    { url: 'bluesky_post_url',    id: 'bluesky_post_id' },
+};
+
 // Map action back to the channel key used in selected_channels / channel_statuses
 const ACTION_TO_CHANNEL: Record<string, string> = {
   zalo: 'zalo_oa',
