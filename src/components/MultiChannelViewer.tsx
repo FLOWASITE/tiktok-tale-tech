@@ -280,6 +280,8 @@ function getContentForChannel(content: MultiChannelContent, channel: Channel): s
     case 'website': return content.website_content;
     case 'blogger': return content.blogger_content;
     case 'wordpress': return content.wordpress_content;
+    case 'shopify': return (content as any).shopify_content ?? content.wordpress_content;
+    case 'wix': return (content as any).wix_content ?? content.wordpress_content;
     case 'facebook': return content.facebook_content;
     case 'instagram': return content.instagram_content;
     case 'twitter': return content.twitter_content;
