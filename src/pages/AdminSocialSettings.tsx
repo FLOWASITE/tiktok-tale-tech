@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSocialPlatformSettings, SocialPlatform } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from '@/components/admin/SocialPlatformCredentialsDialog';
-import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Music2, Settings, Check, X, Trash2, Zap, Loader2, AtSign, MessageCircle, MapPin, Globe, ShoppingBag } from 'lucide-react';
 import { PinterestIcon } from '@/components/icons/SocialIcons';
 import {
   AlertDialog,
