@@ -481,7 +481,10 @@ export default function KeywordExplorerTab() {
                         <div>
                           <Checkbox checked={selected} onCheckedChange={() => toggleOne(k.id)} />
                         </div>
-                        <div className="font-medium truncate" title={k.keyword}>{k.keyword}</div>
+                        <div className="font-medium truncate flex items-center gap-1.5" title={`${CATEGORY_META[(k as any)._category]?.label || ""} · ${k.keyword}`}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", CATEGORY_META[(k as any)._category]?.dotClass || "bg-muted")} />
+                          <span className="truncate">{k.keyword}</span>
+                        </div>
                         <div className="text-right tabular-nums">{k.search_volume?.toLocaleString()}</div>
                         <div className="text-right tabular-nums">{k.difficulty}</div>
                         <div><Badge variant="outline" className="text-xs">{k.intent}</Badge></div>
