@@ -475,6 +475,16 @@ const LONGFORM_MIN_CHARS: Record<string, number> = {
   medium: 1500, // ~ 350-450 từ — sàn an toàn dưới target 1000-1800 từ
 };
 
+const LONGFORM_TOKEN_FLOORS: Record<string, number> = {
+  shopify: 5000,
+  wix: 5000,
+  medium: 6500,
+};
+
+function applyLongformTokenFloor(channel: string, tokens: number): number {
+  return Math.max(tokens, LONGFORM_TOKEN_FLOORS[channel] ?? tokens);
+}
+
 function normalizeLongformText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value.trim();
@@ -606,7 +616,7 @@ async function regenerateLongformChannelDirect(
   const channelConfig = deps.channelModelConfigs.get(channel);
   const model = channelConfig?.model || deps.defaultModel;
   const temperature = channelConfig?.temperature ?? deps.defaultTemperature;
-  const maxTokens = clampMaxTokensForModel(model, channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' }));
+  const maxTokens = clampMaxTokensForModel(model, applyLongformTokenFloor(channel, channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, { qualityMode: 'balanced' })));
 
   console.log(`[longform-retry] ${channel}: invoking direct AI retry (model=${model}, maxTokens=${maxTokens})`);
 
