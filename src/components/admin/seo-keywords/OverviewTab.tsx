@@ -268,23 +268,44 @@ export default function OverviewTab() {
       {/* Funnel + Top unassigned */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader><CardTitle className="text-base">Funnel distribution</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Funnel distribution</span>
+              {kpiData.total >= 20 && (() => {
+                const pBOFU = kpiData.funnel.BOFU / kpiData.total;
+                const pTOFU = kpiData.funnel.TOFU / kpiData.total;
+                if (pBOFU < 0.1) return <Badge variant="destructive" className="text-[10px]">Thiếu BOFU</Badge>;
+                if (pTOFU > 0.8) return <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600 dark:text-amber-400">TOFU quá nặng</Badge>;
+                return <Badge variant="secondary" className="text-[10px]">Healthy</Badge>;
+              })()}
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             {(["TOFU", "MOFU", "BOFU"] as const).map((stage) => {
               const count = kpiData.funnel[stage];
               const pct = kpiData.total > 0 ? (count / kpiData.total) * 100 : 0;
+              const benchmark = stage === "TOFU" ? 50 : stage === "MOFU" ? 30 : 20;
+              const off = Math.abs(pct - benchmark) > 20;
               return (
                 <div key={stage}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-medium">{stage}</span>
-                    <span className="text-muted-foreground">{count} ({pct.toFixed(0)}%)</span>
+                    <span className="text-muted-foreground tabular-nums">
+                      {count} ({pct.toFixed(0)}%) <span className="text-[10px] text-muted-foreground/60">/ benchmark {benchmark}%</span>
+                    </span>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  <div className="h-2 bg-muted rounded-full overflow-hidden relative">
+                    <div className={cn("h-full rounded-full transition-all", off ? "bg-amber-500/70" : "bg-primary")} style={{ width: `${pct}%` }} />
+                    <div className="absolute top-0 h-full w-px bg-foreground/30" style={{ left: `${benchmark}%` }} title={`Benchmark ${benchmark}%`} />
                   </div>
                 </div>
               );
             })}
+            {kpiData.total >= 20 && kpiData.funnel.BOFU / kpiData.total < 0.1 && (
+              <div className="text-[11px] text-muted-foreground border-l-2 border-destructive/60 pl-2 mt-2">
+                ⚠️ BOFU &lt; 10% — traffic không ra tiền. Chạy Lab với preset <b>Commercial intent</b> để bổ sung keyword chuyển đổi.
+              </div>
+            )}
           </CardContent>
         </Card>
 
