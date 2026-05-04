@@ -695,6 +695,14 @@ export default function KeywordResearchLabTab() {
             jobId={activeJobId}
             keywords={previewKeywords}
             isStreaming={running}
+            brand={currentBrand}
+            onExpandSeed={(newSeeds) => {
+              const cur = overrideSeedsText.split("\n").map(s => s.trim()).filter(Boolean);
+              const merged = Array.from(new Set([...cur, ...newSeeds])).slice(0, 10);
+              setOverrideSeedsText(merged.join("\n"));
+              setAdvancedOpen(true);
+              toast.success(`Đã thêm "${newSeeds[0]}" vào seeds — bấm Run lại để mở rộng`);
+            }}
             onSaved={() => { setPreviewKeywords([]); qc.invalidateQueries({ queryKey: ["seo-keywords-shared"] }); }}
           />
           <IntentFunnelMatrix keywords={previewKeywords} />
