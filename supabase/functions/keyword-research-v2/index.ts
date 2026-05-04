@@ -819,9 +819,8 @@ Deno.serve(async (req) => {
           }
           let enriched = suggestions.map(s => {
             const e: any = { ...s, keyword: s.keyword.toLowerCase().trim(), is_gap: !existingSet.has(s.keyword.toLowerCase().trim()) };
-            const priority = computePriority(e);
+            // Resolve fit FIRST (priority formula uses brand_fit_score)
             let fit = typeof e.brand_fit_score === "number" ? e.brand_fit_score : (brandCtx ? 50 : 70);
-            // Social alignment bonus: keyword chứa term từ social footprint → +15 (cap 100)
             let socialMatch: string | null = null;
             if (socialTerms.size) {
               for (const term of socialTerms) {
@@ -831,8 +830,17 @@ Deno.serve(async (req) => {
             }
             e.brand_fit_score = fit;
             e.social_match = socialMatch;
-            // Blend: 60% volume/KD/intent + 40% brand fit (only when brand context exists)
-            e.final_score = brandCtx ? Math.round(priority * 0.6 + fit * 0.4) : priority;
+            // Pro SEO formula: relevance × intent × log(volume) / sqrt(KD)
+            const priority = computePriority(e);
+            // Breakdown for UI tooltip ("why this priority?")
+            e.priority_breakdown = {
+              relevance: fit,
+              intent: e.intent || "informational",
+              intent_weight: ({ transactional: 4, commercial: 3, navigational: 2, informational: 1 } as any)[e.intent || "informational"] ?? 1,
+              volume: e.search_volume || 0,
+              difficulty: e.difficulty || 50,
+            };
+            e.final_score = priority;
             return e;
           });
           // Filter off-brand unless competitor_gaps preset
