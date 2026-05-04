@@ -135,12 +135,19 @@ const channelConfig: Record<Channel, {
     maxLength: '800-1500 chữ'
   },
   wordpress: { 
-  shopify: { 
     label: 'WordPress', 
     shortLabel: 'WordPress',
     icon: <WordPressIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-sky-500',
     bgColor: 'bg-sky-500/10',
+    maxLength: '1200-2200 chữ'
+  },
+  shopify: { 
+    label: 'Shopify Blog', 
+    shortLabel: 'Shopify',
+    icon: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    color: 'text-[#5e8e3e]',
+    bgColor: 'bg-[#96bf48]/10',
     maxLength: '800-1500 chữ'
   },
   facebook: { 
