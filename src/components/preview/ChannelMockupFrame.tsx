@@ -60,7 +60,7 @@ const mockupMarkdownComponents = {
   br: () => <br className="block" />,
 };
 
-type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'general';
+type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'pinterest' | 'bluesky' | 'blogger' | 'wordpress' | 'shopify' | 'general';
 
 interface ChannelMockupFrameProps {
   channel: ChannelType;
