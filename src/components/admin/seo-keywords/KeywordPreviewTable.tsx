@@ -4,9 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Loader2, Save, CheckSquare, Square, Sparkles, Trophy } from "lucide-react";
+import { Loader2, Save, CheckSquare, Square, Sparkles, Trophy, ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  categorizeKeyword,
+  buildContextFromBrand,
+  expandKeywordWithModifiers,
+  type KeywordCategory,
+  type CategorizerContext,
+} from "@/lib/seo/keywordCategorizer";
 
 export interface PreviewKeyword {
   keyword: string;
