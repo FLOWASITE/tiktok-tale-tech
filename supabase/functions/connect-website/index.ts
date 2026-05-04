@@ -212,6 +212,8 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
         api_endpoint: apiEndpoint || null,
         webhook_url: webhookUrl || null,
         wordpress_username: wordpressConfig?.username || null,
+        wix_site_id: wixConfig?.siteId || null,
+        wix_account_id: wixConfig?.accountId || null,
         can_auto_publish: integrationType !== 'manual',
       },
     };
