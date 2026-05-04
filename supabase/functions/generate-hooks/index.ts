@@ -442,12 +442,24 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
       try {
         hooks = JSON.parse(jsonStr);
       } catch {
-        // Fallback: clean trailing commas + control chars
+        // Fallback 1: clean trailing commas + control chars
         const cleaned = jsonStr
           .replace(/,\s*}/g, '}')
           .replace(/,\s*]/g, ']')
           .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-        hooks = JSON.parse(cleaned);
+        try {
+          hooks = JSON.parse(cleaned);
+        } catch {
+          // Fallback 2: truncated array → extract complete {...} objects
+          const objectMatches = cleaned.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g) || [];
+          const partial: any[] = [];
+          for (const m of objectMatches) {
+            try { partial.push(JSON.parse(m)); } catch { /* skip */ }
+          }
+          if (partial.length === 0) throw new Error('No parseable hook objects');
+          console.warn('[generate-hooks] Recovered', partial.length, 'hooks from truncated response');
+          hooks = partial;
+        }
       }
 
       if (!Array.isArray(hooks)) {
