@@ -512,6 +512,7 @@ async function callAI(supabase: any, organizationId: string, userId: string, see
       const calls = msg?.tool_calls || [];
       if (!calls.length) break;
       let added = 0;
+      const roundBatch: KeywordSuggestion[] = [];
       for (const c of calls) {
         try {
           const args = JSON.parse(c.function.arguments);
@@ -521,10 +522,14 @@ async function callAI(supabase: any, organizationId: string, userId: string, see
               if (!k || seenKw.has(k)) continue;
               seenKw.add(k);
               collected.push(kw);
+              roundBatch.push(kw);
               added++;
             }
           }
         } catch { /* skip */ }
+      }
+      if (roundBatch.length && onRoundBatch) {
+        try { onRoundBatch(roundBatch, round, collected.length); } catch { /* ignore */ }
       }
       if (collected.length >= limit) break;
       if (added === 0) break;
