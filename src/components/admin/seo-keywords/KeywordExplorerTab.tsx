@@ -299,7 +299,41 @@ export default function KeywordExplorerTab() {
           )}
         </div>
 
-        {selectedIds.size > 0 && (
+        {/* Keyword Universe — phân loại theo category */}
+        {rowsWithCat.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center text-xs">
+            <span className="text-muted-foreground">Phân loại:</span>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(null)}
+              className={cn(
+                "px-2 py-0.5 rounded-full border transition",
+                !categoryFilter ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground hover:bg-muted"
+              )}
+            >Tất cả ({rowsWithCat.length})</button>
+            {CATEGORY_ORDER.map(c => {
+              const count = categoryCounts.get(c) || 0;
+              if (count === 0) return null;
+              const m = CATEGORY_META[c];
+              const active = categoryFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategoryFilter(active ? null : c)}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full border transition inline-flex items-center gap-1",
+                    active ? "bg-foreground text-background border-foreground" : `${m.badgeClass} hover:opacity-80`
+                  )}
+                  title={m.description}
+                >
+                  <span>{m.emoji}</span> {m.label} <span className="opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
           <div className="flex items-center gap-2 p-2.5 bg-muted/40 border rounded-md">
             <Target className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">{selectedIds.size} keyword đã chọn</span>
