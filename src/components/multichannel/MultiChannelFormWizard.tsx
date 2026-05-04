@@ -2129,6 +2129,7 @@ export function MultiChannelFormWizard({
                   frequentChannels={frequentChannels}
                   frequentCounts={frequentCounts}
                   onSelectFrequent={handleSelectFrequent}
+                  frequentAllSelected={frequentChannels.length > 0 && frequentChannels.every(ch => formData.channels.includes(ch))}
                 />
               </div>
 
