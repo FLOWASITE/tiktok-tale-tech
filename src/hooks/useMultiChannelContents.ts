@@ -72,9 +72,13 @@ const transformContent = (data: any): MultiChannelContent => ({
   // Map hook data for text overlay auto-fill
   selected_hooks: Array.isArray(data.selected_hooks) ? data.selected_hooks : null,
   global_hook: data.global_hook && typeof data.global_hook === 'object' ? data.global_hook : null,
+  // SEO fields (used by SeoInsightsSheet)
+  target_keyword_ids: Array.isArray((data as any).target_keyword_ids) ? (data as any).target_keyword_ids : null,
+  cluster_id: (data as any).cluster_id ?? null,
+  pillar_id: (data as any).pillar_id ?? null,
   created_at: data.created_at,
   updated_at: data.updated_at,
-});
+} as any);
 
 export function useMultiChannelContents() {
   const { user } = useAuth();
