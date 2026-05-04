@@ -90,32 +90,47 @@ Deno.serve(async (req) => {
     });
     if (error) throw error;
 
-    // Fetch cluster_id for related items to enable same-silo boosting
+    // Fetch cluster_id + URL công khai cho related items
     const ids = (related ?? []).map((r: any) => r.id);
-    let clusterMap: Record<string, string | null> = {};
+    type Meta = { cluster_id: string | null; url: string | null };
+    let metaMap: Record<string, Meta> = {};
     if (ids.length) {
       const { data: rows } = await supabase
         .from("multi_channel_contents")
-        .select("id, cluster_id")
+        .select("id, cluster_id, website_post_url, blogger_post_url, wordpress_post_url, flowa_blog_post_url")
         .in("id", ids);
-      clusterMap = Object.fromEntries((rows ?? []).map((r: any) => [r.id, r.cluster_id]));
+      metaMap = Object.fromEntries((rows ?? []).map((r: any) => [r.id, {
+        cluster_id: r.cluster_id ?? null,
+        url:
+          r.website_post_url ||
+          r.blogger_post_url ||
+          r.wordpress_post_url ||
+          r.flowa_blog_post_url ||
+          null,
+      }]));
     }
 
-    const suggestions = (related ?? []).map((r: any) => {
-      const cId = clusterMap[r.id] ?? null;
-      const sameCluster = !!sourceClusterId && cId === sourceClusterId;
-      const baseSim = Number(r.similarity);
-      const boosted = sameCluster ? Math.min(1, baseSim + 0.1) : baseSim;
-      return {
-        id: r.id,
-        title: r.title,
-        topic: r.topic,
-        similarity: boosted.toFixed(3),
-        same_cluster: sameCluster,
-        anchor_suggestion: r.title,
-        url_hint: `/blog/${r.id}`,
-      };
-    }).sort((a: any, b: any) => Number(b.similarity) - Number(a.similarity));
+    const suggestions = (related ?? [])
+      .map((r: any) => {
+        const meta = metaMap[r.id] ?? { cluster_id: null, url: null };
+        const sameCluster = !!sourceClusterId && meta.cluster_id === sourceClusterId;
+        const baseSim = Number(r.similarity);
+        const boosted = sameCluster ? Math.min(1, baseSim + 0.1) : baseSim;
+        return {
+          id: r.id,
+          title: r.title,
+          topic: r.topic,
+          similarity: boosted.toFixed(3),
+          same_cluster: sameCluster,
+          anchor_suggestion: r.title,
+          url: meta.url,            // URL công khai thực tế (null nếu chưa publish)
+          url_hint: meta.url,       // alias cho UI cũ
+          published: !!meta.url,
+        };
+      })
+      // Loại bài chưa publish (không có URL công khai để chèn)
+      .filter((s: any) => !!s.url)
+      .sort((a: any, b: any) => Number(b.similarity) - Number(a.similarity));
 
     return new Response(JSON.stringify({ suggestions, source_cluster_id: sourceClusterId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
