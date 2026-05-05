@@ -615,152 +615,25 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ✅ NO FALLBACK — AI accepted by backend hint`);
         }
 
-        // Step 3: Overlay text using canvas (Satori) when fallback is required
-        if (shouldFallbackText) {
-          const step3Start = Date.now();
-          console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
-            textLength: channelText.length,
-            position: textPosition || 'center',
-            typography: typographyStyle || 'modern',
-          });
-          
-          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
-          const [widthStr, heightStr] = channelConfig.size.split('x');
-          const imageWidth = parseInt(widthStr, 10) || 1200;
-          const imageHeight = parseInt(heightStr, 10) || 630;
-          
-          const { data: textData, error: textError } = await invokeWithTimeout<any>('overlay-text-canvas', {
-            body: {
-              baseImageUrl: finalImageUrl,
-              text: channelText,
-              position: textPosition || 'center',
-              typographyStyle: typographyStyle || 'modern',
-              textColor: '#FFFFFF',
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              padding: 40,
-              contentId,
-              channel,
-              imageWidth,
-              imageHeight,
-            },
-            timeoutMs: 30_000,
-          });
-
-          const step3Duration = Date.now() - step3Start;
-          if (textError || !textData?.success) {
-            console.warn(`[Pipeline:${channel}] ✗ STEP 3 FAILED (${step3Duration}ms):`, textError?.message || textData?.error);
-            debugSteps.push({
-              id: 'step3',
-              label: 'STEP 3 — Text fallback',
-              status: 'failed',
-              summary: 'Canvas text fallback lỗi, giữ ảnh hiện tại',
-              durationMs: step3Duration,
-              details: [textError?.message || textData?.error || 'unknown error'],
-            });
-            toast.warning(`${channel}: Text overlay thất bại, sử dụng ảnh gốc`, {
-              description: 'AI không thể render text chính xác',
-              duration: 5000,
-            });
-          } else {
-            finalImageUrl = textData.imageUrl;
-            console.log(`[Pipeline:${channel}] ✓ STEP 3 OK (${step3Duration}ms)`);
-            debugSteps.push({
-              id: 'step3',
-              label: 'STEP 3 — Text fallback',
-              status: 'success',
-              summary: 'Canvas text fallback đã chạy',
-              durationMs: step3Duration,
-              details: [`position=${textPosition || 'center'}`, `typography=${typographyStyle || 'modern'}`],
-            });
-          }
-        } else {
-          const skipReason = !useCanvasFallback ? 'canvas fallback disabled' : !channelText ? 'no text' : (fullStructuredOverlay || structuredOverlay) ? 'structured overlay active' : isAiRenderMode ? 'ai_render accepted' : 'no fallback needed';
-          console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
+        // Step 3: Canvas text overlay — DISABLED globally (text-in-prompt only)
+        {
+          console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — canvas overlay globally disabled`);
           debugSteps.push({
             id: 'step3',
             label: 'STEP 3 — Text fallback',
             status: 'skipped',
-            summary: `Bỏ qua vì ${skipReason}`,
+            summary: 'Canvas text overlay đã bị tắt toàn cục',
           });
         }
 
-        const finalStructuredOverlay = !isAiRenderMode
-          ? (fullStructuredOverlay || structuredOverlay || footerOverlay)
-          : (shouldFallbackStructured ? (fullStructuredOverlay || structuredOverlay || footerOverlay) : undefined);
-        if (finalStructuredOverlay) {
-          const step4Start = Date.now();
-          console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Canvas)`, {
-            layout: finalStructuredOverlay.layout,
-              footerMode: (finalStructuredOverlay as any).footerMode,
-            hasBanner: !!(finalStructuredOverlay as any).elements.banner,
-            hasHeroText: !!(finalStructuredOverlay as any).elements.heroText,
-            cardCount: (finalStructuredOverlay as any).elements.cards?.items?.length || 0,
-            hasCta: !!(finalStructuredOverlay as any).elements.cta,
-            hasFooter: !!(finalStructuredOverlay as any).elements.footer,
-            hasLogoMeta: includeLogo && logoUrl && !logoFailed,
-          });
-          
-          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
-          const [widthStr, heightStr] = channelConfig.size.split('x');
-          const imgW = parseInt(widthStr, 10) || 1200;
-          const imgH = parseInt(heightStr, 10) || 630;
-
-          const { data: structData, error: structError } = await invokeWithTimeout<any>('overlay-text-canvas', {
-            body: {
-              baseImageUrl: finalImageUrl,
-              layout: finalStructuredOverlay.layout,
-              footerMode: (finalStructuredOverlay as any).footerMode,
-              elements: finalStructuredOverlay.elements,
-              colors: finalStructuredOverlay.colors,
-              imageStyle: imageStylePreset,
-              imageWidth: imgW,
-              imageHeight: imgH,
-              contentId,
-              channel,
-              logoMeta: (includeLogo && logoUrl && !logoFailed) ? {
-                position: resolvedLogoPosition,
-                sizePercent: logoSizePercent || 15,
-                padding: 20,
-              } : undefined,
-            },
-            timeoutMs: 30_000,
-          });
-
-          const step4Duration = Date.now() - step4Start;
-          if (structError || !structData?.success) {
-            console.warn(`[Pipeline:${channel}] ✗ STEP 4 FAILED (${step4Duration}ms):`, structError?.message || structData?.error);
-            debugSteps.push({
-              id: 'step4',
-              label: 'STEP 4 — Structured fallback',
-              status: 'failed',
-              summary: 'Structured canvas fallback lỗi, giữ ảnh hiện tại',
-              durationMs: step4Duration,
-              details: [structError?.message || structData?.error || 'unknown error'],
-            });
-            toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
-          } else {
-            finalImageUrl = structData.imageUrl;
-            console.log(`[Pipeline:${channel}] ✓ STEP 4 OK (${step4Duration}ms)`);
-            debugSteps.push({
-              id: 'step4',
-              label: 'STEP 4 — Structured fallback',
-              status: 'success',
-              summary: 'Structured canvas fallback đã chạy',
-              durationMs: step4Duration,
-              details: [
-                `layout=${finalStructuredOverlay.layout}`,
-                `footer=${(finalStructuredOverlay as any).elements.footer ? 'yes' : 'no'}`,
-              ],
-            });
-          }
-        } else {
-          const skipReason = isAiRenderMode ? 'no footer overlay' : 'no structured overlay';
-          console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — ${skipReason}`);
+        // Step 4: Structured canvas overlay — DISABLED globally
+        {
+          console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — canvas overlay globally disabled`);
           debugSteps.push({
             id: 'step4',
             label: 'STEP 4 — Structured fallback',
             status: 'skipped',
-            summary: `Bỏ qua vì ${skipReason}`,
+            summary: 'Structured canvas overlay đã bị tắt toàn cục',
           });
         }
 

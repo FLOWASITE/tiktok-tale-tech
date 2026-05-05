@@ -279,40 +279,7 @@ export function useSocialImageGeneration() {
       }
 
       if (shouldRunOverlay) {
-        console.log('[useSocialImageGeneration] Applying Canvas text overlay...', {
-          backendForcesSatori,
-          backendRequestsFallback,
-          modelUsed,
-        });
-
-        const channelConfig = channel ? CHANNEL_IMAGE_CONFIG[channel] : null;
-        const [widthStr, heightStr] = (channelConfig?.size || '1200x630').split('x');
-        const imageWidth = parseInt(widthStr, 10) || 1200;
-        const imageHeight = parseInt(heightStr, 10) || 630;
-
-        const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-text-canvas', {
-          body: {
-            baseImageUrl: imageUrl,
-            text: textToInclude,
-            position: textPosition || 'center',
-            typographyStyle: typographyStyle || 'modern',
-            textColor: '#FFFFFF',
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-            contentId,
-            channel,
-            imageWidth,
-            imageHeight,
-          },
-          timeoutMs: 30_000,
-        });
-
-        if (overlayError) {
-          console.error('[useSocialImageGeneration] Canvas overlay error:', overlayError);
-          toast.warning('Text overlay failed, using base image');
-        } else if (overlayData?.success && overlayData?.imageUrl) {
-          console.log('[useSocialImageGeneration] Canvas overlay success!');
-          imageUrl = overlayData.imageUrl;
-        }
+        console.log('[useSocialImageGeneration] ⏭ Canvas text overlay DISABLED — keeping AI base image');
       }
       
       // Store generated image info
