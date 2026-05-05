@@ -5,7 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ArrowDownLeft, ArrowUpRight, Link2, ExternalLink, Sparkles } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowDownLeft, ArrowUpRight, Link2, ExternalLink, Sparkles, HelpCircle } from "lucide-react";
+
+const ColHead = ({ icon, label, tip }: { icon: React.ReactNode; label: string; tip: string }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span className="inline-flex items-center gap-1 text-xs cursor-help">
+        {icon} {label} <HelpCircle className="h-2.5 w-2.5 opacity-50" />
+      </span>
+    </TooltipTrigger>
+    <TooltipContent side="top" className="max-w-[240px] text-xs leading-relaxed">{tip}</TooltipContent>
+  </Tooltip>
+);
 import { useInternalLinksOverview, type InternalLinkRow } from "@/hooks/useInternalLinksOverview";
 import InternalLinksPanel from "@/components/seo/InternalLinksPanel";
 
