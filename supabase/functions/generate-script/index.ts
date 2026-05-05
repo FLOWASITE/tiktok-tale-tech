@@ -23,6 +23,7 @@ import { createPromptManager } from "../_shared/prompt-integration.ts";
 // Multi-country date context support
 import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
