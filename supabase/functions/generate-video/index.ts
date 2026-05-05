@@ -20,6 +20,7 @@ import {
   type PoyoVideoModel,
 } from "../_shared/poyo-video-generator.ts";
 import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
+import { buildProductBlockEN, fetchProductRows, pickProductRefImage } from "../_shared/product-block-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +44,7 @@ interface VideoGenerationRequest {
   sync?: boolean;  // if true, wait inline (legacy / agent flow)
   character_profile_id?: string;
   character_profile_ids?: string[];
+  product_profile_ids?: string[];
 }
 
 Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, async (req) => {
@@ -84,6 +86,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       sync = false,
       character_profile_id,
       character_profile_ids,
+      product_profile_ids,
     } = body;
 
     if (!prompt || prompt.trim().length < 5) {
