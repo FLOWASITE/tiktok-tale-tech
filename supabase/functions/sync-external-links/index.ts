@@ -107,9 +107,7 @@ async function fetchBlogger(connection: any, supabase: any) {
   const blogId = connection.metadata?.selected_blog_id || connection.page_id;
   if (!blogId) throw new Error("Blogger connection thiếu selected_blog_id");
 
-  // Refresh nếu sắp hết hạn
-  const expiresAt = connection.expires_at ? new Date(connection.expires_at).getTime() : 0;
-  if (expiresAt - Date.now() < 10 * 60 * 1000 && connection.refresh_token) {
+  async function refreshAndGetToken(): Promise<string> {
     await safeFetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/refresh-blogger-token`, {
       method: "POST",
       headers: {
@@ -121,16 +119,31 @@ async function fetchBlogger(connection: any, supabase: any) {
     const { data: refreshed } = await supabase
       .from("social_connections").select("access_token").eq("id", connection.id).single();
     if (refreshed?.access_token) connection.access_token = refreshed.access_token;
+    return (await decryptCredential(connection.access_token)) || "";
   }
 
-  const accessToken = await decryptCredential(connection.access_token);
+  // Refresh nếu sắp hết hạn (column thật là token_expires_at)
+  const expiresAt = connection.token_expires_at ? new Date(connection.token_expires_at).getTime() : 0;
+  if ((expiresAt === 0 || expiresAt - Date.now() < 10 * 60 * 1000) && connection.refresh_token) {
+    await refreshAndGetToken();
+  }
+
+  let accessToken = await decryptCredential(connection.access_token);
   if (!accessToken) throw new Error("Không decrypt được Blogger access token");
 
   const out: any[] = [];
   let pageToken: string | null = null;
   for (let i = 0; i < 10 && out.length < MAX_URLS; i++) {
     const url = `https://www.googleapis.com/blogger/v3/blogs/${blogId}/posts?maxResults=100&fetchBodies=false${pageToken ? `&pageToken=${pageToken}` : ""}`;
-    const r = await safeFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    let r = await safeFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (r.status === 401 && connection.refresh_token) {
+      // Token expired/invalid → refresh once and retry
+      const fresh = await refreshAndGetToken();
+      if (fresh) {
+        accessToken = fresh;
+        r = await safeFetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      }
+    }
     if (!r.ok) throw new Error(`Blogger ${r.status}: ${(await r.text()).slice(0, 200)}`);
     const j = await r.json();
     const items = j?.items || [];
