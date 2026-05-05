@@ -82,6 +82,7 @@ const AdminTelegramAuthCheck = lazy(() => import("@/pages/AdminTelegramAuthCheck
 const AgentTelegramPage = lazy(() => import("@/pages/AgentTelegramPage"));
 const AgentChannelHubPage = lazy(() => import("@/pages/AgentChannelHubPage"));
 const VideoStudioPage = lazy(() => import("@/pages/VideoStudioPage"));
+const CharactersPage = lazy(() => import("@/pages/CharactersPage"));
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
