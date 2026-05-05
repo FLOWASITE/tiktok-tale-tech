@@ -1,3 +1,25 @@
+export type ProductRefLabel = 'front' | 'back' | 'side' | 'in-use' | 'packaging';
+
+export interface ProductReferenceImage {
+  url: string;
+  label: ProductRefLabel;
+}
+
+export interface ProductAppearance {
+  color?: string;
+  material?: string;
+  size?: string;
+  distinctive_features?: string;
+}
+
+export const PRODUCT_REF_LABELS: { value: ProductRefLabel; label: string }[] = [
+  { value: 'front', label: 'Mặt trước' },
+  { value: 'back', label: 'Mặt sau' },
+  { value: 'side', label: 'Mặt bên' },
+  { value: 'in-use', label: 'Đang dùng' },
+  { value: 'packaging', label: 'Bao bì/Hộp' },
+];
+
 export interface BrandProduct {
   id: string;
   brand_template_id: string;
@@ -11,6 +33,10 @@ export interface BrandProduct {
   description: string | null;
   price_display: string | null;
   image_url: string | null;
+
+  // Visual consistency
+  reference_images: ProductReferenceImage[];
+  appearance: ProductAppearance;
   
   // Marketing Data for AI
   unique_selling_points: string[];
@@ -39,6 +65,8 @@ export interface ProductFormData {
   description: string;
   price_display: string;
   image_url: string;
+  reference_images?: ProductReferenceImage[];
+  appearance?: ProductAppearance;
   unique_selling_points: string[];
   target_audience: string;
   pain_points_solved: string[];
