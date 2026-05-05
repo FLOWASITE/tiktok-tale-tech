@@ -1,32 +1,36 @@
 ## Mục tiêu
-Tắt hoàn toàn pipeline "canvas text overlay" (Satori/Resvg) để không bao giờ ghép chữ lên ảnh ở backend nữa. Mọi text trong ảnh sẽ chỉ do AI render trực tiếp (text-in-prompt).
+Tab **SEO → Track → Liên kết** hiện tại không giải thích nhiệm vụ của 3 view (Backlinks / Internal links / Pool URL) → user không hiểu để dùng. Bổ sung 3 lớp UX để tự giải thích.
 
 ## Thay đổi
 
-### 1. Frontend — chặn mọi call tới `overlay-text-canvas`
-**`src/hooks/useAutoImageGeneration.ts`**
-- Force `shouldFallbackText = false` và `finalStructuredOverlay = undefined` (hoặc bỏ qua 2 nhánh `if`).
-- Step 3 và Step 4 luôn log `SKIPPED — canvas overlay disabled`, không invoke edge function.
+### 1. `src/components/admin/seo-keywords/LinksWorkspace.tsx`
+- Thêm **Onboarding banner** ở đầu (dismissible, lưu `localStorage: seo-links-onboarding-dismissed`):
+  - Tiêu đề: "Tab Liên kết hoạt động thế nào?"
+  - 3 cột giải thích ngắn cho Backlinks / Internal / Pool URL (1-2 dòng mỗi cột)
+  - Workflow 3 bước: Connect WP/Blogger → Publish multichannel có blog → Bấm "Gợi ý liên kết nội bộ"
+  - Nút "Đã hiểu, ẩn đi"
+- Thêm **tooltip (?)** cạnh mỗi KPI (Owned backlinks / Internal links / Bài có link mạnh / Bài thiếu link) — giải thích công thức + cách tăng số.
+- Mở rộng dòng mô tả dưới segmented toggle: thêm 1 dòng "Tăng bằng cách: …" tùy view.
 
-**`src/hooks/useSocialImageGeneration.ts`** (line 293)
-- Bỏ qua block gọi `overlay-text-canvas`, giữ ảnh AI gốc.
+### 2. `src/components/admin/seo-keywords/BacklinksTab.tsx`
+- Cải thiện **empty state** (khi `data.rows.length === 0`):
+  - Hiện tại: hiển thị table trống.
+  - Mới: card hướng dẫn — "Chưa có backlink nào. Backlink tự sinh khi bạn publish multichannel có chèn link blog (Automated Social Backlinking)." + nút CTA → `/multichannel`.
 
-### 2. Edge function — kill-switch ở server
-**`supabase/functions/overlay-text-canvas/index.ts`**
-- Ngay đầu `Deno.serve` trả về `200 { success: false, disabled: true, error: 'overlay-text-canvas đã bị vô hiệu hoá', imageUrl: baseImageUrl }` để mọi caller cũ (nếu có) tự fallback về ảnh gốc, không tốn CPU/Resvg.
+### 3. `src/components/admin/seo-keywords/InternalLinksOverview.tsx`
+- Cải thiện **empty state** (đã có 1 dòng text, nâng cấp thành card với CTA):
+  - "Chưa có liên kết nội bộ. Mở 1 bài long-form → bấm 'Gợi ý liên kết nội bộ' để AI đề xuất link giữa các bài cùng cluster (Jaccard similarity)."
+  - Nút CTA → `/multichannel?filter=longform`.
+- Thêm tooltip cho 4 cột header: Internal in / Internal out / Backlinks / Equity (giải thích công thức `Equity = in + backlinks`, ngưỡng ≥3 = mạnh, =0 = đói link).
 
-### 3. Carousel
-**`supabase/functions/generate-carousel-image/index.ts`** đã không gọi function này (chỉ comment ghi chú) → không sửa.
+### 4. `src/components/admin/seo-keywords/ExternalLinksTab.tsx` (nếu chưa có empty state rõ)
+- Empty state: "Pool URL trống. Connect WordPress / Blogger để tự sync URL bài viết, hoặc upload sitemap.xml."
+- Nút CTA → trang Connections.
 
-### 4. Registry & docs
-**`src/data/edgeFunctionRegistry.ts`** (line 104) — đánh dấu function là `deprecated` trong description: `'[DISABLED] Canvas text overlay đã tắt'`.
+## Không thay đổi
+- Hook (`useBacklinks`, `useInternalLinksOverview`, `useExternalLinkStats`) — đang chạy đúng.
+- Edge function `suggest-internal-links` — đang OK.
+- Schema DB.
 
-## Không làm
-- Không xoá file edge function (giữ để tránh break import/log lịch sử, kill-switch là đủ).
-- Không sửa migration, không đụng DB.
-- Không sửa `trustedTextBakingModels.ts` (chỉ là metadata).
-
-## Kết quả
-- Không còn ảnh nào bị canvas overlay text.
-- Mọi nhánh fallback text/structured đều skip, ảnh trả về = ảnh AI gốc.
-- Edge function `overlay-text-canvas` còn tồn tại nhưng trả về no-op an toàn.
+## Kết quả mong đợi
+User mới mở tab thấy ngay banner giải thích 3 view + workflow → biết cần làm gì để có data. KPI có tooltip giải thích công thức. Empty state có CTA dẫn đến hành động cụ thể.
