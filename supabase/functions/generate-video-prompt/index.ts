@@ -159,6 +159,20 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       }
     }
 
+    // Fetch product profiles for product visual consistency
+    let productContext = '';
+    if (Array.isArray(product_profile_ids) && product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, product_profile_ids);
+        const block = buildProductBlockEN(products);
+        if (block) {
+          productContext = `\n${block}\nCRITICAL: The cinematic prompt MUST mention the product by exact name and describe its packaging/color/label as above.`;
+        }
+      } catch (e) {
+        console.warn('[generate-video-prompt] product fetch failed', e);
+      }
+    }
+
     // Channel-specific cinematic guidance
     const channelGuidance: Record<string, string> = {
       tiktok: 'Vertical 9:16, hook in first 1.5s, fast cuts, trending text-on-screen style, vibrant colors, handheld feel.',
