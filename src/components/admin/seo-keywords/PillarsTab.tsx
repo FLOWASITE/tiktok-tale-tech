@@ -505,6 +505,38 @@ export default function PillarsTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Sticky bulk bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background border rounded-full shadow-lg px-3 py-2 flex items-center gap-2 text-sm">
+          <span className="font-medium">{selected.size} pillar đã chọn</span>
+          <span className="text-muted-foreground">·</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1 h-8"
+            disabled={selected.size < 2}
+            onClick={() => setMergeOpen(true)}
+          >
+            <GitMerge className="h-3.5 w-3.5" /> Merge
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1 h-8" onClick={bulkArchive}>
+            <Archive className="h-3.5 w-3.5" /> Archive
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      <PillarBulkMergeDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        selectedIds={Array.from(selected)}
+        pillars={clusters.map((c) => ({ id: c.id, name: c.name }))}
+        coverage={coverage}
+        onDone={() => setSelected(new Set())}
+      />
     </div>
   );
 }
