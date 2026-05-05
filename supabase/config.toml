@@ -476,3 +476,10 @@ verify_jwt = false
 
 [functions.gsc-list-sites]
 verify_jwt = false
+
+[functions.test-gsc-credentials]
+verify_jwt = false
+
+[functions.test-gsc-connection]
+verify_jwt = false
+

@@ -34,12 +34,13 @@ function parseJson<T>(value: string): T | null {
 
 const PLATFORM_NAMES = [
   'facebook', 'instagram', 'linkedin', 'threads',
-  'tiktok', 'twitter', 'zalo', 'google-business', 'website', 'blogger', 'wordpress', 'wordpress-com', 'pinterest', 'bluesky', 'shopify',
+  'tiktok', 'twitter', 'zalo', 'google-business', 'website', 'blogger', 'wordpress', 'wordpress-com', 'pinterest', 'bluesky', 'shopify', 'google_search_console',
 ];
 
 function resolveFunctionName(action: string, platform: string): string | null {
   if (!['test-connection', 'test-credentials'].includes(action)) return null;
   if (!PLATFORM_NAMES.includes(platform)) return null;
+  if (platform === 'google_search_console') return `test-gsc-${action.replace('test-', '')}`;
   return `test-${platform}-${action.replace('test-', '')}`;
 }
 
