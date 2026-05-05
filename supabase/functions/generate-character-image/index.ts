@@ -127,6 +127,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
         if (!POYO_KEY) throw new Error("POYO_API_KEY chưa cấu hình");
         imageUrl = await generateImageViaPoyo({
           prompt, model, aspectRatio: mapAspectRatioToPoyo('1:1'),
+          inputImage: hasRef ? reference_image_url : undefined,
         }, POYO_KEY);
       } else if (isGeminiGenModel(model)) {
         const GG_KEY = Deno.env.get("GEMINIGEN_API_KEY");
@@ -138,6 +139,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
             aspectRatio: mapAspectRatioToGeminiGen('1:1'),
             resolution: '1K',
             maxAttempts: 35,
+            inputImage: hasRef ? reference_image_url : undefined,
           }, GG_KEY);
         } catch (firstErr) {
           const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
@@ -149,6 +151,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
             aspectRatio: mapAspectRatioToGeminiGen('1:1'),
             resolution: '1K',
             maxAttempts: 35,
+            inputImage: hasRef ? reference_image_url : undefined,
           }, GG_KEY);
         }
       } else if (isKieModel(model)) {
@@ -156,9 +159,16 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
         if (!KIE_KEY) throw new Error("KIE_API_KEY chưa cấu hình");
         imageUrl = await generateImageViaKie({
           prompt, model, aspectRatio: mapAspectRatioToKie('1:1'),
+          inputImage: hasRef ? reference_image_url : undefined,
         }, KIE_KEY);
       } else {
-        // Lovable Gateway (google/* models)
+        // Lovable Gateway (google/* models) — supports image edit via image_url in messages
+        const userContent: any = hasRef
+          ? [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: reference_image_url } },
+            ]
+          : prompt;
         const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -167,7 +177,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
           },
           body: JSON.stringify({
             model,
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: "user", content: userContent }],
             modalities: ["image", "text"],
           }),
         });
