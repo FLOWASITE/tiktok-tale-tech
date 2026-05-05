@@ -70,6 +70,31 @@ export default function PillarsTab() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [view, setView] = useState<ViewMode>("grid");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [mergeOpen, setMergeOpen] = useState(false);
+
+  const toggleSel = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const bulkArchive = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(`Archive ${ids.length} pillar?`)) return;
+    const { error } = await supabase
+      .from("seo_clusters")
+      .update({ status: "archived" })
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Đã archive ${ids.length} pillar`);
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["seo-clusters"] });
+    qc.invalidateQueries({ queryKey: ["seo-pillars-shared"] });
+  };
 
   useEffect(() => {
     const p = params.get("pillar");
