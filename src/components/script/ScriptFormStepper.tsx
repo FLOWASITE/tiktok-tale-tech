@@ -63,6 +63,7 @@ import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector
 import { ConfigChipSelector } from '@/components/script/ConfigChipSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { MultiCharacterPicker } from '@/components/video/MultiCharacterPicker';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
 import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
