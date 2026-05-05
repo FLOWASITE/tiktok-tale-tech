@@ -40,6 +40,50 @@ export default function CharactersPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<CharacterProfile | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [generatingAvatarFor, setGeneratingAvatarFor] = useState<string | null>(null);
+
+  const handleGenerateAvatar = async (p: CharacterProfile) => {
+    if (!currentOrganization?.id) return;
+    setGeneratingAvatarFor(p.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-character-image', {
+        body: {
+          name: p.name,
+          appearance: p.appearance ?? {},
+          wardrobe: p.wardrobe ?? '',
+          description: p.description ?? '',
+          view: 'front',
+          organization_id: currentOrganization.id,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      const url = data?.url;
+      if (!url) {
+        toast.error('Không nhận được URL ảnh');
+        return;
+      }
+      const existing = Array.isArray(p.reference_images) ? p.reference_images : [];
+      const next = existing.some((r) => r.label === 'front')
+        ? existing.map((r) => (r.label === 'front' ? { ...r, url } : r))
+        : [...existing, { url, label: 'front' as const }];
+      await updateProfile.mutateAsync({
+        id: p.id,
+        name: p.name,
+        description: p.description ?? '',
+        reference_image_url: url,
+        reference_images: next,
+      });
+      toast.success('Đã tạo ảnh chân dung');
+    } catch (e: any) {
+      toast.error(e?.message || 'Lỗi khi tạo ảnh');
+    } finally {
+      setGeneratingAvatarFor(null);
+    }
+  };
 
   const searchInputRef = useRef<HTMLDivElement>(null);
 
