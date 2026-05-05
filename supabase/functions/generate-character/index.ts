@@ -68,12 +68,7 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
 
     const numCharacters = Math.min(Math.max(count || 1, 1), 3);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Model + provider routing handled by callAIWithMetrics (admin override → user's provider key → fallback)
 
     // Build deduplication context
     const existingList = Array.isArray(existing_names) && existing_names.length > 0
