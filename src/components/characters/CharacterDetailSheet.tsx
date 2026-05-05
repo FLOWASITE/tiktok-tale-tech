@@ -179,12 +179,25 @@ export function CharacterDetailSheet({
               )}
             </TabsContent>
 
-            <TabsContent value="gallery" className="px-5 py-4 mt-0">
-              {refs.length === 0 ? (
+            <TabsContent value="gallery" className="px-5 py-4 mt-0 space-y-3">
+              {refMainUrl && availableLabels.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1.5 text-xs"
+                  disabled={bulkGenerating || !!imageActions.aiGenerating}
+                  onClick={handleGenerateAllRefs}
+                >
+                  {bulkGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  Tạo {availableLabels.length} góc còn lại bằng AI
+                </Button>
+              )}
+              {refs.length === 0 && !refMainUrl ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
                   Chưa có ảnh tham chiếu nào.
                 </div>
-              ) : (
+              ) : refs.length === 0 ? null : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {refs.map((img, i) => (
                     <div key={i} className="relative group">
