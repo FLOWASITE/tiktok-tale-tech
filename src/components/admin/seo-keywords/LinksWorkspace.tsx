@@ -1,13 +1,15 @@
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link2, ExternalLink, ArrowDownLeft, AlertTriangle, Sparkles } from "lucide-react";
+import { Link2, ExternalLink, ArrowDownLeft, AlertTriangle, Sparkles, Globe } from "lucide-react";
 import BacklinksTab from "./BacklinksTab";
 import InternalLinksOverview from "./InternalLinksOverview";
+import ExternalLinksTab from "./ExternalLinksTab";
 import { useBacklinkStats } from "@/hooks/useBacklinks";
 import { useInternalLinksOverview } from "@/hooks/useInternalLinksOverview";
+import { useExternalLinkStats } from "@/hooks/useExternalLinks";
 
-const VALID_VIEWS = new Set(["backlinks", "internal"]);
+const VALID_VIEWS = new Set(["backlinks", "internal", "external"]);
 
 export default function LinksWorkspace() {
   const [params, setParams] = useSearchParams();
@@ -22,6 +24,7 @@ export default function LinksWorkspace() {
 
   const { data: backStats } = useBacklinkStats();
   const { data: internalData } = useInternalLinksOverview();
+  const { data: extStats } = useExternalLinkStats();
 
   return (
     <div className="space-y-4">
@@ -74,17 +77,29 @@ export default function LinksWorkspace() {
             >
               <Link2 className="h-3.5 w-3.5" /> Internal links
             </Button>
+            <Button
+              size="sm"
+              variant={view === "external" ? "default" : "ghost"}
+              className="h-8 gap-1.5 rounded-sm"
+              onClick={() => setView("external")}
+            >
+              <Globe className="h-3.5 w-3.5" /> Pool URL ({extStats?.total ?? 0})
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground max-w-md">
             {view === "backlinks"
               ? "URL bài đăng trên Social/Website trỏ về blog của bạn — tăng off-page SEO."
-              : "Liên kết giữa các bài blog trong cluster — phân phối PageRank, giữ user."}
+              : view === "internal"
+              ? "Liên kết giữa các bài blog trong cluster — phân phối PageRank, giữ user."
+              : "Pool URL kéo từ WordPress / Blogger / sitemap — dùng để chèn backlink hoặc internal link."}
           </p>
         </CardContent>
       </Card>
 
       {/* Body */}
-      {view === "backlinks" ? <BacklinksTab embedded /> : <InternalLinksOverview />}
+      {view === "backlinks" ? <BacklinksTab embedded />
+        : view === "internal" ? <InternalLinksOverview />
+        : <ExternalLinksTab />}
     </div>
   );
 }

@@ -483,3 +483,9 @@ verify_jwt = false
 [functions.test-gsc-connection]
 verify_jwt = false
 
+
+[functions.sync-external-links]
+verify_jwt = false
+
+[functions.suggest-internal-links]
+verify_jwt = false
