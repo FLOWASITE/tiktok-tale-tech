@@ -65,8 +65,8 @@ export function useProductCatalog(brandTemplateId?: string) {
           best_channels: formData.best_channels || [],
           is_featured: formData.is_featured || false,
           is_active: formData.is_active !== false,
-          reference_images: formData.reference_images ?? [],
-          appearance: formData.appearance ?? {},
+          reference_images: (formData.reference_images ?? []) as any,
+          appearance: (formData.appearance ?? {}) as any,
         })
         .select()
         .single();
