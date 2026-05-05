@@ -1576,7 +1576,20 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
+
+    // === GLOBAL KILL-SWITCH: canvas text overlay disabled ===
+    // Trả về ảnh gốc, không xử lý gì để mọi caller cũ tự fallback an toàn.
+    console.log('[overlay-text-canvas] ⛔ DISABLED — returning base image as-is');
+    return new Response(
+      JSON.stringify({
+        success: false,
+        disabled: true,
+        error: 'overlay-text-canvas đã bị vô hiệu hoá toàn cục',
+        imageUrl: (body as any)?.baseImageUrl ?? null,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
     // === Dispatch: Structured vs Simple ===
     if (isStructuredRequest(body)) {
