@@ -243,25 +243,44 @@ export function CharacterDetailSheet({
               )}
             </TabsContent>
 
-            <TabsContent value="gallery" className="px-5 py-4 mt-0 space-y-3">
+            <TabsContent value="gallery" className="px-5 py-4 mt-0 space-y-4">
+              {/* Model edit selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Model AI tạo ảnh (khi có ảnh tham chiếu)</label>
+                <Select value={editModel} onValueChange={setEditModel}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EDIT_MODEL_OPTIONS.map((m) => (
+                      <SelectItem key={m.value} value={m.value} className="text-xs">
+                        <div className="flex flex-col">
+                          <span>{m.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{m.hint}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Bulk action */}
               {refMainUrl && availableLabels.length > 0 && (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   className="w-full gap-1.5 text-xs"
-                  disabled={bulkGenerating || !!imageActions.aiGenerating}
+                  disabled={bulkGenerating || !!imageActions.aiGenerating || !!perLabelLoading}
                   onClick={handleGenerateAllRefs}
                 >
                   {bulkGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   Tạo {availableLabels.length} góc còn lại bằng AI
                 </Button>
               )}
-              {refs.length === 0 && !refMainUrl ? (
-                <div className="text-center py-8 text-sm text-muted-foreground">
-                  Chưa có ảnh tham chiếu nào.
-                </div>
-              ) : refs.length === 0 ? null : (
+
+              {/* Existing refs */}
+              {refs.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {refs.map((img, i) => (
                     <div key={i} className="relative group">
@@ -276,6 +295,78 @@ export function CharacterDetailSheet({
                       </Badge>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Per-label generators (for missing labels) */}
+              {availableLabels.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Tạo từng góc (đính kèm avatar tuỳ chọn)</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {availableLabels.map((l) => {
+                      const attached = attachedRefs[l.value];
+                      const busy = perLabelLoading === l.value || imageActions.aiGenerating === l.value;
+                      return (
+                        <div
+                          key={l.value}
+                          className="flex items-center gap-2 p-2 rounded-lg ring-1 ring-border bg-muted/20"
+                        >
+                          <div className="w-12 h-12 rounded-md overflow-hidden ring-1 ring-border flex-shrink-0 bg-muted flex items-center justify-center">
+                            {attached ? (
+                              <img src={attached} alt="ref" className="w-full h-full object-cover" />
+                            ) : refMainUrl ? (
+                              <img src={refMainUrl} alt="main" className="w-full h-full object-cover opacity-60" />
+                            ) : (
+                              <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium">{l.label}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {attached ? 'Avatar đính kèm riêng' : refMainUrl ? 'Dùng ảnh chính' : 'Chưa có ref'}
+                            </p>
+                          </div>
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={busy}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleAttachRef(l.value, f);
+                                e.target.value = '';
+                              }}
+                            />
+                            <span className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-muted text-muted-foreground" title="Đính kèm avatar">
+                              <Paperclip className="w-3.5 h-3.5" />
+                            </span>
+                          </label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 gap-1"
+                            disabled={busy || (!attached && !refMainUrl)}
+                            onClick={() => handleGenerateOne(l.value)}
+                          >
+                            {busy ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3.5 h-3.5" />
+                            )}
+                            <span className="text-[10px]">Tạo</span>
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {refs.length === 0 && !refMainUrl && availableLabels.length === 0 && (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  Chưa có ảnh tham chiếu nào.
                 </div>
               )}
             </TabsContent>
