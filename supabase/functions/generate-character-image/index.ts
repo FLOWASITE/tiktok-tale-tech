@@ -17,6 +17,15 @@ const VIEW_LABELS: Record<string, string> = {
   outfit: "medium shot showing the outfit clearly, three-quarter view",
 };
 
+function isRetryableGeminiGenPortraitError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("unknown geminigen generation error") ||
+    m.includes("geminigen generation failed") ||
+    m.includes("timeout")
+  ) && !m.includes("auth") && !m.includes("credits") && !m.includes("rate_limit");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -79,13 +88,17 @@ Deno.serve(async (req) => {
 
     const viewHint = VIEW_LABELS[view] || VIEW_LABELS.front;
 
-    const prompt = `Photorealistic studio portrait of a Vietnamese person named "${name}".
-Subject: ${traits.join(", ") || "person"}.
+    const prompt = `Create a photorealistic studio portrait of a fictional adult Vietnamese marketing character.
+Character display name: "${name}" (do not render the name or any text in the image).
+Subject: ${traits.join(", ") || "adult person"}.
 ${appearance.distinctive_features ? `Distinctive features: ${appearance.distinctive_features}.` : ""}
 ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""}
 ${description ? `Notes: ${description}` : ""}
 Shot: ${viewHint}.
-Style: high-end photography, soft natural lighting, neutral light gray background, sharp focus, 4K, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
+Safety and identity: fictional non-celebrity adult, not a real public figure, respectful professional appearance.
+Style: high-end commercial photography, soft natural lighting, neutral light gray background, sharp focus, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
+
+    const compactGeminiGenPrompt = `Photorealistic professional studio headshot of a fictional adult Vietnamese character, ${traits.join(", ") || "adult person"}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} ${viewHint}. Neutral light gray background, soft natural lighting, realistic skin, non-celebrity, no text, no watermark.`;
 
     const aiConfig = await getAIConfig('generate-character-image', organization_id);
     const model = aiConfig.model || 'google/gemini-2.5-flash-image';
@@ -103,9 +116,26 @@ Style: high-end photography, soft natural lighting, neutral light gray backgroun
       } else if (isGeminiGenModel(model)) {
         const GG_KEY = Deno.env.get("GEMINIGEN_API_KEY");
         if (!GG_KEY) throw new Error("GEMINIGEN_API_KEY chưa cấu hình");
-        imageUrl = await generateImageViaGeminiGen({
-          prompt, model, aspectRatio: mapAspectRatioToGeminiGen('1:1'),
-        }, GG_KEY);
+        try {
+          imageUrl = await generateImageViaGeminiGen({
+            prompt,
+            model,
+            aspectRatio: mapAspectRatioToGeminiGen('1:1'),
+            resolution: '1K',
+            maxAttempts: 35,
+          }, GG_KEY);
+        } catch (firstErr) {
+          const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+          if (!isRetryableGeminiGenPortraitError(firstMsg)) throw firstErr;
+          console.warn(`[generate-character-image] GeminiGen portrait failed once, retrying same model with compact safe prompt: ${firstMsg}`);
+          imageUrl = await generateImageViaGeminiGen({
+            prompt: compactGeminiGenPrompt,
+            model,
+            aspectRatio: mapAspectRatioToGeminiGen('1:1'),
+            resolution: '1K',
+            maxAttempts: 35,
+          }, GG_KEY);
+        }
       } else if (isKieModel(model)) {
         const KIE_KEY = Deno.env.get("KIE_API_KEY");
         if (!KIE_KEY) throw new Error("KIE_API_KEY chưa cấu hình");
@@ -147,8 +177,18 @@ Style: high-end photography, soft natural lighting, neutral light gray backgroun
     } catch (genErr) {
       const msg = genErr instanceof Error ? genErr.message : String(genErr);
       console.error(`[generate-character-image] Provider error (model=${model}):`, msg);
+      if (msg.includes('GEMINIGEN_CREDITS_EXHAUSTED')) {
+        return new Response(JSON.stringify({ error: "GeminiGen đã hết credits. Vui lòng nạp thêm hoặc đổi cấu hình model.", errorCode: 'CREDITS_EXHAUSTED', model }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (msg.includes('GEMINIGEN_RATE_LIMIT')) {
+        return new Response(JSON.stringify({ error: "GeminiGen đang giới hạn tốc độ, thử lại sau ít phút.", errorCode: 'RATE_LIMIT', model }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ error: `AI tạo ảnh thất bại: ${msg}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
