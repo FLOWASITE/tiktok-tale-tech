@@ -1,13 +1,15 @@
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link2, ExternalLink, ArrowDownLeft, AlertTriangle, Sparkles } from "lucide-react";
+import { Link2, ExternalLink, ArrowDownLeft, AlertTriangle, Sparkles, Globe } from "lucide-react";
 import BacklinksTab from "./BacklinksTab";
 import InternalLinksOverview from "./InternalLinksOverview";
+import ExternalLinksTab from "./ExternalLinksTab";
 import { useBacklinkStats } from "@/hooks/useBacklinks";
 import { useInternalLinksOverview } from "@/hooks/useInternalLinksOverview";
+import { useExternalLinkStats } from "@/hooks/useExternalLinks";
 
-const VALID_VIEWS = new Set(["backlinks", "internal"]);
+const VALID_VIEWS = new Set(["backlinks", "internal", "external"]);
 
 export default function LinksWorkspace() {
   const [params, setParams] = useSearchParams();
