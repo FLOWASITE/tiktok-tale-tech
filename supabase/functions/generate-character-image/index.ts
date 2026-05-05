@@ -84,8 +84,18 @@ ${description ? `Notes: ${description}` : ""}
 Shot: ${viewHint}.
 Style: high-end photography, soft natural lighting, neutral light gray background, sharp focus, 4K, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
 
+    const ALLOWED_IMAGE_MODELS = [
+      'google/gemini-2.5-flash-image',
+      'google/gemini-3-pro-image-preview',
+      'google/gemini-3.1-flash-image-preview',
+    ];
+    const DEFAULT_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
     const aiConfig = await getAIConfig('generate-character-image', organization_id);
-    const model = aiConfig.model || 'google/gemini-2.5-flash-image';
+    let model = aiConfig.model || DEFAULT_IMAGE_MODEL;
+    if (!ALLOWED_IMAGE_MODELS.includes(model)) {
+      console.warn(`[generate-character-image] model "${model}" not allowed, fallback to ${DEFAULT_IMAGE_MODEL}`);
+      model = DEFAULT_IMAGE_MODEL;
+    }
     console.log(`[generate-character-image] user=${user.id} name="${name}" view=${view} model=${model}`);
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
