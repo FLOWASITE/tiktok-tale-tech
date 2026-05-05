@@ -918,6 +918,22 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     )}
                     {isTesting ? '' : 'Test'}
                   </Button>
+                  {platform === 'blogger' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRefreshBloggerToken(connection.id)}
+                      disabled={refreshingBlogger === connection.id}
+                      title="Làm mới access token Blogger nếu Sync báo lỗi 401"
+                    >
+                      {refreshingBlogger === connection.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                      )}
+                      {refreshingBlogger === connection.id ? '' : 'Refresh token'}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
