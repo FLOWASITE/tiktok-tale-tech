@@ -143,6 +143,8 @@ export function ProductCatalogEditor({
       best_channels: product.best_channels || [],
       is_featured: product.is_featured,
       is_active: product.is_active,
+      reference_images: (product as any).reference_images ?? [],
+      appearance: (product as any).appearance ?? {},
     });
     setUspSuggestions([]);
     setDialogOpen(true);
