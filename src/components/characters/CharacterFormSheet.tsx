@@ -138,10 +138,11 @@ export function CharacterFormSheet({
   };
 
   const handleAiGenerateMain = async () => {
-    const url = await imageActions.generateImage('front');
+    // Nếu đã có ảnh chính → dùng làm reference để giữ identity nhất quán
+    const url = await imageActions.generateImage('front', refMainUrl || undefined);
     if (url) {
       form.setValue('reference_image_url', url, { shouldDirty: true });
-      toast.success('Đã tạo ảnh đại diện AI');
+      toast.success(refMainUrl ? 'Đã tái tạo ảnh AI từ ảnh tham chiếu' : 'Đã tạo ảnh đại diện AI');
     }
   };
 
@@ -170,10 +171,14 @@ export function CharacterFormSheet({
       toast.error('Tối đa 5 ảnh tham chiếu');
       return;
     }
-    const url = await imageActions.generateImage(label);
+    if (!refMainUrl) {
+      toast.error('Hãy upload hoặc tạo ảnh đại diện chính trước — AI sẽ dùng ảnh này làm tham chiếu để các góc đồng nhất.');
+      return;
+    }
+    const url = await imageActions.generateImage(label, refMainUrl);
     if (url) {
       form.setValue('reference_images', [...refImages, { url, label }], { shouldDirty: true });
-      toast.success(`Đã tạo ảnh ${REF_IMAGE_LABELS.find((l) => l.value === label)?.label}`);
+      toast.success(`Đã tạo ảnh ${REF_IMAGE_LABELS.find((l) => l.value === label)?.label} từ ảnh chính`);
     }
   };
 
@@ -424,6 +429,9 @@ export function CharacterFormSheet({
                   {/* Multi reference */}
                   <div>
                     <FormLabel>Ảnh tham chiếu (tối đa 5)</FormLabel>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      💡 Upload 1 ảnh đại diện chính rồi bấm <strong>AI</strong> cho từng góc — nhân vật sẽ đồng nhất hơn vì AI dùng ảnh chính làm tham chiếu identity.
+                    </p>
                     {refImages.length > 0 && (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
                         {refImages.map((img, idx) => (
@@ -476,8 +484,9 @@ export function CharacterFormSheet({
                           size="sm"
                           variant="outline"
                           className="h-8 text-xs gap-1.5 border-dashed"
-                          disabled={!!imageActions.aiGenerating || !watched.name?.trim()}
+                          disabled={!!imageActions.aiGenerating || !watched.name?.trim() || !refMainUrl}
                           onClick={() => handleAiGenerateRef(uploadLabel)}
+                          title={!refMainUrl ? 'Cần ảnh đại diện chính làm tham chiếu' : 'Tạo ảnh AI từ ảnh chính'}
                         >
                           {imageActions.aiGenerating === uploadLabel ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
                           AI

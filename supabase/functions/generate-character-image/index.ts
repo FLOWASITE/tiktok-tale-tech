@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { name, appearance = {}, wardrobe = "", description = "", view = "front", organization_id } = body;
+    const { name, appearance = {}, wardrobe = "", description = "", view = "front", organization_id, reference_image_url = "" } = body;
+    const hasRef = typeof reference_image_url === 'string' && reference_image_url.trim().length > 0;
 
     if (!name || !organization_id) {
       return new Response(JSON.stringify({ error: "name và organization_id là bắt buộc" }), {
@@ -88,7 +89,17 @@ Deno.serve(async (req) => {
 
     const viewHint = VIEW_LABELS[view] || VIEW_LABELS.front;
 
-    const prompt = `Create a photorealistic studio portrait of a fictional adult Vietnamese marketing character.
+    const basePrompt = hasRef
+      ? `Use the attached input photo as the IDENTITY REFERENCE for a fictional adult Vietnamese marketing character named "${name}" (do NOT render the name or any text in the image).
+KEEP THE EXACT SAME face, facial features, hair color & style, skin tone, and body proportions as the reference photo.
+Re-render this same person in a NEW shot:
+Subject traits: ${traits.join(", ") || "adult person"}.
+${appearance.distinctive_features ? `Distinctive features: ${appearance.distinctive_features}.` : ""}
+${wardrobe ? `Wardrobe: ${wardrobe}.` : ""}
+${description ? `Notes: ${description}` : ""}
+Shot: ${viewHint}.
+Style: high-end commercial photography, soft natural lighting, neutral light gray background, sharp focus, realistic skin texture, professional headshot quality. No text, no watermark, no logo. Fictional non-celebrity adult.`
+      : `Create a photorealistic studio portrait of a fictional adult Vietnamese marketing character.
 Character display name: "${name}" (do not render the name or any text in the image).
 Subject: ${traits.join(", ") || "adult person"}.
 ${appearance.distinctive_features ? `Distinctive features: ${appearance.distinctive_features}.` : ""}
@@ -98,7 +109,11 @@ Shot: ${viewHint}.
 Safety and identity: fictional non-celebrity adult, not a real public figure, respectful professional appearance.
 Style: high-end commercial photography, soft natural lighting, neutral light gray background, sharp focus, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
 
-    const compactGeminiGenPrompt = `Photorealistic professional studio headshot of a fictional adult Vietnamese character, ${traits.join(", ") || "adult person"}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} ${viewHint}. Neutral light gray background, soft natural lighting, realistic skin, non-celebrity, no text, no watermark.`;
+    const prompt = basePrompt;
+
+    const compactGeminiGenPrompt = hasRef
+      ? `Re-render the SAME person from the input photo (keep identical face, hair, skin). New shot: ${viewHint}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} Neutral light gray background, soft natural lighting, realistic skin, no text, no watermark.`
+      : `Photorealistic professional studio headshot of a fictional adult Vietnamese character, ${traits.join(", ") || "adult person"}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} ${viewHint}. Neutral light gray background, soft natural lighting, realistic skin, non-celebrity, no text, no watermark.`;
 
     const aiConfig = await getAIConfig('generate-character-image', organization_id);
     const model = aiConfig.model || 'google/gemini-2.5-flash-image';
@@ -112,6 +127,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
         if (!POYO_KEY) throw new Error("POYO_API_KEY chưa cấu hình");
         imageUrl = await generateImageViaPoyo({
           prompt, model, aspectRatio: mapAspectRatioToPoyo('1:1'),
+          inputImage: hasRef ? reference_image_url : undefined,
         }, POYO_KEY);
       } else if (isGeminiGenModel(model)) {
         const GG_KEY = Deno.env.get("GEMINIGEN_API_KEY");
@@ -123,6 +139,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
             aspectRatio: mapAspectRatioToGeminiGen('1:1'),
             resolution: '1K',
             maxAttempts: 35,
+            inputImage: hasRef ? reference_image_url : undefined,
           }, GG_KEY);
         } catch (firstErr) {
           const firstMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
@@ -134,6 +151,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
             aspectRatio: mapAspectRatioToGeminiGen('1:1'),
             resolution: '1K',
             maxAttempts: 35,
+            inputImage: hasRef ? reference_image_url : undefined,
           }, GG_KEY);
         }
       } else if (isKieModel(model)) {
@@ -141,9 +159,16 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
         if (!KIE_KEY) throw new Error("KIE_API_KEY chưa cấu hình");
         imageUrl = await generateImageViaKie({
           prompt, model, aspectRatio: mapAspectRatioToKie('1:1'),
+          inputImage: hasRef ? reference_image_url : undefined,
         }, KIE_KEY);
       } else {
-        // Lovable Gateway (google/* models)
+        // Lovable Gateway (google/* models) — supports image edit via image_url in messages
+        const userContent: any = hasRef
+          ? [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: reference_image_url } },
+            ]
+          : prompt;
         const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -152,7 +177,7 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
           },
           body: JSON.stringify({
             model,
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: "user", content: userContent }],
             modalities: ["image", "text"],
           }),
         });
