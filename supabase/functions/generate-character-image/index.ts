@@ -124,7 +124,7 @@ Style: high-end photography, soft natural lighting, neutral light gray backgroun
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "AI tạo ảnh thất bại" }), {
+      return new Response(JSON.stringify({ error: `AI tạo ảnh thất bại (${aiResp.status}): ${errText.slice(0, 200)}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
