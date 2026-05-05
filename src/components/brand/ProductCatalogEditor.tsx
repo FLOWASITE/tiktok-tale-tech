@@ -785,7 +785,42 @@ export function ProductCatalogEditor({
                 </div>
               )}
 
-              {/* Featured Switch */}
+              {/* Product Reference Images — đa góc cho consistency video/ảnh */}
+              <div className="pt-4 border-t">
+                <ProductReferenceImagesEditor
+                  productName={formData.name}
+                  category={formData.category}
+                  description={formData.description}
+                  appearance={formData.appearance}
+                  primaryImageUrl={formData.image_url}
+                  referenceImages={(formData.reference_images ?? []) as ProductReferenceImage[]}
+                  onChange={(next) => setFormData(prev => ({ ...prev, reference_images: next }))}
+                />
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <Input
+                    placeholder="Màu chủ đạo (vd: hồng pastel)"
+                    value={formData.appearance?.color ?? ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...(prev.appearance ?? {}), color: e.target.value } }))}
+                  />
+                  <Input
+                    placeholder="Chất liệu/bao bì (vd: chai thủy tinh)"
+                    value={formData.appearance?.material ?? ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...(prev.appearance ?? {}), material: e.target.value } }))}
+                  />
+                  <Input
+                    placeholder="Kích thước (vd: 50ml)"
+                    value={formData.appearance?.size ?? ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...(prev.appearance ?? {}), size: e.target.value } }))}
+                  />
+                  <Input
+                    placeholder="Đặc điểm nổi bật (logo vàng, nắp đen…)"
+                    value={formData.appearance?.distinctive_features ?? ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...(prev.appearance ?? {}), distinctive_features: e.target.value } }))}
+                  />
+                </div>
+              </div>
+
+
               <div className="flex items-center justify-between pt-2 border-t">
                 <div className="flex items-center gap-2">
                   <Star className="h-4 w-4 text-yellow-500" />
