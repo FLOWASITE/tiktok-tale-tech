@@ -677,6 +677,34 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
+  const [refreshingBlogger, setRefreshingBlogger] = useState<string | null>(null);
+  const handleRefreshBloggerToken = async (connectionId: string) => {
+    setRefreshingBlogger(connectionId);
+    try {
+      const { data, error } = await supabase.functions.invoke('refresh-blogger-token', {
+        body: { connectionId },
+      });
+      if (error) throw error;
+      if ((data as any)?.success === false) {
+        const needsReauth = (data as any)?.needs_reauth;
+        toast.error('Làm mới thất bại', {
+          description: needsReauth
+            ? 'Refresh token đã hết hạn. Vui lòng ngắt kết nối và kết nối lại Blogger.'
+            : (data as any)?.error || 'Không thể làm mới token',
+        });
+        return;
+      }
+      toast.success('Đã làm mới token Blogger', {
+        description: 'Bạn có thể bấm Sync lại ngay bây giờ.',
+      });
+      refetch();
+    } catch (e: any) {
+      toast.error('Làm mới thất bại', { description: e?.message || String(e) });
+    } finally {
+      setRefreshingBlogger(null);
+    }
+  };
+
   const handleDelete = async (connectionId: string) => {
     setConnectionToDelete(connectionId);
     setDeleteConfirmOpen(true);
@@ -918,6 +946,22 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     )}
                     {isTesting ? '' : 'Test'}
                   </Button>
+                  {platform === 'blogger' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRefreshBloggerToken(connection.id)}
+                      disabled={refreshingBlogger === connection.id}
+                      title="Làm mới access token Blogger nếu Sync báo lỗi 401"
+                    >
+                      {refreshingBlogger === connection.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-1" />
+                      )}
+                      {refreshingBlogger === connection.id ? '' : 'Refresh token'}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
