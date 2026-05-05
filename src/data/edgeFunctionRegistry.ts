@@ -101,7 +101,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   // ── Image Processing ──
   fn('overlay-logo-canvas',      'image', 'Ghép logo lên ảnh bằng Canvas API', [], ['storage']),
   fn('overlay-brand-logo',       'image', 'Ghép brand logo lên ảnh', [], ['storage']),
-  fn('overlay-text-canvas',      'image', 'Ghép text lên ảnh bằng Canvas API', [], ['storage']),
+  fn('overlay-text-canvas',      'image', '[DISABLED] Canvas text overlay đã tắt toàn cục', [], ['storage']),
   fn('generate-scene-thumbnail', 'image', 'Tạo thumbnail cho scene', ['Lovable AI'], ['ai-client']),
   fn('edit-image-background',    'image', 'Sửa nền ảnh bằng AI', ['Lovable AI'], ['ai-client']),
   fn('decompose-image-request',  'image', 'Phân tích yêu cầu tạo ảnh', ['Lovable AI'], ['ai-client']),
