@@ -457,6 +457,12 @@ export default function PillarsTab() {
                   className="flex items-center gap-3 px-3 py-2 hover:bg-muted/40 cursor-pointer"
                   onClick={() => openPillar(c.id)}
                 >
+                  <Checkbox
+                    checked={selected.has(c.id)}
+                    onCheckedChange={() => toggleSel(c.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0"
+                  />
                   <span className={cn("h-2 w-2 rounded-full shrink-0", health.dot)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
