@@ -320,7 +320,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'expand-multichannel-channels', 'generate-ad-copy',
     'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
     'reviewer-agent', 'learning-agent', 'decompose-image-request', 'suggest-usp',
-    'telegram-intent',
+    'telegram-intent', 'generate-character',
     // SEO group
     'keyword-research-v2', 'keyword-research', 'keyword-research-save',
     'enrich-keyword-serp', 'suggest-cluster-topics', 'generate-seo-landing',
@@ -328,6 +328,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
+    'generate-character-image',
   ];
   const searchFunctions = ['topic-ai']; // topic-ai can also be search, but primarily text
 
