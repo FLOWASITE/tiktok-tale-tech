@@ -87,63 +87,91 @@ ${description ? `Notes: ${description}` : ""}
 Shot: ${viewHint}.
 Style: high-end photography, soft natural lighting, neutral light gray background, sharp focus, 4K, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
 
-    const ALLOWED_IMAGE_MODELS = [
-      'google/gemini-2.5-flash-image',
-      'google/gemini-3-pro-image-preview',
-      'google/gemini-3.1-flash-image-preview',
-    ];
-    const DEFAULT_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
     const aiConfig = await getAIConfig('generate-character-image', organization_id);
-    let model = aiConfig.model || DEFAULT_IMAGE_MODEL;
-    if (!ALLOWED_IMAGE_MODELS.includes(model)) {
-      console.warn(`[generate-character-image] model "${model}" not allowed, fallback to ${DEFAULT_IMAGE_MODEL}`);
-      model = DEFAULT_IMAGE_MODEL;
-    }
+    const model = aiConfig.model || 'google/gemini-2.5-flash-image';
     console.log(`[generate-character-image] user=${user.id} name="${name}" view=${view} model=${model}`);
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
+    let imageUrl: string | null = null;
 
-    if (!aiResp.ok) {
-      const errText = await aiResp.text();
-      console.error(`[generate-character-image] AI ${aiResp.status}:`, errText);
-      if (aiResp.status === 429) {
-        return new Response(JSON.stringify({ error: "Quá tải AI, thử lại sau ít phút." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    try {
+      if (isPoyoModel(model)) {
+        const POYO_KEY = Deno.env.get("POYO_API_KEY");
+        if (!POYO_KEY) throw new Error("POYO_API_KEY chưa cấu hình");
+        imageUrl = await generateImageViaPoyo({
+          prompt, model, aspectRatio: mapAspectRatioToPoyo('1:1'),
+        }, POYO_KEY);
+      } else if (isGeminiGenModel(model)) {
+        const GG_KEY = Deno.env.get("GEMINIGEN_API_KEY");
+        if (!GG_KEY) throw new Error("GEMINIGEN_API_KEY chưa cấu hình");
+        imageUrl = await generateImageViaGeminiGen({
+          prompt, model, aspectRatio: mapAspectRatioToGeminiGen('1:1'),
+        }, GG_KEY);
+      } else if (isKieModel(model)) {
+        const KIE_KEY = Deno.env.get("KIE_API_KEY");
+        if (!KIE_KEY) throw new Error("KIE_API_KEY chưa cấu hình");
+        imageUrl = await generateImageViaKie({
+          prompt, model, aspectRatio: mapAspectRatioToKie('1:1'),
+        }, KIE_KEY);
+      } else {
+        // Lovable Gateway (google/* models)
+        const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            modalities: ["image", "text"],
+          }),
         });
+        if (!aiResp.ok) {
+          const errText = await aiResp.text();
+          console.error(`[generate-character-image] AI ${aiResp.status}:`, errText);
+          if (aiResp.status === 429) {
+            return new Response(JSON.stringify({ error: "Quá tải AI, thử lại sau ít phút." }), {
+              status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (aiResp.status === 402) {
+            return new Response(JSON.stringify({ error: "Hết quota AI, vui lòng nạp thêm credits." }), {
+              status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          throw new Error(`Gateway ${aiResp.status}: ${errText.slice(0, 200)}`);
+        }
+        const aiData = await aiResp.json();
+        imageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? null;
       }
-      if (aiResp.status === 402) {
-        return new Response(JSON.stringify({ error: "Hết quota AI, vui lòng nạp thêm credits." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: `AI tạo ảnh thất bại (${aiResp.status}): ${errText.slice(0, 200)}` }), {
+    } catch (genErr) {
+      const msg = genErr instanceof Error ? genErr.message : String(genErr);
+      console.error(`[generate-character-image] Provider error (model=${model}):`, msg);
+      return new Response(JSON.stringify({ error: `AI tạo ảnh thất bại: ${msg}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiData = await aiResp.json();
-    const imageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!imageUrl || !imageUrl.startsWith("data:")) {
-      console.error(`[generate-character-image] No image returned`, JSON.stringify(aiData).slice(0, 500));
+    if (!imageUrl) {
       return new Response(JSON.stringify({ error: "AI không trả về ảnh, thử lại sau." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Decode base64 → upload bucket
-    const base64 = imageUrl.split(",")[1];
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    // Convert to bytes (support both data URI and remote URL)
+    let bytes: Uint8Array;
+    if (imageUrl.startsWith("data:")) {
+      const base64 = imageUrl.split(",")[1];
+      bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    } else {
+      const imgResp = await fetch(imageUrl);
+      if (!imgResp.ok) {
+        return new Response(JSON.stringify({ error: `Không tải được ảnh từ provider (${imgResp.status})` }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      bytes = new Uint8Array(await imgResp.arrayBuffer());
+    }
     const path = `${organization_id}/${crypto.randomUUID()}.png`;
 
     const { error: upErr } = await supabase.storage
