@@ -193,7 +193,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
       saveMetrics({
         functionName: 'generate-character',
         traceId,
-        model: 'google/gemini-2.5-flash',
+        model,
         latencyMs,
         status: 'error',
         errorMessage: `AI ${status}`,
@@ -262,7 +262,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
     saveMetrics({
       functionName: 'generate-character',
       traceId,
-      model: 'google/gemini-2.5-flash',
+      model,
       latencyMs,
       status: 'success',
       inputTokens: usage?.prompt_tokens,
