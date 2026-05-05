@@ -90,7 +90,19 @@ Deno.serve(withPerf({ functionName: 'blogger-oauth-callback' }, async (req) => {
 
     const tokenData = await tokenResponse.json();
     if (!tokenData.access_token) {
-      throw new Error(tokenData.error_description || tokenData.error || 'Failed to get access token');
+      const rawErr = (tokenData.error_description || tokenData.error || 'Failed to get access token') as string;
+      const lower = String(rawErr).toLowerCase();
+      let friendly = rawErr;
+      if (lower.includes('client secret') || lower.includes('invalid_client')) {
+        friendly = 'Google Client Secret của Blogger không đúng hoặc không khớp Client ID. Vào Admin → Social Platform Settings → Blogger, bấm "Chỉnh sửa" và nhập lại đúng Client ID + Client Secret từ cùng một OAuth Client (loại Web application) trong Google Cloud Console.';
+      } else if (lower.includes('redirect_uri') || lower.includes('redirect uri')) {
+        friendly = 'Redirect URI chưa được thêm trong Google Cloud Console. Copy "OAuth Callback URL" trong dialog cấu hình Blogger và dán vào Authorized redirect URIs của OAuth Client.';
+      } else if (lower.includes('access_denied') || lower.includes('disabled_client')) {
+        friendly = 'Google từ chối cấp quyền. Kiểm tra OAuth consent screen đã publish hoặc tài khoản đã được thêm vào danh sách test users.';
+      } else if (lower.includes('invalid_grant')) {
+        friendly = 'Code OAuth hết hạn hoặc đã sử dụng. Đóng cửa sổ và bấm "Kết nối Blogger" lại.';
+      }
+      throw new Error(friendly);
     }
 
     const accessToken = tokenData.access_token as string;

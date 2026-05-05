@@ -97,15 +97,59 @@ Deno.serve(withPerf({ functionName: 'test-blogger-credentials' }, async (req) =>
       throw new Error('Client Secret không hợp lệ - quá ngắn');
     }
 
+    // Live verify against Google OAuth: gửi refresh_token rỗng để Google trả về
+    // - "invalid_client" nếu Client ID/Secret SAI
+    // - "invalid_grant" nếu Client ID/Secret ĐÚNG (vì grant rỗng)
+    let liveStatus: 'verified' | 'invalid_client' | 'unknown' = 'unknown';
+    let liveError: string | null = null;
+    try {
+      const probe = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: 'refresh_token',
+          refresh_token: 'invalid-probe-token',
+        }).toString(),
+      });
+      const probeData = await probe.json().catch(() => ({}));
+      const errCode = String(probeData?.error || '').toLowerCase();
+      const errDesc = String(probeData?.error_description || '').toLowerCase();
+      if (errCode === 'invalid_client' || errDesc.includes('client secret')) {
+        liveStatus = 'invalid_client';
+        liveError = probeData?.error_description || 'Client Secret không khớp Client ID';
+      } else {
+        // invalid_grant / unauthorized_client / etc → credentials hợp lệ
+        liveStatus = 'verified';
+      }
+    } catch (probeErr) {
+      console.error('[test-blogger-credentials] live probe failed:', probeErr);
+    }
+
+    if (liveStatus === 'invalid_client') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Google từ chối: ${liveError}. Mở Google Cloud Console → APIs & Services → Credentials, mở đúng OAuth Client (Web application) đang dùng, copy lại Client ID + Client Secret và lưu lại tại đây.`,
+          hint: 'Lưu ý: copy "Client secret" — KHÔNG copy "Secret ID". Client ID và Client Secret phải cùng một OAuth Client.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Blogger credentials hợp lệ (định dạng)! ✓ Kết nối OAuth sẽ xác thực đầy đủ.',
+        message: liveStatus === 'verified'
+          ? 'Blogger credentials đã được Google xác thực ✓'
+          : 'Blogger credentials hợp lệ (định dạng) ✓ — chưa probe được Google, hãy thử kết nối thật.',
         details: {
           clientIdFormat: 'valid',
           clientSecretFormat: 'valid',
+          googleVerification: liveStatus,
           platform: 'blogger',
-          note: 'Blogger dùng Google OAuth — đảm bảo đã enable Blogger API v3 và thêm scope https://www.googleapis.com/auth/blogger trong consent screen.',
+          note: 'Đảm bảo đã enable Blogger API v3, thêm scope https://www.googleapis.com/auth/blogger trong consent screen, và Authorized redirect URI trùng với OAuth Callback URL trong dialog.',
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

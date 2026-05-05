@@ -75,7 +75,7 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
   },
   blogger: {
     url: 'https://console.cloud.google.com/apis/credentials',
-    instructions: 'Tái dùng OAuth Client của Google Business hoặc tạo mới. Bật Blogger API v3 và thêm scope https://www.googleapis.com/auth/blogger',
+    instructions: 'Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs (loại Web application). Copy Client ID + Client Secret (KHÔNG copy "Secret ID"). Bật Blogger API v3 và thêm scope https://www.googleapis.com/auth/blogger. Dán "OAuth Callback URL" bên dưới vào "Authorized redirect URIs" của Client.',
   },
   wordpress: {
     url: '',

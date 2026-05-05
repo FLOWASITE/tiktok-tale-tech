@@ -1,106 +1,64 @@
-# External Link Pool — Backlink & Internal Link
+## Chẩn đoán hiện tại
 
-Mục tiêu: Mở rộng tab Backlinks (hiện chỉ hiện URL Flowa đã publish) thành **pool nguồn link** kéo từ chính website của user (kể cả bài đăng thủ công), dùng làm:
-- Nguồn **backlink** chèn từ social/blog Flowa về site mục tiêu.
-- Nguồn **internal link** giữa các bài long-form trong cùng domain.
-- Đầu vào cho **AI suggest** internal link khi soạn content.
+Log backend của `blogger-oauth-callback` xác nhận lỗi chính xác:
 
-## 1. Database
-
-Migration tạo bảng mới `external_link_sources`:
-
-| Column | Type | Note |
-|---|---|---|
-| id | uuid PK | |
-| organization_id | uuid | RLS isolation |
-| brand_template_id | uuid | nullable, ràng buộc theo brand |
-| source_type | text | `wordpress` / `blogger` / `wordpress_com` / `sitemap` / `manual` |
-| source_ref_id | text | id connection (social_connections.id) hoặc domain |
-| domain | text | host chuẩn hoá |
-| url | text | URL đầy đủ (unique trong org+url) |
-| title | text | |
-| excerpt | text | nullable |
-| keywords | text[] | extract từ title + slug để match |
-| published_at | timestamptz | |
-| last_synced_at | timestamptz | |
-| status | text | `active` / `archived` |
-| metadata | jsonb | tags, category, image, raw |
-
-RLS: org members CRUD. Index `(organization_id, domain)`, GIN trên `keywords`, full-text trên `title`.
-
-## 2. Edge function `sync-external-links`
-
-Một function gateway cho mọi nguồn:
-
-- Input: `{ connectionId?: string, sitemapUrl?: string, brandTemplateId?: string }`
-- Routing theo `social_connections.platform`:
-  - `wordpress` → REST `/{site}/wp-json/wp/v2/posts?per_page=100&_fields=id,link,title,excerpt,date,slug,categories` (Application Password đã lưu trong connection).
-  - `wordpress_com` → connector gateway `/wordpress_com/rest/v1.1/sites/{siteId}/posts?number=100`.
-  - `blogger` → Google Blogger API `/blogger/v3/blogs/{blogId}/posts?maxResults=500` (OAuth refresh sẵn có).
-  - `website` (NukeViet/custom) hoặc `sitemapUrl` → fetch `sitemap.xml`/`sitemap_index.xml`, parse `<loc>` + `<lastmod>`, optional fetch HTML để lấy `<title>` cho 50 URL đầu (giới hạn).
-- Pagination: loop đến 5 trang hoặc tối đa 1000 URL/lần sync.
-- Upsert theo `(organization_id, url)`. Đánh `last_synced_at = now()`.
-- Trả `{ inserted, updated, total }`.
-
-## 3. Cron sync
-
-`pg_cron` chạy `sync-external-links` cho mỗi connection long-form mỗi 24h (giờ thấp tải, lệch ngẫu nhiên). Manual "Sync ngay" nút trên UI cho on-demand.
-
-## 4. Hook + UI
-
-### `src/hooks/useExternalLinks.ts`
-- `useExternalLinks(filter)` — list pagination, filter theo domain/source_type/keyword search.
-- `useExternalLinkStats()` — count theo source_type, domain.
-- `useSyncExternalLinks()` — mutation gọi edge function.
-
-### Sub-tab mới trong **LinksWorkspace** (`/seo?tab=track&sub=links`)
-
-`view=external` (cùng cấp `view=backlinks`):
-
-- KPI strip: tổng URL pool · domains · last sync.
-- Toolbar: Source select (All/WordPress/Blogger/Sitemap), domain filter, search.
-- Table: Title · Domain · Source · Published · Last synced · [Open] [Copy URL] [Insert →].
-- Header có dropdown **"Sync from..."**: list các long-form connection đang active + ô **"Sitemap URL..."** cho generic site.
-
-### Component `ExternalLinkPicker.tsx` (reusable)
-Dialog/Popover dùng trong:
-- `BlogPostMultiChannel` editor (nút "Chèn link nội bộ").
-- `MultiChannelCreate` cho long-form.
-Trả `{ url, title, anchor }`. Hỗ trợ search-as-you-type, lọc theo domain hiện tại (cho internal) hoặc khác domain (cho backlink).
-
-## 5. AI Internal Link Suggester
-
-Edge function `suggest-internal-links`:
-
-- Input: `{ contentId | draftText, organizationId, brandTemplateId, mode: 'internal'|'backlink' }`.
-- Lấy 200 candidate URLs từ pool (filter theo cùng domain cho internal), build text `title + keywords` → cosine similarity với `gte-small` embedding của draft.
-- Trả top-5 `{ url, title, score, suggestedAnchor }`. AI sinh anchor text tự nhiên theo Vietnamese context (Lovable Gateway Gemini Flash).
-- UI: hiển thị card "Gợi ý link" trong sidebar editor; click "Chèn" → insert markdown `[anchor](url)`.
-
-## 6. Files
-
-```
-supabase/migrations/<ts>_external_link_sources.sql       (mới)
-supabase/functions/sync-external-links/index.ts          (mới)
-supabase/functions/suggest-internal-links/index.ts       (mới)
-supabase/config.toml                                      (đăng ký 2 fn)
-
-src/hooks/useExternalLinks.ts                             (mới)
-src/components/admin/seo-keywords/ExternalLinksTab.tsx    (mới)
-src/components/admin/seo-keywords/ExternalLinkPicker.tsx  (mới, reusable)
-src/components/admin/seo-keywords/LinksWorkspace.tsx      (thêm sub-view "external")
-src/components/seo/InternalLinkSuggestPanel.tsx           (mới, dùng trong long-form editor)
+```text
+The provided client secret is invalid.
 ```
 
-Tích hợp picker vào BlogPostMultiChannel/MultiChannelCreate ở bước follow-up sau khi base sync hoạt động.
+Nghĩa là Google đã nhận được OAuth code, nhưng khi hệ thống đổi code lấy access token thì **Google từ chối `Google Client Secret` đang lưu cho Blogger**. Đây không phải lỗi `Refresh token Blogger` hay lỗi Sync 401 nữa; đây là lỗi cấu hình OAuth app.
 
-## 7. Bảo mật & quota
+Hiện database đang có cả cấu hình `blogger` và `google_business`, đều đang active. Vì `blogger` có credential riêng nên hệ thống ưu tiên dùng credential Blogger; nếu secret của row Blogger sai/mismatch với Client ID thì kết nối sẽ fail như ảnh bạn gửi.
 
-- RLS strict theo `organization_id`.
-- Sync giới hạn 1000 URL/lần, 1 sync/connection/giờ (chống spam).
-- WordPress.org dùng Application Password đã encrypt trong `social_connections.metadata` (đã có sẵn cho publish-wordpress).
-- Sitemap fetch: chỉ HTTPS, follow tối đa 3 sitemap_index, timeout 15s.
+## Cách xử lý nhanh ngay bây giờ
 
-## Kết quả
+Vào **Admin → Social Platform Settings → Blogger → Chỉnh sửa** rồi nhập lại:
 
-User có 1 nơi duy nhất xem mọi URL trên các property của mình (Flowa-published + bài cũ trên WP/Blogger + bất kỳ site nào có sitemap), copy nhanh hoặc để AI tự gợi ý chèn internal/backlink khi viết bài mới.
+1. `Google Client ID` từ Google Cloud Console → OAuth 2.0 Client IDs.
+2. `Google Client Secret` đúng của cùng OAuth Client đó.
+3. Đảm bảo OAuth Client là loại **Web application**.
+4. Trong Google Cloud, thêm đúng **OAuth Callback URL** đang hiển thị trong dialog cấu hình Blogger.
+5. Bật **Blogger API v3** cho project Google đó.
+6. Lưu → bấm Test → quay lại Brand Connections → kết nối Blogger lại.
+
+Lưu ý: hãy copy **Client Secret**, không copy **Secret ID** hoặc giá trị từ app khác. Client ID và Client Secret phải cùng một OAuth Client.
+
+## Kế hoạch fix trong app sau khi bạn approve
+
+1. **Làm lỗi OAuth Blogger dễ hiểu hơn**
+   - Cập nhật `blogger-oauth-callback` để bắt riêng lỗi `invalid_client` / `client secret is invalid`.
+   - Thay vì hiện tiếng Anh thô, popup sẽ báo rõ bằng tiếng Việt: “Google Client Secret của Blogger không đúng hoặc không khớp Client ID. Vào Admin → Social Platform Settings → Blogger để nhập lại.”
+
+2. **Đồng bộ nguồn credential Blogger**
+   - Cập nhật `connect-social` và `blogger-oauth-callback` để cùng dùng một nguồn credential đã chọn.
+   - Nếu Blogger không có đủ cả Client ID + Secret thì fallback sang Google Business.
+   - Ghi `credentialSource` vào OAuth state để callback không chọn nhầm nguồn khác sau khi user consent.
+
+3. **Nâng cấp nút Test trong Admin Social Settings cho Blogger**
+   - Cho Blogger gọi trực tiếp `test-blogger-credentials` thay vì đi qua generic diagnostics nếu cần.
+   - Cập nhật `test-blogger-credentials` để kiểm tra thực tế với Google OAuth token endpoint và phân biệt:
+     - Secret sai / không khớp Client ID.
+     - Redirect URI chưa cấu hình.
+     - Blogger API v3 chưa bật.
+     - Credential chỉ đúng format nhưng chưa xác thực được.
+
+4. **Thêm hướng dẫn cấu hình rõ hơn trong dialog Blogger**
+   - Nhấn mạnh cần copy callback URL trong dialog vào Google Cloud.
+   - Nhắc không dùng “Secret ID”.
+   - Nhắc Client ID/Secret phải thuộc cùng OAuth Client.
+   - Nhắc bật Blogger API v3 và scope Blogger.
+
+5. **Không thay đổi database schema**
+   - Không cần migration.
+   - Không sửa file auto-generated.
+   - Không lưu secret mới thay bạn; phần secret đúng vẫn cần bạn nhập trong Admin vì hệ thống không thể tự biết Client Secret đúng từ Google.
+
+## Kết quả sau fix
+
+- Nếu credential đúng: kết nối Blogger sẽ hoàn tất và lưu connection.
+- Nếu credential sai: hệ thống sẽ chỉ rõ phải sửa Blogger Client Secret ở đâu, thay vì chỉ hiện “The provided client secret is invalid.”
+- Admin có thể Test credential trước khi user thử kết nối lại.
+
+<lov-actions>
+<lov-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</lov-link>
+</lov-actions>
