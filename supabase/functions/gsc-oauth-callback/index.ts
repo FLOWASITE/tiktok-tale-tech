@@ -6,18 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function htmlClose(message: string, ok: boolean, returnUrl?: string) {
-  const safeMsg = message.replace(/</g, "&lt;");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>GSC</title>
-<style>body{font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#fafafa;color:#111}
-.box{max-width:420px;text-align:center;padding:32px;background:#fff;border:1px solid #e5e5e5;border-radius:12px}
-.ok{color:#059669}.err{color:#dc2626}</style></head>
-<body><div class="box"><h2 class="${ok ? 'ok' : 'err'}">${ok ? '✓ Đã kết nối GSC' : '✗ Lỗi kết nối'}</h2>
-<p>${safeMsg}</p><p style="color:#666;font-size:13px">Cửa sổ này sẽ tự đóng…</p></div>
-<script>
-  try { window.opener && window.opener.postMessage({ type: 'gsc_oauth', ok: ${ok}, message: ${JSON.stringify(message)} }, '*'); } catch(e){}
-  setTimeout(() => { ${returnUrl ? `window.location.href=${JSON.stringify(returnUrl)}` : 'window.close()'}; }, 1500);
-</script></body></html>`;
+function redirectBack(message: string, ok: boolean, returnUrl?: string) {
+  const fallbackUrl = `${Deno.env.get("FRONTEND_URL") || "https://app.flowa.one"}/seo?tab=track&sub=gsc`;
+  const target = new URL(returnUrl || fallbackUrl);
+  target.searchParams.set("gsc_oauth", ok ? "success" : "error");
+  target.searchParams.set("message", message);
+  return new Response(null, {
+    status: 302,
+    headers: { ...corsHeaders, Location: target.toString() },
+  });
 }
 
 Deno.serve(async (req) => {
@@ -27,8 +24,8 @@ Deno.serve(async (req) => {
   const stateRaw = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error");
 
-  if (errorParam) return new Response(htmlClose(`Google trả lỗi: ${errorParam}`, false), { headers: { "Content-Type": "text/html" } });
-  if (!code || !stateRaw) return new Response(htmlClose("Thiếu code/state", false), { headers: { "Content-Type": "text/html" } });
+  if (errorParam) return redirectBack(`Google trả lỗi: ${errorParam}`, false);
+  if (!code || !stateRaw) return redirectBack("Thiếu code/state", false);
 
   try {
     const state = JSON.parse(atob(stateRaw));
@@ -55,7 +52,7 @@ Deno.serve(async (req) => {
     });
     const sitesJson = await sitesRes.json();
     const sites = (sitesJson.siteEntry || []).filter((s: any) => s.permissionLevel !== "siteUnverifiedUser");
-    if (!sites.length) return new Response(htmlClose("Tài khoản Google này không có site nào trong Search Console.", false), { headers: { "Content-Type": "text/html" } });
+    if (!sites.length) return redirectBack("Tài khoản Google này không có site nào trong Search Console.", false, state.return_url);
 
     const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000)).toISOString();
 
@@ -75,9 +72,9 @@ Deno.serve(async (req) => {
       }, { onConflict: "organization_id,site_url" });
     }
 
-    return new Response(htmlClose(`Đã kết nối ${sites.length} site GSC (${userInfo.email}).`, true, state.return_url), { headers: { "Content-Type": "text/html" } });
+    return redirectBack(`Đã kết nối ${sites.length} site GSC (${userInfo.email}).`, true, state.return_url);
   } catch (error: any) {
     console.error("[gsc-oauth-callback] Error:", error);
-    return new Response(htmlClose(error.message || "Internal error", false), { headers: { "Content-Type": "text/html" } });
+    return redirectBack(error.message || "Internal error", false);
   }
 });
