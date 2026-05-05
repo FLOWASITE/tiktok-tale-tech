@@ -135,7 +135,15 @@ Deno.serve(async (req) => {
       await new Promise(r => setTimeout(r, 500)); // gentle rate limit
     }
 
-    return new Response(JSON.stringify({ checked, found, errors: errors.slice(0, 10) }), {
+    if (runId) {
+      await supabase.from("seo_rank_tracker_runs").update({
+        finished_at: new Date().toISOString(),
+        checked, found,
+        errors: errors.length ? errors.slice(0, 50) : null,
+      }).eq("id", runId);
+    }
+
+    return new Response(JSON.stringify({ checked, found, run_id: runId, errors: errors.slice(0, 10) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
