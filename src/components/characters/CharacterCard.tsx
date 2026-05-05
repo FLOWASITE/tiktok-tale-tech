@@ -103,8 +103,30 @@ export function CharacterCard({
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <User className="w-12 h-12 text-muted-foreground/30" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <User className="w-10 h-10 text-muted-foreground/30" />
+            {onGenerateAvatar && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2.5 text-[11px] gap-1.5 bg-background/85 backdrop-blur"
+                disabled={isGeneratingAvatar}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGenerateAvatar();
+                }}
+              >
+                {isGeneratingAvatar ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" /> Đang tạo…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3" /> Tạo ảnh AI
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         )}
 
