@@ -156,6 +156,7 @@ export function AIBulkGenerateSheet({
               await onUpdateProfile({
                 id: created.id,
                 name: created.name,
+                description: created.description ?? '',
                 reference_image_url: url,
                 reference_images: [{ url, label: 'front' }],
               });
