@@ -10,7 +10,7 @@ const POYO_BASE_URL = 'https://api.poyo.ai';
 
 export interface PoyoGenerateParams {
   prompt: string;
-  model: string;           // 'poyo/gpt-4o-image', 'poyo/z-image', etc.
+  model: string;           // 'poyo/<model>': nano-banana[-pro|-2|-2-edit|-2-new|-2-new-edit], gpt-4o-image[-edit], gpt-image-1[-edit], gpt-image-1.5[-official[-edit]], gpt-image-2[-edit], flux-2-pro[-edit], flux-2-flex[-edit], flux-kontext-pro|max, seedream-4[-edit], seedream-4.5[-edit], seedream-5.0-lite[-edit], wan-2.7-image[-pro], kling-o1, kling-o3, z-image, grok-imagine
   aspectRatio?: string;    // '1:1', '16:9', '9:16', '4:3', '3:4', '1:4', '4:1', '1:8', '8:1'
   inputImage?: string;     // URL for image editing mode
   resolution?: '1K' | '2K' | '4K'; // For nano-banana-2-new models
