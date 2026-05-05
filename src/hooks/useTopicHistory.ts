@@ -184,7 +184,7 @@ export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
         .from('topic_history')
         .select('*')
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit);
+        .range(offset, offset + limit - 1);
 
       if (currentOrganization?.id) {
         query = query.eq('organization_id', currentOrganization.id);
