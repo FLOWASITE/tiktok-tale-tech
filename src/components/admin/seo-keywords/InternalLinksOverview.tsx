@@ -120,6 +120,8 @@ export default function InternalLinksOverview() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
+
