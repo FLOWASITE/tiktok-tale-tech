@@ -42,9 +42,9 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
     // Fetch brand context including voice variants
     const { data: brand, error: brandErr } = await supabase
       .from('brand_templates')
-      .select('name, tone_of_voice, target_audience, brand_personality, do_list, dont_list, content_pillars, industry_template_id, voice_variants')
-      .eq('id', brand_template_id)
-      .single();
+        .select('name, tone_of_voice, content_pillars, industry_template_id, voice_variants')
+        .eq('id', brand_template_id)
+        .maybeSingle();
 
     if (brandErr || !brand) {
       return new Response(JSON.stringify({ error: "Brand not found" }), {
