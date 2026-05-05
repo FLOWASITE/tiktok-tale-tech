@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic } from 'lucide-react';
+import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic, Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CharacterProfile, CharacterAppearance } from '@/hooks/useCharacterProfiles';
 import { calcCompleteness } from '@/lib/characterSchema';
@@ -18,6 +18,8 @@ interface Props {
   onEdit: () => void;
   onClone: () => void;
   onDelete: () => void;
+  onGenerateAvatar?: () => void;
+  isGeneratingAvatar?: boolean;
 }
 
 function CompletenessRing({ pct }: { pct: number }) {
