@@ -8,11 +8,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Edit2, Copy, Trash2, User, Mic, Tag, Sparkles, X } from 'lucide-react';
+import { Edit2, Copy, Trash2, User, Mic, Tag, Sparkles, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CharacterProfile, CharacterAppearance } from '@/hooks/useCharacterProfiles';
+import type { CharacterProfile, CharacterAppearance, ReferenceImage, ReferenceImageLabel } from '@/hooks/useCharacterProfiles';
 import { REF_IMAGE_LABELS, calcCompleteness } from '@/lib/characterSchema';
 import { Progress } from '@/components/ui/progress';
+import { useCharacterImageActions } from '@/hooks/useCharacterImageActions';
+import { useCharacterProfiles } from '@/hooks/useCharacterProfiles';
+import { toast } from 'sonner';
 
 interface Props {
   profile: CharacterProfile | null;
