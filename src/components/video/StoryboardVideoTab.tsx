@@ -149,7 +149,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
           scene_number: scene.sceneNumber,
           character_profile_id: selectedCharacterIds[0] || undefined,
           character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
-          // starting_frame_url để trống → server pick ảnh ref nhân vật theo angle scene
+          product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
+          // starting_frame_url để trống → server pick ảnh ref nhân vật/sản phẩm theo nhãn của scene
         });
         if (res) {
           success += 1;
