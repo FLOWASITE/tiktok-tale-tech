@@ -80,7 +80,12 @@ export function CharacterDetailSheet({
     try {
       for (const l of availableLabels) {
         toast.info(`Đang tạo ${l.label} (${createdCount + 1}/${availableLabels.length})…`);
-        const url = await imageActions.generateImage(l.value as ReferenceImageLabel, refMainUrl);
+        const refForThis = attachedRefs[l.value] || refMainUrl;
+        const url = await imageActions.generateImage(
+          l.value as ReferenceImageLabel,
+          refForThis,
+          { editModel: editModel === 'auto' ? undefined : editModel },
+        );
         if (!url) break;
         current = [...current, { url, label: l.value as ReferenceImageLabel }];
         await updateProfile.mutateAsync({
