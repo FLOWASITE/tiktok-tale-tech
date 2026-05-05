@@ -20,11 +20,20 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const orgFilter: string | undefined = body.organization_id;
     const limit: number = Math.min(body.limit ?? 50, 200);
+    const triggeredBy: string = body.triggered_by ?? "manual";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Open a tracker run record
+    const { data: runRow } = await supabase
+      .from("seo_rank_tracker_runs")
+      .insert({ organization_id: orgFilter ?? null, triggered_by: triggeredBy })
+      .select("id")
+      .single();
+    const runId = runRow?.id as string | undefined;
 
     // Pick keywords to track: prioritize ones with tracking_url, sort by least recently checked
     let q = supabase
