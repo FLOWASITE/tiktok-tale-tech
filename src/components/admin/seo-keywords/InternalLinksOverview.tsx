@@ -26,45 +26,54 @@ export default function InternalLinksOverview() {
   const [active, setActive] = useState<InternalLinkRow | null>(null);
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40%]">Bài viết</TableHead>
-                <TableHead className="w-[110px] text-center">
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <ArrowDownLeft className="h-3 w-3" /> Internal in
-                  </span>
-                </TableHead>
-                <TableHead className="w-[110px] text-center">
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <ArrowUpRight className="h-3 w-3" /> Internal out
-                  </span>
-                </TableHead>
-                <TableHead className="w-[110px] text-center">
-                  <span className="inline-flex items-center gap-1 text-xs">
-                    <ExternalLink className="h-3 w-3" /> Backlinks
-                  </span>
-                </TableHead>
-                <TableHead className="w-[110px] text-center">Equity</TableHead>
-                <TableHead className="w-[140px] text-right">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && [...Array(5)].map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell colSpan={6}><Skeleton className="h-6 w-full" /></TableCell>
-                </TableRow>
-              ))}
-              {!isLoading && (data?.rows ?? []).length === 0 && (
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                    Chưa có liên kết nội bộ nào. Mở 1 bài long-form và bấm "Gợi ý liên kết nội bộ".
-                  </TableCell>
+                  <TableHead className="w-[40%]">Bài viết</TableHead>
+                  <TableHead className="w-[110px] text-center">
+                    <ColHead icon={<ArrowDownLeft className="h-3 w-3" />} label="Internal in"
+                      tip="Số bài blog khác đang link ĐẾN bài này. Càng cao càng tốt — bài đó là 'trung tâm' của cluster." />
+                  </TableHead>
+                  <TableHead className="w-[110px] text-center">
+                    <ColHead icon={<ArrowUpRight className="h-3 w-3" />} label="Internal out"
+                      tip="Số bài blog khác mà bài này đang link ĐI. Tăng bằng cách bấm 'Quản lý' → AI gợi ý link nội bộ." />
+                  </TableHead>
+                  <TableHead className="w-[110px] text-center">
+                    <ColHead icon={<ExternalLink className="h-3 w-3" />} label="Backlinks"
+                      tip="Số post Social/Website đã trỏ về bài này. Tự sinh khi publish multichannel có chèn link blog." />
+                  </TableHead>
+                  <TableHead className="w-[110px] text-center">
+                    <ColHead icon={<Sparkles className="h-3 w-3" />} label="Equity"
+                      tip="Equity = Internal in + Backlinks. ≥3 = mạnh (bài hub). =0 = đói link, cần bơm." />
+                  </TableHead>
+                  <TableHead className="w-[140px] text-right">Hành động</TableHead>
                 </TableRow>
-              )}
+              </TableHeader>
+              <TableBody>
+                {isLoading && [...Array(5)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={6}><Skeleton className="h-6 w-full" /></TableCell>
+                  </TableRow>
+                ))}
+                {!isLoading && (data?.rows ?? []).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12">
+                      <div className="flex flex-col items-center gap-2 text-center text-muted-foreground">
+                        <Link2 className="h-8 w-8 opacity-40" />
+                        <p className="text-sm font-medium text-foreground">Chưa có liên kết nội bộ nào</p>
+                        <p className="text-xs max-w-md">
+                          Internal link giúp phân phối PageRank giữa các bài blog cùng cluster. Mở 1 bài long-form
+                          (Website/WordPress/Blogger) → bấm <strong>"Gợi ý liên kết nội bộ"</strong> → AI sẽ đề xuất
+                          các bài liên quan để link sang nhau.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               {!isLoading && (data?.rows ?? []).map((r) => {
                 const equity = r.in_count + r.backlink_count;
                 const tone =
