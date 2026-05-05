@@ -320,9 +320,22 @@ export default function OverviewTab() {
             ) : (
               <ul className="space-y-2">
                 {topUnassigned.map((k) => (
-                  <li key={k.id} className="flex items-center justify-between text-sm">
+                  <li key={k.id} className="flex items-center justify-between text-sm gap-2">
                     <span className="truncate flex-1">{k.keyword}</span>
-                    <Badge variant="secondary" className="ml-2">{k.priority_score}</Badge>
+                    <Badge variant="secondary">{k.priority_score}</Badge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs gap-1"
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        params.set("seoKeywordId", k.id);
+                        if (k.cluster_id) params.set("clusterId", k.cluster_id);
+                        navigate(`/multichannel?${params.toString()}`);
+                      }}
+                    >
+                      <Sparkles className="h-3 w-3" /> Tạo
+                    </Button>
                   </li>
                 ))}
               </ul>
