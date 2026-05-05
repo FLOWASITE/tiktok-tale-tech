@@ -173,26 +173,33 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
     });
 
     if (!result.success) {
-      console.error(`[generate-character] traceId=${traceId} AI failed:`, result.error);
+      const provider = result.provider || 'unknown';
+      const usedModel = result.model || 'unknown';
+      console.error(`[generate-character] traceId=${traceId} AI failed via ${provider}/${usedModel}:`, result.error);
       const errMsg = result.error || '';
       if (errMsg.includes('429') || /rate/i.test(errMsg)) {
-        return new Response(JSON.stringify({ error: "Rate limited, vui lòng thử lại sau." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(JSON.stringify({
+          error: `Provider ${provider} (${usedModel}) đang bị rate limit, vui lòng thử lại sau.`,
+          code: "AI_RATE_LIMIT", provider, model: usedModel, traceId,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (errMsg.includes('402') || /quota|credit|payment|billing/i.test(errMsg)) {
+        const providerLabel = provider === 'lovable'
+          ? 'Lovable AI Gateway (hết credits)'
+          : provider === 'dashscope'
+          ? 'Alibaba DashScope (kiểm tra billing/API key Qwen)'
+          : provider === 'openrouter'
+          ? 'OpenRouter (hết credits/API key)'
+          : `Provider ${provider}`;
         return new Response(JSON.stringify({
-          error: "Hết quota AI hoặc API key provider đang bị giới hạn billing. Vui lòng nạp credits/kiểm tra API key trong AI Management.",
-          code: "AI_QUOTA_EXHAUSTED",
-          fallback: true,
-          traceId,
-        }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+          error: `Lỗi billing từ ${providerLabel}. Model: ${usedModel}. Vào AI Management kiểm tra provider/key tương ứng.`,
+          code: "AI_QUOTA_EXHAUSTED", provider, model: usedModel, fallback: true, traceId,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(JSON.stringify({ error: `AI generation failed: ${errMsg}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({
+        error: `AI generation failed (${provider}/${usedModel}): ${errMsg}`,
+        provider, model: usedModel, traceId,
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const aiData = result.data;

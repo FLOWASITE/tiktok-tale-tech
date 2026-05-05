@@ -1,70 +1,59 @@
-## Mục tiêu
-Hoàn thiện khu "Quản lý nhân vật" trong Video Studio để user có thể tạo nhân vật end-to-end mà không cần vào QuickClip/Storyboard.
-
-## Hiện trạng (đã có)
-- Table `character_profiles` + bucket `character-references` + RLS
-- `CharacterProfileManager`: CRUD thủ công, upload ảnh, AI auto-fill từ ảnh upload, multi-ref images, voice ID/provider
-- `MultiCharacterPicker` (trong QuickClip/Storyboard) đã có AI generate nhân vật từ Brand qua `generate-character`
-- Edge functions `generate-character`, `analyze-character-image` chạy ổn
-
-## Gaps cần lấp
-
-### 1. AI generate nhân vật + ảnh ref ngay trong Manager
-- Thêm nút **"Tạo bằng AI"** ở header Manager → mở dialog tương tự `MultiCharacterPicker`:
-  - Input: role hint, số lượng (1-3), video type
-  - Gọi `generate-character` (edge function đã có) với `brand_template_id = currentBrand.id`
-  - Hiển thị danh sách nhân vật đã sinh + checkbox chọn lưu
-  - Lưu vào `character_profiles` (KHÔNG auto-add vào pickup, vì Manager không có concept "đang chọn")
-
-- Trong form sửa/tạo nhân vật, thêm nút **"Tạo ảnh tham chiếu bằng AI"**:
-  - Yêu cầu: name + appearance (gender/age/hair/skin/wardrobe) phải có
-  - Tạo edge function mới `generate-character-image`:
-    - Build prompt từ `buildCharacterBlock()` + style hint ("photorealistic portrait, neutral background, studio lighting, front view")
-    - Cho phép param `view: 'front' | 'side' | 'full-body' | 'close-up'` để sinh từng góc
-    - Gọi Lovable AI Gateway với `google/gemini-3-pro-image-preview` (image gen modal)
-    - Upload base64 lên bucket `character-references` → trả `{url, label}`
-  - Frontend: nút "Tạo ảnh AI" mở mini-popover chọn góc → gọi function → push vào `reference_images` (hoặc set `reference_image_url` nếu là ảnh đầu tiên)
-  - Reuse error handling 402/429
-
-### 2. Auto-bind brand + Clone + UX nhỏ
-- **Auto-bind**: khi tạo nhân vật mới trong Manager, tự set `brand_template_id = currentBrand?.id` (đã làm ở MultiCharacterPicker, copy sang Manager)
-- **Clone**: thêm nút Copy bên cạnh Edit/Delete → copy toàn bộ profile, đổi tên thành `<name> (bản sao)`, mở dialog edit ngay
-- **Hiển thị brand owner**: nếu profile gắn brand khác brand hiện tại, show badge nhỏ "Brand: X" (fetch tên qua join hoặc dùng `useBrandTemplates`)
-- **Filter theo brand**: thêm toggle "Chỉ brand hiện tại" (mặc định ON) — chỉ list profiles có `brand_template_id = currentBrand.id` hoặc null
-
-## Files thay đổi
-
-### Mới
-- `supabase/functions/generate-character-image/index.ts` — sinh ảnh ref từ profile data, upload bucket, trả URL. Auth qua JWT, dùng service client.
-- `supabase/config.toml` — KHÔNG cần (mặc định `verify_jwt = true` phù hợp).
-
-### Sửa
-- `src/components/video/CharacterProfileManager.tsx`:
-  - Thêm state + handler cho AI generate dialog (port logic từ MultiCharacterPicker.generateCharacters/saveSelected)
-  - Thêm handler `handleGenerateRefImage(label)` gọi `generate-character-image`
-  - Thêm nút "Tạo bằng AI" header, "Tạo ảnh AI" trong form
-  - Thêm nút Clone trên card
-  - Auto bind `brand_template_id` khi tạo
-  - Thêm filter toggle theo brand
-  - Hiển thị badge brand trên card khi cross-brand
-- Không sửa `useCharacterProfiles.ts` (input đã có `brand_template_id`)
-- Không sửa `MultiCharacterPicker.tsx`
-
-## Edge function spec — `generate-character-image`
+Kết luận nhanh: lỗi này KHÔNG phải do tài khoản Alibaba hết token. Log backend cho thấy request `generate-character` đang gọi Lovable Gateway và bị 402 ở đó:
 
 ```text
-POST { profile_id?, name, appearance, wardrobe, description, view: 'front'|'side'|'full-body'|'close-up' }
-→ Build photorealistic portrait prompt từ character data
-→ Call ai.gateway.lovable.dev model=google/gemini-3-pro-image-preview, modalities=['image','text']
-→ Decode base64 → upload bucket character-references/{org_id}/{uuid}.png
-→ Return { url, label: view }
-→ Handle 402/429 với message tiếng Việt
+Function: generate-character, Model: google/gemini-3-flash-preview
+Primary provider: lovable
+Using Lovable AI Gateway (default)
+Lovable Gateway error: 402 Not enough credits
 ```
 
-## Out of scope (lần này)
-- Voice fields nâng cao (honorific/speech_style/regional_accent UI) — đã chốt KHÔNG làm lần này
-- Embed `CharacterVoicePreview` vào Manager — chưa làm
-- AI auto-fill cho từng multi-ref image (chỉ giữ cho ảnh chính)
+Nguyên nhân trực tiếp: trong database đang có cấu hình riêng cho `generate-character`:
 
-## Acceptance
-- Trong "Quản lý nhân vật", user có thể: (1) bấm "Tạo bằng AI" → chọn role+count → AI sinh → lưu; (2) trong form, bấm "Tạo ảnh AI" → chọn góc → ảnh xuất hiện trong reference_images; (3) bấm Clone trên card; (4) thấy badge brand khi profile thuộc brand khác.
+```text
+generate-character -> model_override = google/gemini-3-flash-preview
+```
+
+Cấu hình riêng này đang đè lên cấu hình nhóm text:
+
+```text
+text group -> model_override = qwen-plus
+```
+
+Vì model `google/gemini-3-flash-preview` được map sang Lovable Gateway, nên hệ thống báo hết credits của Lovable, không liên quan Alibaba.
+
+Ngoài ra, `generate-character-image` hiện vẫn đang gọi Lovable Gateway trực tiếp trong code, chưa đi qua routing provider chung. Nếu admin chọn model ảnh khác như `geminigen/nano-banana-pro`, function này cũng có nguy cơ không tôn trọng đúng provider/user config.
+
+Kế hoạch sửa:
+
+1. Sửa cấu hình runtime cho `generate-character`
+   - Bỏ hoặc thay `model_override = google/gemini-3-flash-preview` của `generate-character`.
+   - Để function kế thừa group text `qwen-plus`, hoặc set thẳng:
+     - `model_override = qwen-plus`
+     - `force_provider = dashscope`
+   - Kết quả mong muốn: log phải thành `Primary provider: dashscope`, không còn `lovable`.
+
+2. Sửa message lỗi của `generate-character`
+   - Không hiển thị câu “Hết quota AI / nạp credits” chung chung khi provider thực tế không phải Lovable.
+   - Trả về lỗi rõ hơn, ví dụ:
+     - `Provider: dashscope`
+     - `Model: qwen-plus`
+     - `traceId`
+   - Nếu lỗi đến từ Lovable thì mới nói Lovable credits; nếu từ DashScope thì nói API key/billing/rate limit của Alibaba.
+
+3. Sửa `generate-character-image` để tôn trọng user/admin config
+   - Không fetch cứng sang Lovable Gateway như hiện tại.
+   - Với image model thuộc Gemini/Lovable thì dùng Lovable-compatible path.
+   - Với model image thuộc provider khác như `geminigen/*` hoặc KIE/PoYo nếu đang có integration tương ứng, route theo provider config thay vì gọi sai endpoint.
+   - Nếu model chưa được hỗ trợ bởi function ảnh nhân vật, trả lỗi cấu hình rõ ràng thay vì báo quota sai.
+
+4. Kiểm tra sau sửa
+   - Gọi test `generate-character` và kiểm tra log có:
+     ```text
+     resolved model=qwen-plus
+     Primary provider: dashscope
+     Using user's dashscope API key
+     ```
+   - Gọi lại flow tạo nhân vật trên UI, đảm bảo không còn toast “Hết quota AI...” từ Lovable khi đang dùng Alibaba.
+   - Kiểm tra `generate-character-image` riêng để xác nhận model ảnh nhân vật đang route đúng provider hoặc báo đúng lỗi cấu hình.
+
+Nếu bạn approve, tôi sẽ thực hiện ngay theo hướng: ưu tiên `generate-character` dùng `qwen-plus` qua Alibaba/DashScope, đồng thời sửa `generate-character-image` để không gọi Lovable cứng nữa.
