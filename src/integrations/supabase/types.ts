@@ -10381,6 +10381,84 @@ export type Database = {
           },
         ]
       }
+      seo_rank_tracker_runs: {
+        Row: {
+          checked: number
+          created_at: string
+          errors: Json | null
+          finished_at: string | null
+          found: number
+          id: string
+          organization_id: string | null
+          started_at: string
+          triggered_by: string
+        }
+        Insert: {
+          checked?: number
+          created_at?: string
+          errors?: Json | null
+          finished_at?: string | null
+          found?: number
+          id?: string
+          organization_id?: string | null
+          started_at?: string
+          triggered_by?: string
+        }
+        Update: {
+          checked?: number
+          created_at?: string
+          errors?: Json | null
+          finished_at?: string | null
+          found?: number
+          id?: string
+          organization_id?: string | null
+          started_at?: string
+          triggered_by?: string
+        }
+        Relationships: []
+      }
+      seo_serp_snapshots: {
+        Row: {
+          common_h2s: string[] | null
+          created_at: string
+          id: string
+          keyword_id: string
+          median_word_count: number | null
+          organization_id: string
+          raw: Json | null
+          schema_types: string[] | null
+          snapshot_at: string
+          source: string
+          top_results: Json
+        }
+        Insert: {
+          common_h2s?: string[] | null
+          created_at?: string
+          id?: string
+          keyword_id: string
+          median_word_count?: number | null
+          organization_id: string
+          raw?: Json | null
+          schema_types?: string[] | null
+          snapshot_at?: string
+          source?: string
+          top_results: Json
+        }
+        Update: {
+          common_h2s?: string[] | null
+          created_at?: string
+          id?: string
+          keyword_id?: string
+          median_word_count?: number | null
+          organization_id?: string
+          raw?: Json | null
+          schema_types?: string[] | null
+          snapshot_at?: string
+          source?: string
+          top_results?: Json
+        }
+        Relationships: []
+      }
       social_connections: {
         Row: {
           access_token: string

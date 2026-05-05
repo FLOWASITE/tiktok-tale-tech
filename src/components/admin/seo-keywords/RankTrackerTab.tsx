@@ -5,13 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Loader2 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Loader2, LineChart as LineChartIcon, Sparkles, Clock } from "lucide-react";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { toast } from "sonner";
+import { useLatestTrackerRun } from "@/hooks/useRankHistory";
+import RankTrendChart from "@/components/seo/RankTrendChart";
+import SerpInsightsSheet from "@/components/seo/SerpInsightsSheet";
 
 export default function RankTrackerTab() {
   const { currentOrganization } = useOrganizationContext();
   const [running, setRunning] = useState(false);
+  const [trendKw, setTrendKw] = useState<{ id: string; keyword: string } | null>(null);
+  const [serpKw, setSerpKw] = useState<{ id: string; keyword: string } | null>(null);
+
+  const { data: runs = [], refetch: refetchRuns } = useLatestTrackerRun(currentOrganization?.id);
+  const lastRun = runs[0];
 
   const { data: keywords, refetch, isLoading } = useQuery({
     queryKey: ["seo-rank-tracking", currentOrganization?.id],
@@ -19,7 +28,7 @@ export default function RankTrackerTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("seo_keywords")
-        .select("id, keyword, locale, current_rank, previous_rank, rank_change, last_checked_at, search_volume, difficulty")
+        .select("id, keyword, locale, current_rank, previous_rank, rank_change, last_checked_at, search_volume, difficulty, cluster_id")
         .eq("organization_id", currentOrganization!.id)
         .order("current_rank", { ascending: true, nullsFirst: false })
         .limit(100);
@@ -33,11 +42,12 @@ export default function RankTrackerTab() {
     setRunning(true);
     try {
       const { data, error } = await supabase.functions.invoke("seo-rank-tracker", {
-        body: { organization_id: currentOrganization.id, limit: 30 },
+        body: { organization_id: currentOrganization.id, limit: 30, triggered_by: "manual" },
       });
       if (error) throw error;
       toast.success(`Đã kiểm tra ${data.checked} keyword, tìm thấy ${data.found} kết quả xếp hạng`);
       refetch();
+      refetchRuns();
     } catch (e: any) {
       toast.error(`Lỗi rank tracker: ${e.message}`);
     } finally {
@@ -52,11 +62,11 @@ export default function RankTrackerTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold">Rank Tracker</h2>
           <p className="text-sm text-muted-foreground">
-            Theo dõi vị trí Google SERP. Tự động chạy mỗi <span className="font-medium">thứ Hai 02:00 UTC</span>.
+            Theo dõi vị trí Google SERP qua Firecrawl. Tự chạy mỗi <span className="font-medium">thứ Hai 02:00 UTC</span>.
           </p>
         </div>
         <Button onClick={runTracker} disabled={running} className="gap-2">
@@ -64,6 +74,24 @@ export default function RankTrackerTab() {
           Chạy kiểm tra ngay
         </Button>
       </div>
+
+      {/* Last run summary */}
+      {lastRun && (
+        <Card className="border-muted">
+          <CardContent className="p-3 flex items-center gap-3 flex-wrap text-sm">
+            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-muted-foreground">Lần chạy gần nhất:</span>
+            <span className="font-medium">{new Date(lastRun.started_at).toLocaleString("vi-VN")}</span>
+            <Badge variant="outline" className="text-[10px]">{lastRun.triggered_by}</Badge>
+            <span className="text-muted-foreground">·</span>
+            <span><b>{lastRun.checked}</b> đã kiểm tra · <b>{lastRun.found}</b> tìm thấy</span>
+            {lastRun.errors && Array.isArray(lastRun.errors) && (lastRun.errors as any[]).length > 0 && (
+              <Badge variant="destructive" className="text-[10px]">{(lastRun.errors as any[]).length} lỗi</Badge>
+            )}
+            {!lastRun.finished_at && <Badge variant="secondary" className="text-[10px]">Đang chạy...</Badge>}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard label="Đã track" value={tracked.length} />
@@ -89,6 +117,7 @@ export default function RankTrackerTab() {
                   <TableHead className="text-right">Rank</TableHead>
                   <TableHead className="text-right">Thay đổi</TableHead>
                   <TableHead>Kiểm tra lần cuối</TableHead>
+                  <TableHead className="text-right w-[120px]">Phân tích</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,6 +139,16 @@ export default function RankTrackerTab() {
                     <TableCell className="text-xs text-muted-foreground">
                       {k.last_checked_at ? new Date(k.last_checked_at).toLocaleString("vi-VN") : "Chưa"}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" title="Trend 90 ngày"
+                        onClick={() => setTrendKw({ id: k.id, keyword: k.keyword })}>
+                        <LineChartIcon className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" title="SERP & đối thủ"
+                        onClick={() => setSerpKw({ id: k.id, keyword: k.keyword })}>
+                        <Sparkles className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -117,6 +156,24 @@ export default function RankTrackerTab() {
           )}
         </CardContent>
       </Card>
+
+      <Sheet open={!!trendKw} onOpenChange={(o) => !o && setTrendKw(null)}>
+        <SheetContent className="w-full sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>Trend 90 ngày · {trendKw?.keyword}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            {trendKw && <RankTrendChart keywordId={trendKw.id} />}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <SerpInsightsSheet
+        open={!!serpKw}
+        onOpenChange={(o) => !o && setSerpKw(null)}
+        keywordId={serpKw?.id ?? null}
+        keyword={serpKw?.keyword ?? null}
+      />
     </div>
   );
 }

@@ -20,11 +20,20 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const orgFilter: string | undefined = body.organization_id;
     const limit: number = Math.min(body.limit ?? 50, 200);
+    const triggeredBy: string = body.triggered_by ?? "manual";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // Open a tracker run record
+    const { data: runRow } = await supabase
+      .from("seo_rank_tracker_runs")
+      .insert({ organization_id: orgFilter ?? null, triggered_by: triggeredBy })
+      .select("id")
+      .single();
+    const runId = runRow?.id as string | undefined;
 
     // Pick keywords to track: prioritize ones with tracking_url, sort by least recently checked
     let q = supabase
@@ -126,7 +135,15 @@ Deno.serve(async (req) => {
       await new Promise(r => setTimeout(r, 500)); // gentle rate limit
     }
 
-    return new Response(JSON.stringify({ checked, found, errors: errors.slice(0, 10) }), {
+    if (runId) {
+      await supabase.from("seo_rank_tracker_runs").update({
+        finished_at: new Date().toISOString(),
+        checked, found,
+        errors: errors.length ? errors.slice(0, 50) : null,
+      }).eq("id", runId);
+    }
+
+    return new Response(JSON.stringify({ checked, found, run_id: runId, errors: errors.slice(0, 10) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
