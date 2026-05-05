@@ -62,6 +62,8 @@ export function CharacterCard({
   onEdit,
   onClone,
   onDelete,
+  onGenerateAvatar,
+  isGeneratingAvatar,
 }: Props) {
   const app = (profile.appearance ?? {}) as CharacterAppearance;
   const refCount = Array.isArray(profile.reference_images) ? profile.reference_images.length : 0;
