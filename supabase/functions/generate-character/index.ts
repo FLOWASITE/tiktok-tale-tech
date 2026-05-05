@@ -124,7 +124,9 @@ ${video_type ? `\nTHỂ LOẠI VIDEO: ${video_type}` : ''}
 
 Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand này.`;
 
-    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0}`);
+    const aiConfig = await getAIConfig('generate-character', (brand as any).organization_id);
+    const model = aiConfig.model || 'google/gemini-2.5-flash';
+    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0} model=${model}`);
 
     const startMs = Date.now();
 
@@ -135,7 +137,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
