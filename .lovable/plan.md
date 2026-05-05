@@ -1,66 +1,55 @@
-# Cập nhật danh sách model video GeminiGen
+# Cải thiện độ đồng nhất ảnh nhân vật
 
-## Phát hiện từ `geminigen.ai/pricing`
+## Vấn đề hiện tại
+Khi bấm "Tạo N góc còn lại bằng AI", các ảnh sinh ra **không giống** nhau và không giống ảnh đại diện chính:
+- Backend mặc định dùng `google/gemini-2.5-flash-image` (Nano Banana 1) — model **text-to-image**, giữ identity yếu khi nhận ảnh ref.
+- UI chỉ tự động dùng `refMainUrl` làm ref, không cho người dùng:
+  - Attach ảnh avatar khác làm ref cho riêng từng góc
+  - Chọn model edit chuyên dụng cho character consistency
 
-GeminiGen hiện cung cấp nhiều model video hơn list trong code (Sora không thấy trên pricing nhưng giữ lại do code đã wired).
+## Giải pháp
 
-### Bổ sung mới (chưa có trong code)
-**Veo (Google):**
-- `veo-3.1-fast-fullhd` — Fast Full HD
-- `veo-3.1-lite-hd` — Lite HD
-- `veo-3.1-lite-fullhd` — Lite Full HD
-- `veo-3.1-hd`, `veo-3.1-fullhd` — Premium HD/Full HD (giữ `veo-3.1` làm alias)
+### A. Backend: Auto upgrade model edit khi có ref
+File: `supabase/functions/generate-character-image/index.ts`
 
-**Grok (xAI):**
-- `grok-3` — Free tier, fast video gen
+Khi `hasRef === true`, thay vì dùng `aiConfig.model` (text-to-image), tự động ưu tiên 1 trong các model edit có character lock mạnh:
+1. `poyo/seedream-5.0-lite-edit` (multi-ref tới 10 ảnh, character consistency mạnh nhất)
+2. `poyo/nano-banana-pro` (Gemini 3 Pro, identity tốt hơn 2.5)
+3. `poyo/flux-kontext-max` (Flux Kontext Max — instruction-following edit)
+4. Fallback: `google/gemini-3-pro-image-preview` (Nano Banana Pro qua Lovable Gateway)
 
-**Bytedance Seedance 2.0:** (mới hoàn toàn)
-- `seedance-2-fast-480p`, `seedance-2-fast-720p`
-- `seedance-2-pro-480p`, `seedance-2-pro-720p`
-- `seedance-2-omni-fast`, `seedance-2-omni-pro`
-- `seedance-2-omni-fast-vip`, `seedance-2-omni-pro-vip`
+Logic: nếu admin đã set override model → tôn trọng admin choice; nếu admin để default → upgrade theo priority trên (chọn model đầu tiên có API key configured).
 
-**Kling (Kuaishou):** (mới hoàn toàn)
-- `kling-3.0-720p`, `kling-3.0-1080p`
-- `kling-3.0-edit-720p`, `kling-3.0-edit-1080p`
-- `kling-3.0-motion-control-720p/1080p`
-- `kling-o1-720p`, `kling-o1-1080p`, `kling-o1-edit-1080p`
-- `kling-2.6-720p`, `kling-2.6-1080p`, `kling-2.6-1080p-audio`
-- `kling-2.6-motion-control-720p/1080p`
-- `kling-2.5-720p`, `kling-2.5-1080p`, `kling-2.5-720p-relax`
-- `kling-2.1-5s-720p/1080p`, `kling-2.1-10s-720p/1080p`
-- `kling-lipsync`
+Thêm param `preferred_edit_model` để client override.
 
-**Tổng:** ~30+ model mới.
+### B. Frontend: Tab "Ảnh tham chiếu" — thêm chức năng attach + per-shot
+File: `src/components/characters/CharacterDetailSheet.tsx` + `useCharacterImageActions.ts`
 
-## Files cần update
+Trên mỗi label chưa có (front/side/full-body/close-up/outfit), hiển thị một **mini-card** với 3 actions:
+- 📎 **Attach ảnh** — upload file riêng cho góc này (lưu tạm vào storage, dùng làm ref thay cho `refMainUrl`)
+- ✨ **Tạo bằng AI** — tạo dùng ref đã chọn (mặc định `refMainUrl`, hoặc ảnh attach nếu có)
+- ❌ **Xoá** ảnh đã attach
 
-### 1. `src/types/aiProvider.ts` (line 142-148)
-- Mở rộng `geminigen.models[]` với 30+ ID mới (group: Veo / Grok / Seedance / Kling).
-- Update `description` từ chỉ-image sang "Veo, Grok, Seedance, Kling video + Imagen/Nano Banana".
+Đồng thời:
+- Thêm dropdown "Model AI" gọn (chỉ hiện trong card group): chọn 1 trong 4 model edit khuyến nghị, mặc định = `auto` (để backend tự pick).
+- Nút "Tạo N góc còn lại" giữ nguyên nhưng thêm nhãn nhỏ: "(dùng ảnh chính làm ref + model edit)"
 
-### 2. `src/hooks/useAIConfig.ts` (line 274-297)
-- Trong array `video[]`: thêm các `geminigen/*` ID mới ở trên (giữ alphabetical theo provider).
+### C. Hook: mở rộng signature
+File: `src/hooks/useCharacterImageActions.ts`
 
-### 3. `supabase/functions/_shared/geminigen-video-generator.ts`
-- Update header comment (line 4) liệt kê model mới.
-- **Endpoint `/uapi/v1/video-gen/veo` chỉ dùng cho Veo.** Cần check pricing/docs xem Seedance/Kling/Grok có endpoint riêng không.
-  - Nếu có, thêm route function chọn endpoint theo prefix model:
-    - `veo-*` → `/uapi/v1/video-gen/veo`
-    - `sora-*` → `/uapi/v1/video-gen/sora` (cũ đã pattern này)
-    - `grok-*` → `/uapi/v1/video-gen/grok`
-    - `seedance-*` → `/uapi/v1/video-gen/seedance`
-    - `kling-*` → `/uapi/v1/video-gen/kling`
-  - Endpoint thực tế chưa confirm trong docs (404). **Sẽ implement endpoint switcher dựa trên pattern đoán + log warning** để khi gọi thật sẽ thấy lỗi cụ thể và sửa nhanh.
+`generateImage(label, referenceImageUrl?, options?)` — thêm `options.editModel?: string` truyền xuống edge function.
 
-### 4. `src/components/video/ProviderModelPicker.tsx` (nếu có grouping UI)
-- Nếu component group model theo family thì thêm 4 nhóm mới: Grok, Seedance, Kling, các Veo lite.
+## Files thay đổi
+1. `supabase/functions/generate-character-image/index.ts` — thêm logic upgrade-edit-model + nhận `preferred_edit_model`
+2. `src/hooks/useCharacterImageActions.ts` — thêm tham số `editModel`
+3. `src/components/characters/CharacterDetailSheet.tsx` — UI mini-card per-label với attach + AI button + model selector
+4. `src/lib/characterSchema.ts` — không thay đổi (label list giữ nguyên)
 
-## Không thay đổi
-- DB migration: không cần (model là string).
-- Sora models: giữ nguyên cho backward compat.
-- PoYo video models: giữ nguyên (đã update riêng nếu cần).
+## Ngoài phạm vi (không làm)
+- Không tạo bảng DB mới (ảnh attach tạm thời chỉ giữ trong state, không persist riêng — sau khi generate sẽ flush vào `reference_images` chuẩn).
+- Không động đến `CharacterFormSheet` (form tạo mới).
+- Không thay đổi auto-pick logic của video generation (`generate-video`, character consistency memory).
 
-## Lưu ý / Risk
-- **Endpoint chưa verify**: API path cho Seedance/Kling/Grok là suy đoán. Cần test 1 model thực tế sau khi deploy để confirm + fix path nếu sai.
-- Pricing chênh lệch lớn giữa các model (free → $0.175/sec) → admin cần biết rõ khi pick. Sẽ thêm tooltip pricing nếu kịp scope.
+## Rủi ro
+- **API key**: nếu workspace chưa có `POYO_API_KEY` thì auto upgrade fallback sang Lovable Gateway (`google/gemini-3-pro-image-preview`) — vẫn cải thiện so với 2.5-flash-image.
+- **Cost**: Nano Banana Pro / Seedream Edit đắt hơn flash. Sẽ log model thực dùng để admin theo dõi qua `ai_metrics`.

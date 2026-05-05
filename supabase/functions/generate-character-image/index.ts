@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { name, appearance = {}, wardrobe = "", description = "", view = "front", organization_id, reference_image_url = "" } = body;
+    const { name, appearance = {}, wardrobe = "", description = "", view = "front", organization_id, reference_image_url = "", preferred_edit_model = "" } = body;
     const hasRef = typeof reference_image_url === 'string' && reference_image_url.trim().length > 0;
 
     if (!name || !organization_id) {
@@ -116,8 +116,30 @@ Style: high-end commercial photography, soft natural lighting, neutral light gra
       : `Photorealistic professional studio headshot of a fictional adult Vietnamese character, ${traits.join(", ") || "adult person"}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} ${viewHint}. Neutral light gray background, soft natural lighting, realistic skin, non-celebrity, no text, no watermark.`;
 
     const aiConfig = await getAIConfig('generate-character-image', organization_id);
-    const model = aiConfig.model || 'google/gemini-2.5-flash-image';
-    console.log(`[generate-character-image] user=${user.id} name="${name}" view=${view} model=${model}`);
+    const adminModel = aiConfig.model || 'google/gemini-2.5-flash-image';
+
+    // When ref image present → upgrade to a dedicated edit/identity-lock model
+    // for stronger character consistency. Priority order:
+    //   1) explicit client preferred_edit_model (user pick)
+    //   2) admin override if it's already an edit-capable model
+    //   3) auto-pick first available edit model with API key configured
+    const isEditCapable = (m: string) =>
+      /seedream.*edit|flux-kontext|nano-banana-pro|gpt-image.*edit|gemini-3-pro-image|gemini-3\.1-flash-image/i.test(m);
+
+    let model = adminModel;
+    if (hasRef) {
+      if (preferred_edit_model && typeof preferred_edit_model === 'string') {
+        model = preferred_edit_model;
+      } else if (!isEditCapable(adminModel)) {
+        const POYO_KEY = Deno.env.get('POYO_API_KEY');
+        if (POYO_KEY) {
+          model = 'poyo/seedream-5.0-lite-edit';
+        } else {
+          model = 'google/gemini-3-pro-image-preview';
+        }
+      }
+    }
+    console.log(`[generate-character-image] user=${user.id} name="${name}" view=${view} hasRef=${hasRef} adminModel=${adminModel} chosenModel=${model}`);
 
     let imageUrl: string | null = null;
 
