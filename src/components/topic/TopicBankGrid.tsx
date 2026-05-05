@@ -88,6 +88,18 @@ export function TopicBankGrid({
     enabled: true,
   });
 
+  // Auto-fetch more khi filter cho ra 0 kết quả nhưng còn data trên server
+  useEffect(() => {
+    if (hasMore && !isLoadingMore && history.length > 0) {
+      const hasActiveFilter = !!searchQuery || categoryFilter !== 'all' || dateRange !== 'all' || filterView !== 'all';
+      // Sẽ tính filteredItems.length sau — dùng heuristic: nếu có filter và history < 200, tự load thêm 1 lần
+      if (hasActiveFilter && history.length < 200) {
+        loadMore();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, categoryFilter, dateRange, filterView]);
+
   // Date range helper
   const getDateRangeStart = (range: DateRange): Date | null => {
     const now = new Date();
