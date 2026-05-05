@@ -8,6 +8,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const SUPPORTED_LOVABLE_TEXT_MODELS = new Set([
+  "openai/gpt-5-mini",
+  "openai/gpt-5",
+  "openai/gpt-5-nano",
+  "openai/gpt-5.2",
+  "openai/gpt-5.4",
+  "openai/gpt-5.4-mini",
+  "openai/gpt-5.4-nano",
+  "openai/gpt-5.4-pro",
+  "openai/gpt-5.5",
+  "openai/gpt-5.5-pro",
+  "google/gemini-2.5-pro",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-flash-lite",
+  "google/gemini-3-flash-preview",
+  "google/gemini-3.1-pro-preview",
+]);
+
+const DEFAULT_TEXT_MODEL = "google/gemini-3-flash-preview";
+
 Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -125,7 +145,11 @@ ${video_type ? `\nTHỂ LOẠI VIDEO: ${video_type}` : ''}
 Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand này.`;
 
     const aiConfig = await getAIConfig('generate-character', (brand as any).organization_id);
-    const model = aiConfig.model || 'google/gemini-2.5-flash';
+    const configuredModel = aiConfig.model || DEFAULT_TEXT_MODEL;
+    const model = SUPPORTED_LOVABLE_TEXT_MODELS.has(configuredModel) ? configuredModel : DEFAULT_TEXT_MODEL;
+    if (model !== configuredModel) {
+      console.warn(`[generate-character] traceId=${traceId} Unsupported model "${configuredModel}", falling back to ${DEFAULT_TEXT_MODEL}`);
+    }
     console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0} model=${model}`);
 
     const startMs = Date.now();
