@@ -130,19 +130,13 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
     let success = 0;
     let failed = 0;
 
-    let previousVideoUrl: string | null = null;
-
     for (let i = 0; i < todo.length; i++) {
       const scene = todo[i];
       setBatchProgress({ done: i, total: todo.length, currentScene: scene.sceneNumber });
       try {
-        // Character injection is handled server-side by generate-video edge function
-
-        // Last-frame chaining: use previous video URL as starting frame for continuity
-        const startingFrame = previousVideoUrl
-          || selectedCharacters[0]?.reference_image_url
-          || undefined;
-
+        // Character injection + smart angle pick xử lý server-side trong generate-video.
+        // ⚠️ KHÔNG dùng video URL của scene trước làm starting_frame — provider chỉ nhận ảnh,
+        //    truyền video sẽ phá ref nhân vật. Để server tự chọn ảnh ref đúng góc theo scene.
         const res = await generateVideo({
           provider: 'geminigen',
           prompt: scene.prompt,
@@ -153,12 +147,10 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
           scene_number: scene.sceneNumber,
           character_profile_id: selectedCharacterIds[0] || undefined,
           character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
-          starting_frame_url: startingFrame,
+          // starting_frame_url để trống → server pick ảnh ref nhân vật theo angle scene
         });
         if (res) {
           success += 1;
-          // Store video URL for chaining to next scene
-          if (res.video_url) previousVideoUrl = res.video_url;
         } else {
           failed += 1;
         }
