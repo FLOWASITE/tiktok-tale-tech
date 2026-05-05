@@ -8,7 +8,11 @@ const corsHeaders = {
 
 function redirectBack(message: string, ok: boolean, returnUrl?: string) {
   const fallbackUrl = `${Deno.env.get("FRONTEND_URL") || "https://app.flowa.one"}/seo?tab=track&sub=gsc`;
+  const allowedHosts = ["app.flowa.one", "flowa.one", "tiktok-tale-tech.lovable.app", "id-preview--2e41b83d-ea2d-4d2c-8ee4-40e24846e81b.lovable.app", "2e41b83d-ea2d-4d2c-8ee4-40e24846e81b.lovableproject.com"];
   const target = new URL(returnUrl || fallbackUrl);
+  if (!allowedHosts.includes(target.hostname)) {
+    return redirectBack(message, ok, fallbackUrl);
+  }
   target.searchParams.set("gsc_oauth", ok ? "success" : "error");
   target.searchParams.set("message", message);
   return new Response(null, {
@@ -24,9 +28,12 @@ Deno.serve(async (req) => {
   const stateRaw = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error");
   let returnUrl: string | undefined;
+  if (stateRaw) {
+    try { returnUrl = JSON.parse(atob(stateRaw)).return_url; } catch (_) {}
+  }
 
-  if (errorParam) return redirectBack(`Google trả lỗi: ${errorParam}`, false);
-  if (!code || !stateRaw) return redirectBack("Thiếu code/state", false);
+  if (errorParam) return redirectBack(`Google trả lỗi: ${errorParam}`, false, returnUrl);
+  if (!code || !stateRaw) return redirectBack("Thiếu code/state", false, returnUrl);
 
   try {
     const state = JSON.parse(atob(stateRaw));
