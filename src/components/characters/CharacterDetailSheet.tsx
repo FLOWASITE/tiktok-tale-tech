@@ -105,6 +105,52 @@ export function CharacterDetailSheet({
     }
   };
 
+  const handleAttachRef = async (label: string, file: File) => {
+    setPerLabelLoading(label);
+    try {
+      const url = await imageActions.uploadFile(file);
+      if (url) {
+        setAttachedRefs((prev) => ({ ...prev, [label]: url }));
+        toast.success('Đã đính kèm ảnh tham chiếu');
+      }
+    } finally {
+      setPerLabelLoading(null);
+    }
+  };
+
+  const handleGenerateOne = async (label: string) => {
+    const refForThis = attachedRefs[label] || refMainUrl;
+    if (!refForThis) {
+      toast.error('Cần ảnh tham chiếu (đính kèm hoặc ảnh chính) trước');
+      return;
+    }
+    setPerLabelLoading(label);
+    try {
+      const url = await imageActions.generateImage(
+        label as ReferenceImageLabel,
+        refForThis,
+        { editModel: editModel === 'auto' ? undefined : editModel },
+      );
+      if (!url) return;
+      const next = [...refs, { url, label: label as ReferenceImageLabel }];
+      await updateProfile.mutateAsync({
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        appearance: profile.appearance,
+        wardrobe: profile.wardrobe ?? undefined,
+        reference_image_url: profile.reference_image_url ?? undefined,
+        reference_images: next,
+      });
+      setAttachedRefs((prev) => {
+        const { [label]: _drop, ...rest } = prev;
+        return rest;
+      });
+      toast.success(`Đã tạo ${REF_IMAGE_LABELS.find((l) => l.value === label)?.label || label}`);
+    } finally {
+      setPerLabelLoading(null);
+    }
+  };
 
   const traits = [
     app.gender,
