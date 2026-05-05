@@ -77,17 +77,29 @@ export default function LinksWorkspace() {
             >
               <Link2 className="h-3.5 w-3.5" /> Internal links
             </Button>
+            <Button
+              size="sm"
+              variant={view === "external" ? "default" : "ghost"}
+              className="h-8 gap-1.5 rounded-sm"
+              onClick={() => setView("external")}
+            >
+              <Globe className="h-3.5 w-3.5" /> Pool URL ({extStats?.total ?? 0})
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground max-w-md">
             {view === "backlinks"
               ? "URL bài đăng trên Social/Website trỏ về blog của bạn — tăng off-page SEO."
-              : "Liên kết giữa các bài blog trong cluster — phân phối PageRank, giữ user."}
+              : view === "internal"
+              ? "Liên kết giữa các bài blog trong cluster — phân phối PageRank, giữ user."
+              : "Pool URL kéo từ WordPress / Blogger / sitemap — dùng để chèn backlink hoặc internal link."}
           </p>
         </CardContent>
       </Card>
 
       {/* Body */}
-      {view === "backlinks" ? <BacklinksTab embedded /> : <InternalLinksOverview />}
+      {view === "backlinks" ? <BacklinksTab embedded />
+        : view === "internal" ? <InternalLinksOverview />
+        : <ExternalLinksTab />}
     </div>
   );
 }
