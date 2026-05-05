@@ -463,6 +463,19 @@ export function CharacterFormSheet({
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       💡 Upload 1 ảnh đại diện chính rồi bấm <strong>AI</strong> cho từng góc — nhân vật sẽ đồng nhất hơn vì AI dùng ảnh chính làm tham chiếu identity.
                     </p>
+                    {refMainUrl && availableLabels.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1.5 mt-2"
+                        disabled={bulkGenerating || !!imageActions.aiGenerating || !watched.name?.trim()}
+                        onClick={handleAiGenerateAllRefs}
+                      >
+                        {bulkGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        Tạo {availableLabels.length} góc còn lại bằng AI
+                      </Button>
+                    )}
                     {refImages.length > 0 && (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
                         {refImages.map((img, idx) => (
