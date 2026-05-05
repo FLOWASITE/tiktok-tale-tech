@@ -137,7 +137,7 @@ export default function CharactersPage() {
       appearance: values.appearance as any,
       wardrobe: values.wardrobe ?? '',
       reference_image_url: values.reference_image_url ?? '',
-      reference_images: values.reference_images,
+      reference_images: values.reference_images as any,
       default_voice_id: values.default_voice_id ?? '',
       default_voice_provider: values.default_voice_provider ?? '',
       brand_template_id: values.brand_template_id ?? null,
