@@ -196,6 +196,7 @@ export function QuickClipTab() {
       starting_frame_url: selectedCharacters[0]?.reference_image_url || undefined,
       character_profile_id: selectedCharacters[0]?.id || undefined,
       character_profile_ids: selectedCharacters.length > 0 ? selectedCharacters.map(c => c.id) : undefined,
+      product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
     if (result) {
       setActiveJobId(result.id);
