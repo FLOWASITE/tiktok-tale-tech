@@ -180,9 +180,14 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (errMsg.includes('402') || /quota|credit|payment/i.test(errMsg)) {
-        return new Response(JSON.stringify({ error: "Hết quota AI, vui lòng nạp thêm credits hoặc cấu hình API key riêng." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (errMsg.includes('402') || /quota|credit|payment|billing/i.test(errMsg)) {
+        return new Response(JSON.stringify({
+          error: "Hết quota AI hoặc API key provider đang bị giới hạn billing. Vui lòng nạp credits/kiểm tra API key trong AI Management.",
+          code: "AI_QUOTA_EXHAUSTED",
+          fallback: true,
+          traceId,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       return new Response(JSON.stringify({ error: `AI generation failed: ${errMsg}` }), {
@@ -241,6 +246,17 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
 
   } catch (e) {
     console.error(`[generate-character] traceId=${traceId} Error:`, e);
+    const errMsg = e?.message || String(e || 'Unknown error');
+    if (errMsg.includes('402') || /quota|credit|payment|billing/i.test(errMsg)) {
+      return new Response(JSON.stringify({
+        error: "Hết quota AI hoặc API key provider đang bị giới hạn billing. Vui lòng nạp credits/kiểm tra API key trong AI Management.",
+        code: "AI_QUOTA_EXHAUSTED",
+        fallback: true,
+        traceId,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ error: e.message || "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
