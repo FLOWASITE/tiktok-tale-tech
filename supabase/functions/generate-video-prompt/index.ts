@@ -72,6 +72,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       tone,
       character_profile_id,
       character_profile_ids,
+      product_profile_ids,
     } = body;
 
     if (!idea || idea.trim().length < 3) {
