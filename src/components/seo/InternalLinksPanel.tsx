@@ -220,6 +220,22 @@ export default function InternalLinksPanel({ contentId, autoScanOnMount, onInser
                   <code className="text-[10px] text-muted-foreground truncate block">{s.url}</code>
                 </div>
                 <div className="flex gap-0.5 shrink-0">
+                  {onInsertLink && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => insertMd(s.anchor_text, s.url, `saved-${s.id}`)}
+                      disabled={insertingId === `saved-${s.id}`}
+                      className="h-6 w-6 p-0"
+                      title={insertTargetLabel ? `Chèn vào nội dung ${insertTargetLabel}` : "Chèn vào nội dung"}
+                    >
+                      {insertingId === `saved-${s.id}` ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <ArrowDownToLine className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -293,14 +309,33 @@ export default function InternalLinksPanel({ contentId, autoScanOnMount, onInser
                     )}
                     <div className="flex items-center justify-between gap-2">
                       <code className="text-[10px] text-muted-foreground truncate">{s.url_hint}</code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyMd(anchors[s.id] || s.anchor_suggestion, s.url_hint)}
-                        className="h-6 px-2 gap-1 text-[10px]"
-                      >
-                        <Copy className="h-3 w-3" /> Copy MD
-                      </Button>
+                      <div className="flex gap-1 shrink-0">
+                        {onInsertLink && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => insertMd(anchors[s.id] || s.anchor_suggestion, s.url_hint, `sug-${s.id}`)}
+                            disabled={insertingId === `sug-${s.id}`}
+                            className="h-6 px-2 gap-1 text-[10px]"
+                            title={insertTargetLabel ? `Chèn vào nội dung ${insertTargetLabel}` : "Chèn vào nội dung"}
+                          >
+                            {insertingId === `sug-${s.id}` ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <ArrowDownToLine className="h-3 w-3" />
+                            )}
+                            Chèn
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyMd(anchors[s.id] || s.anchor_suggestion, s.url_hint)}
+                          className="h-6 px-2 gap-1 text-[10px]"
+                        >
+                          <Copy className="h-3 w-3" /> Copy MD
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
