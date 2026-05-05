@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
@@ -27,6 +28,27 @@ export interface GscMetricRow {
 export function useGscConnections() {
   const { currentOrganization } = useOrganizationContext();
   const qc = useQueryClient();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("gsc_oauth");
+    if (!status) return;
+
+    const message = params.get("message") || (status === "success" ? "Đã kết nối GSC" : "Kết nối GSC thất bại");
+    if (window.opener) {
+      window.opener.postMessage({ type: "gsc_oauth", ok: status === "success", message }, window.location.origin);
+      window.close();
+      return;
+    }
+
+    status === "success" ? toast.success(message) : toast.error(message);
+    qc.invalidateQueries({ queryKey: ["gsc-connections"] });
+
+    params.delete("gsc_oauth");
+    params.delete("message");
+    const cleanUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+    window.history.replaceState(null, "", cleanUrl);
+  }, [qc]);
 
   const connections = useQuery({
     queryKey: ["gsc-connections", currentOrganization?.id],
@@ -59,6 +81,7 @@ export function useGscConnections() {
           window.removeEventListener("message", handler);
           if (e.data.ok) { toast.success(e.data.message || "Đã kết nối GSC"); qc.invalidateQueries({ queryKey: ["gsc-connections"] }); }
           else toast.error(e.data.message || "Kết nối thất bại");
+          popup.close();
         }
       };
       window.addEventListener("message", handler);
