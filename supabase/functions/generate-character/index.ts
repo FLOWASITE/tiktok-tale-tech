@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
