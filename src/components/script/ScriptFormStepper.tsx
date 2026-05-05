@@ -949,6 +949,15 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   }))}
                 />
 
+                {/* Product Profile — sản phẩm xuất hiện trong video (auto chèn ảnh ref theo nhãn) */}
+                <MultiProductPicker
+                  value={formData.product_profile_ids ?? []}
+                  onChange={(ids) => setFormData((prev) => ({
+                    ...prev,
+                    product_profile_ids: ids.length > 0 ? ids : undefined,
+                  }))}
+                />
+
                 {/* Voice & Dialogue chip */}
                 <ConfigChipSelector
                   label={formData.script_purpose === 'teleprompter' ? dialogueLabel : `${voiceLabel.replace('Giọng ', '')} • ${dialogueLabel}`}
