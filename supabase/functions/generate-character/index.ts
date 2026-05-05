@@ -43,7 +43,7 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
     // Fetch brand context including voice variants
     const { data: brand, error: brandErr } = await supabase
       .from('brand_templates')
-        .select('name, tone_of_voice, content_pillars, industry_template_id, voice_variants')
+        .select('name, tone_of_voice, content_pillars, industry_template_id, voice_variants, organization_id')
         .eq('id', brand_template_id)
         .maybeSingle();
 
