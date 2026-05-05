@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Star, TrendingUp, Filter, History, X, 
   Grid3X3, List, Play, Calendar, Trash2, MoreHorizontal, FileEdit, BookmarkCheck, Target, Link,
@@ -87,6 +87,18 @@ export function TopicBankGrid({
     campaignId: campaignFilter,
     enabled: true,
   });
+
+  // Auto-fetch more khi filter cho ra 0 kết quả nhưng còn data trên server
+  useEffect(() => {
+    if (hasMore && !isLoadingMore && history.length > 0) {
+      const hasActiveFilter = !!searchQuery || categoryFilter !== 'all' || dateRange !== 'all' || filterView !== 'all';
+      // Sẽ tính filteredItems.length sau — dùng heuristic: nếu có filter và history < 200, tự load thêm 1 lần
+      if (hasActiveFilter && history.length < 200) {
+        loadMore();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, categoryFilter, dateRange, filterView]);
 
   // Date range helper
   const getDateRangeStart = (range: DateRange): Date | null => {
@@ -549,7 +561,7 @@ export function TopicBankGrid({
       )}
 
       {/* Load more */}
-      {hasMore && !searchQuery && categoryFilter === 'all' && dateRange === 'all' && filterView === 'all' && (
+      {hasMore && (
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"
@@ -573,7 +585,8 @@ export function TopicBankGrid({
       {/* Results count */}
       {filteredItems.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          Hiển thị {filteredItems.length} ý tưởng
+          Hiển thị {filteredItems.length} / Đã tải {history.length} ý tưởng
+          {hasMore && ' (còn nữa)'}
         </p>
       )}
       {/* Delete confirmation */}
