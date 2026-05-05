@@ -21,6 +21,8 @@ import { PublishVideoMenu } from './PublishVideoMenu';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
+import type { BrandProduct } from '@/types/product';
 
 // Default fallback if Admin hasn't configured a model yet.
 const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
