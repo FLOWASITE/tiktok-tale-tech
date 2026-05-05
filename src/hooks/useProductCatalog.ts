@@ -30,7 +30,7 @@ export function useProductCatalog(brandTemplateId?: string) {
         .order('name', { ascending: true });
       
       if (error) throw error;
-      return data as BrandProduct[];
+      return data as unknown as BrandProduct[];
     },
     enabled: !!brandTemplateId,
   });
@@ -73,7 +73,7 @@ export function useProductCatalog(brandTemplateId?: string) {
       
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã thêm sản phẩm');
-      return data as BrandProduct;
+      return data as unknown as BrandProduct;
     } catch (err: any) {
       console.error('Create product error:', err);
       toast.error(err?.message || 'Không thể tạo sản phẩm');
@@ -119,7 +119,7 @@ export function useProductCatalog(brandTemplateId?: string) {
       
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã cập nhật sản phẩm');
-      return data as BrandProduct;
+      return data as unknown as BrandProduct;
     } catch (err: any) {
       console.error('Update product error:', err);
       toast.error(err?.message || 'Không thể cập nhật sản phẩm');
