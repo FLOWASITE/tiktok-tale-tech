@@ -330,6 +330,8 @@ export default function CharactersPage() {
                 onEdit={() => handleEdit(p)}
                 onClone={() => handleClone(p)}
                 onDelete={() => handleDelete(p)}
+                onGenerateAvatar={() => handleGenerateAvatar(p)}
+                isGeneratingAvatar={generatingAvatarFor === p.id}
               />
             );
           })}
