@@ -371,6 +371,12 @@ export default function PillarsTab() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selected.has(c.id)}
+                          onCheckedChange={() => toggleSel(c.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                        />
                         <span
                           className={cn("h-2.5 w-2.5 rounded-full shrink-0", health.dot)}
                           title={`Sức khoẻ: ${health.label}`}
