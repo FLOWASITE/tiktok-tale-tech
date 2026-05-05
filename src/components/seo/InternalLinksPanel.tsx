@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Link2, Copy, RefreshCw, Sparkles, Save, Check, Trash2 } from "lucide-react";
+import { Loader2, Link2, Copy, RefreshCw, Sparkles, Save, Check, Trash2, ArrowDownToLine } from "lucide-react";
 import { toast } from "sonner";
 
 interface Suggestion {
@@ -30,9 +30,28 @@ interface SavedLink {
 interface Props {
   contentId: string;
   autoScanOnMount?: boolean;
+  /** Optional: insert a markdown link directly into the active editor/content. */
+  onInsertLink?: (markdown: string) => void | Promise<void>;
+  /** Label for the insert target, e.g. "Website" — shown on the button tooltip. */
+  insertTargetLabel?: string;
 }
 
-export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props) {
+export default function InternalLinksPanel({ contentId, autoScanOnMount, onInsertLink, insertTargetLabel }: Props) {
+  const [insertingId, setInsertingId] = useState<string | null>(null);
+
+  const insertMd = async (anchor: string, url: string, key: string) => {
+    if (!onInsertLink) return;
+    setInsertingId(key);
+    try {
+      await onInsertLink(`[${anchor}](${url})\n`);
+      toast.success(insertTargetLabel ? `Đã chèn vào nội dung ${insertTargetLabel}` : "Đã chèn link vào nội dung");
+    } catch (e: any) {
+      toast.error(e?.message || "Chèn link thất bại");
+    } finally {
+      setInsertingId(null);
+    }
+  };
+
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -201,6 +220,22 @@ export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props
                   <code className="text-[10px] text-muted-foreground truncate block">{s.url}</code>
                 </div>
                 <div className="flex gap-0.5 shrink-0">
+                  {onInsertLink && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => insertMd(s.anchor_text, s.url, `saved-${s.id}`)}
+                      disabled={insertingId === `saved-${s.id}`}
+                      className="h-6 w-6 p-0"
+                      title={insertTargetLabel ? `Chèn vào nội dung ${insertTargetLabel}` : "Chèn vào nội dung"}
+                    >
+                      {insertingId === `saved-${s.id}` ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <ArrowDownToLine className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -274,14 +309,33 @@ export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props
                     )}
                     <div className="flex items-center justify-between gap-2">
                       <code className="text-[10px] text-muted-foreground truncate">{s.url_hint}</code>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyMd(anchors[s.id] || s.anchor_suggestion, s.url_hint)}
-                        className="h-6 px-2 gap-1 text-[10px]"
-                      >
-                        <Copy className="h-3 w-3" /> Copy MD
-                      </Button>
+                      <div className="flex gap-1 shrink-0">
+                        {onInsertLink && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => insertMd(anchors[s.id] || s.anchor_suggestion, s.url_hint, `sug-${s.id}`)}
+                            disabled={insertingId === `sug-${s.id}`}
+                            className="h-6 px-2 gap-1 text-[10px]"
+                            title={insertTargetLabel ? `Chèn vào nội dung ${insertTargetLabel}` : "Chèn vào nội dung"}
+                          >
+                            {insertingId === `sug-${s.id}` ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <ArrowDownToLine className="h-3 w-3" />
+                            )}
+                            Chèn
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyMd(anchors[s.id] || s.anchor_suggestion, s.url_hint)}
+                          className="h-6 px-2 gap-1 text-[10px]"
+                        >
+                          <Copy className="h-3 w-3" /> Copy MD
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

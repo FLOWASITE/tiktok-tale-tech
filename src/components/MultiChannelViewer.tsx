@@ -1256,6 +1256,23 @@ export function MultiChannelViewer({
                   title={(content as any).title || (content as any).topic}
                   isLongForm={['website', 'blogger', 'wordpress'].includes(selectedChannel)}
                   channelLabel={channelConfig[selectedChannel]?.label}
+                  onInsertLink={
+                    onUpdateContent && ['website', 'blogger', 'wordpress'].includes(selectedChannel)
+                      ? async (markdown: string) => {
+                          const current = getContentForChannel(content, selectedChannel) || '';
+                          if (!current.trim()) {
+                            toast({
+                              title: 'Kênh chưa có nội dung',
+                              description: 'Hãy tạo nội dung cho kênh này trước khi chèn link.',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+                          const next = current.trimEnd() + '\n\n' + markdown;
+                          await onUpdateContent(content.id, selectedChannel, next);
+                        }
+                      : undefined
+                  }
                 />
               </div>
 
