@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Link2, Copy, RefreshCw, Sparkles, Save, Check, Trash2 } from "lucide-react";
+import { Loader2, Link2, Copy, RefreshCw, Sparkles, Save, Check, Trash2, ArrowDownToLine } from "lucide-react";
 import { toast } from "sonner";
 
 interface Suggestion {
@@ -30,9 +30,28 @@ interface SavedLink {
 interface Props {
   contentId: string;
   autoScanOnMount?: boolean;
+  /** Optional: insert a markdown link directly into the active editor/content. */
+  onInsertLink?: (markdown: string) => void | Promise<void>;
+  /** Label for the insert target, e.g. "Website" — shown on the button tooltip. */
+  insertTargetLabel?: string;
 }
 
-export default function InternalLinksPanel({ contentId, autoScanOnMount }: Props) {
+export default function InternalLinksPanel({ contentId, autoScanOnMount, onInsertLink, insertTargetLabel }: Props) {
+  const [insertingId, setInsertingId] = useState<string | null>(null);
+
+  const insertMd = async (anchor: string, url: string, key: string) => {
+    if (!onInsertLink) return;
+    setInsertingId(key);
+    try {
+      await onInsertLink(`[${anchor}](${url})\n`);
+      toast.success(insertTargetLabel ? `Đã chèn vào nội dung ${insertTargetLabel}` : "Đã chèn link vào nội dung");
+    } catch (e: any) {
+      toast.error(e?.message || "Chèn link thất bại");
+    } finally {
+      setInsertingId(null);
+    }
+  };
+
   const { currentOrganization } = useOrganization();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
