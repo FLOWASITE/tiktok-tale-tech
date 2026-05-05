@@ -61,7 +61,7 @@ export function useCharacterImageActions(opts: {
   );
 
   const generateImage = useCallback(
-    async (label: ReferenceImageLabel): Promise<string | null> => {
+    async (label: ReferenceImageLabel, referenceImageUrl?: string): Promise<string | null> => {
       if (!currentOrganization?.id || !opts.name?.trim()) {
         toast.error('Cần nhập tên nhân vật trước khi tạo ảnh AI');
         return null;
@@ -76,6 +76,7 @@ export function useCharacterImageActions(opts: {
             description: opts.description,
             view: label,
             organization_id: currentOrganization.id,
+            reference_image_url: referenceImageUrl?.trim() || undefined,
           },
         });
         if (error) throw error;
