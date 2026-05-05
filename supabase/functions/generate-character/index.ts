@@ -233,8 +233,13 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "AI generation failed" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (status === 400) {
+        return new Response(JSON.stringify({ error: "Cấu hình model AI không hợp lệ. Hệ thống đã dùng model mặc định, vui lòng thử lại sau vài giây." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: "AI generation failed", fallback: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
