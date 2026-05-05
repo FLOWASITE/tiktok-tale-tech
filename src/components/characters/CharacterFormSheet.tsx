@@ -138,10 +138,11 @@ export function CharacterFormSheet({
   };
 
   const handleAiGenerateMain = async () => {
-    const url = await imageActions.generateImage('front');
+    // Nếu đã có ảnh chính → dùng làm reference để giữ identity nhất quán
+    const url = await imageActions.generateImage('front', refMainUrl || undefined);
     if (url) {
       form.setValue('reference_image_url', url, { shouldDirty: true });
-      toast.success('Đã tạo ảnh đại diện AI');
+      toast.success(refMainUrl ? 'Đã tái tạo ảnh AI từ ảnh tham chiếu' : 'Đã tạo ảnh đại diện AI');
     }
   };
 
@@ -170,10 +171,14 @@ export function CharacterFormSheet({
       toast.error('Tối đa 5 ảnh tham chiếu');
       return;
     }
-    const url = await imageActions.generateImage(label);
+    if (!refMainUrl) {
+      toast.error('Hãy upload hoặc tạo ảnh đại diện chính trước — AI sẽ dùng ảnh này làm tham chiếu để các góc đồng nhất.');
+      return;
+    }
+    const url = await imageActions.generateImage(label, refMainUrl);
     if (url) {
       form.setValue('reference_images', [...refImages, { url, label }], { shouldDirty: true });
-      toast.success(`Đã tạo ảnh ${REF_IMAGE_LABELS.find((l) => l.value === label)?.label}`);
+      toast.success(`Đã tạo ảnh ${REF_IMAGE_LABELS.find((l) => l.value === label)?.label} từ ảnh chính`);
     }
   };
 
