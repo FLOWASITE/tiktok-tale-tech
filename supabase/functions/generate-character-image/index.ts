@@ -89,7 +89,17 @@ Deno.serve(async (req) => {
 
     const viewHint = VIEW_LABELS[view] || VIEW_LABELS.front;
 
-    const prompt = `Create a photorealistic studio portrait of a fictional adult Vietnamese marketing character.
+    const basePrompt = hasRef
+      ? `Use the attached input photo as the IDENTITY REFERENCE for a fictional adult Vietnamese marketing character named "${name}" (do NOT render the name or any text in the image).
+KEEP THE EXACT SAME face, facial features, hair color & style, skin tone, and body proportions as the reference photo.
+Re-render this same person in a NEW shot:
+Subject traits: ${traits.join(", ") || "adult person"}.
+${appearance.distinctive_features ? `Distinctive features: ${appearance.distinctive_features}.` : ""}
+${wardrobe ? `Wardrobe: ${wardrobe}.` : ""}
+${description ? `Notes: ${description}` : ""}
+Shot: ${viewHint}.
+Style: high-end commercial photography, soft natural lighting, neutral light gray background, sharp focus, realistic skin texture, professional headshot quality. No text, no watermark, no logo. Fictional non-celebrity adult.`
+      : `Create a photorealistic studio portrait of a fictional adult Vietnamese marketing character.
 Character display name: "${name}" (do not render the name or any text in the image).
 Subject: ${traits.join(", ") || "adult person"}.
 ${appearance.distinctive_features ? `Distinctive features: ${appearance.distinctive_features}.` : ""}
@@ -99,7 +109,11 @@ Shot: ${viewHint}.
 Safety and identity: fictional non-celebrity adult, not a real public figure, respectful professional appearance.
 Style: high-end commercial photography, soft natural lighting, neutral light gray background, sharp focus, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
 
-    const compactGeminiGenPrompt = `Photorealistic professional studio headshot of a fictional adult Vietnamese character, ${traits.join(", ") || "adult person"}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} ${viewHint}. Neutral light gray background, soft natural lighting, realistic skin, non-celebrity, no text, no watermark.`;
+    const prompt = basePrompt;
+
+    const compactGeminiGenPrompt = hasRef
+      ? `Re-render the SAME person from the input photo (keep identical face, hair, skin). New shot: ${viewHint}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} Neutral light gray background, soft natural lighting, realistic skin, no text, no watermark.`
+      : `Photorealistic professional studio headshot of a fictional adult Vietnamese character, ${traits.join(", ") || "adult person"}. ${wardrobe ? `Wardrobe: ${wardrobe}.` : ""} ${appearance.distinctive_features ? `Features: ${appearance.distinctive_features}.` : ""} ${viewHint}. Neutral light gray background, soft natural lighting, realistic skin, non-celebrity, no text, no watermark.`;
 
     const aiConfig = await getAIConfig('generate-character-image', organization_id);
     const model = aiConfig.model || 'google/gemini-2.5-flash-image';
