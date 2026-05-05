@@ -195,6 +195,8 @@ export interface ScriptFormData {
   character_profile_id?: string;
   /** Character profile IDs for multi-character consistency (primary first) */
   character_profile_ids?: string[];
+  /** Product profile IDs for product visual consistency (primary first, max 3) */
+  product_profile_ids?: string[];
 }
 
 // ============================================

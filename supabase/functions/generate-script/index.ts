@@ -23,6 +23,7 @@ import { createPromptManager } from "../_shared/prompt-integration.ts";
 // Multi-country date context support
 import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2072,7 +2073,7 @@ Deno.serve(withPerf({ functionName: 'generate-script', slowThresholdMs: 45000 },
   }
 
   try {
-    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, social_format_id, aspect_ratio, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId, character_profile_id, character_profile_ids } = await req.json();
+    let { topic, duration, video_type, character_type, script_purpose, voice_region, dialogue_style, social_format_id, aspect_ratio, brandTemplateId, brandVoiceVariantId, hook, angle, organization_id: requestOrgId, targetJourneyStage, targetPersonaId, targetProductId, campaignId, character_profile_id, character_profile_ids, product_profile_ids } = await req.json();
 
     if (!topic || !topic.trim()) {
       return new Response(
@@ -2248,6 +2249,20 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       // Inject both persona and product mapping context into topic
       if (personaContext || productMappingContext) {
         topic = `${topic}${personaContext}${productMappingContext}`;
+      }
+    }
+
+    // ───────── PRODUCT CONSISTENCY — explicit product_profile_ids from UI ─────────
+    if (Array.isArray(product_profile_ids) && product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, product_profile_ids);
+        const block = buildProductBlockVI(products);
+        if (block) {
+          topic = `${topic}\n\n## SẢN PHẨM XUẤT HIỆN TRONG VIDEO\n${block}\n\nQUAN TRỌNG: Trong từng SCENE, khi sản phẩm xuất hiện, mô tả ĐÚNG tên + bao bì + màu sắc như mô tả trên. Không được đổi/lẫn sản phẩm.`;
+          console.log('[generate-script] Injected', products.length, 'product(s) into script context');
+        }
+      } catch (e) {
+        console.warn('[generate-script] product injection failed', e);
       }
     }
 

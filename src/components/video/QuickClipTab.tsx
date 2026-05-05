@@ -154,6 +154,7 @@ export function QuickClipTab() {
           language: 'vi',
           character_profile_id: selectedCharacterIds[0] || undefined,
           character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
+          product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
         },
       });
       if (error) throw error;

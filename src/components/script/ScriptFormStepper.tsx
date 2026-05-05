@@ -63,6 +63,7 @@ import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector
 import { ConfigChipSelector } from '@/components/script/ConfigChipSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { MultiCharacterPicker } from '@/components/video/MultiCharacterPicker';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
 import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
@@ -945,6 +946,15 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                     ...prev,
                     character_profile_ids: ids.length > 0 ? ids : undefined,
                     character_profile_id: ids[0] ?? undefined,
+                  }))}
+                />
+
+                {/* Product Profile — sản phẩm xuất hiện trong video (auto chèn ảnh ref theo nhãn) */}
+                <MultiProductPicker
+                  value={formData.product_profile_ids ?? []}
+                  onChange={(ids) => setFormData((prev) => ({
+                    ...prev,
+                    product_profile_ids: ids.length > 0 ? ids : undefined,
                   }))}
                 />
 

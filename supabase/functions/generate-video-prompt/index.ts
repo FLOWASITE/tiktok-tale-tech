@@ -7,6 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
+import { buildProductBlockEN, fetchProductRows } from "../_shared/product-block-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +25,7 @@ interface PromptRequest {
   tone?: string;
   character_profile_id?: string;
   character_profile_ids?: string[];
+  product_profile_ids?: string[];
 }
 
 interface PromptResponse {
@@ -70,6 +72,7 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       tone,
       character_profile_id,
       character_profile_ids,
+      product_profile_ids,
     } = body;
 
     if (!idea || idea.trim().length < 3) {
@@ -156,6 +159,20 @@ Deno.serve(withPerf({ functionName: 'generate-video-prompt', slowThresholdMs: 20
       }
     }
 
+    // Fetch product profiles for product visual consistency
+    let productContext = '';
+    if (Array.isArray(product_profile_ids) && product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, product_profile_ids);
+        const block = buildProductBlockEN(products);
+        if (block) {
+          productContext = `\n${block}\nCRITICAL: The cinematic prompt MUST mention the product by exact name and describe its packaging/color/label as above.`;
+        }
+      } catch (e) {
+        console.warn('[generate-video-prompt] product fetch failed', e);
+      }
+    }
+
     // Channel-specific cinematic guidance
     const channelGuidance: Record<string, string> = {
       tiktok: 'Vertical 9:16, hook in first 1.5s, fast cuts, trending text-on-screen style, vibrant colors, handheld feel.',
@@ -199,7 +216,7 @@ Return JSON shape:
   "recommended_music_mood": "e.g. uplifting cinematic, lo-fi calm, dramatic orchestral"
 }`;
 
-    const userPrompt = `IDEA: ${idea}\n${brandContext}${industryContext}${characterContext}\n\nReturn the JSON now.`;
+    const userPrompt = `IDEA: ${idea}\n${brandContext}${industryContext}${characterContext}${productContext}\n\nReturn the JSON now.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
