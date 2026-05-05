@@ -1,15 +1,20 @@
 // ============================================
 // GeminiGen.ai Video Generation Helper
 // Async API: submit task → poll for result
-// Supports: Veo 2, Veo 3, Veo 3 Fast, Veo 3.1, Veo 3.1 Fast, Sora 2
+// Supported model families (per https://geminigen.ai/pricing):
+//   - Veo 2 / Veo 3 / Veo 3 Fast / Veo 3.1 (HD, FullHD, Fast, Lite)
+//   - Sora 2 / Sora 2 Pro / Sora 2 HD
+//   - Grok 3 (xAI)
+//   - Bytedance Seedance 2.0 (Fast/Pro/Omni 480p|720p, VIP variants)
+//   - Kling 3.0 / 2.6 / 2.5 / 2.1 / O1 (720p|1080p, edit, motion control, lipsync)
 // ============================================
 //
 // ⚠️ ENDPOINT ASSUMPTION
-// Code dưới suy ra từ pattern /uapi/v1/generate_image đã working.
-// Nếu GeminiGen dùng path khác cho video, chỉ cần sửa 2 constant:
-//   - GEMINIGEN_VIDEO_ENDPOINT
-//   - GEMINIGEN_HISTORY_ENDPOINT
-// Xem docs chính thức: https://docs.geminigen.ai
+// All video models route through the unified /uapi/v1/video-gen/veo endpoint
+// with the family selected via the `model` form field. If GeminiGen splits
+// endpoints per family, switch on prefix here:
+//   veo* → /veo, sora* → /sora, grok* → /grok, seedance* → /seedance, kling* → /kling
+// Docs: https://docs.geminigen.ai
 // ============================================
 
 const GEMINIGEN_BASE_URL = 'https://api.geminigen.ai';
