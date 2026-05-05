@@ -484,8 +484,9 @@ export function CharacterFormSheet({
                           size="sm"
                           variant="outline"
                           className="h-8 text-xs gap-1.5 border-dashed"
-                          disabled={!!imageActions.aiGenerating || !watched.name?.trim()}
+                          disabled={!!imageActions.aiGenerating || !watched.name?.trim() || !refMainUrl}
                           onClick={() => handleAiGenerateRef(uploadLabel)}
+                          title={!refMainUrl ? 'Cần ảnh đại diện chính làm tham chiếu' : 'Tạo ảnh AI từ ảnh chính'}
                         >
                           {imageActions.aiGenerating === uploadLabel ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
                           AI
