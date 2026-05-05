@@ -6298,6 +6298,154 @@ export type Database = {
           },
         ]
       }
+      gsc_connections: {
+        Row: {
+          access_token: string
+          brand_template_id: string | null
+          created_at: string
+          created_by: string
+          google_email: string | null
+          id: string
+          is_active: boolean
+          last_synced_at: string | null
+          organization_id: string
+          refresh_token: string
+          scopes: string[] | null
+          site_url: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          brand_template_id?: string | null
+          created_at?: string
+          created_by: string
+          google_email?: string | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          organization_id: string
+          refresh_token: string
+          scopes?: string[] | null
+          site_url: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          brand_template_id?: string | null
+          created_at?: string
+          created_by?: string
+          google_email?: string | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          organization_id?: string
+          refresh_token?: string
+          scopes?: string[] | null
+          site_url?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gsc_metrics_daily: {
+        Row: {
+          clicks: number
+          connection_id: string
+          country: string | null
+          created_at: string
+          ctr: number
+          date: string
+          device: string | null
+          id: string
+          impressions: number
+          organization_id: string
+          page: string | null
+          position: number
+          query: string | null
+        }
+        Insert: {
+          clicks?: number
+          connection_id: string
+          country?: string | null
+          created_at?: string
+          ctr?: number
+          date: string
+          device?: string | null
+          id?: string
+          impressions?: number
+          organization_id: string
+          page?: string | null
+          position?: number
+          query?: string | null
+        }
+        Update: {
+          clicks?: number
+          connection_id?: string
+          country?: string | null
+          created_at?: string
+          ctr?: number
+          date?: string
+          device?: string | null
+          id?: string
+          impressions?: number
+          organization_id?: string
+          page?: string | null
+          position?: number
+          query?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gsc_metrics_daily_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "gsc_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gsc_sync_runs: {
+        Row: {
+          completed_at: string | null
+          connection_id: string | null
+          error_message: string | null
+          id: string
+          organization_id: string | null
+          rows_synced: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          connection_id?: string | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string | null
+          rows_synced?: number | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          completed_at?: string | null
+          connection_id?: string | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string | null
+          rows_synced?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gsc_sync_runs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "gsc_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       help_articles: {
         Row: {
           category: string | null

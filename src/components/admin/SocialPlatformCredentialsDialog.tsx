@@ -109,6 +109,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://medium.com/me/settings/security',
     instructions: 'Medium dùng Integration Token cá nhân (per-brand). Mỗi user nhập token riêng tại Brand → Connections — không cấu hình toàn cục ở đây.',
   },
+  google_search_console: {
+    url: 'https://console.cloud.google.com/apis/credentials',
+    instructions: 'Google Cloud Console → APIs & Services → Enable "Google Search Console API" → Credentials → Create OAuth 2.0 Client ID (Web application). Authorized redirect URI: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/gsc-oauth-callback',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {

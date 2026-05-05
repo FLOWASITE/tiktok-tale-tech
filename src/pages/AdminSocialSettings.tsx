@@ -45,7 +45,7 @@ interface PlatformConfig {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   iconColor: string;
-  category: 'social' | 'longform' | 'messaging';
+  category: 'social' | 'longform' | 'messaging' | 'analytics';
   authMode: AuthMode;
   authNote?: string;
 }
@@ -74,12 +74,16 @@ const PLATFORMS: PlatformConfig[] = [
   { platform: 'wix', name: 'Wix', icon: Globe, iconColor: 'text-[#0C6EFC]', category: 'longform', authMode: 'credentials', authNote: 'Tạo App tại dev.wix.com/apps. Redirect URL: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/wix-oauth-callback. Lưu App ID (Client ID) + App Secret tại đây để user kết nối site qua OAuth.' },
   { platform: 'medium', name: 'Medium', icon: MediumIcon, iconColor: 'text-foreground', category: 'longform', authMode: 'per_brand', authNote: 'Medium dùng Integration Token cá nhân (medium.com/me/settings/security → Integration tokens). Mỗi brand tự nhập token riêng — không cấu hình toàn cục.' },
   { platform: 'website', name: 'Website / Custom API', icon: Globe, iconColor: 'text-muted-foreground', category: 'longform', authMode: 'credentials' },
+
+  // Analytics
+  { platform: 'google_search_console', name: 'Google Search Console', icon: Search, iconColor: 'text-[#4285F4]', category: 'analytics', authMode: 'credentials', authNote: 'Cấu hình OAuth Client để user kết nối GSC site của họ. Sau khi lưu, vào SEO Hub → Track → GSC để authorize.' },
 ];
 
 const CATEGORY_LABELS: Record<PlatformConfig['category'], string> = {
   social: 'Mạng xã hội',
   messaging: 'Messaging & Local',
   longform: 'Website & Long-form',
+  analytics: 'SEO & Analytics',
 };
 
 const AUTH_BADGE: Record<AuthMode, { label: string; variant: 'default' | 'secondary' | 'outline'; icon: React.ComponentType<{ className?: string }> }> = {
@@ -117,6 +121,7 @@ export default function AdminSocialSettings() {
       social: matches.filter(p => p.category === 'social'),
       messaging: matches.filter(p => p.category === 'messaging'),
       longform: matches.filter(p => p.category === 'longform'),
+      analytics: matches.filter(p => p.category === 'analytics'),
     };
   }, [search]);
 
@@ -371,9 +376,9 @@ export default function AdminSocialSettings() {
       </div>
 
       {/* Sections */}
-      {(['social', 'messaging', 'longform'] as const).map(renderSection)}
+      {(['social', 'messaging', 'longform', 'analytics'] as const).map(renderSection)}
 
-      {filteredByCategory.social.length === 0 && filteredByCategory.messaging.length === 0 && filteredByCategory.longform.length === 0 && (
+      {filteredByCategory.social.length === 0 && filteredByCategory.messaging.length === 0 && filteredByCategory.longform.length === 0 && filteredByCategory.analytics.length === 0 && (
         <div className="text-center py-16 text-muted-foreground border border-dashed rounded-lg">
           Không tìm thấy nền tảng phù hợp với "{search}"
         </div>
