@@ -221,18 +221,49 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
           // Reference image from primary character
           const primary = sorted[0];
+
+          // ✅ Guard: nếu starting_frame_url là VIDEO URL (.mp4/.webm/.mov) thì bỏ —
+          //   provider chỉ nhận ảnh, truyền video sẽ fail/skip và mất luôn ref nhân vật.
+          const isVideoUrl = typeof characterRefUrl === 'string'
+            && /\.(mp4|mov|webm|m3u8)(\?.*)?$/i.test(characterRefUrl);
+          if (isVideoUrl) {
+            console.log(`[generate-video] starting_frame_url là video → bỏ qua, dùng ảnh ref nhân vật.`);
+            characterRefUrl = undefined;
+          }
+
           if (!characterRefUrl) {
             const refImages = Array.isArray(primary.reference_images) ? primary.reference_images as { url: string; label: string }[] : [];
             if (refImages.length > 0) {
-              const promptLower = prompt.toLowerCase();
-              const isCloseUp = promptLower.includes('close-up') || promptLower.includes('cận') || promptLower.includes('macro');
-              const preferred = isCloseUp ? 'close-up' : 'front';
+              // Smart angle pick từ nội dung scene (close-up / full-body / side / outfit / front)
+              const p = prompt.toLowerCase();
+              const matchAngle = (): string => {
+                if (/close-?up|cận|macro|cận cảnh/.test(p)) return 'close-up';
+                if (/full[- ]?body|toàn thân|whole body|wide shot|long shot/.test(p)) return 'full-body';
+                if (/side|nghiêng|profile view|từ bên/.test(p)) return 'side';
+                if (/outfit|trang phục|wardrobe|costume/.test(p)) return 'outfit';
+                return 'front';
+              };
+              const preferred = matchAngle();
               const picked = refImages.find(r => r.label === preferred) || refImages[0];
               characterRefUrl = picked.url;
-              console.log(`[generate-video] Using multi-ref image: ${picked.label}`);
+              console.log(`[generate-video] Smart ref pick: scene="${prompt.slice(0,60)}..." → label=${picked.label}`);
             } else if (primary.reference_image_url) {
               characterRefUrl = primary.reference_image_url;
             }
+          }
+
+          // ✅ Auto-upgrade model: khi có ảnh nhân vật làm ref, ưu tiên model i2v giữ identity tốt nhất.
+          //    Chỉ upgrade nếu client KHÔNG explicit chọn model (clientModel falsy) — tránh đè lựa chọn user.
+          if (characterRefUrl && !clientModel) {
+            const IDENTITY_LOCK_PRIORITY = [
+              'geminigen/veo-3.1',        // best i2v identity preservation
+              'geminigen/veo-3.1-fast',
+              'geminigen/veo-3',
+            ];
+            const upgraded = IDENTITY_LOCK_PRIORITY[0];
+            console.log(`[generate-video] hasCharacterRef → auto-upgrade model ${model} → ${upgraded} để giữ nhân vật đồng nhất`);
+            model = upgraded;
+            provider = 'geminigen';
           }
         }
       } catch (e) {
