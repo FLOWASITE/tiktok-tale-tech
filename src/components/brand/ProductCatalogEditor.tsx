@@ -55,6 +55,8 @@ const defaultFormData: ProductFormData = {
   best_channels: [],
   is_featured: false,
   is_active: true,
+  reference_images: [],
+  appearance: {},
 };
 
 // --- USP Quality Scoring ---
