@@ -17,6 +17,7 @@ import { VideoCompletionWizard } from './VideoCompletionWizard';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
@@ -42,6 +43,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
     activeScript?.characterProfileIds ?? (activeScript?.characterProfileId ? [activeScript.characterProfileId] : [])
   );
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
@@ -147,7 +149,8 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
           scene_number: scene.sceneNumber,
           character_profile_id: selectedCharacterIds[0] || undefined,
           character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
-          // starting_frame_url để trống → server pick ảnh ref nhân vật theo angle scene
+          product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
+          // starting_frame_url để trống → server pick ảnh ref nhân vật/sản phẩm theo nhãn của scene
         });
         if (res) {
           success += 1;
@@ -253,6 +256,11 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                   setSelectedCharacterIds(ids);
                   setSelectedCharacters(profiles);
                 }}
+                className="mt-1"
+              />
+              <MultiProductPicker
+                value={selectedProductIds}
+                onChange={(ids) => setSelectedProductIds(ids)}
                 className="mt-1"
               />
               {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (

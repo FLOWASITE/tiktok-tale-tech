@@ -274,6 +274,43 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       }
     }
 
+    // ───────── PRODUCT CONSISTENCY — inject product blocks + smart-pick ref ─────────
+    let productRefUrl: string | undefined;
+    if (Array.isArray(product_profile_ids) && product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, product_profile_ids);
+        if (products.length > 0) {
+          const block = buildProductBlockEN(products);
+          if (block) {
+            enrichedPrompt = `${block}\n\n${enrichedPrompt}`;
+            console.log(`[generate-video] Injected ${products.length} product(s): ${products.map(p => p.name).join(', ')}`);
+          }
+          // Smart pick reference image from primary product based on scene text
+          // (label: front | back | side | in-use | packaging)
+          const primary = products[0];
+          const picked = pickProductRefImage(primary, prompt);
+          if (picked) {
+            productRefUrl = picked;
+            console.log(`[generate-video] Product ref image picked for "${primary.name}"`);
+          }
+
+          // If no character ref, use product ref as starting frame to lock product visuals
+          if (!characterRefUrl && productRefUrl) {
+            characterRefUrl = productRefUrl;
+            // Auto-upgrade model to identity-preserving i2v if user didn't pick one
+            if (!clientModel) {
+              const PRODUCT_LOCK_MODEL = 'geminigen/veo-3.1';
+              console.log(`[generate-video] hasProductRef → auto-upgrade model ${model} → ${PRODUCT_LOCK_MODEL}`);
+              model = PRODUCT_LOCK_MODEL;
+              provider = 'geminigen';
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[generate-video] Failed to fetch product profiles:', e);
+      }
+    }
+
     // Create job row (pending → will flip to processing after submit)
     const { data: job, error: jobError } = await supabase
       .from('video_generations')

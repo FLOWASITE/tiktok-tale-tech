@@ -21,6 +21,8 @@ import { PublishVideoMenu } from './PublishVideoMenu';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
+import type { BrandProduct } from '@/types/product';
 
 // Default fallback if Admin hasn't configured a model yet.
 const DEFAULT_VIDEO_MODEL = 'geminigen/veo-3.1-fast';
@@ -59,6 +61,8 @@ export function QuickClipTab() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<BrandProduct[]>([]);
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
   const { currentOrganization } = useOrganizationContext();
@@ -192,6 +196,7 @@ export function QuickClipTab() {
       starting_frame_url: selectedCharacters[0]?.reference_image_url || undefined,
       character_profile_id: selectedCharacters[0]?.id || undefined,
       character_profile_ids: selectedCharacters.length > 0 ? selectedCharacters.map(c => c.id) : undefined,
+      product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
     if (result) {
       setActiveJobId(result.id);
@@ -326,6 +331,15 @@ export function QuickClipTab() {
         onChange={(ids, profiles) => {
           setSelectedCharacterIds(ids);
           setSelectedCharacters(profiles);
+        }}
+      />
+
+      {/* Product consistency — auto chèn ảnh ref theo nhãn (front/in-use/packaging) */}
+      <MultiProductPicker
+        value={selectedProductIds}
+        onChange={(ids, products) => {
+          setSelectedProductIds(ids);
+          setSelectedProducts(products);
         }}
       />
 
