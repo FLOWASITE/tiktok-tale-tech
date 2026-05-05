@@ -18,10 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Target, Trash2, ArrowRight, Search, LayoutGrid, List, X } from "lucide-react";
+import { Plus, Target, Trash2, ArrowRight, Search, LayoutGrid, List, X, GitMerge, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import PillarDetailView from "./PillarDetailView";
+import PillarBulkMergeDialog from "./PillarBulkMergeDialog";
 
 interface Cluster {
   id: string;
@@ -68,6 +70,31 @@ export default function PillarsTab() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [view, setView] = useState<ViewMode>("grid");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [mergeOpen, setMergeOpen] = useState(false);
+
+  const toggleSel = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const bulkArchive = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(`Archive ${ids.length} pillar?`)) return;
+    const { error } = await supabase
+      .from("seo_clusters")
+      .update({ status: "archived" })
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Đã archive ${ids.length} pillar`);
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["seo-clusters"] });
+    qc.invalidateQueries({ queryKey: ["seo-pillars-shared"] });
+  };
 
   useEffect(() => {
     const p = params.get("pillar");
@@ -344,6 +371,12 @@ export default function PillarsTab() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selected.has(c.id)}
+                          onCheckedChange={() => toggleSel(c.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                        />
                         <span
                           className={cn("h-2.5 w-2.5 rounded-full shrink-0", health.dot)}
                           title={`Sức khoẻ: ${health.label}`}
@@ -424,6 +457,12 @@ export default function PillarsTab() {
                   className="flex items-center gap-3 px-3 py-2 hover:bg-muted/40 cursor-pointer"
                   onClick={() => openPillar(c.id)}
                 >
+                  <Checkbox
+                    checked={selected.has(c.id)}
+                    onCheckedChange={() => toggleSel(c.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0"
+                  />
                   <span className={cn("h-2 w-2 rounded-full shrink-0", health.dot)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -466,6 +505,38 @@ export default function PillarsTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Sticky bulk bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background border rounded-full shadow-lg px-3 py-2 flex items-center gap-2 text-sm">
+          <span className="font-medium">{selected.size} pillar đã chọn</span>
+          <span className="text-muted-foreground">·</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1 h-8"
+            disabled={selected.size < 2}
+            onClick={() => setMergeOpen(true)}
+          >
+            <GitMerge className="h-3.5 w-3.5" /> Merge
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1 h-8" onClick={bulkArchive}>
+            <Archive className="h-3.5 w-3.5" /> Archive
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      <PillarBulkMergeDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        selectedIds={Array.from(selected)}
+        pillars={clusters.map((c) => ({ id: c.id, name: c.name }))}
+        coverage={coverage}
+        onDone={() => setSelected(new Set())}
+      />
     </div>
   );
 }
