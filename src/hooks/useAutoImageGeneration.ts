@@ -626,83 +626,14 @@ export function useAutoImageGeneration() {
           });
         }
 
-        const finalStructuredOverlay = !isAiRenderMode
-          ? (fullStructuredOverlay || structuredOverlay || footerOverlay)
-          : (shouldFallbackStructured ? (fullStructuredOverlay || structuredOverlay || footerOverlay) : undefined);
-        if (finalStructuredOverlay) {
-          const step4Start = Date.now();
-          console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Canvas)`, {
-            layout: finalStructuredOverlay.layout,
-              footerMode: (finalStructuredOverlay as any).footerMode,
-            hasBanner: !!(finalStructuredOverlay as any).elements.banner,
-            hasHeroText: !!(finalStructuredOverlay as any).elements.heroText,
-            cardCount: (finalStructuredOverlay as any).elements.cards?.items?.length || 0,
-            hasCta: !!(finalStructuredOverlay as any).elements.cta,
-            hasFooter: !!(finalStructuredOverlay as any).elements.footer,
-            hasLogoMeta: includeLogo && logoUrl && !logoFailed,
-          });
-          
-          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
-          const [widthStr, heightStr] = channelConfig.size.split('x');
-          const imgW = parseInt(widthStr, 10) || 1200;
-          const imgH = parseInt(heightStr, 10) || 630;
-
-          const { data: structData, error: structError } = await invokeWithTimeout<any>('overlay-text-canvas', {
-            body: {
-              baseImageUrl: finalImageUrl,
-              layout: finalStructuredOverlay.layout,
-              footerMode: (finalStructuredOverlay as any).footerMode,
-              elements: finalStructuredOverlay.elements,
-              colors: finalStructuredOverlay.colors,
-              imageStyle: imageStylePreset,
-              imageWidth: imgW,
-              imageHeight: imgH,
-              contentId,
-              channel,
-              logoMeta: (includeLogo && logoUrl && !logoFailed) ? {
-                position: resolvedLogoPosition,
-                sizePercent: logoSizePercent || 15,
-                padding: 20,
-              } : undefined,
-            },
-            timeoutMs: 30_000,
-          });
-
-          const step4Duration = Date.now() - step4Start;
-          if (structError || !structData?.success) {
-            console.warn(`[Pipeline:${channel}] ✗ STEP 4 FAILED (${step4Duration}ms):`, structError?.message || structData?.error);
-            debugSteps.push({
-              id: 'step4',
-              label: 'STEP 4 — Structured fallback',
-              status: 'failed',
-              summary: 'Structured canvas fallback lỗi, giữ ảnh hiện tại',
-              durationMs: step4Duration,
-              details: [structError?.message || structData?.error || 'unknown error'],
-            });
-            toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
-          } else {
-            finalImageUrl = structData.imageUrl;
-            console.log(`[Pipeline:${channel}] ✓ STEP 4 OK (${step4Duration}ms)`);
-            debugSteps.push({
-              id: 'step4',
-              label: 'STEP 4 — Structured fallback',
-              status: 'success',
-              summary: 'Structured canvas fallback đã chạy',
-              durationMs: step4Duration,
-              details: [
-                `layout=${finalStructuredOverlay.layout}`,
-                `footer=${(finalStructuredOverlay as any).elements.footer ? 'yes' : 'no'}`,
-              ],
-            });
-          }
-        } else {
-          const skipReason = isAiRenderMode ? 'no footer overlay' : 'no structured overlay';
-          console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — ${skipReason}`);
+        // Step 4: Structured canvas overlay — DISABLED globally
+        {
+          console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — canvas overlay globally disabled`);
           debugSteps.push({
             id: 'step4',
             label: 'STEP 4 — Structured fallback',
             status: 'skipped',
-            summary: `Bỏ qua vì ${skipReason}`,
+            summary: 'Structured canvas overlay đã bị tắt toàn cục',
           });
         }
 
