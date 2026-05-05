@@ -278,6 +278,7 @@ export function AppSidebar() {
     { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
     { title: 'Video Studio', titleKey: 'app.sidebar.videoStudio', url: '/videos', icon: Video },
     { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
+    { title: 'Nhân vật', titleKey: 'app.sidebar.characters', url: '/characters', icon: Users },
   ];
 
   // Agent items under Flowa Team
