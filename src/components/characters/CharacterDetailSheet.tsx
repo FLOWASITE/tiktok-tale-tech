@@ -37,11 +37,56 @@ export function CharacterDetailSheet({
   onDelete,
 }: Props) {
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+
+  const imageActions = useCharacterImageActions({
+    name: profile?.name,
+    appearance: profile?.appearance,
+    wardrobe: profile?.wardrobe ?? undefined,
+    description: profile?.description,
+  });
+  const { updateProfile } = useCharacterProfiles();
 
   if (!profile) return null;
   const app = (profile.appearance ?? {}) as CharacterAppearance;
   const refs = Array.isArray(profile.reference_images) ? profile.reference_images : [];
   const pct = calcCompleteness(profile);
+  const usedLabels = new Set(refs.map((r) => r.label));
+  const availableLabels = REF_IMAGE_LABELS.filter((l) => !usedLabels.has(l.value));
+  const refMainUrl = profile.reference_image_url ?? '';
+
+  const handleGenerateAllRefs = async () => {
+    if (!refMainUrl) {
+      toast.error('Cần ảnh đại diện chính trước');
+      return;
+    }
+    if (availableLabels.length === 0) return;
+    setBulkGenerating(true);
+    let current: ReferenceImage[] = [...refs];
+    let createdCount = 0;
+    try {
+      for (const l of availableLabels) {
+        toast.info(`Đang tạo ${l.label} (${createdCount + 1}/${availableLabels.length})…`);
+        const url = await imageActions.generateImage(l.value as ReferenceImageLabel, refMainUrl);
+        if (!url) break;
+        current = [...current, { url, label: l.value as ReferenceImageLabel }];
+        await updateProfile.mutateAsync({
+          id: profile.id,
+          name: profile.name,
+          description: profile.description,
+          appearance: profile.appearance,
+          wardrobe: profile.wardrobe ?? undefined,
+          reference_image_url: profile.reference_image_url ?? undefined,
+          reference_images: current,
+        });
+        createdCount++;
+      }
+      if (createdCount > 0) toast.success(`Đã tạo ${createdCount} góc ảnh`);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
 
   const traits = [
     app.gender,
