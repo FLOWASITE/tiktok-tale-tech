@@ -47,6 +47,10 @@ export function CharacterDetailSheet({
 }: Props) {
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [editModel, setEditModel] = useState<string>('auto');
+  // Per-label attached avatars (in-memory; flushed into reference_images on AI generate)
+  const [attachedRefs, setAttachedRefs] = useState<Record<string, string>>({});
+  const [perLabelLoading, setPerLabelLoading] = useState<string | null>(null);
 
   const imageActions = useCharacterImageActions({
     name: profile?.name,
