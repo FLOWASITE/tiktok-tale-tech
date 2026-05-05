@@ -21,6 +21,8 @@ import {
 } from '@/types/product';
 import { cn } from '@/lib/utils';
 import { ProductPersonaSelector } from './ProductPersonaSelector';
+import { ProductReferenceImagesEditor } from '@/components/products/ProductReferenceImagesEditor';
+import type { ProductReferenceImage, ProductAppearance } from '@/types/product';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
