@@ -1254,11 +1254,17 @@ export function MultiChannelFormWizard({
                       !hasGoal && "ring-1 ring-primary/30 bg-primary/[0.03]"
                     )}
                   >
-                    <Label className="text-foreground text-xs font-semibold flex items-center gap-1.5">
-                      <Target className={cn("w-3.5 h-3.5 text-primary", !hasGoal && "animate-pulse")} />
-                      Mục tiêu
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="space-y-0.5">
+                      <Label className="text-foreground font-semibold flex items-center gap-2">
+                        <Target className={cn("w-4 h-4 text-primary", !hasGoal && "animate-pulse")} />
+                        Mục tiêu
+                      </Label>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Xác định mục tiêu giúp AI điều chỉnh giọng văn và CTA phù hợp
+                      </p>
+                    </div>
+                    <Separator className="bg-border/60" />
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
                     {CONTENT_GOALS.map((goal) => {
                       const active = formData.contentGoal === goal.value;
                       return (
