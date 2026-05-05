@@ -334,6 +334,15 @@ export function QuickClipTab() {
         }}
       />
 
+      {/* Product consistency — auto chèn ảnh ref theo nhãn (front/in-use/packaging) */}
+      <MultiProductPicker
+        value={selectedProductIds}
+        onChange={(ids, products) => {
+          setSelectedProductIds(ids);
+          setSelectedProducts(products);
+        }}
+      />
+
       {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (
         <CharacterVoicePreview characters={selectedCharacters} />
       )}
