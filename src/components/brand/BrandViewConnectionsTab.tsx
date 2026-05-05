@@ -1429,8 +1429,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     return connected;
   };
 
-  const [search, setSearch] = useState('');
-  const [activeGroup, setActiveGroup] = useState<PlatformGroupId | 'all'>('all');
+
+
 
   const normalizedSearch = search.trim().toLowerCase();
   const matchesSearch = (platform: SocialPlatform) => {
