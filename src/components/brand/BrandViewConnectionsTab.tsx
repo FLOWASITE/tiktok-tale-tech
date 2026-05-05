@@ -266,6 +266,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [connectionToDelete, setConnectionToDelete] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
+  const [refreshingBlogger, setRefreshingBlogger] = useState<string | null>(null);
   
   const [twitterForm, setTwitterForm] = useState<TwitterSetupForm>({
     accessToken: '',
