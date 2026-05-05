@@ -41,6 +41,8 @@ const TEXT_PRESETS: PresetItem[] = [
 const IMAGE_PRESETS: PresetItem[] = [
   { id: 'default', label: 'Mặc định', model: null, icon: <Sparkles className="h-3.5 w-3.5" />, description: 'Cấu hình hệ thống' },
   { id: 'poyo-nano', label: 'Nano Banana Pro', model: 'poyo/nano-banana-2', icon: <Star className="h-3.5 w-3.5" />, description: 'PoYo.ai - 4K, text rendering' },
+  { id: 'poyo-seedream5', label: 'Seedream 5 Lite', model: 'poyo/seedream-5.0-lite-edit', icon: <Star className="h-3.5 w-3.5" />, description: 'PoYo.ai - multi-ref tới 10 ảnh, character consistency' },
+  { id: 'poyo-wan', label: 'Wan 2.7 Pro', model: 'poyo/wan-2.7-image-pro', icon: <Star className="h-3.5 w-3.5" />, description: 'PoYo.ai - Alibaba, custom size, premium' },
   { id: 'gemini-img', label: 'Gemini 3 Image', model: 'google/gemini-3-pro-image-preview', icon: <Star className="h-3.5 w-3.5" />, description: 'Lovable AI - chất lượng cao' },
   { id: 'flux', label: 'Flux Kontext Pro', model: 'flux-kontext-pro', icon: <Zap className="h-3.5 w-3.5" />, description: 'KIE.ai - nhanh, giá rẻ' },
 ];
