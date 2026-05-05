@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface RankPoint {
-  created_at: string;
+  checked_at: string;
   rank: number | null;
   serp_url: string | null;
   source: string | null;
@@ -17,10 +17,10 @@ export function useRankHistory(keywordId: string | null | undefined, days = 90) 
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("seo_rank_history")
-        .select("created_at, rank, serp_url, source")
+        .select("checked_at, rank, serp_url, source")
         .eq("keyword_id", keywordId!)
-        .gte("created_at", since)
-        .order("created_at", { ascending: true });
+        .gte("checked_at", since)
+        .order("checked_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as RankPoint[];
     },
