@@ -1,32 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
-import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
-import { getAIConfig } from "../_shared/ai-config.ts";
+import { generateTraceId } from "../_shared/logger.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const SUPPORTED_LOVABLE_TEXT_MODELS = new Set([
-  "openai/gpt-5-mini",
-  "openai/gpt-5",
-  "openai/gpt-5-nano",
-  "openai/gpt-5.2",
-  "openai/gpt-5.4",
-  "openai/gpt-5.4-mini",
-  "openai/gpt-5.4-nano",
-  "openai/gpt-5.4-pro",
-  "openai/gpt-5.5",
-  "openai/gpt-5.5-pro",
-  "google/gemini-2.5-pro",
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
-  "google/gemini-3-flash-preview",
-  "google/gemini-3.1-pro-preview",
-]);
-
-const DEFAULT_TEXT_MODEL = "google/gemini-3-flash-preview";
 
 Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
