@@ -1,28 +1,57 @@
-## Mục tiêu
-Trong tab **Ảnh ref** của `CharacterFormSheet`, bổ sung nút **"Tạo các góc còn lại"** để AI tự sinh tất cả góc nhân vật chưa có (trong số 5: front, side, full-body, close-up, outfit), dùng `refMainUrl` làm identity reference → đỡ phải bấm AI từng góc.
+# Bổ sung model tạo ảnh PoYo & GeminiGen
 
-## Thay đổi
+## Research findings
 
-### `src/components/characters/CharacterFormSheet.tsx`
+### PoYo.ai (`docs.poyo.ai/llms.txt`)
+PoYo hiện đã có 22 model image series. Chúng ta đang dùng 15 (`nano-banana-2*`, `gpt-4o-image*`, `gpt-image-1.5`, `z-image`, `flux-2-*`, `seedream-4.5*`, `grok-imagine`).
 
-1. **Thêm hàm `handleAiGenerateAllRefs`** (cạnh `handleAiGenerateRef`, ~line 169):
-   - Yêu cầu `refMainUrl` tồn tại + `name` không rỗng (toast nếu thiếu).
-   - Tính `missingLabels = REF_IMAGE_LABELS.filter(l => !usedLabels.has(l.value))` (tối đa 5 - hiện có).
-   - Loop tuần tự từng `label` (không Promise.all để tránh rate-limit/quota), gọi `imageActions.generateImage(label, refMainUrl)`.
-   - Sau mỗi ảnh thành công → `form.setValue('reference_images', [...current, { url, label }], { shouldDirty: true })` (đọc state mới nhất qua `form.getValues`).
-   - Toast progress: "Đang tạo X/Y…" và toast cuối "Đã tạo N góc ảnh".
-   - State `bulkGenerating` (boolean) để disable nút.
+**Còn thiếu — đáng bổ sung:**
+| Model | Mô tả | Use case |
+|---|---|---|
+| `poyo/nano-banana` | Gemini 2.5 Flash legacy, rẻ + nhanh | Bulk/draft |
+| `poyo/nano-banana-pro` | Gemini 3 Pro, chất lượng cao nhất Nano Banana series | Premium |
+| `poyo/gpt-image-1` + `-edit` | GPT Image 1 official (Fal-backed) | Text rendering tốt |
+| `poyo/gpt-image-1.5-official` + `-edit` | Phiên bản chính thức Fal | Tin cậy hơn |
+| `poyo/gpt-image-2` + `-edit` | Multi-image editing | Carousel consistency |
+| `poyo/seedream-4` + `-edit` | ByteDance Seedream 4 base | Phong cách Á Đông |
+| `poyo/seedream-5.0-lite` + `-edit` | Seedream 5 Lite, multi-ref tới 10 ảnh | Character consistency |
+| `poyo/wan-2.7-image` | Alibaba Wan 2.7 unified text+edit | Custom size |
+| `poyo/wan-2.7-image-pro` | Wan 2.7 Pro chất lượng cao | Premium Á |
+| `poyo/kling-o1` | High consistency reference alignment | Character/product |
+| `poyo/kling-o3` | High expressiveness, semantic strong | Creative scene |
+| `poyo/flux-kontext-pro` + `-max` | Flux Kontext (đã có ở KIE, thêm qua PoYo cho fallback) | Edit chính xác |
 
-2. **Thêm nút trong khối Multi reference** (~line 454, ngay trên hoặc cạnh nút AI hiện tại):
-   - Hiển thị khi `refImages.length < 5 && refMainUrl` tồn tại.
-   - Label: `Tạo {N} góc còn lại` (N = `availableLabels.length`).
-   - Variant `outline`, size `sm`, icon `Sparkles` hoặc `Wand2`, có Loader2 khi đang chạy.
-   - Disabled khi `bulkGenerating || !refMainUrl || !watched.name?.trim() || imageActions.aiGenerating`.
+### GeminiGen.ai
+Docs bị 404 nhiều endpoint, chỉ confirm 3 model ảnh hiện có (`nano-banana-pro`, `nano-banana-2`, `imagen-4`). **Không bổ sung mới** cho đến khi có docs chính thức — sẽ giữ nguyên list này.
 
-### Không đụng
-- `useCharacterImageActions.ts` (đã hỗ trợ `referenceImageUrl`).
-- Edge function `generate-character-image` (đã nhận `reference_image_url`).
+## Files cần update
 
-## Edge cases
-- Nếu 1 góc lỗi (429/402) → dừng loop, giữ các góc đã tạo, toast lỗi cụ thể.
-- Nếu đã đủ 5 góc → ẩn nút.
+### 1. `src/types/aiProvider.ts` (~line 100, 123)
+- Mở rộng `AI_PROVIDERS.poyo.models[]` thêm 15 model PoYo mới ở trên (giữ thứ tự: legacy → flagship → edit pairs).
+- GeminiGen: giữ nguyên.
+
+### 2. `src/hooks/useAIConfig.ts` (~line 225-242)
+- Mirror danh sách PoYo mới trong mảng image models để admin override.
+- GeminiGen: giữ nguyên.
+
+### 3. `src/components/admin/ai/InlineModelPicker.tsx`
+- Thêm 1-2 quick-pick presets nổi bật: `poyo/seedream-5.0-lite-edit` (multi-ref character) và `poyo/wan-2.7-image-pro`.
+
+### 4. `supabase/functions/_shared/poyo-image-generator.ts`
+- Code generic theo `model + input.size`, **không cần đổi gì** cho hầu hết model mới — chỉ check 2 điểm:
+  - `wan-2.7-image*`: hỗ trợ custom `{width, height}` object size — đã pass qua nguyên `size` string nên OK với preset.
+  - `seedream-5.0-lite-edit`: hỗ trợ multi-ref ảnh (mảng `image_urls` thay vì `image_url`). **Tương lai** mới cần — chưa làm trong scope này.
+- Cập nhật comment list model ở line 13 cho đúng.
+
+### 5. `src/components/ui/ModelUsedBadge.tsx`
+- Đã handle prefix `poyo/` chung. Không đổi.
+
+## Không thay đổi
+- Edge function `generate-character-image`, `generate-brand-image`, `generate-carousel-image`: dùng provider router theo prefix → tự động nhận model mới.
+- GeminiGen image generator + model list giữ nguyên.
+- DB migration không cần (model chỉ là string trong `ai_function_configs.model_override`).
+
+## Lưu ý
+- Tất cả model mới đều yêu cầu `POYO_API_KEY` đã có sẵn.
+- Pricing/credit do PoYo tính riêng từng model — admin tự chọn theo budget.
+- Multi-ref (seedream-5-lite-edit, kling-o1) nếu cần dùng full power thì mở task riêng để mở rộng `PoyoGenerateParams.inputImages: string[]`.
