@@ -1,35 +1,21 @@
-## Mục tiêu
-Card "Mục tiêu nội dung" ở Step 1 của Multi-channel Wizard hiện chiếm nhiều không gian (5 button to, mỗi cái có icon tròn + label, grid 2-3-5 cols, kèm header + description riêng). Mục tiêu: thu gọn để tiết kiệm chiều cao nhưng vẫn giữ được sự nổi bật khi user chưa chọn / đang chọn.
+## Vấn đề
+`useTopicHistory` mặc định `limit = 100` nên Kho ý tưởng chỉ tải 100 item đầu. Nút "Tải thêm" trong `TopicBankGrid` còn bị ẩn khi user áp filter (search/category/date/view), khiến lọc trên >100 topic bị thiếu.
 
 ## Thay đổi
 
-**File:** `src/components/multichannel/MultiChannelFormWizard.tsx` (lines ~1247-1287)
+### 1. `src/hooks/useTopicHistory.ts`
+- Tăng `limit` mặc định từ `100` → `500` (giữ option để caller override).
+- Đảm bảo `loadMore` dùng `range(offset, offset + limit - 1)` (hiện đang `offset + limit` — off-by-one làm trùng 1 item; sửa luôn).
 
-### Layout mới (compact chip row)
-```text
-┌──────────────────────────────────────────────────────────┐
-│ 🎯 Mục tiêu  [● Awareness] [○ Engage] [○ Edu] [○ Conv]…  │
-└──────────────────────────────────────────────────────────┘
-```
+### 2. `src/components/topic/TopicBankGrid.tsx`
+- Bỏ điều kiện ẩn nút "Tải thêm" khi có filter — chỉ cần `hasMore` là show. Lý do: filter là client-side trên `history`, nên cần load đủ data thì lọc mới chính xác.
+- Hiển thị thêm tổng số đã tải vs `stats.totalTopics` (vd: "Hiển thị 45 / Đã tải 350 ý tưởng") để user biết còn data.
+- Tự gọi `loadMore()` 1 lần khi user áp filter mà `filteredItems.length === 0` và `hasMore === true` (auto-fetch giúp UX mượt).
 
-- Gộp label "Mục tiêu nội dung" + 5 button vào **1 hàng flex-wrap** duy nhất.
-- Bỏ description dài "Xác định mục tiêu giúp AI..." → chuyển thành tooltip `?` icon hoặc bỏ hẳn (đã có gợi ý ngầm qua selected state).
-- Mỗi goal là **chip pill** nhỏ (`h-8 px-3 rounded-full`), icon `w-3.5 h-3.5` + text `text-xs`, không còn vòng tròn nền riêng.
-- Selected chip: `bg-primary text-primary-foreground` (solid, contrast cao) — đảm bảo focus mạnh.
-- Unselected: `bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground`.
+### 3. `src/pages/Topics.tsx` & `src/components/topic/MobileTopicBankSheet.tsx`
+- Truyền `limit: 500` rõ ràng (hoặc dựa default mới) — không thay đổi gì khác.
 
-### Focus / nổi bật khi chưa chọn
-- Khi `formData.contentGoal` rỗng/default: thêm subtle `ring-1 ring-primary/30 rounded-lg` quanh cả row + label "Mục tiêu" pulse nhẹ (`animate-pulse` trên Target icon) để nhắc user chú ý.
-- Khi đã chọn: bỏ ring, chip selected solid primary là đủ để confirm.
-
-### Responsive
-- Mobile (<640px): chip row vẫn flex-wrap, mỗi chip giữ chiều cao 32px → fit 2-3 chip/dòng, tối đa 2 dòng (so với hiện tại 3 dòng grid).
-- Desktop: 1 dòng duy nhất cùng label.
-
-## Kỹ thuật
-- Giữ nguyên logic `userManuallySetGoal.current = true` và `setFormData`.
-- Giữ `GOAL_ICONS` map.
-- Class chip dùng `cn()` conditional, không thêm dependency mới.
-- Tổng giảm chiều cao card từ ~140px xuống ~48-56px (≈60% nhỏ hơn).
-
-Không động chạm logic state, không đổi types, không ảnh hưởng các step khác.
+## Không động tới
+- Schema DB, RLS, edge function.
+- Logic save/draft/favorite.
+- `QuickSearch`, `ContentPipelineView`, `AILearningDashboard` — vẫn dùng default mới (500), không ảnh hưởng vì các view này hiển thị giới hạn khác.

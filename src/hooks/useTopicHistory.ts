@@ -68,7 +68,7 @@ interface UseTopicHistoryOptions {
 }
 
 export function useTopicHistory(options: UseTopicHistoryOptions = {}) {
-  const { brandTemplateId, contentGoal, format, formats, campaignId, limit = 100, enabled = true, excludeDrafts = false } = options;
+  const { brandTemplateId, contentGoal, format, formats, campaignId, limit = 500, enabled = true, excludeDrafts = false } = options;
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
   
