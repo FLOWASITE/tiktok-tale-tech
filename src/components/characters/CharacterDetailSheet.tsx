@@ -8,11 +8,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Edit2, Copy, Trash2, User, Mic, Tag, Sparkles, X } from 'lucide-react';
+import { Edit2, Copy, Trash2, User, Mic, Tag, Sparkles, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CharacterProfile, CharacterAppearance } from '@/hooks/useCharacterProfiles';
+import type { CharacterProfile, CharacterAppearance, ReferenceImage, ReferenceImageLabel } from '@/hooks/useCharacterProfiles';
 import { REF_IMAGE_LABELS, calcCompleteness } from '@/lib/characterSchema';
 import { Progress } from '@/components/ui/progress';
+import { useCharacterImageActions } from '@/hooks/useCharacterImageActions';
+import { useCharacterProfiles } from '@/hooks/useCharacterProfiles';
+import { toast } from 'sonner';
 
 interface Props {
   profile: CharacterProfile | null;
@@ -34,11 +37,56 @@ export function CharacterDetailSheet({
   onDelete,
 }: Props) {
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+
+  const imageActions = useCharacterImageActions({
+    name: profile?.name,
+    appearance: profile?.appearance,
+    wardrobe: profile?.wardrobe ?? undefined,
+    description: profile?.description,
+  });
+  const { updateProfile } = useCharacterProfiles();
 
   if (!profile) return null;
   const app = (profile.appearance ?? {}) as CharacterAppearance;
   const refs = Array.isArray(profile.reference_images) ? profile.reference_images : [];
   const pct = calcCompleteness(profile);
+  const usedLabels = new Set(refs.map((r) => r.label));
+  const availableLabels = REF_IMAGE_LABELS.filter((l) => !usedLabels.has(l.value));
+  const refMainUrl = profile.reference_image_url ?? '';
+
+  const handleGenerateAllRefs = async () => {
+    if (!refMainUrl) {
+      toast.error('Cần ảnh đại diện chính trước');
+      return;
+    }
+    if (availableLabels.length === 0) return;
+    setBulkGenerating(true);
+    let current: ReferenceImage[] = [...refs];
+    let createdCount = 0;
+    try {
+      for (const l of availableLabels) {
+        toast.info(`Đang tạo ${l.label} (${createdCount + 1}/${availableLabels.length})…`);
+        const url = await imageActions.generateImage(l.value as ReferenceImageLabel, refMainUrl);
+        if (!url) break;
+        current = [...current, { url, label: l.value as ReferenceImageLabel }];
+        await updateProfile.mutateAsync({
+          id: profile.id,
+          name: profile.name,
+          description: profile.description,
+          appearance: profile.appearance,
+          wardrobe: profile.wardrobe ?? undefined,
+          reference_image_url: profile.reference_image_url ?? undefined,
+          reference_images: current,
+        });
+        createdCount++;
+      }
+      if (createdCount > 0) toast.success(`Đã tạo ${createdCount} góc ảnh`);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
 
   const traits = [
     app.gender,
@@ -131,12 +179,25 @@ export function CharacterDetailSheet({
               )}
             </TabsContent>
 
-            <TabsContent value="gallery" className="px-5 py-4 mt-0">
-              {refs.length === 0 ? (
+            <TabsContent value="gallery" className="px-5 py-4 mt-0 space-y-3">
+              {refMainUrl && availableLabels.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1.5 text-xs"
+                  disabled={bulkGenerating || !!imageActions.aiGenerating}
+                  onClick={handleGenerateAllRefs}
+                >
+                  {bulkGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  Tạo {availableLabels.length} góc còn lại bằng AI
+                </Button>
+              )}
+              {refs.length === 0 && !refMainUrl ? (
                 <div className="text-center py-8 text-sm text-muted-foreground">
                   Chưa có ảnh tham chiếu nào.
                 </div>
-              ) : (
+              ) : refs.length === 0 ? null : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {refs.map((img, i) => (
                     <div key={i} className="relative group">
