@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users, ArrowRight } from 'lucide-react';
 import { QuickClipTab } from '@/components/video/QuickClipTab';
 import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
@@ -12,8 +13,6 @@ import { VideoCostTracker } from '@/components/video/VideoCostTracker';
 import { ScriptLinkBanner } from '@/components/video/ScriptLinkBanner';
 import { ScriptsTab } from '@/components/video/ScriptsTab';
 import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
-import { CharacterProfileManager } from '@/components/video/CharacterProfileManager';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const TABS = [
   { value: 'scripts', label: 'Kịch bản', icon: Clapperboard, hint: 'Viết kịch bản AI cho video' },
