@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { name, appearance = {}, wardrobe = "", description = "", view = "front", organization_id } = body;
+    const { name, appearance = {}, wardrobe = "", description = "", view = "front", organization_id, reference_image_url = "" } = body;
+    const hasRef = typeof reference_image_url === 'string' && reference_image_url.trim().length > 0;
 
     if (!name || !organization_id) {
       return new Response(JSON.stringify({ error: "name và organization_id là bắt buộc" }), {
