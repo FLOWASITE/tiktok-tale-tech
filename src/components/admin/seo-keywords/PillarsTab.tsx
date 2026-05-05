@@ -18,10 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Target, Trash2, ArrowRight, Search, LayoutGrid, List, X } from "lucide-react";
+import { Plus, Target, Trash2, ArrowRight, Search, LayoutGrid, List, X, GitMerge, Archive } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import PillarDetailView from "./PillarDetailView";
+import PillarBulkMergeDialog from "./PillarBulkMergeDialog";
 
 interface Cluster {
   id: string;
