@@ -155,8 +155,8 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       }
     }
 
-    const provider = resolvedProvider;
-    const model = resolvedModel || undefined;
+    let provider = resolvedProvider;
+    let model = resolvedModel || undefined;
 
     // Resolve duration/aspect/resolution: client value wins, else admin params fallback, else hard default
     const duration = clientDuration ?? adminParams.default_duration ?? 5;
