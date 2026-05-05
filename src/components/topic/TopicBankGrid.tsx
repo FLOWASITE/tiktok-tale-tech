@@ -549,7 +549,7 @@ export function TopicBankGrid({
       )}
 
       {/* Load more */}
-      {hasMore && !searchQuery && categoryFilter === 'all' && dateRange === 'all' && filterView === 'all' && (
+      {hasMore && (
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"
@@ -573,7 +573,8 @@ export function TopicBankGrid({
       {/* Results count */}
       {filteredItems.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          Hiển thị {filteredItems.length} ý tưởng
+          Hiển thị {filteredItems.length} / Đã tải {history.length} ý tưởng
+          {hasMore && ' (còn nữa)'}
         </p>
       )}
       {/* Delete confirmation */}
