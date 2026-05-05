@@ -376,9 +376,9 @@ export default function AdminSocialSettings() {
       </div>
 
       {/* Sections */}
-      {(['social', 'messaging', 'longform'] as const).map(renderSection)}
+      {(['social', 'messaging', 'longform', 'analytics'] as const).map(renderSection)}
 
-      {filteredByCategory.social.length === 0 && filteredByCategory.messaging.length === 0 && filteredByCategory.longform.length === 0 && (
+      {filteredByCategory.social.length === 0 && filteredByCategory.messaging.length === 0 && filteredByCategory.longform.length === 0 && filteredByCategory.analytics.length === 0 && (
         <div className="text-center py-16 text-muted-foreground border border-dashed rounded-lg">
           Không tìm thấy nền tảng phù hợp với "{search}"
         </div>
