@@ -8,14 +8,23 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Edit2, Copy, Trash2, User, Mic, Tag, Sparkles, X, Loader2 } from 'lucide-react';
+import { Edit2, Copy, Trash2, User, Mic, Tag, Sparkles, X, Loader2, Paperclip, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CharacterProfile, CharacterAppearance, ReferenceImage, ReferenceImageLabel } from '@/hooks/useCharacterProfiles';
 import { REF_IMAGE_LABELS, calcCompleteness } from '@/lib/characterSchema';
 import { Progress } from '@/components/ui/progress';
 import { useCharacterImageActions } from '@/hooks/useCharacterImageActions';
 import { useCharacterProfiles } from '@/hooks/useCharacterProfiles';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+
+const EDIT_MODEL_OPTIONS: { value: string; label: string; hint: string }[] = [
+  { value: 'auto', label: 'Tự động (khuyến nghị)', hint: 'Hệ thống chọn model edit phù hợp' },
+  { value: 'poyo/seedream-5.0-lite-edit', label: 'Seedream 5 Edit', hint: 'Character lock mạnh, multi-ref' },
+  { value: 'poyo/nano-banana-pro', label: 'Nano Banana Pro', hint: 'Gemini 3 Pro, identity tốt' },
+  { value: 'poyo/flux-kontext-max', label: 'Flux Kontext Max', hint: 'Instruction-following edit' },
+  { value: 'google/gemini-3-pro-image-preview', label: 'Gemini 3 Pro (Lovable)', hint: 'Fallback không cần PoYo key' },
+];
 
 interface Props {
   profile: CharacterProfile | null;
