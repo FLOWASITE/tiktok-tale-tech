@@ -331,6 +331,7 @@ export default function CharactersPage() {
         brand={currentBrand ? { id: currentBrand.id, name: currentBrand.name } : null}
         existingNames={profiles.map((p) => p.name)}
         onCreateProfile={(input) => createProfile.mutateAsync(input)}
+        onUpdateProfile={(input) => updateProfile.mutateAsync(input)}
       />
     </div>
   );
