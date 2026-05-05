@@ -25,7 +25,7 @@ export interface GscMetricRow {
 }
 
 export function useGscConnections() {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useOrganizationContext();
   const qc = useQueryClient();
 
   const connections = useQuery({
@@ -91,7 +91,7 @@ export function useGscConnections() {
 }
 
 export function useGscMetrics(connectionId: string | null, days: number = 28) {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization } = useOrganizationContext();
   return useQuery({
     queryKey: ["gsc-metrics", connectionId, days, currentOrganization?.id],
     enabled: !!connectionId && !!currentOrganization?.id,
