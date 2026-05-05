@@ -23,12 +23,14 @@ Deno.serve(async (req) => {
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
   const errorParam = url.searchParams.get("error");
+  let returnUrl: string | undefined;
 
   if (errorParam) return redirectBack(`Google trả lỗi: ${errorParam}`, false);
   if (!code || !stateRaw) return redirectBack("Thiếu code/state", false);
 
   try {
     const state = JSON.parse(atob(stateRaw));
+    returnUrl = state.return_url;
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { clientId, clientSecret } = await getGscClientCredentials(supabase);
 
@@ -75,6 +77,6 @@ Deno.serve(async (req) => {
     return redirectBack(`Đã kết nối ${sites.length} site GSC (${userInfo.email}).`, true, state.return_url);
   } catch (error: any) {
     console.error("[gsc-oauth-callback] Error:", error);
-    return redirectBack(error.message || "Internal error", false);
+    return redirectBack(error.message || "Internal error", false, returnUrl);
   }
 });
