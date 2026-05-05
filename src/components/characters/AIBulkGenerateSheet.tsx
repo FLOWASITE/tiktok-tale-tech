@@ -9,12 +9,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Loader2, Plus } from 'lucide-react';
+import { Sparkles, Loader2, Plus, ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { CharacterAppearance, CharacterProfileInput } from '@/hooks/useCharacterProfiles';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import type {
+  CharacterAppearance,
+  CharacterProfile,
+  CharacterProfileInput,
+} from '@/hooks/useCharacterProfiles';
 
 interface GeneratedChar {
   name: string;
@@ -29,20 +35,32 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   brand: { id: string; name: string } | null;
   existingNames: string[];
-  onCreateProfile: (input: CharacterProfileInput) => Promise<unknown>;
+  onCreateProfile: (input: CharacterProfileInput) => Promise<CharacterProfile>;
+  onUpdateProfile: (input: CharacterProfileInput & { id: string }) => Promise<unknown>;
 }
 
-export function AIBulkGenerateSheet({ open, onOpenChange, brand, existingNames, onCreateProfile }: Props) {
+export function AIBulkGenerateSheet({
+  open,
+  onOpenChange,
+  brand,
+  existingNames,
+  onCreateProfile,
+  onUpdateProfile,
+}: Props) {
+  const { currentOrganization } = useOrganizationContext();
   const [roleHint, setRoleHint] = useState('');
   const [charCount, setCharCount] = useState('2');
+  const [autoGenImage, setAutoGenImage] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatedChars, setGeneratedChars] = useState<GeneratedChar[]>([]);
   const [savingBatch, setSavingBatch] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number; phase: string } | null>(null);
 
   const reset = () => {
     setGeneratedChars([]);
     setRoleHint('');
     setCharCount('2');
+    setProgress(null);
   };
 
   const generateCharacters = useCallback(async () => {
@@ -82,21 +100,83 @@ export function AIBulkGenerateSheet({ open, onOpenChange, brand, existingNames, 
     }
   }, [brand?.id, roleHint, charCount, existingNames]);
 
+  const generateAvatarFor = useCallback(
+    async (profile: { name: string; appearance?: any; wardrobe?: string; description?: string }): Promise<string | null> => {
+      if (!currentOrganization?.id) return null;
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-character-image', {
+          body: {
+            name: profile.name,
+            appearance: profile.appearance ?? {},
+            wardrobe: profile.wardrobe ?? '',
+            description: profile.description ?? '',
+            view: 'front',
+            organization_id: currentOrganization.id,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          console.warn('[generate-character-image]', data.error);
+          return null;
+        }
+        return data?.url ?? null;
+      } catch (e) {
+        console.warn('[generate-character-image] failed', e);
+        return null;
+      }
+    },
+    [currentOrganization?.id],
+  );
+
   const saveSelectedGenerated = useCallback(async () => {
     const toSave = generatedChars.filter((c) => c.selected);
     if (toSave.length === 0) return;
     setSavingBatch(true);
+    let imgFails = 0;
     try {
-      for (const c of toSave) {
-        await onCreateProfile({
+      setProgress({ done: 0, total: toSave.length, phase: 'Đang lưu nhân vật' });
+      for (let i = 0; i < toSave.length; i++) {
+        const c = toSave[i];
+        setProgress({
+          done: i,
+          total: toSave.length,
+          phase: autoGenImage ? `Đang tạo ảnh ${i + 1}/${toSave.length}` : `Đang lưu ${i + 1}/${toSave.length}`,
+        });
+        const created = await onCreateProfile({
           name: c.name,
           description: c.description,
           appearance: c.appearance,
           wardrobe: c.wardrobe,
           brand_template_id: brand?.id ?? null,
         });
+        if (autoGenImage && created?.id) {
+          const url = await generateAvatarFor(c);
+          if (url) {
+            try {
+              await onUpdateProfile({
+                id: created.id,
+                name: created.name,
+                description: created.description ?? '',
+                reference_image_url: url,
+                reference_images: [{ url, label: 'front' }],
+              });
+            } catch (e) {
+              console.warn('[update profile with image]', e);
+              imgFails++;
+            }
+          } else {
+            imgFails++;
+          }
+        }
       }
-      toast.success(`Đã tạo ${toSave.length} nhân vật`);
+      setProgress({ done: toSave.length, total: toSave.length, phase: 'Hoàn tất' });
+      if (autoGenImage && imgFails > 0) {
+        toast.warning(
+          `Đã tạo ${toSave.length} nhân vật, ${imgFails}/${toSave.length} ảnh chưa tạo được — bấm "Tạo ảnh AI" trên thẻ để thử lại.`,
+        );
+      } else {
+        toast.success(`Đã tạo ${toSave.length} nhân vật`);
+      }
       reset();
       onOpenChange(false);
     } catch (e: any) {
@@ -104,7 +184,7 @@ export function AIBulkGenerateSheet({ open, onOpenChange, brand, existingNames, 
     } finally {
       setSavingBatch(false);
     }
-  }, [generatedChars, onCreateProfile, brand?.id, onOpenChange]);
+  }, [generatedChars, autoGenImage, onCreateProfile, onUpdateProfile, generateAvatarFor, brand?.id, onOpenChange]);
 
   return (
     <Sheet
@@ -156,6 +236,24 @@ export function AIBulkGenerateSheet({ open, onOpenChange, brand, existingNames, 
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex items-start justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2.5">
+            <div className="space-y-0.5 flex-1 min-w-0">
+              <Label htmlFor="auto-gen-image" className="text-xs flex items-center gap-1.5 cursor-pointer">
+                <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                Tự động tạo ảnh chân dung
+              </Label>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Sau khi lưu, AI render ảnh front-view cho từng nhân vật (tốn thêm credit ảnh).
+              </p>
+            </div>
+            <Switch
+              id="auto-gen-image"
+              checked={autoGenImage}
+              onCheckedChange={setAutoGenImage}
+              disabled={savingBatch}
+            />
           </div>
 
           {existingNames.length > 0 && generatedChars.length === 0 && (
@@ -213,6 +311,12 @@ export function AIBulkGenerateSheet({ open, onOpenChange, brand, existingNames, 
                   </div>
                 </div>
               ))}
+              {progress && savingBatch && (
+                <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  {progress.phase} ({progress.done}/{progress.total})
+                </div>
+              )}
             </div>
           )}
         </div>
