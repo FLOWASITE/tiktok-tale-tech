@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Film, Wand2, Music4, GalleryHorizontalEnd, DollarSign, Clapperboard, Users, ArrowRight } from 'lucide-react';
 import { QuickClipTab } from '@/components/video/QuickClipTab';
 import { StoryboardVideoTab } from '@/components/video/StoryboardVideoTab';
 import { AudioStudioTab } from '@/components/video/AudioStudioTab';
@@ -12,8 +13,6 @@ import { VideoCostTracker } from '@/components/video/VideoCostTracker';
 import { ScriptLinkBanner } from '@/components/video/ScriptLinkBanner';
 import { ScriptsTab } from '@/components/video/ScriptsTab';
 import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
-import { CharacterProfileManager } from '@/components/video/CharacterProfileManager';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const TABS = [
   { value: 'scripts', label: 'Kịch bản', icon: Clapperboard, hint: 'Viết kịch bản AI cho video' },
@@ -100,20 +99,21 @@ function VideoStudioInner() {
         {/* Script link banner — chỉ hiện khi có activeScript */}
         <ScriptLinkBanner onJumpToTab={(t) => setTab(t)} />
 
-        {/* Character profiles — collapsible */}
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <Users className="w-3.5 h-3.5" />
-            <span>Quản lý nhân vật</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <Card className="border-border/60">
-              <CardContent className="p-4">
-                <CharacterProfileManager />
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+        {/* Character profiles — full management on dedicated page */}
+        <Card className="border-border/60">
+          <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">Nhân vật</span>
+              <span className="text-xs text-muted-foreground">— giữ nhất quán ngoại hình giữa các scene</span>
+            </div>
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link to="/characters">
+                Mở trang quản lý <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">

@@ -82,6 +82,7 @@ const AdminTelegramAuthCheck = lazy(() => import("@/pages/AdminTelegramAuthCheck
 const AgentTelegramPage = lazy(() => import("@/pages/AgentTelegramPage"));
 const AgentChannelHubPage = lazy(() => import("@/pages/AgentChannelHubPage"));
 const VideoStudioPage = lazy(() => import("@/pages/VideoStudioPage"));
+const CharactersPage = lazy(() => import("@/pages/CharactersPage"));
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
@@ -179,6 +180,7 @@ export function AppRoutes() {
       <Route path="/scripts" element={<Navigate to="/videos?tab=scripts" replace />} />
       <Route path="/scripts/new" element={<Navigate to="/videos?tab=scripts" replace />} />
       <Route path="/videos" element={<ProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><VideoStudioPage /></Suspense></AppLayout></ProtectedRoute>} />
+      <Route path="/characters" element={<ProtectedRoute><AppLayout><Suspense fallback={<LoadingFallback />}><CharactersPage /></Suspense></AppLayout></ProtectedRoute>} />
       <Route path="/carousel" element={<ProtectedRoute><AppLayout><Carousel /></AppLayout></ProtectedRoute>} />
       <Route path="/gallery" element={<ProtectedRoute><AppLayout><Gallery /></AppLayout></ProtectedRoute>} />
       <Route path="/brands" element={<ProtectedRoute><AppLayout><Brands /></AppLayout></ProtectedRoute>} />
