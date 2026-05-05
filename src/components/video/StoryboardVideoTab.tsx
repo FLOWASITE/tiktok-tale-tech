@@ -17,6 +17,7 @@ import { VideoCompletionWizard } from './VideoCompletionWizard';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
