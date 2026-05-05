@@ -233,18 +233,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
       suggested_voice_style: c.suggested_voice_style || '',
     }));
 
-    console.log(`[generate-character] traceId=${traceId} Generated ${profiles.length} character(s) for brand "${brand.name}" in ${latencyMs}ms`);
-
-    // Save metrics
-    saveMetrics({
-      functionName: 'generate-character',
-      traceId,
-      model,
-      latencyMs,
-      status: 'success',
-      inputTokens: usage?.prompt_tokens,
-      outputTokens: usage?.completion_tokens,
-    }, supabase).catch(() => {});
+    console.log(`[generate-character] traceId=${traceId} Generated ${profiles.length} character(s) for brand "${brand.name}" via ${result.provider}/${result.model}`);
 
     return new Response(JSON.stringify({ characters: profiles }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
