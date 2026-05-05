@@ -121,6 +121,7 @@ export default function AdminSocialSettings() {
       social: matches.filter(p => p.category === 'social'),
       messaging: matches.filter(p => p.category === 'messaging'),
       longform: matches.filter(p => p.category === 'longform'),
+      analytics: matches.filter(p => p.category === 'analytics'),
     };
   }, [search]);
 
