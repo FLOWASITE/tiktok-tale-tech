@@ -677,7 +677,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
-  const [refreshingBlogger, setRefreshingBlogger] = useState<string | null>(null);
   const handleRefreshBloggerToken = async (connectionId: string) => {
     setRefreshingBlogger(connectionId);
     try {
