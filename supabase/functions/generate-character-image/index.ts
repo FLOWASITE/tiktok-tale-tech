@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,7 +84,9 @@ ${description ? `Notes: ${description}` : ""}
 Shot: ${viewHint}.
 Style: high-end photography, soft natural lighting, neutral light gray background, sharp focus, 4K, realistic skin texture, professional headshot quality. No text, no watermark, no logo.`;
 
-    console.log(`[generate-character-image] user=${user.id} name="${name}" view=${view}`);
+    const aiConfig = await getAIConfig('generate-character-image', organization_id);
+    const model = aiConfig.model || 'google/gemini-2.5-flash-image';
+    console.log(`[generate-character-image] user=${user.id} name="${name}" view=${view} model=${model}`);
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -92,7 +95,7 @@ Style: high-end photography, soft natural lighting, neutral light gray backgroun
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
+        model,
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),

@@ -109,6 +109,8 @@ export const AI_FUNCTIONS = [
   { name: 'generate-carousel-image', description: 'Tạo hình carousel', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
   { name: 'decompose-image-request', description: 'Phân tách yêu cầu hình ảnh', category: 'image', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-scene-thumbnail', description: 'Tạo thumbnail cho scene', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
+  { name: 'generate-character-image', description: 'Tạo ảnh chân dung nhân vật (Video Studio)', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-image' },
+  { name: 'generate-character', description: 'Tạo metadata nhân vật bằng AI', category: 'image', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   
   // Research & Search Functions
   { name: 'firecrawl-trends', description: 'Crawl và phân tích trends', category: 'research', type: 'search' as AIFunctionType, currentModel: 'perplexity/sonar-pro' },

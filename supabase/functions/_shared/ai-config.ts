@@ -174,6 +174,24 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  // Character portrait generation (Video Studio)
+  'generate-character-image': {
+    model: 'google/gemini-2.5-flash-image',
+    temperature: 0.7,
+    max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
+  // Character metadata generation (Video Studio)
+  'generate-character': {
+    model: 'google/gemini-2.5-flash',
+    temperature: 0.8,
+    max_tokens: 4096,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
   // KIE.ai image generation via unified jobs API
   'generate-kie-image': {
     model: 'flux-2/pro-text-to-image',
@@ -302,7 +320,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'expand-multichannel-channels', 'generate-ad-copy',
     'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
     'reviewer-agent', 'learning-agent', 'decompose-image-request', 'suggest-usp',
-    'telegram-intent',
+    'telegram-intent', 'generate-character',
     // SEO group
     'keyword-research-v2', 'keyword-research', 'keyword-research-save',
     'enrich-keyword-serp', 'suggest-cluster-topics', 'generate-seo-landing',
@@ -310,6 +328,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
+    'generate-character-image',
   ];
   const searchFunctions = ['topic-ai']; // topic-ai can also be search, but primarily text
 

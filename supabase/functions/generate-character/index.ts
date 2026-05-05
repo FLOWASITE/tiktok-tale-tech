@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
 import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,7 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
     // Fetch brand context including voice variants
     const { data: brand, error: brandErr } = await supabase
       .from('brand_templates')
-        .select('name, tone_of_voice, content_pillars, industry_template_id, voice_variants')
+        .select('name, tone_of_voice, content_pillars, industry_template_id, voice_variants, organization_id')
         .eq('id', brand_template_id)
         .maybeSingle();
 
@@ -123,7 +124,9 @@ ${video_type ? `\nTHỂ LOẠI VIDEO: ${video_type}` : ''}
 
 Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand này.`;
 
-    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0}`);
+    const aiConfig = await getAIConfig('generate-character', (brand as any).organization_id);
+    const model = aiConfig.model || 'google/gemini-2.5-flash';
+    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0} model=${model}`);
 
     const startMs = Date.now();
 
@@ -134,7 +137,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -190,7 +193,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
       saveMetrics({
         functionName: 'generate-character',
         traceId,
-        model: 'google/gemini-2.5-flash',
+        model,
         latencyMs,
         status: 'error',
         errorMessage: `AI ${status}`,
@@ -259,7 +262,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
     saveMetrics({
       functionName: 'generate-character',
       traceId,
-      model: 'google/gemini-2.5-flash',
+      model,
       latencyMs,
       status: 'success',
       inputTokens: usage?.prompt_tokens,
