@@ -172,20 +172,11 @@ export default function CharactersPage() {
       if (error) throw error;
       toast.success(`Đã cập nhật brand cho ${ids.length} nhân vật`);
       setSelectedIds([]);
-      // Trigger query refetch
-      window.dispatchEvent(new CustomEvent('characters:invalidate'));
+      queryClient.invalidateQueries({ queryKey: ['character-profiles', currentOrganization.id] });
     } catch (e: any) {
       toast.error(e?.message || 'Lỗi cập nhật brand');
     }
   };
-
-  // Listen invalidate to refetch
-  useEffect(() => {
-    const handler = () => updateProfile.reset();
-    window.addEventListener('characters:invalidate', handler);
-    return () => window.removeEventListener('characters:invalidate', handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const isSaving = createProfile.isPending || updateProfile.isPending;
 
