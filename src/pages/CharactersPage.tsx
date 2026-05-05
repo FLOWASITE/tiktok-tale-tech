@@ -26,6 +26,7 @@ export default function CharactersPage() {
   const { profiles, isLoading, createProfile, updateProfile, deleteProfile } = useCharacterProfiles();
   const { currentBrand, brands } = useCurrentBrand();
   const { currentOrganization } = useOrganizationContext();
+  const queryClient = useQueryClient();
 
   const [query, setQuery] = useState('');
   const [gender, setGender] = useState('');
