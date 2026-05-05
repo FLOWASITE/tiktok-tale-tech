@@ -43,6 +43,7 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
     activeScript?.characterProfileIds ?? (activeScript?.characterProfileId ? [activeScript.characterProfileId] : [])
   );
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   useEffect(() => { fetchGenerations(); fetchAssets(); }, [fetchGenerations, fetchAssets]);
 
