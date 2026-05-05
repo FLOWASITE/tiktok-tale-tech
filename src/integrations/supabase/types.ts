@@ -3082,6 +3082,7 @@ export type Database = {
       }
       brand_products: {
         Row: {
+          appearance: Json
           benefits: string[] | null
           best_channels: string[] | null
           brand_template_id: string
@@ -3097,6 +3098,7 @@ export type Database = {
           organization_id: string | null
           pain_points_solved: string[] | null
           price_display: string | null
+          reference_images: Json
           sku: string | null
           sort_order: number | null
           suggested_content_angles: string[] | null
@@ -3106,6 +3108,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          appearance?: Json
           benefits?: string[] | null
           best_channels?: string[] | null
           brand_template_id: string
@@ -3121,6 +3124,7 @@ export type Database = {
           organization_id?: string | null
           pain_points_solved?: string[] | null
           price_display?: string | null
+          reference_images?: Json
           sku?: string | null
           sort_order?: number | null
           suggested_content_angles?: string[] | null
@@ -3130,6 +3134,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          appearance?: Json
           benefits?: string[] | null
           best_channels?: string[] | null
           brand_template_id?: string
@@ -3145,6 +3150,7 @@ export type Database = {
           organization_id?: string | null
           pain_points_solved?: string[] | null
           price_display?: string | null
+          reference_images?: Json
           sku?: string | null
           sort_order?: number | null
           suggested_content_angles?: string[] | null
