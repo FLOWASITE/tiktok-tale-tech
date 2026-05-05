@@ -2,7 +2,11 @@
 import { decrypt } from "./crypto.ts";
 
 export const GSC_REDIRECT_URI = `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/gsc-oauth-callback`;
-export const GSC_SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"];
+export const GSC_SCOPES = [
+  "https://www.googleapis.com/auth/webmasters.readonly",
+  "openid",
+  "https://www.googleapis.com/auth/userinfo.email",
+];
 
 export async function getGscClientCredentials(serviceClient: any): Promise<{ clientId: string; clientSecret: string }> {
   const { data, error } = await serviceClient
