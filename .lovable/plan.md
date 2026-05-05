@@ -1,57 +1,66 @@
-# Bổ sung model tạo ảnh PoYo & GeminiGen
+# Cập nhật danh sách model video GeminiGen
 
-## Research findings
+## Phát hiện từ `geminigen.ai/pricing`
 
-### PoYo.ai (`docs.poyo.ai/llms.txt`)
-PoYo hiện đã có 22 model image series. Chúng ta đang dùng 15 (`nano-banana-2*`, `gpt-4o-image*`, `gpt-image-1.5`, `z-image`, `flux-2-*`, `seedream-4.5*`, `grok-imagine`).
+GeminiGen hiện cung cấp nhiều model video hơn list trong code (Sora không thấy trên pricing nhưng giữ lại do code đã wired).
 
-**Còn thiếu — đáng bổ sung:**
-| Model | Mô tả | Use case |
-|---|---|---|
-| `poyo/nano-banana` | Gemini 2.5 Flash legacy, rẻ + nhanh | Bulk/draft |
-| `poyo/nano-banana-pro` | Gemini 3 Pro, chất lượng cao nhất Nano Banana series | Premium |
-| `poyo/gpt-image-1` + `-edit` | GPT Image 1 official (Fal-backed) | Text rendering tốt |
-| `poyo/gpt-image-1.5-official` + `-edit` | Phiên bản chính thức Fal | Tin cậy hơn |
-| `poyo/gpt-image-2` + `-edit` | Multi-image editing | Carousel consistency |
-| `poyo/seedream-4` + `-edit` | ByteDance Seedream 4 base | Phong cách Á Đông |
-| `poyo/seedream-5.0-lite` + `-edit` | Seedream 5 Lite, multi-ref tới 10 ảnh | Character consistency |
-| `poyo/wan-2.7-image` | Alibaba Wan 2.7 unified text+edit | Custom size |
-| `poyo/wan-2.7-image-pro` | Wan 2.7 Pro chất lượng cao | Premium Á |
-| `poyo/kling-o1` | High consistency reference alignment | Character/product |
-| `poyo/kling-o3` | High expressiveness, semantic strong | Creative scene |
-| `poyo/flux-kontext-pro` + `-max` | Flux Kontext (đã có ở KIE, thêm qua PoYo cho fallback) | Edit chính xác |
+### Bổ sung mới (chưa có trong code)
+**Veo (Google):**
+- `veo-3.1-fast-fullhd` — Fast Full HD
+- `veo-3.1-lite-hd` — Lite HD
+- `veo-3.1-lite-fullhd` — Lite Full HD
+- `veo-3.1-hd`, `veo-3.1-fullhd` — Premium HD/Full HD (giữ `veo-3.1` làm alias)
 
-### GeminiGen.ai
-Docs bị 404 nhiều endpoint, chỉ confirm 3 model ảnh hiện có (`nano-banana-pro`, `nano-banana-2`, `imagen-4`). **Không bổ sung mới** cho đến khi có docs chính thức — sẽ giữ nguyên list này.
+**Grok (xAI):**
+- `grok-3` — Free tier, fast video gen
+
+**Bytedance Seedance 2.0:** (mới hoàn toàn)
+- `seedance-2-fast-480p`, `seedance-2-fast-720p`
+- `seedance-2-pro-480p`, `seedance-2-pro-720p`
+- `seedance-2-omni-fast`, `seedance-2-omni-pro`
+- `seedance-2-omni-fast-vip`, `seedance-2-omni-pro-vip`
+
+**Kling (Kuaishou):** (mới hoàn toàn)
+- `kling-3.0-720p`, `kling-3.0-1080p`
+- `kling-3.0-edit-720p`, `kling-3.0-edit-1080p`
+- `kling-3.0-motion-control-720p/1080p`
+- `kling-o1-720p`, `kling-o1-1080p`, `kling-o1-edit-1080p`
+- `kling-2.6-720p`, `kling-2.6-1080p`, `kling-2.6-1080p-audio`
+- `kling-2.6-motion-control-720p/1080p`
+- `kling-2.5-720p`, `kling-2.5-1080p`, `kling-2.5-720p-relax`
+- `kling-2.1-5s-720p/1080p`, `kling-2.1-10s-720p/1080p`
+- `kling-lipsync`
+
+**Tổng:** ~30+ model mới.
 
 ## Files cần update
 
-### 1. `src/types/aiProvider.ts` (~line 100, 123)
-- Mở rộng `AI_PROVIDERS.poyo.models[]` thêm 15 model PoYo mới ở trên (giữ thứ tự: legacy → flagship → edit pairs).
-- GeminiGen: giữ nguyên.
+### 1. `src/types/aiProvider.ts` (line 142-148)
+- Mở rộng `geminigen.models[]` với 30+ ID mới (group: Veo / Grok / Seedance / Kling).
+- Update `description` từ chỉ-image sang "Veo, Grok, Seedance, Kling video + Imagen/Nano Banana".
 
-### 2. `src/hooks/useAIConfig.ts` (~line 225-242)
-- Mirror danh sách PoYo mới trong mảng image models để admin override.
-- GeminiGen: giữ nguyên.
+### 2. `src/hooks/useAIConfig.ts` (line 274-297)
+- Trong array `video[]`: thêm các `geminigen/*` ID mới ở trên (giữ alphabetical theo provider).
 
-### 3. `src/components/admin/ai/InlineModelPicker.tsx`
-- Thêm 1-2 quick-pick presets nổi bật: `poyo/seedream-5.0-lite-edit` (multi-ref character) và `poyo/wan-2.7-image-pro`.
+### 3. `supabase/functions/_shared/geminigen-video-generator.ts`
+- Update header comment (line 4) liệt kê model mới.
+- **Endpoint `/uapi/v1/video-gen/veo` chỉ dùng cho Veo.** Cần check pricing/docs xem Seedance/Kling/Grok có endpoint riêng không.
+  - Nếu có, thêm route function chọn endpoint theo prefix model:
+    - `veo-*` → `/uapi/v1/video-gen/veo`
+    - `sora-*` → `/uapi/v1/video-gen/sora` (cũ đã pattern này)
+    - `grok-*` → `/uapi/v1/video-gen/grok`
+    - `seedance-*` → `/uapi/v1/video-gen/seedance`
+    - `kling-*` → `/uapi/v1/video-gen/kling`
+  - Endpoint thực tế chưa confirm trong docs (404). **Sẽ implement endpoint switcher dựa trên pattern đoán + log warning** để khi gọi thật sẽ thấy lỗi cụ thể và sửa nhanh.
 
-### 4. `supabase/functions/_shared/poyo-image-generator.ts`
-- Code generic theo `model + input.size`, **không cần đổi gì** cho hầu hết model mới — chỉ check 2 điểm:
-  - `wan-2.7-image*`: hỗ trợ custom `{width, height}` object size — đã pass qua nguyên `size` string nên OK với preset.
-  - `seedream-5.0-lite-edit`: hỗ trợ multi-ref ảnh (mảng `image_urls` thay vì `image_url`). **Tương lai** mới cần — chưa làm trong scope này.
-- Cập nhật comment list model ở line 13 cho đúng.
-
-### 5. `src/components/ui/ModelUsedBadge.tsx`
-- Đã handle prefix `poyo/` chung. Không đổi.
+### 4. `src/components/video/ProviderModelPicker.tsx` (nếu có grouping UI)
+- Nếu component group model theo family thì thêm 4 nhóm mới: Grok, Seedance, Kling, các Veo lite.
 
 ## Không thay đổi
-- Edge function `generate-character-image`, `generate-brand-image`, `generate-carousel-image`: dùng provider router theo prefix → tự động nhận model mới.
-- GeminiGen image generator + model list giữ nguyên.
-- DB migration không cần (model chỉ là string trong `ai_function_configs.model_override`).
+- DB migration: không cần (model là string).
+- Sora models: giữ nguyên cho backward compat.
+- PoYo video models: giữ nguyên (đã update riêng nếu cần).
 
-## Lưu ý
-- Tất cả model mới đều yêu cầu `POYO_API_KEY` đã có sẵn.
-- Pricing/credit do PoYo tính riêng từng model — admin tự chọn theo budget.
-- Multi-ref (seedream-5-lite-edit, kling-o1) nếu cần dùng full power thì mở task riêng để mở rộng `PoyoGenerateParams.inputImages: string[]`.
+## Lưu ý / Risk
+- **Endpoint chưa verify**: API path cho Seedance/Kling/Grok là suy đoán. Cần test 1 model thực tế sau khi deploy để confirm + fix path nếu sai.
+- Pricing chênh lệch lớn giữa các model (free → $0.175/sec) → admin cần biết rõ khi pick. Sẽ thêm tooltip pricing nếu kịp scope.
