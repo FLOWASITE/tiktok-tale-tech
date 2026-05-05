@@ -24,6 +24,7 @@ export default function LinksWorkspace() {
 
   const { data: backStats } = useBacklinkStats();
   const { data: internalData } = useInternalLinksOverview();
+  const { data: extStats } = useExternalLinkStats();
 
   return (
     <div className="space-y-4">
