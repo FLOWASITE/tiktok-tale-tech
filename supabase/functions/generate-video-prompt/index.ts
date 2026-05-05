@@ -25,6 +25,7 @@ interface PromptRequest {
   tone?: string;
   character_profile_id?: string;
   character_profile_ids?: string[];
+  product_profile_ids?: string[];
 }
 
 interface PromptResponse {
