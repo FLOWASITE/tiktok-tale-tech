@@ -1,32 +1,28 @@
-# Auto-tạo ảnh nhân vật khi AI bulk-generate
-
-## Vấn đề
-`AIBulkGenerateSheet` chỉ gọi `generate-character` (sinh metadata text) rồi `onCreateProfile` → các nhân vật vừa tạo có `reference_image_url = null` → Card/Detail trống ảnh.
+## Mục tiêu
+Trong tab **Ảnh ref** của `CharacterFormSheet`, bổ sung nút **"Tạo các góc còn lại"** để AI tự sinh tất cả góc nhân vật chưa có (trong số 5: front, side, full-body, close-up, outfit), dùng `refMainUrl` làm identity reference → đỡ phải bấm AI từng góc.
 
 ## Thay đổi
 
-### 1. `src/components/characters/AIBulkGenerateSheet.tsx`
-- Thêm prop `onUpdateProfile` (đã có sẵn từ `useCharacterProfiles`)
-- Thêm switch **"Tự động tạo ảnh chân dung"** (default ON) + hint về credit ảnh
-- Trong `saveSelectedGenerated`: sau mỗi `createProfile`, nếu bật autoGen → gọi `supabase.functions.invoke('generate-character-image', { name, appearance, wardrobe, description, view: 'front', organization_id })` → patch profile với `reference_image_url` + `reference_images: [{url, label:'front'}]`
-- Thêm progress indicator `Đang tạo ảnh i/N`
-- Lỗi ảnh từng cái chỉ đếm `imgFails` và toast.warning ở cuối, không rollback profile
-- `onCreateProfile` đổi return type thành `Promise<CharacterProfile>` để lấy `id`
+### `src/components/characters/CharacterFormSheet.tsx`
 
-### 2. `src/components/characters/CharacterCard.tsx`
-- Thêm prop optional `onGenerateAvatar?: () => void` + `isGeneratingAvatar?: boolean`
-- Khi `!reference_image_url` → thay placeholder `<User>` bằng nút ghost "✨ Tạo ảnh AI" (nếu có handler), bấm → loading spinner
+1. **Thêm hàm `handleAiGenerateAllRefs`** (cạnh `handleAiGenerateRef`, ~line 169):
+   - Yêu cầu `refMainUrl` tồn tại + `name` không rỗng (toast nếu thiếu).
+   - Tính `missingLabels = REF_IMAGE_LABELS.filter(l => !usedLabels.has(l.value))` (tối đa 5 - hiện có).
+   - Loop tuần tự từng `label` (không Promise.all để tránh rate-limit/quota), gọi `imageActions.generateImage(label, refMainUrl)`.
+   - Sau mỗi ảnh thành công → `form.setValue('reference_images', [...current, { url, label }], { shouldDirty: true })` (đọc state mới nhất qua `form.getValues`).
+   - Toast progress: "Đang tạo X/Y…" và toast cuối "Đã tạo N góc ảnh".
+   - State `bulkGenerating` (boolean) để disable nút.
 
-### 3. `src/pages/CharactersPage.tsx`
-- Truyền `onUpdateProfile={(input) => updateProfile.mutateAsync(input)}` vào `AIBulkGenerateSheet`
-- Thêm state `generatingAvatarFor: string | null` + handler `handleGenerateAvatar(p)`:
-  - Gọi `generate-character-image` với view=`front`
-  - `updateProfile.mutateAsync({ id: p.id, name: p.name, reference_image_url, reference_images })`
-- Truyền xuống `CharacterCard`
+2. **Thêm nút trong khối Multi reference** (~line 454, ngay trên hoặc cạnh nút AI hiện tại):
+   - Hiển thị khi `refImages.length < 5 && refMainUrl` tồn tại.
+   - Label: `Tạo {N} góc còn lại` (N = `availableLabels.length`).
+   - Variant `outline`, size `sm`, icon `Sparkles` hoặc `Wand2`, có Loader2 khi đang chạy.
+   - Disabled khi `bulkGenerating || !refMainUrl || !watched.name?.trim() || imageActions.aiGenerating`.
 
-## Không đụng
-- Edge functions (`generate-character`, `generate-character-image`) — đã hoạt động đúng
-- Schema DB, `useCharacterProfiles` — `reference_image_url` đã có sẵn
+### Không đụng
+- `useCharacterImageActions.ts` (đã hỗ trợ `referenceImageUrl`).
+- Edge function `generate-character-image` (đã nhận `reference_image_url`).
 
-## Chi phí
-Mỗi character bulk = 1 text call + 1 image call (Gemini). User có thể tắt switch để tiết kiệm credit.
+## Edge cases
+- Nếu 1 góc lỗi (429/402) → dừng loop, giữ các góc đã tạo, toast lỗi cụ thể.
+- Nếu đã đủ 5 góc → ẩn nút.

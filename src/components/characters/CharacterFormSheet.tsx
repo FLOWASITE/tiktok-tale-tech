@@ -182,6 +182,37 @@ export function CharacterFormSheet({
     }
   };
 
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const handleAiGenerateAllRefs = async () => {
+    if (!refMainUrl) {
+      toast.error('Cần ảnh đại diện chính làm tham chiếu');
+      return;
+    }
+    if (!watched.name?.trim()) {
+      toast.error('Cần nhập tên nhân vật');
+      return;
+    }
+    const current = form.getValues('reference_images') ?? [];
+    const used = new Set(current.map((i) => i.label));
+    const missing = REF_IMAGE_LABELS.filter((l) => !used.has(l.value));
+    if (missing.length === 0) return;
+    setBulkGenerating(true);
+    let done = 0;
+    try {
+      for (const l of missing) {
+        toast.info(`Đang tạo ${l.label} (${done + 1}/${missing.length})…`);
+        const url = await imageActions.generateImage(l.value, refMainUrl);
+        if (!url) break;
+        const list = form.getValues('reference_images') ?? [];
+        form.setValue('reference_images', [...list, { url, label: l.value }], { shouldDirty: true });
+        done++;
+      }
+      if (done > 0) toast.success(`Đã tạo ${done}/${missing.length} góc ảnh`);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
   const removeRefImage = (idx: number) => {
     form.setValue(
       'reference_images',
@@ -432,6 +463,19 @@ export function CharacterFormSheet({
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       💡 Upload 1 ảnh đại diện chính rồi bấm <strong>AI</strong> cho từng góc — nhân vật sẽ đồng nhất hơn vì AI dùng ảnh chính làm tham chiếu identity.
                     </p>
+                    {refMainUrl && availableLabels.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1.5 mt-2"
+                        disabled={bulkGenerating || !!imageActions.aiGenerating || !watched.name?.trim()}
+                        onClick={handleAiGenerateAllRefs}
+                      >
+                        {bulkGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        Tạo {availableLabels.length} góc còn lại bằng AI
+                      </Button>
+                    )}
                     {refImages.length > 0 && (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-2">
                         {refImages.map((img, idx) => (
