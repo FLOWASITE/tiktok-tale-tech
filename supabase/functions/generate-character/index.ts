@@ -1,32 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withPerf } from "../_shared/middleware/perf.ts";
-import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
-import { getAIConfig } from "../_shared/ai-config.ts";
+import { generateTraceId } from "../_shared/logger.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const SUPPORTED_LOVABLE_TEXT_MODELS = new Set([
-  "openai/gpt-5-mini",
-  "openai/gpt-5",
-  "openai/gpt-5-nano",
-  "openai/gpt-5.2",
-  "openai/gpt-5.4",
-  "openai/gpt-5.4-mini",
-  "openai/gpt-5.4-nano",
-  "openai/gpt-5.4-pro",
-  "openai/gpt-5.5",
-  "openai/gpt-5.5-pro",
-  "google/gemini-2.5-pro",
-  "google/gemini-2.5-flash",
-  "google/gemini-2.5-flash-lite",
-  "google/gemini-3-flash-preview",
-  "google/gemini-3.1-pro-preview",
-]);
-
-const DEFAULT_TEXT_MODEL = "google/gemini-3-flash-preview";
 
 Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -88,12 +68,7 @@ Deno.serve(withPerf({ functionName: 'generate-character', slowThresholdMs: 30000
 
     const numCharacters = Math.min(Math.max(count || 1, 1), 3);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Model + provider routing handled by callAIWithMetrics (admin override → user's provider key → fallback)
 
     // Build deduplication context
     const existingList = Array.isArray(existing_names) && existing_names.length > 0
@@ -144,115 +119,88 @@ ${video_type ? `\nTHỂ LOẠI VIDEO: ${video_type}` : ''}
 
 Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand này.`;
 
-    const aiConfig = await getAIConfig('generate-character', (brand as any).organization_id);
-    const configuredModel = aiConfig.model || DEFAULT_TEXT_MODEL;
-    const model = SUPPORTED_LOVABLE_TEXT_MODELS.has(configuredModel) ? configuredModel : DEFAULT_TEXT_MODEL;
-    if (model !== configuredModel) {
-      console.warn(`[generate-character] traceId=${traceId} Unsupported model "${configuredModel}", falling back to ${DEFAULT_TEXT_MODEL}`);
-    }
-    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0} model=${model}`);
+    console.log(`[generate-character] traceId=${traceId} brand="${brand.name}" count=${numCharacters} existingNames=${existing_names?.length || 0}`);
 
-    const startMs = Date.now();
-
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "create_characters",
-              description: "Create character profiles matching the brand",
-              parameters: {
-                type: "object",
-                properties: {
-                  characters: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string", description: "Tên nhân vật (tiếng Việt)" },
-                        description: { type: "string", description: "Mô tả 2-3 câu về nhân vật, vai trò và phong cách giao tiếp" },
-                        gender: { type: "string", enum: ["Nam", "Nữ"] },
-                        age_range: { type: "string", enum: ["18-25", "25-35", "35-45", "45-55", "55+"] },
-                        hair: { type: "string", description: "Kiểu tóc và màu tóc chi tiết (tiếng Việt)" },
-                        skin_tone: { type: "string", enum: ["Trắng sáng", "Ngăm", "Nâu ấm", "Da ngâm đậm"] },
-                        body_type: { type: "string", description: "Vóc dáng ngắn gọn (tiếng Việt, VD: Thon gọn, Cân đối, Tráng kiện)" },
-                        distinctive_features: { type: "string", description: "Đặc điểm nhận dạng nổi bật (kính, nốt ruồi, hình xăm...)" },
-                        wardrobe: { type: "string", description: "Trang phục mặc định phù hợp brand và ngành" },
-                        suggested_voice_style: { type: "string", description: "Phong cách giọng nói gợi ý (VD: Trầm ấm chậm rãi, Tươi sáng năng động)" },
-                        honorific: { type: "string", description: "Đại từ xưng hô mặc định (VD: tôi, mình, em, chị, anh)" },
-                        speech_style: { type: "string", description: "Phong cách diễn đạt khi nói (VD: Nhẹ nhàng thuyết phục, Năng động hay dùng từ trend)" },
-                        regional_accent: { type: "string", description: "Giọng vùng miền (VD: Bắc Hà Nội, Nam Sài Gòn, Trung Huế)" },
-                      },
-                      required: ["name", "description", "gender", "age_range", "hair", "skin_tone", "body_type", "wardrobe", "suggested_voice_style", "honorific", "speech_style", "regional_accent"],
+    const result = await callAIWithMetrics(supabase, {
+      functionName: 'generate-character',
+      organizationId: (brand as any).organization_id,
+      userId: user.id,
+      brandTemplateId: brand_template_id,
+      traceId,
+      actionType: 'generate_character',
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "create_characters",
+            description: "Create character profiles matching the brand",
+            parameters: {
+              type: "object",
+              properties: {
+                characters: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string", description: "Tên nhân vật (tiếng Việt)" },
+                      description: { type: "string", description: "Mô tả 2-3 câu về nhân vật, vai trò và phong cách giao tiếp" },
+                      gender: { type: "string", enum: ["Nam", "Nữ"] },
+                      age_range: { type: "string", enum: ["18-25", "25-35", "35-45", "45-55", "55+"] },
+                      hair: { type: "string", description: "Kiểu tóc và màu tóc chi tiết (tiếng Việt)" },
+                      skin_tone: { type: "string", enum: ["Trắng sáng", "Ngăm", "Nâu ấm", "Da ngâm đậm"] },
+                      body_type: { type: "string", description: "Vóc dáng ngắn gọn (tiếng Việt, VD: Thon gọn, Cân đối, Tráng kiện)" },
+                      distinctive_features: { type: "string", description: "Đặc điểm nhận dạng nổi bật (kính, nốt ruồi, hình xăm...)" },
+                      wardrobe: { type: "string", description: "Trang phục mặc định phù hợp brand và ngành" },
+                      suggested_voice_style: { type: "string", description: "Phong cách giọng nói gợi ý (VD: Trầm ấm chậm rãi, Tươi sáng năng động)" },
+                      honorific: { type: "string", description: "Đại từ xưng hô mặc định (VD: tôi, mình, em, chị, anh)" },
+                      speech_style: { type: "string", description: "Phong cách diễn đạt khi nói (VD: Nhẹ nhàng thuyết phục, Năng động hay dùng từ trend)" },
+                      regional_accent: { type: "string", description: "Giọng vùng miền (VD: Bắc Hà Nội, Nam Sài Gòn, Trung Huế)" },
                     },
+                    required: ["name", "description", "gender", "age_range", "hair", "skin_tone", "body_type", "wardrobe", "suggested_voice_style", "honorific", "speech_style", "regional_accent"],
                   },
                 },
-                required: ["characters"],
               },
+              required: ["characters"],
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "create_characters" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "create_characters" } },
     });
 
-    const latencyMs = Date.now() - startMs;
-
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      const errText = await aiResponse.text();
-      console.error(`[generate-character] traceId=${traceId} AI error: ${status}`, errText);
-
-      saveMetrics({
-        functionName: 'generate-character',
-        traceId,
-        model,
-        latencyMs,
-        status: 'error',
-        errorMessage: `AI ${status}`,
-      }, supabase).catch(() => {});
-
-      if (status === 429) {
+    if (!result.success) {
+      console.error(`[generate-character] traceId=${traceId} AI failed:`, result.error);
+      const errMsg = result.error || '';
+      if (errMsg.includes('429') || /rate/i.test(errMsg)) {
         return new Response(JSON.stringify({ error: "Rate limited, vui lòng thử lại sau." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Hết quota AI, vui lòng nạp thêm credits." }), {
+      if (errMsg.includes('402') || /quota|credit|payment/i.test(errMsg)) {
+        return new Response(JSON.stringify({ error: "Hết quota AI, vui lòng nạp thêm credits hoặc cấu hình API key riêng." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (status === 400) {
-        return new Response(JSON.stringify({ error: "Cấu hình model AI không hợp lệ. Hệ thống đã dùng model mặc định, vui lòng thử lại sau vài giây." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "AI generation failed", fallback: true }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: `AI generation failed: ${errMsg}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    const usage = aiData.usage;
+    const aiData = result.data;
+    const toolCall = aiData?.choices?.[0]?.message?.tool_calls?.[0];
 
     let characters: any[] = [];
     if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
+      const parsed = typeof toolCall.function.arguments === 'string'
+        ? JSON.parse(toolCall.function.arguments)
+        : toolCall.function.arguments;
       characters = parsed.characters || [];
     } else {
-      const content = aiData.choices?.[0]?.message?.content || '';
+      const content = aiData?.choices?.[0]?.message?.content || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -285,18 +233,7 @@ Tạo ${numCharacters} nhân vật đại diện phù hợp nhất cho brand nà
       suggested_voice_style: c.suggested_voice_style || '',
     }));
 
-    console.log(`[generate-character] traceId=${traceId} Generated ${profiles.length} character(s) for brand "${brand.name}" in ${latencyMs}ms`);
-
-    // Save metrics
-    saveMetrics({
-      functionName: 'generate-character',
-      traceId,
-      model,
-      latencyMs,
-      status: 'success',
-      inputTokens: usage?.prompt_tokens,
-      outputTokens: usage?.completion_tokens,
-    }, supabase).catch(() => {});
+    console.log(`[generate-character] traceId=${traceId} Generated ${profiles.length} character(s) for brand "${brand.name}" via ${result.provider}/${result.model}`);
 
     return new Response(JSON.stringify({ characters: profiles }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
