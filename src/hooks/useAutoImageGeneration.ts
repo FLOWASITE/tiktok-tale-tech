@@ -615,72 +615,14 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ✅ NO FALLBACK — AI accepted by backend hint`);
         }
 
-        // Step 3: Overlay text using canvas (Satori) when fallback is required
-        if (shouldFallbackText) {
-          const step3Start = Date.now();
-          console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
-            textLength: channelText.length,
-            position: textPosition || 'center',
-            typography: typographyStyle || 'modern',
-          });
-          
-          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
-          const [widthStr, heightStr] = channelConfig.size.split('x');
-          const imageWidth = parseInt(widthStr, 10) || 1200;
-          const imageHeight = parseInt(heightStr, 10) || 630;
-          
-          const { data: textData, error: textError } = await invokeWithTimeout<any>('overlay-text-canvas', {
-            body: {
-              baseImageUrl: finalImageUrl,
-              text: channelText,
-              position: textPosition || 'center',
-              typographyStyle: typographyStyle || 'modern',
-              textColor: '#FFFFFF',
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              padding: 40,
-              contentId,
-              channel,
-              imageWidth,
-              imageHeight,
-            },
-            timeoutMs: 30_000,
-          });
-
-          const step3Duration = Date.now() - step3Start;
-          if (textError || !textData?.success) {
-            console.warn(`[Pipeline:${channel}] ✗ STEP 3 FAILED (${step3Duration}ms):`, textError?.message || textData?.error);
-            debugSteps.push({
-              id: 'step3',
-              label: 'STEP 3 — Text fallback',
-              status: 'failed',
-              summary: 'Canvas text fallback lỗi, giữ ảnh hiện tại',
-              durationMs: step3Duration,
-              details: [textError?.message || textData?.error || 'unknown error'],
-            });
-            toast.warning(`${channel}: Text overlay thất bại, sử dụng ảnh gốc`, {
-              description: 'AI không thể render text chính xác',
-              duration: 5000,
-            });
-          } else {
-            finalImageUrl = textData.imageUrl;
-            console.log(`[Pipeline:${channel}] ✓ STEP 3 OK (${step3Duration}ms)`);
-            debugSteps.push({
-              id: 'step3',
-              label: 'STEP 3 — Text fallback',
-              status: 'success',
-              summary: 'Canvas text fallback đã chạy',
-              durationMs: step3Duration,
-              details: [`position=${textPosition || 'center'}`, `typography=${typographyStyle || 'modern'}`],
-            });
-          }
-        } else {
-          const skipReason = !useCanvasFallback ? 'canvas fallback disabled' : !channelText ? 'no text' : (fullStructuredOverlay || structuredOverlay) ? 'structured overlay active' : isAiRenderMode ? 'ai_render accepted' : 'no fallback needed';
-          console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
+        // Step 3: Canvas text overlay — DISABLED globally (text-in-prompt only)
+        {
+          console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — canvas overlay globally disabled`);
           debugSteps.push({
             id: 'step3',
             label: 'STEP 3 — Text fallback',
             status: 'skipped',
-            summary: `Bỏ qua vì ${skipReason}`,
+            summary: 'Canvas text overlay đã bị tắt toàn cục',
           });
         }
 
