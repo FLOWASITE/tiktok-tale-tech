@@ -258,6 +258,11 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                 }}
                 className="mt-1"
               />
+              <MultiProductPicker
+                value={selectedProductIds}
+                onChange={(ids) => setSelectedProductIds(ids)}
+                className="mt-1"
+              />
               {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (
                 <CharacterVoicePreview
                   characters={selectedCharacters}
