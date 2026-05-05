@@ -5543,6 +5543,63 @@ export type Database = {
         }
         Relationships: []
       }
+      external_link_sources: {
+        Row: {
+          brand_template_id: string | null
+          created_at: string
+          domain: string
+          excerpt: string | null
+          id: string
+          keywords: string[] | null
+          last_synced_at: string
+          metadata: Json
+          organization_id: string
+          published_at: string | null
+          source_ref_id: string | null
+          source_type: string
+          status: string
+          title: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          brand_template_id?: string | null
+          created_at?: string
+          domain: string
+          excerpt?: string | null
+          id?: string
+          keywords?: string[] | null
+          last_synced_at?: string
+          metadata?: Json
+          organization_id: string
+          published_at?: string | null
+          source_ref_id?: string | null
+          source_type: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          brand_template_id?: string | null
+          created_at?: string
+          domain?: string
+          excerpt?: string | null
+          id?: string
+          keywords?: string[] | null
+          last_synced_at?: string
+          metadata?: Json
+          organization_id?: string
+          published_at?: string | null
+          source_ref_id?: string | null
+          source_type?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       facebook_oauth_sessions: {
         Row: {
           brand_template_id: string | null
