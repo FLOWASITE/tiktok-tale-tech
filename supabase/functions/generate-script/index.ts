@@ -2252,6 +2252,20 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
       }
     }
 
+    // ───────── PRODUCT CONSISTENCY — explicit product_profile_ids from UI ─────────
+    if (Array.isArray(product_profile_ids) && product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, product_profile_ids);
+        const block = buildProductBlockVI(products);
+        if (block) {
+          topic = `${topic}\n\n## SẢN PHẨM XUẤT HIỆN TRONG VIDEO\n${block}\n\nQUAN TRỌNG: Trong từng SCENE, khi sản phẩm xuất hiện, mô tả ĐÚNG tên + bao bì + màu sắc như mô tả trên. Không được đổi/lẫn sản phẩm.`;
+          console.log('[generate-script] Injected', products.length, 'product(s) into script context');
+        }
+      } catch (e) {
+        console.warn('[generate-script] product injection failed', e);
+      }
+    }
+
     // Resolve platform spec từ Bước 2 (Nền tảng video) — chỉ áp dụng cho purpose ai_video
     const effectivePurposeForSpec = (script_purpose === 'ai_video_veo3' || script_purpose === 'ai_video_minimax') ? 'ai_video' : (script_purpose || 'ai_video');
     const platformSpec = effectivePurposeForSpec === 'ai_video'
