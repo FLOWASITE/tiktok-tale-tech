@@ -464,3 +464,15 @@ verify_jwt = false
 [functions.refresh-all-wix-tokens]
 verify_jwt = false
 
+
+[functions.gsc-oauth-start]
+verify_jwt = false
+
+[functions.gsc-oauth-callback]
+verify_jwt = false
+
+[functions.gsc-sync-metrics]
+verify_jwt = false
+
+[functions.gsc-list-sites]
+verify_jwt = false
