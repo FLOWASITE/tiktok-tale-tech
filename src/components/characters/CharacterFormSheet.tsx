@@ -182,6 +182,37 @@ export function CharacterFormSheet({
     }
   };
 
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const handleAiGenerateAllRefs = async () => {
+    if (!refMainUrl) {
+      toast.error('Cần ảnh đại diện chính làm tham chiếu');
+      return;
+    }
+    if (!watched.name?.trim()) {
+      toast.error('Cần nhập tên nhân vật');
+      return;
+    }
+    const current = form.getValues('reference_images') ?? [];
+    const used = new Set(current.map((i) => i.label));
+    const missing = REF_IMAGE_LABELS.filter((l) => !used.has(l.value));
+    if (missing.length === 0) return;
+    setBulkGenerating(true);
+    let done = 0;
+    try {
+      for (const l of missing) {
+        toast.info(`Đang tạo ${l.label} (${done + 1}/${missing.length})…`);
+        const url = await imageActions.generateImage(l.value, refMainUrl);
+        if (!url) break;
+        const list = form.getValues('reference_images') ?? [];
+        form.setValue('reference_images', [...list, { url, label: l.value }], { shouldDirty: true });
+        done++;
+      }
+      if (done > 0) toast.success(`Đã tạo ${done}/${missing.length} góc ảnh`);
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
   const removeRefImage = (idx: number) => {
     form.setValue(
       'reference_images',
