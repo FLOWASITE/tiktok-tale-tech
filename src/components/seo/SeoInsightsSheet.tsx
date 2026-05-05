@@ -26,12 +26,14 @@ interface Props {
   title?: string;
   isLongForm: boolean;
   channelLabel?: string;
+  /** Optional: insert a markdown link directly into the active long-form editor. */
+  onInsertLink?: (markdown: string) => void | Promise<void>;
 }
 
 type TabKey = "overview" | "keywords" | "links" | "cluster";
 
 export default function SeoInsightsSheet({
-  contentId, clusterId, targetKeywordIds, contentText, title, isLongForm, channelLabel,
+  contentId, clusterId, targetKeywordIds, contentText, title, isLongForm, channelLabel, onInsertLink,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabKey>("overview");
@@ -334,7 +336,7 @@ export default function SeoInsightsSheet({
 
           <TabsContent value="links" className="flex-1 overflow-y-auto px-5 py-4 mt-0 data-[state=inactive]:hidden">
             {isLongForm ? (
-              <InternalLinksPanel contentId={contentId} autoScanOnMount />
+              <InternalLinksPanel contentId={contentId} autoScanOnMount onInsertLink={onInsertLink} insertTargetLabel={channelLabel} />
             ) : (
               <EmptyState
                 icon={<Link2 className="w-8 h-8 text-muted-foreground/40" />}
