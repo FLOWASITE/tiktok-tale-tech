@@ -388,7 +388,44 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       }
     }
 
-    // Create job row (pending → will flip to processing after submit)
+    // ───────── KEYFRAME SYNTHESIS — dùng image-edit model attach ảnh ref
+    // để dựng 1 keyframe khớp scene+aspect TRƯỚC khi đưa vào Veo i2v.
+    // Veo chỉ cần "animate" → giữ mặt brand tốt hơn rất nhiều so với portrait studio.
+    if (
+      synthesize_keyframe &&
+      !userProvidedFrame &&
+      synthCharacters.length > 0 &&
+      synthCharacters.some((c) => !!c.refUrl) &&
+      orgRow?.organization_id
+    ) {
+      const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+      if (lovableKey) {
+        try {
+          const synth = await synthesizeKeyframe({
+            scenePrompt: prompt,
+            aspectRatio: aspect_ratio,
+            characters: synthCharacters,
+            productRefUrl,
+            organizationId: orgRow.organization_id,
+            supabase,
+            lovableApiKey: lovableKey,
+          });
+          if (synth?.url) {
+            characterRefUrl = synth.url;
+            keyframeSynthesized = true;
+            keyframeModel = synth.model;
+            // Bỏ [FRAME LAYOUT] collage anchor nếu trước đó đã inject — không còn là collage
+            enrichedPrompt = enrichedPrompt.replace(/^\[FRAME LAYOUT\][\s\S]*?\n\n/, '');
+            console.log(`[generate-video] 🎨 Keyframe synthesized (model=${synth.model}) → ${synth.url}`);
+          } else {
+            console.log('[generate-video] keyframe synth returned null, dùng portrait/collage làm starting frame');
+          }
+        } catch (e) {
+          console.warn('[generate-video] keyframe synth threw, fallback portrait:', e);
+        }
+      }
+    }
+
     const { data: job, error: jobError } = await supabase
       .from('video_generations')
       .insert({
