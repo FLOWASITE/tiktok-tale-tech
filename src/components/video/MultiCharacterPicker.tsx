@@ -53,7 +53,8 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
       return a.name.localeCompare(b.name, 'vi');
     });
 
-  // Auto-pin brand main character when picker initializes empty
+  // Auto-pin brand character when picker initializes empty.
+  // Priority: 1) main of brand → 2) first character of brand (kèm toast)
   const autoPinnedRef = useRef(false);
   useEffect(() => {
     if (autoPinnedRef.current) return;
@@ -63,12 +64,18 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
       return;
     }
     if (!currentBrand?.id) return;
-    const mainChar = profiles.find(
-      p => p.brand_template_id === currentBrand.id && p.default_role === 'main',
-    );
-    if (mainChar) {
-      autoPinnedRef.current = true;
-      onChange([mainChar.id], [mainChar]);
+    const brandChars = profiles.filter(p => p.brand_template_id === currentBrand.id);
+    if (brandChars.length === 0) return;
+    const mainChar = brandChars.find(p => p.default_role === 'main');
+    const pick = mainChar ?? brandChars[0];
+    autoPinnedRef.current = true;
+    onChange([pick.id], [pick]);
+    if (!mainChar) {
+      // Inform user we picked a fallback (no main set)
+      toast.info(`Đã tự chọn "${pick.name}" để giữ khuôn mặt nhất quán`, {
+        description: 'Bạn có thể đổi nhân vật khác hoặc đặt vai chính trong trang Nhân vật.',
+        duration: 4000,
+      });
     }
   }, [isLoading, profiles, currentBrand?.id, value.length, onChange]);
 

@@ -141,6 +141,13 @@ export function useVideoGeneration() {
 
     setGenerating(true);
     try {
+      const charCount = request.character_profile_ids?.length ?? (request.character_profile_id ? 1 : 0);
+      console.log('[generate-video req]', {
+        hasChars: charCount,
+        model: request.model,
+        aspect: request.aspect_ratio,
+        scene: request.scene_number,
+      });
       const { data, error } = await supabase.functions.invoke('generate-video', {
         body: request,
       });

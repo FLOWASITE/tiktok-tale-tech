@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard, Download } from 'lucide-react';
+import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard, Download, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
 import { VIDEO_MODELS } from './ProviderModelPicker';
@@ -34,10 +34,12 @@ const VIDEO_MODEL_LABELS: Record<string, string> = Object.fromEntries(
 
 /**
  * Auto-pick model theo aspect (mirror logic của generate-script edge function).
- * - Vertical/square (9:16, 1:1, 2:3): Seedance 2 (cap 10s).
+ * - hasCharacter=true: luôn dùng Veo 3.1 (không Fast) để khoá identity giống server.
+ * - Vertical/square: Seedance 2 (cap 10s).
  * - Landscape (16:9): Veo 3.1 Fast (cap 8s, audio native).
  */
-function autoPickModelForAspect(aspect: VideoAspectRatio): string {
+function autoPickModelForAspect(aspect: VideoAspectRatio, hasCharacter = false): string {
+  if (hasCharacter) return 'geminigen/veo-3.1';
   if (aspect === '16:9') return 'geminigen/veo-3.1-fast';
   return 'poyo/seedance-2';
 }
@@ -85,8 +87,9 @@ export function QuickClipTab() {
   );
   const adminModel = modelInfo?.model ?? DEFAULT_VIDEO_MODEL;
 
-  // Auto-pick: ưu tiên model phù hợp aspect; fallback admin nếu auto-pick không tồn tại trong VIDEO_MODELS.
-  const autoPicked = autoPickModelForAspect(aspect);
+  // Auto-pick: ưu tiên model phù hợp aspect + hasCharacter; fallback admin nếu auto-pick không tồn tại.
+  const hasCharacter = selectedCharacterIds.length > 0;
+  const autoPicked = autoPickModelForAspect(aspect, hasCharacter);
   const effectiveModel =
     VIDEO_MODELS.find((m) => m.id === autoPicked)?.id ??
     VIDEO_MODELS.find((m) => m.id === adminModel)?.id ??
@@ -334,6 +337,16 @@ export function QuickClipTab() {
           setSelectedCharacters(profiles);
         }}
       />
+
+      {/* Cảnh báo khi chưa chọn nhân vật → AI sẽ bịa khuôn mặt */}
+      {selectedCharacterIds.length === 0 && (
+        <Alert className="border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-[11px] text-amber-800 dark:text-amber-200">
+            Chưa chọn nhân vật → AI sẽ tự bịa khuôn mặt mỗi lần. Chọn nhân vật brand để khoá identity (Veo 3.1 + seed cố định).
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Map sản phẩm theo từng nhân vật (session-only) — auto chèn ref theo nhãn */}
       <CharacterProductMap

@@ -1,46 +1,60 @@
-# Khắc phục: Nhân vật không đồng nhất khi tạo Video Clip
+# Khắc phục: Video tạo ra khuôn mặt không giống nhân vật brand
 
-## Nguyên nhân (đã trace trong `generate-video/index.ts` + provider)
+## Chẩn đoán (từ log + code trace)
 
-1. **Provider chỉ nhận 1 ref image** (`startingFrameUrl` → `input_image` cho geminigen, `first_frame_url` cho poyo). Khi user chọn 2+ nhân vật, code chỉ gửi ảnh của **primary** (`sorted[0]`); các nhân vật còn lại chỉ tồn tại dưới dạng text → AI tự bịa mặt → không đồng nhất.
-2. **Default model `poyo/seedance-2`** giữ identity yếu. Auto-upgrade sang Veo 3.1 chỉ chạy khi `!clientModel`; user chọn explicit Seedance là mất upgrade → mặt trôi giữa các clip.
-3. **Không có seed cố định** giữa các clip cùng nhân vật → mỗi lần generate ra một mặt khác.
-4. **Smart angle pick** chỉ áp cho primary; supporting characters dùng ảnh ngẫu nhiên (hoặc không có).
-5. Prompt mô tả nhân vật chung chung ("MAIN" / "SUPPORTING 1") → AI không biết ai đứng vị trí nào trong frame.
+Log vừa rồi của `generate-video`:
+```
+provider=geminigen model=geminigen/veo-3.1-fast (admin=false) duration=5s aspect=9:16
+```
+- **Không có log `[generate-video] Injected N character(s)`** → request không mang `character_profile_ids` → server không inject character block, không build collage, không force Veo 3.1, không seed.
+- Model dùng là **Veo 3.1 Fast** (auto-pick cho 9:16) — model fast giữ identity yếu hơn Veo 3.1 thường rất nhiều, đặc biệt khi không có ảnh ref.
+
+Nguyên nhân gốc: cơ chế **auto-pin nhân vật brand** chỉ chạy đúng khi:
+1. Brand hiện tại có 1 nhân vật `default_role = 'main'` gắn `brand_template_id`.
+2. `MultiCharacterPicker` được mount với `value.length === 0`.
+
+Nếu user chưa set vai chính cho brand (hoặc nhân vật không gắn brand) → picker rỗng → request không có character → server không khoá identity → mặt drift hoàn toàn.
+
+Ngoài ra, ngay cả khi user **chọn thủ công** 1 nhân vật, code path single-char **không build collage** (đúng) nhưng vẫn dùng `Veo 3.1` (không phải Fast) — log hôm nay cho thấy không vào nhánh đó → confirm là KHÔNG có character.
 
 ## Thay đổi
 
-### 1. `supabase/functions/generate-video/index.ts` — Multi-ref collage
-- Khi `sorted.length >= 2` và **chưa có** `characterRefUrl` từ user:
-  - Pick best ref image cho **mỗi** nhân vật (smart angle pick áp cho cả supporting, ưu tiên `front` hoặc `close-up`).
-  - Gọi function mới `composeCharacterCollage(urls: string[], names: string[])` → fetch ảnh, dùng `Deno` + `npm:sharp` (hoặc `ImageScript` lib đã dùng cho overlay) ghép ngang side-by-side với label tên dưới mỗi mặt, upload lên `character-references` bucket → trả URL.
-  - Set `characterRefUrl = collageUrl`.
-- Inject vào prompt **positional anchor**: `[FRAME LAYOUT] Reference image is a side-by-side collage. From LEFT to RIGHT: "<name1>", "<name2>", "<name3>". Use these EXACT faces. Do NOT swap, blend, or invent new faces.`
-- Cache collage theo hash `sha256(sortedIds.join('|'))` để clip 2/3/4 cùng cast tái dùng (tránh ghép lại).
+### 1. Auto-pin mạnh hơn trong `MultiCharacterPicker.tsx`
+Khi `value.length === 0` và brand có nhân vật gắn brand:
+- **Ưu tiên 1:** nhân vật `default_role='main'` của brand (logic hiện tại).
+- **Ưu tiên 2 (mới):** nếu không có `main`, pin nhân vật **đầu tiên** thuộc brand (kèm toast nhỏ: "Đã tự chọn <tên> để giữ khuôn mặt nhất quán. Bấm để đổi.").
+- **Ưu tiên 3 (mới):** nếu brand chưa có nhân vật nào nhưng `profiles.length > 0` ở org → hiển thị banner inline "Brand chưa có nhân vật. Tạo/gắn nhân vật để giữ khuôn mặt nhất quán giữa các clip" + nút "Tạo nhân vật" mở `CharacterFormSheet` prefill `brand_template_id = currentBrand.id`.
 
-### 2. Force Veo khi có characters (bỏ điều kiện `!clientModel`)
-- Đổi block line 260: nếu `resolvedCharIds.length > 0 && characterRefUrl`, **luôn** upgrade sang `geminigen/veo-3.1` (Veo i2v giữ identity tốt hơn Seedance đáng kể), kèm log + trả `model_upgraded_reason: 'character_identity_lock'` về client.
-- Trong UI (`QuickClipTab` + `StoryboardVideoTab`): hiển thị chip nhỏ "🔒 Đã khoá Veo 3.1 để giữ nhân vật" khi response trả `model_upgraded_reason`.
+### 2. Banner cảnh báo trong `QuickClipTab` + `StoryboardVideoTab`
+Trước nút "Tạo clip", nếu `selectedCharacterIds.length === 0`:
+- Banner amber, dismissible: "⚠️ Chưa chọn nhân vật → AI sẽ tự bịa khuôn mặt mỗi clip. Chọn nhân vật để khoá identity."
+- Không block generate (user vẫn có thể tạo clip không cần nhân vật cho B-roll/sản phẩm).
 
-### 3. Stable seed per character group
-- Trong `generate-video`, derive `seed = hashToInt(sortedIds.sort().join('|')) % 2_147_483_647`.
-- Truyền `seed` vào provider params; cập nhật `geminigen-video-generator.ts` + `poyo-video-generator.ts` thêm field `seed?: number` → forward vào body request (Veo/Seedance đều hỗ trợ `seed`).
-- Cùng cast → cùng seed → frame đầu nhất quán giữa các clip.
+### 3. Force Veo 3.1 (không Fast) khi có character — `generate-video/index.ts`
+Hiện đã force `geminigen/veo-3.1` khi có `characterRefUrl`. Bổ sung:
+- Force ngay khi `resolvedCharIds.length > 0` (kể cả khi server tạm thời chưa fetch được ref ảnh — vẫn dùng Veo 3.1 vì text prompt có character block).
+- Thêm log rõ ràng: `[generate-video] Identity lock active: chars=N, refUrl=<...>, seed=<...>, model=veo-3.1`.
 
-### 4. Prompt block tăng cường (line 193-220)
-- Thêm dòng cuối mỗi character block: `Face ID: ${cp.id.slice(0,8)}` (anchor token cho LLM).
-- Thêm câu chốt: `[CONSISTENCY LOCK] If any character cannot match the reference photo exactly, prefer keeping the photo over creative variation.`
+### 4. Tăng chất lượng auto-pick model cho 9:16 khi có character — `src/lib/videoModelCaps.ts` (hoặc nơi `autoPickModelForAspect`)
+Hiện mặc định trả `veo-3.1-fast` cho 9:16 → dù request có character vẫn bị server force về `veo-3.1`. Thay đổi:
+- Thêm tham số optional `hasCharacter: boolean` vào `autoPickModelForAspect`.
+- Nếu `hasCharacter` → bỏ qua Fast, trả thẳng `geminigen/veo-3.1` để client-side cost estimate khớp với cái server thực sự dùng (tránh user thấy rẻ rồi bị charge cao).
+- Update QuickClipTab + StoryboardVideoTab truyền `selectedCharacterIds.length > 0`.
 
-### 5. UI — Storyboard nhắc user
-- Trong `StoryboardVideoTab`, nếu nhiều scene cùng `selectedCharacters` → hiện banner: "Để giữ nhân vật giống nhau giữa các scene, giữ nguyên danh sách nhân vật. Hệ thống tự khoá Veo 3.1 + seed cố định."
+### 5. Telemetry: client log payload trước khi gửi
+Trong `useVideoGeneration.ts` thêm `console.log('[generate-video req]', { hasChars: ids.length, model, aspect })` để lần sau debug nhanh.
 
-## Kỹ thuật bổ sung
-- Collage size: max 1280×720, mỗi nhân vật ô vuông 512×512, padding 16px, label text 28px nền trắng.
-- Lib: dùng `https://deno.land/x/imagescript@1.2.17/mod.ts` (đã có trong project khác — check) để fetch + compose, không cần sharp.
-- Collage upload path: `character-references/_collage/<sha8>.png`, public URL.
-- Fallback: nếu compose lỗi → log + fall back về primary ref image (không block generate).
+## Tiêu chí nghiệm thu
+- Mở Studio → QuickClip với brand đã có nhân vật main → picker tự pin nhân vật + cost estimate hiện Veo 3.1 (không Fast).
+- Brand chưa có nhân vật main nhưng có nhân vật → picker pin nhân vật đầu + toast hướng dẫn.
+- Brand chưa có nhân vật nào → banner amber + CTA tạo nhân vật.
+- Generate clip có character → log server: `Identity lock active: chars=1, refUrl=https://..., seed=<int>, model=geminigen/veo-3.1`.
+- 3 clip cùng nhân vật → cùng seed → mặt giữ nguyên.
 
-## Acceptance
-- Chọn 2+ nhân vật + tạo clip → log `[generate-video] Multi-char collage built: <url>` + `model_upgraded_reason=character_identity_lock`.
-- Generate 3 clip cùng cast → 3 clip có cùng seed, mặt giữ nguyên qua các clip.
-- Single character: behavior giữ nguyên (không tạo collage thừa).
+## Files chạm
+- `src/components/video/MultiCharacterPicker.tsx`
+- `src/components/video/QuickClipTab.tsx`
+- `src/components/video/StoryboardVideoTab.tsx`
+- `src/lib/videoModelCaps.ts`
+- `src/hooks/useVideoGeneration.ts`
+- `supabase/functions/generate-video/index.ts`
