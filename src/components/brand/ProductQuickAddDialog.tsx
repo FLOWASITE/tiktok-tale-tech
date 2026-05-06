@@ -9,6 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { useProductImageActions } from '@/hooks/useProductImageActions';
 import { ProductFormData, BrandProduct, PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS, ProductReferenceImage, ProductAppearance } from '@/types/product';
