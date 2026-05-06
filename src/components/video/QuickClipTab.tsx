@@ -70,6 +70,7 @@ export function QuickClipTab() {
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
   const { currentOrganization } = useOrganizationContext();
+  const navigate = useNavigate();
   const {
     activeScript,
     activeSceneIndex,
@@ -78,6 +79,7 @@ export function QuickClipTab() {
     setActiveSceneIndex,
     goToNextScene,
     markSceneCompleted,
+    clearScript,
   } = useScriptToVideo();
 
   // Admin model chỉ là FALLBACK — auto-pick theo aspect là ưu tiên cao hơn
