@@ -5,10 +5,11 @@ type: feature
 ---
 
 ## Bảng `character_profiles`
-- Cột: name, description, appearance (jsonb), wardrobe, reference_image_url, reference_images (jsonb array), default_voice_id, default_voice_provider
+- Cột: name, description, appearance (jsonb), wardrobe, reference_image_url, reference_images (jsonb array), default_voice_id, default_voice_provider, default_role ('main'|'supporting'), brand_template_id
 - reference_images: mảng `{url, label}` với label = front|side|full-body|close-up|outfit (tối đa 5)
 - RLS: org_members CRUD
 - Storage bucket: `character-references`
+- **Constraint:** partial unique index `uniq_main_character_per_brand` — mỗi brand_template_id chỉ tối đa 1 nhân vật `default_role='main'`. UI: `findMainCharacterForBrand()` helper trong useCharacterProfiles + Alert cảnh báo trong CharacterFormSheet (disable Save) + AIBulkGenerateSheet (disable Vai chính + auto-fallback supporting). DB error 23505 → toast VN friendly.
 
 ## Injection Architecture — Single Source of Truth
 - **Frontend KHÔNG inject character block vào prompt** — chỉ truyền `character_profile_ids: string[]`
