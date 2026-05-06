@@ -318,17 +318,17 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           stableSeed = await deriveStableSeed(sorted.map(c => c.id));
           console.log(`[generate-video] Stable seed for cast: ${stableSeed}`);
 
-          // ───── FORCE VEO UPGRADE khi có character ref (bỏ điều kiện !clientModel)
-          //   Veo 3.1 i2v giữ identity tốt nhất; identity-lock quan trọng hơn lựa chọn user
-          if (characterRefUrl) {
-            const IDENTITY_LOCK_MODEL = 'geminigen/veo-3.1';
-            if (model !== IDENTITY_LOCK_MODEL) {
-              console.log(`[generate-video] hasCharacterRef → force-upgrade ${model || '(default)'} → ${IDENTITY_LOCK_MODEL} để khoá identity`);
-              model = IDENTITY_LOCK_MODEL;
-              provider = 'geminigen';
-              modelUpgradedReason = 'character_identity_lock';
-            }
+          // ───── FORCE VEO 3.1 (không Fast) khi có character — identity-lock
+          //   Veo 3.1 i2v giữ identity tốt nhất; identity-lock quan trọng hơn lựa chọn user.
+          //   Áp dụng KỂ CẢ khi không có ref ảnh (chỉ có character text block) — vì Fast drift mặt mạnh.
+          const IDENTITY_LOCK_MODEL = 'geminigen/veo-3.1';
+          if (model !== IDENTITY_LOCK_MODEL) {
+            console.log(`[generate-video] hasCharacter(${sorted.length}) → force-upgrade ${model || '(default)'} → ${IDENTITY_LOCK_MODEL}`);
+            model = IDENTITY_LOCK_MODEL;
+            provider = 'geminigen';
+            modelUpgradedReason = 'character_identity_lock';
           }
+          console.log(`[generate-video] 🔒 Identity lock active: chars=${sorted.length}, refUrl=${characterRefUrl ? 'yes' : 'no'}, seed=${stableSeed}, model=${model}`);
         }
       } catch (e) {
         console.warn('[generate-video] Failed to fetch character profiles:', e);
