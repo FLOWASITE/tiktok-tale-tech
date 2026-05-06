@@ -182,6 +182,10 @@ export function QuickClipTab() {
   };
 
   const handleGenerate = async () => {
+    if (!activeScript || !currentScene) {
+      toast.error('Hãy chọn Chủ đề và Kịch bản trước khi quay.');
+      return;
+    }
     if (prompt.trim().length < 10) {
       toast.error('Prompt cần ít nhất 10 ký tự để mô tả rõ ý tưởng.');
       return;
