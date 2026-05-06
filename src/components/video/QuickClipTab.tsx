@@ -219,8 +219,41 @@ export function QuickClipTab() {
   const isLastScene = activeScript ? activeSceneIndex >= totalScenes - 1 : false;
   const isFirstScene = activeSceneIndex <= 0;
 
+  // Gating: bắt buộc phải có Chủ đề + Kịch bản trước khi quay
+  if (!activeScript) {
+    return <QuickClipContextPicker />;
+  }
+
   return (
     <div className="space-y-6">
+      {/* Context badge: topic + script */}
+      <div className="flex items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/30">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <FileText className="w-3.5 h-3.5 text-foreground/60 shrink-0" />
+          <div className="min-w-0">
+            {activeScript.topic && (
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                {activeScript.topic}
+              </p>
+            )}
+            <p className="text-xs font-medium text-foreground truncate">{activeScript.title}</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            clearScript();
+            setActiveJobId(null);
+          }}
+          className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground shrink-0"
+          title="Đổi chủ đề / kịch bản khác"
+        >
+          <RefreshCw className="w-3 h-3" />
+          Đổi kịch bản
+        </Button>
+      </div>
+
       {/* Scene navigator — chỉ hiện khi có activeScript */}
       {activeScript && currentScene && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-foreground/[0.03] border border-border/60">
