@@ -56,6 +56,7 @@ export function CharacterFormSheet({
   brands,
   onSubmit,
   isSaving,
+  allProfiles = [],
 }: Props) {
   const draftKey = DRAFT_KEY(editingProfile?.id ?? 'new');
 
