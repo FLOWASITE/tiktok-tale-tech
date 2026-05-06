@@ -108,7 +108,7 @@ const STEP_SOCIAL_FORMAT = 2;
 const STEP_GENERATE = 3;
 const STEP_VIDEO = 4;
 
-const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => {
+const buildSteps = (isVideoAi: boolean, _hasGeneratedScript: boolean): Step[] => {
   const base: Step[] = [
     { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
   ];
@@ -116,7 +116,9 @@ const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => 
     base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
   }
   base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
-  if (isVideoAi && hasGeneratedScript) {
+  if (isVideoAi) {
+    // Luôn hiển thị step Tạo Video trong stepper khi purpose=ai_video.
+    // Khi chưa có script: hiện empty state + CTA quay lại tạo kịch bản.
     base.push({ id: STEP_VIDEO, title: 'Tạo Video', icon: <Video className="w-4 h-4" /> });
   }
   return base;
