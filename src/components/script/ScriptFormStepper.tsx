@@ -26,7 +26,13 @@ import {
   Mic,
   SlidersHorizontal,
   Check,
+  Clapperboard,
+  Video,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Script } from '@/types/script';
+import { buildScriptToVideoNavState } from '@/lib/scriptToVideoNav';
+import { parseScriptContent } from '@/utils/parsePrompts';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
