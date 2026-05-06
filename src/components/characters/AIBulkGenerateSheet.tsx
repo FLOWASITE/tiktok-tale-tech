@@ -318,16 +318,18 @@ export function AIBulkGenerateSheet({
             <div className="grid grid-cols-2 gap-1.5 p-1 rounded-lg bg-muted/40 border border-border/60">
               <button
                 type="button"
-                onClick={() => setDefaultRole('main')}
-                disabled={generating}
+                onClick={() => !mainLocked && setDefaultRole('main')}
+                disabled={generating || mainLocked}
+                title={mainLocked ? `Brand đã có nhân vật chính: ${existingMainName}` : undefined}
                 className={cn(
                   'h-9 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-1.5',
-                  defaultRole === 'main'
+                  defaultRole === 'main' && !mainLocked
                     ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                     : 'text-muted-foreground hover:text-foreground',
+                  mainLocked && 'opacity-50 cursor-not-allowed hover:text-muted-foreground',
                 )}
               >
-                <Star className={cn('w-3.5 h-3.5', defaultRole === 'main' && 'fill-amber-400 text-amber-500')} />
+                <Star className={cn('w-3.5 h-3.5', defaultRole === 'main' && !mainLocked && 'fill-amber-400 text-amber-500')} />
                 Vai chính
               </button>
               <button
@@ -345,9 +347,17 @@ export function AIBulkGenerateSheet({
                 Vai phụ
               </button>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              Nhân vật tạo ra sẽ được gắn vai này — có thể đổi sau trong từng nhân vật.
-            </p>
+            {mainLocked ? (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                <span>⚠</span>
+                <span>Brand đã có nhân vật chính (<strong>{existingMainName}</strong>). Bulk tạo sẽ ở vai phụ.</span>
+              </p>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">
+                Nhân vật tạo ra sẽ được gắn vai này — có thể đổi sau trong từng nhân vật.
+                {defaultRole === 'main' && ' Chỉ nhân vật đầu tiên được đặt làm chính (mỗi brand tối đa 1 vai chính).'}
+              </p>
+            )}
           </div>
 
           {/* Auto-gen image */}
