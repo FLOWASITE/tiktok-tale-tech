@@ -44,6 +44,7 @@ function VideoStudioInner() {
   const [prefillTopic, setPrefillTopic] = useState<string | undefined>();
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
   const [autoOpenNew, setAutoOpenNew] = useState(false);
+  const [initialViewScriptId, setInitialViewScriptId] = useState<string | undefined>();
 
   // Hydrate from navigation state once
   useEffect(() => {
@@ -71,15 +72,18 @@ function VideoStudioInner() {
   }, []);
 
   // Also check URL search params for tab and view
-  const [initialViewScriptId, setInitialViewScriptId] = useState<string | undefined>();
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get('tab');
-    if (tabParam && TABS.some(t => t.value === tabParam)) {
-      setTab(tabParam as TabValue);
+    if (tabParam) {
+      // Legacy: ?tab=quick → redirect to scripts (Quick Clip nhúng trong workspace)
+      const mapped = tabParam === 'quick' ? 'scripts' : tabParam;
+      if (TABS.some(t => t.value === mapped)) {
+        setTab(mapped as TabValue);
+      }
     }
     const viewParam = params.get('view');
-    if (viewParam && tabParam === 'scripts') {
+    if (viewParam && (tabParam === 'scripts' || tabParam === 'quick')) {
       setInitialViewScriptId(viewParam);
     }
   }, [location.search]);
