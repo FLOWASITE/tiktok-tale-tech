@@ -6,7 +6,6 @@ import { Slider } from '@/components/ui/slider';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard, Download, AlertTriangle, FileText, RefreshCw } from 'lucide-react';
 import { QuickClipContextPicker } from './QuickClipContextPicker';
-import { useNavigate } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
 import { VIDEO_MODELS } from './ProviderModelPicker';
