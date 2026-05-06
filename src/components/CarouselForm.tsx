@@ -124,6 +124,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [brandGuideline, setBrandGuideline] = useState(DEFAULT_BRAND_GUIDELINE);
   const [includeLogo, setIncludeLogo] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
 
   useEffect(() => {
