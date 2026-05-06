@@ -282,6 +282,135 @@ export function ProductQuickAddDialog({
               />
             </div>
 
+            {/* Main Image + Reference Images */}
+            <div className="space-y-3 p-3 rounded-lg border bg-muted/10">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <ImageIcon className="h-4 w-4" /> Ảnh sản phẩm
+                </Label>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="w-24 h-24 rounded-md overflow-hidden ring-1 ring-border bg-muted flex items-center justify-center shrink-0">
+                  {formData.image_url ? (
+                    <img src={formData.image_url} alt="main" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <p className="text-xs text-muted-foreground">Ảnh chính (front) — dùng làm tham chiếu cho các góc khác.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingMain}
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadMain(f);
+                          e.target.value = '';
+                        }}
+                      />
+                      <span className="inline-flex items-center gap-1.5 h-7 px-2.5 text-xs rounded-md border cursor-pointer hover:bg-muted">
+                        {uploadingMain ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        Upload
+                      </span>
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 gap-1.5 text-xs"
+                      disabled={generatingMain || !formData.name.trim()}
+                      onClick={handleGenerateMain}
+                    >
+                      {generatingMain ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      Tạo bằng AI
+                    </Button>
+                    {formData.image_url && (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2.5 gap-1.5 text-xs"
+                          disabled={imageActions.analyzing}
+                          onClick={handleAnalyzeMain}
+                        >
+                          {imageActions.analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          Phân tích
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2.5 text-xs text-destructive"
+                          onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                        >
+                          Xoá
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Appearance fields */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Màu chủ đạo</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    value={formData.appearance?.color || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...prev.appearance, color: e.target.value } }))}
+                    placeholder="VD: Trắng ngà"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Chất liệu</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    value={formData.appearance?.material || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...prev.appearance, material: e.target.value } }))}
+                    placeholder="VD: Cotton organic"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Kích thước</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    value={formData.appearance?.size || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...prev.appearance, size: e.target.value } }))}
+                    placeholder="VD: 30ml"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Đặc điểm nổi bật</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    value={formData.appearance?.distinctive_features || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, appearance: { ...prev.appearance, distinctive_features: e.target.value } }))}
+                    placeholder="VD: Logo vàng"
+                  />
+                </div>
+              </div>
+
+              {/* Reference Images Editor */}
+              <div className="pt-2 border-t">
+                <ProductReferenceImagesEditor
+                  productName={formData.name}
+                  category={formData.category}
+                  description={formData.description}
+                  appearance={formData.appearance}
+                  primaryImageUrl={formData.image_url}
+                  referenceImages={formData.reference_images || []}
+                  onChange={(next) => setFormData(prev => ({ ...prev, reference_images: next }))}
+                />
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="target_audience">Đối tượng khách hàng</Label>
               <Input
