@@ -229,6 +229,16 @@ export default function BrandView() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="characters" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
+            <UserSquare2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Nhân vật</span>
+            <span className="sm:hidden">NV</span>
+            {charactersCount > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded-full">
+                {charactersCount}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="strategy" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Target className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Chiến lược</span>
