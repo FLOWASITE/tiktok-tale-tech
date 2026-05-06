@@ -245,6 +245,7 @@ interface FormData {
   targetJourneyStage?: JourneyStage;
   targetPersonaId?: string;
   targetProductId?: string;
+  product_profile_ids?: string[];
   stream?: boolean; // NEW: Enable real-time SSE streaming
   campaignId?: string;
   qualityMode?: QualityMode; // NEW: Speed vs quality tradeoff
