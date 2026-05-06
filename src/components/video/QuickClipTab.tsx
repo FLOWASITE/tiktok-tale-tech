@@ -258,9 +258,10 @@ export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
           Đổi kịch bản
         </Button>
       </div>
+      )}
 
-      {/* Scene navigator — chỉ hiện khi có activeScript */}
-      {activeScript && currentScene && (
+      {/* Scene navigator — ẩn khi embedded (rail trái workspace đã có) */}
+      {!embedded && activeScript && currentScene && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-foreground/[0.03] border border-border/60">
           <Button
             variant="ghost"
