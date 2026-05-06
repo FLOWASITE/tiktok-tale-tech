@@ -1155,7 +1155,10 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {!isLastStep ? (
+        {currentStep === STEP_VIDEO ? (
+          // Step 4 has its own primary CTAs inline — không cần submit nữa
+          <div />
+        ) : !isLastStep ? (
           <Button
             type="button"
             onClick={handleNext}
