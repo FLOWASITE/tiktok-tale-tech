@@ -689,7 +689,13 @@ export function CharacterFormSheet({
               <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
                 Huỷ
               </Button>
-              <Button type="submit" size="sm" disabled={isSaving} className="gap-1.5">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSaving || !!mainConflict}
+                className="gap-1.5"
+                title={mainConflict ? `Brand đã có nhân vật chính: ${mainConflict.name}` : undefined}
+              >
                 {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {editingProfile ? 'Cập nhật' : 'Tạo nhân vật'}
               </Button>
