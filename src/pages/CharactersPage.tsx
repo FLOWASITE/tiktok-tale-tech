@@ -31,6 +31,7 @@ export default function CharactersPage() {
   const [query, setQuery] = useState('');
   const [gender, setGender] = useState('');
   const [ageRange, setAgeRange] = useState('');
+  const [role, setRole] = useState('');
   const [sort, setSort] = useState<SortKey>('updated');
   const [filterByBrand, setFilterByBrand] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -123,6 +124,7 @@ export default function CharactersPage() {
     }
     if (gender) list = list.filter((p) => (p.appearance as any)?.gender === gender);
     if (ageRange) list = list.filter((p) => (p.appearance as any)?.age_range === ageRange);
+    if (role) list = list.filter((p) => (p.default_role ?? 'supporting') === role);
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter((p) => {
@@ -138,7 +140,7 @@ export default function CharactersPage() {
     else if (sort === 'completeness') list.sort((a, b) => calcCompleteness(b) - calcCompleteness(a));
     else list.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
     return list;
-  }, [profiles, filterByBrand, currentBrand?.id, gender, ageRange, query, sort]);
+  }, [profiles, filterByBrand, currentBrand?.id, gender, ageRange, role, query, sort]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
