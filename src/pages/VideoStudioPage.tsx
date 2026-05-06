@@ -15,9 +15,8 @@ import { ScriptsTab } from '@/components/video/ScriptsTab';
 import { ScriptToVideoProvider, useScriptToVideo, ActiveScript } from '@/contexts/ScriptToVideoContext';
 
 const TABS = [
-  { value: 'scripts', label: 'Kịch bản', icon: Clapperboard, hint: 'Viết kịch bản AI cho video' },
-  { value: 'quick', label: 'Quick Clip', icon: Wand2, hint: 'Một prompt → một video 5–10s' },
-  { value: 'storyboard', label: 'Từ Storyboard', icon: Film, hint: 'Script → nhiều scene → video dài' },
+  { value: 'scripts', label: 'Kịch bản & Quay', icon: Clapperboard, hint: 'Tạo kịch bản → quay từng scene' },
+  { value: 'storyboard', label: 'Từ Storyboard', icon: Film, hint: 'Storyboard rời → video dài' },
   { value: 'audio', label: 'Audio Studio', icon: Music4, hint: 'Voiceover · Music · Subtitle' },
   { value: 'gallery', label: 'Thư viện', icon: GalleryHorizontalEnd, hint: 'Tất cả video đã tạo' },
   { value: 'costs', label: 'Chi phí', icon: DollarSign, hint: 'Theo dõi credit & spend' },
@@ -52,10 +51,14 @@ function VideoStudioInner() {
     const state = location.state as FromScriptState | null;
     if (state?.fromScript?.script) {
       setActiveScript(state.fromScript.script, state.fromScript.activeSceneIndex ?? 0);
-      setTab('quick');
+      // Auto-open script workspace via deep-link to its view
+      setTab('scripts');
+      setInitialViewScriptId(state.fromScript.script.id);
       navigate(location.pathname, { replace: true });
     } else if (state?.tab) {
-      setTab(state.tab as TabValue);
+      // Legacy ?tab=quick → redirect sang scripts (Quick Clip giờ là panel trong workspace)
+      const requestedTab = state.tab === 'quick' ? 'scripts' : state.tab;
+      setTab(requestedTab as TabValue);
       if (state.prefillTopic) {
         setPrefillTopic(state.prefillTopic);
         setTopicHistoryId(state.topicHistoryId);
