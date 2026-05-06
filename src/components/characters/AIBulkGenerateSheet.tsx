@@ -67,10 +67,12 @@ export function AIBulkGenerateSheet({
   onOpenChange,
   brand,
   existingNames,
+  existingMainName = null,
   onCreateProfile,
   onUpdateProfile,
 }: Props) {
   const { currentOrganization } = useOrganizationContext();
+  const mainLocked = !!existingMainName;
   const [roleHint, setRoleHint] = useState('');
   const [charCount, setCharCount] = useState(2);
   const [defaultRole, setDefaultRole] = useState<CharacterDefaultRole>('supporting');
