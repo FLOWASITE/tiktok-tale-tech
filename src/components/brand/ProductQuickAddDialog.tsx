@@ -43,6 +43,8 @@ const defaultFormData: ProductFormData = {
   best_channels: [],
   is_featured: false,
   is_active: true,
+  reference_images: [],
+  appearance: {},
 };
 
 function productToFormData(product: BrandProduct): ProductFormData {
