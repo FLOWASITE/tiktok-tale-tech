@@ -22,6 +22,7 @@ import {
 import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 import { buildProductBlockEN, fetchProductRows, pickProductRefImage } from "../_shared/product-block-builder.ts";
 import { buildCharacterCollage, hashIds, deriveStableSeed } from "../_shared/character-collage.ts";
+import { synthesizeKeyframe } from "../_shared/keyframe-synthesizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,6 +90,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       character_profile_ids,
       product_profile_ids,
     } = body;
+    const synthesize_keyframe: boolean = (body as any).synthesize_keyframe !== false; // default ON
 
     if (!prompt || prompt.trim().length < 5) {
       return new Response(JSON.stringify({ error: "Prompt must be at least 5 characters" }), {
