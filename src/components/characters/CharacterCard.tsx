@@ -130,6 +130,14 @@ export function CharacterCard({
           </div>
         )}
 
+        {/* Regenerating overlay */}
+        {isGeneratingAvatar && profile.reference_image_url && (
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center gap-1.5 z-20">
+            <Loader2 className="w-5 h-5 animate-spin text-foreground" />
+            <span className="text-[11px] font-medium">Đang tạo lại…</span>
+          </div>
+        )}
+
         {/* Top-right badges */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
           <CompletenessRing pct={pct} />
