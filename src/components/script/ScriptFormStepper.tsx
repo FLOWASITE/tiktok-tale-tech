@@ -108,7 +108,7 @@ const STEP_SOCIAL_FORMAT = 2;
 const STEP_GENERATE = 3;
 const STEP_VIDEO = 4;
 
-const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => {
+const buildSteps = (isVideoAi: boolean, _hasGeneratedScript: boolean): Step[] => {
   const base: Step[] = [
     { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
   ];
@@ -116,7 +116,9 @@ const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => 
     base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
   }
   base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
-  if (isVideoAi && hasGeneratedScript) {
+  if (isVideoAi) {
+    // Luôn hiển thị step Tạo Video trong stepper khi purpose=ai_video.
+    // Khi chưa có script: hiện empty state + CTA quay lại tạo kịch bản.
     base.push({ id: STEP_VIDEO, title: 'Tạo Video', icon: <Video className="w-4 h-4" /> });
   }
   return base;
@@ -1049,6 +1051,30 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </CollapsibleContent>
             </Collapsible>
+          </div>
+        )}
+
+        {/* ====== Step 4: Tạo Video — empty state khi chưa có script ====== */}
+        {currentStep === STEP_VIDEO && !generatedScript && (
+          <div className="space-y-5 animate-fade-in">
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
+                <Video className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg text-foreground">Cần kịch bản trước khi tạo video</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                Quay lại bước "Tạo kịch bản" để AI sinh kịch bản. Sau đó bạn có thể chọn từng scene để quay trong Video Studio.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep(STEP_GENERATE)}
+                className="gap-2 mt-4"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Quay lại tạo kịch bản
+              </Button>
+            </div>
           </div>
         )}
 
