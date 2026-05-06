@@ -1,60 +1,78 @@
-# Khắc phục: Video tạo ra khuôn mặt không giống nhân vật brand
+# Khắc phục: Mặt nhân vật trong video không giống avatar brand
 
-## Chẩn đoán (từ log + code trace)
+## Chẩn đoán
 
-Log vừa rồi của `generate-video`:
-```
-provider=geminigen model=geminigen/veo-3.1-fast (admin=false) duration=5s aspect=9:16
-```
-- **Không có log `[generate-video] Injected N character(s)`** → request không mang `character_profile_ids` → server không inject character block, không build collage, không force Veo 3.1, không seed.
-- Model dùng là **Veo 3.1 Fast** (auto-pick cho 9:16) — model fast giữ identity yếu hơn Veo 3.1 thường rất nhiều, đặc biệt khi không có ảnh ref.
+Hiện `generate-video` đang đưa **thẳng ảnh portrait studio** của character (front-face hoặc collage) làm `starting_frame_url` cho Veo i2v. Vấn đề:
 
-Nguyên nhân gốc: cơ chế **auto-pin nhân vật brand** chỉ chạy đúng khi:
-1. Brand hiện tại có 1 nhân vật `default_role = 'main'` gắn `brand_template_id`.
-2. `MultiCharacterPicker` được mount với `value.length === 0`.
+1. Ảnh ref là **portrait tĩnh, neutral background, framing chuẩn studio** — không khớp scene/aspect/composition prompt yêu cầu (vd: "đứng ở quán cafe", "9:16 wide shot").
+2. Veo i2v phải **vừa giữ identity vừa tái dựng cảnh** từ portrait → bắt buộc model phải "tưởng tượng" lại khuôn mặt trong context mới → **drift mạnh**, đặc biệt khi đổi góc/biểu cảm/ánh sáng.
+3. Single-char không có collage anchor; collage 2+ char là layout side-by-side studio — càng xa cảnh thật.
 
-Nếu user chưa set vai chính cho brand (hoặc nhân vật không gắn brand) → picker rỗng → request không có character → server không khoá identity → mặt drift hoàn toàn.
+Insight đúng của bạn: **dùng model EDIT ảnh (image-to-image) attach ref trước**, sinh ra 1 keyframe đã đặt nhân vật vào đúng scene/aspect/outfit/pose — rồi mới đưa keyframe đó vào Veo i2v. Veo chỉ cần "animate" thay vì "re-imagine".
 
-Ngoài ra, ngay cả khi user **chọn thủ công** 1 nhân vật, code path single-char **không build collage** (đúng) nhưng vẫn dùng `Veo 3.1` (không phải Fast) — log hôm nay cho thấy không vào nhánh đó → confirm là KHÔNG có character.
+Pattern này đã tồn tại sẵn trong project: `generate-character-image` chấp nhận `reference_image_url` + `preferred_edit_model` (Nano Banana / Gemini-3 Pro Image / KIE Flux-Kontext), và provider `geminigen-image-generator` hỗ trợ edit qua reference.
 
 ## Thay đổi
 
-### 1. Auto-pin mạnh hơn trong `MultiCharacterPicker.tsx`
-Khi `value.length === 0` và brand có nhân vật gắn brand:
-- **Ưu tiên 1:** nhân vật `default_role='main'` của brand (logic hiện tại).
-- **Ưu tiên 2 (mới):** nếu không có `main`, pin nhân vật **đầu tiên** thuộc brand (kèm toast nhỏ: "Đã tự chọn <tên> để giữ khuôn mặt nhất quán. Bấm để đổi.").
-- **Ưu tiên 3 (mới):** nếu brand chưa có nhân vật nào nhưng `profiles.length > 0` ở org → hiển thị banner inline "Brand chưa có nhân vật. Tạo/gắn nhân vật để giữ khuôn mặt nhất quán giữa các clip" + nút "Tạo nhân vật" mở `CharacterFormSheet` prefill `brand_template_id = currentBrand.id`.
+### 1. Tạo shared module `_shared/keyframe-synthesizer.ts` (mới)
 
-### 2. Banner cảnh báo trong `QuickClipTab` + `StoryboardVideoTab`
-Trước nút "Tạo clip", nếu `selectedCharacterIds.length === 0`:
-- Banner amber, dismissible: "⚠️ Chưa chọn nhân vật → AI sẽ tự bịa khuôn mặt mỗi clip. Chọn nhân vật để khoá identity."
-- Không block generate (user vẫn có thể tạo clip không cần nhân vật cho B-roll/sản phẩm).
+API:
+```ts
+synthesizeKeyframe({
+  scenePrompt, aspectRatio, characters: [{name, refUrl, appearance, wardrobe}], productRefUrl?,
+  organizationId, supabase, lovableApiKey
+}) → { url, model } | null
+```
 
-### 3. Force Veo 3.1 (không Fast) khi có character — `generate-video/index.ts`
-Hiện đã force `geminigen/veo-3.1` khi có `characterRefUrl`. Bổ sung:
-- Force ngay khi `resolvedCharIds.length > 0` (kể cả khi server tạm thời chưa fetch được ref ảnh — vẫn dùng Veo 3.1 vì text prompt có character block).
-- Thêm log rõ ràng: `[generate-video] Identity lock active: chars=N, refUrl=<...>, seed=<...>, model=veo-3.1`.
+Logic:
+- Build edit-prompt ngắn gọn: scene + aspect framing + "preserve EXACT face/hair/outfit of <name> from reference image".
+- Multi-char: ghép tất cả ảnh ref vào content array (gemini-2.5-flash-image hỗ trợ multi-image input).
+- Gọi Lovable AI Gateway với `google/gemini-3.1-flash-image-preview` (Nano Banana 2 — fast + giữ identity tốt nhất hiện tại); fallback `google/gemini-2.5-flash-image`.
+- Decode base64 → upload vào storage bucket `character-references/_keyframes/<sha8>.png` (cache theo hash của charIds + scenePrompt + aspect).
+- Trả `publicUrl` để dùng làm `starting_frame_url`.
+- Nếu fail → trả null (caller fallback về portrait ref như cũ).
 
-### 4. Tăng chất lượng auto-pick model cho 9:16 khi có character — `src/lib/videoModelCaps.ts` (hoặc nơi `autoPickModelForAspect`)
-Hiện mặc định trả `veo-3.1-fast` cho 9:16 → dù request có character vẫn bị server force về `veo-3.1`. Thay đổi:
-- Thêm tham số optional `hasCharacter: boolean` vào `autoPickModelForAspect`.
-- Nếu `hasCharacter` → bỏ qua Fast, trả thẳng `geminigen/veo-3.1` để client-side cost estimate khớp với cái server thực sự dùng (tránh user thấy rẻ rồi bị charge cao).
-- Update QuickClipTab + StoryboardVideoTab truyền `selectedCharacterIds.length > 0`.
+### 2. Wire vào `generate-video/index.ts`
 
-### 5. Telemetry: client log payload trước khi gửi
-Trong `useVideoGeneration.ts` thêm `console.log('[generate-video req]', { hasChars: ids.length, model, aspect })` để lần sau debug nhanh.
+Sau block "MULTI-REF COLLAGE / single-char ref pick" (~line 315), trước stable seed:
 
-## Tiêu chí nghiệm thu
-- Mở Studio → QuickClip với brand đã có nhân vật main → picker tự pin nhân vật + cost estimate hiện Veo 3.1 (không Fast).
-- Brand chưa có nhân vật main nhưng có nhân vật → picker pin nhân vật đầu + toast hướng dẫn.
-- Brand chưa có nhân vật nào → banner amber + CTA tạo nhân vật.
-- Generate clip có character → log server: `Identity lock active: chars=1, refUrl=https://..., seed=<int>, model=geminigen/veo-3.1`.
-- 3 clip cùng nhân vật → cùng seed → mặt giữ nguyên.
+- Khi `resolvedCharIds.length > 0` và **user chưa truyền `starting_frame_url` riêng** và `characterRefUrl` đang là portrait/collage → gọi `synthesizeKeyframe`.
+- Nếu thành công: thay `characterRefUrl = keyframeUrl`, log `🎨 Keyframe synthesized (model=<x>) → ${keyframeUrl}`, set `keyframeSynthesized=true` trong response.
+- Bỏ `[FRAME LAYOUT]` collage anchor khi đã có keyframe (không còn là collage nữa).
+- Vẫn giữ Veo 3.1 force + stable seed + character text block.
+
+### 3. Toggle trong client (optional, default ON)
+
+`useVideoGeneration.ts` → thêm body field `synthesize_keyframe?: boolean` (default true khi có character).
+Server đọc field, nếu false thì skip step trên.
+
+`QuickClipTab.tsx` + `StoryboardVideoTab.tsx`: thêm 1 checkbox nhỏ trong Advanced "🎨 Tạo keyframe AI từ ảnh nhân vật (giữ mặt tốt hơn, +~10s)". Mặc định checked khi có character.
+
+### 4. Toast feedback
+
+`useVideoGeneration.ts`: nếu response trả `keyframeSynthesized=true` → toast info: "🎨 Đã dựng keyframe từ ảnh nhân vật để giữ mặt nhất quán."
+
+### 5. Memory update
+
+Cập nhật `mem://features/video/multi-character-identity-lock-vn.md`:
+- Thêm section "Keyframe Synthesis": image-edit model dựng keyframe khớp scene từ ref + cache theo hash, hạ rate drift mặt đáng kể.
 
 ## Files chạm
-- `src/components/video/MultiCharacterPicker.tsx`
+- `supabase/functions/_shared/keyframe-synthesizer.ts` (mới)
+- `supabase/functions/generate-video/index.ts`
+- `src/hooks/useVideoGeneration.ts`
 - `src/components/video/QuickClipTab.tsx`
 - `src/components/video/StoryboardVideoTab.tsx`
-- `src/lib/videoModelCaps.ts`
-- `src/hooks/useVideoGeneration.ts`
-- `supabase/functions/generate-video/index.ts`
+- `.lovable/memory/features/video/multi-character-identity-lock-vn.md`
+
+## Tiêu chí nghiệm thu
+- Tạo clip với 1 character (brand có ảnh ref) → log: `🎨 Keyframe synthesized (model=google/gemini-3.1-flash-image-preview) → https://.../_keyframes/<hash>.png`.
+- Mở keyframe URL: thấy nhân vật trong scene đúng aspect, mặt giống ảnh ref.
+- Video output: mặt giống avatar brand rõ rệt so với trước.
+- Tạo clip cùng cast + cùng scene → cache hit (không gọi lại image-edit), nhanh hơn.
+- Toggle off → flow cũ (portrait làm starting frame).
+
+## Trade-off
+- Thêm ~5–15s latency (1 lần gọi image-edit).
+- Tốn thêm ~1 image-gen credit / clip đầu tiên (cache cho lần sau).
+- Worth: identity giữ tốt hơn nhiều — đây là điểm đau chính người dùng đang gặp.

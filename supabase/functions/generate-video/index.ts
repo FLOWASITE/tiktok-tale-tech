@@ -22,6 +22,7 @@ import {
 import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 import { buildProductBlockEN, fetchProductRows, pickProductRefImage } from "../_shared/product-block-builder.ts";
 import { buildCharacterCollage, hashIds, deriveStableSeed } from "../_shared/character-collage.ts";
+import { synthesizeKeyframe } from "../_shared/keyframe-synthesizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,6 +90,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       character_profile_ids,
       product_profile_ids,
     } = body;
+    const synthesize_keyframe: boolean = (body as any).synthesize_keyframe !== false; // default ON
 
     if (!prompt || prompt.trim().length < 5) {
       return new Response(JSON.stringify({ error: "Prompt must be at least 5 characters" }), {
@@ -174,6 +176,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     let characterRefUrl = starting_frame_url;
     let stableSeed: number | undefined;
     let modelUpgradedReason: string | undefined;
+    // Holder for keyframe synthesis (filled inside char block)
+    let synthCharacters: Array<{ id: string; name: string; refUrl?: string; appearance?: any; wardrobe?: string }> = [];
+    let userProvidedFrame = !!starting_frame_url;
+    let keyframeSynthesized = false;
+    let keyframeModel: string | undefined;
 
     // Resolve character IDs: prefer array, fallback to single
     const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
@@ -210,6 +217,15 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             }
             return cp.reference_image_url || undefined;
           };
+
+          // Collect for keyframe synth (uses per-char ref pick)
+          synthCharacters = sorted.map((cp) => ({
+            id: cp.id,
+            name: cp.name,
+            refUrl: pickRefForChar(cp),
+            appearance: cp.appearance,
+            wardrobe: cp.wardrobe,
+          }));
 
           const charBlocks: string[] = [];
           for (let i = 0; i < sorted.length; i++) {
@@ -372,7 +388,44 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       }
     }
 
-    // Create job row (pending → will flip to processing after submit)
+    // ───────── KEYFRAME SYNTHESIS — dùng image-edit model attach ảnh ref
+    // để dựng 1 keyframe khớp scene+aspect TRƯỚC khi đưa vào Veo i2v.
+    // Veo chỉ cần "animate" → giữ mặt brand tốt hơn rất nhiều so với portrait studio.
+    if (
+      synthesize_keyframe &&
+      !userProvidedFrame &&
+      synthCharacters.length > 0 &&
+      synthCharacters.some((c) => !!c.refUrl) &&
+      orgRow?.organization_id
+    ) {
+      const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+      if (lovableKey) {
+        try {
+          const synth = await synthesizeKeyframe({
+            scenePrompt: prompt,
+            aspectRatio: aspect_ratio,
+            characters: synthCharacters,
+            productRefUrl,
+            organizationId: orgRow.organization_id,
+            supabase,
+            lovableApiKey: lovableKey,
+          });
+          if (synth?.url) {
+            characterRefUrl = synth.url;
+            keyframeSynthesized = true;
+            keyframeModel = synth.model;
+            // Bỏ [FRAME LAYOUT] collage anchor nếu trước đó đã inject — không còn là collage
+            enrichedPrompt = enrichedPrompt.replace(/^\[FRAME LAYOUT\][\s\S]*?\n\n/, '');
+            console.log(`[generate-video] 🎨 Keyframe synthesized (model=${synth.model}) → ${synth.url}`);
+          } else {
+            console.log('[generate-video] keyframe synth returned null, dùng portrait/collage làm starting frame');
+          }
+        } catch (e) {
+          console.warn('[generate-video] keyframe synth threw, fallback portrait:', e);
+        }
+      }
+    }
+
     const { data: job, error: jobError } = await supabase
       .from('video_generations')
       .insert({
@@ -493,6 +546,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       return new Response(JSON.stringify({
         job_id: job.id, video_url: videoUrl, status: 'completed', provider: syncProvider,
         model_used: model, model_upgraded_reason: modelUpgradedReason, stable_seed: stableSeed,
+        keyframe_synthesized: keyframeSynthesized, keyframe_model: keyframeModel,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -612,6 +666,8 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       model_used: model,
       model_upgraded_reason: modelUpgradedReason,
       stable_seed: stableSeed,
+      keyframe_synthesized: keyframeSynthesized,
+      keyframe_model: keyframeModel,
       message: 'Video đang được tạo nền — theo dõi tiến độ qua Realtime hoặc tab Thư viện.',
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
