@@ -76,6 +76,10 @@ export function AIBulkGenerateSheet({
   const [roleHint, setRoleHint] = useState('');
   const [charCount, setCharCount] = useState(2);
   const [defaultRole, setDefaultRole] = useState<CharacterDefaultRole>('supporting');
+  // Auto-fallback to supporting whenever a main already exists in the brand
+  useEffect(() => {
+    if (mainLocked && defaultRole === 'main') setDefaultRole('supporting');
+  }, [mainLocked, defaultRole]);
   const [autoGenImage, setAutoGenImage] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatedChars, setGeneratedChars] = useState<GeneratedChar[]>([]);
