@@ -101,14 +101,14 @@ export function useCharacterProfiles() {
         } as any)
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw mapCharacterError(error);
       return data as unknown as CharacterProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã tạo nhân vật');
     },
-    onError: (e: Error) => toast.error(`Lỗi: ${e.message}`),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const updateProfile = useMutation({
@@ -131,14 +131,14 @@ export function useCharacterProfiles() {
         .eq('id', id)
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw mapCharacterError(error);
       return data as unknown as CharacterProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã cập nhật nhân vật');
     },
-    onError: (e: Error) => toast.error(`Lỗi: ${e.message}`),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteProfile = useMutation({
@@ -183,4 +183,35 @@ export function buildCharacterBlock(profile: CharacterProfile): string {
   parts.push('IMPORTANT: Maintain this EXACT character appearance consistently across ALL scenes. Same face, hair, clothing, body proportions.');
 
   return parts.join('\n');
+}
+
+/** Find existing main character for a brand (excluding a given id) */
+export function findMainCharacterForBrand(
+  profiles: CharacterProfile[],
+  brandId: string | null | undefined,
+  excludeId?: string,
+): CharacterProfile | null {
+  if (!brandId) return null;
+  return (
+    profiles.find(
+      (p) =>
+        p.brand_template_id === brandId &&
+        p.default_role === 'main' &&
+        p.id !== excludeId,
+    ) ?? null
+  );
+}
+
+/** Map Postgres unique-violation on uniq_main_character_per_brand → friendly VN message */
+function mapCharacterError(error: { code?: string; message?: string }): Error {
+  const msg = error?.message ?? '';
+  if (
+    error?.code === '23505' &&
+    (msg.includes('uniq_main_character_per_brand') || msg.includes('main_character'))
+  ) {
+    return new Error(
+      'Brand này đã có 1 nhân vật chính. Vui lòng chuyển nhân vật cũ sang "Vai phụ" trước khi đặt nhân vật mới làm chính.',
+    );
+  }
+  return new Error(msg || 'Có lỗi xảy ra');
 }

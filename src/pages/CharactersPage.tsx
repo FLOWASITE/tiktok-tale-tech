@@ -362,6 +362,7 @@ export default function CharactersPage() {
         brands={brandsLite}
         onSubmit={handleSubmitForm}
         isSaving={isSaving}
+        allProfiles={profiles}
       />
 
       {/* Detail sheet */}
@@ -381,6 +382,11 @@ export default function CharactersPage() {
         onOpenChange={setAiOpen}
         brand={currentBrand ? { id: currentBrand.id, name: currentBrand.name } : null}
         existingNames={profiles.map((p) => p.name)}
+        existingMainName={
+          currentBrand
+            ? profiles.find((p) => p.brand_template_id === currentBrand.id && p.default_role === 'main')?.name ?? null
+            : null
+        }
         onCreateProfile={(input) => createProfile.mutateAsync(input)}
         onUpdateProfile={(input) => updateProfile.mutateAsync(input)}
       />

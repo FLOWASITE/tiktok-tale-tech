@@ -16,7 +16,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Sparkles, Wand2, Upload, ImagePlus, X, Save, RotateCcw } from 'lucide-react';
+import { Loader2, Sparkles, Wand2, Upload, ImagePlus, X, Save, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { findMainCharacterForBrand } from '@/hooks/useCharacterProfiles';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useCharacterImageActions } from '@/hooks/useCharacterImageActions';
@@ -42,6 +44,8 @@ interface Props {
   brands: { id: string; name: string }[];
   onSubmit: (values: CharacterFormValues, id?: string) => Promise<void>;
   isSaving: boolean;
+  /** All character profiles in this org — used to detect main-role conflicts per brand */
+  allProfiles?: CharacterProfile[];
 }
 
 const DRAFT_KEY = (id: string | 'new') => `character-draft-${id}`;
@@ -54,6 +58,7 @@ export function CharacterFormSheet({
   brands,
   onSubmit,
   isSaving,
+  allProfiles = [],
 }: Props) {
   const draftKey = DRAFT_KEY(editingProfile?.id ?? 'new');
 
@@ -68,6 +73,16 @@ export function CharacterFormSheet({
     mode: 'onBlur',
   });
 
+  const watchedRole = useWatch({ control: form.control, name: 'default_role' });
+  const watchedBrandId = useWatch({ control: form.control, name: 'brand_template_id' });
+  const mainConflict = useMemo(() => {
+    if (watchedRole !== 'main') return null;
+    return findMainCharacterForBrand(allProfiles, watchedBrandId, editingProfile?.id);
+  }, [watchedRole, watchedBrandId, allProfiles, editingProfile?.id]);
+  const conflictBrandName = useMemo(() => {
+    if (!mainConflict || !watchedBrandId) return '';
+    return brands.find((b) => b.id === watchedBrandId)?.name ?? '';
+  }, [mainConflict, watchedBrandId, brands]);
   // Reset form when target changes / sheet opens
   useEffect(() => {
     if (!open) return;
@@ -341,6 +356,15 @@ export function CharacterFormSheet({
                     )}
                   />
 
+                  {mainConflict && (
+                    <Alert variant="destructive" className="border-amber-500/50 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Brand <strong>{conflictBrandName}</strong> đã có nhân vật chính: <strong>{mainConflict.name}</strong>.
+                        Vui lòng chuyển nhân vật đó sang "Vai phụ" trước, hoặc giữ nhân vật này ở Vai phụ.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <FormField
                     control={form.control}
                     name="brand_template_id"
@@ -665,7 +689,13 @@ export function CharacterFormSheet({
               <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
                 Huỷ
               </Button>
-              <Button type="submit" size="sm" disabled={isSaving} className="gap-1.5">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSaving || !!mainConflict}
+                className="gap-1.5"
+                title={mainConflict ? `Brand đã có nhân vật chính: ${mainConflict.name}` : undefined}
+              >
                 {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {editingProfile ? 'Cập nhật' : 'Tạo nhân vật'}
               </Button>
