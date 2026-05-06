@@ -170,13 +170,15 @@ export function AIBulkGenerateSheet({
           total: toSave.length,
           phase: autoGenImage ? `Đang tạo ảnh ${i + 1}/${toSave.length}` : `Đang lưu ${i + 1}/${toSave.length}`,
         });
+        const roleForThis: CharacterDefaultRole =
+          defaultRole === 'main' && i === 0 && !mainLocked ? 'main' : 'supporting';
         const created = await onCreateProfile({
           name: c.name,
           description: c.description,
           appearance: c.appearance,
           wardrobe: c.wardrobe,
           brand_template_id: brand?.id ?? null,
-          default_role: defaultRole,
+          default_role: roleForThis,
         });
         if (autoGenImage && created?.id) {
           const url = await generateAvatarFor(c);
