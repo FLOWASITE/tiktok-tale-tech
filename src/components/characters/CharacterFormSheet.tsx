@@ -356,6 +356,15 @@ export function CharacterFormSheet({
                     )}
                   />
 
+                  {mainConflict && (
+                    <Alert variant="destructive" className="border-amber-500/50 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Brand <strong>{conflictBrandName}</strong> đã có nhân vật chính: <strong>{mainConflict.name}</strong>.
+                        Vui lòng chuyển nhân vật đó sang "Vai phụ" trước, hoặc giữ nhân vật này ở Vai phụ.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <FormField
                     control={form.control}
                     name="brand_template_id"
