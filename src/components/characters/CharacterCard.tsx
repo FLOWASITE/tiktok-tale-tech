@@ -184,7 +184,7 @@ export function CharacterCard({
               onGenerateAvatar();
             }}
             title="Tạo lại ảnh AI"
-            className="absolute bottom-2 right-2 inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-background/85 text-foreground/80 border border-border/60 backdrop-blur hover:bg-background transition-colors disabled:opacity-70"
+            className="absolute top-2 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium bg-background/85 text-foreground/80 border border-border/60 backdrop-blur hover:bg-background transition-colors disabled:opacity-70 opacity-0 group-hover:opacity-100"
           >
             {isGeneratingAvatar ? (
               <Loader2 className="w-3 h-3 animate-spin" />
