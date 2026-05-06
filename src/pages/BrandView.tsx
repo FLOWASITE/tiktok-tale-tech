@@ -36,6 +36,7 @@ import {
   Users,
   Package,
   Share2,
+  UserSquare2,
 } from 'lucide-react';
 import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 import { toast } from 'sonner';
