@@ -279,6 +279,10 @@ export default function BrandView() {
           <BrandViewProductsTab template={template} />
         </TabsContent>
 
+        <TabsContent value="characters" className="mt-4 animate-in fade-in duration-200">
+          <BrandViewCharactersTab template={template} />
+        </TabsContent>
+
         <TabsContent value="strategy" className="mt-4 animate-in fade-in duration-200">
           <BrandViewStrategyTab template={template} />
         </TabsContent>
