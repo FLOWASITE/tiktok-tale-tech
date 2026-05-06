@@ -40,6 +40,7 @@ interface CarouselFormData {
   campaignId?: string;
   carouselStyle?: "seamless" | "educational" | "listicle" | "gallery";
   visualPreset?: "minimalist" | "flat_design" | "gradient" | "geometric" | "illustration" | "product_only";
+  product_profile_ids?: string[];
 }
 
 interface StructuredTextContent {
