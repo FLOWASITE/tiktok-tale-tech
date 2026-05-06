@@ -1064,7 +1064,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               toast.error('Kịch bản chưa có scene nào để chuyển sang Video Studio.');
               return;
             }
-            navigate('/videos', { state: navState });
+            // Mở thẳng workspace của script trong tab Kịch bản & Quay
+            navigate(`/videos?tab=scripts&view=${generatedScript.id}`, { state: navState });
           };
           return (
             <div className="space-y-5 animate-fade-in">
