@@ -1332,6 +1332,7 @@ Follow the carousel style guidelines strictly.`;
         formality: brandVoice.formality_level,
       } : null,
       brandGuidelineHash: formData.brandGuideline ? formData.brandGuideline.slice(0, 100) : null,
+      productIds: (formData.product_profile_ids || []).slice().sort().join(','),
     };
 
     let generatedData: any;
