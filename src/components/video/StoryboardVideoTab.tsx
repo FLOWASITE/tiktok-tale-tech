@@ -258,6 +258,12 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                 }}
                 className="mt-1"
               />
+              {selectedCharacterIds.length === 0 && (
+                <div className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-2 text-[11px] text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Chưa chọn nhân vật → AI sẽ bịa mặt khác nhau giữa các scene. Chọn nhân vật brand để khoá Veo 3.1 + seed cố định.</span>
+                </div>
+              )}
               <CharacterProductMap
                 characters={selectedCharacters}
                 onUnionChange={(ids) => setSelectedProductIds(ids)}
