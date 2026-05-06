@@ -218,6 +218,15 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             return cp.reference_image_url || undefined;
           };
 
+          // Collect for keyframe synth (uses per-char ref pick)
+          synthCharacters = sorted.map((cp) => ({
+            id: cp.id,
+            name: cp.name,
+            refUrl: pickRefForChar(cp),
+            appearance: cp.appearance,
+            wardrobe: cp.wardrobe,
+          }));
+
           const charBlocks: string[] = [];
           for (let i = 0; i < sorted.length; i++) {
             const cp = sorted[i];
