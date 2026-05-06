@@ -630,7 +630,7 @@ export function ProductQuickAddDialog({
           </ScrollArea>
         </Tabs>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-3 border-t bg-muted/20">
           <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Hủy
           </Button>
