@@ -189,6 +189,7 @@ export default function CharactersPage() {
       default_voice_id: values.default_voice_id ?? '',
       default_voice_provider: values.default_voice_provider ?? '',
       brand_template_id: values.brand_template_id ?? null,
+      default_role: values.default_role ?? 'supporting',
     };
     if (id) {
       await updateProfile.mutateAsync({ id, ...payload });
@@ -270,6 +271,8 @@ export default function CharactersPage() {
           onGender={setGender}
           ageRange={ageRange}
           onAge={setAgeRange}
+          role={role}
+          onRole={setRole}
           sort={sort}
           onSort={setSort}
           filterByBrand={filterByBrand}
