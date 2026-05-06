@@ -1,31 +1,29 @@
-## Mục tiêu
-Tích hợp quản lý nhân vật Video (đang ở route `/characters`) vào trang Brand View dưới dạng 1 tab mới, để mỗi brand có "ngăn nhân vật" riêng — đúng tinh thần character có `brand_template_id` và constraint mỗi brand 1 vai chính.
+# Avatar regenerate + Role badge/toggle trên CharacterCard
+
+## Vấn đề
+- Nút "Tạo lại avatar" đã tồn tại nhưng nằm trong action bar **chỉ hiện khi hover** (`opacity-0 group-hover:opacity-100`) → user không thấy.
+- Chỉ nhân vật `default_role = 'main'` mới có badge "Vai chính"; **không có badge "Vai phụ"**, và không có cách set nhanh main/phụ ngoài việc mở form edit.
 
 ## Thay đổi
+### 1. `src/components/characters/CharacterCard.tsx`
+- **Badge vai trò luôn hiển thị** ở góc phải trên (cạnh CompletenessRing):
+  - `main` → badge vàng "Vai chính" (giữ nguyên, có icon Star fill)
+  - `supporting` → badge xám trung tính "Vai phụ" (icon Star outline)
+- **Thêm callback `onToggleRole?: (next: 'main'|'supporting') => void`** + prop `isUpdatingRole?: boolean`. Click badge → toggle role (stopPropagation), hiện spinner khi đang update.
+- **Tách nút "Tạo lại avatar" ra khỏi hover bar**: render dạng chip nhỏ luôn hiện ở góc dưới-phải hero image (chỉ khi đã có `reference_image_url`), icon `RefreshCw` + tooltip "Tạo lại ảnh AI". Khi đang generate vẫn hiện overlay loading như cũ.
+- Giữ Edit/Clone/Delete trong hover bar (đỡ rối).
 
-### 1. Tab mới "Nhân vật" trong `src/pages/BrandView.tsx`
-- Thêm `TabsTrigger value="characters"` (icon `UserSquare2` hoặc `Film` từ lucide) sau tab **Sản phẩm**, trước **Chiến lược**.
-- Hiển thị badge đếm số nhân vật của brand hiện tại.
-- Thêm `TabsContent value="characters"` render `<BrandViewCharactersTab template={template} />`.
-
-### 2. Component mới `src/components/brand/BrandViewCharactersTab.tsx`
-Tái sử dụng toàn bộ logic của `CharactersPage` nhưng **scoped theo brand đang xem** (không phải currentBrand context):
-- Dùng `useCharacterProfiles()` rồi `filter(p => p.brand_template_id === template.id)`.
-- Render lại UI: header nhỏ ("Nhân vật của brand X"), nút **Tạo nhân vật** + **Tạo bằng AI**, grid `CharacterCard`, `CharacterFilters` (ẩn switch "chỉ brand hiện tại" vì đã mặc định scoped), `CharacterBulkBar`.
-- Mở `CharacterFormSheet` với `defaultBrandId={template.id}` để form auto-gán brand.
-- Mở `AIBulkGenerateSheet` với `brand={{ id: template.id, name, industry, tone_of_voice }}`.
-- Empty state: "Brand này chưa có nhân vật nào" + 2 CTA (Tạo thủ công / Tạo bằng AI).
-- Reuse handler `handleGenerateAvatar` từ `CharactersPage` (copy nguyên).
-
-### 3. Cập nhật điều hướng
-- `src/components/AppSidebar.tsx`: giữ link `/characters` (trang tổng hợp toàn org) nhưng đổi label/mô tả thành "Nhân vật (toàn bộ)" hoặc gắn tooltip "hoặc xem trong từng Brand".
-- Trong `CharactersPage`, mỗi `CharacterCard` đã có `brandName` → thêm link nhỏ "Mở trong Brand →" navigate tới `/brands/{brand_template_id}?tab=characters`.
-
-### 4. Không thay đổi
-- Hook `useCharacterProfiles`, edge functions, schema DB — giữ nguyên.
-- Trang `/characters` vẫn hoạt động như cross-brand view.
+### 2. `src/pages/CharactersPage.tsx` & `src/components/brand/BrandViewCharactersTab.tsx`
+- Thêm state `updatingRoleFor: string | null`.
+- Hàm `handleToggleRole(p, next)` → `updateProfile.mutateAsync({ id, name, default_role: next })` + toast.
+- Truyền `onToggleRole` + `isUpdatingRole` vào `<CharacterCard>` ở cả 2 nơi.
 
 ## Kỹ thuật
-- Tab key `characters` đồng bộ với `searchParams.get('tab')` đã có sẵn trong BrandView.
-- TabsList hiện 8 tabs → thành 9. Đã dùng `flex-wrap`/`overflow-x-auto` (kiểm tra lại class hiện tại; nếu chật, rút gọn label "NV" trên mobile như các tab khác).
-- Constraint `uniq_main_character_per_brand` đã có sẵn → form sheet xử lý lỗi sẵn, không cần làm thêm.
+- Không cần migration: `default_role` đã tồn tại trên `character_profiles`.
+- Reuse `updateProfile` mutation hiện có (đã hỗ trợ `default_role`).
+- Style badge "Vai phụ": `variant="secondary"` `bg-background/85 backdrop-blur` cho nhất quán Soft Luxury, không dùng raw color.
+
+## Acceptance
+- Mỗi card hiển thị 1 badge role (chính hoặc phụ), click đổi tức thời.
+- Nút regenerate avatar luôn thấy được trên card có ảnh, không cần hover.
+- Cả `/characters` và Brand View → tab Nhân vật đều áp dụng.
