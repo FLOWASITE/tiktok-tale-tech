@@ -4765,6 +4765,17 @@ ${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${
         console.log("Targeted product loaded:", targetProduct.name);
       }
     }
+
+    // Multi-product consistency block (explicit selection from UI)
+    if (Array.isArray(formData.product_profile_ids) && formData.product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, formData.product_profile_ids);
+        if (products.length > 0) {
+          targetedProductContext += `\n\n${buildProductBlockVI(products)}\n`;
+          console.log("[normal-mode] Multi-product block injected:", products.length);
+        }
+      } catch (e) { console.warn("[normal-mode] product block fetch failed", e); }
+    }
     
     if (formData.targetPersonaId && formData.brandTemplateId) {
       const { data: targetPersona } = await supabase
