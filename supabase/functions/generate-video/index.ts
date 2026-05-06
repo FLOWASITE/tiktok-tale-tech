@@ -21,6 +21,7 @@ import {
 } from "../_shared/poyo-video-generator.ts";
 import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 import { buildProductBlockEN, fetchProductRows, pickProductRefImage } from "../_shared/product-block-builder.ts";
+import { buildCharacterCollage, hashIds, deriveStableSeed } from "../_shared/character-collage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
