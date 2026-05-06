@@ -1,4 +1,4 @@
-import { parseScriptContent } from '@/lib/scriptContentParser';
+import { parseScriptContent } from '@/utils/parsePrompts';
 import { Script, ScriptPurpose } from '@/types/script';
 
 export interface ScriptToVideoNavState {
