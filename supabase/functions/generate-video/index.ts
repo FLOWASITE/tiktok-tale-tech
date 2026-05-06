@@ -608,6 +608,9 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       provider_task_id: providerTaskId,
       status: 'processing',
       provider: actualProvider,
+      model_used: model,
+      model_upgraded_reason: modelUpgradedReason,
+      stable_seed: stableSeed,
       message: 'Video đang được tạo nền — theo dõi tiến độ qua Realtime hoặc tab Thư viện.',
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
