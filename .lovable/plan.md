@@ -1,106 +1,58 @@
-# Product Consistency System (Full Phase 1 + 2)
+# Cải thiện UI "AI tạo nhân vật từ Brand"
 
-Song hành với Character Consistency. Cho phép upload ảnh tham chiếu sản phẩm (chai serum, hộp kem, máy laser…) và inject vào mọi pipeline AI (video, carousel, multichannel, script) để giữ packaging/label/màu sắc nhất quán.
+## Vấn đề hiện tại (xem screenshot)
+1. Nút CTA hồng đậm full-width — **vi phạm Soft Luxury** (memory: neutral gray accents)
+2. Header phẳng, icon Sparkles bé, không tận dụng visual hierarchy
+3. "Số lượng" dùng Select dropdown cho 4 lựa chọn — thừa, nên segmented
+4. Thiếu **quick role chips** — user phải tự gõ "Bác sĩ tư vấn, KOL review…" mỗi lần
+5. Thiếu lựa chọn **vai mặc định** (chính/phụ) — vừa thêm field `default_role` vào DB nhưng AI bulk-create luôn set `supporting`
+6. Không hiển thị **brand context** (industry, tone, audience) — user mù về việc AI sẽ "phân tích" cái gì
+7. Empty state trống trải, message "Đã có 1 nhân vật" lạc lõng dưới card
+8. Card kết quả (sau khi AI tạo) checkbox HTML thô, không match design system
 
-## Phase 1 — Core (Video focus)
+## Thay đổi UI
 
-### 1. Database
-Migration mới — mở rộng `brand_products`:
-- `reference_images jsonb DEFAULT '[]'` — mảng `{url, label}`, label ∈ `front|back|side|in-use|packaging` (tối đa 5)
-- `appearance jsonb DEFAULT '{}'` — `{color, material, size, distinctive_features}` (cho prompt block)
-- Storage bucket mới `product-references` (public, RLS theo org_members)
+### Header (gradient soft)
+```
+┌─────────────────────────────────────┐
+│ [✨ icon trong ring gradient nhẹ]   │
+│ AI tạo nhân vật từ Brand            │
+│                                      │
+│ [chip: Flowa] [chip: Beauty Tech]   │
+│ [chip: Tone chuyên nghiệp]          │
+└─────────────────────────────────────┘
+```
+- Icon Sparkles 32px trong ring `bg-muted/40 ring-1 ring-border`
+- Brand chips hiển thị: tên brand + industry + tone (lấy từ `brand.industry`, `brand.tone_of_voice[0]`)
+- Bỏ description verbose, chỉ giữ 1 dòng ngắn
 
-### 2. Edge function `generate-product-image` (mới)
-Clone `generate-character-image`:
-- Input: `product_id`, `label`, `preferred_edit_model?`, `attached_ref_url?`
-- Auto-upgrade edit model khi có ref: `poyo/seedream-5.0-lite-edit` → `poyo/nano-banana-pro` → `poyo/flux-kontext-max` → `google/gemini-3-pro-image-preview`
-- Build product prompt block từ name + description + appearance + USP
-- Lưu vào `reference_images` (giống character flow)
+### Form body
+1. **Quick role chips** (above input): `Bác sĩ` `KOL` `Khách hàng thật` `Chuyên gia` `Mentor` `Founder` — click → fill input + có thể edit thêm
+2. **Số lượng**: thay Select bằng **segmented buttons** 1 / 2 / 3 / 4 (4 ô vuông `h-9`, active = `bg-foreground text-background`)
+3. **Vai mặc định** (mới): segmented `Vai chính` ⭐ / `Vai phụ` (default: phụ vì bulk thường tạo phụ); set `default_role` khi `onCreateProfile`
+4. **Auto-gen ảnh**: giữ nguyên card nhưng đổi switch màu neutral (Soft Luxury), thêm badge "+1 credit/nhân vật" bên cạnh
+5. **Existing count**: chuyển thành chip nhỏ inline `· Đã có 1 nhân vật, AI sẽ tránh trùng` ngay dưới header thay vì block riêng
 
-### 3. Inject vào video pipeline
-- `_shared/product-block-builder.ts` (mới) — hàm `buildProductBlock(productIds[])` tạo `[MAIN PRODUCT]` / `[SUPPORTING PRODUCT N]` block (English labels cho video, Vietnamese cho script — y hệt character convention)
-- `generate-video/index.ts`: nhận `product_profile_ids: string[]`, build block + smart pick `starting_frame_url` theo scene context (cảnh "demo cách dùng" → label `in-use`, cảnh "giới thiệu" → `front`)
-- `generate-video-prompt/index.ts`: inject product block tương tự
-- Auto-upgrade model i2v khi có product ref (giống character logic)
+### CTA primary
+- Đổi từ `bg-primary` (pink) → `bg-foreground text-background hover:bg-foreground/90` (neutral đen, đúng Soft Luxury)
+- Icon Sparkles + "Tạo nhân vật"
+- Khi `generating`: shimmer subtle + "Đang phân tích brand…"
 
-### 4. UI Phase 1
-- `ProductDetailSheet.tsx` (mới, clone `CharacterDetailSheet`):
-  - Tab "Thông tin" (form sẵn có) + Tab "Ảnh tham chiếu" mới
-  - Mini-card per-label với 📎 Attach / ✨ AI generate / ❌ Xoá
-  - Model picker dropdown (Auto / Seedream 5 / Nano Banana Pro / Flux Kontext / Gemini 3 Pro)
-- `MultiProductPicker.tsx` (mới, clone `MultiCharacterPicker`) — select tối đa 3 sản phẩm
-- Wire vào `QuickClipTab`, `StoryboardVideoTab`, `ScriptFormStepper`
-- `useProductImageActions.ts` (mới) hook tương tự `useCharacterImageActions`
+### Generated chars cards (sau khi AI trả)
+- Bỏ `<input type="checkbox">` HTML thô → dùng `<Checkbox>` từ shadcn/ui
+- Card có avatar placeholder tròn (initial từ name) ở trái
+- Badge `Vai chính`/`Vai phụ` góc phải nếu user chọn vai
+- Hover: subtle ring `ring-1 ring-border` thay vì đổi background
+- Footer 2 button: `Tạo lại` ghost + `Lưu N nhân vật` neutral
 
-## Phase 2 — Full pipeline coverage
-
-### 5. Inject sang Script + Multichannel + Carousel
-- `generate-script/index.ts`: nhận `product_profile_ids`, build Vietnamese block `[SẢN PHẨM CHÍNH]` để LLM viết kịch bản đúng tên/USP
-- `generate-multichannel/index.ts`: inject product context vào prompt mỗi channel
-- `generate-carousel-images-batch/index.ts` + `generate-carousel/index.ts`:
-  - Nhận `product_profile_ids` 
-  - Smart pick reference image theo slide content (slide 1 hero → `front`, slide demo → `in-use`)
-  - Pass `referenceImageUrl` vào PoYo edit pipeline (đã có sẵn cho character)
-- `ScriptToVideoContext`: thêm `productProfileIds: string[]` propagate xuống video
-
-### 6. Smart Label Picking
-`_shared/product-image-selector.ts` — logic chọn ref image phù hợp dựa trên:
-- Scene/slide description keywords (demo, hero, packaging, lifestyle, close-up)
-- Channel type (Instagram → `front` đẹp; TikTok → `in-use`; Pinterest → `packaging`)
-- Fallback: ảnh đầu tiên trong `reference_images`
-
-### 7. AI Auto-fill (Gemini Vision)
-Edge function `analyze-product-image` (clone `analyze-character-image`):
-- Input: ảnh sản phẩm
-- Output: `{name_suggestion, category, color, material, distinctive_features, suggested_usp}`
-- Button "🪄 Phân tích ảnh AI" trong `ProductDetailSheet` Tab "Thông tin"
-
-### 8. Frontend wire-up đầy đủ
-- `MultiProductPicker` thêm vào: multichannel form, carousel form, script form
-- `ProductCard` (list view) hiển thị badge số ảnh tham chiếu (`{N}/5 góc`)
-- `useProductProfiles` hook (CRUD + buildProductBlock + types)
-
-### 9. Memory mới
-`mem://features/product/product-consistency-vn.md` — ghi rõ:
-- Bảng `brand_products` mở rộng + bucket `product-references`
-- Single source of truth: frontend chỉ gửi `product_profile_ids`, edge build block
-- Label convention English (video) / Vietnamese (script)
-- Smart label picking + auto-upgrade edit model
-- Multi-product max 3 (1 chính + 2 phụ)
+### Loading skeleton
+Khi `generating === true`, hiển thị 2-3 skeleton card mờ thay vì chỉ button spinner → cảm giác AI đang "làm việc"
 
 ## Files thay đổi
+- `src/components/characters/AIBulkGenerateSheet.tsx` — redesign toàn bộ JSX, thêm state `defaultRole`, quick role chips, brand context chips
+- Có thể cần đọc `useBrandTemplates` hoặc prop `brand` mở rộng để lấy `industry` + `tone_of_voice` (nếu chưa có sẽ chỉ hiển thị tên)
 
-**New (10):**
-- `supabase/migrations/<ts>_product_reference_images.sql`
-- `supabase/functions/generate-product-image/index.ts`
-- `supabase/functions/analyze-product-image/index.ts`
-- `supabase/functions/_shared/product-block-builder.ts`
-- `supabase/functions/_shared/product-image-selector.ts`
-- `src/components/products/ProductDetailSheet.tsx`
-- `src/components/products/MultiProductPicker.tsx`
-- `src/hooks/useProductProfiles.ts`
-- `src/hooks/useProductImageActions.ts`
-- `.lovable/memory/features/product/product-consistency-vn.md`
-
-**Modified (~10):**
-- `src/types/product.ts` (thêm reference_images + appearance)
-- `supabase/functions/generate-video/index.ts`
-- `supabase/functions/generate-video-prompt/index.ts`
-- `supabase/functions/generate-script/index.ts`
-- `supabase/functions/generate-multichannel/index.ts`
-- `supabase/functions/generate-carousel/index.ts`
-- `supabase/functions/generate-carousel-images-batch/index.ts`
-- `src/components/video/QuickClipTab.tsx`, `StoryboardVideoTab.tsx`
-- `src/components/scripts/ScriptFormStepper.tsx`
-- `src/contexts/ScriptToVideoContext.tsx`
-- `src/types/videoGeneration.ts` + multichannel/carousel types
-
-## Ngoài phạm vi
-- Không động đến RLS pattern hiện tại của `brand_products` (đã có org isolation)
-- Không thay đổi pricing/quota (dùng chung quota Image hiện có)
-- Không tạo bảng riêng — dùng `brand_products` extend (giảm complexity)
-
-## Rủi ro
-- **Token budget**: thêm product block + character block có thể đẩy prompt dài. Mitigation: cap mỗi block ~300 tokens, ưu tiên fields quan trọng (name + color + distinctive_features)
-- **Cost**: edit model đắt hơn 3-5×. Log qua `ai_metrics` để admin theo dõi
-- **Multi-ref conflict**: nếu user chọn cả character + product ref, smart selector phải prioritize đúng (close-up nhân vật → character ref; close-up sản phẩm → product ref). Sẽ dùng heuristic keyword scoring trong scene description
+## Không làm
+- Không đụng logic edge function `generate-character`
+- Không thay đổi behavior `onCreateProfile` (chỉ thêm `default_role` vào payload)
+- Không refactor file khác
