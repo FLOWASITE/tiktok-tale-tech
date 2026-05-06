@@ -220,6 +220,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       autoGenerateImages,
       brandPrimaryColor: brandPrimaryColor || undefined,
       brandSecondaryColors: brandSecondaryColors.length > 0 ? brandSecondaryColors : undefined,
+      product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
   };
 
