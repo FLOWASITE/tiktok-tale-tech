@@ -3332,6 +3332,7 @@ ${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${
 ⚡ NỘI DUNG PHẢI TẬP TRUNG vào sản phẩm này, nhấn mạnh USP và cách giải quyết pain points.
 `;
           console.log("[streaming-mode] Targeted product loaded:", targetProduct.name);
+        }
       }
 
       // Multi-product consistency block (explicit selection from UI)
