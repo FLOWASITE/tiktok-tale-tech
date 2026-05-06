@@ -20,6 +20,8 @@ interface Props {
   onDelete: () => void;
   onGenerateAvatar?: () => void;
   isGeneratingAvatar?: boolean;
+  onToggleRole?: (next: 'main' | 'supporting') => void;
+  isUpdatingRole?: boolean;
 }
 
 function CompletenessRing({ pct }: { pct: number }) {
