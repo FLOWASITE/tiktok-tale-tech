@@ -82,6 +82,7 @@ export default function ScriptNew() {
         isLoading={generating}
         initialTopic={prefillData?.prefillTopic}
         topicHistoryId={prefillData?.topicHistoryId}
+        generatedScript={selectedScript}
       />
 
       {/* Script viewer dialog */}
