@@ -1,29 +1,38 @@
 ---
 name: Script→Video Studio Link
-description: Liên kết 2 chiều Kịch bản ai_video ↔ Video Studio — auto-fill QuickClip, filter Storyboard/Gallery theo script_id, reverse-link strip per scene
+description: Tab "Kịch bản & Quay" workspace 2-cột — storyboard rail trái + Quick Clip embedded phải, không còn tab Quick Clip độc lập
 type: feature
 ---
 
-## Luồng đi (Script → Studio)
-- ScriptViewer (`script_purpose='ai_video'`) → nút "Quay với Video Studio" → `navigate('/videos', { state: { fromScript: { script: {id, title, scenes[]}, activeSceneIndex } } })`.
-- `ScriptToVideoContext` (sessionStorage `flowa_script_to_video_v1`) hydrate state, persist khi đổi tab.
-- QuickClipTab auto-fill `prompt/duration/aspect` từ `currentScene`, gửi `script_id + scene_number` xuống `generate-video` edge function.
-- Auto `markSceneCompleted` + `goToNextScene` khi job hoàn thành (realtime).
+## Tab structure (sau merge)
+Video Studio còn 5 tab: `[Kịch bản & Quay] [Storyboard] [Audio] [Gallery] [Chi phí]`. Tab "Quick Clip" độc lập **đã bị xoá** — Quick Clip giờ là panel "Quay scene" bên trong workspace của 1 kịch bản.
 
-## Luồng về (Studio → Script)
-- `useScriptVideoGenerations(scriptId)` fetch + realtime tất cả `video_generations` thuộc 1 script, group theo `scene_number` (rank: completed > processing > pending > failed).
-- `<SceneVideoStrip>` render dưới mỗi `PurposeAwarePromptCard` trong ScriptViewer với 4 trạng thái: chưa quay / đang xử lý / đã quay (thumbnail + preview dialog) / lỗi.
-- Click "Quay scene này" trên strip → navigate Studio với `activeSceneIndex = sceneNumber - 1`.
+## ScriptWorkspace (2-cột, mới)
+- Trigger: ScriptsTab → click card script → `setWorkspaceScript(s)` thay vì mở `ScriptViewer` dialog. Sau `generateScript` thành công cũng vào thẳng workspace.
+- Hydrate `ScriptToVideoContext` qua `buildScriptToVideoNavState` khi mount; `clearScript()` khi back.
+- **Cột trái (storyboard rail)**: list scene + status (`useScriptVideoGenerations`) + click → `setActiveSceneIndex`.
+- **Cột phải**: `<QuickClipTab embedded />` — auto-fill prompt/aspect/duration từ `currentScene`.
+- **Header workspace**: Topic + Title + Progress `X/Y scene đã quay` + nút batch `renderMissingScenes` + `mergeMovie` (Creatomate) + "Mở viewer fullscreen" (mở `ScriptViewer` dialog để đọc/edit markdown).
 
-## Gallery filter
-- VideoGalleryTab có 2 dropdown: Script (Tất cả / Quick Clip rời / per-script với count) + Aspect ratio.
-- Khi chọn script: clip sort theo `scene_number ASC`. Title script lấy từ bảng `scripts`, cache trong state.
-- Mỗi card có badge `Scene N · {scriptTitle}` clickable → mở `/scripts`.
+## QuickClipTab embedded mode
+Prop `embedded?: boolean`. Khi `embedded=true`:
+- Bỏ qua `QuickClipContextPicker` (parent đã đảm bảo có `activeScript`).
+- Ẩn context badge + "Đổi kịch bản" (workspace header đã có).
+- Ẩn scene navigator (rail trái đã có).
+- Ẩn header strip "Quick Clip".
+- Giữ: prompt + Smart Prompt + MultiCharacterPicker + CharacterProductMap + AspectRatioPicker + duration + generate + ModelUsedBadge + PublishVideoMenu.
 
-## QuickClip gating (bắt buộc Topic + Script)
-- QuickClipTab không còn standalone — nếu `!activeScript` → render `<QuickClipContextPicker>` với 2 bước: chọn Chủ đề (group `scripts.topic` text, filter `script_purpose=ai_video` + `brand_template_id`) → chọn Kịch bản → fetch full script + `buildScriptToVideoNavState` + `setActiveScript`.
-- Khi đã có activeScript: header badge hiển thị Topic + Title, nút "Đổi kịch bản" gọi `clearScript()` quay lại picker.
-- `handleGenerate` guard cứng: thiếu `activeScript || currentScene` → toast lỗi, không gọi edge function.
+## Routing & deep-link
+- `/videos?tab=scripts&view=<scriptId>` → auto vào workspace của script đó.
+- Legacy `/videos?tab=quick` (URL/state) → redirect sang `?tab=scripts`. Nếu kèm `fromScript` state → set `initialViewScriptId` → mở workspace.
+- `ScriptFormStepper` step "Tạo Video" CTA navigate `/videos?tab=scripts&view=<id>` thay vì `?tab=quick`.
+- `StoryboardVideoTab.onJumpToTab('quick')` được map về `'scripts'`.
+
+## ScriptLinkBanner
+Chỉ render khi `tab !== 'scripts'` (workspace header đã có cùng info). Vẫn dùng để hiển thị progress khi user đang ở Audio/Gallery/Storyboard/Costs.
+
+## Reverse link (Studio → Script)
+Không đổi: `useScriptVideoGenerations(scriptId)` + `<SceneVideoStrip>` trong `ScriptViewer` vẫn hoạt động khi user "Mở viewer fullscreen".
 
 ## DB
-Không cần migration mới — `video_generations.script_id` + `scene_number` đã có từ migration `20260208040527`.
+Không migration mới — `video_generations.script_id` + `scene_number` đã có.

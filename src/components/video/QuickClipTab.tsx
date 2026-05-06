@@ -55,7 +55,12 @@ const EXAMPLE_PROMPTS = [
   'Toàn cảnh phòng phẫu thuật thẩm mỹ hiện đại, ánh sáng trắng, bác sĩ đeo khẩu trang đang chuẩn bị, dolly forward chậm.',
 ];
 
-export function QuickClipTab() {
+interface QuickClipTabProps {
+  /** Khi true: ẩn picker/banner/scene navigator/topic chip — dùng trong ScriptWorkspace */
+  embedded?: boolean;
+}
+
+export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
@@ -218,13 +223,15 @@ export function QuickClipTab() {
   const isFirstScene = activeSceneIndex <= 0;
 
   // Gating: bắt buộc phải có Chủ đề + Kịch bản trước khi quay
-  if (!activeScript) {
+  // Khi embedded (trong ScriptWorkspace), parent đã đảm bảo activeScript → bỏ qua picker
+  if (!activeScript && !embedded) {
     return <QuickClipContextPicker />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Context badge: topic + script */}
+      {/* Context badge: topic + script — ẩn khi embedded (workspace header đã có) */}
+      {!embedded && (
       <div className="flex items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/30">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <FileText className="w-3.5 h-3.5 text-foreground/60 shrink-0" />
@@ -251,9 +258,10 @@ export function QuickClipTab() {
           Đổi kịch bản
         </Button>
       </div>
+      )}
 
-      {/* Scene navigator — chỉ hiện khi có activeScript */}
-      {activeScript && currentScene && (
+      {/* Scene navigator — ẩn khi embedded (rail trái workspace đã có) */}
+      {!embedded && activeScript && currentScene && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-foreground/[0.03] border border-border/60">
           <Button
             variant="ghost"
@@ -288,21 +296,22 @@ export function QuickClipTab() {
         </div>
       )}
 
-      {/* Header strip */}
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
-        <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
-          <Wand2 className="w-4 h-4 text-foreground/70" />
+      {/* Header strip — ẩn khi embedded */}
+      {!embedded && (
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
+          <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
+            <Wand2 className="w-4 h-4 text-foreground/70" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Quick Clip</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {activeScript
+                ? 'Prompt đã tự nạp từ scene của kịch bản. Bạn vẫn có thể chỉnh trước khi quay.'
+                : 'Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.'}
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-foreground">Quick Clip</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {activeScript
-              ? 'Prompt đã tự nạp từ scene của kịch bản. Bạn vẫn có thể chỉnh trước khi quay.'
-              : 'Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.'}
-          </p>
-        </div>
-      </div>
-
+      )}
 
       {/* Prompt */}
       <div className="space-y-2">
