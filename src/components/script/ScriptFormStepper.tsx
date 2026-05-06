@@ -322,7 +322,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   }, [topicLength]);
 
   const isVideoAi = formData.script_purpose === 'ai_video';
-  const STEPS = useMemo(() => buildSteps(isVideoAi), [isVideoAi]);
+  const hasGeneratedScript = !!generatedScript;
+  const STEPS = useMemo(() => buildSteps(isVideoAi, hasGeneratedScript), [isVideoAi, hasGeneratedScript]);
 
   // Ordered list of step IDs that are actually shown
   const visibleStepIds = useMemo(() => STEPS.map((s) => s.id), [STEPS]);
