@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic, Sparkles, Loader2, Star, RefreshCw, UserCircle2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { CharacterProfile, CharacterAppearance } from '@/hooks/useCharacterProfiles';
 import { calcCompleteness } from '@/lib/characterSchema';
@@ -151,25 +152,52 @@ export function CharacterCard({
             const label = isMain ? 'Vai chính' : 'Vai phụ';
             const Icon = isUpdatingRole ? Loader2 : isMain ? Star : UserCircle2;
             return (
-              <button
-                type="button"
-                disabled={isUpdatingRole || !onToggleRole}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleRole?.(next);
-                }}
-                title={onToggleRole ? `Đổi sang ${isMain ? 'Vai phụ' : 'Vai chính'}` : label}
-                className={cn(
-                  'inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-medium border backdrop-blur transition-colors',
-                  isMain
-                    ? 'bg-amber-500/90 text-white border-amber-400/40 hover:bg-amber-500'
-                    : 'bg-background/85 text-foreground/80 border-border/60 hover:bg-background',
-                  (isUpdatingRole || !onToggleRole) && 'cursor-default opacity-80',
-                )}
-              >
-                <Icon className={cn('w-2.5 h-2.5', isUpdatingRole && 'animate-spin', isMain && !isUpdatingRole && 'fill-current')} />
-                {label}
-              </button>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={isUpdatingRole || !onToggleRole}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleRole?.(next);
+                      }}
+                      aria-label={onToggleRole ? `Đổi sang ${isMain ? 'Vai phụ' : 'Vai chính'}` : label}
+                      className={cn(
+                        'inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-medium border backdrop-blur transition-colors',
+                        isMain
+                          ? 'bg-amber-500/90 text-white border-amber-400/40 hover:bg-amber-500'
+                          : 'bg-background/85 text-foreground/80 border-border/60 hover:bg-background',
+                        (isUpdatingRole || !onToggleRole) && 'cursor-default opacity-80',
+                      )}
+                    >
+                      <Icon className={cn('w-2.5 h-2.5', isUpdatingRole && 'animate-spin', isMain && !isUpdatingRole && 'fill-current')} />
+                      {label}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" align="start" className="max-w-[260px] text-xs leading-relaxed">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                        <span>Vai chính</span>
+                      </div>
+                      <p className="text-muted-foreground">
+                        Nhân vật trung tâm — AI sẽ ưu tiên xuất hiện rõ mặt, đầy đủ thân hình và giữ nhất quán xuyên suốt video.
+                      </p>
+                      <div className="flex items-center gap-1.5 font-semibold pt-1">
+                        <UserCircle2 className="w-3 h-3" />
+                        <span>Vai phụ</span>
+                      </div>
+                      <p className="text-muted-foreground">
+                        Nhân vật hỗ trợ — xuất hiện thoáng qua, tương tác với vai chính, không chiếm khung hình.
+                      </p>
+                      <p className="pt-1.5 border-t border-border/50 text-foreground">
+                        💡 <strong>Click badge</strong> để đổi nhanh giữa Vai chính ↔ Vai phụ.
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             );
           })()}
         </div>
