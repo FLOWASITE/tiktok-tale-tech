@@ -328,6 +328,8 @@ export function BrandViewCharactersTab({ template }: Props) {
               onDelete={() => handleDelete(p)}
               onGenerateAvatar={() => handleGenerateAvatar(p)}
               isGeneratingAvatar={generatingAvatarFor === p.id}
+              onToggleRole={(next) => handleToggleRole(p, next)}
+              isUpdatingRole={updatingRoleFor === p.id}
             />
           ))}
         </div>
