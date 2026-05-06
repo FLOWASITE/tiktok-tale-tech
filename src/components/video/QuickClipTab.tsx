@@ -21,7 +21,7 @@ import { PublishVideoMenu } from './PublishVideoMenu';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
-import { MultiProductPicker } from '@/components/products/MultiProductPicker';
+import { CharacterProductMap } from './CharacterProductMap';
 import type { BrandProduct } from '@/types/product';
 
 // Default fallback if Admin hasn't configured a model yet.
@@ -335,12 +335,13 @@ export function QuickClipTab() {
         }}
       />
 
-      {/* Product consistency — auto chèn ảnh ref theo nhãn (front/in-use/packaging) */}
-      <MultiProductPicker
-        value={selectedProductIds}
-        onChange={(ids, products) => {
+      {/* Map sản phẩm theo từng nhân vật (session-only) — auto chèn ref theo nhãn */}
+      <CharacterProductMap
+        characters={selectedCharacters}
+        onUnionChange={(ids) => {
           setSelectedProductIds(ids);
-          setSelectedProducts(products);
+          // selectedProducts không cần snapshot khi dùng map; clear để đồng nhất
+          setSelectedProducts([]);
         }}
       />
 

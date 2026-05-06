@@ -17,7 +17,7 @@ import { VideoCompletionWizard } from './VideoCompletionWizard';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterVoicePreview } from './CharacterVoicePreview';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
-import { MultiProductPicker } from '@/components/products/MultiProductPicker';
+import { CharacterProductMap } from './CharacterProductMap';
 
 interface Props {
   onJumpToTab?: (tab: 'quick' | 'storyboard' | 'gallery') => void;
@@ -258,9 +258,9 @@ export function StoryboardVideoTab({ onJumpToTab }: Props = {}) {
                 }}
                 className="mt-1"
               />
-              <MultiProductPicker
-                value={selectedProductIds}
-                onChange={(ids) => setSelectedProductIds(ids)}
+              <CharacterProductMap
+                characters={selectedCharacters}
+                onUnionChange={(ids) => setSelectedProductIds(ids)}
                 className="mt-1"
               />
               {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (
