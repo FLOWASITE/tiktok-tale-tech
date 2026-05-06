@@ -204,6 +204,14 @@ export function useVideoGeneration() {
         });
       }
 
+      // 🎨 Keyframe synthesis notice
+      if (data?.keyframe_synthesized) {
+        toast.success('🎨 Đã dựng keyframe từ ảnh nhân vật', {
+          description: 'Khuôn mặt brand sẽ được giữ chính xác hơn trong video.',
+          duration: 5000,
+        });
+      }
+
       
       // Fetch the created generation
       const { data: generationData } = await supabase
