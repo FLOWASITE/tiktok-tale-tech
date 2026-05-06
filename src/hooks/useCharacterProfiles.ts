@@ -101,14 +101,14 @@ export function useCharacterProfiles() {
         } as any)
         .select()
         .single();
-      if (error) throw error;
+      if (error) throw mapCharacterError(error);
       return data as unknown as CharacterProfile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       toast.success('Đã tạo nhân vật');
     },
-    onError: (e: Error) => toast.error(`Lỗi: ${e.message}`),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const updateProfile = useMutation({
