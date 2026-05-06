@@ -204,6 +204,7 @@ export function useMultiChannelContents() {
           targetJourneyStage: formData.journeyStage,
           targetProductId: formData.productId,
           targetPersonaId: formData.personaId,
+          product_profile_ids: formData.product_profile_ids,
         },
       });
 
