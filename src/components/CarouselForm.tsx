@@ -20,6 +20,7 @@ import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { VisualPresetSelector } from '@/components/carousel/VisualPresetSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
@@ -123,6 +124,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [brandGuideline, setBrandGuideline] = useState(DEFAULT_BRAND_GUIDELINE);
   const [includeLogo, setIncludeLogo] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
 
   useEffect(() => {
@@ -218,6 +220,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       autoGenerateImages,
       brandPrimaryColor: brandPrimaryColor || undefined,
       brandSecondaryColors: brandSecondaryColors.length > 0 ? brandSecondaryColors : undefined,
+      product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
   };
 
@@ -342,6 +345,17 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           onChange={setCarouselStyle}
           disabled={isLoading}
         />
+
+        <div className="pt-2">
+          <Label className="text-xs text-muted-foreground mb-1.5 block">
+            Sản phẩm xuất hiện (tùy chọn) — đảm bảo bao bì/màu sắc đúng trên mọi slide
+          </Label>
+          <MultiProductPicker
+            value={selectedProductIds}
+            onChange={setSelectedProductIds}
+            max={3}
+          />
+        </div>
       </section>
 
       <div className="h-px bg-border/60" />

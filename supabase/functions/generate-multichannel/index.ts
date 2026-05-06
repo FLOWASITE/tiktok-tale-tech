@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
 // Multi-country support
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedGoalDescriptions, getLocalizedAngleDescriptions, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
@@ -245,6 +246,7 @@ interface FormData {
   targetJourneyStage?: JourneyStage;
   targetPersonaId?: string;
   targetProductId?: string;
+  product_profile_ids?: string[];
   stream?: boolean; // NEW: Enable real-time SSE streaming
   campaignId?: string;
   qualityMode?: QualityMode; // NEW: Speed vs quality tradeoff
@@ -3332,6 +3334,17 @@ ${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${
           console.log("[streaming-mode] Targeted product loaded:", targetProduct.name);
         }
       }
+
+      // Multi-product consistency block (explicit selection from UI)
+      if (Array.isArray(formData.product_profile_ids) && formData.product_profile_ids.length > 0) {
+        try {
+          const products = await fetchProductRows(supabase, formData.product_profile_ids);
+          if (products.length > 0) {
+            targetedProductContext += `\n\n${buildProductBlockVI(products)}\n`;
+            console.log("[streaming-mode] Multi-product block injected:", products.length);
+          }
+        } catch (e) { console.warn("[streaming-mode] product block fetch failed", e); }
+      }
       
       // Store persona data for Persona Fit Scoring
       let targetPersonaData: PersonaData | null = null;
@@ -4751,6 +4764,17 @@ ${targetProduct.pain_points_solved?.length ? `**Pain points giải quyết**: ${
 `;
         console.log("Targeted product loaded:", targetProduct.name);
       }
+    }
+
+    // Multi-product consistency block (explicit selection from UI)
+    if (Array.isArray(formData.product_profile_ids) && formData.product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, formData.product_profile_ids);
+        if (products.length > 0) {
+          targetedProductContext += `\n\n${buildProductBlockVI(products)}\n`;
+          console.log("[normal-mode] Multi-product block injected:", products.length);
+        }
+      } catch (e) { console.warn("[normal-mode] product block fetch failed", e); }
     }
     
     if (formData.targetPersonaId && formData.brandTemplateId) {

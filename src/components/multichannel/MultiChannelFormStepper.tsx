@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -726,6 +727,22 @@ export function MultiChannelFormStepper({
                           disabled={isLoading}
                         />
                       </div>
+                    </div>
+
+                    {/* Multi-product consistency picker — keeps packaging/colour identical across channels */}
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5" />
+                        Khoá nhận diện sản phẩm (tùy chọn)
+                      </Label>
+                      <MultiProductPicker
+                        value={formData.product_profile_ids ?? []}
+                        onChange={(ids) => setFormData(prev => ({
+                          ...prev,
+                          product_profile_ids: ids.length > 0 ? ids : undefined,
+                        }))}
+                        max={3}
+                      />
                     </div>
 
                     {/* Selection Summary Chips */}

@@ -346,6 +346,8 @@ export interface MultiChannelFormData {
   // Product/Persona targeting
   productId?: string;
   personaId?: string;
+  // Multi-product consistency selection (UI MultiProductPicker)
+  product_profile_ids?: string[];
   // Journey Stage for targeted messaging
   journeyStage?: JourneyStage;
   // AI suggestion context from topic refinement

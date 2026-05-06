@@ -19,6 +19,7 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
 import { createTrace, getTraceHeaders, createSpan, endSpan } from "../_shared/tracing.ts";
+import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,7 @@ interface CarouselFormData {
   campaignId?: string;
   carouselStyle?: "seamless" | "educational" | "listicle" | "gallery";
   visualPreset?: "minimalist" | "flat_design" | "gradient" | "geometric" | "illustration" | "product_only";
+  product_profile_ids?: string[];
 }
 
 interface StructuredTextContent {
@@ -971,12 +973,24 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
     const langConfig = getLanguageConfig(outputLang);
     const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
 
+    // ─── PRODUCT CONSISTENCY — inject product block ───
+    let productBlock = '';
+    if (Array.isArray(formData.product_profile_ids) && formData.product_profile_ids.length > 0) {
+      try {
+        const products = await fetchProductRows(supabase, formData.product_profile_ids);
+        if (products.length > 0) {
+          productBlock = buildProductBlockVI(products);
+          tlog(`Product block injected: ${products.length} product(s)`);
+        }
+      } catch (e) { twarn('product block fetch failed', e); }
+    }
+
     // Initialize PromptManager and fetch prompts from registry
     const brandColorsForPrompt = templatePrimaryColor ? { primary: templatePrimaryColor, secondary: templateSecondaryColors } : undefined;
     let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang, brandCountryCode, brandColorsForPrompt); // Fallback to hardcoded
     let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
-
+${productBlock ? `\n${productBlock}\n` : ''}
 Platform: ${platformName[formData.platform] || formData.platform}
 Carousel Style: ${formData.carouselStyle || 'educational'}
 Brand: ${formData.brandName}
@@ -1318,6 +1332,7 @@ Follow the carousel style guidelines strictly.`;
         formality: brandVoice.formality_level,
       } : null,
       brandGuidelineHash: formData.brandGuideline ? formData.brandGuideline.slice(0, 100) : null,
+      productIds: (formData.product_profile_ids || []).slice().sort().join(','),
     };
 
     let generatedData: any;
