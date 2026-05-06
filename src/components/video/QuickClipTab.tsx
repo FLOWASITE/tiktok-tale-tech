@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard, Download, AlertTriangle } from 'lucide-react';
+import { Loader2, Wand2, Sparkles, Info, Video, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Clapperboard, Download, AlertTriangle, FileText, RefreshCw } from 'lucide-react';
+import { QuickClipContextPicker } from './QuickClipContextPicker';
 import { Progress } from '@/components/ui/progress';
 import { AspectRatioPicker, VideoAspectRatio } from './AspectRatioPicker';
 import { VIDEO_MODELS } from './ProviderModelPicker';
@@ -76,6 +77,7 @@ export function QuickClipTab() {
     setActiveSceneIndex,
     goToNextScene,
     markSceneCompleted,
+    clearScript,
   } = useScriptToVideo();
 
   // Admin model chỉ là FALLBACK — auto-pick theo aspect là ưu tiên cao hơn
@@ -178,6 +180,10 @@ export function QuickClipTab() {
   };
 
   const handleGenerate = async () => {
+    if (!activeScript || !currentScene) {
+      toast.error('Hãy chọn Chủ đề và Kịch bản trước khi quay.');
+      return;
+    }
     if (prompt.trim().length < 10) {
       toast.error('Prompt cần ít nhất 10 ký tự để mô tả rõ ý tưởng.');
       return;
@@ -211,8 +217,41 @@ export function QuickClipTab() {
   const isLastScene = activeScript ? activeSceneIndex >= totalScenes - 1 : false;
   const isFirstScene = activeSceneIndex <= 0;
 
+  // Gating: bắt buộc phải có Chủ đề + Kịch bản trước khi quay
+  if (!activeScript) {
+    return <QuickClipContextPicker />;
+  }
+
   return (
     <div className="space-y-6">
+      {/* Context badge: topic + script */}
+      <div className="flex items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/30">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <FileText className="w-3.5 h-3.5 text-foreground/60 shrink-0" />
+          <div className="min-w-0">
+            {activeScript.topic && (
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                {activeScript.topic}
+              </p>
+            )}
+            <p className="text-xs font-medium text-foreground truncate">{activeScript.title}</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            clearScript();
+            setActiveJobId(null);
+          }}
+          className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-foreground shrink-0"
+          title="Đổi chủ đề / kịch bản khác"
+        >
+          <RefreshCw className="w-3 h-3" />
+          Đổi kịch bản
+        </Button>
+      </div>
+
       {/* Scene navigator — chỉ hiện khi có activeScript */}
       {activeScript && currentScene && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-foreground/[0.03] border border-border/60">
