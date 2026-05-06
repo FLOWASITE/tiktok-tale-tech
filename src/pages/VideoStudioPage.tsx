@@ -99,9 +99,10 @@ function VideoStudioInner() {
           <h1 className="text-lg font-semibold text-foreground">Video Studio</h1>
         </div>
 
-        {/* Script link banner — chỉ hiện khi có activeScript */}
-        <ScriptLinkBanner onJumpToTab={(t) => setTab(t)} />
-
+        {/* Script link banner — chỉ hiện khi có activeScript ngoài tab scripts */}
+        {tab !== 'scripts' && (
+          <ScriptLinkBanner onJumpToTab={(t) => setTab((t === 'quick' ? 'scripts' : t) as TabValue)} />
+        )}
         {/* Character profiles — full management on dedicated page */}
         <Card className="border-border/60">
           <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
@@ -119,7 +120,7 @@ function VideoStudioInner() {
         </Card>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1 bg-muted/50">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-5 h-auto p-1 bg-muted/50">
             {TABS.map((t) => {
               const Icon = t.icon;
               return (
@@ -148,18 +149,12 @@ function VideoStudioInner() {
             />
           </TabsContent>
 
-          <TabsContent value="quick" className="mt-0">
-            <Card className="border-border/60">
-              <CardContent className="p-4 md:p-6">
-                <QuickClipTab />
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* Quick Clip giờ là panel trong ScriptWorkspace (tab "scripts") — không còn tab độc lập */}
 
           <TabsContent value="storyboard" className="mt-0">
             <Card className="border-border/60">
               <CardContent className="p-4 md:p-6">
-                <StoryboardVideoTab onJumpToTab={(t) => setTab(t)} />
+                <StoryboardVideoTab onJumpToTab={(t) => setTab((t === 'quick' ? 'scripts' : t) as TabValue)} />
               </CardContent>
             </Card>
           </TabsContent>
