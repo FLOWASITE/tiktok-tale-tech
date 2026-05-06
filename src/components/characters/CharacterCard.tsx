@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic, Sparkles, Loader2, Star } from 'lucide-react';
+import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic, Sparkles, Loader2, Star, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CharacterProfile, CharacterAppearance } from '@/hooks/useCharacterProfiles';
 import { calcCompleteness } from '@/lib/characterSchema';
@@ -130,6 +130,14 @@ export function CharacterCard({
           </div>
         )}
 
+        {/* Regenerating overlay */}
+        {isGeneratingAvatar && profile.reference_image_url && (
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center gap-1.5 z-20">
+            <Loader2 className="w-5 h-5 animate-spin text-foreground" />
+            <span className="text-[11px] font-medium">Đang tạo lại…</span>
+          </div>
+        )}
+
         {/* Top-right badges */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
           <CompletenessRing pct={pct} />
@@ -181,6 +189,22 @@ export function CharacterCard({
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {profile.reference_image_url && onGenerateAvatar && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-7 w-7 bg-background/85 backdrop-blur"
+            onClick={onGenerateAvatar}
+            disabled={isGeneratingAvatar}
+            title="Tạo lại ảnh AI"
+          >
+            {isGeneratingAvatar ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+          </Button>
+        )}
         <Button size="icon" variant="secondary" className="h-7 w-7 bg-background/85 backdrop-blur" onClick={onEdit} title="Sửa">
           <Edit2 className="w-3.5 h-3.5" />
         </Button>
