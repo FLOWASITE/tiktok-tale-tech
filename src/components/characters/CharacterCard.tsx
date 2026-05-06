@@ -189,6 +189,22 @@ export function CharacterCard({
         )}
         onClick={(e) => e.stopPropagation()}
       >
+        {profile.reference_image_url && onGenerateAvatar && (
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-7 w-7 bg-background/85 backdrop-blur"
+            onClick={onGenerateAvatar}
+            disabled={isGeneratingAvatar}
+            title="Tạo lại ảnh AI"
+          >
+            {isGeneratingAvatar ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+          </Button>
+        )}
         <Button size="icon" variant="secondary" className="h-7 w-7 bg-background/85 backdrop-blur" onClick={onEdit} title="Sửa">
           <Edit2 className="w-3.5 h-3.5" />
         </Button>
