@@ -97,14 +97,18 @@ interface ScriptFormStepperProps {
   isLoading: boolean;
   initialTopic?: string;
   topicHistoryId?: string;
+  /** Script vừa được tạo — bật step "Tạo Video" khi có */
+  generatedScript?: Script | null;
 }
 
 // Step IDs are semantic — step 2 (Social Format) only shown when purpose='ai_video'
+// Step 4 (Tạo Video) only shown when purpose='ai_video' and script đã được tạo
 const STEP_CONTENT = 1;
 const STEP_SOCIAL_FORMAT = 2;
 const STEP_GENERATE = 3;
+const STEP_VIDEO = 4;
 
-const buildSteps = (isVideoAi: boolean): Step[] => {
+const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => {
   const base: Step[] = [
     { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
   ];
@@ -112,6 +116,9 @@ const buildSteps = (isVideoAi: boolean): Step[] => {
     base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
   }
   base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
+  if (isVideoAi && hasGeneratedScript) {
+    base.push({ id: STEP_VIDEO, title: 'Tạo Video', icon: <Video className="w-4 h-4" /> });
+  }
   return base;
 };
 
