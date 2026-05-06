@@ -425,6 +425,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
             startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
           }, apiKey);
           videoUrl = result.videoUrl;
         } else if (provider === 'poyo') {
@@ -439,6 +440,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
               duration,
               resolution: resolution === '720p' ? '720p' : '1080p',
               startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
               negativePrompt: negative_prompt,
             }, apiKey);
             videoUrl = result.videoUrl;
@@ -455,6 +457,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
                 resolution: resolution === '720p' ? '720p' : '1080p',
                 duration, negativePrompt: negative_prompt,
                 startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
               }, gKey);
               videoUrl = result.videoUrl;
               syncProvider = 'geminigen';
@@ -515,6 +518,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           resolution: resolution === '720p' ? '720p' : '1080p',
           duration, negativePrompt: negative_prompt,
           startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
         }, apiKey);
       } else if (provider === 'poyo') {
         const apiKey = Deno.env.get("POYO_API_KEY");
@@ -527,6 +531,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           duration,
           resolution: resolution === '720p' ? '720p' : '1080p',
           startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
           negativePrompt: negative_prompt,
         }, apiKey);
       } else {
@@ -552,6 +557,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
             startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
           }, geminigenKey);
           actualProvider = 'geminigen';
 
