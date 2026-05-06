@@ -10,9 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
-import { ProductFormData, BrandProduct, PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
+import { useProductImageActions } from '@/hooks/useProductImageActions';
+import { ProductFormData, BrandProduct, PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS, ProductReferenceImage, ProductAppearance } from '@/types/product';
+import { ProductReferenceImagesEditor } from '@/components/products/ProductReferenceImagesEditor';
 import { toast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Image as ImageIcon, Loader2, Upload, Sparkles } from 'lucide-react';
 
 interface ProductQuickAddDialogProps {
   brandTemplateId: string;
