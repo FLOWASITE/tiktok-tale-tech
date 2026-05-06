@@ -101,6 +101,7 @@ export interface CarouselFormData {
   autoGenerateImages?: boolean;
   brandPrimaryColor?: string;
   brandSecondaryColors?: string[];
+  product_profile_ids?: string[];
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';
