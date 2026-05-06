@@ -36,6 +36,8 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   brand: { id: string; name: string; industry?: string | null; tone_of_voice?: string[] | null } | null;
   existingNames: string[];
+  /** Name of the existing "main" character on this brand (if any) — used to disable Vai chính */
+  existingMainName?: string | null;
   onCreateProfile: (input: CharacterProfileInput) => Promise<CharacterProfile>;
   onUpdateProfile: (input: CharacterProfileInput & { id: string }) => Promise<unknown>;
 }
