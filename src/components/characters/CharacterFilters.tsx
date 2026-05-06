@@ -15,6 +15,8 @@ interface Props {
   onGender: (v: string) => void;
   ageRange: string;
   onAge: (v: string) => void;
+  role: string;
+  onRole: (v: string) => void;
   sort: SortKey;
   onSort: (v: SortKey) => void;
   filterByBrand: boolean;
@@ -31,6 +33,8 @@ export function CharacterFilters({
   onGender,
   ageRange,
   onAge,
+  role,
+  onRole,
   sort,
   onSort,
   filterByBrand,
@@ -39,7 +43,7 @@ export function CharacterFilters({
   totalCount,
   visibleCount,
 }: Props) {
-  const hasActiveFilter = !!query || !!gender || !!ageRange;
+  const hasActiveFilter = !!query || !!gender || !!ageRange || !!role;
 
   return (
     <div className="space-y-3">
@@ -90,6 +94,17 @@ export function CharacterFilters({
           </SelectContent>
         </Select>
 
+        <Select value={role || 'all'} onValueChange={(v) => onRole(v === 'all' ? '' : v)}>
+          <SelectTrigger className="h-9 w-32 text-xs">
+            <SelectValue placeholder="Vai trò" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Mọi vai trò</SelectItem>
+            <SelectItem value="main">⭐ Vai chính</SelectItem>
+            <SelectItem value="supporting">Vai phụ</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Select value={sort} onValueChange={(v) => onSort(v as SortKey)}>
           <SelectTrigger className="h-9 w-36 text-xs">
             <SelectValue />
@@ -110,6 +125,7 @@ export function CharacterFilters({
               onQuery('');
               onGender('');
               onAge('');
+              onRole('');
             }}
           >
             <X className="w-3 h-3" /> Xoá lọc
