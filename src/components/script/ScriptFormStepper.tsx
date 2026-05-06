@@ -1054,6 +1054,30 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
+        {/* ====== Step 4: Tạo Video — empty state khi chưa có script ====== */}
+        {currentStep === STEP_VIDEO && !generatedScript && (
+          <div className="space-y-5 animate-fade-in">
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
+                <Video className="w-7 h-7 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg text-foreground">Cần kịch bản trước khi tạo video</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                Quay lại bước "Tạo kịch bản" để AI sinh kịch bản. Sau đó bạn có thể chọn từng scene để quay trong Video Studio.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep(STEP_GENERATE)}
+                className="gap-2 mt-4"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Quay lại tạo kịch bản
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* ====== Step 4: Tạo Video (only when ai_video + có script đã tạo) ====== */}
         {currentStep === STEP_VIDEO && generatedScript && (() => {
           const prompts = parseScriptContent(
