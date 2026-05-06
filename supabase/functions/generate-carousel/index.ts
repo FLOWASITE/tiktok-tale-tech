@@ -19,6 +19,7 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { checkRateLimit, getRateLimitConfig, getUserPlanType, createRateLimitErrorResponse } from "../_shared/rate-limiter.ts";
 import { createTrace, getTraceHeaders, createSpan, endSpan } from "../_shared/tracing.ts";
+import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
