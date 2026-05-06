@@ -492,6 +492,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
       return new Response(JSON.stringify({
         job_id: job.id, video_url: videoUrl, status: 'completed', provider: syncProvider,
+        model_used: model, model_upgraded_reason: modelUpgradedReason, stable_seed: stableSeed,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
