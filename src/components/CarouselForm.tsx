@@ -20,6 +20,7 @@ import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { VisualPresetSelector } from '@/components/carousel/VisualPresetSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
+import { MultiProductPicker } from '@/components/products/MultiProductPicker';
 
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
