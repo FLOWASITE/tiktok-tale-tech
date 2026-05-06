@@ -51,6 +51,19 @@ export function BrandViewCharactersTab({ template }: Props) {
   const [detail, setDetail] = useState<CharacterProfile | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [generatingAvatarFor, setGeneratingAvatarFor] = useState<string | null>(null);
+  const [updatingRoleFor, setUpdatingRoleFor] = useState<string | null>(null);
+
+  const handleToggleRole = async (p: CharacterProfile, next: 'main' | 'supporting') => {
+    setUpdatingRoleFor(p.id);
+    try {
+      await updateProfile.mutateAsync({ id: p.id, name: p.name, description: p.description ?? '', default_role: next });
+      toast.success(next === 'main' ? `${p.name} → Vai chính` : `${p.name} → Vai phụ`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Không đổi được vai trò');
+    } finally {
+      setUpdatingRoleFor(null);
+    }
+  };
 
   // Scope all profiles to this brand only
   const brandProfiles = useMemo(
