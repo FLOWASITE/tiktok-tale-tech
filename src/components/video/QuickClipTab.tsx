@@ -87,8 +87,9 @@ export function QuickClipTab() {
   );
   const adminModel = modelInfo?.model ?? DEFAULT_VIDEO_MODEL;
 
-  // Auto-pick: ưu tiên model phù hợp aspect; fallback admin nếu auto-pick không tồn tại trong VIDEO_MODELS.
-  const autoPicked = autoPickModelForAspect(aspect);
+  // Auto-pick: ưu tiên model phù hợp aspect + hasCharacter; fallback admin nếu auto-pick không tồn tại.
+  const hasCharacter = selectedCharacterIds.length > 0;
+  const autoPicked = autoPickModelForAspect(aspect, hasCharacter);
   const effectiveModel =
     VIDEO_MODELS.find((m) => m.id === autoPicked)?.id ??
     VIDEO_MODELS.find((m) => m.id === adminModel)?.id ??
