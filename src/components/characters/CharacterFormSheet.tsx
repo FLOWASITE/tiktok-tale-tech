@@ -319,6 +319,30 @@ export function CharacterFormSheet({
 
                   <FormField
                     control={form.control}
+                    name="default_role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vai mặc định</FormLabel>
+                        <Select value={field.value ?? 'supporting'} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="main">⭐ Nhân vật chính (auto-chọn đầu tiên trong picker)</SelectItem>
+                            <SelectItem value="supporting">Nhân vật phụ</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription className="text-[10px]">
+                          Khi mở picker chọn nhân vật, các "Vai chính" của brand sẽ được pin lên đầu và auto-chọn nếu chưa có.
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="brand_template_id"
                     render={({ field }) => (
                       <FormItem>
