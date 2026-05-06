@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileVideo, Plus, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Clapperboard } from 'lucide-react';
+import { ScriptWorkspace } from '@/components/video/ScriptWorkspace';
 
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
@@ -62,6 +63,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
 
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [workspaceScript, setWorkspaceScript] = useState<Script | null>(null);
   const [showNewForm, setShowNewForm] = useState(autoOpenNew || false);
 
   // Auto-open form if prefill data provided
@@ -71,13 +73,12 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
     }
   }, [prefillTopic]);
 
-  // Deep-link: auto-open script viewer when ?view=scriptId is in URL
+  // Deep-link: auto-open workspace when ?view=scriptId is in URL
   useEffect(() => {
     if (!initialViewScriptId || loading || scripts.length === 0) return;
     const target = scripts.find(s => s.id === initialViewScriptId);
     if (target) {
-      setSelectedScript(target);
-      setViewerOpen(true);
+      setWorkspaceScript(target);
       // Clean up the URL param
       const params = new URLSearchParams(location.search);
       params.delete('view');
@@ -143,13 +144,16 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   };
 
   const handleViewScript = (script: Script) => {
-    setSelectedScript(script);
-    setViewerOpen(true);
+    // Vào workspace 2-cột thay vì dialog
+    setWorkspaceScript(script);
   };
 
   const handleScriptUpdate = (updatedScript: Script) => {
     updateScript(updatedScript);
     setSelectedScript(updatedScript);
+    if (workspaceScript?.id === updatedScript.id) {
+      setWorkspaceScript(updatedScript);
+    }
   };
 
   const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
@@ -163,10 +167,21 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
         }
       }
       setShowNewForm(false);
-      setSelectedScript(newScript);
-      setViewerOpen(true);
+      // Vào thẳng workspace mới tạo
+      setWorkspaceScript(newScript);
     }
   };
+
+  // Workspace mode: hiển thị 2-col workspace
+  if (workspaceScript) {
+    return (
+      <ScriptWorkspace
+        script={workspaceScript}
+        onBack={() => setWorkspaceScript(null)}
+        onScriptUpdate={handleScriptUpdate}
+      />
+    );
+  }
 
   // If showing the new form
   if (showNewForm) {
