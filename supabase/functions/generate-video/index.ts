@@ -546,6 +546,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       return new Response(JSON.stringify({
         job_id: job.id, video_url: videoUrl, status: 'completed', provider: syncProvider,
         model_used: model, model_upgraded_reason: modelUpgradedReason, stable_seed: stableSeed,
+        keyframe_synthesized: keyframeSynthesized, keyframe_model: keyframeModel,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -665,6 +666,8 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       model_used: model,
       model_upgraded_reason: modelUpgradedReason,
       stable_seed: stableSeed,
+      keyframe_synthesized: keyframeSynthesized,
+      keyframe_model: keyframeModel,
       message: 'Video đang được tạo nền — theo dõi tiến độ qua Realtime hoặc tab Thư viện.',
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
