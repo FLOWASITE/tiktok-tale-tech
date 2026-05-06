@@ -35,7 +35,11 @@ export default function ScriptNew() {
         }
       }
       setSelectedScript(newScript);
-      setViewerOpen(true);
+      // Với purpose='ai_video', stepper sẽ tự advance sang step "Tạo Video"
+      // → KHÔNG mở viewer dialog tự động (tránh gián đoạn flow stepper)
+      if (newScript.script_purpose !== 'ai_video') {
+        setViewerOpen(true);
+      }
     }
   };
 
