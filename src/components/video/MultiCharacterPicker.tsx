@@ -285,8 +285,14 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
                     ) : (
                       <User className="w-3 h-3 text-muted-foreground" />
                     )}
+                    {p.default_role === 'main' && (
+                      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                    )}
                     <span>{p.name}</span>
                     {app.gender && <span className="text-[10px] text-muted-foreground">· {app.gender}</span>}
+                    {p.default_role === 'main' && (
+                      <span className="text-[9px] text-amber-600 ml-auto">Vai chính</span>
+                    )}
                   </div>
                 </SelectItem>
               );
