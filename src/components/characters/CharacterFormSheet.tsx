@@ -73,6 +73,16 @@ export function CharacterFormSheet({
     mode: 'onBlur',
   });
 
+  const watchedRole = useWatch({ control: form.control, name: 'default_role' });
+  const watchedBrandId = useWatch({ control: form.control, name: 'brand_template_id' });
+  const mainConflict = useMemo(() => {
+    if (watchedRole !== 'main') return null;
+    return findMainCharacterForBrand(allProfiles, watchedBrandId, editingProfile?.id);
+  }, [watchedRole, watchedBrandId, allProfiles, editingProfile?.id]);
+  const conflictBrandName = useMemo(() => {
+    if (!mainConflict || !watchedBrandId) return '';
+    return brands.find((b) => b.id === watchedBrandId)?.name ?? '';
+  }, [mainConflict, watchedBrandId, brands]);
   // Reset form when target changes / sheet opens
   useEffect(() => {
     if (!open) return;
