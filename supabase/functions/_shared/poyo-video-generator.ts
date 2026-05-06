@@ -29,6 +29,7 @@ export interface PoyoVideoParams {
   startingFrameUrl?: string;    // image-to-video (first frame)
   endingFrameUrl?: string;      // Seedance supports last frame too
   negativePrompt?: string;
+  seed?: number;                // stable seed for identity consistency
 }
 
 export interface PoyoVideoResult {
@@ -66,6 +67,7 @@ async function submitPoyoVideoTask(params: PoyoVideoParams, apiKey: string): Pro
   if (params.startingFrameUrl) input.first_frame_url = params.startingFrameUrl;
   if (params.endingFrameUrl) input.last_frame_url = params.endingFrameUrl;
   if (params.negativePrompt) input.negative_prompt = params.negativePrompt;
+  if (typeof params.seed === 'number' && params.seed > 0) input.seed = params.seed;
 
   const body = { model: modelName, input };
 

@@ -21,6 +21,7 @@ import {
 } from "../_shared/poyo-video-generator.ts";
 import { checkUnitQuota, buildQuotaExceededResponse } from "../_shared/quota-units.ts";
 import { buildProductBlockEN, fetchProductRows, pickProductRefImage } from "../_shared/product-block-builder.ts";
+import { buildCharacterCollage, hashIds, deriveStableSeed } from "../_shared/character-collage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,6 +172,8 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     // ───────── CHARACTER CONSISTENCY — multi-character support ─────────
     let enrichedPrompt = prompt;
     let characterRefUrl = starting_frame_url;
+    let stableSeed: number | undefined;
+    let modelUpgradedReason: string | undefined;
 
     // Resolve character IDs: prefer array, fallback to single
     const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
@@ -190,6 +193,24 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             .map(id => charProfiles.find(p => p.id === id))
             .filter(Boolean) as typeof charProfiles;
 
+          // Smart angle pick helper — áp dụng cho từng nhân vật
+          const p = prompt.toLowerCase();
+          const matchAngle = (): string => {
+            if (/close-?up|cận|macro|cận cảnh/.test(p)) return 'close-up';
+            if (/full[- ]?body|toàn thân|whole body|wide shot|long shot/.test(p)) return 'full-body';
+            if (/side|nghiêng|profile view|từ bên/.test(p)) return 'side';
+            if (/outfit|trang phục|wardrobe|costume/.test(p)) return 'outfit';
+            return 'front';
+          };
+          const preferredAngle = matchAngle();
+          const pickRefForChar = (cp: typeof sorted[number]): string | undefined => {
+            const refImages = Array.isArray(cp.reference_images) ? cp.reference_images as { url: string; label: string }[] : [];
+            if (refImages.length > 0) {
+              return (refImages.find(r => r.label === preferredAngle) || refImages[0]).url;
+            }
+            return cp.reference_image_url || undefined;
+          };
+
           const charBlocks: string[] = [];
           for (let i = 0; i < sorted.length; i++) {
             const cp = sorted[i];
@@ -202,7 +223,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             if (app.skin_tone) traits.push(`${app.skin_tone} skin`);
             if (app.body_type) traits.push(app.body_type);
 
-            let block = `[${role} — "${cp.name}"]`;
+            let block = `[${role} — "${cp.name}" | Face ID: ${cp.id.slice(0, 8)}]`;
             if (traits.length) block += `\nAppearance: ${traits.join(', ')}.`;
             if (cp.description) block += `\nDetails: ${cp.description}`;
             if (cp.wardrobe) block += `\nWardrobe: ${cp.wardrobe}.`;
@@ -219,14 +240,13 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             charBlocks.push(`[CHARACTER DISTINCTION] There are ${sorted.length} distinct characters. Each must have their own unique appearance as described above. Never merge or swap features between characters.`);
           }
 
+          // Consistency lock — buộc model ưu tiên giữ ảnh ref hơn sáng tạo
+          charBlocks.push(`[CONSISTENCY LOCK] If any character cannot match the reference photo exactly, prefer keeping the photo over creative variation. Faces must match the provided reference image pixel-for-pixel.`);
+
           enrichedPrompt = `${charBlocks.join('\n\n')}\n\n${enrichedPrompt}`;
           console.log(`[generate-video] Injected ${sorted.length} character(s): ${sorted.map(c => c.name).join(', ')}`);
 
-          // Reference image from primary character
-          const primary = sorted[0];
-
-          // ✅ Guard: nếu starting_frame_url là VIDEO URL (.mp4/.webm/.mov) thì bỏ —
-          //   provider chỉ nhận ảnh, truyền video sẽ fail/skip và mất luôn ref nhân vật.
+          // ✅ Guard: nếu starting_frame_url là VIDEO URL thì bỏ
           const isVideoUrl = typeof characterRefUrl === 'string'
             && /\.(mp4|mov|webm|m3u8)(\?.*)?$/i.test(characterRefUrl);
           if (isVideoUrl) {
@@ -234,39 +254,80 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             characterRefUrl = undefined;
           }
 
-          if (!characterRefUrl) {
-            const refImages = Array.isArray(primary.reference_images) ? primary.reference_images as { url: string; label: string }[] : [];
-            if (refImages.length > 0) {
-              // Smart angle pick từ nội dung scene (close-up / full-body / side / outfit / front)
-              const p = prompt.toLowerCase();
-              const matchAngle = (): string => {
-                if (/close-?up|cận|macro|cận cảnh/.test(p)) return 'close-up';
-                if (/full[- ]?body|toàn thân|whole body|wide shot|long shot/.test(p)) return 'full-body';
-                if (/side|nghiêng|profile view|từ bên/.test(p)) return 'side';
-                if (/outfit|trang phục|wardrobe|costume/.test(p)) return 'outfit';
-                return 'front';
-              };
-              const preferred = matchAngle();
-              const picked = refImages.find(r => r.label === preferred) || refImages[0];
-              characterRefUrl = picked.url;
-              console.log(`[generate-video] Smart ref pick: scene="${prompt.slice(0,60)}..." → label=${picked.label}`);
-            } else if (primary.reference_image_url) {
-              characterRefUrl = primary.reference_image_url;
+          // ───── MULTI-REF COLLAGE (≥ 2 nhân vật) ─────
+          if (!characterRefUrl && sorted.length >= 2) {
+            try {
+              const cacheKey = await hashIds(sorted.map(c => c.id));
+              const collagePath = `_collage/${cacheKey}.png`;
+
+              // Check cache
+              const { data: existing } = await supabase.storage
+                .from('character-references')
+                .list('_collage', { search: `${cacheKey}.png`, limit: 1 });
+
+              let collageUrl: string | undefined;
+              if (existing && existing.length > 0) {
+                const { data: pub } = supabase.storage.from('character-references').getPublicUrl(collagePath);
+                collageUrl = pub.publicUrl;
+                console.log(`[generate-video] Collage cache hit: ${collageUrl}`);
+              } else {
+                const items = sorted
+                  .map(c => ({ url: pickRefForChar(c), name: c.name }))
+                  .filter(it => it.url) as { url: string; name: string }[];
+
+                if (items.length >= 2) {
+                  const png = await buildCharacterCollage(items);
+                  if (png) {
+                    const { error: upErr } = await supabase.storage
+                      .from('character-references')
+                      .upload(collagePath, png, { contentType: 'image/png', upsert: true });
+                    if (!upErr) {
+                      const { data: pub } = supabase.storage.from('character-references').getPublicUrl(collagePath);
+                      collageUrl = pub.publicUrl;
+                      console.log(`[generate-video] Multi-char collage built: ${collageUrl}`);
+                    } else {
+                      console.warn('[generate-video] Collage upload failed:', upErr);
+                    }
+                  }
+                }
+              }
+
+              if (collageUrl) {
+                characterRefUrl = collageUrl;
+                // Inject positional anchor để model hiểu collage layout
+                const names = sorted.map(c => `"${c.name}"`).join(' → ');
+                const layoutAnchor = `[FRAME LAYOUT] Reference image is a side-by-side collage. From LEFT to RIGHT: ${names}. Use these EXACT faces. Do NOT swap, blend, or invent new faces.`;
+                enrichedPrompt = `${layoutAnchor}\n\n${enrichedPrompt}`;
+              }
+            } catch (e) {
+              console.warn('[generate-video] Collage build failed, fallback to primary ref:', e);
             }
           }
 
-          // ✅ Auto-upgrade model: khi có ảnh nhân vật làm ref, ưu tiên model i2v giữ identity tốt nhất.
-          //    Chỉ upgrade nếu client KHÔNG explicit chọn model (clientModel falsy) — tránh đè lựa chọn user.
-          if (characterRefUrl && !clientModel) {
-            const IDENTITY_LOCK_PRIORITY = [
-              'geminigen/veo-3.1',        // best i2v identity preservation
-              'geminigen/veo-3.1-fast',
-              'geminigen/veo-3',
-            ];
-            const upgraded = IDENTITY_LOCK_PRIORITY[0];
-            console.log(`[generate-video] hasCharacterRef → auto-upgrade model ${model} → ${upgraded} để giữ nhân vật đồng nhất`);
-            model = upgraded;
-            provider = 'geminigen';
+          // Fallback: nếu chưa có ref (1 char hoặc collage fail) → dùng ref của primary
+          if (!characterRefUrl) {
+            const primary = sorted[0];
+            const url = pickRefForChar(primary);
+            if (url) {
+              characterRefUrl = url;
+              console.log(`[generate-video] Single-char ref pick (angle=${preferredAngle})`);
+            }
+          }
+
+          // ───── STABLE SEED — cùng cast → cùng seed → identity nhất quán giữa các clip
+          stableSeed = await deriveStableSeed(sorted.map(c => c.id));
+          console.log(`[generate-video] Stable seed for cast: ${stableSeed}`);
+
+          // ───── FORCE VEO UPGRADE khi có character ref (bỏ điều kiện !clientModel)
+          //   Veo 3.1 i2v giữ identity tốt nhất; identity-lock quan trọng hơn lựa chọn user
+          if (characterRefUrl) {
+            const IDENTITY_LOCK_MODEL = 'geminigen/veo-3.1';
+            if (model !== IDENTITY_LOCK_MODEL) {
+              console.log(`[generate-video] hasCharacterRef → force-upgrade ${model || '(default)'} → ${IDENTITY_LOCK_MODEL} để khoá identity`);
+              model = IDENTITY_LOCK_MODEL;
+              provider = 'geminigen';
+              modelUpgradedReason = 'character_identity_lock';
+            }
           }
         }
       } catch (e) {
@@ -364,6 +425,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
             startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
           }, apiKey);
           videoUrl = result.videoUrl;
         } else if (provider === 'poyo') {
@@ -378,6 +440,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
               duration,
               resolution: resolution === '720p' ? '720p' : '1080p',
               startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
               negativePrompt: negative_prompt,
             }, apiKey);
             videoUrl = result.videoUrl;
@@ -394,6 +457,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
                 resolution: resolution === '720p' ? '720p' : '1080p',
                 duration, negativePrompt: negative_prompt,
                 startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
               }, gKey);
               videoUrl = result.videoUrl;
               syncProvider = 'geminigen';
@@ -428,6 +492,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
       return new Response(JSON.stringify({
         job_id: job.id, video_url: videoUrl, status: 'completed', provider: syncProvider,
+        model_used: model, model_upgraded_reason: modelUpgradedReason, stable_seed: stableSeed,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -454,6 +519,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           resolution: resolution === '720p' ? '720p' : '1080p',
           duration, negativePrompt: negative_prompt,
           startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
         }, apiKey);
       } else if (provider === 'poyo') {
         const apiKey = Deno.env.get("POYO_API_KEY");
@@ -466,6 +532,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           duration,
           resolution: resolution === '720p' ? '720p' : '1080p',
           startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
           negativePrompt: negative_prompt,
         }, apiKey);
       } else {
@@ -491,6 +558,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
             resolution: resolution === '720p' ? '720p' : '1080p',
             duration, negativePrompt: negative_prompt,
             startingFrameUrl: characterRefUrl,
+              seed: stableSeed,
           }, geminigenKey);
           actualProvider = 'geminigen';
 
@@ -541,6 +609,9 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       provider_task_id: providerTaskId,
       status: 'processing',
       provider: actualProvider,
+      model_used: model,
+      model_upgraded_reason: modelUpgradedReason,
+      stable_seed: stableSeed,
       message: 'Video đang được tạo nền — theo dõi tiến độ qua Realtime hoặc tab Thư viện.',
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

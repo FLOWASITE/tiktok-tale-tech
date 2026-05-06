@@ -30,6 +30,7 @@ export interface GeminiGenVideoParams {
   duration?: number;       // seconds (5 | 10)
   negativePrompt?: string;
   startingFrameUrl?: string;  // image-to-video
+  seed?: number;              // stable seed for identity consistency
 }
 
 export interface GeminiGenVideoResult {
@@ -111,6 +112,9 @@ async function submitVideoTask(params: GeminiGenVideoParams, apiKey: string): Pr
   formData.append('duration', String(params.duration || 5));
 
   if (params.negativePrompt) formData.append('negative_prompt', params.negativePrompt);
+  if (typeof params.seed === 'number' && params.seed > 0) {
+    formData.append('seed', String(params.seed));
+  }
 
   if (params.startingFrameUrl) {
     try {
