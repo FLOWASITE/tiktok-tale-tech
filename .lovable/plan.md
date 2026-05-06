@@ -1,22 +1,31 @@
 ## Mục tiêu
-Hiện tại nút **"Tạo ảnh AI"** trên `CharacterCard` chỉ hiển thị khi nhân vật **chưa có** `reference_image_url`. Khi avatar đã sinh ra rồi mà người dùng không hài lòng → không có cách nào tạo lại từ card. Plan: thêm nút **"Tạo lại"** hoạt động cho cả 2 trường hợp.
+Tích hợp quản lý nhân vật Video (đang ở route `/characters`) vào trang Brand View dưới dạng 1 tab mới, để mỗi brand có "ngăn nhân vật" riêng — đúng tinh thần character có `brand_template_id` và constraint mỗi brand 1 vai chính.
 
 ## Thay đổi
 
-### 1. `src/components/characters/CharacterCard.tsx`
-- Khi đã có `reference_image_url`: thêm nút icon **`RefreshCw`** vào hover-actions (cùng hàng với Edit/Clone/Delete), tooltip "Tạo lại ảnh AI".
-- Disable + spinner khi `isGeneratingAvatar=true`; lúc này phủ overlay mờ + `Loader2` lên hero image để feedback rõ ràng.
-- Giữ nguyên nút "Tạo ảnh AI" lớn ở giữa khi chưa có ảnh (flow tạo mới).
-- Cả 2 nút cùng gọi prop `onGenerateAvatar` → không cần thêm prop mới.
+### 1. Tab mới "Nhân vật" trong `src/pages/BrandView.tsx`
+- Thêm `TabsTrigger value="characters"` (icon `UserSquare2` hoặc `Film` từ lucide) sau tab **Sản phẩm**, trước **Chiến lược**.
+- Hiển thị badge đếm số nhân vật của brand hiện tại.
+- Thêm `TabsContent value="characters"` render `<BrandViewCharactersTab template={template} />`.
 
-### 2. `src/pages/CharactersPage.tsx`
-- `handleGenerateAvatar` đã sẵn logic upsert label `front` trong `reference_images` (replace nếu trùng). Không đổi.
-- Khi `reference_image_url` đã có → confirm nhẹ bằng `toast.promise` hoặc bỏ confirm (giữ nhanh gọn). Chọn: **không confirm** — toast success/error đủ. (Nếu user muốn confirm dialog có thể bổ sung sau.)
+### 2. Component mới `src/components/brand/BrandViewCharactersTab.tsx`
+Tái sử dụng toàn bộ logic của `CharactersPage` nhưng **scoped theo brand đang xem** (không phải currentBrand context):
+- Dùng `useCharacterProfiles()` rồi `filter(p => p.brand_template_id === template.id)`.
+- Render lại UI: header nhỏ ("Nhân vật của brand X"), nút **Tạo nhân vật** + **Tạo bằng AI**, grid `CharacterCard`, `CharacterFilters` (ẩn switch "chỉ brand hiện tại" vì đã mặc định scoped), `CharacterBulkBar`.
+- Mở `CharacterFormSheet` với `defaultBrandId={template.id}` để form auto-gán brand.
+- Mở `AIBulkGenerateSheet` với `brand={{ id: template.id, name, industry, tone_of_voice }}`.
+- Empty state: "Brand này chưa có nhân vật nào" + 2 CTA (Tạo thủ công / Tạo bằng AI).
+- Reuse handler `handleGenerateAvatar` từ `CharactersPage` (copy nguyên).
 
-### 3. `src/components/characters/CharacterDetailSheet.tsx` (nếu có nút tương tự)
-- Kiểm tra & thêm nút "Tạo lại ảnh chân dung" trong sheet detail nếu đang có nút tạo lần đầu, để parity với card.
+### 3. Cập nhật điều hướng
+- `src/components/AppSidebar.tsx`: giữ link `/characters` (trang tổng hợp toàn org) nhưng đổi label/mô tả thành "Nhân vật (toàn bộ)" hoặc gắn tooltip "hoặc xem trong từng Brand".
+- Trong `CharactersPage`, mỗi `CharacterCard` đã có `brandName` → thêm link nhỏ "Mở trong Brand →" navigate tới `/brands/{brand_template_id}?tab=characters`.
 
-## Không thay đổi
-- Edge function `generate-character-image` (đã hỗ trợ regenerate sẵn — chỉ cần gọi lại).
-- DB schema, RLS, hook `useCharacterProfiles`.
-- Quota: mỗi lần tạo lại tốn 1 credit ảnh như tạo mới (đã tính qua edge function).
+### 4. Không thay đổi
+- Hook `useCharacterProfiles`, edge functions, schema DB — giữ nguyên.
+- Trang `/characters` vẫn hoạt động như cross-brand view.
+
+## Kỹ thuật
+- Tab key `characters` đồng bộ với `searchParams.get('tab')` đã có sẵn trong BrandView.
+- TabsList hiện 8 tabs → thành 9. Đã dùng `flex-wrap`/`overflow-x-auto` (kiểm tra lại class hiện tại; nếu chật, rút gọn label "NV" trên mobile như các tab khác).
+- Constraint `uniq_main_character_per_brand` đã có sẵn → form sheet xử lý lỗi sẵn, không cần làm thêm.

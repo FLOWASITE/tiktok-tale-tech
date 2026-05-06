@@ -14,6 +14,8 @@ import { BrandViewConnectionsTab } from '@/components/brand/BrandViewConnections
 import { BrandViewSamplesTab } from '@/components/brand/BrandViewSamplesTab';
 import { BrandViewPersonasTab } from '@/components/brand/BrandViewPersonasTab';
 import { BrandViewProductsTab } from '@/components/brand/BrandViewProductsTab';
+import { BrandViewCharactersTab } from '@/components/brand/BrandViewCharactersTab';
+import { useCharacterProfiles } from '@/hooks/useCharacterProfiles';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -34,6 +36,7 @@ import {
   Users,
   Package,
   Share2,
+  UserSquare2,
 } from 'lucide-react';
 import { calculateBrandCompleteness } from '@/utils/brandCompleteness';
 import { toast } from 'sonner';
@@ -67,6 +70,8 @@ export default function BrandView() {
   const { products } = useProductCatalog(id);
   const { connections } = useSocialConnections({ brandTemplateId: id });
   const activeConnectionsCount = connections?.filter((c) => c.is_active).length || 0;
+  const { profiles: allCharacters } = useCharacterProfiles();
+  const charactersCount = allCharacters.filter((p) => p.brand_template_id === id).length;
 
   useEffect(() => {
     if (!loading && id) {
@@ -224,6 +229,16 @@ export default function BrandView() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="characters" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
+            <UserSquare2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Nhân vật</span>
+            <span className="sm:hidden">NV</span>
+            {charactersCount > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded-full">
+                {charactersCount}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="strategy" className="gap-1.5 text-xs md:text-sm data-[state=active]:bg-background">
             <Target className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Chiến lược</span>
@@ -262,6 +277,10 @@ export default function BrandView() {
 
         <TabsContent value="products" className="mt-4 animate-in fade-in duration-200">
           <BrandViewProductsTab template={template} />
+        </TabsContent>
+
+        <TabsContent value="characters" className="mt-4 animate-in fade-in duration-200">
+          <BrandViewCharactersTab template={template} />
         </TabsContent>
 
         <TabsContent value="strategy" className="mt-4 animate-in fade-in duration-200">
