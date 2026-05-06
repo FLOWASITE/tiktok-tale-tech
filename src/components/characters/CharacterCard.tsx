@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic, Sparkles, Loader2 } from 'lucide-react';
+import { User, Edit2, Copy, Trash2, Tag, ImageIcon, Mic, Sparkles, Loader2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CharacterProfile, CharacterAppearance } from '@/hooks/useCharacterProfiles';
 import { calcCompleteness } from '@/lib/characterSchema';
@@ -133,6 +133,11 @@ export function CharacterCard({
         {/* Top-right badges */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
           <CompletenessRing pct={pct} />
+          {profile.default_role === 'main' && (
+            <Badge className="h-5 px-1.5 gap-1 text-[10px] bg-amber-500/90 text-white border-0 backdrop-blur" title="Vai mặc định: Nhân vật chính">
+              <Star className="w-2.5 h-2.5 fill-current" /> Vai chính
+            </Badge>
+          )}
         </div>
 
         {/* Bottom badges */}
