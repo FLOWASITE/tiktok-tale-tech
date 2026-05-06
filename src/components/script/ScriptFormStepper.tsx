@@ -1051,6 +1051,95 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             </Collapsible>
           </div>
         )}
+
+        {/* ====== Step 4: Tạo Video (only when ai_video + có script đã tạo) ====== */}
+        {currentStep === STEP_VIDEO && generatedScript && (() => {
+          const prompts = parseScriptContent(
+            generatedScript.content,
+            generatedScript.script_purpose as ScriptPurpose,
+          );
+          const handleOpenStudio = (sceneIdx?: number) => {
+            const navState = buildScriptToVideoNavState(generatedScript, sceneIdx);
+            if (!navState) {
+              toast.error('Kịch bản chưa có scene nào để chuyển sang Video Studio.');
+              return;
+            }
+            navigate('/videos', { state: navState });
+          };
+          return (
+            <div className="space-y-5 animate-fade-in">
+              <div className="text-center py-3">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
+                  <Clapperboard className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg text-foreground">Kịch bản đã sẵn sàng — chuyển sang Video Studio</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                  {prompts.length > 0
+                    ? `Đã phát hiện ${prompts.length} scene. Chọn scene để bắt đầu quay, hoặc mở toàn bộ trong Studio.`
+                    : 'Chưa phát hiện scene nào — bạn vẫn có thể mở Studio để tạo Quick Clip thủ công.'}
+                </p>
+              </div>
+
+              {/* Scene list */}
+              {prompts.length > 0 && (
+                <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
+                    <Film className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-semibold text-foreground">Storyboard</p>
+                    <span className="ml-auto text-xs text-muted-foreground font-mono">{prompts.length} scene</span>
+                  </div>
+                  <div className="divide-y divide-border/30 max-h-[320px] overflow-y-auto">
+                    {prompts.map((p, idx) => {
+                      const preview = (p.rawContent || `${p.motion ?? ''} ${p.dialogue ?? ''}`).trim();
+                      return (
+                        <button
+                          key={p.promptNumber}
+                          type="button"
+                          onClick={() => handleOpenStudio(idx)}
+                          className="w-full text-left px-4 py-3 hover:bg-accent/30 transition-colors flex items-start gap-3 group"
+                        >
+                          <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-md bg-foreground/[0.05] text-xs font-mono font-semibold text-foreground/80 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                            {p.promptNumber}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-foreground line-clamp-2">{preview.slice(0, 200) || 'Scene không có mô tả'}</p>
+                            <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-muted-foreground">
+                              {p.duration && <span className="px-1.5 py-0.5 rounded bg-foreground/[0.04]">{p.duration}</span>}
+                              <span className="opacity-60 group-hover:opacity-100 transition-opacity">Quay scene này →</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  onClick={() => handleOpenStudio(0)}
+                  className="gap-2 gradient-primary glow-primary flex-1"
+                  size="lg"
+                >
+                  <Video className="w-4 h-4" />
+                  Mở Video Studio
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate('/scripts')}
+                  className="gap-2"
+                  size="lg"
+                >
+                  <FileText className="w-4 h-4" />
+                  Để sau, xem kịch bản
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Navigation */}
