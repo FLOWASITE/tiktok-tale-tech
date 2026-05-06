@@ -20,5 +20,10 @@ type: feature
 - Khi chọn script: clip sort theo `scene_number ASC`. Title script lấy từ bảng `scripts`, cache trong state.
 - Mỗi card có badge `Scene N · {scriptTitle}` clickable → mở `/scripts`.
 
+## QuickClip gating (bắt buộc Topic + Script)
+- QuickClipTab không còn standalone — nếu `!activeScript` → render `<QuickClipContextPicker>` với 2 bước: chọn Chủ đề (group `scripts.topic` text, filter `script_purpose=ai_video` + `brand_template_id`) → chọn Kịch bản → fetch full script + `buildScriptToVideoNavState` + `setActiveScript`.
+- Khi đã có activeScript: header badge hiển thị Topic + Title, nút "Đổi kịch bản" gọi `clearScript()` quay lại picker.
+- `handleGenerate` guard cứng: thiếu `activeScript || currentScene` → toast lỗi, không gọi edge function.
+
 ## DB
 Không cần migration mới — `video_generations.script_id` + `scene_number` đã có từ migration `20260208040527`.
