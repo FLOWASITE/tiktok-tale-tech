@@ -34,10 +34,12 @@ const VIDEO_MODEL_LABELS: Record<string, string> = Object.fromEntries(
 
 /**
  * Auto-pick model theo aspect (mirror logic của generate-script edge function).
- * - Vertical/square (9:16, 1:1, 2:3): Seedance 2 (cap 10s).
+ * - hasCharacter=true: luôn dùng Veo 3.1 (không Fast) để khoá identity giống server.
+ * - Vertical/square: Seedance 2 (cap 10s).
  * - Landscape (16:9): Veo 3.1 Fast (cap 8s, audio native).
  */
-function autoPickModelForAspect(aspect: VideoAspectRatio): string {
+function autoPickModelForAspect(aspect: VideoAspectRatio, hasCharacter = false): string {
+  if (hasCharacter) return 'geminigen/veo-3.1';
   if (aspect === '16:9') return 'geminigen/veo-3.1-fast';
   return 'poyo/seedance-2';
 }
