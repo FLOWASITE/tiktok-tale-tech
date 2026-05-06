@@ -223,13 +223,15 @@ export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
   const isFirstScene = activeSceneIndex <= 0;
 
   // Gating: bắt buộc phải có Chủ đề + Kịch bản trước khi quay
-  if (!activeScript) {
+  // Khi embedded (trong ScriptWorkspace), parent đã đảm bảo activeScript → bỏ qua picker
+  if (!activeScript && !embedded) {
     return <QuickClipContextPicker />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Context badge: topic + script */}
+      {/* Context badge: topic + script — ẩn khi embedded (workspace header đã có) */}
+      {!embedded && (
       <div className="flex items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/30">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <FileText className="w-3.5 h-3.5 text-foreground/60 shrink-0" />
