@@ -218,7 +218,7 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
               {running && (
                 <span className="inline-flex items-center gap-1">
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Batch: {progress.completed}/{progress.total}
+                  Batch: {progress.done}/{progress.total}
                 </span>
               )}
             </div>

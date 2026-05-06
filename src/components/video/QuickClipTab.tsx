@@ -55,7 +55,12 @@ const EXAMPLE_PROMPTS = [
   'Toàn cảnh phòng phẫu thuật thẩm mỹ hiện đại, ánh sáng trắng, bác sĩ đeo khẩu trang đang chuẩn bị, dolly forward chậm.',
 ];
 
-export function QuickClipTab() {
+interface QuickClipTabProps {
+  /** Khi true: ẩn picker/banner/scene navigator/topic chip — dùng trong ScriptWorkspace */
+  embedded?: boolean;
+}
+
+export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
