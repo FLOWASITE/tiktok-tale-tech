@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { buildProductBlockVI, fetchProductRows } from "../_shared/product-block-builder.ts";
 // Multi-country support
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedGoalDescriptions, getLocalizedAngleDescriptions, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
