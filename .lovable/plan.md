@@ -1,58 +1,71 @@
-# Cải thiện UI "AI tạo nhân vật từ Brand"
+## Mục tiêu
+Mỗi `brand_template_id` chỉ được có **tối đa 1 nhân vật** với `default_role = 'main'`. Khi user cố gán main thứ 2 → hiển thị cảnh báo rõ ràng (không crash bằng DB error thô).
 
-## Vấn đề hiện tại (xem screenshot)
-1. Nút CTA hồng đậm full-width — **vi phạm Soft Luxury** (memory: neutral gray accents)
-2. Header phẳng, icon Sparkles bé, không tận dụng visual hierarchy
-3. "Số lượng" dùng Select dropdown cho 4 lựa chọn — thừa, nên segmented
-4. Thiếu **quick role chips** — user phải tự gõ "Bác sĩ tư vấn, KOL review…" mỗi lần
-5. Thiếu lựa chọn **vai mặc định** (chính/phụ) — vừa thêm field `default_role` vào DB nhưng AI bulk-create luôn set `supporting`
-6. Không hiển thị **brand context** (industry, tone, audience) — user mù về việc AI sẽ "phân tích" cái gì
-7. Empty state trống trải, message "Đã có 1 nhân vật" lạc lõng dưới card
-8. Card kết quả (sau khi AI tạo) checkbox HTML thô, không match design system
+## 1. Database — Partial Unique Index
 
-## Thay đổi UI
+Tạo migration mới:
 
-### Header (gradient soft)
+```sql
+-- Đảm bảo mỗi brand chỉ có tối đa 1 nhân vật chính
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_main_character_per_brand
+  ON public.character_profiles (brand_template_id)
+  WHERE default_role = 'main' AND brand_template_id IS NOT NULL;
 ```
-┌─────────────────────────────────────┐
-│ [✨ icon trong ring gradient nhẹ]   │
-│ AI tạo nhân vật từ Brand            │
-│                                      │
-│ [chip: Flowa] [chip: Beauty Tech]   │
-│ [chip: Tone chuyên nghiệp]          │
-└─────────────────────────────────────┘
+
+Ghi chú: Index partial chỉ áp khi `default_role='main'` & có brand → nhân vật phụ không bị ảnh hưởng; nhân vật main không gắn brand cũng không bị giới hạn.
+
+**Data cleanup trước khi tạo index** (chống fail nếu đã có data trùng):
+```sql
+-- Giữ nhân vật main cũ nhất, các main còn lại đổi thành supporting
+WITH ranked AS (
+  SELECT id, brand_template_id,
+    ROW_NUMBER() OVER (PARTITION BY brand_template_id ORDER BY created_at ASC) AS rn
+  FROM public.character_profiles
+  WHERE default_role = 'main' AND brand_template_id IS NOT NULL
+)
+UPDATE public.character_profiles cp
+SET default_role = 'supporting'
+FROM ranked r
+WHERE cp.id = r.id AND r.rn > 1;
 ```
-- Icon Sparkles 32px trong ring `bg-muted/40 ring-1 ring-border`
-- Brand chips hiển thị: tên brand + industry + tone (lấy từ `brand.industry`, `brand.tone_of_voice[0]`)
-- Bỏ description verbose, chỉ giữ 1 dòng ngắn
 
-### Form body
-1. **Quick role chips** (above input): `Bác sĩ` `KOL` `Khách hàng thật` `Chuyên gia` `Mentor` `Founder` — click → fill input + có thể edit thêm
-2. **Số lượng**: thay Select bằng **segmented buttons** 1 / 2 / 3 / 4 (4 ô vuông `h-9`, active = `bg-foreground text-background`)
-3. **Vai mặc định** (mới): segmented `Vai chính` ⭐ / `Vai phụ` (default: phụ vì bulk thường tạo phụ); set `default_role` khi `onCreateProfile`
-4. **Auto-gen ảnh**: giữ nguyên card nhưng đổi switch màu neutral (Soft Luxury), thêm badge "+1 credit/nhân vật" bên cạnh
-5. **Existing count**: chuyển thành chip nhỏ inline `· Đã có 1 nhân vật, AI sẽ tránh trùng` ngay dưới header thay vì block riêng
+## 2. Hook helper — `useCharacterProfiles.ts`
 
-### CTA primary
-- Đổi từ `bg-primary` (pink) → `bg-foreground text-background hover:bg-foreground/90` (neutral đen, đúng Soft Luxury)
-- Icon Sparkles + "Tạo nhân vật"
-- Khi `generating`: shimmer subtle + "Đang phân tích brand…"
+Thêm helper trả về main character hiện tại của 1 brand:
+```ts
+export function findMainCharacterForBrand(
+  profiles: CharacterProfile[],
+  brandId: string | null,
+  excludeId?: string,
+): CharacterProfile | null
+```
 
-### Generated chars cards (sau khi AI trả)
-- Bỏ `<input type="checkbox">` HTML thô → dùng `<Checkbox>` từ shadcn/ui
-- Card có avatar placeholder tròn (initial từ name) ở trái
-- Badge `Vai chính`/`Vai phụ` góc phải nếu user chọn vai
-- Hover: subtle ring `ring-1 ring-border` thay vì đổi background
-- Footer 2 button: `Tạo lại` ghost + `Lưu N nhân vật` neutral
+Bắt lỗi unique violation (Postgres code `23505`) trong `createProfile` & `updateProfile` → toast tiếng Việt: *"Brand này đã có nhân vật chính ('{name}'). Vui lòng chuyển nhân vật cũ sang vai phụ trước."*
 
-### Loading skeleton
-Khi `generating === true`, hiển thị 2-3 skeleton card mờ thay vì chỉ button spinner → cảm giác AI đang "làm việc"
+## 3. UI Cảnh báo — `CharacterFormSheet.tsx`
+
+Khi user chọn `default_role = 'main'` + `brand_template_id` đã có main khác:
+- Hiện `<Alert variant="warning">` ngay dưới radio Vai mặc định:
+  > ⚠️ Brand **{brandName}** đã có nhân vật chính: **{existingMainName}**. Lưu sẽ thất bại — hãy chuyển nhân vật đó sang "Vai phụ" trước, hoặc giữ nhân vật mới này ở vai phụ.
+- Disable nút Save khi conflict, kèm tooltip giải thích.
+- Reactive theo cả 2 field (`default_role`, `brand_template_id`) qua `form.watch`.
+
+## 4. UI Cảnh báo — `AIBulkGenerateSheet.tsx`
+
+- Khi `defaultRole === 'main'` và brand đã có main: disable segment "Vai chính", show inline hint dưới segment:
+  > Brand đã có nhân vật chính ({existingMainName}). Bulk tạo sẽ ở vai phụ.
+- Auto-fallback `defaultRole = 'supporting'` nếu user vẫn submit (defensive).
+- Khi save selected: nếu chọn nhiều và `defaultRole='main'` → chỉ nhân vật **đầu tiên** được set `main`, các nhân vật còn lại auto `supporting` + toast info.
+
+## 5. UI hint — `MultiCharacterPicker.tsx` (nhỏ)
+
+Không thay đổi logic; auto-pin main hiện tại đã đúng (chỉ có 1 main/brand sau khi enforce).
 
 ## Files thay đổi
-- `src/components/characters/AIBulkGenerateSheet.tsx` — redesign toàn bộ JSX, thêm state `defaultRole`, quick role chips, brand context chips
-- Có thể cần đọc `useBrandTemplates` hoặc prop `brand` mở rộng để lấy `industry` + `tone_of_voice` (nếu chưa có sẽ chỉ hiển thị tên)
+- ➕ `supabase/migrations/<new>.sql` — cleanup + partial unique index
+- ✏️ `src/hooks/useCharacterProfiles.ts` — helper + bắt lỗi 23505
+- ✏️ `src/components/characters/CharacterFormSheet.tsx` — Alert + disable save
+- ✏️ `src/components/characters/AIBulkGenerateSheet.tsx` — disable segment + auto-fallback
 
-## Không làm
-- Không đụng logic edge function `generate-character`
-- Không thay đổi behavior `onCreateProfile` (chỉ thêm `default_role` vào payload)
-- Không refactor file khác
+## Không thay đổi
+- Schema `default_role` enum, RLS, edge functions, video/script generation flow.
