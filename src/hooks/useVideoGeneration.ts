@@ -186,6 +186,17 @@ export function useVideoGeneration() {
       }
 
       setCurrentJobId(data.job_id);
+
+      // 🔒 Identity-lock notice: server upgraded model to keep characters consistent
+      if (data?.model_upgraded_reason === 'character_identity_lock') {
+        toast.success('🔒 Đã khoá Veo 3.1 để giữ nhân vật đồng nhất', {
+          description: data.stable_seed
+            ? `Seed cố định #${data.stable_seed} áp dụng cho cast — các clip cùng nhân vật sẽ giữ mặt giống nhau.`
+            : 'Các clip cùng cast sẽ giữ mặt giống nhau.',
+          duration: 5000,
+        });
+      }
+
       
       // Fetch the created generation
       const { data: generationData } = await supabase
