@@ -362,6 +362,7 @@ export default function CharactersPage() {
         brands={brandsLite}
         onSubmit={handleSubmitForm}
         isSaving={isSaving}
+        allProfiles={profiles}
       />
 
       {/* Detail sheet */}
