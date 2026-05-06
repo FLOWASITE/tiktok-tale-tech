@@ -26,7 +26,13 @@ import {
   Mic,
   SlidersHorizontal,
   Check,
+  Clapperboard,
+  Video,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Script } from '@/types/script';
+import { buildScriptToVideoNavState } from '@/lib/scriptToVideoNav';
+import { parseScriptContent } from '@/utils/parsePrompts';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
@@ -91,14 +97,18 @@ interface ScriptFormStepperProps {
   isLoading: boolean;
   initialTopic?: string;
   topicHistoryId?: string;
+  /** Script vừa được tạo — bật step "Tạo Video" khi có */
+  generatedScript?: Script | null;
 }
 
 // Step IDs are semantic — step 2 (Social Format) only shown when purpose='ai_video'
+// Step 4 (Tạo Video) only shown when purpose='ai_video' and script đã được tạo
 const STEP_CONTENT = 1;
 const STEP_SOCIAL_FORMAT = 2;
 const STEP_GENERATE = 3;
+const STEP_VIDEO = 4;
 
-const buildSteps = (isVideoAi: boolean): Step[] => {
+const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => {
   const base: Step[] = [
     { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
   ];
@@ -106,6 +116,9 @@ const buildSteps = (isVideoAi: boolean): Step[] => {
     base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
   }
   base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
+  if (isVideoAi && hasGeneratedScript) {
+    base.push({ id: STEP_VIDEO, title: 'Tạo Video', icon: <Video className="w-4 h-4" /> });
+  }
   return base;
 };
 
@@ -119,7 +132,8 @@ const LOADING_PHASES = [
 const MAX_TOPIC_LENGTH = 300;
 const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
 
-export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
+export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId, generatedScript }: ScriptFormStepperProps) {
+  const navigate = useNavigate();
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const { currentBrand } = useCurrentBrand();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -308,7 +322,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   }, [topicLength]);
 
   const isVideoAi = formData.script_purpose === 'ai_video';
-  const STEPS = useMemo(() => buildSteps(isVideoAi), [isVideoAi]);
+  const hasGeneratedScript = !!generatedScript;
+  const STEPS = useMemo(() => buildSteps(isVideoAi, hasGeneratedScript), [isVideoAi, hasGeneratedScript]);
 
   // Ordered list of step IDs that are actually shown
   const visibleStepIds = useMemo(() => STEPS.map((s) => s.id), [STEPS]);
@@ -321,6 +336,14 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       setCurrentStep(STEP_CONTENT);
     }
   }, [visibleStepIds, currentStep]);
+
+  // Auto-advance to STEP_VIDEO khi script vừa được tạo xong
+  useEffect(() => {
+    if (generatedScript && isVideoAi && currentStep === STEP_GENERATE && !isLoading) {
+      setCompletedSteps((prev) => Array.from(new Set([...prev, STEP_GENERATE])));
+      setCurrentStep(STEP_VIDEO);
+    }
+  }, [generatedScript, isVideoAi, currentStep, isLoading]);
 
   // Auto-default preset khi user lần đầu vào Step 2 mà chưa chọn gì
   useEffect(() => {
@@ -1028,6 +1051,95 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             </Collapsible>
           </div>
         )}
+
+        {/* ====== Step 4: Tạo Video (only when ai_video + có script đã tạo) ====== */}
+        {currentStep === STEP_VIDEO && generatedScript && (() => {
+          const prompts = parseScriptContent(
+            generatedScript.content,
+            generatedScript.script_purpose as ScriptPurpose,
+          );
+          const handleOpenStudio = (sceneIdx?: number) => {
+            const navState = buildScriptToVideoNavState(generatedScript, sceneIdx);
+            if (!navState) {
+              toast.error('Kịch bản chưa có scene nào để chuyển sang Video Studio.');
+              return;
+            }
+            navigate('/videos', { state: navState });
+          };
+          return (
+            <div className="space-y-5 animate-fade-in">
+              <div className="text-center py-3">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
+                  <Clapperboard className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-semibold text-lg text-foreground">Kịch bản đã sẵn sàng — chuyển sang Video Studio</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                  {prompts.length > 0
+                    ? `Đã phát hiện ${prompts.length} scene. Chọn scene để bắt đầu quay, hoặc mở toàn bộ trong Studio.`
+                    : 'Chưa phát hiện scene nào — bạn vẫn có thể mở Studio để tạo Quick Clip thủ công.'}
+                </p>
+              </div>
+
+              {/* Scene list */}
+              {prompts.length > 0 && (
+                <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
+                    <Film className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-semibold text-foreground">Storyboard</p>
+                    <span className="ml-auto text-xs text-muted-foreground font-mono">{prompts.length} scene</span>
+                  </div>
+                  <div className="divide-y divide-border/30 max-h-[320px] overflow-y-auto">
+                    {prompts.map((p, idx) => {
+                      const preview = (p.rawContent || `${p.motion ?? ''} ${p.dialogue ?? ''}`).trim();
+                      return (
+                        <button
+                          key={p.promptNumber}
+                          type="button"
+                          onClick={() => handleOpenStudio(idx)}
+                          className="w-full text-left px-4 py-3 hover:bg-accent/30 transition-colors flex items-start gap-3 group"
+                        >
+                          <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-md bg-foreground/[0.05] text-xs font-mono font-semibold text-foreground/80 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                            {p.promptNumber}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-foreground line-clamp-2">{preview.slice(0, 200) || 'Scene không có mô tả'}</p>
+                            <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-muted-foreground">
+                              {p.duration && <span className="px-1.5 py-0.5 rounded bg-foreground/[0.04]">{p.duration}</span>}
+                              <span className="opacity-60 group-hover:opacity-100 transition-opacity">Quay scene này →</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  onClick={() => handleOpenStudio(0)}
+                  className="gap-2 gradient-primary glow-primary flex-1"
+                  size="lg"
+                >
+                  <Video className="w-4 h-4" />
+                  Mở Video Studio
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => navigate('/scripts')}
+                  className="gap-2"
+                  size="lg"
+                >
+                  <FileText className="w-4 h-4" />
+                  Để sau, xem kịch bản
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Navigation */}
@@ -1043,7 +1155,10 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {!isLastStep ? (
+        {currentStep === STEP_VIDEO ? (
+          // Step 4 has its own primary CTAs inline — không cần submit nữa
+          <div />
+        ) : !isLastStep ? (
           <Button
             type="button"
             onClick={handleNext}
