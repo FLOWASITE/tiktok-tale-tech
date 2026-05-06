@@ -44,6 +44,7 @@ export const characterSchema = z.object({
   default_voice_id: z.string().trim().max(100).optional().default(''),
   default_voice_provider: z.string().max(20).optional().default(''),
   brand_template_id: z.string().uuid().nullable().default(null),
+  default_role: z.enum(['main', 'supporting']).default('supporting'),
 });
 
 export type CharacterFormValues = z.infer<typeof characterSchema>;
@@ -100,6 +101,7 @@ export const EMPTY_CHARACTER_FORM: CharacterFormValues = {
   default_voice_id: '',
   default_voice_provider: '',
   brand_template_id: null,
+  default_role: 'supporting',
 };
 
 export function profileToFormValues(p: CharacterProfile): CharacterFormValues {
@@ -113,5 +115,6 @@ export function profileToFormValues(p: CharacterProfile): CharacterFormValues {
     default_voice_id: p.default_voice_id ?? '',
     default_voice_provider: p.default_voice_provider ?? '',
     brand_template_id: p.brand_template_id ?? null,
+    default_role: (p.default_role as 'main' | 'supporting') ?? 'supporting',
   };
 }

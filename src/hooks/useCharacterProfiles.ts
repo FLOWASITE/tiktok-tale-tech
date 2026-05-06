@@ -25,6 +25,8 @@ export interface ReferenceImage {
   label: ReferenceImageLabel;
 }
 
+export type CharacterDefaultRole = 'main' | 'supporting';
+
 export interface CharacterProfile {
   id: string;
   organization_id: string;
@@ -37,6 +39,7 @@ export interface CharacterProfile {
   default_voice_id: string | null;
   default_voice_provider: string | null;
   brand_template_id: string | null;
+  default_role: CharacterDefaultRole;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -52,6 +55,7 @@ export interface CharacterProfileInput {
   default_voice_id?: string;
   default_voice_provider?: string;
   brand_template_id?: string | null;
+  default_role?: CharacterDefaultRole;
 }
 
 export function useCharacterProfiles() {
@@ -92,8 +96,9 @@ export function useCharacterProfiles() {
           brand_template_id: input.brand_template_id ?? null,
           default_voice_id: input.default_voice_id ?? null,
           default_voice_provider: input.default_voice_provider ?? null,
+          default_role: input.default_role ?? 'supporting',
           created_by: user?.id ?? null,
-        })
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -118,6 +123,7 @@ export function useCharacterProfiles() {
       if (input.default_voice_id !== undefined) updateData.default_voice_id = input.default_voice_id;
       if (input.default_voice_provider !== undefined) updateData.default_voice_provider = input.default_voice_provider;
       if (input.brand_template_id !== undefined) updateData.brand_template_id = input.brand_template_id;
+      if (input.default_role !== undefined) updateData.default_role = input.default_role;
 
       const { data, error } = await supabase
         .from('character_profiles')
