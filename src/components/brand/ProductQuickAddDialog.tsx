@@ -220,69 +220,7 @@ export function ProductQuickAddDialog({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-4">
-            {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 sm:col-span-1">
-                <Label htmlFor="name">Tên sản phẩm *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Áo thun Organic Cotton"
-                  autoFocus
-                />
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <Label htmlFor="sku">Mã SKU</Label>
-                <Input
-                  id="sku"
-                  value={formData.sku}
-                  onChange={e => setFormData(prev => ({ ...prev, sku: e.target.value }))}
-                  placeholder="SKU-001"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Danh mục</Label>
-                <Select 
-                  value={formData.category} 
-                  onValueChange={v => setFormData(prev => ({ ...prev, category: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn danh mục" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRODUCT_CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="price">Giá hiển thị</Label>
-                <Input
-                  id="price"
-                  value={formData.price_display}
-                  onChange={e => setFormData(prev => ({ ...prev, price_display: e.target.value }))}
-                  placeholder="350.000đ, Liên hệ..."
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="description">Mô tả ngắn</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Mô tả ngắn gọn về sản phẩm..."
-                rows={2}
-              />
-            </div>
-
-            {/* Main Image + Reference Images */}
+            {/* Product Images — keep first so it is always visible */}
             <div className="space-y-3 p-3 rounded-lg border bg-muted/10">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-2 text-sm font-medium">
@@ -409,6 +347,68 @@ export function ProductQuickAddDialog({
                   onChange={(next) => setFormData(prev => ({ ...prev, reference_images: next }))}
                 />
               </div>
+            </div>
+
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 sm:col-span-1">
+                <Label htmlFor="name">Tên sản phẩm *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Áo thun Organic Cotton"
+                  autoFocus
+                />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <Label htmlFor="sku">Mã SKU</Label>
+                <Input
+                  id="sku"
+                  value={formData.sku}
+                  onChange={e => setFormData(prev => ({ ...prev, sku: e.target.value }))}
+                  placeholder="SKU-001"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="category">Danh mục</Label>
+                <Select 
+                  value={formData.category} 
+                  onValueChange={v => setFormData(prev => ({ ...prev, category: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn danh mục" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRODUCT_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="price">Giá hiển thị</Label>
+                <Input
+                  id="price"
+                  value={formData.price_display}
+                  onChange={e => setFormData(prev => ({ ...prev, price_display: e.target.value }))}
+                  placeholder="350.000đ, Liên hệ..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Mô tả ngắn</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Mô tả ngắn gọn về sản phẩm..."
+                rows={2}
+              />
             </div>
 
             <div>
