@@ -345,6 +345,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           onChange={setCarouselStyle}
           disabled={isLoading}
         />
+
+        <div className="pt-2">
+          <Label className="text-xs text-muted-foreground mb-1.5 block">
+            Sản phẩm xuất hiện (tùy chọn) — đảm bảo bao bì/màu sắc đúng trên mọi slide
+          </Label>
+          <MultiProductPicker
+            value={selectedProductIds}
+            onChange={setSelectedProductIds}
+            maxSelection={3}
+            disabled={isLoading}
+          />
+        </div>
       </section>
 
       <div className="h-px bg-border/60" />
