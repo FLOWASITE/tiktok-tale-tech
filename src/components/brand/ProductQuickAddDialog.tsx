@@ -80,6 +80,57 @@ export function ProductQuickAddDialog({
   const [formData, setFormData] = useState<ProductFormData>(defaultFormData);
   const [newItem, setNewItem] = useState('');
   const [activeArrayField, setActiveArrayField] = useState<keyof ProductFormData | null>(null);
+  const [uploadingMain, setUploadingMain] = useState(false);
+  const [generatingMain, setGeneratingMain] = useState(false);
+
+  const imageActions = useProductImageActions({
+    name: formData.name,
+    category: formData.category,
+    description: formData.description,
+    appearance: formData.appearance,
+  });
+
+  const handleUploadMain = async (file: File) => {
+    setUploadingMain(true);
+    try {
+      const url = await imageActions.uploadFile(file);
+      if (url) {
+        setFormData(prev => ({ ...prev, image_url: url }));
+        sonnerToast.success('Đã upload ảnh chính');
+      }
+    } finally {
+      setUploadingMain(false);
+    }
+  };
+
+  const handleGenerateMain = async () => {
+    if (!formData.name.trim()) {
+      sonnerToast.error('Nhập tên sản phẩm trước');
+      return;
+    }
+    setGeneratingMain(true);
+    try {
+      const url = await imageActions.generateImage('front');
+      if (url) {
+        setFormData(prev => ({ ...prev, image_url: url }));
+        sonnerToast.success('Đã tạo ảnh chính bằng AI');
+      }
+    } finally {
+      setGeneratingMain(false);
+    }
+  };
+
+  const handleAnalyzeMain = async () => {
+    if (!formData.image_url) return;
+    const result = await imageActions.analyzeImage(formData.image_url);
+    if (result?.appearance) {
+      setFormData(prev => ({
+        ...prev,
+        appearance: { ...prev.appearance, ...result.appearance },
+      }));
+      sonnerToast.success('Đã phân tích & điền đặc điểm');
+    }
+  };
 
   const isEditMode = !!editProduct;
 
