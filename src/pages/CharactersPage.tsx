@@ -350,6 +350,8 @@ export default function CharactersPage() {
                 onDelete={() => handleDelete(p)}
                 onGenerateAvatar={() => handleGenerateAvatar(p)}
                 isGeneratingAvatar={generatingAvatarFor === p.id}
+                onToggleRole={(next) => handleToggleRole(p, next)}
+                isUpdatingRole={updatingRoleFor === p.id}
               />
             );
           })}
