@@ -42,6 +42,8 @@ interface Props {
   brands: { id: string; name: string }[];
   onSubmit: (values: CharacterFormValues, id?: string) => Promise<void>;
   isSaving: boolean;
+  /** All character profiles in this org — used to detect main-role conflicts per brand */
+  allProfiles?: CharacterProfile[];
 }
 
 const DRAFT_KEY = (id: string | 'new') => `character-draft-${id}`;
