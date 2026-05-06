@@ -353,8 +353,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           <MultiProductPicker
             value={selectedProductIds}
             onChange={setSelectedProductIds}
-            maxSelection={3}
-            disabled={isLoading}
+            max={3}
           />
         </div>
       </section>
