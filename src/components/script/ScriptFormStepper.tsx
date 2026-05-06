@@ -337,6 +337,14 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [visibleStepIds, currentStep]);
 
+  // Auto-advance to STEP_VIDEO khi script vừa được tạo xong
+  useEffect(() => {
+    if (generatedScript && isVideoAi && currentStep === STEP_GENERATE && !isLoading) {
+      setCompletedSteps((prev) => Array.from(new Set([...prev, STEP_GENERATE])));
+      setCurrentStep(STEP_VIDEO);
+    }
+  }, [generatedScript, isVideoAi, currentStep, isLoading]);
+
   // Auto-default preset khi user lần đầu vào Step 2 mà chưa chọn gì
   useEffect(() => {
     if (
