@@ -176,6 +176,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     let characterRefUrl = starting_frame_url;
     let stableSeed: number | undefined;
     let modelUpgradedReason: string | undefined;
+    // Holder for keyframe synthesis (filled inside char block)
+    let synthCharacters: Array<{ id: string; name: string; refUrl?: string; appearance?: any; wardrobe?: string }> = [];
+    let userProvidedFrame = !!starting_frame_url;
+    let keyframeSynthesized = false;
+    let keyframeModel: string | undefined;
 
     // Resolve character IDs: prefer array, fallback to single
     const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
