@@ -132,7 +132,8 @@ const LOADING_PHASES = [
 const MAX_TOPIC_LENGTH = 300;
 const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
 
-export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
+export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId, generatedScript }: ScriptFormStepperProps) {
+  const navigate = useNavigate();
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const { currentBrand } = useCurrentBrand();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
