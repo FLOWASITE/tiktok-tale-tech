@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useCharacterProfiles, type CharacterProfile, type CharacterAppearance } from '@/hooks/useCharacterProfiles';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,7 +43,34 @@ export function MultiCharacterPicker({ value, onChange, className, max = 3 }: Mu
   const [saving, setSaving] = useState(false);
 
   const selected = profiles.filter(p => value.includes(p.id));
-  const available = profiles.filter(p => !value.includes(p.id));
+  // Sort available: brand-pinned main characters first, then by name
+  const available = profiles
+    .filter(p => !value.includes(p.id))
+    .sort((a, b) => {
+      const aMain = a.default_role === 'main' ? 0 : 1;
+      const bMain = b.default_role === 'main' ? 0 : 1;
+      if (aMain !== bMain) return aMain - bMain;
+      return a.name.localeCompare(b.name, 'vi');
+    });
+
+  // Auto-pin brand main character when picker initializes empty
+  const autoPinnedRef = useRef(false);
+  useEffect(() => {
+    if (autoPinnedRef.current) return;
+    if (isLoading) return;
+    if (value.length > 0) {
+      autoPinnedRef.current = true;
+      return;
+    }
+    if (!currentBrand?.id) return;
+    const mainChar = profiles.find(
+      p => p.brand_template_id === currentBrand.id && p.default_role === 'main',
+    );
+    if (mainChar) {
+      autoPinnedRef.current = true;
+      onChange([mainChar.id], [mainChar]);
+    }
+  }, [isLoading, profiles, currentBrand?.id, value.length, onChange]);
 
   const addCharacter = (id: string) => {
     if (value.length >= max) return;
