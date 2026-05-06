@@ -64,6 +64,8 @@ function productToFormData(product: BrandProduct): ProductFormData {
     best_channels: product.best_channels || [],
     is_featured: product.is_featured || false,
     is_active: product.is_active !== false,
+    reference_images: Array.isArray(product.reference_images) ? product.reference_images : [],
+    appearance: product.appearance || {},
   };
 }
 
