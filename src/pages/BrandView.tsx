@@ -14,6 +14,8 @@ import { BrandViewConnectionsTab } from '@/components/brand/BrandViewConnections
 import { BrandViewSamplesTab } from '@/components/brand/BrandViewSamplesTab';
 import { BrandViewPersonasTab } from '@/components/brand/BrandViewPersonasTab';
 import { BrandViewProductsTab } from '@/components/brand/BrandViewProductsTab';
+import { BrandViewCharactersTab } from '@/components/brand/BrandViewCharactersTab';
+import { useCharacterProfiles } from '@/hooks/useCharacterProfiles';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
