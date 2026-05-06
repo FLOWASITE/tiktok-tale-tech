@@ -296,21 +296,22 @@ export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
         </div>
       )}
 
-      {/* Header strip */}
-      <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
-        <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
-          <Wand2 className="w-4 h-4 text-foreground/70" />
+      {/* Header strip — ẩn khi embedded */}
+      {!embedded && (
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-border/40">
+          <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center shrink-0">
+            <Wand2 className="w-4 h-4 text-foreground/70" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">Quick Clip</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {activeScript
+                ? 'Prompt đã tự nạp từ scene của kịch bản. Bạn vẫn có thể chỉnh trước khi quay.'
+                : 'Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.'}
+            </p>
+          </div>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-foreground">Quick Clip</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {activeScript
-              ? 'Prompt đã tự nạp từ scene của kịch bản. Bạn vẫn có thể chỉnh trước khi quay.'
-              : 'Mô tả 1 cảnh quay → AI sinh video 5–10s. Phù hợp test ý tưởng, B-roll, hook intro.'}
-          </p>
-        </div>
-      </div>
-
+      )}
 
       {/* Prompt */}
       <div className="space-y-2">
