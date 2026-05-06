@@ -70,6 +70,8 @@ export default function BrandView() {
   const { products } = useProductCatalog(id);
   const { connections } = useSocialConnections({ brandTemplateId: id });
   const activeConnectionsCount = connections?.filter((c) => c.is_active).length || 0;
+  const { profiles: allCharacters } = useCharacterProfiles();
+  const charactersCount = allCharacters.filter((p) => p.brand_template_id === id).length;
 
   useEffect(() => {
     if (!loading && id) {
