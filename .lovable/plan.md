@@ -1,71 +1,35 @@
-## Mục tiêu
-Trên tab **Kịch bản** (`/videos`), mỗi kịch bản phải hiển thị rõ:
-1. **Đã có scene clip** (từ `video_generations`) — bao nhiêu, đang quay hay xong
-2. **Đã ghép phim hoàn chỉnh** (từ `video_render_jobs`) — đã có movie chưa
+## Vấn đề
+Nút **"Render N scene còn thiếu"** trên `ScriptWorkspace` đi qua `useScriptVideoBatch` — hook này **không truyền `character_profile_ids`** xuống `generate-video`, nên server không có dữ liệu nhân vật để inject + force Veo 3.1 + synth keyframe. Kết quả: clip ra mặt khác, không phải anh Minh.
 
-→ User nhìn list là biết ngay kịch bản nào còn dang dở vs. đã xong full pipeline (clip → merge).
+`StoryboardVideoTab` và `QuickClipTab` đã đúng — chỉ batch của workspace bị thiếu.
 
-## Trạng thái hiển thị (hierarchy)
+## Sửa
 
-```
-Có movie completed?  →  Badge "🎞 Đã ghép phim"  (emerald, ưu tiên cao nhất)
-Có movie processing? →  Badge "🎞 Đang ghép…"   (amber + dot pulse)
-Có clip completed?   →  Badge "🎬 N/Total scene" (neutral / emerald nếu đủ)
-Có clip processing?  →  Badge "🎬 Đang quay N…" (amber + dot pulse)
-Không có gì          →  (không badge)
-```
+### 1. `src/hooks/useScriptVideoBatch.ts`
+- Mở rộng `BatchDefaults`:
+  - thêm `character_profile_ids?: string[]`
+  - thêm `product_profile_ids?: string[]`
+  - bỏ ép `model` khi có character (để server tự upgrade lên Veo 3.1)
+- Trong vòng lặp build `request`, forward 2 trường mới + `character_profile_id` (id đầu, BC).
 
-Tooltip gộp đầy đủ thông tin: `"3/5 scene đã quay · 1 phim đã ghép xong · 1 đang xử lý"`.
+### 2. `src/components/video/ScriptWorkspace.tsx`
+- Thêm state `selectedCharacterIds`, `selectedCharacters`, `selectedProductIds`.
+- Render block nhỏ phía trên Progress strip (hoặc dưới Title): `<MultiCharacterPicker>` + `<CharacterProductMap>` + alert vàng nếu chưa chọn — cùng pattern với `StoryboardVideoTab`.
+- Init seed: `activeScript?.characterProfileIds ?? (activeScript?.characterProfileId ? [...] : [])`. (`MultiCharacterPicker` đã tự auto-pin nhân vật `main` của brand khi rỗng → giữ hành vi này.)
+- `handleRenderMissing`:
+  - Bỏ `model: 'geminigen/veo-3.1-fast'` hardcode (để admin/auto-pick + identity lock của server quyết).
+  - Truyền `character_profile_ids: selectedCharacterIds`, `product_profile_ids: selectedProductIds` vào `renderMissingScenes`.
 
-## Các thay đổi
-
-### 1. Hook mới: `src/hooks/useScriptsMediaStatus.ts`
-Input: `scriptIds: string[]`
-Hai query song song (Promise.all), scoped theo RLS user/org:
-- `video_generations`: `select('script_id,status').in('script_id', ids)`
-- `video_render_jobs`: `select('script_id,status').in('script_id', ids)`
-
-Group thành map:
-```ts
-Map<scriptId, {
-  clips:  { total, completed, processing };
-  movies: { total, completed, processing };
-}>
-```
-
-Realtime: 2 channel subscribe theo `user_id=eq.${user.id}` (clips) và filter `script_id IN ...` cho movies (hoặc subscribe broad rồi lọc client-side như `useScriptMovies` đang làm). Khi có thay đổi → refetch debounced (200ms).
-
-### 2. `src/components/video/ScriptsTab.tsx`
-- Memo `scriptIds`
-- Gọi `useScriptsMediaStatus(scriptIds)` → `mediaMap`
-- Truyền `mediaStatus={mediaMap.get(script.id)}` xuống `ScriptCard` và `ScriptListView`
-
-### 3. `src/components/ScriptCard.tsx`
-Thêm prop `mediaStatus?: { clips, movies }`.
-
-Render 1 hàng "media status" ngay dưới meta-chips (chỉ khi có dữ liệu):
-- **Movie completed** → Badge `Film` icon, `bg-emerald-500/10 text-emerald-700 border-emerald-500/20`, text `"Đã ghép phim"` (nếu >1: `"N phim"`)
-- **Movie processing/pending** → Badge amber + `Loader2` spin, text `"Đang ghép phim…"`
-- **Clips only**:
-  - `completed === total > 0` → emerald soft `"🎬 N scene"` 
-  - `processing > 0` → amber + dot pulse `"🎬 Đang quay N/Total"`
-  - mix → neutral `"🎬 N/Total scene"`
-
-Có thể hiện cả 2 badge (movie + clips) cạnh nhau nếu cùng tồn tại — movie ưu tiên bên trái.
-
-Tooltip tổng hợp khi hover.
-
-### 4. `src/components/ScriptListView.tsx`
-Cùng prop, render mini badge trong cột phụ (hoặc cuối cột title).
+### 3. (Tuỳ chọn nhỏ) `src/contexts/ScriptToVideoContext.tsx`
+Khi `setActiveScript` được gọi từ `ScriptWorkspace`, hiện chưa propagate `characterProfileIds`. Không bắt buộc sửa: `MultiCharacterPicker` đã tự auto-pin theo brand. Bỏ qua trừ khi muốn pre-select nhân vật theo metadata script (chưa có cột DB).
 
 ## Acceptance
-- Script có ≥1 clip completed → thấy badge clip xanh trên card
-- Script có movie `completed` → thấy badge "Đã ghép phim" emerald (ưu tiên)
-- Đang quay/đang ghép → badge amber có dot pulse, tự update realtime khi xong
-- Script chưa có gì → không hiện badge, layout giữ nguyên
-- Không tạo N+1 query (2 query batch cho toàn bộ scripts trong page)
+- Bấm "Render N scene còn thiếu" trong workspace của script có brand "Flowa" → row mới trong `video_generations` có `model_used = geminigen/veo-3.1` (không có `-fast`) và `starting_frame_url` = URL keyframe vừa synth.
+- Console edge function `generate-video` log `Injected 1 character(s): Anh Minh` + `🎨 Keyframe synthesized`.
+- Clip render giữ đúng mặt anh Minh giữa các scene.
+- Không regression batch ở `StoryboardVideoTab` / generate đơn ở `QuickClipTab`.
 
-## Ghi chú kỹ thuật
-- Tận dụng RLS hiện có; không thay schema
-- Re-use icon `Film` (movie) vs `Clapperboard` (clips) cho phân biệt trực quan
-- Style theo Soft Luxury: tránh màu rực, ưu tiên emerald/amber soft với border 20% opacity
+## Không thay đổi
+- Không sửa edge function (logic identity lock đã đúng).
+- Không thêm migration / cột DB.
+- Không đổi UX của MultiCharacterPicker (vẫn auto-pin main char).

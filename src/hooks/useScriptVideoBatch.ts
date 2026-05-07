@@ -17,6 +17,10 @@ export interface BatchDefaults {
   resolution: string;
   duration: number;
   script_id: string;
+  /** Forward để server inject character block + force Veo 3.1 + synth keyframe. */
+  character_profile_ids?: string[];
+  /** Forward sản phẩm để inject ref ảnh sản phẩm. */
+  product_profile_ids?: string[];
 }
 
 export interface BatchProgress {
