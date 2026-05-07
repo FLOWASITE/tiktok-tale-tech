@@ -11,6 +11,7 @@ import { useScripts } from '@/hooks/useScripts';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useScriptsMediaStatus } from '@/hooks/useScriptsMediaStatus';
 import { Script } from '@/types/script';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
