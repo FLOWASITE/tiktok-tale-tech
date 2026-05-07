@@ -222,6 +222,27 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
             </div>
           </div>
           <Progress value={pct} className="h-1.5" />
+
+          {/* Character lock — quan trọng để batch render giữ đúng mặt nhân vật brand */}
+          <div className="space-y-2 pt-1 border-t border-border/40">
+            <MultiCharacterPicker
+              value={selectedCharacterIds}
+              onChange={(ids, profiles) => {
+                setSelectedCharacterIds(ids);
+                setSelectedCharacters(profiles);
+              }}
+            />
+            {selectedCharacterIds.length === 0 && (
+              <div className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-2 text-[11px] text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Chưa chọn nhân vật → AI sẽ bịa mặt khác nhau giữa các scene. Chọn nhân vật brand để khoá Veo 3.1 + seed cố định.</span>
+              </div>
+            )}
+            <CharacterProductMap
+              characters={selectedCharacters}
+              onUnionChange={(ids) => setSelectedProductIds(ids)}
+            />
+          </div>
           <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
               {running && (
