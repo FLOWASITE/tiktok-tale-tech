@@ -1,17 +1,71 @@
-## Vấn đề
+## Mục tiêu
+Trên tab **Kịch bản** (`/videos`), mỗi kịch bản phải hiển thị rõ:
+1. **Đã có scene clip** (từ `video_generations`) — bao nhiêu, đang quay hay xong
+2. **Đã ghép phim hoàn chỉnh** (từ `video_render_jobs`) — đã có movie chưa
 
-Khi `purpose='ai_video'`, stepper luôn hiển thị 4 step. Nhưng logic nút primary ở footer dựa vào `isLastStep` — vì Step 4 (Tạo Video) bây giờ luôn có mặt, Step 3 (Tạo kịch bản) không còn là last step nên hiện nút **"Tiếp tục"** thay vì **"Tạo kịch bản AI"**. Người dùng bấm Tiếp tục → nhảy sang Step 4 mà chưa generate script → thấy empty state "Cần kịch bản trước khi tạo video".
+→ User nhìn list là biết ngay kịch bản nào còn dang dở vs. đã xong full pipeline (clip → merge).
 
-## Giải pháp
+## Trạng thái hiển thị (hierarchy)
 
-Sửa logic chọn nút primary ở footer của `ScriptFormStepper.tsx` (block dòng 1185–1220):
+```
+Có movie completed?  →  Badge "🎞 Đã ghép phim"  (emerald, ưu tiên cao nhất)
+Có movie processing? →  Badge "🎞 Đang ghép…"   (amber + dot pulse)
+Có clip completed?   →  Badge "🎬 N/Total scene" (neutral / emerald nếu đủ)
+Có clip processing?  →  Badge "🎬 Đang quay N…" (amber + dot pulse)
+Không có gì          →  (không badge)
+```
 
-- **Step 4 (`STEP_VIDEO`)**: giữ nguyên — không hiện CTA submit (đã có CTA inline).
-- **Step 3 (`STEP_GENERATE`)**: luôn hiện nút **"Tạo kịch bản AI"** gọi `handleSubmit` (bất kể có phải last step hay không). Khi script đã tồn tại (`generatedScript`), đổi label thành **"Tạo lại kịch bản"** để rõ ý — và auto-advance effect dòng 343 sẽ tự đẩy sang Step 4.
-- **Các step khác**: giữ nguyên nút "Tiếp tục" gọi `handleNext`.
+Tooltip gộp đầy đủ thông tin: `"3/5 scene đã quay · 1 phim đã ghép xong · 1 đang xử lý"`.
 
-Không thay đổi: `buildSteps`, auto-advance effect, empty state Step 4 (vẫn hữu ích cho trường hợp user click trực tiếp vào Step 4 ở stepper khi chưa có script).
+## Các thay đổi
 
-## File thay đổi
+### 1. Hook mới: `src/hooks/useScriptsMediaStatus.ts`
+Input: `scriptIds: string[]`
+Hai query song song (Promise.all), scoped theo RLS user/org:
+- `video_generations`: `select('script_id,status').in('script_id', ids)`
+- `video_render_jobs`: `select('script_id,status').in('script_id', ids)`
 
-- `src/components/script/ScriptFormStepper.tsx` — chỉnh khối điều kiện nút primary (dòng 1185–1220).
+Group thành map:
+```ts
+Map<scriptId, {
+  clips:  { total, completed, processing };
+  movies: { total, completed, processing };
+}>
+```
+
+Realtime: 2 channel subscribe theo `user_id=eq.${user.id}` (clips) và filter `script_id IN ...` cho movies (hoặc subscribe broad rồi lọc client-side như `useScriptMovies` đang làm). Khi có thay đổi → refetch debounced (200ms).
+
+### 2. `src/components/video/ScriptsTab.tsx`
+- Memo `scriptIds`
+- Gọi `useScriptsMediaStatus(scriptIds)` → `mediaMap`
+- Truyền `mediaStatus={mediaMap.get(script.id)}` xuống `ScriptCard` và `ScriptListView`
+
+### 3. `src/components/ScriptCard.tsx`
+Thêm prop `mediaStatus?: { clips, movies }`.
+
+Render 1 hàng "media status" ngay dưới meta-chips (chỉ khi có dữ liệu):
+- **Movie completed** → Badge `Film` icon, `bg-emerald-500/10 text-emerald-700 border-emerald-500/20`, text `"Đã ghép phim"` (nếu >1: `"N phim"`)
+- **Movie processing/pending** → Badge amber + `Loader2` spin, text `"Đang ghép phim…"`
+- **Clips only**:
+  - `completed === total > 0` → emerald soft `"🎬 N scene"` 
+  - `processing > 0` → amber + dot pulse `"🎬 Đang quay N/Total"`
+  - mix → neutral `"🎬 N/Total scene"`
+
+Có thể hiện cả 2 badge (movie + clips) cạnh nhau nếu cùng tồn tại — movie ưu tiên bên trái.
+
+Tooltip tổng hợp khi hover.
+
+### 4. `src/components/ScriptListView.tsx`
+Cùng prop, render mini badge trong cột phụ (hoặc cuối cột title).
+
+## Acceptance
+- Script có ≥1 clip completed → thấy badge clip xanh trên card
+- Script có movie `completed` → thấy badge "Đã ghép phim" emerald (ưu tiên)
+- Đang quay/đang ghép → badge amber có dot pulse, tự update realtime khi xong
+- Script chưa có gì → không hiện badge, layout giữ nguyên
+- Không tạo N+1 query (2 query batch cho toàn bộ scripts trong page)
+
+## Ghi chú kỹ thuật
+- Tận dụng RLS hiện có; không thay schema
+- Re-use icon `Film` (movie) vs `Clapperboard` (clips) cho phân biệt trực quan
+- Style theo Soft Luxury: tránh màu rực, ưu tiên emerald/amber soft với border 20% opacity
