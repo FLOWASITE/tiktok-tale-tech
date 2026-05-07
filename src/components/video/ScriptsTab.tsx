@@ -334,6 +334,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
           onDelete={deleteScript}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          mediaStatusMap={mediaStatusMap}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -347,6 +348,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
               creatorProfile={script.user_id ? creatorProfiles[script.user_id] : undefined}
               isLoadingProfile={isLoadingProfiles}
               index={index}
+              mediaStatus={getMediaStatus(script.id)}
             />
           ))}
         </div>
