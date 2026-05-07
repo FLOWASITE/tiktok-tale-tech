@@ -1,7 +1,31 @@
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { useVideoGeneration } from './useVideoGeneration';
 import type { VideoGenerationRequest, VideoProvider } from '@/types/videoGeneration';
+
+/** Poll video_generations cho tới khi job đạt completed/failed (hoặc timeout). */
+async function waitForJobCompletion(
+  jobId: string,
+  opts: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<'completed' | 'failed' | 'timeout'> {
+  const timeoutMs = opts.timeoutMs ?? 6 * 60 * 1000; // 6 phút
+  const intervalMs = opts.intervalMs ?? 4000;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data, error } = await supabase
+      .from('video_generations')
+      .select('status')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (!error && data) {
+      if (data.status === 'completed') return 'completed';
+      if (data.status === 'failed') return 'failed';
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return 'timeout';
+}
 
 export interface BatchScene {
   sceneNumber: number;
