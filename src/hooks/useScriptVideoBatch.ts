@@ -85,6 +85,15 @@ export function useScriptVideoBatch() {
           resolution: defaults.resolution,
           script_id: defaults.script_id,
           scene_number: scene.sceneNumber,
+          character_profile_id: defaults.character_profile_ids?.[0],
+          character_profile_ids:
+            defaults.character_profile_ids && defaults.character_profile_ids.length > 0
+              ? defaults.character_profile_ids
+              : undefined,
+          product_profile_ids:
+            defaults.product_profile_ids && defaults.product_profile_ids.length > 0
+              ? defaults.product_profile_ids
+              : undefined,
         };
 
         try {
