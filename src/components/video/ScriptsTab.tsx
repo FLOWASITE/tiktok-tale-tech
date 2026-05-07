@@ -62,6 +62,10 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   const userIds = useMemo(() => scripts.map(s => s.user_id), [scripts]);
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
 
+  // Bulk media status (clips + merged movies) cho toàn bộ scripts hiện có
+  const scriptIds = useMemo(() => scripts.map(s => s.id), [scripts]);
+  const { map: mediaStatusMap, get: getMediaStatus } = useScriptsMediaStatus(scriptIds);
+
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [workspaceScript, setWorkspaceScript] = useState<Script | null>(null);
