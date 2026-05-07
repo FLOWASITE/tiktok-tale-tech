@@ -15,6 +15,7 @@ import {
   Film,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
 
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
@@ -25,6 +26,9 @@ import { buildScriptToVideoNavState } from '@/lib/scriptToVideoNav';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { QuickClipTab } from './QuickClipTab';
+import { MultiCharacterPicker } from './MultiCharacterPicker';
+import { CharacterProductMap } from './CharacterProductMap';
+import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +63,9 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
   } = useScriptToVideo();
 
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
+  const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
@@ -116,11 +123,13 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
     }));
     renderMissingScenes(batch, {
       provider: 'geminigen',
-      model: 'geminigen/veo-3.1-fast',
+      // KHÔNG hardcode model — để server tự upgrade lên Veo 3.1 khi có character
       aspect_ratio: '9:16',
       resolution: '1080p',
       duration: 5,
       script_id: script.id,
+      character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
+      product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
   };
 
@@ -213,6 +222,27 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
             </div>
           </div>
           <Progress value={pct} className="h-1.5" />
+
+          {/* Character lock — quan trọng để batch render giữ đúng mặt nhân vật brand */}
+          <div className="space-y-2 pt-1 border-t border-border/40">
+            <MultiCharacterPicker
+              value={selectedCharacterIds}
+              onChange={(ids, profiles) => {
+                setSelectedCharacterIds(ids);
+                setSelectedCharacters(profiles);
+              }}
+            />
+            {selectedCharacterIds.length === 0 && (
+              <div className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-2 text-[11px] text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Chưa chọn nhân vật → AI sẽ bịa mặt khác nhau giữa các scene. Chọn nhân vật brand để khoá Veo 3.1 + seed cố định.</span>
+              </div>
+            )}
+            <CharacterProductMap
+              characters={selectedCharacters}
+              onUnionChange={(ids) => setSelectedProductIds(ids)}
+            />
+          </div>
           <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
               {running && (
