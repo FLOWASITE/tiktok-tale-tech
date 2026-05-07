@@ -123,11 +123,13 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
     }));
     renderMissingScenes(batch, {
       provider: 'geminigen',
-      model: 'geminigen/veo-3.1-fast',
+      // KHÔNG hardcode model — để server tự upgrade lên Veo 3.1 khi có character
       aspect_ratio: '9:16',
       resolution: '1080p',
       duration: 5,
       script_id: script.id,
+      character_profile_ids: selectedCharacterIds.length > 0 ? selectedCharacterIds : undefined,
+      product_profile_ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
   };
 
