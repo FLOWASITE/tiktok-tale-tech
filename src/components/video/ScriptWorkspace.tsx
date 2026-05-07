@@ -63,6 +63,9 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
   } = useScriptToVideo();
 
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
+  const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
