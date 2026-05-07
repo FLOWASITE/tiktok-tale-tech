@@ -65,9 +65,10 @@ interface ScriptCardProps {
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
   index?: number;
+  mediaStatus?: ScriptMediaStatus;
 }
 
-export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile, index = 0 }: ScriptCardProps) {
+export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile, index = 0, mediaStatus }: ScriptCardProps) {
   const purpose = normalizePurpose(script.script_purpose || 'ai_video');
   const PurposeIcon = PURPOSE_ICONS[purpose] || Wand2;
   const purposeConfig = SCRIPT_PURPOSE_CONFIG[purpose];
