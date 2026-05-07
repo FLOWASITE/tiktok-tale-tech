@@ -14,7 +14,16 @@ const POYO_BASE_URL = 'https://api.poyo.ai';
 
 export const POYO_VIDEO_MODELS = [
   'poyo/seedance-2',
+  'poyo/seedance-1-pro',
   'poyo/sora-2',
+  'poyo/sora-2-pro',
+  'poyo/veo-3',
+  'poyo/veo-3-fast',
+  'poyo/veo-3.1',
+  'poyo/veo-3.1-fast',
+  'poyo/kling-2.1',
+  'poyo/kling-2.1-pro',
+  'poyo/hailuo-02',
   'poyo/happy-horse',
 ] as const;
 

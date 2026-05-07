@@ -124,6 +124,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     let resolvedModel = clientModel || null;
     let resolvedProvider: VideoProvider = requestedProvider;
     let adminParams: Record<string, any> = {};
+    let adminPickedModel = false;
 
     // Always fetch admin parameters jsonb for fallback defaults (duration/aspect/resolution)
     try {
@@ -148,6 +149,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         const cfg = await getAIConfig('generate-video', orgRow?.organization_id ?? undefined);
         if (cfg.model) {
           resolvedModel = cfg.model;
+          adminPickedModel = true;
           // If admin-configured model has a provider prefix (e.g. "geminigen/..." or "poyo/..."),
           // override the requested provider so routing matches the model.
           if (cfg.model.startsWith('poyo/')) resolvedProvider = 'poyo';
@@ -367,14 +369,16 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           console.log(`[generate-video] Stable seed for cast: ${stableSeed}`);
 
           // ───── FORCE VEO 3.1 (không Fast) khi có character — identity-lock
-          //   Veo 3.1 i2v giữ identity tốt nhất; identity-lock quan trọng hơn lựa chọn user.
-          //   Áp dụng KỂ CẢ khi không có ref ảnh (chỉ có character text block) — vì Fast drift mặt mạnh.
+          //   CHỈ áp dụng khi KHÔNG có admin override + KHÔNG có client model.
+          //   Admin pick là quyết định chủ động → tôn trọng (vd: Kling, Sora).
           const IDENTITY_LOCK_MODEL = 'geminigen/veo-3.1';
-          if (model !== IDENTITY_LOCK_MODEL) {
+          if (!adminPickedModel && !clientModel && model !== IDENTITY_LOCK_MODEL) {
             console.log(`[generate-video] hasCharacter(${sorted.length}) → force-upgrade ${model || '(default)'} → ${IDENTITY_LOCK_MODEL}`);
             model = IDENTITY_LOCK_MODEL;
             provider = 'geminigen';
             modelUpgradedReason = 'character_identity_lock';
+          } else if (adminPickedModel || clientModel) {
+            console.log(`[generate-video] identity-lock skipped: ${adminPickedModel ? 'admin override' : 'client override'} active (model=${model})`);
           }
           console.log(`[generate-video] 🔒 Identity lock active: chars=${sorted.length}, refUrl=${characterRefUrl ? 'yes' : 'no'}, seed=${stableSeed}, model=${model}`);
         }
@@ -407,11 +411,13 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           if (!characterRefUrl && productRefUrl) {
             characterRefUrl = productRefUrl;
             // Auto-upgrade model to identity-preserving i2v if user didn't pick one
-            if (!clientModel) {
+            if (!clientModel && !adminPickedModel) {
               const PRODUCT_LOCK_MODEL = 'geminigen/veo-3.1';
               console.log(`[generate-video] hasProductRef → auto-upgrade model ${model} → ${PRODUCT_LOCK_MODEL}`);
               model = PRODUCT_LOCK_MODEL;
               provider = 'geminigen';
+            } else if (adminPickedModel) {
+              console.log(`[generate-video] product-lock skipped: admin override active (model=${model})`);
             }
           }
         }

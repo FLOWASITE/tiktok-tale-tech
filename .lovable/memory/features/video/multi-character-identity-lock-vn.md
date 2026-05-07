@@ -7,7 +7,7 @@ type: feature
 ## Server (`supabase/functions/generate-video/index.ts`)
 - Nếu `character_profile_ids.length >= 2` và chưa có ref → build side-by-side collage qua `_shared/character-collage.ts`, cache `character-references/_collage/<sha8>.png`, inject `[FRAME LAYOUT]` anchor.
 - Single char: pickRefForChar (smart angle: close-up/full-body/side/outfit/front).
-- **Force `geminigen/veo-3.1` (NOT Fast) khi `resolvedCharIds.length > 0`** — Set `modelUpgradedReason='character_identity_lock'`.
+- **Force `geminigen/veo-3.1` (NOT Fast) khi `resolvedCharIds.length > 0`** — Set `modelUpgradedReason='character_identity_lock'`. **CHỈ áp dụng khi không có admin override (`ai_function_configs.model_override`) và không có client model**; admin pick (vd Kling 3, Sora 2) được tôn trọng tuyệt đối.
 - Stable seed = `deriveStableSeed(sortedIds)` → forward `seed` param tới geminigen + poyo provider.
 
 ## 🎨 Keyframe Synthesis (NEW — fix mặt không giống avatar brand)
