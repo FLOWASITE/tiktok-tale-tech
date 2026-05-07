@@ -1,7 +1,31 @@
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { useVideoGeneration } from './useVideoGeneration';
 import type { VideoGenerationRequest, VideoProvider } from '@/types/videoGeneration';
+
+/** Poll video_generations cho tới khi job đạt completed/failed (hoặc timeout). */
+async function waitForJobCompletion(
+  jobId: string,
+  opts: { timeoutMs?: number; intervalMs?: number } = {},
+): Promise<'completed' | 'failed' | 'timeout'> {
+  const timeoutMs = opts.timeoutMs ?? 6 * 60 * 1000; // 6 phút
+  const intervalMs = opts.intervalMs ?? 4000;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { data, error } = await supabase
+      .from('video_generations')
+      .select('status')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (!error && data) {
+      if (data.status === 'completed') return 'completed';
+      if (data.status === 'failed') return 'failed';
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return 'timeout';
+}
 
 export interface BatchScene {
   sceneNumber: number;
@@ -97,9 +121,22 @@ export function useScriptVideoBatch() {
         };
 
         try {
-          await generateVideo(request);
-          done += 1;
-          setProgress((p) => ({ ...p, done }));
+          const job = await generateVideo(request);
+          if (!job) {
+            errors.push({ sceneNumber: scene.sceneNumber, message: 'Enqueue thất bại' });
+          } else {
+            // ⏳ Hướng 1: chờ clip này render xong trước khi sang scene tiếp
+            // để server clip kế có thể chain từ thumbnail clip trước.
+            const result = await waitForJobCompletion(job.id);
+            if (result === 'failed') {
+              errors.push({ sceneNumber: scene.sceneNumber, message: 'Render thất bại' });
+            } else if (result === 'timeout') {
+              errors.push({ sceneNumber: scene.sceneNumber, message: 'Timeout chờ render (>6 phút)' });
+              // Không break — vẫn cho scene sau thử (sẽ fallback avatar nếu chain lookup miss)
+            }
+            done += 1;
+            setProgress((p) => ({ ...p, done }));
+          }
         } catch (err: any) {
           const message = err?.message ?? 'Lỗi không rõ';
           const code = err?.code ?? err?.status;
