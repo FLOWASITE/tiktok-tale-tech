@@ -319,6 +319,9 @@ export function ScriptListView({
                   />
                 </TableCell>
                 <TableCell>
+                  <ScriptMediaBadges status={mediaStatusMap?.get(script.id)} size="xs" />
+                </TableCell>
+                <TableCell>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="text-sm text-muted-foreground">
