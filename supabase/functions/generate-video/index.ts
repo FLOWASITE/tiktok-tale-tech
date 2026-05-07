@@ -239,6 +239,11 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           const preferredAngle = matchAngle();
           const pickRefForChar = (cp: typeof sorted[number]): string | undefined => {
             const refImages = Array.isArray(cp.reference_images) ? cp.reference_images as { url: string; label: string }[] : [];
+            // Clip đầu (scene 1 hoặc không xác định) → ưu tiên avatar gốc cho first impression
+            const isFirstScene = !scene_number || scene_number === 1;
+            if (isFirstScene && cp.reference_image_url) {
+              return cp.reference_image_url;
+            }
             if (refImages.length > 0) {
               return (refImages.find(r => r.label === preferredAngle) || refImages[0]).url;
             }
