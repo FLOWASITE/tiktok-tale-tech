@@ -124,6 +124,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     let resolvedModel = clientModel || null;
     let resolvedProvider: VideoProvider = requestedProvider;
     let adminParams: Record<string, any> = {};
+    let adminPickedModel = false;
 
     // Always fetch admin parameters jsonb for fallback defaults (duration/aspect/resolution)
     try {
