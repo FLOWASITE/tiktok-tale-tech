@@ -15,6 +15,7 @@ import {
   Film,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
 
 import { useScriptToVideo } from '@/contexts/ScriptToVideoContext';
 import { useScriptVideoGenerations } from '@/hooks/useScriptVideoGenerations';
@@ -25,6 +26,9 @@ import { buildScriptToVideoNavState } from '@/lib/scriptToVideoNav';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { QuickClipTab } from './QuickClipTab';
+import { MultiCharacterPicker } from './MultiCharacterPicker';
+import { CharacterProductMap } from './CharacterProductMap';
+import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { cn } from '@/lib/utils';
 
