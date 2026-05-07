@@ -250,6 +250,7 @@ export function ScriptListView({
                 </Button>
               </TableHead>
               <TableHead>Người tạo</TableHead>
+              <TableHead>Video</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
