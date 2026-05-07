@@ -58,6 +58,8 @@ import {
 } from '@/types/script';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
+import { ScriptMediaBadges } from '@/components/video/ScriptMediaBadges';
+import type { ScriptMediaStatus } from '@/hooks/useScriptsMediaStatus';
 
 type SortField = 'title' | 'created_at' | 'duration' | 'video_type';
 type SortDirection = 'asc' | 'desc';
