@@ -111,6 +111,7 @@ interface ScriptListViewProps {
   onDelete: (id: string) => void;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  mediaStatusMap?: Map<string, ScriptMediaStatus>;
 }
 
 export function ScriptListView({
@@ -119,6 +120,7 @@ export function ScriptListView({
   onDelete,
   selectedIds,
   onSelectionChange,
+  mediaStatusMap,
 }: ScriptListViewProps) {
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
