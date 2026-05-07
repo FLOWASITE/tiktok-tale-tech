@@ -58,6 +58,8 @@ import {
 } from '@/types/script';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
+import { ScriptMediaBadges } from '@/components/video/ScriptMediaBadges';
+import type { ScriptMediaStatus } from '@/hooks/useScriptsMediaStatus';
 
 type SortField = 'title' | 'created_at' | 'duration' | 'video_type';
 type SortDirection = 'asc' | 'desc';
@@ -109,6 +111,7 @@ interface ScriptListViewProps {
   onDelete: (id: string) => void;
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  mediaStatusMap?: Map<string, ScriptMediaStatus>;
 }
 
 export function ScriptListView({
@@ -117,6 +120,7 @@ export function ScriptListView({
   onDelete,
   selectedIds,
   onSelectionChange,
+  mediaStatusMap,
 }: ScriptListViewProps) {
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -246,6 +250,7 @@ export function ScriptListView({
                 </Button>
               </TableHead>
               <TableHead>Người tạo</TableHead>
+              <TableHead>Video</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -312,6 +317,9 @@ export function ScriptListView({
                     profile={script.user_id ? creatorProfiles[script.user_id] : undefined}
                     isLoading={isLoadingProfiles}
                   />
+                </TableCell>
+                <TableCell>
+                  <ScriptMediaBadges status={mediaStatusMap?.get(script.id)} size="xs" />
                 </TableCell>
                 <TableCell>
                   <Tooltip>

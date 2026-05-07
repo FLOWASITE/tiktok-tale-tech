@@ -11,6 +11,7 @@ import { useScripts } from '@/hooks/useScripts';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { useScriptsMediaStatus } from '@/hooks/useScriptsMediaStatus';
 import { Script } from '@/types/script';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,10 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
   // Fetch creator profiles for all scripts
   const userIds = useMemo(() => scripts.map(s => s.user_id), [scripts]);
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
+
+  // Bulk media status (clips + merged movies) cho toàn bộ scripts hiện có
+  const scriptIds = useMemo(() => scripts.map(s => s.id), [scripts]);
+  const { map: mediaStatusMap, get: getMediaStatus } = useScriptsMediaStatus(scriptIds);
 
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -329,6 +334,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
           onDelete={deleteScript}
           selectedIds={selectedIds}
           onSelectionChange={setSelectedIds}
+          mediaStatusMap={mediaStatusMap}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -342,6 +348,7 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
               creatorProfile={script.user_id ? creatorProfiles[script.user_id] : undefined}
               isLoadingProfile={isLoadingProfiles}
               index={index}
+              mediaStatus={getMediaStatus(script.id)}
             />
           ))}
         </div>

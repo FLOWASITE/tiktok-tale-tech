@@ -26,6 +26,8 @@ import {
 import { CreatorCell } from '@/components/CreatorCell';
 import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { cn } from '@/lib/utils';
+import { ScriptMediaBadges } from '@/components/video/ScriptMediaBadges';
+import type { ScriptMediaStatus } from '@/hooks/useScriptsMediaStatus';
 
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
   ai_video: Wand2,
@@ -63,9 +65,10 @@ interface ScriptCardProps {
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
   index?: number;
+  mediaStatus?: ScriptMediaStatus;
 }
 
-export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile, index = 0 }: ScriptCardProps) {
+export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile, index = 0, mediaStatus }: ScriptCardProps) {
   const purpose = normalizePurpose(script.script_purpose || 'ai_video');
   const PurposeIcon = PURPOSE_ICONS[purpose] || Wand2;
   const purposeConfig = SCRIPT_PURPOSE_CONFIG[purpose];
@@ -176,6 +179,9 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
                 ))}
               </div>
             )}
+
+            {/* Media status: scene clips + merged movie */}
+            <ScriptMediaBadges status={mediaStatus} />
 
             {/* Footer */}
             <div className="flex items-center gap-2 mt-auto pt-1.5" onClick={(e) => e.stopPropagation()}>
