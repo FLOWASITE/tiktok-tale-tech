@@ -1185,7 +1185,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         {currentStep === STEP_VIDEO ? (
           // Step 4 has its own primary CTAs inline — không cần submit nữa
           <div />
-        ) : !isLastStep ? (
+        ) : currentStep !== STEP_GENERATE ? (
           <Button
             type="button"
             onClick={handleNext}
@@ -1213,7 +1213,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Tạo kịch bản AI
+                {generatedScript ? 'Tạo lại kịch bản' : 'Tạo kịch bản AI'}
               </>
             )}
           </Button>
