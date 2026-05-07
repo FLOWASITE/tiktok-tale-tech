@@ -26,6 +26,8 @@ import {
 import { CreatorCell } from '@/components/CreatorCell';
 import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { cn } from '@/lib/utils';
+import { ScriptMediaBadges } from '@/components/video/ScriptMediaBadges';
+import type { ScriptMediaStatus } from '@/hooks/useScriptsMediaStatus';
 
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
   ai_video: Wand2,
