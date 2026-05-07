@@ -181,6 +181,33 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
     let userProvidedFrame = !!starting_frame_url;
     let keyframeSynthesized = false;
     let keyframeModel: string | undefined;
+    let chainedFromPrevScene = false;
+
+    // ───────── CHAIN FRAME — clip 2,3,... dùng thumbnail của clip trước
+    // (cùng script_id) làm starting frame để continuity mượt + giữ identity
+    if (!characterRefUrl && script_id && typeof scene_number === 'number' && scene_number > 1) {
+      try {
+        const { data: prev } = await supabase
+          .from('video_generations')
+          .select('thumbnail_url, video_url')
+          .eq('script_id', script_id)
+          .eq('scene_number', scene_number - 1)
+          .eq('status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const prevThumb = prev?.thumbnail_url as string | undefined;
+        if (prevThumb && /\.(png|jpe?g|webp)(\?.*)?$/i.test(prevThumb)) {
+          characterRefUrl = prevThumb;
+          userProvidedFrame = true; // skip keyframe synth — đã có ref tốt
+          chainedFromPrevScene = true;
+          enrichedPrompt = `[CONTINUITY] This clip continues directly from the previous scene. Match lighting, color grading, environment, and character position from the reference frame for a seamless transition.\n\n${enrichedPrompt}`;
+          console.log(`[generate-video] 🔗 Chained from scene ${scene_number - 1} thumbnail`);
+        }
+      } catch (e) {
+        console.warn('[generate-video] Chain prev-scene lookup failed:', e);
+      }
+    }
 
     // Resolve character IDs: prefer array, fallback to single
     const resolvedCharIds: string[] = Array.isArray(character_profile_ids) && character_profile_ids.length > 0
