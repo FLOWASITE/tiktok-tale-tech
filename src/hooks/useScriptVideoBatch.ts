@@ -121,9 +121,22 @@ export function useScriptVideoBatch() {
         };
 
         try {
-          await generateVideo(request);
-          done += 1;
-          setProgress((p) => ({ ...p, done }));
+          const job = await generateVideo(request);
+          if (!job) {
+            errors.push({ sceneNumber: scene.sceneNumber, message: 'Enqueue thất bại' });
+          } else {
+            // ⏳ Hướng 1: chờ clip này render xong trước khi sang scene tiếp
+            // để server clip kế có thể chain từ thumbnail clip trước.
+            const result = await waitForJobCompletion(job.id);
+            if (result === 'failed') {
+              errors.push({ sceneNumber: scene.sceneNumber, message: 'Render thất bại' });
+            } else if (result === 'timeout') {
+              errors.push({ sceneNumber: scene.sceneNumber, message: 'Timeout chờ render (>6 phút)' });
+              // Không break — vẫn cho scene sau thử (sẽ fallback avatar nếu chain lookup miss)
+            }
+            done += 1;
+            setProgress((p) => ({ ...p, done }));
+          }
         } catch (err: any) {
           const message = err?.message ?? 'Lỗi không rõ';
           const code = err?.code ?? err?.status;
