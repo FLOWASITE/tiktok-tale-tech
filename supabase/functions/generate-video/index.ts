@@ -411,11 +411,13 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           if (!characterRefUrl && productRefUrl) {
             characterRefUrl = productRefUrl;
             // Auto-upgrade model to identity-preserving i2v if user didn't pick one
-            if (!clientModel) {
+            if (!clientModel && !adminPickedModel) {
               const PRODUCT_LOCK_MODEL = 'geminigen/veo-3.1';
               console.log(`[generate-video] hasProductRef → auto-upgrade model ${model} → ${PRODUCT_LOCK_MODEL}`);
               model = PRODUCT_LOCK_MODEL;
               provider = 'geminigen';
+            } else if (adminPickedModel) {
+              console.log(`[generate-video] product-lock skipped: admin override active (model=${model})`);
             }
           }
         }
