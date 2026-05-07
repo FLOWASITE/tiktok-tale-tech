@@ -149,6 +149,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
         const cfg = await getAIConfig('generate-video', orgRow?.organization_id ?? undefined);
         if (cfg.model) {
           resolvedModel = cfg.model;
+          adminPickedModel = true;
           // If admin-configured model has a provider prefix (e.g. "geminigen/..." or "poyo/..."),
           // override the requested provider so routing matches the model.
           if (cfg.model.startsWith('poyo/')) resolvedProvider = 'poyo';
