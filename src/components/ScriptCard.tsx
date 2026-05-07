@@ -180,6 +180,9 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
               </div>
             )}
 
+            {/* Media status: scene clips + merged movie */}
+            <ScriptMediaBadges status={mediaStatus} />
+
             {/* Footer */}
             <div className="flex items-center gap-2 mt-auto pt-1.5" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
