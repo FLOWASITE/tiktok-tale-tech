@@ -828,7 +828,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                     )}
                     {formData.hook && (
                       <span className="flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-amber-500" />
+                        <Zap className="w-3 h-3 text-foreground/60" />
                         Hook đã chọn
                       </span>
                     )}
@@ -844,9 +844,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             </div>
 
             {/* Smart Config Chips */}
-            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent p-4 space-y-3">
+            <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Sparkles className="w-4 h-4 text-primary" />
+                <Sparkles className="w-4 h-4 text-foreground/70" />
                 <span>Cấu hình</span>
               </div>
               
@@ -1147,7 +1147,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             type="button"
             onClick={handleNext}
             disabled={!canProceed || isLoading}
-            className="gap-2 gradient-primary glow-primary"
+            className="gap-2 bg-foreground text-background hover:bg-foreground/90"
           >
             Tiếp tục
             <ArrowRight className="w-4 h-4" />
