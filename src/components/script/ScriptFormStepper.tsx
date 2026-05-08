@@ -1158,9 +1158,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             onClick={handleSubmit}
             disabled={isLoading || !formData.topic.trim()}
             className={cn(
-              "gap-2 gradient-primary min-w-[180px]",
-              !isLoading && "glow-primary"
+              "gap-2 min-w-[180px] bg-foreground text-background hover:bg-foreground/90",
             )}
+            title={generatedScript ? 'Sẽ thay thế kịch bản hiện tại' : undefined}
           >
             {isLoading ? (
               <>
@@ -1170,7 +1170,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                {generatedScript ? 'Tạo lại kịch bản' : 'Tạo kịch bản AI'}
+                {generatedScript ? 'Tạo lại (thay thế)' : 'Tạo kịch bản AI'}
               </>
             )}
           </Button>
