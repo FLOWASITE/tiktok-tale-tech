@@ -1116,13 +1116,22 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/scripts')}
+                  onClick={() => setEditingConfig(true)}
                   className="gap-2"
                   size="lg"
                 >
-                  <FileText className="w-4 h-4" />
-                  Để sau, xem kịch bản
+                  <Sparkles className="w-4 h-4" />
+                  Chỉnh sửa cấu hình
                 </Button>
+              </div>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/scripts')}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                >
+                  Để sau, xem danh sách kịch bản
+                </button>
               </div>
             </div>
           );
