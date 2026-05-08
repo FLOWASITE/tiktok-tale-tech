@@ -1395,35 +1395,34 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
 
 function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string, voiceRegionLabel: string, spec?: PlatformSpec): string {
   const sceneSec = spec?.sceneDurationSec ?? 8;
-  const endTs = `00:${String(sceneSec).padStart(2, '0')}`;
   const aspectLine = spec ? `\n• Aspect: ${spec.aspect} (${spec.platformLabel})\n• Framing: ${spec.framingHint}\n• Safe zone: ${spec.safeZone}` : '';
-  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ được render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip — đã tối ưu MIN số clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG có cut/transition trong cùng 1 prompt.\n- Mỗi clip dài ${spec.sceneDurationSec}s → BẮT BUỘC mô tả **chuyển động liên tục** (subject action + camera move 1 hướng) để clip không bị tĩnh/lỳ.\n- HOOK retention: nếu là PROMPT 1, mở đầu 0-3s phải có yếu tố visual hook (close-up biểu cảm, motion blur, gesture mạnh) — KHÔNG cần tách thành clip riêng.\n- Tránh chuyển động phức tạp đa hướng (drift risk khi clip ≥10s).\n- Camera move chỉ 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- Subject action liên tục trong suốt ${spec.sceneDurationSec}s, không có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).\n- KHÔNG chia nhỏ 1 prompt thành nhiều moment — pacing được kiểm soát bởi voiceover/subtitle, không phải số clip.` : '';
-  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules} — chỉ subject ACTION/biểu cảm thay đổi giữa các PROMPT, mọi thứ khác giữ y nguyên.${modelLine}` : '';
+  // Detect Veo (có audio gen) vs các model TTS-only (Seedance/Kling)
+  const isVeoLikeModel = !!spec && /veo/i.test(spec.recommendedVideoModel || '');
+  const audioBlock = isVeoLikeModel
+    ? `\n\n[AUDIO NOTES — Veo native audio]\n• Ambience: [âm thanh môi trường phù hợp bối cảnh]\n• SFX: None (hoặc hiệu ứng cụ thể nếu cần)\n• Music mood: [subtle/building/emotional tùy nội dung]`
+    : `\n\n[AUDIO NOTES — TTS hậu kỳ]\n• Voiceover tone: [calm / energetic / intimate / authoritative]\n• Emotion cue: [cảm xúc chủ đạo cho TTS]\n• KHÔNG ghi SFX/Music (model render không tạo audio — sẽ thêm ở post)`;
+  const modelLine = spec ? `\n\n[AI RENDER MODEL]\nMỗi PROMPT sẽ render bằng **${spec.recommendedVideoModelLabel}** (cap ${spec.sceneDurationSec}s/clip).\n- Viết visual prompt cho 1 cảnh duy nhất, KHÔNG cut/transition trong cùng prompt.\n- Mô tả **chuyển động liên tục** (subject action + camera move 1 hướng) tránh clip tĩnh.\n- HOOK retention: PROMPT 1 cần yếu tố visual hook (close-up biểu cảm, motion blur, gesture mạnh) ngay trong 0-1s đầu.\n- Camera 1 hướng (dolly/pan/tilt) hoặc static — tránh whip pan, 360° spin.\n- 1 subject action xuyên suốt clip, KHÔNG có sự kiện thứ 2 (vd: "uống cà phê → đứng dậy" = 2 prompts).` : '';
+  const continuityLine = spec ? `\n\n[CONTINUITY]\n${spec.continuityRules}\nTừ scene #2 trở đi: thêm note "(Same setting/wardrobe/lighting as previous scene)" vào trường Background — VẪN PHẢI viết đầy đủ các trường khác. KHÔNG được rút gọn scene thành "Same as ...".${modelLine}` : '';
   switch(purpose) {
     case 'ai_video':
     case 'ai_video_veo3':
     case 'ai_video_minimax':
-      return `PROMPT X [00:00-${endTs}]:
+      return `PROMPT <N> [HH:MM-HH:MM]:    ← thay <N> bằng số scene (1, 2, 3, …); thay timestamp bằng giá trị từ "DURATION BUDGET" ở trên (KHÔNG copy ký tự <N> hoặc HH:MM nguyên văn)
 
-[VISUAL DIRECTION]
+[VISUAL DIRECTION — viết bằng tiếng Anh để AI render hiểu chính xác]
 • Shot: ${spec ? spec.framingHint.split(',')[0] : 'Medium shot (35mm)'}
 • Camera: ${spec?.cameraStyle ?? 'Static with subtle breathing movement'}
 • Lighting: Soft natural daylight from window
-• Background: Phù hợp ngữ cảnh, slightly blurred${aspectLine}
+• Background: Setting matching context, slightly blurred${aspectLine}
 
-[CHARACTER ACTION]
-(Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
+[CHARACTER ACTION — chỉ định rõ tên nhân vật xuất hiện]
+(Theo body language của ${characterTypeName} — mô tả tư thế, chuyển động tay, gật đầu, ánh mắt. Nếu nhiều nhân vật, gọi rõ tên, KHÔNG dùng đại từ mơ hồ "anh ấy/cô ấy".)
 
-[DIALOGUE - max ~${getWordBudget(sceneSec)} từ cho ${sceneSec}s]
-"..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
+[DIALOGUE — tuân thủ word budget của scene này theo CONTENT DENSITY ở trên]
+"..." (Tiếng Việt, xưng hô và câu nói đặc trưng theo ${characterTypeName})
 
 [TONE & DELIVERY]
-${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
-
-[AUDIO NOTES - For VEO 3]
-• Ambience: [âm thanh môi trường phù hợp bối cảnh]
-• SFX: None (hoặc hiệu ứng cụ thể nếu cần)
-• Music mood: [subtle/building/emotional tùy theo nội dung]${spec ? `\n\n[TEXT OVERLAY]\n${spec.textOverlayPosition} — chỉ dùng khi cần (≤6 từ, không che subject)` : ''}${continuityLine}`;
+${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn], pause: [vị trí nghỉ]${audioBlock}${spec ? `\n\n[TEXT OVERLAY]\n${spec.textOverlayPosition} — chỉ dùng khi cần (≤6 từ, không che subject)` : ''}${continuityLine}`;
 
 
     case 'teleprompter':
