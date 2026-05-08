@@ -28,7 +28,7 @@ import { ScriptViewer } from '@/components/ScriptViewer';
 import { QuickClipTab } from './QuickClipTab';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterProductMap } from './CharacterProductMap';
-import { AdminModelBadge } from '@/components/shared/AdminModelBadge';
+
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { cn } from '@/lib/utils';
@@ -242,13 +242,6 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
                 {script.duration && (
                   <span className="text-[11px] text-muted-foreground">· {script.duration}s</span>
                 )}
-                <span className="ml-auto">
-                  <AdminModelBadge
-                    functionName="generate-video"
-                    defaultModel="geminigen/veo-3.1-fast"
-                    organizationId={currentOrganization?.id}
-                  />
-                </span>
               </div>
             </div>
           </div>

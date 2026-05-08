@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -345,7 +346,10 @@ export function QuickClipTab({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="VD: Cô gái cười dịu dàng trong vườn hoa hồng, ánh sáng ban mai, máy quay slow-motion zoom vào khuôn mặt..."
-          className="min-h-[100px] resize-none text-sm"
+          className={cn(
+            'resize-y text-sm leading-relaxed',
+            embedded ? 'min-h-[280px] lg:min-h-[420px]' : 'min-h-[140px]',
+          )}
           disabled={generating || enhancing}
         />
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -439,10 +443,12 @@ export function QuickClipTab({
       )}
 
       {/* Aspect ratio */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
-        <AspectRatioPicker value={aspect} onChange={setAspect} disabled={generating} />
-      </div>
+      {!embedded && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
+          <AspectRatioPicker value={aspect} onChange={setAspect} disabled={generating} />
+        </div>
+      )}
 
       {/* Duration */}
       <div className="space-y-2">
@@ -460,21 +466,22 @@ export function QuickClipTab({
         />
       </div>
 
-      {/* Model — read-only, do Admin cấu hình */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Model AI</Label>
-        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20 border border-border/40">
-          <AdminModelBadge
-            functionName="generate-video"
-            defaultModel={DEFAULT_VIDEO_MODEL}
-            organizationId={currentOrganization?.id}
-            labelMap={VIDEO_MODEL_LABELS}
-          />
-          <span className="text-[10px] text-muted-foreground">
-            {selectedModel?.description ?? 'Admin chưa cấu hình'}
-          </span>
+      {!embedded && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Model AI</Label>
+          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20 border border-border/40">
+            <AdminModelBadge
+              functionName="generate-video"
+              defaultModel={DEFAULT_VIDEO_MODEL}
+              organizationId={currentOrganization?.id}
+              labelMap={VIDEO_MODEL_LABELS}
+            />
+            <span className="text-[10px] text-muted-foreground">
+              {selectedModel?.description ?? 'Admin chưa cấu hình'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Cost preview */}
       <Alert className="border-border/40 bg-muted/30">
