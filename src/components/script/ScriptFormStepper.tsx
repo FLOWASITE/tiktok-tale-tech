@@ -1053,31 +1053,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* ====== Step 4: Tạo Video — empty state khi chưa có script ====== */}
-        {currentStep === STEP_VIDEO && !generatedScript && (
-          <div className="space-y-5 animate-fade-in">
-            <div className="text-center py-8">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-3">
-                <Video className="w-7 h-7 text-muted-foreground" />
-              </div>
-              <h3 className="font-semibold text-lg text-foreground">Cần kịch bản trước khi tạo video</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Quay lại bước "Tạo kịch bản" để AI sinh kịch bản. Sau đó bạn có thể chọn từng scene để quay trong Video Studio.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(STEP_GENERATE)}
-                className="gap-2 mt-4"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Quay lại tạo kịch bản
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ====== Step 4: Tạo Video (only when ai_video + có script đã tạo) ====== */}
+        {/* ====== Step 4: Tạo Video — chỉ hiển thị khi đã có script (xem buildSteps) ====== */}
         {currentStep === STEP_VIDEO && generatedScript && (() => {
           const prompts = parseScriptContent(
             generatedScript.content,
@@ -1089,54 +1065,36 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               toast.error('Kịch bản chưa có scene nào để chuyển sang Video Studio.');
               return;
             }
-            // Mở thẳng workspace của script trong tab Kịch bản & Quay
             navigate(`/videos?tab=scripts&view=${generatedScript.id}`, { state: navState });
           };
           return (
             <div className="space-y-5 animate-fade-in">
               <div className="text-center py-3">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
-                  <Clapperboard className="w-7 h-7 text-primary" />
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-foreground/[0.05] border border-border/40 mb-3">
+                  <Clapperboard className="w-7 h-7 text-foreground/70" />
                 </div>
-                <h3 className="font-semibold text-lg text-foreground">Kịch bản đã sẵn sàng — chuyển sang Video Studio</h3>
+                <h3 className="font-semibold text-lg text-foreground">Kịch bản sẵn sàng quay</h3>
                 <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                   {prompts.length > 0
-                    ? `Đã phát hiện ${prompts.length} scene. Chọn scene để bắt đầu quay, hoặc mở toàn bộ trong Studio.`
-                    : 'Chưa phát hiện scene nào — bạn vẫn có thể mở Studio để tạo Quick Clip thủ công.'}
+                    ? `Đã phát hiện ${prompts.length} scene. Mở Video Studio để chọn nhân vật, render từng scene và ghép phim.`
+                    : 'Chưa phát hiện scene — bạn vẫn có thể mở Studio để tạo Quick Clip thủ công.'}
                 </p>
               </div>
 
-              {/* Scene list */}
+              {/* Compact summary */}
               {prompts.length > 0 && (
-                <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
-                    <Film className="w-4 h-4 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">Storyboard</p>
-                    <span className="ml-auto text-xs text-muted-foreground font-mono">{prompts.length} scene</span>
+                <div className="rounded-xl border border-border/40 bg-card/50 p-4 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
+                    <Film className="w-4 h-4 text-foreground/70" />
                   </div>
-                  <div className="divide-y divide-border/30 max-h-[320px] overflow-y-auto">
-                    {prompts.map((p, idx) => {
-                      const preview = (p.rawContent || `${p.motion ?? ''} ${p.dialogue ?? ''}`).trim();
-                      return (
-                        <button
-                          key={p.promptNumber}
-                          type="button"
-                          onClick={() => handleOpenStudio(idx)}
-                          className="w-full text-left px-4 py-3 hover:bg-accent/30 transition-colors flex items-start gap-3 group"
-                        >
-                          <span className="shrink-0 mt-0.5 inline-flex items-center justify-center w-7 h-7 rounded-md bg-foreground/[0.05] text-xs font-mono font-semibold text-foreground/80 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                            {p.promptNumber}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-foreground line-clamp-2">{preview.slice(0, 200) || 'Scene không có mô tả'}</p>
-                            <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-muted-foreground">
-                              {p.duration && <span className="px-1.5 py-0.5 rounded bg-foreground/[0.04]">{p.duration}</span>}
-                              <span className="opacity-60 group-hover:opacity-100 transition-opacity">Quay scene này →</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{prompts.length} scene · ~{prompts.reduce((acc, p) => {
+                      const m = p.duration?.match(/(\d+)/);
+                      return acc + (m ? parseInt(m[1], 10) : 5);
+                    }, 0)}s tổng</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      Storyboard chi tiết + render từng scene sẽ hiển thị trong Studio.
+                    </p>
                   </div>
                 </div>
               )}
@@ -1145,7 +1103,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 <Button
                   type="button"
                   onClick={() => handleOpenStudio(0)}
-                  className="gap-2 gradient-primary glow-primary flex-1"
+                  className="gap-2 flex-1 bg-foreground text-background hover:bg-foreground/90"
                   size="lg"
                 >
                   <Video className="w-4 h-4" />
