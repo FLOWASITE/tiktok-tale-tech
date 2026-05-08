@@ -150,6 +150,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   // Track if user manually changed video_type or character_type
   const [userOverrodeVideoType, setUserOverrodeVideoType] = useState(false);
   const [userOverrodeCharacterType, setUserOverrodeCharacterType] = useState(false);
+  const [editingConfig, setEditingConfig] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: initialTopic || '',
