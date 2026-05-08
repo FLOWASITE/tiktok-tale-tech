@@ -1769,8 +1769,13 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
 
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
-  - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
+  - Có ghi rõ "(Same setting/wardrobe as previous scene)" trong mỗi scene từ #2 trở đi?
   - KHÔNG thay đổi setting đột ngột giữa scenes?
+
+□ **HEADER FORMAT NGHIÊM NGẶT?**
+  - MỖI scene PHẢI bắt đầu bằng "PROMPT <N> [HH:MM-HH:MM]:" ở ĐẦU DÒNG (không thụt lề, không bullet).
+  - TUYỆT ĐỐI không xuất hiện chuỗi "PROMPT <số>" bên trong nội dung của scene khác — nếu cần tham chiếu, viết "scene trước" hoặc "previous scene".
+  - Mỗi scene có CHARACTER ACTION + DIALOGUE riêng (KHÔNG được rỗng hoặc chỉ ghi "Same as ...").
 
 □ **CONTENT DENSITY VỪA THỜI LƯỢNG?**
   - Mỗi scene Xs có ≤ X×2.5 từ dialogue? (2.5 từ/giây = tốc độ nói tự nhiên tiếng Việt)
