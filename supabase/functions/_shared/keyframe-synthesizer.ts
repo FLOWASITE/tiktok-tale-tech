@@ -190,6 +190,7 @@ ${charsWithRef.length > 1 ? '- Keep each character distinct — do not merge or 
   if (imageDataUrls.length === 0) return null;
 
   // ── Call image edit (primary → fallback) ────────────────────
+  const PRIMARY_MODEL = await resolveKeyframeModel(supabase, organizationId);
   let outDataUrl: string | null = null;
   let modelUsed = PRIMARY_MODEL;
   try {
