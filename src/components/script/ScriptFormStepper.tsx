@@ -108,18 +108,19 @@ const STEP_SOCIAL_FORMAT = 2;
 const STEP_GENERATE = 3;
 const STEP_VIDEO = 4;
 
-const buildSteps = (isVideoAi: boolean, hasGeneratedScript: boolean): Step[] => {
+const buildSteps = (isVideoAi: boolean, _hasGeneratedScript: boolean): Step[] => {
   const base: Step[] = [
     { id: STEP_CONTENT, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
   ];
   if (isVideoAi) {
     base.push({ id: STEP_SOCIAL_FORMAT, title: 'Định dạng Social', icon: <Smartphone className="w-4 h-4" /> });
   }
-  base.push({ id: STEP_GENERATE, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> });
-  // Chỉ hiện Step "Tạo Video" sau khi đã có script (tránh empty state confused)
-  if (isVideoAi && hasGeneratedScript) {
-    base.push({ id: STEP_VIDEO, title: 'Tạo Video', icon: <Video className="w-4 h-4" /> });
-  }
+  // Step "Kịch bản & Quay" gộp tạo script + chuyển vào Studio cho Video AI
+  base.push({
+    id: STEP_GENERATE,
+    title: isVideoAi ? 'Kịch bản & Quay' : 'Tạo kịch bản',
+    icon: isVideoAi ? <Clapperboard className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />,
+  });
   return base;
 };
 
@@ -149,6 +150,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   // Track if user manually changed video_type or character_type
   const [userOverrodeVideoType, setUserOverrodeVideoType] = useState(false);
   const [userOverrodeCharacterType, setUserOverrodeCharacterType] = useState(false);
+  const [editingConfig, setEditingConfig] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: initialTopic || '',
@@ -338,11 +340,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [visibleStepIds, currentStep]);
 
-  // Auto-advance to STEP_VIDEO khi script vừa được tạo xong
+  // Sau khi sinh xong script, đánh dấu STEP_GENERATE đã hoàn thành (vẫn ở cùng step,
+  // render State B "Kịch bản sẵn sàng quay")
   useEffect(() => {
     if (generatedScript && isVideoAi && currentStep === STEP_GENERATE && !isLoading) {
       setCompletedSteps((prev) => Array.from(new Set([...prev, STEP_GENERATE])));
-      setCurrentStep(STEP_VIDEO);
+      setEditingConfig(false);
     }
   }, [generatedScript, isVideoAi, currentStep, isLoading]);
 
@@ -802,7 +805,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             duration={formData.duration}
           />
         )}
-        {currentStep === STEP_GENERATE && !isLoading && (
+        {currentStep === STEP_GENERATE && !isLoading && (!isVideoAi || !generatedScript || editingConfig) && (
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
@@ -1053,8 +1056,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* ====== Step 4: Tạo Video — chỉ hiển thị khi đã có script (xem buildSteps) ====== */}
-        {currentStep === STEP_VIDEO && generatedScript && (() => {
+        {/* ====== State B (Video AI): Kịch bản sẵn sàng quay — render trong cùng STEP_GENERATE ====== */}
+        {currentStep === STEP_GENERATE && !isLoading && isVideoAi && generatedScript && !editingConfig && (() => {
           const prompts = parseScriptContent(
             generatedScript.content,
             generatedScript.script_purpose as ScriptPurpose,
@@ -1113,13 +1116,22 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/scripts')}
+                  onClick={() => setEditingConfig(true)}
                   className="gap-2"
                   size="lg"
                 >
-                  <FileText className="w-4 h-4" />
-                  Để sau, xem kịch bản
+                  <Sparkles className="w-4 h-4" />
+                  Chỉnh sửa cấu hình
                 </Button>
+              </div>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/scripts')}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                >
+                  Để sau, xem danh sách kịch bản
+                </button>
               </div>
             </div>
           );
@@ -1139,8 +1151,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {currentStep === STEP_VIDEO ? (
-          // Step 4 has its own primary CTAs inline — không cần submit nữa
+        {currentStep === STEP_GENERATE && isVideoAi && generatedScript && !editingConfig ? (
+          // State B: CTAs đã render inline phía trên
           <div />
         ) : currentStep !== STEP_GENERATE ? (
           <Button
@@ -1155,7 +1167,10 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         ) : (
           <Button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => {
+              if (editingConfig) setEditingConfig(false);
+              handleSubmit();
+            }}
             disabled={isLoading || !formData.topic.trim()}
             className={cn(
               "gap-2 min-w-[180px] bg-foreground text-background hover:bg-foreground/90",
@@ -1177,7 +1192,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {currentStep === STEP_GENERATE && !isLoading && (
+      {currentStep === STEP_GENERATE && !isLoading && !(isVideoAi && generatedScript && !editingConfig) && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>

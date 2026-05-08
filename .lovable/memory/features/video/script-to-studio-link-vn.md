@@ -1,8 +1,15 @@
 ---
 name: Script→Video Studio Link
-description: Tab "Kịch bản & Quay" workspace 2-cột — storyboard rail trái + Quick Clip embedded phải, không còn tab Quick Clip độc lập
+description: ScriptFormStepper Video AI gộp 3 bước (Nội dung → Định dạng Social → Kịch bản & Quay); workspace 2-cột storyboard rail + QuickClip embedded
 type: feature
 ---
+
+## Stepper (Video AI, purpose=ai_video)
+3 bước: `[1 Nội dung] [2 Định dạng Social] [3 Kịch bản & Quay]`. Step 3 có 2 trạng thái:
+- **State A** (chưa có script): config chips + CTA "Tạo kịch bản AI".
+- **State B** (đã có `generatedScript`, `!editingConfig`): summary scene + 2 CTA "Mở Video Studio" / "Chỉnh sửa cấu hình" + text-link "Để sau, xem kịch bản". Toggle về State A qua `setEditingConfig(true)`; submit lại tự reset về State B.
+- Footer "Tiếp tục"/"Tạo kịch bản" được ẩn khi ở State B (CTAs đã render inline).
+- Constant `STEP_VIDEO=4` còn trong file nhưng không add vào `buildSteps()` nữa.
 
 ## Tab structure (sau merge)
 Video Studio còn 5 tab: `[Kịch bản & Quay] [Storyboard] [Audio] [Gallery] [Chi phí]`. Tab "Quick Clip" độc lập **đã bị xoá** — Quick Clip giờ là panel "Quay scene" bên trong workspace của 1 kịch bản.
