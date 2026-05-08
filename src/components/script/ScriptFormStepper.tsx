@@ -1151,8 +1151,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {currentStep === STEP_VIDEO ? (
-          // Step 4 has its own primary CTAs inline — không cần submit nữa
+        {currentStep === STEP_GENERATE && isVideoAi && generatedScript && !editingConfig ? (
+          // State B: CTAs đã render inline phía trên
           <div />
         ) : currentStep !== STEP_GENERATE ? (
           <Button
@@ -1167,7 +1167,10 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         ) : (
           <Button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => {
+              if (editingConfig) setEditingConfig(false);
+              handleSubmit();
+            }}
             disabled={isLoading || !formData.topic.trim()}
             className={cn(
               "gap-2 min-w-[180px] bg-foreground text-background hover:bg-foreground/90",
@@ -1189,7 +1192,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {currentStep === STEP_GENERATE && !isLoading && (
+      {currentStep === STEP_GENERATE && !isLoading && !(isVideoAi && generatedScript && !editingConfig) && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>
