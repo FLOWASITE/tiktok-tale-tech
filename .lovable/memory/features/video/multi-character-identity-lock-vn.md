@@ -23,3 +23,9 @@ type: feature
 - Banner amber khi chưa chọn character ở `QuickClipTab` + `StoryboardVideoTab`.
 - `autoPickModelForAspect(aspect, hasCharacter)`: hasChar=true → trả thẳng `geminigen/veo-3.1`.
 - `useVideoGeneration` log `[generate-video req]` + 2 toast: identity lock + keyframe synthesized.
+
+## ⚙️ Admin AI override (NEW)
+- Keyframe Synthesis registered as virtual function `keyframe-synthesizer` trong `AI_FUNCTIONS` (category=`video`, type=`image`).
+- Hiện ở `/admin/ai` → tab Functions → group Video. Admin có thể đổi `model_override` qua `ai_function_configs`.
+- `synthesizeKeyframe` runtime đọc `model_override` (org-first, then global), allowlist 3 model image-edit: `google/gemini-3.1-flash-image-preview` (default), `google/gemini-3-pro-image-preview` (chất lượng cao hơn), `google/gemini-2.5-flash-image`.
+- Fallback model luôn là `gemini-2.5-flash-image` (hardcode, ko override).
