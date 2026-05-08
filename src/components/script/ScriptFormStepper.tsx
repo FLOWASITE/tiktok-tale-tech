@@ -152,6 +152,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const [userOverrodeVideoType, setUserOverrodeVideoType] = useState(false);
   const [userOverrodeCharacterType, setUserOverrodeCharacterType] = useState(false);
   const [editingConfig, setEditingConfig] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: initialTopic || '',
