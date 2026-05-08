@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileVideo, Plus, Trash2, ChevronLeft, ChevronRight, ArrowLeft, Clapperboard } from 'lucide-react';
 import { ScriptWorkspace } from '@/components/video/ScriptWorkspace';
+import { VideoCreationStepper } from '@/components/video/VideoCreationStepper';
 
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
