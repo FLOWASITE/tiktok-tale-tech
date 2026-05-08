@@ -1572,9 +1572,10 @@ function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegi
 
 ## 5. CONTINUITY CONTRACT (BẮT BUỘC để stitch mượt)
 ${spec.continuityRules}
-→ Trong mỗi PROMPT từ #2 trở đi, viết explicit: "(Same setting/wardrobe/lighting as previous scene)" để AI video model biết phải match. KHÔNG viết "as PROMPT 1" — chỉ "previous scene".
-→ Chỉ thay đổi: subject ACTION, biểu cảm, dialogue. Không thay đổi: outfit, background, lighting setup, camera position cơ bản.
-→ ⚠️ KHÔNG được nhắc lại chuỗi "PROMPT <số>" bên trong nội dung scene khác (gây vỡ parser). Header "PROMPT N [..]:" chỉ xuất hiện 1 lần, ở đầu dòng, làm tiêu đề scene.`;
+→ Từ scene #2 trở đi: BẮT BUỘC viết đầy đủ tất cả trường (Visual Direction, Character Action, Dialogue, Tone, Audio Notes). Chỉ THÊM 1 dòng note ở Background: "(Same setting/wardrobe/lighting as previous scene)" — KHÔNG được rút gọn scene chỉ còn "Same as ...". Render engine sẽ không có dữ liệu để dựng.
+→ Chỉ thay đổi giữa scenes: subject ACTION, biểu cảm, dialogue. Giữ y nguyên: outfit, background, lighting, camera position cơ bản.
+→ ⚠️ TUYỆT ĐỐI KHÔNG nhắc chuỗi "PROMPT <số>" bên trong nội dung scene khác (gây vỡ parser). Header "PROMPT N [..]:" chỉ xuất hiện 1 lần ở đầu dòng làm tiêu đề scene; nếu cần tham chiếu thì viết "scene trước" hoặc "previous scene".
+→ KHÔNG bọc header bằng markdown bold (\`**PROMPT 1:**\` ❌). Header phải là plain text.`;
   }
 }
 
@@ -1709,9 +1710,11 @@ function getPurposeOutputRequirements(purpose: string, videoTypeName: string, ch
       return `# YÊU CẦU ĐẦU RA
 – Chỉ xuất danh sách PROMPT theo định dạng Video AI ở trên
 – Mỗi PROMPT PHẢI có đầy đủ: timestamp, VISUAL DIRECTION, CHARACTER ACTION, DIALOGUE, TONE & DELIVERY, AUDIO NOTES
-– PHẢI theo cấu trúc của thể loại "${videoTypeName}"
+– PHẢI MAP các GIAI ĐOẠN của thể loại "${videoTypeName}" vào đúng số scene đã được cấp (KHÔNG dập khuôn 1 phase = 1 PROMPT — phải scale theo tỉ lệ)
 – PHẢI theo xưng hô và giọng điệu của "${characterTypeName}"
-– Không giải thích, không bình luận`;
+– Mỗi scene cách nhau ĐÚNG 1 dòng trống. KHÔNG dùng \`---\` hoặc horizontal rule giữa các scene.
+– KHÔNG bọc header bằng markdown bold (header phải là plain text "PROMPT N [HH:MM-HH:MM]:")
+– KHÔNG giải thích, không bình luận, không preamble đầu/cuối`;
   }
 }
 
@@ -1780,9 +1783,10 @@ ${hook.framework ? `### Framework: ${hook.framework}` : ''}
 ${hook.psychology_reason ? `### Lý do tâm lý: ${hook.psychology_reason}` : ''}
 
 NGUYÊN TẮC:
-- PROMPT 1 PHẢI bắt đầu bằng hook này
-- Các prompt sau tiếp nối tự nhiên từ hook
-- Giữ nguyên tone và energy của hook xuyên suốt
+- PROMPT 1 PHẢI bắt đầu bằng hook này.
+- ⚠️ Nếu hook DÀI hơn word budget của scene 1 (HOOK ngắn ~3s ≈ 7 từ), CẮT giữ phần ấn tượng nhất (1-2 câu opening). Phần còn lại có thể chuyển sang Text Overlay hoặc dòng đầu của scene 2 — KHÔNG ép cả hook vào scene 1 gây vỡ word budget, cũng KHÔNG để scene 1 trống dialogue.
+- Các prompt sau tiếp nối tự nhiên từ hook (KHÔNG chào hỏi lại, KHÔNG reset).
+- Giữ nguyên tone và energy của hook xuyên suốt.
 `;
   }
 
