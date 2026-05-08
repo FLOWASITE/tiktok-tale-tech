@@ -339,11 +339,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [visibleStepIds, currentStep]);
 
-  // Auto-advance to STEP_VIDEO khi script vừa được tạo xong
+  // Sau khi sinh xong script, đánh dấu STEP_GENERATE đã hoàn thành (vẫn ở cùng step,
+  // render State B "Kịch bản sẵn sàng quay")
   useEffect(() => {
     if (generatedScript && isVideoAi && currentStep === STEP_GENERATE && !isLoading) {
       setCompletedSteps((prev) => Array.from(new Set([...prev, STEP_GENERATE])));
-      setCurrentStep(STEP_VIDEO);
+      setEditingConfig(false);
     }
   }, [generatedScript, isVideoAi, currentStep, isLoading]);
 
