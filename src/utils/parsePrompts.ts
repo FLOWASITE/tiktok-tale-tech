@@ -361,7 +361,7 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
 
 export function getPromptCount(content: string, purpose?: ScriptPurpose): number {
   const numberPattern = getBlockNumberPattern(purpose);
-  const globalPattern = new RegExp(numberPattern.source, 'gi');
+  const globalPattern = new RegExp(numberPattern.source, 'gim');
   const matches = content.match(globalPattern);
   return matches ? matches.length : 0;
 }
