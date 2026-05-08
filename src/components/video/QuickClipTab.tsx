@@ -58,19 +58,38 @@ const EXAMPLE_PROMPTS = [
 interface QuickClipTabProps {
   /** Khi true: ẩn picker/banner/scene navigator/topic chip — dùng trong ScriptWorkspace */
   embedded?: boolean;
+  /** Character IDs được chọn ở header Workspace (chỉ dùng khi embedded) */
+  sharedCharacterIds?: string[];
+  /** Character profiles tương ứng (để lấy reference image) */
+  sharedCharacters?: CharacterProfile[];
+  /** Product IDs gộp từ Workspace */
+  sharedProductIds?: string[];
 }
 
-export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
+export function QuickClipTab({
+  embedded = false,
+  sharedCharacterIds,
+  sharedCharacters,
+  sharedProductIds,
+}: QuickClipTabProps = {}) {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspect, setAspect] = useState<VideoAspectRatio>('9:16');
   const [duration, setDuration] = useState(10); // Default 10s cho 9:16 (Seedance 2 cap)
   const [enhancing, setEnhancing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
-  const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [localCharacterIds, setLocalCharacterIds] = useState<string[]>([]);
+  const [localCharacters, setLocalCharacters] = useState<CharacterProfile[]>([]);
+  const [localProductIds, setLocalProductIds] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<BrandProduct[]>([]);
+
+  // Khi embedded: dùng selection từ Workspace; otherwise dùng state nội bộ
+  const selectedCharacterIds = embedded ? (sharedCharacterIds ?? []) : localCharacterIds;
+  const selectedCharacters = embedded ? (sharedCharacters ?? []) : localCharacters;
+  const selectedProductIds = embedded ? (sharedProductIds ?? []) : localProductIds;
+  const setSelectedCharacterIds = setLocalCharacterIds;
+  const setSelectedCharacters = setLocalCharacters;
+  const setSelectedProductIds = setLocalProductIds;
   const { generateVideo, generating, generations } = useVideoGeneration();
   const { currentBrand } = useCurrentBrand();
   const { currentOrganization } = useOrganizationContext();
