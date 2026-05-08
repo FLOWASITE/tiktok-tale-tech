@@ -72,310 +72,197 @@ const VIDEO_TYPE_LABELS: Record<string, string> = {
   transformation: "Biến đổi/Kết quả",
 };
 
+// LƯU Ý KIẾN TRÚC: Cấu trúc dưới đây mô tả theo GIAI ĐOẠN (PHASE), KHÔNG hard-code số PROMPT.
+// Tổng số scene/PROMPT là biến động theo platform spec (TikTok/Reels/Shorts...) → AI phải MAP các phase
+// vào đúng số scene đã được cấp ở "TỔNG SỐ PROMPT cần tạo". KHÔNG được dập khuôn 1 phase = 1 PROMPT.
+// Quy tắc map:
+//   - PHASE đánh dấu "1 scene" → đúng 1 scene.
+//   - PHASE đánh dấu "%" → tỷ lệ scene tương ứng (làm tròn xuống, dồn còn lại sang phase chính giữa).
+//   - Nếu tổng scene quá ít so với số phase → GỘP các phase liền kề, KHÔNG bỏ phase HOOK và CTA cuối.
 const VIDEO_TYPE_INSTRUCTIONS: Record<string, string> = {
-  // Educational
   expert_share: `
 ## THỂ LOẠI: CHUYÊN GIA CHIA SẺ (Expert Share)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook authority - Khẳng định vị thế, tạo credibility ngay
-2. PROMPT 2-3: Insight 1 - Chia sẻ kiến thức độc quyền đầu tiên với ví dụ
-3. PROMPT 4-5: Insight 2 - Kiến thức thứ hai, deeper dive
-4. PROMPT 6: Insight 3 (optional) hoặc bắt đầu tổng kết
-5. PROMPT CUỐI: Value summary + CTA nhẹ
+**GIAI ĐOẠN BẮT BUỘC (map vào N scene đã được cấp):**
+- 1 scene đầu (HOOK): Khẳng định vị thế / credibility ngay lập tức.
+- ~30% scene tiếp (INSIGHT 1): Kiến thức độc quyền #1 + ví dụ cụ thể.
+- ~30% scene tiếp (INSIGHT 2): Kiến thức #2 — đào sâu hơn, có evidence.
+- ~20% scene tiếp (INSIGHT 3 hoặc tổng kết) — optional, chỉ khi còn ngân sách scene.
+- 1 scene cuối (CTA): Value summary + CTA nhẹ.
 
-**HOOK STYLE MẪU:**
-- "Điều này ít ai trong ngành dám nói thẳng..."
-- "Sau 10 năm trong nghề, tôi nhận ra một sự thật..."
-- "Có một bí mật mà các chuyên gia thường giữ cho riêng mình..."
-
-**TONE & STYLE:**
-- Authority voice: Nói như người đã làm, đã thấy
-- Evidence-based: Có ví dụ thực tế, case cụ thể
-- Generous: Chia sẻ thực sự có giá trị, không giữ lại
+**HOOK STYLE MẪU:** "Điều ít ai dám nói thẳng…", "Sau 10 năm trong nghề, tôi nhận ra…", "Bí mật mà các chuyên gia thường giữ…"
+**TONE & STYLE:** Authority voice, evidence-based, generous (chia sẻ thật, không giữ).
 `,
   tutorial_howto: `
 ## THỂ LOẠI: HƯỚNG DẪN HOW-TO (Tutorial)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook vấn đề - Nêu kết quả người xem sẽ đạt được
-2. PROMPT 2: Setup/Chuẩn bị - Những gì cần có trước khi bắt đầu
-3. PROMPT 3-4: Bước 1 - Chi tiết, có demo trong lời nói
-4. PROMPT 5-6: Bước 2 - Tiếp nối logic
-5. PROMPT 7: Bước 3 + Kết quả cuối cùng
-6. PROMPT CUỐI: Tips bonus + CTA
+**GIAI ĐOẠN BẮT BUỘC (map vào N scene):**
+- 1 scene đầu (HOOK): Nêu kết quả người xem sẽ đạt được sau video.
+- ~15% scene (SETUP): Chuẩn bị / nguyên liệu / điều kiện cần.
+- ~60% scene (STEPS): Các bước thực hiện theo trình tự — mỗi bước nguyên 1 scene, KHÔNG nhồi 2 bước vào 1 scene. Nếu thiếu scene, gộp bước nhỏ chứ không bỏ.
+- 1 scene (RESULT): Show kết quả cuối cùng.
+- 1 scene cuối (CTA): Tip bonus + CTA.
 
-**HOOK STYLE MẪU:**
-- "Sau video này, bạn sẽ biết cách... chỉ trong 3 bước"
-- "Đây là cách đơn giản nhất để..."
-- "Hãy làm theo tôi, từng bước một..."
-
-**TONE & STYLE:**
-- Patient teacher: Kiên nhẫn, không skip bước
-- Action-oriented: Mỗi câu là một hành động cụ thể
-- Checkpoint: "Bạn làm được bước này chưa?" giữa các bước
+**HOOK STYLE MẪU:** "Sau video này bạn sẽ biết cách…", "Cách đơn giản nhất để…", "Làm theo tôi từng bước…"
+**TONE & STYLE:** Patient teacher, action-oriented, có checkpoint giữa các bước.
 `,
   analyze_explain: `
 ## THỂ LOẠI: PHÂN TÍCH - GIẢI THÍCH (Deep Dive)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook câu hỏi lớn - Đặt vấn đề gây tò mò
-2. PROMPT 2: Context - Tại sao câu hỏi này quan trọng
-3. PROMPT 3-4: Layer 1 - Phân tích bề mặt
-4. PROMPT 5-6: Layer 2 - Đào sâu hơn, reveal insight
-5. PROMPT 7: Layer 3 - Kết nối các ý, big picture
-6. PROMPT CUỐI: Takeaway + perspective mới
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): Đặt câu hỏi lớn / vấn đề gây tò mò.
+- ~15% scene (CONTEXT): Tại sao quan trọng.
+- ~25% scene (LAYER 1): Phân tích bề mặt.
+- ~25% scene (LAYER 2): Đào sâu, reveal insight.
+- ~15% scene (LAYER 3): Kết nối các điểm, big picture.
+- 1 scene cuối (TAKEAWAY): Perspective mới + CTA.
 
-**HOOK STYLE MẪU:**
-- "Tại sao điều này xảy ra? Câu trả lời sẽ khiến bạn ngạc nhiên..."
-- "Hãy cùng phân tích điều mà 90% người bỏ qua..."
-- "Đằng sau hiện tượng này là một logic ít ai nhận ra..."
-
-**TONE & STYLE:**
-- Analytical: Logic, có hệ thống, layer by layer
-- Connector: Kết nối các điểm thành bức tranh lớn
-- Aha-moments: Tạo những khoảnh khắc "à thì ra là vậy"
+**HOOK STYLE MẪU:** "Tại sao điều này xảy ra?…", "90% người bỏ qua điều này…", "Đằng sau hiện tượng là logic…"
+**TONE & STYLE:** Analytical, layer by layer, tạo aha-moment.
 `,
   listicle: `
 ## THỂ LOẠI: DANH SÁCH TIPS (Listicle)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook số lượng - "5 điều...", "Top 7..."
-2. PROMPT 2: Tip #1 (quan trọng nhất hoặc gây sốc nhất)
-3. PROMPT 3: Tip #2
-4. PROMPT 4: Tip #3
-5. PROMPT 5: Tip #4
-6. PROMPT 6: Tip #5 (hoặc Bonus tip)
-7. PROMPT CUỐI: Recap nhanh + CTA save video
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): Nêu số lượng — "5 điều…", "Top 7…".
+- N-2 scene giữa (TIPS): Mỗi TIP = 1 scene riêng, đánh số thứ tự rõ ràng. Số tip phải khớp số scene khả dụng (nếu user yêu cầu "5 tips" mà chỉ có 4 scene giữa, GIẢM còn 4 tips và sửa hook tương ứng).
+- 1 scene cuối (RECAP + CTA): Nhắc nhanh các tips + CTA save video.
 
-**HOOK STYLE MẪU:**
-- "5 điều bạn PHẢI biết về... (đặc biệt số 3)"
-- "Top 7 sai lầm mà 90% người mắc phải..."
-- "3 tips nhanh để... mà bạn có thể áp dụng NGAY HÔM NAY"
-
-**TONE & STYLE:**
-- Punchy: Ngắn gọn, súc tích, không dài dòng
-- Numbered: Luôn nói số thứ tự rõ ràng
-- Memorable: Mỗi tip là một soundbite độc lập
+**HOOK STYLE MẪU:** "5 điều bạn PHẢI biết (đặc biệt số 3)…", "Top 7 sai lầm 90% mắc phải…"
+**TONE & STYLE:** Punchy, numbered, mỗi tip là soundbite độc lập.
 `,
   warning_mistake: `
 ## THỂ LOẠI: CẢNH BÁO - SAI LẦM (Warning)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook shock - Nêu sai lầm gây hậu quả nghiêm trọng
-2. PROMPT 2: Sai lầm #1 - Mô tả cụ thể + hậu quả
-3. PROMPT 3: Tại sao người ta mắc sai lầm này
-4. PROMPT 4: Sai lầm #2 (nếu có) hoặc deep dive sai lầm #1
-5. PROMPT 5-6: Cách tránh/khắc phục
-6. PROMPT CUỐI: Takeaway + CTA cảnh giác
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK SHOCK): Sai lầm gây hậu quả nghiêm trọng.
+- ~30% scene (MISTAKES): Mô tả các sai lầm + hậu quả cụ thể.
+- ~25% scene (REASONS): Tại sao người ta mắc sai lầm này.
+- ~30% scene (FIX): Cách tránh / khắc phục.
+- 1 scene cuối (CTA): Takeaway + cảnh giác.
 
-**HOOK STYLE MẪU:**
-- "ĐỪNG mắc sai lầm này! 90% người đang làm sai..."
-- "Sai lầm này có thể khiến bạn mất tất cả..."
-- "Nếu bạn đang làm điều này, DỪNG LẠI NGAY!"
-
-**TONE & STYLE:**
-- Urgent but helpful: Cảnh báo nhưng không doạ dẫm
-- Solution-oriented: Luôn có giải pháp sau cảnh báo
-- FOMO-inducing: Tạo cảm giác "may mà tôi biết sớm"
+**HOOK STYLE MẪU:** "ĐỪNG mắc sai lầm này!…", "Sai lầm có thể khiến bạn mất tất cả…", "Nếu đang làm điều này, DỪNG NGAY!"
+**TONE & STYLE:** Urgent but helpful, solution-oriented, tạo "may mà tôi biết sớm".
 `,
   quick_qa: `
 ## THỂ LOẠI: HỎI - ĐÁP NHANH (Q&A)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook - "Những câu hỏi tôi hay nhận được nhất..."
-2. PROMPT 2: Q1 + Answer ngắn gọn
-3. PROMPT 3: Q2 + Answer
-4. PROMPT 4: Q3 + Answer
-5. PROMPT 5: Q4 + Answer (câu hỏi hay nhất)
-6. PROMPT CUỐI: "Còn câu hỏi nào? Comment bên dưới!"
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): "Câu hỏi tôi hay nhận được nhất…"
+- N-2 scene giữa (Q&A PAIRS): Mỗi cặp Q+A nguyên 1 scene, format "Câu hỏi: … Trả lời: …". Số Q&A khớp số scene khả dụng.
+- 1 scene cuối (CTA): "Còn câu hỏi nào? Comment bên dưới!"
 
-**HOOK STYLE MẪU:**
-- "Câu hỏi tôi nhận được nhiều nhất: ..."
-- "Bạn hỏi, tôi trả lời. Câu đầu tiên..."
-- "5 câu hỏi phổ biến nhất về..."
-
-**TONE & STYLE:**
-- Rapid-fire: Nhanh, không dài dòng
-- Format rõ: "Câu hỏi: ... Trả lời: ..."
-- Conversational: Như đang chat với bạn
+**HOOK STYLE MẪU:** "Câu hỏi tôi nhận nhiều nhất…", "Bạn hỏi, tôi trả lời…", "5 câu hỏi phổ biến về…"
+**TONE & STYLE:** Rapid-fire, conversational, format Q/A rõ.
 `,
   myth_busting: `
 ## THỂ LOẠI: BÓC PHỐT QUAN NIỆM (Myth Busting)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook - Nêu myth phổ biến mà ai cũng tin
-2. PROMPT 2: Tại sao mọi người tin điều này
-3. PROMPT 3-4: Evidence phản bác - Số liệu, logic, ví dụ
-4. PROMPT 5: Sự thật đúng đắn
-5. PROMPT 6: Tại sao sự thật này quan trọng
-6. PROMPT CUỐI: Takeaway + CTA thay đổi mindset
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): Nêu myth phổ biến.
+- ~20% scene (BELIEF): Tại sao mọi người tin myth này.
+- ~35% scene (EVIDENCE): Số liệu / logic / ví dụ phản bác.
+- ~25% scene (TRUTH): Sự thật đúng đắn + tại sao quan trọng.
+- 1 scene cuối (CTA): Takeaway + thay đổi mindset.
 
-**HOOK STYLE MẪU:**
-- "Bạn nghĩ điều này đúng? SAI HOÀN TOÀN!"
-- "90% người tin điều này, nhưng sự thật là..."
-- "Myth lớn nhất trong ngành mà tôi phải bóc trần..."
-
-**TONE & STYLE:**
-- Myth vs Reality: So sánh rõ ràng
-- Evidence-based: Có proof, không chỉ ý kiến
-- Respectful: Không chê bai người tin myth
+**HOOK STYLE MẪU:** "Bạn nghĩ điều này đúng? SAI HOÀN TOÀN!", "90% người tin, nhưng sự thật là…"
+**TONE & STYLE:** Myth vs Reality rõ ràng, evidence-based, respectful.
 `,
   before_after: `
 ## THỂ LOẠI: TRƯỚC/SAU (Before & After)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook kết quả - Tease transformation ấn tượng
-2. PROMPT 2: BEFORE - Mô tả trạng thái ban đầu, vấn đề
-3. PROMPT 3: Quyết định thay đổi - Turning point
-4. PROMPT 4-5: DURING - Quá trình, những gì đã làm
-5. PROMPT 6: AFTER - Kết quả cụ thể, có số liệu
-6. PROMPT CUỐI: Lesson learned + CTA
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): Tease transformation kết quả ấn tượng.
+- ~20% scene (BEFORE): Trạng thái ban đầu, vấn đề.
+- ~15% scene (TURNING POINT): Quyết định thay đổi.
+- ~35% scene (DURING): Quá trình, milestones cụ thể.
+- ~15% scene (AFTER): Kết quả cuối, có số liệu.
+- 1 scene cuối (CTA): Lesson learned.
 
-**HOOK STYLE MẪU:**
-- "Nhìn sự khác biệt này... từ X đến Y chỉ trong Z thời gian"
-- "Đây là TRƯỚC. Và đây là SAU 30 ngày..."
-- "Bạn sẽ không tin sự thay đổi này có thể xảy ra..."
-
-**TONE & STYLE:**
-- Authentic: Thật, không phóng đại
-- Timeline specific: Có mốc thời gian cụ thể
-- Proof-oriented: Show don't tell
+**HOOK STYLE MẪU:** "Từ X đến Y trong Z tháng…", "Đây là TRƯỚC. Và đây là SAU 30 ngày…"
+**TONE & STYLE:** Authentic, timeline cụ thể, show don't tell.
 `,
   story_pov: `
 ## THỂ LOẠI: KỂ CHUYỆN POV (Storytelling)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook tension - Bắt đầu từ đỉnh điểm hoặc twist
-2. PROMPT 2: Setup - Bối cảnh, nhân vật, tình huống
-3. PROMPT 3-4: Build up - Căng thẳng tăng dần
-4. PROMPT 5: Climax - Đỉnh điểm câu chuyện
-5. PROMPT 6: Resolution - Giải quyết
-6. PROMPT CUỐI: Lesson - Bài học rút ra
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK TENSION): Bắt đầu từ đỉnh điểm hoặc twist.
+- ~20% scene (SETUP): Bối cảnh, nhân vật, tình huống.
+- ~30% scene (BUILD UP): Căng thẳng tăng dần.
+- ~20% scene (CLIMAX): Đỉnh điểm.
+- ~15% scene (RESOLUTION): Giải quyết.
+- 1 scene cuối (LESSON): Bài học rút ra.
 
-**HOOK STYLE MẪU:**
-- "Câu chuyện này đã thay đổi cách tôi nhìn về..."
-- "POV: Bạn vừa nhận được cuộc gọi từ..."
-- "Điều xảy ra tiếp theo khiến tôi không bao giờ quên..."
-
-**TONE & STYLE:**
-- First person: Kể từ góc nhìn thứ nhất
-- Emotional arc: Có lên xuống cảm xúc
-- Vivid details: Chi tiết sống động, relatable
+**HOOK STYLE MẪU:** "Câu chuyện này thay đổi cách tôi nhìn về…", "POV: Bạn vừa nhận cuộc gọi từ…"
+**TONE & STYLE:** First-person, emotional arc, vivid details.
 `,
   day_in_life: `
 ## THỂ LOẠI: MỘT NGÀY CỦA... (Day in Life)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook morning - "Một ngày làm việc của tôi bắt đầu từ..."
-2. PROMPT 2: Buổi sáng - Routine, chuẩn bị
-3. PROMPT 3: Giữa buổi - Công việc chính
-4. PROMPT 4: Buổi trưa - Break, transition
-5. PROMPT 5: Buổi chiều - Highlight của ngày
-6. PROMPT 6: Buổi tối - Wrap up
-7. PROMPT CUỐI: Reflection + CTA
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK MORNING): Mở đầu ngày làm việc.
+- N-2 scene giữa (TIMELINE): Chia đều theo timeline trong ngày — sáng / giữa buổi / trưa / chiều / tối. Số mốc khớp số scene khả dụng (4 scene giữa → 4 mốc; 6 scene giữa → 6 mốc chi tiết hơn).
+- 1 scene cuối (REFLECTION + CTA): Wrap up + suy ngẫm.
 
-**HOOK STYLE MẪU:**
-- "Một ngày làm việc thực sự của một... trông như thế nào?"
-- "Theo tôi qua một ngày bận rộn nhất tuần..."
-- "5 giờ sáng. Ngày của tôi bắt đầu..."
-
-**TONE & STYLE:**
-- Authentic: Real, không chỉ highlight
-- Time-stamped: Có mốc thời gian
-- Behind-the-scenes: Cho thấy cả mundane moments
+**HOOK STYLE MẪU:** "Một ngày làm việc thực sự của…", "5 giờ sáng. Ngày của tôi bắt đầu…"
+**TONE & STYLE:** Authentic, time-stamped, behind-the-scenes.
 `,
   behind_scenes: `
 ## THỂ LOẠI: HẬU TRƯỜNG BTS (Behind the Scenes)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Tease - Tease kết quả final
-2. PROMPT 2: Starting point - Bắt đầu từ đâu
-3. PROMPT 3-4: Process - Quá trình thực sự
-4. PROMPT 5: Challenges - Khó khăn gặp phải
-5. PROMPT 6: Solution - Cách giải quyết
-6. PROMPT CUỐI: Final result + Lesson
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (TEASE): Tease kết quả final.
+- ~15% scene (START): Bắt đầu từ đâu.
+- ~40% scene (PROCESS): Quá trình thực sự, raw.
+- ~20% scene (CHALLENGES): Khó khăn gặp phải.
+- ~15% scene (SOLUTION): Cách giải quyết.
+- 1 scene cuối (RESULT + LESSON): Final result + bài học.
 
-**HOOK STYLE MẪU:**
-- "Đây là cách chúng tôi thực sự làm ra..."
-- "Hậu trường không bao giờ được show..."
-- "Phía sau sản phẩm này là 100 giờ làm việc..."
-
-**TONE & STYLE:**
-- Raw & honest: Không filter, show cả fail
-- Process-focused: Tập trung vào journey
-- Transparent: Cho thấy effort thực sự
+**HOOK STYLE MẪU:** "Đây là cách chúng tôi thực sự làm ra…", "Hậu trường không bao giờ được show…"
+**TONE & STYLE:** Raw & honest, process-focused, transparent.
 `,
   reaction: `
 ## THỂ LOẠI: REACTION/COMMENTARY
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook - "Tôi vừa xem/đọc... và phải nói ngay"
-2. PROMPT 2: Context - Giới thiệu ngắn về thứ đang react
-3. PROMPT 3-4: Real-time reaction - Phản ứng từng phần
-4. PROMPT 5: Analysis - Phân tích sâu hơn
-5. PROMPT 6: Opinion - Quan điểm cá nhân
-6. PROMPT CUỐI: Verdict + CTA hỏi ý kiến người xem
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): "Tôi vừa xem/đọc… và phải nói ngay".
+- ~15% scene (CONTEXT): Giới thiệu ngắn về thứ đang react.
+- ~35% scene (REACTION): Phản ứng từng phần, real-time.
+- ~25% scene (ANALYSIS): Phân tích sâu hơn.
+- ~15% scene (OPINION): Quan điểm cá nhân.
+- 1 scene cuối (VERDICT + CTA): Hỏi ý kiến người xem.
 
-**HOOK STYLE MẪU:**
-- "Tôi không thể tin điều tôi vừa thấy..."
-- "Ý kiến thật của tôi về trend đang viral này..."
-- "Phản ứng của chuyên gia khi xem..."
-
-**TONE & STYLE:**
-- Genuine: Phản ứng thật, không fake
-- Opinionated: Có quan điểm rõ ràng
-- Interactive: Hỏi ý kiến người xem
+**HOOK STYLE MẪU:** "Tôi không thể tin điều vừa thấy…", "Ý kiến thật về trend đang viral…"
+**TONE & STYLE:** Genuine, opinionated, interactive.
 `,
   product_review: `
 ## THỂ LOẠI: REVIEW SẢN PHẨM
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook verdict - Tease kết luận (có nên mua?)
-2. PROMPT 2: Intro - Sản phẩm gì, expectations
-3. PROMPT 3: Unboxing/First impression
-4. PROMPT 4: Testing - Trải nghiệm thực tế
-5. PROMPT 5: Pros - Điểm mạnh
-6. PROMPT 6: Cons - Điểm yếu (honest)
-7. PROMPT CUỐI: Verdict + Ai nên/không nên mua
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK VERDICT): Tease kết luận (có nên mua?).
+- ~15% scene (INTRO): Sản phẩm gì, expectations.
+- ~20% scene (FIRST IMPRESSION): Unboxing / first use.
+- ~25% scene (TESTING): Trải nghiệm thực tế.
+- ~15% scene (PROS): Điểm mạnh.
+- ~15% scene (CONS): Điểm yếu — bắt buộc honest, không bỏ.
+- 1 scene cuối (VERDICT): Ai nên / không nên mua.
 
-**HOOK STYLE MẪU:**
-- "Có nên mua không? Review trung thực sau X ngày sử dụng..."
-- "Tôi đã thử nghiệm... và đây là sự thật"
-- "Sản phẩm viral này có thực sự tốt như lời đồn?"
-
-**TONE & STYLE:**
-- Honest: Objective, nói cả pros và cons
-- Specific: Có chi tiết cụ thể, use case
-- Helpful: Giúp người xem quyết định
+**HOOK STYLE MẪU:** "Có nên mua không? Review trung thực…", "Sản phẩm viral có thực sự tốt?"
+**TONE & STYLE:** Honest, specific use case, helpful.
 `,
   case_study: `
 ## THỂ LOẠI: CASE STUDY
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook kết quả - Nêu achievement ấn tượng
-2. PROMPT 2: Background - Context, starting point
-3. PROMPT 3: Strategy - Chiến lược đã dùng
-4. PROMPT 4: Execution - Cách thực hiện
-5. PROMPT 5: Results - Kết quả cụ thể, có số liệu
-6. PROMPT CUỐI: Takeaways - Bài học có thể áp dụng
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK): Nêu achievement ấn tượng.
+- ~15% scene (BACKGROUND): Context, starting point.
+- ~25% scene (STRATEGY): Chiến lược đã dùng.
+- ~25% scene (EXECUTION): Cách thực hiện cụ thể.
+- ~25% scene (RESULTS): Kết quả + số liệu.
+- 1 scene cuối (TAKEAWAYS): Bài học áp dụng được.
 
-**HOOK STYLE MẪU:**
-- "Làm thế nào X đạt được Y trong Z thời gian..."
-- "Phân tích chiến lược đằng sau thành công của..."
-- "Case study: Từ 0 đến 1 triệu như thế nào?"
-
-**TONE & STYLE:**
-- Analytical: Có hệ thống, logic
-- Data-driven: Số liệu cụ thể
-- Replicable: Insights người khác có thể áp dụng
+**HOOK STYLE MẪU:** "Làm thế nào X đạt được Y trong Z…", "Case study: từ 0 đến 1 triệu…"
+**TONE & STYLE:** Analytical, data-driven, replicable insights.
 `,
   transformation: `
 ## THỂ LOẠI: BIẾN ĐỔI/KẾT QUẢ (Transformation)
-**CẤU TRÚC BẮT BUỘC (theo thứ tự prompt):**
-1. PROMPT 1: Hook end result - Show kết quả cuối ấn tượng
-2. PROMPT 2: Starting point - Điểm xuất phát
-3. PROMPT 3: Turning point - Quyết định thay đổi
-4. PROMPT 4: Journey - Hành trình, milestones
-5. PROMPT 5: Challenges - Khó khăn vượt qua
-6. PROMPT 6: Final state - Kết quả cuối cùng
-7. PROMPT CUỐI: Lessons + Encouragement
+**GIAI ĐOẠN BẮT BUỘC:**
+- 1 scene đầu (HOOK END RESULT): Show kết quả cuối ấn tượng.
+- ~15% scene (START): Điểm xuất phát.
+- ~15% scene (TURNING POINT): Quyết định thay đổi.
+- ~30% scene (JOURNEY): Hành trình, milestones.
+- ~20% scene (CHALLENGES): Khó khăn vượt qua.
+- ~15% scene (FINAL STATE): Kết quả cuối.
+- 1 scene cuối (LESSONS + CTA): Encouragement.
 
-**HOOK STYLE MẪU:**
-- "Từ X đến Y trong Z tháng - Đây là cách tôi làm..."
-- "Hành trình biến đổi của tôi mà tôi chưa từng chia sẻ..."
-- "Nếu tôi làm được, bạn cũng có thể..."
-
-**TONE & STYLE:**
-- Inspiring: Truyền cảm hứng, motivating
-- Honest: Thật về struggle, không chỉ highlight
-- Specific: Timeline và metrics cụ thể
+**HOOK STYLE MẪU:** "Từ X đến Y trong Z tháng — cách tôi làm…", "Hành trình tôi chưa từng chia sẻ…"
+**TONE & STYLE:** Inspiring, honest về struggle, timeline cụ thể.
 `,
 };
 
