@@ -77,6 +77,9 @@ export default function ScriptNew() {
         </div>
       </div>
 
+      {/* Workflow stepper — 4 bước rõ ràng */}
+      <VideoCreationStepper currentStep={(selectedScript ? 2 : 1) as VideoStep} />
+
       {/* Form */}
       <ScriptForm
         onSubmit={handleGenerateScript}
