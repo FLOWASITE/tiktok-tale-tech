@@ -67,6 +67,7 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [railFilter, setRailFilter] = useState<'all' | 'pending' | 'processing' | 'failed'>('all');
 
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
