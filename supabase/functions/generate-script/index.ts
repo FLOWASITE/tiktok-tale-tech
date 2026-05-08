@@ -1686,8 +1686,9 @@ function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegi
 
 ## 5. CONTINUITY CONTRACT (BẮT BUỘC để stitch mượt)
 ${spec.continuityRules}
-→ Trong mỗi PROMPT, viết explicit: "(Same setting/wardrobe/lighting as previous PROMPT)" để AI video model biết phải match.
-→ Chỉ thay đổi: subject ACTION, biểu cảm, dialogue. Không thay đổi: outfit, background, lighting setup, camera position cơ bản.`;
+→ Trong mỗi PROMPT từ #2 trở đi, viết explicit: "(Same setting/wardrobe/lighting as previous scene)" để AI video model biết phải match. KHÔNG viết "as PROMPT 1" — chỉ "previous scene".
+→ Chỉ thay đổi: subject ACTION, biểu cảm, dialogue. Không thay đổi: outfit, background, lighting setup, camera position cơ bản.
+→ ⚠️ KHÔNG được nhắc lại chuỗi "PROMPT <số>" bên trong nội dung scene khác (gây vỡ parser). Header "PROMPT N [..]:" chỉ xuất hiện 1 lần, ở đầu dòng, làm tiêu đề scene.`;
   }
 }
 
