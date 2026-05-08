@@ -28,6 +28,7 @@ import { ScriptViewer } from '@/components/ScriptViewer';
 import { QuickClipTab } from './QuickClipTab';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterProductMap } from './CharacterProductMap';
+import { AdminModelBadge } from '@/components/shared/AdminModelBadge';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { cn } from '@/lib/utils';
