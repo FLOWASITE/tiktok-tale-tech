@@ -611,8 +611,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <Collapsible>
                 <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
                   <CollapsibleTrigger className="w-full px-4 py-3 flex items-center gap-3 hover:bg-accent/30 transition-colors">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/80 to-orange-500/80 flex items-center justify-center shrink-0">
-                      <Zap className="w-4 h-4 text-primary-foreground" />
+                    <div className="w-8 h-8 rounded-lg bg-foreground/[0.05] border border-border/40 flex items-center justify-center shrink-0">
+                      <Zap className="w-4 h-4 text-foreground/70" />
                     </div>
                     <div className="flex-1 min-w-0 text-left">
                       <p className="text-sm font-semibold text-foreground">
