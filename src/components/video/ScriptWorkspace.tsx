@@ -28,6 +28,7 @@ import { ScriptViewer } from '@/components/ScriptViewer';
 import { QuickClipTab } from './QuickClipTab';
 import { MultiCharacterPicker } from './MultiCharacterPicker';
 import { CharacterProductMap } from './CharacterProductMap';
+import { AdminModelBadge } from '@/components/shared/AdminModelBadge';
 import { type CharacterProfile } from '@/hooks/useCharacterProfiles';
 import type { Script, ScriptPurpose } from '@/types/script';
 import { cn } from '@/lib/utils';
@@ -190,6 +191,11 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
           Danh sách kịch bản
         </Button>
         <div className="flex items-center gap-2">
+          <AdminModelBadge
+            functionName="generate-video"
+            defaultModel="geminigen/veo-3.1-fast"
+            organizationId={currentOrganization?.id}
+          />
           <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)} className="h-8 gap-1.5 text-[11px]">
             <Maximize2 className="h-3.5 w-3.5" />
             Mở viewer fullscreen
@@ -350,7 +356,12 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
         <Card className="border-border/60">
           <CardContent className="p-4 md:p-6">
             {activeScript ? (
-              <QuickClipTab embedded />
+              <QuickClipTab
+                embedded
+                sharedCharacterIds={selectedCharacterIds}
+                sharedCharacters={selectedCharacters}
+                sharedProductIds={selectedProductIds}
+              />
             ) : (
               <div className="text-center py-10 text-xs text-muted-foreground">
                 Đang nạp kịch bản…
