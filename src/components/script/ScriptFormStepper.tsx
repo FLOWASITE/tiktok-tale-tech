@@ -805,7 +805,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             duration={formData.duration}
           />
         )}
-        {currentStep === STEP_GENERATE && !isLoading && (
+        {currentStep === STEP_GENERATE && !isLoading && (!isVideoAi || !generatedScript || editingConfig) && (
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
