@@ -377,35 +377,44 @@ export function QuickClipTab({ embedded = false }: QuickClipTabProps = {}) {
         />
       </div>
 
-      {/* Character consistency */}
-      <MultiCharacterPicker
-        value={selectedCharacterIds}
-        onChange={(ids, profiles) => {
-          setSelectedCharacterIds(ids);
-          setSelectedCharacters(profiles);
-        }}
-      />
+      {/* Character consistency — ẩn khi embedded vì Workspace header đã có picker chung */}
+      {!embedded && (
+        <>
+          <MultiCharacterPicker
+            value={selectedCharacterIds}
+            onChange={(ids, profiles) => {
+              setSelectedCharacterIds(ids);
+              setSelectedCharacters(profiles);
+            }}
+          />
 
-      {/* Cảnh báo khi chưa chọn nhân vật → AI sẽ bịa khuôn mặt */}
-      {selectedCharacterIds.length === 0 && (
-        <Alert className="border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 py-2">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          <AlertDescription className="text-[11px] text-amber-800 dark:text-amber-200">
-            Chưa chọn nhân vật → AI sẽ tự bịa khuôn mặt mỗi lần. Chọn nhân vật brand để khoá identity (Veo 3.1 + seed cố định).
+          {selectedCharacterIds.length === 0 && (
+            <Alert className="border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 py-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="text-[11px] text-amber-800 dark:text-amber-200">
+                Chưa chọn nhân vật → AI sẽ tự bịa khuôn mặt mỗi lần. Chọn nhân vật brand để khoá identity (Veo 3.1 + seed cố định).
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <CharacterProductMap
+            characters={selectedCharacters}
+            onUnionChange={(ids) => {
+              setSelectedProductIds(ids);
+              setSelectedProducts([]);
+            }}
+          />
+        </>
+      )}
+
+      {embedded && (
+        <Alert className="border-border/50 bg-muted/30 py-2">
+          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+          <AlertDescription className="text-[11px] text-muted-foreground">
+            Nhân vật & sản phẩm dùng cấu hình chung ở header workspace (áp dụng cho mọi scene).
           </AlertDescription>
         </Alert>
       )}
-
-      {/* Map sản phẩm theo từng nhân vật (session-only) — auto chèn ref theo nhãn */}
-      <CharacterProductMap
-        characters={selectedCharacters}
-        onUnionChange={(ids) => {
-          setSelectedProductIds(ids);
-          // selectedProducts không cần snapshot khi dùng map; clear để đồng nhất
-          setSelectedProducts([]);
-        }}
-      />
-
       {selectedCharacters.length > 0 && selectedCharacters.some(c => c.default_voice_id) && (
         <CharacterVoicePreview characters={selectedCharacters} />
       )}
