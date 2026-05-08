@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { GoogleAuthSignInCard } from '@/components/admin/GoogleAuthSignInCard';
 
 type AuthMode = 'credentials' | 'oauth_only' | 'per_brand';
 
@@ -374,6 +375,19 @@ export default function AdminSocialSettings() {
           className="pl-9"
         />
       </div>
+
+      {/* App Login (Google Sign-In) */}
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold text-foreground/80 tracking-wide uppercase">
+            Đăng nhập ứng dụng
+          </h2>
+          <span className="text-xs text-muted-foreground">Lovable Cloud Managed</span>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <GoogleAuthSignInCard />
+        </div>
+      </section>
 
       {/* Sections */}
       {(['social', 'messaging', 'longform', 'analytics'] as const).map(renderSection)}
