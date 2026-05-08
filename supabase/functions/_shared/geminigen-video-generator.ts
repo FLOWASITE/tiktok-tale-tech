@@ -39,8 +39,27 @@ export interface GeminiGenVideoResult {
   durationMs: number;
 }
 
+// GeminiGen API only accepts these exact model identifiers (per validation error from API):
+//   'veo-2', 'veo-3', 'veo-3-fast', 'sora-2-free', 'sora-2'
+// Map our internal model IDs (incl. veo-3.1*, sora-2-pro/hd) to a supported one.
+const GEMINIGEN_MODEL_ALIAS: Record<string, string> = {
+  'veo-3.1': 'veo-3',
+  'veo-3.1-fast': 'veo-3-fast',
+  'sora-2-pro': 'sora-2',
+  'sora-2-hd': 'sora-2',
+};
+const GEMINIGEN_SUPPORTED = new Set(['veo-2', 'veo-3', 'veo-3-fast', 'sora-2-free', 'sora-2']);
+
 function stripPrefix(model: string): string {
-  return model.startsWith('geminigen/') ? model.slice(10) : model;
+  const raw = model.startsWith('geminigen/') ? model.slice(10) : model;
+  if (GEMINIGEN_SUPPORTED.has(raw)) return raw;
+  if (GEMINIGEN_MODEL_ALIAS[raw]) return GEMINIGEN_MODEL_ALIAS[raw];
+  // Fallback: best-effort family match, else default to veo-3-fast
+  if (raw.startsWith('veo-3')) return raw.includes('fast') ? 'veo-3-fast' : 'veo-3';
+  if (raw.startsWith('sora-2')) return 'sora-2';
+  if (raw.startsWith('veo-2')) return 'veo-2';
+  console.warn(`[geminigen-video] Unknown model "${raw}", falling back to veo-3-fast`);
+  return 'veo-3-fast';
 }
 
 function mapAspectRatio(aspectRatio?: string): string {
