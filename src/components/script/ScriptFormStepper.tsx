@@ -862,6 +862,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="w-4 h-4 text-foreground/70" />
                 <span>Cấu hình</span>
+                <span className="text-[11px] font-normal text-muted-foreground ml-auto">AI sẽ tôn trọng các lựa chọn này</span>
               </div>
               
               <div className="flex flex-wrap gap-2">
