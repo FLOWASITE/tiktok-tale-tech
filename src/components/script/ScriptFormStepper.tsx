@@ -1257,9 +1257,21 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       </div>
 
       {currentStep === STEP_GENERATE && !isLoading && !(isVideoAi && generatedScript && !editingConfig) && (
-        <p className="text-center text-xs text-muted-foreground">
-          Thời gian ước tính: ~15-30 giây
+        <p className="text-center text-xs text-muted-foreground inline-flex items-center justify-center gap-1.5 w-full">
+          <Clock className="w-3 h-3 opacity-70" />
+          {isVideoAi
+            ? 'Ước tính ~15–30s tạo kịch bản · sau đó vào Studio để quay'
+            : 'Thời gian ước tính: ~15-30 giây'}
         </p>
+      )}
+
+      {/* Inline viewer cho State B "Xem/Sửa kịch bản" */}
+      {generatedScript && (
+        <ScriptViewer
+          script={generatedScript}
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+        />
       )}
     </div>
   );
