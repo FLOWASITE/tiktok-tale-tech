@@ -27,8 +27,35 @@ interface SynthesizeArgs {
   lovableApiKey: string;
 }
 
-const PRIMARY_MODEL = 'google/gemini-3.1-flash-image-preview';
+const DEFAULT_PRIMARY_MODEL = 'google/gemini-3.1-flash-image-preview';
 const FALLBACK_MODEL = 'google/gemini-2.5-flash-image';
+const ALLOWED_KEYFRAME_MODELS = new Set([
+  'google/gemini-3.1-flash-image-preview',
+  'google/gemini-3-pro-image-preview',
+  'google/gemini-2.5-flash-image',
+]);
+
+/** Resolve keyframe model from ai_function_configs (Admin override). Falls back to default. */
+async function resolveKeyframeModel(supabase: any, organizationId: string): Promise<string> {
+  try {
+    // Org-level override first, then global
+    const { data } = await supabase
+      .from('ai_function_configs')
+      .select('model_override, organization_id, is_enabled')
+      .eq('function_name', 'keyframe-synthesizer')
+      .or(`organization_id.eq.${organizationId},organization_id.is.null`);
+    if (data && data.length) {
+      const orgRow = data.find((r: any) => r.organization_id === organizationId && r.is_enabled !== false);
+      const globalRow = data.find((r: any) => r.organization_id === null && r.is_enabled !== false);
+      const picked = (orgRow?.model_override || globalRow?.model_override || '').trim();
+      if (picked && ALLOWED_KEYFRAME_MODELS.has(picked)) return picked;
+      if (picked) console.warn(`[keyframe-synth] model "${picked}" not in allowlist, using default`);
+    }
+  } catch (e) {
+    console.warn('[keyframe-synth] resolveKeyframeModel failed, using default', e);
+  }
+  return DEFAULT_PRIMARY_MODEL;
+}
 
 async function sha256Hex(input: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
