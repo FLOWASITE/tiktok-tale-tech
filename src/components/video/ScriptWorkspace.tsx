@@ -106,9 +106,23 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
 
   const total = scenes.length;
   const rendered = scenes.filter((s) => s.clip?.status === 'completed').length;
+  const processing = scenes.filter((s) => s.clip?.status === 'processing' || s.clip?.status === 'pending').length;
+  const failed = scenes.filter((s) => s.clip?.status === 'failed').length;
   const pct = total > 0 ? Math.round((rendered / total) * 100) : 0;
   const missing = scenes.filter((s) => !s.clip || s.clip.status === 'failed');
   const canMerge = rendered >= 2;
+  const hasMissing = missing.length > 0;
+
+  const filteredScenes = useMemo(() => {
+    if (railFilter === 'all') return scenes;
+    return scenes.filter((s) => {
+      const status = s.clip?.status;
+      if (railFilter === 'pending') return !s.clip;
+      if (railFilter === 'processing') return status === 'processing' || status === 'pending';
+      if (railFilter === 'failed') return status === 'failed';
+      return true;
+    });
+  }, [scenes, railFilter]);
 
   const handleBack = () => {
     clearScript();
