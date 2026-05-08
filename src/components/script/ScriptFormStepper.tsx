@@ -1056,8 +1056,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* ====== Step 4: Tạo Video — chỉ hiển thị khi đã có script (xem buildSteps) ====== */}
-        {currentStep === STEP_VIDEO && generatedScript && (() => {
+        {/* ====== State B (Video AI): Kịch bản sẵn sàng quay — render trong cùng STEP_GENERATE ====== */}
+        {currentStep === STEP_GENERATE && !isLoading && isVideoAi && generatedScript && !editingConfig && (() => {
           const prompts = parseScriptContent(
             generatedScript.content,
             generatedScript.script_purpose as ScriptPurpose,
