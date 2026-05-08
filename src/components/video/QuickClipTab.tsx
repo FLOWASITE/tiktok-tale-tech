@@ -466,21 +466,22 @@ export function QuickClipTab({
         />
       </div>
 
-      {/* Model — read-only, do Admin cấu hình */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Model AI</Label>
-        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20 border border-border/40">
-          <AdminModelBadge
-            functionName="generate-video"
-            defaultModel={DEFAULT_VIDEO_MODEL}
-            organizationId={currentOrganization?.id}
-            labelMap={VIDEO_MODEL_LABELS}
-          />
-          <span className="text-[10px] text-muted-foreground">
-            {selectedModel?.description ?? 'Admin chưa cấu hình'}
-          </span>
+      {!embedded && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Model AI</Label>
+          <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/20 border border-border/40">
+            <AdminModelBadge
+              functionName="generate-video"
+              defaultModel={DEFAULT_VIDEO_MODEL}
+              organizationId={currentOrganization?.id}
+              labelMap={VIDEO_MODEL_LABELS}
+            />
+            <span className="text-[10px] text-muted-foreground">
+              {selectedModel?.description ?? 'Admin chưa cấu hình'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Cost preview */}
       <Alert className="border-border/40 bg-muted/30">
