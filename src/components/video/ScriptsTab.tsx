@@ -217,6 +217,9 @@ export function ScriptsTab({ prefillTopic, topicHistoryId, autoOpenNew, initialV
           </div>
         </div>
 
+        {/* Workflow stepper — 4 bước rõ ràng */}
+        <VideoCreationStepper currentStep={selectedScript ? 2 : 1} />
+
         <ScriptForm
           onSubmit={handleGenerateScript}
           isLoading={generating}
