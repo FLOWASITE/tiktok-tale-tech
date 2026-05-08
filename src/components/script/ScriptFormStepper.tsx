@@ -978,6 +978,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   </div>
                 </ConfigChipSelector>
 
+                {/* Divider giữa preset chip và hồ sơ thật */}
+                <span className="self-center w-px h-5 bg-border/50 mx-0.5" aria-hidden />
+
                 {/* Character Profile — nhân vật cụ thể từ hồ sơ */}
                 <MultiCharacterPicker
                   value={formData.character_profile_ids ?? (formData.character_profile_id ? [formData.character_profile_id] : [])}
