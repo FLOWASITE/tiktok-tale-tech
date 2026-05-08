@@ -1249,7 +1249,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                {generatedScript ? 'Tạo lại (thay thế)' : 'Tạo kịch bản AI'}
+                {generatedScript ? 'Tạo lại (thay thế)' : (isVideoAi ? 'Tạo kịch bản & Quay' : 'Tạo kịch bản AI')}
               </>
             )}
           </Button>
