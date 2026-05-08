@@ -38,13 +38,15 @@ export interface ParsedPrompt {
 
 // Get block pattern based on script purpose
 function getBlockPattern(purpose?: ScriptPurpose): RegExp {
+  // Chỉ split khi header xuất hiện ở ĐẦU DÒNG + theo sau bởi `:` hoặc `[` (timestamp).
+  // Tránh false-positive khi AI viết "Same as PROMPT 1" trong nội dung scene khác.
   switch(purpose) {
     case 'teleprompter':
-      return /(?=---\s*ĐOẠN\s*\d+|ĐOẠN\s*\d+)/i;
+      return /(?=^\s*(?:---\s*)?(?:\*\*\s*)?ĐOẠN\s*\d+\s*(?:\*\*)?\s*[:\-—–])/im;
     case 'production':
-      return /(?=SCENE\s*\d+|SHOT\s*\d+)/i;
+      return /(?=^\s*(?:\*\*\s*)?(?:SCENE|SHOT)\s*\d+\s*(?:\*\*)?\s*[:\[])/im;
     default: // ai_video — try PROMPT first, fallback CLIP handled in parseScriptContent
-      return /(?=PROMPT\s*\d+|CLIP\s*\d+)/i;
+      return /(?=^\s*(?:\*\*\s*)?(?:PROMPT|CLIP)\s*\d+\s*(?:\*\*)?\s*[:\[])/im;
   }
 }
 
@@ -52,11 +54,11 @@ function getBlockPattern(purpose?: ScriptPurpose): RegExp {
 function getBlockNumberPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
     case 'teleprompter':
-      return /ĐOẠN\s*(\d+)/i;
+      return /^\s*(?:---\s*)?(?:\*\*\s*)?ĐOẠN\s*(\d+)/im;
     case 'production':
-      return /(?:SCENE|SHOT)\s*(\d+)/i;
+      return /^\s*(?:\*\*\s*)?(?:SCENE|SHOT)\s*(\d+)/im;
     default: // ai_video — match both PROMPT and CLIP
-      return /(?:PROMPT|CLIP)\s*(\d+)/i;
+      return /^\s*(?:\*\*\s*)?(?:PROMPT|CLIP)\s*(\d+)/im;
   }
 }
 
@@ -359,7 +361,7 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
 
 export function getPromptCount(content: string, purpose?: ScriptPurpose): number {
   const numberPattern = getBlockNumberPattern(purpose);
-  const globalPattern = new RegExp(numberPattern.source, 'gi');
+  const globalPattern = new RegExp(numberPattern.source, 'gim');
   const matches = content.match(globalPattern);
   return matches ? matches.length : 0;
 }

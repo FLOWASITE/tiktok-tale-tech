@@ -1686,8 +1686,9 @@ function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegi
 
 ## 5. CONTINUITY CONTRACT (BẮT BUỘC để stitch mượt)
 ${spec.continuityRules}
-→ Trong mỗi PROMPT, viết explicit: "(Same setting/wardrobe/lighting as previous PROMPT)" để AI video model biết phải match.
-→ Chỉ thay đổi: subject ACTION, biểu cảm, dialogue. Không thay đổi: outfit, background, lighting setup, camera position cơ bản.`;
+→ Trong mỗi PROMPT từ #2 trở đi, viết explicit: "(Same setting/wardrobe/lighting as previous scene)" để AI video model biết phải match. KHÔNG viết "as PROMPT 1" — chỉ "previous scene".
+→ Chỉ thay đổi: subject ACTION, biểu cảm, dialogue. Không thay đổi: outfit, background, lighting setup, camera position cơ bản.
+→ ⚠️ KHÔNG được nhắc lại chuỗi "PROMPT <số>" bên trong nội dung scene khác (gây vỡ parser). Header "PROMPT N [..]:" chỉ xuất hiện 1 lần, ở đầu dòng, làm tiêu đề scene.`;
   }
 }
 
@@ -1769,8 +1770,13 @@ function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTy
 
 □ **CONTINUITY GIỮA CÁC PROMPT?**
   - Wardrobe / background / lighting NHẤT QUÁN xuyên suốt?
-  - Có ghi rõ "(Same setting/wardrobe as previous PROMPT)" trong mỗi PROMPT từ #2 trở đi?
+  - Có ghi rõ "(Same setting/wardrobe as previous scene)" trong mỗi scene từ #2 trở đi?
   - KHÔNG thay đổi setting đột ngột giữa scenes?
+
+□ **HEADER FORMAT NGHIÊM NGẶT?**
+  - MỖI scene PHẢI bắt đầu bằng "PROMPT <N> [HH:MM-HH:MM]:" ở ĐẦU DÒNG (không thụt lề, không bullet).
+  - TUYỆT ĐỐI không xuất hiện chuỗi "PROMPT <số>" bên trong nội dung của scene khác — nếu cần tham chiếu, viết "scene trước" hoặc "previous scene".
+  - Mỗi scene có CHARACTER ACTION + DIALOGUE riêng (KHÔNG được rỗng hoặc chỉ ghi "Same as ...").
 
 □ **CONTENT DENSITY VỪA THỜI LƯỢNG?**
   - Mỗi scene Xs có ≤ X×2.5 từ dialogue? (2.5 từ/giây = tốc độ nói tự nhiên tiếng Việt)
