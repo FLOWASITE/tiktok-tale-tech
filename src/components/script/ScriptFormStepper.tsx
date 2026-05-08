@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Script } from '@/types/script';
+import { ScriptViewer } from '@/components/ScriptViewer';
 import { buildScriptToVideoNavState } from '@/lib/scriptToVideoNav';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { toast } from 'sonner';
