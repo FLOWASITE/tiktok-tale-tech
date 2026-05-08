@@ -59,6 +59,7 @@ export const AI_FUNCTIONS = [
   { name: 'optimize-social-text', description: 'Tối ưu text cho mạng xã hội', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'extract-broll-keywords', description: 'Trích xuất keywords B-roll', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'generate-video', description: 'Tạo video từ kịch bản/storyboard (GeminiGen Veo/Sora)', category: 'video', type: 'video' as AIFunctionType, currentModel: 'geminigen/veo-3' },
+  { name: 'keyframe-synthesizer', description: 'Dựng keyframe (ảnh tĩnh) từ ảnh nhân vật + product để Veo i2v giữ identity. Allowed: Gemini 3.1 Flash Image (default), Gemini 3 Pro Image, Gemini 2.5 Flash Image.', category: 'video', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3.1-flash-image-preview' },
   { name: 'generate-music', description: 'Tạo nhạc nền cho video (ElevenLabs Music)', category: 'audio', type: 'audio' as AIFunctionType, currentModel: 'elevenlabs/music-v1' },
   { name: 'generate-ad-copy', description: 'Tạo ad copy đa nền tảng', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'suggest-ad-fix', description: 'Đề xuất sửa ad copy', category: 'content', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
