@@ -67,6 +67,7 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<string[]>([]);
   const [selectedCharacters, setSelectedCharacters] = useState<CharacterProfile[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [railFilter, setRailFilter] = useState<'all' | 'pending' | 'processing' | 'failed'>('all');
 
   const purpose = script.script_purpose as ScriptPurpose;
   const isAiVideo = purpose === 'ai_video';
@@ -105,9 +106,23 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
 
   const total = scenes.length;
   const rendered = scenes.filter((s) => s.clip?.status === 'completed').length;
+  const processing = scenes.filter((s) => s.clip?.status === 'processing' || s.clip?.status === 'pending').length;
+  const failed = scenes.filter((s) => s.clip?.status === 'failed').length;
   const pct = total > 0 ? Math.round((rendered / total) * 100) : 0;
   const missing = scenes.filter((s) => !s.clip || s.clip.status === 'failed');
   const canMerge = rendered >= 2;
+  const hasMissing = missing.length > 0;
+
+  const filteredScenes = useMemo(() => {
+    if (railFilter === 'all') return scenes;
+    return scenes.filter((s) => {
+      const status = s.clip?.status;
+      if (railFilter === 'pending') return !s.clip;
+      if (railFilter === 'processing') return status === 'processing' || status === 'pending';
+      if (railFilter === 'failed') return status === 'failed';
+      return true;
+    });
+  }, [scenes, railFilter]);
 
   const handleBack = () => {
     clearScript();
@@ -190,25 +205,18 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
           <ArrowLeft className="h-4 w-4" />
           Danh sách kịch bản
         </Button>
-        <div className="flex items-center gap-2">
-          <AdminModelBadge
-            functionName="generate-video"
-            defaultModel="geminigen/veo-3.1-fast"
-            organizationId={currentOrganization?.id}
-          />
-          <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)} className="h-8 gap-1.5 text-[11px]">
-            <Maximize2 className="h-3.5 w-3.5" />
-            Mở viewer fullscreen
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)} className="h-8 gap-1.5 text-[11px]">
+          <Maximize2 className="h-3.5 w-3.5" />
+          Mở viewer fullscreen
+        </Button>
       </div>
 
       {/* Title strip */}
-      <Card className="border-border/60 bg-gradient-to-br from-muted/30 to-transparent">
+      <Card className="border-border/60 bg-card/40">
         <CardContent className="p-4 space-y-2.5">
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <Clapperboard className="w-4 h-4 text-primary" />
+            <div className="w-9 h-9 rounded-xl bg-foreground/[0.05] border border-border/40 flex items-center justify-center shrink-0">
+              <Clapperboard className="w-4 h-4 text-foreground/70" />
             </div>
             <div className="flex-1 min-w-0">
               {script.topic && (
@@ -221,13 +229,33 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
                 <Badge variant="outline" className="text-[10px] font-normal">
                   {rendered}/{total} scene đã quay
                 </Badge>
+                {processing > 0 && (
+                  <Badge variant="outline" className="text-[10px] font-normal border-amber-500/40 text-amber-700 dark:text-amber-300">
+                    {processing} đang render
+                  </Badge>
+                )}
+                {failed > 0 && (
+                  <Badge variant="destructive" className="text-[10px] font-normal">
+                    {failed} lỗi
+                  </Badge>
+                )}
                 {script.duration && (
                   <span className="text-[11px] text-muted-foreground">· {script.duration}s</span>
                 )}
+                <span className="ml-auto">
+                  <AdminModelBadge
+                    functionName="generate-video"
+                    defaultModel="geminigen/veo-3.1-fast"
+                    organizationId={currentOrganization?.id}
+                  />
+                </span>
               </div>
             </div>
           </div>
-          <Progress value={pct} className="h-1.5" />
+          <div className="flex items-center gap-2">
+            <Progress value={pct} className="h-1.5 flex-1" />
+            <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0 w-9 text-right">{pct}%</span>
+          </div>
 
           {/* Character lock — quan trọng để batch render giữ đúng mặt nhân vật brand */}
           <div className="space-y-2 pt-1 border-t border-border/40">
@@ -257,23 +285,35 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
                   Batch: {progress.done}/{progress.total}
                 </span>
               )}
+              {total === 0 && (
+                <span className="text-muted-foreground/70">Cần ít nhất 1 scene để render</span>
+              )}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
               <Button
                 size="sm"
-                variant="outline"
+                variant={hasMissing ? 'default' : 'ghost'}
                 onClick={handleRenderMissing}
-                disabled={running || missing.length === 0}
-                className="h-8 gap-1.5 text-[11px]"
+                disabled={running || total === 0 || (!hasMissing && total > 0)}
+                className={cn(
+                  'h-8 gap-1.5 text-[11px] flex-1 sm:flex-none',
+                  hasMissing && 'bg-foreground text-background hover:bg-foreground/90',
+                )}
+                title={hasMissing ? 'Sẽ dùng nhân vật & sản phẩm đã chọn ở trên' : 'Tất cả scene đã render'}
               >
                 <Wand2 className="h-3.5 w-3.5" />
-                Render {missing.length} scene còn thiếu
+                {hasMissing ? `Render ${missing.length} scene còn thiếu` : 'Đã render đủ'}
               </Button>
               <Button
                 size="sm"
+                variant={!hasMissing && canMerge ? 'default' : 'outline'}
                 onClick={handleMerge}
                 disabled={!canMerge || merging}
-                className="h-8 gap-1.5 text-[11px]"
+                className={cn(
+                  'h-8 gap-1.5 text-[11px] flex-1 sm:flex-none',
+                  !hasMissing && canMerge && 'bg-foreground text-background hover:bg-foreground/90',
+                )}
+                title={!canMerge ? 'Cần ít nhất 2 scene đã render để ghép phim' : undefined}
               >
                 <Film className="h-3.5 w-3.5" />
                 {merging ? 'Đang ghép…' : 'Ghép phim'}
@@ -287,16 +327,66 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
         {/* Left: storyboard rail */}
         <div className="space-y-2">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1">
-            Storyboard
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              Storyboard
+            </span>
+            <span className="ml-auto text-[10px] font-mono text-muted-foreground tabular-nums">
+              {rendered}/{total}
+            </span>
           </div>
-          <div className="space-y-1.5 lg:max-h-[calc(100vh-280px)] lg:overflow-y-auto pr-1">
-            {scenes.length === 0 && (
-              <div className="text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg p-4 text-center">
-                Kịch bản chưa có scene nào. Mở viewer để chỉnh sửa nội dung.
+
+          {/* Filter chips */}
+          {total > 0 && (
+            <div className="flex items-center gap-1 flex-wrap px-1">
+              {([
+                { id: 'all', label: 'Tất cả', count: total },
+                { id: 'pending', label: 'Chưa quay', count: scenes.filter((s) => !s.clip).length },
+                { id: 'processing', label: 'Đang render', count: processing },
+                { id: 'failed', label: 'Lỗi', count: failed },
+              ] as const).map((f) => {
+                const active = railFilter === f.id;
+                const disabled = f.count === 0 && f.id !== 'all';
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setRailFilter(f.id)}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium transition-all',
+                      active
+                        ? 'border-foreground/40 bg-foreground/[0.06] text-foreground'
+                        : 'border-border/50 bg-background text-muted-foreground hover:text-foreground hover:border-foreground/25',
+                      disabled && 'opacity-40 cursor-not-allowed',
+                    )}
+                  >
+                    {f.label}
+                    <span className="font-mono opacity-70">{f.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="space-y-1.5 max-h-[40vh] lg:max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
+            {total === 0 && (
+              <div className="text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg p-5 text-center space-y-2">
+                <p>Kịch bản chưa có scene nào.</p>
+                <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)} className="h-7 gap-1.5 text-[11px]">
+                  <Maximize2 className="h-3 w-3" />
+                  Mở viewer để chỉnh
+                </Button>
+                <p className="text-[10px] text-muted-foreground/70">Hoặc tạo Quick Clip thủ công ở cột bên</p>
               </div>
             )}
-            {scenes.map((s, idx) => {
+            {total > 0 && filteredScenes.length === 0 && (
+              <div className="text-xs text-muted-foreground border border-dashed border-border/60 rounded-lg p-4 text-center">
+                Không có scene nào khớp bộ lọc.
+              </div>
+            )}
+            {filteredScenes.map((s) => {
+              const idx = scenes.findIndex((x) => x.sceneNumber === s.sceneNumber);
               const isActive = idx === activeSceneIndex;
               const status = s.clip?.status;
               const isDone = status === 'completed' || !!completedSceneIds[s.sceneNumber];
@@ -308,12 +398,15 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
                   type="button"
                   onClick={() => setActiveSceneIndex(idx)}
                   className={cn(
-                    'w-full text-left rounded-lg border p-2.5 transition flex items-start gap-2.5',
+                    'relative w-full text-left rounded-lg border p-2.5 transition flex items-start gap-2.5',
                     isActive
-                      ? 'border-primary bg-primary/5'
+                      ? 'border-foreground/40 bg-foreground/[0.04]'
                       : 'border-border/50 hover:border-border bg-card/50',
                   )}
                 >
+                  {isActive && (
+                    <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-foreground/70" aria-hidden />
+                  )}
                   <div className="w-7 h-7 rounded-md bg-muted/60 flex items-center justify-center shrink-0 text-[11px] font-mono font-semibold">
                     {s.sceneNumber}
                   </div>

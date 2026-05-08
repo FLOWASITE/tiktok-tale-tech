@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Script } from '@/types/script';
+import { ScriptViewer } from '@/components/ScriptViewer';
 import { buildScriptToVideoNavState } from '@/lib/scriptToVideoNav';
 import { parseScriptContent } from '@/utils/parsePrompts';
 import { toast } from 'sonner';
@@ -151,6 +152,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const [userOverrodeVideoType, setUserOverrodeVideoType] = useState(false);
   const [userOverrodeCharacterType, setUserOverrodeCharacterType] = useState(false);
   const [editingConfig, setEditingConfig] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: initialTopic || '',
@@ -809,13 +811,24 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
-                <CheckCircle2 className="w-7 h-7 text-primary" />
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-foreground/[0.05] border border-border/40 mb-3">
+                {isVideoAi ? (
+                  <Clapperboard className="w-7 h-7 text-foreground/70" />
+                ) : (
+                  <CheckCircle2 className="w-7 h-7 text-foreground/70" />
+                )}
               </div>
-              <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo kịch bản</h3>
+              <h3 className="font-semibold text-lg text-foreground">
+                {isVideoAi ? 'Sẵn sàng tạo kịch bản & quay' : 'Sẵn sàng tạo kịch bản'}
+              </h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto truncate">
                 Chủ đề: <span className="text-foreground font-medium">{formData.topic.length > 60 ? formData.topic.slice(0, 60) + '...' : formData.topic}</span>
               </p>
+              {isVideoAi && (
+                <p className="text-[11px] text-muted-foreground/80 mt-1 max-w-sm mx-auto">
+                  Tạo xong sẽ mở thẳng Video Studio để render từng scene.
+                </p>
+              )}
               {(() => {
                 const currentPreset = isVideoAi ? getPresetById(formData.social_format_id) : null;
                 const hasMeta = formData.hook || formData.angle || currentPreset;
@@ -851,6 +864,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Sparkles className="w-4 h-4 text-foreground/70" />
                 <span>Cấu hình</span>
+                <span className="text-[11px] font-normal text-muted-foreground ml-auto">AI sẽ tôn trọng các lựa chọn này</span>
               </div>
               
               <div className="flex flex-wrap gap-2">
@@ -965,6 +979,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                     </Collapsible>
                   </div>
                 </ConfigChipSelector>
+
+                {/* Divider giữa preset chip và hồ sơ thật */}
+                <span className="self-center w-px h-5 bg-border/50 mx-0.5" aria-hidden />
 
                 {/* Character Profile — nhân vật cụ thể từ hồ sơ */}
                 <MultiCharacterPicker
@@ -1084,23 +1101,58 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </p>
               </div>
 
-              {/* Compact summary */}
-              {prompts.length > 0 && (
-                <div className="rounded-xl border border-border/40 bg-card/50 p-4 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-foreground/[0.04] flex items-center justify-center shrink-0">
-                    <Film className="w-4 h-4 text-foreground/70" />
+              {/* Mini Storyboard Preview — click pill to jump to scene */}
+              {prompts.length > 0 && (() => {
+                const totalDur = prompts.reduce((acc, p) => {
+                  const m = p.duration?.match(/(\d+)/);
+                  return acc + (m ? parseInt(m[1], 10) : 5);
+                }, 0);
+                const previewLimit = 4;
+                const visible = prompts.slice(0, previewLimit);
+                const remaining = prompts.length - visible.length;
+                return (
+                  <div className="rounded-xl border border-border/40 bg-card/50 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <Film className="w-3.5 h-3.5 text-foreground/60" />
+                      <span className="font-medium text-foreground">{prompts.length} scene</span>
+                      <span>· ~{totalDur}s tổng</span>
+                      <span className="ml-auto text-[10px] uppercase tracking-wide opacity-70">Click để mở scene</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                      {visible.map((p, idx) => {
+                        const m = p.duration?.match(/(\d+)/);
+                        const dur = m ? parseInt(m[1], 10) : 5;
+                        const desc = ((p.rawContent || p.motion || p.dialogue || '') as string)
+                          .replace(/\s+/g, ' ')
+                          .trim()
+                          .slice(0, 56);
+                        return (
+                          <button
+                            key={p.promptNumber}
+                            type="button"
+                            onClick={() => handleOpenStudio(idx)}
+                            className="shrink-0 max-w-[240px] inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/50 bg-background hover:border-foreground/30 hover:bg-muted/40 text-[11px] text-foreground transition-all"
+                            title={desc || `Scene ${p.promptNumber}`}
+                          >
+                            <span className="font-mono text-foreground/60">#{p.promptNumber}</span>
+                            <span className="text-muted-foreground font-mono">~{dur}s</span>
+                            <span className="truncate text-foreground/80">{desc || 'Không có mô tả'}</span>
+                          </button>
+                        );
+                      })}
+                      {remaining > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStudio(0)}
+                          className="shrink-0 inline-flex items-center px-2.5 py-1.5 rounded-lg border border-dashed border-border/60 text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all"
+                        >
+                          +{remaining} scene khác
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{prompts.length} scene · ~{prompts.reduce((acc, p) => {
-                      const m = p.duration?.match(/(\d+)/);
-                      return acc + (m ? parseInt(m[1], 10) : 5);
-                    }, 0)}s tổng</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      Storyboard chi tiết + render từng scene sẽ hiển thị trong Studio.
-                    </p>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
@@ -1113,24 +1165,36 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   Mở Video Studio
                   <ArrowRight className="w-4 h-4" />
                 </Button>
+              </div>
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => setEditingConfig(true)}
-                  className="gap-2"
-                  size="lg"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setViewerOpen(true)}
+                  className="gap-1.5 h-8 text-[11px] text-muted-foreground hover:text-foreground"
                 >
-                  <Sparkles className="w-4 h-4" />
+                  <FileText className="w-3.5 h-3.5" />
+                  Xem/Sửa kịch bản
+                </Button>
+                <span className="text-muted-foreground/40">·</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingConfig(true)}
+                  className="gap-1.5 h-8 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
                   Chỉnh sửa cấu hình
                 </Button>
-              </div>
-              <div className="text-center">
+                <span className="text-muted-foreground/40">·</span>
                 <button
                   type="button"
                   onClick={() => navigate('/scripts')}
-                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-4 hover:underline px-2 py-1"
                 >
-                  Để sau, xem danh sách kịch bản
+                  Để sau — về danh sách
                 </button>
               </div>
             </div>
@@ -1193,9 +1257,21 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       </div>
 
       {currentStep === STEP_GENERATE && !isLoading && !(isVideoAi && generatedScript && !editingConfig) && (
-        <p className="text-center text-xs text-muted-foreground">
-          Thời gian ước tính: ~15-30 giây
+        <p className="text-center text-xs text-muted-foreground inline-flex items-center justify-center gap-1.5 w-full">
+          <Clock className="w-3 h-3 opacity-70" />
+          {isVideoAi
+            ? 'Ước tính ~15–30s tạo kịch bản · sau đó vào Studio để quay'
+            : 'Thời gian ước tính: ~15-30 giây'}
         </p>
+      )}
+
+      {/* Inline viewer cho State B "Xem/Sửa kịch bản" */}
+      {generatedScript && (
+        <ScriptViewer
+          script={generatedScript}
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+        />
       )}
     </div>
   );
