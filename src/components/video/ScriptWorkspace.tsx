@@ -350,7 +350,12 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
         <Card className="border-border/60">
           <CardContent className="p-4 md:p-6">
             {activeScript ? (
-              <QuickClipTab embedded />
+              <QuickClipTab
+                embedded
+                sharedCharacterIds={selectedCharacterIds}
+                sharedCharacters={selectedCharacters}
+                sharedProductIds={selectedProductIds}
+              />
             ) : (
               <div className="text-center py-10 text-xs text-muted-foreground">
                 Đang nạp kịch bản…
