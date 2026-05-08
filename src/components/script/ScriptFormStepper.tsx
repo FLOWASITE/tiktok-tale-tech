@@ -809,13 +809,24 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
-                <CheckCircle2 className="w-7 h-7 text-primary" />
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-foreground/[0.05] border border-border/40 mb-3">
+                {isVideoAi ? (
+                  <Clapperboard className="w-7 h-7 text-foreground/70" />
+                ) : (
+                  <CheckCircle2 className="w-7 h-7 text-foreground/70" />
+                )}
               </div>
-              <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo kịch bản</h3>
+              <h3 className="font-semibold text-lg text-foreground">
+                {isVideoAi ? 'Sẵn sàng tạo kịch bản & quay' : 'Sẵn sàng tạo kịch bản'}
+              </h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto truncate">
                 Chủ đề: <span className="text-foreground font-medium">{formData.topic.length > 60 ? formData.topic.slice(0, 60) + '...' : formData.topic}</span>
               </p>
+              {isVideoAi && (
+                <p className="text-[11px] text-muted-foreground/80 mt-1 max-w-sm mx-auto">
+                  Tạo xong sẽ mở thẳng Video Studio để render từng scene.
+                </p>
+              )}
               {(() => {
                 const currentPreset = isVideoAi ? getPresetById(formData.social_format_id) : null;
                 const hasMeta = formData.hook || formData.angle || currentPreset;
