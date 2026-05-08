@@ -345,7 +345,10 @@ export function QuickClipTab({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="VD: Cô gái cười dịu dàng trong vườn hoa hồng, ánh sáng ban mai, máy quay slow-motion zoom vào khuôn mặt..."
-          className="min-h-[100px] resize-none text-sm"
+          className={cn(
+            'resize-y text-sm leading-relaxed',
+            embedded ? 'min-h-[280px] lg:min-h-[420px]' : 'min-h-[140px]',
+          )}
           disabled={generating || enhancing}
         />
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
