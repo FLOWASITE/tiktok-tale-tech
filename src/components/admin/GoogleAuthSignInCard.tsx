@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Copy, ExternalLink, KeyRound, AlertTriangle, LogIn, Check } from 'lucide-react';
+import { Copy, ExternalLink, KeyRound, AlertTriangle, LogIn, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 const SUPABASE_PROJECT_REF = 'rllyipiyuptkibqinotz';
@@ -37,14 +37,14 @@ export function GoogleAuthSignInCard() {
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 Google Sign-In <Badge variant="outline" className="font-normal text-[10px]">App Login</Badge>
               </CardTitle>
-              <CardDescription className="text-xs font-mono text-muted-foreground/70 truncate">
-                lovable.auth.signInWithOAuth("google")
+              <CardDescription className="text-xs text-muted-foreground/70 truncate">
+                OAuth Client riêng của Flowa — quản lý ở Google Cloud Console
               </CardDescription>
             </div>
           </div>
           <Badge variant="secondary" className="gap-1 shrink-0">
-            <ShieldCheck className="w-3 h-3" />
-            Cloud Managed
+            <KeyRound className="w-3 h-3" />
+            BYOK
           </Badge>
         </div>
       </CardHeader>
@@ -52,10 +52,10 @@ export function GoogleAuthSignInCard() {
         <div className="rounded-md bg-amber-100/50 dark:bg-amber-950/30 border border-amber-500/30 p-3 text-xs space-y-1.5">
           <div className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-400">
             <AlertTriangle className="w-3.5 h-3.5" />
-            Login Google bị lỗi? (Secret bị xóa / hết hạn)
+            Login Google bị lỗi? (Client Secret bị xóa / hết hạn)
           </div>
           <p className="text-muted-foreground leading-relaxed">
-            Credentials Google OAuth được lưu trên <strong>Lovable Cloud</strong> (không lưu trong DB của app). Nếu Client Secret bị xóa hoặc đổi ở Google Cloud Console, hãy làm theo các bước bên dưới để khôi phục.
+            Đây là <strong>OAuth Client riêng</strong> của Flowa trên Google Cloud Console — không liên quan đến Lovable. Nếu Client Secret bị xóa hoặc đổi, làm 4 bước dưới để khôi phục.
           </p>
         </div>
 
@@ -72,17 +72,17 @@ export function GoogleAuthSignInCard() {
         </div>
 
         <ol className="text-xs text-muted-foreground space-y-1.5 leading-relaxed list-decimal pl-4">
-          <li>Mở <strong>Google Cloud Console → APIs & Services → Credentials</strong>, tạo lại OAuth Client (Web application) hoặc reset Client Secret.</li>
-          <li>Dán <strong>Authorized redirect URI</strong> ở trên vào mục "Authorized redirect URIs".</li>
+          <li>Mở <strong>Google Cloud Console → APIs & Services → Credentials</strong>, chọn OAuth Client của Flowa (Web application). Nếu Secret đã xóa → bấm <em>Reset Secret</em> hoặc tạo Client mới.</li>
+          <li>Vào tab <strong>Authorized redirect URIs</strong>, đảm bảo có URL ở trên. Nếu thiếu thì dán vào & Save.</li>
           <li>Copy <strong>Client ID</strong> + <strong>Client Secret</strong> mới.</li>
-          <li>Mở <strong>Cloud Auth Settings → Google Provider</strong>, dán Client ID/Secret và Save. Hoặc tắt "Use custom credentials" để dùng managed default của Lovable.</li>
+          <li>Mở <strong>Auth Providers → Google</strong>, dán Client ID/Secret, bật toggle, Save.</li>
         </ol>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
           <Button asChild size="sm" variant="default">
             <a href={CLOUD_AUTH_DASHBOARD} target="_blank" rel="noopener noreferrer">
               <KeyRound className="w-3.5 h-3.5 mr-1.5" />
-              Cloud Auth Settings
+              Auth Providers
               <ExternalLink className="w-3 h-3 ml-1.5 opacity-60" />
             </a>
           </Button>
