@@ -242,13 +242,6 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
                 {script.duration && (
                   <span className="text-[11px] text-muted-foreground">· {script.duration}s</span>
                 )}
-                <span className="ml-auto">
-                  <AdminModelBadge
-                    functionName="generate-video"
-                    defaultModel="geminigen/veo-3.1-fast"
-                    organizationId={currentOrganization?.id}
-                  />
-                </span>
               </div>
             </div>
           </div>
