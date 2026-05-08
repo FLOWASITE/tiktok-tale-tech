@@ -6,6 +6,7 @@ import { useScripts } from '@/hooks/useScripts';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Clapperboard } from 'lucide-react';
+import { VideoCreationStepper, type VideoStep } from '@/components/video/VideoCreationStepper';
 import { Script } from '@/types/script';
 
 interface LocationState {
