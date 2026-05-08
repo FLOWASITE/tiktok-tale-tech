@@ -12,6 +12,7 @@ import {
   generateVideoViaGeminiGen,
   submitGeminiGenVideoTask,
   GEMINIGEN_VIDEO_MODELS,
+  normalizeGeminiGenVideoModel,
 } from "../_shared/geminigen-video-generator.ts";
 import {
   generateVideoViaPoyo,
@@ -464,6 +465,19 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       }
     }
 
+    const normalizeGeminiGenModelId = (value?: string | null) => {
+      if (!value) return undefined;
+      return `geminigen/${normalizeGeminiGenVideoModel(value)}`;
+    };
+
+    if (provider === 'geminigen') {
+      const normalizedModel = normalizeGeminiGenModelId(model || GEMINIGEN_VIDEO_MODELS[0].id)!;
+      if (model !== normalizedModel) {
+        console.log(`[generate-video] normalize GeminiGen model: ${model || '(default)'} → ${normalizedModel}`);
+      }
+      model = normalizedModel;
+    }
+
     const { data: job, error: jobError } = await supabase
       .from('video_generations')
       .insert({
@@ -641,6 +655,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
 
       if (isPoyoCreditsError && geminigenKey) {
         const fallbackModel = POYO_TO_GEMINIGEN_MAP[model || 'poyo/seedance-2'] || 'geminigen/veo-3.1-fast';
+        const normalizedFallbackModel = normalizeGeminiGenModelId(fallbackModel)!;
         console.log(`[generate-video] PoYo credits exhausted → fallback to GeminiGen model=${fallbackModel}`);
 
         try {
@@ -657,7 +672,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
           // Update job row with new provider info
           await supabase.from('video_generations').update({
             provider: 'geminigen',
-            model_used: fallbackModel,
+            model_used: normalizedFallbackModel,
           }).eq('id', job.id);
 
           console.log(`[generate-video] GeminiGen fallback succeeded: task=${providerTaskId}`);
@@ -701,7 +716,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       provider_task_id: providerTaskId,
       status: 'processing',
       provider: actualProvider,
-      model_used: model,
+      model_used: actualProvider === 'geminigen' ? normalizeGeminiGenModelId(model) : model,
       model_upgraded_reason: modelUpgradedReason,
       stable_seed: stableSeed,
       keyframe_synthesized: keyframeSynthesized,

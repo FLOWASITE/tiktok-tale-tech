@@ -41,23 +41,42 @@ export interface GeminiGenVideoResult {
 
 // GeminiGen API only accepts these exact model identifiers (per validation error from API):
 //   'veo-2', 'veo-3', 'veo-3-fast', 'sora-2-free', 'sora-2'
-// Map our internal model IDs (incl. veo-3.1*, sora-2-pro/hd) to a supported one.
+// Map our internal model IDs (incl. veo-3.1*, sora-2-pro/hd, kling/seedance/grok admin overrides)
+// to a supported model before submitting to the unified video endpoint.
 const GEMINIGEN_MODEL_ALIAS: Record<string, string> = {
   'veo-3.1': 'veo-3',
+  'veo-3.1-hd': 'veo-3',
+  'veo-3.1-fullhd': 'veo-3',
   'veo-3.1-fast': 'veo-3-fast',
+  'veo-3.1-fast-fullhd': 'veo-3-fast',
+  'veo-3.1-lite-hd': 'veo-3-fast',
+  'veo-3.1-lite-fullhd': 'veo-3-fast',
   'sora-2-pro': 'sora-2',
   'sora-2-hd': 'sora-2',
 };
 const GEMINIGEN_SUPPORTED = new Set(['veo-2', 'veo-3', 'veo-3-fast', 'sora-2-free', 'sora-2']);
 
-function stripPrefix(model: string): string {
+export function normalizeGeminiGenVideoModel(model: string): string {
   const raw = model.startsWith('geminigen/') ? model.slice(10) : model;
   if (GEMINIGEN_SUPPORTED.has(raw)) return raw;
   if (GEMINIGEN_MODEL_ALIAS[raw]) return GEMINIGEN_MODEL_ALIAS[raw];
-  // Fallback: best-effort family match, else default to veo-3-fast
+
+  // Fallback: best-effort family match to the limited set the endpoint currently accepts.
+  if (raw.startsWith('veo-3.1-fast')) return 'veo-3-fast';
+  if (raw.startsWith('veo-3.1')) return 'veo-3';
   if (raw.startsWith('veo-3')) return raw.includes('fast') ? 'veo-3-fast' : 'veo-3';
-  if (raw.startsWith('sora-2')) return 'sora-2';
   if (raw.startsWith('veo-2')) return 'veo-2';
+
+  if (raw.startsWith('sora-2')) return raw.includes('free') ? 'sora-2-free' : 'sora-2';
+
+  // Other GeminiGen catalog families are not accepted by this endpoint yet.
+  // Degrade gracefully instead of passing an invalid model and hard-failing the whole job.
+  if (raw.startsWith('kling-') || raw.startsWith('seedance-') || raw.startsWith('grok-')) {
+    const fallback = /fast|lite|480|720/i.test(raw) ? 'veo-3-fast' : 'veo-3';
+    console.warn(`[geminigen-video] Unsupported endpoint model "${raw}", remapped to ${fallback}`);
+    return fallback;
+  }
+
   console.warn(`[geminigen-video] Unknown model "${raw}", falling back to veo-3-fast`);
   return 'veo-3-fast';
 }
@@ -119,7 +138,7 @@ function findImageUrlDeep(obj: unknown, depth = 0): string | undefined {
 }
 
 async function submitVideoTask(params: GeminiGenVideoParams, apiKey: string): Promise<string> {
-  const modelName = stripPrefix(params.model);
+  const modelName = normalizeGeminiGenVideoModel(params.model);
   const ratio = mapAspectRatio(params.aspectRatio);
 
   // GeminiGen video API expects multipart/form-data (verified via curl test)
@@ -145,7 +164,7 @@ async function submitVideoTask(params: GeminiGenVideoParams, apiKey: string): Pr
     }
   }
 
-  console.log(`[geminigen-video] Submit: model=${modelName}, ratio=${ratio}, duration=${params.duration || 5}s`);
+  console.log(`[geminigen-video] Submit: model=${modelName}, requested=${params.model}, ratio=${ratio}, duration=${params.duration || 5}s`);
 
   const response = await fetch(`${GEMINIGEN_BASE_URL}${GEMINIGEN_VIDEO_ENDPOINT}`, {
     method: 'POST',
