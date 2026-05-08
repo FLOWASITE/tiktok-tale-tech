@@ -443,10 +443,12 @@ export function QuickClipTab({
       )}
 
       {/* Aspect ratio */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
-        <AspectRatioPicker value={aspect} onChange={setAspect} disabled={generating} />
-      </div>
+      {!embedded && (
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
+          <AspectRatioPicker value={aspect} onChange={setAspect} disabled={generating} />
+        </div>
+      )}
 
       {/* Duration */}
       <div className="space-y-2">
