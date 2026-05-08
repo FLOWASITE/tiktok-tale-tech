@@ -191,6 +191,11 @@ export function ScriptWorkspace({ script, onBack, onScriptUpdate }: Props) {
           Danh sách kịch bản
         </Button>
         <div className="flex items-center gap-2">
+          <AdminModelBadge
+            functionName="generate-video"
+            defaultModel="geminigen/veo-3.1-fast"
+            organizationId={currentOrganization?.id}
+          />
           <Button variant="outline" size="sm" onClick={() => setViewerOpen(true)} className="h-8 gap-1.5 text-[11px]">
             <Maximize2 className="h-3.5 w-3.5" />
             Mở viewer fullscreen
