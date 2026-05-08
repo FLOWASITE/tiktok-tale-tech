@@ -68,10 +68,10 @@ export default function ScriptNew() {
         </div>
         <div className="flex-1 min-w-0 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Tạo Kịch bản Video mới
+            Tạo Kịch bản & Render Video bằng AI
           </h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Mô tả chủ đề, chọn định dạng và để AI viết kịch bản hoàn chỉnh — sẵn sàng cho TikTok, Reels, YouTube Shorts hoặc video dài.
+            Mô tả chủ đề, chọn định dạng social — AI sẽ viết kịch bản phân cảnh, tạo prompt hình ảnh, render video từng scene và ghép thành phim hoàn chỉnh cho TikTok, Reels, YouTube Shorts hoặc video dài.
           </p>
         </div>
       </div>
