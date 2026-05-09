@@ -963,18 +963,40 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
             const poyoErrMsg = poyoFallbackErr instanceof Error ? poyoFallbackErr.message : String(poyoFallbackErr);
             console.error('[generate-carousel-image] PoYo fallback also failed:', poyoErrMsg);
 
-            // Fail-fast on credits: don't waste more time on Lovable Gateway (also out).
-            if (poyoErrMsg.includes('CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_AUTH_ERROR')) {
+            // Distinguish between (a) both providers truly out of credits vs
+            // (b) GeminiGen had a non-credits error (model name, timeout, etc.) and
+            // only PoYo is out of credits. Avoids misleading "GeminiGen hết credits"
+            // when GeminiGen actually returned 400 / timeout.
+            const poyoCreditsExhausted = poyoErrMsg.includes('CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_AUTH_ERROR');
+            const geminiGenCreditsExhausted = lastGeminiGenErr.includes('CREDITS_EXHAUSTED') || lastGeminiGenErr.includes('GEMINIGEN_AUTH_ERROR');
+
+            if (poyoCreditsExhausted && geminiGenCreditsExhausted) {
               return new Response(
                 JSON.stringify({
-                  error: 'Tất cả provider ảnh đã hết credits (GeminiGen/PoYo). Vui lòng nạp thêm hoặc thử lại sau.',
+                  error: 'Tất cả provider ảnh đã hết credits (GeminiGen + PoYo). Vui lòng nạp thêm hoặc thử lại sau.',
                   errorCode: 'CREDITS_EXHAUSTED',
                   fallback: true,
                 }),
                 { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
               );
             }
-            console.log('[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway');
+
+            if (poyoCreditsExhausted) {
+              // PoYo out of credits, GeminiGen failed for OTHER reason → surface the real GeminiGen error.
+              console.error(`[generate-carousel-image] PoYo hết credits + GeminiGen lỗi non-credits: ${lastGeminiGenErr}`);
+              return new Response(
+                JSON.stringify({
+                  error: `Provider ảnh lỗi — PoYo hết credits, GeminiGen lỗi: ${lastGeminiGenErr.slice(0, 250)}`,
+                  errorCode: 'PROVIDER_ERROR',
+                  geminiGenError: lastGeminiGenErr,
+                  poyoError: poyoErrMsg,
+                  fallback: true,
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+
+            console.log(`[generate-carousel-image] GeminiGen+PoYo failed → falling through to Lovable Gateway. GeminiGen: ${lastGeminiGenErr} | PoYo: ${poyoErrMsg}`);
           }
         } else {
           console.log('[generate-carousel-image] GeminiGen failed and PoYo fallback unavailable → falling through to Lovable Gateway');
