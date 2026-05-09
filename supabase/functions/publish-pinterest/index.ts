@@ -240,6 +240,30 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
         .maybeSingle();
       resolvedBoard = cachedBoard?.board_id;
     }
+    const isSandbox = (connection as any).is_sandbox === true;
+    const apiBase = isSandbox ? PINTEREST_API_SANDBOX : PINTEREST_API_PROD;
+
+    // Live fallback: fetch boards from Pinterest. If none, auto-create a default
+    // (sandbox accounts start empty).
+    if (!resolvedBoard) {
+      try {
+        const list = await pinterestFetch(apiBase, '/boards?page_size=1', accessToken, { method: 'GET' });
+        resolvedBoard = list?.items?.[0]?.id;
+        if (!resolvedBoard) {
+          console.log('[publish-pinterest] no boards found, auto-creating default board');
+          const created = await pinterestFetch(apiBase, '/boards', accessToken, {
+            method: 'POST',
+            body: JSON.stringify({
+              name: isSandbox ? 'Sandbox Test Board' : 'My Board',
+              privacy: 'PUBLIC',
+            }),
+          });
+          resolvedBoard = created?.id;
+        }
+      } catch (e) {
+        console.error('[publish-pinterest] board auto-resolve failed', e);
+      }
+    }
     if (!resolvedBoard) {
       throw new Error('Chưa chọn Pinterest board. Vui lòng chọn board mặc định trong cài đặt kết nối.');
     }
