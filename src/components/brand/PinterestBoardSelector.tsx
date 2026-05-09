@@ -69,12 +69,23 @@ export function PinterestBoardSelector({
   async function refreshFromPinterest() {
     setRefreshing(true);
     try {
-      const { error } = await supabase.functions.invoke('pinterest-list-boards', {
+      const { data, error } = await supabase.functions.invoke('pinterest-list-boards', {
         body: { connectionId },
       });
       if (error) throw error;
       await loadBoards();
-      toast({ title: 'Đã đồng bộ board', description: 'Danh sách board được làm mới từ Pinterest.' });
+      const count = (data as any)?.boardCount ?? (data as any)?.boards?.length ?? 0;
+      if (count === 0) {
+        toast({
+          title: 'Không tìm thấy board nào',
+          description:
+            (data as any)?.hint ??
+            'Tài khoản Pinterest chưa có board. Hãy tạo 1 board public trên pinterest.com rồi đồng bộ lại.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: `Đã đồng bộ ${count} board`, description: 'Danh sách board được làm mới từ Pinterest.' });
+      }
     } catch (e: any) {
       toast({
         title: 'Không đồng bộ được board',

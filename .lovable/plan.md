@@ -1,26 +1,38 @@
-## Vấn đề
+## Chẩn đoán
 
-Bấm "Đồng bộ" Pinterest board không hiện board nào, mặc dù API gọi thành công (status 200).
+- Function `pinterest-list-boards` đang chạy thành công HTTP 200, nhưng response thực tế là `boards: []`.
+- Token Pinterest vẫn hợp lệ: `test-pinterest-connection` trả về account `flowasite`, loại `BUSINESS`.
+- Bảng cache `pinterest_boards` hiện đang rỗng, nên dropdown không có gì để hiển thị.
+- Khả năng cao endpoint `GET /v5/boards` không trả board cho app/token hiện tại trong trường hợp này, dù account tồn tại. Cần bổ sung fallback/diagnostic để không “thành công giả” khi API trả rỗng.
 
-## Nguyên nhân
+## Kế hoạch sửa
 
-`PinterestBoardSelector.tsx` đọc danh sách board từ table `pinterest_boards` trong DB, nhưng edge function `pinterest-list-boards` chỉ fetch từ Pinterest API và return JSON — **không bao giờ upsert kết quả vào `pinterest_boards`**. Vì vậy table luôn rỗng → dropdown luôn hiển thị "Chưa có board nào".
+1. **Tăng khả năng debug ở backend**
+   - Sửa `supabase/functions/pinterest-list-boards/index.ts` để log rõ:
+     - `connectionId`, username/platform hiện tại.
+     - Số board trả về từ Pinterest.
+     - `bookmark`/pagination.
+     - Khi API trả `items: []`, log metadata response để phân biệt “không có board thật” với “API endpoint trả rỗng do quyền/tài khoản”.
 
-## Giải pháp (1 file)
+2. **Không trả “Đã đồng bộ” nếu thật sự không có board**
+   - Nếu Pinterest trả 0 board, response vẫn không crash nhưng thêm thông tin `boardCount: 0` và `message/hint` rõ ràng.
+   - Frontend `PinterestBoardSelector.tsx` sẽ đọc response này và hiện toast kiểu cảnh báo: tài khoản Pinterest đang trả 0 board, cần tạo board trên Pinterest hoặc kiểm tra quyền app.
+   - Tránh tình trạng người dùng thấy “Đã đồng bộ board” nhưng dropdown vẫn rỗng.
 
-Sửa `supabase/functions/pinterest-list-boards/index.ts`:
+3. **Bổ sung fallback kiểm tra board trên response shape khác**
+   - Làm parser linh hoạt hơn cho response Pinterest: hỗ trợ `data.items`, `data.boards`, hoặc array trực tiếp nếu API/version trả shape khác.
+   - Giữ mapping hiện tại vào `pinterest_boards` khi có dữ liệu.
 
-1. Sau khi fetch xong toàn bộ boards từ Pinterest API (logic phân trang giữ nguyên), thêm bước **upsert vào `pinterest_boards`** với service client:
-   - Map mỗi board thành row: `connection_id`, `organization_id` (lấy từ `social_connections.organization_id`), `board_id` (= Pinterest id), `name`, `privacy`, `pin_count`, `cover_image_url` (nếu API trả).
-   - Dùng `upsert(..., { onConflict: 'connection_id,board_id' })` để idempotent.
-2. (Tuỳ chọn nhỏ) Xoá những board đã không còn tồn tại trên Pinterest cho `connection_id` này (delete những row có `board_id NOT IN (...fetched ids)`), để dropdown không hiển thị board đã xoá.
-3. Giữ nguyên response `{ success: true, boards }` để không phá client hiện tại.
+4. **Tự xác thực lại sau sync**
+   - Sau khi gọi sync, frontend reload bảng `pinterest_boards` và nếu vẫn rỗng thì hiển thị thông báo chính xác thay vì success.
 
-Không cần đổi frontend, không cần migration (table + unique constraint đã có sẵn).
+## File dự kiến sửa
 
-## Verify
+- `supabase/functions/pinterest-list-boards/index.ts`
+- `src/components/brand/PinterestBoardSelector.tsx`
 
-1. Vào `/brands/...?tab=connections` → mở thẻ Pinterest → bấm nút Đồng bộ (icon refresh).
-2. Toast "Đã đồng bộ board" xuất hiện, dropdown liệt kê các board của @flowasite.
-3. Chọn 1 board → "Lưu board mặc định" → reload trang vẫn giữ.
-4. Thử "Đăng ngay" 1 nội dung Pinterest → không còn lỗi "Chưa chọn Pinterest board".
+## Kết quả mong đợi
+
+- Nếu Pinterest API có board: board được upsert vào `pinterest_boards`, dropdown hiển thị ngay.
+- Nếu Pinterest API trả 0 board: UI báo đúng lý do/next step, không báo thành công giả.
+- Có log đủ chi tiết để xác định tiếp liệu tài khoản `flowasite` thật sự chưa có board hay app/token không có quyền đọc board.
