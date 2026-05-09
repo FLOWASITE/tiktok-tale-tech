@@ -1558,6 +1558,7 @@ export function MultiChannelViewer({
                             const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
                             return imgUrl ? [imgUrl] : undefined;
                           })()}
+                          pinterestTitle={channel === 'pinterest' ? ((content as any).pinterest_title || undefined) : undefined}
                           variant="default"
                           size="sm"
                           onPublishSuccess={() => {

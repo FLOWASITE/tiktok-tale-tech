@@ -283,6 +283,15 @@ export function useDirectPublish() {
     });
   };
 
+  const publishToPinterest = async (
+    options: PublishOptions & { title?: string; link?: string; boardId?: string; altText?: string }
+  ) => {
+    return publishMutation.mutateAsync({
+      platform: 'pinterest',
+      options: options as PublishOptions,
+    });
+  };
+
   const publishToBlogger = async (options: PublishOptions & { title?: string; labels?: string[] }) => {
     const response = await supabase.functions.invoke('channel-publisher', {
       body: {
@@ -437,6 +446,7 @@ export function useDirectPublish() {
     publishToTikTok,
     publishToGoogleBusiness,
     publishToBluesky,
+    publishToPinterest,
     publishToBlog,
     publishToBlogger,
     publishToWordpress,
