@@ -156,7 +156,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBluesky, publishToBlog, publishToBlogger, publishToWordpress, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToInstagram, publishToZaloOA, publishToLinkedIn, publishToTikTok, publishToGoogleBusiness, publishToBluesky, publishToPinterest, publishToBlog, publishToBlogger, publishToWordpress, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   // Query existing blog post for this content to auto-fill backlink
