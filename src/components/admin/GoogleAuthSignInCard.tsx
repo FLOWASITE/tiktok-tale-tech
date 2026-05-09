@@ -142,9 +142,8 @@ export function GoogleAuthSignInCard() {
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction
-              onClick={async () => {
-                await deleteMutation.mutateAsync('google_signin');
-                setConfirmDelete(false);
+              onClick={() => {
+                deleteSettings('google_signin', { onSuccess: () => setConfirmDelete(false) });
               }}
             >
               Xóa
