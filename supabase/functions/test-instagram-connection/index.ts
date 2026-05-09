@@ -150,24 +150,28 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
 
     if (!response.ok) {
       console.error("Instagram API error:", data);
+      const fbtraceId = data?.error?.fbtrace_id;
+      const devModeHint = 'Meta App có thể đang ở Development Mode. Vào Meta Developer Console → Roles → thêm IG Tester, hoặc submit App Review để vào Live Mode.';
 
       // Transient errors (code 2, is_transient: true) — do NOT invalidate token
       if (data.error?.is_transient || data.error?.code === 2) {
         return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "Instagram đang gặp sự cố tạm thời. Vui lòng thử lại sau 1-2 phút.",
+          JSON.stringify({
+            success: false,
+            error: 'Instagram trả lỗi tạm thời (code 2) sau khi đã retry. Thường do App ở Development Mode hoặc IG account chưa link Business đúng cách.',
             transient: true,
+            hint: devModeHint,
+            fbtrace_id: fbtraceId,
           }),
           { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       // Token truly invalid (code 190) — mark inactive
       if (data.error?.code === 190) {
         await supabase
           .from("social_connections")
-          .update({ 
+          .update({
             is_active: false,
             metadata: {
               ...connection.metadata,
@@ -179,21 +183,23 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
           .eq("id", connectionId);
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             error: data.error?.message || "Token không hợp lệ hoặc đã hết hạn",
             token_invalid: true,
+            fbtrace_id: fbtraceId,
           }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: data.error?.message || "Failed to verify Instagram connection",
+          fbtrace_id: fbtraceId,
         }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: response.status || 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -206,9 +212,10 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
         metadata: {
           ...connection.metadata,
           last_test: now.toISOString(),
-          test_result: "success",
+          test_result: limited ? "success_limited" : "success",
           account_type: data.account_type,
           media_count: data.media_count,
+          ...(limited ? { limited_reason: limitedHint } : {}),
         }
       })
       .eq("id", connectionId);
@@ -216,7 +223,11 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Instagram connection is valid",
+        message: limited
+          ? "Token Instagram còn hợp lệ (chế độ giới hạn — App đang Dev Mode)"
+          : "Instagram connection is valid",
+        limited,
+        hint: limitedHint || undefined,
         data: {
           instagram_user_id: data.id,
           username: data.username,
