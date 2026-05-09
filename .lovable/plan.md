@@ -1,53 +1,61 @@
-## Chẩn đoán lại (anh nói GeminiGen còn nhiều credits → đúng)
+# Bổ sung mô tả chi tiết về TikTok (và các social platform) vào Privacy Policy
 
-Database `ai_function_configs` cho `generate-carousel-image`:
-```
-model_override: geminigen/imagen-4
-```
+## Tình trạng hiện tại
 
-Flow thực tế khi tạo carousel:
-1. Function gọi GeminiGen với model `imagen-4` → **GeminiGen trả lỗi (KHÔNG phải 402)** — có thể là `400 INVALID_INPUT` (giống lỗi video Veo trước đây: tên model không nằm trong danh sách hợp lệ), hoặc timeout, hoặc lỗi shape response.
-2. Code fallback sang **PoYo** (`poyo/nano-banana-2-new`).
-3. PoYo trả `402 insufficient_credits` (PoYo mới là cái thật sự hết credits).
-4. Code ráp message: **"Tất cả provider ảnh đã hết credits (GeminiGen/PoYo)"** → gây hiểu lầm rằng GeminiGen cũng hết credits.
+Trang `https://flowa.one/privacy` **đã tồn tại** (`src/landing/pages/PrivacyPolicy.tsx`), với 10 sections.
 
-→ Bug = (a) message gây hiểu lầm + (b) tên model GeminiGen có thể sai, và (c) PoYo thực sự hết credits.
+TikTok hiện chỉ được nhắc **rất chung chung** ở 2 chỗ:
+- Section 2.3 — liệt kê chung "Facebook, Instagram, LinkedIn, TikTok…" trong "Thông tin từ bên thứ ba"
+- Section 4.1 — "Mã hóa AES-256 cho token mạng xã hội"
 
-## Việc cần làm
+→ **Không đủ** để TikTok auditor thấy rõ "app này lưu những field nào của TikTok, dùng vào việc gì, lưu bao lâu". TikTok review thường yêu cầu privacy policy phải mention rõ ràng tên platform + cụ thể field stored + purpose + retention.
 
-### 1. Sửa message gây hiểu lầm (`generate-carousel-image/index.ts` line 967-976)
-Phân biệt rõ provider nào lỗi gì thay vì gộp chung "GeminiGen/PoYo":
-- Nếu GeminiGen lỗi non-credits + PoYo 402 → "PoYo hết credits. GeminiGen lỗi: <chi tiết>" (status 200, errorCode `PROVIDER_ERROR` không phải `CREDITS_EXHAUSTED`).
-- Chỉ trả `CREDITS_EXHAUSTED` khi GeminiGen cũng thật sự 402.
-- Đồng thời log đầy đủ `lastGeminiGenErr` để debug nhanh hơn.
+## Đề xuất sửa
 
-### 2. Verify tên model GeminiGen `imagen-4`
-GeminiGen image API yêu cầu tên model chính xác. Theo memory/code comment thì hỗ trợ `nano-banana-pro`, `nano-banana-2`, `imagen-4`, nhưng API thực có thể đòi `imagen4` (no dash) hoặc tên khác. Cần:
-- Bật log đầy đủ `errorText` ở `geminigen-image-generator.ts` line 92-93 (đã có sẵn — chỉ cần xem edge function logs sau khi tạo lại 1 carousel).
-- Hoặc đổi tạm `model_override` sang `geminigen/nano-banana-pro` (chắc chắn hoạt động) và xác nhận carousel chạy được. Sau đó mới quay lại fix tên `imagen-4`.
+Thêm **1 section mới giữa section 4 và section 5** (đánh số lại 5,6,7,…), tiêu đề:
 
-### 3. Giải quyết PoYo hết credits
-- Nạp credits PoYo (poyo.ai dashboard) — nó là provider chính được code gọi đầu tiên ở các trường hợp khác (sequential, kinetic).
-- Hoặc disable PoYo branch và để hệ thống đi thẳng GeminiGen → Lovable Gateway fallback.
+> **5. Dữ liệu từ kết nối Mạng xã hội (TikTok, Facebook, Instagram, LinkedIn, X/Twitter, Threads, Pinterest, Bluesky, Zalo OA, Google Business Profile)**
 
-### 4. (Tùy chọn) Tạm chuyển default sang `geminigen/nano-banana-pro`
-Update DB:
-```sql
-UPDATE ai_function_configs
-SET model_override = 'geminigen/nano-banana-pro'
-WHERE function_name = 'generate-carousel-image';
-```
-→ Xác nhận GeminiGen hoạt động trước, sau đó nghiên cứu cú pháp model `imagen-4` đúng.
+Nội dung chia 4 tiểu mục:
 
-## Đề xuất thứ tự
+### 5.1. Dữ liệu thu thập từ TikTok (mô tả chi tiết — TikTok yêu cầu)
+Liệt kê đúng theo những gì code `publish-tiktok` + `tiktok-oauth-callback` thực sự lưu:
+- **OAuth tokens**: `access_token`, `refresh_token` (mã hóa AES-256-GCM, cột `social_connections.access_token` / `refresh_token`), `expires_in` → `token_expires_at`, `open_id`, `scope`
+- **Profile (display only)**: `display_name`, `username`, `avatar_url` — chỉ để hiển thị trong UI quản lý kết nối
+- **Publish tracking**: `publish_id` lưu trong `content_publishing_logs.external_post_id`; status (`PUBLISH_COMPLETE`, `PROCESSING_DOWNLOAD`, …) lưu trong `details`; fail_reason lưu trong `error_message`
+- **KHÔNG lưu**: video content, comments, follower lists, hashtag analytics, hay bất kỳ user-generated data nào khác từ TikTok
 
-1. **Đổi tạm model về `geminigen/nano-banana-pro`** (1 query SQL) → tạo thử carousel ngay.
-2. **Sửa message error** để tương lai không bị hiểu lầm provider nào hết credits.
-3. **Nạp PoYo credits** (vẫn nên có để fallback).
-4. Sau khi (1) hoạt động → research lại cú pháp đúng cho `imagen-4` rồi đổi lại nếu muốn.
+### 5.2. Dữ liệu thu thập từ các nền tảng khác (FB, IG, LinkedIn, X, Threads, Pinterest, Bluesky, Zalo OA, GBP)
+Mô tả ngắn gọn (1 dòng/platform): cũng là OAuth tokens (encrypted) + basic profile (display name/username/avatar) + publish logs.
 
-## File sẽ sửa
-- `supabase/functions/generate-carousel-image/index.ts` (logic phân biệt provider error)
-- Migration SQL update `ai_function_configs.model_override`
+### 5.3. Mục đích sử dụng
+- Đăng nội dung do user tạo lên các kênh đã được user chủ động kết nối
+- Hiển thị trạng thái post (đã đăng/lỗi) trong dashboard
+- Refresh token tự động (qua pg_cron 30 phút) để duy trì kết nối
 
-Anh xác nhận em làm theo thứ tự trên (đổi sang nano-banana-pro + sửa message), hay muốn em giữ `imagen-4` và chỉ sửa message + log để debug tên model?
+### 5.4. Thời gian lưu trữ + quyền xóa
+- Token được giữ chừng nào kết nối còn active
+- Khi user nhấn "Disconnect" → tokens bị xóa khỏi DB ngay lập tức
+- `content_publishing_logs` được giữ 90 ngày phục vụ audit & debug, sau đó anonymize
+- User có thể yêu cầu xóa toàn bộ qua email `support@flowa.one`
+
+### 5.5. Compliance với chính sách của từng nền tảng
+- Tuân thủ TikTok Developer Terms of Service, Facebook Platform Terms, LinkedIn API TOS, X Developer Agreement, …
+- Không transfer / sell / share token với bên thứ 3
+- Không lưu data ngoài những field liệt kê ở 5.1, 5.2
+
+## Sửa thêm các section khác cho nhất quán
+
+- **Section 6 (cũ là 5) — Quyền của bạn**: thêm bullet "Quyền ngắt kết nối mạng xã hội bất kỳ lúc nào tại trang Connections, token sẽ bị xóa ngay"
+- **Section 8 (cũ là 7) — Thời gian lưu trữ**: thêm dòng "Social media tokens: xóa ngay khi user disconnect; publishing logs: 90 ngày sau đó anonymize"
+- **Updated date**: đổi từ "17 tháng 4, 2026" → "9 tháng 5, 2026"
+
+## File cần sửa
+- `src/landing/pages/PrivacyPolicy.tsx` — thêm 1 entry vào array `sections` (giữa index 3 và 4), đánh số lại các section sau, đổi `Cập nhật lần cuối`
+
+## SEO + URL không đổi
+Route `/privacy` giữ nguyên, không cần migration / redirect.
+
+## Câu hỏi xác nhận
+1. Em soạn nội dung **bằng tiếng Việt** (giống các section hiện tại) hay **song ngữ Việt + English** (TikTok auditor là English speaker, nhiều khả năng họ sẽ Google Translate — bản thuần Việt là chấp nhận được, nhưng song ngữ giúp audit nhanh hơn)?
+2. Có cần **trang riêng `/privacy/tiktok`** chuyên biệt cho TikTok (một số app submit audit dùng cách này) hay chỉ cần section 5 trong trang chính là đủ?
