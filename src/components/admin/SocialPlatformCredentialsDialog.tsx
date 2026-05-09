@@ -139,9 +139,10 @@ const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
 const READ_ONLY_PLATFORMS = new Set<SocialPlatform>(['bluesky', 'wordpress']);
 
 function getCallbackUrl(platform: SocialPlatform): string | null {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (platform === 'google_signin') return `${supabaseUrl}/auth/v1/callback`;
   const path = CALLBACK_URL_MAP[platform];
   if (!path) return null;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   return `${supabaseUrl}/functions/v1/${path}`;
 }
 
