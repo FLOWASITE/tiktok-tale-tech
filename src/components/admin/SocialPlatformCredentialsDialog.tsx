@@ -113,6 +113,10 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
     url: 'https://console.cloud.google.com/apis/credentials',
     instructions: 'Google Cloud Console → APIs & Services → Enable "Google Search Console API" → Credentials → Create OAuth 2.0 Client ID (Web application). Authorized redirect URI: https://rllyipiyuptkibqinotz.supabase.co/functions/v1/gsc-oauth-callback',
   },
+  google_signin: {
+    url: 'https://console.cloud.google.com/apis/credentials',
+    instructions: 'Google Cloud Console → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Web application). Authorized redirect URI: https://rllyipiyuptkibqinotz.supabase.co/auth/v1/callback. ⚠️ Sau khi lưu ở đây, dán cùng Client ID + Secret vào Lovable Cloud → Auth Providers → Google để Sign-In thực sự dùng credential này.',
+  },
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
