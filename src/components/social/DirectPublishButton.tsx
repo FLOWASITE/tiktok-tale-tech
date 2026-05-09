@@ -899,7 +899,7 @@ export function DirectPublishButton({
                 </Button>
                 <Button
                   onClick={handlePublish}
-                  disabled={isPublishing || !editableContent.trim() || (platform === 'twitter' && editableContent.length > 280) || isZaloMissingCover}
+                  disabled={isPublishing || !editableContent.trim() || (platform === 'twitter' && editableContent.length > 280) || isZaloMissingCover || isPinterestMissingMedia}
                   className={cn(
                     'sm:flex-1 font-semibold',
                     platform === 'facebook' && 'bg-[hsl(220,46%,48%)] hover:bg-[hsl(220,46%,42%)] text-white',
