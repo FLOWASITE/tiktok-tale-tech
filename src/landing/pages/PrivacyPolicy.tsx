@@ -74,8 +74,59 @@ Bằng việc sử dụng ứng dụng Flowa, bạn xác nhận đã đọc và 
 - Sao lưu tự động hàng ngày với mã hóa.`,
   },
   {
+    icon: Link2,
+    title: "5. Dữ liệu từ kết nối Mạng xã hội (TikTok, Facebook, Instagram, LinkedIn, X/Twitter, Threads, Pinterest, Bluesky, Zalo OA, Google Business Profile)",
+    content: `Khi bạn chủ động kết nối tài khoản mạng xã hội với Flowa để đăng nội dung, chúng tôi lưu trữ một số dữ liệu cần thiết được nền tảng đó trả về qua OAuth. Dưới đây là chi tiết theo từng nền tảng.
+
+**5.1. TikTok (Content Posting API)**
+
+Flowa sử dụng TikTok Login Kit + Content Posting API để cho phép bạn đăng ảnh/video lên tài khoản TikTok của chính bạn. Các trường dữ liệu được lưu trong database (bảng \`social_connections\` và \`content_publishing_logs\`):
+
+- **Từ /v2/oauth/token/ (OAuth):** \`access_token\` (mã hóa AES-256-GCM), \`refresh_token\` (mã hóa AES-256-GCM), \`expires_in\` (chuyển thành \`token_expires_at\` timestamp), \`open_id\` (lưu ở \`platform_user_id\`), \`scope\` (lưu ở \`scopes\` array).
+- **Từ /v2/user/info/ (chỉ để hiển thị):** \`display_name\`, \`username\`, \`avatar_url\` — chỉ dùng để hiển thị trong UI quản lý kết nối, giúp bạn nhận biết tài khoản đã liên kết.
+- **Từ /v2/post/publish/creator_info/query/:** Dữ liệu chỉ được sử dụng tạm thời trong bộ nhớ (in-memory) để chọn đúng \`privacy_level\` hợp lệ. Chúng tôi KHÔNG lưu trữ dữ liệu này vào database.
+- **Từ /v2/post/publish/content/init/:** \`publish_id\` (lưu ở \`content_publishing_logs.external_post_id\` cho mục đích tracking và audit).
+- **Từ /v2/post/publish/status/fetch/:** \`status\` (vd: \`PUBLISH_COMPLETE\`, \`PROCESSING_DOWNLOAD\`) lưu ở \`content_publishing_logs.details\`; \`fail_reason\` (nếu có) lưu ở \`error_message\`; \`publicly_available_post_id\` (nếu có) lưu ở \`details\`.
+
+**Chúng tôi KHÔNG thu thập hoặc lưu trữ:** nội dung video TikTok của bạn, danh sách follower, comments, like history, hashtag analytics, hay bất kỳ user-generated data nào khác từ TikTok.
+
+**5.2. Các nền tảng khác**
+
+Tương tự TikTok, mỗi nền tảng dưới đây chỉ lưu OAuth tokens (đã mã hóa AES-256-GCM), thông tin profile cơ bản (display name / username / avatar — chỉ để hiển thị), và publish logs (post_id + status):
+
+- **Facebook & Instagram (Graph API):** Page access token, page id, page name, profile picture; post_id sau khi đăng.
+- **LinkedIn:** Access token, refresh token, urn (member id), display name; post URN sau khi đăng.
+- **X / Twitter:** Access token, refresh token, user id, screen_name; tweet id sau khi đăng.
+- **Threads:** Access token (long-lived), user id, username; media id sau khi đăng.
+- **Pinterest:** Access token, refresh token, user id, username, default board id; pin id sau khi đăng.
+- **Bluesky (AT Protocol):** DPoP private/public key pair (mã hóa), DID, handle, access JWT, refresh JWT; post URI sau khi đăng.
+- **Zalo OA:** Access token, refresh token, OA id, OA name; message id sau khi đăng.
+- **Google Business Profile:** OAuth tokens, account id, location id, business name; local post id sau khi đăng.
+- **Blogger / WordPress.com / Wix / Shopify (long-form CMS):** OAuth tokens, blog/site id, blog/site title; post id + URL sau khi xuất bản.
+
+**5.3. Mục đích sử dụng**
+
+- Đăng nội dung do bạn tạo lên các kênh đã được bạn chủ động kết nối.
+- Hiển thị trạng thái post (đã đăng / đang xử lý / lỗi) trong dashboard và lịch xuất bản.
+- Refresh token tự động (qua cron job 30 phút/lần) để duy trì kết nối, tránh bạn phải đăng nhập lại liên tục.
+- Audit & debug khi có lỗi đăng bài (logs giữ trong 90 ngày).
+
+**5.4. Thời gian lưu trữ và quyền xóa**
+
+- **Tokens:** Được giữ chừng nào kết nối còn active. Khi bạn nhấn "Disconnect" (Ngắt kết nối) tại trang Connections, token sẽ bị xóa khỏi database ngay lập tức.
+- **Publishing logs (\`content_publishing_logs\`):** Lưu 90 ngày phục vụ audit & debug, sau đó được anonymize (xóa nội dung post, giữ lại metric tổng hợp).
+- **Quyền yêu cầu xóa toàn bộ:** Liên hệ \`support@flowa.one\`, chúng tôi sẽ xóa toàn bộ dữ liệu social connection của bạn trong vòng 15 ngày.
+
+**5.5. Tuân thủ chính sách của từng nền tảng**
+
+- Tuân thủ TikTok Developer Terms of Service và Content Sharing Guidelines.
+- Tuân thủ Facebook Platform Terms, LinkedIn API Terms of Use, X Developer Agreement & Policy, Pinterest API Terms, Bluesky AT Protocol terms.
+- KHÔNG bán, chia sẻ, hay chuyển giao tokens / dữ liệu social cho bất kỳ bên thứ ba nào.
+- KHÔNG lưu trữ dữ liệu ngoài những trường được liệt kê ở mục 5.1 và 5.2.`,
+  },
+  {
     icon: UserCheck,
-    title: "5. Quyền của bạn",
+    title: "6. Quyền của bạn",
     content: `Bạn có các quyền sau đối với dữ liệu cá nhân:
 
 - **Quyền truy cập:** Yêu cầu bản sao dữ liệu cá nhân chúng tôi lưu trữ về bạn.
@@ -84,6 +135,7 @@ Bằng việc sử dụng ứng dụng Flowa, bạn xác nhận đã đọc và 
 - **Quyền hạn chế xử lý:** Hạn chế cách chúng tôi sử dụng dữ liệu trong một số trường hợp.
 - **Quyền di chuyển dữ liệu:** Xuất dữ liệu ở định dạng phổ biến.
 - **Quyền rút lại đồng ý:** Rút lại sự đồng ý đã cho trước đó bất kỳ lúc nào.
+- **Quyền ngắt kết nối mạng xã hội:** Bất kỳ lúc nào tại trang Connections — token sẽ bị xóa khỏi database ngay lập tức.
 
 Để thực hiện các quyền trên, liên hệ chúng tôi qua email: support@flowa.one. Chúng tôi sẽ phản hồi trong vòng 15 ngày làm việc.`,
   },
