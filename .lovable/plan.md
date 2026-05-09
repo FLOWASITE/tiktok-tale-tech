@@ -1,51 +1,44 @@
 ## Mục tiêu
-Refactor `GoogleAuthSignInCard.tsx` để **đồng nhất visual** với các platform card khác trong `AdminSocialSettings` (Facebook, Bluesky, Shopify…), thay vì dùng layout amber-alert riêng biệt như hiện tại.
 
-## Pattern các card khác đang dùng (renderPlatformCard)
-```text
-┌──────────────────────────────────────────────┐
-│ [icon] Tên platform           [Badge ✓/OAuth]│
-│        platform_code                         │
-├──────────────────────────────────────────────┤
-│ ┌────── info box muted ──────┐               │
-│ │ App        Flowa Web Client│               │
-│ │ Key        ••••            │               │
-│ │ Trạng thái Đang hoạt động  │               │
-│ └────────────────────────────┘               │
-│ [Cấu hình]  [⚡Test]  [🗑]                    │
-└──────────────────────────────────────────────┘
-```
+Hiện tại nút **Cấu hình** ở card Google Sign-In mở tab Supabase Auth dashboard ra ngoài. User muốn UX y hệt card **Google Search Console**: click → mở dialog `SocialPlatformCredentialsDialog` ngay trong app để admin nhập **Client ID / Client Secret** + toggle Active, lưu vào `social_platform_settings` (mã hóa AES).
 
-Đặc điểm: padding `pb-3`, icon trong `p-2.5 rounded-lg bg-muted/60`, title `text-sm font-semibold`, mono code subtitle, info box `bg-muted/30 border-border/40 p-2.5`, hàng action 3 nút.
+## Phạm vi thay đổi
 
-## Refactor GoogleAuthSignInCard
+### 1. Type & hooks
+`src/hooks/useSocialPlatformSettings.ts`
+- Thêm `'google_signin'` vào union type `SocialPlatform`.
 
-**Bỏ** layout amber + warning box dài + ordered list 4 bước hiển thị mặc định.
+### 2. Dialog help text
+`src/components/admin/SocialPlatformCredentialsDialog.tsx`
+- Thêm entry trong `PLATFORM_HELP`:
+  - `url`: `https://console.cloud.google.com/apis/credentials`
+  - `instructions`: hướng dẫn tạo OAuth Client (Web), copy redirect URI `https://rllyipiyuptkibqinotz.supabase.co/auth/v1/callback` vào Authorized redirect URIs, paste Client ID + Secret. Note thêm: sau khi lưu cần dán cùng cặp ID/Secret vào **Auth Providers → Google** trên Cloud dashboard để Auth thực sự dùng (vì Supabase Auth provider config nằm ở scope khác, không thể set qua API).
 
-**Header (giống các card khác):**
-- Icon Google (giữ SVG hiện tại) trong `p-2.5 rounded-lg bg-muted/60`
-- Title: `Google Sign-In` (text-sm font-semibold)
-- Subtitle mono: `google_signin (BYOK)`
-- Badge top-right: `<Badge variant="secondary"><KeyRound/> BYOK</Badge>`
+### 3. GoogleAuthSignInCard refactor
+`src/components/admin/GoogleAuthSignInCard.tsx`
+- Bỏ phần `<Popover>` "Hướng dẫn" + link external `CLOUD_AUTH_DASHBOARD` cho nút Cấu hình.
+- Đọc `useSocialPlatformSettings()` → tìm `settings.find(s => s.platform === 'google_signin')` để biết `has_credentials`, `is_active`, `consumer_key` (masked).
+- Render giống `renderPlatformCard` của AdminSocialSettings:
+  - Badge `Đã cấu hình` / `Trống` (thay vì BYOK tĩnh) — vẫn giữ icon `KeyRound` nhỏ trong dialog header.
+  - Info box hiển thị App / Key (•••• khi đã có) / Trạng thái — chỉ hiện khi `has_credentials`.
+  - Khi chưa có: hiển thị 1 dòng note ngắn (Provider Google Cloud Console + redirect URI có nút Copy).
+- Hàng action 3 nút **giống GSC card**:
+  - `[Cấu hình / Chỉnh sửa]` → `setDialogOpen(true)` mở `SocialPlatformCredentialsDialog` với `platform="google_signin"`, `platformName="Google Sign-In"`.
+  - `[⚡]` → mở `/auth` test login (giữ).
+  - `[🗑]` → confirm + gọi `deleteMutation` (chỉ hiện khi đã cấu hình).
+- Wire `onSave` → `saveMutation.mutateAsync(...)` từ `useSocialPlatformSettings`.
 
-**Info box (thay warning amber):**
-```
-Provider     Google Cloud Console
-Redirect     ...supabase.co/auth/v1/callback  [Copy]
-Trạng thái   OAuth Client riêng của Flowa
-```
-Dùng cùng class `text-xs text-muted-foreground rounded-md bg-muted/30 border-border/40 p-2.5`.
+### 4. AdminSocialSettings (không bắt buộc)
+- Hiện tại `GoogleAuthSignInCard` đứng riêng dưới section "Đăng nhập ứng dụng". Giữ nguyên vị trí, không cần đưa vào `PLATFORMS` array.
 
-**Hàng action (giống các card credentials):**
-- `[Cấu hình]` (default/outline) → mở Auth Providers dashboard (external link)
-- `[⚡ Test]` → mở `/auth` tab mới
-- `[ⓘ Hướng dẫn]` (ghost icon) → mở Popover/Dialog chứa 4 bước recovery + link Google Console (giấu chi tiết khỏi card chính, chỉ hiện khi cần)
+## Lưu ý kỹ thuật
 
-## Files
-- **Edit only:** `src/components/admin/GoogleAuthSignInCard.tsx`
-- Không đổi `AdminSocialSettings.tsx` (vẫn render ở section "Đăng nhập ứng dụng" như hiện tại).
+- DB `social_platform_settings.platform` không có CHECK constraint, không cần migration. Edge function `manage-social-platform-settings` không whitelist platform → tự động chấp nhận `google_signin`.
+- `consumer_key` / `consumer_secret` đã được edge function mã hóa AES-256-GCM trước khi lưu, đồng nhất với GSC.
+- Vì Supabase Auth provider config (Client ID/Secret thực thi cho `signInWithOAuth('google')`) sống ở Auth dashboard và không có API public để set từ frontend, dialog phải kèm callout: *"Sau khi lưu, dán cùng Client ID + Secret này vào Auth Providers → Google để áp dụng"* + nút mở dashboard. Đây là điểm khác biệt cố hữu so với GSC (GSC tự dùng credential trong DB cho edge function của nó).
 
 ## Out of scope
-- Không tạo platform entry trong `PLATFORMS` (vì không lưu DB).
-- Không thay đổi flow OAuth thật.
-- Không đổi theme tokens.
+
+- Không tự động đẩy credential vào Supabase Auth provider config.
+- Không đổi flow `signInWithOAuth` ở client.
+- Không tạo migration.

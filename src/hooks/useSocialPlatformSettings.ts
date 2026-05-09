@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export type SocialPlatform = 'twitter' | 'facebook' | 'instagram' | 'threads' | 'linkedin' | 'tiktok' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'wordpress' | 'wordpress_com' | 'website' | 'pinterest' | 'bluesky' | 'shopify' | 'wix' | 'medium' | 'google_search_console';
+export type SocialPlatform = 'twitter' | 'facebook' | 'instagram' | 'threads' | 'linkedin' | 'tiktok' | 'youtube' | 'zalo_oa' | 'google_business' | 'blogger' | 'wordpress' | 'wordpress_com' | 'website' | 'pinterest' | 'bluesky' | 'shopify' | 'wix' | 'medium' | 'google_search_console' | 'google_signin';
 
 export interface PlatformSettings {
   id: string;
