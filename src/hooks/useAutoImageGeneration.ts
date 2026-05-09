@@ -34,7 +34,7 @@ export function autoSelectLogoPosition(
   // Default
   return 'bottom-right';
 }
-export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | 'auto';
+export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | '2:3' | 'auto';
 export type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
 
 // Import from shared config - single source of truth
@@ -201,11 +201,11 @@ export function useAutoImageGeneration() {
   const [error, setError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
 
-  const getAspectRatioForChannel = useCallback((channel: Channel, aspectRatio: AspectRatioOption): '16:9' | '1:1' | '9:16' | '4:5' => {
+  const getAspectRatioForChannel = useCallback((channel: Channel, aspectRatio: AspectRatioOption): '16:9' | '1:1' | '9:16' | '4:5' | '2:3' => {
     if (aspectRatio === 'auto') {
       const optimal = CHANNEL_OPTIMAL_ASPECT_RATIO[channel];
       // Cast string to specific type with fallback
-      if (optimal === '16:9' || optimal === '1:1' || optimal === '9:16' || optimal === '4:5') {
+      if (optimal === '16:9' || optimal === '1:1' || optimal === '9:16' || optimal === '4:5' || optimal === '2:3') {
         return optimal;
       }
       return '16:9';

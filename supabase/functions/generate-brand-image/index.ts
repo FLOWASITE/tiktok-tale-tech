@@ -37,7 +37,7 @@ interface GenerateImageRequest {
   channel: string;
   contentSummary: string;
   brandTemplateId: string;
-  aspectRatio?: "16:9" | "1:1" | "9:16" | "4:5";
+  aspectRatio?: "16:9" | "1:1" | "9:16" | "4:5" | "2:3";
   journeyStage?: 'awareness' | 'consideration' | 'decision' | 'retention';
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
   imageStylePreset?: ImageStylePreset;
