@@ -1,38 +1,30 @@
-## Chẩn đoán
+## Kế hoạch sửa lỗi “Không thấy tên Board”
 
-- Function `pinterest-list-boards` đang chạy thành công HTTP 200, nhưng response thực tế là `boards: []`.
-- Token Pinterest vẫn hợp lệ: `test-pinterest-connection` trả về account `flowasite`, loại `BUSINESS`.
-- Bảng cache `pinterest_boards` hiện đang rỗng, nên dropdown không có gì để hiển thị.
-- Khả năng cao endpoint `GET /v5/boards` không trả board cho app/token hiện tại trong trường hợp này, dù account tồn tại. Cần bổ sung fallback/diagnostic để không “thành công giả” khi API trả rỗng.
+### Vấn đề hiện tại
+- Database đã có board Pinterest cho tài khoản `@flowasite`: board tên **Flowa**.
+- Brand `Flowa` đã lưu `pinterest_default_board_id` đúng.
+- UI dropdown vẫn nhìn như trống vì selector đang chỉ render label trong danh sách option, nhưng chưa có cơ chế hiển thị rõ tên board đã chọn / fallback khi `SelectValue` không nhận được text từ item hoặc dữ liệu load chậm.
 
-## Kế hoạch sửa
+### Thay đổi sẽ làm
+1. **Sửa `PinterestBoardSelector.tsx`**
+   - Tính `selectedBoard` từ `boards` + `selected`.
+   - Hiển thị placeholder rõ ràng theo trạng thái:
+     - Loading: `Đang tải boards…`
+     - Có board đã chọn: tên board, ví dụ `Flowa`
+     - Có boards nhưng chưa chọn: `Chọn board mặc định`
+     - Không có boards: `Chưa có board nào — bấm Đồng bộ`
+   - Trong từng option, dùng text trực tiếp thay vì cấu trúc `span` phức tạp để tránh `SelectValue` render rỗng.
+   - Nếu chỉ có 1 board sau khi sync và chưa có board mặc định, tự set dropdown sang board đó để người dùng chỉ cần bấm lưu.
 
-1. **Tăng khả năng debug ở backend**
-   - Sửa `supabase/functions/pinterest-list-boards/index.ts` để log rõ:
-     - `connectionId`, username/platform hiện tại.
-     - Số board trả về từ Pinterest.
-     - `bookmark`/pagination.
-     - Khi API trả `items: []`, log metadata response để phân biệt “không có board thật” với “API endpoint trả rỗng do quyền/tài khoản”.
+2. **Cải thiện sau khi bấm Đồng bộ**
+   - `loadBoards()` trả về danh sách mới thay vì chỉ set state.
+   - Sau sync, nếu có đúng 1 board thì tự chọn board đó.
+   - Toast báo đúng tên board vừa đồng bộ nếu có.
 
-2. **Không trả “Đã đồng bộ” nếu thật sự không có board**
-   - Nếu Pinterest trả 0 board, response vẫn không crash nhưng thêm thông tin `boardCount: 0` và `message/hint` rõ ràng.
-   - Frontend `PinterestBoardSelector.tsx` sẽ đọc response này và hiện toast kiểu cảnh báo: tài khoản Pinterest đang trả 0 board, cần tạo board trên Pinterest hoặc kiểm tra quyền app.
-   - Tránh tình trạng người dùng thấy “Đã đồng bộ board” nhưng dropdown vẫn rỗng.
+3. **Không đổi backend/policy**
+   - Hiện board đã được lưu trong `pinterest_boards`, nên lỗi lần này nằm ở UI hiển thị/chọn mặc định, không cần migration.
 
-3. **Bổ sung fallback kiểm tra board trên response shape khác**
-   - Làm parser linh hoạt hơn cho response Pinterest: hỗ trợ `data.items`, `data.boards`, hoặc array trực tiếp nếu API/version trả shape khác.
-   - Giữ mapping hiện tại vào `pinterest_boards` khi có dữ liệu.
-
-4. **Tự xác thực lại sau sync**
-   - Sau khi gọi sync, frontend reload bảng `pinterest_boards` và nếu vẫn rỗng thì hiển thị thông báo chính xác thay vì success.
-
-## File dự kiến sửa
-
-- `supabase/functions/pinterest-list-boards/index.ts`
-- `src/components/brand/PinterestBoardSelector.tsx`
-
-## Kết quả mong đợi
-
-- Nếu Pinterest API có board: board được upsert vào `pinterest_boards`, dropdown hiển thị ngay.
-- Nếu Pinterest API trả 0 board: UI báo đúng lý do/next step, không báo thành công giả.
-- Có log đủ chi tiết để xác định tiếp liệu tài khoản `flowasite` thật sự chưa có board hay app/token không có quyền đọc board.
+### Kiểm tra sau sửa
+- Mở phần Pinterest connection.
+- Dropdown phải hiển thị board **Flowa** thay vì ô trống.
+- Khi bấm lưu, brand sẽ giữ `pinterest_default_board_id` và publish Pinterest không còn báo thiếu board.
