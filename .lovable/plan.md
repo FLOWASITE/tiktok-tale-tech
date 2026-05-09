@@ -1,44 +1,45 @@
-# Pinterest Sandbox Toggle (test mode)
+# Fix Instagram "Test kết nối" — Dev Mode code 2
 
-Cho phép kết nối Pinterest ở chế độ **Sandbox** bằng access token sinh thủ công từ Pinterest Developer Portal (như ảnh), để test code path publish mà không cần chờ Standard access. Sandbox **không tạo Pin thật** — chỉ để verify flow.
+## Nguyên nhân xác nhận
+Meta App đang ở **Development Mode**, IG user không có Tester role → endpoint `/{ig_user_id}?fields=id,username,account_type,media_count` random trả `code:2 OAuthException is_transient:true`. Function detect transient và trả 503 → UI báo "Test không được".
 
-## 1. Database
-Migration mới: thêm cột `is_sandbox boolean default false` vào `social_connections` (chỉ ý nghĩa với platform `pinterest`).
-- Không đổi RLS, không đổi index.
+## Hướng fix (chỉ sửa `supabase/functions/test-instagram-connection/index.ts`)
 
-## 2. Edge function: `publish-pinterest/index.ts`
-- Đọc `connection.is_sandbox` từ row `social_connections` đang publish.
-- Nếu `true` → đặt `PINTEREST_API = 'https://api-sandbox.pinterest.com/v5'`; ngược lại giữ production.
-- Khi sandbox và gặp lỗi 403 trial-access (đã handle ở turn trước) → vẫn return 200 + `requiresAction` nhưng message khác: "Token sandbox hợp lệ, code path OK. Khi nào có Standard access thì bỏ sandbox để publish thật."
-- Trong response success, gắn `data.sandbox = true` để FE biết đây là Pin sandbox (không hiển thị trên Pinterest thật).
+### 1. Đổi endpoint chính sang `/me` với fields tối thiểu
+- Gọi: `GET https://graph.instagram.com/v21.0/me?fields=id,username&access_token=...`
+- `/me` chịu Dev Mode tốt hơn vì self-introspection, không yêu cầu app review.
+- `account_type` và `media_count` là **nice-to-have**, tách thành lần gọi 2 không-block.
 
-## 3. Edge function mới: `connect-pinterest-sandbox/index.ts`
-- Auth: `verify_jwt = true` (user phải đăng nhập). Khai báo trong `supabase/config.toml`.
-- Input: `{ accessToken, organizationId, brandTemplateId? }`.
-- Gọi `GET https://api-sandbox.pinterest.com/v5/user_account` với token để verify + lấy `username`, `id`.
-- Nếu OK → upsert vào `social_connections`:
-  - `platform='pinterest'`, `is_sandbox=true`, `access_token=<token>` (encrypt như flow OAuth hiện tại), `account_name=username`, `account_id=id`, `expires_at = now() + 30 days` (như Pinterest hiển thị).
-- Trả `{ success: true, account: {...} }`.
+### 2. Retry 1 lần với delay 1.5s khi gặp `code:2 is_transient`
+- Lý do: code 2 thật sự có thể transient. Retry loại bỏ flake.
 
-## 4. Frontend
-**`src/components/brand/PinterestConnectionCard.tsx`** (hoặc nơi đang render nút "Kết nối Pinterest"):
-- Thêm 1 link nhỏ phía dưới nút OAuth: "Dùng Sandbox token để test →" → mở dialog.
+### 3. Fallback chain
+```text
+Try /me?fields=id,username
+  ├─ OK → mark connection valid, update username
+  │       └─ best-effort gọi tiếp /me?fields=account_type,media_count (lỗi → bỏ qua)
+  └─ Fail (code 2 sau retry) →
+        Try /{platform_user_id}?fields=id (chỉ id, ít quyền nhất)
+          ├─ OK → vẫn coi là valid, message: "Token còn sống nhưng app đang Dev Mode, một số field bị giới hạn"
+          └─ Fail → trả 503 + message rõ + fbtrace_id + hint Dev Mode
+```
 
-**Component mới `PinterestSandboxDialog.tsx`**:
-- Mô tả ngắn: "Sandbox dùng để test khi app chưa có Standard access. Pin tạo ra **không hiển thị trên Pinterest thật**."
-- Link `https://developers.pinterest.com/apps/` + hướng dẫn 3 bước (vào app → tab "Configure" → chọn Sandbox → bấm "Create access token" → copy → dán vào đây).
-- Input password-style cho token + nút "Kết nối sandbox".
-- Gọi edge `connect-pinterest-sandbox` qua `supabase.functions.invoke`.
-- Toast success/fail + invalidate query `social_connections`.
+### 4. Cải thiện response payload
+- Thêm `fbtrace_id` vào response error để user copy báo Meta nếu cần.
+- Thêm `hint` field khi nghi Dev Mode:
+  > "Meta App đang ở Development Mode. Vào Meta Developer Console → Roles → Add Instagram Tester, hoặc submit App Review để vào Live Mode."
+- Khi success qua fallback id-only, set `data.limited: true` + message giải thích.
 
-**Badge sandbox**:
-- Trong list connection (vd `SocialConnectionsList.tsx`), nếu `connection.is_sandbox === true` → hiện badge nhỏ `Sandbox` (variant outline, màu muted) cạnh tên account.
-
-## 5. Types
-- Sau khi migration apply, `src/integrations/supabase/types.ts` auto-regen → có `is_sandbox`.
-- Không tự sửa file này.
+### 5. UI tweak nhẹ ở `BrandViewConnectionsTab` (hoặc nơi gọi test)
+- Khi response có `hint` → toast description hiển thị thêm hint đó (1 dòng nhỏ).
+- Không thêm component mới, chỉ append vào toast.
 
 ## Out of scope
-- Không đổi PinterestBoardSelector — sandbox API trả board giả tự động.
-- Không đổi production OAuth flow.
-- Không thêm env var global `PINTEREST_USE_SANDBOX` (per-connection sạch hơn, cho phép giữ song song cả 2 connection).
+- Không đụng OAuth flow, không đổi token storage, không thêm migration.
+- Không tự động chuyển app sang Live Mode (việc này phải làm trên Meta Console).
+- Không đụng `publish-instagram` hay các function khác.
+
+## Verify
+1. Deploy `test-instagram-connection`.
+2. Bấm "Test kết nối" trên IG đang lỗi → expect: success với badge "limited" hoặc message rõ ràng kèm hint Dev Mode.
+3. Check edge function logs: phải thấy log retry + log endpoint fallback đã chạy.
