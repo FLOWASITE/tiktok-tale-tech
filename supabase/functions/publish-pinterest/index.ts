@@ -80,6 +80,7 @@ async function pinterestFetch(
 
 // Create an image Pin (single image, hosted URL)
 async function createImagePin(
+  apiBase: string,
   accessToken: string,
   params: { boardId: string; title?: string; description: string; link?: string; altText?: string; imageUrl: string }
 ): Promise<{ id: string; url: string }> {
@@ -89,21 +90,18 @@ async function createImagePin(
     description: truncate(params.description, 500),
     link: params.link || undefined,
     alt_text: truncate(params.altText || params.title || '', 500),
-    media_source: {
-      source_type: 'image_url',
-      url: params.imageUrl,
-    },
+    media_source: { source_type: 'image_url', url: params.imageUrl },
   };
   console.log('[publish-pinterest] create image pin', { board: params.boardId, image: params.imageUrl });
-  const data = await pinterestFetch('/pins', accessToken, {
+  const data = await pinterestFetch(apiBase, '/pins', accessToken, {
     method: 'POST',
     body: JSON.stringify(body),
   });
   return { id: data.id, url: `https://pinterest.com/pin/${data.id}/` };
 }
 
-// Create a multi-image (carousel) Pin
 async function createCarouselPin(
+  apiBase: string,
   accessToken: string,
   params: { boardId: string; title?: string; description: string; link?: string; imageUrls: string[]; altText?: string }
 ): Promise<{ id: string; url: string }> {
@@ -114,27 +112,23 @@ async function createCarouselPin(
     description: truncate(params.description, 500),
     link: params.link || undefined,
     alt_text: truncate(params.altText || params.title || '', 500),
-    media_source: {
-      source_type: 'multiple_image_urls',
-      items,
-    },
+    media_source: { source_type: 'multiple_image_urls', items },
   };
   console.log('[publish-pinterest] create carousel pin', { board: params.boardId, count: items.length });
-  const data = await pinterestFetch('/pins', accessToken, {
+  const data = await pinterestFetch(apiBase, '/pins', accessToken, {
     method: 'POST',
     body: JSON.stringify(body),
   });
   return { id: data.id, url: `https://pinterest.com/pin/${data.id}/` };
 }
 
-// Register a video upload, upload bytes, poll for ready, then create video Pin
 async function createVideoPin(
+  apiBase: string,
   accessToken: string,
   params: { boardId: string; title?: string; description: string; link?: string; videoUrl: string; coverImageUrl?: string; altText?: string }
 ): Promise<{ id: string; url: string }> {
-  // Step 1: register video upload
   console.log('[publish-pinterest] register video upload');
-  const register = await pinterestFetch('/media', accessToken, {
+  const register = await pinterestFetch(apiBase, '/media', accessToken, {
     method: 'POST',
     body: JSON.stringify({ media_type: 'video' }),
   });
@@ -142,7 +136,6 @@ async function createVideoPin(
   const uploadUrl: string = register.upload_url;
   const uploadParams: Record<string, string> = register.upload_parameters || {};
 
-  // Step 2: download source video, then POST multipart to AWS pre-signed URL
   console.log('[publish-pinterest] downloading source video');
   const videoRes = await fetch(params.videoUrl);
   if (!videoRes.ok) throw new Error(`Could not download source video (HTTP ${videoRes.status})`);
@@ -159,11 +152,10 @@ async function createVideoPin(
     throw new Error(`Video upload failed (HTTP ${uploadRes.status}): ${txt.slice(0, 200)}`);
   }
 
-  // Step 3: poll status
   let status = 'processing';
-  for (let i = 0; i < 24; i++) { // ~2 minutes max
+  for (let i = 0; i < 24; i++) {
     await new Promise((r) => setTimeout(r, 5000));
-    const stat = await pinterestFetch(`/media/${mediaId}`, accessToken, { method: 'GET' });
+    const stat = await pinterestFetch(apiBase, `/media/${mediaId}`, accessToken, { method: 'GET' });
     status = stat.status;
     console.log('[publish-pinterest] media poll', { mediaId, status, attempt: i + 1 });
     if (status === 'succeeded') break;
@@ -171,7 +163,6 @@ async function createVideoPin(
   }
   if (status !== 'succeeded') throw new Error('Pinterest video processing timeout');
 
-  // Step 4: create the Pin referencing the uploaded media
   const body = {
     board_id: params.boardId,
     title: truncate(params.title || '', 100),
@@ -185,7 +176,7 @@ async function createVideoPin(
     },
   };
   console.log('[publish-pinterest] create video pin', { board: params.boardId, mediaId });
-  const data = await pinterestFetch('/pins', accessToken, {
+  const data = await pinterestFetch(apiBase, '/pins', accessToken, {
     method: 'POST',
     body: JSON.stringify(body),
   });
