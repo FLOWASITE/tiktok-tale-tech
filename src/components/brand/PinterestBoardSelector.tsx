@@ -52,7 +52,7 @@ export function PinterestBoardSelector({
     [selected, defaultBoardId],
   );
 
-  async function loadBoards() {
+  async function loadBoards(): Promise<PinterestBoard[]> {
     setLoading(true);
     const { data, error } = await supabase
       .from('pinterest_boards')
@@ -62,8 +62,14 @@ export function PinterestBoardSelector({
     if (error) {
       console.error('[PinterestBoardSelector] load failed', error);
     }
-    setBoards((data ?? []) as PinterestBoard[]);
+    const list = (data ?? []) as PinterestBoard[];
+    setBoards(list);
     setLoading(false);
+    // If only 1 board exists and nothing is selected yet, auto-pick it
+    if (list.length === 1 && !defaultBoardId && !selected) {
+      setSelected(list[0].board_id);
+    }
+    return list;
   }
 
   async function refreshFromPinterest() {
