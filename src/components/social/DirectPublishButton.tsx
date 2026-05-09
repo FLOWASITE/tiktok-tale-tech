@@ -499,7 +499,7 @@ export function DirectPublishButton({
           <Button
             variant={isAlreadyPublished ? 'ghost' : variant}
             size={size}
-            disabled={disabled || isPublishing || !content || isZaloMissingCover || isPinterestMissingMedia}
+            disabled={disabled || isPublishing || !content || isZaloMissingCover}
             onClick={handleClick}
             title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : isPinterestMissingMedia ? 'Cần ít nhất 1 ảnh để đăng Pinterest Pin' : undefined}
             className={cn(
