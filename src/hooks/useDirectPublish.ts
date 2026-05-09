@@ -89,6 +89,7 @@ export function useDirectPublish() {
       if (response.error) {
         let errorMessage = response.error.message || 'Failed to publish';
         let errorCode: string | undefined;
+        let nextSteps: string[] | undefined;
 
         const maybeContext = (response.error as { context?: Response } | null)?.context;
         if (maybeContext instanceof Response) {
@@ -100,6 +101,9 @@ export function useDirectPublish() {
             if (payload?.errorCode) {
               errorCode = String(payload.errorCode);
             }
+            if (Array.isArray(payload?.nextSteps)) {
+              nextSteps = payload.nextSteps.filter((step: unknown): step is string => typeof step === 'string');
+            }
           } catch {
             // Keep fallback message from response.error.message
           }
@@ -109,12 +113,18 @@ export function useDirectPublish() {
         if (errorCode) {
           (err as any).errorCode = errorCode;
         }
+        if (nextSteps?.length) {
+          (err as any).nextSteps = nextSteps;
+        }
         throw err;
       }
 
       if (!response.data?.success) {
         const err = new Error(response.data?.error || 'Failed to publish');
         (err as any).errorCode = response.data?.errorCode;
+        if (Array.isArray(response.data?.nextSteps)) {
+          (err as any).nextSteps = response.data.nextSteps;
+        }
         throw err;
       }
 
@@ -153,6 +163,7 @@ export function useDirectPublish() {
         errorCode === 'TIKTOK_POST_PROCESSING_FAILED' &&
         error.message?.includes('file_format_check_failed');
       const isInvalidPayload = errorCode === 'INVALID_PAYLOAD';
+      const isPinterestTrialAccess = errorCode === 'PINTEREST_TRIAL_ACCESS';
       const isBlueskyReauth =
         errorCode === 'BLUESKY_REAUTH_REQUIRED' ||
         /Refresh token replayed|Invalid refresh token|kết nối lại Bluesky/i.test(error.message || '');
@@ -173,6 +184,13 @@ export function useDirectPublish() {
         toast({
           title: 'Payload không hợp lệ',
           description: error.message,
+          variant: 'destructive',
+        });
+      } else if (isPinterestTrialAccess) {
+        const nextSteps = (error as any).nextSteps;
+        toast({
+          title: 'Pinterest cần Standard access',
+          description: Array.isArray(nextSteps) && nextSteps.length ? nextSteps.join(' ') : error.message,
           variant: 'destructive',
         });
       } else if (isTikTokFileFormat) {
