@@ -23,7 +23,7 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export function GoogleAuthSignInCard() {
-  const { settings, isLoading, saveMutation, deleteMutation } = useSocialPlatformSettings();
+  const { settings, isLoading, saveSettings, deleteSettings, isSaving } = useSocialPlatformSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
