@@ -117,10 +117,14 @@ export function GoogleAuthSignInCard() {
                 </Button>
                 {isConfigured && (
                   <>
-                    <Button asChild variant="outline" size="sm" title="Test login">
-                      <a href="/auth" target="_blank" rel="noopener noreferrer">
-                        <Zap className="w-3.5 h-3.5" />
-                      </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTest}
+                      disabled={testing}
+                      title="Test kết nối"
+                    >
+                      {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                     </Button>
                     <Button
                       variant="ghost"
