@@ -1,45 +1,70 @@
-## Nguyên nhân
+# Sửa lỗi không tạo được ảnh cho nội dung đa kênh
 
-Trong `src/components/social/DirectPublishButton.tsx`:
+## Triệu chứng
+- Vào `/multichannel`, spinner quay mãi không kết thúc.
+- Không có lỗi rõ ràng từ "tạo ảnh".
+- Không hề có request nào tới edge function `generate-brand-image` trong logs gần đây.
 
-```tsx
-const isPinterestMissingMedia = platform === 'pinterest' && !(mediaUrls && mediaUrls.length > 0);
-...
-<Button
-  disabled={disabled || isPublishing || !content || isZaloMissingCover || isPinterestMissingMedia}
-  title={... 'Cần ít nhất 1 ảnh để đăng Pinterest Pin' ...}
-/>
+## Nguyên nhân thực sự (không phải do nút tạo ảnh)
+Console log lặp lại lỗi sau từ `src/hooks/useMultiChannelContents.ts:174`:
+
+```
+Error fetching contents: { code: "57014", message: "canceling statement due to statement timeout" }
 ```
 
-Tab Pinterest trong ảnh chụp **chưa có ảnh nào được generate** (canvas hồng trống) → `mediaUrls` undefined → nút bị `disabled` hoàn toàn. Trên mobile (`title` HTML attribute không show on tap) → người dùng bấm thấy "không có gì xảy ra", không hiểu vì sao.
+→ Query `SELECT * FROM multi_channel_contents WHERE organization_id = ...` **bị Postgres giết do quá 8 giây**.
+Vì danh sách content không tải được, trang đứng ở trạng thái loading/skeleton, người dùng tưởng "ảnh không tạo được" — thực ra chưa từng vào được màn hình tạo ảnh.
 
-Pinterest API **bắt buộc 1 image** (Pin = ảnh + title), nên không thể publish text-only — yêu cầu media là đúng. Vấn đề là **UX feedback** chưa đủ rõ.
+## Vì sao query timeout
+Bảng `multi_channel_contents` chỉ ~596 rows / 8.8MB và đã có index `idx_multi_channel_org`. Query lẽ ra phải cực nhanh. Vấn đề nằm ở **RLS policies cho `SELECT`**:
 
-## Thay đổi (chỉ frontend, 1 file)
+```
+Users can view own multi_channel_contents      → auth.uid() = user_id
+Users can view org multi_channel_contents      → is_org_member(auth.uid(), organization_id)
+Admins can view all multi_channel_contents     → has_role(auth.uid(), 'admin')
+```
 
-### `src/components/social/DirectPublishButton.tsx`
+Cả 3 policy `SELECT` đều gọi `auth.uid()`, `is_org_member()`, `has_role()` **không có `(SELECT …)` wrapper**, nên Postgres re-evaluate cho **mỗi row** thay vì 1 lần. Với 596 row × 3 hàm × subquery vào `user_roles` / `organization_members` ⇒ vượt 8s statement timeout.
 
-1. **Bỏ `isPinterestMissingMedia` khỏi prop `disabled`** — giữ nút clickable.
-2. **Trong `handleClick`**, thêm guard sớm cho Pinterest:
-   ```tsx
-   if (platform === 'pinterest' && (!mediaUrls || mediaUrls.length === 0)) {
-     sonnerToast.error('Pinterest Pin cần ít nhất 1 ảnh', {
-       description: 'Hãy tạo hoặc tải lên ảnh ở tab Pinterest trước khi đăng. Pin không thể là text-only.',
-     });
-     return;
-   }
-   ```
-3. **Giữ visual hint** thiếu ảnh: thay vì `disabled`, dùng `variant="outline"` + opacity nhẹ + icon `AlertCircle` nhỏ khi `isPinterestMissingMedia` để user vẫn nhận biết trạng thái — nhưng vẫn click được để thấy toast giải thích.
-4. **Update `title` tooltip** giữ nguyên message giải thích (cho desktop hover).
+Đây là anti-pattern Supabase RLS rất phổ biến (`auth.uid()` phải bọc trong subquery để được cache).
 
-## Không thay đổi
+## Kế hoạch sửa
 
-- Không sửa edge function `publish-pinterest`, không sửa `useDirectPublish`, không sửa `MultiChannelViewer` (mediaUrls đã pass đúng).
-- Không bypass yêu cầu ảnh của Pinterest API — chỉ cải thiện feedback.
-- Giữ logic Zalo OA `isZaloMissingCover` như cũ (Zalo có flow riêng).
+### 1. Migration tối ưu RLS `multi_channel_contents` (chính)
+Thay 3 policy `SELECT` bằng phiên bản dùng `initplan` (subquery wrapper) để Postgres chỉ chạy 1 lần / query:
 
-## Kiểm tra sau khi build
+```sql
+DROP POLICY "Users can view own multi_channel_contents" ON public.multi_channel_contents;
+DROP POLICY "Users can view org multi_channel_contents" ON public.multi_channel_contents;
+DROP POLICY "Admins can view all multi_channel_contents" ON public.multi_channel_contents;
 
-1. Tab Pinterest **không có ảnh** → bấm "Đăng ngay" → toast lỗi "Cần ít nhất 1 ảnh" hiện rõ.
-2. Sau khi generate ảnh → bấm "Đăng ngay" → mở dialog confirm Pin Title + Link bình thường.
-3. Các kênh khác (FB/IG/TikTok/Bluesky/Blogger…) hành vi không đổi.
+CREATE POLICY "mcc_select_unified" ON public.multi_channel_contents
+FOR SELECT TO authenticated
+USING (
+  user_id = (SELECT auth.uid())
+  OR (organization_id IS NOT NULL
+      AND is_org_member((SELECT auth.uid()), organization_id))
+  OR has_role((SELECT auth.uid()), 'admin'::app_role)
+);
+```
+
+Gộp 3 policy thành 1 cũng giảm overhead (Postgres OR các policy SELECT, mỗi policy = 1 lần evaluate).
+
+Tương tự áp dụng cho UPDATE/DELETE policy nếu sau migration vẫn còn timeout (theo dõi log).
+
+### 2. Tối ưu query phía client (phụ — chỉ làm nếu cần)
+- Trong `useMultiChannelContents.fetchContents`, thay `select('*')` bằng danh sách cột thực sự cần cho list view (bỏ các cột JSONB nặng như `raw_response`, `channels` đầy đủ — chỉ load khi mở chi tiết).
+- Thêm `.limit(100)` + pagination nếu workspace có nhiều content.
+
+Bước 2 là tối ưu thêm; chỉ riêng bước 1 đã đủ giải quyết timeout hiện tại.
+
+### 3. Verify
+- Sau khi apply migration, reload `/multichannel` → danh sách content load < 1s.
+- Mở 1 content → bấm "Tạo ảnh" → quan sát `[SimpleImageGenerator] handleGenerate triggered` trong console + 1 request `generate-brand-image` 200 trong network tab.
+- Check edge function logs `generate-brand-image` có trace mới.
+
+## Files dự kiến chạm
+- **Mới:** 1 migration SQL (`drop` + `create policy`).
+- **Tuỳ chọn:** `src/hooks/useMultiChannelContents.ts` (giảm cột select).
+
+Không đụng tới phần tạo ảnh / edge function — vì code đó vẫn đúng, chỉ bị nghẽn do trang không load.
