@@ -28,9 +28,27 @@ export function GoogleAuthSignInCard() {
   const { settings, isLoading, saveSettings, deleteSettings, isSaving } = useSocialPlatformSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const platformSettings = settings?.find((s) => s.platform === 'google_signin');
   const isConfigured = Boolean(platformSettings?.has_credentials);
+
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('social-diagnostics', {
+        body: { action: 'test-credentials', platform: 'google_signin' },
+      });
+      if (error) throw error;
+      if (data?.success) toast.success(data.message || 'Credentials hợp lệ!');
+      else toast.error(data?.error || 'Test thất bại');
+    } catch (e: any) {
+      console.error('[GoogleAuthSignInCard] test error:', e);
+      toast.error(e?.message || 'Không thể test credentials');
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <>
