@@ -83,15 +83,12 @@ export function PinterestBoardSelector({
       if (error) throw error;
       await loadBoards();
       const count = (data as any)?.boardCount ?? (data as any)?.boards?.length ?? 0;
+      setHasSynced(true);
       if (count === 0) {
-        toast({
-          title: 'Không tìm thấy board nào',
-          description:
-            (data as any)?.hint ??
-            'Tài khoản Pinterest chưa có board. Hãy tạo 1 board public trên pinterest.com rồi đồng bộ lại.',
-          variant: 'destructive',
-        });
+        setEmptyHint((data as any)?.hint ?? null);
+        // Inline callout đã hiển thị hướng dẫn — không cần toast destructive
       } else {
+        setEmptyHint(null);
         toast({ title: `Đã đồng bộ ${count} board`, description: 'Danh sách board được làm mới từ Pinterest.' });
       }
     } catch (e: any) {
