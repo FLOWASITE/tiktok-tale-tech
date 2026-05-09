@@ -48,11 +48,12 @@ function truncate(str: string, max: number): string {
 }
 
 async function pinterestFetch(
+  apiBase: string,
   path: string,
   accessToken: string,
   init?: RequestInit,
 ): Promise<any> {
-  const res = await fetch(`${PINTEREST_API}${path}`, {
+  const res = await fetch(`${apiBase}${path}`, {
     ...init,
     headers: {
       ...(init?.headers || {}),
