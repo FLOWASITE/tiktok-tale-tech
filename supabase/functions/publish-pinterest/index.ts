@@ -21,7 +21,8 @@ interface PublishRequest {
   organization_id?: string;
 }
 
-const PINTEREST_API = 'https://api.pinterest.com/v5';
+const PINTEREST_API_PROD = 'https://api.pinterest.com/v5';
+const PINTEREST_API_SANDBOX = 'https://api-sandbox.pinterest.com/v5';
 const PINTEREST_TRIAL_ACCESS_CODE = 'PINTEREST_TRIAL_ACCESS';
 const PINTEREST_TRIAL_ACCESS_MESSAGE =
   'Pinterest app đang ở Trial access nên chưa thể tạo Pin thật trên Pinterest production. Vui lòng gửi app để Pinterest duyệt Standard access; API Sandbox chỉ dùng để test dữ liệu mẫu, không đăng lên tài khoản Pinterest thật.';
