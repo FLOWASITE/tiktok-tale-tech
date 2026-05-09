@@ -338,6 +338,14 @@ export function DirectPublishButton({
   };
 
   const handleClick = () => {
+    // Pinterest requires at least 1 image — show clear toast instead of silent disable
+    if (platform === 'pinterest' && (!mediaUrls || mediaUrls.length === 0)) {
+      sonnerToast.error('Pinterest Pin cần ít nhất 1 ảnh', {
+        description: 'Hãy tạo hoặc tải lên ảnh ở tab Pinterest trước khi đăng. Pin không thể là text-only.',
+      });
+      return;
+    }
+
     // Website/Blog: no social connection needed
     if (platform === 'website') {
       setEditableContent(content);
@@ -499,7 +507,7 @@ export function DirectPublishButton({
           <Button
             variant={isAlreadyPublished ? 'ghost' : variant}
             size={size}
-            disabled={disabled || isPublishing || !content || isZaloMissingCover || isPinterestMissingMedia}
+            disabled={disabled || isPublishing || !content || isZaloMissingCover}
             onClick={handleClick}
             title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : isPinterestMissingMedia ? 'Cần ít nhất 1 ảnh để đăng Pinterest Pin' : undefined}
             className={cn(
