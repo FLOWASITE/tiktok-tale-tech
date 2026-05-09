@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
 import { ChannelIcon } from '@/components/ui/channel-icon';
 import { useToast } from '@/hooks/use-toast';
 
