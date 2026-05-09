@@ -146,28 +146,32 @@ export function PinterestBoardSelector({
       <div className="flex items-center gap-2">
         <Select value={selected} onValueChange={setSelected} disabled={loading || boards.length === 0}>
           <SelectTrigger className="flex-1">
-            <SelectValue
-              placeholder={
-                loading
-                  ? 'Đang tải boards…'
-                  : boards.length === 0
-                    ? 'Chưa có board nào — bấm Đồng bộ'
-                    : 'Chọn board mặc định'
-              }
-            />
+            {selected && boards.find((b) => b.board_id === selected) ? (
+              <span className="truncate">
+                {boards.find((b) => b.board_id === selected)?.name}
+              </span>
+            ) : (
+              <SelectValue
+                placeholder={
+                  loading
+                    ? 'Đang tải boards…'
+                    : boards.length === 0
+                      ? 'Chưa có board nào — bấm Đồng bộ'
+                      : 'Chọn board mặc định'
+                }
+              />
+            )}
           </SelectTrigger>
           <SelectContent>
             {boards.map((b) => (
               <SelectItem key={b.board_id} value={b.board_id}>
-                <span className="flex items-center gap-2">
-                  <span>{b.name}</span>
-                  {b.privacy && b.privacy !== 'PUBLIC' && (
-                    <span className="text-xs text-muted-foreground">({b.privacy.toLowerCase()})</span>
-                  )}
-                  {typeof b.pin_count === 'number' && (
-                    <span className="text-xs text-muted-foreground">· {b.pin_count} pins</span>
-                  )}
-                </span>
+                {b.name}
+                {b.privacy && b.privacy !== 'PUBLIC' && (
+                  <span className="ml-1 text-xs text-muted-foreground">({b.privacy.toLowerCase()})</span>
+                )}
+                {typeof b.pin_count === 'number' && (
+                  <span className="ml-1 text-xs text-muted-foreground">· {b.pin_count} pins</span>
+                )}
               </SelectItem>
             ))}
           </SelectContent>
