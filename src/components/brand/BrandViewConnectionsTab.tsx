@@ -2232,6 +2232,14 @@ try {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PinterestSandboxDialog
+        open={pinterestSandboxOpen}
+        onOpenChange={setPinterestSandboxOpen}
+        organizationId={currentOrganization?.id ?? null}
+        brandTemplateId={template.id}
+        onConnected={refetch}
+      />
     </div>
   );
 }
