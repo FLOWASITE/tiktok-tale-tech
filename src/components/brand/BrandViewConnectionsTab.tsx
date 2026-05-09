@@ -1006,19 +1006,31 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               </Button>
             </>
           ) : (
-            <Button
-              variant={config.available ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleConnect(platform)}
-              disabled={!config.available || oauthConnecting === platform}
-            >
-              {oauthConnecting === platform ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4 mr-1" />
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                variant={config.available ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleConnect(platform)}
+                disabled={!config.available || oauthConnecting === platform}
+              >
+                {oauthConnecting === platform ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-1" />
+                )}
+                {oauthConnecting === platform ? 'Đang kết nối...' : 'Kết nối'}
+              </Button>
+              {platform === 'pinterest' && (
+                <button
+                  type="button"
+                  onClick={() => setPinterestSandboxOpen(true)}
+                  className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                >
+                  <FlaskConical className="w-3 h-3" />
+                  Dùng Sandbox token để test →
+                </button>
               )}
-              {oauthConnecting === platform ? 'Đang kết nối...' : 'Kết nối'}
-            </Button>
+            </div>
           )}
         </div>
         </div>
@@ -1033,6 +1045,14 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         )}
         {platform === 'pinterest' && connection?.is_active && (
           <div className="px-4 pb-4">
+            {(connection as any).is_sandbox && (
+              <div className="mb-2">
+                <Badge variant="outline" className="text-xs">
+                  <FlaskConical className="w-3 h-3 mr-1" />
+                  Sandbox — Pin không hiển thị trên Pinterest thật
+                </Badge>
+              </div>
+            )}
             <PinterestBoardSelector
               brandTemplateId={template.id}
               connectionId={connection.id}
