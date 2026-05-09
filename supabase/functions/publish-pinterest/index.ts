@@ -21,7 +21,8 @@ interface PublishRequest {
   organization_id?: string;
 }
 
-const PINTEREST_API = 'https://api.pinterest.com/v5';
+const PINTEREST_API_PROD = 'https://api.pinterest.com/v5';
+const PINTEREST_API_SANDBOX = 'https://api-sandbox.pinterest.com/v5';
 const PINTEREST_TRIAL_ACCESS_CODE = 'PINTEREST_TRIAL_ACCESS';
 const PINTEREST_TRIAL_ACCESS_MESSAGE =
   'Pinterest app đang ở Trial access nên chưa thể tạo Pin thật trên Pinterest production. Vui lòng gửi app để Pinterest duyệt Standard access; API Sandbox chỉ dùng để test dữ liệu mẫu, không đăng lên tài khoản Pinterest thật.';
@@ -47,11 +48,12 @@ function truncate(str: string, max: number): string {
 }
 
 async function pinterestFetch(
+  apiBase: string,
   path: string,
   accessToken: string,
   init?: RequestInit,
 ): Promise<any> {
-  const res = await fetch(`${PINTEREST_API}${path}`, {
+  const res = await fetch(`${apiBase}${path}`, {
     ...init,
     headers: {
       ...(init?.headers || {}),
@@ -78,6 +80,7 @@ async function pinterestFetch(
 
 // Create an image Pin (single image, hosted URL)
 async function createImagePin(
+  apiBase: string,
   accessToken: string,
   params: { boardId: string; title?: string; description: string; link?: string; altText?: string; imageUrl: string }
 ): Promise<{ id: string; url: string }> {
@@ -87,21 +90,18 @@ async function createImagePin(
     description: truncate(params.description, 500),
     link: params.link || undefined,
     alt_text: truncate(params.altText || params.title || '', 500),
-    media_source: {
-      source_type: 'image_url',
-      url: params.imageUrl,
-    },
+    media_source: { source_type: 'image_url', url: params.imageUrl },
   };
   console.log('[publish-pinterest] create image pin', { board: params.boardId, image: params.imageUrl });
-  const data = await pinterestFetch('/pins', accessToken, {
+  const data = await pinterestFetch(apiBase, '/pins', accessToken, {
     method: 'POST',
     body: JSON.stringify(body),
   });
   return { id: data.id, url: `https://pinterest.com/pin/${data.id}/` };
 }
 
-// Create a multi-image (carousel) Pin
 async function createCarouselPin(
+  apiBase: string,
   accessToken: string,
   params: { boardId: string; title?: string; description: string; link?: string; imageUrls: string[]; altText?: string }
 ): Promise<{ id: string; url: string }> {
@@ -112,27 +112,23 @@ async function createCarouselPin(
     description: truncate(params.description, 500),
     link: params.link || undefined,
     alt_text: truncate(params.altText || params.title || '', 500),
-    media_source: {
-      source_type: 'multiple_image_urls',
-      items,
-    },
+    media_source: { source_type: 'multiple_image_urls', items },
   };
   console.log('[publish-pinterest] create carousel pin', { board: params.boardId, count: items.length });
-  const data = await pinterestFetch('/pins', accessToken, {
+  const data = await pinterestFetch(apiBase, '/pins', accessToken, {
     method: 'POST',
     body: JSON.stringify(body),
   });
   return { id: data.id, url: `https://pinterest.com/pin/${data.id}/` };
 }
 
-// Register a video upload, upload bytes, poll for ready, then create video Pin
 async function createVideoPin(
+  apiBase: string,
   accessToken: string,
   params: { boardId: string; title?: string; description: string; link?: string; videoUrl: string; coverImageUrl?: string; altText?: string }
 ): Promise<{ id: string; url: string }> {
-  // Step 1: register video upload
   console.log('[publish-pinterest] register video upload');
-  const register = await pinterestFetch('/media', accessToken, {
+  const register = await pinterestFetch(apiBase, '/media', accessToken, {
     method: 'POST',
     body: JSON.stringify({ media_type: 'video' }),
   });
@@ -140,7 +136,6 @@ async function createVideoPin(
   const uploadUrl: string = register.upload_url;
   const uploadParams: Record<string, string> = register.upload_parameters || {};
 
-  // Step 2: download source video, then POST multipart to AWS pre-signed URL
   console.log('[publish-pinterest] downloading source video');
   const videoRes = await fetch(params.videoUrl);
   if (!videoRes.ok) throw new Error(`Could not download source video (HTTP ${videoRes.status})`);
@@ -157,11 +152,10 @@ async function createVideoPin(
     throw new Error(`Video upload failed (HTTP ${uploadRes.status}): ${txt.slice(0, 200)}`);
   }
 
-  // Step 3: poll status
   let status = 'processing';
-  for (let i = 0; i < 24; i++) { // ~2 minutes max
+  for (let i = 0; i < 24; i++) {
     await new Promise((r) => setTimeout(r, 5000));
-    const stat = await pinterestFetch(`/media/${mediaId}`, accessToken, { method: 'GET' });
+    const stat = await pinterestFetch(apiBase, `/media/${mediaId}`, accessToken, { method: 'GET' });
     status = stat.status;
     console.log('[publish-pinterest] media poll', { mediaId, status, attempt: i + 1 });
     if (status === 'succeeded') break;
@@ -169,7 +163,6 @@ async function createVideoPin(
   }
   if (status !== 'succeeded') throw new Error('Pinterest video processing timeout');
 
-  // Step 4: create the Pin referencing the uploaded media
   const body = {
     board_id: params.boardId,
     title: truncate(params.title || '', 100),
@@ -183,7 +176,7 @@ async function createVideoPin(
     },
   };
   console.log('[publish-pinterest] create video pin', { board: params.boardId, mediaId });
-  const data = await pinterestFetch('/pins', accessToken, {
+  const data = await pinterestFetch(apiBase, '/pins', accessToken, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -230,6 +223,10 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
       throw new Error('Failed to decrypt Pinterest access token. Hãy kết nối lại.');
     }
     if (!accessToken) throw new Error('Pinterest access token missing');
+
+    const isSandbox = (connection as any).is_sandbox === true;
+    const apiBase = isSandbox ? PINTEREST_API_SANDBOX : PINTEREST_API_PROD;
+    console.log('[publish-pinterest] mode', { isSandbox, apiBase });
 
     // Resolve board: explicit > metadata.default_board_id > first board
     let resolvedBoard = boardId || (connection.metadata as any)?.default_board_id;
@@ -283,25 +280,24 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
       const doPublish = async (token: string): Promise<{ id: string; url: string }> => {
         if (effectiveType === 'video') {
           const cover = safeMedia[1] && !isVideoUrl(safeMedia[1]) ? safeMedia[1] : undefined;
-          return await createVideoPin(token, {
+          return await createVideoPin(apiBase, token, {
             boardId: resolvedBoard, title, description, link,
             videoUrl: safeFirst, coverImageUrl: cover, altText,
           });
         }
         if (effectiveType === 'image' || safeMedia.length === 1) {
-          return await createImagePin(token, {
+          return await createImagePin(apiBase, token, {
             boardId: resolvedBoard, title, description, link, altText, imageUrl: safeFirst,
           });
         }
-        // carousel / idea → use carousel endpoint
         const imageOnly = safeMedia.filter((u) => !isVideoUrl(u)).slice(0, 5);
         if (imageOnly.length === 0) throw new Error('Không có ảnh hợp lệ để tạo carousel Pin');
         if (imageOnly.length === 1) {
-          return await createImagePin(token, {
+          return await createImagePin(apiBase, token, {
             boardId: resolvedBoard, title, description, link, altText, imageUrl: imageOnly[0],
           });
         }
-        return await createCarouselPin(token, {
+        return await createCarouselPin(apiBase, token, {
           boardId: resolvedBoard, title, description, link, altText, imageUrls: imageOnly,
         });
       };
@@ -379,7 +375,10 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
           postId: result.id,
           postUrl: result.url,
           boardId: resolvedBoard,
-          message: 'Đã đăng Pin lên Pinterest',
+          sandbox: isSandbox,
+          message: isSandbox
+            ? 'Đã tạo Pin trong môi trường Sandbox (chỉ test, không hiển thị trên Pinterest thật).'
+            : 'Đã đăng Pin lên Pinterest',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
