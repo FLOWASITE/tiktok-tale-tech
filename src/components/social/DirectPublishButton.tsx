@@ -230,6 +230,7 @@ export function DirectPublishButton({
 
   const zaloCoverUrl = useMemo(() => mediaUrls?.[0] || null, [mediaUrls]);
   const isZaloMissingCover = platform === 'zalo_oa' && !zaloCoverUrl;
+  const isPinterestMissingMedia = platform === 'pinterest' && !(mediaUrls && mediaUrls.length > 0);
 
   const handlePublish = async () => {
     if (!platform) return;
