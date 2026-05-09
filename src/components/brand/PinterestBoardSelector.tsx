@@ -46,6 +46,8 @@ export function PinterestBoardSelector({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasSynced, setHasSynced] = useState(false);
+  const [emptyHint, setEmptyHint] = useState<string | null>(null);
 
   const dirty = useMemo(
     () => (selected || null) !== (defaultBoardId || null),
