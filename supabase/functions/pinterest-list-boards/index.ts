@@ -23,7 +23,7 @@ Deno.serve(withPerf({ functionName: 'pinterest-list-boards' }, async (req) => {
 
     const { data: connection, error } = await supabase
       .from('social_connections')
-      .select('*')
+      .select('id, organization_id, access_token, platform')
       .eq('id', connectionId)
       .eq('platform', 'pinterest')
       .single();
