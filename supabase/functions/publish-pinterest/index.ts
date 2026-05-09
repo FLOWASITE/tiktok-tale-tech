@@ -22,6 +22,19 @@ interface PublishRequest {
 }
 
 const PINTEREST_API = 'https://api.pinterest.com/v5';
+const PINTEREST_TRIAL_ACCESS_CODE = 'PINTEREST_TRIAL_ACCESS';
+const PINTEREST_TRIAL_ACCESS_MESSAGE =
+  'Pinterest app đang ở Trial access nên chưa thể tạo Pin thật trên Pinterest production. Vui lòng gửi app để Pinterest duyệt Standard access; API Sandbox chỉ dùng để test dữ liệu mẫu, không đăng lên tài khoản Pinterest thật.';
+
+function isPinterestTrialAccessError(error: any): boolean {
+  const text = [
+    error?.message,
+    error?.body?.message,
+    error?.body?.error,
+    error?.body?.raw,
+  ].filter(Boolean).join(' ');
+  return error?.status === 403 && /Trial access|may not create Pins in production|api-sandbox\.pinterest\.com/i.test(text);
+}
 
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|mov|m4v|webm)(\?|$)/i.test(url);
@@ -54,6 +67,10 @@ async function pinterestFetch(
     const err = new Error(`Pinterest API ${res.status}: ${msg}`);
     (err as any).status = res.status;
     (err as any).body = data;
+    if (isPinterestTrialAccessError(err)) {
+      (err as any).errorCode = PINTEREST_TRIAL_ACCESS_CODE;
+      err.message = PINTEREST_TRIAL_ACCESS_MESSAGE;
+    }
     throw err;
   }
   return data;
@@ -395,13 +412,22 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
     }
   } catch (error: any) {
     console.error('[publish-pinterest] error', error);
+    const isTrialAccess = error?.errorCode === PINTEREST_TRIAL_ACCESS_CODE || isPinterestTrialAccessError(error);
+
     return new Response(
       JSON.stringify({
         success: false,
         platform: 'pinterest',
-        error: error.message || 'Failed to publish to Pinterest',
+        error: isTrialAccess ? PINTEREST_TRIAL_ACCESS_MESSAGE : (error.message || 'Failed to publish to Pinterest'),
+        errorCode: isTrialAccess ? PINTEREST_TRIAL_ACCESS_CODE : error?.errorCode,
+        requiresAction: isTrialAccess ? true : undefined,
+        nextSteps: isTrialAccess ? [
+          'Vào Pinterest Developer Portal → Apps → Review and approval.',
+          'Gửi app xin Standard access với scopes boards:read, pins:write, pins:read, user_accounts:read.',
+          'Sau khi Pinterest duyệt, kết nối lại Pinterest rồi đăng Pin thật.',
+        ] : undefined,
       }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: isTrialAccess ? 200 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 }));
