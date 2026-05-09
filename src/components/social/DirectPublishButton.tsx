@@ -225,7 +225,8 @@ export function DirectPublishButton({
     setZaloDescription(meaningfulLines.slice(0, 3).join(' ').substring(0, 200));
     setBlogTitle(firstLine.substring(0, 200));
     setBlogExcerpt(meaningfulLines.slice(1, 4).join(' ').substring(0, 300));
-  }, [content]);
+    setPinTitle((pinterestTitle || firstLine).substring(0, 100));
+  }, [content, pinterestTitle]);
 
   const zaloCoverUrl = useMemo(() => mediaUrls?.[0] || null, [mediaUrls]);
   const isZaloMissingCover = platform === 'zalo_oa' && !zaloCoverUrl;
