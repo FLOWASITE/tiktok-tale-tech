@@ -7,9 +7,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Check, X, Settings, Zap, Trash2 } from 'lucide-react';
+import { Check, X, Settings, Zap, Trash2, Loader2 } from 'lucide-react';
 import { useSocialPlatformSettings } from '@/hooks/useSocialPlatformSettings';
 import { SocialPlatformCredentialsDialog } from './SocialPlatformCredentialsDialog';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -26,9 +28,27 @@ export function GoogleAuthSignInCard() {
   const { settings, isLoading, saveSettings, deleteSettings, isSaving } = useSocialPlatformSettings();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const platformSettings = settings?.find((s) => s.platform === 'google_signin');
   const isConfigured = Boolean(platformSettings?.has_credentials);
+
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('social-diagnostics', {
+        body: { action: 'test-credentials', platform: 'google_signin' },
+      });
+      if (error) throw error;
+      if (data?.success) toast.success(data.message || 'Credentials hợp lệ!');
+      else toast.error(data?.error || 'Test thất bại');
+    } catch (e: any) {
+      console.error('[GoogleAuthSignInCard] test error:', e);
+      toast.error(e?.message || 'Không thể test credentials');
+    } finally {
+      setTesting(false);
+    }
+  };
 
   return (
     <>
@@ -97,10 +117,14 @@ export function GoogleAuthSignInCard() {
                 </Button>
                 {isConfigured && (
                   <>
-                    <Button asChild variant="outline" size="sm" title="Test login">
-                      <a href="/auth" target="_blank" rel="noopener noreferrer">
-                        <Zap className="w-3.5 h-3.5" />
-                      </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTest}
+                      disabled={testing}
+                      title="Test kết nối"
+                    >
+                      {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                     </Button>
                     <Button
                       variant="ghost"
