@@ -142,51 +142,105 @@ export function PinterestBoardSelector({
         Mọi Pin tạo từ thương hiệu này sẽ được đăng vào board đã chọn (có thể ghi đè trên từng nội dung).
       </p>
 
-      <div className="flex items-center gap-2">
-        <Select value={selected} onValueChange={setSelected} disabled={loading || boards.length === 0}>
-          <SelectTrigger className="flex-1">
-            {selected && boards.find((b) => b.board_id === selected) ? (
-              <span className="truncate">
-                {boards.find((b) => b.board_id === selected)?.name}
-              </span>
-            ) : (
-              <SelectValue
-                placeholder={
-                  loading
-                    ? 'Đang tải boards…'
-                    : boards.length === 0
-                      ? 'Chưa có board nào — bấm Đồng bộ'
-                      : 'Chọn board mặc định'
-                }
-              />
-            )}
-          </SelectTrigger>
-          <SelectContent>
-            {boards.map((b) => (
-              <SelectItem key={b.board_id} value={b.board_id}>
-                {b.name}
-                {b.privacy && b.privacy !== 'PUBLIC' && (
-                  <span className="ml-1 text-xs text-muted-foreground">({b.privacy.toLowerCase()})</span>
-                )}
-                {typeof b.pin_count === 'number' && (
-                  <span className="ml-1 text-xs text-muted-foreground">· {b.pin_count} pins</span>
-                )}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {!loading && boards.length === 0 ? (
+        <div className="rounded-lg border border-dashed bg-muted/40 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                {hasSynced ? 'Tài khoản Pinterest chưa có Board nào' : 'Chưa đồng bộ Board từ Pinterest'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {hasSynced
+                  ? 'Để đăng Pin từ Flowa, bạn cần ít nhất 1 board công khai trên tài khoản Pinterest.'
+                  : 'Bấm "Đồng bộ board" để tải danh sách board từ Pinterest về đây.'}
+              </p>
+            </div>
+          </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={refreshFromPinterest}
-          disabled={refreshing}
-          title="Đồng bộ board từ Pinterest"
-        >
-          {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-        </Button>
-      </div>
+          {hasSynced && (
+            <ol className="text-xs text-muted-foreground space-y-1 pl-6 list-decimal">
+              <li>Mở pinterest.com và đăng nhập đúng tài khoản đã kết nối</li>
+              <li>Bấm nút <span className="font-medium">"+"</span> → chọn <span className="font-medium">Board</span> → đặt tên</li>
+              <li>Đặt <span className="font-medium">Privacy = Public</span> (không chọn Secret)</li>
+              <li>Quay lại đây và bấm <span className="font-medium">"Đồng bộ board"</span></li>
+            </ol>
+          )}
+
+          {emptyHint && hasSynced && (
+            <p className="text-[11px] text-muted-foreground italic">{emptyHint}</p>
+          )}
+
+          <div className="flex items-center gap-2 pt-1">
+            {hasSynced && (
+              <Button type="button" variant="outline" size="sm" asChild>
+                <a
+                  href="https://www.pinterest.com/board-create/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Mở Pinterest
+                </a>
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant={hasSynced ? 'default' : 'default'}
+              size="sm"
+              onClick={refreshFromPinterest}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Đồng bộ board
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Select value={selected} onValueChange={setSelected} disabled={loading || boards.length === 0}>
+            <SelectTrigger className="flex-1">
+              {selected && boards.find((b) => b.board_id === selected) ? (
+                <span className="truncate">
+                  {boards.find((b) => b.board_id === selected)?.name}
+                </span>
+              ) : (
+                <SelectValue
+                  placeholder={loading ? 'Đang tải boards…' : 'Chọn board mặc định'}
+                />
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {boards.map((b) => (
+                <SelectItem key={b.board_id} value={b.board_id}>
+                  {b.name}
+                  {b.privacy && b.privacy !== 'PUBLIC' && (
+                    <span className="ml-1 text-xs text-muted-foreground">({b.privacy.toLowerCase()})</span>
+                  )}
+                  {typeof b.pin_count === 'number' && (
+                    <span className="ml-1 text-xs text-muted-foreground">· {b.pin_count} pins</span>
+                  )}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={refreshFromPinterest}
+            disabled={refreshing}
+            title="Đồng bộ board từ Pinterest"
+          >
+            {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         {defaultBoardId && !dirty ? (
