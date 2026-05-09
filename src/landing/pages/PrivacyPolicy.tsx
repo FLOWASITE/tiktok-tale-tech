@@ -230,7 +230,7 @@ export default function PrivacyPolicy() {
               Chính sách bảo mật này áp dụng cho ứng dụng <strong className="text-foreground">Flowa</strong> (flowa.one) — nền tảng AI Content Marketing.
             </p>
             <p className="text-sm text-muted-foreground">
-              Cập nhật lần cuối: 17 tháng 4, 2026
+              Cập nhật lần cuối: 9 tháng 5, 2026
             </p>
           </motion.div>
         </div>
