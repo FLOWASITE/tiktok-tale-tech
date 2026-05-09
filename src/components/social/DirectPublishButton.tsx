@@ -792,6 +792,56 @@ export function DirectPublishButton({
                   </div>
                 )}
 
+                {/* Pinterest Pin Title + Link */}
+                {platform === 'pinterest' && (
+                  <div className="space-y-3 rounded-lg border border-border p-3 bg-muted/20">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <ChannelIcon channel="pinterest" size={14} />
+                      Thông tin Pin
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Tiêu đề Pin (SEO)</Label>
+                        <span className={cn('text-[10px] font-mono tabular-nums', pinTitle.length > 100 ? 'text-destructive' : 'text-muted-foreground')}>
+                          {pinTitle.length}/100
+                        </span>
+                      </div>
+                      <Input
+                        value={pinTitle}
+                        onChange={(e) => setPinTitle(e.target.value.substring(0, 100))}
+                        placeholder="Tiêu đề Pin..."
+                        className="text-sm"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <LinkIcon className="h-3 w-3" />
+                        Link đích (tuỳ chọn)
+                      </Label>
+                      <Input
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        placeholder="https://..."
+                        type="url"
+                        className="text-sm"
+                      />
+                      {blogBacklink && linkUrl === blogBacklink && (
+                        <p className="text-xs text-primary flex items-center gap-1">
+                          <LinkIcon className="h-3 w-3" />
+                          Backlink blog đã được thêm tự động
+                        </p>
+                      )}
+                    </div>
+                    {isPinterestMissingMedia && (
+                      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground">Pinterest cần ít nhất 1 ảnh để tạo Pin.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Zalo OA Article Fields */}
                 {platform === 'zalo_oa' && (
                   <div className="space-y-3 rounded-lg border border-border p-3 bg-muted/20">
