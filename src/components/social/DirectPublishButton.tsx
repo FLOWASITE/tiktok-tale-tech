@@ -83,6 +83,7 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   wordpress_com: 'wordpress_com',
   website: 'website',
   bluesky: 'bluesky',
+  pinterest: 'pinterest',
 };
 
 const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
