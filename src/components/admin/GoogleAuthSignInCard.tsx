@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Copy, ExternalLink, KeyRound, LogIn, Check, Info, Settings, Zap } from 'lucide-react';
-import { toast } from 'sonner';
-
-const SUPABASE_PROJECT_REF = 'rllyipiyuptkibqinotz';
-const AUTH_CALLBACK_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1/callback`;
-const CLOUD_AUTH_DASHBOARD = `https://supabase.com/dashboard/project/${SUPABASE_PROJECT_REF}/auth/providers`;
-const GOOGLE_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Check, X, Settings, Zap, Trash2 } from 'lucide-react';
+import { useSocialPlatformSettings } from '@/hooks/useSocialPlatformSettings';
+import { SocialPlatformCredentialsDialog } from './SocialPlatformCredentialsDialog';
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -23,126 +23,136 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export function GoogleAuthSignInCard() {
-  const [copied, setCopied] = useState(false);
+  const { settings, isLoading, saveMutation, deleteMutation } = useSocialPlatformSettings();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const copyCallback = async () => {
-    await navigator.clipboard.writeText(AUTH_CALLBACK_URL);
-    setCopied(true);
-    toast.success('Đã copy Authorized redirect URI');
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const platformSettings = settings?.find((s) => s.platform === 'google_signin');
+  const isConfigured = Boolean(platformSettings?.has_credentials);
 
   return (
-    <Card className="group relative overflow-hidden transition-all hover:shadow-md hover:border-foreground/20">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2.5 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-              <GoogleIcon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <CardTitle className="text-sm font-semibold truncate">Google Sign-In</CardTitle>
-              <CardDescription className="text-xs font-mono text-muted-foreground/70 truncate">
-                google_signin
-              </CardDescription>
-            </div>
-          </div>
-          <Badge variant="secondary" className="gap-1 shrink-0">
-            <KeyRound className="w-3 h-3" />
-            BYOK
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="text-xs space-y-1 text-muted-foreground rounded-md bg-muted/30 border border-border/40 p-2.5">
-          <div className="flex justify-between gap-2">
-            <span>Provider</span>
-            <span className="text-foreground font-medium truncate">Google Cloud Console</span>
-          </div>
-          <div className="flex justify-between gap-2 items-center">
-            <span>Redirect</span>
-            <button
-              onClick={copyCallback}
-              className="font-mono text-[11px] text-foreground truncate hover:text-primary inline-flex items-center gap-1"
-              title={AUTH_CALLBACK_URL}
-            >
-              <span className="truncate max-w-[160px]">…/auth/v1/callback</span>
-              {copied ? <Check className="w-3 h-3 shrink-0" /> : <Copy className="w-3 h-3 shrink-0 opacity-60" />}
-            </button>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span>Trạng thái</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">OAuth Client của Flowa</span>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm" className="flex-1">
-            <a href={CLOUD_AUTH_DASHBOARD} target="_blank" rel="noopener noreferrer">
-              <Settings className="w-3.5 h-3.5 mr-1.5" />
-              Cấu hình
-            </a>
-          </Button>
-          <Button asChild variant="outline" size="sm" title="Test login">
-            <a href="/auth" target="_blank" rel="noopener noreferrer">
-              <Zap className="w-3.5 h-3.5" />
-            </a>
-          </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-muted-foreground" title="Hướng dẫn">
-                <Info className="w-3.5 h-3.5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 text-xs space-y-3">
-              <div className="font-semibold text-sm flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5" />
-                Khôi phục Client Secret
+    <>
+      <Card className="group relative overflow-hidden transition-all hover:shadow-md hover:border-foreground/20">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2.5 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+                <GoogleIcon className="w-5 h-5" />
               </div>
-              <p className="text-muted-foreground leading-relaxed">
-                OAuth Client riêng của Flowa trên Google Cloud — không liên quan đến Lovable.
-              </p>
-              <div className="space-y-1.5">
-                <div className="text-[11px] font-medium text-foreground/80">Authorized redirect URI:</div>
-                <div className="flex gap-1.5 items-center">
-                  <code className="flex-1 text-[10px] font-mono bg-muted/60 border rounded px-2 py-1 truncate">
-                    {AUTH_CALLBACK_URL}
-                  </code>
-                  <Button size="sm" variant="outline" onClick={copyCallback} className="shrink-0 h-7 px-2">
-                    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  </Button>
+              <div className="min-w-0">
+                <CardTitle className="text-sm font-semibold truncate">Google Sign-In</CardTitle>
+                <CardDescription className="text-xs font-mono text-muted-foreground/70 truncate">
+                  google_signin
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant={isConfigured ? 'default' : 'outline'} className="gap-1 shrink-0">
+              {isConfigured ? <><Check className="w-3 h-3" /> Đã cấu hình</> : <><X className="w-3 h-3" /> Trống</>}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ) : (
+            <>
+              {isConfigured ? (
+                <div className="text-xs space-y-1 text-muted-foreground rounded-md bg-muted/30 border border-border/40 p-2.5">
+                  {platformSettings?.app_name && (
+                    <div className="flex justify-between gap-2">
+                      <span>App</span>
+                      <span className="text-foreground font-medium truncate">{platformSettings.app_name}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <span>Key</span>
+                    <span className="font-mono text-[11px] text-foreground truncate">{platformSettings?.consumer_key || '••••'}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span>Trạng thái</span>
+                    <span className={platformSettings?.is_active ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-amber-600 dark:text-amber-400'}>
+                      {platformSettings?.is_active ? 'Đang hoạt động' : 'Tạm dừng'}
+                    </span>
+                  </div>
                 </div>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Cấu hình OAuth Client (Google Cloud Console) để dùng "Đăng nhập với Google" cho user. Sau khi lưu Client ID/Secret tại đây, dán cùng cặp đó vào Auth Providers → Google.
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  variant={isConfigured ? 'outline' : 'default'}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setDialogOpen(true)}
+                >
+                  <Settings className="w-3.5 h-3.5 mr-1.5" />
+                  {isConfigured ? 'Chỉnh sửa' : 'Cấu hình'}
+                </Button>
+                {isConfigured && (
+                  <>
+                    <Button asChild variant="outline" size="sm" title="Test login">
+                      <a href="/auth" target="_blank" rel="noopener noreferrer">
+                        <Zap className="w-3.5 h-3.5" />
+                      </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirmDelete(true)}
+                      title="Xóa cấu hình"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </>
+                )}
               </div>
-              <ol className="text-muted-foreground space-y-1.5 leading-relaxed list-decimal pl-4">
-                <li>Mở Google Cloud Console → Credentials, chọn OAuth Client (Web). Nếu Secret bị xóa → <em>Reset Secret</em>.</li>
-                <li>Đảm bảo URL trên có trong <strong>Authorized redirect URIs</strong>.</li>
-                <li>Copy <strong>Client ID</strong> + <strong>Client Secret</strong>.</li>
-                <li>Dán vào <strong>Auth Providers → Google</strong>, bật toggle, Save.</li>
-              </ol>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <Button asChild size="sm" variant="default" className="h-8">
-                  <a href={CLOUD_AUTH_DASHBOARD} target="_blank" rel="noopener noreferrer">
-                    Auth Providers
-                    <ExternalLink className="w-3 h-3 ml-1 opacity-60" />
-                  </a>
-                </Button>
-                <Button asChild size="sm" variant="outline" className="h-8">
-                  <a href={GOOGLE_CONSOLE_URL} target="_blank" rel="noopener noreferrer">
-                    Google Console
-                    <ExternalLink className="w-3 h-3 ml-1 opacity-60" />
-                  </a>
-                </Button>
-                <Button asChild size="sm" variant="ghost" className="col-span-2 h-8">
-                  <a href="/auth" target="_blank" rel="noopener noreferrer">
-                    <LogIn className="w-3.5 h-3.5 mr-1.5" />
-                    Test Login Google
-                  </a>
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </CardContent>
-    </Card>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <SocialPlatformCredentialsDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        platform="google_signin"
+        platformName="Google Sign-In"
+        existingSettings={platformSettings}
+        isSaving={saveMutation.isPending}
+        onSave={async (data) => {
+          await saveMutation.mutateAsync(data);
+          setDialogOpen(false);
+        }}
+      />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa cấu hình Google Sign-In?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sẽ xóa Client ID/Secret đã lưu. Auth Providers → Google trên Lovable Cloud không bị ảnh hưởng — bạn cần xóa thủ công ở đó nếu muốn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                await deleteMutation.mutateAsync('google_signin');
+                setConfirmDelete(false);
+              }}
+            >
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
