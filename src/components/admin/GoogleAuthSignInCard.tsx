@@ -125,10 +125,9 @@ export function GoogleAuthSignInCard() {
         platform="google_signin"
         platformName="Google Sign-In"
         existingSettings={platformSettings}
-        isSaving={saveMutation.isPending}
-        onSave={async (data) => {
-          await saveMutation.mutateAsync(data);
-          setDialogOpen(false);
+        isSaving={isSaving}
+        onSave={(data) => {
+          saveSettings(data, { onSuccess: () => setDialogOpen(false) });
         }}
       />
 
