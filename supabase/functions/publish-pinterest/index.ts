@@ -240,8 +240,6 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
         .maybeSingle();
       resolvedBoard = cachedBoard?.board_id;
     }
-    const isSandbox = (connection as any).is_sandbox === true;
-    const apiBase = isSandbox ? PINTEREST_API_SANDBOX : PINTEREST_API_PROD;
 
     // Live fallback: fetch boards from Pinterest. If none, auto-create a default
     // (sandbox accounts start empty).
