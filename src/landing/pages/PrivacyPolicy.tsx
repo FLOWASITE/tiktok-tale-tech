@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { PublicPageLayout } from "@/landing/components/PublicPageLayout";
 import { SEOHead } from "@/components/SEOHead";
-import { Shield, Database, Eye, Lock, UserCheck, Share2, Clock, Globe, Mail, Bell } from "lucide-react";
+import { Shield, Database, Eye, Lock, UserCheck, Share2, Clock, Globe, Mail, Bell, Link2 } from "lucide-react";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
