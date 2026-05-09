@@ -277,6 +277,8 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   });
   const [oauthConnecting, setOauthConnecting] = useState<SocialPlatform | null>(null);
   const [showInactiveFb, setShowInactiveFb] = useState(false);
+  const [pinterestSandboxOpen, setPinterestSandboxOpen] = useState(false);
+  const { currentOrganization } = useOrganizationContext();
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
   const [websiteForm, setWebsiteForm] = useState({
     websiteUrl: '',
