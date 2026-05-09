@@ -65,6 +65,7 @@ interface DirectPublishButtonProps {
   channelStatus?: string;
   onPublishSuccess?: () => void;
   iconOnly?: boolean;
+  pinterestTitle?: string;
 }
 
 const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
