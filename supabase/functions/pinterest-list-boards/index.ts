@@ -57,10 +57,46 @@ Deno.serve(withPerf({ functionName: 'pinterest-list-boards' }, async (req) => {
           name: b.name,
           privacy: b.privacy,
           pin_count: b.pin_count,
+          // @ts-ignore extra field used for upsert
+          cover_image_url: b.media?.image_cover_url ?? b.media?.pin_thumbnail_urls?.[0] ?? null,
         });
       }
       bookmark = data.bookmark || null;
       if (!bookmark) break;
+    }
+
+    // Persist into pinterest_boards so the brand selector can read them
+    if (boards.length > 0) {
+      const rows = boards.map((b: any) => ({
+        connection_id: connectionId,
+        organization_id: connection.organization_id ?? null,
+        board_id: b.id,
+        name: b.name,
+        privacy: b.privacy ?? null,
+        pin_count: typeof b.pin_count === 'number' ? b.pin_count : 0,
+        cover_image_url: b.cover_image_url ?? null,
+        updated_at: new Date().toISOString(),
+      }));
+      const { error: upsertErr } = await supabase
+        .from('pinterest_boards')
+        .upsert(rows, { onConflict: 'connection_id,board_id' });
+      if (upsertErr) {
+        console.error('[pinterest-list-boards] upsert error:', upsertErr);
+      }
+
+      // Remove boards that no longer exist on Pinterest for this connection
+      const ids = boards.map((b: any) => b.id);
+      const { error: delErr } = await supabase
+        .from('pinterest_boards')
+        .delete()
+        .eq('connection_id', connectionId)
+        .not('board_id', 'in', `(${ids.map((i) => `"${i}"`).join(',')})`);
+      if (delErr) {
+        console.error('[pinterest-list-boards] cleanup error:', delErr);
+      }
+    } else {
+      // No boards on Pinterest → clear the cache
+      await supabase.from('pinterest_boards').delete().eq('connection_id', connectionId);
     }
 
     return new Response(
