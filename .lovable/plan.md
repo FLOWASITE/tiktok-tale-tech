@@ -1,52 +1,44 @@
-## Mục tiêu
-Khi tài khoản Pinterest **chưa có board nào**, hiện UI hướng dẫn rõ ràng — thay vì chỉ một dòng placeholder mờ + toast đỏ thoáng qua, người dùng cần biết chính xác phải làm gì.
+# Pinterest Sandbox Toggle (test mode)
 
-## Thay đổi (chỉ trong `src/components/brand/PinterestBoardSelector.tsx`)
+Cho phép kết nối Pinterest ở chế độ **Sandbox** bằng access token sinh thủ công từ Pinterest Developer Portal (như ảnh), để test code path publish mà không cần chờ Standard access. Sandbox **không tạo Pin thật** — chỉ để verify flow.
 
-### 1. Empty state inline (chính)
-Khi `!loading && boards.length === 0`, thay phần `<Select>` + nút refresh bằng một **callout box** nằm ngay dưới mô tả:
+## 1. Database
+Migration mới: thêm cột `is_sandbox boolean default false` vào `social_connections` (chỉ ý nghĩa với platform `pinterest`).
+- Không đổi RLS, không đổi index.
 
-```
-┌────────────────────────────────────────────────┐
-│  📌  Chưa có Board nào trên Pinterest           │
-│                                                 │
-│  Để đăng Pin từ Flowa, bạn cần ít nhất 1       │
-│  board công khai trên tài khoản Pinterest.     │
-│                                                 │
-│  1. Mở pinterest.com → đăng nhập @{username}   │
-│  2. Bấm "+" → "Board" → đặt tên                │
-│  3. Đặt Privacy = Public (KHÔNG Secret)        │
-│  4. Quay lại đây và bấm "Đồng bộ board"        │
-│                                                 │
-│  [ Mở Pinterest ↗ ]   [ 🔄 Đồng bộ board ]     │
-└────────────────────────────────────────────────┘
-```
+## 2. Edge function: `publish-pinterest/index.ts`
+- Đọc `connection.is_sandbox` từ row `social_connections` đang publish.
+- Nếu `true` → đặt `PINTEREST_API = 'https://api-sandbox.pinterest.com/v5'`; ngược lại giữ production.
+- Khi sandbox và gặp lỗi 403 trial-access (đã handle ở turn trước) → vẫn return 200 + `requiresAction` nhưng message khác: "Token sandbox hợp lệ, code path OK. Khi nào có Standard access thì bỏ sandbox để publish thật."
+- Trong response success, gắn `data.sandbox = true` để FE biết đây là Pin sandbox (không hiển thị trên Pinterest thật).
 
-Chi tiết:
-- Dùng `bg-muted/40 border-dashed` cho callout, icon `Info` hoặc `AlertCircle` từ lucide.
-- Button **"Mở Pinterest"** = `<a href="https://www.pinterest.com/board-create/" target="_blank">` (deep-link tới trang tạo board).
-- Button **"Đồng bộ board"** gọi lại `refreshFromPinterest` với spinner.
-- Nếu function trả `hint`, hiện thêm dòng `hint` nhỏ dưới checklist (server-side message).
+## 3. Edge function mới: `connect-pinterest-sandbox/index.ts`
+- Auth: `verify_jwt = true` (user phải đăng nhập). Khai báo trong `supabase/config.toml`.
+- Input: `{ accessToken, organizationId, brandTemplateId? }`.
+- Gọi `GET https://api-sandbox.pinterest.com/v5/user_account` với token để verify + lấy `username`, `id`.
+- Nếu OK → upsert vào `social_connections`:
+  - `platform='pinterest'`, `is_sandbox=true`, `access_token=<token>` (encrypt như flow OAuth hiện tại), `account_name=username`, `account_id=id`, `expires_at = now() + 30 days` (như Pinterest hiển thị).
+- Trả `{ success: true, account: {...} }`.
 
-### 2. State khi chưa từng đồng bộ (lần đầu mở brand)
-Phân biệt 2 case:
-- `boards.length === 0` **và chưa từng refresh** → hiện callout "Chưa đồng bộ — bấm Đồng bộ để tải board từ Pinterest" (nhẹ nhàng, không alarm).
-- `boards.length === 0` **và vừa refresh xong** → hiện callout hướng dẫn tạo board ở trên (alarm hơn).
+## 4. Frontend
+**`src/components/brand/PinterestConnectionCard.tsx`** (hoặc nơi đang render nút "Kết nối Pinterest"):
+- Thêm 1 link nhỏ phía dưới nút OAuth: "Dùng Sandbox token để test →" → mở dialog.
 
-Track bằng local state `hasSynced: boolean` set `true` sau lần đầu `refreshFromPinterest` xong.
+**Component mới `PinterestSandboxDialog.tsx`**:
+- Mô tả ngắn: "Sandbox dùng để test khi app chưa có Standard access. Pin tạo ra **không hiển thị trên Pinterest thật**."
+- Link `https://developers.pinterest.com/apps/` + hướng dẫn 3 bước (vào app → tab "Configure" → chọn Sandbox → bấm "Create access token" → copy → dán vào đây).
+- Input password-style cho token + nút "Kết nối sandbox".
+- Gọi edge `connect-pinterest-sandbox` qua `supabase.functions.invoke`.
+- Toast success/fail + invalidate query `social_connections`.
 
-### 3. Bỏ toast đỏ "Không tìm thấy board nào"
-Vì đã có inline callout, toast destructive không còn cần thiết — chỉ giữ toast khi **lỗi thật** (network/auth). Trường hợp `count === 0` thành công → không toast.
+**Badge sandbox**:
+- Trong list connection (vd `SocialConnectionsList.tsx`), nếu `connection.is_sandbox === true` → hiện badge nhỏ `Sandbox` (variant outline, màu muted) cạnh tên account.
 
-### 4. Khi có board → giữ nguyên UI hiện tại
-Select dropdown + refresh icon button như cũ.
+## 5. Types
+- Sau khi migration apply, `src/integrations/supabase/types.ts` auto-regen → có `is_sandbox`.
+- Không tự sửa file này.
 
-## Không thay đổi
-- Backend `pinterest-list-boards` (đã trả `boardCount` + `hint`).
-- Logic save / auto-pick board duy nhất.
-- Bất kỳ file nào khác.
-
-## Verify
-- Brand chưa sync: thấy callout xanh nhẹ "Chưa đồng bộ".
-- Sau khi bấm Đồng bộ và Pinterest trả 0 board: thấy callout hướng dẫn 4 bước + 2 nút.
-- Tạo board public trên Pinterest → bấm "Đồng bộ board" → callout biến mất, dropdown hiện.
+## Out of scope
+- Không đổi PinterestBoardSelector — sandbox API trả board giả tự động.
+- Không đổi production OAuth flow.
+- Không thêm env var global `PINTEREST_USE_SANDBOX` (per-connection sạch hơn, cho phép giữ song song cả 2 connection).
