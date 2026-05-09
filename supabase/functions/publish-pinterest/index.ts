@@ -375,7 +375,10 @@ Deno.serve(withPerf({ functionName: 'publish-pinterest' }, async (req) => {
           postId: result.id,
           postUrl: result.url,
           boardId: resolvedBoard,
-          message: 'Đã đăng Pin lên Pinterest',
+          sandbox: isSandbox,
+          message: isSandbox
+            ? 'Đã tạo Pin trong môi trường Sandbox (chỉ test, không hiển thị trên Pinterest thật).'
+            : 'Đã đăng Pin lên Pinterest',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
