@@ -192,6 +192,7 @@ export function DirectPublishButton({
   const [blogTitle, setBlogTitle] = useState('');
   const [blogExcerpt, setBlogExcerpt] = useState('');
   const [blogIsPublic, setBlogIsPublic] = useState(false);
+  const [pinTitle, setPinTitle] = useState('');
 
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
