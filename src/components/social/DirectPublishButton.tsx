@@ -148,6 +148,7 @@ export function DirectPublishButton({
   channelStatus,
   onPublishSuccess,
   iconOnly = false,
+  pinterestTitle,
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
