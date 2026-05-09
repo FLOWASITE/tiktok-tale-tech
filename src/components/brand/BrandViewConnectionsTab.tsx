@@ -64,6 +64,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { WordPressConnectDialog } from './WordPressConnectDialog';
 import { PinterestBoardSelector } from './PinterestBoardSelector';
+import { PinterestSandboxDialog } from './PinterestSandboxDialog';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { FlaskConical } from 'lucide-react';
 
 interface BrandViewConnectionsTabProps {
   template: BrandTemplate;
