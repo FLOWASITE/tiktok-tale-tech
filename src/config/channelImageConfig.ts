@@ -527,6 +527,7 @@ export const ASPECT_RATIO_OPTIONS = [
   { value: '16:9', label: '16:9 (Ngang)', description: 'YouTube, LinkedIn, Twitter, Website' },
   { value: '9:16', label: '9:16 (Dọc)', description: 'TikTok, Reels, Stories' },
   { value: '4:5', label: '4:5 (Portrait)', description: 'Instagram Feed Portrait' },
+  { value: '2:3', label: '2:3 (Pinterest Pin)', description: 'Pinterest' },
 ] as const;
 
 /**
