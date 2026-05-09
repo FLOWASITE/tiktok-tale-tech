@@ -101,6 +101,7 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   wordpress_com: 'WordPress.com',
   website: 'Website',
   bluesky: 'Bluesky',
+  pinterest: 'Pinterest',
 };
 
 const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
