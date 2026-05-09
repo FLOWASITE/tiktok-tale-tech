@@ -1,44 +1,42 @@
+## Vấn đề
+
+Trên card Google Search Console, nút ⚡ thực sự gọi edge function `test-gsc-credentials` để validate Client ID/Secret và toast kết quả.
+
+Trên card Google Sign-In hiện tại, nút ⚡ chỉ là `<a href="/auth">` mở tab login — không phải "test kết nối" đúng nghĩa, không hiển thị loading, không báo thành công/thất bại.
+
 ## Mục tiêu
 
-Hiện tại nút **Cấu hình** ở card Google Sign-In mở tab Supabase Auth dashboard ra ngoài. User muốn UX y hệt card **Google Search Console**: click → mở dialog `SocialPlatformCredentialsDialog` ngay trong app để admin nhập **Client ID / Client Secret** + toggle Active, lưu vào `social_platform_settings` (mã hóa AES).
+Đồng bộ hành vi nút ⚡ trên `GoogleAuthSignInCard` với GSC card: bấm vào → validate credentials đã lưu → toast OK/Lỗi, có spinner loading.
 
-## Phạm vi thay đổi
+## Thay đổi
 
-### 1. Type & hooks
-`src/hooks/useSocialPlatformSettings.ts`
-- Thêm `'google_signin'` vào union type `SocialPlatform`.
+### 1. Tạo edge function `test-google-signin-credentials`
+File: `supabase/functions/test-google-signin-credentials/index.ts`
 
-### 2. Dialog help text
-`src/components/admin/SocialPlatformCredentialsDialog.tsx`
-- Thêm entry trong `PLATFORM_HELP`:
-  - `url`: `https://console.cloud.google.com/apis/credentials`
-  - `instructions`: hướng dẫn tạo OAuth Client (Web), copy redirect URI `https://rllyipiyuptkibqinotz.supabase.co/auth/v1/callback` vào Authorized redirect URIs, paste Client ID + Secret. Note thêm: sau khi lưu cần dán cùng cặp ID/Secret vào **Auth Providers → Google** trên Cloud dashboard để Auth thực sự dùng (vì Supabase Auth provider config nằm ở scope khác, không thể set qua API).
+Copy pattern từ `test-gsc-credentials`:
+- Đọc row `social_platform_settings` với `platform='google_signin'`
+- Decrypt `consumer_key` + `consumer_secret`
+- Validate format: client_id phải kết thúc `.apps.googleusercontent.com`, secret length ≥ 10
+- Ping `https://accounts.google.com/.well-known/openid-configuration` để chắc Google reachable
+- (Bonus) Gọi `https://oauth2.googleapis.com/token` với `grant_type=refresh_token` + dummy token để phân biệt:
+  - Google trả `invalid_client` → credentials sai → fail
+  - Google trả `invalid_grant` → credentials đúng (chỉ refresh token bogus) → success
+- Trả `{ success, message, details: { client_id_prefix } }`
 
-### 3. GoogleAuthSignInCard refactor
-`src/components/admin/GoogleAuthSignInCard.tsx`
-- Bỏ phần `<Popover>` "Hướng dẫn" + link external `CLOUD_AUTH_DASHBOARD` cho nút Cấu hình.
-- Đọc `useSocialPlatformSettings()` → tìm `settings.find(s => s.platform === 'google_signin')` để biết `has_credentials`, `is_active`, `consumer_key` (masked).
-- Render giống `renderPlatformCard` của AdminSocialSettings:
-  - Badge `Đã cấu hình` / `Trống` (thay vì BYOK tĩnh) — vẫn giữ icon `KeyRound` nhỏ trong dialog header.
-  - Info box hiển thị App / Key (•••• khi đã có) / Trạng thái — chỉ hiện khi `has_credentials`.
-  - Khi chưa có: hiển thị 1 dòng note ngắn (Provider Google Cloud Console + redirect URI có nút Copy).
-- Hàng action 3 nút **giống GSC card**:
-  - `[Cấu hình / Chỉnh sửa]` → `setDialogOpen(true)` mở `SocialPlatformCredentialsDialog` với `platform="google_signin"`, `platformName="Google Sign-In"`.
-  - `[⚡]` → mở `/auth` test login (giữ).
-  - `[🗑]` → confirm + gọi `deleteMutation` (chỉ hiện khi đã cấu hình).
-- Wire `onSave` → `saveMutation.mutateAsync(...)` từ `useSocialPlatformSettings`.
+Không cần sửa `social-diagnostics` (gọi trực tiếp function này từ frontend cho gọn, giống cách GSC test gọi qua `social-diagnostics` nếu cần — nhưng GSC card hiện gọi trực tiếp `social-diagnostics` với `platform='google_search_console'`. Để parity tốt nhất, thêm `'google_signin'` vào `PLATFORM_NAMES` trong `social-diagnostics/index.ts` và route → `test-google-signin-credentials`).
 
-### 4. AdminSocialSettings (không bắt buộc)
-- Hiện tại `GoogleAuthSignInCard` đứng riêng dưới section "Đăng nhập ứng dụng". Giữ nguyên vị trí, không cần đưa vào `PLATFORMS` array.
+### 2. Cập nhật `social-diagnostics/index.ts`
+- Thêm `'google_signin'` vào `PLATFORM_NAMES`
+- Trong `resolveFunctionName`: nếu `platform === 'google_signin'` → return `test-google-signin-${action.replace('test-', '')}` (chỉ hỗ trợ `test-credentials` cho giai đoạn này)
 
-## Lưu ý kỹ thuật
+### 3. Cập nhật `src/components/admin/GoogleAuthSignInCard.tsx`
+- Thêm state `testing: boolean`
+- Thêm hàm `handleTest()` gọi `supabase.functions.invoke('social-diagnostics', { body: { action: 'test-credentials', platform: 'google_signin' } })`, toast success/error theo `data.success`
+- Thay `<Button asChild><a href="/auth">…<Zap/></a></Button>` thành `<Button onClick={handleTest} disabled={testing}>` hiển thị `<Loader2 animate-spin>` khi `testing`, ngược lại `<Zap>`. `title="Test kết nối"`
+- Bỏ import `Zap` nguyên mẫu? Giữ nguyên + thêm `Loader2` từ lucide-react
 
-- DB `social_platform_settings.platform` không có CHECK constraint, không cần migration. Edge function `manage-social-platform-settings` không whitelist platform → tự động chấp nhận `google_signin`.
-- `consumer_key` / `consumer_secret` đã được edge function mã hóa AES-256-GCM trước khi lưu, đồng nhất với GSC.
-- Vì Supabase Auth provider config (Client ID/Secret thực thi cho `signInWithOAuth('google')`) sống ở Auth dashboard và không có API public để set từ frontend, dialog phải kèm callout: *"Sau khi lưu, dán cùng Client ID + Secret này vào Auth Providers → Google để áp dụng"* + nút mở dashboard. Đây là điểm khác biệt cố hữu so với GSC (GSC tự dùng credential trong DB cho edge function của nó).
+(Nút mở `/auth` để test login UX không nằm trong phạm vi yêu cầu — user chỉ nói "nút test kết nối". Giữ pattern y hệt GSC: chỉ 3 nút Cấu hình / Test / Xóa.)
 
 ## Out of scope
-
-- Không tự động đẩy credential vào Supabase Auth provider config.
-- Không đổi flow `signInWithOAuth` ở client.
-- Không tạo migration.
+- Không tự động đẩy creds vào Supabase Auth provider config (vẫn cần admin paste tay vào Lovable Cloud → Auth Providers → Google).
+- Không thêm test-connection level (cần OAuth refresh token thật của user — không có ở admin global level).
