@@ -302,6 +302,13 @@ export function DirectPublishButton({
         case 'bluesky':
           result = await publishToBluesky(publishOptions);
           break;
+        case 'pinterest':
+          result = await publishToPinterest({
+            ...publishOptions,
+            title: pinTitle || pinterestTitle || undefined,
+            link: linkUrl || blogBacklink || undefined,
+          });
+          break;
         case 'blogger':
           result = await publishToBlogger({
             ...publishOptions,
