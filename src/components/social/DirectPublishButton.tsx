@@ -338,6 +338,14 @@ export function DirectPublishButton({
   };
 
   const handleClick = () => {
+    // Pinterest requires at least 1 image — show clear toast instead of silent disable
+    if (platform === 'pinterest' && (!mediaUrls || mediaUrls.length === 0)) {
+      sonnerToast.error('Pinterest Pin cần ít nhất 1 ảnh', {
+        description: 'Hãy tạo hoặc tải lên ảnh ở tab Pinterest trước khi đăng. Pin không thể là text-only.',
+      });
+      return;
+    }
+
     // Website/Blog: no social connection needed
     if (platform === 'website') {
       setEditableContent(content);
