@@ -93,35 +93,85 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
       );
     }
 
-    // Call Instagram Graph API to verify token
+    // Call Instagram Graph API to verify token.
+    // Strategy (Dev Mode resilient):
+    //  1. /me?fields=id,username (minimal — works in App Dev Mode)
+    //  2. retry once after 1.5s if code 2 + is_transient
+    //  3. fallback: /{platform_user_id}?fields=id (token alive but limited)
     const instagramUserId = connection.platform_user_id;
-    const apiUrl = `https://graph.instagram.com/v21.0/${instagramUserId}?fields=id,username,account_type,media_count&access_token=${accessToken}`;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const callIg = async (path: string) => {
+      const url = `https://graph.instagram.com/v21.0/${path}${path.includes('?') ? '&' : '?'}access_token=${accessToken}`;
+      const r = await fetch(url);
+      const j = await r.json().catch(() => ({}));
+      return { ok: r.ok, status: r.status, body: j };
+    };
 
     console.log("Testing Instagram connection for user:", instagramUserId);
 
-    const response = await fetch(apiUrl);
-    const data = await response.json();
+    // Primary call
+    let primary = await callIg('me?fields=id,username');
+    const isTransient = (b: any) => b?.error?.is_transient || b?.error?.code === 2;
+
+    if (!primary.ok && isTransient(primary.body)) {
+      console.log('[ig-test] transient code 2, retrying after 1500ms');
+      await sleep(1500);
+      primary = await callIg('me?fields=id,username');
+    }
+
+    let data: any;
+    let limited = false;
+    let limitedHint: string | null = null;
+
+    if (primary.ok) {
+      data = primary.body;
+      // Best-effort enrichment (account_type, media_count) — failure is non-fatal
+      const enrich = await callIg(`me?fields=account_type,media_count`);
+      if (enrich.ok) {
+        data.account_type = enrich.body?.account_type;
+        data.media_count = enrich.body?.media_count;
+      } else {
+        console.log('[ig-test] enrich failed (non-fatal):', enrich.body?.error?.message);
+      }
+    } else if (isTransient(primary.body)) {
+      // Try id-only against numeric user id (sometimes works when /me flakes)
+      const idOnly = await callIg(`${instagramUserId}?fields=id`);
+      if (idOnly.ok) {
+        data = { id: idOnly.body?.id, username: connection.platform_username };
+        limited = true;
+        limitedHint = 'Meta App đang ở Development Mode hoặc IG account chưa có Tester role. Token vẫn sống nhưng một số field bị giới hạn. Vào Meta Developer Console → Roles → Add Instagram Tester, hoặc submit App Review để vào Live Mode.';
+        console.log('[ig-test] primary failed transient, id-only fallback OK');
+      }
+    }
+
+    const response = { ok: !!data, status: primary.status } as { ok: boolean; status: number };
+    if (!data) data = primary.body;
 
     if (!response.ok) {
       console.error("Instagram API error:", data);
+      const fbtraceId = data?.error?.fbtrace_id;
+      const devModeHint = 'Meta App có thể đang ở Development Mode. Vào Meta Developer Console → Roles → thêm IG Tester, hoặc submit App Review để vào Live Mode.';
 
       // Transient errors (code 2, is_transient: true) — do NOT invalidate token
       if (data.error?.is_transient || data.error?.code === 2) {
         return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "Instagram đang gặp sự cố tạm thời. Vui lòng thử lại sau 1-2 phút.",
+          JSON.stringify({
+            success: false,
+            error: 'Instagram trả lỗi tạm thời (code 2) sau khi đã retry. Thường do App ở Development Mode hoặc IG account chưa link Business đúng cách.',
             transient: true,
+            hint: devModeHint,
+            fbtrace_id: fbtraceId,
           }),
           { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       // Token truly invalid (code 190) — mark inactive
       if (data.error?.code === 190) {
         await supabase
           .from("social_connections")
-          .update({ 
+          .update({
             is_active: false,
             metadata: {
               ...connection.metadata,
@@ -133,21 +183,23 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
           .eq("id", connectionId);
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             error: data.error?.message || "Token không hợp lệ hoặc đã hết hạn",
             token_invalid: true,
+            fbtrace_id: fbtraceId,
           }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           error: data.error?.message || "Failed to verify Instagram connection",
+          fbtrace_id: fbtraceId,
         }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: response.status || 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -160,9 +212,10 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
         metadata: {
           ...connection.metadata,
           last_test: now.toISOString(),
-          test_result: "success",
+          test_result: limited ? "success_limited" : "success",
           account_type: data.account_type,
           media_count: data.media_count,
+          ...(limited ? { limited_reason: limitedHint } : {}),
         }
       })
       .eq("id", connectionId);
@@ -170,7 +223,11 @@ Deno.serve(withPerf({ functionName: 'test-instagram-connection' }, async (req) =
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Instagram connection is valid",
+        message: limited
+          ? "Token Instagram còn hợp lệ (chế độ giới hạn — App đang Dev Mode)"
+          : "Instagram connection is valid",
+        limited,
+        hint: limitedHint || undefined,
         data: {
           instagram_user_id: data.id,
           username: data.username,

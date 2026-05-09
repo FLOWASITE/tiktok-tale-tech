@@ -193,14 +193,15 @@ export function TokenStatusPanel({ connection, platform, onChecked }: TokenStatu
 
       if (body?.transient) {
         toast.warning(`${PLATFORM_LABEL[platform]} đang gặp sự cố tạm thời`, {
-          description: 'Token vẫn hợp lệ. Vui lòng thử lại sau.',
+          description: body?.hint || 'Token vẫn hợp lệ. Vui lòng thử lại sau.',
         });
         return;
       }
 
       if (error || !body?.success) {
         const msg = body?.error || error?.message || 'Không thể xác minh kết nối';
-        toast.error('Xác minh thất bại', { description: msg });
+        const desc = body?.hint ? `${msg}\n${body.hint}` : msg;
+        toast.error('Xác minh thất bại', { description: desc });
         if (classifyOAuthError(msg) !== 'unknown') {
           emitReconnectNeeded({
             platform,
@@ -211,8 +212,8 @@ export function TokenStatusPanel({ connection, platform, onChecked }: TokenStatu
         return;
       }
 
-      toast.success('Token hợp lệ', {
-        description: `Kết nối ${PLATFORM_LABEL[platform]} đang hoạt động.`,
+      toast.success(body?.limited ? 'Token hợp lệ (giới hạn)' : 'Token hợp lệ', {
+        description: body?.hint || `Kết nối ${PLATFORM_LABEL[platform]} đang hoạt động.`,
       });
     } catch (e: any) {
       toast.error('Xác minh thất bại', { description: e?.message ?? String(e) });
