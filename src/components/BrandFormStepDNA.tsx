@@ -321,7 +321,7 @@ export function BrandFormStepDNA({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <Select value={formalityLevel} onValueChange={setFormalityLevel}>
+            <Select value={safeFormalityLevel} onValueChange={setFormalityLevel}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Chọn mức độ..." />
               </SelectTrigger>
