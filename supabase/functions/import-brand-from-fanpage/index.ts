@@ -8,6 +8,7 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
 import { extractBrandSuggestions } from "../_shared/brand-extractor.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,14 @@ Deno.serve(withPerf({ functionName: "import-brand-from-fanpage" }, async (req) =
     const locale: string = body?.locale || "vi";
 
     if (!connId) return json({ error: "social_connection_id required" }, 400);
+
+    const [orchCfg, extrCfg] = await Promise.all([
+      getAIConfig("import-brand-from-fanpage", organizationId).catch(() => null),
+      getAIConfig("import-brand-extractor", organizationId).catch(() => null),
+    ]);
+    if (orchCfg?.is_enabled === false || extrCfg?.is_enabled === false) {
+      return json({ error: "Tính năng Import Brand đang tạm ngưng (Admin)", code: "FEATURE_DISABLED" }, 503);
+    }
 
     const { data: conn, error: connErr } = await supabase
       .from("social_connections")
@@ -114,7 +123,11 @@ Deno.serve(withPerf({ functionName: "import-brand-from-fanpage" }, async (req) =
     });
 
     if (!extracted.success) {
-      return json({ error: extracted.error || "AI extraction failed" }, 502);
+      const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
+      return json(
+        { error: isQuota ? "Đã hết credit AI. Vui lòng nạp thêm để tiếp tục." : (extracted.error || "AI extraction failed"), code: extracted.error },
+        isQuota ? 402 : 502,
+      );
     }
 
     return json({

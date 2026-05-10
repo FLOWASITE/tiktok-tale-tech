@@ -1,106 +1,46 @@
+## Mục tiêu
+Cho phép admin cấu hình model AI cho luồng Import Brand (website + fanpage) tại trang **/admin/ai → Functions**, giống các function khác, kèm fallback chain để né lỗi 402.
 
-# Import Brand từ Website / Facebook Fanpage
+## Hiện trạng
+- `import-brand-extractor` đã đăng ký ở `useAIConfig.ts` (frontend catalog) và `ai-config.ts` (backend defaults). → Đã hiển thị trong Admin AI Functions ✅
+- Tuy nhiên function thực thi `extractBrandSuggestions` đang gọi `callAI` truyền cứng `functionName: "import-brand-extractor"` mà không đọc `model_override` từ DB → admin đổi model sẽ không có hiệu lực nếu `callAI` không tự lookup. Cần xác nhận + bổ sung fallback model.
+- Chưa có config riêng cho `import-brand-from-website` và `import-brand-from-fanpage` (đây là orchestrator, không trực tiếp gọi AI nhưng admin cần thấy để bật/tắt + theo dõi).
 
-Cho phép user nhập 1 URL website hoặc chọn 1 Facebook Page đã connect → hệ thống scrape/đọc nội dung → AI extract → preview card có "Apply all / Apply selected" → ghi vào `brand_templates`.
+## Phạm vi triển khai
 
-## 1. UX Flow
+### 1. Đăng ký 2 orchestrator function vào catalog (UI Admin)
+File: `src/hooks/useAIConfig.ts` (mục Brand Functions)
+- Thêm `import-brand-from-website` — category `brand`, type `text`, default `google/gemini-2.5-flash`, tag `orchestrator`
+- Thêm `import-brand-from-fanpage` — tương tự
 
-### Entry points
-- **BrandEmptyState**: thêm CTA phụ "Import từ website / fanpage" cạnh nút "Tạo brand mới".
-- **Brand wizard (tạo mới)**: thêm Step 0 optional "Quick import" — paste URL hoặc chọn FB Page → auto-fill các step kế tiếp.
-- **BrandViewOverviewTab** (brand đã tồn tại): nút "Re-scan / Enrich từ website" ở góc card overview để bổ sung field còn trống.
+### 2. Backend defaults
+File: `supabase/functions/_shared/ai-config.ts`
+- Thêm 2 entry tương ứng với `is_enabled: true` để admin có thể bật/tắt từ UI; orchestrator sẽ check `is_enabled` trước khi chạy.
 
-### Dialog `BrandImportDialog`
-2 tab:
-1. **Website URL** — input URL + checkbox "Scrape thêm trang /about, /services" (tối đa 5 trang).
-2. **Facebook Fanpage** — dropdown chọn page từ `social_connections` đã connect (filter `platform='facebook'`); nếu chưa có → CTA "Kết nối Facebook trước".
+### 3. Fallback model chain cho extractor (giải quyết edge case #1, #2 đã báo cáo)
+File: `supabase/functions/_shared/brand-extractor.ts`
+- Đọc config từ `getAIConfig('import-brand-extractor')` để lấy `model` + `fallback_models` (admin set).
+- Nếu `callAI` trả 402/429 → tự retry với `google/gemini-2.5-flash-lite` rồi `google/gemini-3-flash-preview`.
+- Nếu vẫn fail → return error code chuẩn (`AI_QUOTA_EXHAUSTED`) thay vì string mơ hồ.
 
-Nút "Phân tích" → loading state với progress (Scraping → Extracting → Cloning voice) → mở **`BrandImportPreviewCard`**.
+File: `supabase/functions/import-brand-from-website/index.ts` + `import-brand-from-fanpage/index.ts`
+- Map error code `AI_QUOTA_EXHAUSTED` → HTTP 402 (giữ nguyên status từ AI gateway thay vì 502).
 
-### Preview Card
-Hiển thị 4 nhóm collapsible, mỗi field có checkbox + so sánh "Hiện tại → Gợi ý":
-- **Identity**: brand_name, tagline, industry suggestion, target_age_range, target_gender, target_locations, logo URL.
-- **Voice & Tone**: tone_of_voice array, sample_texts (3-5 đoạn rút trích).
-- **Content Pillars**: 3-5 pillars (name + description).
-- **USPs**: 3-5 USP statements.
-- **Auto-connect** (chỉ tab Facebook): toggle "Gắn page này vào brand".
+### 4. Frontend xử lý 402
+File: `src/hooks/useBrandImport.ts`
+- Detect status 402 → toast với CTA "Nạp thêm credit" trỏ tới `/settings/usage` (tận dụng `QuotaExhaustedBanner` pattern đã có).
 
-Footer: `Apply selected` (default) + `Apply all` + `Hủy`.
+### 5. Kiểm tra trước khi gọi
+File: `import-brand-from-website/index.ts` + `import-brand-from-fanpage/index.ts`
+- Trước khi tốn Firecrawl/FB API, gọi `getAIConfig('import-brand-extractor')` — nếu `is_enabled === false` → trả 503 với message "Tính năng Import Brand đang tạm ngưng (Admin)".
 
-## 2. Backend — Edge Functions
+## Không làm trong phạm vi này
+- Cache scrape per URL (edge case #3) — sẽ tách task riêng
+- Rate-limit per user (edge case #4)
+- Same-origin validation cho `extra_paths` (edge case #5)
+- Auto-fill `logo_url` từ `og_image` (edge case #6) — task UI riêng
 
-### `import-brand-from-website` (mới)
-- Input: `{ url, brand_template_id?, organization_id, extra_paths?: string[] }`
-- Steps:
-  1. Validate URL, check rate limit per org (3 imports/hour).
-  2. Gọi **Firecrawl** (`firecrawl-trends` đã có pattern; tạo helper `_shared/firecrawl-client.ts`) — scrape homepage với formats `['markdown', 'branding', 'links']`. Nếu `extra_paths` → scrape thêm tối đa 4 URL phụ (parallel).
-  3. Tổng hợp markdown + branding (logo, colors, fonts) + meta (title, description).
-  4. Gọi `callAI()` với schema JSON structured output (Gemini 2.5 Flash):
-     ```
-     { brand_name, tagline, industry_suggestion, target_audience{age,gender,locations}, 
-       tone_of_voice[], content_pillars[{name,description}], usps[], sample_texts[] }
-     ```
-  5. Return `{ suggestions, raw_meta: { logo_url, colors, source_urls } }`.
-
-### `import-brand-from-fanpage` (mới)
-- Input: `{ social_connection_id, brand_template_id?, organization_id }`
-- Steps:
-  1. Load connection từ `social_connections`, decrypt token.
-  2. Graph API: `GET /{page_id}?fields=name,about,bio,description,category,mission,founded,website,fan_count,picture{url},cover{source}`.
-  3. `GET /{page_id}/posts?fields=message,created_time&limit=15` → lọc post có `message` ≥ 50 chars.
-  4. Gộp về cùng schema rồi gọi cùng AI extractor như flow website (tái dùng `_shared/brand-extractor.ts`).
-  5. Trả thêm `raw_meta.fanpage = { page_id, picture, fan_count }` để UI auto-attach.
-
-### `_shared/brand-extractor.ts` (mới)
-Hàm chung `extractBrandSuggestions(content, locale)` build prompt theo English-Instruction-Target-Output pattern, chạy `callAI()` với JSON schema, validate bằng zod, return typed object. Cache bằng `withCache(hash(content), ...)` TTL 1h để retry không tốn token.
-
-### Apply (frontend-only)
-- Sau khi user bấm Apply → frontend dùng `useBrandTemplates.update()` (đã có) ghi các field được tick.
-- Nếu auto-connect FB → đã có sẵn `social_connections` row, chỉ cần update `brand_template_id` (PATCH qua supabase client).
-
-## 3. Database
-
-Không cần table mới. Thêm 1 cột audit:
-```sql
-ALTER TABLE public.brand_templates 
-ADD COLUMN imported_from JSONB; 
--- { source: 'website'|'fanpage', url|page_id, imported_at, applied_fields: [] }
-```
-Migration mới (additive), giữ pattern existing.
-
-## 4. Files dự kiến
-
-**Mới**
-- `src/components/brand/BrandImportDialog.tsx` — 2 tab + form input.
-- `src/components/brand/BrandImportPreviewCard.tsx` — preview + checkbox + apply.
-- `src/hooks/useBrandImport.ts` — wrap 2 edge function + React Query mutation.
-- `supabase/functions/import-brand-from-website/index.ts`
-- `supabase/functions/import-brand-from-fanpage/index.ts`
-- `supabase/functions/_shared/brand-extractor.ts`
-- `supabase/functions/_shared/firecrawl-client.ts` (nếu chưa có)
-- 1 migration thêm cột `imported_from`.
-
-**Sửa**
-- `src/components/brand/BrandEmptyState.tsx` — CTA phụ.
-- `src/components/brand/BrandViewOverviewTab.tsx` — nút "Re-scan".
-- (Tuỳ wizard hiện có) thêm Step 0 quick-import.
-
-## 5. Integrations & Secrets
-
-- **Firecrawl**: dùng connector `firecrawl` (đã có pattern trong project — `firecrawl-trends`). Nếu chưa link → bước đầu sẽ trigger `standard_connectors--connect`.
-- **Facebook**: tái dùng token đã encrypt trong `social_connections` (theo memory `Credential Management` + `Multi-Fanpage Configs`).
-- **AI**: Lovable Gateway, model mặc định `google/gemini-2.5-flash` (rẻ + đủ mạnh cho extraction).
-
-## 6. Out of scope (phase 1)
-
-- Instagram / WordPress RSS (sẽ làm phase 2 nếu user dùng nhiều).
-- Scrape sâu > 5 page hoặc full sitemap crawl.
-- Auto-import định kỳ (cron re-scan).
-- Tự ghi đè field mà không cần user xác nhận.
-
-## 7. Verify sau khi build
-
-1. Test với 1 website thật (vd `flowa.one`) → preview phải có ≥ 80% field được suggest.
-2. Test với 1 FB page đã connect → suggestions từ posts + about.
-3. Apply selected chỉ ghi field được tick, không xoá field cũ.
-4. Edge function logs sạch, không 402/429 với 3 lần chạy liên tiếp.
+## Verification
+- Mở `/admin/ai` → Functions → search "import" → thấy 3 function (extractor + 2 orchestrator), có thể đổi model + toggle.
+- Test: tắt `import-brand-extractor` → bấm Import từ UI → nhận thông báo "tạm ngưng" (không tốn Firecrawl).
+- Test: với account đang 402 credit → nhận toast "Nạp credit" thay vì lỗi mơ hồ.

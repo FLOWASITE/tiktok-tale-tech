@@ -109,19 +109,40 @@ export async function extractBrandSuggestions(
     "Now call the extract_brand tool with the structured profile.",
   ].filter(Boolean).join("\n");
 
-  const result = await callAI({
-    functionName: "import-brand-extractor",
-    organizationId: input.organizationId,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-    tools: [TOOL_SCHEMA],
-    toolChoice: { type: "function", function: { name: "extract_brand" } },
-  } as any);
+  // Try primary model + 2 fallbacks (handles 402/429 quota errors gracefully)
+  const FALLBACK_MODELS = [
+    undefined, // primary (admin-configured via ai_function_configs)
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-3-flash-preview",
+  ];
 
-  if (!result.success) {
-    return { success: false, error: result.error || "AI extraction failed" };
+  let result: any = null;
+  let lastError = "";
+  for (const modelOverride of FALLBACK_MODELS) {
+    result = await callAI({
+      functionName: "import-brand-extractor",
+      organizationId: input.organizationId,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [TOOL_SCHEMA],
+      toolChoice: { type: "function", function: { name: "extract_brand" } },
+      ...(modelOverride ? { modelOverride } : {}),
+    } as any);
+    if (result.success) break;
+    lastError = result.error || "";
+    const isQuota = /402|429|quota|payment|rate limit/i.test(lastError);
+    if (!isQuota) break; // only fall back on quota errors
+    console.warn(`[brand-extractor] model failed (${modelOverride || "primary"}): ${lastError} — trying next`);
+  }
+
+  if (!result?.success) {
+    const isQuota = /402|429|quota|payment|rate limit/i.test(lastError);
+    return {
+      success: false,
+      error: isQuota ? "AI_QUOTA_EXHAUSTED" : (lastError || "AI extraction failed"),
+    };
   }
 
   // Try to find tool call args in the response

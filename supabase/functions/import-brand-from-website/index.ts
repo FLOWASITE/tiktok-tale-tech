@@ -7,6 +7,7 @@
 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { extractBrandSuggestions } from "../_shared/brand-extractor.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,6 +84,15 @@ Deno.serve(withPerf({ functionName: "import-brand-from-website" }, async (req) =
     const targetUrl = rawUrl ? normalizeUrl(rawUrl) : null;
     if (!targetUrl) return json({ error: "URL không hợp lệ" }, 400);
 
+    // Admin kill-switch: check both orchestrator + extractor enabled
+    const [orchCfg, extrCfg] = await Promise.all([
+      getAIConfig("import-brand-from-website", organizationId).catch(() => null),
+      getAIConfig("import-brand-extractor", organizationId).catch(() => null),
+    ]);
+    if (orchCfg?.is_enabled === false || extrCfg?.is_enabled === false) {
+      return json({ error: "Tính năng Import Brand đang tạm ngưng (Admin)", code: "FEATURE_DISABLED" }, 503);
+    }
+
     console.log(`[import-brand-from-website] user=${user.id} url=${targetUrl} extras=${extraPaths.length}`);
 
     // Scrape homepage with branding
@@ -126,7 +136,11 @@ Deno.serve(withPerf({ functionName: "import-brand-from-website" }, async (req) =
     });
 
     if (!extracted.success) {
-      return json({ error: extracted.error || "AI extraction failed" }, 502);
+      const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
+      return json(
+        { error: isQuota ? "Đã hết credit AI. Vui lòng nạp thêm để tiếp tục." : (extracted.error || "AI extraction failed"), code: extracted.error },
+        isQuota ? 402 : 502,
+      );
     }
 
     return json({

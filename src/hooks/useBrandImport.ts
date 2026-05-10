@@ -55,7 +55,23 @@ export function useBrandImport() {
           locale: 'vi',
         },
       });
-      if (error) throw new Error(error.message || 'Import thất bại');
+      if (error) {
+        const ctx: any = (error as any).context;
+        const status = ctx?.status;
+        const msg = (error.message || '').toLowerCase();
+        if (status === 402 || msg.includes('402') || msg.includes('quota') || msg.includes('credit')) {
+          toast.error('Hết credit AI', {
+            description: 'Vui lòng nạp thêm credit để tiếp tục import.',
+            action: { label: 'Nạp credit', onClick: () => window.location.assign('/settings/usage') },
+          });
+          return null;
+        }
+        if (status === 503) {
+          toast.warning('Tính năng tạm ngưng', { description: 'Admin đã tắt Import Brand.' });
+          return null;
+        }
+        throw new Error(error.message || 'Import thất bại');
+      }
       if (!data?.success) throw new Error(data?.error || 'AI không phân tích được nội dung');
       return { ...(data as any), source: 'website' };
     } catch (e: any) {
@@ -80,7 +96,23 @@ export function useBrandImport() {
           locale: 'vi',
         },
       });
-      if (error) throw new Error(error.message || 'Import thất bại');
+      if (error) {
+        const ctx: any = (error as any).context;
+        const status = ctx?.status;
+        const msg = (error.message || '').toLowerCase();
+        if (status === 402 || msg.includes('402') || msg.includes('quota') || msg.includes('credit')) {
+          toast.error('Hết credit AI', {
+            description: 'Vui lòng nạp thêm credit để tiếp tục import.',
+            action: { label: 'Nạp credit', onClick: () => window.location.assign('/settings/usage') },
+          });
+          return null;
+        }
+        if (status === 503) {
+          toast.warning('Tính năng tạm ngưng', { description: 'Admin đã tắt Import Brand.' });
+          return null;
+        }
+        throw new Error(error.message || 'Import thất bại');
+      }
       if (!data?.success) throw new Error(data?.error || 'AI không phân tích được nội dung');
       return { ...(data as any), source: 'fanpage' };
     } catch (e: any) {
