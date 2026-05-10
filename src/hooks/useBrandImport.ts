@@ -13,6 +13,8 @@ export interface BrandSuggestion {
     locations?: string[] | null;
   } | null;
   tone_of_voice?: string[] | null;
+  brand_positioning?: string | null;
+  formality_level?: 'casual' | 'neutral' | 'formal' | null;
   content_pillars?: Array<{ name: string; description?: string }> | null;
   usps?: string[] | null;
   sample_texts?: string[] | null;
