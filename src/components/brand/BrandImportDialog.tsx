@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Globe, Facebook, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -279,8 +279,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] h-[90vh] sm:h-auto flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             Import Brand từ website hoặc fanpage
@@ -288,7 +288,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         </DialogHeader>
 
         {!result ? (
-          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 space-y-4">
             {loading && (
               <BrandImportProgressPanel progress={progress} events={events} onCancel={cancel} />
             )}
@@ -357,7 +357,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
             </Tabs>
           </div>
         ) : (
-          <ScrollArea className="flex-1 pr-3">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
@@ -471,10 +471,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           {!result ? (
             <>
               <Button variant="ghost" onClick={() => onOpenChange(false)}>Hủy</Button>
