@@ -143,6 +143,8 @@ export function IndustrySelectionDialog({
     totalCount,
     coreCount,
     popularPacks,
+    recentlyUsedPacks,
+    aiSuggestedPacks,
   } = useMemo(() => {
     const cores = packs.filter(p => p.industryLevel === 'core');
     const subs = packs.filter(p => p.industryLevel === 'sub');
@@ -158,15 +160,23 @@ export function IndustrySelectionDialog({
     });
     
     const popular = packs.filter(p => POPULAR_CODES.includes(p.code));
+
+    const byId = new Map(packs.map(p => [p.id, p] as const));
+    const recent = recentlyUsedIds
+      .map(id => byId.get(id))
+      .filter((p): p is GlobalPackForSelection => !!p)
+      .slice(0, 5);
+
+    const aiPacks = aiSuggestions
+      .map(s => {
+        const pack = byId.get(s.packId);
+        return pack ? { pack, suggestion: s } : null;
+      })
+      .filter((x): x is { pack: GlobalPackForSelection; suggestion: AiSuggestion } => !!x);
     
     let filtered: GlobalPackForSelection[] = [];
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = packs.filter(p => 
-        p.name.toLowerCase().includes(query) ||
-        (p.shortName?.toLowerCase() || '').includes(query) ||
-        p.code.toLowerCase().includes(query)
-      );
+      filtered = smartFilter(packs, searchQuery);
     } else if (selectedCategory) {
       const core = cores.find(c => c.id === selectedCategory);
       if (core) {
@@ -181,8 +191,10 @@ export function IndustrySelectionDialog({
       totalCount: packs.length,
       coreCount: cores.length,
       popularPacks: popular,
+      recentlyUsedPacks: recent,
+      aiSuggestedPacks: aiPacks,
     };
-  }, [packs, searchQuery, selectedCategory]);
+  }, [packs, searchQuery, selectedCategory, recentlyUsedIds, aiSuggestions]);
 
   const getIcon = (code: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const sizeClass = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5';
