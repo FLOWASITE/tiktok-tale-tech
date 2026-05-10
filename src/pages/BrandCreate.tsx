@@ -240,6 +240,8 @@ export default function BrandCreate() {
       }
       const logo = meta.picture || meta.og_image;
       if (logo) setLogoPreview(logo);
+      setShowStartChooser(false);
+      setImportDialogOpen(false);
       setShowQuickStart(false);
       setCurrentStep(1);
       toast.success('Đã nạp dữ liệu từ import. Hãy kiểm tra và lưu để tiếp tục.');
