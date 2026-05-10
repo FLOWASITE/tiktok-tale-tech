@@ -571,7 +571,7 @@ export default function Brands() {
             </div>
           </motion.div>
         ) : (
-          <BrandEmptyState onCreateNew={handleCreate} />
+          <BrandEmptyState onCreateNew={handleCreate} onImportFromUrl={handleOpenImport} />
         )
       ) : (
         <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
