@@ -114,6 +114,17 @@ export function IndustryBrowserV2({ onSelectPack, selectedPackId }: IndustryBrow
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [expandedPacks, setExpandedPacks] = useState<Set<string>>(new Set());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('industryBrowser.sidebarCollapsed') === '1';
+  });
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('industryBrowser.sidebarCollapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
 
   // Fetch categories with counts
   const { data: categories, isLoading: categoriesLoading } = useQuery({
