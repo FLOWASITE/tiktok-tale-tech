@@ -58,6 +58,11 @@ export default function BrandCreate() {
   // UI state
   const [currentStep, setCurrentStep] = useState(editingTemplate ? 1 : 0);
   const [showQuickStart, setShowQuickStart] = useState(!editingTemplate);
+  // Initial chooser: shown only for brand-new flows (not editing, not pre-imported)
+  const [showStartChooser, setShowStartChooser] = useState(
+    !editingTemplate && !locationState?.importedSuggestion,
+  );
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state - same as BrandForm
