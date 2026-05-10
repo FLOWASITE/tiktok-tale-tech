@@ -20,6 +20,7 @@ import {
   Pencil,
   Book,
   Users,
+  ChevronDown,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -407,6 +408,9 @@ export default function AdminIndustryPacks() {
   const [personasPackId, setPersonasPackId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editPackId, setEditPackId] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   
   // Create form state
   const [newPackCode, setNewPackCode] = useState('');
@@ -664,59 +668,91 @@ export default function AdminIndustryPacks() {
                   acc[key].packs.push(pack);
                   return acc;
                 }, {} as Record<string, { countryName: string; flagEmoji: string | null; packs: IndustryMemoryPack[] }>)
-              ).map(([countryCode, { countryName, flagEmoji, packs: countryPacks }]) => (
+              ).map(([countryCode, { countryName, flagEmoji, packs: countryPacks }]) => {
+                const groupKey = `country:${countryCode}`;
+                const isCollapsed = !!collapsedGroups[groupKey];
+                return (
                 <div key={countryCode}>
-                  <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                    <span className="text-xl">{flagEmoji}</span>
-                    {countryName}
-                    <Badge variant="secondary" className="ml-2">{countryPacks.length} packs</Badge>
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {countryPacks.map((pack) => (
-                      <PackCard
-                        key={pack.id}
-                        pack={pack}
-                        onPublish={() => publishPack(pack.id)}
-                        onDeprecate={() => deprecatePack(pack.id)}
-                        onReactivate={() => reactivatePack(pack.id)}
-                        onEditRules={() => setEditingPackId(pack.id)}
-                        onEditGlossary={() => setGlossaryPackId(pack.id)}
-                        onEditPersonas={() => setPersonasPackId(pack.id)}
-                        onEdit={() => handleOpenEditDialog(pack.id)}
-                        isUpdating={isUpdating}
-                      />
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(groupKey)}
+                    className="w-full flex items-center gap-2 mb-4 text-left hover:opacity-80 transition-opacity"
+                    aria-expanded={!isCollapsed}
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                    />
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <span className="text-xl">{flagEmoji}</span>
+                      {countryName}
+                      <Badge variant="secondary" className="ml-2">{countryPacks.length} packs</Badge>
+                    </h2>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {countryPacks.map((pack) => (
+                        <PackCard
+                          key={pack.id}
+                          pack={pack}
+                          onPublish={() => publishPack(pack.id)}
+                          onDeprecate={() => deprecatePack(pack.id)}
+                          onReactivate={() => reactivatePack(pack.id)}
+                          onEditRules={() => setEditingPackId(pack.id)}
+                          onEditGlossary={() => setGlossaryPackId(pack.id)}
+                          onEditPersonas={() => setPersonasPackId(pack.id)}
+                          onEdit={() => handleOpenEditDialog(pack.id)}
+                          isUpdating={isUpdating}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             // Group by category when showing a specific country
             <div className="space-y-8">
-              {Object.entries(groupedByCategory).map(([categoryCode, { categoryName, packs: categoryPacks }]) => (
+              {Object.entries(groupedByCategory).map(([categoryCode, { categoryName, packs: categoryPacks }]) => {
+                const groupKey = `cat:${selectedCountry}:${categoryCode}`;
+                const isCollapsed = !!collapsedGroups[groupKey];
+                return (
                 <div key={categoryCode}>
-                  <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                    {categoryName}
-                    <Badge variant="secondary" className="ml-2">{categoryPacks.length} packs</Badge>
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {categoryPacks.map((pack) => (
-                      <PackCard
-                        key={pack.id}
-                        pack={pack}
-                        onPublish={() => publishPack(pack.id)}
-                        onDeprecate={() => deprecatePack(pack.id)}
-                        onReactivate={() => reactivatePack(pack.id)}
-                        onEditRules={() => setEditingPackId(pack.id)}
-                        onEditGlossary={() => setGlossaryPackId(pack.id)}
-                        onEditPersonas={() => setPersonasPackId(pack.id)}
-                        onEdit={() => handleOpenEditDialog(pack.id)}
-                        isUpdating={isUpdating}
-                      />
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(groupKey)}
+                    className="w-full flex items-center gap-2 mb-4 text-left hover:opacity-80 transition-opacity"
+                    aria-expanded={!isCollapsed}
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                    />
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      {categoryName}
+                      <Badge variant="secondary" className="ml-2">{categoryPacks.length} packs</Badge>
+                    </h2>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {categoryPacks.map((pack) => (
+                        <PackCard
+                          key={pack.id}
+                          pack={pack}
+                          onPublish={() => publishPack(pack.id)}
+                          onDeprecate={() => deprecatePack(pack.id)}
+                          onReactivate={() => reactivatePack(pack.id)}
+                          onEditRules={() => setEditingPackId(pack.id)}
+                          onEditGlossary={() => setGlossaryPackId(pack.id)}
+                          onEditPersonas={() => setPersonasPackId(pack.id)}
+                          onEdit={() => handleOpenEditDialog(pack.id)}
+                          isUpdating={isUpdating}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>
