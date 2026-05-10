@@ -27,14 +27,15 @@ import {
   Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BRAND_POSITIONING_LABELS, FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
+import { FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
+import { Textarea } from '@/components/ui/textarea';
 
-// Brand Voice Constants
+// Brand Voice Constants (legacy — giữ export cho nơi khác dùng)
 export const BRAND_POSITIONING_OPTIONS = [
-  { value: 'business', label: BRAND_POSITIONING_LABELS.business },
-  { value: 'expert', label: BRAND_POSITIONING_LABELS.expert },
-  { value: 'agency', label: BRAND_POSITIONING_LABELS.agency },
-  { value: 'consultant', label: BRAND_POSITIONING_LABELS.consultant },
+  { value: 'business', label: 'Doanh nghiệp' },
+  { value: 'expert', label: 'Chuyên gia' },
+  { value: 'agency', label: 'Agency' },
+  { value: 'consultant', label: 'Tư vấn' },
 ];
 
 export const TONE_OF_VOICE_OPTIONS = [
@@ -218,21 +219,19 @@ export function BrandFormStepDNA({
       </div>
 
       <div className="space-y-4">
-          {/* Brand Positioning */}
+          {/* Brand Positioning — free-text 1-2 câu */}
           <div className="space-y-2">
             <Label className="text-sm">Định vị thương hiệu</Label>
-            <Select value={brandPositioning} onValueChange={setBrandPositioning}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Chọn định vị..." />
-              </SelectTrigger>
-              <SelectContent>
-                {BRAND_POSITIONING_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Textarea
+              value={brandPositioning}
+              onChange={(e) => setBrandPositioning(e.target.value.slice(0, 280))}
+              placeholder="VD: TAF là công ty tư vấn kiểm toán dành cho doanh nghiệp tại Việt Nam, giúp xử lý nhanh các vấn đề thuế – kế toán."
+              className="min-h-[72px] text-sm resize-none"
+              maxLength={280}
+            />
+            <p className="text-[11px] text-muted-foreground text-right tabular-nums">
+              {brandPositioning.length}/280
+            </p>
           </div>
 
           {/* Tone of Voice */}

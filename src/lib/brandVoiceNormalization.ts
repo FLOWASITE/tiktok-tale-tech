@@ -1,17 +1,8 @@
-const BRAND_POSITIONING_VALUES = ['business', 'expert', 'agency', 'consultant'] as const;
 const TONE_OF_VOICE_VALUES = ['expert', 'calm', 'confident', 'friendly', 'analytical', 'serious', 'inspirational'] as const;
 const FORMALITY_LEVEL_VALUES = ['formal', 'semi_formal', 'casual', 'friendly'] as const;
 
-export type BrandPositioningValue = typeof BRAND_POSITIONING_VALUES[number];
 export type ToneOfVoiceValue = typeof TONE_OF_VOICE_VALUES[number];
 export type FormalityLevelValue = typeof FORMALITY_LEVEL_VALUES[number];
-
-export const BRAND_POSITIONING_LABELS: Record<BrandPositioningValue, string> = {
-  business: 'Doanh nghiệp',
-  expert: 'Chuyên gia',
-  agency: 'Agency',
-  consultant: 'Tư vấn',
-};
 
 export const TONE_OF_VOICE_LABELS: Record<ToneOfVoiceValue, string> = {
   expert: 'Chuyên gia',
@@ -37,16 +28,12 @@ const normalizeText = (value: unknown) =>
 
 const includesAny = (text: string, needles: string[]) => needles.some((needle) => text.includes(needle));
 
-export function normalizeBrandPositioning(value: unknown): BrandPositioningValue | null {
-  const text = normalizeText(value);
-  if (!text) return null;
-  if ((BRAND_POSITIONING_VALUES as readonly string[]).includes(text.replace(/\s+/g, '_'))) {
-    return text.replace(/\s+/g, '_') as BrandPositioningValue;
-  }
-  if (includesAny(text, ['agency', 'dai ly', 'marketing house', 'studio', 'production house'])) return 'agency';
-  if (includesAny(text, ['tu van', 'consultant', 'co van', 'advisor', 'chien luoc gia'])) return 'consultant';
-  if (includesAny(text, ['chuyen gia', 'expert', 'bac si', 'doctor', 'clinic', 'phong kham', 'tham my vien'])) return 'expert';
-  return 'business';
+/** Brand positioning là free text — giữ nguyên câu AI extract, chỉ trim + clamp 280 char. */
+export function normalizeBrandPositioning(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 280);
 }
 
 export function normalizeToneOfVoice(value: unknown): ToneOfVoiceValue[] {
@@ -59,19 +46,28 @@ export function normalizeToneOfVoice(value: unknown): ToneOfVoiceValue[] {
     const direct = text.replace(/\s+/g, '_');
     if ((TONE_OF_VOICE_VALUES as readonly string[]).includes(direct)) {
       normalized.add(direct as ToneOfVoiceValue);
-    } else if (includesAny(text, ['chuyen gia', 'chuyen nghiep', 'professional', 'expert', 'authoritative', 'uy tin', 'tham quyen'])) {
+      continue;
+    }
+    // Multi-match: 1 label AI có thể trigger nhiều bucket (vd "Chuyên nghiệp" → expert + serious)
+    if (includesAny(text, ['chuyen gia', 'chuyen nghiep', 'professional', 'expert', 'authoritative', 'uy tin', 'tham quyen', 'chuyen sau'])) {
       normalized.add('expert');
-    } else if (includesAny(text, ['diem tinh', 'calm', 'am ap', 'nhe nhang', 'an tam', 'reassuring', 'soothing'])) {
+    }
+    if (includesAny(text, ['diem tinh', 'calm', 'am ap', 'nhe nhang', 'an tam', 'reassuring', 'soothing', 'tan tam', 'cham soc', 'thau hieu', 'dong cam'])) {
       normalized.add('calm');
-    } else if (includesAny(text, ['tu tin', 'confident', 'dut khoat', 'manh me', 'assertive'])) {
+    }
+    if (includesAny(text, ['tu tin', 'confident', 'dut khoat', 'manh me', 'assertive', 'quyet doan'])) {
       normalized.add('confident');
-    } else if (includesAny(text, ['than thien', 'gan gui', 'friendly', 'than mat', 'tro chuyen', 'conversational', 'vui ve'])) {
+    }
+    if (includesAny(text, ['than thien', 'gan gui', 'friendly', 'than mat', 'tro chuyen', 'conversational', 'vui ve', 'ban oi'])) {
       normalized.add('friendly');
-    } else if (includesAny(text, ['phan tich', 'analytical', 'logic', 'du lieu', 'khoa hoc', 'giao duc', 'educational'])) {
+    }
+    if (includesAny(text, ['phan tich', 'analytical', 'logic', 'du lieu', 'khoa hoc', 'giao duc', 'educational', 'chi tiet'])) {
       normalized.add('analytical');
-    } else if (includesAny(text, ['nghiem tuc', 'serious', 'trang trong', 'formal', 'chuan muc'])) {
+    }
+    if (includesAny(text, ['nghiem tuc', 'serious', 'trang trong', 'formal', 'chuan muc'])) {
       normalized.add('serious');
-    } else if (includesAny(text, ['truyen cam hung', 'inspirational', 'tich cuc', 'aspirational'])) {
+    }
+    if (includesAny(text, ['truyen cam hung', 'inspirational', 'tich cuc', 'aspirational', 'sang tao', 'dam me'])) {
       normalized.add('inspirational');
     }
   }
@@ -86,16 +82,25 @@ export function normalizeFormalityLevel(value: unknown): FormalityLevelValue | n
   if ((FORMALITY_LEVEL_VALUES as readonly string[]).includes(direct)) return direct as FormalityLevelValue;
   if (includesAny(text, ['formal', 'trang trong', 'quy khach', 'kinh gui'])) return 'formal';
   if (includesAny(text, ['neutral', 'semi formal', 'semi_formal', 'ban trang trong', 'trung tinh', 'chuan muc'])) return 'semi_formal';
-  if (includesAny(text, ['casual', 'gan gui', 'than mat', 'minh', 'ban oi'])) return 'casual';
   if (includesAny(text, ['friendly', 'than thien', 'tu nhien', 'thoai mai'])) return 'friendly';
+  if (includesAny(text, ['casual', 'gan gui', 'than mat', 'minh', 'ban oi'])) return 'casual';
   return 'semi_formal';
 }
 
 export function normalizeBrandVoiceSuggestion<T extends { brand_positioning?: unknown; tone_of_voice?: unknown; formality_level?: unknown }>(suggestion: T): T {
+  let tones = normalizeToneOfVoice(suggestion.tone_of_voice);
+  const formality = normalizeFormalityLevel(suggestion.formality_level);
+  // Fallback: nếu tone rỗng nhưng có formality → seed 1 tone tương ứng để UI không trống
+  if (tones.length === 0 && formality) {
+    if (formality === 'formal') tones = ['serious', 'expert'];
+    else if (formality === 'semi_formal') tones = ['expert'];
+    else if (formality === 'casual') tones = ['friendly'];
+    else if (formality === 'friendly') tones = ['friendly'];
+  }
   return {
     ...suggestion,
     brand_positioning: normalizeBrandPositioning(suggestion.brand_positioning),
-    tone_of_voice: normalizeToneOfVoice(suggestion.tone_of_voice),
-    formality_level: normalizeFormalityLevel(suggestion.formality_level),
+    tone_of_voice: tones,
+    formality_level: formality,
   } as T;
 }

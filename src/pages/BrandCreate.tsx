@@ -430,16 +430,19 @@ export default function BrandCreate() {
     setGlobalPackId(packData.id);
     setIndustries(asStringArray(packData.name));
     const importedVoice = importedSuggestion ? normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {}) : null;
-    const importedPositioning = normalizeBrandPositioning(importedVoice?.brand_positioning);
+    const importedPositioning = importedVoice?.brand_positioning ? String(importedVoice.brand_positioning) : '';
     const importedTones = normalizeToneOfVoice(importedVoice?.tone_of_voice);
     const importedFormality = normalizeFormalityLevel(importedVoice?.formality_level);
-    
-    if (importedPositioning || packData.brandPositioning) {
-      setBrandPositioning(importedPositioning || normalizeBrandPositioning(packData.brandPositioning) || '');
+
+    // Positioning: ưu tiên câu AI import, chỉ dùng pack default khi không có
+    if (importedPositioning) {
+      setBrandPositioning(importedPositioning);
+    } else if (packData.brandPositioning) {
+      setBrandPositioning(packData.brandPositioning);
     }
 
     const voice = (packData as any).brandVoice || {};
-    // Only set values if pack provides them - don't reset to empty
+    // Tone: ưu tiên import, chỉ fallback pack khi import rỗng
     const packTones = normalizeToneOfVoice(voice.tone_of_voice);
     const nextTones = importedTones.length > 0 ? importedTones : packTones;
     if (nextTones.length > 0) {

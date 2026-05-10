@@ -19,7 +19,7 @@ import { BrandImportProgressPanel } from './BrandImportProgressPanel';
 import { useGlobalPacksForBrandSelection, type GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
 import { smartFilter } from '@/lib/industrySearch';
 import { Check } from 'lucide-react';
-import { BRAND_POSITIONING_LABELS, FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
+import { FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
 
 interface BrandImportDialogProps {
   open: boolean;
@@ -324,7 +324,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         return parts.join(' • ') || null;
       }
       case 'tone_of_voice': return s.tone_of_voice?.map((tone) => TONE_OF_VOICE_LABELS[tone as keyof typeof TONE_OF_VOICE_LABELS] || tone).join(', ') || null;
-      case 'brand_positioning': return s.brand_positioning ? (BRAND_POSITIONING_LABELS[s.brand_positioning as keyof typeof BRAND_POSITIONING_LABELS] || s.brand_positioning) : null;
+      case 'brand_positioning': return s.brand_positioning || null;
       case 'formality_level': {
         return s.formality_level ? (FORMALITY_LEVEL_LABELS[s.formality_level as keyof typeof FORMALITY_LEVEL_LABELS] || s.formality_level) : null;
       }
