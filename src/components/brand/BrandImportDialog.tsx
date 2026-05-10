@@ -412,7 +412,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                       const existing = readExistingFieldLabel(targetBrand, f.key);
                       const isLogo = f.key === 'logo_url' && value;
                       const isColor = f.key === 'primary_color' && value;
-                      const colorIsAiGuess = f.key === 'primary_color' && !result?.raw_meta?.theme_color && result?.suggestion?.primary_color_suggestion;
+                      const palette: any = result?.raw_meta?.color_palette;
+                      const colorConfidence: 'high' | 'medium' | 'low' = palette?.confidence || (palette?.source === 'logo' || palette?.source === 'css-vars' || palette?.source === 'meta' ? 'high' : palette?.source === 'mixed' ? 'medium' : 'low');
+                      const colorIsAiGuess = f.key === 'primary_color' && colorConfidence === 'low';
+                      const colorFromLogo = f.key === 'primary_color' && palette?.source === 'logo';
                       return (
                         <label
                           key={f.key}
