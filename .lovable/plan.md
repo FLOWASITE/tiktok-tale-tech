@@ -1,37 +1,26 @@
-# Sửa flow Import Brand: xác nhận Ngành + chọn Màu
+Mình tìm thấy lý do khả năng cao vẫn “không được”:
 
-## Vấn đề
-1. **Ngành gợi ý không hiện danh sách**: sau khi import (Website/Fanpage), `BrandCreate.tsx` (line 272) auto-set `industries=[s.industry_suggestion]` rồi đóng mọi dialog. User không thấy danh sách ngành AI gợi ý để chọn/xác nhận. `IndustrySelectionDialog` (đã có sẵn AI suggestion qua `suggest-industry` edge function với confidence + reason) không được mở.
-2. **Màu brand sai**: hydrate auto-pick theo priority `s.primary_color || palette.primary || meta.theme_color || s.primary_color_suggestion` (line 289). Nếu nguồn đầu tiên sai (ví dụ AI đoán nhầm, hoặc `palette.primary` lấy từ logo background trắng/đen), user bị ép màu sai mà không thấy các candidate khác để chọn.
+1. Dialog chọn ngành chỉ hiện mục “AI gợi ý” khi edge function trả packId khớp. Nếu AI lỗi/trả code lệch/không có network call, UI chỉ rơi về “Phổ biến”, nên user không thấy danh sách ngành cần xác nhận.
+2. Màu brand vẫn bị chọn sẵn trong popup import: `BrandImportDialog` đang lấy `palette.primary` làm màu chính và pass qua flow tạo mới. Sau đó form tạo brand chỉ hiện banner chọn màu ở Step 1, không đủ rõ và vẫn có thể đang giữ màu sai.
+3. Khi tạo mới sau import, phần “Ngành (gợi ý)” trong popup import vẫn được auto-check, gây cảm giác hệ thống đã chọn ngành thay user dù form sau đó chưa show danh sách xác nhận rõ ràng.
 
-## Giải pháp
+Plan sửa cụ thể:
 
-### 1. Mở `IndustrySelectionDialog` sau import (thay vì auto-fill)
-Trong `src/pages/BrandCreate.tsx`:
-- Bỏ dòng `if (s.industry_suggestion) setIndustries([s.industry_suggestion]);` trong block hydrate import.
-- Thêm state `showIndustryConfirmAfterImport` set `true` khi hydrate xong từ `importedSuggestion` và chưa có `globalPackId`.
-- Render `<IndustrySelectionDialog open={showIndustryConfirmAfterImport} suggestedContext={suggestedContext} recentlyUsedIds={recentlyUsedIds} onSelectIndustry={handleIndustryTemplateSelect} onOpenChange={...} />` — dialog này đã tự gọi `suggest-industry` với `brandText=suggestedContext` và hiển thị top 5 ngành (primary ≥60% + related) kèm confidence + reason để user click chọn.
-- `handleIndustryTemplateSelect` (đã có) sẽ set `globalPackId` + `industries` + đóng dialog.
+- Trong `BrandImportDialog.tsx`:
+  - Không auto-check field `industry` khi đang tạo brand mới (chỉ gợi ý, không áp dụng thẳng).
+  - Không auto-check `primary_color` theo 1 màu duy nhất khi tạo brand mới; vẫn hiển thị các swatch để user thấy nguồn màu.
+  - Cho phép click trực tiếp từng swatch màu trong popup import để chọn màu chính trước khi bấm áp dụng.
+  - Inject màu đã chọn vào `raw_meta.selected_primary_color` để `BrandCreate` ưu tiên dùng đúng màu user chọn.
 
-### 2. Color Palette Chooser sau import
-Trong `src/pages/BrandCreate.tsx` Step Identity (hoặc inline panel khi vừa import):
-- Gom tất cả candidate màu từ import vào 1 mảng:
-  - `s.primary_color` (AI suy luận)
-  - `meta.theme_color` (HTML meta)
-  - `palette.primary` + `palette.candidates[]` (từ logo extraction)
-  - `s.primary_color_suggestion`
-  - dedupe + filter hex hợp lệ.
-- Không auto-set `primaryColor` nữa nếu có ≥2 candidate khác nhau. Thay vào đó hiển thị 1 banner nhỏ ngay đầu Step Identity: "AI tìm thấy N màu từ website — chọn màu chủ đạo:" + grid swatches (8x8, click = `setPrimaryColor`). Mỗi swatch có tooltip nguồn ("Theme color", "Logo dominant", "AI gợi ý").
-- Nếu chỉ có 1 candidate → giữ auto-set như cũ.
-- Banner ẩn sau khi user click chọn (state `colorChosenFromImport`).
+- Trong `BrandCreate.tsx`:
+  - Ưu tiên `raw_meta.selected_primary_color` nếu user đã chọn màu trong popup import.
+  - Nếu chưa chọn màu, hiển thị khối chọn màu nổi bật ngay đầu Step 1 và label rõ “Chưa chốt màu — chọn một màu”.
+  - Thêm khối “Xác nhận ngành” ngay đầu Step 1 với nút rõ ràng “Chọn ngành từ AI gợi ý”, luôn hiện sau import cho tới khi user chọn ngành.
+  - Mở `IndustrySelectionDialog` sau import nhưng không phụ thuộc hoàn toàn vào auto-open; user vẫn có nút mở lại nếu dialog bị đóng hoặc không hiện.
 
-## Phạm vi kỹ thuật
-**File sửa**: chỉ `src/pages/BrandCreate.tsx`.
-- Bỏ auto-set industries từ import; thêm state + render `IndustrySelectionDialog`.
-- Thêm `importedColorCandidates` memo + state `colorChosenFromImport`; render banner palette ở đầu Step 1.
-- Không sửa edge function `suggest-industry`, `import-brand-from-website`, `IndustrySelectionDialog.tsx`, `BrandImportDialog.tsx`.
+- Trong `IndustrySelectionDialog.tsx`:
+  - Thêm fallback “Ngành AI đề xuất từ import” dựa trên `industry_suggestion` text: map/smartFilter vào pack có sẵn để luôn có ít nhất vài ngành cho user xác nhận, kể cả khi `suggest-industry` không trả kết quả.
+  - Nếu không có ngành phổ biến (`popularPacks.length === 0`), không render vùng rỗng; thay bằng danh mục ngành chính để user vẫn chọn được.
+  - Hiển thị trạng thái lỗi AI gợi ý ngắn gọn và vẫn show fallback danh sách ngành.
 
-## Out of scope
-- Không đổi logic extract màu ở backend.
-- Không đổi AI prompt của `suggest-industry`.
-- Không đổi sidebar admin (đã làm ở message trước).
+Phạm vi: chỉ frontend cho flow import/chọn ngành/chọn màu; không đổi backend, không đổi schema.
