@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -11,10 +13,12 @@ import {
   Sparkles,
   FileText,
   Globe,
+  RefreshCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { BrandFooterInfo } from '@/components/BrandForm';
+import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
 
 interface ContentPillar {
   name: string;
@@ -27,6 +31,7 @@ interface BrandViewOverviewTabProps {
 }
 
 export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
+  const [importOpen, setImportOpen] = useState(false);
   const formattedDate = format(new Date(template.created_at), 'dd/MM/yyyy', { locale: vi });
   const updatedDate = format(new Date(template.updated_at), 'dd/MM/yyyy HH:mm', { locale: vi });
 
@@ -35,6 +40,23 @@ export function BrandViewOverviewTab({ template }: BrandViewOverviewTabProps) {
 
   return (
     <div className="space-y-4">
+      {/* Re-scan / Enrich CTA */}
+      <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span>Bổ sung dữ liệu brand từ website hoặc Facebook Page</span>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)} className="gap-1.5 shrink-0">
+          <RefreshCw className="w-3.5 h-3.5" />
+          Re-scan / Enrich
+        </Button>
+      </div>
+
+      <BrandImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        targetBrand={template}
+      />
 
       {/* Mission & Vision */}
       {(template.mission || template.vision) && (
