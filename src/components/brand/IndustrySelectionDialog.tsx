@@ -75,26 +75,66 @@ const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
 
 const POPULAR_CODES = ['ecommerce', 'fnb', 'healthcare', 'realestate', 'it', 'fashion', 'beauty', 'education'];
 
+interface AiSuggestion {
+  packId: string;
+  code: string;
+  name: string;
+  confidence: number;
+  reason: string;
+}
+
 interface IndustrySelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectIndustry: (pack: GlobalPackForSelection) => void;
+  /** Optional brand text (name + description + footer info) used to auto-suggest top industries */
+  suggestedContext?: string;
+  /** Optional list of recently used pack IDs (from organization) */
+  recentlyUsedIds?: string[];
 }
 
 export function IndustrySelectionDialog({
   open,
   onOpenChange,
   onSelectIndustry,
+  suggestedContext,
+  recentlyUsedIds = [],
 }: IndustrySelectionDialogProps) {
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [hoveredPack, setHoveredPack] = useState<GlobalPackForSelection | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
   
   const { data: packs = [], isLoading } = useGlobalPacksForBrandSelection({
     languageCode: 'vi',
     includeSubIndustries: true,
   });
+
+  // Fetch AI suggestions when dialog opens with context
+  useEffect(() => {
+    if (!open || !suggestedContext || suggestedContext.trim().length < 20) {
+      setAiSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setAiLoading(true);
+    supabase.functions
+      .invoke('suggest-industry', { body: { brandText: suggestedContext, language: 'vi' } })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn('[IndustrySelectionDialog] suggest-industry failed:', error);
+          setAiSuggestions([]);
+        } else {
+          setAiSuggestions((data?.suggestions || []) as AiSuggestion[]);
+        }
+      })
+      .finally(() => { if (!cancelled) setAiLoading(false); });
+    return () => { cancelled = true; };
+  }, [open, suggestedContext]);
+
 
   const { 
     corePacks, 
