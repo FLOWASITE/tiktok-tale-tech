@@ -16,6 +16,9 @@ import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBrandTemplates, type BrandTemplate } from '@/hooks/useBrandTemplates';
 import { BrandImportProgressPanel } from './BrandImportProgressPanel';
+import { useGlobalPacksForBrandSelection, type GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
+import { smartFilter } from '@/lib/industrySearch';
+import { Check } from 'lucide-react';
 
 interface BrandImportDialogProps {
   open: boolean;
