@@ -752,6 +752,48 @@ export function IndustrySelectionDialog({
                       </div>
                     )}
 
+                    {/* AI Related + category-derived related */}
+                    {(aiRelatedPacks.length > 0 || categoryRelatedPacks.length > 0) && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-muted-foreground" />
+                            Ngành liên quan có thể phù hợp
+                          </h3>
+                          <Badge variant="outline" className="text-xs">{aiRelatedPacks.length + categoryRelatedPacks.length}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                          {aiRelatedPacks.map(({ pack, suggestion }) => (
+                            <button
+                              key={pack.id}
+                              type="button"
+                              onClick={() => handleSelect(pack)}
+                              onMouseEnter={() => setHoveredPack(pack)}
+                              onMouseLeave={() => setHoveredPack(null)}
+                              className="group p-3 rounded-xl border bg-card text-left transition-all hover:border-primary/60 hover:shadow-sm"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 rounded-lg bg-muted shrink-0">{getIcon(pack.code, 'sm')}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium text-sm truncate">{pack.shortName || pack.name}</h4>
+                                    <Badge variant="outline" className="text-[10px] shrink-0">{suggestion.confidence}%</Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{suggestion.reason}</p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        {categoryRelatedPacks.length > 0 && (
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
+                            {categoryRelatedPacks.map((pack) => (
+                              <IndustryCard key={pack.id} pack={pack} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Recently used */}
                     {recentlyUsedPacks.length > 0 && (
                       <div>
