@@ -29,6 +29,8 @@ export interface GlobalPackForSelection {
   version: string;
   industryLevel: 'core' | 'sub';
   parentPackId: string | null;
+  /** Search aliases (synonyms) for fuzzy matching */
+  aliases: string[];
 }
 
 interface UseGlobalPacksOptions {
