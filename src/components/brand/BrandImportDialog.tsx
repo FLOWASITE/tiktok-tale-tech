@@ -344,7 +344,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     const groups: Record<string, typeof ALL_FIELDS> = {};
     ALL_FIELDS.forEach((f) => {
       const v = renderPreviewValue(f.key);
-      if (!v) return;
+      // Always show industry row so user can pick from candidate chips
+      if (!v && f.key !== 'industry') return;
       if (!groups[f.group]) groups[f.group] = [];
       groups[f.group].push(f);
     });
