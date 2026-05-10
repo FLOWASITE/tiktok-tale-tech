@@ -343,7 +343,9 @@ export default function BrandCreate() {
       setImportDialogOpen(false);
       setShowQuickStart(false);
       setCurrentStep(1);
-      toast.success('Đã nạp dữ liệu từ import. Hãy kiểm tra và lưu để tiếp tục.');
+      // Mở dialog xác nhận ngành (AI suggestion list)
+      setShowIndustryConfirmAfterImport(true);
+      toast.success('Đã nạp dữ liệu từ import. Hãy chọn ngành phù hợp để tiếp tục.');
     }
   }, [importedSuggestion, editingTemplate]);
 
