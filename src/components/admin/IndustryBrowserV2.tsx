@@ -384,6 +384,18 @@ export function IndustryBrowserV2({ onSelectPack, selectedPackId }: IndustryBrow
             </Tooltip>
           </TooltipProvider>
 
+          {/* Popular Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 flex-shrink-0"
+            onClick={(e) => handleTogglePopular(pack.id, (pack as any).is_popular === true, e)}
+            title={(pack as any).is_popular ? 'Bỏ khỏi Phổ biến' : 'Đánh dấu Phổ biến'}
+            aria-label="Toggle popular"
+          >
+            <Star className={`h-4 w-4 ${(pack as any).is_popular ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground'}`} />
+          </Button>
+
           {/* Status */}
           {pack.is_active ? (
             <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
