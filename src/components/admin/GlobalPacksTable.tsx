@@ -112,16 +112,17 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
   return (
     <Card>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
             Global Packs
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant={showActiveOnly ? 'default' : 'outline'}
               size="sm"
               onClick={() => setShowActiveOnly(!showActiveOnly)}
+              className="flex-1 sm:flex-initial"
             >
               {showActiveOnly ? 'Active Only' : 'All Packs'}
             </Button>
@@ -140,7 +141,7 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
           />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-2 sm:p-6">
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
@@ -153,7 +154,8 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
             <p>Không tìm thấy Global Pack nào</p>
           </div>
         ) : (
-          <Table>
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+          <Table className="min-w-[720px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Industry Code</TableHead>
@@ -181,12 +183,12 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                     className={`cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
                     onClick={() => onSelectPack?.(pack.id)}
                   >
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
                         {pack.industryCode}
                       </code>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[140px]">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{pack.name}</p>
                         {pack.isPopular && (
@@ -221,7 +223,7 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                         <Switch
                           checked={pack.isPopular}
                           onCheckedChange={() => handleTogglePopular(pack.id, pack.isPopular, pack.popularSortOrder)}
@@ -277,6 +279,7 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
               })}
             </TableBody>
           </Table>
+          </div>
         )}
       </CardContent>
     </Card>

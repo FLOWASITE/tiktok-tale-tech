@@ -196,7 +196,7 @@ function PackCard({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2 border-t border-border/50">
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
             {/* Edit Button */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -544,24 +544,24 @@ export default function AdminIndustryPacks() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Package className="h-6 w-6 text-primary" />
-            Industry Memory Packs
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+            <span className="truncate">Industry Memory Packs</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Quản lý lifecycle của Industry Memory (Country + Industry)
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowCreateDialog(true)}>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setShowCreateDialog(true)} className="flex-1 sm:flex-initial">
             <Plus className="h-4 w-4 mr-2" />
             Create Pack
           </Button>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="flex-1 sm:flex-initial">
+            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
@@ -601,17 +601,17 @@ export default function AdminIndustryPacks() {
 
       {/* Country Tabs */}
       <Tabs value={selectedCountry} onValueChange={setSelectedCountry}>
-        <TabsList className="flex-wrap h-auto gap-1 p-1">
+        <TabsList className="flex-wrap h-auto gap-1 p-1 overflow-x-auto sm:overflow-visible max-w-full">
           {isLoadingCountries ? (
             <Skeleton className="h-10 w-32" />
           ) : (
             <>
-              <TabsTrigger value="all" className="gap-2">
+              <TabsTrigger value="all" className="gap-2 text-xs sm:text-sm">
                 <Globe className="h-4 w-4" />
                 <span>All</span>
               </TabsTrigger>
               {countries.map((country) => (
-                <TabsTrigger key={country.code} value={country.code} className="gap-2">
+                <TabsTrigger key={country.code} value={country.code} className="gap-2 text-xs sm:text-sm">
                   <span>{country.flag_emoji}</span>
                   <span>{country.code}</span>
                 </TabsTrigger>
