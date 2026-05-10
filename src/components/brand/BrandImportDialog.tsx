@@ -205,6 +205,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       if (s.target_audience.locations?.length) updates.target_locations = s.target_audience.locations;
     }
     if (selectedFields.has('tone_of_voice') && s.tone_of_voice?.length) updates.tone_of_voice = s.tone_of_voice;
+    if (selectedFields.has('brand_positioning') && s.brand_positioning) updates.brand_positioning = s.brand_positioning;
+    if (selectedFields.has('formality_level') && s.formality_level) updates.formality_level = s.formality_level;
     if (selectedFields.has('content_pillars') && s.content_pillars?.length) {
       updates.content_pillars = s.content_pillars.map((p) => ({ name: p.name, description: p.description || '' }));
     }
