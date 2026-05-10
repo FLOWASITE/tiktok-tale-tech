@@ -290,6 +290,7 @@ export default function BrandCreate() {
         importedLogoUrlRef.current = logo;
       }
       const palette = (meta as any)?.color_palette;
+      const userSelectedColor = (meta as any)?.selected_primary_color as string | null | undefined;
       // Gom tất cả candidate màu để user chọn
       const hexRe = /^#[0-9a-fA-F]{6}$/;
       const rawCandidates: Array<{ hex: string; source: string }> = [];
@@ -298,6 +299,7 @@ export default function BrandCreate() {
           rawCandidates.push({ hex: hex.toLowerCase(), source });
         }
       };
+      pushCand(userSelectedColor, 'Bạn đã chọn');
       pushCand(s.primary_color, 'AI');
       pushCand(meta.theme_color, 'Theme color');
       pushCand(palette?.primary, 'Logo dominant');
@@ -313,7 +315,11 @@ export default function BrandCreate() {
         return true;
       });
       setImportedColorCandidates(uniq);
-      if (uniq.length === 1) {
+      // Ưu tiên màu user đã chọn trong popup import
+      if (userSelectedColor && hexRe.test(userSelectedColor)) {
+        setPrimaryColor(userSelectedColor.toLowerCase());
+        setColorChosenFromImport(true);
+      } else if (uniq.length === 1) {
         setPrimaryColor(uniq[0].hex);
         setColorChosenFromImport(true);
       } else if (uniq.length === 0) {
