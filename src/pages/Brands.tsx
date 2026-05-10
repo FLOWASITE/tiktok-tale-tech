@@ -11,6 +11,7 @@ import { BrandCard } from '@/components/BrandCard';
 import { BrandBulkActionsBar } from '@/components/BrandBulkActionsBar';
 import { BrandHeroSection } from '@/components/brand/BrandHeroSection';
 import { BrandEmptyState } from '@/components/brand/BrandEmptyState';
+import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
 import { BrandMobileFilters } from '@/components/brand/BrandMobileFilters';
 import { SwipeableBrandCard } from '@/components/brand/SwipeableBrandCard';
 import { PullToRefresh } from '@/components/brand/PullToRefresh';
@@ -138,6 +139,9 @@ export default function Brands() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  const handleOpenImport = () => setImportDialogOpen(true);
 
   // Track scroll to show/hide FAB
   useEffect(() => {
@@ -484,6 +488,17 @@ export default function Brands() {
             </SelectContent>
           </Select>
           
+          {/* Import from website / fanpage */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenImport}
+            className="h-9 shrink-0 gap-1.5"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Import từ web/FB</span>
+          </Button>
+          
           {/* Selection mode toggle */}
           <Button
             variant={isSelectionMode ? 'secondary' : 'outline'}
@@ -564,10 +579,17 @@ export default function Brands() {
                 <Plus className="w-3 h-3 inline mr-1" />
                 Tạo brand mới
               </button>
+              <button
+                onClick={handleOpenImport}
+                className="suggestion-chip hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              >
+                <Sparkles className="w-3 h-3 inline mr-1" />
+                Import từ web/fanpage
+              </button>
             </div>
           </motion.div>
         ) : (
-          <BrandEmptyState onCreateNew={handleCreate} />
+          <BrandEmptyState onCreateNew={handleCreate} onImportFromUrl={handleOpenImport} />
         )
       ) : (
         <PullToRefresh onRefresh={handleRefresh} disabled={loading}>
@@ -720,6 +742,18 @@ export default function Brands() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      <BrandImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onApplied={(brand, suggestion) => {
+          if (!brand) {
+            navigate('/brands/new', { state: { importedSuggestion: suggestion } });
+          } else {
+            refetch();
+          }
+        }}
+      />
     </div>
   );
 }

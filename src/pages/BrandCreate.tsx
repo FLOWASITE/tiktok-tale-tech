@@ -27,6 +27,11 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 interface LocationState {
   editTemplate?: BrandTemplate;
   focusFooterInfo?: boolean;
+  importedSuggestion?: {
+    suggestion: any;
+    raw_meta?: any;
+    source?: 'website' | 'fanpage';
+  };
 }
 
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
@@ -37,6 +42,7 @@ export default function BrandCreate() {
   const locationState = location.state as LocationState | null;
   const editingTemplateFromState = locationState?.editTemplate || null;
   const focusFooterInfo = locationState?.focusFooterInfo || false;
+  const importedSuggestion = locationState?.importedSuggestion || null;
 
   const { templates, saveTemplate, updateTemplate, uploadLogo, deleteLogo, refetch } = useBrandTemplates();
 
@@ -201,6 +207,37 @@ export default function BrandCreate() {
       setCurrentStep(1);
     }
   }, [editingTemplate]);
+
+  // Hydrate from imported brand suggestion (when navigated from BrandImportDialog)
+  useEffect(() => {
+    if (importedSuggestion && !editingTemplate && !hasHydratedRef.current) {
+      hasHydratedRef.current = true;
+      const s = importedSuggestion.suggestion || {};
+      const meta = importedSuggestion.raw_meta || {};
+      if (s.brand_name) {
+        setName(s.brand_name);
+        setBrandName(s.brand_name);
+      }
+      if (s.tagline) setTagline(s.tagline);
+      if (s.mission) setMission(s.mission);
+      if (s.industry_suggestion) setIndustries([s.industry_suggestion]);
+      if (s.target_audience?.age_range) setTargetAgeRange(s.target_audience.age_range);
+      if (s.target_audience?.gender) setTargetGender(s.target_audience.gender);
+      if (Array.isArray(s.target_audience?.locations)) setTargetLocations(s.target_audience.locations);
+      if (Array.isArray(s.tone_of_voice) && s.tone_of_voice.length) setToneOfVoice(s.tone_of_voice);
+      if (Array.isArray(s.usps) && s.usps.length) setCompetitiveAdvantages(s.usps);
+      if (Array.isArray(s.content_pillars) && s.content_pillars.length) {
+        // content_pillars editor expects {name, description, color?}
+        // Setting via setBrandGuideline isn't right; we don't have direct setter here for pillars in this form.
+        // Most pillars are managed in DNA step. Will be available via editingTemplate after first save.
+      }
+      const logo = meta.picture || meta.og_image;
+      if (logo) setLogoPreview(logo);
+      setShowQuickStart(false);
+      setCurrentStep(1);
+      toast.success('Đã nạp dữ liệu từ import. Hãy kiểm tra và lưu để tiếp tục.');
+    }
+  }, [importedSuggestion, editingTemplate]);
 
   const completionPercentage = useMemo(() => {
     let score = 0;
