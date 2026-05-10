@@ -429,19 +429,25 @@ export default function BrandCreate() {
     // Use global_pack_id for v2.1 architecture (keeping industryTemplateId for backward compatibility)
     setGlobalPackId(packData.id);
     setIndustries(asStringArray(packData.name));
+    const importedVoice = importedSuggestion ? normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {}) : null;
+    const importedPositioning = normalizeBrandPositioning(importedVoice?.brand_positioning);
+    const importedTones = normalizeToneOfVoice(importedVoice?.tone_of_voice);
+    const importedFormality = normalizeFormalityLevel(importedVoice?.formality_level);
     
-    if (packData.brandPositioning) {
-      setBrandPositioning(packData.brandPositioning);
+    if (importedPositioning || packData.brandPositioning) {
+      setBrandPositioning(importedPositioning || normalizeBrandPositioning(packData.brandPositioning) || '');
     }
 
     const voice = (packData as any).brandVoice || {};
     // Only set values if pack provides them - don't reset to empty
-    const packTones = asStringArray(voice.tone_of_voice);
-    if (packTones.length > 0) {
-      setToneOfVoice(packTones);
+    const packTones = normalizeToneOfVoice(voice.tone_of_voice);
+    const nextTones = importedTones.length > 0 ? importedTones : packTones;
+    if (nextTones.length > 0) {
+      setToneOfVoice(nextTones);
     }
-    if (voice.formality_level) {
-      setFormalityLevel(voice.formality_level);
+    const nextFormality = importedFormality || normalizeFormalityLevel(voice.formality_level);
+    if (nextFormality) {
+      setFormalityLevel(nextFormality);
     }
     const packLangStyle = asStringArray(voice.language_style);
     if (packLangStyle.length > 0) {
