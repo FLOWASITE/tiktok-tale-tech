@@ -265,6 +265,10 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                               </>
                             )}
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleTogglePopular(pack.id, pack.isPopular, pack.popularSortOrder)}>
+                            <Star className={`h-4 w-4 mr-2 ${pack.isPopular ? 'fill-amber-500 text-amber-500' : ''}`} />
+                            {pack.isPopular ? 'Bỏ khỏi Phổ biến' : 'Đánh dấu Phổ biến'}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
