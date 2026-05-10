@@ -390,23 +390,67 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                             {existing && (
                               <p className="text-xs text-muted-foreground line-through truncate">{existing}</p>
                             )}
-                            <div className="flex items-center gap-2">
-                              {isLogo && (
-                                <img
-                                  src={value as string}
-                                  alt="Logo"
-                                  className="w-10 h-10 rounded border bg-muted object-contain shrink-0"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                              )}
-                              {isColor && (
-                                <span
-                                  className="w-6 h-6 rounded border shrink-0"
-                                  style={{ backgroundColor: value as string }}
-                                />
-                              )}
-                              <p className="text-sm break-words flex-1 min-w-0">{value}</p>
-                            </div>
+                            {isLogo && logoCandidates.length > 1 ? (
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Tìm thấy {logoCandidates.length} logo. Chọn 1 để lưu:
+                                </p>
+                                <div
+                                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  {logoCandidates.map((c) => {
+                                    const active = (selectedLogoUrl || logoCandidates[0]?.url) === c.url;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={c.url}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedLogoUrl(c.url);
+                                          setSelectedFields((prev) => new Set(prev).add('logo_url'));
+                                        }}
+                                        title={c.source}
+                                        className={`shrink-0 w-16 h-16 rounded-md border-2 bg-muted p-1 transition-all ${
+                                          active
+                                            ? 'border-primary ring-2 ring-primary/30'
+                                            : 'border-border hover:border-muted-foreground/40'
+                                        }`}
+                                      >
+                                        <img
+                                          src={c.url}
+                                          alt={c.source}
+                                          className="w-full h-full object-contain"
+                                          onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.opacity = '0.3'; }}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  {selectedLogoUrl || logoCandidates[0]?.url}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                {isLogo && (
+                                  <img
+                                    src={value as string}
+                                    alt="Logo"
+                                    className="w-10 h-10 rounded border bg-muted object-contain shrink-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                )}
+                                {isColor && (
+                                  <span
+                                    className="w-6 h-6 rounded border shrink-0"
+                                    style={{ backgroundColor: value as string }}
+                                  />
+                                )}
+                                <p className="text-sm break-words flex-1 min-w-0">{value}</p>
+                              </div>
+                            )}
                           </div>
                         </label>
                       );
