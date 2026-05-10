@@ -323,6 +323,11 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         return parts.join(' • ') || null;
       }
       case 'tone_of_voice': return s.tone_of_voice?.join(', ') || null;
+      case 'brand_positioning': return s.brand_positioning || null;
+      case 'formality_level': {
+        const map: Record<string, string> = { casual: 'Thân mật', neutral: 'Trung tính', formal: 'Trang trọng' };
+        return s.formality_level ? (map[s.formality_level] || s.formality_level) : null;
+      }
       case 'content_pillars': return s.content_pillars?.map((p) => p.name).join(' • ') || null;
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
