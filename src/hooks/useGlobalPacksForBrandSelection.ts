@@ -142,6 +142,8 @@ async function fetchGlobalPacksForSelection(
       industryLevel: (pack.industry_level as 'core' | 'sub') || 'core',
       parentPackId: pack.parent_pack_id,
       aliases,
+      isPopular: (pack as any).is_popular === true,
+      popularSortOrder: (pack as any).popular_sort_order ?? null,
     };
   });
 }
