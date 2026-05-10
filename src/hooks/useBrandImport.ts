@@ -33,6 +33,8 @@ export type ImportableField =
   | 'industry'
   | 'target_audience'
   | 'tone_of_voice'
+  | 'brand_positioning'
+  | 'formality_level'
   | 'content_pillars'
   | 'usps'
   | 'sample_texts'
