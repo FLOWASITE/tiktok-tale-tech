@@ -279,6 +279,7 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
               })}
             </TableBody>
           </Table>
+          </div>
         )}
       </CardContent>
     </Card>
