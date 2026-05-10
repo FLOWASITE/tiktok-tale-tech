@@ -75,6 +75,8 @@ const TOOL_SCHEMA = {
           },
         },
         tone_of_voice: { type: "array", items: { type: "string" } },
+        brand_positioning: { type: ["string", "null"] },
+        formality_level: { type: ["string", "null"], enum: [null, "casual", "neutral", "formal"] },
         content_pillars: {
           type: "array",
           items: {
