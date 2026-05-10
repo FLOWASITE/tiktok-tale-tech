@@ -293,7 +293,8 @@ export interface ColorPalette {
   primary: string | null;
   secondary: string | null;
   accent: string | null;
-  source: "css-vars" | "meta" | "frequency" | "mixed" | "none";
+  source: "logo" | "css-vars" | "meta" | "frequency" | "ai" | "mixed" | "none";
+  confidence: "high" | "medium" | "low";
   candidates: string[];
 }
 
