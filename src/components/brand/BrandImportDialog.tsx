@@ -15,6 +15,7 @@ import { useBrandImport, type BrandImportResult, type ImportableField } from '@/
 import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBrandTemplates, type BrandTemplate } from '@/hooks/useBrandTemplates';
+import { BrandImportProgressPanel } from './BrandImportProgressPanel';
 
 interface BrandImportDialogProps {
   open: boolean;
