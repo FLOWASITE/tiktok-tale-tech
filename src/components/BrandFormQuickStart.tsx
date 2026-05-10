@@ -4,10 +4,14 @@ import { IndustrySelectionDialog } from '@/components/brand/IndustrySelectionDia
 
 interface BrandFormQuickStartProps {
   onSelectIndustry: (pack: GlobalPackForSelection) => void;
+  suggestedContext?: string;
+  recentlyUsedIds?: string[];
 }
 
 export function BrandFormQuickStart({
   onSelectIndustry,
+  suggestedContext,
+  recentlyUsedIds,
 }: BrandFormQuickStartProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -21,6 +25,8 @@ export function BrandFormQuickStart({
       open={dialogOpen}
       onOpenChange={setDialogOpen}
       onSelectIndustry={onSelectIndustry}
+      suggestedContext={suggestedContext}
+      recentlyUsedIds={recentlyUsedIds}
     />
   );
 }

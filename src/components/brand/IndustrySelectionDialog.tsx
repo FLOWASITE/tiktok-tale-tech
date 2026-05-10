@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { smartFilter } from '@/lib/industrySearch';
 import { 
-  Search, ChevronRight, Check, Sparkles, X, Star,
+  Search, ChevronRight, Check, Sparkles, X, Star, Wand2, Clock,
   Briefcase, Coffee, Code, GraduationCap, Heart, Plane, ShoppingCart,
   Megaphone, Scale, Hammer, Store, Factory, Leaf, Truck, Shield,
   Landmark, Smartphone, Gamepad2, Palette, Dumbbell, Sofa, Ship, Rocket,
@@ -73,26 +75,66 @@ const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
 
 const POPULAR_CODES = ['ecommerce', 'fnb', 'healthcare', 'realestate', 'it', 'fashion', 'beauty', 'education'];
 
+interface AiSuggestion {
+  packId: string;
+  code: string;
+  name: string;
+  confidence: number;
+  reason: string;
+}
+
 interface IndustrySelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectIndustry: (pack: GlobalPackForSelection) => void;
+  /** Optional brand text (name + description + footer info) used to auto-suggest top industries */
+  suggestedContext?: string;
+  /** Optional list of recently used pack IDs (from organization) */
+  recentlyUsedIds?: string[];
 }
 
 export function IndustrySelectionDialog({
   open,
   onOpenChange,
   onSelectIndustry,
+  suggestedContext,
+  recentlyUsedIds = [],
 }: IndustrySelectionDialogProps) {
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [hoveredPack, setHoveredPack] = useState<GlobalPackForSelection | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
   
   const { data: packs = [], isLoading } = useGlobalPacksForBrandSelection({
     languageCode: 'vi',
     includeSubIndustries: true,
   });
+
+  // Fetch AI suggestions when dialog opens with context
+  useEffect(() => {
+    if (!open || !suggestedContext || suggestedContext.trim().length < 20) {
+      setAiSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    setAiLoading(true);
+    supabase.functions
+      .invoke('suggest-industry', { body: { brandText: suggestedContext, language: 'vi' } })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn('[IndustrySelectionDialog] suggest-industry failed:', error);
+          setAiSuggestions([]);
+        } else {
+          setAiSuggestions((data?.suggestions || []) as AiSuggestion[]);
+        }
+      })
+      .finally(() => { if (!cancelled) setAiLoading(false); });
+    return () => { cancelled = true; };
+  }, [open, suggestedContext]);
+
 
   const { 
     corePacks, 
@@ -101,6 +143,8 @@ export function IndustrySelectionDialog({
     totalCount,
     coreCount,
     popularPacks,
+    recentlyUsedPacks,
+    aiSuggestedPacks,
   } = useMemo(() => {
     const cores = packs.filter(p => p.industryLevel === 'core');
     const subs = packs.filter(p => p.industryLevel === 'sub');
@@ -116,15 +160,23 @@ export function IndustrySelectionDialog({
     });
     
     const popular = packs.filter(p => POPULAR_CODES.includes(p.code));
+
+    const byId = new Map(packs.map(p => [p.id, p] as const));
+    const recent = recentlyUsedIds
+      .map(id => byId.get(id))
+      .filter((p): p is GlobalPackForSelection => !!p)
+      .slice(0, 5);
+
+    const aiPacks = aiSuggestions
+      .map(s => {
+        const pack = byId.get(s.packId);
+        return pack ? { pack, suggestion: s } : null;
+      })
+      .filter((x): x is { pack: GlobalPackForSelection; suggestion: AiSuggestion } => !!x);
     
     let filtered: GlobalPackForSelection[] = [];
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = packs.filter(p => 
-        p.name.toLowerCase().includes(query) ||
-        (p.shortName?.toLowerCase() || '').includes(query) ||
-        p.code.toLowerCase().includes(query)
-      );
+      filtered = smartFilter(packs, searchQuery);
     } else if (selectedCategory) {
       const core = cores.find(c => c.id === selectedCategory);
       if (core) {
@@ -139,8 +191,10 @@ export function IndustrySelectionDialog({
       totalCount: packs.length,
       coreCount: cores.length,
       popularPacks: popular,
+      recentlyUsedPacks: recent,
+      aiSuggestedPacks: aiPacks,
     };
-  }, [packs, searchQuery, selectedCategory]);
+  }, [packs, searchQuery, selectedCategory, recentlyUsedIds, aiSuggestions]);
 
   const getIcon = (code: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const sizeClass = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5';
@@ -333,8 +387,61 @@ export function IndustrySelectionDialog({
                 ))}
               </div>
             ) : (
-              // Default: Popular + All categories list
+              // Default: AI suggestions + Recently used + Popular + All categories
               <div className="space-y-4">
+                {/* AI Suggestions */}
+                {(aiLoading || aiSuggestedPacks.length > 0) && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                    <h4 className="text-xs font-medium text-primary uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <Wand2 className="w-3.5 h-3.5" />
+                      AI gợi ý cho bạn
+                    </h4>
+                    {aiLoading ? (
+                      <div className="space-y-1.5">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {aiSuggestedPacks.map(({ pack, suggestion }) => (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            onClick={() => handleSelect(pack)}
+                            className="flex items-center gap-3 w-full p-2.5 rounded-lg border bg-card text-left transition-all active:scale-[0.97] hover:border-primary"
+                          >
+                            <div className="p-1.5 rounded-lg bg-muted shrink-0">{getIcon(pack.code, 'sm')}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm truncate">{pack.shortName || pack.name}</h4>
+                                <Badge variant="secondary" className="text-[10px] shrink-0">{suggestion.confidence}%</Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{suggestion.reason}</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recently used */}
+                {recentlyUsedPacks.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      Đã dùng gần đây
+                    </h4>
+                    <div className="space-y-1.5">
+                      {recentlyUsedPacks.map((pack) => (
+                        <IndustryCard key={pack.id} pack={pack} compact />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Popular */}
                 <div>
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
@@ -547,6 +654,70 @@ export function IndustrySelectionDialog({
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* AI Suggestions */}
+                    {(aiLoading || aiSuggestedPacks.length > 0) && (
+                      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-medium flex items-center gap-2 text-primary">
+                            <Wand2 className="w-4 h-4" />
+                            AI gợi ý cho bạn
+                          </h3>
+                          {aiLoading && <span className="text-xs text-muted-foreground">Đang phân tích...</span>}
+                        </div>
+                        {aiLoading ? (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                              <Skeleton key={i} className="h-20" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {aiSuggestedPacks.map(({ pack, suggestion }) => (
+                              <button
+                                key={pack.id}
+                                type="button"
+                                onClick={() => handleSelect(pack)}
+                                onMouseEnter={() => setHoveredPack(pack)}
+                                onMouseLeave={() => setHoveredPack(null)}
+                                className="group p-3 rounded-xl border-2 border-primary/30 bg-card text-left transition-all hover:border-primary hover:shadow-md hover:scale-[1.02]"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                                    {getIcon(pack.code, 'sm')}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-medium text-sm truncate">{pack.shortName || pack.name}</h4>
+                                      <Badge variant="secondary" className="text-[10px] shrink-0">{suggestion.confidence}%</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{suggestion.reason}</p>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Recently used */}
+                    {recentlyUsedPacks.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                            Đã dùng gần đây
+                          </h3>
+                          <Badge variant="secondary" className="text-xs">{recentlyUsedPacks.length}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                          {recentlyUsedPacks.map((pack) => (
+                            <IndustryCard key={pack.id} pack={pack} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-medium flex items-center gap-2">

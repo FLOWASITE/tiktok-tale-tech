@@ -25,6 +25,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useQuery } from '@tanstack/react-query';
 
 interface LocationState {
   editTemplate?: BrandTemplate;
@@ -47,6 +49,45 @@ export default function BrandCreate() {
   const importedSuggestion = locationState?.importedSuggestion || null;
 
   const { templates, saveTemplate, updateTemplate, uploadLogo, deleteLogo, refetch } = useBrandTemplates();
+  const { currentOrganization } = useOrganizationContext();
+
+  // Recently used industry packs (per organization)
+  const { data: recentlyUsedIds = [], refetch: refetchRecent } = useQuery({
+    queryKey: ['org-recent-industries', currentOrganization?.id],
+    queryFn: async () => {
+      if (!currentOrganization?.id) return [] as string[];
+      const { data } = await supabase
+        .from('organizations')
+        .select('last_used_industry_pack_ids')
+        .eq('id', currentOrganization.id)
+        .maybeSingle();
+      const ids = (data as any)?.last_used_industry_pack_ids;
+      return Array.isArray(ids) ? (ids as string[]) : [];
+    },
+    enabled: !!currentOrganization?.id,
+    staleTime: 60 * 1000,
+  });
+
+  // Build suggested context for AI from imported brand info
+  const suggestedContext = useMemo(() => {
+    if (!importedSuggestion) return undefined;
+    const s = (importedSuggestion as any).suggestion || {};
+    const meta = (importedSuggestion as any).raw_meta || {};
+    const parts = [
+      s.brand_name && `Tên: ${s.brand_name}`,
+      s.tagline && `Slogan: ${s.tagline}`,
+      s.mission && `Sứ mệnh: ${s.mission}`,
+      s.industry_suggestion && `Ngành gợi ý: ${s.industry_suggestion}`,
+      Array.isArray(s.usps) && s.usps.length && `USP: ${s.usps.join('; ')}`,
+      meta.description && `Mô tả: ${meta.description}`,
+      meta.title && `Title: ${meta.title}`,
+      meta.content_summary && `Nội dung: ${String(meta.content_summary).slice(0, 1500)}`,
+      meta.footer_info?.company_name && `Công ty: ${meta.footer_info.company_name}`,
+    ].filter(Boolean);
+    const text = parts.join('\n');
+    return text.length >= 20 ? text : undefined;
+  }, [importedSuggestion]);
+
 
   // If we only have the ID, find the full template from the hook
   const editingTemplate = useMemo(() => {
@@ -351,6 +392,17 @@ export default function BrandCreate() {
       setForbiddenWords(packForbidden);
     }
 
+    // Track recently used industry pack for this organization
+    if (currentOrganization?.id) {
+      supabase
+        .rpc('record_industry_pack_use' as any, {
+          _org_id: currentOrganization.id,
+          _pack_id: packData.id,
+        })
+        .then(() => { refetchRecent(); })
+        .then(undefined, (err) => console.warn('record_industry_pack_use failed:', err));
+    }
+
     setShowQuickStart(false);
     setCurrentStep(1);
     toast.success('Đã liên kết Industry Memory v2!');
@@ -568,6 +620,8 @@ export default function BrandCreate() {
           <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             <BrandFormQuickStart
               onSelectIndustry={handleIndustryTemplateSelect}
+              suggestedContext={suggestedContext}
+              recentlyUsedIds={recentlyUsedIds}
             />
           </div>
         </div>
