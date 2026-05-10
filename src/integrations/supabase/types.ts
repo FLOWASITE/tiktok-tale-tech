@@ -7560,6 +7560,38 @@ export type Database = {
           },
         ]
       }
+      industry_search_aliases: {
+        Row: {
+          alias: string
+          created_at: string
+          id: string
+          language_code: string
+          pack_id: string
+        }
+        Insert: {
+          alias: string
+          created_at?: string
+          id?: string
+          language_code?: string
+          pack_id: string
+        }
+        Update: {
+          alias?: string
+          created_at?: string
+          id?: string
+          language_code?: string
+          pack_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_search_aliases_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       industry_template_translations: {
         Row: {
           brand_positioning: string | null
@@ -8671,6 +8703,7 @@ export type Database = {
           auto_submit_review: boolean | null
           created_at: string
           id: string
+          last_used_industry_pack_ids: string[]
           logo_url: string | null
           name: string
           owner_id: string
@@ -8685,6 +8718,7 @@ export type Database = {
           auto_submit_review?: boolean | null
           created_at?: string
           id?: string
+          last_used_industry_pack_ids?: string[]
           logo_url?: string | null
           name: string
           owner_id: string
@@ -8699,6 +8733,7 @@ export type Database = {
           auto_submit_review?: boolean | null
           created_at?: string
           id?: string
+          last_used_industry_pack_ids?: string[]
           logo_url?: string | null
           name?: string
           owner_id?: string
@@ -12926,6 +12961,10 @@ export type Database = {
         Returns: Json
       }
       normalize_vn_text: { Args: { input_text: string }; Returns: string }
+      record_industry_pack_use: {
+        Args: { _org_id: string; _pack_id: string }
+        Returns: undefined
+      }
       recover_stuck_generation_tasks: { Args: never; Returns: number }
       refresh_cluster_status: { Args: { _cluster_id: string }; Returns: string }
       refresh_compliance_rules_mv: { Args: never; Returns: undefined }
