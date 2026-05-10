@@ -65,6 +65,8 @@ export interface GlobalPackListItem {
   version: string;
   name: string; // From translation
   profileCount: number;
+  isPopular: boolean;
+  popularSortOrder: number | null;
 }
 
 // ============== FETCH FUNCTIONS ==============
