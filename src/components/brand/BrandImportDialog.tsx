@@ -134,6 +134,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       next.add('target_audience');
     }
     if ((s.tone_of_voice?.length ?? 0) > 0) next.add('tone_of_voice');
+    if (s.brand_positioning) next.add('brand_positioning');
+    if (s.formality_level) next.add('formality_level');
     if ((s.sample_texts?.length ?? 0) > 0) next.add('sample_texts');
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
