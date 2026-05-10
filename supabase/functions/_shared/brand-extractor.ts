@@ -27,6 +27,13 @@ export interface BrandSuggestion {
   usps?: string[] | null;
   sample_texts?: string[] | null;
   primary_color_suggestion?: string | null;
+  footer_info?: {
+    company_name?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    tax_code?: string | null;
+  } | null;
 }
 
 const SYSTEM_PROMPT = `You are a senior brand strategist. You read raw website / social-page content and extract a structured brand profile.
