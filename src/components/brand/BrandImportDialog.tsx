@@ -428,8 +428,11 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                               {existing && (
                                 <Badge variant="outline" className="text-[10px]">đã có</Badge>
                               )}
+                              {colorFromLogo && (
+                                <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400">Từ logo</Badge>
+                              )}
                               {colorIsAiGuess && (
-                                <Badge variant="secondary" className="text-[10px]">AI gợi ý</Badge>
+                                <Badge variant="secondary" className="text-[10px]">⚠️ AI đoán — kiểm tra lại</Badge>
                               )}
                             </div>
                             {existing && (
