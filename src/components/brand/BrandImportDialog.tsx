@@ -112,6 +112,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       setSelectedFields(new Set());
       setSelectedLogoUrl(null);
       setSelectedPrimaryColor(null);
+      setSelectedIndustryPack(null);
       setTab('website');
     }
   }, [open]);
