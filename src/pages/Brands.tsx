@@ -139,6 +139,9 @@ export default function Brands() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  const handleOpenImport = () => setImportDialogOpen(true);
 
   // Track scroll to show/hide FAB
   useEffect(() => {
