@@ -111,6 +111,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion) next.add('primary_color');
     if (result.source === 'fanpage') next.add('attach_fanpage');
     setSelectedFields(next);
+    const meta: any = result.raw_meta || {};
+    const firstLogo = (Array.isArray(meta.logo_candidates) && meta.logo_candidates[0]?.url)
+      || meta.logo_url || meta.picture || meta.og_image || null;
+    setSelectedLogoUrl(firstLogo);
   }, [result]);
 
   const handleAnalyze = async () => {
