@@ -246,6 +246,17 @@ export default function BrandCreate() {
       }
       const color = s.primary_color || meta.theme_color || s.primary_color_suggestion;
       if (color && /^#[0-9a-fA-F]{6}$/.test(color)) setPrimaryColor(color);
+      const footer = meta.footer_info;
+      if (footer && (footer.company_name || footer.phone || footer.email || footer.address || footer.tax_code || (footer.social_links && Object.keys(footer.social_links).length))) {
+        setFooterInfo({
+          company_name: footer.company_name || '',
+          phone: footer.phone || '',
+          email: footer.email || '',
+          website: footer.website || meta.source_url || '',
+          address: footer.address || '',
+          social_links: footer.social_links && Object.keys(footer.social_links).length ? footer.social_links : undefined,
+        });
+      }
       setShowStartChooser(false);
       setImportDialogOpen(false);
       setShowQuickStart(false);
