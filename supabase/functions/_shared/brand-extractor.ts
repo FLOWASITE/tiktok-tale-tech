@@ -26,6 +26,7 @@ export interface BrandSuggestion {
   content_pillars?: Array<{ name: string; description?: string }> | null;
   usps?: string[] | null;
   sample_texts?: string[] | null;
+  primary_color_suggestion?: string | null;
 }
 
 const SYSTEM_PROMPT = `You are a senior brand strategist. You read raw website / social-page content and extract a structured brand profile.
@@ -37,7 +38,8 @@ Rules:
 - tone_of_voice: 3-5 short labels (e.g. "Chuyên nghiệp", "Ấm áp", "Hài hước").
 - content_pillars: 3-5 items, each with a short name + 1-sentence description.
 - usps: 3-5 concrete unique selling points pulled from the source.
-- sample_texts: 3-5 short paragraphs (40-180 chars each) pulled verbatim or lightly cleaned from the source — these will train brand voice cloning.`;
+- sample_texts: 3-5 short paragraphs (40-180 chars each) pulled verbatim or lightly cleaned from the source — these will train brand voice cloning.
+- primary_color_suggestion: ONLY when the source clearly hints at a brand colour (industry mood, explicit colour mentions, visual language). Return a 7-char lowercase hex like "#dd0707". If unsure, return null. Never invent a random colour.`;
 
 const TOOL_SCHEMA = {
   type: "function" as const,
@@ -73,10 +75,17 @@ const TOOL_SCHEMA = {
         },
         usps: { type: "array", items: { type: "string" } },
         sample_texts: { type: "array", items: { type: "string" } },
+        primary_color_suggestion: { type: ["string", "null"] },
       },
     },
   },
 };
+
+function normalizeHex(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const m = v.trim().match(/^#?([0-9a-fA-F]{6})$/);
+  return m ? `#${m[1].toLowerCase()}` : null;
+}
 
 export interface ExtractProgressEvent {
   type: "model_attempt" | "model_fallback";
@@ -226,6 +235,7 @@ export async function extractBrandSuggestions(
       : [],
     usps: arrayOfStrings(args.usps).slice(0, 6).map((s) => s.slice(0, 200)),
     sample_texts: arrayOfStrings(args.sample_texts).slice(0, 6).map((s) => s.slice(0, 400)),
+    primary_color_suggestion: normalizeHex(args.primary_color_suggestion),
   };
 
   return { success: true, suggestion };
