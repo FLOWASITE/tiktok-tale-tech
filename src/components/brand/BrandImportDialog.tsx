@@ -497,7 +497,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                                   ))}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">
-                                  Trích từ {result!.raw_meta!.color_palette!.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
+                                  Nguồn: {({ logo: 'logo brand', 'css-vars': 'CSS biến', meta: 'meta theme-color', frequency: 'tần suất xuất hiện', ai: 'AI đoán', mixed: 'kết hợp', none: 'không rõ' } as Record<string, string>)[palette?.source || 'none'] || palette?.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
                                 </p>
                               </div>
                             ) : (
