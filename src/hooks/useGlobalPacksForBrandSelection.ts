@@ -253,6 +253,7 @@ export async function fetchGlobalPackDetailsForBrand(
       version: packData.version || '1.0',
       industryLevel: (packData.industry_level as 'core' | 'sub') || 'core',
       parentPackId: packData.parent_pack_id,
+      aliases: [],
     },
     resolvedRules,
     disclaimer: profileData?.disclaimer || null,
