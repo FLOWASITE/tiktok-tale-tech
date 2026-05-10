@@ -691,8 +691,10 @@ async function runImport(
           }
           return merged;
         })(),
-        theme_color: visuals.theme_color,
+        theme_color: visuals.theme_color || palette.primary,
+        color_palette: palette,
         footer_info: mergedFooter,
+        discovered_subpages: autoDiscovered,
         scraped_pages: 1 + subMarkdowns.length,
       },
     },
