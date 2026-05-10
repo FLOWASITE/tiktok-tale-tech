@@ -227,7 +227,7 @@ export function IndustrySelectionDialog({
       aiRelatedPacks: aiRelated,
       categoryRelatedPacks: categoryRelated,
     };
-  }, [packs, searchQuery, selectedCategory, recentlyUsedIds, aiSuggestions]);
+  }, [packs, searchQuery, selectedCategory, recentlyUsedIds, aiSuggestions, suggestedContext]);
 
   const getIcon = (code: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     const sizeClass = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5';
