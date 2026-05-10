@@ -800,6 +800,7 @@ export default function BrandCreate() {
                   setSubHeadline={setSubHeadline}
                   focusFooterInfo={focusFooterInfo}
                 />
+                </>
               )}
 
               {/* Step 2: Customer Personas */}
