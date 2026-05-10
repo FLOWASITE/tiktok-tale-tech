@@ -31,6 +31,8 @@ export interface GlobalPackForSelection {
   parentPackId: string | null;
   /** Search aliases (synonyms) for fuzzy matching */
   aliases: string[];
+  isPopular: boolean;
+  popularSortOrder: number | null;
 }
 
 interface UseGlobalPacksOptions {
