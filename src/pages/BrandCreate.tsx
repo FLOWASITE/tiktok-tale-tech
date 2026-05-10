@@ -25,6 +25,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useQuery } from '@tanstack/react-query';
 
 interface LocationState {
   editTemplate?: BrandTemplate;
