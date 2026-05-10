@@ -7,6 +7,7 @@
 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { extractBrandSuggestions } from "../_shared/brand-extractor.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
