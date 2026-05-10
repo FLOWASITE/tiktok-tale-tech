@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Palette, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Palette, X, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { BrandCreatePreviewPanel } from '@/components/brand/BrandCreatePreviewPanel';
