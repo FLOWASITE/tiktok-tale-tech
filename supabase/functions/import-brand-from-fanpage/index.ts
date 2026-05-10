@@ -43,7 +43,7 @@ async function runImport(
     message: `Đang đọc thông tin page ${conn.platform_display_name || pageId}`,
   });
 
-  const fields = "name,about,bio,description,category,mission,founded,company_overview,products,general_info,website,fan_count,followers_count,picture.type(large){url},cover{source}";
+  const fields = "name,about,bio,description,category,mission,founded,company_overview,products,general_info,website,fan_count,followers_count,picture.type(large){url},cover{source},emails,phone,single_line_address,location,whatsapp_number";
   const infoUrl = `https://graph.facebook.com/v21.0/${pageId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(pageToken)}`;
   const postsUrl = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=message,created_time&limit=20&access_token=${encodeURIComponent(pageToken)}`;
 
