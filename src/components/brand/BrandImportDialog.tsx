@@ -89,6 +89,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       setResult(null);
       setSelectedFields(new Set());
       setSelectedLogoUrl(null);
+      setSelectedPrimaryColor(null);
       setTab('website');
     }
   }, [open]);
@@ -96,12 +97,14 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   // Auto-select all available fields once result arrives
   useEffect(() => {
     if (!result) return;
+    const isCreatingNew = !targetBrand;
     const next = new Set<ImportableField>();
     const s = result.suggestion;
     if (s.brand_name) next.add('brand_name');
     if (s.tagline) next.add('tagline');
     if (s.mission) next.add('mission');
-    if (s.industry_suggestion) next.add('industry');
+    // KHÔNG auto-check ngành khi tạo brand mới — bắt user xác nhận trong IndustrySelectionDialog
+    if (!isCreatingNew && s.industry_suggestion) next.add('industry');
     if (s.target_audience && (s.target_audience.age_range || s.target_audience.gender || (s.target_audience.locations?.length ?? 0) > 0)) {
       next.add('target_audience');
     }
@@ -110,7 +113,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
     if (result.raw_meta?.logo_url || result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
-    if (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion) next.add('primary_color');
+    // KHÔNG auto-check màu khi tạo brand mới — user phải tự chọn swatch
+    if (!isCreatingNew && (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion)) next.add('primary_color');
     const f = result.raw_meta?.footer_info;
     if (f && (f.company_name || f.phone || f.email || f.address || f.tax_code || (f.social_links && Object.keys(f.social_links).length))) {
       next.add('footer_info');
@@ -121,7 +125,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     const firstLogo = (Array.isArray(meta.logo_candidates) && meta.logo_candidates[0]?.url)
       || meta.logo_url || meta.picture || meta.og_image || null;
     setSelectedLogoUrl(firstLogo);
-  }, [result]);
+    setSelectedPrimaryColor(null);
+  }, [result, targetBrand]);
 
   const handleAnalyze = async () => {
     if (tab === 'website') {
