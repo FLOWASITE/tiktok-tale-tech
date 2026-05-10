@@ -1,5 +1,8 @@
 project_id = "rllyipiyuptkibqinotz"
 
+[functions.suggest-industry]
+verify_jwt = false
+
 [functions.keyword-research-v2]
 verify_jwt = false
 

@@ -1,108 +1,60 @@
 ## Mục tiêu
-Nâng cấp Brand Import lên "intelligence layer" thực sự — không chỉ scrape mà còn **suy luận chiến lược** (tone, USP, palette, multi-page context).
+Giảm friction khi user chọn ngành nghề trong `IndustrySelectionDialog` — từ "duyệt 60+ ngành" thành "AI gợi ý đúng ngành + tìm nhanh + nhớ ngành đã dùng".
 
----
+## 4 cải tiến
 
-## 1. Auto-discover subpages (About / Contact / Service)
+### 1. AI gợi ý ngành từ kết quả Brand Import
+Khi user import xong website/fanpage, gọi edge function mới `suggest-industry` phân tích `name + description + content_summary + footer_info` → trả top 3 ngành phù hợp kèm `confidence %` và `reason` ngắn.
 
-**Vấn đề:** Hiện `extraPaths` lấy từ client → user phải tự nhập. Footer + USP thường nằm ở `/about`, `/lien-he`, `/dich-vu` → bỏ lỡ context giàu nhất.
+- Edge function `suggest-industry` (Gemini Flash, JSON tool-call output): nhận `{ brandText, language }`, fetch danh sách `industry_global_packs` (cache shared), trả `[{ packId, code, name, confidence, reason }]`.
+- Trong `IndustrySelectionDialog` thêm prop `suggestedContext?: { brandText: string }`. Khi có context, render section **"AI gợi ý cho bạn"** ở trên cùng (3 card có badge ✨ + % match + lý do 1 dòng).
+- `BrandCreate.tsx` truyền `suggestedContext` từ kết quả import vào dialog.
 
-**File:** `supabase/functions/import-brand-from-website/index.ts`
+### 2. Tìm kiếm thông minh hơn
+Hiện `IndustrySelectionDialog` chỉ match `name/shortName/code`. Mở rộng:
 
-- Sau khi scrape homepage, parse `home.html` để extract toàn bộ `<a href>` trong `<header>` và `<nav>`.
-- Match keyword whitelist (case-insensitive): `about`, `gioi-thieu`, `gioi_thieu`, `ve-chung-toi`, `contact`, `lien-he`, `lienhe`, `service`, `dich-vu`, `san-pham`, `product`.
-- Resolve absolute URL, dedupe, filter same-origin only, **cap 3 paths** (giữ chi phí Firecrawl thấp).
-- **Merge** với `extraPaths` từ client (client paths thắng nếu trùng).
-- Nếu auto-discover ra ≥1 path → emit `progress` event riêng `step: "discover_subpages"` (percent 15) hiển thị "Tìm thấy 3 trang phụ liên quan".
+- Thêm bảng `industry_search_aliases` (nhẹ, seed sẵn): `pack_id`, `alias`, `lang`. Vd: pack `beauty` có alias `["thẩm mỹ","spa","làm đẹp","mỹ phẩm","skincare"]`; `fnb` có `["cà phê","nhà hàng","quán ăn","ẩm thực"]`.
+- Hook `useGlobalPacksForBrandSelection` join thêm aliases.
+- Logic search trong dialog: normalize bỏ dấu (Vietnamese diacritics) + match aliases + fuzzy đơn giản (Levenshtein ≤ 2 cho từ ≥ 4 ký tự) để bắt typo "thẩm my" → "thẩm mỹ".
+- Highlight phần match trong tên hiển thị.
 
-**Why:** Footer info + giá trị thương hiệu thường ở /about hơn homepage. Auto-discover loại bỏ ma sát "user phải biết URL nào".
+### 3. Recently used + Recommended
+Thêm tracking ngành đã chọn:
 
----
+- Cột `last_used_industry_pack_ids uuid[]` trên `organizations` (cap 5, mới nhất đầu) — update qua trigger khi `brand_templates.industry_template_id` thay đổi, hoặc gọi RPC `record_industry_use(pack_id)`.
+- Trong dialog state default (chưa search/chưa chọn category) bổ sung 2 section đầu:
+  - **"Đã dùng gần đây"** (nếu có ≥ 1) — lấy từ org.
+  - **"Phổ biến"** (POPULAR_CODES hiện có).
+  - Sau đó mới đến "Tất cả danh mục".
 
-## 2. Color palette đầy đủ (primary / secondary / accent)
+### 4. UX duyệt ngành rõ ràng hơn
+Refactor layout desktop của dialog (mobile giữ pattern drawer hiện tại):
 
-**File:** `supabase/functions/import-brand-from-website/index.ts` — refactor `extractVisualSignals`.
+- **Sidebar trái**: list `industry_categories` (đã có table) + filter chip `B2B / B2C / Cả hai` (lấy từ `target_audience` của pack).
+- **Khu giữa**: grid ngành theo category đang chọn (Core trên + Sub indent dưới với divider rõ).
+- **Preview pane phải** (sticky, hiện khi hover/focus 1 pack):
+  - Tên + short name + category
+  - 3 compliance rules tiêu biểu
+  - Top 5 forbidden terms
+  - Brand voice tone (nếu có)
+  - 1 ví dụ caption ngắn từ `industry_templates.metadata.sample_caption` (nếu thiếu → ẩn)
+  - Nút "Chọn ngành này" rõ ràng
+- Breadcrumb nhỏ: `Category › Core › Sub` khi đang ở deep level.
 
-Hiện chỉ trả `theme_color` (1 màu). Nâng lên `color_palette: { primary, secondary, accent, background?, text? }`.
+## Technical notes
+- Database: 1 migration tạo `industry_search_aliases` + cột `last_used_industry_pack_ids` + RPC `record_industry_use`. RLS: aliases public read, last_used update qua RPC SECURITY DEFINER.
+- Edge function: `supabase/functions/suggest-industry/index.ts` dùng `callAI()` shared, cache 24h theo hash(brandText), `verify_jwt = true`.
+- Frontend: chỉ sửa `IndustrySelectionDialog.tsx` + `useGlobalPacksForBrandSelection.ts` + `BrandCreate.tsx`. Tạo helper `src/lib/industrySearch.ts` cho normalize + fuzzy.
+- Không thay đổi schema `industry_global_packs/templates` (immutable theo project rule).
+- Giữ Soft Luxury: neutral gray, không gradient mới ngoài badge "Hot" hiện có.
 
-**Nguồn dữ liệu (theo độ tin cậy giảm dần):**
-1. **CSS custom properties trong `<style>` inline + `<link rel="stylesheet">` đầu tiên** — regex `--primary|--secondary|--accent|--brand-\w+|--color-\w+` trong các block `:root {}` hoặc `*`.
-2. **Tailwind/Bootstrap theme classes** — heuristic scan `class=` chứa `bg-primary`, `bg-blue-600`… map sang Tailwind default palette (chỉ làm fallback).
-3. **`<meta name="theme-color">` + `msapplication-TileColor`** → primary.
-4. **Repeated inline colors** — đếm tần suất hex `#[0-9a-f]{6}` xuất hiện trong `style=` attributes; top 3 sau khi loại đen/trắng/xám (heuristic: max(R,G,B)-min(R,G,B) > 30) → suggest secondary/accent.
+## Out of scope
+- Không sửa logic compliance/brand voice cascade.
+- Không thêm ngành mới vào `industry_global_packs` (đó là việc của admin).
+- Không thay đổi mobile drawer flow lớn (chỉ áp dụng "Recently used" + smart search; preview pane chỉ desktop).
 
-**Output shape (gắn vào `raw_meta`):**
-```ts
-color_palette: {
-  primary: string | null,
-  secondary: string | null,
-  accent: string | null,
-  source: 'css-vars' | 'meta' | 'frequency' | 'mixed',
-  candidates: string[]  // top 6 hex để user pick thủ công nếu auto-pick sai
-}
-```
-
-**Backwards compat:** giữ field `theme_color` = `color_palette.primary` để code cũ không vỡ.
-
----
-
-## 3. AI tone & USP enrichment (đã có schema, chỉ cần boost prompt + UI)
-
-**Status:** `BrandSuggestion` đã có `tone_of_voice`, `usps`, `content_pillars`, `target_audience`, `mission` (file `_shared/brand-extractor.ts`). Vấn đề thực tế: AI hiện chỉ thấy homepage markdown ngắn → suy luận yếu.
-
-**Cải thiện 2 mặt:**
-
-### 3a. Backend — feed AI nhiều context hơn
-**File:** `supabase/functions/_shared/brand-extractor.ts`
-
-- Thêm rules mới vào `SYSTEM_PROMPT`:
-  - "tone_of_voice phải bám vào **bằng chứng cụ thể** (câu mở đầu, cách xưng hô, độ trang trọng) — không dùng cliché chung chung."
-  - "usps phải **defensible** (con số, năm kinh nghiệm, chứng nhận, công nghệ độc quyền) — loại bỏ claim mơ hồ kiểu 'chất lượng cao'."
-  - "mission: 1 câu súc tích trả lời 'why we exist', không phải slogan marketing."
-- Tăng độ ưu tiên multi-page: kết hợp với #1, AI sẽ thấy homepage + 3 sub-pages → quality cải thiện đáng kể without prompt change nặng.
-
-### 3b. Frontend — UI dialog show tone/USP rõ ràng hơn
-**File:** `src/components/brand/BrandImportDialog.tsx`
-
-- Render `tone_of_voice` thành **chip badges** (tag pills) thay vì text dài.
-- Render `usps` thành **bulleted list** với dấu ✓ xanh.
-- Group "Strategy" mới chứa: `tone_of_voice`, `usps`, `content_pillars`, `mission`, `target_audience` — collapse default, expand khi có data.
-- Add badge "Cần review" nếu AI confidence thấp (proxy: < 3 items trong array).
-
----
-
-## 4. Frontend hydrate
-
-**File:** `src/pages/BrandCreate.tsx`
-
-- Hydrate `color_palette` → set `secondaryColor`, `accentColor` state nếu form có (kiểm tra: nếu form chưa có 2 field này, mở rộng `BrandFormStepVisual.tsx` thêm 2 ColorPicker phụ — optional).
-- Hydrate enrich fields: nếu `tone_of_voice.length > 0` → `setToneOfVoice(...)`; tương tự `usps` → `setUSPs(...)`, `mission` → `setMission(...)`, `target_audience` → fill `audienceAge/Gender/Locations`.
-
----
-
-## 5. Scope rõ ràng
-
-**In scope:**
-- 1 file edge function `import-brand-from-website/index.ts` (auto-discover + palette).
-- 1 shared `brand-extractor.ts` (prompt rules, không đổi schema).
-- 2 frontend file: `BrandImportDialog.tsx`, `BrandCreate.tsx`.
-- Optional: `BrandFormStepVisual.tsx` thêm secondary/accent picker.
-
-**Out of scope:**
-- Không scrape thêm sub-pages từ fanpage (FB Graph không expose).
-- Không thêm field DB mới (palette nhét vào `raw_meta` JSONB hoặc `brand_template.color_palette` JSONB nếu đã có).
-- Không đụng AI provider / cost layer.
-- Không animate dialog.
-
----
-
-## 6. Verify
-
-1. `curl_edge_functions` POST `import-brand-from-website` `{ url: "https://taf.vn", stream: false }` → response chứa:
-   - `raw_meta.discovered_subpages: string[]` (≥1)
-   - `raw_meta.color_palette: { primary, secondary, accent, candidates }`
-   - `tone_of_voice.length >= 3`, `usps.length >= 3`
-2. UI `/brands/new` → Import → preview dialog hiển thị:
-   - Group "Strategy" có chip tone + bullet USPs
-   - Group "Visual" hiển thị 3 swatches (primary/secondary/accent) với candidates picker
-3. Test website không có sub-pages rõ ràng (vd landing page 1 trang) → graceful fallback, không crash.
+## Verify
+- Import 1 website mỹ phẩm → suggest top 1 = `beauty` hoặc `cosmetics` với confidence ≥ 70%.
+- Search "tham my" (không dấu, sai chính tả) → ra `beauty` / `cosmetics`.
+- Tạo brand 2 lần với cùng ngành → lần 2 ngành đó hiện ở section "Đã dùng gần đây".
+- Hover 1 pack trên desktop → preview pane hiện compliance rules trong < 200ms (data đã có sẵn từ hook).

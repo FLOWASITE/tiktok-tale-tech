@@ -1,0 +1,175 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface IndustryCandidate {
+  id: string;
+  code: string;
+  name: string;
+  shortName: string | null;
+  categoryLabel: string | null;
+}
+
+interface Suggestion {
+  packId: string;
+  code: string;
+  name: string;
+  confidence: number;
+  reason: string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { brandText, language = "vi" } = await req.json();
+
+    if (!brandText || typeof brandText !== "string" || brandText.trim().length < 10) {
+      return new Response(
+        JSON.stringify({ error: "brandText quá ngắn" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Fetch active core packs with translation
+    const { data: packs, error } = await supabase
+      .from("industry_global_packs")
+      .select(`
+        id,
+        industry_code,
+        industry_categories ( label ),
+        industry_pack_translations!inner ( name, short_name, language_code )
+      `)
+      .eq("is_active", true)
+      .eq("industry_level", "core")
+      .eq("industry_pack_translations.language_code", language);
+
+    if (error) throw error;
+
+    const candidates: IndustryCandidate[] = (packs || []).map((p: any) => ({
+      id: p.id,
+      code: p.industry_code,
+      name: p.industry_pack_translations?.[0]?.name || p.industry_code,
+      shortName: p.industry_pack_translations?.[0]?.short_name || null,
+      categoryLabel: p.industry_categories?.label || null,
+    }));
+
+    // Build compact list for prompt
+    const list = candidates
+      .map((c, i) => `${i + 1}. [${c.code}] ${c.shortName || c.name}${c.categoryLabel ? ` (${c.categoryLabel})` : ""}`)
+      .join("\n");
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const truncatedBrand = brandText.slice(0, 4000);
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content: "Bạn là chuyên gia phân loại ngành nghề. Đọc thông tin brand và chọn TOP 3 ngành phù hợp nhất từ danh sách. Chỉ chọn từ danh sách cho sẵn. Trả về confidence 0-100 dựa trên độ chắc chắn (≥80 = rất rõ, 50-79 = khá rõ, <50 = đoán). Lý do ngắn gọn 1 câu tiếng Việt.",
+          },
+          {
+            role: "user",
+            content: `THÔNG TIN BRAND:\n${truncatedBrand}\n\nDANH SÁCH NGÀNH (chỉ chọn từ đây):\n${list}\n\nChọn top 3 ngành phù hợp nhất.`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "return_industry_suggestions",
+              description: "Trả về top 3 ngành phù hợp",
+              parameters: {
+                type: "object",
+                properties: {
+                  suggestions: {
+                    type: "array",
+                    minItems: 1,
+                    maxItems: 3,
+                    items: {
+                      type: "object",
+                      properties: {
+                        code: { type: "string", description: "industry_code chính xác từ danh sách" },
+                        confidence: { type: "number", minimum: 0, maximum: 100 },
+                        reason: { type: "string", description: "Lý do ngắn 1 câu tiếng Việt" },
+                      },
+                      required: ["code", "confidence", "reason"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["suggestions"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "return_industry_suggestions" } },
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const txt = await aiResponse.text();
+      console.error("[suggest-industry] AI error:", aiResponse.status, txt);
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ error: "Quá nhiều yêu cầu, thử lại sau." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: "Hết credit AI Gateway." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error ${aiResponse.status}`);
+    }
+
+    const data = await aiResponse.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const args = toolCall?.function?.arguments
+      ? JSON.parse(toolCall.function.arguments)
+      : { suggestions: [] };
+
+    const byCode = new Map(candidates.map(c => [c.code, c]));
+    const suggestions: Suggestion[] = (args.suggestions || [])
+      .map((s: any) => {
+        const cand = byCode.get(s.code);
+        if (!cand) return null;
+        return {
+          packId: cand.id,
+          code: cand.code,
+          name: cand.shortName || cand.name,
+          confidence: Math.min(100, Math.max(0, Math.round(s.confidence || 0))),
+          reason: String(s.reason || "").slice(0, 200),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+
+    return new Response(JSON.stringify({ suggestions }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("[suggest-industry] Error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
