@@ -6,6 +6,8 @@ import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTe
 import { BrandCreatePreviewPanel } from '@/components/brand/BrandCreatePreviewPanel';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
+import { BrandCreateStartChooser } from '@/components/brand/BrandCreateStartChooser';
+import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
 import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
