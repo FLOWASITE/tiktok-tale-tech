@@ -280,6 +280,19 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
       case 'logo_url': return selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
       case 'primary_color': return result.raw_meta?.theme_color || s.primary_color_suggestion || null;
+      case 'footer_info': {
+        const f = result.raw_meta?.footer_info;
+        if (!f) return null;
+        const parts: string[] = [];
+        if (f.company_name) parts.push(f.company_name);
+        if (f.phone) parts.push(f.phone);
+        if (f.email) parts.push(f.email);
+        if (f.address) parts.push(f.address.length > 50 ? f.address.slice(0, 50) + '…' : f.address);
+        if (f.tax_code) parts.push(`MST ${f.tax_code}`);
+        const sl = f.social_links ? Object.keys(f.social_links) : [];
+        if (sl.length) parts.push(`${sl.length} mạng xã hội`);
+        return parts.join(' • ') || null;
+      }
       case 'attach_fanpage':
         return result.source === 'fanpage' ? `Page: ${result.raw_meta?.page_name || result.raw_meta?.page_id}` : null;
     }
