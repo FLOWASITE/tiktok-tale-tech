@@ -97,5 +97,5 @@ export function normalizeBrandVoiceSuggestion<T extends { brand_positioning?: un
     brand_positioning: normalizeBrandPositioning(suggestion.brand_positioning),
     tone_of_voice: normalizeToneOfVoice(suggestion.tone_of_voice),
     formality_level: normalizeFormalityLevel(suggestion.formality_level),
-  };
+  } as T;
 }
