@@ -345,6 +345,9 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                       const value = renderPreviewValue(f.key);
                       const checked = selectedFields.has(f.key);
                       const existing = readExistingFieldLabel(targetBrand, f.key);
+                      const isLogo = f.key === 'logo_url' && value;
+                      const isColor = f.key === 'primary_color' && value;
+                      const colorIsAiGuess = f.key === 'primary_color' && !result?.raw_meta?.theme_color && result?.suggestion?.primary_color_suggestion;
                       return (
                         <label
                           key={f.key}
@@ -357,11 +360,30 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                               {existing && (
                                 <Badge variant="outline" className="text-[10px]">đã có</Badge>
                               )}
+                              {colorIsAiGuess && (
+                                <Badge variant="secondary" className="text-[10px]">AI gợi ý</Badge>
+                              )}
                             </div>
                             {existing && (
                               <p className="text-xs text-muted-foreground line-through truncate">{existing}</p>
                             )}
-                            <p className="text-sm break-words">{value}</p>
+                            <div className="flex items-center gap-2">
+                              {isLogo && (
+                                <img
+                                  src={value as string}
+                                  alt="Logo"
+                                  className="w-10 h-10 rounded border bg-muted object-contain shrink-0"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              )}
+                              {isColor && (
+                                <span
+                                  className="w-6 h-6 rounded border shrink-0"
+                                  style={{ backgroundColor: value as string }}
+                                />
+                              )}
+                              <p className="text-sm break-words flex-1 min-w-0">{value}</p>
+                            </div>
                           </div>
                         </label>
                       );
