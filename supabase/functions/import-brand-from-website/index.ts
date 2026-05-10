@@ -311,7 +311,7 @@ function isNeutralColor(hex: string): boolean {
 }
 
 function extractColorPalette(html: string | undefined): ColorPalette {
-  const out: ColorPalette = { primary: null, secondary: null, accent: null, source: "none", candidates: [] };
+  const out: ColorPalette = { primary: null, secondary: null, accent: null, source: "none", confidence: "low", candidates: [] };
   if (!html) return out;
 
   const sources: Array<{ source: string; hex: string }> = [];
