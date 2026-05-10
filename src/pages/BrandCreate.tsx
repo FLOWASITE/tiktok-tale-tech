@@ -724,6 +724,46 @@ export default function BrandCreate() {
 
               {/* Step 1: Identity */}
               {currentStep === 1 && (
+                <>
+                {!colorChosenFromImport && importedColorCandidates.length > 1 && (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">
+                        AI tìm thấy {importedColorCandidates.length} màu từ website — chọn màu chủ đạo:
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {importedColorCandidates.map((c) => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => {
+                            setPrimaryColor(c.hex);
+                            setColorChosenFromImport(true);
+                          }}
+                          title={`${c.hex} · ${c.source}`}
+                          className="group flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 hover:border-primary transition-colors"
+                        >
+                          <span
+                            className="w-5 h-5 rounded border border-border/40"
+                            style={{ backgroundColor: c.hex }}
+                          />
+                          <span className="text-[11px] text-muted-foreground group-hover:text-foreground">
+                            {c.source}
+                          </span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setColorChosenFromImport(true)}
+                        className="text-[11px] text-muted-foreground hover:text-foreground underline self-center"
+                      >
+                        Bỏ qua
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <BrandFormStepIdentity
                   brandName={brandName}
                   setBrandName={setBrandName}
