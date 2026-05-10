@@ -724,6 +724,18 @@ export default function Brands() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      <BrandImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onApplied={(brand, suggestion) => {
+          if (!brand) {
+            navigate('/brands/new', { state: { importedSuggestion: suggestion } });
+          } else {
+            refetch();
+          }
+        }}
+      />
     </div>
   );
 }
