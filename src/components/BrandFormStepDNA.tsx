@@ -27,14 +27,15 @@ import {
   Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BRAND_POSITIONING_LABELS, FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
+import { FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
+import { Textarea } from '@/components/ui/textarea';
 
-// Brand Voice Constants
+// Brand Voice Constants (legacy — giữ export cho nơi khác dùng)
 export const BRAND_POSITIONING_OPTIONS = [
-  { value: 'business', label: BRAND_POSITIONING_LABELS.business },
-  { value: 'expert', label: BRAND_POSITIONING_LABELS.expert },
-  { value: 'agency', label: BRAND_POSITIONING_LABELS.agency },
-  { value: 'consultant', label: BRAND_POSITIONING_LABELS.consultant },
+  { value: 'business', label: 'Doanh nghiệp' },
+  { value: 'expert', label: 'Chuyên gia' },
+  { value: 'agency', label: 'Agency' },
+  { value: 'consultant', label: 'Tư vấn' },
 ];
 
 export const TONE_OF_VOICE_OPTIONS = [
