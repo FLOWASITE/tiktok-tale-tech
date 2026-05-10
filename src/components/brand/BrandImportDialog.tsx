@@ -470,6 +470,26 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                                   {selectedLogoUrl || logoCandidates[0]?.url}
                                 </p>
                               </div>
+                            ) : isColor && (result?.raw_meta?.color_palette?.candidates?.length ?? 0) > 1 ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {(result!.raw_meta!.color_palette!.candidates as string[]).slice(0, 6).map((hex: string, i: number) => (
+                                    <div key={hex} className="flex flex-col items-center gap-1">
+                                      <span
+                                        className="w-9 h-9 rounded-md border shadow-sm"
+                                        style={{ backgroundColor: hex }}
+                                        title={hex}
+                                      />
+                                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                                        {i === 0 ? 'Primary' : i === 1 ? 'Secondary' : i === 2 ? 'Accent' : hex}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Trích từ {result!.raw_meta!.color_palette!.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
+                                </p>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-2">
                                 {isLogo && (
