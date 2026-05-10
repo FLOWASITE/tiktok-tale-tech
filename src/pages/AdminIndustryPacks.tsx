@@ -408,6 +408,9 @@ export default function AdminIndustryPacks() {
   const [personasPackId, setPersonasPackId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editPackId, setEditPackId] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   
   // Create form state
   const [newPackCode, setNewPackCode] = useState('');
