@@ -82,11 +82,11 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "Bạn là chuyên gia phân loại ngành nghề. Đọc thông tin brand và chọn TOP 3 ngành phù hợp nhất từ danh sách. Chỉ chọn từ danh sách cho sẵn. Trả về confidence 0-100 dựa trên độ chắc chắn (≥80 = rất rõ, 50-79 = khá rõ, <50 = đoán). Lý do ngắn gọn 1 câu tiếng Việt.",
+            content: "Bạn là chuyên gia phân loại ngành nghề. Đọc thông tin brand và chọn TOP 5 ngành phù hợp nhất từ danh sách (xếp theo độ phù hợp giảm dần, bao gồm cả ngành liên quan/cận kề để user có thêm lựa chọn). Chỉ chọn từ danh sách cho sẵn. Trả về confidence 0-100 (≥80 = rất rõ, 50-79 = khá rõ, 30-49 = liên quan, <30 = xa). Lý do ngắn gọn 1 câu tiếng Việt.",
           },
           {
             role: "user",
-            content: `THÔNG TIN BRAND:\n${truncatedBrand}\n\nDANH SÁCH NGÀNH (chỉ chọn từ đây):\n${list}\n\nChọn top 3 ngành phù hợp nhất.`,
+            content: `THÔNG TIN BRAND:\n${truncatedBrand}\n\nDANH SÁCH NGÀNH (chỉ chọn từ đây):\n${list}\n\nChọn top 5 ngành phù hợp nhất, ưu tiên ngành chính trước rồi đến ngành liên quan.`,
           },
         ],
         tools: [
