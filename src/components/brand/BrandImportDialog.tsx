@@ -55,7 +55,25 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   const [selectedFanpageId, setSelectedFanpageId] = useState<string>('');
   const [result, setResult] = useState<BrandImportResult | null>(null);
   const [selectedFields, setSelectedFields] = useState<Set<ImportableField>>(new Set());
+  const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+
+  const logoCandidates = useMemo(() => {
+    if (!result) return [] as Array<{ url: string; source: string }>;
+    const meta: any = result.raw_meta || {};
+    const arr: Array<{ url: string; source: string }> = Array.isArray(meta.logo_candidates) ? [...meta.logo_candidates] : [];
+    const seen = new Set(arr.map((c) => c.url));
+    const fallbacks: Array<[string | null | undefined, string]> = [
+      [meta.logo_url, 'logo'],
+      [meta.picture, 'picture'],
+      [meta.og_image, 'og:image'],
+      [meta.favicon, 'favicon'],
+    ];
+    for (const [u, s] of fallbacks) {
+      if (u && !seen.has(u)) { arr.push({ url: u, source: s }); seen.add(u); }
+    }
+    return arr;
+  }, [result]);
 
   const fanpages = useMemo(
     () => connections.filter((c) => c.platform === 'facebook' && c.is_active),
