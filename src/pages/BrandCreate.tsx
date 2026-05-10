@@ -8,6 +8,7 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandCreateStartChooser } from '@/components/brand/BrandCreateStartChooser';
 import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
+import { IndustrySelectionDialog } from '@/components/brand/IndustrySelectionDialog';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
 import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
