@@ -6,6 +6,8 @@ import { useBrandTemplates, BrandTemplate, BrandScope } from '@/hooks/useBrandTe
 import { BrandCreatePreviewPanel } from '@/components/brand/BrandCreatePreviewPanel';
 import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormStepper';
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
+import { BrandCreateStartChooser } from '@/components/brand/BrandCreateStartChooser';
+import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
 import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
@@ -58,6 +60,11 @@ export default function BrandCreate() {
   // UI state
   const [currentStep, setCurrentStep] = useState(editingTemplate ? 1 : 0);
   const [showQuickStart, setShowQuickStart] = useState(!editingTemplate);
+  // Initial chooser: shown only for brand-new flows (not editing, not pre-imported)
+  const [showStartChooser, setShowStartChooser] = useState(
+    !editingTemplate && !locationState?.importedSuggestion,
+  );
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state - same as BrandForm
@@ -459,18 +466,57 @@ export default function BrandCreate() {
     }
   };
 
-  // Quick Start Screen
+  // Initial chooser: Manual vs Import
+  if (showStartChooser && !editingTemplate) {
+    return (
+      <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
+        <header className="h-14 sm:h-16 border-b border-border/50 bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-10">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/brands')} className="gap-2 text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Quay lại</span>
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+              <Palette className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <h1 className="text-sm sm:text-base font-semibold text-foreground">Tạo Brand mới</h1>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/brands')} className="h-8 w-8">
+            <X className="w-4 h-4" />
+          </Button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-10">
+            <BrandCreateStartChooser
+              onPickManual={() => setShowStartChooser(false)}
+              onPickImport={() => setImportDialogOpen(true)}
+            />
+          </div>
+        </div>
+
+        <BrandImportDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
+          onApplied={(_brand, suggestion) => {
+            // No targetBrand → re-enter this page with importedSuggestion to auto-hydrate
+            setImportDialogOpen(false);
+            navigate('/brands/new', {
+              state: { importedSuggestion: suggestion },
+              replace: true,
+            });
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Quick Start Screen (industry pick)
   if (showQuickStart && !editingTemplate) {
     return (
       <div className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/10">
-        {/* Header */}
         <header className="h-14 sm:h-16 border-b border-border/50 bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-10">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/brands')}
-            className="gap-2 text-muted-foreground hover:text-foreground"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setShowStartChooser(true)} className="gap-2 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Quay lại</span>
           </Button>
@@ -484,17 +530,11 @@ export default function BrandCreate() {
             </h1>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/brands')}
-            className="h-8 w-8"
-          >
+          <Button variant="ghost" size="icon" onClick={() => navigate('/brands')} className="h-8 w-8">
             <X className="w-4 h-4" />
           </Button>
         </header>
 
-        {/* Quick Start Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             <BrandFormQuickStart
