@@ -242,7 +242,7 @@ export function IndustrySelectionDialog({
 
   // --- Shared IndustryCard ---
   const IndustryCard = ({ pack, compact = false }: { pack: GlobalPackForSelection; isSelected?: boolean; compact?: boolean }) => {
-    const isPopular = POPULAR_CODES.includes(pack.code);
+    const isPopular = pack.isPopular;
     const isSub = pack.industryLevel === 'sub';
     const subCount = subPacksByParent[pack.id]?.length || 0;
     
