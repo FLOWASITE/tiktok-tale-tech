@@ -161,6 +161,11 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                 <TableHead>Target</TableHead>
                 <TableHead>Profiles</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5" /> Phổ biến
+                  </span>
+                </TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
