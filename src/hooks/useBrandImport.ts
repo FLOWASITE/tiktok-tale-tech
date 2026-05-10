@@ -151,17 +151,14 @@ async function runStream(args: RunStreamArgs): Promise<BrandImportResult> {
             message: `Đã lấy ${evt.count} bài viết để phân tích`,
             status: 'done',
           });
-        } else if (evt.type === 'model_event') {
-          const isFallback = evt.kind === 'model_fallback' || evt.type === 'model_fallback';
-          // fields are flattened: { type:'model_event', model, attempt, total, reason, kind? }
-          // brand-extractor sends type:'model_attempt' | 'model_fallback' as inner type.
-          // We mapped it to 'model_event' wrapper above so use evt.model + evt.reason.
+        } else if (evt.type === 'model_attempt' || evt.type === 'model_fallback') {
+          const isFallback = evt.type === 'model_fallback';
           args.onEvent({
             id: newId(),
             kind: isFallback ? 'model_fallback' : 'model_attempt',
-            message: evt.reason
-              ? `Fallback sang ${evt.model} (lý do: ${truncate(evt.reason, 60)})`
-              : `Thử model ${evt.model} (${evt.attempt}/${evt.total})`,
+            message: isFallback
+              ? `Fallback sang ${evt.model}${evt.reason ? ` (lý do: ${truncate(evt.reason, 60)})` : ''}`
+              : `Đang dùng model ${evt.model} (${evt.attempt}/${evt.total})`,
             status: isFallback ? 'warn' : 'active',
           });
         } else if (evt.type === 'result') {
