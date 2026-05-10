@@ -360,6 +360,9 @@ export function useUpdateGlobalPack() {
       queryClient.invalidateQueries({
         queryKey: ['globalPacksList'],
       });
+      queryClient.invalidateQueries({
+        queryKey: ['globalPacksForSelection'],
+      });
     },
   });
 }
