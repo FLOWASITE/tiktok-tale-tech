@@ -253,7 +253,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'content_pillars': return s.content_pillars?.map((p) => p.name).join(' • ') || null;
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
-      case 'logo_url': return result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
+      case 'logo_url': return selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
       case 'primary_color': return result.raw_meta?.theme_color || s.primary_color_suggestion || null;
       case 'attach_fanpage':
         return result.source === 'fanpage' ? `Page: ${result.raw_meta?.page_name || result.raw_meta?.page_id}` : null;
