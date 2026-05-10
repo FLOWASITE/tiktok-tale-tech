@@ -16,6 +16,7 @@ export interface BrandSuggestion {
   content_pillars?: Array<{ name: string; description?: string }> | null;
   usps?: string[] | null;
   sample_texts?: string[] | null;
+  primary_color_suggestion?: string | null;
 }
 
 export interface BrandImportResult {
@@ -36,6 +37,7 @@ export type ImportableField =
   | 'usps'
   | 'sample_texts'
   | 'logo_url'
+  | 'primary_color'
   | 'attach_fanpage';
 
 export interface BrandImportProgress {

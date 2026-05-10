@@ -38,7 +38,7 @@ const PHASES: PhaseDef[] = [
     label: 'Thu thập nội dung',
     icon: Globe,
     range: [0, 45],
-    steps: ['scrape_home', 'scrape_subpages', 'scrape_page', 'fetch_posts', 'posts_loaded'],
+    steps: ['scrape_home', 'scrape_subpages', 'scrape_page', 'fetch_posts', 'posts_loaded', 'extract_visuals'],
   },
   {
     key: 'ai',

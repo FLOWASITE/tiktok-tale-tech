@@ -25,6 +25,7 @@ const json = (body: unknown, status = 200) =>
 interface FirecrawlScrapeResult {
   success: boolean;
   markdown?: string;
+  html?: string;
   metadata?: any;
   links?: string[];
   error?: string;
@@ -38,7 +39,7 @@ async function firecrawlScrape(url: string, formats: string[] = ["markdown"]): P
     const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ url, formats, onlyMainContent: true, waitFor: 1500 }),
+      body: JSON.stringify({ url, formats, onlyMainContent: !formats.includes("rawHtml"), waitFor: 1500 }),
     });
     const data = await resp.json();
     if (!resp.ok) return { success: false, error: data?.error || `HTTP ${resp.status}` };
@@ -46,11 +47,102 @@ async function firecrawlScrape(url: string, formats: string[] = ["markdown"]): P
     return {
       success: true,
       markdown: payload?.markdown,
+      html: payload?.html ?? payload?.rawHtml,
       metadata: payload?.metadata,
       links: payload?.links,
     };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "scrape failed" };
+  }
+}
+
+function resolveUrl(href: string, baseUrl: string): string | null {
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeHex(v: string | undefined | null): string | null {
+  if (!v) return null;
+  const s = v.trim().toLowerCase();
+  // #rgb → expand
+  const short = s.match(/^#?([0-9a-f])([0-9a-f])([0-9a-f])$/);
+  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`;
+  const long = s.match(/^#?([0-9a-f]{6})$/);
+  if (long) return `#${long[1]}`;
+  // rgb(r,g,b)
+  const rgb = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgb) {
+    const toHex = (n: number) => n.toString(16).padStart(2, "0");
+    const r = Math.min(255, parseInt(rgb[1])), g = Math.min(255, parseInt(rgb[2])), b = Math.min(255, parseInt(rgb[3]));
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+  return null;
+}
+
+interface VisualSignals {
+  logo_url: string | null;
+  theme_color: string | null;
+}
+
+function extractVisualSignals(html: string | undefined, baseUrl: string): VisualSignals {
+  const out: VisualSignals = { logo_url: null, theme_color: null };
+  if (!html) return out;
+
+  // === Logo ===
+  // Priority: apple-touch-icon → og:image → icon (largest if size hint) → /favicon.ico
+  const candidates: string[] = [];
+  const apple = html.match(/<link[^>]+rel=["'][^"']*apple-touch-icon[^"']*["'][^>]+href=["']([^"']+)["']/i)
+    || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*apple-touch-icon[^"']*["']/i);
+  if (apple) candidates.push(apple[1]);
+
+  const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  if (ogImage) candidates.push(ogImage[1]);
+
+  // All <link rel="icon"> / "shortcut icon"
+  const iconRegex = /<link[^>]+rel=["'][^"']*(?:shortcut\s+)?icon[^"']*["'][^>]*>/gi;
+  for (const m of html.matchAll(iconRegex)) {
+    const href = m[0].match(/href=["']([^"']+)["']/i);
+    if (href) candidates.push(href[1]);
+  }
+  candidates.push("/favicon.ico");
+
+  for (const c of candidates) {
+    const abs = resolveUrl(c, baseUrl);
+    if (abs) { out.logo_url = abs; break; }
+  }
+
+  // === Theme color ===
+  const tc = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i);
+  if (tc) out.theme_color = normalizeHex(tc[1]);
+
+  if (!out.theme_color) {
+    const tile = html.match(/<meta[^>]+name=["']msapplication-TileColor["'][^>]+content=["']([^"']+)["']/i);
+    if (tile) out.theme_color = normalizeHex(tile[1]);
+  }
+
+  if (!out.theme_color) {
+    // CSS variables --primary / --brand / --accent in inline <style>
+    const styleBlocks = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join("\n");
+    const cssVar = styleBlocks.match(/--(?:primary|brand|brand-color|accent)\s*:\s*([^;}\n]+)/i);
+    if (cssVar) out.theme_color = normalizeHex(cssVar[1].trim());
+  }
+
+  return out;
+}
+
+function normalizeUrl(raw: string): string | null {
+  try {
+    let s = raw.trim();
+    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+    const u = new URL(s);
+    return u.toString();
+  } catch {
+    return null;
   }
 }
 
@@ -85,11 +177,18 @@ async function runImport(
     message: `Đang đọc trang chủ ${new URL(targetUrl).hostname}`,
   });
 
-  const home = await firecrawlScrape(targetUrl, ["markdown"]);
+  const home = await firecrawlScrape(targetUrl, ["markdown", "rawHtml"]);
   if (!home.success) {
     return { status: 502, body: { error: `Không scrape được trang chủ: ${home.error}` } };
   }
   await emit?.("subpage_done", { url: targetUrl, success: true, kind: "home" });
+
+  await emit?.("progress", {
+    step: "extract_visuals",
+    percent: 20,
+    message: "Đang trích xuất logo & màu chủ đạo",
+  });
+  const visuals = extractVisualSignals(home.html, targetUrl);
 
   if (extraPaths.length > 0) {
     await emit?.("progress", {
@@ -173,6 +272,8 @@ async function runImport(
         page_title: meta.title || null,
         og_image: meta.ogImage || meta.image || null,
         favicon: meta.favicon || null,
+        logo_url: visuals.logo_url || meta.ogImage || meta.image || meta.favicon || null,
+        theme_color: visuals.theme_color,
         scraped_pages: 1 + subMarkdowns.length,
       },
     },

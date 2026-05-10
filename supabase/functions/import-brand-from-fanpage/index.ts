@@ -145,6 +145,8 @@ async function runImport(
         page_name: infoData.name,
         category: infoData.category || null,
         picture: infoData.picture?.data?.url || null,
+        logo_url: infoData.picture?.data?.url || null,
+        theme_color: null,
         fan_count: infoData.fan_count ?? null,
         followers_count: infoData.followers_count ?? null,
         website: infoData.website || null,
