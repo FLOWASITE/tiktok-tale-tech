@@ -243,6 +243,22 @@ export function IndustryBrowserV2({ onSelectPack, selectedPackId }: IndustryBrow
     );
   }, [updatePack, refetch]);
 
+  const handleTogglePopular = useCallback((packId: string, currentPopular: boolean, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updates: Record<string, unknown> = { is_popular: !currentPopular };
+    if (!currentPopular) updates.popular_sort_order = 999;
+    updatePack(
+      { packId, updates },
+      {
+        onSuccess: () => {
+          toast.success(currentPopular ? 'Đã bỏ khỏi Phổ biến' : 'Đã đánh dấu Phổ biến');
+          refetch();
+        },
+        onError: () => toast.error('Lỗi khi cập nhật'),
+      }
+    );
+  }, [updatePack, refetch]);
+
   const toggleExpand = useCallback((packId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedPacks(prev => {
