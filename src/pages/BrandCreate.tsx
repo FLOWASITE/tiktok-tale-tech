@@ -8,6 +8,7 @@ import { BrandFormStepper, BRAND_FORM_STEPS } from '@/components/BrandFormSteppe
 import { BrandFormQuickStart } from '@/components/BrandFormQuickStart';
 import { BrandCreateStartChooser } from '@/components/brand/BrandCreateStartChooser';
 import { BrandImportDialog } from '@/components/brand/BrandImportDialog';
+import { IndustrySelectionDialog } from '@/components/brand/IndustrySelectionDialog';
 import { BrandFormStepIdentity } from '@/components/BrandFormStepIdentity';
 import { BrandFormStepPersonas } from '@/components/BrandFormStepPersonas';
 import { BrandFormStepProducts } from '@/components/BrandFormStepProducts';
@@ -106,6 +107,9 @@ export default function BrandCreate() {
     !editingTemplate && !locationState?.importedSuggestion,
   );
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [showIndustryConfirmAfterImport, setShowIndustryConfirmAfterImport] = useState(false);
+  const [colorChosenFromImport, setColorChosenFromImport] = useState(false);
+  const [importedColorCandidates, setImportedColorCandidates] = useState<Array<{ hex: string; source: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state - same as BrandForm
@@ -269,7 +273,7 @@ export default function BrandCreate() {
       }
       if (s.tagline) setTagline(s.tagline);
       if (s.mission) setMission(s.mission);
-      if (s.industry_suggestion) setIndustries([s.industry_suggestion]);
+      // NOTE: Không auto-set industry — mở IndustrySelectionDialog để user xác nhận từ AI list.
       if (s.target_audience?.age_range) setTargetAgeRange(s.target_audience.age_range);
       if (s.target_audience?.gender) setTargetGender(s.target_audience.gender);
       if (Array.isArray(s.target_audience?.locations)) setTargetLocations(s.target_audience.locations);
@@ -286,11 +290,41 @@ export default function BrandCreate() {
         importedLogoUrlRef.current = logo;
       }
       const palette = (meta as any)?.color_palette;
-      const color = s.primary_color || palette?.primary || meta.theme_color || s.primary_color_suggestion;
-      if (color && /^#[0-9a-fA-F]{6}$/.test(color)) setPrimaryColor(color);
+      // Gom tất cả candidate màu để user chọn
+      const hexRe = /^#[0-9a-fA-F]{6}$/;
+      const rawCandidates: Array<{ hex: string; source: string }> = [];
+      const pushCand = (hex: unknown, source: string) => {
+        if (typeof hex === 'string' && hexRe.test(hex)) {
+          rawCandidates.push({ hex: hex.toLowerCase(), source });
+        }
+      };
+      pushCand(s.primary_color, 'AI');
+      pushCand(meta.theme_color, 'Theme color');
+      pushCand(palette?.primary, 'Logo dominant');
+      pushCand(s.primary_color_suggestion, 'AI gợi ý');
+      if (palette && Array.isArray(palette.candidates)) {
+        (palette.candidates as unknown[]).forEach((c) => pushCand(c, 'Logo palette'));
+      }
+      // dedupe theo hex
+      const seen = new Set<string>();
+      const uniq = rawCandidates.filter((c) => {
+        if (seen.has(c.hex)) return false;
+        seen.add(c.hex);
+        return true;
+      });
+      setImportedColorCandidates(uniq);
+      if (uniq.length === 1) {
+        setPrimaryColor(uniq[0].hex);
+        setColorChosenFromImport(true);
+      } else if (uniq.length === 0) {
+        setColorChosenFromImport(true); // không có gì để chọn
+      }
+      // secondary colors lấy phần còn lại từ palette.candidates
       if (palette && Array.isArray(palette.candidates)) {
         const extras = (palette.candidates as string[])
-          .filter((c) => /^#[0-9a-fA-F]{6}$/.test(c) && c.toLowerCase() !== (color || '').toLowerCase())
+          .filter((c) => hexRe.test(c))
+          .map((c) => c.toLowerCase())
+          .filter((c, i, arr) => arr.indexOf(c) === i)
           .slice(0, 4);
         if (extras.length) setSecondaryColors(extras);
       }
@@ -309,7 +343,9 @@ export default function BrandCreate() {
       setImportDialogOpen(false);
       setShowQuickStart(false);
       setCurrentStep(1);
-      toast.success('Đã nạp dữ liệu từ import. Hãy kiểm tra và lưu để tiếp tục.');
+      // Mở dialog xác nhận ngành (AI suggestion list)
+      setShowIndustryConfirmAfterImport(true);
+      toast.success('Đã nạp dữ liệu từ import. Hãy chọn ngành phù hợp để tiếp tục.');
     }
   }, [importedSuggestion, editingTemplate]);
 
@@ -688,6 +724,46 @@ export default function BrandCreate() {
 
               {/* Step 1: Identity */}
               {currentStep === 1 && (
+                <>
+                {!colorChosenFromImport && importedColorCandidates.length > 1 && (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">
+                        AI tìm thấy {importedColorCandidates.length} màu từ website — chọn màu chủ đạo:
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {importedColorCandidates.map((c) => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => {
+                            setPrimaryColor(c.hex);
+                            setColorChosenFromImport(true);
+                          }}
+                          title={`${c.hex} · ${c.source}`}
+                          className="group flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 hover:border-primary transition-colors"
+                        >
+                          <span
+                            className="w-5 h-5 rounded border border-border/40"
+                            style={{ backgroundColor: c.hex }}
+                          />
+                          <span className="text-[11px] text-muted-foreground group-hover:text-foreground">
+                            {c.source}
+                          </span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setColorChosenFromImport(true)}
+                        className="text-[11px] text-muted-foreground hover:text-foreground underline self-center"
+                      >
+                        Bỏ qua
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <BrandFormStepIdentity
                   brandName={brandName}
                   setBrandName={setBrandName}
@@ -724,6 +800,7 @@ export default function BrandCreate() {
                   setSubHeadline={setSubHeadline}
                   focusFooterInfo={focusFooterInfo}
                 />
+                </>
               )}
 
               {/* Step 2: Customer Personas */}
@@ -878,6 +955,17 @@ export default function BrandCreate() {
           </div>
         </div>
       </div>
+
+      <IndustrySelectionDialog
+        open={showIndustryConfirmAfterImport}
+        onOpenChange={setShowIndustryConfirmAfterImport}
+        onSelectIndustry={(pack) => {
+          handleIndustryTemplateSelect(pack);
+          setShowIndustryConfirmAfterImport(false);
+        }}
+        suggestedContext={suggestedContext}
+        recentlyUsedIds={recentlyUsedIds}
+      />
     </TooltipProvider>
   );
 }
