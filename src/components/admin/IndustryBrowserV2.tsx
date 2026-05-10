@@ -41,6 +41,7 @@ import {
   FolderTree,
   Grid3X3,
   List,
+  Star,
   Filter,
   X,
   Code,
