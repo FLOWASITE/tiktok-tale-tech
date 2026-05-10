@@ -272,6 +272,8 @@ async function runImport(
         page_title: meta.title || null,
         og_image: meta.ogImage || meta.image || null,
         favicon: meta.favicon || null,
+        logo_url: visuals.logo_url || meta.ogImage || meta.image || meta.favicon || null,
+        theme_color: visuals.theme_color,
         scraped_pages: 1 + subMarkdowns.length,
       },
     },
