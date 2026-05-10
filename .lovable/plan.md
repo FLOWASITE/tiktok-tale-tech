@@ -1,63 +1,60 @@
-## Mục tiêu
-Fix dứt điểm việc sau khi AI import website/fanpage, step **Giọng nói** vẫn trống ở:
-- Định vị thương hiệu
-- Tone of Voice
-- Mức trang trọng
+## Kế hoạch sửa dứt điểm
 
-## Nguyên nhân hiện tại
-Response import thực tế đã có dữ liệu:
+Mình sẽ đổi hướng từ “normalize xong hy vọng state còn” sang “giữ payload import làm nguồn sự thật và apply lại ở đúng thời điểm UI mở step Giọng nói”.
+
+### 1. Bắt đúng chỗ bị mất dữ liệu
+Trong `BrandCreate.tsx`, tạo helper nội bộ để đọc `importedSuggestion.suggestion`, normalize một lần, rồi apply vào state:
+- `brand_positioning` → set thẳng free text
+- `tone_of_voice` → map về `expert/calm/serious/...`
+- `formality_level` → map về `formal/semi_formal/casual/friendly`
+
+Helper này sẽ được gọi ở 3 thời điểm:
+- Khi hydrate sau import
+- Sau khi chọn ngành Industry Memory
+- Khi user chuyển sang step 4 “Giọng nói” nếu state vẫn trống
+
+Mục tiêu: kể cả dialog chọn ngành hoặc render timing làm reset state, step 4 vẫn tự fill lại từ payload import.
+
+### 2. Sửa lỗi double-normalize làm tone bị rỗng
+Hiện `handleIndustryTemplateSelect` đang lấy `importedVoice` đã normalize rồi lại gọi `normalizeToneOfVoice(importedVoice?.tone_of_voice)`. Vì `normalizeToneOfVoice` không nhận lại enum array tốt trong một số nhánh, sẽ có rủi ro rỗng/không tick.
+
+Sẽ sửa thành:
+- Nếu `importedVoice.tone_of_voice` đã là array enum thì dùng trực tiếp
+- Chỉ normalize khi là raw AI labels
+
+### 3. Không cho Industry Memory ghi đè Brand Voice import
+Trong `handleIndustryTemplateSelect`:
+- Industry chỉ set ngành, pack id, language style, preferred/forbidden terms
+- `brand_positioning`, `tone_of_voice`, `formality_level` luôn ưu tiên import nếu import có dữ liệu
+- Pack defaults chỉ dùng khi import thật sự không có field đó
+
+### 4. Làm UI step Giọng nói tolerant hơn
+Trong `BrandFormStepDNA.tsx`:
+- Giữ textarea cho `Định vị thương hiệu`
+- Tone buttons sẽ nhận các alias cũ nếu state còn sót từ data cũ như `professional/authoritative/empathetic/...` và normalize trước khi render selected
+- Formality select sẽ normalize value trước khi đưa vào `<Select>` để tránh value `neutral/professional` làm Select trống
+
+### 5. Thêm kiểm tra nhanh bằng unit/script nhỏ cho normalization
+Thêm hoặc chạy kiểm tra nhỏ với case thực tế:
 ```text
 tone_of_voice: ["Chuyên nghiệp", "Uy tín", "Tận tâm", "Trang trọng"]
-brand_positioning: "Công Ty ... là công ty tư vấn kiểm toán..."
+brand_positioning: "TAF là công ty tư vấn kiểm toán..."
 formality_level: "formal"
 ```
-Nhưng form UI lại dùng option enum cố định:
+Kỳ vọng:
 ```text
-brandPositioning: business | expert | agency | consultant
-toneOfVoice: expert | calm | confident | friendly | analytical | serious | inspirational
-formalityLevel: formal | semi_formal | casual | friendly
+brand_positioning: giữ nguyên câu
+tone_of_voice: expert, calm, serious
+formality_level: formal
 ```
-Ngoài ra **brand_positioning hiện đang là select**, nên câu định vị dài từ AI không thể hiển thị. Đây là lý do field nhìn vẫn trống dù backend trả dữ liệu.
 
-## Kế hoạch sửa
+## Files dự kiến sửa
+- `src/pages/BrandCreate.tsx`
+- `src/components/BrandFormStepDNA.tsx`
+- Có thể chỉnh nhẹ `src/lib/brandVoiceNormalization.ts` nếu cần alias/tolerant input
 
-### 1. Tách “Định vị thương hiệu” thành input textarea thay vì select
-Trong `BrandFormStepDNA.tsx`:
-- Đổi `Định vị thương hiệu` từ `<Select>` sang `<Textarea>`.
-- Cho phép hiển thị nguyên câu AI extract được, ví dụ: “TAF là công ty tư vấn kiểm toán...”
-- Giữ placeholder ngắn gọn và style theo design system.
-
-### 2. Không normalize `brand_positioning` thành enum nữa
-Trong `src/lib/brandVoiceNormalization.ts`:
-- Sửa `normalizeBrandPositioning` để trả về **string nguyên văn đã trim** thay vì ép về `business/expert/...`.
-- Chỉ clamp độ dài an toàn, không biến câu AI thành `business`.
-- Giữ normalization cho `tone_of_voice` và `formality_level` vì 2 field này vẫn là option UI.
-
-### 3. Map tone thực tế của AI sang option form tốt hơn
-Với response kiểu:
-```text
-"Chuyên nghiệp", "Uy tín", "Tận tâm", "Trang trọng"
-```
-Sửa mapping để ra ít nhất:
-```text
-expert, calm, serious
-```
-Cụ thể:
-- `Chuyên nghiệp`, `Uy tín` → `expert`
-- `Tận tâm`, `Ấm áp`, `An tâm` → `calm`
-- `Trang trọng`, `Chuẩn mực` → `serious`
-
-### 4. Không để chọn Industry ghi đè mất dữ liệu import
-Trong `BrandCreate.tsx`:
-- Khi user chọn ngành sau import, chỉ apply tone/formality từ industry pack nếu import không có dữ liệu.
-- `brand_positioning` luôn ưu tiên câu AI import; không ép qua enum.
-
-### 5. Thêm fallback ngay tại hydrate
-Nếu AI không trả tone hoặc mapping rỗng nhưng `formality_level=formal`, tự set tone `serious` để UI không trống hoàn toàn.
-
-## Verify
-- Dùng response import `taf.vn` đã capture:
-  - Định vị thương hiệu phải hiện nguyên câu dài trong textarea.
-  - Tone phải tick được ít nhất `Chuyên gia`, `Điềm tĩnh`, `Nghiêm túc`.
-  - Mức trang trọng phải chọn `Trang trọng`.
-- Kiểm tra flow chọn ngành sau import không làm mất 3 field này.
+## Tiêu chí xong
+Sau import website/fanpage, vào step 4 phải thấy:
+- `Định vị thương hiệu` có câu AI extract trong textarea
+- `Tone of Voice` có tick sẵn ít nhất 1-3 option
+- `Mức trang trọng` hiển thị option đã chọn, ví dụ `Trang trọng`

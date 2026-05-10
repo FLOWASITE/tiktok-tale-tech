@@ -92,6 +92,26 @@ interface BrandFormStepDNAProps {
   setComplianceRules: (value: string[]) => void;
 }
 
+// Alias map cho tone cũ → enum chuẩn (data legacy hoặc AI label chưa normalize)
+const TONE_ALIASES: Record<string, string> = {
+  professional: 'expert',
+  authoritative: 'expert',
+  trustworthy: 'expert',
+  empathetic: 'calm',
+  educational: 'analytical',
+  conversational: 'friendly',
+  playful: 'friendly',
+};
+const normalizeToneValue = (t: string): string => TONE_ALIASES[t?.toLowerCase?.()] || t;
+
+// Alias map cho formality cũ → enum chuẩn
+const FORMALITY_ALIASES: Record<string, string> = {
+  neutral: 'semi_formal',
+  professional: 'semi_formal',
+  formal_enough: 'semi_formal',
+};
+const normalizeFormalityValue = (f: string): string => FORMALITY_ALIASES[f?.toLowerCase?.()] || f;
+
 export function BrandFormStepDNA({
   // Brand Voice
   brandPositioning, setBrandPositioning,
@@ -103,8 +123,9 @@ export function BrandFormStepDNA({
   forbiddenWords, setForbiddenWords,
   complianceRules, setComplianceRules,
 }: BrandFormStepDNAProps) {
-  // Defensive guards: avoid calling array methods on non-array values
-  const safeToneOfVoice = Array.isArray(toneOfVoice) ? toneOfVoice : [];
+  // Defensive guards: avoid calling array methods on non-array values + normalize legacy tone aliases
+  const safeToneOfVoice = (Array.isArray(toneOfVoice) ? toneOfVoice : []).map(normalizeToneValue);
+  const safeFormalityLevel = normalizeFormalityValue(formalityLevel || '');
   const safeLanguageStyle = Array.isArray(languageStyle) ? languageStyle : [];
   const safePreferredWords = Array.isArray(preferredWords) ? preferredWords : [];
   const safeForbiddenWords = Array.isArray(forbiddenWords) ? forbiddenWords : [];
@@ -199,7 +220,7 @@ export function BrandFormStepDNA({
     return option?.suggestEmoji === true;
   });
 
-  const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === formalityLevel)?.hint;
+  const currentFormalityHint = FORMALITY_LEVEL_OPTIONS.find(o => o.value === safeFormalityLevel)?.hint;
 
   // Count items for badges
   const voiceCount = safeToneOfVoice.length + (brandPositioning ? 1 : 0) + (formalityLevel ? 1 : 0);
@@ -300,7 +321,7 @@ export function BrandFormStepDNA({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <Select value={formalityLevel} onValueChange={setFormalityLevel}>
+            <Select value={safeFormalityLevel} onValueChange={setFormalityLevel}>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Chọn mức độ..." />
               </SelectTrigger>

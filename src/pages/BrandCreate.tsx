@@ -381,6 +381,25 @@ export default function BrandCreate() {
     }
   }, [importedSuggestion, editingTemplate]);
 
+  // Safety net: nếu user chuyển sang step "Giọng nói" mà các field còn trống
+  // nhưng payload import có dữ liệu → reapply 1 lần. Tránh trường hợp re-render
+  // hoặc dialog chọn ngành làm reset state.
+  useEffect(() => {
+    if (currentStep !== 4) return;
+    if (!importedSuggestion) return;
+    const s = normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {});
+    if (!brandPositioning && s.brand_positioning) {
+      setBrandPositioning(String(s.brand_positioning));
+    }
+    if ((!toneOfVoice || toneOfVoice.length === 0) && Array.isArray(s.tone_of_voice) && s.tone_of_voice.length > 0) {
+      setToneOfVoice(s.tone_of_voice as string[]);
+    }
+    if (!formalityLevel && s.formality_level) {
+      setFormalityLevel(s.formality_level);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, importedSuggestion]);
+
   const completionPercentage = useMemo(() => {
     let score = 0;
     if (name.trim()) score += 15;
@@ -429,31 +448,40 @@ export default function BrandCreate() {
     // Use global_pack_id for v2.1 architecture (keeping industryTemplateId for backward compatibility)
     setGlobalPackId(packData.id);
     setIndustries(asStringArray(packData.name));
-    const importedVoice = importedSuggestion ? normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {}) : null;
-    const importedPositioning = importedVoice?.brand_positioning ? String(importedVoice.brand_positioning) : '';
-    const importedTones = normalizeToneOfVoice(importedVoice?.tone_of_voice);
-    const importedFormality = normalizeFormalityLevel(importedVoice?.formality_level);
 
-    // Positioning: ưu tiên câu AI import, chỉ dùng pack default khi không có
-    if (importedPositioning) {
-      setBrandPositioning(importedPositioning);
-    } else if (packData.brandPositioning) {
+    const importedRaw = importedSuggestion?.suggestion || null;
+    const importedVoice = importedRaw ? normalizeBrandVoiceSuggestion(importedRaw) : null;
+    const hasImportedPositioning = !!(importedVoice?.brand_positioning && String(importedVoice.brand_positioning).trim());
+    const hasImportedTones = Array.isArray(importedVoice?.tone_of_voice) && importedVoice!.tone_of_voice!.length > 0;
+    const hasImportedFormality = !!importedVoice?.formality_level;
+
+    const voice = (packData as any).brandVoice || {};
+
+    // Positioning: ƯU TIÊN tuyệt đối câu AI import. Chỉ dùng pack default khi state HIỆN TẠI rỗng và import cũng rỗng.
+    if (hasImportedPositioning) {
+      setBrandPositioning(String(importedVoice!.brand_positioning));
+    } else if (!brandPositioning && packData.brandPositioning) {
       setBrandPositioning(packData.brandPositioning);
     }
 
-    const voice = (packData as any).brandVoice || {};
-    // Tone: ưu tiên import, chỉ fallback pack khi import rỗng
-    const packTones = normalizeToneOfVoice(voice.tone_of_voice);
-    const nextTones = importedTones.length > 0 ? importedTones : packTones;
-    if (nextTones.length > 0) {
-      setToneOfVoice(nextTones);
+    // Tone: ƯU TIÊN import. Pack chỉ apply khi state HIỆN TẠI rỗng và import rỗng.
+    if (hasImportedTones) {
+      setToneOfVoice(importedVoice!.tone_of_voice as string[]);
+    } else if ((!toneOfVoice || toneOfVoice.length === 0)) {
+      const packTones = normalizeToneOfVoice(voice.tone_of_voice);
+      if (packTones.length > 0) setToneOfVoice(packTones);
     }
-    const nextFormality = importedFormality || normalizeFormalityLevel(voice.formality_level);
-    if (nextFormality) {
-      setFormalityLevel(nextFormality);
+
+    // Formality: tương tự
+    if (hasImportedFormality) {
+      setFormalityLevel(importedVoice!.formality_level as string);
+    } else if (!formalityLevel) {
+      const packFormality = normalizeFormalityLevel(voice.formality_level);
+      if (packFormality) setFormalityLevel(packFormality);
     }
+
     const packLangStyle = asStringArray(voice.language_style);
-    if (packLangStyle.length > 0) {
+    if (packLangStyle.length > 0 && languageStyle.length === 0) {
       setLanguageStyle(packLangStyle);
     }
     if (typeof voice.allow_emoji === 'boolean') {
@@ -461,11 +489,11 @@ export default function BrandCreate() {
     }
 
     const packPreferred = asStringArray((packData as any).preferredTerms);
-    if (packPreferred.length > 0) {
+    if (packPreferred.length > 0 && preferredWords.length === 0) {
       setPreferredWords(packPreferred);
     }
     const packForbidden = asStringArray((packData as any).forbiddenTerms);
-    if (packForbidden.length > 0) {
+    if (packForbidden.length > 0 && forbiddenWords.length === 0) {
       setForbiddenWords(packForbidden);
     }
 
