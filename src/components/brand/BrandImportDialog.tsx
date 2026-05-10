@@ -15,6 +15,7 @@ import { useBrandImport, type BrandImportResult, type ImportableField } from '@/
 import { useSocialConnections } from '@/hooks/useSocialConnections';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBrandTemplates, type BrandTemplate } from '@/hooks/useBrandTemplates';
+import { BrandImportProgressPanel } from './BrandImportProgressPanel';
 
 interface BrandImportDialogProps {
   open: boolean;
@@ -41,7 +42,7 @@ const ALL_FIELDS: { key: ImportableField; label: string; group: string }[] = [
 
 export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }: BrandImportDialogProps) {
   const { currentOrganization } = useOrganizationContext();
-  const { importFromWebsite, importFromFanpage, loading } = useBrandImport();
+  const { importFromWebsite, importFromFanpage, loading, progress, events, cancel } = useBrandImport();
   const { updateTemplate } = useBrandTemplates();
   const { connections } = useSocialConnections({
     organizationId: currentOrganization?.id,
@@ -251,7 +252,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         </DialogHeader>
 
         {!result ? (
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+            {loading && (
+              <BrandImportProgressPanel progress={progress} events={events} onCancel={cancel} />
+            )}
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="website" className="gap-2"><Globe className="w-4 h-4" /> Website</TabsTrigger>

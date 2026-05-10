@@ -3,12 +3,14 @@
 // social_connection (platform='facebook'), then asks AI to extract brand profile.
 //
 // Auth: standard JWT.
-// Body: { social_connection_id: string, organization_id?: string, locale?: string }
+// Body: { social_connection_id, organization_id?, locale?, stream? }
+// If stream=true → SSE event stream.
 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
 import { extractBrandSuggestions } from "../_shared/brand-extractor.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { createBrandImportSSE } from "../_shared/brand-import-stream.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +22,135 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+interface RunInput {
+  conn: any;
+  pageToken: string;
+  organizationId?: string;
+  locale: string;
+}
+
+async function runImport(
+  input: RunInput,
+  emit?: (event: string, data: Record<string, unknown>) => Promise<void>,
+): Promise<{ status: number; body: any }> {
+  const { conn, pageToken, organizationId, locale } = input;
+  const pageId = conn.platform_user_id;
+
+  await emit?.("progress", {
+    step: "fetch_page_info",
+    percent: 15,
+    message: `Đang đọc thông tin page ${conn.platform_display_name || pageId}`,
+  });
+
+  const fields = "name,about,bio,description,category,mission,founded,company_overview,products,general_info,website,fan_count,followers_count,picture.type(large){url}";
+  const infoUrl = `https://graph.facebook.com/v21.0/${pageId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(pageToken)}`;
+  const postsUrl = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=message,created_time&limit=20&access_token=${encodeURIComponent(pageToken)}`;
+
+  await emit?.("progress", {
+    step: "fetch_posts",
+    percent: 30,
+    message: "Đang lấy bài viết gần nhất từ Facebook",
+  });
+
+  const [infoResp, postsResp] = await Promise.all([fetch(infoUrl), fetch(postsUrl)]);
+  const infoData = await infoResp.json();
+  const postsData = await postsResp.json();
+
+  if (!infoResp.ok) {
+    console.error("[import-brand-from-fanpage] page info error:", infoData);
+    return {
+      status: 502,
+      body: {
+        error: infoData?.error?.message || "Không lấy được thông tin page",
+        hint: "Kiểm tra quyền page hoặc kết nối lại Facebook.",
+      },
+    };
+  }
+
+  const posts: Array<{ message?: string }> = Array.isArray(postsData?.data) ? postsData.data : [];
+  const postSamples = posts
+    .map((p) => (p.message || "").trim())
+    .filter((m) => m.length >= 50)
+    .slice(0, 12);
+
+  await emit?.("posts_loaded", { count: postSamples.length, total_fetched: posts.length });
+
+  const combined = [
+    `# Page name: ${infoData.name || ""}`,
+    infoData.category ? `# Category: ${infoData.category}` : "",
+    infoData.about ? `## About\n${infoData.about}` : "",
+    infoData.bio ? `## Bio\n${infoData.bio}` : "",
+    infoData.description ? `## Description\n${infoData.description}` : "",
+    infoData.mission ? `## Mission\n${infoData.mission}` : "",
+    infoData.company_overview ? `## Company overview\n${infoData.company_overview}` : "",
+    infoData.products ? `## Products\n${infoData.products}` : "",
+    infoData.general_info ? `## General info\n${infoData.general_info}` : "",
+    infoData.website ? `# Website: ${infoData.website}` : "",
+    "",
+    "## Recent posts",
+    ...postSamples.map((m, i) => `### Post ${i + 1}\n${m}`),
+  ].filter(Boolean).join("\n");
+
+  if (combined.trim().length < 80) {
+    return {
+      status: 422,
+      body: { error: "Page chưa có đủ nội dung để phân tích (cần ít nhất phần About hoặc vài bài viết)." },
+    };
+  }
+
+  await emit?.("progress", {
+    step: "ai_analyzing",
+    percent: 50,
+    message: "AI đang phân tích nội dung",
+  });
+
+  const extracted = await extractBrandSuggestions({
+    source: "fanpage",
+    content: combined,
+    locale,
+    organizationId,
+    hint: infoData.name,
+    onProgress: emit
+      ? (e) => { emit("model_event", e as any).catch(() => {}); }
+      : undefined,
+  });
+
+  if (!extracted.success) {
+    const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
+    return {
+      status: isQuota ? 402 : 502,
+      body: {
+        error: isQuota
+          ? "Đã hết credit AI. Vui lòng nạp thêm để tiếp tục."
+          : (extracted.error || "AI extraction failed"),
+        code: extracted.error,
+      },
+    };
+  }
+
+  await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
+
+  return {
+    status: 200,
+    body: {
+      success: true,
+      suggestion: extracted.suggestion,
+      raw_meta: {
+        source: "fanpage",
+        page_id: pageId,
+        page_name: infoData.name,
+        category: infoData.category || null,
+        picture: infoData.picture?.data?.url || null,
+        fan_count: infoData.fan_count ?? null,
+        followers_count: infoData.followers_count ?? null,
+        website: infoData.website || null,
+        social_connection_id: conn.id,
+        post_count: postSamples.length,
+      },
+    },
+  };
+}
 
 Deno.serve(withPerf({ functionName: "import-brand-from-fanpage" }, async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -38,6 +169,7 @@ Deno.serve(withPerf({ functionName: "import-brand-from-fanpage" }, async (req) =
     const connId: string | undefined = body?.social_connection_id;
     const organizationId: string | undefined = body?.organization_id;
     const locale: string = body?.locale || "vi";
+    const wantStream = body?.stream === true;
 
     if (!connId) return json({ error: "social_connection_id required" }, 400);
 
@@ -69,83 +201,33 @@ Deno.serve(withPerf({ functionName: "import-brand-from-fanpage" }, async (req) =
       return json({ error: "Không giải mã được token. Vui lòng kết nối lại Facebook." }, 400);
     }
 
-    const pageId = conn.platform_user_id;
-    const fields = "name,about,bio,description,category,mission,founded,company_overview,products,general_info,website,fan_count,followers_count,picture.type(large){url}";
-    const infoUrl = `https://graph.facebook.com/v21.0/${pageId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(pageToken)}`;
-    const postsUrl = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=message,created_time&limit=20&access_token=${encodeURIComponent(pageToken)}`;
+    const runInput: RunInput = { conn, pageToken, organizationId, locale };
 
-    const [infoResp, postsResp] = await Promise.all([fetch(infoUrl), fetch(postsUrl)]);
-    const infoData = await infoResp.json();
-    const postsData = await postsResp.json();
-
-    if (!infoResp.ok) {
-      console.error("[import-brand-from-fanpage] page info error:", infoData);
-      return json({
-        error: infoData?.error?.message || "Không lấy được thông tin page",
-        hint: "Kiểm tra quyền page hoặc kết nối lại Facebook.",
-      }, 502);
+    if (!wantStream) {
+      const { status, body: out } = await runImport(runInput);
+      return json(out, status);
     }
 
-    const posts: Array<{ message?: string }> = Array.isArray(postsData?.data) ? postsData.data : [];
-    const postSamples = posts
-      .map((p) => (p.message || "").trim())
-      .filter((m) => m.length >= 50)
-      .slice(0, 12);
-
-    const combined = [
-      `# Page name: ${infoData.name || ""}`,
-      infoData.category ? `# Category: ${infoData.category}` : "",
-      infoData.about ? `## About\n${infoData.about}` : "",
-      infoData.bio ? `## Bio\n${infoData.bio}` : "",
-      infoData.description ? `## Description\n${infoData.description}` : "",
-      infoData.mission ? `## Mission\n${infoData.mission}` : "",
-      infoData.company_overview ? `## Company overview\n${infoData.company_overview}` : "",
-      infoData.products ? `## Products\n${infoData.products}` : "",
-      infoData.general_info ? `## General info\n${infoData.general_info}` : "",
-      infoData.website ? `# Website: ${infoData.website}` : "",
-      "",
-      "## Recent posts",
-      ...postSamples.map((m, i) => `### Post ${i + 1}\n${m}`),
-    ].filter(Boolean).join("\n");
-
-    if (combined.trim().length < 80) {
-      return json({
-        error: "Page chưa có đủ nội dung để phân tích (cần ít nhất phần About hoặc vài bài viết).",
-      }, 422);
-    }
-
-    const extracted = await extractBrandSuggestions({
-      source: "fanpage",
-      content: combined,
-      locale,
-      organizationId,
-      hint: infoData.name,
-    });
-
-    if (!extracted.success) {
-      const isQuota = extracted.error === "AI_QUOTA_EXHAUSTED";
-      return json(
-        { error: isQuota ? "Đã hết credit AI. Vui lòng nạp thêm để tiếp tục." : (extracted.error || "AI extraction failed"), code: extracted.error },
-        isQuota ? 402 : 502,
-      );
-    }
-
-    return json({
-      success: true,
-      suggestion: extracted.suggestion,
-      raw_meta: {
-        source: "fanpage",
-        page_id: pageId,
-        page_name: infoData.name,
-        category: infoData.category || null,
-        picture: infoData.picture?.data?.url || null,
-        fan_count: infoData.fan_count ?? null,
-        followers_count: infoData.followers_count ?? null,
-        website: infoData.website || null,
-        social_connection_id: conn.id,
-        post_count: postSamples.length,
-      },
-    });
+    const sse = createBrandImportSSE();
+    const work = (async () => {
+      try {
+        await sse.emit("progress", { step: "init", percent: 5, message: "Khởi tạo..." });
+        const { status, body: out } = await runImport(runInput, sse.emit);
+        if (status >= 400) {
+          await sse.emit("error", { message: out.error, code: out.code, status });
+        } else {
+          await sse.emit("result", { ...out, percent: 100 });
+        }
+      } catch (e) {
+        console.error("[import-brand-from-fanpage] stream error:", e);
+        await sse.emit("error", { message: e instanceof Error ? e.message : "Internal error" });
+      } finally {
+        await sse.close();
+      }
+    })();
+    // @ts-ignore EdgeRuntime exists in Supabase Edge runtime
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
+    return sse.response;
   } catch (e) {
     console.error("[import-brand-from-fanpage] error:", e);
     return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);

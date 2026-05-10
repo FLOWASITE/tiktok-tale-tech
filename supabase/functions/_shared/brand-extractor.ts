@@ -78,12 +78,21 @@ const TOOL_SCHEMA = {
   },
 };
 
+export interface ExtractProgressEvent {
+  type: "model_attempt" | "model_fallback";
+  model: string;
+  attempt: number;
+  total: number;
+  reason?: string;
+}
+
 export interface ExtractInput {
   source: "website" | "fanpage";
   content: string;
   locale?: string;
   organizationId?: string;
   hint?: string; // e.g. domain, page name
+  onProgress?: (e: ExtractProgressEvent) => void;
 }
 
 export async function extractBrandSuggestions(
@@ -120,7 +129,18 @@ export async function extractBrandSuggestions(
 
   let result: any = null;
   let lastError = "";
-  for (const modelOverride of FALLBACK_MODELS) {
+  for (let i = 0; i < FALLBACK_MODELS.length; i++) {
+    const modelOverride = FALLBACK_MODELS[i];
+    const modelLabel = modelOverride || "primary";
+    try {
+      input.onProgress?.({
+        type: i === 0 ? "model_attempt" : "model_fallback",
+        model: modelLabel,
+        attempt: i + 1,
+        total: FALLBACK_MODELS.length,
+        reason: i === 0 ? undefined : lastError,
+      });
+    } catch { /* ignore */ }
     result = await callAI({
       functionName: "import-brand-extractor",
       organizationId: input.organizationId,
@@ -135,8 +155,8 @@ export async function extractBrandSuggestions(
     if (result.success) break;
     lastError = result.error || "";
     const isQuota = /402|429|quota|payment|rate limit/i.test(lastError);
-    if (!isQuota) break; // only fall back on quota errors
-    console.warn(`[brand-extractor] model failed (${modelOverride || "primary"}): ${lastError} — trying next`);
+    if (!isQuota) break;
+    console.warn(`[brand-extractor] model failed (${modelLabel}): ${lastError} — trying next`);
   }
 
   if (!result?.success) {
