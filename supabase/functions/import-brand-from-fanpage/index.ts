@@ -41,6 +41,14 @@ Deno.serve(withPerf({ functionName: "import-brand-from-fanpage" }, async (req) =
 
     if (!connId) return json({ error: "social_connection_id required" }, 400);
 
+    const [orchCfg, extrCfg] = await Promise.all([
+      getAIConfig("import-brand-from-fanpage", organizationId).catch(() => null),
+      getAIConfig("import-brand-extractor", organizationId).catch(() => null),
+    ]);
+    if (orchCfg?.is_enabled === false || extrCfg?.is_enabled === false) {
+      return json({ error: "Tính năng Import Brand đang tạm ngưng (Admin)", code: "FEATURE_DISABLED" }, 503);
+    }
+
     const { data: conn, error: connErr } = await supabase
       .from("social_connections")
       .select("id, platform, platform_user_id, platform_display_name, access_token, user_id, organization_id, brand_template_id, metadata")
