@@ -778,7 +778,7 @@ async function runImport(
           }
           return merged;
         })(),
-        theme_color: visuals.theme_color || palette.primary,
+        theme_color: (visuals.theme_color && !isNeutralColor(visuals.theme_color)) ? visuals.theme_color : (palette.primary && !isNeutralColor(palette.primary) ? palette.primary : null),
         color_palette: palette,
         footer_info: mergedFooter,
         discovered_subpages: autoDiscovered,
