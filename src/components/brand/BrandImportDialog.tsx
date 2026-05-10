@@ -19,7 +19,7 @@ import { BrandImportProgressPanel } from './BrandImportProgressPanel';
 import { useGlobalPacksForBrandSelection, type GlobalPackForSelection } from '@/hooks/useGlobalPacksForBrandSelection';
 import { smartFilter } from '@/lib/industrySearch';
 import { Check } from 'lucide-react';
-import { BRAND_POSITIONING_LABELS, FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
+import { FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
 
 interface BrandImportDialogProps {
   open: boolean;
