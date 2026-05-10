@@ -172,13 +172,6 @@ export function BrandEmptyState({ onCreateNew, onImportFromUrl }: BrandEmptyStat
             </Button>
           </div>
         )}
-                duration: 2,
-                repeat: Infinity,
-                repeatDelay: 3,
-              }}
-            />
-          </Button>
-        </motion.div>
       </motion.div>
 
       {/* Feature hints */}
