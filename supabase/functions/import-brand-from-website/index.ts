@@ -575,24 +575,41 @@ async function runImport(
     message: "Đang trích xuất logo & màu chủ đạo",
   });
   const visuals = extractVisualSignals(home.html, targetUrl);
+  const palette = extractColorPalette(home.html);
   const footerRegex = extractFooterSignals(home.html, targetUrl);
 
-  if (extraPaths.length > 0) {
+  // Auto-discover subpages from header/nav (cap 3) and merge with client-supplied paths
+  const autoDiscovered = discoverSubpages(home.html, targetUrl, 3);
+  const mergedPathSet = new Set<string>();
+  const mergedPaths: string[] = [];
+  for (const p of [...extraPaths, ...autoDiscovered]) {
+    const abs = normalizeUrl(p.startsWith("http") ? p : (() => { try { return new URL(p, targetUrl).toString(); } catch { return p; } })());
+    if (!abs) continue;
+    if (mergedPathSet.has(abs)) continue;
+    mergedPathSet.add(abs);
+    mergedPaths.push(abs);
+    if (mergedPaths.length >= 4) break;
+  }
+
+  if (autoDiscovered.length > 0) {
+    await emit?.("progress", {
+      step: "discover_subpages",
+      percent: 22,
+      message: `Tự động tìm thấy ${autoDiscovered.length} trang phụ liên quan`,
+    });
+  }
+
+  if (mergedPaths.length > 0) {
     await emit?.("progress", {
       step: "scrape_subpages",
       percent: 25,
-      message: `Đang đọc ${extraPaths.length} trang phụ (about, giới thiệu)`,
+      message: `Đang đọc ${mergedPaths.length} trang phụ (about, giới thiệu, dịch vụ)`,
     });
   }
 
   const subMarkdowns: string[] = [];
   await Promise.all(
-    extraPaths.map(async (p) => {
-      const sub = normalizeUrl(p.startsWith("http") ? p : new URL(p, targetUrl).toString());
-      if (!sub) {
-        await emit?.("subpage_done", { url: p, success: false, error: "bad url" });
-        return;
-      }
+    mergedPaths.map(async (sub) => {
       const r = await firecrawlScrape(sub, ["markdown"]);
       if (r.success && r.markdown) {
         subMarkdowns.push(r.markdown.slice(0, 4000));
