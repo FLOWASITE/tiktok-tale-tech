@@ -381,6 +381,25 @@ export default function BrandCreate() {
     }
   }, [importedSuggestion, editingTemplate]);
 
+  // Safety net: nếu user chuyển sang step "Giọng nói" mà các field còn trống
+  // nhưng payload import có dữ liệu → reapply 1 lần. Tránh trường hợp re-render
+  // hoặc dialog chọn ngành làm reset state.
+  useEffect(() => {
+    if (currentStep !== 4) return;
+    if (!importedSuggestion) return;
+    const s = normalizeBrandVoiceSuggestion(importedSuggestion.suggestion || {});
+    if (!brandPositioning && s.brand_positioning) {
+      setBrandPositioning(String(s.brand_positioning));
+    }
+    if ((!toneOfVoice || toneOfVoice.length === 0) && Array.isArray(s.tone_of_voice) && s.tone_of_voice.length > 0) {
+      setToneOfVoice(s.tone_of_voice as string[]);
+    }
+    if (!formalityLevel && s.formality_level) {
+      setFormalityLevel(s.formality_level);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, importedSuggestion]);
+
   const completionPercentage = useMemo(() => {
     let score = 0;
     if (name.trim()) score += 15;
