@@ -179,12 +179,24 @@ export function IndustrySelectionDialog({
       .filter((x): x is { pack: GlobalPackForSelection; suggestion: AiSuggestion } => !!x);
 
     // Split AI suggestions: primary (confidence >= 60) vs related (lower / extra)
-    const aiPrimary = aiPacks.filter(x => x.suggestion.confidence >= 60).slice(0, 3);
+    let aiPrimary = aiPacks.filter(x => x.suggestion.confidence >= 60).slice(0, 3);
     const primaryIds = new Set(aiPrimary.map(x => x.pack.id));
     const aiRelated = aiPacks.filter(x => !primaryIds.has(x.pack.id)).slice(0, 4);
 
+    // Fallback: nếu AI không trả gợi ý nào nhưng có suggestedContext, dùng smartFilter
+    // trên text "Ngành gợi ý: X" hoặc cả suggestedContext để chắc chắn user thấy danh sách.
+    if (aiPrimary.length === 0 && aiRelated.length === 0 && suggestedContext) {
+      const m = suggestedContext.match(/Ngành gợi ý:\s*([^\n]+)/i);
+      const hint = (m?.[1] || suggestedContext).trim();
+      const matches = smartFilter(packs, hint).slice(0, 5);
+      aiPrimary = matches.map(p => ({
+        pack: p,
+        suggestion: { packId: p.id, code: p.code, name: p.name, confidence: 50, reason: 'Khớp với mô tả từ import' } as AiSuggestion,
+      }));
+      matches.forEach(p => primaryIds.add(p.id));
+    }
+
     // Auto-derive extra related packs from same categories as top suggestions
-    // (helps user discover adjacent industries even when AI returns few items)
     const usedIds = new Set<string>([...primaryIds, ...aiRelated.map(x => x.pack.id)]);
     const seedCategories = new Set(
       aiPrimary.map(x => x.pack.categoryId).filter((c): c is string => !!c)
