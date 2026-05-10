@@ -261,6 +261,9 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         ...(result.raw_meta || {}),
         logo_url: effectiveLogo,
         selected_primary_color: selectedPrimaryColor,
+        selected_industry_pack: selectedIndustryPack
+          ? { id: selectedIndustryPack.id, code: selectedIndustryPack.code, name: selectedIndustryPack.name }
+          : null,
       },
     };
     if (!targetBrand) {
