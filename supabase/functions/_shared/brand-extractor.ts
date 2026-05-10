@@ -45,6 +45,8 @@ Rules:
 - All free-text values MUST be in the user's locale (default Vietnamese).
 - Be conservative: if a field is not clearly evidenced in the source, return null / empty array. Do NOT invent.
 - tone_of_voice: 3-5 short labels (e.g. "Chuyên nghiệp", "Ấm áp", "Hài hước"). Base each label on **concrete evidence** from the source (opening sentences, pronouns/forms of address, formality, sentence length). NEVER use generic clichés like "Sáng tạo", "Đột phá" without textual proof.
+- brand_positioning: ONE concise sentence (≤200 chars) stating the brand's market position, derived from tagline + mission + USPs + tone. Format: "[Brand] là [category] dành cho [audience], giúp [benefit]" hoặc tự do 1 câu. Null if source lacks evidence.
+- formality_level: classify as exactly one of "casual" | "neutral" | "formal" based on pronouns/address (anh/chị, quý khách = formal; bạn = neutral; mình, tao/tớ = casual). Null if source too short to judge.
 - mission: ONE concise sentence answering "why we exist" — NOT a marketing slogan. If the source only contains taglines, return null.
 - content_pillars: 3-5 items, each with a short name + 1-sentence description.
 - usps: 3-5 **defensible** unique selling points — must be backed by numbers, years of experience, certifications, proprietary tech, awards, or specific guarantees pulled from the source. REJECT vague claims like "chất lượng cao", "uy tín hàng đầu", "tận tâm" — those are filler.
