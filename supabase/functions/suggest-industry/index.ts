@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
         };
       })
       .filter(Boolean)
-      .slice(0, 3);
+      .slice(0, 5);
 
     return new Response(JSON.stringify({ suggestions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
