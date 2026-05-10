@@ -27,6 +27,11 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 interface LocationState {
   editTemplate?: BrandTemplate;
   focusFooterInfo?: boolean;
+  importedSuggestion?: {
+    suggestion: any;
+    raw_meta?: any;
+    source?: 'website' | 'fanpage';
+  };
 }
 
 type BrandFormData = Omit<BrandTemplate, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'organization_id'>;
@@ -37,6 +42,7 @@ export default function BrandCreate() {
   const locationState = location.state as LocationState | null;
   const editingTemplateFromState = locationState?.editTemplate || null;
   const focusFooterInfo = locationState?.focusFooterInfo || false;
+  const importedSuggestion = locationState?.importedSuggestion || null;
 
   const { templates, saveTemplate, updateTemplate, uploadLogo, deleteLogo, refetch } = useBrandTemplates();
 
