@@ -154,6 +154,7 @@ export default function BrandCreate() {
 
   // Hydration flag to prevent re-running form population on every render
   const hasHydratedRef = useRef(false);
+  const importedLogoUrlRef = useRef<string | null>(null);
 
   // Populate form with editing template data - ONLY ONCE
   useEffect(() => {
@@ -238,8 +239,13 @@ export default function BrandCreate() {
         // Setting via setBrandGuideline isn't right; we don't have direct setter here for pillars in this form.
         // Most pillars are managed in DNA step. Will be available via editingTemplate after first save.
       }
-      const logo = meta.picture || meta.og_image;
-      if (logo) setLogoPreview(logo);
+      const logo = s.logo_url || meta.logo_url || meta.picture || meta.og_image;
+      if (logo) {
+        setLogoPreview(logo);
+        importedLogoUrlRef.current = logo;
+      }
+      const color = s.primary_color || meta.theme_color || s.primary_color_suggestion;
+      if (color && /^#[0-9a-fA-F]{6}$/.test(color)) setPrimaryColor(color);
       setShowStartChooser(false);
       setImportDialogOpen(false);
       setShowQuickStart(false);
@@ -355,6 +361,9 @@ export default function BrandCreate() {
           await deleteLogo(editingTemplate.logo_url);
         }
         logoUrl = await uploadLogo(logoFile);
+      } else if (!deletingLogo && !editingTemplate?.logo_url && importedLogoUrlRef.current) {
+        // Persist remote logo URL imported from website/fanpage (no re-upload).
+        logoUrl = importedLogoUrlRef.current;
       }
 
       const formData = {
