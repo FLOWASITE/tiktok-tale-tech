@@ -223,7 +223,7 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
                       )}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2">
                         <Switch
                           checked={pack.isPopular}
                           onCheckedChange={() => handleTogglePopular(pack.id, pack.isPopular, pack.popularSortOrder)}
