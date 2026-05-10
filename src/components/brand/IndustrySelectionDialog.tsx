@@ -387,8 +387,61 @@ export function IndustrySelectionDialog({
                 ))}
               </div>
             ) : (
-              // Default: Popular + All categories list
+              // Default: AI suggestions + Recently used + Popular + All categories
               <div className="space-y-4">
+                {/* AI Suggestions */}
+                {(aiLoading || aiSuggestedPacks.length > 0) && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                    <h4 className="text-xs font-medium text-primary uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <Wand2 className="w-3.5 h-3.5" />
+                      AI gợi ý cho bạn
+                    </h4>
+                    {aiLoading ? (
+                      <div className="space-y-1.5">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {aiSuggestedPacks.map(({ pack, suggestion }) => (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            onClick={() => handleSelect(pack)}
+                            className="flex items-center gap-3 w-full p-2.5 rounded-lg border bg-card text-left transition-all active:scale-[0.97] hover:border-primary"
+                          >
+                            <div className="p-1.5 rounded-lg bg-muted shrink-0">{getIcon(pack.code, 'sm')}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm truncate">{pack.shortName || pack.name}</h4>
+                                <Badge variant="secondary" className="text-[10px] shrink-0">{suggestion.confidence}%</Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{suggestion.reason}</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recently used */}
+                {recentlyUsedPacks.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      Đã dùng gần đây
+                    </h4>
+                    <div className="space-y-1.5">
+                      {recentlyUsedPacks.map((pack) => (
+                        <IndustryCard key={pack.id} pack={pack} compact />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Popular */}
                 <div>
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
