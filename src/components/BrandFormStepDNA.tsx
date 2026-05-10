@@ -27,44 +27,45 @@ import {
   Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BRAND_POSITIONING_LABELS, FORMALITY_LEVEL_LABELS, TONE_OF_VOICE_LABELS } from '@/lib/brandVoiceNormalization';
 
 // Brand Voice Constants
 export const BRAND_POSITIONING_OPTIONS = [
-  { value: 'business', label: 'Doanh nghiệp' },
-  { value: 'expert', label: 'Chuyên gia' },
-  { value: 'agency', label: 'Agency' },
-  { value: 'consultant', label: 'Tư vấn' },
+  { value: 'business', label: BRAND_POSITIONING_LABELS.business },
+  { value: 'expert', label: BRAND_POSITIONING_LABELS.expert },
+  { value: 'agency', label: BRAND_POSITIONING_LABELS.agency },
+  { value: 'consultant', label: BRAND_POSITIONING_LABELS.consultant },
 ];
 
 export const TONE_OF_VOICE_OPTIONS = [
-  { value: 'expert', label: 'Chuyên gia', suggestEmoji: false },
-  { value: 'calm', label: 'Điềm tĩnh', suggestEmoji: false },
-  { value: 'confident', label: 'Tự tin', suggestEmoji: false },
-  { value: 'friendly', label: 'Thân thiện', suggestEmoji: true },
-  { value: 'analytical', label: 'Phân tích', suggestEmoji: false },
-  { value: 'serious', label: 'Nghiêm túc', suggestEmoji: false },
-  { value: 'inspirational', label: 'Truyền cảm hứng', suggestEmoji: true },
+  { value: 'expert', label: TONE_OF_VOICE_LABELS.expert, suggestEmoji: false },
+  { value: 'calm', label: TONE_OF_VOICE_LABELS.calm, suggestEmoji: false },
+  { value: 'confident', label: TONE_OF_VOICE_LABELS.confident, suggestEmoji: false },
+  { value: 'friendly', label: TONE_OF_VOICE_LABELS.friendly, suggestEmoji: true },
+  { value: 'analytical', label: TONE_OF_VOICE_LABELS.analytical, suggestEmoji: false },
+  { value: 'serious', label: TONE_OF_VOICE_LABELS.serious, suggestEmoji: false },
+  { value: 'inspirational', label: TONE_OF_VOICE_LABELS.inspirational, suggestEmoji: true },
 ];
 
 export const FORMALITY_LEVEL_OPTIONS = [
   { 
     value: 'formal', 
-    label: 'Trang trọng',
+    label: FORMALITY_LEVEL_LABELS.formal,
     hint: 'Ngắn gọn, súc tích • Không từ lóng • Câu cấu trúc chặt chẽ'
   },
   { 
     value: 'semi_formal', 
-    label: 'Bán trang trọng',
+    label: FORMALITY_LEVEL_LABELS.semi_formal,
     hint: 'Rõ ràng, trực tiếp • Có cấu trúc • Không khoa trương'
   },
   { 
     value: 'casual', 
-    label: 'Gần gũi',
+    label: FORMALITY_LEVEL_LABELS.casual,
     hint: 'Cân bằng giữa trang trọng và thân thiện • Linh hoạt theo ngữ cảnh'
   },
   { 
     value: 'friendly', 
-    label: 'Thân thiện',
+    label: FORMALITY_LEVEL_LABELS.friendly,
     hint: 'Thoải mái, tự nhiên • Cho phép từ ngữ đời thường • Có thể dùng emoji'
   },
 ];
