@@ -283,6 +283,18 @@ async function runImport(
         og_image: meta.ogImage || meta.image || null,
         favicon: meta.favicon || null,
         logo_url: visuals.logo_url || meta.ogImage || meta.image || meta.favicon || null,
+        logo_candidates: (() => {
+          const merged = [...visuals.logo_candidates];
+          const seen = new Set(merged.map((c) => c.url));
+          for (const [u, src] of [
+            [meta.ogImage, "meta:og_image"],
+            [meta.image, "meta:image"],
+            [meta.favicon, "meta:favicon"],
+          ] as const) {
+            if (u && !seen.has(u)) { merged.push({ url: u, source: src }); seen.add(u); }
+          }
+          return merged;
+        })(),
         theme_color: visuals.theme_color,
         scraped_pages: 1 + subMarkdowns.length,
       },
