@@ -488,6 +488,17 @@ export default function Brands() {
             </SelectContent>
           </Select>
           
+          {/* Import from website / fanpage */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenImport}
+            className="h-9 shrink-0 gap-1.5"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Import từ web/FB</span>
+          </Button>
+          
           {/* Selection mode toggle */}
           <Button
             variant={isSelectionMode ? 'secondary' : 'outline'}
