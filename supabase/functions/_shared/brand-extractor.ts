@@ -109,11 +109,13 @@ export async function extractBrandSuggestions(
     "Now call the extract_brand tool with the structured profile.",
   ].filter(Boolean).join("\n");
 
-  // Try primary model + 2 fallbacks (handles 402/429 quota errors gracefully)
+  // Try primary model + multi-provider fallbacks (DashScope/Alibaba → Lovable Gateway)
+  // to survive 402/429 quota errors from any single provider.
   const FALLBACK_MODELS = [
-    undefined, // primary (admin-configured via ai_function_configs)
-    "google/gemini-2.5-flash-lite",
-    "google/gemini-3-flash-preview",
+    undefined,                       // primary từ admin config (default qwen-plus)
+    "qwen-turbo",                    // DashScope rẻ hơn, cùng provider
+    "google/gemini-2.5-flash",       // sang Lovable Gateway
+    "google/gemini-2.5-flash-lite",  // Lovable Gateway tier rẻ nhất
   ];
 
   let result: any = null;
