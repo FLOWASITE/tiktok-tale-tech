@@ -180,7 +180,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       updates.sample_texts = merged;
     }
     if (selectedFields.has('logo_url')) {
-      const logo = result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image;
+      const logo = selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image;
       if (logo) updates.logo_url = logo;
     }
     if (selectedFields.has('primary_color')) {
