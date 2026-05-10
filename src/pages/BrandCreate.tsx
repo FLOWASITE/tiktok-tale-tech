@@ -731,12 +731,37 @@ export default function BrandCreate() {
               {/* Step 1: Identity */}
               {currentStep === 1 && (
                 <>
-                {!colorChosenFromImport && importedColorCandidates.length > 1 && (
-                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                {/* Banner: Xác nhận ngành (sau import) */}
+                {!!importedSuggestion && industries.length === 0 && (
+                  <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-4 space-y-2 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center gap-2">
-                      <Palette className="w-4 h-4 text-muted-foreground" />
-                      <p className="text-sm font-medium">
-                        AI tìm thấy {importedColorCandidates.length} màu từ website — chọn màu chủ đạo:
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <p className="text-sm font-semibold text-foreground">
+                        Bước cuối: chọn ngành để áp dụng Industry Memory
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      AI đã đọc website của bạn. Hãy chọn ngành phù hợp nhất từ gợi ý để hệ thống tự áp Brand Voice + quy tắc tuân thủ.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setShowIndustryConfirmAfterImport(true)}
+                      className="gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Mở danh sách ngành AI gợi ý
+                    </Button>
+                  </div>
+                )}
+
+                {/* Banner: Chọn màu chủ đạo (sau import, có ≥2 candidate) */}
+                {!colorChosenFromImport && importedColorCandidates.length > 1 && (
+                  <div className="rounded-lg border-2 border-amber-500/40 bg-amber-500/5 p-4 space-y-2 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <p className="text-sm font-semibold text-foreground">
+                        Chưa chốt màu chủ đạo — chọn 1 màu:
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -749,13 +774,16 @@ export default function BrandCreate() {
                             setColorChosenFromImport(true);
                           }}
                           title={`${c.hex} · ${c.source}`}
-                          className="group flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 hover:border-primary transition-colors"
+                          className="group flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:border-primary hover:shadow-sm transition-all"
                         >
                           <span
-                            className="w-5 h-5 rounded border border-border/40"
+                            className="w-6 h-6 rounded border border-border/40"
                             style={{ backgroundColor: c.hex }}
                           />
-                          <span className="text-[11px] text-muted-foreground group-hover:text-foreground">
+                          <span className="text-[11px] text-muted-foreground group-hover:text-foreground tabular-nums">
+                            {c.hex}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/70 group-hover:text-muted-foreground border-l border-border/40 pl-1.5">
                             {c.source}
                           </span>
                         </button>
