@@ -254,6 +254,15 @@ export async function extractBrandSuggestions(
     usps: arrayOfStrings(args.usps).slice(0, 6).map((s) => s.slice(0, 200)),
     sample_texts: arrayOfStrings(args.sample_texts).slice(0, 6).map((s) => s.slice(0, 400)),
     primary_color_suggestion: normalizeHex(args.primary_color_suggestion),
+    footer_info: args.footer_info && typeof args.footer_info === "object"
+      ? {
+        company_name: trimOrNull(args.footer_info.company_name),
+        address: trimOrNull(args.footer_info.address),
+        phone: trimOrNull(args.footer_info.phone),
+        email: trimOrNull(args.footer_info.email),
+        tax_code: trimOrNull(args.footer_info.tax_code),
+      }
+      : null,
   };
 
   return { success: true, suggestion };
