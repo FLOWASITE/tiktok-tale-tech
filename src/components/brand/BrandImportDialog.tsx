@@ -279,7 +279,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
       case 'logo_url': return selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
-      case 'primary_color': return result.raw_meta?.theme_color || s.primary_color_suggestion || null;
+      case 'primary_color': return result.raw_meta?.color_palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion || null;
       case 'footer_info': {
         const f = result.raw_meta?.footer_info;
         if (!f) return null;
