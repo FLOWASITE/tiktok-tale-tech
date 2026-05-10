@@ -145,6 +145,8 @@ export function IndustrySelectionDialog({
     popularPacks,
     recentlyUsedPacks,
     aiSuggestedPacks,
+    aiRelatedPacks,
+    categoryRelatedPacks,
   } = useMemo(() => {
     const cores = packs.filter(p => p.industryLevel === 'core');
     const subs = packs.filter(p => p.industryLevel === 'sub');
