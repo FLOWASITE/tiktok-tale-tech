@@ -107,6 +107,9 @@ export default function BrandCreate() {
     !editingTemplate && !locationState?.importedSuggestion,
   );
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [showIndustryConfirmAfterImport, setShowIndustryConfirmAfterImport] = useState(false);
+  const [colorChosenFromImport, setColorChosenFromImport] = useState(false);
+  const [importedColorCandidates, setImportedColorCandidates] = useState<Array<{ hex: string; source: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state - same as BrandForm
