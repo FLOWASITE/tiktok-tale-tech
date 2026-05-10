@@ -249,6 +249,11 @@ export async function extractBrandSuggestions(
       }
       : null,
     tone_of_voice: arrayOfStrings(args.tone_of_voice).slice(0, 6),
+    brand_positioning: (() => {
+      const t = trimOrNull(args.brand_positioning);
+      return t ? t.slice(0, 280) : null;
+    })(),
+    formality_level: (['casual', 'neutral', 'formal'] as const).includes(args.formality_level) ? args.formality_level : null,
     content_pillars: Array.isArray(args.content_pillars)
       ? args.content_pillars
         .filter((p: any) => p && typeof p.name === "string" && p.name.trim())
