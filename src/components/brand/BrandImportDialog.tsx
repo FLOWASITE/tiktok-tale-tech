@@ -288,7 +288,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         </DialogHeader>
 
         {!result ? (
-          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1 space-y-4">
             {loading && (
               <BrandImportProgressPanel progress={progress} events={events} onCancel={cancel} />
             )}
