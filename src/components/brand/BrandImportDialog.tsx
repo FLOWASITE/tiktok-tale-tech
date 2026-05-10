@@ -57,6 +57,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   const [result, setResult] = useState<BrandImportResult | null>(null);
   const [selectedFields, setSelectedFields] = useState<Set<ImportableField>>(new Set());
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
+  const [selectedPrimaryColor, setSelectedPrimaryColor] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
 
   const logoCandidates = useMemo(() => {
@@ -88,6 +89,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       setResult(null);
       setSelectedFields(new Set());
       setSelectedLogoUrl(null);
+      setSelectedPrimaryColor(null);
       setTab('website');
     }
   }, [open]);
@@ -95,12 +97,14 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   // Auto-select all available fields once result arrives
   useEffect(() => {
     if (!result) return;
+    const isCreatingNew = !targetBrand;
     const next = new Set<ImportableField>();
     const s = result.suggestion;
     if (s.brand_name) next.add('brand_name');
     if (s.tagline) next.add('tagline');
     if (s.mission) next.add('mission');
-    if (s.industry_suggestion) next.add('industry');
+    // KHÔNG auto-check ngành khi tạo brand mới — bắt user xác nhận trong IndustrySelectionDialog
+    if (!isCreatingNew && s.industry_suggestion) next.add('industry');
     if (s.target_audience && (s.target_audience.age_range || s.target_audience.gender || (s.target_audience.locations?.length ?? 0) > 0)) {
       next.add('target_audience');
     }
@@ -109,7 +113,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
     if (result.raw_meta?.logo_url || result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
-    if (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion) next.add('primary_color');
+    // KHÔNG auto-check màu khi tạo brand mới — user phải tự chọn swatch
+    if (!isCreatingNew && (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion)) next.add('primary_color');
     const f = result.raw_meta?.footer_info;
     if (f && (f.company_name || f.phone || f.email || f.address || f.tax_code || (f.social_links && Object.keys(f.social_links).length))) {
       next.add('footer_info');
@@ -120,7 +125,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     const firstLogo = (Array.isArray(meta.logo_candidates) && meta.logo_candidates[0]?.url)
       || meta.logo_url || meta.picture || meta.og_image || null;
     setSelectedLogoUrl(firstLogo);
-  }, [result]);
+    setSelectedPrimaryColor(null);
+  }, [result, targetBrand]);
 
   const handleAnalyze = async () => {
     if (tab === 'website') {
@@ -190,7 +196,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     }
     if (selectedFields.has('primary_color')) {
       const palette = (result.raw_meta as any)?.color_palette;
-      const color = palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion;
+      const color = selectedPrimaryColor || palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion;
       if (color) updates.primary_color = color;
       const candidates: string[] = Array.isArray(palette?.candidates) ? palette.candidates : [];
       const secondaries = candidates.filter((c) => c && c !== color).slice(0, 4);
@@ -222,11 +228,15 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
 
   const handleApply = async () => {
     if (!result) return;
-    // Inject user's selected logo into raw_meta so downstream consumers (BrandCreate hydrate) honor it
+    // Inject user's selected logo + selected primary color into raw_meta so downstream consumers (BrandCreate hydrate) honor it
     const effectiveLogo = selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
     const enriched: BrandImportResult = {
       ...result,
-      raw_meta: { ...(result.raw_meta || {}), logo_url: effectiveLogo },
+      raw_meta: {
+        ...(result.raw_meta || {}),
+        logo_url: effectiveLogo,
+        selected_primary_color: selectedPrimaryColor,
+      },
     };
     if (!targetBrand) {
       // No target — pass back to caller (e.g. open create-form prefilled)
@@ -482,19 +492,40 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                               </div>
                             ) : isColor && (result?.raw_meta?.color_palette?.candidates?.length ?? 0) > 1 ? (
                               <div className="space-y-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {(result!.raw_meta!.color_palette!.candidates as string[]).slice(0, 6).map((hex: string, i: number) => (
-                                    <div key={hex} className="flex flex-col items-center gap-1">
-                                      <span
-                                        className="w-9 h-9 rounded-md border shadow-sm"
-                                        style={{ backgroundColor: hex }}
+                                <p className="text-[11px] text-muted-foreground">
+                                  Click chọn màu chủ đạo:
+                                </p>
+                                <div
+                                  className="flex items-start gap-2 flex-wrap"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  {(result!.raw_meta!.color_palette!.candidates as string[]).slice(0, 6).map((hex: string, i: number) => {
+                                    const active = (selectedPrimaryColor || palette?.primary) === hex;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={hex}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedPrimaryColor(hex);
+                                          setSelectedFields((prev) => new Set(prev).add('primary_color'));
+                                        }}
                                         title={hex}
-                                      />
-                                      <span className="text-[10px] text-muted-foreground tabular-nums">
-                                        {i === 0 ? 'Primary' : i === 1 ? 'Secondary' : i === 2 ? 'Accent' : hex}
-                                      </span>
-                                    </div>
-                                  ))}
+                                        className={`flex flex-col items-center gap-1 rounded-md p-1 transition-all ${
+                                          active ? 'ring-2 ring-primary ring-offset-1' : 'hover:ring-1 hover:ring-muted-foreground/40'
+                                        }`}
+                                      >
+                                        <span
+                                          className="w-9 h-9 rounded-md border shadow-sm"
+                                          style={{ backgroundColor: hex }}
+                                        />
+                                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                                          {i === 0 ? 'Primary' : i === 1 ? 'Secondary' : i === 2 ? 'Accent' : hex}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">
                                   Nguồn: {({ logo: 'logo brand', 'css-vars': 'CSS biến', meta: 'meta theme-color', frequency: 'tần suất xuất hiện', ai: 'AI đoán', mixed: 'kết hợp', none: 'không rõ' } as Record<string, string>)[palette?.source || 'none'] || palette?.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
