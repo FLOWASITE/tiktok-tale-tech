@@ -112,16 +112,17 @@ export function GlobalPacksTable({ onSelectPack, selectedPackId }: GlobalPacksTa
   return (
     <Card>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
             Global Packs
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant={showActiveOnly ? 'default' : 'outline'}
               size="sm"
               onClick={() => setShowActiveOnly(!showActiveOnly)}
+              className="flex-1 sm:flex-initial"
             >
               {showActiveOnly ? 'Active Only' : 'All Packs'}
             </Button>
