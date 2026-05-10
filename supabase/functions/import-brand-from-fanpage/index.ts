@@ -146,6 +146,16 @@ async function runImport(
         category: infoData.category || null,
         picture: infoData.picture?.data?.url || null,
         logo_url: infoData.picture?.data?.url || null,
+        logo_candidates: (() => {
+          const arr: Array<{ url: string; source: string }> = [];
+          const seen = new Set<string>();
+          const add = (url: string | null | undefined, source: string) => {
+            if (url && !seen.has(url)) { arr.push({ url, source }); seen.add(url); }
+          };
+          add(infoData.picture?.data?.url, "fanpage:avatar");
+          add(infoData.cover?.source, "fanpage:cover");
+          return arr;
+        })(),
         theme_color: null,
         fan_count: infoData.fan_count ?? null,
         followers_count: infoData.followers_count ?? null,
