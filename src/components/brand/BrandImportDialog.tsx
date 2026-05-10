@@ -33,6 +33,7 @@ const ALL_FIELDS: { key: ImportableField; label: string; group: string }[] = [
   { key: 'industry', label: 'Ngành (gợi ý)', group: 'Identity' },
   { key: 'target_audience', label: 'Đối tượng mục tiêu', group: 'Identity' },
   { key: 'logo_url', label: 'Logo', group: 'Identity' },
+  { key: 'primary_color', label: 'Màu chủ đạo', group: 'Identity' },
   { key: 'tone_of_voice', label: 'Tone of voice', group: 'Voice' },
   { key: 'sample_texts', label: 'Sample texts (clone voice)', group: 'Voice' },
   { key: 'content_pillars', label: 'Content pillars', group: 'Strategy' },
@@ -87,7 +88,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if ((s.sample_texts?.length ?? 0) > 0) next.add('sample_texts');
     if ((s.content_pillars?.length ?? 0) > 0) next.add('content_pillars');
     if ((s.usps?.length ?? 0) > 0) next.add('usps');
-    if (result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
+    if (result.raw_meta?.logo_url || result.raw_meta?.og_image || result.raw_meta?.picture) next.add('logo_url');
+    if (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion) next.add('primary_color');
     if (result.source === 'fanpage') next.add('attach_fanpage');
     setSelectedFields(next);
   }, [result]);
@@ -155,8 +157,12 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       updates.sample_texts = merged;
     }
     if (selectedFields.has('logo_url')) {
-      const logo = result.raw_meta?.picture || result.raw_meta?.og_image;
+      const logo = result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image;
       if (logo) updates.logo_url = logo;
+    }
+    if (selectedFields.has('primary_color')) {
+      const color = result.raw_meta?.theme_color || s.primary_color_suggestion;
+      if (color) updates.primary_color = color;
     }
     updates.imported_from = {
       source: result.source,
@@ -224,7 +230,8 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'content_pillars': return s.content_pillars?.map((p) => p.name).join(' • ') || null;
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
-      case 'logo_url': return result.raw_meta?.picture || result.raw_meta?.og_image || null;
+      case 'logo_url': return result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
+      case 'primary_color': return result.raw_meta?.theme_color || s.primary_color_suggestion || null;
       case 'attach_fanpage':
         return result.source === 'fanpage' ? `Page: ${result.raw_meta?.page_name || result.raw_meta?.page_id}` : null;
     }
@@ -418,6 +425,7 @@ function readExistingFieldLabel(brand: BrandTemplate | null | undefined, key: Im
       return n ? `${n} đoạn hiện có (sẽ thêm vào)` : null;
     }
     case 'logo_url': return brand.logo_url || null;
+    case 'primary_color': return brand.primary_color || null;
     default: return null;
   }
 }
