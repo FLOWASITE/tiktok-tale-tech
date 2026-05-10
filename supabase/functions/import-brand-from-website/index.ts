@@ -490,6 +490,8 @@ async function runImport(
 
   await emit?.("progress", { step: "parsing", percent: 90, message: "Đang chuẩn hoá kết quả" });
 
+  const mergedFooter = mergeFooter(footerRegex, (extracted.suggestion as any)?.footer_info);
+
   return {
     status: 200,
     body: {
@@ -509,11 +511,12 @@ async function runImport(
             [meta.image, "meta:image"],
             [meta.favicon, "meta:favicon"],
           ] as const) {
-            if (u && !seen.has(u)) { merged.push({ url: u, source: src }); seen.add(u); }
+            if (u && !seen.has(u)) { merged.push({ url: u, source: src, score: 0 }); seen.add(u); }
           }
           return merged;
         })(),
         theme_color: visuals.theme_color,
+        footer_info: mergedFooter,
         scraped_pages: 1 + subMarkdowns.length,
       },
     },
