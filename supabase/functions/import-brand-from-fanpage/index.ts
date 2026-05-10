@@ -43,7 +43,7 @@ async function runImport(
     message: `Đang đọc thông tin page ${conn.platform_display_name || pageId}`,
   });
 
-  const fields = "name,about,bio,description,category,mission,founded,company_overview,products,general_info,website,fan_count,followers_count,picture.type(large){url}";
+  const fields = "name,about,bio,description,category,mission,founded,company_overview,products,general_info,website,fan_count,followers_count,picture.type(large){url},cover{source}";
   const infoUrl = `https://graph.facebook.com/v21.0/${pageId}?fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(pageToken)}`;
   const postsUrl = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=message,created_time&limit=20&access_token=${encodeURIComponent(pageToken)}`;
 
@@ -146,6 +146,16 @@ async function runImport(
         category: infoData.category || null,
         picture: infoData.picture?.data?.url || null,
         logo_url: infoData.picture?.data?.url || null,
+        logo_candidates: (() => {
+          const arr: Array<{ url: string; source: string }> = [];
+          const seen = new Set<string>();
+          const add = (url: string | null | undefined, source: string) => {
+            if (url && !seen.has(url)) { arr.push({ url, source }); seen.add(url); }
+          };
+          add(infoData.picture?.data?.url, "fanpage:avatar");
+          add(infoData.cover?.source, "fanpage:cover");
+          return arr;
+        })(),
         theme_color: null,
         fan_count: infoData.fan_count ?? null,
         followers_count: infoData.followers_count ?? null,

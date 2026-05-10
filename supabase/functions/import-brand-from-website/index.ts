@@ -82,38 +82,59 @@ function normalizeHex(v: string | undefined | null): string | null {
   return null;
 }
 
+interface LogoCandidate { url: string; source: string }
 interface VisualSignals {
   logo_url: string | null;
+  logo_candidates: LogoCandidate[];
   theme_color: string | null;
 }
 
 function extractVisualSignals(html: string | undefined, baseUrl: string): VisualSignals {
-  const out: VisualSignals = { logo_url: null, theme_color: null };
+  const out: VisualSignals = { logo_url: null, logo_candidates: [], theme_color: null };
   if (!html) return out;
 
-  // === Logo ===
-  // Priority: apple-touch-icon → og:image → icon (largest if size hint) → /favicon.ico
-  const candidates: string[] = [];
+  // === Logo candidates (preserve all, deduped) ===
+  const raw: LogoCandidate[] = [];
+  const push = (href: string | undefined, source: string) => {
+    if (!href) return;
+    const abs = resolveUrl(href, baseUrl);
+    if (abs) raw.push({ url: abs, source });
+  };
+
   const apple = html.match(/<link[^>]+rel=["'][^"']*apple-touch-icon[^"']*["'][^>]+href=["']([^"']+)["']/i)
     || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*apple-touch-icon[^"']*["']/i);
-  if (apple) candidates.push(apple[1]);
+  push(apple?.[1], "apple-touch-icon");
 
   const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
     || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  if (ogImage) candidates.push(ogImage[1]);
+  push(ogImage?.[1], "og:image");
 
-  // All <link rel="icon"> / "shortcut icon"
+  const twImage = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+  push(twImage?.[1], "twitter:image");
+
+  // <img> với class/alt chứa "logo"
+  const imgLogoRegex = /<img[^>]+(?:class|alt|id)=["'][^"']*logo[^"']*["'][^>]*>/gi;
+  for (const m of html.matchAll(imgLogoRegex)) {
+    const href = m[0].match(/src=["']([^"']+)["']/i);
+    push(href?.[1], "img.logo");
+  }
+
   const iconRegex = /<link[^>]+rel=["'][^"']*(?:shortcut\s+)?icon[^"']*["'][^>]*>/gi;
   for (const m of html.matchAll(iconRegex)) {
     const href = m[0].match(/href=["']([^"']+)["']/i);
-    if (href) candidates.push(href[1]);
+    push(href?.[1], "favicon");
   }
-  candidates.push("/favicon.ico");
+  push("/favicon.ico", "favicon-default");
 
-  for (const c of candidates) {
-    const abs = resolveUrl(c, baseUrl);
-    if (abs) { out.logo_url = abs; break; }
+  // Dedupe by url, keep first source
+  const seen = new Set<string>();
+  for (const c of raw) {
+    if (seen.has(c.url)) continue;
+    seen.add(c.url);
+    out.logo_candidates.push(c);
   }
+  out.logo_url = out.logo_candidates[0]?.url || null;
 
   // === Theme color ===
   const tc = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
@@ -262,6 +283,18 @@ async function runImport(
         og_image: meta.ogImage || meta.image || null,
         favicon: meta.favicon || null,
         logo_url: visuals.logo_url || meta.ogImage || meta.image || meta.favicon || null,
+        logo_candidates: (() => {
+          const merged = [...visuals.logo_candidates];
+          const seen = new Set(merged.map((c) => c.url));
+          for (const [u, src] of [
+            [meta.ogImage, "meta:og_image"],
+            [meta.image, "meta:image"],
+            [meta.favicon, "meta:favicon"],
+          ] as const) {
+            if (u && !seen.has(u)) { merged.push({ url: u, source: src }); seen.add(u); }
+          }
+          return merged;
+        })(),
         theme_color: visuals.theme_color,
         scraped_pages: 1 + subMarkdowns.length,
       },

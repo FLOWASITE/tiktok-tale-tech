@@ -55,7 +55,25 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   const [selectedFanpageId, setSelectedFanpageId] = useState<string>('');
   const [result, setResult] = useState<BrandImportResult | null>(null);
   const [selectedFields, setSelectedFields] = useState<Set<ImportableField>>(new Set());
+  const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+
+  const logoCandidates = useMemo(() => {
+    if (!result) return [] as Array<{ url: string; source: string }>;
+    const meta: any = result.raw_meta || {};
+    const arr: Array<{ url: string; source: string }> = Array.isArray(meta.logo_candidates) ? [...meta.logo_candidates] : [];
+    const seen = new Set(arr.map((c) => c.url));
+    const fallbacks: Array<[string | null | undefined, string]> = [
+      [meta.logo_url, 'logo'],
+      [meta.picture, 'picture'],
+      [meta.og_image, 'og:image'],
+      [meta.favicon, 'favicon'],
+    ];
+    for (const [u, s] of fallbacks) {
+      if (u && !seen.has(u)) { arr.push({ url: u, source: s }); seen.add(u); }
+    }
+    return arr;
+  }, [result]);
 
   const fanpages = useMemo(
     () => connections.filter((c) => c.platform === 'facebook' && c.is_active),
@@ -68,6 +86,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       setSelectedFanpageId('');
       setResult(null);
       setSelectedFields(new Set());
+      setSelectedLogoUrl(null);
       setTab('website');
     }
   }, [open]);
@@ -92,6 +111,10 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
     if (result.raw_meta?.theme_color || result.suggestion?.primary_color_suggestion) next.add('primary_color');
     if (result.source === 'fanpage') next.add('attach_fanpage');
     setSelectedFields(next);
+    const meta: any = result.raw_meta || {};
+    const firstLogo = (Array.isArray(meta.logo_candidates) && meta.logo_candidates[0]?.url)
+      || meta.logo_url || meta.picture || meta.og_image || null;
+    setSelectedLogoUrl(firstLogo);
   }, [result]);
 
   const handleAnalyze = async () => {
@@ -157,7 +180,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       updates.sample_texts = merged;
     }
     if (selectedFields.has('logo_url')) {
-      const logo = result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image;
+      const logo = selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image;
       if (logo) updates.logo_url = logo;
     }
     if (selectedFields.has('primary_color')) {
@@ -176,9 +199,15 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
 
   const handleApply = async () => {
     if (!result) return;
+    // Inject user's selected logo into raw_meta so downstream consumers (BrandCreate hydrate) honor it
+    const effectiveLogo = selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
+    const enriched: BrandImportResult = {
+      ...result,
+      raw_meta: { ...(result.raw_meta || {}), logo_url: effectiveLogo },
+    };
     if (!targetBrand) {
       // No target — pass back to caller (e.g. open create-form prefilled)
-      onApplied?.(null, result);
+      onApplied?.(null, enriched);
       onOpenChange(false);
       return;
     }
@@ -198,7 +227,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
         toast.success('Đã áp dụng vào brand', {
           description: `${selectedFields.size} nhóm dữ liệu đã được cập nhật`,
         });
-        onApplied?.(updated, result);
+        onApplied?.(updated, enriched);
         onOpenChange(false);
       }
     } finally {
@@ -230,7 +259,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'content_pillars': return s.content_pillars?.map((p) => p.name).join(' • ') || null;
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
-      case 'logo_url': return result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
+      case 'logo_url': return selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
       case 'primary_color': return result.raw_meta?.theme_color || s.primary_color_suggestion || null;
       case 'attach_fanpage':
         return result.source === 'fanpage' ? `Page: ${result.raw_meta?.page_name || result.raw_meta?.page_id}` : null;
@@ -367,23 +396,67 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                             {existing && (
                               <p className="text-xs text-muted-foreground line-through truncate">{existing}</p>
                             )}
-                            <div className="flex items-center gap-2">
-                              {isLogo && (
-                                <img
-                                  src={value as string}
-                                  alt="Logo"
-                                  className="w-10 h-10 rounded border bg-muted object-contain shrink-0"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                              )}
-                              {isColor && (
-                                <span
-                                  className="w-6 h-6 rounded border shrink-0"
-                                  style={{ backgroundColor: value as string }}
-                                />
-                              )}
-                              <p className="text-sm break-words flex-1 min-w-0">{value}</p>
-                            </div>
+                            {isLogo && logoCandidates.length > 1 ? (
+                              <div className="space-y-2">
+                                <p className="text-xs text-muted-foreground">
+                                  Tìm thấy {logoCandidates.length} logo. Chọn 1 để lưu:
+                                </p>
+                                <div
+                                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  {logoCandidates.map((c) => {
+                                    const active = (selectedLogoUrl || logoCandidates[0]?.url) === c.url;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={c.url}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedLogoUrl(c.url);
+                                          setSelectedFields((prev) => new Set(prev).add('logo_url'));
+                                        }}
+                                        title={c.source}
+                                        className={`shrink-0 w-16 h-16 rounded-md border-2 bg-muted p-1 transition-all ${
+                                          active
+                                            ? 'border-primary ring-2 ring-primary/30'
+                                            : 'border-border hover:border-muted-foreground/40'
+                                        }`}
+                                      >
+                                        <img
+                                          src={c.url}
+                                          alt={c.source}
+                                          className="w-full h-full object-contain"
+                                          onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.opacity = '0.3'; }}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  {selectedLogoUrl || logoCandidates[0]?.url}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                {isLogo && (
+                                  <img
+                                    src={value as string}
+                                    alt="Logo"
+                                    className="w-10 h-10 rounded border bg-muted object-contain shrink-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                )}
+                                {isColor && (
+                                  <span
+                                    className="w-6 h-6 rounded border shrink-0"
+                                    style={{ backgroundColor: value as string }}
+                                  />
+                                )}
+                                <p className="text-sm break-words flex-1 min-w-0">{value}</p>
+                              </div>
+                            )}
                           </div>
                         </label>
                       );
