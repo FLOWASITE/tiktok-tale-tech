@@ -462,13 +462,25 @@ export function IndustryBrowserV2({ onSelectPack, selectedPackId }: IndustryBrow
         onClick={() => onSelectPack?.(pack.id)}
       >
         <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
+          <div className="flex items-start justify-between mb-2 gap-2">
             <div className={`p-2 rounded-lg ${level.bgColor}`}>
               <Layers className={`h-4 w-4 ${level.color}`} />
             </div>
-            <Badge variant="outline" className={level.bgColor + ' ' + level.color}>
-              {level.label}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={(e) => handleTogglePopular(pack.id, (pack as any).is_popular === true, e)}
+                title={(pack as any).is_popular ? 'Bỏ khỏi Phổ biến' : 'Đánh dấu Phổ biến'}
+                aria-label="Toggle popular"
+              >
+                <Star className={`h-4 w-4 ${(pack as any).is_popular ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground'}`} />
+              </Button>
+              <Badge variant="outline" className={level.bgColor + ' ' + level.color}>
+                {level.label}
+              </Badge>
+            </div>
           </div>
           <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono block mb-1">
             {pack.industry_code}
