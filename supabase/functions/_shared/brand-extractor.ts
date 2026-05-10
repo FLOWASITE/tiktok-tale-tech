@@ -46,7 +46,8 @@ Rules:
 - content_pillars: 3-5 items, each with a short name + 1-sentence description.
 - usps: 3-5 concrete unique selling points pulled from the source.
 - sample_texts: 3-5 short paragraphs (40-180 chars each) pulled verbatim or lightly cleaned from the source — these will train brand voice cloning.
-- primary_color_suggestion: ONLY when the source clearly hints at a brand colour (industry mood, explicit colour mentions, visual language). Return a 7-char lowercase hex like "#dd0707". If unsure, return null. Never invent a random colour.`;
+- primary_color_suggestion: ONLY when the source clearly hints at a brand colour (industry mood, explicit colour mentions, visual language). Return a 7-char lowercase hex like "#dd0707". If unsure, return null. Never invent a random colour.
+- footer_info: extract company info from the legal/contact section at the bottom of the page (footer). NEVER invent phone numbers, emails, addresses, or tax codes — return null if not clearly evidenced. company_name = full legal company name (e.g. "Công ty TNHH ABC"). address = head office street address.`;
 
 const TOOL_SCHEMA = {
   type: "function" as const,
