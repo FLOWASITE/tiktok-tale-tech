@@ -38,6 +38,7 @@ export type ImportableField =
   | 'sample_texts'
   | 'logo_url'
   | 'primary_color'
+  | 'footer_info'
   | 'attach_fanpage';
 
 export interface BrandImportProgress {
