@@ -158,6 +158,27 @@ export function BrandEmptyState({ onCreateNew, onImportFromUrl }: BrandEmptyStat
             />
           </Button>
         </motion.div>
+
+        {onImportFromUrl && (
+          <div className="mt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onImportFromUrl}
+              className="text-muted-foreground hover:text-foreground gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Hoặc import từ website / fanpage
+            </Button>
+          </div>
+        )}
+                duration: 2,
+                repeat: Infinity,
+                repeatDelay: 3,
+              }}
+            />
+          </Button>
+        </motion.div>
       </motion.div>
 
       {/* Feature hints */}
