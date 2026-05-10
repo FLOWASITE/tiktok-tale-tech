@@ -644,6 +644,25 @@ async function runImport(
   const palette = extractColorPalette(home.html);
   const footerRegex = extractFooterSignals(home.html, targetUrl);
 
+  // Logo-based color is the most reliable signal — try it and prepend if found
+  const logoUrl = visuals.logo_url || (visuals.logo_candidates[0]?.url ?? null);
+  if (logoUrl) {
+    try {
+      const logoColor = await extractColorFromLogo(logoUrl);
+      if (logoColor && !isNeutralColor(logoColor)) {
+        const existing = palette.candidates.filter(c => c.toLowerCase() !== logoColor.toLowerCase());
+        palette.candidates = [logoColor, ...existing].slice(0, 6);
+        palette.primary = logoColor;
+        palette.secondary = palette.candidates[1] || palette.secondary;
+        palette.accent = palette.candidates[2] || palette.accent;
+        palette.source = "logo";
+        palette.confidence = "high";
+      }
+    } catch (e) {
+      console.warn("[runImport] logo color extraction failed:", (e as Error).message);
+    }
+  }
+
   // Auto-discover subpages from header/nav (cap 3) and merge with client-supplied paths
   const autoDiscovered = discoverSubpages(home.html, targetUrl, 3);
   const mergedPathSet = new Set<string>();
