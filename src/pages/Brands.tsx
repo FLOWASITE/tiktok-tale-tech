@@ -568,6 +568,13 @@ export default function Brands() {
                 <Plus className="w-3 h-3 inline mr-1" />
                 Tạo brand mới
               </button>
+              <button
+                onClick={handleOpenImport}
+                className="suggestion-chip hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              >
+                <Sparkles className="w-3 h-3 inline mr-1" />
+                Import từ web/fanpage
+              </button>
             </div>
           </motion.div>
         ) : (
