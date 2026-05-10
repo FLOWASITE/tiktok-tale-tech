@@ -19,7 +19,7 @@ type: feature
 
 ### Frontend
 - `BrandImportDialog`: thêm field `primary_color` trong `ALL_FIELDS`; auto-select khi có `theme_color` hoặc `primary_color_suggestion`. Render swatch + thumbnail logo. Badge "AI gợi ý" khi color đến từ AI.
-- `BrandCreate.tsx` hydrate effect: đọc `s.primary_color || meta.theme_color || s.primary_color_suggestion` → `setPrimaryColor`. Lưu logo URL vào `importedLogoUrlRef`.
+- `BrandCreate.tsx` hydrate effect: đọc `s.primary_color || meta.theme_color || s.primary_color_suggestion` → `setPrimaryColor`. Lưu logo URL vào `importedLogoUrlRef`. Hydrate thêm `setBrandPositioning(s.brand_positioning)` và `setFormalityLevel(s.formality_level)`.
 - `BrandCreate.handleSubmit`: nếu `!logoFile && !editingTemplate?.logo_url && importedLogoUrlRef.current` → lưu remote URL trực tiếp vào `logo_url` cột DB (không re-upload, giữ external URL).
 
 ### Why
