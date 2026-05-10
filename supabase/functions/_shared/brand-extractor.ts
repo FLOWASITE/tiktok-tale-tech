@@ -236,6 +236,12 @@ export async function extractBrandSuggestions(
     return { success: false, error: "AI returned no structured suggestion" };
   }
 
+  console.log("[brand-extractor] args keys:", Object.keys(args), {
+    has_tone: Array.isArray(args.tone_of_voice) ? args.tone_of_voice.length : 'no',
+    has_positioning: !!args.brand_positioning,
+    has_formality: args.formality_level ?? 'null',
+  });
+
   // Sanitize / clamp
   const suggestion: BrandSuggestion = {
     brand_name: trimOrNull(args.brand_name),
