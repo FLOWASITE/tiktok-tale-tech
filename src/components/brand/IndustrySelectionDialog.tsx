@@ -73,7 +73,7 @@ const INDUSTRY_ICONS: Record<string, React.ReactNode> = {
   services: <Wrench className="w-5 h-5" />,
 };
 
-const POPULAR_CODES = ['ecommerce', 'fnb', 'healthcare', 'realestate', 'it', 'fashion', 'beauty', 'education'];
+// Popular industries are now driven by `is_popular` flag in DB (admin-managed).
 
 interface AiSuggestion {
   packId: string;
