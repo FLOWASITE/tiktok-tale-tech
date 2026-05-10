@@ -14,7 +14,7 @@ const floatingIcons = [
   { Icon: Zap, delay: 0.6, x: 70, y: 50 },
 ];
 
-export function BrandEmptyState({ onCreateNew }: BrandEmptyStateProps) {
+export function BrandEmptyState({ onCreateNew, onImportFromUrl }: BrandEmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
       {/* Animated illustration container */}
