@@ -27,6 +27,13 @@ export interface BrandSuggestion {
   usps?: string[] | null;
   sample_texts?: string[] | null;
   primary_color_suggestion?: string | null;
+  footer_info?: {
+    company_name?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    tax_code?: string | null;
+  } | null;
 }
 
 const SYSTEM_PROMPT = `You are a senior brand strategist. You read raw website / social-page content and extract a structured brand profile.
@@ -39,7 +46,8 @@ Rules:
 - content_pillars: 3-5 items, each with a short name + 1-sentence description.
 - usps: 3-5 concrete unique selling points pulled from the source.
 - sample_texts: 3-5 short paragraphs (40-180 chars each) pulled verbatim or lightly cleaned from the source — these will train brand voice cloning.
-- primary_color_suggestion: ONLY when the source clearly hints at a brand colour (industry mood, explicit colour mentions, visual language). Return a 7-char lowercase hex like "#dd0707". If unsure, return null. Never invent a random colour.`;
+- primary_color_suggestion: ONLY when the source clearly hints at a brand colour (industry mood, explicit colour mentions, visual language). Return a 7-char lowercase hex like "#dd0707". If unsure, return null. Never invent a random colour.
+- footer_info: extract company info from the legal/contact section at the bottom of the page (footer). NEVER invent phone numbers, emails, addresses, or tax codes — return null if not clearly evidenced. company_name = full legal company name (e.g. "Công ty TNHH ABC"). address = head office street address.`;
 
 const TOOL_SCHEMA = {
   type: "function" as const,
@@ -76,6 +84,16 @@ const TOOL_SCHEMA = {
         usps: { type: "array", items: { type: "string" } },
         sample_texts: { type: "array", items: { type: "string" } },
         primary_color_suggestion: { type: ["string", "null"] },
+        footer_info: {
+          type: ["object", "null"],
+          properties: {
+            company_name: { type: ["string", "null"] },
+            address: { type: ["string", "null"] },
+            phone: { type: ["string", "null"] },
+            email: { type: ["string", "null"] },
+            tax_code: { type: ["string", "null"] },
+          },
+        },
       },
     },
   },
@@ -236,6 +254,15 @@ export async function extractBrandSuggestions(
     usps: arrayOfStrings(args.usps).slice(0, 6).map((s) => s.slice(0, 200)),
     sample_texts: arrayOfStrings(args.sample_texts).slice(0, 6).map((s) => s.slice(0, 400)),
     primary_color_suggestion: normalizeHex(args.primary_color_suggestion),
+    footer_info: args.footer_info && typeof args.footer_info === "object"
+      ? {
+        company_name: trimOrNull(args.footer_info.company_name),
+        address: trimOrNull(args.footer_info.address),
+        phone: trimOrNull(args.footer_info.phone),
+        email: trimOrNull(args.footer_info.email),
+        tax_code: trimOrNull(args.footer_info.tax_code),
+      }
+      : null,
   };
 
   return { success: true, suggestion };
