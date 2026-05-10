@@ -492,19 +492,40 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                               </div>
                             ) : isColor && (result?.raw_meta?.color_palette?.candidates?.length ?? 0) > 1 ? (
                               <div className="space-y-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {(result!.raw_meta!.color_palette!.candidates as string[]).slice(0, 6).map((hex: string, i: number) => (
-                                    <div key={hex} className="flex flex-col items-center gap-1">
-                                      <span
-                                        className="w-9 h-9 rounded-md border shadow-sm"
-                                        style={{ backgroundColor: hex }}
+                                <p className="text-[11px] text-muted-foreground">
+                                  Click chọn màu chủ đạo:
+                                </p>
+                                <div
+                                  className="flex items-start gap-2 flex-wrap"
+                                  onClick={(e) => e.preventDefault()}
+                                >
+                                  {(result!.raw_meta!.color_palette!.candidates as string[]).slice(0, 6).map((hex: string, i: number) => {
+                                    const active = (selectedPrimaryColor || palette?.primary) === hex;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={hex}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedPrimaryColor(hex);
+                                          setSelectedFields((prev) => new Set(prev).add('primary_color'));
+                                        }}
                                         title={hex}
-                                      />
-                                      <span className="text-[10px] text-muted-foreground tabular-nums">
-                                        {i === 0 ? 'Primary' : i === 1 ? 'Secondary' : i === 2 ? 'Accent' : hex}
-                                      </span>
-                                    </div>
-                                  ))}
+                                        className={`flex flex-col items-center gap-1 rounded-md p-1 transition-all ${
+                                          active ? 'ring-2 ring-primary ring-offset-1' : 'hover:ring-1 hover:ring-muted-foreground/40'
+                                        }`}
+                                      >
+                                        <span
+                                          className="w-9 h-9 rounded-md border shadow-sm"
+                                          style={{ backgroundColor: hex }}
+                                        />
+                                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                                          {i === 0 ? 'Primary' : i === 1 ? 'Secondary' : i === 2 ? 'Accent' : hex}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">
                                   Nguồn: {({ logo: 'logo brand', 'css-vars': 'CSS biến', meta: 'meta theme-color', frequency: 'tần suất xuất hiện', ai: 'AI đoán', mixed: 'kết hợp', none: 'không rõ' } as Record<string, string>)[palette?.source || 'none'] || palette?.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
