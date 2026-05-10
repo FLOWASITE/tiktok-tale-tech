@@ -57,6 +57,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
   const [result, setResult] = useState<BrandImportResult | null>(null);
   const [selectedFields, setSelectedFields] = useState<Set<ImportableField>>(new Set());
   const [selectedLogoUrl, setSelectedLogoUrl] = useState<string | null>(null);
+  const [selectedPrimaryColor, setSelectedPrimaryColor] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
 
   const logoCandidates = useMemo(() => {
