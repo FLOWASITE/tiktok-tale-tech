@@ -131,6 +131,12 @@ export function BrandFormStepDNA({
   const safeForbiddenWords = Array.isArray(forbiddenWords) ? forbiddenWords : [];
   const safeComplianceRules = Array.isArray(complianceRules) ? complianceRules : [];
 
+  // Keep a ref of latest tones to avoid StrictMode/double-invoke edge cases
+  const toneRef = useRef<string[]>(safeToneOfVoice);
+  useEffect(() => {
+    toneRef.current = safeToneOfVoice;
+  }, [safeToneOfVoice]);
+
   const addToArray = (
     value: string,
     setter: (value: string[]) => void,
