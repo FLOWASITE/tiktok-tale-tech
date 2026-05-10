@@ -396,8 +396,8 @@ export default function BrandCreate() {
     if (currentOrganization?.id) {
       supabase
         .rpc('record_industry_pack_use' as any, {
-          p_organization_id: currentOrganization.id,
-          p_pack_id: packData.id,
+          _org_id: currentOrganization.id,
+          _pack_id: packData.id,
         })
         .then(() => { refetchRecent(); })
         .then(undefined, (err) => console.warn('record_industry_pack_use failed:', err));
