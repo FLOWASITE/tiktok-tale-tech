@@ -228,6 +228,165 @@ function extractVisualSignals(html: string | undefined, baseUrl: string): Visual
 }
 
 // ============================================================
+// Subpage auto-discovery (About / Contact / Service)
+// ============================================================
+const SUBPAGE_KEYWORDS = [
+  "about", "gioi-thieu", "gioi_thieu", "ve-chung-toi", "ve-chung-toi",
+  "contact", "lien-he", "lienhe", "lien_he",
+  "service", "services", "dich-vu", "dichvu", "san-pham", "sanpham", "product", "products",
+];
+
+function discoverSubpages(html: string | undefined, baseUrl: string, max = 3): string[] {
+  if (!html) return [];
+  const baseOrigin = (() => { try { return new URL(baseUrl).origin; } catch { return ""; } })();
+  if (!baseOrigin) return [];
+
+  // Restrict scan to header + nav blocks (where primary navigation lives)
+  const navBlocks: string[] = [];
+  const headerMatch = html.match(/<header[\s\S]*?<\/header>/i);
+  if (headerMatch) navBlocks.push(headerMatch[0]);
+  for (const m of html.matchAll(/<nav[\s\S]*?<\/nav>/gi)) navBlocks.push(m[0]);
+  // Fallback: top 30% of body
+  if (navBlocks.length === 0) {
+    const body = html.match(/<body[\s\S]*?<\/body>/i)?.[0] || html;
+    navBlocks.push(body.slice(0, Math.floor(body.length * 0.3)));
+  }
+  const scope = navBlocks.join("\n");
+
+  const found = new Map<string, { url: string; rank: number }>();
+  for (const m of scope.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = m[1];
+    const linkText = stripHtml(m[2] || "").toLowerCase();
+    if (!href || href.startsWith("#") || href.startsWith("javascript:") || href.startsWith("mailto:") || href.startsWith("tel:")) continue;
+    const abs = resolveUrl(href, baseUrl);
+    if (!abs) continue;
+    let urlObj: URL;
+    try { urlObj = new URL(abs); } catch { continue; }
+    if (urlObj.origin !== baseOrigin) continue; // same-origin only
+    const path = urlObj.pathname.toLowerCase();
+    if (path === "/" || path === "") continue;
+
+    // Match keyword in path or link text
+    const haystack = `${path} ${linkText}`;
+    let rank = -1;
+    for (let i = 0; i < SUBPAGE_KEYWORDS.length; i++) {
+      if (haystack.includes(SUBPAGE_KEYWORDS[i])) { rank = i; break; }
+    }
+    if (rank === -1) continue;
+
+    // Strip query/hash to dedupe variants
+    const clean = `${urlObj.origin}${urlObj.pathname}`;
+    const prev = found.get(clean);
+    if (!prev || rank < prev.rank) found.set(clean, { url: clean, rank });
+  }
+
+  return [...found.values()]
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, max)
+    .map((x) => x.url);
+}
+
+// ============================================================
+// Color palette extraction (primary / secondary / accent)
+// ============================================================
+export interface ColorPalette {
+  primary: string | null;
+  secondary: string | null;
+  accent: string | null;
+  source: "css-vars" | "meta" | "frequency" | "mixed" | "none";
+  candidates: string[];
+}
+
+function isNeutralColor(hex: string): boolean {
+  const m = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return true;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  // Filter near-grayscale (low saturation) and near white/black
+  if (max - min < 25) return true;
+  if (max < 30) return true;       // near black
+  if (min > 235) return true;      // near white
+  return false;
+}
+
+function extractColorPalette(html: string | undefined): ColorPalette {
+  const out: ColorPalette = { primary: null, secondary: null, accent: null, source: "none", candidates: [] };
+  if (!html) return out;
+
+  const sources: Array<{ source: string; hex: string }> = [];
+
+  // 1) CSS custom properties in inline <style> blocks
+  const styleBlocks = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join("\n");
+  const cssVarRe = /--(?:primary|brand|brand-color|brand-\w+|accent|accent-\w+|secondary|color-primary|color-brand|color-accent)\s*:\s*([^;}\n]+)/gi;
+  for (const m of styleBlocks.matchAll(cssVarRe)) {
+    const hex = normalizeHex(m[1].trim());
+    if (hex) sources.push({ source: "css-vars", hex });
+  }
+
+  // 2) <meta name="theme-color"> + msapplication-TileColor
+  const tc = html.match(/<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i);
+  if (tc) {
+    const hex = normalizeHex(tc[1]);
+    if (hex) sources.push({ source: "meta", hex });
+  }
+  const tile = html.match(/<meta[^>]+name=["']msapplication-TileColor["'][^>]+content=["']([^"']+)["']/i);
+  if (tile) {
+    const hex = normalizeHex(tile[1]);
+    if (hex) sources.push({ source: "meta", hex });
+  }
+
+  // 3) Frequency of inline style="...color/background..." hex values
+  const freq = new Map<string, number>();
+  const inlineStyleRe = /style=["']([^"']+)["']/gi;
+  for (const m of html.matchAll(inlineStyleRe)) {
+    const decl = m[1];
+    for (const c of decl.matchAll(/#[0-9a-f]{3,6}\b/gi)) {
+      const hex = normalizeHex(c[0]);
+      if (!hex) continue;
+      freq.set(hex, (freq.get(hex) || 0) + 1);
+    }
+    for (const c of decl.matchAll(/rgba?\([^)]+\)/gi)) {
+      const hex = normalizeHex(c[0]);
+      if (!hex) continue;
+      freq.set(hex, (freq.get(hex) || 0) + 1);
+    }
+  }
+  const topFreq = [...freq.entries()]
+    .filter(([hex]) => !isNeutralColor(hex))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([hex]) => hex);
+
+  // Build deduped candidate list, preserving priority order: css-vars → meta → frequency
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  const sourceTags = new Set<string>();
+  for (const { source, hex } of sources) {
+    if (isNeutralColor(hex)) continue;
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    candidates.push(hex);
+    sourceTags.add(source);
+  }
+  for (const hex of topFreq) {
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    candidates.push(hex);
+    sourceTags.add("frequency");
+  }
+
+  if (candidates.length === 0) return out;
+
+  out.candidates = candidates.slice(0, 6);
+  out.primary = out.candidates[0] || null;
+  out.secondary = out.candidates[1] || null;
+  out.accent = out.candidates[2] || null;
+  out.source = sourceTags.size > 1 ? "mixed" : (sourceTags.values().next().value as ColorPalette["source"]) || "none";
+  return out;
+}
+
+// ============================================================
 // Footer / contact extraction
 // ============================================================
 export interface FooterInfo {
@@ -416,24 +575,41 @@ async function runImport(
     message: "Đang trích xuất logo & màu chủ đạo",
   });
   const visuals = extractVisualSignals(home.html, targetUrl);
+  const palette = extractColorPalette(home.html);
   const footerRegex = extractFooterSignals(home.html, targetUrl);
 
-  if (extraPaths.length > 0) {
+  // Auto-discover subpages from header/nav (cap 3) and merge with client-supplied paths
+  const autoDiscovered = discoverSubpages(home.html, targetUrl, 3);
+  const mergedPathSet = new Set<string>();
+  const mergedPaths: string[] = [];
+  for (const p of [...extraPaths, ...autoDiscovered]) {
+    const abs = normalizeUrl(p.startsWith("http") ? p : (() => { try { return new URL(p, targetUrl).toString(); } catch { return p; } })());
+    if (!abs) continue;
+    if (mergedPathSet.has(abs)) continue;
+    mergedPathSet.add(abs);
+    mergedPaths.push(abs);
+    if (mergedPaths.length >= 4) break;
+  }
+
+  if (autoDiscovered.length > 0) {
+    await emit?.("progress", {
+      step: "discover_subpages",
+      percent: 22,
+      message: `Tự động tìm thấy ${autoDiscovered.length} trang phụ liên quan`,
+    });
+  }
+
+  if (mergedPaths.length > 0) {
     await emit?.("progress", {
       step: "scrape_subpages",
       percent: 25,
-      message: `Đang đọc ${extraPaths.length} trang phụ (about, giới thiệu)`,
+      message: `Đang đọc ${mergedPaths.length} trang phụ (about, giới thiệu, dịch vụ)`,
     });
   }
 
   const subMarkdowns: string[] = [];
   await Promise.all(
-    extraPaths.map(async (p) => {
-      const sub = normalizeUrl(p.startsWith("http") ? p : new URL(p, targetUrl).toString());
-      if (!sub) {
-        await emit?.("subpage_done", { url: p, success: false, error: "bad url" });
-        return;
-      }
+    mergedPaths.map(async (sub) => {
       const r = await firecrawlScrape(sub, ["markdown"]);
       if (r.success && r.markdown) {
         subMarkdowns.push(r.markdown.slice(0, 4000));
@@ -515,8 +691,10 @@ async function runImport(
           }
           return merged;
         })(),
-        theme_color: visuals.theme_color,
+        theme_color: visuals.theme_color || palette.primary,
+        color_palette: palette,
         footer_info: mergedFooter,
+        discovered_subpages: autoDiscovered,
         scraped_pages: 1 + subMarkdowns.length,
       },
     },

@@ -244,8 +244,15 @@ export default function BrandCreate() {
         setLogoPreview(logo);
         importedLogoUrlRef.current = logo;
       }
-      const color = s.primary_color || meta.theme_color || s.primary_color_suggestion;
+      const palette = (meta as any)?.color_palette;
+      const color = s.primary_color || palette?.primary || meta.theme_color || s.primary_color_suggestion;
       if (color && /^#[0-9a-fA-F]{6}$/.test(color)) setPrimaryColor(color);
+      if (palette && Array.isArray(palette.candidates)) {
+        const extras = (palette.candidates as string[])
+          .filter((c) => /^#[0-9a-fA-F]{6}$/.test(c) && c.toLowerCase() !== (color || '').toLowerCase())
+          .slice(0, 4);
+        if (extras.length) setSecondaryColors(extras);
+      }
       const footer = meta.footer_info;
       if (footer && (footer.company_name || footer.phone || footer.email || footer.address || footer.tax_code || (footer.social_links && Object.keys(footer.social_links).length))) {
         setFooterInfo({

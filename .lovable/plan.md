@@ -1,127 +1,108 @@
 ## Mục tiêu
-Tăng độ chính xác khi import Brand:
-1. **Footer** (công ty / địa chỉ / SĐT / email / website / social links / MST) — hiện chưa được trích xuất.
-2. **Logo** — đang lấy nhưng còn nhiễu (favicon nhỏ, og:image banner). Cần ranking tốt hơn + nguồn mới (JSON-LD, `<header>` logo).
+Nâng cấp Brand Import lên "intelligence layer" thực sự — không chỉ scrape mà còn **suy luận chiến lược** (tone, USP, palette, multi-page context).
 
-## 1. Footer extraction (website)
+---
+
+## 1. Auto-discover subpages (About / Contact / Service)
+
+**Vấn đề:** Hiện `extraPaths` lấy từ client → user phải tự nhập. Footer + USP thường nằm ở `/about`, `/lien-he`, `/dich-vu` → bỏ lỡ context giàu nhất.
 
 **File:** `supabase/functions/import-brand-from-website/index.ts`
 
-Thêm hàm `extractFooterSignals(html, baseUrl)` chạy ngay sau `extractVisualSignals`:
+- Sau khi scrape homepage, parse `home.html` để extract toàn bộ `<a href>` trong `<header>` và `<nav>`.
+- Match keyword whitelist (case-insensitive): `about`, `gioi-thieu`, `gioi_thieu`, `ve-chung-toi`, `contact`, `lien-he`, `lienhe`, `service`, `dich-vu`, `san-pham`, `product`.
+- Resolve absolute URL, dedupe, filter same-origin only, **cap 3 paths** (giữ chi phí Firecrawl thấp).
+- **Merge** với `extraPaths` từ client (client paths thắng nếu trùng).
+- Nếu auto-discover ra ≥1 path → emit `progress` event riêng `step: "discover_subpages"` (percent 15) hiển thị "Tìm thấy 3 trang phụ liên quan".
 
-- Cô lập khối `<footer>...</footer>` (lấy block cuối nếu có nhiều). Nếu không có `<footer>`, fallback sang 30% cuối của `<body>`.
-- Strip HTML → text, rồi regex pattern (Vietnam-aware):
-  - **Email**: `/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi` + ưu tiên `mailto:`
-  - **Phone VN**: `/(?:\+84|0)(?:\d[\s.-]?){8,10}\d/g` + ưu tiên `tel:`
-  - **Tax code (MST)**: `/(?:MST|Mã số thuế|Tax code)[:\s]*([0-9]{10}(?:-[0-9]{3})?)/i`
-  - **Address**: lookup keyword "Địa chỉ", "Address", "Trụ sở", "Văn phòng" → lấy 1 dòng kế tiếp (max 200 chars). Hoặc lấy `itemprop="address"`.
-  - **Company name**: từ "Công ty", "Co., Ltd", "JSC" trong footer; fallback `og:site_name`; fallback domain.
-  - **Website**: dùng `targetUrl` (canonical) — không cần extract.
-- **Social links**: scan toàn bộ `<a href>` (cả footer + header) match domain whitelist: `facebook.com`, `instagram.com`, `youtube.com`, `tiktok.com`, `linkedin.com`, `twitter.com|x.com`, `threads.net`, `zalo.me|zalo.vn|zalo.com`, `pinterest.com`, `t.me` → output object `{ facebook: url, instagram: url, ... }`. Ignore share/intent links (`facebook.com/sharer`, `twitter.com/intent/tweet`).
-- Bonus: parse JSON-LD `<script type="application/ld+json">` tìm `Organization`/`LocalBusiness` → `name`, `address` (PostalAddress), `telephone`, `email`, `sameAs[]` → nguồn ưu tiên cao hơn regex.
+**Why:** Footer info + giá trị thương hiệu thường ở /about hơn homepage. Auto-discover loại bỏ ma sát "user phải biết URL nào".
 
-Output shape (camelCase, gắn vào `raw_meta.footer_info`):
+---
+
+## 2. Color palette đầy đủ (primary / secondary / accent)
+
+**File:** `supabase/functions/import-brand-from-website/index.ts` — refactor `extractVisualSignals`.
+
+Hiện chỉ trả `theme_color` (1 màu). Nâng lên `color_palette: { primary, secondary, accent, background?, text? }`.
+
+**Nguồn dữ liệu (theo độ tin cậy giảm dần):**
+1. **CSS custom properties trong `<style>` inline + `<link rel="stylesheet">` đầu tiên** — regex `--primary|--secondary|--accent|--brand-\w+|--color-\w+` trong các block `:root {}` hoặc `*`.
+2. **Tailwind/Bootstrap theme classes** — heuristic scan `class=` chứa `bg-primary`, `bg-blue-600`… map sang Tailwind default palette (chỉ làm fallback).
+3. **`<meta name="theme-color">` + `msapplication-TileColor`** → primary.
+4. **Repeated inline colors** — đếm tần suất hex `#[0-9a-f]{6}` xuất hiện trong `style=` attributes; top 3 sau khi loại đen/trắng/xám (heuristic: max(R,G,B)-min(R,G,B) > 30) → suggest secondary/accent.
+
+**Output shape (gắn vào `raw_meta`):**
 ```ts
-{
-  company_name: string | null,
-  address: string | null,
-  phone: string | null,
-  email: string | null,
-  website: string | null,
-  tax_code: string | null,
-  social_links: Record<string, string>,  // { facebook, instagram, ... }
+color_palette: {
+  primary: string | null,
+  secondary: string | null,
+  accent: string | null,
+  source: 'css-vars' | 'meta' | 'frequency' | 'mixed',
+  candidates: string[]  // top 6 hex để user pick thủ công nếu auto-pick sai
 }
 ```
 
-## 2. Logo extraction nâng cấp
+**Backwards compat:** giữ field `theme_color` = `color_palette.primary` để code cũ không vỡ.
 
-**File:** `supabase/functions/import-brand-from-website/index.ts`, refactor `extractVisualSignals`.
+---
 
-Thêm 3 nguồn mới + scoring:
-- **JSON-LD Organization.logo** (highest score, 100): parse JSON-LD blocks.
-- **`<header>` `<img>`**: ưu tiên img nằm trong `<header>` hoặc class chứa `nav|navbar|brand|logo`.
-- **Filter rác**:
-  - Loại URL có pattern `1x1`, `pixel`, `tracking`, `gtag`, `gtm`.
-  - Loại favicon < 32px nếu xác định được từ `sizes="16x16"`.
-  - Loại og:image quá rộng (banner) — KHÔNG loại trực tiếp, chỉ giảm score (vẫn hiển thị làm fallback).
-- **Scoring** mỗi candidate: SVG +30, có "logo" trong URL/alt/class +20, từ JSON-LD +50, apple-touch-icon +15, og:image +10, favicon +5, twitter:image +8.
-- **Sort desc theo score**, dedupe url → trả `logo_candidates: [{ url, source, score }]`.
-- `logo_url` (default) = top 1 sau sort thay vì first inserted.
+## 3. AI tone & USP enrichment (đã có schema, chỉ cần boost prompt + UI)
 
-## 3. AI prompt + tool schema
+**Status:** `BrandSuggestion` đã có `tone_of_voice`, `usps`, `content_pillars`, `target_audience`, `mission` (file `_shared/brand-extractor.ts`). Vấn đề thực tế: AI hiện chỉ thấy homepage markdown ngắn → suy luận yếu.
 
+**Cải thiện 2 mặt:**
+
+### 3a. Backend — feed AI nhiều context hơn
 **File:** `supabase/functions/_shared/brand-extractor.ts`
 
-- Thêm field `footer_info` vào `BrandSuggestion` interface + `TOOL_SCHEMA`:
-  ```ts
-  footer_info?: {
-    company_name?: string | null,
-    address?: string | null,
-    phone?: string | null,
-    email?: string | null,
-    tax_code?: string | null,
-  } | null
-  ```
-- Update `SYSTEM_PROMPT`: thêm rule "Extract footer_info từ legal/contact section ở cuối trang. Không bịa số điện thoại / địa chỉ".
-- Sanitize trong return: trim + length cap.
+- Thêm rules mới vào `SYSTEM_PROMPT`:
+  - "tone_of_voice phải bám vào **bằng chứng cụ thể** (câu mở đầu, cách xưng hô, độ trang trọng) — không dùng cliché chung chung."
+  - "usps phải **defensible** (con số, năm kinh nghiệm, chứng nhận, công nghệ độc quyền) — loại bỏ claim mơ hồ kiểu 'chất lượng cao'."
+  - "mission: 1 câu súc tích trả lời 'why we exist', không phải slogan marketing."
+- Tăng độ ưu tiên multi-page: kết hợp với #1, AI sẽ thấy homepage + 3 sub-pages → quality cải thiện đáng kể without prompt change nặng.
 
-## 4. Merge regex + AI footer
+### 3b. Frontend — UI dialog show tone/USP rõ ràng hơn
+**File:** `src/components/brand/BrandImportDialog.tsx`
 
-**File:** `import-brand-from-website/index.ts` (response builder)
+- Render `tone_of_voice` thành **chip badges** (tag pills) thay vì text dài.
+- Render `usps` thành **bulleted list** với dấu ✓ xanh.
+- Group "Strategy" mới chứa: `tone_of_voice`, `usps`, `content_pillars`, `mission`, `target_audience` — collapse default, expand khi có data.
+- Add badge "Cần review" nếu AI confidence thấp (proxy: < 3 items trong array).
 
-Footer cuối cùng = **regex extraction (deterministic) merge với AI footer_info (smarter)**:
-- Regex thắng cho: phone, email, tax_code (vì AI hay bịa số).
-- AI thắng cho: company_name, address (vì format tự nhiên hơn).
-- Social links: chỉ regex (deterministic).
+---
 
-Gắn vào response:
-```ts
-raw_meta: {
-  ...existing,
-  footer_info: mergedFooter,
-}
-```
+## 4. Frontend hydrate
 
-## 5. Frontend hydrate + dialog
+**File:** `src/pages/BrandCreate.tsx`
 
-**File 1:** `src/hooks/useBrandImport.ts` — thêm `'footer_info'` vào union `ImportableField`.
+- Hydrate `color_palette` → set `secondaryColor`, `accentColor` state nếu form có (kiểm tra: nếu form chưa có 2 field này, mở rộng `BrandFormStepVisual.tsx` thêm 2 ColorPicker phụ — optional).
+- Hydrate enrich fields: nếu `tone_of_voice.length > 0` → `setToneOfVoice(...)`; tương tự `usps` → `setUSPs(...)`, `mission` → `setMission(...)`, `target_audience` → fill `audienceAge/Gender/Locations`.
 
-**File 2:** `src/components/brand/BrandImportDialog.tsx`
-- Thêm vào `ALL_FIELDS`: `{ key: 'footer_info', label: 'Thông tin footer (SĐT, địa chỉ, MST)', group: 'Contact' }` và `{ key: 'social_links', label: 'Liên kết mạng xã hội', group: 'Contact' }` (nếu social_links có data).
-- `useEffect` auto-select: nếu `result.raw_meta.footer_info` có ≥1 field non-null → check `footer_info`.
-- `renderPreviewValue('footer_info')`: trả `"company • phone • email • address"` (truncate).
-- `buildUpdates()`: nếu chọn `footer_info` → set `updates.footer_info = { ...result.raw_meta.footer_info, social_links: result.raw_meta.footer_info?.social_links }`.
+---
 
-**File 3:** `src/pages/BrandCreate.tsx` (hydrate effect line 219-255)
-- Sau khối hydrate logo/color, thêm:
-  ```ts
-  const footer = meta.footer_info;
-  if (footer && (footer.company_name || footer.phone || footer.email || footer.address)) {
-    setFooterInfo({
-      company_name: footer.company_name || '',
-      phone: footer.phone || '',
-      email: footer.email || '',
-      website: footer.website || meta.source_url || '',
-      address: footer.address || '',
-      social_links: footer.social_links || undefined,
-    });
-  }
-  ```
+## 5. Scope rõ ràng
 
-## 6. Fanpage parity
+**In scope:**
+- 1 file edge function `import-brand-from-website/index.ts` (auto-discover + palette).
+- 1 shared `brand-extractor.ts` (prompt rules, không đổi schema).
+- 2 frontend file: `BrandImportDialog.tsx`, `BrandCreate.tsx`.
+- Optional: `BrandFormStepVisual.tsx` thêm secondary/accent picker.
 
-**File:** `supabase/functions/import-brand-from-fanpage/index.ts`
-- Mở rộng Graph API `fields=`: thêm `emails,phone,single_line_address,location,whatsapp_number`.
-- Build `footer_info` trực tiếp từ Graph response → gắn vào `raw_meta.footer_info`.
-- Social links: thêm fanpage URL chính (`https://facebook.com/${pageId}`) + `infoData.website` (nếu khác).
+**Out of scope:**
+- Không scrape thêm sub-pages từ fanpage (FB Graph không expose).
+- Không thêm field DB mới (palette nhét vào `raw_meta` JSONB hoặc `brand_template.color_palette` JSONB nếu đã có).
+- Không đụng AI provider / cost layer.
+- Không animate dialog.
 
-## Out of scope
-- Không đổi UI BrandViewOverviewTab (đã render footer_info sẵn).
-- Không touch `_shared/middleware/perf.ts` hay AI provider.
-- Không thêm field mới vào DB (footer_info đã là JSONB column).
-- Không scrape sub-pages thêm để tìm footer (footer thường ở mọi page → homepage là đủ).
+---
 
-## Verify
-1. `curl_edge_functions` POST `import-brand-from-website` `{ url: "https://taf.vn", stream: false }` → response chứa `raw_meta.footer_info` non-null + `logo_candidates` đã sort theo score.
-2. UI: `/brands/new` → Import Website `taf.vn` → preview dialog hiển thị nhóm "Contact" với footer + social → tích → Tiếp tục → form BrandCreate auto-fill footer step.
-3. Test fanpage: import 1 fanpage có phone/address → footer step được fill.
+## 6. Verify
+
+1. `curl_edge_functions` POST `import-brand-from-website` `{ url: "https://taf.vn", stream: false }` → response chứa:
+   - `raw_meta.discovered_subpages: string[]` (≥1)
+   - `raw_meta.color_palette: { primary, secondary, accent, candidates }`
+   - `tone_of_voice.length >= 3`, `usps.length >= 3`
+2. UI `/brands/new` → Import → preview dialog hiển thị:
+   - Group "Strategy" có chip tone + bullet USPs
+   - Group "Visual" hiển thị 3 swatches (primary/secondary/accent) với candidates picker
+3. Test website không có sub-pages rõ ràng (vd landing page 1 trang) → graceful fallback, không crash.

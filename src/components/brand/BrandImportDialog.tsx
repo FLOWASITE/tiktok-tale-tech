@@ -189,8 +189,12 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       if (logo) updates.logo_url = logo;
     }
     if (selectedFields.has('primary_color')) {
-      const color = result.raw_meta?.theme_color || s.primary_color_suggestion;
+      const palette = (result.raw_meta as any)?.color_palette;
+      const color = palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion;
       if (color) updates.primary_color = color;
+      const candidates: string[] = Array.isArray(palette?.candidates) ? palette.candidates : [];
+      const secondaries = candidates.filter((c) => c && c !== color).slice(0, 4);
+      if (secondaries.length) updates.secondary_colors = secondaries;
     }
     if (selectedFields.has('footer_info')) {
       const f = result.raw_meta?.footer_info;
@@ -279,7 +283,7 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
       case 'usps': return s.usps?.join(' • ') || null;
       case 'sample_texts': return `${s.sample_texts?.length || 0} đoạn văn mẫu`;
       case 'logo_url': return selectedLogoUrl || result.raw_meta?.logo_url || result.raw_meta?.picture || result.raw_meta?.og_image || null;
-      case 'primary_color': return result.raw_meta?.theme_color || s.primary_color_suggestion || null;
+      case 'primary_color': return result.raw_meta?.color_palette?.primary || result.raw_meta?.theme_color || s.primary_color_suggestion || null;
       case 'footer_info': {
         const f = result.raw_meta?.footer_info;
         if (!f) return null;
@@ -468,6 +472,26 @@ export function BrandImportDialog({ open, onOpenChange, targetBrand, onApplied }
                                 </div>
                                 <p className="text-[11px] text-muted-foreground truncate">
                                   {selectedLogoUrl || logoCandidates[0]?.url}
+                                </p>
+                              </div>
+                            ) : isColor && (result?.raw_meta?.color_palette?.candidates?.length ?? 0) > 1 ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {(result!.raw_meta!.color_palette!.candidates as string[]).slice(0, 6).map((hex: string, i: number) => (
+                                    <div key={hex} className="flex flex-col items-center gap-1">
+                                      <span
+                                        className="w-9 h-9 rounded-md border shadow-sm"
+                                        style={{ backgroundColor: hex }}
+                                        title={hex}
+                                      />
+                                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                                        {i === 0 ? 'Primary' : i === 1 ? 'Secondary' : i === 2 ? 'Accent' : hex}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                  Trích từ {result!.raw_meta!.color_palette!.source} • {(result!.raw_meta!.color_palette!.candidates as string[]).length} màu
                                 </p>
                               </div>
                             ) : (

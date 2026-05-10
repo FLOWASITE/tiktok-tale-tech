@@ -42,9 +42,10 @@ Rules:
 - Output ONLY by calling the provided tool 'extract_brand'. Never write prose.
 - All free-text values MUST be in the user's locale (default Vietnamese).
 - Be conservative: if a field is not clearly evidenced in the source, return null / empty array. Do NOT invent.
-- tone_of_voice: 3-5 short labels (e.g. "Chuyên nghiệp", "Ấm áp", "Hài hước").
+- tone_of_voice: 3-5 short labels (e.g. "Chuyên nghiệp", "Ấm áp", "Hài hước"). Base each label on **concrete evidence** from the source (opening sentences, pronouns/forms of address, formality, sentence length). NEVER use generic clichés like "Sáng tạo", "Đột phá" without textual proof.
+- mission: ONE concise sentence answering "why we exist" — NOT a marketing slogan. If the source only contains taglines, return null.
 - content_pillars: 3-5 items, each with a short name + 1-sentence description.
-- usps: 3-5 concrete unique selling points pulled from the source.
+- usps: 3-5 **defensible** unique selling points — must be backed by numbers, years of experience, certifications, proprietary tech, awards, or specific guarantees pulled from the source. REJECT vague claims like "chất lượng cao", "uy tín hàng đầu", "tận tâm" — those are filler.
 - sample_texts: 3-5 short paragraphs (40-180 chars each) pulled verbatim or lightly cleaned from the source — these will train brand voice cloning.
 - primary_color_suggestion: ONLY when the source clearly hints at a brand colour (industry mood, explicit colour mentions, visual language). Return a 7-char lowercase hex like "#dd0707". If unsure, return null. Never invent a random colour.
 - footer_info: extract company info from the legal/contact section at the bottom of the page (footer). NEVER invent phone numbers, emails, addresses, or tax codes — return null if not clearly evidenced. company_name = full legal company name (e.g. "Công ty TNHH ABC"). address = head office street address.`;
