@@ -173,7 +173,22 @@ export function IndustrySelectionDialog({
         return pack ? { pack, suggestion: s } : null;
       })
       .filter((x): x is { pack: GlobalPackForSelection; suggestion: AiSuggestion } => !!x);
-    
+
+    // Split AI suggestions: primary (confidence >= 60) vs related (lower / extra)
+    const aiPrimary = aiPacks.filter(x => x.suggestion.confidence >= 60).slice(0, 3);
+    const primaryIds = new Set(aiPrimary.map(x => x.pack.id));
+    const aiRelated = aiPacks.filter(x => !primaryIds.has(x.pack.id)).slice(0, 4);
+
+    // Auto-derive extra related packs from same categories as top suggestions
+    // (helps user discover adjacent industries even when AI returns few items)
+    const usedIds = new Set<string>([...primaryIds, ...aiRelated.map(x => x.pack.id)]);
+    const seedCategories = new Set(
+      aiPrimary.map(x => x.pack.categoryId).filter((c): c is string => !!c)
+    );
+    const categoryRelated = seedCategories.size
+      ? cores.filter(p => p.categoryId && seedCategories.has(p.categoryId) && !usedIds.has(p.id)).slice(0, 6)
+      : [];
+
     let filtered: GlobalPackForSelection[] = [];
     if (searchQuery.trim()) {
       filtered = smartFilter(packs, searchQuery);
@@ -192,7 +207,9 @@ export function IndustrySelectionDialog({
       coreCount: cores.length,
       popularPacks: popular,
       recentlyUsedPacks: recent,
-      aiSuggestedPacks: aiPacks,
+      aiSuggestedPacks: aiPrimary,
+      aiRelatedPacks: aiRelated,
+      categoryRelatedPacks: categoryRelated,
     };
   }, [packs, searchQuery, selectedCategory, recentlyUsedIds, aiSuggestions]);
 
